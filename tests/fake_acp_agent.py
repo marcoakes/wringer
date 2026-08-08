@@ -26,6 +26,12 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
     leak       print a passed-through credential to stderr AND into a
                session/update, then fix. The shape §8 asks for: a secret
                planted in agent output, so a test can grep the bundle.
+    usage      report token counts and a cost via usage_update — TWICE, so
+               the cumulative-within-a-session rule has something to bite
+               on — then fix.
+    usageleak  report usage AND put a credential in the same notification,
+               so the sibling file's own scrubbing is exercised rather than
+               assumed.
 """
 
 from __future__ import annotations
@@ -77,6 +83,22 @@ def notify(session_id: str, text: str) -> None:
             "sessionId": session_id,
             "update": {"sessionUpdate": "agent_message_chunk", "text": text},
         },
+    })
+
+
+def usage(session_id: str, used: int, size: int, cost: dict | None = None,
+          note: str | None = None) -> None:
+    """A real `usage_update`, the shape the protocol defines: token counts on
+    the update itself, an optional cost carrying the agent's own currency."""
+    update = {"sessionUpdate": "usage_update", "used": used, "size": size}
+    if cost is not None:
+        update["cost"] = cost
+    if note is not None:
+        update["note"] = note
+    send({
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {"sessionId": session_id, "update": update},
     })
 
 
@@ -156,6 +178,23 @@ def main() -> int:
                         notify(session_id, f"update says {name}={value}")
 
 
+            if BEHAVIOUR in ("usage", "usageleak"):
+                # A credential inside the SAME notification for `usageleak`,
+                # so the sibling file's scrubbing is exercised rather than
+                # assumed — the numbers cannot carry a secret, but an agent
+                # controls every other field on the update.
+                note = None
+                if BEHAVIOUR == "usageleak":
+                    value = os.environ.get("WRINGER_TEST_CREDENTIAL")
+                    if value:
+                        note = f"spent while holding {value}"
+                # Twice, smaller then larger, in ONE session: `used` is
+                # cumulative, so the later figure supersedes rather than adds.
+                usage(session_id, 900, 200000, {"amount": 0.03, "currency": "USD"},
+                      note)
+                usage(session_id, 1234, 200000,
+                      {"amount": 0.0412, "currency": "USD"}, note)
+
             if BEHAVIOUR == "permission":
                 outbound += 1
                 request(outbound, "session/request_permission", {
@@ -167,7 +206,8 @@ def main() -> int:
                     ],
                 })
 
-            if BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy"):
+            if BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy",
+                             "usage", "usageleak"):
                 outbound += 1
                 request(outbound, "fs/write_text_file", {
                     "sessionId": session_id,

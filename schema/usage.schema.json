@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/usage.schema.json",
+  "title": "Wringer agent usage report",
+  "description": "usage.json, a SIBLING file in a loop bundle. What the coding agent said it spent — its own claim, recorded verbatim and never verified by Wringer. A sibling rather than a field on worker.finished because that event's schema is frozen and closed (law 7), the same reason vacuity.json is a sibling. ABSENT ENTIRELY from every loop whose agent reported nothing: absence means unreported, and must never be read as zero.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "loop_id",
+    "reported_by",
+    "verified",
+    "rows",
+    "totals"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.usage.v1"
+    },
+    "loop_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reported_by": {
+      "description": "Who produced these numbers. Only ever the agent — Wringer measures wall-clock and iterations, and does not count tokens.",
+      "const": "agent"
+    },
+    "verified": {
+      "description": "Always false. Wringer cannot check an agent's report of its own spending, and a field that could read true would invite the assumption that it had been checked.",
+      "const": false
+    },
+    "rows": {
+      "description": "One row per ACP session that reported — that is, per loop iteration whose agent sent a usage_update. An iteration that reported nothing has no row rather than a zeroed one.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["iteration", "used", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "iteration": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "used": {
+            "description": "Context tokens used, as the agent reported them. CUMULATIVE within its session, so a row carries that session's last report rather than a sum of its updates.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "size": {
+            "description": "The context window the agent reported having.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "cost": {
+            "description": "PRESENT ONLY when the agent reported one. Wringer holds no price table and performs no conversion.",
+            "type": "object",
+            "required": ["amount", "currency"],
+            "additionalProperties": false,
+            "properties": {
+              "amount": {
+                "type": "number"
+              },
+              "currency": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "totals": {
+      "description": "Across sessions, which are independent of each other.",
+      "type": "object",
+      "required": ["used", "size", "sessions"],
+      "additionalProperties": false,
+      "properties": {
+        "used": {
+          "description": "The sum of every row's used figure.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "size": {
+          "description": "The largest context window any session reported, not a sum — windows do not add.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "sessions": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "cost": {
+          "description": "PRESENT ONLY when every reporting row shares one currency. Mixed currencies produce no total, because adding them would need an exchange rate — a live vendor fact with a shelf life, which this program deliberately does not hold.",
+          "type": "object",
+          "required": ["amount", "currency"],
+          "additionalProperties": false,
+          "properties": {
+            "amount": {
+              "type": "number"
+            },
+            "currency": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

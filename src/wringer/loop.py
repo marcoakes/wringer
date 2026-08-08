@@ -36,6 +36,17 @@ SCHEMA_VERSION = "wringer.loop.v1"
 EVENTS_FILENAME = "loop.jsonl"
 MANIFEST_FILENAME = "manifest.json"
 SUMMARY_FILENAME = "summary.md"
+
+# What the agent said it spent, when it said anything — a SIBLING file, on
+# purpose and by law 7. `worker.finished` is `additionalProperties: false` in
+# the published `wringer.loop.v1` event schema, and that schema is frozen, so
+# a usage field on the event would make every loop bundle written afterwards
+# invalid against the format its own manifest names. `vacuity.json` solved the
+# identical problem the identical way: a new file, a new version, every
+# existing reader untouched, and the file simply ABSENT from every loop whose
+# agent reported nothing.
+USAGE_FILENAME = "usage.json"
+USAGE_SCHEMA_VERSION = "wringer.usage.v1"
 ITERATIONS_DIRNAME = "iterations"
 BRIEF_FILENAME = "brief.md"
 PGID_FILENAME = "worker.pgid"
@@ -163,6 +174,38 @@ class Bundle:
     def write_brief(self, iteration: int, text: str) -> Path:
         path = self.iteration_dir(iteration) / BRIEF_FILENAME
         path.write_text(self.redactor.scrub(text), encoding="utf-8")
+        return path
+
+    def write_usage(self, rows: list[dict[str, Any]]) -> Path | None:
+        """What the agent reported it spent, per session, plus totals.
+
+        **Returns None and writes NOTHING when no row exists.** Absent means
+        unreported; a file full of zeroes would be Wringer asserting a number
+        no agent ever gave it, which is the invention an attestation clause
+        with no inputs is omitted to avoid.
+
+        Scrubbed like every other write into this bundle. The numbers cannot
+        carry a credential, but the shape is the bundle's rule and a write
+        path that opted out of it is how two leaks shipped.
+        """
+        if not rows:
+            return None
+        payload = {
+            "schema_version": USAGE_SCHEMA_VERSION,
+            "loop_id": self.loop_id,
+            # Said in the artifact, not only in the docs: a reader who found
+            # this file without the spec should still know whose numbers
+            # these are.
+            "reported_by": "agent",
+            "verified": False,
+            "rows": rows,
+            "totals": usage_totals(rows),
+        }
+        path = self.directory / USAGE_FILENAME
+        path.write_text(
+            json.dumps(evidence.deep_scrub(self.redactor, payload), indent=2) + "\n",
+            encoding="utf-8",
+        )
         return path
 
     def write_digests(self) -> Path:
@@ -514,6 +557,9 @@ def run(
     final: verify.Outcome | None = None
     status = reason = "stopped"
     iterations = 0
+    # One row per session that reported. Stays empty for every shell worker
+    # and every agent that says nothing, and an empty list writes no file.
+    usage_rows: list[dict[str, Any]] = []
     # The tree as it was when the previous worker was handed control. Equal
     # again now means that worker changed nothing.
     before_worker: str | None = None
@@ -645,6 +691,10 @@ def run(
             **({"timed_out": True} if result.timed_out else {}),
             **getattr(result, "acp_extras", {}),
         )
+        # Collected for the sibling file, never for the event above.
+        reported = getattr(result, "acp_usage", None)
+        if reported is not None:
+            usage_rows.append({"iteration": iteration, **reported.as_json()})
         if on_worker is not None:
             on_worker(result)
 
@@ -661,6 +711,7 @@ def run(
         final_run=final_run,
     )
     _write_summary(bundle, state, status, reason, iterations, final_run)
+    bundle.write_usage(usage_rows)  # absent when nothing was reported
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
     return Outcome(
@@ -809,7 +860,40 @@ def _run_acp_worker(
         stderr_path=stderr_path,
     )
     object.__setattr__(result, "acp_extras", extras)
+    # Carried BESIDE `acp_extras`, deliberately. Everything in `acp_extras` is
+    # splatted into the `worker.finished` event, whose published schema is
+    # frozen and `additionalProperties: false`; usage travels on its own
+    # attribute and lands in the `usage.json` sibling instead (law 7).
+    if turn.usage is not None:
+        object.__setattr__(result, "acp_usage", turn.usage)
     return result
+
+
+def usage_totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Add up what the agent reported, and refuse to add what cannot be added.
+
+    Tokens add across sessions: each session's figure is that session's own
+    cumulative total, and the sessions are independent.
+
+    **Money adds only within one currency.** A total of "3.5" over a USD row
+    and a EUR row is a number with no meaning, and this program does not hold
+    exchange rates — that would be a live vendor fact with a shelf life,
+    exactly what the no-price-table ruling refuses. Mixed currencies therefore
+    produce token totals and NO cost total, and the absence says so.
+    """
+    totals: dict[str, Any] = {
+        "used": sum(int(row.get("used") or 0) for row in rows),
+        "size": max((int(row.get("size") or 0) for row in rows), default=0),
+        "sessions": len(rows),
+    }
+    costs = [row["cost"] for row in rows if isinstance(row.get("cost"), dict)]
+    currencies = {cost.get("currency") for cost in costs}
+    if costs and len(currencies) == 1:
+        totals["cost"] = {
+            "amount": round(sum(float(cost.get("amount") or 0.0) for cost in costs), 6),
+            "currency": costs[0].get("currency"),
+        }
+    return totals
 
 
 def _brief(outcome: verify.Outcome, root: Path) -> str:

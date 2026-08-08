@@ -62,6 +62,36 @@ class AcpError(Exception):
     never as a verdict about the code."""
 
 
+@dataclass(frozen=True)
+class Usage:
+    """What the agent said it spent — **its claim, never our measurement.**
+
+    ACP agents MAY send this as a `usage_update` session notification. The
+    token counts are required and non-null in the protocol; the cost is
+    optional and carries the agent's own currency, which is why nothing here
+    converts, sums across currencies, or prices anything: a table of vendor
+    prices would be a third module holding vendor strings, and wrong the week
+    after it was written.
+
+    `used` is CUMULATIVE within a session, so a later update supersedes an
+    earlier one rather than adding to it.
+    """
+
+    used: int
+    size: int
+    cost_amount: float | None = None
+    cost_currency: str | None = None
+
+    def as_json(self) -> dict[str, Any]:
+        recorded: dict[str, Any] = {"used": self.used, "size": self.size}
+        if self.cost_amount is not None and self.cost_currency:
+            recorded["cost"] = {
+                "amount": self.cost_amount,
+                "currency": self.cost_currency,
+            }
+        return recorded
+
+
 @dataclass
 class Turn:
     """What one session produced, for the ledger."""
@@ -75,6 +105,9 @@ class Turn:
     permissions: list[dict[str, Any]] = field(default_factory=list)
     files_written: list[str] = field(default_factory=list)
     refusals: list[str] = field(default_factory=list)
+    # None until an agent reports, and None is meaningful: absent means
+    # unreported, and must never be rendered as zero downstream.
+    usage: Usage | None = None
 
 
 class Connection:
@@ -431,6 +464,31 @@ def _write_log(path: Path, data: bytes, redactor: Redactor) -> None:
     path.write_bytes(bounded)
 
 
+def _usage(update: dict) -> Usage | None:
+    """Read a `usage_update`, or return None and lose nothing.
+
+    Total by construction: an agent that sends a malformed update has told us
+    nothing usable, and "nothing usable" is the same answer as "said nothing"
+    — an absent figure. Inventing a zero from a broken message would be worse
+    than the silence it replaces, and the raw update is still in `updates`
+    either way, so no evidence is lost by declining to parse it.
+    """
+    used, size = update.get("used"), update.get("size")
+    if not isinstance(used, int) or isinstance(used, bool):
+        return None
+    if not isinstance(size, int) or isinstance(size, bool):
+        return None
+
+    amount = currency = None
+    cost = update.get("cost")
+    if isinstance(cost, dict):
+        raw, unit = cost.get("amount"), cost.get("currency")
+        if isinstance(raw, int | float) and not isinstance(raw, bool):
+            if isinstance(unit, str) and unit.strip():
+                amount, currency = float(raw), unit.strip()
+    return Usage(used=used, size=size, cost_amount=amount, cost_currency=currency)
+
+
 def _handle(message: dict, connection: Connection, root: Path, turn: Turn) -> None:
     """Serve one agent-to-client message."""
     method = message.get("method", "")
@@ -440,6 +498,18 @@ def _handle(message: dict, connection: Connection, root: Path, turn: Turn) -> No
     if method == "session/update":
         update = params.get("update") or {}
         kind = update.get("sessionUpdate") or update.get("type") or "update"
+        # Parsed into a field, not just logged. Every `session/update` has
+        # always landed here and been flattened into the truncated line
+        # below — including `usage_update`, which is the only place the
+        # protocol carries what a turn cost. The line stays (it is the
+        # transcript), and the numbers now also survive as data.
+        if kind == "usage_update":
+            reported = _usage(update)
+            if reported is not None:
+                # Cumulative within a session: a later report supersedes an
+                # earlier one. Adding them would double-count the agent's own
+                # running total.
+                turn.usage = reported
         turn.updates.append(f"[{kind}] {json.dumps(update)[:400]}")
         return
 
