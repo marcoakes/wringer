@@ -140,16 +140,29 @@ def build_parser() -> argparse.ArgumentParser:
     graph_validate.add_argument("graph", metavar="GRAPH_YAML")
     graph_validate.set_defaults(func=cmd_graph_validate)
 
+    # `--send` is deliberately on the two verbs that EXECUTE, and nowhere
+    # else. It authorises the deliver node this invocation reaches, once; a
+    # graph file cannot declare it and a decision file cannot carry it,
+    # because a file is not a typed flag (SPEC_GRAPH_V0 ruling 5).
+    _GRAPH_SEND_HELP = (
+        "authorise the deliver node this invocation reaches to write git "
+        "history — once. Without it the node completes as a dry run. Resuming "
+        "a parked graph means typing it again: a park ends the invocation "
+        "that was authorised."
+    )
+
     graph_run = graph_verbs.add_parser(
         "run", help="execute a graph until it is done, failed, or parked"
     )
     graph_run.add_argument("graph", metavar="GRAPH_YAML")
+    graph_run.add_argument("--send", action="store_true", help=_GRAPH_SEND_HELP)
     graph_run.set_defaults(func=cmd_graph_run)
 
     graph_resume = graph_verbs.add_parser(
         "resume", help="continue a parked or killed graph run"
     )
     graph_resume.add_argument("run", metavar="GRAPH_DIR")
+    graph_resume.add_argument("--send", action="store_true", help=_GRAPH_SEND_HELP)
     graph_resume.set_defaults(func=cmd_graph_resume)
 
     graph_render = graph_verbs.add_parser(
@@ -376,9 +389,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--send",
         action="store_true",
         help=(
-            "actually create the branch, commit, push and open the MR — the "
-            "only path in Wringer that writes git history. Without it, the "
-            "patch, message, branch and MR body are written and nothing runs."
+            "actually create the branch, commit, push and open the MR. "
+            "`deliver.py` is the only module in Wringer that writes git "
+            "history; this flag and `wring graph run --send` are the two ways "
+            "to reach it. Without it, the patch, message, branch and MR body "
+            "are written and nothing runs."
         ),
     )
     parser_deliver.add_argument(
@@ -1118,9 +1133,10 @@ def cmd_graph_run(args: argparse.Namespace) -> int:
     bundle.write_resolved(document)
 
     print(f"graph {document.id} — {bundle.graph_run_id}")
-    outcome = graph.run(root, document, bundle, on_node=_report_node)
+    outcome = graph.run(root, document, bundle, on_node=_report_node,
+                        send=args.send)
     _report_graph(outcome, root)
-    return _GRAPH_EXITS[outcome.status]
+    return _graph_exit(outcome)
 
 
 def cmd_graph_resume(args: argparse.Namespace) -> int:
@@ -1147,8 +1163,21 @@ def cmd_graph_resume(args: argparse.Namespace) -> int:
 
     print(f"graph {document.id} — resuming {bundle.graph_run_id}")
     outcome = graph.run(root, document, bundle, resuming=replay,
-                        on_node=_report_node)
+                        on_node=_report_node, send=args.send)
     _report_graph(outcome, root)
+    return _graph_exit(outcome)
+
+
+def _graph_exit(outcome) -> int:
+    """A refused delivery keeps the code the refusal chose.
+
+    `deliver.Refused` distinguishes "there is nothing to deliver" (1) from
+    "this tree is unsafe" (3), and a graph that flattened both into its own
+    failure code would throw away the half that says whether the user can do
+    anything about it.
+    """
+    if outcome.exit_code is not None:
+        return outcome.exit_code
     return _GRAPH_EXITS[outcome.status]
 
 
@@ -1169,6 +1198,12 @@ def _report_graph(outcome, root: Path) -> None:
         print(f"\n✓ done — {outcome.reason}")
     else:
         print(f"\n✗ {outcome.status} — {outcome.reason}")
+    # What to type next, when a node completed without doing the irreversible
+    # half of its job. A dry run that ends without one is a dead end.
+    if outcome.notes:
+        print()
+        for note in outcome.notes:
+            print(note)
     print(f"\nGraph evidence: {where}/")
 
 
@@ -2322,8 +2357,12 @@ def cmd_issue(args: argparse.Namespace) -> int:
 def cmd_deliver(args: argparse.Namespace) -> int:
     """A verified change becomes a branch and an MR (SPEC_GET_V0.md §5).
 
-    The only command in Wringer that writes git history, and it does so only
-    when a human types `--send` — the amended law 6, in one function.
+    It writes git history only when a human types `--send` — the amended law
+    6, in one function. Since P7 it is not the only command that can: a
+    `deliver` node in a graph reaches the same `deliver.plan`/`send`, and only
+    on `--send` typed on `wring graph run` or `wring graph resume`. The module
+    is still one; the flag is still typed; only the MR belongs to this command
+    alone (SPEC_GRAPH_V0 ruling 5).
     """
     root = git.find_root(Path.cwd())
 

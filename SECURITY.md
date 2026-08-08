@@ -101,15 +101,25 @@ turn them into text.
   `wring attest` and `wring audit` make no outbound connections — nothing is
   uploaded, phoned home, or telemetered, ever, by design, in every release.
 
-  **Three commands SEND, each behind `--send` you type:** `wring judge`,
-  `wring spec` and `wring deliver`. Each exists only when your repo declares
-  the section it needs (`judge:` or `forge:`), each defaults to building the
-  request and sending nothing, and **each writes the exact bytes to disk
-  before it opens a socket**, so what left the machine is auditable rather
-  than asserted. Plain `http://` is refused to anything but loopback,
+  **Four commands SEND, each behind `--send` you type:** `wring judge`,
+  `wring spec`, `wring deliver` and `wring graph run --send` (or
+  `wring graph resume --send`). Each exists only when your repo declares
+  the section it needs (`judge:`, `forge:` or `deliver:`), each defaults to
+  building the request and sending nothing, and **each writes the exact bytes
+  to disk before it opens a socket**, so what left the machine is auditable
+  rather than asserted. Plain `http://` is refused to anything but loopback,
   redirects are not followed, and a key named by `judge.api_key_env` or
   `forge.token_env` has its value folded into the redactor so it cannot reach
   any artifact.
+
+  The fourth arrived in P7 and is the narrowest of the four. A `deliver` node
+  in a graph reaches a network only by calling the same `deliver.send` a
+  person would have called by hand — a `git push`, in a subprocess, through
+  every one of delivery's five refusals. It opens **no socket of its own** and
+  opens **no merge request**. The flag is typed on the invocation and
+  authorises the deliver node that invocation reaches, once; a graph file may
+  not declare it and a decision file may not carry it, because a file is not a
+  typed flag. Resuming a parked graph means typing it again.
 
   **Three commands FETCH**, and are not behind a flag because fetching is
   their entire purpose: `wring get` clones a repository, `wring issue` reads
@@ -123,7 +133,11 @@ turn them into text.
   answers, and a third would be a review comment.
 
   This paragraph is the one SPEC_GET_V0 §7 and SPEC_START_V0 §3e-i enumerate,
-  and it is restated whenever a command changes it rather than quietly kept.
+  and it is restated whenever a command changes it rather than quietly kept —
+  by `wring start` in P4 and by the graph's deliver node in P7. Both
+  restatements are guarded: `tests/test_docs.py` discovers every file that
+  counts senders or fetchers and fails when one of them stops naming a
+  command that can reach a network.
 - **No writes outside the repo.** Evidence goes to `.wringer/runs/` under the
   detected git root. Gate ids are validated as slugs precisely so a config
   cannot direct a write outside the bundle.

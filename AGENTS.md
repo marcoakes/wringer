@@ -33,7 +33,7 @@ no network, no uploads — ever.
 | [SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md) | **binding** for `wring verify --prove` and `run.prove` — a green tick that could not have been red is worth nothing |
 | [SPEC_PROVENANCE_V0.md](SPEC_PROVENANCE_V0.md) | **binding** for `wring attest` / `wring audit` — what an unsigned attestation does and does not claim |
 | [SPEC_START_V0.md](SPEC_START_V0.md) | **binding** for `wring start` — the guided launch: the credential ruling, the non-interactive contract, and why a clone stops before any gate runs |
-| [SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md) | **binding** for `wring graph` (P7, unbuilt) — graphs name capabilities never commands, state routes while only bundles gate, and a parked graph is exit 5 |
+| [SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md) | **binding** for `wring graph` — graphs name capabilities never commands, state routes while only bundles gate, a parked graph is exit 5, and `--send` is typed on the invocation and carried by no file |
 | [ROADMAP.md](ROADMAP.md) | execution order (90-day compression) |
 | [wringer-ai-dlc-harness-plan.md](wringer-ai-dlc-harness-plan.md) | architectural north star (post-v0.1) |
 | README · [QUICKSTART.md](QUICKSTART.md) | landing pages — transcripts are now **real captured output**; if you change console or bundle shape, recapture them rather than editing the numbers by hand |
@@ -166,7 +166,7 @@ block first — the clean console is the product.
 | `fleet.py` | `wring fleet`: a bounded pool of child `wring run` subprocesses, the self-healing ladder, reaping by ledger growth, honest partial-success counts | do the work itself — it is only a supervisor |
 | `loop.py` | v0.2's `wring run`: verify → brief → worker → verify, the plateau fingerprint, and the `wringer.loop.v1` bundle under `.wringer/loops/` | call an LLM, touch git, or nest a verify bundle inside a loop bundle (runs are referenced by path) |
 | `acp.py` | the Agent Client Protocol client: spawn the agent, JSON-RPC over stdio, one session per iteration, kill on timeout through the same process-group machinery. Wringer is the ACP *client*, never the agent (SPEC_ACP_V0.md) | bundle, install or recommend an agent |
-| `graph.py` | `wring graph`: the graph document — schema, strict validation (DAG, reachability, dataflow), the three router forms parsed by grammar, and the Mermaid renderer. A graph names capabilities; there is no `command:` key and a key that looks like one is a hard error (SPEC_GRAPH_V0 ruling 1) | execute anything, or evaluate an expression — there is no `eval` and never will be |
+| `graph.py` | `wring graph`: the graph document — schema, strict validation (DAG, reachability, dataflow), the three router forms parsed by grammar, the Mermaid renderer — and the executor, which **wraps** `loop.run` and `deliver.plan`/`send` in process and adds sequencing and stopping. A graph names capabilities; there is no `command:` key and a key that looks like one is a hard error (SPEC_GRAPH_V0 ruling 1) | evaluate an expression (there is no `eval` and never will be), reimplement a loop or a delivery, gate on state rather than a bundle (ruling 2), or take `--send` from any file (ruling 5) |
 | `doctor.py` | `wring doctor`: machine-checkable preconditions, one line per check, `--json`, exit 1 on anything blocking | repair anything — it diagnoses and stops |
 | `spec.py` | `wring spec` / `wring plan`: `wringer.spec.v1`, the drafting request, the strict reply parser, the file renderer, and what `wring plan` compiles out of an approved spec — `tasks.jsonl`, the briefs, `wringer.rubric.yaml`, and the proposed gate diff | open a socket (it calls `judge.send`), install a gate, touch git, run anything, or read `approved` from a reply |
 | `vacuity.py` | `wring verify --prove` / `run.prove`: re-run the gates against the pre-change tree in a scratch worktree, and record the verdict — a gate that passes on both proved nothing about the change | decide what the caller does about a vacuous verdict; `attest` refuses over one |
@@ -206,9 +206,15 @@ everything under `wring verify`. `wring run` now exists, but only the slice
 creation, no commits or pushes, no Temporal, no OpenTelemetry, no multi-agent
 anything**, and no anti-thrash beyond the plateau fingerprint.
 
-**Three commands SEND and three FETCH, and only those six.** SEND:
-`wring judge --send`, `wring spec --send`, `wring deliver --send`. Each
-requires a section the repo wrote down — `judge:` or `forge:` — each writes
+**Four commands SEND and three FETCH, and only those seven.** SEND:
+`wring judge --send`, `wring spec --send`, `wring deliver --send`, and
+`wring graph run --send` (or `wring graph resume --send`), which reaches a
+network only by calling the same `deliver.send` — a `git push` in a
+subprocess, through delivery's five refusals, with no socket and no merge
+request of its own (SPEC_GRAPH_V0 §5.5: the flag is typed on the invocation,
+authorises the deliver node that invocation reaches once, and no file may
+carry it). Each requires a section the repo wrote down — `judge:`, `forge:`
+or `deliver:` — each writes
 the exact bytes to disk before any socket opens, and each is dry-run or
 explicit by default. FETCH, not behind a flag because fetching is the entire
 purpose: `wring get` clones a repository, `wring issue` reads one issue, and
@@ -236,7 +242,10 @@ key. Nothing else in Wringer ever asks.
 `--send`, only onto a branch it created, never the default branch, never a
 force push, with a ledger event appended before each write. That is handover
 law 6 as Marc amended it on 2026-08-01; SPEC_GET_V0.md §1 is the contract and
-every one of its five conditions has a test that fails without it. `wring
+every one of its five conditions has a test that fails without it. Since P7
+there are **two ways to reach that one place** — `wring deliver --send` and a
+graph's `deliver` node under `wring graph run --send` — and the module, the
+refusals and the typed flag are the same ones in both. `wring
 run`, `wring verify`, `wring spec` and `wring plan` still touch git not at
 all, and the fleet's `worktree add/remove` is still metadata.
 

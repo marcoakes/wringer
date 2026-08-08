@@ -93,6 +93,20 @@ _KIND_KEYS = {
 # capability, not the string: `argv: [...]` is no safer than `command: "..."`.
 _COMMAND_LIKE = ("command", "run", "shell", "argv", "exec", "script", "cmd")
 
+# The one key a graph file may not carry, refused by name and with the reason
+# (ruling 5). `--send` is typed on the invocation and authorises the deliver
+# node THAT invocation reaches, once — a file that could declare it would be a
+# file that had typed a flag, which is the whole thing the amended law 6
+# forbids. Lumping it in with ordinary unknown keys would answer "no" without
+# saying where the flag does go.
+_SEND_KEY = "send"
+_SEND_REFUSAL = (
+    "'send:' is not a key a file may carry. `--send` is typed on the "
+    "invocation — `wring graph run … --send` or `wring graph resume … "
+    "--send` — and authorises the deliver node that invocation reaches, "
+    "once. A file is not a typed flag (SPEC_GRAPH_V0 ruling 5)"
+)
+
 # The three comparison forms, parsed by grammar. There is deliberately no
 # expression engine and no `eval`: a graph file is a document a stranger may
 # hand you, and the only thing it may do is choose between named nodes.
@@ -291,7 +305,10 @@ def _build(raw: Any, source: str, problems: list[str]) -> Graph | None:
         problems.append("top level must be a mapping")
         return None
 
-    unknown = sorted(set(raw) - _TOP_LEVEL_KEYS)
+    if _SEND_KEY in raw:
+        problems.append(f"the graph {_SEND_REFUSAL}")
+
+    unknown = sorted(set(raw) - _TOP_LEVEL_KEYS - {_SEND_KEY})
     if unknown:
         problems.append(f"unknown top-level keys: {', '.join(unknown)}")
 
@@ -367,6 +384,8 @@ def _node(node_id: Any, body: Any, problems: list[str]) -> Node | None:
             "whose gates are already reviewed as code (SPEC_GRAPH_V0 "
             "ruling 1)"
         )
+    if _SEND_KEY in body:
+        problems.append(f"{where} {_SEND_REFUSAL}")
 
     kind = body.get("kind")
     if kind not in KINDS:
@@ -376,7 +395,7 @@ def _node(node_id: Any, body: Any, problems: list[str]) -> Node | None:
         )
         return None
 
-    unknown = sorted(set(body) - _KIND_KEYS[kind] - set(_COMMAND_LIKE))
+    unknown = sorted(set(body) - _KIND_KEYS[kind] - set(_COMMAND_LIKE) - {_SEND_KEY})
     if unknown:
         problems.append(
             f"{where} ({kind}): unknown keys: {', '.join(unknown)}"
@@ -859,11 +878,20 @@ class Bundle:
 
 DECISION_FILENAME = "decision.yaml"
 PROMPT_FILENAME = "prompt.md"
+LOOP_REF_FILENAME = "loop.ref.json"
+DELIVER_REF_FILENAME = "deliver.ref.json"
 
 
 @dataclass(frozen=True)
 class Outcome:
-    """What one graph run did. `cli.py` turns this into an exit code."""
+    """What one graph run did. `cli.py` turns this into an exit code.
+
+    `exit_code` is normally None and the status decides. A delivery refusal is
+    the exception: `deliver.Refused` carries its own code because "there is
+    nothing to deliver" (1) and "this tree is unsafe" (3) are different
+    answers, and collapsing them into one graph failure throws away the half
+    that says whether the user can do anything about it.
+    """
 
     status: str
     reason: str
@@ -871,6 +899,34 @@ class Outcome:
     completed: tuple[str, ...]
     state: dict[str, str]
     directory: Path
+    exit_code: int | None = None
+    notes: tuple[str, ...] = ()
+
+
+@dataclass
+class Invocation:
+    """What the human typed on THIS invocation, and what to tell them after.
+
+    `--send` lives here and nowhere else — not in the graph file, not in a
+    decision file, not in the ledger. The amended law 6 says git history moves
+    only on a flag a human typed, and ruling 5 narrows that to the deliver
+    node THIS invocation reaches, once: a parked graph has ended the
+    invocation it parked in, so resuming means retyping. Keeping the
+    authorisation in memory is what makes that true rather than promised — an
+    authorisation written to disk is a file that has typed a flag.
+    """
+
+    send: bool = False
+    spent_by: str | None = None
+    notes: list[str] = field(default_factory=list)
+
+    def authorise(self, node_id: str) -> bool:
+        """Spend the typed flag, once. A second deliver node in the same run
+        gets a dry run and says so."""
+        if not self.send or self.spent_by is not None:
+            return False
+        self.spent_by = node_id
+        return True
 
 
 @dataclass(frozen=True)
@@ -925,10 +981,26 @@ class Parked(Exception):
 class NodeFailed(Exception):
     """A node could not do its job. The graph stops, having said why."""
 
+    exit_code: int | None = None
+
     def __init__(self, node_id: str, reason: str) -> None:
         super().__init__(reason)
         self.node_id = node_id
         self.reason = reason
+
+
+class NodeRefused(NodeFailed):
+    """A shipped refusal said no, and said it with its own exit code.
+
+    A subclass rather than a flattening: every caller that handles a failed
+    node still handles this one, and the code that distinguishes "nothing to
+    deliver" from "this tree is unsafe" survives the trip up through the
+    graph. `deliver.Refused` is the only thing that raises it today.
+    """
+
+    def __init__(self, node_id: str, reason: str, exit_code: int) -> None:
+        super().__init__(node_id, reason)
+        self.exit_code = exit_code
 
 
 def run(
@@ -937,6 +1009,7 @@ def run(
     bundle: Bundle,
     resuming: Replay | None = None,
     on_node: Any = None,
+    send: bool = False,
 ) -> Outcome:
     """Walk the graph until it is done, failed, or waiting for a person.
 
@@ -944,10 +1017,15 @@ def run(
     already in `completed` are never re-run — re-running an intent node would
     restage its input, and re-running a loop node would spend a worker's time
     a second time on work that was already done.
+
+    `send` is the flag the human typed on this invocation and nothing else:
+    it is never read from the graph file, the decision file or the ledger, and
+    it dies with the process (ruling 5).
     """
     replay = resuming or Replay((), dict(document.state), None, False)
     state = dict(replay.state)
     completed = list(replay.completed)
+    invocation = Invocation(send=send)
 
     if resuming is None:
         bundle.event("graph.started", graph_id=document.id, state=dict(state))
@@ -967,22 +1045,28 @@ def run(
             on_node(node)
         bundle.event("node.started", node_id=node.id, kind=node.kind)
         try:
-            written, extras = _execute(root, node, document, bundle, state)
+            written, extras = _execute(
+                root, node, document, bundle, state, invocation
+            )
         except Parked as parked:
             # One event per PARK, not per glance: resuming an unapproved
             # decision file must not fill the ledger with identical lines.
             if replay.parked_at != node.id:
                 bundle.event("node.parked", node_id=node.id, reason=parked.reason)
             _finish(bundle, document, "parked", parked.reason, node.id, completed,
-                    state)
+                    state, invocation)
             return Outcome("parked", parked.reason, node.id, tuple(completed), state,
-                           bundle.directory)
+                           bundle.directory, notes=tuple(invocation.notes))
         except NodeFailed as failed:
+            # `reason` only. The exit code travels in memory to the CLI: it is
+            # this invocation's answer, not a fact about the run, and the
+            # ledger's schema is a published format rather than a scratchpad.
             bundle.event("node.failed", node_id=node.id, reason=failed.reason)
             _finish(bundle, document, "failed", failed.reason, node.id, completed,
-                    state)
+                    state, invocation)
             return Outcome("failed", failed.reason, node.id, tuple(completed), state,
-                           bundle.directory)
+                           bundle.directory, exit_code=failed.exit_code,
+                           notes=tuple(invocation.notes))
 
         for path, value in written.items():
             state[path] = value
@@ -999,8 +1083,9 @@ def run(
 
     status = "done" if current == "done" else "failed"
     reason = "every node completed" if status == "done" else "a route led to fail"
-    _finish(bundle, document, status, reason, None, completed, state)
-    return Outcome(status, reason, None, tuple(completed), state, bundle.directory)
+    _finish(bundle, document, status, reason, None, completed, state, invocation)
+    return Outcome(status, reason, None, tuple(completed), state, bundle.directory,
+                   notes=tuple(invocation.notes))
 
 
 def _advance(node: Node, state: dict[str, str], bundle: Bundle) -> str | None:
@@ -1050,6 +1135,7 @@ def _finish(
     current: str | None,
     completed: list[str],
     state: dict[str, str],
+    invocation: Invocation,
 ) -> None:
     """Close out a run — and `graph.finished` ONLY when it really is over.
 
@@ -1069,7 +1155,9 @@ def _finish(
         graph_id=document.id,
         completed=tuple(completed),
     )
-    bundle.write_summary(_summary(document, status, reason, current, completed))
+    bundle.write_summary(
+        _summary(document, status, reason, current, completed, invocation)
+    )
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
 
@@ -1079,6 +1167,7 @@ def _summary(
     reason: str,
     current: str | None,
     completed: list[str],
+    invocation: Invocation,
 ) -> str:
     lines = [
         f"# wring graph — {document.id}",
@@ -1093,6 +1182,10 @@ def _summary(
             "waiting" if node.id == current else "not reached"
         )
         lines.append(f"| `{node.id}` | {node.kind} | {mark} |")
+    if invocation.notes:
+        # The summary says what to type next, because a dry run that ends
+        # without one is a dead end (SPEC_GRAPH_V0 §3e).
+        lines += ["", "## Next"] + [f"{note}" for note in invocation.notes]
     return "\n".join(lines) + "\n"
 
 
@@ -1105,6 +1198,7 @@ def _execute(
     document: Graph,
     bundle: Bundle,
     state: dict[str, str],
+    invocation: Invocation,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     """Run one node. Returns (state writes, extra fields for `node.finished`).
 
@@ -1121,6 +1215,8 @@ def _execute(
         return {}, {}
     if node.kind == "loop":
         return _run_loop(root, node, document, bundle)
+    if node.kind == "deliver":
+        return _run_deliver(root, node, document, bundle, invocation)
     raise NodeFailed(node.id, f"the '{node.kind}' node kind is not built yet")
 
 
@@ -1187,6 +1283,16 @@ def _run_human(node: Node, bundle: Bundle, state: dict[str, str]) -> dict[str, s
         ) from exc
     if not isinstance(answered, dict):
         raise NodeFailed(node.id, f"{DECISION_FILENAME} must be a mapping")
+
+    # The most plausible place for someone to try writing the flag down: it is
+    # edited by hand, beside a prompt, by the person who would type it. It is
+    # still a file (ruling 5), and saying so is better than ignoring it —
+    # silently ignoring an authorisation somebody believed they had granted is
+    # how a dry run gets mistaken for a delivery.
+    if _SEND_KEY in answered:
+        raise NodeFailed(
+            node.id, f"a decision file {_SEND_REFUSAL}"
+        )
 
     if answered.get("approved") is not True:
         raise Parked(node.id, "a person must approve this node")
@@ -1355,7 +1461,7 @@ def _run_loop(
 
     # Referenced, never nested: one run, one bundle, one place.
     reference = _relative_to(outcome.directory, root)
-    (bundle.node_dir(node.id) / "loop.ref.json").write_text(
+    (bundle.node_dir(node.id) / LOOP_REF_FILENAME).write_text(
         json.dumps(
             {
                 "loop_dir": reference,
@@ -1380,3 +1486,195 @@ def _relative_to(path: Path, root: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError:
         return str(path)
+
+
+def _delivered_run(root: Path, node: Node, document: Graph, bundle: Bundle) -> Path:
+    """Which run bundle a deliver node ships. **Decided, never guessed.**
+
+    The loop node's: `nodes/<loop>/loop.ref.json` names the loop bundle, and
+    that loop's manifest names the `final_run` its last verification wrote.
+    That bundle is the evidence THIS graph produced, and it is the one whose
+    gates the graph's own router read.
+
+    Deliberately **not** `evidence.latest_run`. The newest directory under
+    `.wringer/runs/` is whatever was written last — including a `wring verify`
+    somebody typed by hand while the graph was parked, or a run from a
+    different piece of work entirely. Shipping it would attach this graph's
+    approval to a run this graph never saw, which is the mistake
+    `check_verified_tree` refuses one layer down. So a graph with no completed
+    loop node fails here rather than reaching for whatever is nearest.
+
+    The last loop node to finish wins, read from the ledger rather than from
+    the graph's shape: the ledger is what actually happened, and after a
+    router a graph's shape has more than one answer.
+    """
+    kinds = {other.id: other.kind for other in document.nodes}
+    loops = [
+        event["node_id"]
+        for event in bundle.read_events()
+        if event.get("type") == "node.finished"
+        and kinds.get(event.get("node_id")) == "loop"
+    ]
+    if not loops:
+        raise NodeFailed(
+            node.id,
+            "no loop node has finished in this run, so there is no verified "
+            "bundle for this graph to deliver. A deliver node ships the run "
+            "the graph's own loop node recorded — never whatever happens to "
+            "be the newest directory under .wringer/runs/, which is a "
+            "different piece of work as easily as this one",
+        )
+
+    reference = bundle.directory / NODES_DIRNAME / loops[-1] / LOOP_REF_FILENAME
+    try:
+        recorded = json.loads(reference.read_text(encoding="utf-8"))
+        loop_dir = root / str(recorded["loop_dir"])
+        manifest = json.loads(
+            (loop_dir / "manifest.json").read_text(encoding="utf-8")
+        )
+        final_run = manifest["result"]["final_run"]
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise NodeFailed(
+            node.id,
+            f"the '{loops[-1]}' loop node's own evidence could not be read "
+            f"({exc}), so there is nothing to deliver from it",
+        ) from exc
+
+    if not final_run:
+        raise NodeFailed(
+            node.id,
+            f"the '{loops[-1]}' loop node never completed a verification, so "
+            "it recorded no run bundle. There is no evidence to deliver",
+        )
+    run_dir = root / str(final_run)
+    if not run_dir.is_dir():
+        raise NodeFailed(
+            node.id, f"the loop's final run bundle is gone: {final_run}"
+        )
+    return run_dir
+
+
+def _run_deliver(
+    root: Path,
+    node: Node,
+    document: Graph,
+    bundle: Bundle,
+    invocation: Invocation,
+) -> tuple[dict[str, str], dict[str, Any]]:
+    """Deliver, through the real machinery and all of its refusals.
+
+    `deliver.plan` then `deliver.send`, exactly as `cmd_deliver` calls them —
+    ruling 4: the graph engine contains no delivery logic, so the five
+    conditions that buy the power to write git history are the shipped ones
+    rather than a second copy that could drift out of agreement with them.
+
+    **Ruling 2 is what this function is for.** A router may have arrived here
+    on a `build-status` a human typed by hand into a decision file. Nothing
+    above asks whether that was true; `deliver.plan` re-reads the bundle and
+    refuses a run whose gates failed, whose tree has moved, or whose own
+    gates proved nothing. A graph that lied in state delivers nothing.
+
+    Two details that are not style. The redactor is the graph's, because
+    `deliver.plan` compares the bundle's SCRUBBED `diff.patch` against a
+    freshly computed diff and scrubs it with whatever it was handed — a
+    narrower redactor here makes the two disagree and refuses a tree that
+    never moved, permanently. And `deliver.Refused` keeps its own exit code
+    on the way out, because 1 and 3 are different answers.
+    """
+    from wringer import config as config_module
+    from wringer import deliver as deliver_module
+
+    run_dir = _delivered_run(root, node, document, bundle)
+
+    try:
+        cfg = config_module.load(root / config_module.CONFIG_FILENAME)
+    except config_module.ConfigError as exc:
+        raise NodeFailed(node.id, str(exc)) from exc
+    if cfg.deliver is None:
+        raise NodeFailed(
+            node.id,
+            f"no 'deliver:' section in {config_module.CONFIG_FILENAME} — its "
+            "absence is what makes writing git history unreachable, and a "
+            "graph does not add the power. Add one:\n\n"
+            "  deliver:\n"
+            '    branch: "wringer/{run}"\n'
+            "    remote: origin",
+        )
+
+    try:
+        planned = deliver_module.plan(
+            root, cfg, run_dir, run_dir.name, redactor=bundle.redactor
+        )
+    except deliver_module.Refused as exc:
+        raise NodeRefused(node.id, str(exc), exc.exit_code) from exc
+    except deliver_module.DeliverError as exc:
+        raise NodeFailed(node.id, str(exc)) from exc
+
+    try:
+        delivery = deliver_module.Bundle.create(
+            root / deliver_module.DELIVERIES_DIRNAME, redactor=bundle.redactor
+        )
+    except deliver_module.DeliverError as exc:
+        raise NodeFailed(node.id, str(exc)) from exc
+
+    # Written before anything runs, as `wring deliver` does: what would happen
+    # is auditable rather than asserted, and `--send` is this same path
+    # continuing one step further.
+    delivery.write_plan(planned)
+
+    live = invocation.authorise(node.id)
+    mode = "live" if live else "dry_run"
+    delivered: dict[str, Any] = {
+        "branch": None,
+        "commit": None,
+        "pushed": False,
+        # A graph node never opens a merge request. `deliver.plan`/`send` are
+        # the two functions §3e names, and the forge is a socket this program
+        # opens rather than git in a subprocess — widening that is a spec
+        # change, not a slice.
+        "merge_request": None,
+    }
+    if live:
+        try:
+            delivered.update(deliver_module.send(root, delivery, planned))
+        except deliver_module.DeliverError as exc:
+            delivery.event("delivery.failed", why=str(exc))
+            delivery.write_manifest(mode, planned, delivered)
+            # A failed delivery is still a bundle somebody may audit, and one
+            # without digests is one `wring audit` has to refuse.
+            delivery.write_digests()
+            raise NodeFailed(node.id, str(exc)) from exc
+
+    delivery.write_manifest(mode, planned, delivered)
+    delivery.write_digests()  # LAST, so it covers the manifest
+
+    reference = _relative_to(delivery.directory, root)
+    (bundle.node_dir(node.id) / DELIVER_REF_FILENAME).write_text(
+        json.dumps(
+            {
+                "delivery_dir": reference,
+                "mode": mode,
+                "run_dir": _relative_to(run_dir, root),
+                "branch": planned.branch,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    if not live:
+        invocation.notes += [
+            f"Delivery from '{node.id}' was a dry run — git was not touched. "
+            f"The patch, message, branch and MR body are in {reference}/.",
+            "Read them, then deliver that run:",
+            f"  wring deliver {_relative_to(run_dir, root)} --send",
+            "Or run the graph again with --send on the invocation, which "
+            "authorises the deliver node that run reaches, once.",
+        ]
+
+    return {}, {
+        "status": mode,
+        "ref": reference,
+        "detail": planned.branch,
+    }

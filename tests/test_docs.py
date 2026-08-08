@@ -1044,6 +1044,33 @@ def test_every_network_enumeration_names_wring_start():
     )
 
 
+def test_every_network_enumeration_names_the_graphs_send():
+    """The same guard for the command P7 added, written with it.
+
+    `wring start` falsified this paragraph in P4 and the sentence stayed wrong
+    for a week; the guard above is what stopped that repeating, and it only
+    works if a new sender gets one too. A `deliver` node in a graph reaches
+    `deliver.send` — a real `git push` to a real remote — on `--send` typed on
+    `wring graph run` or `wring graph resume`. It opens no socket of its own
+    and never opens a merge request, but a document that counts what can put
+    bytes on a network has to count it.
+    """
+    documents = network_surface_documents()
+    assert documents, "no document enumerates the network surface — suspicious"
+
+    offenders = [
+        path.name
+        for path in documents
+        if "wring graph run --send"
+        not in " ".join(path.read_text(encoding="utf-8").split())
+    ]
+    assert not offenders, (
+        f"{offenders} enumerate what reaches a network but never name "
+        "`wring graph run --send`, which pushes a branch through the same "
+        "`deliver.send` that `wring deliver --send` does (SPEC_GRAPH_V0 §5.5)"
+    )
+
+
 # Claims that the network surface is SMALLER than it is. Each was true once
 # and was falsified by a later slice; each survived because the sentence
 # lived somewhere nobody thought to restate.
@@ -1055,6 +1082,20 @@ _UNDERSTATEMENTS = (
     "the only path in Wringer that opens a network",
     "the only function that opens a socket",
     "the only command that opens a socket",
+    # P7. A graph's deliver node reaches `deliver.send` on a typed `--send`,
+    # so the senders are four. `deliver.py` is still the only MODULE that
+    # writes git history — that claim is true and is deliberately not here.
+    "Three commands SEND",
+    "Three commands send",
+    "three commands send",
+    "three that send",
+    # QUICKSTART said this, and neither of the guards above could see it: it
+    # does not use the word "commands", so the discovery regex never listed
+    # the file. A phrase can understate the surface without counting anything.
+    "three that can send",
+    'Nothing in the "proves" column can reach a network',
+    "the only path in Wringer that writes git history",
+    "The only command in Wringer that writes git history",
 )
 
 
@@ -1101,9 +1142,10 @@ def test_nothing_claims_the_network_surface_is_smaller_than_it_is():
                 continue
             offenders.append(f"{path.name}: {phrase!r}")
     assert not offenders, (
-        "these understate the network surface. Three commands SEND behind "
-        "--send (judge, spec, deliver) and three FETCH (get, issue, "
-        f"start --clone) — SPEC_GET_V0 §7: {offenders}"
+        "these understate the network surface. FOUR commands SEND behind a "
+        "--send somebody typed (judge, spec, deliver, and graph run/resume "
+        "reaching deliver.send) and three FETCH (get, issue, start --clone) "
+        f"— SPEC_GET_V0 §7: {offenders}"
     )
 
 

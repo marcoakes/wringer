@@ -172,8 +172,10 @@ kept**. The rule that actually matters, and that holds:
 > machine without a flag a human typed.**
 
 `verify`, `run`, `resume`, `fleet` and `plan` cannot reach a network at all.
-Three commands SEND, each behind `--send` and each writing the exact bytes to
-disk first: `judge`, `spec`, `deliver`. **Three commands FETCH**, and are not
+Four commands SEND, each behind `--send` and each writing the exact bytes to
+disk first: `judge`, `spec`, `deliver`, and `wring graph run --send` (or
+`resume --send`), which reaches one only through `deliver.send`.
+**Three commands FETCH**, and are not
 behind a flag because fetching is their entire purpose — `wring get` clones a
 repository, `wring issue` reads one issue, and `wring start --clone` clones
 one. A user typing any of them knows they are reaching a network; a `--send`
@@ -186,6 +188,18 @@ on them would be ceremony rather than safety.
 > gate in a repository it cloned in the same invocation, which is §3 of this
 > document ("Runs nothing it cloned") holding for the newest command rather
 > than being quietly dropped for it.
+
+> **Restated for P7** (SPEC_GRAPH_V0.md §5.5). It counted three senders until
+> a graph's `deliver` node shipped. That node adds no power: it calls this
+> document's own `deliver.plan`/`send` with this document's five refusals, so
+> the sentence above about what buys a branch is unchanged. What it does add
+> is a fourth *command* from which a `git push` can leave the machine, and a
+> paragraph that counts commands has to count it. It opens no socket of its
+> own and opens no merge request — that step still belongs to `wring deliver
+> --send` alone. The flag is typed on `wring graph run` or `wring graph
+> resume`, authorises the deliver node that invocation reaches once, and no
+> graph file and no decision file may carry it: a file is not a typed flag.
+
 Every socket lives in `judge.send` or `forge.request`, and
 `grep -rn "build_opener" src/` must return exactly those two. Both are reached only with a flag a human typed, only
 against an endpoint the repo declared, and only after the bytes are on disk.

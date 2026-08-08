@@ -59,4 +59,17 @@ nodes:
 
   deliver:
     kind: deliver
+    # Dry-run by default, exactly as `wring deliver` is: the patch, message,
+    # branch and MR body land on disk and git is untouched. To authorise the
+    # push, type the flag on the invocation —
+    #
+    #   wring graph run examples/graphs/issue-to-mr.yaml --send
+    #
+    # It authorises the deliver node THAT run reaches, once, and resuming a
+    # parked graph means typing it again. There is deliberately no `send:` key
+    # here and none in the decision file: a file is not a typed flag
+    # (SPEC_GRAPH_V0 ruling 5). The run it delivers is the one `build`
+    # recorded — its loop's final verification — and delivery re-reads that
+    # bundle, so a `build-status` a human wrote by hand routes here and still
+    # ships nothing (ruling 2).
     then: done

@@ -111,14 +111,22 @@ where they are used; nothing here is a preview.
 | `issue` | write a forge issue to a local markdown file | — | fetches |
 | `deliver` | a verified change becomes a branch, a commit and a merge request | — | `--send` |
 | `doctor` | check this machine's preconditions; exit 1 on anything blocking | — | no |
-| `graph` | compose loops into a resumable, evidence-driven workflow (`validate`, `render`) | — | no |
+| `graph` | compose loops into a resumable, evidence-driven workflow (`validate`, `run`, `resume`, `render`) | **yes** | `--send` |
 | `attest` | assemble the provenance claim for a verified change | — | no |
 | `audit` | check an attestation offline — no config, no network, no LLM | — | no |
 
-**Nothing in the "proves" column can reach a network.** That is the line
-that matters: the commands that decide whether a change is good run offline,
-and the three that can send need a flag you type and an endpoint your repo
-declared. `get` and `issue` fetch, because fetching is what they are for.
+**Nothing reaches a network while it is proving.** That is the line that
+matters: the gates, the loop and the vacuity check run offline everywhere they
+appear, so the code that decides whether a change is good cannot be reached by
+anything outside your machine. Four commands can send, each on a flag you type
+and each needing a section your repo declared. `get` and `issue` fetch,
+because fetching is what they are for.
+
+`graph` is the one row that is both, and P7 made it so: its loop node proves
+and its deliver node can push. It does them in that order and never mixes
+them — the evidence is produced with no network in reach, and is then
+re-checked by delivery's own refusals before a `--send` you typed can move
+anything. A graph adds sequencing, never permission.
 
 The whole PM path — a PRD or an issue in, a reviewed branch out — is
 [`docs/pm-loop.md`](docs/pm-loop.md) and
