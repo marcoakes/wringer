@@ -33,12 +33,29 @@ echo "deps    :"
 "$UV" pip list --python "$W/venv/bin/python" 2>/dev/null | tail -n +3 | sed 's/^/          /'
 
 echo
+# DERIVED from the installed package's own parser, never a list kept here.
+# This loop named thirteen commands and stayed at thirteen while start,
+# attest, audit and graph shipped, so 0.3.0 was certified by this script
+# while four of its seventeen commands went unprobed — and it PASSED, because
+# a hand-kept list can only report on what it already knows about. The same
+# staleness was found and fixed in release-check.sh and release.yml; this was
+# the third copy, and the sweep that should have caught it is now a test.
+COMMANDS=$("$W/venv/bin/python" -c "
+from wringer import cli
+print(' '.join(
+    name
+    for action in cli.build_parser()._actions
+    if getattr(action, 'choices', None)
+    for name in action.choices
+))") || { echo "FAIL: could not read the command list from the package"; exit 1; }
+COUNT=$(printf '%s\n' $COMMANDS | wc -w | tr -d ' ')
+[ "$COUNT" -ge 13 ] || { echo "FAIL: the parser reported only $COUNT commands"; exit 1; }
+
 MISSING=0
-for c in init verify run fleet resume judge spec plan get issue deliver \
-         doctor explain; do
+for c in $COMMANDS; do
     "$WRING" "$c" --help >/dev/null 2>&1 || { echo "  MISSING $c"; MISSING=1; }
 done
-[ "$MISSING" -eq 0 ] && echo "all thirteen commands present"
+[ "$MISSING" -eq 0 ] && echo "all $COUNT commands present"
 
 echo
 echo "a real verification, from the published package:"

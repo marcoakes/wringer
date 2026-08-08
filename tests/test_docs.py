@@ -888,6 +888,54 @@ def test_ci_fetches_the_evidence_the_roadmaps_probes_need():
     )
 
 
+def test_no_gate_probes_commands_from_a_hand_kept_list():
+    """A gate that enumerates commands by hand goes stale silently.
+
+    It has now happened three times, in three files, over two releases:
+    `release-check.sh` said thirteen while the program registered sixteen,
+    `release.yml` said thirteen and printed "all thirteen commands present"
+    in the wheel, and `verify-published.sh` probed thirteen of seventeen —
+    so `start`, `attest`, `audit` and `graph` were never checked in the
+    published package at all, by the script that is the last link in the
+    Definition of PROVEN. Each list PASSED while covering a shrinking
+    fraction, because a hand-kept list can only report on what it already
+    knows about.
+
+    Derived: the command names come from the real parser, and any script or
+    workflow line naming several of them is a list somebody is maintaining
+    by hand. Fixing one file and not sweeping for its siblings is what let
+    this recur, so the guard is over every file rather than the one that
+    just bit.
+    """
+    require_checkout("scripts", ".github/workflows")
+    from wringer import cli
+
+    registered = {
+        name
+        for action in cli.build_parser()._actions
+        if getattr(action, "choices", None)
+        for name in action.choices
+    }
+    searched = sorted((repo_root() / "scripts").glob("*.sh")) + sorted(
+        (repo_root() / ".github" / "workflows").glob("*.yml")
+    )
+    assert searched, "nothing to search — this guard is checking nothing"
+
+    offenders = []
+    for path in searched:
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            named = registered & set(line.split())
+            if len(named) >= 5:
+                offenders.append(f"{path.name}:{number} names {len(named)}")
+    assert not offenders, (
+        "these enumerate commands by hand, which is a list that goes stale "
+        "the next time one ships — derive it from `cli.build_parser()` "
+        f"instead: {offenders}"
+    )
+
+
 def test_every_pytest_annotation_carries_the_assertion_not_just_the_name():
     """CI logs here are login-walled; the `::error::` annotations are not, and
     they are the documented way to read a red build (AGENTS.md gotchas).
