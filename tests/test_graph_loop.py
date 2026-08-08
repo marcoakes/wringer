@@ -260,6 +260,40 @@ def test_a_router_falls_through_to_default_when_nothing_matches(repo):
     assert not node.routes[0].matches({}), "missing state must match nothing"
 
 
+def test_a_loop_node_reports_the_way_wring_run_does(repo, monkeypatch, capsys):
+    """§3c, verbatim: "same callbacks, so a graph run *looks like* the `wring
+    run` users already know".
+
+    It did not. The loop node called `loop.run` with no callbacks at all, so a
+    graph ran the worker and the gates in total silence — the console said
+    `→ build  (loop)` and then nothing until the graph finished. Nobody
+    noticed until a park/resume session was captured for the docs and the
+    recording had a hole in the middle of it.
+
+    Asserted against `wring run`'s OWN output on the same repo rather than
+    against remembered strings: "looks like the one users know" is a claim
+    about agreement between two commands, so the test compares them.
+    """
+    setup(repo, worker_fixes=True)
+    monkeypatch.chdir(repo)
+
+    cli.main(["run"])
+    from_run = capsys.readouterr().out
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+
+    cli.main(["graph", "run", "graph.yaml"])
+    from_graph = capsys.readouterr().out
+
+    # The gate line is the one a user watches for; the iteration header is
+    # what paces it. Both come from the shared reporters or from neither.
+    for line in ("iteration 1", "✓ test"):
+        assert line in flat(from_run), f"`wring run` no longer prints {line!r}"
+        assert line in flat(from_graph), (
+            f"the loop node printed nothing like {line!r} — a graph ran the "
+            f"worker and the gates in silence:\n{from_graph}"
+        )
+
+
 def test_each_node_finishes_exactly_once_in_the_ledger(repo, monkeypatch, capsys):
     """An append-only ledger with a duplicated event is a ledger that
     disagrees with itself about what happened — and `Replay` counts these to

@@ -270,3 +270,114 @@ EOF
     "$WRING" vacuous
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/vacuous.cast.json" \
     "$ROOT/docs/vacuous.svg" "the gates went green and proved nothing"
+
+# ---------------------------------------------------------------------------
+# The fourth recording: the graph, and the interlock nothing can flip.
+#
+# `wring graph run` stages the brief, reaches the human node and PARKS — exit
+# 5, a person must act. Nothing on that screen is a flag: SPEC_INTENT §3's
+# three rules bind here verbatim, so the only thing that moves a parked graph
+# is somebody editing `decision.yaml`. That edit is filmed as its own step,
+# displayed and executed as one string, which is why this recording needed no
+# new recorder capability — no pty driving, no synthesised keystrokes into the
+# one file law 8 forbids editing.
+#
+# `wring graph resume` then runs the loop, the router reads what the loop
+# actually found, and the graph reaches `done`. `wring graph status` reads it
+# all back out of the ledger.
+#
+# The node ids are SHORT on purpose. The renderer's canvas is a fixed 80
+# columns with no wrapping, and `wring graph run`'s park report prints the
+# decision file's full path — `.wringer/graphs/<20-char id>/nodes/<id>/
+# decision.yaml`. A long node id puts that line off the edge of the picture.
+# ---------------------------------------------------------------------------
+GRAPH=$(scratch_dir "${1:-}" graph) || exit 2
+if [ -d "$GRAPH" ]; then find "$GRAPH" -mindepth 1 -delete 2>/dev/null; fi
+mkdir -p "$GRAPH"
+cd "$GRAPH"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+echo ".wringer/" > .gitignore
+
+cat > calc.py <<'EOF'
+def add(a, b):
+    return a + b + 1
+EOF
+
+cat > test_calc.py <<'EOF'
+from calc import add
+
+
+def test_add():
+    assert add(2, 2) == 4
+EOF
+
+cat > brief.md <<'EOF'
+# Fix the calculator
+
+`add` returns one too many. The test says so.
+EOF
+
+# The worker stands in for a coding agent, as every other recording here does,
+# so the demo is honest about running no agent and reproducible by anyone.
+cat > fix.sh <<'EOF'
+sed 's/return a + b + 1/return a + b/' calc.py > calc.py.tmp
+mv calc.py.tmp calc.py
+EOF
+
+cat > .wringer.yaml <<'EOF'
+version: 1
+gates:
+  - id: test
+    run: "python3 -m pytest -q"
+
+run:
+  worker: "sh ./fix.sh"
+  max_iterations: 3
+EOF
+
+cat > graph.yaml <<'EOF'
+version: 1
+id: demo
+
+inputs:
+  brief: brief.md
+
+budgets:
+  wall_clock: 600
+
+nodes:
+  read:
+    kind: intent
+    input: inputs.brief
+    writes:
+      brief: state.brief
+    then: ok
+  ok:
+    kind: human
+    prompt: "Read the brief, then set approved: true by hand."
+    then: build
+  build:
+    kind: loop
+    budgets:
+      max_iterations: 3
+    writes:
+      status: state.build-status
+    then: route
+  route:
+    kind: router
+    routes:
+      - when: "state.build-status == 'converged'"
+        to: done
+    default: fail
+EOF
+
+git add -A
+git commit -qm "the calculator, with a planted bug"
+
+"$PY" "$ROOT/scripts/demo_record.py" "$GRAPH" "$ROOT/docs/graph.cast.json" \
+    "$WRING" graph
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/graph.cast.json" \
+    "$ROOT/docs/graph.svg" "a graph parks, a person decides, the graph resumes"

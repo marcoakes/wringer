@@ -1126,6 +1126,20 @@ _GRAPH_EXITS = {
 }
 
 
+# The console a loop node writes to — `cmd_run`'s own reporters, by
+# reference rather than by copy. SPEC_GRAPH_V0 §3c: "same callbacks, so a
+# graph run *looks like* the `wring run` users already know". Handing over
+# nothing made a graph run the worker and every gate in silence.
+def _graph_loop_console() -> dict[str, object]:
+    # Built on call, not at import: the reporters are defined further down
+    # this module, and a dict literal up here binds them before they exist.
+    return {
+        "on_iteration": _report_iteration,
+        "on_gate": _report_gate,
+        "on_worker": _report_worker,
+    }
+
+
 def cmd_graph_run(args: argparse.Namespace) -> int:
     """Execute a graph from the beginning (SPEC_GRAPH_V0.md §1)."""
     root = git.find_root(Path.cwd())
@@ -1146,7 +1160,7 @@ def cmd_graph_run(args: argparse.Namespace) -> int:
 
     print(f"graph {document.id} — {bundle.graph_run_id}")
     outcome = graph.run(root, document, bundle, on_node=_report_node,
-                        send=args.send)
+                        send=args.send, loop_console=_graph_loop_console())
     _report_graph(outcome, root)
     return _graph_exit(outcome)
 
@@ -1175,7 +1189,8 @@ def cmd_graph_resume(args: argparse.Namespace) -> int:
 
     print(f"graph {document.id} — resuming {bundle.graph_run_id}")
     outcome = graph.run(root, document, bundle, resuming=replay,
-                        on_node=_report_node, send=args.send)
+                        on_node=_report_node, send=args.send,
+                        loop_console=_graph_loop_console())
     _report_graph(outcome, root)
     return _graph_exit(outcome)
 
@@ -1209,7 +1224,12 @@ def _report_graph(outcome, root: Path) -> None:
     elif outcome.status == "done":
         print(f"\n✓ done — {outcome.reason}")
     else:
-        print(f"\n✗ {outcome.status} — {outcome.reason}")
+        # Reflowed, because `outcome.reason` is a shipped refusal composed as
+        # prose — delivery's gates refusal reaches 142 columns here. Every
+        # other refusal in the program goes through this; a graph reporting
+        # one on stdout is no different for being an outcome rather than an
+        # error.
+        print("\n" + _wrap_message(f"✗ {outcome.status} — {outcome.reason}"))
     # What to type next, when a node completed without doing the irreversible
     # half of its job. A dry run that ends without one is a dead end.
     if outcome.notes:
@@ -1311,11 +1331,15 @@ def _graph_next_actions(state, where: str) -> list[str]:
     is the thing this repo keeps finding in its own refusal messages.
     """
     if state.status == "parked":
+        # The path goes on a line of its own, as the park report already puts
+        # it there: these are `print` lines rather than wrapped refusals, and
+        # a run id inside a sentence pushes it well past any terminal.
         return [
-            f"  1. Edit {where}/{graph.NODES_DIRNAME}/{state.current}/"
-            f"{graph.DECISION_FILENAME} by hand and set `approved: true`.",
-            "     Nothing else can approve it — no flag, no environment "
-            "variable, no model reply.",
+            "  1. Edit this file by hand and set `approved: true`:",
+            f"       {where}/{graph.NODES_DIRNAME}/{state.current}/"
+            f"{graph.DECISION_FILENAME}",
+            "     Nothing else can approve it — no flag, no environment",
+            "     variable, no model reply.",
             "  2. Then:",
             f"       wring graph resume {where}",
         ]

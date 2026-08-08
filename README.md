@@ -201,6 +201,30 @@ needed no changes to accept one. The captured loop is
 [`docs/issue-to-mr.md`](docs/issue-to-mr.md). Contract:
 **[SPEC_GET_V0.md](SPEC_GET_V0.md)**.
 
+## Graphs of loops
+
+<div align="center">
+
+<img src="docs/graph.svg" alt="wring graph run parks at a human node; a person edits decision.yaml; wring graph resume runs the loop and reaches done" width="760">
+
+*A real session, captured. The graph stages a brief, parks at the interlock —
+exit 5, and nothing on that screen is a flag — then a person writes
+`approved: true` into a file and the graph resumes, runs the loop, routes on
+what the loop actually found, and reaches `done`.*
+
+</div>
+
+`wring graph` composes the primitives above into one resumable, evidence-driven
+workflow file: `intent → human → loop → router → deliver`, executed until it is
+done, failed, or waiting for a person, and resumable from the ledger after a
+`kill -9`. A node **names a capability**; there is no `command:` key and no
+expression engine, so running a stranger's graph is exactly as safe as running
+the same Wringer commands by hand. State routes, but **only bundles gate** — a
+graph that lies about `build-status` in an approved decision file delivers
+nothing, because delivery re-reads the evidence. The walkthrough is
+[`docs/graphs.md`](docs/graphs.md). Contract:
+**[SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md)**.
+
 ## Prove the gates can fail
 
 <div align="center">

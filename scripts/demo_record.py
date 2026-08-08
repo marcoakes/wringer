@@ -135,6 +135,71 @@ def _listing_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return listing, ["sh", "-c", listing]
 
 
+def _graph_run_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The graph, up to the interlock. Exits 5 — parked, a person must act."""
+    return _argv_step(wring, "graph", "run", "graph.yaml")
+
+
+def _newest_graph(scratch: Path) -> str:
+    graphs = scratch / ".wringer" / "graphs"
+    names = (
+        sorted(p.name for p in graphs.iterdir() if p.is_dir())
+        if graphs.is_dir()
+        else []
+    )
+    if not names:
+        raise SystemExit(
+            "demo_record: no graph run to resume — `wring graph run` wrote "
+            "none, so there is nothing parked"
+        )
+    return names[-1]
+
+
+def _approve_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The hand edit, filmed rather than done off-camera.
+
+    This is the step the whole recording exists for: **a person changes a file
+    and nothing else can**. The interlock has no flag, so the only honest way
+    to film it is to film someone writing the file — and that is a shell
+    command, displayed and executed as one string, exactly as `_listing_step`
+    is. No pty driving and no keystroke injection: the recorder gains no
+    capability it did not have.
+
+    The path is a glob, and that is deliberate rather than a placeholder. The
+    scratch tree holds exactly one graph run, so it expands to exactly one
+    file, and it is a command a reader can type verbatim. Written out, the run
+    id makes the line 85 columns — past the renderer's fixed 80-column canvas,
+    which `tests/test_docs.py` enforces. The literal path is on screen anyway:
+    `wring graph run` printed it one step earlier, which is where a reader
+    following along gets it.
+
+    `tee` rather than `>` because POSIX `sh` does **not** pathname-expand a
+    redirection target: `> .wringer/graphs/*/…` tries to create a file with a
+    literal `*` in its path and fails. The first recording caught it — the
+    cast held `No such file or directory`, and the resume that followed was
+    still parked. A command word IS expanded, so `tee` takes the glob, and it
+    echoes the line it wrote, which shows the reader the whole content of the
+    decision the graph was waiting on.
+    """
+    edit = "echo 'approved: true' | tee .wringer/graphs/*/nodes/ok/decision.yaml"
+    return edit, ["sh", "-c", edit]
+
+
+def _graph_resume_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """Approved, so the loop runs, the router reads what it found, and the
+    graph reaches `done`. The run id is the real one the first step created."""
+    return _argv_step(
+        wring, "graph", "resume", f".wringer/graphs/{_newest_graph(scratch)}"
+    )
+
+
+def _graph_status_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """One screen, read back out of the ledger after the fact."""
+    return _argv_step(
+        wring, "graph", "status", f".wringer/graphs/{_newest_graph(scratch)}"
+    )
+
+
 def quantize(cast: list[dict], quantum: float = TIMING_QUANTUM) -> list[dict]:
     """Snap every `at` to the grid, leaving `text` untouched.
 
@@ -206,6 +271,14 @@ STEP_SETS = {
     "start": (_start_step,),
     # The agent lies, Wringer catches it: converge, prove, refuse.
     "vacuous": (_run_step, _prove_step, _deliver_step),
+    # Run → park → a person edits a file → resume → done. The interlock is
+    # the only thing on screen that a flag cannot move.
+    "graph": (
+        _graph_run_step,
+        _approve_step,
+        _graph_resume_step,
+        _graph_status_step,
+    ),
 }
 
 

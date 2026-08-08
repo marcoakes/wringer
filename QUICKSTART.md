@@ -131,6 +131,9 @@ anything. A graph adds sequencing, never permission.
 The whole PM path — a PRD or an issue in, a reviewed branch out — is
 [`docs/pm-loop.md`](docs/pm-loop.md) and
 [`docs/issue-to-mr.md`](docs/issue-to-mr.md), both captured end to end.
+Composing those steps into one resumable workflow file is
+[`docs/graphs.md`](docs/graphs.md) — a graph of loops, with the park, the hand
+edit and the resume captured too.
 
 ## Declare your gates
 

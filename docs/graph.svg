@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="708" height="1052" viewBox="0 0 708 1052" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="13" role="img" aria-label="a graph parks, a person decides, the graph resumes">
+  <style>
+    .l { opacity: 0; animation-duration: 10.00s;
+         animation-timing-function: linear; animation-iteration-count: infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .l { animation: none; opacity: 1; }
+    }
+  </style>
+  <rect width="100%" height="100%" rx="10" fill="#11141a"/>
+  <circle cx="24" cy="20" r="5.5" fill="#ff5f57"/>
+  <circle cx="43" cy="20" r="5.5" fill="#febc2e"/>
+  <circle cx="62" cy="20" r="5.5" fill="#28c840"/>
+  <text x="354" y="24" fill="#7d8590" font-size="11" text-anchor="middle">a graph parks, a person decides, the graph resumes</text>
+  <g>
+        <text class="l l0" x="18" y="54" xml:space="preserve" fill="#56b6c2">$ wring graph run graph.yaml</text>
+    <text class="l l1" x="18" y="74" xml:space="preserve" fill="#d7dae0">graph demo — 20260808-190048-cace</text>
+    <text class="l l2" x="18" y="94" xml:space="preserve" fill="#7d8590">→ read  (intent)</text>
+    <text class="l l3" x="18" y="114" xml:space="preserve" fill="#7d8590">→ ok  (human)</text>
+    <text class="l l4" x="18" y="134" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l5" x="18" y="154" xml:space="preserve" fill="#d7dae0">! parked at &#x27;ok&#x27; — a person must approve this node</text>
+    <text class="l l6" x="18" y="174" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l7" x="18" y="194" xml:space="preserve" fill="#d7dae0">Edit:</text>
+    <text class="l l8" x="18" y="214" xml:space="preserve" fill="#d7dae0">  .wringer/graphs/20260808-190048-cace/nodes/ok/decision.yaml</text>
+    <text class="l l9" x="18" y="234" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l10" x="18" y="254" xml:space="preserve" fill="#d7dae0">Then:</text>
+    <text class="l l11" x="18" y="274" xml:space="preserve" fill="#d7dae0">  wring graph resume .wringer/graphs/20260808-190048-cace</text>
+    <text class="l l12" x="18" y="294" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l13" x="18" y="314" xml:space="preserve" fill="#d7dae0">Graph evidence: .wringer/graphs/20260808-190048-cace/</text>
+    <text class="l l14" x="18" y="334" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l15" x="18" y="354" xml:space="preserve" fill="#56b6c2">$ echo &#x27;approved: true&#x27; | tee .wringer/graphs/*/nodes/ok/decision.yaml</text>
+    <text class="l l16" x="18" y="374" xml:space="preserve" fill="#d7dae0">approved: true</text>
+    <text class="l l17" x="18" y="394" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l18" x="18" y="414" xml:space="preserve" fill="#56b6c2">$ wring graph resume .wringer/graphs/20260808-190048-cace</text>
+    <text class="l l19" x="18" y="434" xml:space="preserve" fill="#d7dae0">graph demo — resuming 20260808-190048-cace</text>
+    <text class="l l20" x="18" y="454" xml:space="preserve" fill="#7d8590">→ ok  (human)</text>
+    <text class="l l21" x="18" y="474" xml:space="preserve" fill="#7d8590">→ build  (loop)</text>
+    <text class="l l22" x="18" y="494" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l23" x="18" y="514" xml:space="preserve" fill="#7d8590">iteration 1/3</text>
+    <text class="l l24" x="18" y="534" xml:space="preserve" fill="#f85149">✗ test failed        0.1s</text>
+    <text class="l l25" x="18" y="554" xml:space="preserve" fill="#7d8590">→ worker             0.0s  (exit 0)</text>
+    <text class="l l26" x="18" y="574" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l27" x="18" y="594" xml:space="preserve" fill="#7d8590">iteration 2/3</text>
+    <text class="l l28" x="18" y="614" xml:space="preserve" fill="#3fb950">✓ test passed        0.1s</text>
+    <text class="l l29" x="18" y="634" xml:space="preserve" fill="#7d8590">→ route  (router)</text>
+    <text class="l l30" x="18" y="654" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l31" x="18" y="674" xml:space="preserve" fill="#3fb950">✓ done — every node completed</text>
+    <text class="l l32" x="18" y="694" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l33" x="18" y="714" xml:space="preserve" fill="#d7dae0">Graph evidence: .wringer/graphs/20260808-190048-cace/</text>
+    <text class="l l34" x="18" y="734" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l35" x="18" y="754" xml:space="preserve" fill="#56b6c2">$ wring graph status .wringer/graphs/20260808-190048-cace</text>
+    <text class="l l36" x="18" y="774" xml:space="preserve" fill="#d7dae0">graph demo — 20260808-190048-cace</text>
+    <text class="l l37" x="18" y="794" xml:space="preserve" fill="#d7dae0">status: done — every node completed</text>
+    <text class="l l38" x="18" y="814" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l39" x="18" y="834" xml:space="preserve" fill="#3fb950">  ✓ read   intent  done</text>
+    <text class="l l40" x="18" y="854" xml:space="preserve" fill="#3fb950">  ✓ ok     human   done</text>
+    <text class="l l41" x="18" y="874" xml:space="preserve" fill="#3fb950">  ✓ build  loop    done</text>
+    <text class="l l42" x="18" y="894" xml:space="preserve" fill="#3fb950">  ✓ route  router  done</text>
+    <text class="l l43" x="18" y="914" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l44" x="18" y="934" xml:space="preserve" fill="#d7dae0">state:</text>
+    <text class="l l45" x="18" y="954" xml:space="preserve" fill="#d7dae0">  brief = nodes/read/brief.md</text>
+    <text class="l l46" x="18" y="974" xml:space="preserve" fill="#d7dae0">  build-status = converged</text>
+    <text class="l l47" x="18" y="994" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l48" x="18" y="1014" xml:space="preserve" fill="#d7dae0">Graph evidence: .wringer/graphs/20260808-190048-cace/</text>
+  </g>
+  <style>@keyframes k0{0%,0.00%{opacity:0}0.40%,95%{opacity:1}100%{opacity:0}}.l0{animation-name:k0}@keyframes k1{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l1{animation-name:k1}@keyframes k2{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l2{animation-name:k2}@keyframes k3{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l3{animation-name:k3}@keyframes k4{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l4{animation-name:k4}@keyframes k5{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l5{animation-name:k5}@keyframes k6{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l6{animation-name:k6}@keyframes k7{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l7{animation-name:k7}@keyframes k8{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l8{animation-name:k8}@keyframes k9{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l9{animation-name:k9}@keyframes k10{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l10{animation-name:k10}@keyframes k11{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l11{animation-name:k11}@keyframes k12{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l12{animation-name:k12}@keyframes k13{0%,7.00%{opacity:0}7.40%,95%{opacity:1}100%{opacity:0}}.l13{animation-name:k13}@keyframes k14{0%,21.00%{opacity:0}21.40%,95%{opacity:1}100%{opacity:0}}.l14{animation-name:k14}@keyframes k15{0%,21.00%{opacity:0}21.40%,95%{opacity:1}100%{opacity:0}}.l15{animation-name:k15}@keyframes k16{0%,28.00%{opacity:0}28.40%,95%{opacity:1}100%{opacity:0}}.l16{animation-name:k16}@keyframes k17{0%,42.00%{opacity:0}42.40%,95%{opacity:1}100%{opacity:0}}.l17{animation-name:k17}@keyframes k18{0%,42.00%{opacity:0}42.40%,95%{opacity:1}100%{opacity:0}}.l18{animation-name:k18}@keyframes k19{0%,49.00%{opacity:0}49.40%,95%{opacity:1}100%{opacity:0}}.l19{animation-name:k19}@keyframes k20{0%,49.00%{opacity:0}49.40%,95%{opacity:1}100%{opacity:0}}.l20{animation-name:k20}@keyframes k21{0%,49.00%{opacity:0}49.40%,95%{opacity:1}100%{opacity:0}}.l21{animation-name:k21}@keyframes k22{0%,49.00%{opacity:0}49.40%,95%{opacity:1}100%{opacity:0}}.l22{animation-name:k22}@keyframes k23{0%,49.00%{opacity:0}49.40%,95%{opacity:1}100%{opacity:0}}.l23{animation-name:k23}@keyframes k24{0%,51.00%{opacity:0}51.40%,95%{opacity:1}100%{opacity:0}}.l24{animation-name:k24}@keyframes k25{0%,52.00%{opacity:0}52.40%,95%{opacity:1}100%{opacity:0}}.l25{animation-name:k25}@keyframes k26{0%,52.00%{opacity:0}52.40%,95%{opacity:1}100%{opacity:0}}.l26{animation-name:k26}@keyframes k27{0%,52.00%{opacity:0}52.40%,95%{opacity:1}100%{opacity:0}}.l27{animation-name:k27}@keyframes k28{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l28{animation-name:k28}@keyframes k29{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l29{animation-name:k29}@keyframes k30{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l30{animation-name:k30}@keyframes k31{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l31{animation-name:k31}@keyframes k32{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l32{animation-name:k32}@keyframes k33{0%,54.00%{opacity:0}54.40%,95%{opacity:1}100%{opacity:0}}.l33{animation-name:k33}@keyframes k34{0%,68.00%{opacity:0}68.40%,95%{opacity:1}100%{opacity:0}}.l34{animation-name:k34}@keyframes k35{0%,69.00%{opacity:0}69.40%,95%{opacity:1}100%{opacity:0}}.l35{animation-name:k35}@keyframes k36{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l36{animation-name:k36}@keyframes k37{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l37{animation-name:k37}@keyframes k38{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l38{animation-name:k38}@keyframes k39{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l39{animation-name:k39}@keyframes k40{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l40{animation-name:k40}@keyframes k41{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l41{animation-name:k41}@keyframes k42{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l42{animation-name:k42}@keyframes k43{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l43{animation-name:k43}@keyframes k44{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l44{animation-name:k44}@keyframes k45{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l45{animation-name:k45}@keyframes k46{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l46{animation-name:k46}@keyframes k47{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l47{animation-name:k47}@keyframes k48{0%,75.00%{opacity:0}75.40%,95%{opacity:1}100%{opacity:0}}.l48{animation-name:k48}</style>
+</svg>

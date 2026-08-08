@@ -42,7 +42,7 @@
  },
  {
   "at": 1.2,
-  "text": "Loop evidence: .wringer/loops/20260807-110841-3aa5/"
+  "text": "Loop evidence: .wringer/loops/20260808-190046-db2e/"
  },
  {
   "at": 2.6,
@@ -50,7 +50,7 @@
  },
  {
   "at": 2.7,
-  "text": "$ ls -1 .wringer/runs/20260807-110841-a5c4/",
+  "text": "$ ls -1 .wringer/runs/20260808-190046-a3ac/",
   "prompt": true
  },
  {
@@ -80,9 +80,5 @@
  {
   "at": 3.3,
   "text": "summary.md"
- },
- {
-  "at": 3.3,
-  "text": "untracked.json"
  }
 ]

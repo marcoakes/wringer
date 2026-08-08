@@ -495,6 +495,7 @@ COMMITTED_CASTS = (
     "docs/demo.cast.json",
     "docs/start.cast.json",
     "docs/vacuous.cast.json",
+    "docs/graph.cast.json",
 )
 
 
@@ -522,8 +523,13 @@ def test_every_recorded_step_displays_exactly_what_it_executes(tmp_path):
     require_checkout("scripts/demo_record.py")
     module = demo_record_module()
     wring = "/somewhere/bin/wring"
-    # `_listing_step` reads a real run directory to name the newest run.
+    # Steps that name a real directory read one. `_listing_step` names the
+    # newest run; the graph steps name the newest graph run. Both refuse
+    # loudly when there is none, which is why they are given one here rather
+    # than made tolerant — a recorder that quietly filmed a placeholder is the
+    # bug this whole guard exists for.
     (tmp_path / ".wringer" / "runs" / "20260805-120000-abcd").mkdir(parents=True)
+    (tmp_path / ".wringer" / "graphs" / "20260805-120000-abcd").mkdir(parents=True)
 
     steps = {step for group in module.STEP_SETS.values() for step in group}
     assert steps, "STEP_SETS is empty — nothing is recorded at all"
@@ -748,6 +754,42 @@ def roadmap_module():
     return module
 
 
+def milestone_x(module, svg: str, label: str) -> str | None:
+    """Where the rail draws this milestone, from its own label element."""
+    import re
+
+    found = re.search(
+        rf'<text x="(\d+)"[^>]*>{re.escape(label)}</text>', svg
+    )
+    return found.group(1) if found else None
+
+
+def drawn_green(module, svg: str, label: str) -> bool:
+    """Whether the roadmap DRAWS this milestone as shipped.
+
+    Read from the filled circle on the rail, because that is what green means
+    here. The label is present for every milestone, done or not.
+
+    The previous version of this computed `f'>{label}</text>' in drawn and
+    probed` and compared that against `probed` — which is `X and probed` vs
+    `probed`, an expression that can only disagree when the label is missing
+    from the SVG entirely. So a node drawn green before it shipped passed, a
+    node drawn grey after it shipped passed, and the test's own name was the
+    thing that was untrue. Found 2026-08-08 while flipping P7.
+    """
+    import re
+
+    x = milestone_x(module, svg, label)
+    if x is None:
+        return False
+    return bool(
+        re.search(
+            rf'<circle cx="{x}" cy="\d+" r="11" fill="{re.escape(module.GREEN)}"/>',
+            svg,
+        )
+    )
+
+
 def test_every_milestone_the_roadmap_draws_green_is_really_shipped():
     require_checkout("scripts/roadmap_render.py", "docs/roadmap.svg")
     module = roadmap_module()
@@ -757,15 +799,48 @@ def test_every_milestone_the_roadmap_draws_green_is_really_shipped():
     wrong = []
     for milestone in module.MILESTONES:
         probed = milestone.done(root)
-        # The rendered node carries a ✓ only when its probe passed. Matched on
-        # the label's own text element so a caption cannot satisfy it.
-        marked = f'>{milestone.label}</text>' in drawn and probed
+        marked = drawn_green(module, drawn, milestone.label)
         if probed != marked:
             wrong.append(f"{milestone.label}: probe={probed} drawn={marked}")
     assert not wrong, (
         "docs/roadmap.svg disagrees with this checkout — regenerate it:\n"
         "  python3 scripts/roadmap_render.py docs/roadmap.svg <YYYY-MM-DD>\n"
         + "; ".join(wrong)
+    )
+
+
+def test_the_roadmap_guard_would_notice_a_node_drawn_green_too_early():
+    """The guard on the guard, because the guard above was a tautology.
+
+    A roadmap is a claim about what shipped, on the picture a reader looks at
+    first. The check that it is true has to be able to be false.
+    """
+    require_checkout("scripts/roadmap_render.py", "docs/roadmap.svg")
+    module = roadmap_module()
+    root = repo_root()
+    drawn = (root / "docs" / "roadmap.svg").read_text(encoding="utf-8")
+
+    unshipped = [m for m in module.MILESTONES if not m.done(root)]
+    if not unshipped:
+        pytest.skip("every milestone has shipped — nothing to paint green")
+    label = unshipped[0].label
+    assert not drawn_green(module, drawn, label)
+
+    # Paint that node green, exactly as the renderer paints a shipped one.
+    x = milestone_x(module, drawn, label)
+    doctored = drawn.replace(
+        f'<circle cx="{x}" cy="{module.RAIL_Y:.0f}" r="10" fill="{module.BG}" '
+        f'stroke="{module.DIM}" stroke-width="2"/>',
+        f'<circle cx="{x}" cy="{module.RAIL_Y:.0f}" r="11" '
+        f'fill="{module.GREEN}"/>',
+    )
+    assert doctored != drawn, (
+        f"the un-shipped node '{label}' is not drawn the way the renderer "
+        "draws one — this test is checking a shape that no longer exists"
+    )
+    assert drawn_green(module, doctored, label), (
+        "a milestone painted green is not detected as green, so the guard "
+        "above cannot fail"
     )
 
 

@@ -42,19 +42,19 @@
  },
  {
   "at": 1.2,
-  "text": "Loop evidence: .wringer/loops/20260807-110842-3992/"
+  "text": "Loop evidence: .wringer/loops/20260808-190047-3dc4/"
  },
  {
   "at": 2.6,
   "text": ""
  },
  {
-  "at": 2.6,
+  "at": 2.7,
   "text": "$ wring verify --prove",
   "prompt": true
  },
  {
-  "at": 3.5,
+  "at": 3.6,
   "text": "\u2713 test passed        0.1s"
  },
  {
@@ -71,7 +71,7 @@
  },
  {
   "at": 3.7,
-  "text": "  Both trees' output: .wringer/runs/20260807-110843-da4d/vacuity/"
+  "text": "  Both trees' output: .wringer/runs/20260808-190048-af33/vacuity/"
  },
  {
   "at": 3.7,
@@ -87,20 +87,20 @@
  },
  {
   "at": 3.7,
-  "text": ".wringer/runs/20260807-110843-da4d/"
+  "text": ".wringer/runs/20260808-190048-af33/"
  },
  {
   "at": 5.1,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "$ wring deliver",
   "prompt": true
  },
  {
   "at": 5.9,
-  "text": "wring deliver: refusing to deliver 20260807-110843-da4d \u2014 it recorded"
+  "text": "wring deliver: refusing to deliver 20260808-190048-af33 \u2014 it recorded"
  },
  {
   "at": 5.9,
@@ -116,7 +116,7 @@
  },
  {
   "at": 5.9,
-  "text": "20260807-110843-da4d/vacuity/ if you want to see why. There is no flag for"
+  "text": "20260808-190048-af33/vacuity/ if you want to see why. There is no flag for"
  },
  {
   "at": 5.9,

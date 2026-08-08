@@ -225,6 +225,34 @@ def test_a_forged_converged_state_still_cannot_deliver(
     )
 
 
+def test_the_refusal_a_graph_reports_fits_a_terminal(
+    repo, git_run, tmp_path_factory, monkeypatch, capsys
+):
+    """Delivery's refusals are prose, and prose composed for a graph's report
+    was printed raw: 142 columns for the gates refusal, in a message whose
+    entire job is to be read and acted on. That is `wring deliver`'s
+    402-column vacuity line again, one layer up — `_wrap_message` exists for
+    it and the graph's report was not using it.
+
+    Asserted as a property, never on where a line broke: the formatter has its
+    own tests, and pinning a break point here would test the formatter.
+    """
+    setup(repo, git_run, tmp_path_factory, worker_fixes=False, body=PAUSED)
+    monkeypatch.chdir(repo)
+    cli.main(["graph", "run", "graph.yaml"])
+    directory = only_graph(repo)
+    capsys.readouterr()
+
+    decision(directory).write_text(FORGERY, encoding="utf-8")
+    assert cli.main(["graph", "resume", str(directory)]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr()
+
+    over = [line for line in printed.out.splitlines() if len(line) > 80]
+    assert not over, f"{len(over)} line(s) run past any terminal: {over}"
+    # And the reflow must not have eaten the message.
+    assert "its gates did not pass" in flat(printed.out)
+
+
 def test_a_vacuous_bundle_is_refused_and_the_graph_does_not_route_around_it(
     repo, git_run, tmp_path_factory, monkeypatch, capsys
 ):

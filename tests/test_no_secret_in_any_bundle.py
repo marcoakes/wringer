@@ -21,6 +21,12 @@ environment, drives the commands that produce artifacts, then walks **every
 file under `.wringer/`** and asserts the values are in none of them. A write
 path added next year is covered the day it is added, by nobody's diligence.
 
+**It covers only the commands it DRIVES**, and that is the one place a new
+bundle can still slip past. `wring graph` shipped a whole bundle family —
+`.wringer/graphs/`, a staged intent file, a decision file, node references —
+and none of it was swept until a `graph` run was added to the list below. Add
+a command that writes artifacts, add it here in the same commit.
+
 Two secrets, deliberately:
 
 - `WRINGER_TEST_API_KEY` matches the redactor's default `*KEY*` pattern, so it
@@ -95,6 +101,47 @@ judge:
 deliver:
   branch: "wringer/{{run}}"
   remote: origin
+"""
+
+
+# The headline flow, so the sweep drives every graph write path there is:
+# an intent node staging a file (`notes.py`, which holds both credentials in
+# cleartext), a human node parking, a loop node running the same leaking
+# worker, a router, and a deliver node planning a real delivery.
+GRAPH = """\
+version: 1
+id: sweep
+inputs:
+  brief: notes.py
+budgets:
+  wall_clock: 900
+nodes:
+  read-brief:
+    kind: intent
+    input: inputs.brief
+    writes:
+      brief: state.brief
+    then: approve
+  approve:
+    kind: human
+    prompt: "Approve the sweep."
+    then: build
+  build:
+    kind: loop
+    budgets:
+      max_iterations: 3
+    writes:
+      status: state.build-status
+    then: route
+  route:
+    kind: router
+    routes:
+      - when: "state.build-status == 'converged'"
+        to: ship
+    default: fail
+  ship:
+    kind: deliver
+    then: done
 """
 
 
@@ -187,6 +234,77 @@ def test_no_command_writes_a_credential_into_any_artifact(
         "go through the Bundle's redactor — AGENTS.md: add it through the "
         f"Bundle or you have quietly opted out of SECURITY.md's guarantee.\n"
         f"{json.dumps(leaked, indent=2)}"
+    )
+
+
+def test_no_graph_run_writes_a_credential_into_any_artifact(
+    leaky_repo: Path, capsys
+):
+    """The same question, asked of the bundle family P7 added.
+
+    A graph run writes a ledger, a resolved graph, a state snapshot, a
+    manifest, a summary, digests, a staged intent file, a prompt, a decision
+    file and two node references — and it drives a loop and a delivery, each
+    writing bundles of their own. None of that was swept until this test
+    existed, which is the same gap that let two leaks ship: a new write path
+    nobody remembered to cover.
+
+    The intent node is the sharpest canary here. It copies `notes.py` — which
+    holds both credentials in cleartext — into evidence, and the only thing
+    standing between that file and the bundle is the redactor the node was
+    handed.
+    """
+    repo = leaky_repo
+
+    (repo / "graph.yaml").write_text(GRAPH, encoding="utf-8")
+
+    # Parks at the human node: exit 5, a person must act.
+    assert cli.main(["graph", "run", "graph.yaml"]) == cli.EXIT_NEEDS_HUMAN
+    graphs = sorted((repo / ".wringer" / "graphs").iterdir())
+    assert len(graphs) == 1, graphs
+    (graphs[0] / "nodes" / "approve" / "decision.yaml").write_text(
+        'approved: true\ncomments: ""\nstate_updates: {}\n', encoding="utf-8"
+    )
+    # No `--send`: the deliver node plans, writes the patch, and touches git
+    # not at all. The patch is the point — it carries `notes.py`.
+    assert cli.main(["graph", "resume", str(graphs[0])]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert artifacts(repo), "no artifacts were produced, so nothing was tested"
+    # Which write paths this actually reached, stated rather than assumed: a
+    # sweep is only as good as the files it swept, and "the command exited 0"
+    # does not say a delivery was planned or a brief was staged.
+    reached = {path.relative_to(repo).as_posix() for path in artifacts(repo)}
+    for expected in (".wringer/graphs/", ".wringer/deliveries/", ".wringer/loops/"):
+        assert any(path.startswith(expected) for path in reached), (
+            f"the graph run wrote nothing under {expected}, so the sweep did "
+            f"not cover it: {sorted(reached)[:10]}"
+        )
+    assert any(path.endswith("/brief.md") for path in reached), (
+        "the intent node staged nothing, so the file holding the credentials "
+        "never reached the bundle"
+    )
+
+    leaked = {
+        PLAIN_NAME: mentions(repo, PLAIN_VALUE),
+        KEYED_NAME: mentions(repo, KEYED_VALUE),
+    }
+    assert leaked == {PLAIN_NAME: [], KEYED_NAME: []}, (
+        "a credential reached an artifact of a graph run. Whatever wrote those "
+        "files did not go through the graph Bundle's redactor.\n"
+        f"{json.dumps(leaked, indent=2)}"
+    )
+
+    # The guard on the guard, for the graph's own directory specifically: if
+    # nothing under `.wringer/graphs/` was scrubbed, the secret never reached
+    # the graph's machinery and the assertion above passed over an empty tree.
+    scrubbed = [
+        path for path in mentions(repo, "[REDACTED]")
+        if path.startswith(".wringer/graphs/")
+    ]
+    assert scrubbed, (
+        "nothing in the graph bundle was scrubbed at all, so the sweep above "
+        "proved nothing about it"
     )
 
 

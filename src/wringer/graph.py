@@ -919,6 +919,11 @@ class Invocation:
     send: bool = False
     spent_by: str | None = None
     notes: list[str] = field(default_factory=list)
+    # The console the caller wants a loop node to write to — `cmd_run`'s own
+    # reporters, passed straight through to `loop.run`. §3c: same callbacks,
+    # so a graph run LOOKS LIKE the `wring run` users already know. Empty
+    # means silent, which is what `--json` and the tests want.
+    loop_console: dict[str, Any] = field(default_factory=dict)
 
     def authorise(self, node_id: str) -> bool:
         """Spend the typed flag, once. A second deliver node in the same run
@@ -1010,6 +1015,7 @@ def run(
     resuming: Replay | None = None,
     on_node: Any = None,
     send: bool = False,
+    loop_console: dict[str, Any] | None = None,
 ) -> Outcome:
     """Walk the graph until it is done, failed, or waiting for a person.
 
@@ -1025,7 +1031,7 @@ def run(
     replay = resuming or Replay((), dict(document.state), None, False)
     state = dict(replay.state)
     completed = list(replay.completed)
-    invocation = Invocation(send=send)
+    invocation = Invocation(send=send, loop_console=dict(loop_console or {}))
 
     if resuming is None:
         bundle.event("graph.started", graph_id=document.id, state=dict(state))
@@ -1214,7 +1220,7 @@ def _execute(
     if node.kind == "router":
         return {}, {}
     if node.kind == "loop":
-        return _run_loop(root, node, document, bundle)
+        return _run_loop(root, node, document, bundle, invocation)
     if node.kind == "deliver":
         return _run_deliver(root, node, document, bundle, invocation)
     raise NodeFailed(node.id, f"the '{node.kind}' node kind is not built yet")
@@ -1535,7 +1541,11 @@ def _remaining(document: Graph, bundle: Bundle) -> int:
 
 
 def _run_loop(
-    root: Path, node: Node, document: Graph, bundle: Bundle
+    root: Path,
+    node: Node,
+    document: Graph,
+    bundle: Bundle,
+    invocation: Invocation,
 ) -> tuple[dict[str, str], dict[str, Any]]:
     """Run the repair loop this node names — `loop.run`, in process.
 
@@ -1589,6 +1599,10 @@ def _run_loop(
             cfg,
             max_iterations=node.budgets.max_iterations,
             wall_clock=wall_clock,
+            # §3c: the SAME callbacks `cmd_run` wires, so a graph run looks
+            # like the `wring run` users already know. Passing none of them
+            # made a graph run the worker and the gates in total silence.
+            **invocation.loop_console,
         )
     except evidence.EvidenceError as exc:
         raise NodeFailed(node.id, str(exc)) from exc
