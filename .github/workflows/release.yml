@@ -38,9 +38,17 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      # Full history, for the same reason tests.yml has it: `roadmap_render`'s
+      # `ship` milestone is probed on v0.1.0 and v0.2.0 being in `git tag`, and
+      # a tag checkout at the default depth brings only the tag being built.
+      # The v0.3.0 tag failed here on exactly that — the fix had landed in
+      # tests.yml and not in this file, and the guard that was supposed to
+      # catch it named one workflow by hand. It now discovers every workflow
+      # that runs pytest.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -49,8 +57,15 @@ jobs:
         run: |
           set -o pipefail
           pytest -q 2>&1 | tee /tmp/pytest.log && exit 0
+          # `E  ` too, the way tests.yml has it. Without those continuation
+          # lines the annotation carries the test's NAME and not the assertion
+          # — which is what happened when the v0.3.0 tag failed here: the
+          # public annotation said "docs/roadmap.svg disagrees with this
+          # checkout" and stopped before naming the milestone. The whole
+          # reason these annotations exist is that the logs are login-walled,
+          # so the release path must be at least as legible as the test path.
           echo "::error title=pytest failed at the tag::$(
-            grep -E '^(FAILED|ERROR)' /tmp/pytest.log | head -20 |
+            grep -E '^(FAILED|ERROR|E  )' /tmp/pytest.log | head -20 |
             tr '\n' '%' | sed 's/%/%0A/g')"
           exit 1
       - name: Wringer verifies Wringer

@@ -860,17 +860,57 @@ def test_ci_fetches_the_evidence_the_roadmaps_probes_need():
     Derived, not hardcoded: the requirement exists only while some milestone
     is probed on a tag.
     """
-    require_checkout("scripts/roadmap_render.py", ".github/workflows/tests.yml")
+    require_checkout("scripts/roadmap_render.py", ".github/workflows")
     module = roadmap_module()
     if not any(milestone.tags for milestone in module.MILESTONES):
         pytest.skip("no milestone is probed on a git tag")
 
-    workflow = (
-        repo_root() / ".github" / "workflows" / "tests.yml"
-    ).read_text(encoding="utf-8")
-    assert "fetch-depth: 0" in workflow or "fetch-tags: true" in workflow, (
-        "a milestone is probed on a git tag, but the test workflow checks out "
-        "without fetching tags — the roadmap guard can only fail in CI"
+    # EVERY workflow that runs pytest, discovered — not `tests.yml` by name.
+    # The first version of this guard named one file, `tests.yml` was fixed,
+    # and `release.yml` was not: the v0.3.0 tag's own gate then failed on
+    # exactly the assertion this test exists to prevent failing only in CI.
+    # A hand-picked scope is the same defect as a hand-kept list, and this
+    # repo has now shipped both in one week.
+    workflows = sorted((repo_root() / ".github" / "workflows").glob("*.yml"))
+    assert workflows, "no workflows found — this guard is checking nothing"
+
+    offenders = []
+    for path in workflows:
+        body = path.read_text(encoding="utf-8")
+        if "pytest" not in body:
+            continue
+        if "fetch-depth: 0" not in body and "fetch-tags: true" not in body:
+            offenders.append(path.name)
+    assert not offenders, (
+        f"{offenders} run pytest but check out without fetching tags, and a "
+        "milestone is probed on a git tag — the roadmap guard can only fail "
+        "there, which is exactly how the v0.3.0 tag broke"
+    )
+
+
+def test_every_pytest_annotation_carries_the_assertion_not_just_the_name():
+    """CI logs here are login-walled; the `::error::` annotations are not, and
+    they are the documented way to read a red build (AGENTS.md gotchas).
+
+    An annotation grepping only `FAILED`/`ERROR` gives the test's NAME and
+    drops the `E  ` continuation lines where the assertion lives. The v0.3.0
+    release failure did exactly that: the public annotation said
+    "docs/roadmap.svg disagrees with this checkout" and stopped before naming
+    which milestone, so the one place a reader can see the cause showed half
+    of it. `tests.yml` had the wider filter and `release.yml` did not.
+    """
+    require_checkout(".github/workflows")
+    offenders = []
+    for path in sorted((repo_root() / ".github" / "workflows").glob("*.yml")):
+        body = path.read_text(encoding="utf-8")
+        if "::error title=pytest" not in body:
+            continue
+        if "E  " not in body:
+            offenders.append(path.name)
+    assert not offenders, (
+        f"{offenders} annotate a pytest failure without the `E  ` lines, so "
+        "the annotation names the test and hides the assertion — and the "
+        "logs behind it need a login"
     )
 
 
