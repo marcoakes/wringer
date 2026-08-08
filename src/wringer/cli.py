@@ -165,10 +165,22 @@ def build_parser() -> argparse.ArgumentParser:
     graph_resume.add_argument("--send", action="store_true", help=_GRAPH_SEND_HELP)
     graph_resume.set_defaults(func=cmd_graph_resume)
 
-    graph_render = graph_verbs.add_parser(
-        "render", help="emit a Mermaid diagram of a graph file"
+    graph_status = graph_verbs.add_parser(
+        "status", help="one screen: where a graph run is, and why"
     )
-    graph_render.add_argument("graph", metavar="GRAPH_YAML")
+    graph_status.add_argument("run", metavar="GRAPH_DIR")
+    graph_status.set_defaults(func=cmd_graph_status)
+
+    graph_explain = graph_verbs.add_parser(
+        "explain", help="why a graph run stopped, and the next action"
+    )
+    graph_explain.add_argument("run", metavar="GRAPH_DIR")
+    graph_explain.set_defaults(func=cmd_graph_explain)
+
+    graph_render = graph_verbs.add_parser(
+        "render", help="emit a Mermaid diagram of a graph file or a graph run"
+    )
+    graph_render.add_argument("graph", metavar="GRAPH_YAML|GRAPH_DIR")
     graph_render.add_argument(
         "--output", metavar="FILE", help="write here instead of stdout"
     )
@@ -1207,10 +1219,145 @@ def _report_graph(outcome, root: Path) -> None:
     print(f"\nGraph evidence: {where}/")
 
 
-def cmd_graph_render(args: argparse.Namespace) -> int:
-    """Mermaid, derived from the graph rather than maintained beside it."""
+# The glyph for each mark on the status screen. Presentation, so it lives
+# here; `graph.py` owns the words, and this maps one to one onto them.
+GRAPH_MARKS = {graph.DONE: "✓", graph.WAITING: "!", graph.PENDING: "·"}
+
+
+def _graph_run_at(named: str, command: str):
+    """Reopen a graph run for reading, or say why it is not one.
+
+    Both reporting verbs read the ledger and `graph.resolved.json`, so both
+    describe the run as it was executed. The author's YAML is deliberately
+    never opened here: it describes the next run.
+    """
+    root = git.find_root(Path.cwd())
     try:
-        loaded = graph.load(Path(args.graph))
+        bundle = graph.Bundle.at(Path(named), redactor=_graph_redactor(root))
+        return root, bundle, graph.resolved(bundle)
+    except graph.GraphError as exc:
+        _fail(command, exc)
+        return None
+
+
+def cmd_graph_status(args: argparse.Namespace) -> int:
+    """One screen: where the run is, and why (SPEC_GRAPH_V0 §1).
+
+    Exit 0 whenever the bundle could be read, whatever it says. Returning the
+    run's own code would make a *report* claim "a person must act" — which is
+    the run's claim to make, not its reader's.
+    """
+    opened = _graph_run_at(args.run, "graph status")
+    if opened is None:
+        return EXIT_CONFIG
+    root, bundle, document = opened
+    state = graph.progress(bundle, document)
+
+    print(f"graph {state.graph_id} — {state.run_id}")
+    print(f"status: {state.status} — {state.reason}")
+    if state.current:
+        print(f"at:     {state.current}  ({document.node(state.current).kind})")
+    print()
+
+    width = max(len(node_id) for node_id, _, _ in state.marks)
+    kinds = max(len(kind) for _, kind, _ in state.marks)
+    for node_id, kind, mark in state.marks:
+        print(
+            f"  {GRAPH_MARKS[mark]} {node_id.ljust(width)}  "
+            f"{kind.ljust(kinds)}  {mark}"
+        )
+
+    if state.state:
+        print("\nstate:")
+        for key, value in sorted(state.state.items()):
+            print(f"  {key} = {value}")
+
+    print(f"\nGraph evidence: {_relative(bundle.directory, root)}/")
+    return EXIT_OK
+
+
+def cmd_graph_explain(args: argparse.Namespace) -> int:
+    """Why it stopped, and the next action — from the ledger, never an LLM."""
+    opened = _graph_run_at(args.run, "graph explain")
+    if opened is None:
+        return EXIT_CONFIG
+    root, bundle, document = opened
+    state = graph.progress(bundle, document)
+    where = _relative(bundle.directory, root)
+
+    print(f"graph {state.graph_id} — {state.run_id}")
+    if state.status == "done":
+        print(f"\nIt reached 'done' — {state.reason}.")
+    elif state.stopped_at:
+        kind = next(
+            (k for node_id, k, _ in state.marks if node_id == state.stopped_at), "?"
+        )
+        print(f"\nIt stopped at '{state.stopped_at}' ({kind}) — {state.status}.")
+    else:
+        print(f"\nIt stopped — {state.status}.")
+
+    print(f"\nWhy:\n  {state.reason}")
+    print("\nNext:")
+    for line in _graph_next_actions(state, where):
+        print(line)
+    return EXIT_OK
+
+
+def _graph_next_actions(state, where: str) -> list[str]:
+    """The next action, and only ones that would actually work.
+
+    A failed graph has a `graph.finished` event, so `wring graph resume`
+    refuses it — offering it there would be advice that cannot be taken, which
+    is the thing this repo keeps finding in its own refusal messages.
+    """
+    if state.status == "parked":
+        return [
+            f"  1. Edit {where}/{graph.NODES_DIRNAME}/{state.current}/"
+            f"{graph.DECISION_FILENAME} by hand and set `approved: true`.",
+            "     Nothing else can approve it — no flag, no environment "
+            "variable, no model reply.",
+            "  2. Then:",
+            f"       wring graph resume {where}",
+        ]
+    if state.status == "interrupted":
+        return [
+            "  The ledger stops mid-run, which is what a kill leaves. Resume "
+            "picks up",
+            "  at the next node and never re-runs a completed one:",
+            f"       wring graph resume {where}",
+        ]
+    if state.status == "failed":
+        return [
+            "  Fix what the reason above names, then start a new run — a "
+            "finished graph",
+            "  does not resume, so `wring graph run` on your graph file is "
+            "the next step.",
+        ]
+    lines = []
+    for node_id, run_dir in state.dry_runs:
+        lines += [
+            f"  The '{node_id}' deliver node was a dry run — git was not "
+            "touched.",
+            "  To deliver that run:",
+            f"       wring deliver {run_dir} --send",
+        ]
+    return lines or ["  Nothing — every node completed."]
+
+
+def cmd_graph_render(args: argparse.Namespace) -> int:
+    """Mermaid, derived from the graph rather than maintained beside it.
+
+    A run directory draws what RAN, from `graph.resolved.json`; a YAML file
+    draws what the file says today. Same renderer, so the two can never be
+    two pictures.
+    """
+    target = Path(args.graph)
+    try:
+        loaded = (
+            graph.resolved(graph.Bundle.at(target))
+            if target.is_dir()
+            else graph.load(target)
+        )
     except graph.GraphError as exc:
         _fail("graph render", exc)
         return EXIT_CONFIG

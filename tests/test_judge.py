@@ -481,17 +481,34 @@ def test_the_api_key_value_is_redacted_out_of_the_request(repo, monkeypatch, cap
 
 
 def test_verify_and_run_can_never_return_needs_human(repo, monkeypatch, capsys):
-    """5 belongs to `wring judge` alone."""
+    """These two never return 5, and that has not changed.
+
+    SPEC_JUDGE §2 used to say 5 belonged to `wring judge` alone; SPEC_GRAPH_V0
+    §5.3 amended that sentence by name, and `wring graph run`/`resume` return
+    it for a parked graph — the same claim, *nothing was decided; a person
+    must act*. This assertion is EXTENDED rather than weakened: the graph's
+    non-deciding verbs are added here, and the deciding ones are pinned in
+    `tests/test_graph_status.py` where a genuinely parked bundle exists to
+    pin them against.
+    """
     setup_repo(repo, gate='"false"')
     (repo / ".wringer.yaml").write_text(
         (repo / ".wringer.yaml").read_text(encoding="utf-8")
         + 'run:\n  worker: "true"\n  max_iterations: 1\n',
         encoding="utf-8",
     )
+    (repo / "graph.yaml").write_text(
+        "version: 1\nid: tiny\nbudgets:\n  wall_clock: 60\n"
+        "nodes:\n  only:\n    kind: human\n"
+        '    prompt: "look at it"\n    then: done\n',
+        encoding="utf-8",
+    )
     monkeypatch.chdir(repo)
 
     assert cli.main(["verify"]) != cli.EXIT_NEEDS_HUMAN
     assert cli.main(["run"]) != cli.EXIT_NEEDS_HUMAN
+    assert cli.main(["graph", "validate", "graph.yaml"]) != cli.EXIT_NEEDS_HUMAN
+    assert cli.main(["graph", "render", "graph.yaml"]) != cli.EXIT_NEEDS_HUMAN
     capsys.readouterr()
 
 

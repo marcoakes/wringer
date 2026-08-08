@@ -1375,6 +1375,140 @@ def resolved(bundle: Bundle) -> Graph:
     )
 
 
+# What a node has or has not done, for the one-screen report. Single words,
+# because a status screen is read in a column.
+DONE, WAITING, PENDING = "done", "waiting", "not reached"
+
+
+@dataclass(frozen=True)
+class Progress:
+    """Where a run got to — for `status` and `explain`.
+
+    Derived from `graph.jsonl` and `graph.resolved.json`, and from nothing
+    else. Not `state.json`, not `manifest.json`: those are conveniences, and a
+    reporter that trusted them would be describing the two cheapest files in
+    the bundle rather than what happened. Not the author's YAML either — that
+    file describes the NEXT run.
+    """
+
+    graph_id: str
+    run_id: str
+    status: str  # one of STATUSES
+    reason: str
+    current: str | None
+    completed: tuple[str, ...]
+    state: dict[str, str]
+    marks: tuple[tuple[str, str, str], ...]  # (node id, kind, mark)
+    stopped_at: str | None  # the node the reason is ABOUT, sink routes included
+    dry_runs: tuple[tuple[str, str], ...]  # (deliver node id, its run bundle)
+
+
+def progress(bundle: Bundle, document: Graph) -> Progress:
+    """Replay a run into the answer both reporting verbs need."""
+    events = bundle.read_events()
+    replay = Replay.of(events)
+
+    finished = _last(events, "graph.finished")
+    failed = _last(events, "node.failed")
+    parked = _last(events, "node.parked")
+
+    if finished is not None:
+        status = str(finished.get("status") or "failed")
+        if status not in STATUSES:
+            # The ledger is a file, and a file can be edited. A status this
+            # program does not have a meaning for is read as the safe one.
+            status = "failed"
+        reason = str(finished.get("reason") or "")
+        current = None
+    elif replay.parked_at is not None:
+        status = "parked"
+        reason = str((parked or {}).get("reason") or "a person must act")
+        current = replay.parked_at
+    else:
+        # Neither an ending nor a park: the ledger simply stops, which is the
+        # shape `kill -9` leaves. Calling that "parked" would send somebody to
+        # edit a decision file nobody is waiting on.
+        status = "interrupted"
+        current = _next_after(document, list(replay.completed))
+        reason = (
+            f"the ledger stops after '{replay.completed[-1]}' — the run was "
+            "killed or is still going"
+            if replay.completed
+            else "the ledger records no finished node"
+        )
+
+    stopped_at = current
+    if status == "failed":
+        routed = [
+            event
+            for event in events
+            if event.get("type") == "route.selected" and event.get("to") == "fail"
+        ]
+        # A node that failed says more than a router that fell through, and a
+        # router that fell through says more than "a route led to fail".
+        stopped_at = (
+            str(failed.get("node_id"))
+            if failed is not None
+            else (str(routed[-1].get("node_id")) if routed else None)
+        )
+        if failed is not None:
+            reason = str(failed.get("reason") or reason)
+        elif routed:
+            matched = str(routed[-1].get("when") or "default")
+            reason = f"'{routed[-1].get('node_id')}' routed to fail on {matched}"
+
+    kinds = {node.id: node.kind for node in document.nodes}
+    marks = tuple(
+        (
+            node.id,
+            node.kind,
+            DONE
+            if node.id in replay.completed
+            else (WAITING if node.id == current else PENDING),
+        )
+        for node in document.nodes
+    )
+
+    dry_runs = []
+    for event in events:
+        if (
+            event.get("type") == "node.finished"
+            and kinds.get(event.get("node_id")) == "deliver"
+            and event.get("status") == "dry_run"
+        ):
+            dry_runs.append(
+                (str(event["node_id"]), _delivered_from(bundle, str(event["node_id"])))
+            )
+
+    return Progress(
+        graph_id=document.id,
+        run_id=bundle.graph_run_id,
+        status=status,
+        reason=reason,
+        current=current,
+        completed=replay.completed,
+        state=replay.state,
+        marks=marks,
+        stopped_at=stopped_at,
+        dry_runs=tuple(dry_runs),
+    )
+
+
+def _last(events: list[dict[str, Any]], event_type: str) -> dict[str, Any] | None:
+    found = [event for event in events if event.get("type") == event_type]
+    return found[-1] if found else None
+
+
+def _delivered_from(bundle: Bundle, node_id: str) -> str:
+    """The run bundle a dry-run deliver node planned against, so `explain` can
+    name the command that would finish the job."""
+    path = bundle.directory / NODES_DIRNAME / node_id / DELIVER_REF_FILENAME
+    try:
+        return str(json.loads(path.read_text(encoding="utf-8"))["run_dir"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return ""
+
+
 def _reparse(when: str) -> tuple[str, str, tuple[str, ...]]:
     """A route expression from a resolved graph, back into its parts.
 

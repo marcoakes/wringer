@@ -57,7 +57,24 @@ wring judge --json               # one object on stdout, no human report
 ```
 
 **Exit codes.** `0`–`4` keep the meanings the other commands gave them; `5`
-is new, and belongs to `wring judge` alone.
+is new.
+
+> **Restated for P7** (SPEC_GRAPH_V0.md §5.3, which amends this sentence by
+> name). This read *"and belongs to `wring judge` alone"*. It does not any
+> more: `wring graph run` and `wring graph resume` return `5` for a **parked**
+> graph, because that is the same claim this command makes with it —
+> *nothing was decided; a person must act*. `0` there would make `wring graph
+> run && deploy` ship a graph nobody approved, and `1` would page someone for
+> a graph that is merely waiting for them. The family is now three commands
+> and one meaning, not two meanings sharing a number.
+>
+> Everything else is unchanged, and provably: `wring verify` and `wring run`
+> still never return `5`, guarded below. Nor do `wring graph status` and
+> `wring graph explain` — they report on the claim, they do not make it.
+>
+> This restatement was owed by the commit that registered the graph CLI
+> (`595d791`) and was missed there; it is written here rather than quietly
+> left, which is the same rule SPEC_GET_V0 §7 follows.
 
 | code | meaning |
 |---|---|
