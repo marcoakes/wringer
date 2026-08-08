@@ -820,11 +820,14 @@ def test_the_roadmap_guard_would_notice_a_node_drawn_green_too_early():
     root = repo_root()
     drawn = (root / "docs" / "roadmap.svg").read_text(encoding="utf-8")
 
-    unshipped = [m for m in module.MILESTONES if not m.done(root)]
-    if not unshipped:
-        pytest.skip("every milestone has shipped — nothing to paint green")
-    label = unshipped[0].label
-    assert not drawn_green(module, drawn, label)
+    # A node the SVG draws GREY, whatever its probe says. Picking one by its
+    # probe made this test depend on the picture and the probes already
+    # agreeing — which is the thing the test above checks, so a single
+    # disagreement failed both and only one of them meaningfully.
+    grey = [m for m in module.MILESTONES if not drawn_green(module, drawn, m.label)]
+    if not grey:
+        pytest.skip("every milestone is drawn green — nothing to paint")
+    label = grey[0].label
 
     # Paint that node green, exactly as the renderer paints a shipped one.
     x = milestone_x(module, drawn, label)
@@ -841,6 +844,33 @@ def test_the_roadmap_guard_would_notice_a_node_drawn_green_too_early():
     assert drawn_green(module, doctored, label), (
         "a milestone painted green is not detected as green, so the guard "
         "above cannot fail"
+    )
+
+
+def test_ci_fetches_the_evidence_the_roadmaps_probes_need():
+    """A probe CI cannot answer is a probe that fails only in CI.
+
+    `roadmap_render.py`'s `ship` milestone is probed on `v0.1.0` and `v0.2.0`
+    being in `git tag`. `actions/checkout` fetches neither by default, so the
+    probe answered "shipped" on every developer's machine and "not shipped" on
+    every runner — and nothing noticed, because the roadmap guard was a
+    tautology. Un-breaking that guard turned the latent difference into a red
+    build within one push (2026-08-08).
+
+    Derived, not hardcoded: the requirement exists only while some milestone
+    is probed on a tag.
+    """
+    require_checkout("scripts/roadmap_render.py", ".github/workflows/tests.yml")
+    module = roadmap_module()
+    if not any(milestone.tags for milestone in module.MILESTONES):
+        pytest.skip("no milestone is probed on a git tag")
+
+    workflow = (
+        repo_root() / ".github" / "workflows" / "tests.yml"
+    ).read_text(encoding="utf-8")
+    assert "fetch-depth: 0" in workflow or "fetch-tags: true" in workflow, (
+        "a milestone is probed on a git tag, but the test workflow checks out "
+        "without fetching tags — the roadmap guard can only fail in CI"
     )
 
 

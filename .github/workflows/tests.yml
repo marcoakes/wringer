@@ -13,7 +13,20 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
+      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
+      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
+      # default fetches neither — so the probe answered "not shipped" here
+      # and "shipped" on any developer's machine. The roadmap guard could not
+      # see the disagreement until it stopped being a tautology (2026-08-08);
+      # the fix is to give CI the evidence, not to weaken the probe.
+      #
+      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
+      # full history unambiguously brings the tags, and this repo is small
+      # enough that the extra seconds are not worth a subtlety I cannot test
+      # from here.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -41,7 +54,20 @@ jobs:
         # its git and doctor behaviour is not.
         os: [ubuntu-latest, macos-latest]
     steps:
+      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
+      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
+      # default fetches neither — so the probe answered "not shipped" here
+      # and "shipped" on any developer's machine. The roadmap guard could not
+      # see the disagreement until it stopped being a tautology (2026-08-08);
+      # the fix is to give CI the evidence, not to weaken the probe.
+      #
+      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
+      # full history unambiguously brings the tags, and this repo is small
+      # enough that the extra seconds are not worth a subtlety I cannot test
+      # from here.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -63,7 +89,20 @@ jobs:
           # the maintainer develops on macOS; the timeout path is POSIX-specific
           - { os: macos-latest, python-version: "3.12" }
     steps:
+      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
+      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
+      # default fetches neither — so the probe answered "not shipped" here
+      # and "shipped" on any developer's machine. The roadmap guard could not
+      # see the disagreement until it stopped being a tautology (2026-08-08);
+      # the fix is to give CI the evidence, not to weaken the probe.
+      #
+      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
+      # full history unambiguously brings the tags, and this repo is small
+      # enough that the extra seconds are not worth a subtlety I cannot test
+      # from here.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
