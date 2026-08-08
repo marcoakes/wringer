@@ -23,6 +23,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from conftest import flat
 
 from wringer import cli, deliver, graph
@@ -714,6 +715,55 @@ def test_a_redactable_value_in_the_diff_does_not_block_a_graphs_delivery(
     )
     written = (deliveries(repo)[0] / deliver.PATCH_FILENAME).read_text("utf-8")
     assert secret not in written
+
+
+def test_the_shipped_example_graph_runs_end_to_end(
+    repo, git_run, tmp_path_factory, monkeypatch, capsys
+):
+    """SPEC_GRAPH_V0 §7's first box, and the one nothing was checking.
+
+    "The example graph validates, runs to `done` on a scratch repo with a real
+    worker, parks at the human node, and resumes after a hand edit — all
+    through real processes, nothing mocked." It was validated and never RUN,
+    so every claim past the first was carried by a graph written in a test
+    file that happened to have the same shape. The one the README points at is
+    the one that has to work.
+    """
+    example = Path(__file__).resolve().parent.parent / "examples" / "graphs"
+    if not (example / "issue-to-mr.yaml").is_file():
+        pytest.skip("examples/ is not part of the distribution")
+
+    setup(repo, git_run, tmp_path_factory, body=(example / "issue-to-mr.yaml")
+          .read_text(encoding="utf-8"))
+    # Its `inputs.task` names a path inside the repo, so the example's own
+    # brief is staged rather than a stand-in for it.
+    tasks = repo / "examples" / "tasks"
+    tasks.mkdir(parents=True)
+    (tasks / "example-issue.md").write_text(
+        (example.parent / "tasks" / "example-issue.md").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    git_run(repo, "add", "-A")
+    git_run(repo, "commit", "-qm", "the example's own brief")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["graph", "run", "graph.yaml"]) == cli.EXIT_NEEDS_HUMAN
+    directory = only_graph(repo)
+    capsys.readouterr()
+
+    staged = directory / graph.NODES_DIRNAME / "read-intent" / "brief.md"
+    assert "CSV export" in staged.read_text(encoding="utf-8")
+
+    decision(directory, "approve-plan").write_text(APPROVED, encoding="utf-8")
+    code = cli.main(["graph", "resume", str(directory)])
+    printed = capsys.readouterr()
+
+    assert code == cli.EXIT_OK, flat(printed.out) + flat(printed.err)
+    assert delivery_manifest(repo)["mode"] == "dry_run"
+    assert [
+        e["status"] for e in events(directory)
+        if e["type"] == "node.finished" and e["node_id"] == "build"
+    ] == ["converged"]
 
 
 def test_a_refused_delivery_keeps_its_own_exit_code(
