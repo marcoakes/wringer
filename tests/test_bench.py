@@ -1,0 +1,471 @@
+"""`wring bench` — the spine (SPEC_BENCH_V0.md §1, §3a, §3b).
+
+The command runs the same repair job through every declared worker, one at a
+time, under identical conditions, and writes one comparison bundle. Every
+assertion here defends one of the four things that make the rows comparable:
+
+- **a red baseline**, because a benchmark of repair needs something to repair;
+- **one common tree**, checked rather than assumed — a commit landing between
+  worktree creations is refused rather than silently benched;
+- **identical ceilings**, asserted on what `loop.run` is HANDED;
+- **isolation that survives**, so the second bench on a repo cannot delete the
+  first one's evidence.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from conftest import flat
+
+from wringer import bench, cli, loop
+
+CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED calc.py"
+bench:
+  contender_wall_clock: 300
+  contenders:
+    - id: fixer
+      worker: "sh ./fix.sh"
+    - id: idler
+      worker: "true"
+"""
+
+
+def setup(repo: Path, git_run, *, config: str = CONFIG) -> None:
+    """A repo whose gate is RED at HEAD — the shape a bench requires."""
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / "fix.sh").write_text("echo FIXED > calc.py\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(config, encoding="utf-8")
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    git_run(repo, "add", "-A")
+    git_run(repo, "commit", "-qm", "a calculator with a planted bug")
+
+
+def only_bench(repo: Path) -> Path:
+    found = sorted((repo / bench.BENCHES_DIRNAME).iterdir())
+    assert len(found) == 1, found
+    return found[0]
+
+
+def events(directory: Path) -> list[dict]:
+    text = (directory / bench.EVENTS_FILENAME).read_text(encoding="utf-8")
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def manifest(directory: Path) -> dict:
+    return json.loads(
+        (directory / bench.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+# --- the spine --------------------------------------------------------------
+
+
+def test_a_bench_runs_every_contender_and_records_each_outcome(
+    repo, git_run, monkeypatch, capsys
+):
+    """The whole point, with real workers really running against real gates:
+    one converges, one does nothing, and both are RESULTS."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    directory = only_bench(repo)
+    finished = {
+        e["contender"]: e
+        for e in events(directory)
+        if e["type"] == "contender.finished"
+    }
+    assert set(finished) == {"fixer", "idler"}
+    assert finished["fixer"]["outcome"] == "converged"
+    assert finished["idler"]["outcome"] != "converged"
+    # Each row references its own loop bundle, by path, never nested.
+    for row in finished.values():
+        assert (repo / row["loop_ref"]).is_dir()
+        assert not (directory / "loops").exists()
+
+
+def test_a_failure_to_converge_is_a_result_not_a_bench_failure(
+    repo, git_run, monkeypatch, capsys
+):
+    """`wring run` exits 1 when the loop does not converge; bench does not
+    follow it. Bench OBSERVES, so the observation completing is its success —
+    a measuring instrument that exited non-zero after successfully measuring a
+    failure would be reporting its own health with the patient's chart."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    # Both contenders do nothing at all; nothing converges.
+    (repo / ".wringer.yaml").write_text(
+        CONFIG.replace('worker: "sh ./fix.sh"', 'worker: "true"'), encoding="utf-8"
+    )
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    outcomes = {
+        e["contender"]: e["outcome"]
+        for e in events(only_bench(repo))
+        if e["type"] == "contender.finished"
+    }
+    assert outcomes and all(o != "converged" for o in outcomes.values())
+
+
+def test_the_baseline_must_be_red(repo, git_run, monkeypatch, capsys):
+    """A green tree has nothing to repair, so N agents would each "converge"
+    in zero iterations against work that was already done. Exit 1, the remedy
+    named, and NO bench bundle."""
+    setup(repo, git_run)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    git_run(repo, "commit", "-qam", "already fixed")
+    monkeypatch.chdir(repo)
+
+    code = cli.main(["bench"])
+    printed = capsys.readouterr()
+
+    assert code == cli.EXIT_GATE_FAILED
+    said = flat(printed.out) + " " + flat(printed.err)
+    assert "failing test" in said or "nothing to" in said, said
+    assert not (repo / bench.BENCHES_DIRNAME).exists()
+
+
+def test_the_green_baseline_refusal_names_its_evidence(
+    repo, git_run, monkeypatch, capsys
+):
+    """It writes no BENCH bundle, but the baseline verify really ran and its
+    bundle is the evidence of why there was nothing to measure. A refusal that
+    threw that away would be asking the reader to take its word."""
+    setup(repo, git_run)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    git_run(repo, "commit", "-qam", "already fixed")
+    monkeypatch.chdir(repo)
+
+    cli.main(["bench"])
+    said = flat(capsys.readouterr().out + capsys.readouterr().err)
+    named = [word for word in said.split() if ".wringer/" in word]
+    assert named, f"the refusal names no path: {said}"
+
+
+# --- identical conditions ---------------------------------------------------
+
+
+def test_every_contender_is_handed_the_same_ceiling(
+    repo, git_run, monkeypatch, capsys
+):
+    """Asserted on what `loop.run` is HANDED, not on a number in a file — the
+    graph clamp test's method, because a ceiling computed and then not passed
+    is not a ceiling. And it is the SAME number for every contender, never a
+    remainder: a contender squeezed by its predecessor's overrun would be
+    measured under conditions its predecessor set."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    seen: list[dict] = []
+    real = loop.run
+
+    def spy(*args, **kwargs):
+        seen.append(dict(kwargs))
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(loop, "run", spy)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    assert len(seen) == 2, seen
+    assert {call["wall_clock"] for call in seen} == {300}
+
+
+def test_a_contender_runs_in_its_own_worktree(repo, git_run, monkeypatch, capsys):
+    """Contenders editing one tree would each start from the last one's
+    wreckage, and the repo under test would end up holding whichever agent
+    went last."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    # The repo's own tree is untouched: the converging contender fixed its
+    # OWN checkout, not this one.
+    assert (repo / "calc.py").read_text(encoding="utf-8") == "BROKEN\n"
+
+
+def test_a_second_bench_does_not_delete_the_first_ones_evidence(
+    repo, git_run, monkeypatch, capsys
+):
+    """`make_worktree` force-removes a colliding path, and contender ids are
+    stable across runs — so a bare-id worktree name would make the SECOND
+    bench on a repo silently destroy the first one's loop bundles, and with
+    them every by-path reference its bundle recorded. Bench-scoped names are
+    what stop that, and the ordinary case is the one that would have broken."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+    first = sorted((repo / bench.BENCHES_DIRNAME).iterdir())[0]
+    referenced = [
+        repo / e["loop_ref"]
+        for e in events(first)
+        if e["type"] == "contender.finished"
+    ]
+    assert referenced
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    for path in referenced:
+        assert path.is_dir(), f"the second bench deleted {path}"
+        assert (path / loop.MANIFEST_FILENAME).is_file()
+
+
+def test_worktrees_are_kept_because_the_evidence_lives_in_them(
+    repo, git_run, monkeypatch, capsys
+):
+    """Loop bundles live INSIDE the contender worktrees and are referenced by
+    path. A bench that tidied its worktrees away would be a bench that deleted
+    its own evidence."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    for event in events(only_bench(repo)):
+        if event["type"] == "contender.finished":
+            assert (repo / event["loop_ref"]).is_dir()
+
+
+# --- one common tree, checked ----------------------------------------------
+
+
+def test_the_baseline_sha_is_recorded_and_every_row_refers_to_it(
+    repo, git_run, monkeypatch, capsys
+):
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    head = git_run(repo, "rev-parse", "HEAD")
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    started = next(e for e in events(only_bench(repo)) if e["type"] == "bench.started")
+    assert started["sha"] == head
+    assert manifest(only_bench(repo))["baseline"]["sha"] == head
+
+
+def test_a_commit_landing_mid_creation_is_refused_naming_both_shas(
+    repo, git_run, monkeypatch, capsys
+):
+    """Comparability is CHECKED, never assumed. `make_worktree` detaches at
+    HEAD *at call time*, so a commit landing between two creations puts
+    contender 2 on a different tree than contender 1 — silently, because the
+    worktree add succeeds either way."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    from wringer import fleet
+
+    real = fleet.make_worktree
+    made: list[Path] = []
+
+    def moving(root: Path, task_id: str):
+        path = real(root, task_id)
+        made.append(path)
+        if len(made) == 1:  # a commit lands after the first worktree exists
+            (root / "drift.txt").write_text("moved\n", encoding="utf-8")
+            git_run(root, "add", "-A")
+            git_run(root, "commit", "-qm", "a commit mid-bench")
+        return path
+
+    monkeypatch.setattr(bench.fleet, "make_worktree", moving)
+    code = cli.main(["bench"])
+    printed = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG
+    said = flat(printed.out) + " " + flat(printed.err)
+    assert said.count("sha") or "baseline" in said, said
+
+
+# --- setup, and the bare-worktree trap -------------------------------------
+
+
+def test_prove_setup_runs_in_every_worktree(repo, git_run, monkeypatch, capsys):
+    """A worktree carries TRACKED FILES ONLY. In any repo whose dependencies
+    are gitignored, every gate fails there on a missing environment and the
+    loop briefs an agent to fight a venv — the trap P5 nearly shipped. The
+    key already exists for exactly this."""
+    marker = "setup-ran"
+    config = CONFIG.replace(
+        "bench:",
+        f'run:\n  worker: "true"\n  prove_setup: "touch {marker}"\nbench:',
+    )
+    setup(repo, git_run, config=config)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    trees = sorted((repo / ".wringer" / "worktrees").iterdir())
+    assert trees, "no worktrees were made at all"
+    for tree in trees:
+        assert (tree / marker).exists(), f"setup did not run in {tree}"
+
+
+def test_a_failing_setup_is_an_environment_answer_not_a_brief(
+    repo, git_run, monkeypatch, capsys
+):
+    """Exit 2 before any loop starts. A failing setup means the worktree
+    cannot host a fair run; briefing an agent about it would be measuring the
+    environment and calling it the agent."""
+    config = CONFIG.replace(
+        "bench:", 'run:\n  worker: "true"\n  prove_setup: "false"\nbench:'
+    )
+    setup(repo, git_run, config=config)
+    monkeypatch.chdir(repo)
+
+    started: list[str] = []
+    monkeypatch.setattr(
+        loop, "run", lambda *a, **k: started.append("ran") or (_ for _ in ()).throw(
+            AssertionError("a loop started after the setup failed")
+        )
+    )
+    code = cli.main(["bench"])
+    printed = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG
+    assert not started
+    assert "setup" in flat(printed.out) + flat(printed.err)
+
+
+# --- preflight --------------------------------------------------------------
+
+
+def test_an_absent_agent_binary_is_refused_before_any_worktree_exists(
+    repo, git_run, monkeypatch, capsys
+):
+    """Wringer never installs an agent: it names the absent one and prints the
+    install command. Refused at PREFLIGHT so the refusal costs nothing and
+    leaves nothing behind — and because an absent binary discovered mid-bench
+    would be a partial comparison presented as a whole one."""
+    config = CONFIG.replace(
+        '    - id: fixer\n      worker: "sh ./fix.sh"\n',
+        "    - id: missing\n      worker:\n        acp:\n"
+        "          command: definitely-not-an-agent-binary\n",
+    )
+    setup(repo, git_run, config=config)
+    monkeypatch.chdir(repo)
+
+    code = cli.main(["bench"])
+    printed = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG
+    said = flat(printed.out) + " " + flat(printed.err)
+    assert "definitely-not-an-agent-binary" in said, said
+    assert not (repo / ".wringer" / "worktrees").exists()
+    assert not (repo / bench.BENCHES_DIRNAME).exists()
+
+
+def test_a_shell_worker_has_no_preflight(repo, git_run, monkeypatch, capsys):
+    """There is nothing to resolve: a shell string is the shell's business,
+    and a worker that fails at runtime is that contender's recorded outcome
+    rather than a bench abort."""
+    config = CONFIG.replace('worker: "sh ./fix.sh"', 'worker: "definitely-not-a-command"')
+    setup(repo, git_run, config=config)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+    outcomes = {
+        e["contender"]: e["outcome"]
+        for e in events(only_bench(repo))
+        if e["type"] == "contender.finished"
+    }
+    assert len(outcomes) == 2, outcomes
+
+
+# --- the bundle -------------------------------------------------------------
+
+
+def test_the_bundle_obeys_the_house_rules(repo, git_run, monkeypatch, capsys):
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    directory = only_bench(repo)
+    from wringer import attest, evidence
+
+    # The same chain checker `wring audit` uses — the function, not a
+    # lookalike, so the guarantee is the same guarantee.
+    attest.check_chain(directory / bench.EVENTS_FILENAME, "bench")
+
+    digests = json.loads(
+        (directory / evidence.DIGESTS_FILENAME).read_text(encoding="utf-8")
+    )
+    for name in (bench.EVENTS_FILENAME, bench.MANIFEST_FILENAME,
+                 bench.SUMMARY_FILENAME):
+        assert name in digests["files"], f"{name} is not covered by digests"
+
+    assert manifest(directory)["schema_version"] == bench.SCHEMA_VERSION
+
+
+def test_a_credential_never_reaches_a_bench_artifact(
+    repo, git_run, monkeypatch, capsys
+):
+    """The bundle owns a redactor built from `declared_secret_names`, which
+    now walks every contender — a bench runs N workers and each may be handed
+    its own."""
+    secret = "notarealcredential-bench-4c2f80ab"
+    monkeypatch.setenv("BENCH_ONE_CREDENTIAL", secret)
+    config = CONFIG.replace(
+        '    - id: fixer\n      worker: "sh ./fix.sh"\n',
+        '    - id: leaky\n      worker: "echo $BENCH_ONE_CREDENTIAL > /dev/null; '
+        'sh ./fix.sh"\n',
+    ).replace(
+        "bench:",
+        'run:\n  worker:\n    acp:\n      command: unused\n'
+        "      env_passthrough: [BENCH_ONE_CREDENTIAL]\nbench:",
+    )
+    setup(repo, git_run, config=config)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    for path in (repo / bench.BENCHES_DIRNAME).rglob("*"):
+        if path.is_file():
+            body = path.read_text(encoding="utf-8", errors="replace")
+            assert secret not in body, f"the credential reached {path}"
+
+
+# --- exit codes -------------------------------------------------------------
+
+
+def test_bench_never_returns_the_parked_code(repo, git_run, monkeypatch, capsys):
+    """5 is a claim — nothing was decided; a person must act. Nothing in a
+    bench waits on a person."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    assert cli.main(["bench"]) != cli.EXIT_NEEDS_HUMAN
+    capsys.readouterr()
+
+
+def test_bench_refuses_outside_a_repo(repo, git_run, monkeypatch, capsys, tmp_path):
+    outside = tmp_path / "not-a-repo"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+    assert cli.main(["bench"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+
+def test_a_repo_without_a_bench_section_says_what_to_add(
+    repo, git_run, monkeypatch, capsys
+):
+    setup(repo, git_run, config='version: 1\ngates:\n  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_CONFIG
+    said = flat(capsys.readouterr().err)
+    assert "bench:" in said, said

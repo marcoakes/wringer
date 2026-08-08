@@ -41,8 +41,18 @@ MAX_GATE_ID_LENGTH = 64
 
 _TOP_LEVEL_KEYS = {
     "version", "gates", "evidence", "run", "judge", "fleet", "workspace",
-    "forge", "deliver",
+    "forge", "deliver", "bench",
 }
+_BENCH_KEYS = {"contender_wall_clock", "contenders"}
+# A contender varies the WORKER and nothing else (SPEC_BENCH_V0 §3). Every
+# other key an author might reach for — a budget, a gate list, a directory —
+# is refused, because identical conditions are what make two rows comparable.
+_CONTENDER_KEYS = {"id", "agent", "worker"}
+
+# Keys refused with a reason rather than a bare "unknown key", because these
+# are the ones a thoughtful author would expect to work. Ceilings first: a
+# per-contender budget is the flags-only-tighten rule broken inside a file.
+_CONTENDER_CEILINGS = ("wall_clock", "max_iterations", "worker_timeout", "prove")
 _FORGE_KEYS = {"kind", "endpoint", "repo", "token_env", "timeout"}
 _DELIVER_KEYS = {"branch", "base", "remote", "issues_dir"}
 
@@ -271,6 +281,41 @@ class Deliver:
 
 
 @dataclass(frozen=True)
+class Contender:
+    """One worker in a bench, and the whole of what may vary between rows.
+
+    `agent_id` is recorded when the contender was declared as sugar — the id
+    an author wrote, kept so the report can say which agent a row is, while
+    the COMMAND behind it stays in `agents.py` where every vendor string
+    lives.
+    """
+
+    id: str
+    worker: str | AcpWorker
+    agent_id: str | None = None
+
+
+@dataclass(frozen=True)
+class Bench:
+    """The `bench:` section (SPEC_BENCH_V0.md §3).
+
+    `contender_wall_clock` is required and has no default: it is the SAME
+    ceiling handed to every contender's loop, and a bench whose contenders
+    ran under different budgets would be producing numbers that cannot be
+    compared — which is the only thing this command exists to do.
+
+    There is deliberately no `max_iterations` here. `run.max_iterations`, or
+    its shipped default, already binds every contender equally; a bench-level
+    one could only restate it or loosen it, and `loop.run` treats that
+    parameter as an override rather than a clamp, so "tightens" would have
+    been a word the machinery does not implement.
+    """
+
+    contender_wall_clock: int
+    contenders: tuple[Contender, ...]
+
+
+@dataclass(frozen=True)
 class Config:
     version: int
     gates: tuple[Gate, ...]
@@ -294,6 +339,9 @@ class Config:
     # Where `wring get` clones. No default: Wringer does not choose where to
     # put someone's code.
     workspace: str | None = None
+    # None when the repo has not opted into benching. Its absence is what
+    # makes `wring bench` unreachable (SPEC_BENCH_V0.md §3).
+    bench: Bench | None = None
 
 
 def load(path: Path) -> Config:
@@ -356,7 +404,147 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
         forge=_parse_forge(raw.get("forge"), source),
         deliver=_parse_deliver(raw.get("deliver"), source),
         workspace=workspace.strip() if workspace else None,
+        bench=_parse_bench(raw.get("bench"), source),
     )
+
+
+def _parse_bench(raw: Any, source: str) -> Bench | None:
+    """The `bench:` section, or None when the repo has not opted in."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: 'bench' must be a mapping")
+
+    unknown = sorted(set(raw) - _BENCH_KEYS)
+    if unknown:
+        extra = ""
+        if "max_iterations" in unknown:
+            # Named rather than lumped in, because it is the key an author
+            # would most reasonably expect: `run.max_iterations` already binds
+            # every contender equally, and a bench-level one could only
+            # restate or loosen it.
+            extra = (
+                " — 'run.max_iterations' already binds every contender "
+                "equally, and a bench-level one could only loosen it"
+            )
+        raise ConfigError(
+            f"{source}: unknown keys under 'bench': {', '.join(unknown)}{extra}"
+        )
+
+    if raw.get("contender_wall_clock") is None:
+        raise ConfigError(
+            f"{source}: 'bench.contender_wall_clock' is required — it is the "
+            "same hard ceiling every contender's loop is handed, and a bench "
+            "whose contenders ran under different budgets produces numbers "
+            "that cannot be compared"
+        )
+    ceiling = _positive_int(raw, "contender_wall_clock", 1, source, section="bench")
+
+    declared = raw.get("contenders")
+    if not isinstance(declared, list):
+        raise ConfigError(
+            f"{source}: 'bench.contenders' must be a list of two or more"
+        )
+
+    contenders: list[Contender] = []
+    seen: set[str] = set()
+    for index, entry in enumerate(declared):
+        contender = _parse_contender(entry, index, source)
+        if contender.id in seen:
+            raise ConfigError(
+                f"{source}: two contenders share the id '{contender.id}' — "
+                "an id names a directory and a row, so it has to be unique"
+            )
+        seen.add(contender.id)
+        contenders.append(contender)
+
+    if len(contenders) < 2:
+        raise ConfigError(
+            f"{source}: 'bench.contenders' needs two or more — a comparison "
+            "of one is 'wring run', which is the command for it"
+        )
+
+    return Bench(contender_wall_clock=ceiling, contenders=tuple(contenders))
+
+
+def _parse_contender(raw: Any, index: int, source: str) -> Contender:
+    """One contender: an id, and exactly one way of naming its worker."""
+    where = f"bench.contenders[{index}]"
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: '{where}' must be a mapping")
+
+    for ceiling in _CONTENDER_CEILINGS:
+        if ceiling in raw:
+            raise ConfigError(
+                f"{source}: '{where}.{ceiling}' is not a contender key. A "
+                "contender varies the worker and nothing else — every row "
+                "runs under identical conditions, or the rows cannot be "
+                "compared, and a per-contender ceiling would loosen a budget "
+                "from inside a file"
+            )
+
+    unknown = sorted(set(raw) - _CONTENDER_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under '{where}': {', '.join(unknown)}"
+        )
+
+    contender_id = raw.get("id")
+    if not isinstance(contender_id, str) or not contender_id.strip():
+        raise ConfigError(f"{source}: '{where}.id' must be a non-empty string")
+    contender_id = contender_id.strip()
+    if not GATE_ID_PATTERN.fullmatch(contender_id) or len(contender_id) > 64:
+        raise ConfigError(
+            f"{source}: '{where}.id' must be a slug — '{contender_id}' is "
+            "not, and an id names a directory under .wringer/worktrees/"
+        )
+
+    named, declared = raw.get("agent"), raw.get("worker")
+    if named is not None and declared is not None:
+        raise ConfigError(
+            f"{source}: '{where}' declares both 'agent' and 'worker' — "
+            "'agent' IS a worker, named from the shipped table, so pick one"
+        )
+    if named is None and declared is None:
+        raise ConfigError(
+            f"{source}: '{where}' needs an 'agent' or a 'worker' — there is "
+            "no default worker here, for the reason 'run.worker' has none"
+        )
+
+    if named is not None:
+        return Contender(
+            id=contender_id, worker=_agent_worker(named, where, source),
+            agent_id=str(named).strip(),
+        )
+    return Contender(
+        id=contender_id,
+        worker=_parse_worker(declared, source, section=f"{where}.worker"),
+    )
+
+
+def _agent_worker(named: Any, where: str, source: str) -> AcpWorker:
+    """Expand an agent id into the mapping the shipped table declares.
+
+    Imported inside the function on purpose: `agents.py` imports THIS module
+    for `AcpWorker`, so a module-level import here would be a cycle. The
+    house precedent is `deliver.py`'s `_spec_module()`.
+
+    The id is all a config may say. The command, its args and the variable
+    its credential lives in come from `agents.py`, which is one of the two
+    modules allowed to hold a vendor string (AGENTS.md rule 5) — so this
+    sugar adds a name, never a new place a command can come from.
+    """
+    from wringer import agents
+
+    if not isinstance(named, str) or not named.strip():
+        raise ConfigError(f"{source}: '{where}.agent' must be a non-empty string")
+    found = agents.find(named.strip())
+    if found is None:
+        raise ConfigError(
+            f"{source}: '{where}.agent' names '{named}', which is not an "
+            f"agent this version knows — the ids are: {', '.join(agents.known())}"
+        )
+    return agents.worker(found)
 
 
 def _parse_forge(raw: Any, source: str) -> Forge | None:
@@ -725,17 +913,24 @@ def _optional_command(
     return value
 
 
-def _parse_worker(raw: Any, source: str) -> str | AcpWorker:
-    """A shell string, or an `acp:` mapping. Never both, never neither."""
+def _parse_worker(
+    raw: Any, source: str, section: str = "run.worker"
+) -> str | AcpWorker:
+    """A shell string, or an `acp:` mapping. Never both, never neither.
+
+    `section` names the key in messages. It defaults to `run.worker`, which is
+    every existing caller, and a bench contender passes its own path so a
+    refusal points at the line the author actually wrote.
+    """
     if isinstance(raw, str):
         if not raw.strip():
-            raise ConfigError(f"{source}: 'run.worker' must be a non-empty string")
+            raise ConfigError(f"{source}: '{section}' must be a non-empty string")
         unknown = sorted(
             set(_PLACEHOLDER_PATTERN.findall(raw)) - set(WORKER_PLACEHOLDERS)
         )
         if unknown:
             raise ConfigError(
-                f"{source}: 'run.worker' uses unknown placeholder(s) "
+                f"{source}: '{section}' uses unknown placeholder(s) "
                 f"{', '.join('{' + name + '}' for name in unknown)} — "
                 f"available: {', '.join('{' + p + '}' for p in WORKER_PLACEHOLDERS)}"
             )
@@ -745,46 +940,48 @@ def _parse_worker(raw: Any, source: str) -> str | AcpWorker:
         extra = sorted(set(raw) - {"acp"})
         if extra or "acp" not in raw:
             raise ConfigError(
-                f"{source}: 'run.worker' as a mapping takes exactly one key, "
+                f"{source}: '{section}' as a mapping takes exactly one key, "
                 f"'acp' (got {sorted(raw) or 'nothing'})"
             )
-        return _parse_acp(raw["acp"], source)
+        return _parse_acp(raw["acp"], source, section=f"{section}.acp")
 
     raise ConfigError(
-        f"{source}: 'run.worker' must be a shell command string, or a mapping "
+        f"{source}: '{section}' must be a shell command string, or a mapping "
         "with an 'acp' key. There is no default: Wringer runs the worker you "
         "wrote down, never one it guessed"
     )
 
 
-def _parse_acp(raw: Any, source: str) -> AcpWorker:
+def _parse_acp(
+    raw: Any, source: str, section: str = "run.worker.acp"
+) -> AcpWorker:
     if not isinstance(raw, dict):
-        raise ConfigError(f"{source}: 'run.worker.acp' must be a mapping")
+        raise ConfigError(f"{source}: '{section}' must be a mapping")
 
     unknown = sorted(set(raw) - _ACP_KEYS)
     if unknown:
         raise ConfigError(
-            f"{source}: unknown keys under 'run.worker.acp': {', '.join(unknown)}"
+            f"{source}: unknown keys under '{section}': {', '.join(unknown)}"
         )
 
     command = raw.get("command")
     if not isinstance(command, str) or not command.strip():
         raise ConfigError(
-            f"{source}: 'run.worker.acp.command' must be a non-empty string — "
+            f"{source}: '{section}.command' must be a non-empty string — "
             "the agent binary that speaks ACP. Wringer never bundles or "
             "installs one"
         )
 
     args = raw.get("args", [])
     if not isinstance(args, list) or not all(isinstance(a, str) for a in args):
-        raise ConfigError(f"{source}: 'run.worker.acp.args' must be a list of strings")
+        raise ConfigError(f"{source}: '{section}.args' must be a list of strings")
 
     names = raw.get("env_passthrough", [])
     if not isinstance(names, list) or not all(
         isinstance(n, str) and n.strip() for n in names
     ):
         raise ConfigError(
-            f"{source}: 'run.worker.acp.env_passthrough' must be a list of "
+            f"{source}: '{section}.env_passthrough' must be a list of "
             "environment variable NAMES — never values; Wringer will not read "
             "a credential out of a config file"
         )
@@ -835,6 +1032,14 @@ def declared_secret_names(cfg: Config) -> tuple[str, ...]:
         names.append(cfg.forge.token_env)
     if cfg.run is not None and isinstance(cfg.run.worker, AcpWorker):
         names.extend(cfg.run.worker.env_passthrough)
+    # Every contender's names too. A bench runs N agents, each handed its own
+    # credential by name, and a redactor built from only the `run:` worker's
+    # would leave every other contender's unprotected in the one command that
+    # deliberately runs more than one agent.
+    if cfg.bench is not None:
+        for contender in cfg.bench.contenders:
+            if isinstance(contender.worker, AcpWorker):
+                names.extend(contender.worker.env_passthrough)
     return tuple(dict.fromkeys(names))
 
 
