@@ -3,9 +3,9 @@
   <text x="40" y="46" fill="#7d8590" font-size="12">Jul 29</text>
   <text x="960" y="46" fill="#7d8590" font-size="12" text-anchor="end">Sep 30 — deadline</text>
   <rect x="40" y="58" width="920" height="6" rx="3" fill="#2b313b"/>
-  <rect x="40" y="58" width="146" height="6" rx="3" fill="#58a6ff"/>
-  <text x="186" y="84" fill="#58a6ff" font-size="12">today · day 11 of 63</text>
-  <text x="960" y="84" fill="#7d8590" font-size="12" text-anchor="end">53 days remaining</text>
+  <rect x="40" y="58" width="161" height="6" rx="3" fill="#58a6ff"/>
+  <text x="201" y="84" fill="#58a6ff" font-size="12">today · day 12 of 63</text>
+  <text x="960" y="84" fill="#7d8590" font-size="12" text-anchor="end">52 days remaining</text>
   <line x1="40" y1="176" x2="960" y2="176" stroke="#2b313b" stroke-width="3"/>
   <line x1="40" y1="176" x2="960" y2="176" stroke="#3fb950" stroke-width="3"/>
   <text x="40" y="150" fill="#d7dae0" font-size="13" font-weight="600" text-anchor="middle">v0.1</text>

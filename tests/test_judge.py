@@ -509,6 +509,11 @@ def test_verify_and_run_can_never_return_needs_human(repo, monkeypatch, capsys):
     assert cli.main(["run"]) != cli.EXIT_NEEDS_HUMAN
     assert cli.main(["graph", "validate", "graph.yaml"]) != cli.EXIT_NEEDS_HUMAN
     assert cli.main(["graph", "render", "graph.yaml"]) != cli.EXIT_NEEDS_HUMAN
+    # `bench` joins the family: nothing in a bench waits on a person, so it
+    # has no use for the code that means one must act. This repo declares no
+    # `bench:` section, so it exits 2 here; the strong version — a real bench
+    # of real contenders — is in `tests/test_bench.py`.
+    assert cli.main(["bench"]) != cli.EXIT_NEEDS_HUMAN
     capsys.readouterr()
 
 

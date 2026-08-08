@@ -147,7 +147,10 @@ def test_the_green_baseline_refusal_names_its_evidence(
     monkeypatch.chdir(repo)
 
     cli.main(["bench"])
-    said = flat(capsys.readouterr().out + capsys.readouterr().err)
+    # ONE readouterr: the first call drains the buffer, so calling it twice
+    # and concatenating gives you the second half of nothing.
+    printed = capsys.readouterr()
+    said = flat(printed.out + " " + printed.err)
     named = [word for word in said.split() if ".wringer/" in word]
     assert named, f"the refusal names no path: {said}"
 
@@ -372,7 +375,9 @@ def test_a_shell_worker_has_no_preflight(repo, git_run, monkeypatch, capsys):
     """There is nothing to resolve: a shell string is the shell's business,
     and a worker that fails at runtime is that contender's recorded outcome
     rather than a bench abort."""
-    config = CONFIG.replace('worker: "sh ./fix.sh"', 'worker: "definitely-not-a-command"')
+    config = CONFIG.replace(
+        'worker: "sh ./fix.sh"', 'worker: "definitely-not-a-command"'
+    )
     setup(repo, git_run, config=config)
     monkeypatch.chdir(repo)
 
@@ -410,6 +415,89 @@ def test_the_bundle_obeys_the_house_rules(repo, git_run, monkeypatch, capsys):
         assert name in digests["files"], f"{name} is not covered by digests"
 
     assert manifest(directory)["schema_version"] == bench.SCHEMA_VERSION
+
+
+def test_the_judge_line_names_a_verify_bundle_not_a_loop(
+    repo, git_run, monkeypatch, capsys
+):
+    """A next-action that cannot be taken is not a next action.
+
+    The first cut printed `wring judge <loop_dir>`, and `judge` reads a VERIFY
+    bundle — its manifest and its gate results. The tests all passed; running
+    the command for real is what caught it, which is why this one derives the
+    check from the artifact rather than from the string: the path the summary
+    offers must be a directory whose manifest is an evidence bundle.
+    """
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    directory = only_bench(repo)
+    offered = [
+        line.strip().split(" ", 2)[2]
+        for line in (directory / bench.SUMMARY_FILENAME)
+        .read_text(encoding="utf-8")
+        .splitlines()
+        if line.strip().startswith("wring judge ")
+    ]
+    assert offered, "the summary offers no judge line at all"
+    for path in offered:
+        manifest_path = repo / path / "manifest.json"
+        assert manifest_path.is_file(), f"{path} is not a bundle at all"
+        recorded = json.loads(manifest_path.read_text(encoding="utf-8"))
+        assert recorded["schema_version"] == "wringer.evidence.v1", (
+            f"the judge line names {path}, whose manifest is "
+            f"{recorded['schema_version']} — judge reads a verify bundle"
+        )
+
+
+def test_the_contender_setup_writes_its_logs_through_the_redactor(
+    repo, git_run, monkeypatch, capsys
+):
+    """`run.prove_setup` runs in every worktree, and its logs land on disk.
+
+    This repo has shipped this exact defect before: `vacuity.prove` ran the
+    pre-change gates through `gates.run` with NO redactor, so `--prove`'s logs
+    got neither the config's patterns nor `env_passthrough` nor even the
+    built-in `*TOKEN*`/`*SECRET*`/`*KEY*` defaults — the one set of bundle
+    files written outside the guarantee SECURITY.md makes. A setup command is
+    a shell command inheriting the whole environment, so it can echo a
+    credential just as easily.
+    """
+    secret = "notarealcredential-setup-11ffa300"
+    monkeypatch.setenv("BENCH_SETUP_CREDENTIAL", secret)
+    config = CONFIG.replace(
+        "bench:",
+        'run:\n  worker: "true"\n'
+        '  prove_setup: "echo $BENCH_SETUP_CREDENTIAL"\nbench:',
+    ).replace(
+        "  contenders:",
+        "  contenders:",
+    )
+    setup(repo, git_run, config=config)
+    # Declared so the redactor knows the name — the canary for the whole
+    # env_passthrough promise, since this one matches no default pattern.
+    (repo / ".wringer.yaml").write_text(
+        config.replace(
+            'run:\n  worker: "true"',
+            "run:\n  worker:\n    acp:\n      command: unused\n"
+            "      env_passthrough: [BENCH_SETUP_CREDENTIAL]",
+        ),
+        encoding="utf-8",
+    )
+    git_run(repo, "commit", "-qam", "declare the credential")
+    monkeypatch.chdir(repo)
+
+    cli.main(["bench"])
+    capsys.readouterr()
+
+    leaked = []
+    for tree in (repo / ".wringer" / "worktrees").iterdir():
+        for path in tree.rglob("prove_setup.*.log"):
+            if secret in path.read_text(encoding="utf-8", errors="replace"):
+                leaked.append(str(path))
+    assert not leaked, f"the setup's logs were written unscrubbed: {leaked}"
 
 
 def test_a_credential_never_reaches_a_bench_artifact(

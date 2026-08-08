@@ -277,6 +277,38 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_fleet.set_defaults(func=cmd_fleet)
 
+    parser_bench = subparsers.add_parser(
+        "bench",
+        help="run the same job through every declared worker and compare",
+    )
+    parser_bench.add_argument(
+        "--contender",
+        action="append",
+        metavar="ID",
+        default=[],
+        help=(
+            "bench only this contender; repeatable, and two is the minimum. "
+            "It SELECTS among the contenders '.wringer.yaml' declares — there "
+            "is no flag that defines one, because a worker on a command line "
+            "is arbitrary execution"
+        ),
+    )
+    parser_bench.add_argument(
+        "--prove",
+        action="store_true",
+        help=(
+            "run every contender's loop with vacuity proving on. Tightens "
+            "only: there is no --no-prove, and nothing here can switch off "
+            "what the repo declared"
+        ),
+    )
+    parser_bench.add_argument(
+        "--json",
+        action="store_true",
+        help="emit one JSON object instead of the human report",
+    )
+    parser_bench.set_defaults(func=cmd_bench)
+
     parser_resume = subparsers.add_parser(
         "resume",
         help="continue a loop that was killed before it finished",
@@ -1672,6 +1704,122 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     checks = doctor.run_checks(root)
     print(doctor.as_json(checks) if args.json else doctor.report(checks))
     return EXIT_OK if all(check.passed for check in checks) else EXIT_GATE_FAILED
+
+
+def cmd_bench(args: argparse.Namespace) -> int:
+    """Compare workers on one job (SPEC_BENCH_V0.md).
+
+    **Exit 0 means the comparison exists, not that anybody won.** `wring run`
+    exits 1 when its loop does not converge, and this deliberately does not
+    follow it: `run` executes a repair, so non-repair is its failure; bench
+    OBSERVES, so the observation completing is its success. A contender that
+    failed to converge is a result, recorded in its row. A measuring
+    instrument that exited non-zero after successfully measuring a failure
+    would be reporting its own health with the patient's chart.
+    """
+    from wringer import bench
+
+    root = git.find_root(Path.cwd())
+
+    refused = _refuse_unverifiable(root, "bench")
+    if refused is not None:
+        return refused
+
+    try:
+        cfg = config.load(root / config.CONFIG_FILENAME)
+    except config.ConfigError as exc:
+        _fail("bench", exc)
+        return EXIT_CONFIG
+
+    if cfg.bench is None:
+        _fail(
+            "bench",
+            f"no 'bench:' section in {config.CONFIG_FILENAME} — its absence is "
+            "what makes this command unreachable. Add one, naming two or more "
+            "workers to compare:\n\n"
+            "  bench:\n"
+            "    contender_wall_clock: 900\n"
+            "    contenders:\n"
+            "      - id: scripted\n"
+            '        worker: "sh ./fix.sh"\n'
+            "      - id: agent\n"
+            "        agent: <id>\n\n"
+            "'wring start --help' lists the agent ids this version knows.",
+        )
+        return EXIT_CONFIG
+
+    try:
+        outcome = bench.run(
+            root,
+            cfg,
+            selected=tuple(args.contender),
+            prove=args.prove,
+            on_event=None if args.json else _report_contender,
+            loop_console={} if args.json else _graph_loop_console(),
+        )
+    except bench.NothingToMeasure as exc:
+        # Exit 1, not 2: the environment is fine, there is simply no work.
+        _fail("bench", f"{exc.reason}.\n\nThe baseline's evidence: {exc.evidence_path}")
+        return EXIT_GATE_FAILED
+    except bench.BenchError as exc:
+        _fail("bench", exc)
+        return EXIT_CONFIG
+    except evidence.EvidenceError as exc:
+        _fail("bench", exc)
+        return EXIT_CONFIG
+
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "bench_dir": _relative(outcome.directory, root),
+                    "baseline_sha": outcome.baseline_sha,
+                    "baseline_run": outcome.baseline_ref,
+                    # Declared order, never sorted — there is no winner
+                    # (SPEC_BENCH_V0 ruling 6).
+                    "contenders": [row.as_json() for row in outcome.rows],
+                    "limits": list(bench.LIMITS),
+                }
+            )
+        )
+    else:
+        _report_bench(outcome, root)
+    return EXIT_OK
+
+
+def _report_contender(contender) -> None:
+    print(f"→ {contender.id}", flush=True)
+
+
+def _report_bench(outcome, root: Path) -> None:
+    """Declared order, and the limits printed with the numbers.
+
+    A benchmark is the artifact most likely to be read as a larger claim than
+    it is, so what it does NOT say travels with it rather than living only in
+    a spec nobody opened.
+    """
+    from wringer import bench
+
+    print()
+    for row in outcome.rows:
+        usage = row.usage or {}
+        spent = ""
+        if usage.get("used") is not None:
+            spent = f"  {usage['used']} tokens"
+            cost = usage.get("cost") or {}
+            if cost:
+                spent += f", {cost.get('amount')} {cost.get('currency')}"
+        moved = "  ! HEAD moved" if row.head_moved else ""
+        print(
+            f"  {row.contender:<16} {row.outcome:<16} "
+            f"{row.iterations} iter  {row.wall_clock_ms / 1000:>6.1f}s"
+            f"{spent}{moved}"
+        )
+
+    print("\nWhat this does not say:")
+    for limit in bench.LIMITS:
+        print(_wrap_message(f"  - {limit}"))
+    print(f"\nBench evidence: {_relative(outcome.directory, root)}/")
 
 
 def cmd_fleet(args: argparse.Namespace) -> int:

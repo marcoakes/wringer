@@ -90,7 +90,7 @@ a repository, records where it came from, and **stops** — a stranger's
 `.wringer.yaml` is code, and running it in the same breath as downloading it is
 the one thing a guided launch must not do.
 
-## The seventeen commands
+## The eighteen commands
 
 This page walks five of them in order. The rest exist and are documented
 where they are used; nothing here is a preview.
@@ -112,6 +112,7 @@ where they are used; nothing here is a preview.
 | `deliver` | a verified change becomes a branch, a commit and a merge request | — | `--send` |
 | `doctor` | check this machine's preconditions; exit 1 on anything blocking | — | no |
 | `graph` | compose loops into a resumable, evidence-driven workflow (`validate`, `run`, `resume`, `status`, `explain`, `render`) | **yes** | `--send` |
+| `bench` | run the same job through every declared worker and compare — it measures, it does not crown | **yes** | no |
 | `attest` | assemble the provenance claim for a verified change | — | no |
 | `audit` | check an attestation offline — no config, no network, no LLM | — | no |
 

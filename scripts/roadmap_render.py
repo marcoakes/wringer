@@ -91,7 +91,18 @@ MILESTONES: tuple[Milestone, ...] = (
         commands=("attest", "audit"),
         files=("src/wringer/vacuity.py",),
     ),
-    Milestone("P6", "bench", commands=("bench",)),
+    # Probed on the DOCS too, for the reason spelled out under P7: `wring
+    # bench` registers and runs in the spine slice while its schemas, its
+    # captured transcript and the secret sweep that drives it do not exist
+    # yet, so a node that went green on registration alone would claim a
+    # finished feature two commits early. P7 avoided that trap by name and
+    # this one shipped straight into it — caught before the picture was
+    # believed, not after.
+    Milestone(
+        "P6", "bench",
+        commands=("bench",),
+        files=("docs/bench.md", "SPEC_BENCH_V0.md"),
+    ),
     # Probed on the DOCS, not on the command: `wring graph validate`
     # and `render` ship in the first slice while four verbs do not, so
     # a node that went green on `graph` being registered would claim a
