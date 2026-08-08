@@ -34,6 +34,7 @@ no network, no uploads — ever.
 | [SPEC_PROVENANCE_V0.md](SPEC_PROVENANCE_V0.md) | **binding** for `wring attest` / `wring audit` — what an unsigned attestation does and does not claim |
 | [SPEC_START_V0.md](SPEC_START_V0.md) | **binding** for `wring start` — the guided launch: the credential ruling, the non-interactive contract, and why a clone stops before any gate runs |
 | [SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md) | **binding** for `wring graph` — graphs name capabilities never commands, state routes while only bundles gate, a parked graph is exit 5, and `--send` is typed on the invocation and carried by no file. The captured park→resume is [docs/graphs.md](docs/graphs.md) |
+| [SPEC_BENCH_V0.md](SPEC_BENCH_V0.md) | **binding** for `wring bench` (P6, unbuilt) — contenders declared in config and selected never defined by flags, serial in-process loops under identical ceilings, cost measured-or-reported never priced, and no winner anywhere: bench measures, it does not crown (its ruling 6 is why) |
 | [ROADMAP.md](ROADMAP.md) | execution order (90-day compression) |
 | [wringer-ai-dlc-harness-plan.md](wringer-ai-dlc-harness-plan.md) | architectural north star (post-v0.1) |
 | README · [QUICKSTART.md](QUICKSTART.md) | landing pages — transcripts are now **real captured output**; if you change console or bundle shape, recapture them rather than editing the numbers by hand |
