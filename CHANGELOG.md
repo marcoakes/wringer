@@ -4,13 +4,15 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 0.3.0 — 2026-08-07
+## 0.3.0 — 2026-08-08
 
-**Three new commands, and the check that makes the rest of them mean
+**Four new commands, and the check that makes the rest of them mean
 something.** `wring start` is the guided launch — one command from an
 installed binary to a verified change with a receipt, and the program's first
 interactive surface. `wring attest` and `wring audit` turn a finished run into
-a provenance claim a stranger can check offline. And `wring verify --prove`
+a provenance claim a stranger can check offline. `wring graph` composes the
+loops into one resumable, evidence-driven workflow file — the "graphs of
+loops" the northstar has promised since day one. And `wring verify --prove`
 answers the question this project exists for: *could these gates have failed?*
 A gate that passes with and without your change proved nothing about it, and
 `wring deliver` refuses that bundle.
@@ -18,7 +20,9 @@ A gate that passes with and without your change proved nothing about it, and
 If you read one thing, make it [`docs/vacuous.svg`](docs/vacuous.svg) — a real
 captured session where a worker makes a failing test pass by rewriting the
 assertion into `multiply(3, 4) == multiply(3, 4)`, the loop converges, the
-gates go green, and Wringer refuses to deliver it.
+gates go green, and Wringer refuses to deliver it. The graph engine inherits
+that refusal whole: a decision file that lies `build-status: converged` into
+routing state still delivers nothing, because delivery re-reads the bundle.
 
 Upgrading from 0.2.0 needs nothing: every command added is opt-in, no schema
 changed under its own version, and `wring verify` behaves as it did.
@@ -73,6 +77,38 @@ here, not the fixes.
   A launch whose first build ran against the placeholder gate **says so and
   writes no receipt** — a vacuous green produced by the onboarding flow is the
   failure this project exists to prevent.
+
+- **`wring graph`** — graphs of loops
+  ([SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md), walkthrough at
+  [`docs/graphs.md`](docs/graphs.md)). Six verbs — `validate`, `run`,
+  `resume`, `status`, `explain`, `render` — over a local, resumable workflow
+  file with five node kinds: `intent` stages the brief into evidence, `human`
+  is the `approved: false` interlock again, `loop` wraps the whole repair loop
+  in process, `router` chooses between named nodes with three comparison
+  forms and no expression engine, and `deliver` calls the shipped delivery
+  machinery with **all of its refusals intact**. A parked graph is exit 5 — a
+  person must act — and resumes from its `prev_hash`-chained ledger after a
+  `kill -9`, never re-running a completed node.
+
+  Three rules carry it. **A graph names capabilities, never commands** — there
+  is no `command:` key, a key that looks like one is a hard error, and
+  validating or running a stranger's graph file is exactly as safe as running
+  the same Wringer commands by hand. **State routes; only bundles gate** — a
+  human's `state_updates` can steer the graph but cannot forge evidence,
+  because delivery re-reads the run bundle the loop actually recorded; the
+  test plants `build-status: converged` for a repo whose gates never passed
+  and watches the refusal. **`--send` is typed on the invocation** — it
+  authorises the deliver node that invocation reaches, once; a graph file may
+  not declare it, a decision file may not carry it, and resuming a parked
+  graph means typing it again, because a file is not a typed flag.
+
+  The captured park→resume session is [`docs/graph.svg`](docs/graph.svg): the
+  graph parks at the interlock, a person writes `approved: true` into a file
+  on camera, and the resumed graph runs the loop and routes on what it
+  actually found. Budgets nest and are hard — a node's ceiling is clamped to
+  the graph's remainder and enforced by the loop's own machinery — and the
+  whole-artifact secret sweep drives a full graph run, staged brief and
+  delivery patch included.
 
 - **`docs/vacuous.svg`** — *the agent lies, Wringer catches it*, captured. A
   worker is handed a real bug with a real test that catches it, and it makes
@@ -219,6 +255,14 @@ here, not the fixes.
   and relative paths.
 
 ### Schema notes
+
+- **`wringer.graph.v1`** (`schema/graph-event.schema.json`,
+  `schema/graph-manifest.schema.json`) — the graph run bundle under
+  `.wringer/graphs/`: an append-only, `prev_hash`-chained `graph.jsonl` that
+  `wring audit`'s chain checker reads without a special case, and a manifest
+  that is a convenience index over it — resume reconstructs from the ledger
+  and never trusts the snapshot. Loop and delivery bundles are referenced by
+  path, never nested. New files, so purely additive.
 
 - **`wringer.vacuity.v1`** (`schema/vacuity.schema.json`) — a new sibling
   file, `vacuity.json`, so `wringer.evidence.v1` is untouched. Absent from

@@ -90,15 +90,34 @@ jobs:
       # Prove the artifact before it leaves: install the built WHEEL into a
       # clean venv and run the command. `pip install wringer` is what a
       # stranger gets, and it is the only thing worth checking here.
+      # The command list is DERIVED from the installed package's own parser,
+      # not hardcoded. The previous version enumerated thirteen commands and
+      # stayed at thirteen while start, attest, audit and graph shipped — so
+      # it kept passing while probing an ever-smaller fraction of the wheel,
+      # and printed a count that was false for two releases. A hand-kept list
+      # in a gate is the exact stale-claim class this repo hunts everywhere
+      # else; the parser is the one source that cannot drift from the wheel
+      # it came from.
       - name: The wheel installs and runs
         run: |
           python -m venv /tmp/probe
           /tmp/probe/bin/pip install --quiet dist/*.whl
           /tmp/probe/bin/wring --version
-          for c in init verify run fleet resume judge spec plan get issue \
-                   deliver doctor explain; do
+          COMMANDS=$(/tmp/probe/bin/python -c '
+          from wringer import cli
+          names = [
+              name
+              for action in cli.build_parser()._actions
+              if getattr(action, "choices", None)
+              for name in action.choices
+          ]
+          assert len(names) >= 13, names
+          print(" ".join(names))
+          ')
+          echo "probing: $COMMANDS"
+          for c in $COMMANDS; do
             /tmp/probe/bin/wring "$c" --help > /dev/null || {
-              echo "::error title=missing command::$c"; exit 1; }
+              echo "::error title=broken command::$c"; exit 1; }
           done
 
       # The sdist shipped 23 test modules without conftest.py, so its suite
@@ -112,7 +131,6 @@ jobs:
               echo "::error title=sdist is missing $required::its test suite cannot run"
               exit 1; }
           done
-          echo "all thirteen commands present in the built wheel"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
