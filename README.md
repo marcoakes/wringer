@@ -33,6 +33,13 @@ for product managers, designers and engineers.**
 
 Wringer (CLI: `wring`) compiles **intent** — tickets, PRDs, Slack messages — into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine — no runtime, no gateway, and no identity system to adopt first.
 
+**What this is for:** a product manager writes an advanced spec, hands it to
+Wringer, it takes in the repositories, and hours later there is working
+software at enterprise quality. Wringer never writes the code — an agent
+does. Wringer is the part that refuses to believe it, so what comes out the
+far end is what the spec actually asked for rather than what an agent
+reported doing.
+
 The committed direction ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)): **every
 acceptance criterion carries the evidence that proves it — or is marked as
 the human judgement it always was.** A PM's criteria already travel

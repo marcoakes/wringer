@@ -8,16 +8,40 @@ end. The spec is the binding contract for everything in `src/wringer/`.
 
 ## What this repo is
 
-Wringer (`wring`) is an open-source, control-plane-agnostic AI-DLC harness:
-it compiles intent (issues, PRDs, Slack messages) into verified outcomes
-(reviewed MRs with evidence), using graphs of loop-bearing agents,
-portable across local, Temporal, AWS AgentCore, Google Agent Engine,
-Microsoft Foundry, and Anthropic Managed Agents runtimes.
+**THE GOAL. Read this before deciding what to work on.**
 
-**v0.1.0 ships one slice of that: `wring verify`, a standalone evidence
-compiler.** One command that runs a repo's declared gates and leaves
-behind an evidence bundle a human or an agent can inspect. No LLM calls,
-no network, no uploads — ever.
+> A product manager writes an advanced spec, hands it to Wringer, it takes in
+> the repositories, and hours later there is working software at enterprise
+> quality.
+
+Everything here serves that. Wringer never writes the code — an agent does —
+so Wringer's job is to make it impossible for work that does not actually
+satisfy the spec to get through: it runs the repo's own gates, keeps evidence
+a stranger can audit, and refuses anything it cannot evidence. The refusal
+machinery is not the product. It is the reason the product's output can be
+trusted, which makes it necessary and not sufficient.
+
+**This has drifted before, and the drift is the defect class this program
+exists to catch.** The goal above was approved on 2026-07-31 and then lived
+outside the repository, so four spec cycles in a row (vacuity, bench, health,
+acceptance) each made Wringer better at REFUSING, none made it better at
+BUILDING, and no cycle said it was narrowing — every session reported green
+while measuring the wrong axis. That is a check that narrowed while still
+passing. `~/Claude/WRINGER_FACTORY.md` carries the blocker list;
+`test_the_goal_is_stated_where_every_window_actually_looks` keeps this
+section honest.
+
+**The test for any slice:** does it move a PM's spec closer to working
+software, or does it only sharpen an existing refusal? Both are legitimate.
+Only the first is the goal, and a session that spends itself entirely on the
+second must say so in its finish report.
+
+Wringer (`wring`) is open-source and control-plane-agnostic: it compiles
+intent (issues, PRDs, Slack messages) into verified outcomes (reviewed MRs
+with evidence), using graphs of loop-bearing agents. Eighteen commands are
+registered; `wring verify` — the standalone evidence compiler that shipped
+as v0.1.0 — is the floor the rest of it stands on. No LLM calls and no
+network in anything that proves.
 
 ### Document hierarchy
 

@@ -1530,3 +1530,56 @@ def test_the_readme_leads_with_the_thesis_and_not_a_deferred_runtime():
         "the vitality demo is not drawn in the README — the decay recording "
         "is the launch's strongest artifact and it lives only in docs/"
     )
+
+
+def test_the_goal_is_stated_where_every_window_actually_looks():
+    """The anti-drift guard, and it exists because the drift already happened.
+
+    The north star was written and APPROVED on 2026-07-31 — a PM writes what
+    they want built, points it at a repo, and the harness builds it. It lived
+    in a planning folder outside the repo. Four spec cycles then shipped
+    (vacuity, bench, health, acceptance); every one made Wringer better at
+    REFUSING, none at BUILDING, and no cycle said it was narrowing, because
+    every window opened a spec, found a well-formed backlog and executed it.
+
+    Machinery follows what is written down — this repository's entire thesis —
+    so the goal now lives in the two files a window reads first, and this test
+    is what keeps it there. A refusal is not the product; it is the reason the
+    product's output can be trusted.
+    """
+    import re
+
+    for name in ("AGENTS.md", "README.md"):
+        require_checkout(name)
+        # Whitespace-normalised: this prose is hard-wrapped, so "working
+        # software" is not a contiguous string in the file. Asserting on the
+        # raw text passes only by accident of where a line happens to break.
+        # The FIRST 45 lines, not anywhere in the file. "Where every window
+        # actually looks" has to mean the top, or this guard passes on a
+        # mention buried under four hundred lines of feature prose — which is
+        # how the goal was lost the first time. The first version of this test
+        # checked the whole file and did not redden when the statement was
+        # removed from the top.
+        head = "\n".join(
+            (repo_root() / name).read_text("utf-8").splitlines()[:45]
+        )
+        text = re.sub(r"\s+", " ", head)
+        # The STATEMENT, not a word from prose discussing it. Two earlier
+        # versions of this assertion passed against paragraphs that merely
+        # mentioned "working software" while the goal itself had been deleted
+        # from the top — a guard that could not fail, which is the thing this
+        # repository exists to catch, appearing inside the guard meant to stop
+        # the goal being lost. Both halves are required.
+        for phrase in ("advanced spec", "working software at enterprise"):
+            assert phrase in text, (
+                f"{name}'s first 45 lines do not state the goal ({phrase!r} "
+                "missing). A window that reads this file will inherit whatever "
+                "the newest spec happens to be about, which is exactly how the "
+                "goal was lost for four cycles."
+            )
+
+    agents = (repo_root() / "AGENTS.md").read_text(encoding="utf-8")
+    assert "ships one slice" not in agents, (
+        "AGENTS.md still frames this as a single-command evidence compiler. "
+        "That framing is what every window inherited while the goal drifted."
+    )
