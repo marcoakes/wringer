@@ -25,7 +25,16 @@ WORK=$(scratch_dir "${1:-}" setup-selftest) || exit 2
 # at all (R2-06). Testing the wrong binary and testing no binary look
 # identical in a passing log, so this now says which one it found and stops
 # if there is none.
-PATH="$HOME/.local/bin:$ROOT/.venv/bin:$PATH"
+# The repo's own venv FIRST, then the uv-tool install SETUP.md creates.
+#
+# This was the other way round, and it produced a false green: a developer
+# with a stale `wring` in ~/.local/bin ran this from the repo and tested that
+# binary rather than the source they had just edited, so the script passed
+# locally while CI — which has no global install — failed on both platforms.
+# A fresh user following SETUP.md has no .venv, so they still exercise the
+# installed tool, which is what this script is for. The line below prints
+# which one won, and that line is the receipt.
+PATH="$ROOT/.venv/bin:$HOME/.local/bin:$PATH"
 export PATH
 
 if ! command -v wring >/dev/null 2>&1; then
@@ -172,17 +181,24 @@ wring doctor >/dev/null 2>&1 \
     && ok "doctor exits 0 outside a repo (repo checks skipped)" \
     || bad "doctor still blocks outside a repo — finding D regressed"
 
+# DERIVED, not remembered. This said 3 until a fourth repo-scoped check was
+# added, and then it was simply wrong — red on both CI platforms while every
+# developer's machine said green, because the `wring` on a developer's PATH
+# is often a stale global install rather than the source under test. The
+# expected count now comes from doctor's own `scope` field.
+EXPECTED=$(wring doctor --json 2>/dev/null \
+    | grep -o '"scope": "repo"' | wc -l | tr -d " ")
 SKIPS=$(wring doctor 2>/dev/null | grep -c '^- ')
-[ "$SKIPS" -eq 3 ] \
-    && ok "doctor prints three '-' lines outside a repo" \
-    || bad "doctor printed $SKIPS '-' lines outside a repo, expected 3 (R2-01)"
+[ "$SKIPS" -eq "$EXPECTED" ] && [ "$EXPECTED" -gt 0 ] \
+    && ok "doctor skips exactly its $EXPECTED repo-scoped checks outside a repo" \
+    || bad "doctor printed $SKIPS '-' lines outside a repo, expected $EXPECTED (R2-01)"
 
 # `grep -o | wc -l`, not `grep -c`: --json prints ONE line, so grep -c
 # counts matching lines and answers 1 no matter how many skips there are.
 JSON_SKIPS=$(wring doctor --json 2>/dev/null | grep -o '"status": "skip"' | wc -l | tr -d " ")
-[ "$JSON_SKIPS" -eq 3 ] \
-    && ok "doctor --json reports three \"status\": \"skip\" entries" \
-    || bad "doctor --json reported $JSON_SKIPS skips, expected 3 (R2-01)"
+[ "$JSON_SKIPS" -eq "$EXPECTED" ] \
+    && ok "doctor --json reports $EXPECTED \"status\": \"skip\" entries" \
+    || bad "doctor --json reported $JSON_SKIPS skips, expected $EXPECTED (R2-01)"
 
 echo
 echo "-------------------------------------------"

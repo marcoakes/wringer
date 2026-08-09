@@ -476,3 +476,40 @@ def _record_gate_duration(repo, gate_id: str, command: str, ms: int) -> None:
         }),
         encoding="utf-8",
     )
+
+
+def test_json_says_which_checks_are_about_the_repo():
+    """`scope` is machine-readable, so a count of repo-scoped checks can be
+    DERIVED rather than hand-kept.
+
+    It was hand-kept, and it broke: `scripts/setup-selftest.sh` asserted that
+    doctor prints exactly three '-' lines outside a repository. Adding a
+    fourth repo-scoped check (`pytest parallelism`) made that literal 3 wrong
+    and reddened CI on both platforms — the same shape as the release probe
+    that counted thirteen of seventeen commands, and the schema README that
+    silently fell three files behind.
+
+    The count belongs to the code that defines it. This is the field that
+    lets the script ask instead of remembering."""
+    checks = doctor.run_checks(Path.cwd())
+    payload = json.loads(doctor.as_json(checks))
+
+    assert all("scope" in c for c in payload["checks"]), payload["checks"]
+    scopes = {c["scope"] for c in payload["checks"]}
+    assert scopes <= {doctor.MACHINE, doctor.REPO}, scopes
+    assert doctor.REPO in scopes, "no check is repo-scoped, which cannot be true"
+
+
+def test_outside_a_repo_exactly_the_repo_scoped_checks_skip(tmp_path, monkeypatch):
+    """The property `setup-selftest.sh` asserts, pinned here in Python too —
+    because the shell script only runs in the runbook job, and this is the
+    invariant it was really checking all along."""
+    monkeypatch.chdir(tmp_path)
+    checks = doctor.run_checks(tmp_path)
+
+    repo_scoped = [c for c in checks if c.scope == doctor.REPO]
+    skipped = [c for c in checks if c.status == doctor.SKIP]
+    assert repo_scoped, "no repo-scoped checks"
+    assert {c.name for c in skipped} == {c.name for c in repo_scoped}, (
+        "outside a repository, exactly the repo-scoped checks must skip"
+    )

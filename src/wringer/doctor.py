@@ -443,6 +443,12 @@ def as_json(checks: list[Check]) -> str:
                     "name": c.name,
                     "status": c.status,
                     "detail": c.detail,
+                    # Machine-readable, so a caller can DERIVE how many
+                    # checks are about the repository instead of remembering
+                    # a number. `setup-selftest.sh` hard-coded three, and a
+                    # fourth repo-scoped check reddened CI on both platforms
+                    # — the hand-kept-count failure this repo keeps finding.
+                    "scope": c.scope,
                     **({"fix": c.fix} if c.fix else {}),
                 }
                 for c in checks
