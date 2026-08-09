@@ -54,7 +54,10 @@ def write_run(
                 {
                     "gate_id": gate["gate_id"],
                     "command": gate["command"],
-                    "exit_code": 0 if gate.get("status", "passed") == "passed" else 1,
+                    "exit_code": gate.get(
+                        "exit_code",
+                        0 if gate.get("status", "passed") == "passed" else 1,
+                    ),
                     "duration_ms": gate.get("duration_ms", 10),
                     "timed_out": gate.get("timed_out", False),
                     "stdout_truncated": False,
@@ -876,3 +879,69 @@ def test_the_bytes_do_not_move_when_the_environment_does(
     second = capsys.readouterr().out
 
     assert first == second
+
+
+# --- 127 is an environment answer, not a verdict (SPEC_ACCEPT ruling 7) -----
+#
+# Found by dogfooding on 2026-08-09: `wring graph run` was driven with the
+# repo's own gates and a naked PATH, so `ruff` was not on it. The gate died
+# in 0.0s with exit 127 and recorded `status: failed` — indistinguishable, in
+# every downstream reader, from a lint failure that meant something. The loop
+# then briefed a worker to fix a phantom, twice, and burned its iterations.
+#
+# For health the consequence is worse than noise: a missing binary would read
+# as evidence that the gate CAN fail, which is the one thing health exists to
+# establish. And SPEC_ACCEPT_V0 §3 clause 2 makes that receipt load-bearing
+# for acceptance, so a repo could evidence a criterion with a typo in a path.
+
+
+def test_a_missing_binary_is_not_a_genuine_failure(tmp_path):
+    """127 is the shell saying it never found the command. Nothing ran, so
+    nothing discriminated — and a row that proves only that PATH was wrong
+    must not be usable as proof that a gate can fail."""
+    write_run(
+        runs_dir(tmp_path) / "a",
+        "a",
+        [{"gate_id": "lint", "command": "ruff check", "status": "failed",
+          "exit_code": 127}],
+    )
+    coverage = health.discover(tmp_path)
+    row = health.gate_runs(coverage.read[0])[0]
+
+    assert row.exit_code == 127, "the reader dropped the exit code"
+    assert row.status == "failed"
+    assert not row.timed_out
+    assert not row.genuine_failure, (
+        "a missing binary counted as evidence the gate can fail"
+    )
+
+
+def test_an_ordinary_failure_is_still_a_genuine_failure(tmp_path):
+    """The other direction, so the exclusion cannot quietly widen into
+    'nothing counts' — the narrowing shape this repo keeps finding."""
+    write_run(
+        runs_dir(tmp_path) / "a",
+        "a",
+        [{"gate_id": "lint", "command": "ruff check", "status": "failed",
+          "exit_code": 1}],
+    )
+    row = health.gate_runs(health.discover(tmp_path).read[0])[0]
+    assert row.genuine_failure
+
+
+def test_a_gate_that_only_ever_died_of_a_missing_binary_is_not_alive(tmp_path):
+    """End to end through the verdict, because `genuine_failure` alone is a
+    property nobody reads: twelve runs, every one a 127, and the gate must
+    read `zombie` — it has never been shown to discriminate anything."""
+    for index in range(12):
+        write_run(
+            runs_dir(tmp_path) / f"r{index:02d}",
+            f"r{index:02d}",
+            [{"gate_id": "lint", "command": "ruff check", "status": "failed",
+              "exit_code": 127}],
+            started_at=f"2026-08-01T10:{index:02d}:00+01:00",
+        )
+    assessed = health.assess(
+        health.discover(tmp_path), declared={("lint", "ruff check")}
+    )
+    assert assessed[0].verdict == health.ZOMBIE, assessed[0].verdict

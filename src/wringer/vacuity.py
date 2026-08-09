@@ -65,6 +65,9 @@ GATES_VACUOUS = "gates_vacuous"
 NOT_APPLICABLE = "not_applicable"
 INCONCLUSIVE = "inconclusive"
 
+# What a POSIX shell reports when it never found the command at all.
+COMMAND_NOT_FOUND = 127
+
 # How long `run.prove_setup` may take. Generous — it is `npm ci` on a cold
 # cache — and bounded, because an unbounded setup command would hang the
 # verification it is meant to strengthen.
@@ -84,6 +87,10 @@ class GateRow:
     # is the row whose meaning depends on it.
     cites: str | None = None
     pre_change_log: str | None = None
+    # NOT serialised — `wringer.vacuity.v1` is frozen and `as_json` is
+    # explicit. This is in-process only, so the verdict can tell a gate that
+    # FAILED pre-change from one that was never found there (127).
+    pre_change_exit: int = 0
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -233,6 +240,23 @@ def prove(
             setup=setup,
         )
 
+    missing = [row.gate_id for row in rows
+               if row.pre_change_exit == COMMAND_NOT_FOUND]
+    if missing:
+        return Result(
+            verdict=INCONCLUSIVE,
+            reason=(
+                f"{', '.join(missing)} could not be found on the pre-change "
+                "tree (exit 127), so the comparison never ran there. That is "
+                "not evidence the gate tests this change — it is evidence the "
+                "gate's own command arrived with it"
+            ),
+            rows=rows,
+            worktree_ms=worktree_ms,
+            prove_ms=prove_ms,
+            setup=setup,
+        )
+
     if any(row.sensitive for row in rows):
         sensitive = [row.gate_id for row in rows if row.sensitive]
         return Result(
@@ -304,7 +328,14 @@ def _compare(
         stderr_path=stderr_path,
         redactor=redactor,
     )
-    sensitive = changed.passed and not pre.passed
+    # 127 is the shell reporting it never found the command, so the gate did
+    # not run on the pre-change tree at all. That is not "it failed without
+    # the change": a worker who adds both the checker and the code it checks
+    # would otherwise mint `proven` out of its own script's absence — the
+    # sharpest form of the self-serving-test attack, and it passed every
+    # check this program had before SPEC_ACCEPT_V0 ruling 7.
+    found_pre_change = pre.exit_code != COMMAND_NOT_FOUND
+    sensitive = changed.passed and not pre.passed and found_pre_change
     return GateRow(
         gate_id=gate.id,
         changed=changed.status,
@@ -315,6 +346,7 @@ def _compare(
         # whether that failure was the change or a missing environment.
         cites=_cite(pre) if sensitive else None,
         pre_change_log=stdout_path.relative_to(bundle_dir).as_posix(),
+        pre_change_exit=pre.exit_code,
     )
 
 

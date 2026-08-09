@@ -796,3 +796,39 @@ def test_verify_says_nothing_about_vacuity_when_it_was_not_checked(
 
     assert "proved nothing" not in printed
     assert vacuity.GATES_VACUOUS not in printed
+
+
+# --- a missing binary is not proof (SPEC_ACCEPT_V0 ruling 7, slice A0) ------
+
+
+def test_a_gate_whose_own_checker_is_absent_pre_change_is_not_sensitivity(
+    changed, monkeypatch, capsys
+):
+    """The sharpest form of the self-serving-test attack, and it passes every
+    check this program had before this slice.
+
+    A worker adds BOTH the acceptance script and the code it checks. On the
+    changed tree the gate passes. On the pre-change tree the script does not
+    exist yet, so the shell exits 127 — and the row reads `sensitive: true`,
+    verdict `proven`. But the gate never demonstrated it can REJECT a bad
+    tree; it demonstrated it cannot run without its own file. Counting that
+    mints proof out of the checker's own absence, which is exactly what
+    SPEC_ACCEPT_V0 §3 makes load-bearing for acceptance evidence.
+
+    `inconclusive` is vacuity's own grammar for it: the measurement could not
+    be made honestly. Never `proven`, never silently dropped.
+    """
+    (changed / "check.sh").write_text("exit 0\n", encoding="utf-8")
+    (changed / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "./check.sh"\n',
+        encoding="utf-8",
+    )
+    (changed / "check.sh").chmod(0o755)
+    monkeypatch.chdir(changed)
+
+    cli.main(["verify", "--prove"])
+    capsys.readouterr()
+
+    recorded = verdict_of(changed)
+    assert recorded["verdict"] == vacuity.INCONCLUSIVE, recorded
+    assert not any(row["sensitive"] for row in recorded.get("gates", [])), recorded

@@ -60,6 +60,10 @@ _KINDS = {RUN_SCHEMA: "run", LOOP_SCHEMA: "loop", BENCH_SCHEMA: "bench"}
 GATES_DIRNAME = "gates"
 RESULT_FILENAME = "result.json"
 
+# What a POSIX shell reports when it cannot find the command at all. Not a
+# verdict about the tree: nothing ran, so nothing discriminated.
+COMMAND_NOT_FOUND = 127
+
 
 @dataclass(frozen=True)
 class Bundle:
@@ -129,20 +133,33 @@ class GateRun:
     bench_sourced: bool
     # Joined from the same bundle's `vacuity.json` — see `_sensitivity`.
     sensitive: bool = False
+    # The recorded process status. Read late (SPEC_ACCEPT_V0 §3): the frozen
+    # gate-result schema has always carried it and this reader dropped it,
+    # which is why a missing binary looked like a verdict for a whole release.
+    exit_code: int = 1
 
     @property
     def genuine_failure(self) -> bool:
-        """`status: failed` AND NOT a timeout (§3c).
+        """`status: failed`, NOT a timeout, and NOT a missing command (§3c).
 
-        Both halves are required and the second is not decoration: the
-        published gate-result schema has a two-value status whose own
-        description reads "passed requires exit_code 0 AND timed_out false",
-        so EVERY timeout already records `failed`. Testing `status` alone
-        computes `alive` for a gate that has only ever died of slowness, which
-        inverts ruling 7 — and that is exactly what the spec's first draft
-        said to do.
+        Each exclusion is a defect this repo actually shipped. The published
+        gate-result schema has a two-value status whose own description reads
+        "passed requires exit_code 0 AND timed_out false", so EVERY timeout
+        already records `failed`: testing `status` alone computes `alive` for
+        a gate that has only ever died of slowness, which inverts ruling 7.
+
+        `127` is the same mistake one layer down — the shell reporting it
+        never found the command. Nothing ran, so nothing discriminated, and
+        counting it would let a typo in a PATH read as evidence that a gate
+        can fail. Found by dogfooding on 2026-08-09, when the repo's own
+        `ruff` gate died at 127 under a naked PATH and every reader
+        downstream — the loop, the router, this verdict — believed it.
         """
-        return self.status == "failed" and not self.timed_out
+        return (
+            self.status == "failed"
+            and not self.timed_out
+            and self.exit_code != COMMAND_NOT_FOUND
+        )
 
 
 @dataclass(frozen=True)
@@ -358,6 +375,7 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
                 timed_out=bool(raw.get("timed_out")),
                 optional=bool(raw.get("optional")),
                 duration_ms=int(raw.get("duration_ms") or 0),
+                exit_code=int(raw.get("exit_code") or 0),
                 truncated=bool(raw.get("stdout_truncated"))
                 or bool(raw.get("stderr_truncated")),
                 receipt=bundle.receipt,

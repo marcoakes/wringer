@@ -1024,3 +1024,4 @@ def _write_summary(
     (bundle.directory / SUMMARY_FILENAME).write_text(
         "\n".join(lines) + "\n", encoding="utf-8"
     )
+
