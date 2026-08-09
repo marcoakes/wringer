@@ -20,6 +20,7 @@ commands are the whole point of keeping them.
 
 from __future__ import annotations
 
+import datetime
 import re
 from pathlib import Path
 
@@ -530,6 +531,12 @@ def test_every_recorded_step_displays_exactly_what_it_executes(tmp_path):
     # bug this whole guard exists for.
     (tmp_path / ".wringer" / "runs" / "20260805-120000-abcd").mkdir(parents=True)
     (tmp_path / ".wringer" / "graphs" / "20260805-120000-abcd").mkdir(parents=True)
+    # The bench steps name the kept worktree each contender ran in, for the
+    # same reason and with the same refusal when there is none.
+    for contender in ("careful", "hasty"):
+        (
+            tmp_path / ".wringer" / "worktrees" / f"20260805-120000-abcd-{contender}"
+        ).mkdir(parents=True)
 
     steps = {step for group in module.STEP_SETS.values() for step in group}
     assert steps, "STEP_SETS is empty — nothing is recorded at all"
@@ -542,11 +549,26 @@ def test_every_recorded_step_displays_exactly_what_it_executes(tmp_path):
             assert command[2] == prompt, (
                 f"{step.__name__} displays {prompt!r} and runs {command[2]!r}"
             )
-        else:
-            assert command[0] == wring
+        elif command[0] == wring:
             assert prompt.split() == ["wring", *command[1:]], (
                 f"{step.__name__} displays {prompt!r} and executes {command!r} "
                 "— law 8, in the artifact the README puts at the top of the page"
+            )
+        else:
+            # A step running a tool that is NOT the wring under test — the
+            # bench recording ends on `git diff --stat`, because the table
+            # deliberately does not choose and the reader has to. Nothing is
+            # substituted into argv[0] here, so the bar is higher rather than
+            # lower: displayed must equal executed verbatim, with no
+            # allowance at all.
+            assert prompt.split() == command, (
+                f"{step.__name__} displays {prompt!r} and executes {command!r} "
+                "— law 8, in the artifact the README puts at the top of the page"
+            )
+            assert not command[0].startswith("/"), (
+                f"{step.__name__} runs an absolute path ({command[0]!r}) while "
+                "displaying a bare command; a reader typing what they see "
+                "would run something else"
             )
         assert "<" not in prompt, (
             f"{step.__name__} shows a placeholder, not a runnable command"
@@ -817,17 +839,24 @@ def test_the_roadmap_guard_would_notice_a_node_drawn_green_too_early():
     """
     require_checkout("scripts/roadmap_render.py", "docs/roadmap.svg")
     module = roadmap_module()
-    root = repo_root()
-    drawn = (root / "docs" / "roadmap.svg").read_text(encoding="utf-8")
 
-    # A node the SVG draws GREY, whatever its probe says. Picking one by its
-    # probe made this test depend on the picture and the probes already
-    # agreeing — which is the thing the test above checks, so a single
-    # disagreement failed both and only one of them meaningfully.
-    grey = [m for m in module.MILESTONES if not drawn_green(module, drawn, m.label)]
-    if not grey:
-        pytest.skip("every milestone is drawn green — nothing to paint")
-    label = grey[0].label
+    # The picture is RENDERED here with one node deliberately un-shipped,
+    # rather than read from docs/roadmap.svg and searched for a grey one.
+    #
+    # It used to do the latter and `pytest.skip` when every node was green.
+    # That skip fired for the first time when P6 shipped and the rail reached
+    # 11/11 — so at the exact moment the roadmap started claiming everything,
+    # the only test that checks the roadmap guard can FAIL went silent. A
+    # negative control that disappears once the news is all good is not a
+    # control, and this repo has shipped that shape before under the name "a
+    # guard that was a tautology".
+    states = [(m, i > 0) for i, m in enumerate(module.MILESTONES)]
+    drawn = module.render(states, datetime.date(2026, 1, 1))
+    label = module.MILESTONES[0].label
+    assert not drawn_green(module, drawn, label), (
+        f"'{label}' was rendered as un-shipped and reads as green anyway — "
+        "the renderer no longer distinguishes the two states"
+    )
 
     # Paint that node green, exactly as the renderer paints a shipped one.
     x = milestone_x(module, drawn, label)

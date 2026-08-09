@@ -327,3 +327,87 @@ def test_the_sweep_would_notice_a_leak(leaky_repo: Path, capsys):
         "echoed the credentials or the bundle recorded nothing, and the sweep "
         "above would pass over an empty tree"
     )
+
+
+# The bench section, appended to the leaky config: TWO contenders, each
+# declaring a DIFFERENT credential. That asymmetry is the whole point. A
+# redactor built from the `run:` worker's names, or from the first
+# contender's, protects one value and hands the other to an artifact — and
+# `wring bench` is the one command that deliberately runs more than one agent,
+# so it is the one place that mistake is invisible until a bundle is read.
+#
+# The ORDER of the two is load-bearing, and it was wrong first time round.
+# `WRINGER_TEST_API_KEY` matches the redactor's built-in `*KEY*` name pattern,
+# so its value is scrubbed whether or not anything declared it — put that one
+# second and the test passes against a `declared_secret_names` that drops
+# every contender after the first, which is a tautology wearing a leak test's
+# clothes. `WRINGER_TEST_CREDENTIAL` matches no pattern, so it is protected
+# ONLY by being declared. It goes last, where a truncated list loses it.
+BENCH_SECTION = f"""
+bench:
+  contender_wall_clock: 120
+  contenders:
+    - id: alpha
+      worker:
+        acp:
+          command: {json.dumps(sys.executable)}
+          args: [{json.dumps(str(AGENT))}, "leak"]
+          env_passthrough: [{KEYED_NAME}]
+    - id: beta
+      worker:
+        acp:
+          command: {json.dumps(sys.executable)}
+          args: [{json.dumps(str(AGENT))}, "leak"]
+          env_passthrough: [{PLAIN_NAME}]
+"""
+
+
+def test_no_bench_writes_a_credential_into_any_artifact(leaky_repo: Path, capsys):
+    """The same question, asked of the bundle family P6 added — and the sweep
+    DRIVES the bench rather than checking a list of its write paths, because
+    a list is the shape that failed twice.
+
+    A bench writes its own ledger, manifest, summary and digests, and it also
+    writes a baseline verify bundle and one whole loop bundle per contender,
+    each inside a kept worktree. Every one of those is under `.wringer/`, and
+    every one is read here.
+
+    The two contenders declare DIFFERENT credentials on purpose: a redactor
+    that folded in only the first contender's names would scrub `alpha`'s
+    value and write `beta`'s in cleartext, and the bundle would look clean to
+    anyone grepping for one secret.
+    """
+    repo = leaky_repo
+    (repo / ".wringer.yaml").write_text(
+        config_body() + BENCH_SECTION, encoding="utf-8"
+    )
+
+    # The gates are red at HEAD (`calc.py` is BROKEN), which is what a bench
+    # requires — and both leaking gates run in every worktree, so the
+    # credentials reach gate logs on the baseline and on every contender.
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert artifacts(repo), "no artifacts were produced, so nothing was tested"
+    reached = {path.relative_to(repo).as_posix() for path in artifacts(repo)}
+    # Which write paths this actually reached, stated rather than assumed.
+    for expected in (".wringer/benches/", ".wringer/worktrees/"):
+        assert any(path.startswith(expected) for path in reached), (
+            f"the bench wrote nothing under {expected}, so the sweep did not "
+            f"cover it: {sorted(reached)[:10]}"
+        )
+    assert any("/loops/" in path for path in reached), (
+        "no contender loop bundle was written inside a worktree, so the sweep "
+        "covered the bench's own files and none of the evidence they point at"
+    )
+
+    leaked = {
+        PLAIN_NAME: mentions(repo, PLAIN_VALUE),
+        KEYED_NAME: mentions(repo, KEYED_VALUE),
+    }
+    assert leaked == {PLAIN_NAME: [], KEYED_NAME: []}, (
+        "a credential reached a bench artifact. Every contender's declared "
+        "names must reach the bench redactor through "
+        "`config.declared_secret_names` — a redactor built from fewer of them "
+        "protects almost everything.\n" + json.dumps(leaked, indent=2)
+    )

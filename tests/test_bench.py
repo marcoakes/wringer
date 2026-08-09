@@ -772,3 +772,35 @@ def test_a_contender_that_reported_nothing_renders_absent_and_never_zero(
     cells = [cell.strip() for cell in line[0].split("|")]
     assert "0" not in cells, f"an unreported number rendered as zero: {line[0]}"
     assert "—" in line[0], line[0]
+
+
+def test_the_limits_fit_a_terminal_when_the_console_prints_them(
+    repo, git_run, monkeypatch, capsys
+):
+    """Found by reading real output, not by the suite.
+
+    `_report_bench` already called `_wrap_message` on each limit, which looks
+    like wrapping and is not: that helper treats an INDENTED line as structure
+    the reader is meant to copy and passes it through untouched. Every limit
+    is indented (`  - ...`), so all three went out at their full width — the
+    longest at 115 columns, into a fixed 80-column recording canvas and off
+    the right-hand edge of an ordinary terminal.
+
+    The limits are the part of a bench a reader is most likely to skip. One
+    that runs off the screen is one nobody read."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    printed = capsys.readouterr()
+
+    overflowing = [
+        line for line in (printed.out + printed.err).splitlines() if len(line) > 80
+    ]
+    assert not overflowing, (
+        f"{len(overflowing)} console line(s) overflow 80 columns: {overflowing}"
+    )
+    # And the wrapping kept the hanging indent, so the list still reads as a
+    # list rather than as a paragraph with stray dashes in it.
+    said = printed.out
+    assert "  - One run per contender." in said, said

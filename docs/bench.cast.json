@@ -1,0 +1,157 @@
+[
+ {
+  "at": 0.0,
+  "text": "$ wring bench",
+  "prompt": true
+ },
+ {
+  "at": 1.0,
+  "text": "\u2192 careful"
+ },
+ {
+  "at": 1.1,
+  "text": ""
+ },
+ {
+  "at": 1.1,
+  "text": "iteration 1/3"
+ },
+ {
+  "at": 1.2,
+  "text": "\u2717 test failed        0.1s"
+ },
+ {
+  "at": 1.3,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 1.3,
+  "text": ""
+ },
+ {
+  "at": 1.3,
+  "text": "iteration 2/3"
+ },
+ {
+  "at": 1.5,
+  "text": "\u2717 test failed        0.1s"
+ },
+ {
+  "at": 1.6,
+  "text": "\u2192 hasty"
+ },
+ {
+  "at": 1.6,
+  "text": ""
+ },
+ {
+  "at": 1.6,
+  "text": "iteration 1/3"
+ },
+ {
+  "at": 1.8,
+  "text": "\u2717 test failed        0.1s"
+ },
+ {
+  "at": 1.9,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 1.9,
+  "text": ""
+ },
+ {
+  "at": 1.9,
+  "text": "iteration 2/3"
+ },
+ {
+  "at": 2.0,
+  "text": "\u2713 test passed        0.1s"
+ },
+ {
+  "at": 2.1,
+  "text": ""
+ },
+ {
+  "at": 2.1,
+  "text": "  careful          oscillating      2 iter     0.5s"
+ },
+ {
+  "at": 2.1,
+  "text": "  hasty            converged        2 iter     0.5s"
+ },
+ {
+  "at": 2.1,
+  "text": ""
+ },
+ {
+  "at": 2.1,
+  "text": "What this does not say:"
+ },
+ {
+  "at": 2.1,
+  "text": "  - One run per contender. Agents are stochastic; a difference within noise is"
+ },
+ {
+  "at": 2.1,
+  "text": "    noise."
+ },
+ {
+  "at": 2.1,
+  "text": "  - Usage and cost are the agent's own report, unverified. Absent means"
+ },
+ {
+  "at": 2.1,
+  "text": "    unreported, never zero."
+ },
+ {
+  "at": 2.1,
+  "text": "  - A green gate proves the gates went green, not that the fix is honest \u2014"
+ },
+ {
+  "at": 2.1,
+  "text": "    read the diffs before believing any row."
+ },
+ {
+  "at": 2.1,
+  "text": ""
+ },
+ {
+  "at": 2.1,
+  "text": "Bench evidence: .wringer/benches/20260809-094759-6441/"
+ },
+ {
+  "at": 3.5,
+  "text": ""
+ },
+ {
+  "at": 3.5,
+  "text": "$ git -C .wringer/worktrees/20260809-094759-6441-careful diff --stat HEAD",
+  "prompt": true
+ },
+ {
+  "at": 4.1,
+  "text": " calc.py | 2 +-"
+ },
+ {
+  "at": 4.1,
+  "text": " 1 file changed, 1 insertion(+), 1 deletion(-)"
+ },
+ {
+  "at": 5.5,
+  "text": ""
+ },
+ {
+  "at": 5.6,
+  "text": "$ git -C .wringer/worktrees/20260809-094759-6441-hasty diff --stat HEAD",
+  "prompt": true
+ },
+ {
+  "at": 6.2,
+  "text": " test_calc.py | 2 +-"
+ },
+ {
+  "at": 6.2,
+  "text": " 1 file changed, 1 insertion(+), 1 deletion(-)"
+ }
+]

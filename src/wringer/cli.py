@@ -1826,7 +1826,24 @@ def _report_bench(outcome, root: Path) -> None:
 
     print("\nWhat this does not say:")
     for limit in bench.LIMITS:
-        print(_wrap_message(f"  - {limit}"))
+        # NOT `_wrap_message(f"  - {limit}")`, which is what this was and which
+        # silently did nothing: that helper treats an indented line as
+        # structure the reader is meant to copy and passes it through
+        # untouched. Every limit is indented, so all three went out at full
+        # width — the longest at 115 columns, off the edge of an 80-column
+        # terminal and out of the recording canvas. The text is wrapped here
+        # and the hanging indent applied by the wrapper, so the list still
+        # reads as a list.
+        print(
+            textwrap.fill(
+                limit,
+                width=78,
+                initial_indent="  - ",
+                subsequent_indent="    ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
     print(f"\nBench evidence: {_relative(outcome.directory, root)}/")
 
 

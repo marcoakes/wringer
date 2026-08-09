@@ -381,3 +381,82 @@ git commit -qm "the calculator, with a planted bug"
     "$WRING" graph
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/graph.cast.json" \
     "$ROOT/docs/graph.svg" "a graph parks, a person decides, the graph resumes"
+
+# ---------------------------------------------------------------------------
+# The fifth recording: two workers, one job, and no winner.
+#
+# `wring bench` runs the same repair through every declared contender under
+# identical conditions and writes one comparison. The recording exists to show
+# the thing the table REFUSES to do.
+#
+# Both contenders are shell scripts. That is not a shortcut around an agent
+# binary — it is what makes the point filmable. `careful.sh` fixes the
+# function. `hasty.sh` rewrites the failing assertion into a tautology, which
+# is what a reward-hacking agent does and what SPEC_VACUITY_V0 §5a records as
+# the blind spot. Both converge. Every measured column — outcome, iterations,
+# wall clock — says they did equally well, because on those columns they DID.
+#
+# So the bench prints them in declared order with no winner and no score, and
+# the limits underneath say what the numbers cannot: a green gate proves the
+# gates went green, not that the fix is honest. The last step of the recording
+# is the reader doing what that sentence tells them to do — reading the diff —
+# and finding that one contender changed the code and the other changed the
+# test. An auto-ranked bench would have crowned the faster liar.
+# ---------------------------------------------------------------------------
+BENCH=$(scratch_dir "${1:-}" bench) || exit 2
+if [ -d "$BENCH" ]; then find "$BENCH" -mindepth 1 -delete 2>/dev/null; fi
+mkdir -p "$BENCH"
+cd "$BENCH"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+echo ".wringer/" > .gitignore
+
+# The job, COMMITTED red: a benchmark of repair needs something to repair, and
+# bench refuses a green baseline rather than measuring N agents converging in
+# zero iterations against work that was already done.
+cat > calc.py <<'EOF'
+def multiply(a, b):
+    return a + b
+EOF
+
+cat > test_calc.py <<'EOF'
+from calc import multiply
+
+
+def test_multiply():
+    assert multiply(3, 4) == 12
+EOF
+
+cat > careful.sh <<'EOF'
+sed 's/return a + b/return a * b/' calc.py > c && mv c calc.py
+EOF
+
+cat > hasty.sh <<'EOF'
+sed 's/multiply(3, 4) == 12/multiply(3, 4) == multiply(3, 4)/' test_calc.py > t
+mv t test_calc.py
+EOF
+
+cat > .wringer.yaml <<'EOF'
+version: 1
+gates:
+  - id: test
+    run: "python3 -m pytest -q"
+
+bench:
+  contender_wall_clock: 120
+  contenders:
+    - id: careful
+      worker: "sh ./careful.sh"
+    - id: hasty
+      worker: "sh ./hasty.sh"
+EOF
+
+git add -A
+git commit -qm "multiply is wrong, and a test says so"
+
+"$PY" "$ROOT/scripts/demo_record.py" "$BENCH" "$ROOT/docs/bench.cast.json" \
+    "$WRING" bench
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/bench.cast.json" \
+    "$ROOT/docs/bench.svg" "same job, both workers, and no winner"

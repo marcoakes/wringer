@@ -136,6 +136,12 @@ Composing those steps into one resumable workflow file is
 [`docs/graphs.md`](docs/graphs.md) — a graph of loops, with the park, the hand
 edit and the resume captured too.
 
+Choosing between workers is [`docs/bench.md`](docs/bench.md): the same job
+through every worker you declare, under identical conditions, in one
+comparison. It measures and it does not crown — the captured run has two
+contenders converging in the same two iterations, and the diffs underneath
+showing that one fixed the code and the other rewrote the test.
+
 ## Declare your gates
 
 `wring init` reads what your project already declares — `pyproject.toml`,

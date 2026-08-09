@@ -254,6 +254,24 @@ increasingly the agent itself. `--prove` tightens for one run; there is no
 [`docs/prove-the-gates-can-fail.md`](docs/prove-the-gates-can-fail.md).
 Contract: **[SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md)**.
 
+## Which worker actually fixes your issues
+
+`wring bench` runs the same repair through every worker your repo declares,
+one at a time, under identical conditions, and writes one comparison bundle.
+**It measures. It does not crown** — no winner, no score, and no ordering
+field in the format, because the one fact that would justify a ranking is the
+one this machinery cannot establish: *was the fix honest*.
+
+The captured run in [`docs/bench.md`](docs/bench.md) is that argument rather
+than an assertion of it. Two contenders converge in the same two iterations at
+the same wall clock; every measured column says they did equally well. Then
+the diffs: one changed `calc.py`, the other changed `test_calc.py`. A
+benchmark that ranked those rows would have crowned the liar, because
+rewriting a failing assertion is cheaper than fixing code — so the rows come
+out in declared order, the limits print underneath them, and you rank with the
+patches in front of you. Contract:
+**[SPEC_BENCH_V0.md](SPEC_BENCH_V0.md)**.
+
 ## Set this up and start your first build
 
 `wring start` is the guided launch: preflight, the gates your repo already

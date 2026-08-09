@@ -104,6 +104,68 @@ def _deliver_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return _argv_step(wring, "deliver")
 
 
+def _bench_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """Two workers, one job, one comparison — and no winner.
+
+    The two contenders are shell scripts, not agents: the recording needs no
+    vendor binary and no credential, and it is reproducible by anyone. What
+    they DO is the point. One fixes the function; the other rewrites the
+    failing assertion into a tautology. Both converge, and every measured
+    column says they did equally well — which is exactly why there is no
+    winner column, and why the limits print underneath the numbers rather
+    than in a spec nobody opened.
+    """
+    return _argv_step(wring, "bench")
+
+
+def _bench_worktree(scratch: Path, contender: str) -> str:
+    """The kept worktree for one contender, named literally.
+
+    A glob would have been shorter and wrong: the displayed command is the
+    command a reader types, and `*-hasty` resolves only while exactly one
+    bench exists in that tree. `_listing_step` learned this the hard way —
+    the cast showed one command and ran another for two days — so the id the
+    bench just allocated is read back and written out in full.
+    """
+    worktrees = scratch / ".wringer" / "worktrees"
+    names = sorted(
+        p.name for p in worktrees.iterdir()
+        if p.is_dir() and p.name.endswith(f"-{contender}")
+    ) if worktrees.is_dir() else []
+    if not names:
+        raise SystemExit(
+            f"demo_record: no kept worktree for {contender!r} — the bench "
+            "either never ran it or removed its evidence"
+        )
+    return f".wringer/worktrees/{names[-1]}"
+
+
+def _diff_step(contender: str):
+    """The reader ranks, with the diffs in front of them.
+
+    The table refuses to choose, so the recording shows the reader doing what
+    the printed limits tell them to do. `--stat` is the whole story in one
+    line each: one contender changed `calc.py`, the other changed
+    `test_calc.py`. Every measured column said they did equally well.
+
+    The pager is handled in the ENVIRONMENT (`GIT_PAGER=cat` in `main`), not
+    with a `--no-pager` flag in the command. `record()` runs every step under
+    a PTY so the console looks like a console — which means git sees a
+    terminal and starts `less`, and with stdin at DEVNULL that hangs forever.
+    Putting `--no-pager` on screen would have fixed it too, at the cost of
+    eight columns and of showing the reader a flag they do not need: at a
+    real terminal a pager is what you want. The env var sits beside `COLUMNS`
+    and `PATH`, which are already presentation rather than argv.
+    """
+
+    def step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+        tree = _bench_worktree(scratch, contender)
+        shown = f"git -C {tree} diff --stat HEAD"
+        return shown, shown.split()
+
+    return step
+
+
 def _listing_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The receipts listing — displayed and executed as ONE string.
 
@@ -271,6 +333,9 @@ STEP_SETS = {
     "start": (_start_step,),
     # The agent lies, Wringer catches it: converge, prove, refuse.
     "vacuous": (_run_step, _prove_step, _deliver_step),
+    # Same job, both workers, one table — then both diffs, because the table
+    # deliberately does not choose and the reader has to.
+    "bench": (_bench_step, _diff_step("careful"), _diff_step("hasty")),
     # Run → park → a person edits a file → resume → done. The interlock is
     # the only thing on screen that a flag cannot move.
     "graph": (
@@ -292,6 +357,11 @@ def main() -> int:
     env["PATH"] = f"{Path(wring).parent}:{env['PATH']}"
     # Deterministic width so the SVG's line lengths are the real ones.
     env["COLUMNS"] = "78"
+    # Every step runs under a PTY, so any git step would see a terminal and
+    # start its pager — which blocks forever against a DEVNULL stdin. This is
+    # presentation, exactly like COLUMNS: argv stays what a reader would type,
+    # and displayed-equals-executed still holds.
+    env["GIT_PAGER"] = "cat"
 
     # Deliberately NOT `wring verify` first. Its failure dump is twenty lines
     # of pytest arriving in one burst — true, but a wall rather than a demo,
