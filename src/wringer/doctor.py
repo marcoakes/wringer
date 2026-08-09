@@ -76,10 +76,16 @@ def run_checks(root: Path) -> list[Check]:
         skipped = [
             Check(name, SKIP, "not a git repository — run from your repo to check",
                   fix="", scope=REPO)
-            for name in ("git repository", "gates", "workspace writable")
+            for name in ("git repository", "gates", "pytest parallelism",
+                         "workspace writable")
         ]
         return machine[:4] + skipped + machine[4:]
-    return machine[:4] + [_repo(root), _config(root), _workspace(root)] + machine[4:]
+    return (
+        machine[:4]
+        + [_repo(root), _config(root), pytest_parallel_check(root),
+           _workspace(root)]
+        + machine[4:]
+    )
 
 
 def check_names() -> tuple[str, ...]:
@@ -88,7 +94,8 @@ def check_names() -> tuple[str, ...]:
     exist, which is how it came to claim doctor verifies the image pull."""
     return (
         "python", "wring", "git", "container runtime",
-        "git repository", "gates", "workspace writable", "llm key",
+        "git repository", "gates", "pytest parallelism", "workspace writable",
+        "llm key",
     )
 
 
@@ -191,6 +198,133 @@ def _config(root: Path) -> Check:
     if extras:
         detail += f"; also configured: {', '.join(extras)}"
     return Check("gates", OK, detail)
+
+
+# A suite slower than this is worth a worker pool; below it, the advice is
+# noise. Not a config key: a threshold nobody can turn is a threshold nobody
+# argues with, and this one only decides whether a SUGGESTION is printed.
+SLOW_SUITE_MS = 60_000
+
+
+def pytest_parallel_check(root: Path) -> Check:
+    """Offer `-n auto` to a repo whose pytest gate is slow and serial.
+
+    The biggest speedup available to most users is one line in their OWN
+    config: this repository's suite went 240s to 59s on six workers with
+    identical results, because pytest was running on one core. Wringer runs
+    the command a repo declares, so the fix belongs there and not in here —
+    and nothing was telling anybody.
+
+    Read from the RECORD rather than guessed: the newest bundle's own
+    `duration_ms` for that gate. No bundle, no claim (absence is absence),
+    and a gate already carrying `-n` gets silence, because advice repeated to
+    someone who took it is how a tool teaches people to stop reading it.
+
+    It PROPOSES and stops. `.wringer.yaml` is the one file that puts commands
+    into Wringer's mouth; editing it on a user's behalf is exactly what
+    `spec.gate_diff` refuses to do.
+    """
+    name = "pytest parallelism"
+    path = root / config.CONFIG_FILENAME
+    if not path.is_file():
+        return Check(name, SKIP, "no config to read", scope=REPO)
+    try:
+        cfg = config.load(path)
+    except config.ConfigError:
+        # The `gates` check already reports an invalid config; saying it
+        # twice would be this check claiming a problem it did not find.
+        return Check(name, SKIP, "config unreadable", scope=REPO)
+
+    serial = [
+        gate for gate in cfg.gates
+        if "pytest" in gate.run and not _already_parallel(gate.run)
+    ]
+    if not serial:
+        return Check(name, SKIP, "no serial pytest gate declared", scope=REPO)
+
+    slowest, ms = _slowest_recorded(root, serial)
+    if slowest is None:
+        return Check(
+            name, SKIP,
+            "no recorded duration for a pytest gate yet — run wring verify",
+            scope=REPO,
+        )
+    if ms < SLOW_SUITE_MS:
+        return Check(
+            name, SKIP, f"`{slowest.id}` last took {ms / 1000:.0f}s — fast "
+            "enough that workers would not pay for themselves", scope=REPO,
+        )
+
+    xdist = "pytest-xdist is installed" if _has_xdist() else (
+        "pytest-xdist is NOT installed here — pip install pytest-xdist first"
+    )
+    return Check(
+        name, WARN,
+        f"`{slowest.id}` last took {ms / 1000:.0f}s on one core; {xdist}",
+        f"In {config.CONFIG_FILENAME}, change the `{slowest.id}` gate to:\n"
+        f"    run: \"{_parallel_form(slowest.run)}\"\n"
+        "  Same gates, same evidence, one core per worker. Wringer runs what "
+        "you declare — it will not edit this for you.",
+        scope=REPO,
+    )
+
+
+def _already_parallel(command: str) -> bool:
+    """Whether a pytest command already asks for workers.
+
+    Matches the flag rather than the string: `-n`, `--numprocesses`, and the
+    `-p xdist` plugin spelling all count, and a path that merely contains the
+    letter n does not.
+    """
+    parts = command.split()
+    return any(
+        part == "-n" or part.startswith("-n=") or part.startswith("--numprocesses")
+        or part.startswith("-n") and part[2:].isdigit()
+        or part in ("auto",) and "-n" in parts
+        for part in parts
+    )
+
+
+def _parallel_form(command: str) -> str:
+    return f"{command} -n auto"
+
+
+def _has_xdist() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("xdist") is not None
+
+
+def _slowest_recorded(root: Path, gates: list) -> tuple[object | None, int]:
+    """The slowest recorded duration among these gates, from the newest
+    bundle that holds one. Reads the evidence; invents nothing."""
+    import json
+
+    runs = root / evidence.RUNS_DIRNAME
+    if not runs.is_dir():
+        return None, 0
+    ids = {gate.id: gate for gate in gates}
+    best_gate, best_ms = None, 0
+    for run in sorted(runs.iterdir(), reverse=True):
+        gates_dir = run / "gates"
+        if not gates_dir.is_dir():
+            continue
+        for entry in sorted(gates_dir.iterdir()):
+            try:
+                raw = json.loads((entry / "result.json").read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            gate = ids.get(raw.get("gate_id"))
+            if gate is None:
+                continue
+            ms = int(raw.get("duration_ms") or 0)
+            if ms > best_ms:
+                best_gate, best_ms = gate, ms
+        if best_gate is not None:
+            # The NEWEST bundle that mentions one of these gates decides:
+            # older runs describe a suite that may no longer exist.
+            break
+    return best_gate, best_ms
 
 
 def _workspace(root: Path) -> Check:

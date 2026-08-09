@@ -279,3 +279,39 @@ def test_the_placeholder_left_behind_as_optional_is_not_untouched(
     )
 
     assert detect.is_untouched_template(config.load(written).gates) is False
+
+
+
+def test_init_writes_the_same_bytes_on_every_machine(tmp_path):
+    """`wring init` drafts a file that gets COMMITTED and shared, so its
+    output may not depend on the machine that ran it.
+
+    This nearly shipped the other way: the parallel-pytest advice was first
+    written as a conditional gate command — `pytest -q -n auto` when xdist
+    was importable, `pytest -q` when it was not. That makes two developers
+    running init on the same repo produce different team configs, which is
+    the hidden environmental dependence this program exists to catch. The
+    advice belongs in a comment (unconditional, cannot fail) and in
+    `wring doctor`, which reads a recorded duration before offering anything.
+    """
+    from wringer import detect
+
+    write(
+        tmp_path,
+        "pyproject.toml",
+        """\
+[project]
+name = "thing"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+""",
+    )
+    detection = detect.detect(tmp_path)
+    runs = {c.id: c.run for c in detection.candidates}
+    assert runs.get("test") == "pytest -q", runs
+
+    rendered = detect.template(detection)
+    assert "-n auto" in rendered, "the advice is not offered at all"
+    assert "run: pytest -q\n" in rendered, "the advice leaked into the command"

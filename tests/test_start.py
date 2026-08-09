@@ -339,6 +339,12 @@ ALLOWED_PACKAGE_MANAGER_MENTIONS = {
     "doctor.py": ["pip install"],
     # The agent table. Install commands are the data it exists to hold.
     "agents.py": ["npm install"],
+    # The `.wringer.yaml` comment `wring init` writes, offering `pytest -n
+    # auto` for a slow serial suite. It is text in a generated FILE, which a
+    # human then reads and acts on or does not — the same standing as
+    # doctor's fix line, and further from an invocation than either, since
+    # nothing in Wringer ever reads that comment back.
+    "detect.py": ["pip install"],
 }
 
 

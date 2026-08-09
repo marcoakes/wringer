@@ -173,6 +173,32 @@ gates:
     timeout: 300
 ```
 
+### If your test gate is slow, it is probably on one core
+
+Wringer runs the command you declare, verbatim — so the single biggest
+speedup available to most repositories is one word in your own config:
+
+```yaml
+  - id: test
+    run: pytest -q -n auto      # pip install pytest-xdist
+```
+
+Same gates, same evidence, one core per worker. This repository's own suite
+went from **240s to 59s** that way, with all 1114 tests passing identically,
+because it was IO-bound and running on a single core.
+
+It costs the evidence nothing: the gate still passes or fails on exactly what
+it did before. `wring doctor` will offer you this line once a run has recorded
+how long your suite actually takes — it proposes and stops, because
+`.wringer.yaml` is yours.
+
+**Wringer does not run your *gates* concurrently, and that is deliberate.**
+A gate's recorded duration is compared across runs by `wring health` to spot
+drift, and gates racing each other for CPU would inflate those numbers by an
+amount nobody recorded — the report would say your checks are degrading when
+what actually moved was the instrument. Parallelism inside your test runner is
+free; parallelism inside the harness is not.
+
 ## Verify
 
 ```

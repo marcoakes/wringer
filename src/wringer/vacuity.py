@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -202,7 +203,7 @@ def prove(
                 setup=setup,
             )
 
-        rows: list[GateRow] = []
+        comparable = []
         for index, gate in planned:
             changed = changed_by_id.get(gate.id)
             if changed is None:
@@ -212,10 +213,36 @@ def prove(
                 # not decide the outcome, so its sensitivity cannot make a
                 # green tick mean more or less than it did.
                 continue
-            row = _compare(
-                gate, index, changed, worktree, logs, bundle_dir, redactor
-            )
-            rows.append(row)
+            comparable.append((index, gate, changed))
+
+        # CONCURRENTLY, and this is the one place in the program where that is
+        # free. `--prove` runs every gate a second time in the scratch tree,
+        # so it is pure duplicated cost on the critical path — and unlike the
+        # changed-tree run, nothing published compares these durations to
+        # anything. `wring verify` stays serial precisely because its
+        # `duration_ms` IS compared, by health, across the window
+        # (WRINGER_SPEED_PLAN §2 and §4 R1); a guard test keeps the two apart.
+        #
+        # Measured on four one-second gates: 4.07s serial, 1.03s on four
+        # workers. Threads rather than processes because the wait here is a
+        # subprocess, which releases the GIL — the same reason the same trick
+        # gave nothing for health's JSON parsing.
+        rows: list[GateRow] = []
+        if comparable:
+            with ThreadPoolExecutor(max_workers=min(len(comparable), 8)) as pool:
+                # `map` preserves INPUT order, so the rows land in declared
+                # order rather than completion order. `vacuity.json` is a
+                # published artifact and a set of rows that reshuffled itself
+                # per run would be non-deterministic evidence.
+                rows = list(
+                    pool.map(
+                        lambda item: _compare(
+                            item[1], item[0], item[2], worktree, logs,
+                            bundle_dir, redactor,
+                        ),
+                        comparable,
+                    )
+                )
     finally:
         # Pass, fail or Ctrl-C — the scratch tree goes.
         fleet.remove_worktree(root, worktree)

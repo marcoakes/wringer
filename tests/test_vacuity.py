@@ -836,3 +836,79 @@ def test_a_gate_whose_own_checker_is_absent_pre_change_cites_rather_than_hides(
     row = recorded["gates"][0]
     assert row["sensitive"] is True, recorded
     assert row["cites"], "a sensitive row that cannot say WHY is the trap itself"
+
+
+# --- the prove pass runs its gates concurrently (WRINGER_SPEED_PLAN P1) ----
+
+
+def test_proving_many_gates_is_faster_than_proving_them_one_at_a_time(
+    changed, monkeypatch, capsys
+):
+    """`--prove` runs every gate TWICE — once on the changed tree, once in the
+    scratch worktree — so the second pass is pure duplicated cost on the
+    critical path. Those runs are independent of each other and of anything
+    published: no number anywhere compares one gate's pre-change duration to
+    another's, which is exactly why this is safe here and forbidden in
+    `wring verify` (WRINGER_SPEED_PLAN §2, R1).
+
+    Four gates that each sleep a second. Serial that is four seconds of
+    scratch-tree work; concurrent it is about one. The bound is generous
+    because CI machines are not quiet, but four sequential sleeps cannot fit
+    inside it."""
+    import time
+
+    (changed / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        + "".join(
+            f'  - id: g{i}\n    run: "sleep 1 && grep -q FIXED calc.py"\n'
+            for i in range(4)
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(changed)
+
+    started = time.monotonic()
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    elapsed = time.monotonic() - started
+    capsys.readouterr()
+
+    recorded = verdict_of(changed)
+    assert len(recorded["gates"]) == 4, recorded
+    assert all(row["sensitive"] for row in recorded["gates"]), recorded
+    # The changed tree runs them serially (4s, and that stays serial by
+    # ruling); only the PROVE half is concurrent, so the whole command is
+    # ~4s + ~1s rather than ~4s + ~4s.
+    assert recorded["prove_ms"] < 3_000, (
+        f"the prove pass took {recorded['prove_ms']}ms for four 1s gates — "
+        "it is still running them one at a time"
+    )
+    assert elapsed < 7, elapsed
+
+
+def test_concurrent_proving_records_exactly_what_serial_proving_did(
+    changed, monkeypatch, capsys
+):
+    """Same tree in, same verdict out — the property that makes the speedup
+    free. Rows in DECLARED order (a concurrent pass that returned them in
+    completion order would make `vacuity.json` non-deterministic, which is a
+    published artifact), same sensitivity, same citations."""
+    (changed / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        '  - id: alpha\n    run: "grep -q FIXED calc.py"\n'
+        '  - id: beta\n    run: "true"\n'
+        '  - id: gamma\n    run: "grep -q FIXED calc.py"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(changed)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+    recorded = verdict_of(changed)
+
+    assert [row["gate_id"] for row in recorded["gates"]] == [
+        "alpha", "beta", "gamma"
+    ], "the rows came back in completion order, not declared order"
+    assert recorded["verdict"] == vacuity.PROVEN
+    assert [row["sensitive"] for row in recorded["gates"]] == [True, False, True]
+    assert recorded["gates"][0]["cites"], "a sensitive row lost its citation"
+    assert recorded["gates"][1]["cites"] is None

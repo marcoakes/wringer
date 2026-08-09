@@ -110,7 +110,13 @@ def test_json_is_machine_readable_and_complete(repo, write_config, monkeypatch,
     assert {"python", "git", "git repository", "gates",
             "workspace writable"} <= names
     for check in payload["checks"]:
-        assert check["status"] in (doctor.OK, doctor.WARN, doctor.FAIL)
+        # SKIP included: a check can be inapplicable INSIDE a repo too, which
+        # nothing was until `pytest parallelism` (a repo with no pytest gate
+        # has nothing to answer). It was always in the published vocabulary —
+        # the out-of-repo checks have emitted it since doctor shipped — and
+        # `Check.passed` already treats it as non-failing.
+        assert check["status"] in (doctor.OK, doctor.WARN, doctor.FAIL,
+                                   doctor.SKIP)
 
 
 def test_the_exit_code_is_what_a_setup_script_branches_on(
@@ -135,7 +141,12 @@ def test_the_report_offers_a_fix_for_everything_imperfect(repo):
     rendered = doctor.report(checks)
 
     for check in checks:
-        if check.status != doctor.OK:
+        # WARN and FAIL only. The rule is "if doctor tells you something is
+        # wrong, it tells you what to do" — and a SKIP is not something wrong,
+        # it is a question that did not apply. Doctor has always emitted
+        # fix-less skips (every check outside a repo); this condition just
+        # never met one inside a repo until `pytest parallelism`.
+        if check.status in (doctor.WARN, doctor.FAIL):
             assert check.fix, f"{check.name} has no fix line"
             assert check.fix in rendered
 
@@ -360,4 +371,108 @@ def test_the_key_line_a_doc_shows_is_the_line_doctor_prints(tmp_path, monkeypatc
     assert not offenders, (
         f"a doctor transcript no longer matches what doctor prints ({real!r}): "
         + "; ".join(offenders)
+    )
+
+
+# --- the speedup nobody was told about -------------------------------------
+
+
+def test_doctor_offers_the_parallel_pytest_line_for_a_slow_serial_suite(
+    repo, monkeypatch, capsys
+):
+    """The biggest speedup available to a real user is one line in their own
+    config, it costs the evidence nothing, and nothing ever told them.
+
+    This repo's own suite went 240s to 59s on six workers with identical
+    results, purely because pytest was running on one core. That is not a
+    Wringer feature — it is `pytest -n auto`, in the user's `.wringer.yaml`,
+    which Wringer runs verbatim. So doctor says so, using the duration the
+    record already holds rather than guessing.
+
+    It PROPOSES and stops. `.wringer.yaml` is the one file that puts commands
+    into Wringer's mouth, and editing it on a user's behalf is the thing
+    `gate_diff` exists to refuse."""
+    from wringer import doctor
+
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "pytest -q"\n',
+        encoding="utf-8",
+    )
+    _record_gate_duration(repo, "test", "pytest -q", 240_000)
+
+    check = doctor.pytest_parallel_check(repo)
+    assert check.status == doctor.WARN, check
+    assert "-n auto" in check.fix, check.fix
+    assert "240" in check.detail or "240s" in check.detail, check.detail
+
+
+def test_doctor_says_nothing_about_a_suite_that_is_already_parallel(
+    repo, monkeypatch, capsys
+):
+    """A gate already carrying -n is advice nobody needs, and doctor that
+    repeats itself is doctor nobody reads."""
+    from wringer import doctor
+
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "pytest -q -n auto"\n',
+        encoding="utf-8",
+    )
+    _record_gate_duration(repo, "test", "pytest -q -n auto", 240_000)
+
+    assert doctor.pytest_parallel_check(repo).status == doctor.SKIP
+
+
+def test_doctor_says_nothing_about_a_fast_suite(repo, monkeypatch, capsys):
+    """Below the threshold the advice is noise: a two-second suite does not
+    need a worker pool, and suggesting one would be this tool inventing a
+    problem to solve."""
+    from wringer import doctor
+
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "pytest -q"\n',
+        encoding="utf-8",
+    )
+    _record_gate_duration(repo, "test", "pytest -q", 2_000)
+
+    assert doctor.pytest_parallel_check(repo).status == doctor.SKIP
+
+
+def test_doctor_says_nothing_when_the_record_holds_no_duration(repo):
+    """No bundle, no claim. Absence is absence: doctor does not guess that a
+    suite is slow because it might be."""
+    from wringer import doctor
+
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "pytest -q"\n',
+        encoding="utf-8",
+    )
+    assert doctor.pytest_parallel_check(repo).status == doctor.SKIP
+
+
+def _record_gate_duration(repo, gate_id: str, command: str, ms: int) -> None:
+    """A verify bundle in the shape the real one has, with a known duration."""
+    import json
+
+    from wringer import evidence
+
+    run = repo / evidence.RUNS_DIRNAME / "20260101-000000-aaaa"
+    (run / "gates" / f"001_{gate_id}").mkdir(parents=True, exist_ok=True)
+    (run / evidence.MANIFEST_FILENAME).write_text(
+        json.dumps({
+            "schema_version": evidence.SCHEMA_VERSION,
+            "run_id": run.name,
+            "started_at": "2026-01-01T00:00:00+00:00",
+            "repo": {"root": ".", "head_sha": "0" * 40, "branch": "main",
+                     "dirty": False},
+            "result": {"status": "passed", "failed_gate": None},
+        }),
+        encoding="utf-8",
+    )
+    (run / "gates" / f"001_{gate_id}" / "result.json").write_text(
+        json.dumps({
+            "gate_id": gate_id, "command": command, "exit_code": 0,
+            "duration_ms": ms, "timed_out": False, "stdout_truncated": False,
+            "stderr_truncated": False, "optional": False, "status": "passed",
+        }),
+        encoding="utf-8",
     )
