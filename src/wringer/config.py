@@ -89,6 +89,15 @@ REPO_PATTERN = re.compile(
 # value can reach an argv.
 REF_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
 _GATE_KEYS = {"id", "run", "timeout", "optional", "required"}
+# `.wringer.yaml` ONLY. `parse_gate` is deliberately shared — `wring spec`
+# runs proposed gates through it so Wringer can never propose a gate its own
+# loader would reject — so putting `proves` in the set above would legalise it
+# on a DRAFTED spec too, handing the drafter the binding channel
+# SPEC_ACCEPT_V0 ruling 2 says it does not have, and putting this parser at
+# odds with `spec.schema.json`'s `additionalProperties: false` over the same
+# bytes. The binding is a human's act in the config file, and the key set is
+# where that is enforced rather than merely asserted.
+_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves"}
 _EVIDENCE_KEYS = {"include", "redact"}
 _REDACT_KEYS = {"env"}
 _RUN_KEYS = {
@@ -149,6 +158,9 @@ class Gate:
     run: str
     timeout: int = DEFAULT_TIMEOUT_SECONDS
     optional: bool = False
+    # The criterion this gate evidences (SPEC_ACCEPT_V0 §1). None is every
+    # gate that exists today: absence is the opt-in boundary, not a default.
+    proves: str | None = None
 
 
 @dataclass(frozen=True)
@@ -353,7 +365,65 @@ def load(path: Path) -> Config:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except yaml.YAMLError as exc:
         raise ConfigError(f"{path.name} is not valid YAML: {exc}") from exc
-    return parse(raw, source=path.name)
+    cfg = parse(raw, source=path.name)
+    _check_bindings(cfg, path.parent)
+    return cfg
+
+
+SPEC_FILENAME = "wringer.spec.yaml"
+
+
+def _check_bindings(cfg: Config, root: Path) -> None:
+    """Every `proves:` names a criterion that exists and may be evidenced.
+
+    Checked at LOAD, not at verify: a binding to nothing is a claim about
+    nothing, and the failure a reader can act on is "this id is not in your
+    spec" rather than an artifact that silently records a debt nobody can
+    explain. Deliberately not a schema concern — `wringer.spec.v1` is frozen
+    and the join lives entirely on the config side.
+    """
+    bound = [gate for gate in cfg.gates if gate.proves]
+    if not bound:
+        return
+
+    spec_path = root / SPEC_FILENAME
+    if not spec_path.is_file():
+        named = ", ".join(f"'{gate.id}' -> {gate.proves}" for gate in bound)
+        raise ConfigError(
+            f"{CONFIG_FILENAME} binds gates to criteria ({named}) but there is "
+            f"no {SPEC_FILENAME} in {root} to bind them to. Write the spec "
+            "first, or drop the 'proves:' keys"
+        )
+
+    from wringer import spec as spec_module
+
+    criteria = {c.id: c for c in spec_module.load(spec_path).criteria}
+
+    seen: dict[str, str] = {}
+    for gate in bound:
+        assert gate.proves is not None
+        criterion = criteria.get(gate.proves)
+        if criterion is None:
+            known = ", ".join(sorted(criteria)) or "none"
+            raise ConfigError(
+                f"gate '{gate.id}' proves '{gate.proves}', which is not a "
+                f"criterion in {SPEC_FILENAME}. Declared there: {known}"
+            )
+        if criterion.human:
+            raise ConfigError(
+                f"gate '{gate.id}' proves '{gate.proves}', which is marked "
+                "'human: true'. A command claiming to evidence judgement is a "
+                "category error — human criteria are answered by people, and "
+                "nothing here may score them"
+            )
+        if gate.proves in seen:
+            raise ConfigError(
+                f"gates '{seen[gate.proves]}' and '{gate.id}' both prove "
+                f"'{gate.proves}'. One criterion, one gate: a second is a "
+                "second claim to keep honest, and the artifact has one slot "
+                "per criterion"
+            )
+        seen[gate.proves] = gate.id
 
 
 def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
@@ -372,7 +442,8 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
     if not isinstance(gates_raw, list) or not gates_raw:
         raise ConfigError(f"{source}: 'gates' must be a non-empty list")
     gates = tuple(
-        parse_gate(entry, index, source) for index, entry in enumerate(gates_raw)
+        parse_gate(entry, index, source, allow_proves=True)
+        for index, entry in enumerate(gates_raw)
     )
 
     seen: set[str] = set()
@@ -1107,7 +1178,9 @@ def _validate_evidence(evidence: dict[str, Any], source: str) -> None:
         )
 
 
-def parse_gate(raw: Any, index: int, source: str) -> Gate:
+def parse_gate(
+    raw: Any, index: int, source: str, *, allow_proves: bool = False
+) -> Gate:
     """Validate one gate definition.
 
     Public because `wring spec` proposes gates: a gate a drafter suggests goes
@@ -1118,7 +1191,7 @@ def parse_gate(raw: Any, index: int, source: str) -> Gate:
     if not isinstance(raw, dict):
         raise ConfigError(f"{where} must be a mapping")
 
-    unknown = sorted(set(raw) - _GATE_KEYS)
+    unknown = sorted(set(raw) - (_CONFIG_GATE_KEYS if allow_proves else _GATE_KEYS))
     if unknown:
         raise ConfigError(f"{where}: unknown keys: {', '.join(unknown)}")
 
@@ -1167,7 +1240,25 @@ def parse_gate(raw: Any, index: int, source: str) -> Gate:
     else:
         optional = False
 
-    return Gate(id=gate_id, run=run, timeout=timeout, optional=optional)
+    proves = raw.get("proves")
+    if proves is not None:
+        if not isinstance(proves, str) or not proves.strip():
+            raise ConfigError(
+                f"{where} ('{gate_id}'): 'proves' must be a non-empty string — "
+                "the id of a criterion in wringer.spec.yaml"
+            )
+        if optional:
+            raise ConfigError(
+                f"{where} ('{gate_id}'): an optional gate may not carry "
+                f"'proves: {proves}'. Evidence that cannot stop a run is a "
+                "promise without enforcement, and 'wring verify --prove' never "
+                "proves optional gates, so the remedy for an unevidenced "
+                "criterion could never fire for this one"
+            )
+
+    return Gate(
+        id=gate_id, run=run, timeout=timeout, optional=optional, proves=proves
+    )
 
 
 def _is_int(value: Any) -> bool:

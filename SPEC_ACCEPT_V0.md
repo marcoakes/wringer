@@ -14,22 +14,27 @@ DECIDED below. Binding; no approval pauses remain.
 [SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md) and
 [SPEC_HEALTH_V0.md](SPEC_HEALTH_V0.md) are load-bearing and unchanged.*
 
-*Review: three of four lanes ran 2026-08-09 — internal 4 findings (two
-HIGH: a criterion occupying two states at once; a "verbatim" predicate
-carrying an unstated exception), machinery 5 (two HIGH: `gate_diff` had no
-channel to know the pairing; `health.GateRun` does not read `exit_code`),
-positioning 0 after a full read. ALL NINE FOLDED — the two-layer taxonomy,
-ruling 2's human-writes-the-line, the rejection table's fifth row, and §6's
-pre-A0 sensitivity limit all exist because of them. **The corpus lane is a
-DEBT: it died in a session teardown, and its re-run was cancelled to stop
-token burn.** Its highest-risk questions were checked by hand in the
-specing session (worker/judge isolation: `proves:` exposes criterion IDS
-only, guidance text never enters config or briefs — plan trap 2; refusal
-shape: matches vacuity's presence-opt-in/no-loosening-flag precedent by
-construction; exit codes: verify observes, deliver's sixth refusal exits 1
-like its five siblings, never 5 extended; attest: untouched, §8). A
-machine re-run of that one lane is the plan's opening slice, and an empty
-result there is not a pass.*
+*Review: all four lanes ran 2026-08-09 — internal 4 findings, machinery 5,
+positioning 0 after a full read, and the corpus lane (which died once in a
+session teardown) 9 more, five of them HIGH. Twenty folded. **The corpus
+lane's most useful finding was that this paragraph's earlier version was
+lying**: it had discharged the dead lane with three hand-checks, and two were
+false — "guidance text never enters config or briefs" is contradicted by
+`spec.render_brief`, which writes every criterion's `guidance` verbatim into
+the file handed to the worker, and "deliver's sixth refusal exits 1 like its
+five siblings" mis-numbered a refusal family that is a fixed term of art for
+SPEC_GET §1's git-power refusals, most of which exit 3. A hand-check standing
+in for a machine check is exactly the narrowing this program hunts, and it
+narrowed here, in this spec's own provenance. What the corpus lane broke, now
+ruled: the state table was not total (a bound gate that FAILED had no state —
+`gate-failed` is new); the vacuity reclassification this spec asked A0 to make
+violates SPEC_VACUITY §4b by name and was reverted from shipped code (§6);
+`_GATE_KEYS` is shared with the spec parser, so the `proves:` key needs its
+own key set or it hands the drafter the channel ruling 2 says it lacks;
+and TWO QUESTIONS ARE REFERRED BACK, marked OPEN below rather than answered
+here — §5's opt-in trigger against `approved: false`, and the wall-of-red
+that ruling 5 claims to avoid. Marc delegated the rulings on 2026-08-09;
+all except the two marked OPEN are DECIDED below. Binding.*
 
 ## Positioning
 
@@ -105,10 +110,11 @@ claim:
 | `evidenced` | bound, gate passed in this run, AND the record shows the gate can fail (§3) |
 | `unevidenced` | unbound — or bound but born green: passing now with no recorded failure and no sensitive row. Rendered UNEVIDENCED, in capitals, and refusing delivery when `required` |
 | `human` | `human: true` — answered by people, not gates |
+| `gate-failed` | bound, the gate ran, and it FAILED — the criterion is not met, which is the ordinary honest state of work in progress and the one the first draft's table had no row for |
 | `gate-did-not-run` | bound, but the gate left no result in this bundle (skipped, interrupted) — absence, never a pass-through |
 
 The author sorts, in the spec file, through the same human approval that
-owns the spec — `wring plan`'s drafter MAY propose `human: true` exactly as
+owns the spec — `wring spec`'s drafter MAY propose `human: true` exactly as
 it proposes everything else, because a draft is a proposal and the file a
 human approved is the decision. The machinery's job is only to make the
 sort's consequences visible: an unbound required criterion is loud, not
@@ -199,7 +205,31 @@ frozen bundle format.
 
 ## 5. Where it bites — delivery, by the vacuity precedent (ruling 5)
 
-`wring deliver` gains its sixth refusal: **a bundle whose `acceptance.json`
+> **OPEN — two rulings referred back to a spec cycle, and no code may ship
+> against §5 until they are DECIDED.** The corpus review broke ruling 5's
+> reasoning in two places and neither has a safe default:
+>
+> **O1 — presence is not approval.** `wring spec` writes
+> `wringer.spec.yaml` with model-drafted criteria and `approved: false`, and
+> the file exists from that moment. Trigger on *presence* and an unapproved
+> draft's criteria — and its proposed `human:` sort — acquire
+> delivery-blocking force before a person has read them, which is the exact
+> interlock SPEC_INTENT §3 exists to hold and which SPEC_PROVENANCE §2a
+> already had to repair once. The obvious fix (require `approved: true`) is
+> probably right and is deliberately NOT taken here, because it changes what
+> "opt-in" means and that is a ruling, not an implementation detail.
+>
+> **O2 — the wall of red ruling 5 claims to avoid.** Criteria default
+> `required: true`, `criteria` has `minItems: 1`, and nothing is bound the
+> moment a spec is written — so the first delivery in any repo that has ever
+> run `wring spec` is refused for every criterion at once. That is health
+> ruling 6's turned-off-by-noon failure, arriving through the door this
+> ruling used to justify itself. The analogy to vacuity also breaks here:
+> vacuity's opt-in act is *asking for the measurement* (`--prove`), while
+> this one is *declaring what you want built*, which every PM-loop repo does
+> before any gate exists.
+
+`wring deliver` gains a refusal: **a bundle whose `acceptance.json`
 records any `required` criterion `unevidenced` (or whose bound gate did not
 run) does not deliver.** Everything about the vacuity refusal's shape is
 kept deliberately: the refusal reads the artifact in the bundle (state
@@ -212,8 +242,11 @@ refuses — a person's judgement is not a gate's to hold hostage — and
 `optional` (`required: false`) criteria render honestly and refuse nothing.
 Exit codes: unchanged everywhere. Verify stays an observer of acceptance
 (the artifact is a record, not a verdict — bench ruling 7's grammar);
-deliver's refusal exits 1 exactly as its other five do; never 5, family
-extended.
+deliver's refusal exits 1, joining the two preconditions that already exit 1
+(no passing run bundle; nothing to deliver) and vacuity's `gates_vacuous` —
+NOT "one of five", which in this corpus is a fixed term of art for
+SPEC_GET §1's five git-power refusals, a family this does not join and whose
+codes are mostly 3; never 5, family extended.
 
 ## 6. What the artifact refuses to claim — `limits`, pinned by content
 
@@ -224,6 +257,10 @@ extended.
 2. *The gate ↔ criterion binding is a human's declaration. Wringer checks
    the binding's consequences, never its wisdom.*
 3. *Human criteria are answered by people. Nothing here scored them.*
+4. *A sensitivity receipt inherits vacuity's blind spot: it says the gate's
+   result differed between the two trees, not that the difference was the
+   change. A gate whose own command arrived with the change reads sensitive
+   for that reason alone — the citation beside it is how you tell.*
 
 Limit 1's second clause is this spec inheriting vacuity §5a and health limit
 4 in its own voice: a `sensitive` row or an old red proves the gate CAN
@@ -232,15 +269,25 @@ while testing a tautology it was later narrowed into. The longitudinal
 answer is health's; the per-run answer is `--prove`; this artifact states
 the boundary rather than blurring it.
 
-One more inherited edge, stated rather than silently trusted: a vacuity row
-records no exit code (`wringer.vacuity.v1`, frozen), so a `sensitive: true`
-row written BEFORE slice A0 could in principle rest on a pre-change tree
-whose gate died of a missing binary rather than of the change. A0 closes
-the source — after it, a 127 pre-change result renders the prove
-`inconclusive` (vacuity's own grammar for a broken environment, computed at
-generation time from the result the prove pass just ran, no schema change) —
-and rows older than the fix are covered by limit 1's wording rather than
-filtered by machinery that has nothing to filter on.
+One more inherited edge, and the review corrected this spec's first answer
+to it. A vacuity row records no exit code (`wringer.vacuity.v1`, frozen), so
+a `sensitive: true` row can rest on a pre-change tree whose gate died of a
+missing *checker* rather than of the change — a worker that adds both the
+acceptance script and the code it checks gets `proven` for free. The first
+draft asked slice A0 to reclassify that to `inconclusive`. **That was wrong
+and the code was reverted**: SPEC_VACUITY §4b says "Do **not** try to
+auto-classify the failure — make it visible", its §4b DONE box requires
+exactly this shape to yield a CITING `sensitive` row, and `_cite`'s own
+docstring lists `sh: yourtool: command not found` among the shapes it exists
+to surface. 127 was anticipated there and answered deliberately, and a
+newer spec does not get to overturn it in an implementation slice.
+
+So the honest v0 answer is vacuity's own: **make it visible.** A sensitivity
+receipt is recorded in `acceptance.json` with its `cites` line verbatim
+beside the criterion, so a reader sees "command not found" where it happened;
+and limit 4 below states the residue. Filtering it in machinery is not
+available — the rows carry nothing to filter on — and pretending otherwise
+would be this spec claiming more than the bundles evidence.
 
 ## 7. Rulings
 
@@ -268,7 +315,16 @@ filtered by machinery that has nothing to filter on.
    `proves` on proposed gates is the named v1 channel and nothing more.
    Binding on the spec side today would need a frozen-schema edit; binding
    in a third file would be a second place for commands to acquire
-   meaning.
+   meaning. **The guarantee needs a mechanism, not just a sentence**:
+   `config.parse_gate` is deliberately SHARED — `wring spec` runs proposed
+   gates through the same parser so Wringer can never propose a gate its own
+   loader would reject — so adding `proves` to the single `_GATE_KEYS` set
+   would legalise it on the spec side too, handing the drafter the channel
+   this ruling says it lacks and putting the parser at odds with
+   `spec.schema.json`'s `additionalProperties: false` over the same bytes.
+   `proves` is therefore accepted only in the `.wringer.yaml` key set, and a
+   `proves:` on a spec-proposed gate is an unknown key there — pinned by a
+   test, because a sentence is not an enforcement channel.
 3. **A criterion is evidenced only by a gate that passed now AND has
    demonstrably failed — DECIDED** (§3). The bench precedent chosen over
    the alternatives (human diff alone: already kept, necessary, not
@@ -355,7 +411,9 @@ percentages as exit codes or thresholds (a knob for making debts disappear)
       `acceptance.schema.json`, frozen in the same commit, drift test
       extended, the freeze manifest updated, and the schema README row
       present (the derived guard from B3 covers this)
-- [ ] the three `limits` are pinned by content, not by non-emptiness
+- [ ] the four `limits` are pinned by content, not by non-emptiness — and
+      limit 4 names the command-not-found case, because it is the one a
+      reader of an acceptance artifact most needs and least wants
 - [ ] repos with no `wringer.spec.yaml` write no artifact and a
       byte-level test pins that their bundles are unchanged — the opt-in
       boundary is a test, not a promise

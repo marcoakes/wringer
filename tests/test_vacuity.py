@@ -798,25 +798,28 @@ def test_verify_says_nothing_about_vacuity_when_it_was_not_checked(
     assert vacuity.GATES_VACUOUS not in printed
 
 
-# --- a missing binary is not proof (SPEC_ACCEPT_V0 ruling 7, slice A0) ------
+# --- a missing checker cites, and is NOT reclassified ----------------------
 
 
-def test_a_gate_whose_own_checker_is_absent_pre_change_is_not_sensitivity(
+def test_a_gate_whose_own_checker_is_absent_pre_change_cites_rather_than_hides(
     changed, monkeypatch, capsys
 ):
-    """The sharpest form of the self-serving-test attack, and it passes every
-    check this program had before this slice.
+    """The sharpest form of the self-serving-test attack — and vacuity's
+    binding answer to it is to SHOW it, not to sort it.
 
-    A worker adds BOTH the acceptance script and the code it checks. On the
-    changed tree the gate passes. On the pre-change tree the script does not
-    exist yet, so the shell exits 127 — and the row reads `sensitive: true`,
-    verdict `proven`. But the gate never demonstrated it can REJECT a bad
-    tree; it demonstrated it cannot run without its own file. Counting that
-    mints proof out of the checker's own absence, which is exactly what
-    SPEC_ACCEPT_V0 §3 makes load-bearing for acceptance evidence.
+    A worker adds both the acceptance script and the code it checks. On the
+    changed tree the gate passes; on the pre-change tree the script does not
+    exist yet, so the shell exits 127 and the row reads `sensitive: true`.
+    An earlier draft of this slice reclassified that to `inconclusive` — and
+    that violates §4b by name ("Do **not** try to auto-classify the failure —
+    make it visible") and the §4b DONE box, which requires exactly this shape
+    to yield a CITING sensitive row. `_cite` already lists
+    `sh: yourtool: command not found` among the shapes it exists to surface,
+    so 127 was anticipated here and answered deliberately.
 
-    `inconclusive` is vacuity's own grammar for it: the measurement could not
-    be made honestly. Never `proven`, never silently dropped.
+    The claim therefore stays sized in the reader's hands: the row says
+    sensitive, and the citation says why, so a person can see that the gate's
+    own command arrived with the change.
     """
     (changed / "check.sh").write_text("exit 0\n", encoding="utf-8")
     (changed / ".wringer.yaml").write_text(
@@ -830,5 +833,6 @@ def test_a_gate_whose_own_checker_is_absent_pre_change_is_not_sensitivity(
     capsys.readouterr()
 
     recorded = verdict_of(changed)
-    assert recorded["verdict"] == vacuity.INCONCLUSIVE, recorded
-    assert not any(row["sensitive"] for row in recorded.get("gates", [])), recorded
+    row = recorded["gates"][0]
+    assert row["sensitive"] is True, recorded
+    assert row["cites"], "a sensitive row that cannot say WHY is the trap itself"

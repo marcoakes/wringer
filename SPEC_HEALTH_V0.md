@@ -232,8 +232,8 @@ silently absorbed.
 
 ### 3c. What counts, and what never counts
 
-- A **genuine failure** is `status: failed` **and `timed_out: false`** on the
-  changed tree. Both halves are required and the second is not decoration:
+- A **genuine failure** is `status: failed`, **`timed_out: false`**, and
+  **`exit_code != 127`** on the changed tree. Both halves are required and the second is not decoration:
   `gate-result.schema.json` has a two-value status whose own description
   reads *"passed requires exit_code 0 AND timed_out false"*, so **every
   timeout already records `status: failed`**. The first draft's predicate was
