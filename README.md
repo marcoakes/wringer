@@ -33,6 +33,15 @@ for product managers, designers and engineers.**
 
 Wringer (CLI: `wring`) compiles **intent** — tickets, PRDs, Slack messages — into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine — no runtime, no gateway, and no identity system to adopt first.
 
+The committed direction ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)): **every
+acceptance criterion carries the evidence that proves it — or is marked as
+the human judgement it always was.** A PM's criteria already travel
+untranslated from spec to rubric; the bridge binds each one to the gate that
+evidences it, and a criterion whose gate has never demonstrably failed is
+named rather than counted. Scoped honestly: this is the bridge for a repo
+with a real gate suite — not yet the factory that builds one from a blank
+directory.
+
 Every cloud's harness locks you to its runtime, its identity system, its gateway. **Nobody owns the neutral layer.** That's the bet — Kubernetes-vs-managed-containers, replayed one layer up.
 
 <div align="center">
