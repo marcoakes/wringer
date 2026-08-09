@@ -1,0 +1,40 @@
+# M3 — the self-shipped PR (WRINGER_NEXT_ACT_PLAN.md, Move 3).
+#
+# A real feature change driven end to end by shipped machinery: the brief is
+# staged as evidence, a person approves by editing the decision file BY HAND
+# (no flag can flip the interlock — that is the point of filming it), the
+# loop turns the committed-red guard green, the router reads what actually
+# happened, and delivery happens only under a --send a person types.
+version: 1
+id: m3-readme-relead
+inputs:
+  brief: m3/BRIEF.md
+budgets:
+  wall_clock: 86400
+nodes:
+  stage:
+    kind: intent
+    input: inputs.brief
+    writes:
+      brief: state.brief
+    then: approve
+  approve:
+    kind: human
+    prompt: "Read the staged brief (m3/BRIEF.md): approve the README re-lead?"
+    then: build
+  build:
+    kind: loop
+    budgets:
+      max_iterations: 2
+    writes:
+      status: state.build-status
+    then: route
+  route:
+    kind: router
+    routes:
+      - when: "state.build-status == 'converged'"
+        to: ship
+    default: fail
+  ship:
+    kind: deliver
+    then: done

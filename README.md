@@ -20,16 +20,18 @@ for product managers, designers and engineers.**
 
 ---
 
-> **Everyone else in this space is selling capability and asking for trust.
-> Wringer is built on the opposite premise: trust nothing — including itself.**
-> Not the worker's exit code, not the agent's summary, not even the tests the
-> agent wrote — and soon, provably, not even its own ledgers. That stance came
-> out of [a real eight-hour burn](SPEC_SUPERVISION_V0.md), it is welded into
-> [eight invariants](SPEC_SUPERVISION_V0.md) a fleet already obeys, and it
-> gets more valuable with every step frontier models take — because autonomy
-> without receipts is exactly what everyone is about to be terrified of.
+> **In the agent era, code is cheap and green is suspect. The scarce resource
+> is warranted trust in a passing check — and that trust decays.** Wringer is
+> the evidence layer that keeps your green honest: it runs your repo's own
+> gates, writes receipts a stranger can audit, and trusts nothing — including
+> itself. Not the worker's exit code, not the agent's summary, not even the
+> tests the agent wrote. That stance came out of
+> [a real eight-hour burn](SPEC_SUPERVISION_V0.md) and is welded into
+> [eight invariants](SPEC_SUPERVISION_V0.md) a fleet already obeys. And it is
+> the one stance no vendor can copy, because Wringer is nobody's agent:
+> **the party holding the receipts has no stake in what they say.**
 
-Wringer (CLI: `wring`) compiles **intent** — tickets, PRDs, Slack messages — into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs the **same workflow definition** on your laptop today and on durable runtimes (Temporal first) tomorrow.
+Wringer (CLI: `wring`) compiles **intent** — tickets, PRDs, Slack messages — into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine — no runtime, no gateway, and no identity system to adopt first.
 
 Every cloud's harness locks you to its runtime, its identity system, its gateway. **Nobody owns the neutral layer.** That's the bet — Kubernetes-vs-managed-containers, replayed one layer up.
 
@@ -272,6 +274,17 @@ twenty-five green ticks — and health reads:
   test  zombie   25 runs
       → wring verify --prove — records a sensitive row, or confirms the doubt
 ```
+
+<div align="center">
+
+<img src="docs/health.svg" alt="wring health: a gate dies under a neutering fix, twenty-five green runs later the vitality table reads zombie" width="700">
+
+*A real session, captured — the failure, the neutering "fix", twenty-five
+genuinely executed green runs, and the verdict. Regenerate it with
+`scripts/demo.sh`; the transcript is committed beside it at
+[`docs/health.cast.json`](docs/health.cast.json).*
+
+</div>
 
 Nothing else tells you that. The coverage statement leads every report, so a
 bundle that could not be read is named rather than dropped; `--strict` exits 1
