@@ -1889,3 +1889,119 @@ def test_the_delivery_patch_is_scrubbed_of_declared_credentials(
         and secret in path.read_text(encoding="utf-8", errors="replace")
     ]
     assert hits == [], f"the agent's credential reached {hits}"
+
+
+# --- acceptance: the spec is satisfied, or delivery does not happen --------
+#
+# SPEC_ACCEPT_V0 §5, slice A3. Beside "its gates did not pass" and "its gates
+# proved nothing", because it is the same statement one level up: this bundle
+# is not evidence that the thing we asked for was built.
+#
+# Both opt-in boundaries are asserted here rather than trusted, because both
+# decide whether an ordinary repo notices this feature at all.
+
+ACCEPT_SPEC = """\
+schema_version: wringer.spec.v1
+approved: {approved}
+title: The feature
+intent: Ship the thing finance keeps asking for.
+tasks:
+  - id: build
+    brief: Build it
+    objective: The reports page exports a CSV.
+criteria:
+  - id: csv-downloads
+    title: The export downloads a CSV
+    required: true
+"""
+
+ACCEPT_CONFIG = CONFIG.replace(
+    '  - id: check\n    run: "true"\n',
+    '  - id: check\n    run: "true"\n    proves: csv-downloads\n',
+)
+
+
+def accepting_repo(repo: Path, *, approved: bool = True, bound: bool = True) -> Path:
+    """The delivery fixture's repo, plus a spec — `delivery_repo` is a
+    pytest fixture, so callers take it as a parameter and this only adds."""
+    (repo / "wringer.spec.yaml").write_text(
+        ACCEPT_SPEC.format(approved="true" if approved else "false"),
+        encoding="utf-8",
+    )
+    if bound:
+        (repo / ".wringer.yaml").write_text(ACCEPT_CONFIG, encoding="utf-8")
+    return repo
+
+
+def test_a_bound_criterion_with_no_evidence_refuses_delivery(
+    delivery_repo, monkeypatch, capsys
+):
+    """The gate passed, so the change is mergeable — and the criterion is
+    still unevidenced, because that gate has never once been recorded
+    failing. Delivery stops, names the criterion, and prints the one-run
+    remedy rather than leaving the reader to guess."""
+    accepting_repo(delivery_repo)
+    verified(delivery_repo, monkeypatch, capsys)
+
+    code = cli.main(["deliver"])
+    printed = flat(capsys.readouterr().err)
+
+    assert code == cli.EXIT_GATE_FAILED
+    assert "csv-downloads" in printed, printed
+    assert "--prove" in printed, printed
+
+
+def test_a_criterion_with_a_recorded_red_delivers(delivery_repo, monkeypatch, capsys):
+    """The honest flow end to end: the gate was red once, the record holds
+    it, the criterion is evidenced, and delivery proceeds."""
+    repo = accepting_repo(delivery_repo)
+    monkeypatch.chdir(repo)
+
+    # Red first — the criterion is genuinely unmet, which is true.
+    (repo / ".wringer.yaml").write_text(
+        ACCEPT_CONFIG.replace('run: "true"', 'run: "grep -q FIXED feature.py"'),
+        encoding="utf-8",
+    )
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    # Then built, and green.
+    (repo / "feature.py").write_text("FIXED\n", encoding="utf-8")
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_an_unbound_criterion_never_refuses_delivery(
+    delivery_repo, monkeypatch, capsys
+):
+    """Ruling 9, at the place it matters. Criteria default to required and
+    nothing is bound the moment a spec is approved, so refusing here would
+    refuse the FIRST delivery in every repo that ever ran `wring spec` —
+    health ruling 6's wall of red. It renders UNEVIDENCED and ships."""
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_an_unapproved_spec_does_not_touch_delivery(delivery_repo, monkeypatch, capsys):
+    """Ruling 8. A model drafts criteria with `approved: false`; until a
+    person flips it, delivery behaves exactly as it did before this feature
+    existed."""
+    accepting_repo(delivery_repo, approved=False)
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_a_repo_with_no_spec_delivers_exactly_as_before(
+    delivery_repo, monkeypatch, capsys
+):
+    """The boundary every existing user lives on."""
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()

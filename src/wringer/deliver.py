@@ -473,6 +473,49 @@ def _check_not_vacuous(run_dir: Path) -> None:
     )
 
 
+def _check_acceptance(run_dir: Path) -> None:
+    """Refuse a bundle whose spec is not satisfied (SPEC_ACCEPT_V0 §5).
+
+    The same statement as "its gates did not pass", one level up: this bundle
+    is not evidence that the thing we asked for was BUILT. And the same shape
+    as the vacuity refusal, deliberately — it reads the artifact in the
+    bundle, so state routes while only bundles gate.
+
+    Two bundles reach this and return unchanged, which is the whole opt-in
+    story: one from a repo with no approved spec (no artifact at all,
+    ruling 8), and one whose criteria nobody has bound yet (`refuses` is
+    false on every row, ruling 9). Binding a gate is the act that says
+    "hold me to this"; declaring a criterion is not.
+    """
+    from wringer import accept
+
+    recorded = accept.read(run_dir)
+    if recorded is None:
+        return
+    refusing = [
+        row for row in recorded.get("criteria", [])
+        if isinstance(row, dict) and row.get("refuses")
+    ]
+    if not refusing:
+        return
+
+    lines = [
+        f"refusing to deliver {run_dir.name} — its gates passed, but the "
+        f"spec is not satisfied by the record:",
+        "",
+    ]
+    for row in refusing:
+        lines.append(f"  {row['criterion']} — {row['state'].upper()}")
+        if row.get("reason"):
+            lines.append(f"    {row['reason']}")
+    lines += [
+        "",
+        "A criterion is evidenced when its gate passed AND the record shows "
+        "that gate can fail. Make the evidence better, not the check weaker.",
+    ]
+    raise Refused("\n".join(lines), 1)
+
+
 def resolve_base(root: Path, settings: config.Deliver) -> tuple[str, str | None]:
     """The branch the MR targets, and the remote's default branch.
 
@@ -564,6 +607,11 @@ def plan(
     # same spec. The escape is the same as for a failing gate — make the
     # evidence better, not the check weaker.
     _check_not_vacuous(run_dir)
+    # And the same again for the spec: gates passing says the change is
+    # mergeable, not that what was asked for exists. Only BOUND criteria can
+    # refuse (ruling 9), so a repo that has declared criteria without binding
+    # them is loud in the artifact and delivers exactly as before.
+    _check_acceptance(run_dir)
 
     state = git.inspect(root)
     check_verified_tree(root, run_dir, state, redactor)
