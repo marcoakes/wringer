@@ -31,10 +31,10 @@ ruled: the state table was not total (a bound gate that FAILED had no state —
 violates SPEC_VACUITY §4b by name and was reverted from shipped code (§6);
 `_GATE_KEYS` is shared with the spec parser, so the `proves:` key needs its
 own key set or it hands the drafter the channel ruling 2 says it lacks;
-and TWO QUESTIONS ARE REFERRED BACK, marked OPEN below rather than answered
-here — §5's opt-in trigger against `approved: false`, and the wall-of-red
-that ruling 5 claims to avoid. Marc delegated the rulings on 2026-08-09;
-all except the two marked OPEN are DECIDED below. Binding.*
+and two questions were referred back rather than answered in the fold —
+§5's opt-in trigger against `approved: false`, and the wall-of-red that
+ruling 5 claimed to avoid. **Marc ruled both on 2026-08-09** (rulings 8 and
+9, §5). All rulings are DECIDED. Binding.*
 
 ## Positioning
 
@@ -68,12 +68,12 @@ gates:
 - **The binding is a `proves:` key on the gate, in `.wringer.yaml`** —
   criterion ids from `wringer.spec.yaml`, joined by id (ruling 2).
 - **`wring verify` writes `acceptance.json`** — a sibling file in the run
-  bundle, present exactly when the repo declares criteria, mapping every
+  bundle, present exactly when an APPROVED spec declares criteria (ruling 8), mapping every
   criterion to its state and its receipts (ruling 4, §4).
 - **`wring deliver` refuses a bundle whose acceptance artifact shows a
-  required criterion unevidenced** (ruling 5, §5) — the vacuity precedent:
-  the refusal attaches to the bundle, repos that never opted in behave
-  exactly as today, and no flag loosens it.
+  BOUND required criterion without its evidence** (rulings 5, 8, 9 — §5):
+  the refusal attaches to the bundle, unapproved specs and unbound criteria
+  refuse nothing, and no flag loosens it.
 - **The summary and `--json` render coverage** — "9 of 12 criteria
   evidenced, 2 human, 1 UNEVIDENCED" — with per-criterion receipts, and a
   `gate-did-not-run` line whenever a bound gate left no result (§2's fourth
@@ -205,29 +205,25 @@ frozen bundle format.
 
 ## 5. Where it bites — delivery, by the vacuity precedent (ruling 5)
 
-> **OPEN — two rulings referred back to a spec cycle, and no code may ship
-> against §5 until they are DECIDED.** The corpus review broke ruling 5's
-> reasoning in two places and neither has a safe default:
->
-> **O1 — presence is not approval.** `wring spec` writes
-> `wringer.spec.yaml` with model-drafted criteria and `approved: false`, and
-> the file exists from that moment. Trigger on *presence* and an unapproved
-> draft's criteria — and its proposed `human:` sort — acquire
-> delivery-blocking force before a person has read them, which is the exact
-> interlock SPEC_INTENT §3 exists to hold and which SPEC_PROVENANCE §2a
-> already had to repair once. The obvious fix (require `approved: true`) is
-> probably right and is deliberately NOT taken here, because it changes what
-> "opt-in" means and that is a ruling, not an implementation detail.
->
-> **O2 — the wall of red ruling 5 claims to avoid.** Criteria default
-> `required: true`, `criteria` has `minItems: 1`, and nothing is bound the
-> moment a spec is written — so the first delivery in any repo that has ever
-> run `wring spec` is refused for every criterion at once. That is health
-> ruling 6's turned-off-by-noon failure, arriving through the door this
-> ruling used to justify itself. The analogy to vacuity also breaks here:
-> vacuity's opt-in act is *asking for the measurement* (`--prove`), while
-> this one is *declaring what you want built*, which every PM-loop repo does
-> before any gate exists.
+**Rulings 8 and 9, DECIDED by Marc 2026-08-09 — the two questions the
+corpus review referred back, answered:**
+
+8. **Opt-in requires `approved: true` — presence is not approval.**
+   `wring spec` writes model-drafted criteria with the interlock unset, and
+   an unapproved draft must change nothing about delivery: `wring verify`
+   writes no `acceptance.json` and `wring deliver` behaves exactly as today
+   until a human flips the flag SPEC_INTENT §3 already owns. Same repair
+   SPEC_PROVENANCE §2a made for attest — the file is read, not merely seen.
+9. **Only bound criteria can refuse; unbound ones are loud, never fatal.**
+   Criteria default `required: true` and nothing is bound the moment a spec
+   is approved, so refusing on unbound criteria would refuse every first
+   delivery in every spec repo — health ruling 6's wall of red. So:
+   `unevidenced` (unbound) renders in capitals in the summary, the report
+   and `--json`, and refuses nothing; the refusal fires only for criteria a
+   human has BOUND (`proves:` is the opt-in per criterion, exactly as
+   `--prove` is vacuity's opt-in per run) whose state is not `evidenced` —
+   born-green, gate-failed, or gate-did-not-run. Binding a gate is the act
+   that says "hold me to this", and flags still only tighten.
 
 `wring deliver` gains a refusal: **a bundle whose `acceptance.json`
 records any `required` criterion `unevidenced` (or whose bound gate did not
