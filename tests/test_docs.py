@@ -1439,3 +1439,51 @@ def test_a_count_tied_to_a_release_says_which_release():
                 f"release it belongs to, and the parser registers "
                 f"{registered_command_count()}: {line.strip()!r}"
             )
+
+
+def test_the_recipes_health_step_reads_history_rather_than_nothing():
+    """The spec's first draft said only "run `wring health --json` after
+    verify", and that step is INERT: `.wringer/` is gitignored, a fresh
+    checkout holds exactly the one bundle `wring verify` just wrote, and one
+    run is below the history floor — so every gate on every pull request would
+    render `untested`, for ever, in the venue the whole feature is sold on.
+
+    The old DONE box ("the step parses against the real CLI, sends nothing")
+    passes against precisely that inert step. This one pins the part that
+    makes it work: history is carried in, and `--from` reads it."""
+    require_checkout(RECIPE)
+    text = (repo_root() / RECIPE).read_text(encoding="utf-8")
+
+    health_lines = [
+        line for line in recipe_wring_lines() if line.split()[1:2] == ["health"]
+    ]
+    assert health_lines, "the recipe never runs wring health"
+    for line in health_lines:
+        assert "--from" in line, (
+            f"the health step reads no restored history, so it can only ever "
+            f"print `untested`: {line!r}"
+        )
+
+    # And the history really is restored and carried, not just referenced.
+    assert "actions/cache@v4" in text, (
+        "nothing carries evidence across runs, so --from names an empty "
+        "directory and the step is inert by another route"
+    )
+    assert "ci-history" in text
+
+    # The reader is told what a first run looks like, in the file they copy
+    # without reading.
+    assert "untested" in text, (
+        "the recipe never says that a run with no restored history reads "
+        "`untested` — which is the first thing every adopter will see"
+    )
+
+
+def test_the_recipe_never_asks_wringer_to_reach_a_network():
+    """The health step reads a directory somebody else populated. It is the
+    workflow that carries evidence between runs, never Wringer — so no `wring`
+    line in the recipe may name a fetch, a send, or a URL."""
+    require_checkout(RECIPE)
+    for line in recipe_wring_lines():
+        for forbidden in ("--send", "http://", "https://", "--clone"):
+            assert forbidden not in line, f"{forbidden} in a recipe wring line: {line}"

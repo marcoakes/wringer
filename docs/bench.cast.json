@@ -5,7 +5,7 @@
   "prompt": true
  },
  {
-  "at": 1.0,
+  "at": 1.1,
   "text": "\u2192 careful"
  },
  {
@@ -17,19 +17,19 @@
   "text": "iteration 1/3"
  },
  {
-  "at": 1.2,
+  "at": 1.3,
   "text": "\u2717 test failed        0.1s"
  },
  {
-  "at": 1.3,
+  "at": 1.4,
   "text": "\u2192 worker             0.0s  (exit 0)"
  },
  {
-  "at": 1.3,
+  "at": 1.4,
   "text": ""
  },
  {
-  "at": 1.3,
+  "at": 1.4,
   "text": "iteration 2/3"
  },
  {
@@ -41,15 +41,15 @@
   "text": "\u2192 hasty"
  },
  {
-  "at": 1.6,
+  "at": 1.7,
   "text": ""
  },
  {
-  "at": 1.6,
+  "at": 1.7,
   "text": "iteration 1/3"
  },
  {
-  "at": 1.8,
+  "at": 1.9,
   "text": "\u2717 test failed        0.1s"
  },
  {
@@ -65,93 +65,93 @@
   "text": "iteration 2/3"
  },
  {
-  "at": 2.0,
+  "at": 2.1,
   "text": "\u2713 test passed        0.1s"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": ""
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "  careful          oscillating      2 iter     0.5s"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "  hasty            converged        2 iter     0.5s"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": ""
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "What this does not say:"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "  - One run per contender. Agents are stochastic; a difference within noise is"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "    noise."
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "  - Usage and cost are the agent's own report, unverified. Absent means"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "    unreported, never zero."
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "  - A green gate proves the gates went green, not that the fix is honest \u2014"
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "    read the diffs before believing any row."
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": ""
  },
  {
-  "at": 2.1,
-  "text": "Bench evidence: .wringer/benches/20260809-094759-6441/"
+  "at": 2.2,
+  "text": "Bench evidence: .wringer/benches/20260809-104551-84cc/"
  },
  {
-  "at": 3.5,
+  "at": 3.6,
   "text": ""
  },
  {
-  "at": 3.5,
-  "text": "$ git -C .wringer/worktrees/20260809-094759-6441-careful diff --stat HEAD",
+  "at": 3.6,
+  "text": "$ git -C .wringer/worktrees/20260809-104551-84cc-careful diff --stat HEAD",
   "prompt": true
  },
  {
-  "at": 4.1,
+  "at": 4.2,
   "text": " calc.py | 2 +-"
  },
  {
-  "at": 4.1,
+  "at": 4.2,
   "text": " 1 file changed, 1 insertion(+), 1 deletion(-)"
  },
  {
-  "at": 5.5,
+  "at": 5.6,
   "text": ""
  },
  {
-  "at": 5.6,
-  "text": "$ git -C .wringer/worktrees/20260809-094759-6441-hasty diff --stat HEAD",
+  "at": 5.7,
+  "text": "$ git -C .wringer/worktrees/20260809-104551-84cc-hasty diff --stat HEAD",
   "prompt": true
  },
  {
-  "at": 6.2,
+  "at": 6.3,
   "text": " test_calc.py | 2 +-"
  },
  {
-  "at": 6.2,
+  "at": 6.3,
   "text": " 1 file changed, 1 insertion(+), 1 deletion(-)"
  }
 ]

@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="708" height="1692" viewBox="0 0 708 1692" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="13" role="img" aria-label="the gate is dead and every tick is green">
+  <style>
+    .l { opacity: 0; animation-duration: 20.10s;
+         animation-timing-function: linear; animation-iteration-count: infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .l { animation: none; opacity: 1; }
+    }
+  </style>
+  <rect width="100%" height="100%" rx="10" fill="#11141a"/>
+  <circle cx="24" cy="20" r="5.5" fill="#ff5f57"/>
+  <circle cx="43" cy="20" r="5.5" fill="#febc2e"/>
+  <circle cx="62" cy="20" r="5.5" fill="#28c840"/>
+  <text x="354" y="24" fill="#7d8590" font-size="11" text-anchor="middle">the gate is dead and every tick is green</text>
+  <g>
+        <text class="l l0" x="18" y="54" xml:space="preserve" fill="#56b6c2">$ wring verify</text>
+    <text class="l l1" x="18" y="74" xml:space="preserve" fill="#f85149">✗ test failed        0.1s</text>
+    <text class="l l2" x="18" y="94" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l3" x="18" y="114" xml:space="preserve" fill="#d7dae0">--- gates/001_test/stdout.log ---</text>
+    <text class="l l4" x="18" y="134" xml:space="preserve" fill="#d7dae0">F                                                                      [100%]</text>
+    <text class="l l5" x="18" y="154" xml:space="preserve" fill="#d7dae0">================================== FAILURES ==================================</text>
+    <text class="l l6" x="18" y="174" xml:space="preserve" fill="#d7dae0">_______________________________ test_multiply ________________________________</text>
+    <text class="l l7" x="18" y="194" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l8" x="18" y="214" xml:space="preserve" fill="#d7dae0">    def test_multiply():</text>
+    <text class="l l9" x="18" y="234" xml:space="preserve" fill="#d7dae0">&gt;       assert multiply(3, 4) == 12</text>
+    <text class="l l10" x="18" y="254" xml:space="preserve" fill="#d7dae0">E       assert 7 == 12</text>
+    <text class="l l11" x="18" y="274" xml:space="preserve" fill="#d7dae0">E        +  where 7 = multiply(3, 4)</text>
+    <text class="l l12" x="18" y="294" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l13" x="18" y="314" xml:space="preserve" fill="#d7dae0">test_calc.py:5: AssertionError</text>
+    <text class="l l14" x="18" y="334" xml:space="preserve" fill="#d7dae0">========================== short test summary info ===========================</text>
+    <text class="l l15" x="18" y="354" xml:space="preserve" fill="#d7dae0">FAILED test_calc.py::test_multiply - assert 7 == 12</text>
+    <text class="l l16" x="18" y="374" xml:space="preserve" fill="#d7dae0">1 failed in 0.01s</text>
+    <text class="l l17" x="18" y="394" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l18" x="18" y="414" xml:space="preserve" fill="#d7dae0">Evidence written to:</text>
+    <text class="l l19" x="18" y="434" xml:space="preserve" fill="#d7dae0">.wringer/runs/20260809-104552-62cf/</text>
+    <text class="l l20" x="18" y="454" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l21" x="18" y="474" xml:space="preserve" fill="#7d8590">Next:</text>
+    <text class="l l22" x="18" y="494" xml:space="preserve" fill="#7d8590">  open .wringer/runs/20260809-104552-62cf/summary.md</text>
+    <text class="l l23" x="18" y="514" xml:space="preserve" fill="#7d8590">  rerun wring verify --gate test</text>
+    <text class="l l24" x="18" y="534" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l25" x="18" y="554" xml:space="preserve" fill="#56b6c2">$ wring health</text>
+    <text class="l l26" x="18" y="574" xml:space="preserve" fill="#d7dae0">searched 1 root · read 1 bundle · skipped 0 · duplicate 0</text>
+    <text class="l l27" x="18" y="594" xml:space="preserve" fill="#d7dae0">  1 run, 0 loops, 0 bench (bench evidence decides nothing)</text>
+    <text class="l l28" x="18" y="614" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l29" x="18" y="634" xml:space="preserve" fill="#d7dae0">  test  alive    1 run</text>
+    <text class="l l30" x="18" y="654" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l31" x="18" y="674" xml:space="preserve" fill="#d7dae0">What this does not say:</text>
+    <text class="l l32" x="18" y="694" xml:space="preserve" fill="#d7dae0">  - Health reads recorded evidence. A gate can be well designed and still read</text>
+    <text class="l l33" x="18" y="714" xml:space="preserve" fill="#d7dae0">    zombie here — the claim is about the record, not the gate.</text>
+    <text class="l l34" x="18" y="734" xml:space="preserve" fill="#d7dae0">  - Only declared gates are visible. Checks outside .wringer.yaml — scripts,</text>
+    <text class="l l35" x="18" y="754" xml:space="preserve" fill="#d7dae0">    CI steps, hand-kept lists — are beyond this instrument, and they narrow</text>
+    <text class="l l36" x="18" y="774" xml:space="preserve" fill="#d7dae0">    too.</text>
+    <text class="l l37" x="18" y="794" xml:space="preserve" fill="#d7dae0">  - Thin history cannot support zombie. It can support alive: one recorded</text>
+    <text class="l l38" x="18" y="814" xml:space="preserve" fill="#d7dae0">    failure is a demonstration, and no number of runs is needed to believe a</text>
+    <text class="l l39" x="18" y="834" xml:space="preserve" fill="#d7dae0">    demonstration.</text>
+    <text class="l l40" x="18" y="854" xml:space="preserve" fill="#d7dae0">  - A sensitive row proves the gate&#x27;s result changed with the tree, not that</text>
+    <text class="l l41" x="18" y="874" xml:space="preserve" fill="#d7dae0">    the change was honest. An agent deleting an already-failing assertion</text>
+    <text class="l l42" x="18" y="894" xml:space="preserve" fill="#d7dae0">    records one for the wrong reason (SPEC_VACUITY_V0 §5a), and health</text>
+    <text class="l l43" x="18" y="914" xml:space="preserve" fill="#d7dae0">    inherits that blind spot whole.</text>
+    <text class="l l44" x="18" y="934" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l45" x="18" y="954" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l46" x="18" y="974" xml:space="preserve" fill="#56b6c2">$ wring run</text>
+    <text class="l l47" x="18" y="994" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l48" x="18" y="1014" xml:space="preserve" fill="#7d8590">iteration 1/2</text>
+    <text class="l l49" x="18" y="1034" xml:space="preserve" fill="#f85149">✗ test failed        0.1s</text>
+    <text class="l l50" x="18" y="1054" xml:space="preserve" fill="#7d8590">→ worker             0.0s  (exit 0)</text>
+    <text class="l l51" x="18" y="1074" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l52" x="18" y="1094" xml:space="preserve" fill="#7d8590">iteration 2/2</text>
+    <text class="l l53" x="18" y="1114" xml:space="preserve" fill="#3fb950">✓ test passed        0.1s</text>
+    <text class="l l54" x="18" y="1134" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l55" x="18" y="1154" xml:space="preserve" fill="#d7dae0">Converged in 2 iterations.</text>
+    <text class="l l56" x="18" y="1174" xml:space="preserve" fill="#d7dae0">Loop evidence: .wringer/loops/20260809-104553-e17a/</text>
+    <text class="l l57" x="18" y="1194" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l58" x="18" y="1214" xml:space="preserve" fill="#56b6c2">$ for i in $(seq 25); do wring verify &gt;/dev/null; done; echo 25 green runs</text>
+    <text class="l l59" x="18" y="1234" xml:space="preserve" fill="#d7dae0">25 green runs</text>
+    <text class="l l60" x="18" y="1254" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l61" x="18" y="1274" xml:space="preserve" fill="#56b6c2">$ wring health</text>
+    <text class="l l62" x="18" y="1294" xml:space="preserve" fill="#d7dae0">searched 2 roots · read 29 bundles · skipped 0 · duplicate 0</text>
+    <text class="l l63" x="18" y="1314" xml:space="preserve" fill="#d7dae0">  28 runs, 1 loop, 0 bench (bench evidence decides nothing)</text>
+    <text class="l l64" x="18" y="1334" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l65" x="18" y="1354" xml:space="preserve" fill="#d7dae0">  test  alive    25 runs</text>
+    <text class="l l66" x="18" y="1374" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l67" x="18" y="1394" xml:space="preserve" fill="#d7dae0">What this does not say:</text>
+    <text class="l l68" x="18" y="1414" xml:space="preserve" fill="#d7dae0">  - Health reads recorded evidence. A gate can be well designed and still read</text>
+    <text class="l l69" x="18" y="1434" xml:space="preserve" fill="#d7dae0">    zombie here — the claim is about the record, not the gate.</text>
+    <text class="l l70" x="18" y="1454" xml:space="preserve" fill="#d7dae0">  - Only declared gates are visible. Checks outside .wringer.yaml — scripts,</text>
+    <text class="l l71" x="18" y="1474" xml:space="preserve" fill="#d7dae0">    CI steps, hand-kept lists — are beyond this instrument, and they narrow</text>
+    <text class="l l72" x="18" y="1494" xml:space="preserve" fill="#d7dae0">    too.</text>
+    <text class="l l73" x="18" y="1514" xml:space="preserve" fill="#d7dae0">  - Thin history cannot support zombie. It can support alive: one recorded</text>
+    <text class="l l74" x="18" y="1534" xml:space="preserve" fill="#d7dae0">    failure is a demonstration, and no number of runs is needed to believe a</text>
+    <text class="l l75" x="18" y="1554" xml:space="preserve" fill="#d7dae0">    demonstration.</text>
+    <text class="l l76" x="18" y="1574" xml:space="preserve" fill="#d7dae0">  - A sensitive row proves the gate&#x27;s result changed with the tree, not that</text>
+    <text class="l l77" x="18" y="1594" xml:space="preserve" fill="#d7dae0">    the change was honest. An agent deleting an already-failing assertion</text>
+    <text class="l l78" x="18" y="1614" xml:space="preserve" fill="#d7dae0">    records one for the wrong reason (SPEC_VACUITY_V0 §5a), and health</text>
+    <text class="l l79" x="18" y="1634" xml:space="preserve" fill="#d7dae0">    inherits that blind spot whole.</text>
+    <text class="l l80" x="18" y="1654" xml:space="preserve" fill="#d7dae0">&#160;</text>
+  </g>
+  <style>@keyframes k0{0%,0.00%{opacity:0}0.40%,95%{opacity:1}100%{opacity:0}}.l0{animation-name:k0}@keyframes k1{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l1{animation-name:k1}@keyframes k2{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l2{animation-name:k2}@keyframes k3{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l3{animation-name:k3}@keyframes k4{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l4{animation-name:k4}@keyframes k5{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l5{animation-name:k5}@keyframes k6{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l6{animation-name:k6}@keyframes k7{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l7{animation-name:k7}@keyframes k8{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l8{animation-name:k8}@keyframes k9{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l9{animation-name:k9}@keyframes k10{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l10{animation-name:k10}@keyframes k11{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l11{animation-name:k11}@keyframes k12{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l12{animation-name:k12}@keyframes k13{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l13{animation-name:k13}@keyframes k14{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l14{animation-name:k14}@keyframes k15{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l15{animation-name:k15}@keyframes k16{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l16{animation-name:k16}@keyframes k17{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l17{animation-name:k17}@keyframes k18{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l18{animation-name:k18}@keyframes k19{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l19{animation-name:k19}@keyframes k20{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l20{animation-name:k20}@keyframes k21{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l21{animation-name:k21}@keyframes k22{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l22{animation-name:k22}@keyframes k23{0%,4.48%{opacity:0}4.88%,95%{opacity:1}100%{opacity:0}}.l23{animation-name:k23}@keyframes k24{0%,11.44%{opacity:0}11.84%,95%{opacity:1}100%{opacity:0}}.l24{animation-name:k24}@keyframes k25{0%,11.44%{opacity:0}11.84%,95%{opacity:1}100%{opacity:0}}.l25{animation-name:k25}@keyframes k26{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l26{animation-name:k26}@keyframes k27{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l27{animation-name:k27}@keyframes k28{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l28{animation-name:k28}@keyframes k29{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l29{animation-name:k29}@keyframes k30{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l30{animation-name:k30}@keyframes k31{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l31{animation-name:k31}@keyframes k32{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l32{animation-name:k32}@keyframes k33{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l33{animation-name:k33}@keyframes k34{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l34{animation-name:k34}@keyframes k35{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l35{animation-name:k35}@keyframes k36{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l36{animation-name:k36}@keyframes k37{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l37{animation-name:k37}@keyframes k38{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l38{animation-name:k38}@keyframes k39{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l39{animation-name:k39}@keyframes k40{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l40{animation-name:k40}@keyframes k41{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l41{animation-name:k41}@keyframes k42{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l42{animation-name:k42}@keyframes k43{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l43{animation-name:k43}@keyframes k44{0%,14.93%{opacity:0}15.33%,95%{opacity:1}100%{opacity:0}}.l44{animation-name:k44}@keyframes k45{0%,21.89%{opacity:0}22.29%,95%{opacity:1}100%{opacity:0}}.l45{animation-name:k45}@keyframes k46{0%,22.39%{opacity:0}22.79%,95%{opacity:1}100%{opacity:0}}.l46{animation-name:k46}@keyframes k47{0%,25.87%{opacity:0}26.27%,95%{opacity:1}100%{opacity:0}}.l47{animation-name:k47}@keyframes k48{0%,25.87%{opacity:0}26.27%,95%{opacity:1}100%{opacity:0}}.l48{animation-name:k48}@keyframes k49{0%,26.87%{opacity:0}27.27%,95%{opacity:1}100%{opacity:0}}.l49{animation-name:k49}@keyframes k50{0%,27.36%{opacity:0}27.76%,95%{opacity:1}100%{opacity:0}}.l50{animation-name:k50}@keyframes k51{0%,27.36%{opacity:0}27.76%,95%{opacity:1}100%{opacity:0}}.l51{animation-name:k51}@keyframes k52{0%,27.36%{opacity:0}27.76%,95%{opacity:1}100%{opacity:0}}.l52{animation-name:k52}@keyframes k53{0%,28.36%{opacity:0}28.76%,95%{opacity:1}100%{opacity:0}}.l53{animation-name:k53}@keyframes k54{0%,28.36%{opacity:0}28.76%,95%{opacity:1}100%{opacity:0}}.l54{animation-name:k54}@keyframes k55{0%,28.36%{opacity:0}28.76%,95%{opacity:1}100%{opacity:0}}.l55{animation-name:k55}@keyframes k56{0%,28.36%{opacity:0}28.76%,95%{opacity:1}100%{opacity:0}}.l56{animation-name:k56}@keyframes k57{0%,35.32%{opacity:0}35.72%,95%{opacity:1}100%{opacity:0}}.l57{animation-name:k57}@keyframes k58{0%,35.32%{opacity:0}35.72%,95%{opacity:1}100%{opacity:0}}.l58{animation-name:k58}@keyframes k59{0%,77.11%{opacity:0}77.51%,95%{opacity:1}100%{opacity:0}}.l59{animation-name:k59}@keyframes k60{0%,84.08%{opacity:0}84.48%,95%{opacity:1}100%{opacity:0}}.l60{animation-name:k60}@keyframes k61{0%,84.08%{opacity:0}84.48%,95%{opacity:1}100%{opacity:0}}.l61{animation-name:k61}@keyframes k62{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l62{animation-name:k62}@keyframes k63{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l63{animation-name:k63}@keyframes k64{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l64{animation-name:k64}@keyframes k65{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l65{animation-name:k65}@keyframes k66{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l66{animation-name:k66}@keyframes k67{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l67{animation-name:k67}@keyframes k68{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l68{animation-name:k68}@keyframes k69{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l69{animation-name:k69}@keyframes k70{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l70{animation-name:k70}@keyframes k71{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l71{animation-name:k71}@keyframes k72{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l72{animation-name:k72}@keyframes k73{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l73{animation-name:k73}@keyframes k74{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l74{animation-name:k74}@keyframes k75{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l75{animation-name:k75}@keyframes k76{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l76{animation-name:k76}@keyframes k77{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l77{animation-name:k77}@keyframes k78{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l78{animation-name:k78}@keyframes k79{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l79{animation-name:k79}@keyframes k80{0%,87.56%{opacity:0}87.96%,95%{opacity:1}100%{opacity:0}}.l80{animation-name:k80}</style>
+</svg>

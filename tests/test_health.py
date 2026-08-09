@@ -825,7 +825,7 @@ def test_health_runs_outside_a_repository_with_from(tmp_path, monkeypatch, capsy
     monkeypatch.chdir(outside)
 
     assert cli.main(["health", "--from", str(artifacts)]) == cli.EXIT_OK
-    assert "read 1 bundles" in capsys.readouterr().out
+    assert "read 1 bundle " in capsys.readouterr().out
 
 
 def test_health_with_no_repo_and_no_from_says_what_it_wanted(

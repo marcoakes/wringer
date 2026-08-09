@@ -13,19 +13,19 @@
   "text": "iteration 1/3"
  },
  {
-  "at": 0.9,
-  "text": "\u2717 test failed        0.1s"
+  "at": 1.0,
+  "text": "\u2717 test failed        0.2s"
  },
  {
-  "at": 1.0,
+  "at": 1.1,
   "text": "\u2192 worker             0.0s  (exit 0)"
  },
  {
-  "at": 1.0,
+  "at": 1.1,
   "text": ""
  },
  {
-  "at": 1.0,
+  "at": 1.1,
   "text": "iteration 2/3"
  },
  {
@@ -42,47 +42,47 @@
  },
  {
   "at": 1.2,
-  "text": "Loop evidence: .wringer/loops/20260809-094755-343d/"
+  "text": "Loop evidence: .wringer/loops/20260809-104547-03e2/"
  },
  {
   "at": 2.6,
   "text": ""
  },
  {
-  "at": 2.6,
-  "text": "$ ls -1 .wringer/runs/20260809-094756-aa45/",
+  "at": 2.7,
+  "text": "$ ls -1 .wringer/runs/20260809-104547-b834/",
   "prompt": true
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "diff.patch"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "digests.json"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "evidence.jsonl"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "gates"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "manifest.json"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "status.txt"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "summary.md"
  },
  {
-  "at": 3.2,
+  "at": 3.3,
   "text": "untracked.json"
  }
 ]

@@ -70,6 +70,41 @@ jobs:
           name: wringer-evidence
           path: .wringer/runs/
 
+      # VITALITY. `wring health` answers, per gate, the question no dashboard
+      # asks: is there any evidence this check can still fail? A gate that has
+      # passed for thirty runs and never once discriminated is indistinguish-
+      # able from a healthy one everywhere green ticks are counted.
+      #
+      # It needs HISTORY, and a fresh checkout has none: `.wringer/` is
+      # gitignored, so this job holds exactly the one bundle `wring verify`
+      # just wrote. One run is below the history floor, so **without the cache
+      # below every gate reads `untested`** — which is the true answer for a
+      # repo with no record, not a defect, and the reason this step is also
+      # what BUILDS the record at pull-request cadence.
+      #
+      # Wringer opens nothing here. It reads a directory somebody else
+      # populated, exactly as `--from` reads one anywhere.
+      - name: Restore the evidence history
+        uses: actions/cache@v4
+        with:
+          path: ci-history
+          key: wringer-history-${{ github.run_id }}
+          restore-keys: wringer-history-
+
+      - name: Carry this run's evidence into the history
+        if: always()
+        run: |
+          mkdir -p ci-history
+          cp -R .wringer/runs/. ci-history/ 2>/dev/null || true
+
+      - name: Vitality — can each gate still fail?
+        if: always()
+        run: wring health --from ci-history --output health.md
+
+      - name: Show the vitality table in the job summary
+        if: always()
+        run: cat health.md >> "$GITHUB_STEP_SUMMARY"
+
       # THE MERGE BLOCK. `wring deliver` refuses a bundle whose gates proved
       # nothing — exit 1, naming the insensitive gates and the fix. This is a
       # dry run: it writes the patch, the message and the MR body, and touches

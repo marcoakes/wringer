@@ -118,6 +118,29 @@ def _bench_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return _argv_step(wring, "bench")
 
 
+def _verify_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The genuine failure, on camera. This is the beat the whole recording
+    rests on: the gate demonstrably CAN fail, witnessed once, with a receipt."""
+    return _argv_step(wring, "verify")
+
+
+def _health_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return _argv_step(wring, "health")
+
+
+# Twenty-five, because the window is twenty-five. After this many green runs
+# the failure recorded at the top of the recording is no longer inside it, and
+# the history floor of ten is comfortably cleared — so the verdict flips from
+# `alive` to `zombie` on the evidence rather than on a countdown. Displayed and
+# executed as ONE string, the `_listing_step` shape: the loop really runs, the
+# runs are real, and nothing about time is faked.
+BULK = "for i in $(seq 25); do wring verify >/dev/null; done; echo 25 green runs"
+
+
+def _bulk_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return BULK, ["sh", "-c", BULK]
+
+
 def _bench_worktree(scratch: Path, contender: str) -> str:
     """The kept worktree for one contender, named literally.
 
@@ -336,6 +359,17 @@ STEP_SETS = {
     # Same job, both workers, one table — then both diffs, because the table
     # deliberately does not choose and the reader has to.
     "bench": (_bench_step, _diff_step("careful"), _diff_step("hasty")),
+    # A gate demonstrably alive, an agent that "fixes" by neutering it, then
+    # enough green runs that the window holds no discrimination — and the
+    # gate reads `zombie` while every individual run is a real, passing,
+    # auditable bundle. Every dashboard on earth shows green ticks here.
+    "health": (
+        _verify_step,
+        _health_step,
+        _run_step,
+        _bulk_step,
+        _health_step,
+    ),
     # Run → park → a person edits a file → resume → done. The interlock is
     # the only thing on screen that a flag cannot move.
     "graph": (

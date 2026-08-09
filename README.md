@@ -254,6 +254,30 @@ increasingly the agent itself. `--prove` tightens for one run; there is no
 [`docs/prove-the-gates-can-fail.md`](docs/prove-the-gates-can-fail.md).
 Contract: **[SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md)**.
 
+## Is your green still worth anything?
+
+`--prove` catches a check that proved nothing *at one moment*. `wring health`
+asks the same question across time, over the evidence your runs already
+wrote: **per gate, is there any recorded evidence this check can still
+fail?** Deterministic, offline, no LLM, no new bundle — a derived view from
+the party with no stake in what it says.
+
+The captured run in [`docs/health.md`](docs/health.md) is the whole argument.
+A gate fails for real; health reads `alive`. A worker "fixes" it by rewriting
+the failing assertion into a tautology. Then twenty-five more real runs, all
+passing, all writing valid bundles — every dashboard on earth shows
+twenty-five green ticks — and health reads:
+
+```console
+  test  zombie   25 runs
+      → wring verify --prove — records a sensitive row, or confirms the doubt
+```
+
+Nothing else tells you that. The coverage statement leads every report, so a
+bundle that could not be read is named rather than dropped; `--strict` exits 1
+on a required zombie and is the only tooth. Contract:
+**[SPEC_HEALTH_V0.md](SPEC_HEALTH_V0.md)**.
+
 ## Which worker actually fixes your issues
 
 `wring bench` runs the same repair through every worker your repo declares,

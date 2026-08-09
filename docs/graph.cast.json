@@ -6,7 +6,7 @@
  },
  {
   "at": 0.7,
-  "text": "graph demo \u2014 20260809-094758-5bcb"
+  "text": "graph demo \u2014 20260809-104550-e959"
  },
  {
   "at": 0.7,
@@ -34,7 +34,7 @@
  },
  {
   "at": 0.7,
-  "text": "  .wringer/graphs/20260809-094758-5bcb/nodes/ok/decision.yaml"
+  "text": "  .wringer/graphs/20260809-104550-e959/nodes/ok/decision.yaml"
  },
  {
   "at": 0.7,
@@ -46,7 +46,7 @@
  },
  {
   "at": 0.7,
-  "text": "  wring graph resume .wringer/graphs/20260809-094758-5bcb"
+  "text": "  wring graph resume .wringer/graphs/20260809-104550-e959"
  },
  {
   "at": 0.7,
@@ -54,33 +54,33 @@
  },
  {
   "at": 0.7,
-  "text": "Graph evidence: .wringer/graphs/20260809-094758-5bcb/"
+  "text": "Graph evidence: .wringer/graphs/20260809-104550-e959/"
  },
  {
   "at": 2.1,
   "text": ""
  },
  {
-  "at": 2.1,
+  "at": 2.2,
   "text": "$ echo 'approved: true' | tee .wringer/graphs/*/nodes/ok/decision.yaml",
   "prompt": true
  },
  {
-  "at": 2.7,
+  "at": 2.8,
   "text": "approved: true"
  },
  {
-  "at": 4.1,
+  "at": 4.2,
   "text": ""
  },
  {
   "at": 4.2,
-  "text": "$ wring graph resume .wringer/graphs/20260809-094758-5bcb",
+  "text": "$ wring graph resume .wringer/graphs/20260809-104550-e959",
   "prompt": true
  },
  {
   "at": 4.9,
-  "text": "graph demo \u2014 resuming 20260809-094758-5bcb"
+  "text": "graph demo \u2014 resuming 20260809-104550-e959"
  },
  {
   "at": 4.9,
@@ -103,100 +103,100 @@
   "text": "\u2717 test failed        0.1s"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "\u2192 worker             0.0s  (exit 0)"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "iteration 2/3"
  },
  {
-  "at": 5.3,
-  "text": "\u2713 test passed        0.1s"
+  "at": 5.4,
+  "text": "\u2713 test passed        0.2s"
  },
  {
-  "at": 5.3,
+  "at": 5.5,
   "text": "\u2192 route  (router)"
  },
  {
-  "at": 5.3,
+  "at": 5.5,
   "text": ""
  },
  {
-  "at": 5.3,
+  "at": 5.5,
   "text": "\u2713 done \u2014 every node completed"
  },
  {
-  "at": 5.3,
+  "at": 5.5,
   "text": ""
  },
  {
-  "at": 5.3,
-  "text": "Graph evidence: .wringer/graphs/20260809-094758-5bcb/"
+  "at": 5.5,
+  "text": "Graph evidence: .wringer/graphs/20260809-104550-e959/"
  },
  {
-  "at": 6.7,
+  "at": 6.9,
   "text": ""
  },
  {
-  "at": 6.8,
-  "text": "$ wring graph status .wringer/graphs/20260809-094758-5bcb",
+  "at": 6.9,
+  "text": "$ wring graph status .wringer/graphs/20260809-104550-e959",
   "prompt": true
  },
  {
-  "at": 7.4,
-  "text": "graph demo \u2014 20260809-094758-5bcb"
+  "at": 7.6,
+  "text": "graph demo \u2014 20260809-104550-e959"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "status: done \u2014 every node completed"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": ""
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  \u2713 read   intent  done"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  \u2713 ok     human   done"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  \u2713 build  loop    done"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  \u2713 route  router  done"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": ""
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "state:"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  brief = nodes/read/brief.md"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": "  build-status = converged"
  },
  {
-  "at": 7.4,
+  "at": 7.6,
   "text": ""
  },
  {
-  "at": 7.4,
-  "text": "Graph evidence: .wringer/graphs/20260809-094758-5bcb/"
+  "at": 7.6,
+  "text": "Graph evidence: .wringer/graphs/20260809-104550-e959/"
  }
 ]

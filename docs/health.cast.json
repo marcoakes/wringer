@@ -1,0 +1,331 @@
+[
+ {
+  "at": 0.0,
+  "text": "$ wring verify",
+  "prompt": true
+ },
+ {
+  "at": 0.9,
+  "text": "\u2717 test failed        0.1s"
+ },
+ {
+  "at": 0.9,
+  "text": ""
+ },
+ {
+  "at": 0.9,
+  "text": "--- gates/001_test/stdout.log ---"
+ },
+ {
+  "at": 0.9,
+  "text": "F                                                                      [100%]"
+ },
+ {
+  "at": 0.9,
+  "text": "================================== FAILURES =================================="
+ },
+ {
+  "at": 0.9,
+  "text": "_______________________________ test_multiply ________________________________"
+ },
+ {
+  "at": 0.9,
+  "text": ""
+ },
+ {
+  "at": 0.9,
+  "text": "    def test_multiply():"
+ },
+ {
+  "at": 0.9,
+  "text": ">       assert multiply(3, 4) == 12"
+ },
+ {
+  "at": 0.9,
+  "text": "E       assert 7 == 12"
+ },
+ {
+  "at": 0.9,
+  "text": "E        +  where 7 = multiply(3, 4)"
+ },
+ {
+  "at": 0.9,
+  "text": ""
+ },
+ {
+  "at": 0.9,
+  "text": "test_calc.py:5: AssertionError"
+ },
+ {
+  "at": 0.9,
+  "text": "========================== short test summary info ==========================="
+ },
+ {
+  "at": 0.9,
+  "text": "FAILED test_calc.py::test_multiply - assert 7 == 12"
+ },
+ {
+  "at": 0.9,
+  "text": "1 failed in 0.01s"
+ },
+ {
+  "at": 0.9,
+  "text": ""
+ },
+ {
+  "at": 0.9,
+  "text": "Evidence written to:"
+ },
+ {
+  "at": 0.9,
+  "text": ".wringer/runs/20260809-104552-62cf/"
+ },
+ {
+  "at": 0.9,
+  "text": ""
+ },
+ {
+  "at": 0.9,
+  "text": "Next:"
+ },
+ {
+  "at": 0.9,
+  "text": "  open .wringer/runs/20260809-104552-62cf/summary.md"
+ },
+ {
+  "at": 0.9,
+  "text": "  rerun wring verify --gate test"
+ },
+ {
+  "at": 2.3,
+  "text": ""
+ },
+ {
+  "at": 2.3,
+  "text": "$ wring health",
+  "prompt": true
+ },
+ {
+  "at": 3.0,
+  "text": "searched 1 root \u00b7 read 1 bundle \u00b7 skipped 0 \u00b7 duplicate 0"
+ },
+ {
+  "at": 3.0,
+  "text": "  1 run, 0 loops, 0 bench (bench evidence decides nothing)"
+ },
+ {
+  "at": 3.0,
+  "text": ""
+ },
+ {
+  "at": 3.0,
+  "text": "  test  alive    1 run"
+ },
+ {
+  "at": 3.0,
+  "text": ""
+ },
+ {
+  "at": 3.0,
+  "text": "What this does not say:"
+ },
+ {
+  "at": 3.0,
+  "text": "  - Health reads recorded evidence. A gate can be well designed and still read"
+ },
+ {
+  "at": 3.0,
+  "text": "    zombie here \u2014 the claim is about the record, not the gate."
+ },
+ {
+  "at": 3.0,
+  "text": "  - Only declared gates are visible. Checks outside .wringer.yaml \u2014 scripts,"
+ },
+ {
+  "at": 3.0,
+  "text": "    CI steps, hand-kept lists \u2014 are beyond this instrument, and they narrow"
+ },
+ {
+  "at": 3.0,
+  "text": "    too."
+ },
+ {
+  "at": 3.0,
+  "text": "  - Thin history cannot support zombie. It can support alive: one recorded"
+ },
+ {
+  "at": 3.0,
+  "text": "    failure is a demonstration, and no number of runs is needed to believe a"
+ },
+ {
+  "at": 3.0,
+  "text": "    demonstration."
+ },
+ {
+  "at": 3.0,
+  "text": "  - A sensitive row proves the gate's result changed with the tree, not that"
+ },
+ {
+  "at": 3.0,
+  "text": "    the change was honest. An agent deleting an already-failing assertion"
+ },
+ {
+  "at": 3.0,
+  "text": "    records one for the wrong reason (SPEC_VACUITY_V0 \u00a75a), and health"
+ },
+ {
+  "at": 3.0,
+  "text": "    inherits that blind spot whole."
+ },
+ {
+  "at": 3.0,
+  "text": ""
+ },
+ {
+  "at": 4.4,
+  "text": ""
+ },
+ {
+  "at": 4.5,
+  "text": "$ wring run",
+  "prompt": true
+ },
+ {
+  "at": 5.2,
+  "text": ""
+ },
+ {
+  "at": 5.2,
+  "text": "iteration 1/2"
+ },
+ {
+  "at": 5.4,
+  "text": "\u2717 test failed        0.1s"
+ },
+ {
+  "at": 5.5,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 5.5,
+  "text": ""
+ },
+ {
+  "at": 5.5,
+  "text": "iteration 2/2"
+ },
+ {
+  "at": 5.7,
+  "text": "\u2713 test passed        0.1s"
+ },
+ {
+  "at": 5.7,
+  "text": ""
+ },
+ {
+  "at": 5.7,
+  "text": "Converged in 2 iterations."
+ },
+ {
+  "at": 5.7,
+  "text": "Loop evidence: .wringer/loops/20260809-104553-e17a/"
+ },
+ {
+  "at": 7.1,
+  "text": ""
+ },
+ {
+  "at": 7.1,
+  "text": "$ for i in $(seq 25); do wring verify >/dev/null; done; echo 25 green runs",
+  "prompt": true
+ },
+ {
+  "at": 15.5,
+  "text": "25 green runs"
+ },
+ {
+  "at": 16.9,
+  "text": ""
+ },
+ {
+  "at": 16.9,
+  "text": "$ wring health",
+  "prompt": true
+ },
+ {
+  "at": 17.6,
+  "text": "searched 2 roots \u00b7 read 29 bundles \u00b7 skipped 0 \u00b7 duplicate 0"
+ },
+ {
+  "at": 17.6,
+  "text": "  28 runs, 1 loop, 0 bench (bench evidence decides nothing)"
+ },
+ {
+  "at": 17.6,
+  "text": ""
+ },
+ {
+  "at": 17.6,
+  "text": "  test  alive    25 runs"
+ },
+ {
+  "at": 17.6,
+  "text": ""
+ },
+ {
+  "at": 17.6,
+  "text": "What this does not say:"
+ },
+ {
+  "at": 17.6,
+  "text": "  - Health reads recorded evidence. A gate can be well designed and still read"
+ },
+ {
+  "at": 17.6,
+  "text": "    zombie here \u2014 the claim is about the record, not the gate."
+ },
+ {
+  "at": 17.6,
+  "text": "  - Only declared gates are visible. Checks outside .wringer.yaml \u2014 scripts,"
+ },
+ {
+  "at": 17.6,
+  "text": "    CI steps, hand-kept lists \u2014 are beyond this instrument, and they narrow"
+ },
+ {
+  "at": 17.6,
+  "text": "    too."
+ },
+ {
+  "at": 17.6,
+  "text": "  - Thin history cannot support zombie. It can support alive: one recorded"
+ },
+ {
+  "at": 17.6,
+  "text": "    failure is a demonstration, and no number of runs is needed to believe a"
+ },
+ {
+  "at": 17.6,
+  "text": "    demonstration."
+ },
+ {
+  "at": 17.6,
+  "text": "  - A sensitive row proves the gate's result changed with the tree, not that"
+ },
+ {
+  "at": 17.6,
+  "text": "    the change was honest. An agent deleting an already-failing assertion"
+ },
+ {
+  "at": 17.6,
+  "text": "    records one for the wrong reason (SPEC_VACUITY_V0 \u00a75a), and health"
+ },
+ {
+  "at": 17.6,
+  "text": "    inherits that blind spot whole."
+ },
+ {
+  "at": 17.6,
+  "text": ""
+ }
+]

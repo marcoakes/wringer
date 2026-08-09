@@ -460,3 +460,75 @@ git commit -qm "multiply is wrong, and a test says so"
     "$WRING" bench
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/bench.cast.json" \
     "$ROOT/docs/bench.svg" "same job, both workers, and no winner"
+
+# ---------------------------------------------------------------------------
+# The sixth recording: a gate dies, and every tick stays green.
+#
+# This is the one `wring health` exists for. A gate fails for real on camera —
+# it demonstrably CAN fail, with a receipt. Then a worker "fixes" it the way a
+# reward-hacking agent does: by rewriting the failing assertion into a
+# tautology. From that moment the check is dead, and NOTHING anywhere says so.
+# Every run afterwards passes. Every bundle is valid. Every dashboard shows a
+# green tick.
+#
+# Twenty-five more real runs later — really executed, as one displayed-equals-
+# executed shell step, because faking time in a recording about decay would be
+# the exact dishonesty this product sells against — the failure has left the
+# window, and `wring health` says `zombie` with the receipts.
+#
+# NOTE what is deliberately NOT here: `--prove` on the neutering change. With
+# the test failing at HEAD, proving it would record `sensitive: true` for the
+# WRONG REASON (SPEC_VACUITY_V0 §5a) and stamp a fresh vitality receipt on the
+# gate being killed. That is limit 4 of this command's own report, it is
+# inherited whole, and docs/health.md says so in words beside the picture
+# rather than leaving a reader to find it.
+# ---------------------------------------------------------------------------
+HEALTH=$(scratch_dir "${1:-}" health) || exit 2
+if [ -d "$HEALTH" ]; then find "$HEALTH" -mindepth 1 -delete 2>/dev/null; fi
+mkdir -p "$HEALTH"
+cd "$HEALTH"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+echo ".wringer/" > .gitignore
+
+cat > calc.py <<'EOF'
+def multiply(a, b):
+    return a + b
+EOF
+
+cat > test_calc.py <<'EOF'
+from calc import multiply
+
+
+def test_multiply():
+    assert multiply(3, 4) == 12
+EOF
+
+# The "fix". It makes the gates green without making the code correct — the
+# shape SPEC_VACUITY_V0 §5a names, and the shape that leaves no trace anywhere
+# except in the longitudinal record this command reads.
+cat > fix.sh <<'EOF'
+sed 's/multiply(3, 4) == 12/multiply(3, 4) == multiply(3, 4)/' test_calc.py > t
+mv t test_calc.py
+EOF
+
+cat > .wringer.yaml <<'EOF'
+version: 1
+gates:
+  - id: test
+    run: "python3 -m pytest -q"
+
+run:
+  worker: "sh ./fix.sh"
+  max_iterations: 2
+EOF
+
+git add -A
+git commit -qm "multiply is wrong, and a test says so"
+
+"$PY" "$ROOT/scripts/demo_record.py" "$HEALTH" "$ROOT/docs/health.cast.json" \
+    "$WRING" health
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/health.cast.json" \
+    "$ROOT/docs/health.svg" "the gate is dead and every tick is green"

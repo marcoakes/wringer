@@ -5,15 +5,15 @@
   "prompt": true
  },
  {
-  "at": 0.7,
+  "at": 0.8,
   "text": ""
  },
  {
-  "at": 0.7,
+  "at": 0.8,
   "text": "iteration 1/3"
  },
  {
-  "at": 0.9,
+  "at": 1.0,
   "text": "\u2717 test failed        0.1s"
  },
  {
@@ -42,84 +42,84 @@
  },
  {
   "at": 1.2,
-  "text": "Loop evidence: .wringer/loops/20260809-094757-7e15/"
+  "text": "Loop evidence: .wringer/loops/20260809-104548-5582/"
  },
  {
   "at": 2.6,
   "text": ""
  },
  {
-  "at": 2.6,
+  "at": 2.7,
   "text": "$ wring verify --prove",
   "prompt": true
  },
  {
-  "at": 3.5,
+  "at": 3.6,
   "text": "\u2713 test passed        0.1s"
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": ""
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": "! every required gate passed without the change too (test), so they proved"
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": "  nothing about it \u2014 write a test that fails without your change"
  },
  {
-  "at": 3.6,
-  "text": "  Both trees' output: .wringer/runs/20260809-094757-6485/vacuity/"
+  "at": 3.8,
+  "text": "  Both trees' output: .wringer/runs/20260809-104549-7262/vacuity/"
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": "  `wring deliver` will refuse this bundle."
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": ""
  },
  {
-  "at": 3.6,
+  "at": 3.8,
   "text": "Evidence written to:"
  },
  {
-  "at": 3.6,
-  "text": ".wringer/runs/20260809-094757-6485/"
+  "at": 3.8,
+  "text": ".wringer/runs/20260809-104549-7262/"
  },
  {
-  "at": 5.0,
+  "at": 5.2,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "$ wring deliver",
   "prompt": true
  },
  {
-  "at": 5.8,
-  "text": "wring deliver: refusing to deliver 20260809-094757-6485 \u2014 it recorded"
+  "at": 5.9,
+  "text": "wring deliver: refusing to deliver 20260809-104549-7262 \u2014 it recorded"
  },
  {
-  "at": 5.8,
+  "at": 5.9,
   "text": "`gates_vacuous`. `test` passed on the pre-change tree too, so they proved"
  },
  {
-  "at": 5.8,
+  "at": 5.9,
   "text": "nothing about this change. The fix is to write a test that fails without your"
  },
  {
-  "at": 5.8,
+  "at": 5.9,
   "text": "change, then verify again; both trees' output is in"
  },
  {
-  "at": 5.8,
-  "text": "20260809-094757-6485/vacuity/ if you want to see why. There is no flag for"
+  "at": 5.9,
+  "text": "20260809-104549-7262/vacuity/ if you want to see why. There is no flag for"
  },
  {
-  "at": 5.8,
+  "at": 5.9,
   "text": "this \u2014 make the evidence better, not the check weaker"
  }
 ]

@@ -665,17 +665,21 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
     defect with a lens in its hand, so what was read and what was not is the
     first thing on the page, before any verdict.
     """
+    def plural(count: int, noun: str) -> str:
+        return f"{count} {noun}" + ("" if count == 1 else "s")
+
     counts = coverage.counts()
     roots = len(coverage.roots)
     # Two lines, not one: the single-line form ran to 94 columns on this
     # repo's own evidence, and a coverage statement that falls off the screen
     # is the skip nobody reads about.
     lines = [
-        f"searched {roots} root{'' if roots == 1 else 's'} · "
-        f"read {len(coverage.read)} bundles · "
+        f"searched {plural(roots, 'root')} · "
+        f"read {plural(len(coverage.read), 'bundle')} · "
         f"skipped {len(coverage.skipped)} · "
         f"duplicate {len(coverage.duplicates)}",
-        f"  {counts['run']} runs, {counts['loop']} loops, "
+        f"  {plural(counts['run'], 'run')}, "
+        f"{plural(counts['loop'], 'loop')}, "
         f"{counts['bench']} bench (bench evidence decides nothing)",
     ]
     for skip in coverage.skipped:
@@ -702,7 +706,7 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
             drift = f"  [{', '.join(flags)}]" if flags else ""
             lines.append(
                 f"  {assessed.pair.gate_id:<{width}}  {assessed.verdict:<8} "
-                f"{assessed.qualifying} runs{drift}"
+                f"{plural(assessed.qualifying, 'run')}{drift}"
             )
             # The remedy goes on its OWN line rather than trailing the row:
             # inline it ran past 80 columns, and the remedy is the half of a
@@ -726,7 +730,7 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
         for assessed in retired:
             lines.append(
                 f"  {assessed.pair.gate_id}  ({assessed.pair.command}) "
-                f"— {len(assessed.pair.runs)} runs"
+                f"— {plural(len(assessed.pair.runs), 'run')}"
             )
 
     lines += ["", "What this does not say:"]
