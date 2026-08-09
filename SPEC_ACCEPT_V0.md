@@ -192,7 +192,7 @@ bundle, a new published schema `wringer.acceptance.v1` frozen in the same
 commit, absent from every bundle whose repo declares no criteria, every
 existing reader untouched, written through the bundle's redactor, covered by
 `digests.json`. Per criterion: id · state (`evidenced` / `unevidenced` /
-`human` / `gate-did-not-run`) · bound gate id and its redacted command ·
+`gate-failed` / `human` / `gate-did-not-run`) · bound gate id and its redacted command ·
 this run's result ref · the discrimination receipt (bundle-relative-to-repo
 path + which kind, failure or sensitive) or `null` with the reason. Top
 level: `schema_version`, counts that are never invented zeros (unknown is
@@ -226,12 +226,14 @@ corpus review referred back, answered:**
    that says "hold me to this", and flags still only tighten.
 
 `wring deliver` gains a refusal: **a bundle whose `acceptance.json`
-records any `required` criterion `unevidenced` (or whose bound gate did not
-run) does not deliver.** Everything about the vacuity refusal's shape is
+records any criterion that is both `required` and BOUND in a state other
+than `evidenced` does not deliver** — born-green, gate-failed, or
+gate-did-not-run alike. Everything about the vacuity refusal's shape is
 kept deliberately: the refusal reads the artifact in the bundle (state
-routes, only bundles gate); a repo with no `wringer.spec.yaml` writes no
-artifact and behaves exactly as today, so opt-in is by declaring criteria —
-presence, not a flag; there is no flag that loosens it and none that is
+routes, only bundles gate); a repo with no APPROVED `wringer.spec.yaml`
+writes no artifact and behaves exactly as today (ruling 8), and an approved
+spec whose criteria nobody has bound yet renders UNEVIDENCED and refuses
+nothing (ruling 9); there is no flag that loosens it and none that is
 needed to tighten it; and the refusal message names the criterion, its
 state, and the one-run remedy. A criterion that is `human: true` never
 refuses — a person's judgement is not a gate's to hold hostage — and

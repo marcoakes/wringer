@@ -2,6 +2,7 @@
   "_comment": "sha256 of every published JSON schema. The ten from the v0.2.0 tag were captured from the tag itself; schemas added after it were captured when they were published, and describe formats frozen from that moment. Law 7: these are frozen. A byte change without a new schema_version is a silent break for every reader of an existing bundle. tests/test_schema.py enforces it; adding a NEW schema file is always allowed.",
   "tag": "v0.2.0",
   "schemas": {
+    "acceptance.schema.json": "15001e92a979bf0f409a6563666fe3afcd1dc789b4b52cd89c8e3d9e8feeaad4",
     "acquired-manifest.schema.json": "4eeeedceead51da2f548f49666141a7011bd5e24f641e852f3eed02cd885bd1e",
     "attestation.schema.json": "ce37c4e1572bf75b20c55036aeaa235f41a2c743fe3f75a2295199bd7c3514dc",
     "bench-event.schema.json": "4b24c4d0428607c131dc2b45cbe73bef6d96a6bdee77c6e7f0da86f699f9d1e3",

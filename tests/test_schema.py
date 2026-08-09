@@ -1505,3 +1505,82 @@ def test_the_health_schema_demands_all_four_limits():
     "none"."""
     schema = load("health-report.schema.json")
     assert schema["properties"]["limits"]["minItems"] == 4
+
+
+# --- wringer.acceptance.v1 --------------------------------------------------
+#
+# Published in the same commit as the code that writes it, drift-tested
+# against a REAL verify run rather than a hand-built fixture, and frozen.
+
+
+def run_with_acceptance(repo: Path, monkeypatch, capsys) -> Path:
+    from test_accept import bound_config, write_spec
+
+    write_spec(repo)
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    bound_config(repo, command="grep -q FIXED calc.py")
+    monkeypatch.chdir(repo)
+    cli.main(["verify"])                       # red — recorded
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    cli.main(["verify"])                       # green — evidenced
+    capsys.readouterr()
+    found = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert found is not None
+    return found
+
+
+def test_a_real_acceptance_artifact_matches_its_schema(repo, monkeypatch, capsys):
+    from wringer import accept
+
+    run = run_with_acceptance(repo, monkeypatch, capsys)
+    recorded = json.loads(
+        (run / accept.ACCEPTANCE_FILENAME).read_text(encoding="utf-8")
+    )
+    schema = load("acceptance.schema.json")
+    check(recorded, schema, "acceptance.json")
+    assert recorded["schema_version"] == "wringer.acceptance.v1"
+
+    row_schema = schema["properties"]["criteria"]["items"]
+    for row in recorded["criteria"]:
+        check(row, row_schema, f"criterion {row['criterion']}")
+    check(recorded["counts"], schema["properties"]["counts"], "counts")
+
+    # The fixture is only load-bearing if it exercised the evidenced path.
+    assert recorded["counts"]["evidenced"] == 1, recorded
+
+
+def test_a_real_acceptance_artifact_validates_against_the_real_engine(
+    repo, monkeypatch, capsys
+):
+    from wringer import accept
+
+    built = validators()
+    run = run_with_acceptance(repo, monkeypatch, capsys)
+    errors = [
+        f"{e.json_path} {e.message}"
+        for e in built["acceptance.schema.json"].iter_errors(
+            json.loads((run / accept.ACCEPTANCE_FILENAME).read_text("utf-8"))
+        )
+    ]
+    assert not errors, "\n".join(errors)
+
+
+def test_every_acceptance_state_the_schema_declares_is_produced_somewhere():
+    """A declared value no fixture produces is a value validated against
+    nothing — this suite's own standard, applied to the state enum."""
+    from wringer import accept
+
+    declared = set(
+        load("acceptance.schema.json")["properties"]["criteria"]["items"][
+            "properties"
+        ]["state"]["enum"]
+    )
+    assert declared == set(accept.STATES), sorted(declared)
+
+    tests = (
+        Path(__file__).resolve().parent / "test_accept.py"
+    ).read_text(encoding="utf-8")
+    for state in declared:
+        assert f'accept.{state.upper().replace("-", "_")}' in tests, (
+            f"the schema declares state {state!r} and no test produces it"
+        )

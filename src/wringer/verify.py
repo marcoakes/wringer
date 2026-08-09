@@ -20,6 +20,7 @@ from pathlib import Path
 
 from wringer import (
     __version__,
+    accept,
     config,
     detect,
     evidence,
@@ -266,6 +267,19 @@ def run(
         # covered by the bundle's own tamper-evidence rather than sitting
         # beside it.
         vacuity.write(bundle.directory, proved)
+    # Acceptance LAST of the sibling files and AFTER vacuity, because a
+    # `sensitive: true` row THIS run just wrote is one of the two receipts
+    # that can evidence a criterion — the spec's own one-run remedy for a
+    # gate born green. Assessing before vacuity.write left that row
+    # invisible and the criterion unevidenced in the exact case the
+    # remedy names. Still before the digests for the same reason vacuity is: the
+    # artifact is part of what this bundle claims, so the bundle's own
+    # tamper-evidence must cover it. Absent entirely unless an APPROVED spec
+    # declares criteria (SPEC_ACCEPT_V0 ruling 8) — a repo that never opted
+    # in writes a byte-identical bundle.
+    accepted = accept.assess(root, cfg, results, redactor=bundle.redactor)
+    if accepted is not None:
+        accept.write(bundle.directory, accepted, redactor=bundle.redactor)
     # LAST, so it covers everything else the run wrote. `digests.json` is what
     # lets a later `wring attest` say "and none of it has been altered since"
     # about the whole bundle rather than only the ledger.

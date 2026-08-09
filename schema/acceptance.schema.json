@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/acceptance.schema.json",
+  "title": "Wringer acceptance evidence",
+  "description": "`acceptance.json` — a sibling file in a `wring verify` bundle, present ONLY when an APPROVED `wringer.spec.yaml` declares criteria. It answers, per criterion, whether the record evidences it. `evidenced` is deliberately hard: the bound gate must have passed in this run AND the repo's record must show that gate can fail, because a gate born green has never demonstrated it can tell satisfied from unsatisfied. Absent from every bundle whose repo has not opted in, so existing readers are untouched.",
+  "type": "object",
+  "required": ["schema_version", "counts", "criteria", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Identifies the artifact format a reader is holding.",
+      "const": "wringer.acceptance.v1"
+    },
+    "counts": {
+      "description": "One key per state, always all five. These are counts over an ENUMERATED population — the criteria the approved spec declares — so a zero here is a real zero rather than the invented one the absence law forbids elsewhere.",
+      "type": "object",
+      "required": [
+        "evidenced", "unevidenced", "gate-failed", "gate-did-not-run", "human"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "evidenced": { "type": "integer", "minimum": 0 },
+        "unevidenced": { "type": "integer", "minimum": 0 },
+        "gate-failed": { "type": "integer", "minimum": 0 },
+        "gate-did-not-run": { "type": "integer", "minimum": 0 },
+        "human": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "criteria": {
+      "description": "In the order the approved spec declares them. Nothing here is sorted by state: a ranking of criteria would be this artifact deciding which debts matter, which is the reader's call.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion", "title", "required", "state", "gate", "command",
+          "receipt", "reason", "refuses"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "description": "The criterion id, exactly as written in `wringer.spec.yaml`. The join key — never slugged or normalised, because a normalised join is a silent mis-bind.",
+            "type": "string"
+          },
+          "title": { "type": "string" },
+          "required": {
+            "description": "From the spec. Only a required criterion can refuse delivery, and only when it is also bound.",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "`evidenced` — bound, passed this run, and the record shows the gate can fail. `unevidenced` — unbound, or bound but born green. `gate-failed` — the gate ran and failed, so the criterion is not met: the ordinary honest state of work in progress. `gate-did-not-run` — bound, but no result in this bundle (skipped, interrupted); absence is absence, never a pass-through to an older green. `human` — answered by people, and nothing here scored it.",
+            "enum": [
+              "evidenced", "unevidenced", "gate-failed", "gate-did-not-run",
+              "human"
+            ]
+          },
+          "gate": {
+            "description": "The gate whose `proves:` names this criterion, or null when nothing binds it. Null is a DEBT, not an error: criteria default to required and nothing is bound the moment a spec is approved.",
+            "type": ["string", "null"]
+          },
+          "command": {
+            "description": "The bound gate's command, after redaction. Null when unbound or human. Identity for the discrimination record is `(gate id, command)`: edit the command and the history resets, because editing is how checks narrow.",
+            "type": ["string", "null"]
+          },
+          "receipt": {
+            "description": "Where the record shows this gate can fail. Null for every state except `evidenced`, and null WITH a reason rather than an empty object — a receipt that names nothing would be the claim this artifact exists to refuse.",
+            "type": ["object", "null"],
+            "required": ["kind", "bundle"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "description": "`failure` — a recorded genuine failure of this exact pair (not a timeout, not exit 127). `sensitive` — a `--prove` pass recorded it failing on the pre-change tree while passing on the changed one.",
+                "enum": ["failure", "sensitive"]
+              },
+              "bundle": {
+                "description": "Repo-relative path to the bundle holding the receipt, so a reader can go and look.",
+                "type": "string"
+              },
+              "cites": {
+                "description": "PRESENT ONLY on a `sensitive` receipt: the line the sensitivity rests on, carried verbatim from `vacuity.json`. Load-bearing rather than decorative — a sensitivity receipt inherits vacuity's blind spot, so a gate whose own command arrived with the change reads sensitive for that reason alone, and this line is how a reader tells. Deliberately NOT classified here: SPEC_VACUITY §4b's law is to make the failure visible, never to auto-classify it.",
+                "type": "string"
+              }
+            }
+          },
+          "reason": {
+            "description": "Why this state, in words a person can act on — including the one-run remedy when a gate is born green.",
+            "type": "string"
+          },
+          "refuses": {
+            "description": "Whether this row stops `wring deliver`. True only for a criterion that is both REQUIRED and BOUND and not `evidenced`. An unbound criterion never refuses: binding a gate is the act that says 'hold me to this', and refusing without it would refuse the first delivery in every repo that ever ran `wring spec`.",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this artifact does NOT say, travelling with the numbers rather than living in a spec nobody opened. Four entries at minimum, each pinned by content — including that a sensitivity receipt says the gate's result differed between two trees, not that the difference was the change.",
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
