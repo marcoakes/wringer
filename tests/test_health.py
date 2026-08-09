@@ -643,3 +643,236 @@ def test_the_report_path_reads_no_clock_and_no_environment():
         "varied run to run over identical evidence would be adding something "
         "that is not evidence"
     )
+
+
+# --- the report and the tooth (SPEC_HEALTH_V0.md §4/§5, slice H3) ----------
+
+import subprocess  # noqa: E402
+
+from wringer import cli  # noqa: E402
+
+CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "pytest -q"
+"""
+
+
+def repo_with(tmp_path: Path, config: str = CONFIG) -> Path:
+    """A real git repo, because `wring health` finds its root the same way
+    every other command does."""
+    subprocess.run(["git", "init", "-q", "."], cwd=tmp_path, check=True)
+    (tmp_path / ".wringer.yaml").write_text(config, encoding="utf-8")
+    return tmp_path
+
+
+def test_the_coverage_statement_leads_the_human_report(tmp_path):
+    """Before any verdict. What was read and what was not is the first thing
+    on the page, because a health tool that skips quietly is the narrowing
+    defect with a lens in its hand."""
+    repo_with(tmp_path)
+    plant(tmp_path, 3)
+    bad = runs_dir(tmp_path) / "broken"
+    bad.mkdir(parents=True)
+    (bad / MANIFEST).write_text("not json", encoding="utf-8")
+
+    coverage = health.discover(tmp_path)
+    text = health.render(coverage, health.assess(coverage, declared()))
+
+    first = text.splitlines()[0]
+    assert first.startswith("searched "), first
+    assert "read 3 bundles" in first, first
+    assert "skipped 1" in first, first
+    assert any("skipped: " in line and "broken" in line
+               for line in text.splitlines()), text
+
+
+def test_the_four_limits_are_pinned_by_content_not_by_length(tmp_path):
+    """The narrowing lesson applied to this command's own output.
+
+    A `limits` array checked for non-emptiness passes against a single entry
+    reading "none". The fourth is the one a reader of a vitality report most
+    needs and least wants: a sensitive row proves the gate's result changed
+    with the tree, not that the change was honest."""
+    repo_with(tmp_path)
+    plant(tmp_path, 2)
+    coverage = health.discover(tmp_path)
+    assessed = health.assess(coverage, declared())
+
+    emitted = health.as_json(coverage, assessed)
+    text = health.render(coverage, assessed)
+
+    assert len(health.LIMITS) == 4, health.LIMITS
+    for limit in health.LIMITS:
+        assert limit in emitted["limits"], f"--json drops: {limit}"
+    joined = " ".join(text.split())
+    for limit in health.LIMITS:
+        assert " ".join(limit.split()) in joined, f"the report drops: {limit}"
+
+    blind_spot = [x for x in health.LIMITS if "honest" in x]
+    assert blind_spot, "the vacuity blind spot is not among the limits"
+    assert "5a" in blind_spot[0], "the blind-spot limit does not cite its source"
+
+
+def test_every_report_line_fits_a_terminal(tmp_path):
+    """The sibling report in `bench` printed its limits at 115 columns for a
+    whole slice, because it indented first and asked a helper to reflow a line
+    that helper treats as structure. Not twice."""
+    repo_with(tmp_path)
+    plant(tmp_path, 12)
+    coverage = health.discover(tmp_path)
+
+    text = health.render(coverage, health.assess(coverage, declared()))
+
+    too_wide = [line for line in text.splitlines() if len(line) > 80]
+    assert not too_wide, too_wide
+
+
+def test_strict_exits_one_for_a_required_zombie_and_zero_otherwise(
+    tmp_path, monkeypatch, capsys
+):
+    """The only tooth, and it only tightens. Without `--strict` the same tree
+    exits 0 — health is an observer, and an instrument that exited non-zero
+    after successfully measuring decay would be reporting its own state with
+    the patient's chart."""
+    repo_with(tmp_path)
+    plant(tmp_path, health.MIN_HISTORY)
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["health"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert cli.main(["health", "--strict"]) == cli.EXIT_GATE_FAILED
+    said = capsys.readouterr()
+    assert "test" in said.err, said.err
+
+
+def test_strict_ignores_an_optional_zombie(tmp_path, monkeypatch, capsys):
+    """Optional gates get verdicts and never decide outcomes — the contract
+    has always been that. Requiredness is read from the CONFIG and never from
+    the recorded `optional` flag, which is mutable across a pair's history and
+    can hold both values inside one window."""
+    repo_with(
+        tmp_path,
+        'version: 1\ngates:\n  - id: test\n    run: "pytest -q"\n'
+        "    optional: true\n",
+    )
+    plant(tmp_path, health.MIN_HISTORY)
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["health", "--strict"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_strict_ignores_a_retired_zombie(tmp_path, monkeypatch, capsys):
+    """A pair the config no longer declares cannot be required BY that config,
+    and it carries no verdict at all. Two routes to the same answer."""
+    repo_with(tmp_path, 'version: 1\ngates:\n  - id: other\n    run: "true"\n')
+    plant(tmp_path, health.MIN_HISTORY)
+    monkeypatch.chdir(tmp_path)
+
+    assert cli.main(["health", "--strict"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_the_zombie_remedy_is_honest_about_optional_gates(tmp_path):
+    """The draft printed one remedy beside every zombie and claimed it settles
+    the question in one run. Vacuity has FOUR verdicts, `gates_vacuous` is
+    whole-set, and optional gates are never proved at ALL — a binding non-goal
+    — so beside an optional zombie that line would be directing a reader to
+    run a command that cannot change the verdict it sits next to."""
+    repo_with(tmp_path)
+    plant(tmp_path, health.MIN_HISTORY, optional=True)
+    coverage = health.discover(tmp_path)
+
+    text = health.render(coverage, health.assess(coverage, declared()))
+
+    assert health.OPTIONAL_REMEDY.split("(")[0].strip() in text, text
+    assert "wring verify --prove" not in text.split("What this does not say")[0]
+
+
+def test_output_writes_the_same_bytes_it_printed(tmp_path, monkeypatch, capsys):
+    """`--output` writes the output the OTHER flags selected — the JSON object
+    under `--json`, the human report otherwise. One rule, not two formats.
+
+    It exists because the shell spellings that would otherwise be needed
+    (`> file`, `| tee`) cannot appear in the Action recipe: the recipe guard
+    parses every `wring` line with the real parser, and a redirect lands in
+    argv as an unrecognised argument."""
+    repo_with(tmp_path)
+    plant(tmp_path, 3)
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "health.json"
+
+    assert cli.main(["health", "--json", "--output", str(out)]) == cli.EXIT_OK
+    printed = capsys.readouterr().out
+
+    written = out.read_text(encoding="utf-8")
+    assert json.loads(written) == json.loads(printed)
+    assert json.loads(written)["schema_version"] == health.REPORT_SCHEMA_VERSION
+
+
+def test_health_runs_outside_a_repository_with_from(tmp_path, monkeypatch, capsys):
+    """`--from`'s stated purpose is CI artifact restores and other checkouts,
+    and a CI scratch directory is normally not a git checkout. The draft
+    exited 2 for "not a repo" in the same sentence that said health does not
+    need the tree."""
+    artifacts = tmp_path / "artifacts"
+    write_run(artifacts / "r1", "r1", [{"gate_id": "t", "command": "c"}])
+    outside = tmp_path / "nowhere"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+
+    assert cli.main(["health", "--from", str(artifacts)]) == cli.EXIT_OK
+    assert "read 1 bundles" in capsys.readouterr().out
+
+
+def test_health_with_no_repo_and_no_from_says_what_it_wanted(
+    tmp_path, monkeypatch, capsys
+):
+    outside = tmp_path / "nowhere"
+    outside.mkdir()
+    monkeypatch.chdir(outside)
+
+    assert cli.main(["health"]) == cli.EXIT_CONFIG
+    assert "--from" in capsys.readouterr().err
+
+
+def test_two_runs_over_the_same_bundles_emit_identical_bytes(
+    tmp_path, monkeypatch, capsys
+):
+    """Ruling 4's weakest property, pinned anyway — the structural test beside
+    it is what makes the claim real."""
+    repo_with(tmp_path)
+    plant(tmp_path, 12)
+    monkeypatch.chdir(tmp_path)
+
+    cli.main(["health", "--json"])
+    first = capsys.readouterr().out
+    cli.main(["health", "--json"])
+    second = capsys.readouterr().out
+
+    assert first == second
+
+
+def test_the_bytes_do_not_move_when_the_environment_does(
+    tmp_path, monkeypatch, capsys
+):
+    """The property "two runs produce identical bytes" cannot see: run twice
+    seconds apart in one process environment and an env-dependent report is
+    perfectly stable."""
+    repo_with(tmp_path)
+    plant(tmp_path, 12)
+    monkeypatch.chdir(tmp_path)
+
+    cli.main(["health", "--json"])
+    first = capsys.readouterr().out
+
+    monkeypatch.setenv("WRINGER_TEST_NOISE", "loud")
+    monkeypatch.setenv("TZ", "Pacific/Kiritimati")
+    monkeypatch.setenv("COLUMNS", "40")
+    cli.main(["health", "--json"])
+    second = capsys.readouterr().out
+
+    assert first == second

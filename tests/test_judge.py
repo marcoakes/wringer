@@ -514,6 +514,13 @@ def test_verify_and_run_can_never_return_needs_human(repo, monkeypatch, capsys):
     # `bench:` section, so it exits 2 here; the strong version — a real bench
     # of real contenders — is in `tests/test_bench.py`.
     assert cli.main(["bench"]) != cli.EXIT_NEEDS_HUMAN
+    # `health` joins the family too. It is an OBSERVER — it reads bundles that
+    # already exist and decides nothing that could wait on anybody — and it
+    # also never returns 3, because it refuses nothing about the tree and does
+    # not even need one.
+    assert cli.main(["health"]) != cli.EXIT_NEEDS_HUMAN
+    assert cli.main(["health"]) != cli.EXIT_REFUSED
+    assert cli.main(["health", "--strict"]) != cli.EXIT_NEEDS_HUMAN
     capsys.readouterr()
 
 

@@ -30,6 +30,7 @@ rather than reverse-engineer it — the point of
 | [`graph-event.schema.json`](graph-event.schema.json) | **one line** of a graph's `graph.jsonl` |
 | [`bench-manifest.schema.json`](bench-manifest.schema.json) | `wringer.bench.v1` — `manifest.json` of a `wring bench` bundle. Contenders in **declared order**; no rank, score or ordering field exists anywhere in the format |
 | [`bench-event.schema.json`](bench-event.schema.json) | **one line** of a bench's `bench.jsonl` |
+| [`health-report.schema.json`](health-report.schema.json) | `wringer.health.v1` — `wring health --json`. The one schema here that describes a **derived view rather than a bundle**: nothing is written under `.wringer/`, the bundles it read are the evidence, and the same bundles plus the same `.wringer.yaml` produce the same bytes |
 
 The loop schemas carry their own version, **`wringer.loop.v1`**, moving
 independently of the evidence bundle: a loop *references* the runs it drove

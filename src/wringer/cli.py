@@ -277,6 +277,46 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_fleet.set_defaults(func=cmd_fleet)
 
+    parser_health = subparsers.add_parser(
+        "health",
+        help="read the evidence your runs already wrote: can each gate still fail?",
+    )
+    parser_health.add_argument(
+        "--from",
+        dest="from_dirs",
+        action="append",
+        metavar="DIR",
+        default=[],
+        help=(
+            "also read bundles under DIR; repeatable. For CI artifact "
+            "restores and other checkouts — health reads bundles, not trees, "
+            "so this works outside a repository"
+        ),
+    )
+    parser_health.add_argument(
+        "--strict",
+        action="store_true",
+        help=(
+            "exit 1 if any REQUIRED gate is a zombie. Tightens only: there is "
+            "no flag here that loosens anything, and none that lowers a "
+            "threshold"
+        ),
+    )
+    parser_health.add_argument(
+        "--json",
+        action="store_true",
+        help="emit one JSON object instead of the human report",
+    )
+    parser_health.add_argument(
+        "--output",
+        metavar="FILE",
+        help=(
+            "also write that same output to FILE — the JSON object under "
+            "--json, the human report otherwise"
+        ),
+    )
+    parser_health.set_defaults(func=cmd_health)
+
     parser_bench = subparsers.add_parser(
         "bench",
         help="run the same job through every declared worker and compare",
@@ -1704,6 +1744,88 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     checks = doctor.run_checks(root)
     print(doctor.as_json(checks) if args.json else doctor.report(checks))
     return EXIT_OK if all(check.passed for check in checks) else EXIT_GATE_FAILED
+
+
+def cmd_health(args: argparse.Namespace) -> int:
+    """Is there any evidence each check can still fail? (SPEC_HEALTH_V0.md)
+
+    **An observer: exit 0 whatever the report says.** Bench's ruling 7 applies
+    verbatim — an instrument that exited non-zero after successfully measuring
+    decay would be reporting its own state with the patient's chart. The one
+    tooth is `--strict`, and it only tightens.
+
+    Never 3: health refuses nothing about the tree. It does not even need the
+    tree — only the bundles — which is why a missing repo is not by itself an
+    error when `--from` supplies a root.
+    """
+    from wringer import health
+
+    extra = tuple(Path(name) for name in args.from_dirs)
+    missing = [path for path in extra if not path.is_dir()]
+    if missing:
+        _fail("health", f"--from names no directory: {missing[0]}")
+        return EXIT_CONFIG
+
+    # `git.find_root` returns the START path when there is no repository, not
+    # None — so "is there a repo" has to be asked rather than inferred from a
+    # falsy return. `.git` is a directory in a checkout and a FILE in a
+    # worktree, and `.exists()` is true for both.
+    candidate = git.find_root(Path.cwd())
+    root = candidate if (candidate / ".git").exists() else None
+    if root is None and not extra:
+        _fail(
+            "health",
+            "not a repository, and no --from directory was given. Health "
+            "reads evidence bundles rather than a tree, so it can run "
+            "anywhere — but it needs somewhere to read:\n\n"
+            "  wring health --from ./ci-history",
+        )
+        return EXIT_CONFIG
+
+    declared = None
+    required: set = set()
+    if root is not None and (root / config.CONFIG_FILENAME).is_file():
+        try:
+            cfg = config.load(root / config.CONFIG_FILENAME)
+        except config.ConfigError as exc:
+            _fail("health", exc)
+            return EXIT_CONFIG
+        declared = health.declared_pairs(cfg)
+        # Requiredness comes from the CONFIG and never from the recorded
+        # `optional` flag, which is mutable across a pair's history and can
+        # hold both values inside one window.
+        required = {
+            (gate.id, gate.run) for gate in cfg.gates if not gate.optional
+        }
+
+    coverage = health.discover(root, extra=extra)
+    assessments = health.assess(coverage, declared=declared)
+
+    if args.json:
+        body = json.dumps(health.as_json(coverage, assessments), indent=1)
+    else:
+        body = health.render(coverage, assessments)
+    print(body)
+
+    if args.output:
+        try:
+            Path(args.output).write_text(body + "\n", encoding="utf-8")
+        except OSError as exc:
+            _fail("health", f"cannot write {args.output}: {exc}")
+            return EXIT_CONFIG
+
+    if args.strict:
+        zombies = health.strict_failures(assessments, required)
+        if zombies:
+            _fail(
+                "health",
+                "required gates with no recorded evidence they can fail: "
+                + ", ".join(a.pair.gate_id for a in zombies)
+                + ".\n\nMake the evidence better, not the check weaker:\n\n"
+                "  wring verify --prove",
+            )
+            return EXIT_GATE_FAILED
+    return EXIT_OK
 
 
 def cmd_bench(args: argparse.Namespace) -> int:

@@ -38,6 +38,7 @@ OS-dependent.
 from __future__ import annotations
 
 import json
+import textwrap
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -568,3 +569,202 @@ def assess(
             )
         )
     return tuple(assessments)
+
+
+# --- the report (SPEC_HEALTH_V0.md §4) --------------------------------------
+
+REPORT_SCHEMA_VERSION = "wringer.health.v1"
+
+# What this report does NOT say, travelling with it rather than living in a
+# spec nobody opened. A vitality report is exactly the artifact a reader will
+# inflate. Pinned by CONTENT, not by non-emptiness — the narrowing lesson,
+# applied to this command's own output.
+LIMITS = (
+    "Health reads recorded evidence. A gate can be well designed and still "
+    "read zombie here — the claim is about the record, not the gate.",
+    "Only declared gates are visible. Checks outside .wringer.yaml — "
+    "scripts, CI steps, hand-kept lists — are beyond this instrument, and "
+    "they narrow too.",
+    "Thin history cannot support zombie. It can support alive: one recorded "
+    "failure is a demonstration, and no number of runs is needed to believe "
+    "a demonstration.",
+    "A sensitive row proves the gate's result changed with the tree, not "
+    "that the change was honest. An agent deleting an already-failing "
+    "assertion records one for the wrong reason (SPEC_VACUITY_V0 §5a), and "
+    "health inherits that blind spot whole.",
+)
+
+# The remedy printed beside a zombie, and what it cannot settle. The draft
+# claimed `--prove` produces one of two outcomes and that the negative one is
+# refused by delivery; vacuity has FOUR verdicts, `gates_vacuous` is
+# whole-set, and optional gates are never proved at all.
+REMEDY = "wring verify --prove — records a sensitive row, or confirms the doubt"
+OPTIONAL_REMEDY = (
+    "optional gates are never proved (SPEC_VACUITY_V0 §6); only a genuine "
+    "failure can settle this one"
+)
+
+
+def _drift_json(drift: Drift) -> dict:
+    """Absent is absent: an unknown trend is `null`, never `1.0`."""
+    return {
+        "duration_trend": drift.slowest_ratio,
+        "slow": drift.slow,
+        "timeouts": drift.timeouts,
+        "truncations": drift.truncations,
+    }
+
+
+def _gate_json(assessed: Assessment) -> dict:
+    return {
+        "gate_id": assessed.pair.gate_id,
+        "command": assessed.pair.command,
+        "verdict": assessed.verdict,
+        "qualifying_runs": assessed.qualifying,
+        "optional": assessed.optional,
+        "last_failure": assessed.last_failure,
+        "last_sensitive": assessed.last_sensitive,
+        "drift": _drift_json(assessed.drift),
+        # Repo-root-relative, or `--from`-root-relative with the root named —
+        # never "bundle-relative", which in this repo already means relative
+        # to a bundle's own root and is the one base a receipt cannot use.
+        "receipts": [run.receipt for run in assessed.window],
+    }
+
+
+def as_json(coverage: Coverage, assessments: tuple[Assessment, ...]) -> dict:
+    """The published shape. Frozen on publish, because the Action step and
+    strangers' scripts parse it."""
+    return {
+        "schema_version": REPORT_SCHEMA_VERSION,
+        "coverage": {
+            "roots": list(coverage.roots),
+            "read": len(coverage.read),
+            "counts": coverage.counts(),
+            "skipped": [
+                {"receipt": s.receipt, "reason": s.reason} for s in coverage.skipped
+            ],
+            "duplicates": [
+                {"receipt": d.receipt, "already_read_as": d.already_read_as}
+                for d in coverage.duplicates
+            ],
+            "discovered": coverage.discovered,
+        },
+        "gates": [
+            _gate_json(a) for a in assessments if a.verdict != RETIRED
+        ],
+        "retired": [_gate_json(a) for a in assessments if a.verdict == RETIRED],
+        "limits": list(LIMITS),
+    }
+
+
+def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
+    """The human report. **The coverage statement leads it.**
+
+    A health tool that silently skips unreadable history is the narrowing
+    defect with a lens in its hand, so what was read and what was not is the
+    first thing on the page, before any verdict.
+    """
+    counts = coverage.counts()
+    roots = len(coverage.roots)
+    # Two lines, not one: the single-line form ran to 94 columns on this
+    # repo's own evidence, and a coverage statement that falls off the screen
+    # is the skip nobody reads about.
+    lines = [
+        f"searched {roots} root{'' if roots == 1 else 's'} · "
+        f"read {len(coverage.read)} bundles · "
+        f"skipped {len(coverage.skipped)} · "
+        f"duplicate {len(coverage.duplicates)}",
+        f"  {counts['run']} runs, {counts['loop']} loops, "
+        f"{counts['bench']} bench (bench evidence decides nothing)",
+    ]
+    for skip in coverage.skipped:
+        lines.append(f"  skipped: {skip.receipt} ({skip.reason})")
+    for dup in coverage.duplicates:
+        lines.append(
+            f"  duplicate: {dup.receipt} already read as {dup.already_read_as}"
+        )
+
+    live = [a for a in assessments if a.verdict != RETIRED]
+    lines.append("")
+    if not live:
+        lines.append("no declared gate has any recorded history yet")
+    else:
+        width = max(len(a.pair.gate_id) for a in live)
+        for assessed in live:
+            flags = []
+            if assessed.drift.slow:
+                flags.append(f"slowing ×{assessed.drift.slowest_ratio}")
+            if assessed.drift.timeouts:
+                flags.append(f"{assessed.drift.timeouts} timed out")
+            if assessed.drift.truncations:
+                flags.append(f"{assessed.drift.truncations} truncated")
+            drift = f"  [{', '.join(flags)}]" if flags else ""
+            lines.append(
+                f"  {assessed.pair.gate_id:<{width}}  {assessed.verdict:<8} "
+                f"{assessed.qualifying} runs{drift}"
+            )
+            # The remedy goes on its OWN line rather than trailing the row:
+            # inline it ran past 80 columns, and the remedy is the half of a
+            # zombie verdict a reader is supposed to act on.
+            if assessed.verdict == ZOMBIE:
+                remedy = OPTIONAL_REMEDY if assessed.optional else REMEDY
+                lines.append(
+                    textwrap.fill(
+                        remedy,
+                        width=78,
+                        initial_indent="      → ",
+                        subsequent_indent="        ",
+                        break_long_words=False,
+                        break_on_hyphens=False,
+                    )
+                )
+
+    retired = [a for a in assessments if a.verdict == RETIRED]
+    if retired:
+        lines += ["", "Retired — history shown, no verdict claimed:"]
+        for assessed in retired:
+            lines.append(
+                f"  {assessed.pair.gate_id}  ({assessed.pair.command}) "
+                f"— {len(assessed.pair.runs)} runs"
+            )
+
+    lines += ["", "What this does not say:"]
+    for limit in LIMITS:
+        # Wrapped HERE, with the hanging indent applied by the wrapper. The
+        # sibling report in `bench` printed its limits at up to 115 columns
+        # for a whole slice because it indented first and then asked a helper
+        # to reflow a line the helper treats as structure. The limits are the
+        # part of this report a reader is most likely to skip; one that runs
+        # off the screen is one nobody read.
+        lines.append(
+            textwrap.fill(
+                limit,
+                width=78,
+                initial_indent="  - ",
+                subsequent_indent="    ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
+def strict_failures(
+    assessments: tuple[Assessment, ...],
+    declared_required: set[tuple[str, str]],
+) -> tuple[Assessment, ...]:
+    """The only tooth, and it only tightens.
+
+    Exit 1 under `--strict` for a REQUIRED zombie and nothing else. Optional
+    gates never decide outcomes — the contract has always been that — and a
+    retired pair cannot be required by a config that no longer declares it.
+    Requiredness is read from the config and never from the recorded
+    `optional` flag, which is mutable across a pair's history and can hold
+    both values inside one window.
+    """
+    return tuple(
+        a
+        for a in assessments
+        if a.verdict == ZOMBIE and a.pair.key in declared_required
+    )

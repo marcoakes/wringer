@@ -112,6 +112,19 @@ MILESTONES: tuple[Milestone, ...] = (
         commands=("graph",),
         files=("docs/graphs.md", "SPEC_GRAPH_V0.md"),
     ),
+    # Probed on the DOCS for the same reason as P6 and P7, and the reason is
+    # sharper here: `health` registers with its reader, its verdicts and its
+    # report before the decay demo exists, and the demo is the only artifact
+    # that shows the thing the command is FOR — a gate going quietly dead
+    # under runs that all pass. A node green on registration alone would claim
+    # a finished feature one slice early, which is the defect this whole
+    # command was built to catch, drawn on the picture a reader looks at
+    # first.
+    Milestone(
+        "P8", "health",
+        commands=("health",),
+        files=("docs/health.md", "SPEC_HEALTH_V0.md"),
+    ),
 )
 
 

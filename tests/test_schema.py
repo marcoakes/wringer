@@ -1426,3 +1426,82 @@ def test_the_schema_readme_lists_every_published_schema():
         "tools target must be findable from the index, or the index is a "
         "narrower claim than the directory."
     )
+
+
+# --- wringer.health.v1 ------------------------------------------------------
+#
+# A DERIVED VIEW, not a bundle — so unlike every schema above it describes
+# something that is never written under `.wringer/`. It is published and
+# frozen anyway, and for a sharper reason: the shipped GitHub Action step and
+# strangers' scripts parse this, and an unschema'd shape consumed by
+# automation is a format nobody promised to keep.
+
+
+def test_a_real_health_report_matches_its_schema(repo, monkeypatch, capsys):
+    from test_health import declared, plant, repo_with
+
+    from wringer import health
+
+    repo_with(repo)
+    plant(repo, 12)
+    monkeypatch.chdir(repo)
+
+    coverage = health.discover(repo)
+    report = health.as_json(coverage, health.assess(coverage, declared()))
+
+    schema = load("health-report.schema.json")
+    check(report, schema, "health report")
+    assert report["schema_version"] == "wringer.health.v1"
+
+    check(report["coverage"], schema["properties"]["coverage"], "coverage")
+    gate_schema = schema["$defs"]["gate"]
+    assert report["gates"], "the fixture produced no gate rows to check"
+    for gate in report["gates"] + report["retired"]:
+        check(gate, gate_schema, f"gate {gate['gate_id']}")
+        check(gate["drift"], gate_schema["properties"]["drift"], "drift")
+
+
+def test_a_real_health_report_validates_against_the_real_engine(
+    repo, monkeypatch, capsys
+):
+    from test_health import declared, plant, repo_with
+
+    from wringer import health
+
+    repo_with(repo)
+    plant(repo, 12)
+    monkeypatch.chdir(repo)
+
+    coverage = health.discover(repo)
+    report = health.as_json(coverage, health.assess(coverage, declared()))
+
+    errors = [
+        f"{e.json_path} {e.message}"
+        for e in validators()["health-report.schema.json"].iter_errors(report)
+    ]
+    assert not errors, "\n".join(errors)
+
+
+def test_every_health_verdict_the_schema_declares_is_reachable():
+    """A declared enum value nothing can produce is a branch validated against
+    nothing. All four are reachable, and `retired` is the one added because a
+    pair-scoped window FREEZES for a deleted gate and would read `alive`
+    forever."""
+    from wringer import health
+
+    declared_verdicts = set(
+        load("health-report.schema.json")["$defs"]["gate"]["properties"][
+            "verdict"
+        ]["enum"]
+    )
+    assert declared_verdicts == {
+        health.ALIVE, health.ZOMBIE, health.UNTESTED, health.RETIRED
+    }, sorted(declared_verdicts)
+
+
+def test_the_health_schema_demands_all_four_limits():
+    """`minItems` is the schema's half of the content pinning. A `limits`
+    array checked only for existence passes against one entry reading
+    "none"."""
+    schema = load("health-report.schema.json")
+    assert schema["properties"]["limits"]["minItems"] == 4

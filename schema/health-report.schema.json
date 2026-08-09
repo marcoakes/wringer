@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/health-report.schema.json",
+  "title": "Wringer health report",
+  "description": "`wring health --json` — a DERIVED VIEW over evidence bundles that already exist, not a bundle. Nothing is written under `.wringer/`: the bundles are the evidence, and a stored copy would be a second source of truth to keep honest. The report is byte-deterministic — same bundles and same `.wringer.yaml` in, same bytes out — carries no timestamp of its own, reads no environment variable, and sorts at every boundary. Every date in it comes from the bundles it read.",
+  "type": "object",
+  "required": ["schema_version", "coverage", "gates", "retired", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "wringer.health.v1" },
+    "coverage": {
+      "description": "The coverage statement, and it LEADS the report. A health tool that silently skips unreadable history is the narrowing defect with a lens in its hand — so there is no quiet path: a bundle is read, or it is named here. `discovered == read + skipped + duplicates` and a test pins that, rather than merely pinning that the skip count matches the skip list, which a bundle dropped before classification passes silently.",
+      "type": "object",
+      "required": [
+        "roots", "read", "counts", "skipped", "duplicates", "discovered"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "roots": {
+          "description": "The search roots that were walked, named so a reader can check the scope. Discovery is over named roots rather than 'everything reachable', because a scope nobody can state is the defect this command hunts.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "read": { "type": "integer", "minimum": 0 },
+        "counts": {
+          "type": "object",
+          "required": ["run", "loop", "bench"],
+          "additionalProperties": false,
+          "properties": {
+            "run": { "type": "integer", "minimum": 0 },
+            "loop": { "type": "integer", "minimum": 0 },
+            "bench": {
+              "description": "Read and shown, and they decide NOTHING. `wring bench` refuses to start unless the baseline is red, so every bench guarantees a failed row for every required gate on a tree nobody changed, under the same identity as the repo's real gates.",
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "skipped": {
+          "description": "Every bundle that was seen and could not be read, WITH ITS REASON. A directory holding a `manifest.json` is discovered whether or not the manifest parses: seeing and classifying are separate steps, and only the second may fail.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["receipt", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "receipt": { "type": "string" },
+              "reason": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "duplicates": {
+          "description": "The same bundle reached by two roots — `--from` naming a path already searched, or a CI restore of the repo's own runs. Counted ONCE and named, because counting twice moves gates across the history floor and pads the window until an older failure falls out of it.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["receipt", "already_read_as"],
+            "additionalProperties": false,
+            "properties": {
+              "receipt": { "type": "string" },
+              "already_read_as": { "type": "string" }
+            }
+          }
+        },
+        "discovered": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "gates": {
+      "description": "One entry per `(id, command)` pair that is still the contract. History attaches to the PAIR: change the command and the record starts over, because the old evidence is about a different check and editing is how checks most often narrow.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "retired": {
+      "description": "Pairs that are no longer the contract — a prior definition of an edited gate, or a gate the config no longer declares. History and receipts are shown and NO verdict is claimed. Without this the window, which is scoped to a pair's own runs, freezes for a deleted gate and it reads `alive` in perpetuity from evidence of arbitrary age.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "limits": {
+      "description": "What this report does not say, travelling with it rather than living in a spec nobody opened. At minimum four entries, each pinned by CONTENT: the claim is about the record and not the gate; only declared gates are visible; thin history cannot support `zombie` though it can support `alive`; and a sensitive row proves the gate's result changed with the tree, NOT that the change was honest — an agent deleting an already-failing assertion records one for the wrong reason, and this instrument inherits that blind spot whole.",
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "$defs": {
+    "gate": {
+      "type": "object",
+      "required": [
+        "gate_id", "command", "verdict", "qualifying_runs", "optional",
+        "last_failure", "last_sensitive", "drift", "receipts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "gate_id": { "type": "string" },
+        "command": {
+          "description": "As RECORDED in the bundle, already redacted when it was written. Health never reads a command out of `.wringer.yaml` to render it: scrubbing a raw config command would mean resolving declared secret names against the live environment, and an environment read would make the same bundles produce different bytes in different shells.",
+          "type": "string"
+        },
+        "verdict": {
+          "description": "`alive` — the window holds a genuine failure or a sensitive prove row, at ANY history depth, because a demonstration is a demonstration. `zombie` — at least the history floor of qualifying runs and no recorded evidence of discrimination in any of them; it never means 'delete this gate'. `untested` — too thin to say anything, which is the true answer and not 'probably fine'. `retired` — not the contract any more, and no claim is made.",
+          "enum": ["alive", "zombie", "untested", "retired"]
+        },
+        "qualifying_runs": {
+          "description": "Runs inside the window that this pair produced a `result.json` in. Bench-sourced runs are excluded here and are never counted toward a verdict.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "optional": { "type": "boolean" },
+        "last_failure": {
+          "description": "The receipt of the newest GENUINE failure in the window — `status: failed` and NOT a timeout. Null when there is none; null is not zero and is not a claim. Every timeout already records `status: failed` in the gate-result format, so a predicate testing status alone would count a gate that has only ever died of slowness as the most alive thing in the report.",
+          "type": ["string", "null"]
+        },
+        "last_sensitive": {
+          "description": "The receipt of the newest run whose `vacuity.json` recorded this gate `sensitive: true`. Attributed to the PAIR by joining to the sibling `result.json` in the same bundle, because a vacuity row carries a gate id and no command.",
+          "type": ["string", "null"]
+        },
+        "drift": {
+          "description": "Facts with receipts, never part of the verdict. There is deliberately no skip rate: a skipped gate leaves no trace and no directory, a single-gate run is indistinguishable from one where the rest were skipped, and an absence carries no command so it cannot be attributed to a pair at all.",
+          "type": "object",
+          "required": ["duration_trend", "slow", "timeouts", "truncations"],
+          "additionalProperties": false,
+          "properties": {
+            "duration_trend": {
+              "description": "Median of the newest five over the median of the oldest five in the window. NULL when the window is too short to compute one — an unknown renders as null, never as 1.0.",
+              "type": ["number", "null"]
+            },
+            "slow": { "type": "boolean" },
+            "timeouts": { "type": "integer", "minimum": 0 },
+            "truncations": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "receipts": {
+          "description": "The bundles in the window, repo-root-relative — or relative to the `--from` root that supplied them, prefixed with that root. Never 'bundle-relative', which in this repo already means relative to a bundle's own root and is the one base a receipt cannot use, since a receipt's whole job is to say WHICH bundle.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
