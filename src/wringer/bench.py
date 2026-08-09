@@ -73,10 +73,15 @@ class NothingToMeasure(Exception):
     the reader to take its word.
     """
 
-    def __init__(self, reason: str, evidence_path: str) -> None:
+    def __init__(self, reason: str, evidence_path: str, cleanup: str = "") -> None:
         super().__init__(reason)
         self.reason = reason
         self.evidence_path = evidence_path
+        # The refusal made a worktree and kept it, because the bundle inside
+        # it is the evidence. Keeping it SILENTLY would leave a directory the
+        # reader never asked for and cannot find — so the line that reclaims
+        # it is printed, and never run.
+        self.cleanup = cleanup
 
 
 @dataclass(frozen=True)
@@ -293,6 +298,7 @@ def run(
             "to repair and nothing to compare. Commit the failing test that "
             "defines the job, then bench",
             baseline_ref,
+            _cleanup_lines(root, (baseline_tree,)),
         )
     failing = tuple(
         result.gate.id
@@ -347,12 +353,26 @@ def run(
         )
         bundle.event("contender.finished", **rows[-1].as_json())
 
-    bundle.event("bench.finished", contenders=len(rows))
+    # `rows`, not `contenders`: `bench.started` records the ids under that
+    # name, and one key meaning an array in one event and a count in the next
+    # is an ambiguity that would freeze into the published format forever.
+    bundle.event("bench.finished", rows=len(rows))
     bundle.write_manifest(
         settings, baseline_sha, baseline_ref, failing, tuple(rows)
     )
     bundle.write_summary(
-        _summary(root, bench_id, baseline_sha, baseline_ref, failing, tuple(rows))
+        _summary(
+            root,
+            bench_id,
+            baseline_sha,
+            baseline_ref,
+            failing,
+            tuple(rows),
+            # Declared order here too, and the baseline first: these are the
+            # directories the evidence lives in, so the reader gets them in
+            # the order they read the rows.
+            (baseline_tree, *(trees[c.id] for c in contenders)),
+        )
     )
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
     return Outcome(
@@ -563,6 +583,20 @@ def _relative(path: Path, root: Path) -> str:
         return str(path)
 
 
+def _cleanup_lines(root: Path, trees: tuple[Path, ...]) -> str:
+    """The `git worktree remove` lines, printed and never run.
+
+    Every worktree a referenced bundle lives in is KEPT — the loop bundles are
+    inside them and the baseline's verify bundle is the statement of the job,
+    so a bench that removed them would be a bench that removed its evidence.
+    Reclaiming the disk is therefore the reader's call, made after they have
+    read what is in there, and this is the exact line to make it with.
+    """
+    return "\n".join(
+        f"git worktree remove {_relative(tree, root)}" for tree in trees
+    )
+
+
 def _summary(
     root: Path,
     bench_id: str,
@@ -570,6 +604,7 @@ def _summary(
     baseline_ref: str,
     failing: tuple[str, ...],
     rows: tuple[Row, ...],
+    trees: tuple[Path, ...] = (),
 ) -> str:
     """The human read-out. **Declared order, and no winner.**"""
     lines = [
@@ -619,4 +654,17 @@ def _summary(
         f"wring judge {row.final_run}" for row in rows if row.final_run
     ]
     lines += ["```", ""]
+
+    if trees:
+        lines += [
+            "## Reclaiming the disk",
+            "",
+            "The worktrees are kept because the evidence above lives inside "
+            "them. When you are done reading it:",
+            "",
+            "```",
+            _cleanup_lines(root, trees),
+            "```",
+            "",
+        ]
     return "\n".join(lines) + "\n"

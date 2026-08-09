@@ -25,6 +25,11 @@ rather than reverse-engineer it — the point of
 | [`fleet-event.schema.json`](fleet-event.schema.json) | **one line** of a fleet's `fleet.jsonl` |
 | [`judge-verdict.schema.json`](judge-verdict.schema.json) | `wringer.judge.v1` — `verdict.json`, a rubric verdict over a finished bundle |
 | [`judge-request.schema.json`](judge-request.schema.json) | `request.json` — exactly what `wring judge` would send, written before any socket opens |
+| [`usage.schema.json`](usage.schema.json) | `wringer.usage.v1` — `usage.json`, a sibling file in a loop bundle: what the *agent* reported spending, recorded verbatim and unverified. Absent when nothing was reported, never zero |
+| [`graph-manifest.schema.json`](graph-manifest.schema.json) | `wringer.graph.v1` — `manifest.json` of a `wring graph run` bundle |
+| [`graph-event.schema.json`](graph-event.schema.json) | **one line** of a graph's `graph.jsonl` |
+| [`bench-manifest.schema.json`](bench-manifest.schema.json) | `wringer.bench.v1` — `manifest.json` of a `wring bench` bundle. Contenders in **declared order**; no rank, score or ordering field exists anywhere in the format |
+| [`bench-event.schema.json`](bench-event.schema.json) | **one line** of a bench's `bench.jsonl` |
 
 The loop schemas carry their own version, **`wringer.loop.v1`**, moving
 independently of the evidence bundle: a loop *references* the runs it drove

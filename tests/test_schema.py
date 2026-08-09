@@ -1283,3 +1283,146 @@ def test_every_vacuity_verdict_the_schema_declares_is_reachable():
         vacuity.INCONCLUSIVE,
     }
     assert declared == produced, declared ^ produced
+
+
+# --- wringer.bench.v1 -------------------------------------------------------
+#
+# Published in the same commit as the code that writes them, drift-tested
+# against a REAL bench rather than a hand-built fixture, and frozen. The
+# format carries no ordering field of any kind: ruling 6 is a property of the
+# schema, not only of the renderer, so a future sort has nowhere to record
+# itself.
+
+
+def run_a_real_bench(repo: Path, git_run, monkeypatch, capsys) -> Path:
+    from test_bench import ORDER_CONFIG, only_bench, setup
+
+    setup(repo, git_run, config=ORDER_CONFIG)
+    monkeypatch.chdir(repo)
+    assert cli.main(["bench"]) == 0
+    capsys.readouterr()
+    return only_bench(repo)
+
+
+def test_a_real_bench_bundle_matches_its_schemas(repo, git_run, monkeypatch, capsys):
+    from wringer import bench
+
+    bundle = run_a_real_bench(repo, git_run, monkeypatch, capsys)
+
+    recorded = json.loads(
+        (bundle / bench.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    check(recorded, load("bench-manifest.schema.json"), "bench manifest.json")
+    assert recorded["schema_version"] == "wringer.bench.v1"
+
+    # The rows are objects with their own declared shape; `check` is shallow,
+    # so the item schema is applied to each row by hand.
+    row_schema = load("bench-manifest.schema.json")["properties"]["contenders"][
+        "items"
+    ]
+    for row in recorded["contenders"]:
+        check(row, row_schema, f"contender row {row['contender']}")
+
+    seen = set()
+    for line in (bundle / bench.EVENTS_FILENAME).read_text("utf-8").splitlines():
+        event = json.loads(line)
+        check(
+            event,
+            branch(event["type"], "bench-event.schema.json"),
+            f"bench event {event['type']}",
+        )
+        seen.add(event["type"])
+    assert seen == {
+        "bench.started",
+        "baseline.verified",
+        "contender.started",
+        "contender.finished",
+        "bench.finished",
+    }, seen
+
+
+def test_a_real_bench_bundle_validates_against_the_real_engine(
+    repo, git_run, monkeypatch, capsys
+):
+    from wringer import bench
+
+    built = validators()
+    bundle = run_a_real_bench(repo, git_run, monkeypatch, capsys)
+
+    errors = [
+        f"manifest {e.json_path} {e.message}"
+        for e in built["bench-manifest.schema.json"].iter_errors(
+            json.loads((bundle / bench.MANIFEST_FILENAME).read_text("utf-8"))
+        )
+    ]
+    for line in (bundle / bench.EVENTS_FILENAME).read_text("utf-8").splitlines():
+        event = json.loads(line)
+        errors += [
+            f"{event['type']} {e.json_path} {e.message}"
+            for e in built["bench-event.schema.json"].iter_errors(event)
+        ]
+    assert not errors, "\n".join(errors)
+
+
+def test_every_bench_event_shape_the_schema_declares_is_produced():
+    """A declared branch no fixture produces is a branch validated against
+    nothing — this suite's own standard, and the reason `contender.skipped`
+    is NOT in the schema: SPEC_BENCH_V0 §4 lists it, and `bench.py` emits it
+    nowhere, so declaring it would publish a shape with no producer and no
+    test."""
+    declared = {
+        option["title"] for option in load("bench-event.schema.json")["oneOf"]
+    }
+    assert declared == {
+        "bench.started",
+        "baseline.verified",
+        "contender.started",
+        "contender.finished",
+        "bench.finished",
+    }, sorted(declared)
+
+    source = (
+        Path(__file__).resolve().parent.parent / "src" / "wringer" / "bench.py"
+    ).read_text(encoding="utf-8")
+    for name in declared:
+        assert f'"{name}"' in source, f"{name} is declared but written nowhere"
+    assert "contender.skipped" not in source, (
+        "bench.py grew a contender.skipped event; the schema must declare it "
+        "and a fixture must produce it, or neither"
+    )
+
+
+def test_no_bench_schema_carries_a_field_that_could_order_contenders():
+    """Ruling 6 as a property of the FORMAT, not of the renderer.
+
+    A rank, score or position field would be the crown put back on by the
+    schema after the spec refused to award it — and an auto-ranked bench
+    systematically rewards reward-hacking, because rewriting a failing test
+    into a tautology converges faster than an honest fix."""
+    banned = ("rank", "score", "winner", "position", "place", "fastest", "best")
+    for name in ("bench-event.schema.json", "bench-manifest.schema.json"):
+        text = json.dumps(load(name))
+        # Property NAMES only: the descriptions say "no winner" on purpose.
+        found = [
+            word
+            for word in banned
+            if f'"{word}":' in text or f'"{word}s":' in text
+        ]
+        assert not found, f"{name} declares an ordering field: {found}"
+
+
+def test_the_schema_readme_lists_every_published_schema():
+    """A hand-kept list beside a directory that grows is a list that falls
+    behind, and this one had: `usage`, `graph-event` and `graph-manifest`
+    shipped without a row, so the index a reader targets the format from was
+    describing a smaller repo than the one they had. Derived, so it cannot
+    happen again — the same lesson as the release probe that counted thirteen
+    of seventeen commands while printing "all thirteen present"."""
+    readme = (SCHEMA_DIR / "README.md").read_text(encoding="utf-8")
+    published = sorted(path.name for path in SCHEMA_DIR.glob("*.schema.json"))
+    missing = [name for name in published if f"[`{name}`]({name})" not in readme]
+    assert not missing, (
+        f"schema/README.md has no row for: {missing}. Published formats other "
+        "tools target must be findable from the index, or the index is a "
+        "narrower claim than the directory."
+    )

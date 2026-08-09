@@ -557,3 +557,218 @@ def test_a_repo_without_a_bench_section_says_what_to_add(
     assert cli.main(["bench"]) == cli.EXIT_CONFIG
     said = flat(capsys.readouterr().err)
     assert "bench:" in said, said
+
+
+# --- the ledger tells, and the report refuses to crown (B3) -----------------
+#
+# Ruling 6 is the spec's centre: bench MEASURES and does not crown. Two things
+# have to hold for that to be true of the artifact and not just the prose —
+# the claims travel with the numbers, and nothing anywhere is sorted by how
+# well a contender did. Both are pinned here by content, because a `limits`
+# array checked for non-emptiness and an order checked on an already-ordered
+# fixture are exactly the narrowing shapes this repo keeps finding.
+
+# `idler` FIRST and `fixer` SECOND, deliberately. The later contender wins on
+# every measurable a sort could reach for — it converges, it iterates less, it
+# finishes sooner — so any ordering by outcome, iterations or wall clock
+# floats it up and reddens the order test. A fixture in declared-equals-best
+# order would pass against a sort and prove nothing.
+ORDER_CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED calc.py"
+bench:
+  contender_wall_clock: 300
+  contenders:
+    - id: idler
+      worker: "true"
+    - id: fixer
+      worker: "sh ./fix.sh"
+"""
+
+
+def test_the_three_limits_travel_with_the_numbers(repo, git_run, monkeypatch, capsys):
+    """Pinned BY CONTENT, in all three places a reader meets the rows.
+
+    A test asserting `limits` is non-empty passes against a single entry
+    reading "none" — the release probe that printed "all thirteen present"
+    while covering thirteen of seventeen is the same shape, and it shipped."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench", "--json"]) == cli.EXIT_OK
+    emitted = json.loads(capsys.readouterr().out)
+
+    directory = only_bench(repo)
+    summary = (directory / bench.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    recorded = manifest(directory)
+
+    assert len(bench.LIMITS) == 3, bench.LIMITS
+    for limit in bench.LIMITS:
+        assert limit in recorded["limits"], f"manifest drops: {limit}"
+        assert limit in emitted["limits"], f"--json drops: {limit}"
+        assert flat(limit) in flat(summary), f"summary drops: {limit}"
+
+    # The one the whole ruling turns on: a green gate is not an honest fix.
+    assert any("honest" in limit for limit in recorded["limits"]), recorded["limits"]
+
+
+def test_a_later_contender_that_converges_faster_does_not_float_up(
+    repo, git_run, monkeypatch, capsys
+):
+    """Declared order everywhere, and a test a sort would fail.
+
+    There is no winner column because the one fact that would justify one —
+    was the fix honest — is precisely what this machinery cannot establish.
+    An ordering IS a ranking; it would be the crown put back on by the
+    renderer after the spec refused to award it."""
+    setup(repo, git_run, config=ORDER_CONFIG)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench", "--json"]) == cli.EXIT_OK
+    emitted = json.loads(capsys.readouterr().out)
+
+    declared = ["idler", "fixer"]
+    assert [row["contender"] for row in emitted["contenders"]] == declared
+
+    directory = only_bench(repo)
+    assert [row["contender"] for row in manifest(directory)["contenders"]] == declared
+
+    # And in the human table, where a reader's eye actually ranks.
+    summary = (directory / bench.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert summary.index("`idler`") < summary.index("`fixer`"), summary
+
+    # The fixture is only load-bearing if the later one really did better.
+    outcomes = {row["contender"]: row["outcome"] for row in emitted["contenders"]}
+    assert outcomes["fixer"] == "converged", outcomes
+    assert outcomes["idler"] != "converged", outcomes
+
+
+def test_the_summary_prints_the_cleanup_lines_and_runs_none_of_them(
+    repo, git_run, monkeypatch, capsys
+):
+    """Every worktree a referenced bundle lives in is KEPT — the loop bundles
+    are inside them, and a bench that deleted them would be a bench that
+    deleted its evidence. So the summary prints the reclaim lines and never
+    runs one: the disk is the reader's to reclaim, after they have read it."""
+    setup(repo, git_run)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    summary = (only_bench(repo) / bench.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert "git worktree remove" in summary, summary
+
+    # Printed, never run: every worktree the bench made is still there, and
+    # every row's loop bundle is still inside one.
+    kept = sorted((repo / ".wringer" / "worktrees").iterdir())
+    assert kept, "the bench removed its own evidence"
+    for line in summary.splitlines():
+        if "git worktree remove" in line:
+            named = line.split("git worktree remove", 1)[1].strip().strip("`")
+            assert (repo / named).exists(), f"named a path that is gone: {named}"
+
+
+def test_the_green_baseline_refusal_prints_the_cleanup_for_its_one_worktree(
+    repo, git_run, monkeypatch, capsys
+):
+    """The refusal keeps a worktree too — the baseline verify's bundle is the
+    evidence of WHY there was nothing to measure. Keeping it silently would
+    leave a directory the reader never asked for and cannot find."""
+    setup(repo, git_run)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    git_run(repo, "commit", "-qam", "already fixed")
+    monkeypatch.chdir(repo)
+
+    cli.main(["bench"])
+    printed = capsys.readouterr()
+    said = flat(printed.out + " " + printed.err)
+    assert "git worktree remove" in said, said
+
+
+# --- reported by the agent, never invented by Wringer -----------------------
+
+USAGE_CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED calc.py"
+bench:
+  contender_wall_clock: 300
+  contenders:
+    - id: reporter
+      worker:
+        acp:
+          command: {command}
+          args: [{agent}, "usage"]
+    - id: silent
+      worker: "sh ./fix.sh"
+"""
+
+
+def test_what_the_agent_reported_reaches_the_row_and_the_json(
+    repo, git_run, monkeypatch, capsys
+):
+    """Two kinds of number with different authority, kept distinct.
+
+    Wall clock and iterations are Wringer's measurements. Tokens and cost are
+    the AGENT'S OWN CLAIM, recorded verbatim and marked unverified — there is
+    no price table here, because pricing would be a third module of vendor
+    strings that is wrong the week after it is written."""
+    import sys
+
+    agent = Path(__file__).resolve().parent / "fake_acp_agent.py"
+    setup(
+        repo,
+        git_run,
+        config=USAGE_CONFIG.format(
+            command=json.dumps(sys.executable), agent=json.dumps(str(agent))
+        ),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench", "--json"]) == cli.EXIT_OK
+    emitted = json.loads(capsys.readouterr().out)
+    rows = {row["contender"]: row for row in emitted["contenders"]}
+
+    reported = rows["reporter"].get("usage")
+    assert reported, f"the agent's own report never reached the row: {rows}"
+    # The LAST report of a session wins: `used` is cumulative, not additive.
+    assert reported["used"] == 1234, reported
+    assert reported["cost"]["currency"] == "USD", reported
+
+
+def test_a_contender_that_reported_nothing_renders_absent_and_never_zero(
+    repo, git_run, monkeypatch, capsys
+):
+    """A shell worker reports no usage, and 0 would be a number Wringer made
+    up about somebody else's spending. Absent is absent all the way to the
+    screen — the honest-absence grammar, and the one this repo has broken
+    before by rendering an unknown as a confident zero."""
+    import sys
+
+    agent = Path(__file__).resolve().parent / "fake_acp_agent.py"
+    setup(
+        repo,
+        git_run,
+        config=USAGE_CONFIG.format(
+            command=json.dumps(sys.executable), agent=json.dumps(str(agent))
+        ),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["bench", "--json"]) == cli.EXIT_OK
+    emitted = json.loads(capsys.readouterr().out)
+    rows = {row["contender"]: row for row in emitted["contenders"]}
+
+    assert "usage" not in rows["silent"], rows["silent"]
+
+    # And in the human table: an em dash, never a 0.
+    summary = (only_bench(repo) / bench.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    line = [ln for ln in summary.splitlines() if "`silent`" in ln]
+    assert line, summary
+    cells = [cell.strip() for cell in line[0].split("|")]
+    assert "0" not in cells, f"an unreported number rendered as zero: {line[0]}"
+    assert "—" in line[0], line[0]

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/bench-manifest.schema.json",
+  "title": "Wringer bench manifest",
+  "description": "`manifest.json` of a bench bundle — `.wringer/benches/<bench_id>/`. The comparison, and NOTHING that ranks it: there is no winner, no score, and no ordering field anywhere in this format, because the one fact that would justify a ranking — was the fix honest — is precisely the fact this machinery cannot establish (SPEC_BENCH_V0 ruling 6). `contenders` is in DECLARED order and a reader may rely on that, with the diffs in front of them.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "bench_id",
+    "started_at",
+    "baseline",
+    "contender_wall_clock",
+    "contenders",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Identifies the bundle format a reader is holding.",
+      "const": "wringer.bench.v1"
+    },
+    "bench_id": {
+      "description": "Also names the worktrees — `<bench_id>-<contender_id>`, never the bare contender id, because a colliding worktree path is force-removed and contender ids are stable across benches.",
+      "type": "string"
+    },
+    "started_at": {
+      "description": "Local ISO-8601 with offset, seconds precision.",
+      "type": "string"
+    },
+    "baseline": {
+      "description": "The job. A bench of repair needs something to repair, so a green baseline is refused before any of this is written.",
+      "type": "object",
+      "required": ["sha", "run_dir", "failing_gates"],
+      "additionalProperties": false,
+      "properties": {
+        "sha": {
+          "description": "The detached sha every contender worktree was checked against. One tree, checked rather than assumed.",
+          "type": "string"
+        },
+        "run_dir": {
+          "description": "The baseline's verify bundle, by path, inside the kept baseline worktree.",
+          "type": "string"
+        },
+        "failing_gates": {
+          "description": "The required gates that failed at the baseline: the work every row was measured on.",
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "contender_wall_clock": {
+      "description": "The SAME ceiling every contender's loop was handed. Enforcement is the loop's own, which stops after finishing the step in flight, so a contender's true ceiling is this plus at most one worker turn plus one verify — the loop's documented behaviour, not bench's to re-legislate.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "contenders": {
+      "description": "One row per contender, in DECLARED order — never outcome order. A test pins that a later contender which converged faster does not float up.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "contender", "outcome", "reason", "iterations", "wall_clock_ms",
+          "loop_ref", "head_moved"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "contender": { "type": "string" },
+          "outcome": {
+            "description": "A loop reason, or `error`. Not a grade.",
+            "type": "string"
+          },
+          "reason": { "type": "string" },
+          "iterations": { "type": "integer", "minimum": 0 },
+          "wall_clock_ms": { "type": "integer", "minimum": 0 },
+          "loop_ref": { "type": "string" },
+          "head_moved": { "type": "boolean" },
+          "final_run": { "type": "string" },
+          "agent": { "type": "string" },
+          "usage": {
+            "description": "PRESENT ONLY when the agent reported it. Absent means unreported, never zero.",
+            "type": "object",
+            "required": ["used", "size", "sessions"],
+            "additionalProperties": false,
+            "properties": {
+              "used": { "type": "integer", "minimum": 0 },
+              "size": { "type": "integer", "minimum": 0 },
+              "sessions": { "type": "integer", "minimum": 1 },
+              "cost": {
+                "type": "object",
+                "required": ["amount", "currency"],
+                "additionalProperties": false,
+                "properties": {
+                  "amount": { "type": "number" },
+                  "currency": { "type": "string", "minLength": 1 }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this artifact does NOT say, travelling with the numbers rather than living in a spec nobody opened — a benchmark is the artifact most likely to be read as a larger claim than it is. At minimum three entries, and a test pins each by CONTENT: one run per contender; usage is the agent's own unverified report; and a green gate proves the gates went green, not that the fix is honest.",
+      "type": "array",
+      "minItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

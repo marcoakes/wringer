@@ -1759,7 +1759,15 @@ def cmd_bench(args: argparse.Namespace) -> int:
         )
     except bench.NothingToMeasure as exc:
         # Exit 1, not 2: the environment is fine, there is simply no work.
-        _fail("bench", f"{exc.reason}.\n\nThe baseline's evidence: {exc.evidence_path}")
+        # The refusal kept a worktree — it holds the evidence of WHY — so it
+        # names both the bundle and the line that reclaims the disk.
+        reclaim = (
+            f"\n\nWhen you are done with it:\n\n{exc.cleanup}" if exc.cleanup else ""
+        )
+        _fail(
+            "bench",
+            f"{exc.reason}.\n\nThe baseline's evidence: {exc.evidence_path}{reclaim}",
+        )
         return EXIT_GATE_FAILED
     except bench.BenchError as exc:
         _fail("bench", exc)
