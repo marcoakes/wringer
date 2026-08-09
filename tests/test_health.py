@@ -391,3 +391,255 @@ def test_discovery_is_stable_across_repeated_reads(tmp_path):
 
     assert first == second
     assert first == sorted(first), first
+
+
+# --- the verdicts (SPEC_HEALTH_V0.md §2, slice H2) --------------------------
+
+
+def plant(root: Path, count: int, *, gate="test", command="pytest -q",
+          status="passed", start=0, **kw) -> None:
+    """`count` verify bundles, each one qualifying run for one pair."""
+    for index in range(start, start + count):
+        write_run(
+            runs_dir(root) / f"r{index:03d}", f"r{index:03d}",
+            [dict(gate_id=gate, command=command, status=status, **kw)],
+            started_at=f"2026-08-01T{index // 60:02d}:{index % 60:02d}:00+00:00",
+        )
+
+
+def only(assessments, gate="test"):
+    found = [a for a in assessments if a.pair.gate_id == gate]
+    assert len(found) == 1, [(a.pair.key, a.verdict) for a in assessments]
+    return found[0]
+
+
+def declared(gate="test", command="pytest -q"):
+    return {(gate, command)}
+
+
+def test_one_failure_makes_a_gate_alive_at_any_history_depth(tmp_path):
+    """Ruling 10, and the half the spec's first draft got wrong.
+
+    A demonstration is a demonstration: one recorded genuine failure proves
+    the gate CAN fail, and no quantity of runs is needed to believe it. The
+    draft's limit said "history below MIN_HISTORY proves nothing in either
+    direction", which is false in the positive direction against its own
+    sensitivity question — and it made the decay demo's first beat, a gate
+    demonstrably alive on a failure, impossible to film."""
+    plant(tmp_path, 2)
+    plant(tmp_path, 1, status="failed", start=90)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.ALIVE
+    assert assessed.qualifying == 3, "three runs, and the verdict is not thin"
+    assert assessed.last_failure
+
+
+def test_thin_history_with_no_evidence_is_untested_never_zombie(tmp_path):
+    """Thin history renders as thin history. `untested` is not "probably
+    fine", and it is not `zombie` either: nothing has been shown."""
+    plant(tmp_path, health.MIN_HISTORY - 1)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.UNTESTED
+    assert assessed.qualifying == health.MIN_HISTORY - 1
+
+
+def test_enough_green_runs_with_no_discrimination_is_a_zombie(tmp_path):
+    """The headline verdict. It claims the RECORD, never the gate: a stable
+    codebase can keep a good gate green for months, and the claim is only that
+    nothing recent shows it discriminating."""
+    plant(tmp_path, health.MIN_HISTORY)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.ZOMBIE
+    assert assessed.last_failure is None
+    assert assessed.last_sensitive is None
+
+
+def test_a_failure_that_falls_out_of_the_window_stops_counting(tmp_path):
+    """The decay this instrument exists to measure. Without a window one
+    ancient failure keeps a gate `alive` forever — an anti-decay model in a
+    decay instrument."""
+    plant(tmp_path, 1, status="failed")
+    plant(tmp_path, health.WINDOW, start=1)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.qualifying == health.WINDOW
+    assert assessed.verdict == health.ZOMBIE, (
+        "a failure older than the window still decided the verdict"
+    )
+
+
+def test_a_single_sensitive_row_makes_a_gate_alive(tmp_path):
+    """A `--prove` pass that recorded the gate failing on the pre-change tree
+    while passing on the changed one is the strongest vitality evidence there
+    is, and one of them is enough."""
+    write_run(
+        runs_dir(tmp_path) / "p", "p",
+        [{"gate_id": "test", "command": "pytest -q"}],
+        vacuity_rows=[{
+            "gate_id": "test", "changed": "passed", "pre_change": "failed",
+            "sensitive": True, "cites": "AssertionError", "pre_change_log": "l",
+        }],
+    )
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.ALIVE
+    # The receipt NAMES the run, because "alive" without one is the claim
+    # this command exists to refuse to make.
+    assert assessed.last_sensitive is not None
+    assert assessed.last_sensitive.endswith("/p"), assessed.last_sensitive
+    assert assessed.last_failure is None, "a sensitive row is not a failure"
+
+
+def test_a_gate_whose_only_failures_are_timeouts_is_not_alive(tmp_path):
+    """Ruling 7. A gate that has only ever died of slowness has never
+    demonstrated it can REJECT anything, and counting it would let the least
+    healthy gates read as the most alive. Every timeout in the real schema
+    already carries `status: failed`, which is what made this dangerous."""
+    plant(tmp_path, health.MIN_HISTORY, status="failed", timed_out=True)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.ZOMBIE, (
+        "timeouts alone made the gate alive — the inversion ruling 7 forbids"
+    )
+    assert assessed.drift.timeouts == health.MIN_HISTORY, (
+        "the timeouts vanished instead of surfacing as drift"
+    )
+
+
+def test_bench_evidence_cannot_move_a_verdict(tmp_path):
+    """Ruling 9, at the verdict layer rather than the reader's.
+
+    A bench guarantees a failed row for every required gate on a tree nobody
+    changed. If those counted, one `wring bench` would stamp every benched
+    gate `alive` for the next twenty-five runs."""
+    plant(tmp_path, health.MIN_HISTORY)
+    inside = tmp_path / ".wringer" / "worktrees" / "b-baseline" / ".wringer"
+    write_run(inside / "runs" / "synthetic", "synthetic",
+              [{"gate_id": "test", "command": "pytest -q", "status": "failed"}])
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.verdict == health.ZOMBIE, (
+        "a bench baseline's planted failure was read as the repo's gate "
+        "discriminating"
+    )
+    assert assessed.qualifying == health.MIN_HISTORY, (
+        "bench runs padded the window"
+    )
+
+
+def test_a_pair_the_config_no_longer_declares_is_retired_with_no_verdict(
+    tmp_path
+):
+    """The frozen-window hole. A pair stops accumulating runs the moment it is
+    renamed or deleted, so its window freezes at whatever it last held and it
+    reads `alive` in perpetuity — from evidence of arbitrary age, for a check
+    that no longer exists. `retired` claims nothing."""
+    plant(tmp_path, 1, status="failed")
+
+    assessed = only(health.assess(health.discover(tmp_path), declared=set()))
+
+    assert assessed.verdict == health.RETIRED
+    assert assessed.verdict not in (health.ALIVE, health.ZOMBIE, health.UNTESTED)
+
+
+def test_with_no_config_at_all_recency_stands_in_for_the_contract(tmp_path):
+    """Health reads bundles, not trees, and works in a repo with no
+    `.wringer.yaml`. Without a config there is nothing to say which checks are
+    still the contract, so a pair absent from the newest bundles is retired
+    rather than credited forever."""
+    write_run(runs_dir(tmp_path) / "r000", "r000",
+              [{"gate_id": "gone", "command": "old", "status": "failed"}],
+              started_at="2026-08-01T00:00:00+00:00")
+    plant(tmp_path, health.WINDOW, start=1)
+
+    assessed = health.assess(health.discover(tmp_path), declared=None)
+    by_id = {a.pair.gate_id: a for a in assessed}
+
+    assert by_id["gone"].verdict == health.RETIRED, (
+        "a gate that stopped being run kept a verdict from a frozen window"
+    )
+    assert by_id["test"].verdict != health.RETIRED
+
+
+def test_no_count_in_an_assessment_is_an_invented_zero(tmp_path):
+    """Absence is absence. A gate with no history renders unknown, never 0 —
+    and the duration trend is None rather than 1.0 when there is not enough
+    history to compute one."""
+    plant(tmp_path, 3)
+
+    assessed = only(health.assess(health.discover(tmp_path), declared()))
+
+    assert assessed.drift.slowest_ratio is None, (
+        "a trend was invented from three runs"
+    )
+    assert assessed.drift.slow is False
+    assert assessed.last_failure is None
+
+
+def test_assessment_is_stable_across_repeated_reads(tmp_path):
+    """Ruling 4's precondition: same bundles in, same everything out."""
+    plant(tmp_path, 12)
+
+    first = [(a.pair.key, a.verdict, a.qualifying)
+             for a in health.assess(health.discover(tmp_path), declared())]
+    second = [(a.pair.key, a.verdict, a.qualifying)
+              for a in health.assess(health.discover(tmp_path), declared())]
+
+    assert first == second
+
+
+# --- determinism: ruling 4, pinned by structure not by luck -----------------
+
+
+def test_the_report_path_reads_no_clock_and_no_environment():
+    """Ruling 4, by the import-parsing test's method rather than a grep.
+
+    "Two runs produce identical bytes" is satisfied by code that embeds
+    today's DATE (identical across two runs seconds apart), by code that reads
+    an environment variable (identical within one process), and by code that
+    depends on `os.listdir` order (identical back-to-back on one filesystem).
+    The spec's first draft pinned only that weakest property, two boxes before
+    it lectured its own checklist about pinning limits by content rather than
+    by non-emptiness.
+
+    `datetime.fromisoformat` is fine and is the point: PARSING a recorded
+    timestamp is reading the evidence. Calling `now()` is inventing one."""
+    import ast
+
+    source = Path(health.__file__).read_text(encoding="utf-8")
+    tree = ast.parse(source)
+
+    imported: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module.split(".")[0])
+    for forbidden in ("os", "random", "time", "socket", "urllib", "requests"):
+        assert forbidden not in imported, (
+            f"{forbidden} reached wringer/health.py — the report must be a "
+            "function of the bundles and the config, and of nothing else"
+        )
+
+    # And the clock calls, by name, wherever they were reached from.
+    banned = {"now", "today", "utcnow", "monotonic", "getenv", "urandom"}
+    called = {
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+    }
+    assert not (called & banned), (
+        f"the report path calls {sorted(called & banned)} — a report that "
+        "varied run to run over identical evidence would be adding something "
+        "that is not evidence"
+    )

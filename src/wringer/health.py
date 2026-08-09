@@ -414,3 +414,157 @@ __all__ = [
     "history",
     "search_roots",
 ]
+
+
+# --- the verdicts (SPEC_HEALTH_V0.md §2) ------------------------------------
+#
+# Constants, not config keys. A tunable threshold is a knob whose only
+# realistic use is making zombies disappear before a release, and a window key
+# is the same knob wearing recency. Repos with thin history get `untested`,
+# which is the true answer.
+MIN_HISTORY = 10
+WINDOW = 25
+
+ALIVE = "alive"
+ZOMBIE = "zombie"
+UNTESTED = "untested"
+RETIRED = "retired"
+
+
+@dataclass(frozen=True)
+class Drift:
+    """Facts with receipts. Never part of the verdict (§3e).
+
+    v0 draws no "slow = bad" conclusion — interpreting these is the reader's.
+    There is deliberately no skip rate: a skipped gate leaves no trace and no
+    directory, `--gate ID` runs are indistinguishable from skips, and an
+    absence carries no `command` so it cannot be attributed to the pair that
+    keys the report at all. Counting it would be the invented number §3c bans.
+    """
+
+    slowest_ratio: float | None = None
+    timeouts: int = 0
+    truncations: int = 0
+
+    @property
+    def slow(self) -> bool:
+        return self.slowest_ratio is not None and self.slowest_ratio >= 2.0
+
+
+@dataclass(frozen=True)
+class Assessment:
+    """One pair's verdict, and everything the report needs to justify it."""
+
+    pair: Pair
+    verdict: str
+    window: tuple[GateRun, ...]
+    last_failure: str | None
+    last_sensitive: str | None
+    drift: Drift
+    optional: bool
+
+    @property
+    def qualifying(self) -> int:
+        return len(self.window)
+
+    @property
+    def required(self) -> bool:
+        return not self.optional
+
+
+def _median(values: list[int]) -> float:
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    if not ordered:
+        return 0.0
+    if len(ordered) % 2:
+        return float(ordered[middle])
+    return (ordered[middle - 1] + ordered[middle]) / 2.0
+
+
+def _drift(window: tuple[GateRun, ...]) -> Drift:
+    """Duration trend over the window, timeouts, truncation."""
+    durations = [run.duration_ms for run in window]
+    ratio = None
+    if len(durations) >= 10:
+        oldest = _median(durations[:5])
+        newest = _median(durations[-5:])
+        if oldest > 0:
+            ratio = round(newest / oldest, 3)
+    return Drift(
+        slowest_ratio=ratio,
+        timeouts=sum(1 for run in window if run.timed_out),
+        truncations=sum(1 for run in window if run.truncated),
+    )
+
+
+def assess(
+    coverage: Coverage,
+    declared: set[tuple[str, str]] | None = None,
+) -> tuple[Assessment, ...]:
+    """Every pair the history knows, with the verdict the record supports.
+
+    **Precedence is explicit, because the spec's first draft left it undefined
+    and two of its DONE boxes could not both pass.** `retired` is decided
+    first. Then POSITIVE EVIDENCE DECIDES AT ANY DEPTH: one genuine failure or
+    one sensitive row makes a gate `alive` whether the window holds three runs
+    or twenty-five, because a demonstration is a demonstration and no quantity
+    of runs is needed to believe one. Only when there is no positive evidence
+    does the count matter, and it splits `zombie` from `untested`.
+
+    The draft's `alive` row carried no history floor while its `untested` row
+    claimed every thin history, so a gate with three runs and one failure
+    satisfied both rows and the table stated no tie-break.
+    """
+    pairs = history(coverage)
+
+    # Which pairs are still the contract. With a config, that is the config.
+    # Without one — health reads bundles, not trees, and works with no
+    # `.wringer.yaml` at all — recency stands in for it: a pair absent from
+    # the newest WINDOW bundles overall has stopped being exercised. Without
+    # some such rule a renamed or deleted gate's window FREEZES at whatever it
+    # last held and it reads `alive` in perpetuity, from evidence of arbitrary
+    # age, for a check that no longer exists.
+    if declared is None:
+        recent = [b for b in coverage.read if b.qualifying][-WINDOW:]
+        receipts = {bundle.receipt for bundle in recent}
+        current = {
+            pair.key
+            for pair in pairs
+            if any(run.receipt in receipts for run in pair.runs)
+        }
+    else:
+        current = set(declared)
+
+    assessments = []
+    for pair in pairs:
+        qualifying = tuple(run for run in pair.runs if not run.bench_sourced)
+        window = qualifying[-WINDOW:]
+        failures = [run for run in window if run.genuine_failure]
+        sensitives = [run for run in window if run.sensitive]
+
+        if pair.key not in current:
+            verdict = RETIRED
+        elif failures or sensitives:
+            verdict = ALIVE
+        elif len(window) >= MIN_HISTORY:
+            verdict = ZOMBIE
+        else:
+            verdict = UNTESTED
+
+        assessments.append(
+            Assessment(
+                pair=pair,
+                verdict=verdict,
+                window=window,
+                last_failure=failures[-1].receipt if failures else None,
+                last_sensitive=sensitives[-1].receipt if sensitives else None,
+                drift=_drift(window),
+                # A gate's requiredness is mutable across a window, so the
+                # newest recorded value is the one the report speaks about.
+                # `--strict` narrows further: it only ever looks at pairs the
+                # CONFIG declares required, never at this flag alone.
+                optional=window[-1].optional if window else False,
+            )
+        )
+    return tuple(assessments)
