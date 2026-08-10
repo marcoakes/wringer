@@ -407,3 +407,394 @@ run:
     assert recorded.count("worker.started") == 1
     assert recorded.count("worker.finished") == 0
     assert recorded[-1] == "loop.finished"
+
+
+# --- what is being built (F3) --------------------------------------------
+#
+# Measured 2026-08-10 in docs/factory-dry-run.md §4: the brief the loop hands
+# a worker was thirty-five lines about a failing gate with not one word about
+# the feature. `wring plan` knows the objective and did not pass it on; `wring
+# run` knew what was broken and did not know why. These pin the opening
+# section that carries the intent across, and the boundary — approval, the
+# same one acceptance uses — that leaves every other repo on exactly the
+# brief it had before.
+
+SPEC = """\
+schema_version: wringer.spec.v1
+approved: {approved}
+title: Add CSV export to the reports page
+intent: |2
+  Finance copies the reports table into a spreadsheet by hand every Monday.
+criteria:
+  - id: header-matches-columns
+    title: The header row matches the table columns in order
+    guidance: A test compares the header to the rendered columns.
+    required: true
+    human: false
+  - id: every-row-exported
+    title: Every row in the table appears in the export
+    guidance: A test counts the rows.
+    required: true
+    human: false
+  - id: button-copy-reads-well
+    title: The export button copy reads the way a finance team expects
+    guidance: Someone from finance reads the button and says so.
+    required: true
+    human: true
+tasks:
+{tasks}"""
+
+ONE_TASK = """\
+  - id: csv-export
+    brief: briefs/csv-export.md
+    dir: .
+    objective: Add a to_csv() to reports and a button that calls it.
+"""
+
+TWO_TASKS = ONE_TASK + """\
+  - id: csv-docs
+    brief: briefs/csv-docs.md
+    dir: .
+    objective: Document the export in the reports README.
+"""
+
+# What `wring plan` leaves on disk for a task: the objective, the PM's own
+# words, and the decisions already made.
+TASK_BRIEF = """\
+# Add a to_csv() to reports and a button that calls it
+
+Finance copies the reports table into a spreadsheet by hand every Monday.
+
+## Decisions already made
+- date-format: ISO-8601.
+"""
+
+# The gate fails loudly and is bound to one of the three criteria, so a brief
+# built from this repo has both a binding and a criterion with none.
+BOUND_CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "echo the-planted-failure >&2; grep -q FIXED calc.py"
+    proves: header-matches-columns
+run:
+  worker: "cp {brief} captured-brief.md; echo FIXED > calc.py"
+"""
+
+# The same repo without the join, for the cases where no spec is on disk at
+# all — a `proves:` with nothing to bind to is a config error by design.
+UNBOUND_CONFIG = BOUND_CONFIG.replace("    proves: header-matches-columns\n", "")
+
+
+def spec_repo(
+    repo: Path,
+    *,
+    approved: bool = True,
+    tasks: str = ONE_TASK,
+    body: str = BOUND_CONFIG,
+) -> None:
+    broken(repo)
+    (repo / ".wringer.yaml").write_text(body, encoding="utf-8")
+    (repo / "wringer.spec.yaml").write_text(
+        SPEC.format(approved="true" if approved else "false", tasks=tasks),
+        encoding="utf-8",
+    )
+    briefs = repo / "briefs"
+    briefs.mkdir(exist_ok=True)
+    (briefs / "csv-export.md").write_text(TASK_BRIEF, encoding="utf-8")
+    (briefs / "csv-docs.md").write_text("# Document it\n", encoding="utf-8")
+
+
+def captured(repo: Path) -> str:
+    """The brief the worker actually received, as bytes on disk."""
+    return (repo / "captured-brief.md").read_text(encoding="utf-8")
+
+
+def test_an_approved_spec_opens_the_brief_with_what_is_being_built(
+    repo, monkeypatch, capsys
+):
+    """The objective, the criteria and their bindings, then the failing gate.
+
+    Nothing names the task here and nothing needs to: the spec declares one,
+    so there is nothing to choose between.
+    """
+    spec_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    # what is being built comes FIRST — before a word about any gate
+    assert brief.index("What you are building") < brief.index("Fix this")
+    assert "Add CSV export to the reports page" in brief
+    assert "Finance copies the reports table into a spreadsheet by hand" in brief
+    assert "Add a to_csv() to reports and a button that calls it" in brief
+
+    # every machine criterion, by id and title, with its binding named
+    assert (
+        "`header-matches-columns` — The header row matches the table columns "
+        "in order — bound to `test`"
+    ) in brief
+    assert (
+        "`every-row-exported` — Every row in the table appears in the export "
+        "— UNBOUND"
+    ) in brief
+
+    # and the failing-gate evidence, unchanged
+    assert '"failed_gate": "test"' in brief
+    assert "the-planted-failure" in brief
+    assert "wring verify --gate test" in brief
+    capsys.readouterr()
+
+
+def test_a_human_criterion_is_one_line_and_never_carries_its_guidance(
+    repo, monkeypatch, capsys
+):
+    """A worker has no business optimising for taste no gate can score it on,
+    so the ids travel and the guidance does not."""
+    spec_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert "judged by people, not gates: `button-copy-reads-well`" in brief
+    assert "Someone from finance reads the button and says so." not in brief
+    # and it is not sitting in the machine list with a binding status
+    assert "`button-copy-reads-well` — The export button copy" not in brief
+    capsys.readouterr()
+
+
+@pytest.mark.parametrize("spec_state", ["absent", "unapproved"])
+def test_without_an_approved_spec_the_brief_is_the_one_it_always_was(
+    repo, monkeypatch, capsys, spec_state
+):
+    """The opt-in boundary is approval — SPEC_ACCEPT ruling 8, the same one,
+    read through the same reader.
+
+    A repo that never ran `wring spec`, and one whose spec a human has not
+    approved yet, both get the brief they had before any of this existed:
+    the same first line, the same headings, in the same order, and not one
+    word from the spec.
+    """
+    if spec_state == "absent":
+        broken(repo)
+        (repo / ".wringer.yaml").write_text(UNBOUND_CONFIG, encoding="utf-8")
+    else:
+        spec_repo(repo, approved=False, body=UNBOUND_CONFIG)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = captured(repo)
+
+    assert brief.startswith("# Fix this\n")
+    assert [line for line in brief.splitlines() if line.startswith("#")] == [
+        "# Fix this",
+        "## Failing gate: `test`",
+        "### stderr",
+        "## What to do",
+    ]
+    for stranger in (
+        "What you are building",
+        "judged by people",
+        "UNBOUND",
+        "CSV export",
+    ):
+        assert stranger not in brief
+    capsys.readouterr()
+
+
+def test_under_fleet_the_task_brief_is_inlined_not_only_named(
+    repo, monkeypatch, capsys
+):
+    """`WRINGER_TASK_BRIEF` names a file a worker had to know to read. Its
+    contents now travel IN the brief; the variable stays for the workers that
+    already read it (docs/factory-dry-run.md §4).
+
+    Two tasks, so the environment is doing the naming: the single-task
+    shortcut cannot account for this one.
+    """
+    spec_repo(repo, tasks=TWO_TASKS)
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("WRINGER_TASK_ID", "csv-export")
+    monkeypatch.setenv(
+        "WRINGER_TASK_BRIEF", str(repo / "briefs" / "csv-export.md")
+    )
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert "Add a to_csv() to reports and a button that calls it" in brief
+    # the file's own contents, not just its path
+    assert "date-format: ISO-8601." in brief
+    assert "briefs/csv-export.md" in brief
+    # the other task's objective is not smuggled in
+    assert "Document the export in the reports README" not in brief
+    capsys.readouterr()
+
+
+def test_several_tasks_and_nothing_naming_one_invents_no_objective(
+    repo, monkeypatch, capsys
+):
+    """Absence is absence. The spec's intent and criteria still travel — they
+    are the same whichever task this is — and the objective says it is
+    missing rather than picking one."""
+    spec_repo(repo, tasks=TWO_TASKS)
+    monkeypatch.delenv("WRINGER_TASK_ID", raising=False)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert "Add CSV export to the reports page" in brief
+    assert "`header-matches-columns`" in brief
+    assert (
+        "declares 2 tasks and nothing named which one this loop is running"
+    ) in brief
+    assert "Add a to_csv()" not in brief
+    assert "date-format: ISO-8601." not in brief
+    capsys.readouterr()
+
+
+def test_a_task_id_the_spec_does_not_declare_is_said_rather_than_guessed(
+    repo, monkeypatch, capsys
+):
+    """A spec edited after `wring plan` ran leaves the environment naming a
+    task that is gone. The brief says so; picking the nearest one would be a
+    worker building the wrong thing with confidence."""
+    spec_repo(repo, tasks=TWO_TASKS)
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("WRINGER_TASK_ID", "csv-exprot")
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert (
+        "`WRINGER_TASK_ID` names 'csv-exprot', which `wringer.spec.yaml` "
+        "does not declare"
+    ) in brief
+    assert "Add a to_csv()" not in brief
+    # the spec-wide half still travels: it is the same whichever task this is
+    assert "Add CSV export to the reports page" in brief
+    capsys.readouterr()
+
+
+HUMAN_ONLY_SPEC = """\
+schema_version: wringer.spec.v1
+approved: true
+title: Rewrite the onboarding copy
+intent: |2
+  The onboarding page reads like a legal notice.
+criteria:
+  - id: copy-reads-well
+    title: The onboarding copy reads like a person wrote it
+    guidance: Someone outside the team reads it and says so.
+    required: true
+    human: true
+tasks:
+  - id: onboarding-copy
+    brief: briefs/csv-export.md
+    dir: .
+    objective: Rewrite the three paragraphs on the onboarding page.
+"""
+
+
+def test_a_spec_only_people_can_judge_says_that_and_lists_no_gates(
+    repo, monkeypatch, capsys
+):
+    """Nothing machine-checkable in the spec: the brief must not print an
+    empty list of criteria under a heading promising bindings."""
+    spec_repo(repo, body=UNBOUND_CONFIG)
+    (repo / "wringer.spec.yaml").write_text(HUMAN_ONLY_SPEC, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert "judged by people, not gates: `copy-reads-well`" in brief
+    assert "the gate bound to each" not in brief
+    assert "UNBOUND" not in brief
+    capsys.readouterr()
+
+
+def headings(text: str) -> list[str]:
+    """The document's OWN headings — what a markdown outline shows.
+
+    Fenced regions are excluded because they are quoted, not said: a brief
+    that inlines another file inherits that file's `#` lines otherwise.
+    """
+    found: list[str] = []
+    fence: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if fence is None:
+            if stripped.startswith("```"):
+                fence = stripped[: len(stripped) - len(stripped.lstrip("`"))]
+            elif line.startswith("#"):
+                found.append(line)
+        elif stripped.startswith(fence) and set(stripped) == {"`"}:
+            fence = None
+    return found
+
+
+def test_the_task_brief_is_quoted_so_its_headings_are_not_this_documents(
+    repo, monkeypatch, capsys
+):
+    """`wring plan` writes briefs with headings of their own. Pasted bare,
+    the task's "Decisions already made" becomes a peer of "What finishing
+    means" and the seam between two documents disappears.
+
+    Found by reading the first real brief this produced — the outline was
+    wrong in a way no assertion here had thought to ask about.
+    """
+    spec_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+
+    assert headings(captured(repo)) == [
+        "# What you are building",
+        "## This task — `csv-export`",
+        "### The brief for it (`briefs/csv-export.md`)",
+        "## What finishing means",
+        "# Fix this",
+        "## Failing gate: `test`",
+        "### stderr",
+        "## What to do",
+    ]
+    capsys.readouterr()
+
+
+def test_a_brief_full_of_backticks_does_not_close_the_fence_early(
+    repo, monkeypatch, capsys
+):
+    """A task about markdown carries fences of its own. A three-tick quote
+    would end inside it and hand the worker a document that stops mid-file."""
+    spec_repo(repo)
+    (repo / "briefs" / "csv-export.md").write_text(
+        "# Document the export\n\n"
+        "Show the call:\n\n"
+        "```python\nreports.to_csv()\n```\n\n"
+        "Then say `to_csv` reads the shown rows.\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = captured(repo)
+
+    # the whole file arrived, fences and all
+    assert "reports.to_csv()" in brief
+    assert "Then say `to_csv` reads the shown rows." in brief
+    # and the document that came back is still one document
+    assert headings(brief) == [
+        "# What you are building",
+        "## This task — `csv-export`",
+        "### The brief for it (`briefs/csv-export.md`)",
+        "## What finishing means",
+        "# Fix this",
+        "## Failing gate: `test`",
+        "### stderr",
+        "## What to do",
+    ]
+    capsys.readouterr()

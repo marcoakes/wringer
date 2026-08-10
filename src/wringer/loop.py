@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import __version__, acp, config, evidence, gates, git, verify
+from wringer import __version__, accept, acp, config, evidence, gates, git, spec, verify
 from wringer.redact import Redactor
 
 LOOPS_DIRNAME = Path(".wringer") / "loops"
@@ -59,6 +59,18 @@ WORKER_ID = "worker"
 # How much of a failing gate's log to quote into the brief. The worker can
 # open the bundle for the rest; this is what it needs to start.
 BRIEF_TAIL_LINES = 40
+
+# The environment a fleet hands its children. Declared HERE, where the brief
+# reads them, and used by `fleet.py` — which already imports this module — so
+# the two halves of the contract cannot drift apart in two files.
+TASK_ID_ENV = "WRINGER_TASK_ID"
+TASK_BRIEF_ENV = "WRINGER_TASK_BRIEF"
+
+# How much prose from the spec — the intent, and the task's own brief file —
+# is quoted into a loop brief. A PM writes a page and a page belongs here;
+# anything longer is named by path rather than pasted, which is the same
+# bargain `_tail` strikes with a gate's log.
+BRIEF_PROSE_CHARS = 8000
 
 # Untracked files this big contribute their size rather than their contents
 # to the fingerprint. Hashing a 2 GB artifact to notice it changed would cost
@@ -644,7 +656,7 @@ def run(
             status, reason = "stopped", "budget_exhausted"
             break
 
-        brief = bundle.write_brief(iteration, _brief(final, root))
+        brief = bundle.write_brief(iteration, _brief(final, root, cfg))
         before_worker = current
 
         acp_worker = (
@@ -896,9 +908,220 @@ def usage_totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return totals
 
 
-def _brief(outcome: verify.Outcome, root: Path) -> str:
-    """What the worker is told: the machine-readable verdict, the failing
-    gate, and enough of its output to act without opening the bundle."""
+def _brief(outcome: verify.Outcome, root: Path, cfg: config.Config) -> str:
+    """What the worker is told: what is being built, then what is broken.
+
+    The second half is the repair brief, unchanged since v0.2. The first half
+    is F3, measured in `docs/factory-dry-run.md` §4: a loop handed a worker
+    thirty-five lines about a missing pytest and not one word about the CSV
+    export it had been asked to build. `wring plan` knew the objective and did
+    not pass it on; `wring run` knew what was broken and did not know why.
+    Nothing carried the PM's intent across the gap, and what the worker is
+    told IS this product's output quality — Wringer never writes the code.
+
+    Assembled entirely from files the repo already holds. **No model is asked
+    anything here**, as nowhere else in this module, and the redactor still
+    owns the write (`Bundle.write_brief`).
+    """
+    return _objective(root, cfg) + _repair_brief(outcome, root)
+
+
+def _objective(root: Path, cfg: config.Config) -> str:
+    """What is being built — or nothing at all, which is most repos.
+
+    The opt-in boundary is **approval**, exactly as acceptance's is
+    (SPEC_ACCEPT_V0.md ruling 8), and it is read through acceptance's own
+    reader so the two cannot drift apart. Triggering on the file existing
+    would put a model's unread draft into the instructions a worker acts on,
+    which is the interlock SPEC_INTENT §3 owns. Without an approved spec this
+    returns the empty string and the brief is byte-identical to the one this
+    loop has written since v0.2.
+    """
+    approved = accept.read_spec(root)
+    if approved is None:
+        return ""
+
+    lines = [
+        "# What you are building",
+        "",
+        f"**{approved.title}** — from `{spec.SPEC_FILENAME}`, which a human "
+        "approved.",
+        "",
+        _clip(approved.intent.strip(), spec.SPEC_FILENAME),
+        "",
+        *_task_lines(root, approved),
+        *_criteria_lines(approved, cfg),
+        "Everything above is what this work is for. Everything below is the "
+        "gate that failed on this lap.",
+        "",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _task_lines(root: Path, approved: spec.Spec) -> list[str]:
+    """The one task this loop is running, and the brief `wring plan` wrote."""
+    task, absent = _task(approved)
+    if task is None:
+        return ["## This task", "", absent, ""]
+
+    lines = [
+        f"## This task — `{task.id}`",
+        "",
+        task.objective.strip(),
+        "",
+    ]
+    found = _task_brief(root, task)
+    if found is not None:
+        where, text = found
+        lines += [f"### The brief for it (`{where}`)", "", _quote(text), ""]
+    return lines
+
+
+def _quote(text: str) -> str:
+    """Another file's contents, verbatim and fenced.
+
+    Fenced rather than pasted because `wring plan` writes briefs with their
+    own `#` headings, and inlined bare they land under this document's — so
+    the task's "Decisions already made" reads as a peer of "What finishing
+    means" and the boundary between the two files disappears. Caught by
+    reading the first real brief this produced.
+
+    The fence is as long as it needs to be: a brief about markdown carries
+    backticks of its own, and a three-tick fence would close inside it and
+    hand the worker a broken document.
+    """
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return f"{fence}markdown\n{text}\n{fence}"
+
+
+def _task(approved: spec.Spec) -> tuple[spec.Task | None, str]:
+    """Which of the spec's tasks this is, or why the loop cannot say.
+
+    Under `wring fleet` the child is told by name. Under a bare `wring run` a
+    spec declaring one task leaves nothing to choose between; a spec declaring
+    several and naming none is a question this module refuses to answer by
+    guessing, and says so in the brief instead.
+    """
+    named = os.environ.get(TASK_ID_ENV, "").strip()
+    if named:
+        for task in approved.tasks:
+            if task.id == named:
+                return task, ""
+        return None, (
+            f"`{TASK_ID_ENV}` names '{named}', which `{spec.SPEC_FILENAME}` "
+            "does not declare, so no objective is quoted here."
+        )
+    if len(approved.tasks) == 1:
+        return approved.tasks[0], ""
+    return None, (
+        f"`{spec.SPEC_FILENAME}` declares {len(approved.tasks)} tasks and "
+        f"nothing named which one this loop is running (`{TASK_ID_ENV}` is "
+        "unset), so no objective is quoted here."
+    )
+
+
+def _task_brief(root: Path, task: spec.Task) -> tuple[str, str] | None:
+    """The task's own brief file: where it came from, and what it says.
+
+    `wring fleet` passes this file to a child as `WRINGER_TASK_BRIEF`, an
+    absolute path a worker had to know to read — which is how the objective
+    reached a worker before this, and only if it had been written to look for
+    it. It is read HERE instead, and the variable stays set for the workers
+    that already read it.
+
+    Total by construction, like `accept.read_spec`: a brief that is missing,
+    unreadable or empty leaves the objective standing on its own rather than
+    taking a loop down over a document.
+    """
+    candidates: list[Path] = []
+    declared = os.environ.get(TASK_BRIEF_ENV, "").strip()
+    if declared:
+        candidates.append(Path(declared))
+    try:
+        candidates.append(spec.resolve_inside(root, task.brief, task.brief))
+    except spec.SpecError:
+        pass
+
+    for path in candidates:
+        try:
+            # Bounded at the read, not after it: a repository is allowed to
+            # hold a file too big to paste into anything.
+            with path.open(encoding="utf-8", errors="replace") as stream:
+                text = stream.read(BRIEF_PROSE_CHARS + 1)
+        except OSError:
+            continue
+        if not text.strip():
+            continue
+        where = (
+            path.relative_to(root).as_posix()
+            if path.is_relative_to(root)
+            else path.as_posix()
+        )
+        return where, _clip(text.strip(), where)
+    return None
+
+
+def _criteria_lines(approved: spec.Spec, cfg: config.Config) -> list[str]:
+    """Every criterion, and whether anything in this repo proves it.
+
+    `UNBOUND` is the honest answer for a criterion no gate names, and it is
+    most of them the day a spec is approved (ruling 9). Saying so is the
+    point: a worker that knows which of its objectives nothing can check
+    knows where the work is not going to be caught.
+
+    **Nothing here proposes a gate, and nothing binds one.** Which gate
+    evidences a criterion whose feature does not exist yet is F2's question
+    and it has no spec yet.
+    """
+    bound = {gate.proves: gate.id for gate in cfg.gates if gate.proves}
+    machine = [c for c in approved.criteria if not c.human]
+
+    lines = ["## What finishing means", ""]
+    if machine:
+        lines += [
+            "The acceptance criteria a human approved, and the gate bound to "
+            "each:",
+            "",
+        ]
+        for criterion in machine:
+            gate_id = bound.get(criterion.id)
+            binding = (
+                f"bound to `{gate_id}`"
+                if gate_id
+                else "UNBOUND (no gate proves it yet)"
+            )
+            lines.append(f"- `{criterion.id}` — {criterion.title} — {binding}")
+        lines.append("")
+
+    human = [criterion.id for criterion in approved.criteria if criterion.human]
+    if human:
+        named = ", ".join(f"`{criterion}`" for criterion in human)
+        # One line, and never their guidance: a worker has no business
+        # optimising for taste no gate can judge it on.
+        lines += [
+            f"Some are judged by people, not gates: {named}. Their guidance is "
+            "deliberately not in this brief — nothing you do to a gate can "
+            "satisfy them.",
+            "",
+        ]
+    return lines
+
+
+def _clip(text: str, where: str) -> str:
+    """Quote prose whole when it fits, and name the file when it does not."""
+    if len(text) <= BRIEF_PROSE_CHARS:
+        return text
+    return (
+        text[:BRIEF_PROSE_CHARS].rstrip()
+        + f"\n\n[... clipped here; the whole of it is in `{where}` ...]"
+    )
+
+
+def _repair_brief(outcome: verify.Outcome, root: Path) -> str:
+    """What the worker is told about the failure: the machine-readable
+    verdict, the failing gate, and enough of its output to act without
+    opening the bundle."""
     summary = verify.json_summary(outcome, root)
     lines = [
         "# Fix this",

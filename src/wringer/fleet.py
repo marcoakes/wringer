@@ -424,8 +424,11 @@ def _spawn(
     env = dict(os.environ)
     # Shell-native rather than a new placeholder vocabulary: a repo's worker
     # command can use these directly.
-    env["WRINGER_TASK_ID"] = state.task.id
-    env["WRINGER_TASK_BRIEF"] = str((root / state.task.brief).resolve())
+    # Named in `loop.py`, where the brief reads them back: the child inlines
+    # the brief file's contents now, and these stay for the workers that were
+    # written to read them.
+    env[loop.TASK_ID_ENV] = state.task.id
+    env[loop.TASK_BRIEF_ENV] = str((root / state.task.brief).resolve())
     if fallback:
         env["WRINGER_WORKER_FALLBACK"] = fallback
 

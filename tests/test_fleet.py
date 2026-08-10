@@ -724,3 +724,34 @@ def test_a_reaped_silent_child_loses_its_worker_too(repo, monkeypatch, capsys):
                 os.killpg(os.getpgid(worker_pid), signal.SIGKILL)
             except OSError:
                 pass
+
+
+def test_the_task_environment_still_reaches_the_child(repo, monkeypatch, capsys):
+    """`WRINGER_TASK_ID` and `WRINGER_TASK_BRIEF` are the fleet's contract
+    with a worker, and nothing pinned them until the loop started reading
+    them itself (F3, docs/factory-dry-run.md §4).
+
+    The brief file's contents now travel inside the brief the loop writes, so
+    a worker no longer has to know to open this path — but the workers that
+    already do must keep working, and that is what this holds.
+    """
+    task = make_task(
+        repo,
+        "t-env",
+        "printenv WRINGER_TASK_ID > seen-id.txt; "
+        "printenv WRINGER_TASK_BRIEF > seen-brief.txt; "
+        "echo FIXED > work.txt",
+    )
+    write_fleet(repo, [task])
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["fleet", "tasks.jsonl"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    workdir = repo / task["dir"]
+    assert (workdir / "seen-id.txt").read_text(encoding="utf-8").strip() == "t-env"
+    named = Path(
+        (workdir / "seen-brief.txt").read_text(encoding="utf-8").strip()
+    )
+    assert named == (repo / task["brief"]).resolve()
+    assert named.is_file(), "the variable named a path the worker cannot read"
