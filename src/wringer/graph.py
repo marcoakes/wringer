@@ -1535,9 +1535,52 @@ def _elapsed(started_at: datetime) -> float:
     return (datetime.now().astimezone() - started_at).total_seconds()
 
 
+def _parked_seconds(bundle: Bundle) -> float:
+    """Time this graph spent waiting for a PERSON, read from the ledger.
+
+    Budgets bound EXECUTION, not human latency. A graph parked at a human
+    node is burning nothing — no worker, no gates, no process — and charging
+    the wait against `wall_clock` made the interlock unusable for its own
+    purpose: an approval slower than the budget failed the moment it was
+    granted, so a PM who read a brief overnight came back to a dead run.
+    Invariant 3 wants every wait to have a deadline, and the wait it means is
+    a machine's; supervision exists so a runaway loop cannot burn a night.
+
+    Derived from the events rather than stored, because the ledger is the
+    truth and a resumed run has no memory (invariant 7). Each `node.parked`
+    is paired with the `graph.resumed` that followed it; a park with no
+    resume after it is the one still in progress, and it is discounted up to
+    now — otherwise the budget would expire during the very wait it is
+    supposed to be ignoring.
+    """
+    parked_at: datetime | None = None
+    total = 0.0
+    for event in bundle.read_events():
+        kind = event.get("type")
+        if kind not in ("node.parked", "graph.resumed"):
+            continue
+        try:
+            stamped = datetime.fromisoformat(str(event.get("ts")))
+        except (TypeError, ValueError):
+            continue
+        if kind == "node.parked":
+            parked_at = stamped
+        elif parked_at is not None:
+            total += (stamped - parked_at).total_seconds()
+            parked_at = None
+    if parked_at is not None:
+        total += (datetime.now().astimezone() - parked_at).total_seconds()
+    return total
+
+
 def _remaining(document: Graph, bundle: Bundle) -> int:
-    """The graph's budget, minus what it has spent."""
-    return int(document.wall_clock - _elapsed(bundle.started_at))
+    """The graph's budget, minus the time it spent EXECUTING.
+
+    Wall-clock since the start, less every interval it sat parked waiting for
+    a person to decide.
+    """
+    spent = _elapsed(bundle.started_at) - _parked_seconds(bundle)
+    return int(document.wall_clock - spent)
 
 
 def _run_loop(

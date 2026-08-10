@@ -14,6 +14,7 @@ only thing that moves a parked graph.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 
 from conftest import flat
 
@@ -296,3 +297,153 @@ def test_a_graph_killed_between_nodes_resumes_at_the_next_one(
         f"the completed intent node ran again on resume: {started}"
     )
     assert "approve" in started, "resume did not reach the node that was next"
+
+
+# --- a park does not spend the budget (factory blocker F1) -----------------
+
+
+LOOPS_AFTER_APPROVAL = """\
+version: 1
+id: parks-then-builds
+budgets:
+  wall_clock: 600
+nodes:
+  read-intent:
+    kind: intent
+    input: inputs.task
+    writes:
+      brief: state.brief
+    then: approve
+  approve:
+    kind: human
+    prompt: "Read the brief and approve it."
+    then: build
+  build:
+    kind: loop
+    budgets:
+      max_iterations: 2
+    writes:
+      status: state.build-status
+    then: done
+inputs:
+  task: task.md
+"""
+
+
+def _age_the_park(directory, hours: float) -> None:
+    """Rewrite the bundle so the park happened `hours` ago.
+
+    The graph started, ran its intent node, parked — and then a person took
+    `hours` to look at it. That is the ordinary life of an approval, and the
+    only honest way to test it is to move the recorded timestamps rather than
+    to wait.
+    """
+    import json as _json
+    from datetime import timedelta
+
+    manifest_path = directory / graph.MANIFEST_FILENAME
+    recorded = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    started = datetime.fromisoformat(recorded["started_at"])
+    shifted = started - timedelta(hours=hours)
+    recorded["started_at"] = shifted.replace(microsecond=0).isoformat()
+    manifest_path.write_text(_json.dumps(recorded, indent=2) + "\n", "utf-8")
+
+    # The ledger moves with it: the run really did start and park that long
+    # ago, and the events are what a resume reads.
+    path = directory / graph.EVENTS_FILENAME
+    lines = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        event = _json.loads(line)
+        stamped = datetime.fromisoformat(event["ts"]) - timedelta(hours=hours)
+        event["ts"] = stamped.isoformat(timespec="milliseconds")
+        lines.append(_json.dumps(event))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def test_a_slow_human_approval_does_not_spend_the_graphs_budget(
+    repo, monkeypatch, capsys
+):
+    """Factory blocker F1, and it made the interlock unusable overnight.
+
+    A graph's `wall_clock` counted real time while PARKED at a human node, so
+    an approval slower than the budget failed the moment it was granted:
+    "the graph's 1800s budget was spent before this node started, so the loop
+    was never run" (reproduced on graph 20260809-113623-769d, 1800s budget,
+    approved ~75 minutes later). The human gate is the whole point of the
+    graph — a PM reads a brief and decides — and a budget that expires while
+    waiting for that decision makes the feature unusable for its purpose.
+
+    Budgets bound EXECUTION, not human latency. Invariant 3 wants every wait
+    to have a deadline, and the wait it means is a machine's, not a person's:
+    supervision exists so a runaway loop cannot burn a night, and a parked
+    graph is burning nothing at all.
+    """
+    setup(repo, body=LOOPS_AFTER_APPROVAL)
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
+        'run:\n  worker: "sh -c \'echo FIXED > calc.py\'"\n  max_iterations: 2\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["graph", "run", "graph.yaml"]) == cli.EXIT_NEEDS_HUMAN
+    directory = only_graph(repo)
+    capsys.readouterr()
+
+    # The person comes back two hours later — well past the 600s budget.
+    _age_the_park(directory, hours=2)
+    (directory / graph.NODES_DIRNAME / "approve" / "decision.yaml").write_text(
+        'approved: true\ncomments: "took me a while"\nstate_updates: {}\n',
+        encoding="utf-8",
+    )
+
+    code = cli.main(["graph", "resume", str(directory)])
+    printed = flat(capsys.readouterr().out + capsys.readouterr().err)
+
+    assert code == cli.EXIT_OK, (
+        "a graph refused to resume because a human took two hours to approve "
+        f"it — the budget counted their thinking time. Printed: {printed}"
+    )
+    recorded = events(directory)
+    assert not any(e["type"] == "budget.exhausted" for e in recorded), recorded
+    assert recorded[-1]["type"] == "graph.finished"
+    assert recorded[-1]["status"] == "done"
+
+
+def test_execution_time_still_exhausts_the_budget(repo, monkeypatch, capsys):
+    """The other direction, so the fix does not become "budgets never
+    expire". Time the graph spent RUNNING still counts, and a graph whose
+    execution outlives its wall clock is still exhausted — invariant 3 is
+    intact, it just stopped charging people for thinking."""
+    setup(repo, body=LOOPS_AFTER_APPROVAL)
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
+        'run:\n  worker: "sh -c \'echo FIXED > calc.py\'"\n  max_iterations: 2\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    cli.main(["graph", "run", "graph.yaml"])
+    directory = only_graph(repo)
+    capsys.readouterr()
+    (directory / graph.NODES_DIRNAME / "approve" / "decision.yaml").write_text(
+        "approved: true\ncomments: \"\"\nstate_updates: {}\n", encoding="utf-8"
+    )
+
+    # No park to discount — the graph simply started long ago and kept
+    # running, which is exactly what the budget exists to stop.
+    import json as _json
+
+    manifest_path = directory / graph.MANIFEST_FILENAME
+    recorded = _json.loads(manifest_path.read_text(encoding="utf-8"))
+    started = datetime.fromisoformat(recorded["started_at"])
+    recorded["started_at"] = (
+        (started - timedelta(hours=2)).replace(microsecond=0).isoformat()
+    )
+    manifest_path.write_text(_json.dumps(recorded, indent=2) + "\n", "utf-8")
+
+    assert cli.main(["graph", "resume", str(directory)]) != cli.EXIT_OK
+    capsys.readouterr()
+    assert any(e["type"] == "budget.exhausted" for e in events(directory))

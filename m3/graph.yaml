@@ -10,7 +10,7 @@ id: m3-readme-relead
 inputs:
   brief: m3/BRIEF.md
 budgets:
-  wall_clock: 86400
+  wall_clock: 1800
 nodes:
   stage:
     kind: intent
