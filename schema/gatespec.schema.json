@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/gatespec.schema.json",
+  "title": "Wringer gate proposals",
+  "description": "A `wringer.gatespec.v1` document — proposed acceptance gates, each naming the criterion it would evidence. Source, not evidence: it lives in the repository beside `wringer.spec.yaml`. It exists because `wringer.spec.v1` is frozen and its `gates:` entries have no `proves` channel (SPEC_GATEGEN_V0, ruling 1). **This file has no authority.** No gate in it ever runs, nothing under `.wringer/` is written from it, and `verify`, `run`, `fleet`, `graph` and `deliver` never read it. It becomes real only when a person applies the diff `wring plan` prints to `.wringer.yaml`, which remains the only file that puts a command in Wringer's mouth. `wring spec --send` writes one from the drafted criteria; an offline repo writes the same file by hand and everything downstream is identical.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gatespec.v1"
+    },
+    "gates": {
+      "description": "One proposal per criterion a machine can decide. Never one for a `human: true` criterion — a command claiming to evidence judgement is a category error the config loader already refuses.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "run",
+          "proves"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The gate id it would have in `.wringer.yaml`: it becomes a directory name in the evidence bundle.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "run": {
+            "description": "The command a person would install. Drafted by a model here and executed by nothing until a human has copied it into `.wringer.yaml` themselves.",
+            "type": "string",
+            "minLength": 1
+          },
+          "timeout": {
+            "description": "Seconds. Omitted means the config default.",
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "proves": {
+            "description": "The id of the criterion in `wringer.spec.yaml` this gate would evidence. Required here: this file is the binding channel, and a gate that evidences no criterion belongs in the spec's own `gates:` block.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

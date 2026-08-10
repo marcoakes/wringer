@@ -778,3 +778,191 @@ def test_a_prd_carrying_the_agents_credential_is_scrubbed(
         and secret in path.read_text(encoding="utf-8", errors="replace")
     ]
     assert hits == [], f"the credential reached {hits}"
+
+
+# --- the gate sidecar (G1, SPEC_GATEGEN_V0) ------------------------------
+#
+# A criterion for a feature that does not exist has no gate, and until now a
+# human wrote every one by hand (docs/factory-dry-run.md §3: `wring plan`
+# proposed ZERO gates). The drafter now proposes them into
+# `wringer.gates.yaml` — a sidecar, because `wringer.spec.v1` is frozen and
+# has no `proves` channel — and that file has no authority at all until a
+# person applies the diff `wring plan` prints.
+
+BINDINGS = [
+    {
+        "id": "acc-export-button",
+        "run": "pytest -q acceptance/test_button.py",
+        "proves": "export-button-exists",
+    },
+    {
+        "id": "acc-filters",
+        "run": "pytest -q acceptance/test_filters.py",
+        "timeout": 300,
+        "proves": "respects-filters",
+    },
+]
+
+
+def draft_with(bindings) -> dict:
+    return {**DRAFT, "gate_bindings": bindings}
+
+
+def sidecar(repo: Path) -> dict:
+    return yaml.safe_load(
+        (repo / spec.GATESPEC_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+def test_the_drafter_proposes_a_gate_for_every_machine_criterion(
+    repo, monkeypatch, capsys
+):
+    """One per criterion a machine can decide, and none for the one only a
+    person can — a command claiming to evidence taste is a category error the
+    config loader already refuses."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply(draft_with(BINDINGS)))
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = sidecar(repo)
+    assert written["schema_version"] == spec.GATESPEC_SCHEMA_VERSION
+    assert [g["id"] for g in written["gates"]] == [
+        "acc-export-button", "acc-filters"
+    ]
+    assert [g["proves"] for g in written["gates"]] == [
+        "export-button-exists", "respects-filters"
+    ]
+    # the human criterion is bound by nothing
+    assert "reads-well" not in yaml.safe_dump(written)
+    capsys.readouterr()
+
+
+def test_a_binding_on_a_human_criterion_is_refused_and_nothing_is_written(
+    repo, monkeypatch, capsys
+):
+    """`config.parse_gate` and the binding rules already refuse this. The
+    drafter gets no exemption for proposing it."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(draft_with([
+            {"id": "acc-taste", "run": "true", "proves": "reads-well"}
+        ])),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "reads-well" in err
+    assert "human" in err
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_a_binding_to_a_criterion_the_reply_never_declared_is_refused(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(draft_with([
+            {"id": "acc-ghost", "run": "true", "proves": "no-such-criterion"}
+        ])),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "no-such-criterion" in err
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+
+
+def test_two_gates_for_one_criterion_is_refused(repo, monkeypatch, capsys):
+    """One criterion, one gate (SPEC_ACCEPT): a second is a second claim to
+    keep honest and the artifact has one slot."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(draft_with(BINDINGS + [
+            {"id": "acc-again", "run": "true", "proves": "export-button-exists"}
+        ])),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "export-button-exists" in err
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+
+
+def test_a_proposed_gate_goes_through_the_configs_own_parser(
+    repo, monkeypatch, capsys
+):
+    """Wringer cannot propose a gate its own loader would reject — the same
+    rule the spec's `gates:` block has always had."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(draft_with([
+            {"id": "../escape", "run": "true", "proves": "export-button-exists"}
+        ])),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "id" in err
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+
+
+def test_a_binding_without_a_proves_is_refused(repo, monkeypatch, capsys):
+    """The sidecar is the binding channel and nothing else. A gate with no
+    criterion belongs in the spec's own `gates:` block, where it already
+    goes."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(draft_with([{"id": "acc-loose", "run": "true"}])),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "proves" in err
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+
+
+def test_a_reply_with_no_bindings_writes_no_sidecar(repo, monkeypatch, capsys):
+    """Absence is absence: an empty sidecar would be a claim that no
+    criterion can be evidenced, which is a different statement."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert (repo / spec.SPEC_FILENAME).is_file()
+    assert not (repo / spec.GATESPEC_FILENAME).exists()
+    capsys.readouterr()
+
+
+def test_offline_the_next_steps_name_the_hand_written_sidecar(
+    repo, monkeypatch, capsys
+):
+    """No endpoint, no draft — and the dry run has to say how a person gets a
+    sidecar anyway, or the no-LLM path is second class."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md"]) == cli.EXIT_OK
+
+    out = flat(capsys.readouterr().out)
+    assert spec.GATESPEC_FILENAME in out
+    assert "by hand" in out

@@ -583,3 +583,109 @@ def test_a_brief_over_a_file_plan_owns_is_refused(
     assert cli.main(["plan"]) == cli.EXIT_CONFIG
 
     assert "writes or reads itself" in capsys.readouterr().err
+
+
+# --- the gate sidecar at plan time (G1, SPEC_GATEGEN_V0) -----------------
+
+SIDECAR = """\
+schema_version: wringer.gatespec.v1
+gates:
+  - id: acc-button
+    run: "pytest -q acceptance/test_button.py"
+    proves: {proves}
+"""
+
+
+def write_sidecar(repo: Path, proves: str = "export-button-exists") -> None:
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        SIDECAR.format(proves=proves), encoding="utf-8"
+    )
+
+
+def test_a_hand_written_sidecar_is_accepted_at_plan_time(
+    repo, monkeypatch, capsys
+):
+    """The offline path is first class: no model wrote this file and the flow
+    from here is identical (ruling 5)."""
+    setup_repo(repo)
+    write_sidecar(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_a_sidecar_binding_to_an_unknown_criterion_names_both_files(
+    repo, monkeypatch, capsys
+):
+    """Both sides named: the reader has two documents open and needs to know
+    which one is wrong."""
+    setup_repo(repo)
+    write_sidecar(repo, proves="export-buton-exists")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert spec.GATESPEC_FILENAME in err
+    assert spec.SPEC_FILENAME in err
+    assert "export-buton-exists" in err
+    # and the ids it could have meant
+    assert "export-button-exists" in err
+
+
+def test_a_sidecar_binding_a_human_criterion_is_refused_at_plan_time(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    write_sidecar(repo, proves="reads-well")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "reads-well" in err and "human" in err
+    assert spec.GATESPEC_FILENAME in err
+
+
+def test_plan_validates_the_sidecar_through_the_shipped_binding_rules(
+    repo, monkeypatch, capsys
+):
+    """The no-second-validator pin, and it bites rather than describes.
+
+    `config.check_bindings` is the one place the three join rules live
+    (SPEC_GATEGEN ruling 6). This replaces it with a sentinel and asserts the
+    sentinel escapes: if a future change validates the sidecar with a second
+    copy of the rules under another name, nothing calls this and the test
+    goes red. A guard that merely counted error strings would pass happily
+    while the copy drifted.
+    """
+    setup_repo(repo)
+    write_sidecar(repo)
+    monkeypatch.chdir(repo)
+
+    def sentinel(gates, criteria, where=config.CONFIG_FILENAME):
+        raise config.ConfigError("the shipped binding rules ran")
+
+    monkeypatch.setattr(config, "check_bindings", sentinel)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+    assert "the shipped binding rules ran" in flat(capsys.readouterr().err)
+
+
+def test_an_unapproved_spec_stops_before_the_sidecar_is_even_read(
+    repo, monkeypatch, capsys
+):
+    """The interlock comes first. A sidecar full of nonsense must not be what
+    a reader is told about when the real answer is 'nobody approved this'."""
+    setup_repo(repo, SPEC.replace("approved: true", "approved: false"))
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        "this is not even yaml: [unclosed\n", encoding="utf-8"
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_GATE_FAILED
+
+    err = flat(capsys.readouterr().err)
+    assert "approved: false" in err
+    assert spec.GATESPEC_FILENAME not in err

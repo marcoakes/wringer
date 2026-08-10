@@ -2417,6 +2417,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
 
     mode = "live" if args.send else "dry_run"
     drafted: spec.Spec | None = None
+    proposed: tuple[config.Gate, ...] = ()
     if args.send:
         try:
             body = judge.send(
@@ -2439,7 +2440,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
 
         bundle.write_response(body)
         try:
-            drafted = spec.parse_response(body, prd)
+            draft = spec.parse_response(body, prd)
+            drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:
             bundle.write_summary(
                 mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None
@@ -2455,6 +2457,23 @@ def cmd_spec(args: argparse.Namespace) -> int:
         # parsers the file itself will face: a half-written spec is worse than
         # no spec, because a half-written one gets approved.
         target.write_text(spec.render(drafted), encoding="utf-8")
+        if proposed:
+            # A sidecar with no entries is never written: absence is absence,
+            # and an empty `gates:` list would assert that no criterion here
+            # can be evidenced, which is a different and much stronger claim.
+            sidecar = root / spec.GATESPEC_FILENAME
+            if sidecar.is_file() and not spec.gatespec_is_generated(sidecar):
+                print(
+                    f"wring spec: {spec.GATESPEC_FILENAME} was written by "
+                    "hand, so it was left alone — the drafted gates are in "
+                    f"{_relative(bundle.directory, root)}/"
+                    f"{spec.RESPONSE_FILENAME} if you want them.",
+                    file=sys.stderr,
+                )
+            else:
+                sidecar.write_text(
+                    spec.render_gatespec(proposed), encoding="utf-8"
+                )
 
     bundle.write_summary(
         mode, args.prd, cfg.judge.endpoint, cfg.judge.model, drafted
@@ -2487,6 +2506,22 @@ def _report_spec(
         print("dry run — the request was built and written; nothing was sent.")
         print(f"\nRequest written to:\n{_relative(bundle.directory, root)}/")
         print("\nWhen you are ready:\n  wring spec <PRD> --send")
+        # The no-LLM path is first class (SPEC_GATEGEN ruling 5), and it stops
+        # being first class the moment the only route to a sidecar is a model.
+        # A repo with no endpoint writes the same file by hand and everything
+        # downstream is identical.
+        print(
+            f"\nNo endpoint? Write {spec.GATESPEC_FILENAME} by hand — one "
+            "entry per criterion a machine can decide, each naming the "
+            "criterion it proves:"
+        )
+        print(
+            f"  schema_version: {spec.GATESPEC_SCHEMA_VERSION}\n"
+            "  gates:\n"
+            "    - id: acc-<criterion>\n"
+            '      run: "<the command that fails until it is built>"\n'
+            "      proves: <criterion-id>"
+        )
         return
 
     unresolved = sum(1 for q in drafted.questions if q.required and not q.answered)
@@ -2550,8 +2585,16 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
         return EXIT_GATE_FAILED
 
-    # Everything is checked before anything is written: a plan that half-ran
-    # leaves a tasks file describing briefs that do not exist.
+    # The sidecar, read AFTER the interlock and before any write. After,
+    # because a reader whose spec nobody approved must be told that and not
+    # about a gate file; before, because a plan that half-ran leaves a tasks
+    # file describing briefs that do not exist.
+    try:
+        spec.load_gatespec(root, loaded.criteria)
+    except spec.SpecError as exc:
+        _fail("plan", exc)
+        return EXIT_CONFIG
+
     try:
         writes, brief_paths = _plan_writes(loaded, root)
     except spec.SpecError as exc:

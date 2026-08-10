@@ -398,29 +398,49 @@ def _check_bindings(cfg: Config, root: Path) -> None:
     from wringer import spec as spec_module
 
     criteria = {c.id: c for c in spec_module.load(spec_path).criteria}
+    check_bindings(bound, criteria, CONFIG_FILENAME)
 
+
+def check_bindings(
+    gates: Any, criteria: dict[str, Any], where: str = CONFIG_FILENAME
+) -> None:
+    """The three rules that join a gate to the criterion it evidences.
+
+    **One function, two callers, on purpose** (SPEC_GATEGEN_V0 ruling 6). The
+    config loader checks `.wringer.yaml` AFTER a human applied a diff;
+    `wring plan` checks `wringer.gates.yaml` BEFORE anyone has. Those are
+    different files at different moments and they must not be different rules
+    — a second copy under another name is exactly how the drafter would come
+    to propose something the loader then refuses, which is the failure this
+    whole seam exists to prevent.
+
+    `where` names the file the GATES came from, so a sidecar failure says
+    which of the two documents to go and fix. The criteria always come from
+    `wringer.spec.yaml`, which is why that name is a constant below.
+    """
     seen: dict[str, str] = {}
-    for gate in bound:
-        assert gate.proves is not None
+    for gate in gates:
+        if not gate.proves:
+            continue
         criterion = criteria.get(gate.proves)
         if criterion is None:
             known = ", ".join(sorted(criteria)) or "none"
             raise ConfigError(
-                f"gate '{gate.id}' proves '{gate.proves}', which is not a "
-                f"criterion in {SPEC_FILENAME}. Declared there: {known}"
+                f"{where}: gate '{gate.id}' proves '{gate.proves}', which is "
+                f"not a criterion in {SPEC_FILENAME}. Declared there: {known}"
             )
         if criterion.human:
             raise ConfigError(
-                f"gate '{gate.id}' proves '{gate.proves}', which is marked "
-                "'human: true'. A command claiming to evidence judgement is a "
-                "category error — human criteria are answered by people, and "
-                "nothing here may score them"
+                f"{where}: gate '{gate.id}' proves '{gate.proves}', which "
+                f"{SPEC_FILENAME} marks 'human: true'. A command claiming to "
+                "evidence judgement is a category error — human criteria are "
+                "answered by people, and nothing here may score them"
             )
         if gate.proves in seen:
             raise ConfigError(
-                f"gates '{seen[gate.proves]}' and '{gate.id}' both prove "
-                f"'{gate.proves}'. One criterion, one gate: a second is a "
-                "second claim to keep honest, and the artifact has one slot "
+                f"{where}: gates '{seen[gate.proves]}' and '{gate.id}' both "
+                f"prove '{gate.proves}'. One criterion, one gate: a second is "
+                "a second claim to keep honest, and the artifact has one slot "
                 "per criterion"
             )
         seen[gate.proves] = gate.id

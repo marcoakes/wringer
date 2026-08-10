@@ -1584,3 +1584,77 @@ def test_every_acceptance_state_the_schema_declares_is_produced_somewhere():
         assert f'accept.{state.upper().replace("-", "_")}' in tests, (
             f"the schema declares state {state!r} and no test produces it"
         )
+
+
+# --- wringer.gatespec.v1 ----------------------------------------------------
+#
+# SOURCE, not evidence — like the rubric, and for the same reason: it sits in
+# the repository rather than under `.wringer/`. Published and frozen anyway,
+# because a stranger's tooling may write one (an offline repo writes it by
+# hand, ruling 5) and a format nobody promised to keep is not a format.
+
+
+def test_a_drafted_gate_sidecar_matches_its_schema(repo, monkeypatch, capsys):
+    """The real file the real command writes, against the published schema —
+    not a hand-built lookalike."""
+    from wringer import config as config_module
+    from wringer import spec as spec_module
+
+    gates = (
+        config_module.Gate(
+            id="acc-header", run="pytest -q acceptance/test_header.py",
+            timeout=300, proves="header-matches-columns",
+        ),
+        config_module.Gate(
+            id="acc-rows", run="pytest -q acceptance/test_rows.py",
+            proves="every-row-exported",
+        ),
+    )
+    path = repo / spec_module.GATESPEC_FILENAME
+    path.write_text(spec_module.render_gatespec(gates), encoding="utf-8")
+
+    import yaml
+
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    check(document, load("gatespec.schema.json"), "wringer.gates.yaml")
+
+    built = validators()["gatespec.schema.json"]
+    errors = [
+        f"{e.json_path} {e.message}" for e in built.iter_errors(document)
+    ]
+    assert not errors, "\n".join(errors)
+
+
+def test_what_the_sidecar_renderer_writes_round_trips_through_its_reader():
+    """The renderer and the parser are the drift pair here — a file the
+    command writes and its own loader rejects is the shape that shipped
+    twice in this repo's history."""
+    import yaml
+
+    from wringer import config as config_module
+    from wringer import spec as spec_module
+    from wringer.rubric import Criterion
+
+    gates = (
+        config_module.Gate(
+            id="acc-header", run='pytest -q "a b.py"', proves="c-one"
+        ),
+        config_module.Gate(
+            id="acc-rows", run="pytest -q", timeout=45, proves="c-two"
+        ),
+    )
+    text = spec_module.render_gatespec(gates)
+    criteria = (
+        Criterion(id="c-one", title="One"),
+        Criterion(id="c-two", title="Two"),
+    )
+    back = spec_module.parse_gatespec(
+        yaml.safe_load(text), spec_module.GATESPEC_FILENAME, criteria
+    )
+
+    assert [g.id for g in back] == ["acc-header", "acc-rows"]
+    assert [g.run for g in back] == ['pytest -q "a b.py"', "pytest -q"]
+    assert [g.timeout for g in back] == [
+        config_module.DEFAULT_TIMEOUT_SECONDS, 45
+    ]
+    assert [g.proves for g in back] == ["c-one", "c-two"]
