@@ -247,6 +247,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="stop the whole loop after this long, whatever the iteration count",
     )
     parser_run.add_argument(
+        "--gate",
+        action="append",
+        metavar="ID",
+        help=(
+            "converge on this gate only; repeat for several. The loop "
+            "verifies just these, converges when they are green, and briefs "
+            "the worker on nothing else. Every other declared gate leaves no "
+            "result, which acceptance reads as 'gate-did-not-run' — so a "
+            "scoped run claims strictly less, never more. 'fleet.scope' is "
+            "how a fleet sets this per child"
+        ),
+    )
+    parser_run.add_argument(
         "--prove",
         action="store_true",
         help=(
@@ -1623,7 +1636,10 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     try:
         cfg = config.load(root / config.CONFIG_FILENAME)
-        verify.plan(cfg, None)  # fail on a broken gate list before any work
+        # Fail on a broken gate list — or a `--gate` naming one that does not
+        # exist — before any work. A typo that costs a worker call is a typo
+        # that costs somebody money.
+        verify.plan(cfg, args.gate)
     except config.ConfigError as exc:
         _fail("run", exc)
         return EXIT_CONFIG
@@ -1659,6 +1675,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             on_iteration=None if quiet else _report_iteration,
             on_gate=None if quiet else _report_gate,
             on_worker=None if quiet else _report_worker,
+            gates=args.gate,
             prove=args.prove,
         )
     except evidence.EvidenceError as exc:

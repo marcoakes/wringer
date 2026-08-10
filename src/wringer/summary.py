@@ -48,6 +48,8 @@ def write(
     template_only: bool = False,
     vacuity: Any = None,
     acceptance: Any = None,
+    scoped_out: list[Gate] | None = None,
+    scoped_to: list[str] | None = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -92,6 +94,8 @@ def write(
     for gate in skipped:
         lines.append(f"| {gate.id} | skipped | — | — |")
 
+    lines += _scoped_out_section(scoped_out, scoped_to)
+
     if vacuity is not None:
         lines += _vacuity_section(vacuity)
 
@@ -110,6 +114,41 @@ def write(
     path = bundle.directory / SUMMARY_FILENAME
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _scoped_out_section(
+    scoped_out: list[Gate] | None, scoped_to: list[str] | None
+) -> list[str]:
+    """The gates this run was not asked to run — SPEC_SCOPE_V0 DONE box 2.
+
+    Human-readable at the run level, machine-readable at the fleet level
+    (`scope.json`), and absence at the result level: three records, one
+    truth. This is the one a person opens.
+
+    **These gates are deliberately NOT rows in the table above.** A row would
+    put them in the document that looks like proof; the table is what this
+    run measured, and it measured nothing about these. `skipped` is a
+    different word for a different thing — a gate after a required failure
+    was going to run and did not — and collapsing the two would hide which
+    of them the operator chose.
+
+    Absent entirely when nothing was scoped out, so an unscoped run writes
+    the summary it always wrote.
+    """
+    if not scoped_out:
+        return []
+    named = ", ".join(f"`{gate_id}`" for gate_id in (scoped_to or ()))
+    return [
+        "",
+        "## Scoped out",
+        "",
+        f"Not run, because this run was scoped to {named}. This bundle "
+        "measured nothing about the gates below and claims nothing about "
+        "them: each leaves no result, which acceptance reads as "
+        "`gate-did-not-run` and delivery refuses on.",
+        "",
+        *[f"- `{gate.id}`" for gate in scoped_out],
+    ]
 
 
 def _born_green_section(acceptance: Any) -> list[str]:

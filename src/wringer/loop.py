@@ -22,7 +22,7 @@ import json
 import os
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -508,6 +508,12 @@ def run(
     on_gate: verify.GateReporter | None = None,
     on_worker: Reporter | None = None,
     resuming: Resumable | None = None,
+    # The gates this loop is responsible for — SPEC_SCOPE_V0 ruling 3. None
+    # is every declared gate, which is every loop that came before this flag.
+    # A scoped loop's `converged` is a true statement about what it verified;
+    # the bundle beside it says what that was, and the frozen loop-manifest
+    # reason enum is untouched — absence is the record, not a new reason.
+    gates: Sequence[str] | None = None,
     # Tightens only. `run.prove: true` is read inside `verify.wants_prove`,
     # so a False here can never turn off what the repo declared — which is
     # the point: the agent being supervised often invokes this command.
@@ -532,7 +538,13 @@ def run(
     )
     whole_loop = wall_clock if wall_clock is not None else settings.wall_clock
 
-    planned = verify.plan(cfg, None)
+    planned = verify.plan(cfg, gates)
+    # What this task owns, for the brief's criteria list (ruling 3). None
+    # when nothing was scoped: an unscoped loop owns everything, and marking
+    # every criterion "THIS TASK" would be noise that teaches a reader to
+    # ignore the mark in the fleet case, where it carries the whole point.
+    # Derived from the plan, so it cannot drift from what actually runs.
+    scoped = {gate.id for _, gate in planned} if gates is not None else None
     # `extra_names` matters most HERE: this is the command that hands an agent
     # a credential by name, and `config.py` has always promised those values
     # are folded in. Without it a passthrough variable was protected only when
@@ -656,7 +668,9 @@ def run(
             status, reason = "stopped", "budget_exhausted"
             break
 
-        brief = bundle.write_brief(iteration, _brief(final, root, cfg))
+        brief = bundle.write_brief(
+            iteration, _brief(final, root, cfg, scoped)
+        )
         before_worker = current
 
         acp_worker = (
@@ -908,7 +922,12 @@ def usage_totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return totals
 
 
-def _brief(outcome: verify.Outcome, root: Path, cfg: config.Config) -> str:
+def _brief(
+    outcome: verify.Outcome,
+    root: Path,
+    cfg: config.Config,
+    scoped: set[str] | None = None,
+) -> str:
     """What the worker is told: what is being built, then what is broken.
 
     The second half is the repair brief, unchanged since v0.2. The first half
@@ -923,10 +942,12 @@ def _brief(outcome: verify.Outcome, root: Path, cfg: config.Config) -> str:
     anything here**, as nowhere else in this module, and the redactor still
     owns the write (`Bundle.write_brief`).
     """
-    return _objective(root, cfg) + _repair_brief(outcome, root)
+    return _objective(root, cfg, scoped) + _repair_brief(outcome, root)
 
 
-def _objective(root: Path, cfg: config.Config) -> str:
+def _objective(
+    root: Path, cfg: config.Config, scoped: set[str] | None = None
+) -> str:
     """What is being built — or nothing at all, which is most repos.
 
     The opt-in boundary is **approval**, exactly as acceptance's is
@@ -950,7 +971,7 @@ def _objective(root: Path, cfg: config.Config) -> str:
         _clip(approved.intent.strip(), spec.SPEC_FILENAME),
         "",
         *_task_lines(root, approved),
-        *_criteria_lines(approved, cfg),
+        *_criteria_lines(approved, cfg, scoped),
         "Everything above is what this work is for. Everything below is the "
         "gate that failed on this lap.",
         "",
@@ -1062,7 +1083,9 @@ def _task_brief(root: Path, task: spec.Task) -> tuple[str, str] | None:
     return None
 
 
-def _criteria_lines(approved: spec.Spec, cfg: config.Config) -> list[str]:
+def _criteria_lines(
+    approved: spec.Spec, cfg: config.Config, scoped: set[str] | None = None
+) -> list[str]:
     """Every criterion, and whether anything in this repo proves it.
 
     `UNBOUND` is the honest answer for a criterion no gate names, and it is
@@ -1073,6 +1096,16 @@ def _criteria_lines(approved: spec.Spec, cfg: config.Config) -> list[str]:
     **Nothing here proposes a gate, and nothing binds one.** Which gate
     evidences a criterion whose feature does not exist yet is F2's question
     and it has no spec yet.
+
+    `scoped` marks ownership (SPEC_SCOPE_V0 ruling 3): a criterion is THIS
+    TASK's when the gate bound to it is one this loop is converging on. That
+    is ruling 1's join read backwards, and it needs no new vocabulary — the
+    `{proves: id}` map below already computed it.
+
+    The other tasks' criteria stay VISIBLE and are marked as theirs rather
+    than hidden. A worker that cannot see the whole spec cannot tell when its
+    change breaks a neighbour's criterion, and hiding them would trade the
+    instruction pathology this cycle fixes for a blindness it does not.
     """
     bound = {gate.proves: gate.id for gate in cfg.gates if gate.proves}
     machine = [c for c in approved.criteria if not c.human]
@@ -1091,7 +1124,16 @@ def _criteria_lines(approved: spec.Spec, cfg: config.Config) -> list[str]:
                 if gate_id
                 else "UNBOUND (no gate proves it yet)"
             )
-            lines.append(f"- `{criterion.id}` — {criterion.title} — {binding}")
+            owner = ""
+            if scoped is not None and gate_id:
+                owner = (
+                    " — THIS TASK"
+                    if gate_id in scoped
+                    else " — another task's, and not this loop's to fix"
+                )
+            lines.append(
+                f"- `{criterion.id}` — {criterion.title} — {binding}{owner}"
+            )
         lines.append("")
 
     human = [criterion.id for criterion in approved.criteria if criterion.human]

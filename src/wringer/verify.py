@@ -14,7 +14,7 @@ argument parsing, precondition messages, exit codes, and printing.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -91,24 +91,45 @@ def json_summary(outcome: Outcome, root: Path) -> dict[str, object]:
     }
 
 
-def plan(cfg: config.Config, requested: str | None) -> list[tuple[int, config.Gate]]:
+def plan(
+    cfg: config.Config, requested: str | Sequence[str] | None
+) -> list[tuple[int, config.Gate]]:
     """The gates this run will attempt, each with its declared position.
 
     Every gate by default, in declared order (the config decides what runs
-    cheapest first). `--gate ID` narrows the run to one gate but keeps its
+    cheapest first). `--gate ID` narrows the run but keeps each gate's
     number, so its evidence lands where a full run would have put it.
+
+    **One id or many.** `wring verify --gate` has taken a single id since
+    v0.1; SPEC_SCOPE_V0 lifts the concept to the loop, where a fleet child
+    converges on the gates its task owns. That is one signature widened at
+    one seam rather than a second verification path — `verify.run` iterates
+    exactly the list it is handed, and a gate absent from that list is never
+    a post-failure skip either, so it leaves no result and absence is already
+    the record acceptance reads as `gate-did-not-run`.
+
+    Narrowing NEVER reorders: the declared order is the order things run in,
+    whatever order the ids were typed in.
     """
     numbered = list(enumerate(cfg.gates, start=1))
     if requested is None:
         return numbered
 
-    for index, gate in numbered:
-        if gate.id == requested:
-            return [(index, gate)]
-    known = ", ".join(gate.id for gate in cfg.gates)
-    raise config.ConfigError(
-        f"no gate '{requested}' in {config.CONFIG_FILENAME} (declared: {known})"
-    )
+    wanted = [requested] if isinstance(requested, str) else list(requested)
+    declared = {gate.id for gate in cfg.gates}
+    for gate_id in wanted:
+        if gate_id not in declared:
+            # The unknown id BY NAME, never the whole requested list: with
+            # several `--gate` flags the reader needs to know which one of
+            # them they got wrong.
+            known = ", ".join(gate.id for gate in cfg.gates)
+            raise config.ConfigError(
+                f"no gate '{gate_id}' in {config.CONFIG_FILENAME} "
+                f"(declared: {known})"
+            )
+
+    chosen = set(wanted)
+    return [(index, gate) for index, gate in numbered if gate.id in chosen]
 
 
 def wants_prove(cfg: config.Config, flag: bool) -> bool:
@@ -275,11 +296,18 @@ def run(
     # installed that gate actually reads. The alternative was a second reader
     # of the same record inside the summary, which is the drift the review
     # of that spec spent its length refusing.
+    # DERIVED from the two lists that already exist — the declared set and
+    # the planned set — because a hand-kept second copy of "what was left
+    # out" is exactly the guard that goes stale and then lies.
+    scoped_to = [gate.id for _, gate in planned]
+    scoped_out = [gate for gate in cfg.gates if gate.id not in set(scoped_to)]
     summary.write(
         bundle,
         state,
         results=results,
         skipped=skipped,
+        scoped_out=scoped_out,
+        scoped_to=scoped_to,
         failed_gate=failed_gate,
         status=status,
         interrupted=interrupted,
