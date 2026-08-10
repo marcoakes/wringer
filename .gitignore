@@ -5,9 +5,13 @@ __pycache__/
 .venv/
 .pytest_cache/
 
-# builds
-dist/
-build/
+# builds — ANCHORED to the repo root, which is the only place they are.
+# Unanchored, `build/` matches a directory of that name at any depth, and
+# M3's graph has a node called `build`: its `nodes/build/loop.ref.json` was
+# on disk, complete against the bundle's own digests, and silently absent
+# from every clone. Local green, CI red, and the bundle refused itself.
+/dist/
+/build/
 
 # runtime artifacts — evidence bundles are local by design (nothing
 # uploads, ever); the committed demo bundle lives in .wringer.example/

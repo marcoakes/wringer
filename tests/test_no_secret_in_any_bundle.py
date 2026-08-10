@@ -531,3 +531,39 @@ def test_every_committed_bundle_still_hashes_to_what_it_claims():
         assert count > 0
         checked += 1
     assert checked >= 4, f"only {checked} committed bundles carry digests"
+
+
+def test_every_committed_bundle_file_is_actually_committed():
+    """`.wringer.example/` is only evidence if git carries all of it.
+
+    M3's graph has a node called `build`, and the repo's unanchored Python
+    `build/` ignore matched `nodes/build/` at any depth — so
+    `nodes/build/loop.ref.json` sat on the copying machine's disk, complete
+    against its own digests, and was absent from every clone. The suite was
+    green locally and red on three CI runners, and the bundle refused itself
+    with "is missing … which its own digests.json records".
+
+    Nothing else here can see that: every other assertion in this file reads
+    the working tree, which is exactly the thing that was right.
+    """
+    import subprocess
+
+    root = EXAMPLE_DIR.parent
+    if not (root / ".git").exists():  # pragma: no cover - repo-only fixture
+        pytest.skip("not a git checkout")
+
+    listed = subprocess.run(
+        ["git", "ls-files", "-z", "--", EXAMPLE_DIR.name],
+        cwd=root, capture_output=True, text=True, check=True,
+    )
+    tracked = {name for name in listed.stdout.split("\0") if name}
+    on_disk = {
+        path.relative_to(root).as_posix() for path in committed_files()
+    }
+    assert on_disk, "the committed evidence directory is empty"
+
+    untracked = sorted(on_disk - tracked)
+    assert not untracked, (
+        "these files are in .wringer.example/ on this machine and in no "
+        f"clone — check .gitignore: {untracked}"
+    )
