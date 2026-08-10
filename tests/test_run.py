@@ -798,3 +798,48 @@ def test_a_brief_full_of_backticks_does_not_close_the_fence_early(
         "## What to do",
     ]
     capsys.readouterr()
+
+
+def test_a_subdirectory_of_the_specs_repo_still_sees_the_spec(
+    repo, monkeypatch, capsys
+):
+    """The loop resolves its root the way every other command does — `git
+    rev-parse --show-toplevel` — so running from a subdirectory of the spec's
+    repository reaches the spec at the top.
+
+    Measured after a first draft of docs/brief-quality.md claimed the
+    opposite from reading the code.
+    """
+    spec_repo(repo, body=UNBOUND_CONFIG)
+    (repo / "sub").mkdir()
+    monkeypatch.chdir(repo / "sub")
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = flat(captured(repo))
+
+    assert "What you are building" in brief
+    assert "Add CSV export to the reports page" in brief
+    capsys.readouterr()
+
+
+def test_a_task_in_its_own_repository_does_not_see_the_parents_spec(
+    repo, git_run, monkeypatch, capsys
+):
+    """The real limit, and the layout `wring fleet`'s own tests use: a task
+    directory that is its own git repository is its own root, so the spec one
+    level up is not its spec. It gets the brief it always got."""
+    spec_repo(repo, body=UNBOUND_CONFIG)
+    inner = repo / "sub"
+    inner.mkdir()
+    git_run(inner, "init", "-q", "-b", "main")
+    (inner / ".wringer.yaml").write_text(UNBOUND_CONFIG, encoding="utf-8")
+    (inner / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    monkeypatch.chdir(inner)
+    monkeypatch.setenv("WRINGER_TASK_ID", "csv-export")
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    brief = captured(inner)
+
+    assert brief.startswith("# Fix this\n")
+    assert "What you are building" not in brief
+    capsys.readouterr()

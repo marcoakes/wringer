@@ -209,11 +209,16 @@ Do not edit anything under `.wringer/`: that is the evidence, not the code.
 - **Nothing was measured about what a worker does with this.** No agent ran.
   This is evidence about what the worker is *told*, which is a necessary
   condition for building the right thing and nowhere near a sufficient one.
-- **A fleet task in a subdirectory still gets the old brief.** The spec is
-  read from the loop's own root, like every other root-scoped read in the
-  program, so a task whose `dir:` is not the repository root cannot see
-  `wringer.spec.yaml` and falls back — correctly, and unhelpfully. Worktree
-  mode is unaffected, because a worktree is a whole checkout.
+- **A fleet task with a repository of its own still gets the old brief.** The
+  loop resolves its root the way every other command does — `git rev-parse
+  --show-toplevel` — so a task directory that is a plain subdirectory of the
+  spec's repo DOES reach the spec above it, and one that is its own git
+  repository does not. That second layout is the one `wring fleet`'s own
+  tests use. Worktree mode is unaffected: a worktree is a whole checkout.
+  (A first draft of this file said "a subdirectory" and was wrong — read off
+  the code rather than run. Both halves are now measured and pinned by
+  `test_a_subdirectory_of_the_specs_repo_still_sees_the_spec` and
+  `test_a_task_in_its_own_repository_does_not_see_the_parents_spec`.)
 
 ## Reproducing it
 
