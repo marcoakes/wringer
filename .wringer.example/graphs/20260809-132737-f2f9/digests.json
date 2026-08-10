@@ -1,0 +1,16 @@
+{
+  "schema_version": "wringer.digests.v1",
+  "algorithm": "sha256",
+  "files": {
+    "graph.jsonl": "e2ab039fb1bca6c4b9da842a3b6fb05d035b3504907a3159c4f36115e48e5533",
+    "graph.resolved.json": "abbcc7839f468780828646d006558a88c5c1d99a6968b1cb79ae278bc3fa1fba",
+    "manifest.json": "2e11f4eea6ef67ab50872aea2498af8c02bd42f4e38b18e5cea8b9a5bd130fdf",
+    "nodes/approve/decision.yaml": "cbe2ba650d22e1cd0ded04916be7a50b1b0fe827a47ec2fbf67d212ef91e5877",
+    "nodes/approve/prompt.md": "71ae1ccea3f2da1fa6397ac4936ddb2ccbb4134a337d7ac9355393a1d51441f0",
+    "nodes/build/loop.ref.json": "24609a7dc1fe1fc6dd5644f3ba1370f71af834bc3f2a4bdf4e42a1eb8fdf943b",
+    "nodes/ship/deliver.ref.json": "109d3ea923b660fe4b587de816cfa412a981eb1f41c294495af6b3fec0fa8490",
+    "nodes/stage/brief.md": "70e24ce268d223411fe68d3349435d4419fe0b1bb779b6365f7107b3dc0531df",
+    "state.json": "625ca5c501f40a6e29344455d3157da2b77c62e58205f5f725e4ee7cba5e8135",
+    "summary.md": "f9db5d77f0255d901896ad00f29213eb50afd30bcae56bfa067d4d9f171f3c48"
+  }
+}

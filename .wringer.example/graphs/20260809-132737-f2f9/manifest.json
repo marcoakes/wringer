@@ -1,0 +1,18 @@
+{
+  "schema_version": "wringer.graph.v1",
+  "graph_run_id": "20260809-132737-f2f9",
+  "graph_id": "m3-readme-relead",
+  "started_at": "2026-08-09T14:27:37+01:00",
+  "result": {
+    "status": "done",
+    "reason": "every node completed",
+    "current_node": null,
+    "completed": [
+      "stage",
+      "approve",
+      "build",
+      "route",
+      "ship"
+    ]
+  }
+}

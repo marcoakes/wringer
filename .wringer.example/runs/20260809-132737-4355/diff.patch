@@ -1,0 +1,71 @@
+diff --git a/.wringer.yaml b/.wringer.yaml
+index 1324496..df5ce24 100644
+--- a/.wringer.yaml
++++ b/.wringer.yaml
+@@ -13,3 +13,15 @@ gates:
+   - id: test
+     run: pytest -q
+     timeout: 600
++
++# M3: the loop's worker and the delivery target for the self-shipped PR.
++# The worker is a script, not an agent, and the bundle records this command
++# verbatim — the same honesty as every committed demo. It applies the re-lead
++# whose job is DEFINED by the committed-red guard in tests/test_docs.py, and
++# it refuses (exit 1) if the README has drifted under its anchors.
++run:
++  worker: "python3 m3/apply_relead.py"
++  max_iterations: 2
++
++deliver:
++  branch: "wringer/{run}"
+diff --git a/tests/test_docs.py b/tests/test_docs.py
+index db8bf94..b4715ab 100644
+--- a/tests/test_docs.py
++++ b/tests/test_docs.py
+@@ -1487,3 +1487,46 @@ def test_the_recipe_never_asks_wringer_to_reach_a_network():
+     for line in recipe_wring_lines():
+         for forbidden in ("--send", "http://", "https://", "--clone"):
+             assert forbidden not in line, f"{forbidden} in a recipe wring line: {line}"
++
++
++def test_the_readme_leads_with_the_thesis_and_not_a_deferred_runtime():
++    """M3's job definition, and afterwards the re-lead's regression guard.
++
++    The next act's direction (2026-08-09) re-aims the launch: the green-decays
++    thesis and neutrality move to the FRONT of the README, because they are
++    the argument everything else serves — and a thesis in paragraph four is a
++    thesis nobody reads. Three claims, each of which was false when this test
++    was written:
++
++    1. The lead carries the thesis: green is suspect, and trust in a passing
++       check decays.
++    2. The lead carries neutrality: the party holding the receipts has no
++       stake in what they say.
++    3. The intro no longer promises a durable runtime "tomorrow" — Temporal
++       was deferred with a named trigger, not a phase, and a README that
++       promises it is a roadmap wearing a landing page.
++
++    Plus the vitality demo, drawn where the claim is made rather than only in
++    docs/: a reader should SEE a gate die under green runs from the README.
++    """
++    require_checkout("README.md")
++    text = (repo_root() / "README.md").read_text(encoding="utf-8")
++    lead = "\n".join(text.splitlines()[:45])
++
++    assert "green is suspect" in lead, (
++        "the README's lead does not carry the thesis — 'code is cheap and "
++        "green is suspect' is the sentence the whole next act is built on"
++    )
++    assert "no stake in what they say" in lead, (
++        "the README's lead does not carry neutrality — the one asset no "
++        "vendor can copy is buried below the fold again"
++    )
++    assert "(Temporal first) tomorrow" not in text, (
++        "the README still promises a deferred runtime: Temporal is a "
++        "tripwire (first external user needing cross-machine durability), "
++        "not a phase, and the intro should not promise it"
++    )
++    assert "docs/health.svg" in text, (
++        "the vitality demo is not drawn in the README — the decay recording "
++        "is the launch's strongest artifact and it lives only in docs/"
++    )

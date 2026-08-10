@@ -1,0 +1,12 @@
+{
+  "schema_version": "wringer.digests.v1",
+  "algorithm": "sha256",
+  "files": {
+    "iterations/001/brief.md": "6ad14da9c64559bf51efa21e99293bc4b8d785bd9f49b003d7c9ea05d9cfd197",
+    "iterations/001/worker.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "iterations/001/worker.stdout.log": "9ae6266fcf955b6cc97eaa86840febafefeb78f15e371df7bfe938739b2598bb",
+    "loop.jsonl": "e1f8690bcd5a270779b3bbdf67e04c9c00fd68d10c2e3b9af7877e6c32befa5e",
+    "manifest.json": "8f24bc78e08aacbc739570f5c31f4f1f3567d38bfb0dce4750277525d167c691",
+    "summary.md": "6f818c276cf6b6dd45dec45885a9f51df0adb674831c732f06f5da5708c0cd8c"
+  }
+}

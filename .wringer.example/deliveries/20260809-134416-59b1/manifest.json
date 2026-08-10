@@ -1,0 +1,25 @@
+{
+  "schema_version": "wringer.delivery.v1",
+  "delivery_id": "20260809-134416-59b1",
+  "started_at": "2026-08-09T14:44:16+01:00",
+  "mode": "live",
+  "run_dir": "/Users/marc/Claude/wringer/.wringer/runs/20260809-133147-2c91",
+  "branch": "wringer/20260809-133147-2c91",
+  "base": "main",
+  "remote": "origin",
+  "files": [
+    ".wringer.yaml",
+    "README.md",
+    "tests/test_docs.py",
+    "m3/BRIEF.md",
+    "m3/apply_relead.py",
+    "m3/graph.yaml"
+  ],
+  "spec_sha256": null,
+  "result": {
+    "branch": "wringer/20260809-133147-2c91",
+    "commit": "dda0d5d0ec63d94c29ac976e198703d0c88a0194",
+    "pushed": true,
+    "merge_request": null
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "wringer.loop.v1",
+  "loop_id": "20260809-132737-762c",
+  "started_at": "2026-08-09T14:27:37+01:00",
+  "repo": {
+    "root": ".",
+    "head_sha": "630b96834568dd3976772c433a62b11c7608e467",
+    "branch": "main",
+    "dirty": true
+  },
+  "config": {
+    "max_iterations": 2,
+    "worker": "python3 m3/apply_relead.py"
+  },
+  "result": {
+    "status": "converged",
+    "reason": "converged",
+    "iterations": 2,
+    "final_run": ".wringer/runs/20260809-133147-2c91"
+  }
+}

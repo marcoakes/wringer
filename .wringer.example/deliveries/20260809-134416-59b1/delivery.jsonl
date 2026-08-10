@@ -1,0 +1,6 @@
+{"type": "branch.planned", "ts": "2026-08-09T14:44:16.360+01:00", "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000", "branch": "wringer/20260809-133147-2c91", "base": "main"}
+{"type": "branch.created", "ts": "2026-08-09T14:44:16.379+01:00", "prev_hash": "efe06b5b24c2e46b63761f3f8754edb7069890587dfcc53ce6c58233a3ce2a5e", "branch": "wringer/20260809-133147-2c91"}
+{"type": "commit.planned", "ts": "2026-08-09T14:44:16.379+01:00", "prev_hash": "a44ff3462aa2403ed0d2620924629aef73e2f9056352eef24a5098c1039bbad0", "files": [".wringer.yaml", "README.md", "tests/test_docs.py", "m3/BRIEF.md", "m3/apply_relead.py", "m3/graph.yaml"]}
+{"type": "commit.written", "ts": "2026-08-09T14:44:16.470+01:00", "prev_hash": "afcdc4dfdcb773645c4b1a3ac90c1c945db995de98012cefcd9be8d99ecbf91e", "sha": "dda0d5d0ec63d94c29ac976e198703d0c88a0194"}
+{"type": "push.planned", "ts": "2026-08-09T14:44:16.470+01:00", "prev_hash": "a14c65e5141d489516bfa41df57d75ce9a4172bf2793d99f8b118b58489add00", "remote": "origin", "branch": "wringer/20260809-133147-2c91"}
+{"type": "push.done", "ts": "2026-08-09T14:44:17.920+01:00", "prev_hash": "69a6bb11453b86140de9bf54deff67b828d586a1801aca1f1c98c5b4d1796fc4", "remote": "origin", "branch": "wringer/20260809-133147-2c91"}

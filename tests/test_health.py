@@ -111,7 +111,20 @@ def test_the_committed_example_bundle_reads_rather_than_skipping(tmp_path):
     assert any(r.startswith(".wringer.example/") for r in receipts), (
         f"the committed fixture was not read: {receipts}"
     )
-    assert not [s for s in coverage.skipped if s.receipt.startswith(".wringer.example")]
+    # No RUN bundle there may be skipped — that is the compatibility claim.
+    # M3's evidence landed beside it (a graph, a loop, a delivery), and a
+    # delivery bundle is not a format this command reads; saying so in
+    # `skipped` is the honest answer, not a discovery gap. The distinction
+    # is the whole reason `skipped` carries a reason.
+    stragglers = [
+        skip
+        for skip in coverage.skipped
+        if skip.receipt.startswith(".wringer.example/runs/")
+        or "not a format this reads" not in skip.reason
+    ]
+    assert not [s for s in stragglers if s.receipt.startswith(".wringer.example")], (
+        stragglers
+    )
 
 
 def test_an_unreadable_manifest_is_discovered_and_named(tmp_path):

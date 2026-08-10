@@ -1,0 +1,5 @@
+git switch --create wringer/20260809-133147-2c91
+git add --all --pathspec-from-file=- --pathspec-file-nul
+git commit --file .wringer/deliveries/<id>/commit.txt
+git push --set-upstream origin wringer/20260809-133147-2c91
+POST a merge request: wringer/20260809-133147-2c91 -> main

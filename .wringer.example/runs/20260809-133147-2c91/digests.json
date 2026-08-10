@@ -1,0 +1,18 @@
+{
+  "schema_version": "wringer.digests.v1",
+  "algorithm": "sha256",
+  "files": {
+    "diff.patch": "3c3ccb84eb7795a3638a792bd0c800b799eb47bbd7f9af3c7a5bb68d822265e5",
+    "evidence.jsonl": "d2a0d04b91e1c11380e1abd543f97209f2919119ebea3a4c509d83fdd707394c",
+    "gates/001_lint/result.json": "5a85d6b9e3275855130012b7b6f204102ca70cbb41ed6f8a86fc533aa049de44",
+    "gates/001_lint/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gates/001_lint/stdout.log": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+    "gates/002_test/result.json": "1246c1b3e3953c36438561d40a06a20eb470041d198cdf13ecd91ad9eb5b1396",
+    "gates/002_test/stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "gates/002_test/stdout.log": "be6dfffa6ab166f94ba2e55fa3a8cf3a7e5134e750592ad6bc751cb274bd0610",
+    "manifest.json": "821433cee68513fa409dc5ea8d5b081161a4c1d1991e5613e0d9fa4b8c941ab9",
+    "status.txt": "d012987093a3e11ce18b88361fef322cf73bef20d00228bfbaed43c3e0080348",
+    "summary.md": "de6d0c22d633e39e1b3346140bd6f024d1deb486c8a704e935cdedc015269cd2",
+    "untracked.json": "7bf53f33568c1dcb65f66ccd0a686c90a80c1c4cc4b38ffe59f338e72fdc36c2"
+  }
+}

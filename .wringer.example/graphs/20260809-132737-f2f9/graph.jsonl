@@ -1,0 +1,18 @@
+{"type": "graph.started", "ts": "2026-08-09T14:27:37.013+01:00", "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000", "graph_id": "m3-readme-relead", "state": {}}
+{"type": "node.started", "ts": "2026-08-09T14:27:37.013+01:00", "prev_hash": "db37550fc54305d22ab8f4e26ea4343a5658383558daa2f4be324942f3ebf194", "node_id": "stage", "kind": "intent"}
+{"type": "state.updated", "ts": "2026-08-09T14:27:37.014+01:00", "prev_hash": "fb319b918da5894d45330389d5c4927dce5a203d180c5b1da1e7734887ada62c", "node_id": "stage", "path": "brief", "value": "nodes/stage/brief.md"}
+{"type": "node.finished", "ts": "2026-08-09T14:27:37.014+01:00", "prev_hash": "6a9307ca58fc20da780614966dd95e53fa5aee1bdec883649ba733eee63917f4", "node_id": "stage", "status": "completed"}
+{"type": "node.started", "ts": "2026-08-09T14:27:37.014+01:00", "prev_hash": "8f2b66c28163290517a870083a6e49b381fc82f2d966a0a5dc19dd4838b529da", "node_id": "approve", "kind": "human"}
+{"type": "node.parked", "ts": "2026-08-09T14:27:37.014+01:00", "prev_hash": "1bb39903c2bafbb9363f535fb45ca9663a93866275352cca1eacb66d00b7d071", "node_id": "approve", "reason": "a person must approve this node"}
+{"type": "graph.resumed", "ts": "2026-08-09T14:27:37.106+01:00", "prev_hash": "fc2b120c9f967894d276c8b327859b4fe24797291fed0fd25c2015814bbfea36", "graph_id": "m3-readme-relead", "completed": ["stage"]}
+{"type": "node.started", "ts": "2026-08-09T14:27:37.107+01:00", "prev_hash": "e390b338fb64484bff08f5ec2bb5d0f698d20f94cf830e4f705999eea0407708", "node_id": "approve", "kind": "human"}
+{"type": "node.finished", "ts": "2026-08-09T14:27:37.107+01:00", "prev_hash": "eaee075f65ff710d2f84d7228846cb59a6b310223b6ca465623a42bd5540e323", "node_id": "approve", "status": "completed"}
+{"type": "node.started", "ts": "2026-08-09T14:27:37.107+01:00", "prev_hash": "c7716e3becc7f7a53ca35b98980b0a417580ecea37fe52806d81aae1cfad5f43", "node_id": "build", "kind": "loop"}
+{"type": "state.updated", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "ee5922d7f2615cdf4f5b5386827e5b143db078ca622549c4347d5542b3514de6", "node_id": "build", "path": "build-status", "value": "converged"}
+{"type": "node.finished", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "85ebbba83ce863b1e459cf60b02801bfbcc7a8d86e2f05b75f4d2cf14a95c2c6", "node_id": "build", "status": "converged", "reason": "converged", "ref": ".wringer/loops/20260809-132737-762c"}
+{"type": "node.started", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "d6ae8272584faed9b2cd23fd86b1e5b19c7612ca415b7f1a43fe9e970f8ae5d2", "node_id": "route", "kind": "router"}
+{"type": "node.finished", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "ad92b7e70706cf84acc3dae66d5d8088bd286d4d26a1241f5599eb700ab42b07", "node_id": "route", "status": "completed"}
+{"type": "route.selected", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "5f218157dcab27fff119efba8d3a19a3b48ef9992d649a76b83a4ed91c79b23a", "node_id": "route", "to": "ship", "when": "state.build-status == 'converged'"}
+{"type": "node.started", "ts": "2026-08-09T14:44:15.520+01:00", "prev_hash": "5655bf9df691434f27a7172bdb91a7a7fdbfaae0b7efd3bbef8d2623944568be", "node_id": "ship", "kind": "deliver"}
+{"type": "node.finished", "ts": "2026-08-09T14:44:17.924+01:00", "prev_hash": "8e97e2fdef1ba6d3bf55d3ede9b5f5c8cedcfaefc8f05c0c5ab16ee10aa6060c", "node_id": "ship", "status": "live", "ref": ".wringer/deliveries/20260809-134416-59b1", "detail": "wringer/20260809-133147-2c91"}
+{"type": "graph.finished", "ts": "2026-08-09T14:44:17.924+01:00", "prev_hash": "4f7193a3b5a07a97e3e764de7098d628a52a4bf2720b5f3a96578e3402879eb5", "status": "done", "reason": "every node completed"}

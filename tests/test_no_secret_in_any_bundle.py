@@ -40,12 +40,13 @@ Two secrets, deliberately:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 import pytest
 
-from wringer import cli
+from wringer import attest, cli
 
 AGENT = Path(__file__).resolve().parent / "fake_acp_agent.py"
 
@@ -411,3 +412,122 @@ def test_no_bench_writes_a_credential_into_any_artifact(leaky_repo: Path, capsys
         "`config.declared_secret_names` — a redactor built from fewer of them "
         "protects almost everything.\n" + json.dumps(leaked, indent=2)
     )
+
+
+# --- the bundles that are COMMITTED --------------------------------------
+#
+# Every sweep above drives commands against a scratch repo and throws the
+# tree away with the tmpdir. `.wringer.example/` is different in the one way
+# that matters: it is in git, so a credential that reaches it is published,
+# and stays published in the history after it is deleted.
+#
+# It held one v0.1.0 verify bundle for a fortnight. M3's evidence landed
+# beside it on 2026-08-10 — a graph run, its loop, both of that loop's verify
+# runs, and the delivery that shipped it — which is four more bundle families
+# in the one directory a stranger actually downloads.
+#
+# Nothing is planted here, so this asks the other half of the question: does
+# anything in the published evidence have the SHAPE of a credential? The
+# sweep above proves the redactor ran; this proves nobody committed a bundle
+# it never saw.
+
+EXAMPLE_DIR = Path(__file__).resolve().parent.parent / ".wringer.example"
+
+# Prefixes and framings that identify a credential without knowing its value.
+# Deliberately conservative: a false positive here blocks a commit for a
+# human to look at, which is the correct cost, and a shape not on this list
+# is caught by nothing — so it stays a list that grows.
+CREDENTIAL_SHAPES = (
+    ("anthropic or openai key", re.compile(r"\bsk-[A-Za-z0-9_-]{16,}")),
+    ("github token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}")),
+    ("github fine-grained token", re.compile(r"\bgithub_pat_[A-Za-z0-9_]{20,}")),
+    ("gitlab token", re.compile(r"\bglpat-[A-Za-z0-9_-]{16,}")),
+    ("aws access key id", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
+    ("slack token", re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}")),
+    ("private key block", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    ("credentials inside a url", re.compile(r"\bhttps?://[^/\s:@]+:[^/\s@]+@")),
+)
+
+
+def committed_bundles() -> list[Path]:
+    """Every bundle directory under `.wringer.example/`, by its manifest."""
+    if not EXAMPLE_DIR.is_dir():  # pragma: no cover - repo-only fixture
+        pytest.skip(".wringer.example is not part of the distribution")
+    return sorted(path.parent for path in EXAMPLE_DIR.rglob("manifest.json"))
+
+
+def committed_files() -> list[Path]:
+    if not EXAMPLE_DIR.is_dir():  # pragma: no cover - repo-only fixture
+        pytest.skip(".wringer.example is not part of the distribution")
+    return sorted(path for path in EXAMPLE_DIR.rglob("*") if path.is_file())
+
+
+def shapes_in(text: str) -> list[str]:
+    return [name for name, pattern in CREDENTIAL_SHAPES if pattern.search(text)]
+
+
+def test_no_committed_bundle_carries_anything_credential_shaped():
+    """The published half of the sweep."""
+    found: dict[str, list[str]] = {}
+    for path in committed_files():
+        hits = shapes_in(path.read_text(encoding="utf-8", errors="replace"))
+        if hits:
+            found[path.relative_to(EXAMPLE_DIR.parent).as_posix()] = hits
+
+    assert not found, (
+        "a committed bundle holds something shaped like a credential. This "
+        "directory is in git, so it is published and stays published:\n"
+        f"{json.dumps(found, indent=2)}"
+    )
+
+
+def test_the_committed_sweep_covers_every_bundle_family():
+    """The guard on the guard, and the one that would have caught the graph
+    gap: the sweep above passes trivially over a directory that lost its
+    contents, or that never held the family somebody forgot to copy."""
+    families = {
+        path.relative_to(EXAMPLE_DIR).parts[0]
+        for path in committed_files()
+        if len(path.relative_to(EXAMPLE_DIR).parts) > 1
+    }
+    assert families == {"runs", "loops", "graphs", "deliveries"}, families
+    # and the walk really reaches files, not just directories
+    assert len(committed_files()) > 40, len(committed_files())
+
+
+@pytest.mark.parametrize(
+    "planted",
+    [
+        "sk-ant-notarealkey-sweep-77b3e0a4f1",
+        "ghp_notarealtokenvalue000000000000000",
+        "AKIANOTAREALKEYID123",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "https://someone:hunter2@example.invalid/x.git",
+    ],
+)
+def test_the_shape_scanner_would_notice_one(planted):
+    """A scanner that matches nothing passes every sweep. Each shape is
+    exercised against a value it must catch, so a broken pattern fails here
+    rather than going quiet in the test above."""
+    assert shapes_in(f"some evidence text {planted} and more") != []
+
+
+def test_every_committed_bundle_still_hashes_to_what_it_claims():
+    """Committed evidence nobody re-checks is a claim, not a receipt.
+
+    `attest.check_digests` is the shipped verifier — the same one that
+    refuses to stand over a bundle whose files moved — rather than a
+    lookalike written here. The v0.1.0 bundle predates `digests.json` and is
+    named as the exception it already is in `test_attest.py`.
+    """
+    checked = 0
+    for bundle in committed_bundles():
+        if not (bundle / "digests.json").is_file():
+            assert bundle.name == "20260730-231645-a57c", (
+                f"{bundle} has no digests.json and is not the pre-0.2 bundle"
+            )
+            continue
+        _, count = attest.check_digests(bundle, "committed")
+        assert count > 0
+        checked += 1
+    assert checked >= 4, f"only {checked} committed bundles carry digests"

@@ -1,0 +1,54 @@
+{
+  "schema_version": "wringer.graph.v1",
+  "id": "m3-readme-relead",
+  "start": "stage",
+  "wall_clock": 86400,
+  "inputs": {
+    "brief": "m3/BRIEF.md"
+  },
+  "state": {},
+  "nodes": [
+    {
+      "id": "stage",
+      "kind": "intent",
+      "then": "approve",
+      "input": "inputs.brief",
+      "writes": {
+        "brief": "brief"
+      }
+    },
+    {
+      "id": "approve",
+      "kind": "human",
+      "then": "build",
+      "prompt": "Read the staged brief (m3/BRIEF.md): approve the README re-lead?"
+    },
+    {
+      "id": "build",
+      "kind": "loop",
+      "then": "route",
+      "writes": {
+        "status": "build-status"
+      },
+      "budgets": {
+        "max_iterations": 2
+      }
+    },
+    {
+      "id": "route",
+      "kind": "router",
+      "routes": [
+        {
+          "when": "state.build-status == 'converged'",
+          "to": "ship"
+        }
+      ],
+      "default": "fail"
+    },
+    {
+      "id": "ship",
+      "kind": "deliver",
+      "then": "done"
+    }
+  ]
+}

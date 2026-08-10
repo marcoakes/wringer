@@ -1,0 +1,13 @@
+{
+  "schema_version": "wringer.digests.v1",
+  "algorithm": "sha256",
+  "files": {
+    "branch.txt": "1e70e9cb94f5a1f223ba3c5113a0f93ca6b9b1486bf2feb079f7487b8eb38c87",
+    "commands.txt": "35e3d676ee925b36760715b2c9870e30beec80f6af7791dbe5af2554280abb82",
+    "commit.txt": "7311ce297d1af55b4b1bea1c968bda6bb7a6cc00665e7505608140b9596c88e5",
+    "delivery.jsonl": "35320efbc12512eb6c47d8a6d46bf11bc9c5ac33f2759e080803ab1aaeeea25a",
+    "manifest.json": "caf22cad4e2651d70ff7a0709a9d2dfbec3f9d1ea4ae84c0054af285255ef443",
+    "mr.md": "292c968aab5f38463e7efef1265cb765b4bc83514f2cb0352cde8685c3a92672",
+    "patch.diff": "1dc21511f6edbe36d31a25ce23b467b27b848a94c2c08c0746dd395378d0b9c0"
+  }
+}
