@@ -2590,7 +2590,9 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # about a gate file; before, because a plan that half-ran leaves a tasks
     # file describing briefs that do not exist.
     try:
-        spec.load_gatespec(root, loaded.criteria)
+        proposed_gates = spec.proposals(
+            loaded, spec.load_gatespec(root, loaded.criteria)
+        )
     except spec.SpecError as exc:
         _fail("plan", exc)
         return EXIT_CONFIG
@@ -2607,7 +2609,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     existing = root / config.CONFIG_FILENAME
     diff, fresh, already = spec.gate_diff(
-        existing.read_text(encoding="utf-8") if existing.is_file() else "", loaded
+        existing.read_text(encoding="utf-8") if existing.is_file() else "",
+        proposed_gates,
     )
 
     briefs = [_relative(path, root) for path in brief_paths]

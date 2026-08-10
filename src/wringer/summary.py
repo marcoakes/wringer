@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from wringer import detect, evidence
+from wringer import accept, detect, evidence
 from wringer.config import Gate
 from wringer.evidence import Bundle
 from wringer.gates import GateResult
@@ -47,6 +47,7 @@ def write(
     interrupted: Interrupted | None = None,
     template_only: bool = False,
     vacuity: Any = None,
+    acceptance: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -94,6 +95,8 @@ def write(
     if vacuity is not None:
         lines += _vacuity_section(vacuity)
 
+    lines += _born_green_section(acceptance)
+
     if failed_gate is not None:
         lines += [
             "",
@@ -107,6 +110,44 @@ def write(
     path = bundle.directory / SUMMARY_FILENAME
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
+
+
+def _born_green_section(acceptance: Any) -> list[str]:
+    """Bound gates that passed with nothing in the record showing they can
+    fail — SPEC_GATEGEN_V0 ruling 3, said where a person will read it.
+
+    A gate written for a criterion whose feature does not exist yet has one
+    honest colour and it is not green. `acceptance.json` has always recorded
+    this as `unevidenced`; what it did not do was reach the document somebody
+    opens right after applying a diff, where the row reads `passed` and a
+    green tick is the last thing they see.
+
+    **Not a second reader of the record.** The rows come from
+    `accept.assess`, which `wring verify` has already run for its own
+    artifact — this renders them, and decides nothing.
+    """
+    if acceptance is None:
+        return []
+    # `unevidenced` WITH a gate is precisely the born-green case: the unbound
+    # kind carries no gate id at all, and telling a reader to go and look at
+    # a command that does not exist would be the worse of the two mistakes.
+    born_green = [
+        row for row in acceptance.rows
+        if row.state == accept.UNEVIDENCED and row.gate_id
+    ]
+    if not born_green:
+        return []
+
+    lines = ["", "## Bound gates that have never been red", ""]
+    for row in born_green:
+        lines.append(
+            f"- ⚠ **`{row.gate_id}` should be RED.** It proves "
+            f"`{row.criterion}`, and nothing in the record shows it can fail. "
+            "If the criterion is unmet, a gate that proves it must fail here "
+            "— green means it tests something else, not that the work is "
+            "done."
+        )
+    return lines
 
 
 def _vacuity_section(result: Any) -> list[str]:

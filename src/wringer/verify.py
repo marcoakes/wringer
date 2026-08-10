@@ -247,17 +247,6 @@ def run(
         )
 
     bundle.write_manifest(state=state, status=status, failed_gate=failed_gate)
-    summary.write(
-        bundle,
-        state,
-        results=results,
-        skipped=skipped,
-        failed_gate=failed_gate,
-        status=status,
-        interrupted=interrupted,
-        template_only=template_only,
-        vacuity=proved,
-    )
     # Before the digests, so the digest covers it. git cannot diff a file it
     # has never seen, so without this an untracked file's *contents* are
     # absent from the bundle and delivery could only compare their names.
@@ -280,6 +269,24 @@ def run(
     accepted = accept.assess(root, cfg, results, redactor=bundle.redactor)
     if accepted is not None:
         accept.write(bundle.directory, accepted, redactor=bundle.redactor)
+    # AFTER acceptance, which is a move made for one reason: SPEC_GATEGEN
+    # ruling 3 says a bound gate green at its first recorded run must be
+    # called out, and `summary.md` is the document the person who just
+    # installed that gate actually reads. The alternative was a second reader
+    # of the same record inside the summary, which is the drift the review
+    # of that spec spent its length refusing.
+    summary.write(
+        bundle,
+        state,
+        results=results,
+        skipped=skipped,
+        failed_gate=failed_gate,
+        status=status,
+        interrupted=interrupted,
+        template_only=template_only,
+        vacuity=proved,
+        acceptance=accepted,
+    )
     # LAST, so it covers everything else the run wrote. `digests.json` is what
     # lets a later `wring attest` say "and none of it has been altered since"
     # about the whole bundle rather than only the ledger.

@@ -689,3 +689,154 @@ def test_an_unapproved_spec_stops_before_the_sidecar_is_even_read(
     err = flat(capsys.readouterr().err)
     assert "approved: false" in err
     assert spec.GATESPEC_FILENAME not in err
+
+
+# --- the diff carries the proves lines (G2, SPEC_GATEGEN_V0) -------------
+
+
+def test_the_rendered_diff_carries_the_proves_line(repo, monkeypatch, capsys):
+    """The whole point of the sidecar: the binding travels with the command,
+    so a human applying the diff installs both in one edit and cannot install
+    the gate while forgetting what it was for."""
+    setup_repo(repo)
+    write_sidecar(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert "+  - id: acc-button" in payload["gate_diff"]
+    assert "+    proves: export-button-exists" in payload["gate_diff"]
+    assert "acc-button" in payload["gates_proposed"]
+
+
+def test_the_proposed_diff_with_a_binding_applies_to_the_real_config(
+    repo, monkeypatch, capsys
+):
+    """A diff nobody can apply is a diff nobody checked — and this one has to
+    survive `.wringer.yaml`'s own loader afterwards, `proves:` and all."""
+    setup_repo(repo)
+    write_sidecar(repo)
+    monkeypatch.chdir(repo)
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    diff = json.loads(capsys.readouterr().out)["gate_diff"]
+
+    (repo / "gates.patch").write_text(diff, encoding="utf-8")
+    import subprocess
+
+    applied = subprocess.run(
+        ["git", "apply", str(repo / "gates.patch")],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert applied.returncode == 0, applied.stderr
+
+    updated = config.load(repo / config.CONFIG_FILENAME)
+    bound = {g.id: g.proves for g in updated.gates if g.proves}
+    assert bound == {"acc-button": "export-button-exists"}
+
+
+def test_plan_installs_nothing_and_there_is_no_apply_flag(
+    repo, monkeypatch, capsys
+):
+    """Installing a gate is changing what "verified" means. There is no flag
+    for it, and the file on disk is byte-identical afterwards."""
+    setup_repo(repo)
+    write_sidecar(repo)
+    before = (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    assert (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8") == before
+    capsys.readouterr()
+
+    with pytest.raises(SystemExit):
+        cli.main(["plan", "--apply"])
+
+
+def test_one_id_in_both_the_spec_and_the_sidecar_is_refused_naming_both(
+    repo, monkeypatch, capsys
+):
+    """Review finding 2: two sources of proposed gates, and silently
+    preferring one would attach the sidecar's binding to a command the reader
+    believes came from the spec."""
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        "schema_version: wringer.gatespec.v1\n"
+        "gates:\n"
+        "  - id: test\n"
+        '    run: "pytest -q acceptance/"\n'
+        "    proves: export-button-exists\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "test" in err
+    assert spec.GATESPEC_FILENAME in err
+    assert spec.SPEC_FILENAME in err
+
+
+def test_nothing_that_runs_a_gate_ever_reads_the_sidecar(repo):
+    """Ruling 2, enforced rather than promised.
+
+    A filename-constant guard, NOT import-parsing — the spec said the latter
+    and the review corrected it, because opening a file by name imports
+    nothing. Its limit, stated so nobody mistakes it for more: it catches a
+    module that NAMES the file, which is the realistic regression (a read
+    added to verify.py), and cannot catch a module handed the path by a
+    caller. No guard here can catch that, and claiming otherwise would be the
+    guard-that-lies this repository refuses.
+    """
+    import ast
+
+    def reads_it(source: str) -> bool:
+        """Does the CODE name the sidecar — as opposed to the prose?
+
+        Docstrings are excluded deliberately. `config.check_bindings`
+        explains in words which two files it serves, and a guard that read
+        that as a dependency would push every future author to stop
+        documenting the seam, which is a worse repository.
+        """
+        tree = ast.parse(source)
+        docstrings = {
+            node.body[0].value
+            for node in ast.walk(tree)
+            if isinstance(
+                node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                       ast.AsyncFunctionDef)
+            )
+            and node.body
+            and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+            and isinstance(node.body[0].value.value, str)
+        }
+        for node in ast.walk(tree):
+            if node in docstrings:
+                continue
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and spec.GATESPEC_FILENAME in node.value
+            ):
+                return True
+            if isinstance(node, ast.Attribute) and node.attr.startswith(
+                "GATESPEC_"
+            ):
+                return True
+            if isinstance(node, ast.Name) and node.id.startswith("GATESPEC_"):
+                return True
+        return False
+
+    source_dir = Path(spec.__file__).resolve().parent
+    named = sorted(
+        path.name
+        for path in source_dir.glob("*.py")
+        if reads_it(path.read_text(encoding="utf-8"))
+    )
+    assert named == ["cli.py", "spec.py"], (
+        f"{named} name the gate sidecar. Only `spec.py` (which defines and "
+        "parses it) and `cli.py` (whose `plan` renders it) may: a gate that "
+        "runs must come from .wringer.yaml, which a person edited."
+    )

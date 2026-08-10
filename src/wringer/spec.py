@@ -1066,24 +1066,56 @@ def declared_gate_ids(existing: str) -> set[str]:
         )
 
 
-def gate_diff(existing: str, spec: Spec) -> tuple[str, tuple[str, ...],
-                                                  tuple[str, ...]]:
+def proposals(loaded: Spec, sidecar: Any = ()) -> tuple[config.Gate, ...]:
+    """Every gate `wring plan` would propose: the spec's own block, then the
+    sidecar's bindings.
+
+    There are TWO sources and there always were — `wringer.spec.v1` has
+    carried a `gates:` block since P2, and the sidecar is the channel that
+    can additionally say which criterion a gate proves. The spec review
+    caught that the collision between them was unspecified.
+
+    **An id in both files is refused, never resolved.** Preferring either one
+    silently would attach a drafted binding to a command the reader believes
+    came from the other document, and the reader is the person about to
+    install it by hand.
+    """
+    from_spec = {gate.id for gate in loaded.gates}
+    clash = sorted(gate.id for gate in sidecar if gate.id in from_spec)
+    if clash:
+        named = ", ".join(f"'{gate_id}'" for gate_id in clash)
+        raise SpecError(
+            f"{GATESPEC_FILENAME} and {SPEC_FILENAME} both declare "
+            f"{named}. One id, one definition: keep the binding in "
+            f"{GATESPEC_FILENAME} and drop the entry from {SPEC_FILENAME}'s "
+            "'gates:' block, or give one of them another id"
+        )
+    return (*loaded.gates, *sidecar)
+
+
+def gate_diff(existing: str, proposed: Any) -> tuple[str, tuple[str, ...],
+                                                     tuple[str, ...]]:
     """The change a human would have to make to `.wringer.yaml`, as a diff.
 
     Returns the diff text, the ids it would add, and the ids that already
     exist. Wringer prints this and stops: installing a gate is changing what
     "verified" means, and that is not a thing a drafter gets to do quietly.
+
+    `proposed` is a sequence of gates rather than the `Spec` it used to be,
+    because the sidecar is a second source and a binding cannot live on a
+    `Spec` at all — `wringer.spec.v1` is frozen and `spec.parse` builds its
+    gates with `allow_proves` off.
     """
     import difflib
 
     declared = declared_gate_ids(existing)
-    fresh = tuple(g.id for g in spec.gates if g.id not in declared)
-    already = tuple(g.id for g in spec.gates if g.id in declared)
+    fresh = tuple(g.id for g in proposed if g.id not in declared)
+    already = tuple(g.id for g in proposed if g.id in declared)
     if not fresh:
         return "", fresh, already
 
     addition = []
-    for gate in spec.gates:
+    for gate in proposed:
         if gate.id not in fresh:
             continue
         addition += [f"  - id: {gate.id}", f"    run: {_scalar(gate.run)}"]
@@ -1091,6 +1123,11 @@ def gate_diff(existing: str, spec: Spec) -> tuple[str, tuple[str, ...],
             addition.append(f"    timeout: {gate.timeout}")
         if gate.optional:
             addition.append("    optional: true")
+        if gate.proves:
+            # The binding travels WITH the command, so one edit installs both
+            # and nobody ends up with a gate whose purpose was left behind in
+            # another file.
+            addition.append(f"    proves: {gate.proves}")
 
     merged = _append_gates(existing, addition)
     if merged is None:

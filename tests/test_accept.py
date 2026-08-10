@@ -403,3 +403,73 @@ def test_counts_never_invent_a_zero(repo, monkeypatch, capsys):
     assert set(counts) == {
         "evidenced", "unevidenced", "gate-failed", "gate-did-not-run", "human"
     }, counts
+
+
+# --- a gate born green says so, where a person reads it (G2, ruling 3) ----
+
+
+def summary_of(repo: Path) -> str:
+    latest = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    return (latest / "summary.md").read_text(encoding="utf-8")
+
+
+def test_a_bound_gate_green_on_its_first_run_is_called_out_in_the_summary(
+    repo, monkeypatch, capsys
+):
+    """SPEC_GATEGEN ruling 3, said where the human is looking.
+
+    A gate written for a criterion whose feature does not exist yet has one
+    honest colour and it is not green. `acceptance.json` already records this
+    as `unevidenced`, but the person who just applied a diff reads
+    `summary.md`, and until now that document showed a green tick and said
+    nothing.
+    """
+    write_spec(repo)
+    bound_config(repo, command="true")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    said = " ".join(summary_of(repo).split())
+    assert "should be RED" in said
+    assert "csv-downloads" in said
+    assert "`csv`" in said
+    assert "tests something else" in said
+
+
+def test_a_bound_gate_with_a_receipt_is_not_called_out(
+    repo, monkeypatch, capsys
+):
+    """The warning is about a gate nothing has ever seen fail. Once the
+    record holds a real failure for it, the gate has demonstrated it can tell
+    satisfied from unsatisfied and the note would be noise."""
+    write_spec(repo)
+    bound_config(repo, command="test -f built.txt")
+    monkeypatch.chdir(repo)
+
+    # red first — the criterion is unmet and the gate says so
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    (repo / "built.txt").write_text("built\n", encoding="utf-8")
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    said = " ".join(summary_of(repo).split())
+    assert "should be RED" not in said
+
+
+def test_an_unbound_criterion_is_not_called_out_as_born_green(
+    repo, monkeypatch, capsys
+):
+    """Ruling 9: an unbound criterion is loud in `acceptance.json` and never
+    fatal. It is not a gate born green — there is no gate — and putting it
+    under this warning would tell a reader to go and look at a command that
+    does not exist."""
+    write_spec(repo)
+    write_config(repo, '  - id: unrelated\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert "should be RED" not in summary_of(repo)
