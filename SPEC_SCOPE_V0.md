@@ -10,6 +10,20 @@ structurally avoided here; an independent read of THIS spec before build is
 still recommended and the plan says where. Marc's delegation stands; rulings
 DECIDED.*
 
+**Reviewed 2026-08-10 by R0, a window that did not draft this spec and will
+not build it — the independent pass gategen never got, run BEFORE S2 freezes
+a schema, because frozen things never move in this repo.** Eleven findings
+are folded in below, two HIGH; none needs a redesign, so S1 and S2 may proceed
+AMENDED — ruling 5 gains an eighth refusal and DONE boxes 5 and 8 change. The
+drafting window's five confessed assumptions were each settled by running
+code rather than reading it, and the two that could have broken the cycle
+did not: a partial-gate-set bundle DOES arm an acceptance receipt (measured),
+and post-failure skipped gates DO leave no result rows (measured). What the
+review found instead is that the guard those assumptions rest on is armed by
+spec APPROVAL rather than by binding, and that the chain's last DONE box
+assumes one gate per task. §6 lists what was checked and held, by name, so
+that an absent finding and an unchecked area cannot read the same.
+
 [SPEC_SUPERVISION_V0.md](SPEC_SUPERVISION_V0.md),
 [SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md),
 [SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md) and
@@ -63,11 +77,25 @@ exists, which is the only reason this door can be opened at all.
   task→criteria→gates joins and the criteria no task claimed. Machine-
   readable at the fleet level, human-readable at the run level, absence at
   the result level — three records, one truth.
-- **Unscoped fleets are untouched, byte for byte.** No `fleet.scope`, no new
-  behavior. The retry-harvest mechanism they run on becomes documented
-  (`docs/fleet-scale.md`) instead of folklore, and their summary gains one
-  honest sentence: in a multi-task fleet, a failure may mean "blocked by a
-  gate another task will build".
+- **Unscoped fleets keep their OUTCOMES exactly.** Same children, same whole
+  gate set, same `{succeeded, failed, parked}` verdicts, no new behavior when
+  no `fleet.scope` is declared. The retry-harvest mechanism they run on
+  becomes documented (`docs/fleet-scale.md`) instead of folklore, and their
+  summary gains one honest sentence: in a multi-task fleet, a failure may
+  mean "blocked by a gate another task will build".
+
+  **Review finding 6 (MEDIUM), folded — this bullet said "byte for byte" and
+  then, in its own last clause, changed the bytes.** Two honesty fixes land
+  on unscoped fleets by design: the summary sentence above, and ruling 8's
+  teardown preservation, which changes what an unscoped `worktree: true`
+  fleet leaves on disk. The invariant worth defending was never byte
+  identity — it is that no unscoped fleet's OUTCOME moves, and that is what
+  the slice must pin. The build plan's S2 rule, *"run the existing fleet
+  tests untouched — if any needs editing, the change is wrong, not the
+  test"*, is right for S1–S2 and wrong for S3, which changes the summary on
+  purpose; no shipped test pins that summary's text today, so the rule costs
+  nothing to correct and would otherwise have argued a window out of the
+  honesty fix it was sent to make.
 
 ## 2. Rulings
 
@@ -94,6 +122,42 @@ exists, which is the only reason this door can be opened at all.
      is DESIRABLE here — a criterion whose owning task never runs decays
      visibly on the vitality table, which is the honest report.
 
+   **Review finding 1 (HIGH), folded — the guard is armed by APPROVAL, not
+   by binding, and this spec claimed it unconditionally.** The structural
+   argument above and in Positioning — *"absence already refuses"* — is
+   `deliver._check_acceptance` reading `acceptance.json`, and
+   `accept.assess` returns None unless `accept.read_spec` finds
+   `approved: true` (SPEC_ACCEPT ruling 8). No approval, no artifact, and
+   nothing to refuse on. Measured, on shipped code, with `wring verify
+   --gate` standing in for a scoped run: with `approved: false` the bundle
+   carried NO `acceptance.json` and `wring deliver` proceeded to *"Would
+   create branch"* on a bundle in which one of the two required gates had
+   never run; flipping the same repo to `approved: true` and re-running
+   produced the refusal the spec describes, naming `cb — GATE-DID-NOT-RUN`.
+   The route in is open: `config._check_bindings` resolves criteria through
+   `spec_module.load(spec_path).criteria` and **never consults `approved`**,
+   so `proves:` bindings — and a `fleet.scope` map validated by the same
+   precedent this spec names in ruling 5 — are legal against a spec no human
+   has approved. **Ruled: `fleet.scope` requires an APPROVED
+   `wringer.spec.yaml`, and its absence is the eighth refusal of ruling 5.**
+   Without it the tick is guarded by nothing but the operator remembering
+   ruling 7's final verify, and this spec would be asserting a guarantee the
+   code does not give — the gategen failure class, one cycle later.
+
+   **Review finding 7 (MEDIUM), folded — "decays visibly" is right for a
+   gate that sometimes runs and wrong for one that never does.** The wording
+   is inherited from R2 verbatim and it is worth correcting where it lands.
+   `health.assess` iterates the pairs `history(coverage)` builds out of
+   RECORDED gate runs; a declared gate with zero runs anywhere in the window
+   produces no `Assessment` at all, so it is ABSENT from the vitality table
+   rather than decaying on it. `untested`/`zombie` pressure is real for
+   every gate that still runs somewhere — which, under ruling 7's sequence,
+   is every gate, because the operator's final verify is unscoped. The
+   pressure claim therefore holds for the flow this spec specifies, and the
+   invisible case is reachable only by skipping that final verify. Health is
+   still untouched, so R2's third condition is met either way; it is the
+   description of what that treatment yields that needed the correction.
+
 3. **A scoped child's convergence claim is exactly its scope — DECIDED.**
    The loop converges when the scoped gates are green; its `converged` is a
    true statement about what it verified (the frozen loop-manifest reason
@@ -102,6 +166,41 @@ exists, which is the only reason this door can be opened at all.
    name a scoped gate, and the criteria list marks which criteria are this
    task's. The instruction pathology measured in the dossier — the harness
    telling an agent to fix another task's gate — becomes unrepresentable.
+
+   **Review finding 8 (MEDIUM), folded — "a reader of any single artifact"
+   is false for two of them, and one can never be fixed.** `acceptance.json`
+   records `gate-did-not-run` with the reason *"`X` left no result in this
+   run, so this run says nothing about the criterion"* — true, and silent
+   about scope being the cause. The loop bundle's manifest is worse and
+   permanent: `wringer.loop.v1` is FROZEN and its recorded fields are
+   `repo`, `config: {max_iterations, worker}` and
+   `result: {status, reason, iterations, final_run}` — no gate list, no room
+   for one, ever. A machine reading a scoped child's loop manifest sees
+   `converged` unqualified. **Ruled: the claim is narrowed to name the
+   artifacts that carry it — the run bundle's `summary.md` scoped-out
+   section, `scope.json`, and the absent result rows — and the loop
+   manifest's qualification is reachable in exactly one hop, through
+   `final_run` to the run bundle that says what it measured.** `converged`
+   still does not lie; a reader who stops at the manifest simply has not
+   read far enough, and the spec now says where to go rather than implying
+   every artifact answers on its own.
+
+   **Review finding 9 (MEDIUM), folded — `run.prove` on a scoped run is not
+   out of scope; it composes, and it scopes the verdict too.**
+   `vacuity.prove(root, cfg, planned, results, …)` iterates `planned` and
+   skips any gate with no changed-tree result, so a scoped run proves
+   exactly its scoped gates and needs no new machinery — assumption (d) is
+   answered, and the answer is that the interaction is real rather than
+   absent. Two consequences, stated rather than discovered: the
+   `gates_vacuous` reason is written as *"every required gate passed without
+   the change too"*, which in a scoped bundle is a claim about the scoped
+   subset and must read that way; and `deliver._check_vacuity` refuses on
+   any bundle recording `gates_vacuous`, so a scoped child's verdict can
+   refuse a delivery that names it. That direction is safe — it fails
+   closed — and it is another reason ruling 7's final unscoped verify is the
+   run a delivery should be pointed at. See also SPEC_GATEGEN review finding
+   7: a `sensitive` row is a receipt, so `--prove` is a second path to
+   `evidenced` that does not pass through a red run at all.
 
 4. **What scoping deliberately does NOT prevent, stated rather than
    discovered — DECIDED.** Two agents in one shared tree can still collide
@@ -129,6 +228,33 @@ exists, which is the only reason this door can be opened at all.
    criterion claimed by NO task is legal and loud — it lands in
    `scope.json`'s unclaimed list, its gate goes red in the final verify if
    nobody built it, and acceptance refuses delivery exactly as today.
+
+   **Review finding 1 (HIGH) adds the EIGHTH refusal — `fleet.scope`
+   declared against a spec that is not `approved: true`.** Reasoning above
+   under ruling 2; the message names the file and the flag, and the remedy
+   is that a person approves the spec. It is a refusal rather than a warning
+   because a scoped fleet in an unapproved repo writes no acceptance
+   artifact at all, and every other refusal here exists to stop a summary
+   table meaning two things at once — this one stops the whole cycle's
+   guarantee meaning nothing at all.
+
+   **Review finding 2 (MEDIUM), folded — refusal seven is unreachable
+   except in one case, and its remedy is wrong for that case.** *"A task
+   whose criteria resolve to zero gates"* can only fire when refusal four
+   (*"a criterion bound to no gate"*) did not, and refusal four fires on
+   every unbound criterion in the map — so the only surviving path to
+   refusal seven is a task mapped to an EMPTY criteria list, for which
+   *"bind a gate, or run it outside the scoped fleet"* is advice about a
+   problem the human does not have. **Ruled: the empty list is named as its
+   own case with its own remedy — give the task a criterion, or drop it
+   from the map and from the task file — and the two refusals are ordered so
+   the message a reader gets names the defect they actually made.**
+
+   **Review finding 3 (LOW), folded.** A criterion listed twice inside ONE
+   task's list is not among the refusals, and the collision refusal covers
+   only two different tasks. Harmless to the resolution — a set absorbs it —
+   and refused anyway, because every other duplicate in this repo is loud
+   and a silent one here would be the exception a reader has to learn.
 
 6. **One fleet, one branch, one MR — DECIDED.** Delivery's record is
    acceptance against the WHOLE spec on one tree; splitting branches would
@@ -159,6 +285,39 @@ exists, which is the only reason this door can be opened at all.
    knob, and this spec does not refuse the combination, because a refusal
    would claim to know the tasks' goals, which the harness cannot.
 
+   **Review finding 4 (MEDIUM), folded — a worktree child's evidence cannot
+   arm anything, so "honest for tasks with disjoint directories" is true
+   about the WORK and false about the RECORD.** `health.Bundle.qualifying`
+   is `kind == "run" and not bench_sourced`, and `bench_sourced` is decided
+   by POSITION: any bundle whose path contains `.wringer/worktrees/` —
+   which is `fleet.WORKTREES_DIRNAME`, the directory `fleet.make_worktree`
+   puts every child in. `accept._discriminating_pairs` skips non-qualifying
+   bundles outright. Measured: a red run then a green run inside
+   `.wringer/worktrees/t1` left the criterion `unevidenced`, both bundles
+   reading `bench_sourced=True qualifying=False`. So a scoped worktree fleet
+   cannot reach delivery even for perfectly disjoint tasks — its children's
+   red runs are invisible to the receipt economy this cycle is built on, and
+   the docs beside the knob must say that, not only that composition fails.
+   (This also refutes the dossier's §3e parenthetical, which recorded a
+   worktree child earning a local receipt. It does not, and this spec relies
+   on nothing that did.)
+
+   **Review finding 5 (MEDIUM), folded — the preservation step must not
+   LAUNDER the evidence it preserves.** Copying the child loop directories
+   out of `.wringer/worktrees/…` into the fleet bundle moves them out from
+   under the very marker that disqualifies them: a copy under
+   `.wringer/fleets/` reads `bench_sourced=False`. Nothing reads it today —
+   `health.search_roots` covers `runs`, `loops`, `benches`, `worktrees` and
+   `.wringer.example`, and not `fleets` — so acceptance is unaffected on
+   every default path; but `wring health --from <fleet bundle>` is one
+   operator command away from turning deliberately-excluded runs into
+   receipt-arming ones. **Ruled: the preserved copies are for a human to
+   read, they are never a discovery root, and the slice pins that
+   `.wringer/fleets` is absent from `health.search_roots` so a later hand
+   cannot add it without reddening.** Preserving evidence is worth doing;
+   promoting it while preserving it is the guard-that-lies wearing the
+   opposite coat.
+
 ## 3. Non-goals (binding)
 
 The drafter proposing scope (a model sorting criteria into buckets — its own
@@ -182,11 +341,28 @@ deliver itself · gate ids as scope vocabulary · any change to unscoped
 - [ ] a scoped child bundle can never evidence an unscoped criterion:
       a test binds criterion X to a gate, scopes the child away from it, and
       asserts acceptance reads `gate-did-not-run` with `refuses` true — the
-      shipped guard, pinned against scope by name
+      shipped guard, pinned against scope by name. **Review: this box pins
+      behavior that already ships** — driven through `wring verify --gate`,
+      which writes the same partial-bundle shape, the un-run criterion read
+      `gate-did-not-run refuses=True` and `wring deliver` refused, naming it.
+      The box stays: it is what stops a later slice loosening the guard once
+      scope has a reason to want it loosened
+- [ ] **`fleet.scope` against an unapproved spec is refused** (ruling 5's
+      eighth refusal, review finding 1): a test declares scope in a repo
+      whose `wringer.spec.yaml` is `approved: false` and asserts `wring
+      fleet` stops before any child spawns, naming the file. Without it the
+      whole absence-guards-the-tick argument is conditional on a fact
+      nothing checks
 - [ ] `fleet.scope` parsing and the seven refusals of ruling 5, each with a
       test that reddens without it, each naming both sides in its message
 - [ ] `scope.json` (`wringer.fleetscope.v1`) in the fleet bundle: resolved
-      joins plus unclaimed criteria; schema published + frozen same commit
+      joins plus unclaimed criteria, **plus the whole declared gate set as
+      the run saw it, so each task's EXCLUDED gates are computable from this
+      file alone** — **Review finding 10 (LOW), folded:** as first
+      described, a reader had to fetch `.wringer.yaml` at that commit to
+      learn what a child did not run, and `wringer.fleetscope.v1` can never
+      grow a field afterwards, which is the whole reason this review was
+      sequenced before the freeze; schema published + frozen same commit
       (the derived freeze guards already redden if either half is missed)
 - [ ] worktree teardown preserves child loop directories into the fleet
       bundle BEFORE removal; a test deletes the preservation step's effect
@@ -200,10 +376,35 @@ deliver itself · gate ids as scope vocabulary · any change to unscoped
       its OWN gates first then green → final `wring verify` green →
       `acceptance.json` reads `evidenced` citing the children's red bundles
       → `wring deliver` succeeds. The probe string is `reached
-      \`wring deliver\``, the same string F4 probes, on purpose
+      \`wring deliver\``, the same string F4 probes, on purpose.
+      **At least one task in that capture MUST own two or more gates**
+      (review finding 11, HIGH, below), and if the chain stops there, the
+      node stays red and the doc says where — that result is worth more than
+      a green capture of the easy shape
 - [ ] the roadmap gains the at-scale node probed on this spec AND
       `docs/fleet-scale.md` with the `contains` probe above — added in the
       capture slice, so it is born meaning something, red until then
+
+**Review finding 11 (HIGH), folded — DONE box 8's chain assumes one gate per
+task, and scoping does not change that.** `verify.run` stops at the first
+required failure, and this spec's own non-goals keep that behavior. So a
+scoped child whose task owns two gates arms them ONE PER RED ITERATION, and
+only if its worker fixes them one at a time. Measured on shipped code: two
+required gates both red, one verify recorded a result row for the first only;
+a worker that then satisfied the WHOLE task in one call left the second gate
+green having never been red — `unevidenced`, `refuses: true`, delivery
+refused, with the summary's born-green warning firing correctly beside it.
+Nothing here is unsafe: the guard does its job and the tick does not inflate.
+What breaks is the cycle's headline deliverable, because a capture built from
+one-gate tasks would go green while demonstrating strictly less than the box
+claims — a check that narrowed while still passing, which is the defect class
+this program exists to catch. **Ruled: the capture carries a multi-gate task
+or it does not count, and the limit is documented beside the feature** — a
+real agent handed a scoped brief is MORE likely to satisfy its whole task in
+one call, not less, because scoping is what finally tells it what its whole
+task is. The underlying "one `wring verify` arms one gate" finding is
+F4's, already recorded in `~/Claude/WRINGER_FACTORY.md` and unfixed; this
+spec does not fix it and now says so instead of inheriting it silently.
 
 ## 5. The factory question, answered in advance
 
@@ -216,3 +417,57 @@ loosened anywhere: nothing new passes, nothing green means more than it did,
 and the one place scoping touches evidence is guarded by a refusal that
 shipped in the acceptance cycle. The DONE box that matters is the last one:
 the chain, at scale, reaching `wring deliver` on the record.
+
+**Review, on that paragraph:** it survives, with one word conceded. *"The one
+place scoping touches evidence is guarded by a refusal that shipped in the
+acceptance cycle"* is true **in a repo whose spec a human approved** — that
+is finding 1, and the eighth refusal is what makes the sentence
+unconditional again rather than merely usually right.
+
+## 6. What this review checked and found SOUND
+
+Named, because an area nobody looked at and an area that held must not read
+the same. Every line below was settled by running the shipped code, not by
+reading it hopefully.
+
+- **Scoped child bundles DO qualify for acceptance receipts — the drafting
+  window's assumption (a), the one that could have broken the cycle.**
+  `Bundle.qualifying` is `kind == "run" and not bench_sourced`; gate-set
+  completeness is not part of it and no reader downstream re-imposes it.
+  Measured end to end: a bundle in which ONE of three gates ran, red, later
+  armed that gate's criterion to `evidenced` in a full green run, the receipt
+  citing the partial bundle by path. DONE box 8's chain is intact.
+- **Post-failure skipped gates leave no result rows — assumption (c).**
+  Measured: with the second gate failing, the third left no directory under
+  `gates/` at all and read `gate-did-not-run`. Absence is already the record;
+  scoping needs no new mechanism to produce it.
+- **The loop CAN verify a subset cleanly — assumption (b).** `loop.run`
+  calls `verify.plan(cfg, None)` once and hands the result to `verify.run`,
+  which iterates exactly that list; `plan` already narrows to one gate and
+  raises `ConfigError` on an unknown id. A repeatable `--gate` is one
+  signature widened at one seam, not a second verification path — and
+  `skipped` falls out correctly, because a gate removed from `planned` is
+  never a post-failure skip either.
+- **The brief renderer CAN know the scope — assumption (e).**
+  `loop._criteria_lines` already computes `{gate.proves: gate.id}` from the
+  config, so "this task's criteria" is the criteria whose bound gate is in
+  the scoped set — the ruling-1 join read backwards, needing no new
+  vocabulary. The scoped ids reach it the same way `WRINGER_TASK_ID` already
+  reaches `loop._task`. Ruling 3's marking is implementable as ruled.
+- **Absence guards the tick even when the operator is sloppy.** Attacked
+  adversarially: `wring deliver` defaults to `evidence.latest_run`, which
+  after a scoped fleet is a CHILD's scoped bundle — so the tempting shortcut
+  of delivering straight from the fleet without ruling 7's final verify is
+  refused, by name, on the other tasks' criteria. Measured. The failure mode
+  is a refusal, which is the direction this repo wants to fail in.
+- **R2's three conditions are genuinely met**, with finding 1's precondition
+  attached to the second and finding 7's correction to the third's wording.
+  Condition one is met outright: scope is human-written in `.wringer.yaml`
+  and non-goal 1 keeps a model out of it.
+- **The seven refusals of ruling 5 contain no CONTRADICTION** — findings 2
+  and 3 are a redundancy and an omission, not a conflict, and no two of them
+  can fire on the same well-formed document with opposite advice.
+- **Ruling 6 (one fleet, one branch, one MR) and ruling 7 (the fleet neither
+  verifies nor delivers) were re-read against the code and stand.** `wring
+  fleet` has no `--send` and no delivery step; delivery reads one bundle and
+  one tree, so splitting branches really would split the record's meaning.
