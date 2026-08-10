@@ -14,15 +14,19 @@ and pulled by demand rather than pushed by plan.*
 
 <div align="center">
 
-<img src="docs/roadmap.svg" alt="Wringer roadmap: nine of ten milestones shipped, P6 remaining" width="900">
+<img src="docs/roadmap.svg" alt="Wringer roadmap: a generated rail of milestones, each drawn green or red from a probe run against this checkout" width="900">
 
 </div>
 
-**Nine of ten shipped, on day 9 of 63.** `v0.1.0` cleared its own release bar
-on July 31 — two months early — so the deadline above is met and the arc has
-kept going: the loop, the fleet, the judge, the box, the ACP seam, the front
-door, issue→MR, provenance, and the guided launch. **`wring bench` (P6) is the
-one node still hollow.**
+**Read the count off the picture, not off this sentence.** It said "nine of
+ten shipped" for weeks after the rail had grown to eighteen nodes, which is a
+hand-kept number doing what hand-kept numbers do. `v0.1.0` cleared its own
+release bar on July 31 — two months early — so the deadline above is met and
+the arc kept going: the loop, the fleet, the judge, the box, the ACP seam,
+the front door, issue→MR, provenance, the guided launch, bench, graphs and
+health. The rail then grew a second block (F1–F6) that measures the FACTORY
+rather than the feature list, because every node in the first block was green
+while a PM's spec was no closer to becoming working software.
 
 | # | milestone | what it shipped |
 |---|---|---|
@@ -35,7 +39,20 @@ one node still hollow.**
 | 7 | **P3** | `wring get` · `issue` · `deliver` — the amended law 6 and its five refusals |
 | 8 | **P4** | `wring start` — the guided launch, and the credential ruling |
 | 9 | **P5** | `wring attest` · `audit` · `verify --prove` — provenance and vacuity |
-| 10 | **P6** | `wring bench` — **not built**: same brief, N workers, judged and cost-ledgered |
+| 10 | **P6** | `wring bench` — same job, N workers, one comparison, and no winner |
+| 11 | **P7** | `wring graph` — loops composed into a resumable, evidence-driven workflow |
+| 12 | **P8** | `wring health` — can each gate still fail? read across the whole record |
+| 13 | **F1** | a parked graph stops charging a human for thinking |
+| 14 | **F2** | gate authoring — a criterion becomes a proposed gate, red before anyone builds |
+| 15 | **F3** | brief quality — measured, and what the worker is actually told |
+| 16 | **F4** | the chain driven end to end on a real feature, reaching `wring deliver` |
+| — | **F5** | multi-repo — **not built**: "repositories" is plural in the goal and singular in the code |
+| — | **F6** | environment ≠ repair — **not built**: a missing dependency is not a job for a worker |
+
+The F block is the one that matters, and it is newer than the rest. Nodes 1–12
+are Wringer getting better at REFUSING; the goal is a PM's spec becoming
+working software, and `~/Claude/WRINGER_FACTORY.md` is where the ordering
+between them is decided.
 
 **That picture is generated, not drawn.** Every node carries a probe — the
 commands it claims must be registered in the parser, the files it claims must
@@ -45,7 +62,7 @@ than ageing quietly on an image. A roadmap is the easiest document in a
 repository to lie with, and this is a repository whose product is evidence.
 
 ```bash
-python3 scripts/roadmap_render.py docs/roadmap.svg 2026-08-06
+python3 scripts/roadmap_render.py docs/roadmap.svg 2026-08-10
 ```
 
 The date is an argument rather than `date.today()`: a file that rewrites

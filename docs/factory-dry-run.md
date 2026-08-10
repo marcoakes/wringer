@@ -181,10 +181,17 @@ What is different from the run above, step for step:
   refusal, so exit 0 there would have proved acceptance did not block — but
   this document's claim is that the chain *completes*, and the strongest
   available form of that is a branch that exists.
-- **§4 is NOT answered.** The worker was a shell script and was still handed
-  a repair brief about a failing gate with no mention of CSV export. F3 is
-  unchanged by this run. What the re-drive shows is that the gate machinery
-  does not depend on the brief being good — not that the brief got better.
+- **§4 is answered, and this postscript first said it was not.** The claim
+  was written from memory of the finding above rather than from the file, and
+  reading the file corrected it — which is the whole reason this project
+  writes things down. The brief the loop actually handed the worker opens
+  `# What you are building`, quotes the PM's intent, names the task
+  objective, lists all four criteria and says which gate is bound to each,
+  and only then reaches the gate that failed on this lap — labelled as the
+  lap's failure rather than as the job. F3 shipped separately
+  ([`docs/brief-quality.md`](brief-quality.md)); what this run adds is the
+  `— bound to csv-hdr` clauses, which on the day of the dry run could not
+  have been written because nothing was bound to anything.
 - **§5 is NOT answered, and was avoided rather than fixed.** Every check in
   the new scenario is stdlib-only, so `No module named pytest` never
   happened. That is a deliberate choice about what this recording measures.

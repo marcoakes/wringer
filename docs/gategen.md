@@ -264,6 +264,51 @@ file-dependency guessing is attempted: Wringer cannot honestly derive which
 files a command depends on in a language-agnostic way, and a guess would be a
 guard that sometimes lies.
 
+## 5b. What the worker was told
+
+Not in the recording — a thirty-line brief would be a wall rather than a
+demo — but written to disk by that same loop, at
+`.wringer/loops/<id>/iterations/001/brief.md`, and this is its head, verbatim:
+
+```markdown
+# What you are building
+
+**Export the report as CSV** — from `wringer.spec.yaml`, which a human approved.
+
+The table view is fine but nobody can get the numbers out of it.
+Add a CSV export: same columns, same order, every row, and the
+amounts must still read as money.
+
+## This task — `csv`
+
+Add reports.to_csv() and a button that calls it
+```
+
+and, further down, the part this spec is responsible for:
+
+```markdown
+## What finishing means
+
+The acceptance criteria a human approved, and the gate bound to each:
+
+- `hdr` — The CSV header is the table's columns, in order — bound to `csv-hdr`
+- `rows` — Every row of the table reaches the CSV — bound to `csv-rows`
+- `cents` — Amounts keep two decimal places — bound to `csv-cents`
+
+Some are judged by people, not gates: `copy`. Their guidance is deliberately not in this brief — nothing you do to a gate can satisfy them.
+
+Everything above is what this work is for. Everything below is the gate that failed on this lap.
+```
+
+**That last line is the join.** On the day of the dry run the brief was
+thirty-five lines about a failing gate with not one word about CSV export
+(F3, since fixed — [`docs/brief-quality.md`](brief-quality.md)). It now opens
+with the objective, and the gate that failed comes *after* it, named as the
+lap's failure rather than as the job. The `— bound to csv-hdr` clauses are
+this spec's contribution: the worker is told which check stands for which
+criterion, which on the dry run's repo could not be written because no gate
+was bound to anything.
+
 ## 6. Evidenced, citing the run where it failed
 
 ```console
@@ -340,11 +385,8 @@ read `unevidenced` the same command would have refused.
   still open. This scenario is built so the environment does not get to
   decide the result; it is a choice about what the recording measures, not a
   fix for the thing it avoids.
-- **The brief still does not carry the objective.** The worker here is
-  scripted, so what it was told did not decide the outcome. Under `wring run`
-  a real agent would receive a repair brief about a failing gate and no
-  mention of CSV export — F3, measured in the dry run and documented in
-  [`docs/brief-quality.md`](brief-quality.md).
+- **The worker here is scripted**, so what it was told did not decide the
+  outcome. What it WAS told is in §5b above and is real.
 - **One gate per criterion**, and Wringer checks the binding's consequences,
   never its wisdom. That `csv-hdr` is a fair test of "the header matches the
   columns" is a human's declaration.
