@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -48,6 +49,17 @@ SUCCEEDED, FAILED, PARKED = "succeeded", "failed", "parked"
 
 SCOPE_FILENAME = "scope.json"
 SCOPE_SCHEMA_VERSION = "wringer.fleetscope.v1"
+
+# Where a worktree child's loop bundles are kept after its tree is removed
+# (SPEC_SCOPE_V0 ruling 8). Inside the fleet bundle, one directory per task,
+# and the loop keeps its own id so the manifest's `loops` list resolves here.
+#
+# **Deliberately NOT a `health` search root**, and review finding 5 is why:
+# `bench_sourced` is decided by POSITION, so a copy out from under
+# `.wringer/worktrees/` reads False and would arm the receipts the original
+# was excluded from. Preserving evidence is worth doing; promoting it while
+# preserving it is the guard-that-lies wearing the opposite coat.
+PRESERVED_DIRNAME = "loops"
 
 
 class FleetError(Exception):
@@ -268,6 +280,10 @@ class TaskState:
     signatures: list[str] = field(default_factory=list)
     loop_dirs: list[str] = field(default_factory=list)
     worktree: str | None = None
+    # Bundle-relative paths of the loop directories copied out of this task's
+    # worktree before it was removed. Empty for every shared-tree fleet: there
+    # the child's loops are still where the child wrote them.
+    preserved: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -442,11 +458,54 @@ class Bundle:
         )
         return path
 
+    def preserve_loops(self, state: TaskState, worktree: Path) -> list[str]:
+        """Copy a worktree child's loop bundles in here, BEFORE the tree goes.
+
+        SPEC_SCOPE_V0 ruling 8. `git worktree remove --force` discards
+        untracked files, and a child's whole `.wringer/` is untracked, so the
+        loop directories this fleet's own summary points at went with the
+        tree — measured in the dossier (§3d) as a guard-that-lies: the
+        sentence promising the evidence and the command deleting it were
+        written by the same function.
+
+        Copies, never moves: the removal is what tidies the original, and a
+        move would leave the tree half-dismantled if the copy failed.
+
+        What this does NOT preserve, said here because a reader will look for
+        it: the child's `.wringer/runs/` bundles, which the loop directory
+        REFERENCES by run id. They go with the tree. Keeping them would widen
+        exactly the laundering surface `PRESERVED_DIRNAME` documents, and
+        they can arm nothing anyway — review finding 4 measured a worktree
+        child's runs as `bench_sourced`, so they were never in the receipt
+        economy to begin with.
+        """
+        source = worktree / loop.LOOPS_DIRNAME
+        if not source.is_dir():
+            return []
+        kept: list[str] = []
+        for directory in sorted(source.iterdir()):
+            if not directory.is_dir():
+                continue
+            target = self.directory / PRESERVED_DIRNAME / state.task.id
+            try:
+                target.mkdir(parents=True, exist_ok=True)
+                shutil.copytree(directory, target / directory.name)
+            except (OSError, shutil.Error):
+                # A copy that failed is worth less than a summary that does
+                # not claim it. The teardown continues either way: leaving a
+                # hundred trees on disk to save one loop directory is not a
+                # trade this supervisor makes.
+                continue
+            kept.append(f"{PRESERVED_DIRNAME}/{state.task.id}/{directory.name}")
+        return kept
+
     def write_digests(self) -> Path:
         """Hash every file in this fleet bundle. **Written last.**"""
         return evidence.digest_directory(self.directory)
 
-    def write_summary(self, states: list[TaskState], satisfied: bool) -> None:
+    def write_summary(
+        self, states: list[TaskState], satisfied: bool, scoped: bool = False
+    ) -> None:
         counts = _counts(states)
         lines = [
             f"# wring fleet — {self.fleet_id}",
@@ -464,19 +523,98 @@ class Bundle:
                 f"| {state.task.id} | {state.status} | {state.attempts} "
                 f"| {state.reason or '—'} |"
             )
+        lines += _blocked_sentence(states, scoped)
+
         parked = [s for s in states if s.status == PARKED]
         if parked:
+            # DERIVED, because the claim is about what is on disk. A child
+            # that died before its loop bundle existed — a missing task
+            # directory, a `--gate` id its own config does not declare —
+            # leaves nothing at all, and pointing a reader at directories
+            # that were never written is the same defect as ruling 8's,
+            # one step earlier in the child's life.
+            where = (
+                "in the child loop directories"
+                if any(s.loop_dirs for s in parked)
+                else "the tasks below left no child loop directory of their own"
+            )
             lines += [
                 "",
-                "Parked work is not lost: its evidence is above and in the "
-                "child loop directories. **There is no fleet resume yet** — "
+                f"Parked work is not lost: its evidence is above and {where}. "
+                "**There is no fleet resume yet** — "
                 "`wring resume` continues a single killed *loop*, not a fleet. "
                 "To retry, re-run `wring fleet` with a task file holding the "
                 "parked ids.",
             ]
+
+        lines += _preserved_section(states)
         (self.directory / SUMMARY_FILENAME).write_text(
             "\n".join(lines) + "\n", encoding="utf-8"
         )
+
+
+def _blocked_sentence(states: list[TaskState], scoped: bool) -> list[str]:
+    """The one honest sentence an unscoped multi-task fleet owed its reader.
+
+    Dossier §3b, the mechanism nobody wrote down: every child runs the WHOLE
+    declared gate set, so a task cannot converge until every OTHER task's work
+    exists in the tree it is looking at. All but the last task therefore fail
+    their first pass, and the retry queue harvests the work they left behind.
+    The summary reported those expected failures as failures, with reasons
+    like `no_progress`, and an operator watching half their tasks fail on
+    every run had no way to know it was the design.
+
+    Three conditions, all DERIVED from this fleet rather than from a flag:
+    something has to have gone wrong, there has to be another task that could
+    have blocked it, and the fleet must not be SCOPED — scoping is what
+    removes the pathology, so printing the sentence there would teach a
+    reader to discount a failure that means exactly what it says.
+    """
+    if scoped or len(states) < 2:
+        return []
+    if not any(s.status in (FAILED, PARKED) for s in states):
+        return []
+    return [
+        "",
+        "This fleet is not scoped, so every child ran the whole declared gate "
+        "set: a failure above may mean **blocked by a gate another task will "
+        "build**, not broken work. That is why `fleet.retries` matters — one "
+        "full pass leaves every task's code in the shared tree and the retry "
+        "queue converts the rest. `docs/fleet-scale.md` has the measurements; "
+        "`fleet.scope` is how a task converges on its own gates instead.",
+    ]
+
+
+def _preserved_section(states: list[TaskState]) -> list[str]:
+    """Where a worktree child's loop bundles went, and what they are not.
+
+    Both halves in one paragraph on purpose (review finding 5): a reader who
+    finds these has to learn in the same breath that nothing reads them. The
+    copy is out from under `.wringer/worktrees/`, so `health.Bundle`'s
+    positional `bench_sourced` marker no longer applies to it — the only
+    thing keeping deliberately-excluded runs out of the receipt economy is
+    that `.wringer/fleets` is not a discovery root.
+    """
+    kept = [(s.task.id, path) for s in states for path in s.preserved]
+    if not kept:
+        return []
+    return [
+        "",
+        "## Preserved evidence",
+        "",
+        "`worktree: true`, so each child ran in its own checkout and the "
+        "fleet removed it. Its loop directories were copied in here first, "
+        "before each worktree was removed:",
+        "",
+        *[f"- `{path}/` — {task_id}" for task_id, path in kept],
+        "",
+        "They are here **for a human to read**. `wring health` does not "
+        "discover them and must not: a bundle that was excluded from the "
+        "receipt economy by its position under `.wringer/worktrees/` would "
+        "stop being excluded once copied out of it. The child's own run "
+        "bundles are not here — they went with the tree, and being "
+        "bench-sourced they could arm nothing either way.",
+    ]
 
 
 def _counts(states: list[TaskState]) -> dict[str, int]:
@@ -571,11 +709,17 @@ def run(
 
     if settings.worktree:
         # Tidy up every checkout this fleet made. Parked and failed tasks
-        # keep their EVIDENCE — that lives in the fleet bundle and the child
-        # loop dirs — but the working copies go, or a hundred-task fleet
-        # leaves a hundred trees behind.
+        # keep their EVIDENCE — but only because it is COPIED OUT first
+        # (ruling 8). `git worktree remove --force` discards untracked files
+        # and a child's whole `.wringer/` is untracked, so until this landed
+        # the sentence promising the evidence and the call deleting it were
+        # written by the same function. The working copies still go, or a
+        # hundred-task fleet leaves a hundred trees behind.
         for state in states:
             if state.worktree:
+                state.preserved = bundle.preserve_loops(
+                    state, Path(state.worktree)
+                )
                 remove_worktree(root, Path(state.worktree))
 
     satisfied = _join_satisfied(states, settings.join)
@@ -588,7 +732,7 @@ def run(
         join_satisfied=satisfied,
     )
     bundle.write_manifest(settings, states, satisfied)
-    bundle.write_summary(states, satisfied)
+    bundle.write_summary(states, satisfied, scoped=scope is not None)
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
     return Outcome(

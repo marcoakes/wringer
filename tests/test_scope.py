@@ -678,3 +678,240 @@ def test_a_real_scope_json_validates_against_its_published_schema(repo):
         for e in Draft202012Validator(schema).iter_errors(written)
     ]
     assert not errors, "\n".join(errors)
+
+
+# ----------------------------------------------------------- S3: the honesty
+#
+# Three claims a fleet summary makes that were not true, and one guard on the
+# fix. None of them is scope-specific; all three are the same defect class —
+# a document pointing at evidence that is not there, or explaining a failure
+# it will not explain.
+
+WORKTREE_FLEET = """\
+version: 1
+gates:
+  - id: t-gate
+    run: "grep -q FIXED work.txt"
+run:
+  worker: "sh worker.sh"
+  max_iterations: 2
+  worker_timeout: 60
+fleet:
+  concurrency: 1
+  deadline: 300
+  progress_window: 120
+  retries: 0
+  worktree: true
+"""
+
+
+def worktree_repo(repo: Path) -> config.Config:
+    """One repo, two tasks, `worktree: true` — the mode ruling 8 is about.
+
+    `t-good` converges; `t-bad`'s worker leaves the gate red, so it parks.
+    Both get a worktree, both write a loop bundle inside it, and both trees
+    are removed at teardown — which is where the evidence used to go.
+    """
+    import subprocess
+
+    (repo / ".wringer.yaml").write_text(WORKTREE_FLEET, encoding="utf-8")
+    (repo / "work.txt").write_text("BROKEN\n", encoding="utf-8")
+    (repo / "worker.sh").write_text(
+        'if [ "$WRINGER_TASK_ID" = t-good ]; then\n'
+        "  printf 'FIXED\\n' > work.txt\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    (repo / "briefs").mkdir(exist_ok=True)
+    for task_id in ("t-good", "t-bad"):
+        (repo / "briefs" / f"{task_id}.md").write_text("go\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True)
+    return config.load(repo / ".wringer.yaml")
+
+
+def worktree_tasks() -> list:
+    return [
+        fleet.Task(id=task_id, brief=f"briefs/{task_id}.md", dir=".")
+        for task_id in ("t-good", "t-bad")
+    ]
+
+
+def fleet_summary(outcome) -> str:
+    return flat(
+        (outcome.directory / fleet.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+def fleet_manifest(outcome) -> dict:
+    return json.loads(
+        (outcome.directory / fleet.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+def test_worktree_teardown_keeps_the_evidence_its_summary_cites(repo):
+    """Ruling 8, and the dossier's §3d measured it lying.
+
+    `git worktree remove --force` discards untracked files, and a child's
+    whole loop bundle is untracked, so every loop directory the summary
+    points at went with the tree. The copy happens BEFORE the removal, and
+    the pin is not the copy call — it is that every loop the manifest names
+    is really on disk, which is the reader's actual question.
+    """
+    cfg = worktree_repo(repo)
+
+    outcome = fleet.run(repo, cfg, worktree_tasks())
+
+    named = [
+        (task["id"], loop_id)
+        for task in fleet_manifest(outcome)["tasks"]
+        for loop_id in task["loops"]
+    ]
+    assert len(named) == 2, named
+    # The trees really are gone — the claim is about what SURVIVED them.
+    assert not (repo / fleet.WORKTREES_DIRNAME / "t-good").exists()
+    missing = [
+        (task_id, loop_id)
+        for task_id, loop_id in named
+        if not (outcome.directory / fleet.PRESERVED_DIRNAME / task_id / loop_id
+                ).is_dir()
+    ]
+    assert not missing, f"the summary cites evidence that is not there: {missing}"
+
+
+def test_the_preserved_copies_are_never_a_discovery_root(repo):
+    """R0 finding 5 — preserving evidence must not PROMOTE it.
+
+    `health.Bundle.bench_sourced` is decided by POSITION: a bundle under
+    `.wringer/worktrees/` is excluded from the receipt economy. A copy under
+    `.wringer/fleets/` is out from under that marker and reads `False`, so
+    the only thing keeping deliberately-excluded runs from arming acceptance
+    receipts is that `.wringer/fleets` is not a discovery root. That is a
+    guard nothing pinned, one `wring health --from` away from being lost.
+    """
+    from wringer import health
+
+    cfg = worktree_repo(repo)
+    outcome = fleet.run(repo, cfg, worktree_tasks())
+    preserved = outcome.directory / fleet.PRESERVED_DIRNAME
+    assert preserved.is_dir(), "nothing was preserved, so nothing is pinned"
+
+    assert (repo / fleet.FLEETS_DIRNAME) not in health.search_roots(repo)
+    found = [
+        bundle.receipt
+        for bundle in health.discover(repo).read
+        if fleet.FLEETS_DIRNAME.as_posix() in bundle.directory.as_posix()
+    ]
+    assert not found, (
+        f"health discovered {found} inside the fleet bundle — preserved "
+        "copies are for a human to read and decide nothing"
+    )
+
+
+def test_the_summary_says_where_the_preserved_copies_are_and_what_they_are_not(
+    repo,
+):
+    """A reader who finds them must learn both halves in the same paragraph:
+    where they came from, and that nothing reads them."""
+    cfg = worktree_repo(repo)
+
+    outcome = fleet.run(repo, cfg, worktree_tasks())
+
+    summary = fleet_summary(outcome)
+    assert "before each worktree was removed" in summary
+    assert "for a human to read" in summary
+    assert "`loops/t-bad/" in summary
+
+
+def test_an_unscoped_multi_task_fleet_says_a_failure_may_be_another_tasks_gate(
+    repo,
+):
+    """Dossier §3b: every child runs the WHOLE gate set, so in a multi-task
+    fleet all but the last task fail their first pass — blocked by work that
+    does not exist yet — and the retry queue converts them. The summary
+    reported those as plain failures and an operator had no way to know.
+    """
+    cfg = shared_tree_fleet(repo)
+    unscoped = config.parse(
+        {
+            "version": 1,
+            "gates": [
+                {"id": "g-alpha", "run": "grep -q ALPHA alpha.txt"},
+                {"id": "g-beta", "run": "grep -q BETA beta.txt"},
+            ],
+            "run": {"worker": "sh worker.sh", "max_iterations": 2},
+            "fleet": {"deadline": 300, "concurrency": 1, "retries": 0},
+        },
+        source=str(repo / ".wringer.yaml"),
+    )
+    assert cfg.fleet is not None  # the scoped one, kept only for its tree
+
+    outcome = fleet.run(repo, unscoped, two_tasks())
+
+    assert outcome.succeeded < 2, "nothing was blocked, so nothing to explain"
+    assert "blocked by a gate another task will build" in fleet_summary(outcome)
+
+
+def test_a_scoped_fleet_does_not_blame_another_task(repo):
+    """The sentence explains the pathology scoping REMOVES. Printing it in a
+    scoped fleet would teach a reader to discount a real failure."""
+    cfg = shared_tree_fleet(repo)
+
+    outcome = fleet.run(repo, cfg, two_tasks())
+
+    assert "another task will build" not in fleet_summary(outcome)
+
+
+def test_a_one_task_fleet_never_blames_another_task(repo):
+    """There is no other task. Derived from the task count, not from a flag."""
+    cfg = shared_tree_fleet(repo)
+    solo = config.parse(
+        {
+            "version": 1,
+            "gates": [{"id": "g-alpha", "run": "grep -q ALPHA alpha.txt"}],
+            "run": {"worker": "false", "max_iterations": 1},
+            "fleet": {"deadline": 300, "concurrency": 1, "retries": 0},
+        },
+        source=str(repo / ".wringer.yaml"),
+    )
+    assert cfg.fleet is not None
+
+    outcome = fleet.run(repo, solo, [two_tasks()[0]])
+
+    assert outcome.succeeded == 0
+    assert "another task will build" not in fleet_summary(outcome)
+
+
+def test_a_parked_task_that_left_no_loop_directory_is_not_claimed_to_have_one(
+    repo,
+):
+    """The same defect ruling 8 fixes, one step earlier: a child that dies
+    before its loop bundle exists leaves NOTHING, and the summary pointed a
+    reader at child loop directories anyway.
+
+    Found while measuring `fleet.scope` against tasks in separate repos —
+    there the child exits 2 on an unknown `--gate` id, writes no loop bundle,
+    and the summary reads `unknown (attempts exhausted)` beside a promise of
+    evidence that was never written. A missing task directory reaches the
+    same state in one line.
+    """
+    shared_tree_fleet(repo)
+    cfg = config.parse(
+        {
+            "version": 1,
+            "gates": [{"id": "g-alpha", "run": "true"}],
+            "run": {"worker": "true", "max_iterations": 1},
+            "fleet": {"deadline": 300, "concurrency": 1, "retries": 0},
+        },
+        source=str(repo / ".wringer.yaml"),
+    )
+
+    outcome = fleet.run(
+        repo, cfg, [fleet.Task(id="t-gone", brief="briefs/t-alpha.md", dir="nope")]
+    )
+
+    assert outcome.parked == 1
+    summary = fleet_summary(outcome)
+    assert "left no child loop directory" in summary
+    assert "in the child loop directories" not in summary
