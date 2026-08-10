@@ -189,6 +189,33 @@ def _diff_step(contender: str):
     return step
 
 
+def _newest(directory: Path, missing: str) -> str:
+    """The most recently written subdirectory — by mtime, not by name.
+
+    Sorting the NAMES looks right and is not. A run id is
+    `<date>-<time>-<four random hex>`, so several bundles written inside the
+    same second sort by their random suffix and the last one alphabetically
+    is not the last one chronologically.
+
+    The gategen recording caught it on the first take: `wring run` converged
+    in four iterations, all inside one second, and the acceptance step was
+    pointed at iteration three — whose artifact reads `gate-failed`, because
+    at that moment one gate genuinely had. The picture would have shown the
+    chain failing at the exact step it had just completed, with a real file
+    behind it. That is the worst kind of wrong: captured, honest, and about
+    the wrong run.
+    """
+    names = (
+        sorted(directory.iterdir(), key=lambda p: (p.stat().st_mtime, p.name))
+        if directory.is_dir()
+        else []
+    )
+    names = [p.name for p in names if p.is_dir()]
+    if not names:
+        raise SystemExit(f"demo_record: {missing}")
+    return names[-1]
+
+
 def _listing_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The receipts listing — displayed and executed as ONE string.
 
@@ -205,19 +232,74 @@ def _listing_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     created — which is what makes the displayed command literal and runnable
     rather than a placeholder.
     """
-    runs = scratch / ".wringer" / "runs"
-    names = (
-        sorted(p.name for p in runs.iterdir() if p.is_dir())
-        if runs.is_dir()
-        else []
+    newest = _newest(
+        scratch / ".wringer" / "runs",
+        "no run directory to list — `wring run` wrote none, so there are no "
+        "receipts to show",
     )
-    if not names:
-        raise SystemExit(
-            "demo_record: no run directory to list — `wring run` wrote none, "
-            "so there are no receipts to show"
-        )
-    listing = f"ls -1 .wringer/runs/{names[-1]}/"
+    listing = f"ls -1 .wringer/runs/{newest}/"
     return listing, ["sh", "-c", listing]
+
+
+def _plan_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The drafter proposes. `wring plan` renders the sidecar's gates through
+    the human diff — WITH the `proves:` line that binds each one to the
+    criterion it evidences — and stops. Nothing is installed here."""
+    return _argv_step(wring, "plan")
+
+
+# The install, filmed rather than done off-camera — `_approve_step`'s shape,
+# and for `_approve_step`'s reason: this is the step a flag deliberately
+# cannot do, so the only honest way to show it is to show something outside
+# Wringer doing it. Displayed and executed as ONE string; no pty driving.
+#
+# What it proves and what it does not: Wringer printed a diff and stopped, and
+# a separate act applied it. It does NOT prove a person read the diff, and a
+# recording cannot — `docs/gategen.md` says so in words beside the picture.
+# `gate_diff` writes `a/`/`b/` prefixes precisely so the diff it prints is one
+# `git apply` accepts, which is what makes this a single typeable line.
+INSTALL = "wring plan --json | python3 patch.py | git apply && cat .wringer.yaml"
+
+
+def _install_gates_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return INSTALL, ["sh", "-c", INSTALL]
+
+
+def _acceptance_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The artifact, read out of the bundle the green run just wrote.
+
+    `head`, and the number is not arbitrary: 24 lines is the counts block plus
+    the first criterion entire, which is the one place `evidenced` appears
+    beside the RED bundle it cites. A `grep` for the states would fit too and
+    would show the verdict without the receipt — and the receipt is the whole
+    claim, since a green tick with nothing behind it is what this program
+    exists to refuse.
+
+    Called AFTER `wring run`, so the run it names is that loop's final,
+    passing one — see `_newest` for why that is an mtime question and not an
+    alphabetical one, and for the wrong picture the first take produced.
+    """
+    newest = _newest(
+        scratch / ".wringer" / "runs",
+        "no run directory to read acceptance from — the loop wrote no bundle, "
+        "so there is no artifact to show",
+    )
+    shown = f"head -24 .wringer/runs/{newest}/acceptance.json"
+    return shown, ["sh", "-c", shown]
+
+
+def _deliver_send_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The end of the chain, for real: branch, commit, push.
+
+    `--send` rather than the dry run, and the difference matters for what this
+    recording claims. A dry run also runs the acceptance refusal, so exit 0
+    there would genuinely prove acceptance did not block delivery — but its
+    own first line reads "nothing was written to git", and this is the one
+    document whose entire job is to show the chain COMPLETING. The remote is a
+    bare `origin` on local disk: a real push, no network, no credential, and
+    no forge declared, so no merge request is opened and the command says so.
+    """
+    return _argv_step(wring, "deliver", "--send")
 
 
 def _graph_run_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
@@ -226,18 +308,11 @@ def _graph_run_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
 
 
 def _newest_graph(scratch: Path) -> str:
-    graphs = scratch / ".wringer" / "graphs"
-    names = (
-        sorted(p.name for p in graphs.iterdir() if p.is_dir())
-        if graphs.is_dir()
-        else []
+    return _newest(
+        scratch / ".wringer" / "graphs",
+        "no graph run to resume — `wring graph run` wrote none, so there is "
+        "nothing parked",
     )
-    if not names:
-        raise SystemExit(
-            "demo_record: no graph run to resume — `wring graph run` wrote "
-            "none, so there is nothing parked"
-        )
-    return names[-1]
 
 
 def _approve_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
@@ -377,6 +452,19 @@ STEP_SETS = {
         _approve_step,
         _graph_resume_step,
         _graph_status_step,
+    ),
+    # A criterion becomes a gate, and the gate is RED before anyone builds.
+    # The only recording here that films the chain building something: plan
+    # proposes and stops, something outside Wringer installs, verify records
+    # the red, the loop's own iterations turn each gate green one at a time,
+    # acceptance reads `evidenced` citing the red bundle, and delivery lands.
+    "gategen": (
+        _plan_step,
+        _install_gates_step,
+        _verify_step,
+        _run_step,
+        _acceptance_step,
+        _deliver_send_step,
     ),
 }
 

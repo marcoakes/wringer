@@ -30,6 +30,28 @@ if [ -z "$PY" ] || [ -z "$WRING" ]; then
 fi
 echo "recording with $WRING ($("$WRING" --version))"
 
+# Which recordings to regenerate; empty (the default) means every one.
+#
+# Not tidiness. Every cast carries real run ids and real durations, so
+# regenerating all seven to change one rewrites six artifacts a reviewer then
+# has to read past to find the change — the same reason `TIMING_QUANTUM`
+# exists in demo_record.py: the diff has to be readable for whether the DEMO
+# changed. It narrows what is REGENERATED and never what is recorded; each
+# section still runs its real commands and captures what came back.
+ONLY=${2:-}
+want() {
+    [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]
+}
+case "$ONLY" in
+    "" | demo | start | vacuous | graph | bench | health | gategen) ;;
+    *)
+        echo "FATAL: no recording called '$ONLY'. One of: demo start" >&2
+        echo "  vacuous graph bench health gategen — or omit it for all." >&2
+        exit 2
+        ;;
+esac
+
+if want demo; then
 if [ -d "$SCRATCH" ]; then find "$SCRATCH" -mindepth 1 -delete 2>/dev/null; fi
 mkdir -p "$SCRATCH"
 cd "$SCRATCH"
@@ -81,6 +103,7 @@ git commit -qm "the calculator, with a planted bug"
 
 "$PY" "$ROOT/scripts/demo_record.py" "$SCRATCH" "$ROOT/docs/demo.cast.json" "$WRING"
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/demo.cast.json" "$ROOT/docs/demo.svg"
+fi
 
 # ---------------------------------------------------------------------------
 # The second recording: the guided launch.
@@ -94,6 +117,7 @@ git commit -qm "the calculator, with a planted bug"
 # `wring run` repairing a planted bug, which is the product's core claim; the
 # launch is a different story (onboarding) and both are worth showing.
 # ---------------------------------------------------------------------------
+if want start; then
 START=$(scratch_dir "${1:-}" start) || exit 2
 STUBS=$(scratch_dir "${1:-}" start-bin) || exit 2
 
@@ -151,6 +175,7 @@ export PATH
     "$WRING" start
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/start.cast.json" \
     "$ROOT/docs/start.svg" "wring start — preflight, gates, agent, receipt"
+fi
 
 # ---------------------------------------------------------------------------
 # The third recording: the agent lies, Wringer catches it.
@@ -176,6 +201,7 @@ export PATH
 # needing an installed dependency fails there on a missing environment, and
 # the comparison reads that failure as PROOF.
 # ---------------------------------------------------------------------------
+if want vacuous; then
 VACUOUS=$(scratch_dir "${1:-}" vacuous) || exit 2
 # The bare `origin` gets a scratch of its own rather than a path derived by
 # string-appending to $VACUOUS: `scratch.sh` constructs safe answers, and
@@ -270,6 +296,7 @@ EOF
     "$WRING" vacuous
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/vacuous.cast.json" \
     "$ROOT/docs/vacuous.svg" "the gates went green and proved nothing"
+fi
 
 # ---------------------------------------------------------------------------
 # The fourth recording: the graph, and the interlock nothing can flip.
@@ -291,6 +318,7 @@ EOF
 # decision file's full path — `.wringer/graphs/<20-char id>/nodes/<id>/
 # decision.yaml`. A long node id puts that line off the edge of the picture.
 # ---------------------------------------------------------------------------
+if want graph; then
 GRAPH=$(scratch_dir "${1:-}" graph) || exit 2
 if [ -d "$GRAPH" ]; then find "$GRAPH" -mindepth 1 -delete 2>/dev/null; fi
 mkdir -p "$GRAPH"
@@ -381,6 +409,7 @@ git commit -qm "the calculator, with a planted bug"
     "$WRING" graph
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/graph.cast.json" \
     "$ROOT/docs/graph.svg" "a graph parks, a person decides, the graph resumes"
+fi
 
 # ---------------------------------------------------------------------------
 # The fifth recording: two workers, one job, and no winner.
@@ -403,6 +432,7 @@ git commit -qm "the calculator, with a planted bug"
 # and finding that one contender changed the code and the other changed the
 # test. An auto-ranked bench would have crowned the faster liar.
 # ---------------------------------------------------------------------------
+if want bench; then
 BENCH=$(scratch_dir "${1:-}" bench) || exit 2
 if [ -d "$BENCH" ]; then find "$BENCH" -mindepth 1 -delete 2>/dev/null; fi
 mkdir -p "$BENCH"
@@ -460,6 +490,7 @@ git commit -qm "multiply is wrong, and a test says so"
     "$WRING" bench
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/bench.cast.json" \
     "$ROOT/docs/bench.svg" "same job, both workers, and no winner"
+fi
 
 # ---------------------------------------------------------------------------
 # The sixth recording: a gate dies, and every tick stays green.
@@ -483,6 +514,7 @@ git commit -qm "multiply is wrong, and a test says so"
 # inherited whole, and docs/health.md says so in words beside the picture
 # rather than leaving a reader to find it.
 # ---------------------------------------------------------------------------
+if want health; then
 HEALTH=$(scratch_dir "${1:-}" health) || exit 2
 if [ -d "$HEALTH" ]; then find "$HEALTH" -mindepth 1 -delete 2>/dev/null; fi
 mkdir -p "$HEALTH"
@@ -532,3 +564,259 @@ git commit -qm "multiply is wrong, and a test says so"
     "$WRING" health
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/health.cast.json" \
     "$ROOT/docs/health.svg" "the gate is dead and every tick is green"
+fi
+
+# ---------------------------------------------------------------------------
+# The seventh recording: a criterion becomes a gate, and the gate is RED first.
+#
+# This is `docs/factory-dry-run.md`'s scenario, re-driven end to end with the
+# machinery SPEC_GATEGEN_V0.md specified — and it is the only recording here
+# that films the chain BUILDING something rather than catching something.
+#
+# A PM's spec asks for CSV export. Four acceptance criteria, one `human:
+# true`. `wringer.gates.yaml` proposes one gate per machine criterion with the
+# `proves:` line that binds it. `wring plan` renders those through the human
+# diff and STOPS; something outside Wringer applies it; the first `wring
+# verify` records the gate RED, because the feature does not exist yet and a
+# gate that proves an unmet criterion has exactly one honest colour.
+#
+# **The sidecar is hand-written, and that is the point rather than a
+# shortcut.** There is no LLM endpoint on this machine, and SPEC_GATEGEN
+# ruling 5 keeps the offline path first-class: the file the drafter would emit
+# is a file a person can write, and everything downstream is identical.
+#
+# **No gate here needs pytest.** The dry run died on `No module named pytest`
+# — exit 1, an environment failure the loop read as a repair job (F6, still
+# open) — so every check in this scenario is stdlib-only and the environment
+# does not get to decide the result. That is a choice about what this
+# recording measures, not a fix, and docs/gategen.md says so beside it.
+#
+# **The worker takes ONE step per call.** It stands in for a coding agent, as
+# every recording here does, and it does what one does with a repair brief:
+# looks at the tree, moves the nearest failing thing, stops. That is what
+# makes each of the three gates go red on its own iteration before it goes
+# green — the discrimination receipt acceptance requires, produced by the
+# loop's own sequencing rather than by a step staged for the camera.
+#
+# The gate commands are BYTE-IDENTICAL between the red run and the green one.
+# Acceptance keys its receipt on `(gate id, command)`, so editing a command
+# between them — even cosmetically — silently costs the criterion its
+# evidence and `wring deliver` refuses. Nothing here rewrites them.
+# ---------------------------------------------------------------------------
+if want gategen; then
+GATEGEN=$(scratch_dir "${1:-}" gategen) || exit 2
+# Its own bare `origin`, cleared like the vacuous one: `wring deliver` refuses
+# when the remote's default branch cannot be resolved, and a bare repo left
+# over from a previous run already has `main`, so the push below fails and
+# `set -eu` kills the script before anything is recorded.
+GGORIGIN=$(scratch_dir "${1:-}" gategen-origin) || exit 2
+for tree in "$GATEGEN" "$GGORIGIN"; do
+    if [ -d "$tree" ]; then find "$tree" -mindepth 1 -delete 2>/dev/null; fi
+    mkdir -p "$tree"
+done
+cd "$GATEGEN"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+# `__pycache__/` as well as the evidence directory, and it earns its line: the
+# gates import `reports`, so the first red verify leaves a .pyc behind, and
+# without this the delivered commit carries a compiled artifact nobody wrote.
+# Anchored to a directory name Python owns — the `build/` lesson is that an
+# unanchored pattern silently swallows a path that means something else.
+printf '.wringer/\n__pycache__/\n' > .gitignore
+
+# The repo as it stands: a reports module that works, and a check that says so.
+cat > reports.py <<'EOF'
+ROWS = [("alpha", 12.5), ("beta", 3.0)]
+
+
+def table():
+    """The report, header row first."""
+    return [("name", "amount"), *ROWS]
+EOF
+
+# The repo's existing gate. Stdlib only, and no pytest deliberately.
+cat > test_reports.py <<'EOF'
+from reports import table
+
+assert table()[0] == ("name", "amount")
+assert len(table()) == 3
+EOF
+
+# The three acceptance checks, one per machine criterion, hand-written here
+# because there is no endpoint on this machine. Each one exits non-zero with a
+# SHORT message rather than a traceback: the failure is filmed, and a
+# twenty-line stack would be a wall rather than a demo.
+cat > g_hdr.py <<'EOF'
+"""hdr — the CSV header is the table's columns, in order."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+header = next(csv.reader(io.StringIO(reports.to_csv())))
+if header != list(reports.table()[0]):
+    raise SystemExit(f"header is {header}")
+EOF
+
+cat > g_rows.py <<'EOF'
+"""rows — every row of the table reaches the CSV."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+if len(out) != len(reports.table()):
+    raise SystemExit(f"{len(out)} rows, table has {len(reports.table())}")
+EOF
+
+cat > g_cents.py <<'EOF'
+"""cents — amounts keep two decimal places."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+for row in out[1:]:
+    if len(row[1].partition(".")[2]) != 2:
+        raise SystemExit(f"amount {row[1]} is not two decimals")
+EOF
+
+# The worker. It stands in for a coding agent and takes ONE step per call —
+# whichever failing gate is nearest — which is what a repair brief asks for and
+# what makes each gate red on its own iteration.
+cat > build.sh <<'EOF'
+if ! grep -q 'def to_csv' reports.py; then
+    cat >> reports.py <<'PY'
+
+
+def to_csv():
+    return ",".join(table()[0]) + "\n"
+PY
+elif ! grep -q 'for name' reports.py; then
+    cat > reports.py <<'PY'
+ROWS = [("alpha", 12.5), ("beta", 3.0)]
+
+
+def table():
+    """The report, header row first."""
+    return [("name", "amount"), *ROWS]
+
+
+def to_csv():
+    header, *rows = table()
+    out = [",".join(header)]
+    out += [f"{name},{amount}" for name, amount in rows]
+    return "\n".join(out) + "\n"
+PY
+else
+    sed 's/{amount}/{amount:.2f}/' reports.py > r && mv r reports.py
+fi
+EOF
+
+# The diff `wring plan` prints is machine-readable too, and `gate_diff` writes
+# `a/` and `b/` prefixes so `git apply` takes it as-is. This is what lets the
+# install step be ONE line a reader can type — see docs/gategen.md for what
+# that does and does not prove about a human being in the loop.
+cat > patch.py <<'EOF'
+import json
+import sys
+
+sys.stdout.write(json.load(sys.stdin)["gate_diff"])
+EOF
+
+cat > .wringer.yaml <<'EOF'
+version: 1
+gates:
+  - id: test
+    run: "python3 test_reports.py"
+
+run:
+  worker: "sh ./build.sh"
+  max_iterations: 5
+
+deliver:
+  branch: "wringer/{run}"
+EOF
+
+# Hand-written in the shape `wring spec` drafts, `approved: true` because the
+# reading step is `docs/pm-loop.md`'s and this recording starts after it.
+cat > wringer.spec.yaml <<'EOF'
+schema_version: wringer.spec.v1
+approved: true
+title: Export the report as CSV
+
+intent: |2
+  The table view is fine but nobody can get the numbers out of it.
+  Add a CSV export: same columns, same order, every row, and the
+  amounts must still read as money.
+
+open_questions: []
+
+criteria:
+  - id: hdr
+    title: The CSV header is the table's columns, in order
+    required: true
+    human: false
+  - id: rows
+    title: Every row of the table reaches the CSV
+    required: true
+    human: false
+  - id: cents
+    title: Amounts keep two decimal places
+    required: true
+    human: false
+  - id: copy
+    title: The export button's label reads well
+    required: true
+    human: true
+
+gates: []
+
+tasks:
+  - id: csv
+    brief: brief.md
+    dir: .
+    objective: Add reports.to_csv() and a button that calls it
+EOF
+
+# The sidecar — `wringer.gatespec.v1`, the only channel that may carry
+# `proves:`. Ids are short because the renderer's canvas is a fixed 80
+# columns, the same constraint the graph recording's node ids are under.
+cat > wringer.gates.yaml <<'EOF'
+schema_version: wringer.gatespec.v1
+
+gates:
+  - id: csv-hdr
+    run: "python3 g_hdr.py"
+    proves: hdr
+  - id: csv-rows
+    run: "python3 g_rows.py"
+    proves: rows
+  - id: csv-cents
+    run: "python3 g_cents.py"
+    proves: cents
+EOF
+
+git add -A
+git commit -qm "the report, and a spec asking for CSV export"
+
+git init -q --bare -b main "$GGORIGIN"
+git remote add origin "$GGORIGIN"
+git push -q origin main
+git remote set-head origin -a
+
+"$PY" "$ROOT/scripts/demo_record.py" "$GATEGEN" "$ROOT/docs/gategen.cast.json" \
+    "$WRING" gategen
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/gategen.cast.json" \
+    "$ROOT/docs/gategen.svg" "a criterion becomes a gate, and it is red first"
+fi

@@ -21,6 +21,7 @@ commands are the whole point of keeping them.
 from __future__ import annotations
 
 import datetime
+import os
 import re
 from pathlib import Path
 
@@ -492,22 +493,33 @@ def test_quantize_never_touches_the_captured_text():
 # to drive a pty or inject keystrokes would put synthesised keystrokes into
 # the one file law 8 forbids editing. A step function is not that.
 
-COMMITTED_CASTS = (
-    "docs/demo.cast.json",
-    "docs/start.cast.json",
-    "docs/vacuous.cast.json",
-    "docs/graph.cast.json",
-)
-
-
 def committed_casts() -> list[tuple[str, list[dict]]]:
+    """Every cast in `docs/`, DERIVED rather than listed.
+
+    This was a hand-kept tuple of four names, and by the time anyone looked it
+    had stopped covering `bench.cast.json` and `health.cast.json` — two
+    recordings added later that nothing checked fitted the renderer's canvas.
+    Neither actually overflowed, so nothing was broken; what was broken is the
+    guard, which reported green over a shrinking set.
+
+    That is the same shape as the bug `test_every_recorded_step_displays_
+    exactly_what_it_executes` fixed in itself (a hardcoded step list that
+    silently stopped covering the vacuity steps), and the same shape as the
+    defect class this whole repository exists to catch: a check that narrowed
+    while still passing. A count or a list kept by hand is a defect; this is
+    derived from the directory, so a cast added tomorrow is covered the day it
+    lands.
+    """
     import json as _json
 
     found = []
-    for name in COMMITTED_CASTS:
-        path = repo_root() / name
-        if path.is_file():
-            found.append((name, _json.loads(path.read_text(encoding="utf-8"))))
+    for path in sorted((repo_root() / "docs").glob("*.cast.json")):
+        found.append(
+            (
+                f"docs/{path.name}",
+                _json.loads(path.read_text(encoding="utf-8")),
+            )
+        )
     return found
 
 
@@ -572,6 +584,39 @@ def test_every_recorded_step_displays_exactly_what_it_executes(tmp_path):
             )
         assert "<" not in prompt, (
             f"{step.__name__} shows a placeholder, not a runnable command"
+        )
+
+
+def test_the_recorder_names_the_newest_run_and_not_the_alphabetical_one(tmp_path):
+    """A run id ends in four random hex characters, so bundles written inside
+    the same second sort by that suffix and the alphabetically last one is not
+    the chronologically last one.
+
+    Measured, on the first take of the gategen recording: `wring run`
+    converged in four iterations inside one second and the acceptance step was
+    pointed at iteration THREE, whose `acceptance.json` says `gate-failed`
+    because at that moment a gate genuinely had failed. Captured, honest, and
+    about the wrong run — which is worse than an obvious error, because
+    everything about it looks right.
+    """
+    require_checkout("scripts/demo_record.py")
+    module = demo_record_module()
+    runs = tmp_path / ".wringer" / "runs"
+    runs.mkdir(parents=True)
+    # Named so the ALPHABETICAL winner is the older one, which is the case
+    # that produced the wrong picture.
+    older = runs / "20260810-131250-f2fc"
+    newer = runs / "20260810-131250-8f79"
+    older.mkdir()
+    newer.mkdir()
+    os.utime(older, (1_000_000, 1_000_000))
+    os.utime(newer, (2_000_000, 2_000_000))
+
+    for step in (module._listing_step, module._acceptance_step):
+        prompt, _ = step("wring", tmp_path)
+        assert newer.name in prompt, (
+            f"{step.__name__} named {older.name}, which is the newest only "
+            "alphabetically"
         )
 
 

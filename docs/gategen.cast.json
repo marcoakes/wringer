@@ -1,0 +1,528 @@
+[
+ {
+  "at": 0.0,
+  "text": "$ wring plan",
+  "prompt": true
+ },
+ {
+  "at": 0.7,
+  "text": "Wrote tasks.jsonl \u2014 1 task."
+ },
+ {
+  "at": 0.7,
+  "text": "Wrote 1 brief: brief.md"
+ },
+ {
+  "at": 0.7,
+  "text": "Wrote wringer.rubric.yaml \u2014 4 criteria (1 need a human)."
+ },
+ {
+  "at": 0.7,
+  "text": ""
+ },
+ {
+  "at": 0.7,
+  "text": "Proposed gates (csv-hdr, csv-rows, csv-cents). Wringer does not install these"
+ },
+ {
+  "at": 0.7,
+  "text": "\u2014 changing what 'verified' means is yours to do:"
+ },
+ {
+  "at": 0.7,
+  "text": ""
+ },
+ {
+  "at": 0.7,
+  "text": "--- a/.wringer.yaml"
+ },
+ {
+  "at": 0.7,
+  "text": "+++ b/.wringer.yaml"
+ },
+ {
+  "at": 0.7,
+  "text": "@@ -2,6 +2,15 @@"
+ },
+ {
+  "at": 0.7,
+  "text": " gates:"
+ },
+ {
+  "at": 0.7,
+  "text": "   - id: test"
+ },
+ {
+  "at": 0.7,
+  "text": "     run: \"python3 test_reports.py\""
+ },
+ {
+  "at": 0.7,
+  "text": "+  - id: csv-hdr"
+ },
+ {
+  "at": 0.7,
+  "text": "+    run: python3 g_hdr.py"
+ },
+ {
+  "at": 0.7,
+  "text": "+    proves: hdr"
+ },
+ {
+  "at": 0.7,
+  "text": "+  - id: csv-rows"
+ },
+ {
+  "at": 0.7,
+  "text": "+    run: python3 g_rows.py"
+ },
+ {
+  "at": 0.7,
+  "text": "+    proves: rows"
+ },
+ {
+  "at": 0.7,
+  "text": "+  - id: csv-cents"
+ },
+ {
+  "at": 0.7,
+  "text": "+    run: python3 g_cents.py"
+ },
+ {
+  "at": 0.7,
+  "text": "+    proves: cents"
+ },
+ {
+  "at": 0.7,
+  "text": " "
+ },
+ {
+  "at": 0.7,
+  "text": " run:"
+ },
+ {
+  "at": 0.7,
+  "text": "   worker: \"sh ./build.sh\""
+ },
+ {
+  "at": 0.7,
+  "text": ""
+ },
+ {
+  "at": 0.7,
+  "text": "Next:"
+ },
+ {
+  "at": 0.7,
+  "text": "  point 'judge.rubric:' at wringer.rubric.yaml"
+ },
+ {
+  "at": 0.7,
+  "text": "  wring fleet tasks.jsonl"
+ },
+ {
+  "at": 2.1,
+  "text": ""
+ },
+ {
+  "at": 2.1,
+  "text": "$ wring plan --json | python3 patch.py | git apply && cat .wringer.yaml",
+  "prompt": true
+ },
+ {
+  "at": 2.8,
+  "text": "version: 1"
+ },
+ {
+  "at": 2.8,
+  "text": "gates:"
+ },
+ {
+  "at": 2.8,
+  "text": "  - id: test"
+ },
+ {
+  "at": 2.8,
+  "text": "    run: \"python3 test_reports.py\""
+ },
+ {
+  "at": 2.8,
+  "text": "  - id: csv-hdr"
+ },
+ {
+  "at": 2.8,
+  "text": "    run: python3 g_hdr.py"
+ },
+ {
+  "at": 2.8,
+  "text": "    proves: hdr"
+ },
+ {
+  "at": 2.8,
+  "text": "  - id: csv-rows"
+ },
+ {
+  "at": 2.8,
+  "text": "    run: python3 g_rows.py"
+ },
+ {
+  "at": 2.8,
+  "text": "    proves: rows"
+ },
+ {
+  "at": 2.8,
+  "text": "  - id: csv-cents"
+ },
+ {
+  "at": 2.8,
+  "text": "    run: python3 g_cents.py"
+ },
+ {
+  "at": 2.8,
+  "text": "    proves: cents"
+ },
+ {
+  "at": 2.8,
+  "text": ""
+ },
+ {
+  "at": 2.8,
+  "text": "run:"
+ },
+ {
+  "at": 2.8,
+  "text": "  worker: \"sh ./build.sh\""
+ },
+ {
+  "at": 2.8,
+  "text": "  max_iterations: 5"
+ },
+ {
+  "at": 2.8,
+  "text": ""
+ },
+ {
+  "at": 2.8,
+  "text": "deliver:"
+ },
+ {
+  "at": 2.8,
+  "text": "  branch: \"wringer/{run}\""
+ },
+ {
+  "at": 4.2,
+  "text": ""
+ },
+ {
+  "at": 4.3,
+  "text": "$ wring verify",
+  "prompt": true
+ },
+ {
+  "at": 5.1,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 5.1,
+  "text": "\u2717 csv-hdr failed     0.0s"
+ },
+ {
+  "at": 5.1,
+  "text": ""
+ },
+ {
+  "at": 5.1,
+  "text": "--- gates/002_csv-hdr/stderr.log ---"
+ },
+ {
+  "at": 5.1,
+  "text": "reports.to_csv() does not exist"
+ },
+ {
+  "at": 5.1,
+  "text": ""
+ },
+ {
+  "at": 5.1,
+  "text": "Evidence written to:"
+ },
+ {
+  "at": 5.1,
+  "text": ".wringer/runs/20260810-132220-9511/"
+ },
+ {
+  "at": 5.1,
+  "text": ""
+ },
+ {
+  "at": 5.1,
+  "text": "Next:"
+ },
+ {
+  "at": 5.1,
+  "text": "  open .wringer/runs/20260810-132220-9511/summary.md"
+ },
+ {
+  "at": 5.1,
+  "text": "  rerun wring verify --gate csv-hdr"
+ },
+ {
+  "at": 6.5,
+  "text": ""
+ },
+ {
+  "at": 6.6,
+  "text": "$ wring run",
+  "prompt": true
+ },
+ {
+  "at": 7.3,
+  "text": ""
+ },
+ {
+  "at": 7.3,
+  "text": "iteration 1/5"
+ },
+ {
+  "at": 7.4,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 7.4,
+  "text": "\u2717 csv-hdr failed     0.0s"
+ },
+ {
+  "at": 7.5,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 7.5,
+  "text": ""
+ },
+ {
+  "at": 7.5,
+  "text": "iteration 2/5"
+ },
+ {
+  "at": 7.6,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 7.6,
+  "text": "\u2713 csv-hdr passed     0.0s"
+ },
+ {
+  "at": 7.6,
+  "text": "\u2717 csv-rows failed    0.0s"
+ },
+ {
+  "at": 7.7,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 7.7,
+  "text": ""
+ },
+ {
+  "at": 7.7,
+  "text": "iteration 3/5"
+ },
+ {
+  "at": 7.8,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 7.8,
+  "text": "\u2713 csv-hdr passed     0.0s"
+ },
+ {
+  "at": 7.9,
+  "text": "\u2713 csv-rows passed    0.0s"
+ },
+ {
+  "at": 7.9,
+  "text": "\u2717 csv-cents failed   0.0s"
+ },
+ {
+  "at": 8.0,
+  "text": "\u2192 worker             0.0s  (exit 0)"
+ },
+ {
+  "at": 8.0,
+  "text": ""
+ },
+ {
+  "at": 8.0,
+  "text": "iteration 4/5"
+ },
+ {
+  "at": 8.1,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 8.1,
+  "text": "\u2713 csv-hdr passed     0.0s"
+ },
+ {
+  "at": 8.1,
+  "text": "\u2713 csv-rows passed    0.0s"
+ },
+ {
+  "at": 8.1,
+  "text": "\u2713 csv-cents passed   0.0s"
+ },
+ {
+  "at": 8.2,
+  "text": ""
+ },
+ {
+  "at": 8.2,
+  "text": "Converged in 4 iterations."
+ },
+ {
+  "at": 8.2,
+  "text": "Loop evidence: .wringer/loops/20260810-132220-2074/"
+ },
+ {
+  "at": 9.6,
+  "text": ""
+ },
+ {
+  "at": 9.6,
+  "text": "$ head -24 .wringer/runs/20260810-132221-0562/acceptance.json",
+  "prompt": true
+ },
+ {
+  "at": 10.2,
+  "text": "{"
+ },
+ {
+  "at": 10.2,
+  "text": "  \"schema_version\": \"wringer.acceptance.v1\","
+ },
+ {
+  "at": 10.2,
+  "text": "  \"counts\": {"
+ },
+ {
+  "at": 10.2,
+  "text": "    \"evidenced\": 3,"
+ },
+ {
+  "at": 10.2,
+  "text": "    \"unevidenced\": 0,"
+ },
+ {
+  "at": 10.2,
+  "text": "    \"gate-failed\": 0,"
+ },
+ {
+  "at": 10.2,
+  "text": "    \"gate-did-not-run\": 0,"
+ },
+ {
+  "at": 10.2,
+  "text": "    \"human\": 1"
+ },
+ {
+  "at": 10.2,
+  "text": "  },"
+ },
+ {
+  "at": 10.2,
+  "text": "  \"criteria\": ["
+ },
+ {
+  "at": 10.2,
+  "text": "    {"
+ },
+ {
+  "at": 10.2,
+  "text": "      \"criterion\": \"hdr\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"title\": \"The CSV header is the table's columns, in order\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"required\": true,"
+ },
+ {
+  "at": 10.2,
+  "text": "      \"state\": \"evidenced\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"gate\": \"csv-hdr\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"command\": \"python3 g_hdr.py\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"receipt\": {"
+ },
+ {
+  "at": 10.2,
+  "text": "        \"kind\": \"failure\","
+ },
+ {
+  "at": 10.2,
+  "text": "        \"bundle\": \".wringer/runs/20260810-132220-e026\""
+ },
+ {
+  "at": 10.2,
+  "text": "      },"
+ },
+ {
+  "at": 10.2,
+  "text": "      \"reason\": \"`csv-hdr` passed, and the record shows it can fail\","
+ },
+ {
+  "at": 10.2,
+  "text": "      \"refuses\": false"
+ },
+ {
+  "at": 10.2,
+  "text": "    },"
+ },
+ {
+  "at": 11.6,
+  "text": ""
+ },
+ {
+  "at": 11.7,
+  "text": "$ wring deliver --send",
+  "prompt": true
+ },
+ {
+  "at": 12.7,
+  "text": "wring deliver: the branch is pushed, but no 'forge:' section is declared, so"
+ },
+ {
+  "at": 12.7,
+  "text": "no merge request was opened."
+ },
+ {
+  "at": 12.7,
+  "text": "Branch:  wringer/20260810-132221-0562"
+ },
+ {
+  "at": 12.7,
+  "text": "Commit:  fba3c48ee76e"
+ },
+ {
+  "at": 12.7,
+  "text": "Pushed:  yes"
+ },
+ {
+  "at": 12.7,
+  "text": ""
+ },
+ {
+  "at": 12.7,
+  "text": "Delivery evidence: .wringer/deliveries/20260810-132222-86eb/"
+ }
+]

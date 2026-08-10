@@ -148,3 +148,70 @@ None of this is fixed here — F-DRY measures, it does not repair. The findings
 are recorded in `~/Claude/WRINGER_FACTORY.md` §3 as F2 (gate authoring), F3
 (the brief), and a new one this run produced: **the environment-error class is
 wider than exit 127**, which the loop still treats as a repair job.
+
+---
+
+## Postscript — 2026-08-10, the same scenario, driven again
+
+*Everything above is unedited and stays that way. It is the primary evidence
+of where the chain stopped, and a document that quietly improved its own
+history would be worthless for exactly the thing it is for. This is what
+happened when the scenario was re-driven after
+[SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) shipped.*
+
+**The chain completed. It reached `wring deliver`, and delivery succeeded.**
+Captured end to end in [`docs/gategen.md`](gategen.md); regenerate it with
+`sh scripts/demo.sh "" gategen`.
+
+What is different from the run above, step for step:
+
+- **§3 is answered.** `wring plan` proposed three gates, one per machine
+  criterion, each carrying the `proves:` line that binds it. The sidecar
+  (`wringer.gates.yaml`) is still hand-written here — there is still no LLM
+  endpoint on this machine — but the file now has a schema, a parser, a
+  validator and a place in the diff, which is what did not exist before. The
+  hand-writing is the offline path, not the gap.
+- **§6 is answered in the other direction.** `acceptance.json` on the final
+  run reads `evidenced: 3`, each citing the bundle in which its gate
+  demonstrably failed, and the human criterion stays `human`. Delivery was
+  not refused.
+- **§7 is answered.** `wring deliver --send` created the branch, wrote the
+  commit and pushed it to a bare `origin` on local disk. Exit 0. `--send`
+  rather than the dry run deliberately: a dry run also runs the acceptance
+  refusal, so exit 0 there would have proved acceptance did not block — but
+  this document's claim is that the chain *completes*, and the strongest
+  available form of that is a branch that exists.
+- **§4 is NOT answered.** The worker was a shell script and was still handed
+  a repair brief about a failing gate with no mention of CSV export. F3 is
+  unchanged by this run. What the re-drive shows is that the gate machinery
+  does not depend on the brief being good — not that the brief got better.
+- **§5 is NOT answered, and was avoided rather than fixed.** Every check in
+  the new scenario is stdlib-only, so `No module named pytest` never
+  happened. That is a deliberate choice about what this recording measures.
+  **F6 is exactly as open as it was**, and in a repo whose gates do need an
+  installed dependency it is still the first thing that happens.
+
+### What the re-drive found that was not on anyone's list
+
+**One `wring verify` arms one gate.** Verify stops at the first required
+failure, so on the first run after installing three gates the record showed
+`gate-failed` for one and `gate-did-not-run` for two. Every criterion below
+the first failure is unevidenced, which is §6's finding restated: the
+acceptance verdict is only as available as the least related gate above it.
+In this scenario the repair loop resolved it for free — the worker fixes the
+nearest failing thing, so each gate went red on its own iteration and then
+green — but that was a property of a worker that takes one step at a time. A
+worker that builds the whole feature in one call would turn the remaining
+gates green *without either of them ever having been red*, and those criteria
+would read `unevidenced` with delivery refused. **The sequencing that arms
+the gates is doing real work, and nothing currently states it as a
+requirement on the worker.** That is a candidate F-blocker and it is not
+fixed here.
+
+### What this still does not prove
+
+The scenario is one repo, one task, four criteria, and a scripted worker.
+`wring fleet` — many tasks, one spec, at scale — has still never been driven
+end to end, which is the half of F4 that remains outstanding. No agent wrote
+any of this code. And "the chain completed" means the record was consistent
+enough to ship, not that a person wanted what came out the other end.
