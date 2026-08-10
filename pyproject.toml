@@ -7,12 +7,15 @@ name = "wringer"
 # Single-sourced from src/wringer/__init__.py. Two hand-synced copies is
 # one copy too many when a release step has to edit both.
 dynamic = ["version"]
-description = "One command that proves whether this change is mergeable — wring verify, a standalone evidence compiler"
+description = "The vendor-neutral AI-DLC harness — runs your repo's own gates, keeps evidence a stranger can audit, and refuses what it cannot evidence"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Marc Oakes" }]
-keywords = ["ai-dlc", "verification", "evidence", "gates", "ci"]
+keywords = [
+  "ai-dlc", "verification", "evidence", "gates", "ci",
+  "ai-agents", "acceptance-criteria", "agent-harness", "provenance",
+]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",

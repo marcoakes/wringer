@@ -61,8 +61,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="wring",
         description=(
-            "One command that proves whether this change is mergeable, "
-            "and leaves behind evidence a human or agent can inspect."
+            "Runs your repo's own gates, keeps evidence a human or an agent "
+            "can audit, and refuses what it cannot evidence. 'wring start' "
+            "is the guided launch; 'wring verify' is the floor the rest "
+            "stands on."
         ),
     )
     parser.add_argument(

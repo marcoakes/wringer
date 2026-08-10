@@ -1465,18 +1465,29 @@ def test_the_command_table_heading_counts_the_commands_that_exist():
 def test_a_count_tied_to_a_release_says_which_release():
     """The other half. "thirteen commands" is only safe while it sits beside
     the version it describes — on its own it becomes a claim about this tree,
-    and a wrong one."""
+    and a wrong one.
+
+    AGENTS.md joined the list on 2026-08-10, having said "Eighteen commands
+    are registered" while the parser registered nineteen. That sentence names
+    no release, so it was a claim about this tree and it was wrong — and it
+    is the first paragraph every agent working here reads, which is the one
+    place a stale number costs the most.
+    """
     import re
 
-    for name in ("README.md", "QUICKSTART.md"):
+    for name in ("README.md", "QUICKSTART.md", "AGENTS.md"):
         path = repo_root() / name
         if not path.is_file():
             continue
         for line in path.read_text(encoding="utf-8").splitlines():
-            match = re.search(r"\b([a-z]+) commands\b", line)
+            # Case-insensitive, because a count that opens a sentence is
+            # capitalised and the lowercase pattern walked straight past
+            # AGENTS.md's "Nineteen commands are registered" — a guard that
+            # reads the file and can never fail is worse than no guard.
+            match = re.search(r"\b([A-Za-z]+) commands\b", line)
             if not match:
                 continue
-            claimed = NUMBER_WORDS.get(match.group(1))
+            claimed = NUMBER_WORDS.get(match.group(1).lower())
             if claimed is None or claimed == registered_command_count():
                 continue
             assert re.search(r"\d+\.\d+\.\d+", line), (
