@@ -161,8 +161,10 @@ MILESTONES: tuple[Milestone, ...] = (
     Milestone(
         # Who writes the acceptance gate for a criterion whose feature does
         # not exist yet. The factory's real constraint; needs a spec first.
+        # Probed on the DOCS like P6/P7/P8: the spec now exists, and a node
+        # green on the spec would claim a finished feature an arc early.
         "F2", "gate authoring",
-        files=("SPEC_GATEGEN_V0.md",),
+        files=("SPEC_GATEGEN_V0.md", "docs/gategen.md"),
     ),
     Milestone(
         # Whether the brief a worker receives is good enough to build from.
