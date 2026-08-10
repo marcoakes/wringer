@@ -170,9 +170,29 @@ MILESTONES: tuple[Milestone, ...] = (
         files=("docs/brief-quality.md",),
     ),
     Milestone(
-        # The chain, driven end to end on something real.
+        # The chain, driven end to end on something real AND reaching the end.
+        #
+        # The probe is a `contains`, not the file, and the file is why: the
+        # dry run exists and documents the chain STOPPING at the repair loop,
+        # so a node green on the document's existence would read "chain
+        # proven" off a document that proves the opposite. That false green
+        # actually happened the moment the doc landed, and this guard caught
+        # it — the same way it caught P6 going green two commits early.
         "F4", "chain proven",
         files=("docs/factory-dry-run.md",),
+        contains=(("docs/factory-dry-run.md", "reached `wring deliver`"),),
+    ),
+    Milestone(
+        # The environment-error class is wider than exit 127: a fresh repo's
+        # first gate died on `No module named pytest` (exit 1) and the loop
+        # briefed a worker to repair it. Found by the dry run. Blocked with
+        # A0b on the frozen loop-manifest reason enum.
+        "F6", "env≠repair",
+        contains=(
+            ("tests/test_run.py",
+             "test_a_loop_does_not_brief_a_worker_against_a_broken_environment"),
+        ),
+        files=("tests/test_run.py",),
     ),
     Milestone(
         # "repositories", plural.
