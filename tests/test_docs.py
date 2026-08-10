@@ -1583,3 +1583,41 @@ def test_the_goal_is_stated_where_every_window_actually_looks():
         "AGENTS.md still frames this as a single-command evidence compiler. "
         "That framing is what every window inherited while the goal drifted."
     )
+
+
+def test_the_roadmap_tracks_the_goal_and_not_only_the_features():
+    """The rail measured features and could read 12/12 while the factory was
+    untouched — which is exactly what happened for four spec cycles.
+
+    Every milestone on it named a command or a doc: verify, loop+fleet,
+    spec/plan, issue→MR, attest, bench, graphs, health. All real, all
+    shipped, and none of them answers "how close is a PM's spec to becoming
+    working software". A picture that can be entirely green while the goal
+    has not moved is a measurement of the wrong axis, drawn where a reader
+    looks first.
+
+    The F-nodes are the factory blockers from WRINGER_FACTORY.md §3, and they
+    are probed on shipped EVIDENCE — a docs artifact — the way P6, P7 and P8
+    are, never on registration. F1's evidence is the fix's own test, because
+    a graph budget that no longer charges a person for thinking is a
+    behaviour, not a file."""
+    import sys
+
+    sys.path.insert(0, str(repo_root() / "scripts"))
+    import roadmap_render
+
+    labels = [m.label for m in roadmap_render.MILESTONES]
+    factory = [label for label in labels if label.startswith("F")]
+    assert len(factory) >= 5, (
+        f"the roadmap tracks no factory blockers: {labels}. It can read all "
+        "green while a PM's spec is no closer to working software."
+    )
+
+    # Derived, not hand-kept: every F-node the plan names must be on the rail.
+    plan = Path.home() / "Claude" / "WRINGER_FACTORY.md"
+    if plan.is_file():
+        import re
+
+        named = set(re.findall(r"\*\*(F\d)\b", plan.read_text(encoding="utf-8")))
+        missing = sorted(named - set(factory))
+        assert not missing, f"WRINGER_FACTORY.md names {missing}, the rail does not"

@@ -53,12 +53,21 @@ class Milestone:
     files: tuple[str, ...] = field(default_factory=tuple)
     # Git tags that must exist.
     tags: tuple[str, ...] = field(default_factory=tuple)
+    # (path, needle) pairs: the file must exist AND contain the string.
+    # Existence alone is too weak for a milestone whose evidence is a
+    # BEHAVIOUR — a test file is always present, so F1 asks for the test.
+    contains: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
     def done(self, root: Path) -> bool:
         return (
             all(name in registered_commands() for name in self.commands)
             and all((root / name).exists() for name in self.files)
             and all(tag in existing_tags(root) for tag in self.tags)
+            and all(
+                (root / name).is_file()
+                and needle in (root / name).read_text(encoding="utf-8")
+                for name, needle in self.contains
+            )
         )
 
 
@@ -124,6 +133,51 @@ MILESTONES: tuple[Milestone, ...] = (
         "P8", "health",
         commands=("health",),
         files=("docs/health.md", "SPEC_HEALTH_V0.md"),
+    ),
+    # --- the factory, which the rail did not measure ----------------------
+    #
+    # Every node above names a command or a doc, and all of them were green
+    # while a PM's spec was no closer to becoming working software. Four spec
+    # cycles (vacuity, bench, health, acceptance) each made Wringer better at
+    # REFUSING and none at BUILDING, and this picture could not show the
+    # difference — a rail that reads 12/12 against the wrong axis is the
+    # narrowed-but-passing check this program exists to catch, drawn where a
+    # reader looks first.
+    #
+    # These are the blockers from ~/Claude/WRINGER_FACTORY.md §3, probed on
+    # shipped EVIDENCE like P6/P7/P8 rather than on registration. They are
+    # expected to be RED for a while, and that is the point: an honest rail
+    # that says "not yet" beats a green one measuring something else.
+    Milestone(
+        # The graph survives a human. Evidence is the behaviour's own test —
+        # a budget that no longer charges a person for thinking is not a file.
+        "F1", "park≠spend",
+        files=("tests/test_graph_run.py",),
+        contains=(
+            ("tests/test_graph_run.py",
+             "test_a_slow_human_approval_does_not_spend_the_graphs_budget"),
+        ),
+    ),
+    Milestone(
+        # Who writes the acceptance gate for a criterion whose feature does
+        # not exist yet. The factory's real constraint; needs a spec first.
+        "F2", "gate authoring",
+        files=("SPEC_GATEGEN_V0.md",),
+    ),
+    Milestone(
+        # Whether the brief a worker receives is good enough to build from.
+        "F3", "brief quality",
+        files=("docs/brief-quality.md",),
+    ),
+    Milestone(
+        # The chain, driven end to end on something real.
+        "F4", "chain proven",
+        files=("docs/factory-dry-run.md",),
+    ),
+    Milestone(
+        # "repositories", plural.
+        "F5", "multi-repo",
+        files=("SPEC_MULTIREPO_V0.md",),
     ),
 )
 
