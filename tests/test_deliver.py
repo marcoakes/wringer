@@ -457,6 +457,38 @@ def test_send_branches_commits_pushes_and_opens_an_mr(
     assert "| check | passed |" in posted["body"]["body"]
 
 
+def test_the_pushed_but_no_forge_message_fits_a_terminal(
+    delivery_repo, monkeypatch, capsys
+):
+    """A branch that landed with no `forge:` declared is a real state, and
+    saying so is more useful than failing the command over it — but it was
+    said in a single 106-column line.
+
+    Same defect as the 402-column vacuity refusal (tests/test_cli.py) and the
+    graph's 142-column one (tests/test_graph_deliver.py), on the last thing
+    `wring deliver` prints: prose whose entire job is to be read, printed past
+    the edge of the terminal reading it. Asserted as a property, never on
+    where a line broke.
+    """
+    (delivery_repo / config.CONFIG_FILENAME).write_text(
+        CONFIG.split("forge:")[0] + 'deliver:\n  branch: "wringer/{run}"\n',
+        encoding="utf-8",
+    )
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver", "--send"]) == cli.EXIT_OK
+
+    printed = capsys.readouterr()
+    over = [
+        line
+        for line in (printed.out + printed.err).splitlines()
+        if len(line) > 80
+    ]
+    assert not over, f"{len(over)} line(s) run past any terminal: {over}"
+    # And the reflow must not have eaten the message.
+    assert "no merge request was opened" in flat(printed.err)
+
+
 def test_every_git_write_is_on_the_ledger_before_it_happens(
     delivery_repo, monkeypatch, capsys
 ):

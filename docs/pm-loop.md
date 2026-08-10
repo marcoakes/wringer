@@ -245,7 +245,8 @@ Wrote tasks.jsonl — 2 tasks.
 Wrote 2 briefs: briefs/csv-endpoint.md, briefs/export-button.md
 Wrote wringer.rubric.yaml — 4 criteria (1 need a human).
 
-Proposed gates (lint). Wringer does not install these — changing what 'verified' means is yours to do:
+Proposed gates (lint). Wringer does not install these — changing what
+'verified' means is yours to do:
 
 --- a/.wringer.yaml
 +++ b/.wringer.yaml

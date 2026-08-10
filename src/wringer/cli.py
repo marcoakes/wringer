@@ -2719,9 +2719,17 @@ def _report_plan(
     )
 
     if diff:
+        # Wrapped, like every other paragraph here: this is the sentence that
+        # tells a reader Wringer will not install the gate for them, and it
+        # ran to 128 columns as soon as a spec proposed three.
         print(
-            f"\nProposed gates ({', '.join(fresh)}). Wringer does not install "
-            "these — changing what 'verified' means is yours to do:\n"
+            "\n"
+            + _wrap_message(
+                f"Proposed gates ({', '.join(fresh)}). Wringer does not "
+                "install these — changing what 'verified' means is yours to "
+                "do:"
+            )
+            + "\n"
         )
         print(diff.rstrip())
     elif fresh:
@@ -2729,18 +2737,29 @@ def _report_plan(
         # not a block-style one this can safely add to. Saying so beats a diff
         # that looks additive and is not.
         print(
-            f"\nProposed gates ({', '.join(fresh)}), as text rather than a diff: "
-            f"{config.CONFIG_FILENAME}'s gate list is not in the block style "
-            "this can add to, and a patch that appended a second 'gates:' key "
-            "would delete the gates you already have. Add these by hand:\n"
+            "\n"
+            + _wrap_message(
+                f"Proposed gates ({', '.join(fresh)}), as text rather than a "
+                f"diff: {config.CONFIG_FILENAME}'s gate list is not in the "
+                "block style this can add to, and a patch that appended a "
+                "second 'gates:' key would delete the gates you already have. "
+                "Add these by hand:"
+            )
+            + "\n"
         )
         for gate in loaded.gates:
             if gate.id in fresh:
                 print(f"  - id: {gate.id}\n    run: {gate.run}")
     if already:
+        # One short id fits; a spec that re-proposes six does not, and the
+        # line length is the ids' length. Wrapped for the same reason as the
+        # two above rather than because it has been seen to overflow.
         print(
-            f"\nAlready declared, so not proposed: {', '.join(already)}. Check "
-            f"they run what the spec meant."
+            "\n"
+            + _wrap_message(
+                f"Already declared, so not proposed: {', '.join(already)}. "
+                "Check they run what the spec meant."
+            )
         )
     if not diff and not fresh and not already:
         print(f"\nNo gates proposed; {config.CONFIG_FILENAME} is unchanged.")
@@ -2997,8 +3016,10 @@ def _open_merge_request(
     """
     if cfg.forge is None:
         print(
-            "wring deliver: the branch is pushed, but no 'forge:' section is "
-            "declared, so no merge request was opened.",
+            _wrap_message(
+                "wring deliver: the branch is pushed, but no 'forge:' section "
+                "is declared, so no merge request was opened."
+            ),
             file=sys.stderr,
         )
         return None

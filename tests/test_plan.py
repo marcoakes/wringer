@@ -476,6 +476,54 @@ def test_a_flow_style_config_gets_words_not_a_destructive_diff(
     assert config.load(repo / config.CONFIG_FILENAME).gates[0].id == "check"
 
 
+@pytest.mark.parametrize(
+    "config_text",
+    [
+        pytest.param(CONFIG, id="a-diff"),
+        pytest.param(
+            CONFIG.replace(
+                '  - id: check\n    run: "true"\n',
+                '  - id: check\n    run: "true"\n  - id: test\n    run: "pytest"\n',
+            ),
+            id="already-declared",
+        ),
+        pytest.param(
+            "version: 1\n"
+            'gates: [{id: check, run: "true"}]\n'
+            "judge:\n  endpoint: http://127.0.0.1:11434/v1/chat/completions\n"
+            "  model: cheap-model\n  rubric: wringer.rubric.yaml\n",
+            id="words-not-a-diff",
+        ),
+    ],
+)
+def test_the_gate_proposal_a_person_must_read_fits_a_terminal(
+    repo, monkeypatch, capsys, config_text
+):
+    """Every paragraph of this report is prose and all three were printed
+    raw — 128 columns for three proposed gates, more for the flow-style
+    explanation. That is `wring deliver`'s 402-column vacuity line
+    (tests/test_cli.py) and the graph's 142-column one
+    (tests/test_graph_deliver.py) a third time, and here it lands on the one
+    sentence that tells a reader Wringer will NOT install these for them.
+
+    Asserted as a property and never on where a line broke: the formatter has
+    its own tests, and pinning a break point here would test the formatter.
+    """
+    setup_repo(repo, config_text=config_text)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+
+    printed = capsys.readouterr().out
+    over = [line for line in printed.splitlines() if len(line) > 80]
+    assert not over, f"{len(over)} line(s) run past any terminal: {over}"
+    # And the reflow must not have eaten the message. What each branch SAYS
+    # has its own three tests above; this only guards against wrapping
+    # swallowing the paragraph that names the gate.
+    said = flat(printed)
+    assert "Proposed gates (test)" in said or "Already declared" in said
+
+
 def test_two_tasks_may_not_share_a_brief(repo, monkeypatch, capsys):
     """One file, two tasks: the second write wins, the fleet dispatches both
     tasks against it, and one objective is simply gone."""
