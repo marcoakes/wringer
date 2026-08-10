@@ -124,6 +124,7 @@ _FLEET_KEYS = {
     "child",
     "worker_fallbacks",
     "worktree",
+    "scope",
 }
 _CHILD_KEYS = {"max_iterations", "worker_timeout", "wall_clock"}
 _ACP_KEYS = {"command", "args", "env_passthrough"}
@@ -233,6 +234,20 @@ class Judge:
 
 
 @dataclass(frozen=True)
+class ScopeEntry:
+    """One row of `fleet.scope`: a task, and the criteria it proves.
+
+    CRITERIA ids, never gate ids (SPEC_SCOPE_V0 ruling 1). The human writes
+    the vocabulary the spec was approved in, and the gate is reached through
+    the `proves:` binding they already installed — one join, declared twice
+    nowhere.
+    """
+
+    task: str
+    criteria: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class Fleet:
     """The `fleet:` section (SPEC_SUPERVISION_V0.md §S3).
 
@@ -258,6 +273,12 @@ class Fleet:
     # This is the ONLY git write Wringer ever makes, and it is metadata:
     # add and remove. No commit, no branch move, no push — that law holds.
     worktree: bool = False
+    # Which criteria each task proves (SPEC_SCOPE_V0). None when undeclared,
+    # and undeclared is every fleet that shipped before this: no resolution,
+    # no dispatch change, no new behaviour. Only the SHAPE is checked here —
+    # the ruling-5 refusals need the task file and the spec, so they fire at
+    # `wring fleet` start where both are in hand.
+    scope: tuple[ScopeEntry, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -760,6 +781,45 @@ def _parse_deliver(raw: Any, source: str) -> Deliver | None:
     )
 
 
+def _parse_scope(raw: Any, source: str) -> tuple[ScopeEntry, ...] | None:
+    """The SHAPE of `fleet.scope`, and nothing about its meaning.
+
+    Whether the ids exist, resolve to gates, or cover the task file are
+    ruling 5's refusals, and they need two documents this function has never
+    seen — the task file and `wringer.spec.yaml`. They fire in
+    `fleet.resolve_scope`, at `wring fleet` start, before any child spawns.
+    Splitting it the other way would put half the family in a message that
+    says "config error" and half in one that says "fleet error" for defects
+    a reader makes in the same three lines of YAML.
+
+    Declaration ORDER is preserved, because every refusal below quotes it
+    back to the human who wrote it.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            f"{source}: 'fleet.scope' must be a mapping of task id to the "
+            "criteria it proves"
+        )
+
+    entries: list[ScopeEntry] = []
+    for task, criteria in raw.items():
+        if not isinstance(task, str) or not task.strip():
+            raise ConfigError(
+                f"{source}: 'fleet.scope' keys must be task ids (got {task!r})"
+            )
+        if not isinstance(criteria, list) or not all(
+            isinstance(c, str) and c.strip() for c in criteria
+        ):
+            raise ConfigError(
+                f"{source}: 'fleet.scope.{task}' must be a list of criterion "
+                f"ids from {SPEC_FILENAME} (got {criteria!r})"
+            )
+        entries.append(ScopeEntry(task=task, criteria=tuple(criteria)))
+    return tuple(entries)
+
+
 def _parse_fleet(raw: Any, source: str) -> Fleet | None:
     if raw is None:
         return None
@@ -821,6 +881,7 @@ def _parse_fleet(raw: Any, source: str) -> Fleet | None:
 
     return Fleet(
         worktree=worktree,
+        scope=_parse_scope(raw.get("scope"), source),
         deadline=_positive_int(raw, "deadline", 1, source, section="fleet"),
         concurrency=_positive_int(raw, "concurrency", 4, source, section="fleet"),
         progress_window=_positive_int(

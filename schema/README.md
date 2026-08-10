@@ -24,6 +24,7 @@ rather than reverse-engineer it — the point of
 | [`vacuity.schema.json`](vacuity.schema.json) | `wringer.vacuity.v1` — `vacuity.json`, what `wring verify --prove` found when it ran the gates against the *pre-change* tree |
 | [`fleet-manifest.schema.json`](fleet-manifest.schema.json) | `wringer.fleet.v1` — `manifest.json` of a `wring fleet` bundle |
 | [`fleet-event.schema.json`](fleet-event.schema.json) | **one line** of a fleet's `fleet.jsonl` |
+| [`fleetscope.schema.json`](fleetscope.schema.json) | `wringer.fleetscope.v1` — `scope.json`, which criteria each task proved and which gates those resolved to. Carries the whole declared gate set, so a task's excluded gates are computable from this file alone |
 | [`judge-verdict.schema.json`](judge-verdict.schema.json) | `wringer.judge.v1` — `verdict.json`, a rubric verdict over a finished bundle |
 | [`judge-request.schema.json`](judge-request.schema.json) | `request.json` — exactly what `wring judge` would send, written before any socket opens |
 | [`usage.schema.json`](usage.schema.json) | `wringer.usage.v1` — `usage.json`, a sibling file in a loop bundle: what the *agent* reported spending, recorded verbatim and unverified. Absent when nothing was reported, never zero |

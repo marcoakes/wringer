@@ -16,7 +16,7 @@ from pathlib import Path
 
 from conftest import flat
 
-from wringer import cli, config, loop, verify
+from wringer import cli, config, fleet, loop, verify
 
 # Two gates, and the one this task does NOT own is declared FIRST. That
 # ordering is the test: `verify.run` stops at the first required failure, so
@@ -254,3 +254,427 @@ tasks:
     assert "`c-mine` — this task's criterion — bound to `mine` — THIS TASK" in text
     assert "`c-other` — the other task's criterion — bound to `theirs` — " \
         "another task's" in text
+
+
+# ------------------------------------------------------------- S2: fleet.scope
+
+SCOPED_GATES = """\
+version: 1
+gates:
+  - id: g-alpha
+    run: "grep -q ALPHA alpha.txt"
+    proves: c-alpha
+  - id: g-beta
+    run: "grep -q BETA beta.txt"
+    proves: c-beta
+{extra_gates}\
+fleet:
+  deadline: 300
+  concurrency: 1
+{scope}\
+"""
+
+SCOPED_SPEC = """\
+schema_version: wringer.spec.v1
+title: Two owners, one tree
+intent: Two tasks, each proving its own criterion.
+approved: {approved}
+criteria:
+  - id: c-alpha
+    title: alpha works
+  - id: c-beta
+    title: beta works
+{extra_criteria}\
+tasks:
+  - id: t-alpha
+    brief: briefs/t-alpha.md
+    dir: .
+    objective: make alpha work
+"""
+
+DEFAULT_SCOPE = """\
+  scope:
+    t-alpha: [c-alpha]
+    t-beta: [c-beta]
+"""
+
+
+def scoped_repo(
+    repo: Path,
+    scope: str = DEFAULT_SCOPE,
+    approved: str = "true",
+    extra_gates: str = "",
+    extra_criteria: str = "",
+) -> config.Config:
+    (repo / ".wringer.yaml").write_text(
+        SCOPED_GATES.format(scope=scope, extra_gates=extra_gates), encoding="utf-8"
+    )
+    (repo / "wringer.spec.yaml").write_text(
+        SCOPED_SPEC.format(approved=approved, extra_criteria=extra_criteria),
+        encoding="utf-8",
+    )
+    return config.load(repo / ".wringer.yaml")
+
+
+def two_tasks() -> list:
+    return [
+        fleet.Task(id="t-alpha", brief="briefs/t-alpha.md", dir="."),
+        fleet.Task(id="t-beta", brief="briefs/t-beta.md", dir="."),
+    ]
+
+
+def refusal(repo: Path, tasks: list, **kwargs) -> str:
+    """Resolve a scope that must be refused, and return the message flat."""
+    cfg = scoped_repo(repo, **kwargs)
+    try:
+        fleet.resolve_scope(repo, cfg, tasks)
+    except fleet.FleetError as exc:
+        return flat(str(exc))
+    raise AssertionError("the scope was accepted and should not have been")
+
+
+# --- ruling 5: the map is total, and every refusal names BOTH sides ----------
+
+
+def test_a_scoped_task_that_is_not_in_the_task_file_is_refused(repo):
+    """Refusal 1. Both sides: the id, and the file it is missing from."""
+    message = refusal(repo, [two_tasks()[0]])
+
+    assert "t-beta" in message
+    assert ".wringer.yaml" in message
+
+
+def test_a_task_file_task_missing_from_the_scope_map_is_refused(repo):
+    """Refusal 2. A fleet where some children are scoped and some run the
+    full set would make 'succeeded' mean two things in one summary table."""
+    message = refusal(repo, two_tasks(), scope="  scope:\n    t-alpha: [c-alpha]\n")
+
+    assert "t-beta" in message
+    assert ".wringer.yaml" in message
+
+
+def test_an_unknown_criterion_in_the_scope_map_is_refused(repo):
+    """Refusal 3."""
+    message = refusal(
+        repo,
+        two_tasks(),
+        scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: [c-nope]\n",
+    )
+
+    assert "c-nope" in message
+    assert "t-beta" in message
+    assert "wringer.spec.yaml" in message
+
+
+def test_a_criterion_bound_to_no_gate_is_refused(repo):
+    """Refusal 4. A criterion nothing proves gives the child nothing to
+    converge on, and the human wrote the binding, so the human is told."""
+    message = refusal(
+        repo,
+        two_tasks(),
+        scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: [c-beta, c-loose]\n",
+        extra_criteria="  - id: c-loose\n    title: nothing proves this\n",
+    )
+
+    assert "c-loose" in message
+    assert "t-beta" in message
+
+
+def test_a_human_criterion_in_the_scope_map_is_refused(repo):
+    """Refusal 5. Nothing to run — the category error `check_bindings`
+    already refuses one join away."""
+    message = refusal(
+        repo,
+        two_tasks(),
+        scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: [c-beta, c-taste]\n",
+        extra_criteria="  - id: c-taste\n    title: it feels right\n    human: true\n",
+    )
+
+    assert "c-taste" in message
+    assert "t-beta" in message
+    assert "human" in message
+
+
+def test_a_criterion_claimed_by_two_tasks_is_refused(repo):
+    """Refusal 6. One criterion, one owner — the `proposals()` collision
+    refusal is the precedent and the message shape."""
+    message = refusal(
+        repo,
+        two_tasks(),
+        scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: [c-alpha, c-beta]\n",
+    )
+
+    assert "c-alpha" in message
+    assert "t-alpha" in message and "t-beta" in message
+
+
+def test_a_task_with_an_empty_criteria_list_is_refused_with_its_own_remedy(repo):
+    """Refusal 7a — review finding 2, folded.
+
+    The only surviving path to 'resolves to zero gates' is an EMPTY list, for
+    which 'bind a gate' is advice about a problem the human does not have.
+    The message must name the defect they actually made.
+    """
+    message = refusal(
+        repo, two_tasks(), scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: []\n"
+    )
+
+    assert "t-beta" in message
+    # Its own remedy, not refusal 4's.
+    assert "drop it from the map and from the task file" in message
+    assert "bind a gate" not in message
+
+
+def test_a_criterion_listed_twice_in_one_task_is_refused(repo):
+    """Review finding 3, folded. Harmless to the resolution — a set absorbs
+    it — and refused anyway, because every other duplicate in this repo is
+    loud and a silent one here would be the exception a reader has to learn."""
+    message = refusal(
+        repo,
+        two_tasks(),
+        scope="  scope:\n    t-alpha: [c-alpha]\n    t-beta: [c-beta, c-beta]\n",
+    )
+
+    assert "c-beta" in message
+    assert "t-beta" in message
+
+
+def test_scope_against_an_unapproved_spec_is_refused(repo):
+    """Refusal 8 — review finding 1 (HIGH), the one that keeps the whole
+    cycle's guarantee unconditional.
+
+    `accept.assess` returns None unless the spec is approved, so a scoped
+    fleet in an unapproved repo writes NO `acceptance.json` — and then there
+    is nothing for `wring deliver` to refuse on. Measured by R0 on shipped
+    code: with `approved: false` delivery proceeded to "Would create branch"
+    on a bundle in which a required gate had never run.
+    """
+    message = refusal(repo, two_tasks(), approved="false")
+
+    assert "wringer.spec.yaml" in message
+    assert "fleet.scope" in message
+    # The remedy is that a person approves the spec.
+    assert "approved: true" in message
+
+
+def test_the_refusals_fire_before_any_child_spawns(repo, monkeypatch, capsys):
+    """Ruling 5: hard errors at `wring fleet` start. A fleet that spawned
+    four children and then discovered its map was wrong has already spent
+    somebody's money."""
+    scoped_repo(repo, scope="  scope:\n    t-alpha: [c-alpha]\n")
+    (repo / "briefs").mkdir(exist_ok=True)
+    (repo / "briefs" / "t-alpha.md").write_text("go\n", encoding="utf-8")
+    (repo / "briefs" / "t-beta.md").write_text("go\n", encoding="utf-8")
+    (repo / "tasks.jsonl").write_text(
+        "\n".join(
+            json.dumps({"id": t.id, "brief": t.brief, "dir": t.dir})
+            for t in two_tasks()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["fleet", "tasks.jsonl"]) == cli.EXIT_CONFIG
+
+    assert "t-beta" in flat(capsys.readouterr().err)
+    # No fleet bundle: it stopped before it started.
+    assert not (repo / ".wringer" / "fleets").exists()
+
+
+# --- the resolution, and what it records -------------------------------------
+
+
+def test_scope_resolves_criteria_to_gates_through_the_shipped_bindings(repo):
+    """Ruling 1: the map's values are CRITERIA, and the gate is reached
+    through the `proves:` binding the human already installed. One join,
+    declared twice nowhere."""
+    cfg = scoped_repo(repo)
+
+    resolved = fleet.resolve_scope(repo, cfg, two_tasks())
+
+    assert resolved is not None
+    assert resolved.gates_for("t-alpha") == ("g-alpha",)
+    assert resolved.gates_for("t-beta") == ("g-beta",)
+
+
+def test_a_criterion_no_task_claimed_is_legal_and_loud(repo):
+    """Ruling 5's last sentence: legal, and it lands in the unclaimed list.
+    Its gate goes red in the final verify if nobody built it, and acceptance
+    refuses delivery exactly as today."""
+    cfg = scoped_repo(
+        repo,
+        extra_gates='  - id: g-extra\n    run: "true"\n    proves: c-extra\n',
+        extra_criteria="  - id: c-extra\n    title: nobody owns this\n",
+    )
+
+    resolved = fleet.resolve_scope(repo, cfg, two_tasks())
+
+    assert resolved is not None
+    assert resolved.unclaimed == ("c-extra",)
+
+
+def test_an_undeclared_scope_leaves_the_fleet_exactly_as_it_was(repo):
+    """No `fleet.scope`, no resolution and no new behaviour — the unscoped
+    fleets this cycle must not move."""
+    cfg = scoped_repo(repo, scope="")
+
+    assert fleet.resolve_scope(repo, cfg, two_tasks()) is None
+
+
+# --- the dispatch, and scope.json --------------------------------------------
+
+SHARED_TREE_FLEET = """\
+version: 1
+gates:
+  - id: g-alpha
+    run: "grep -q ALPHA alpha.txt"
+    proves: c-alpha
+  - id: g-beta
+    run: "grep -q BETA beta.txt"
+    proves: c-beta
+run:
+  worker: "sh worker.sh"
+  max_iterations: 3
+  worker_timeout: 60
+fleet:
+  deadline: 300
+  concurrency: 1
+  progress_window: 120
+  scope:
+    t-alpha: [c-alpha]
+    t-beta: [c-beta]
+"""
+
+
+def shared_tree_fleet(repo: Path) -> config.Config:
+    """One tree, two tasks, each owning one gate — the shape the cycle is for."""
+    (repo / ".wringer.yaml").write_text(SHARED_TREE_FLEET, encoding="utf-8")
+    (repo / "wringer.spec.yaml").write_text(
+        SCOPED_SPEC.format(approved="true", extra_criteria=""), encoding="utf-8"
+    )
+    # Each child edits only the file its own gate reads. Which one it is
+    # comes from WRINGER_TASK_ID, the variable the fleet already sets.
+    (repo / "worker.sh").write_text(
+        'if [ "$WRINGER_TASK_ID" = t-alpha ]; then\n'
+        "  printf 'ALPHA\\n' > alpha.txt\n"
+        "else\n"
+        "  printf 'BETA\\n' > beta.txt\n"
+        "fi\n",
+        encoding="utf-8",
+    )
+    (repo / "alpha.txt").write_text("BROKEN\n", encoding="utf-8")
+    (repo / "beta.txt").write_text("BROKEN\n", encoding="utf-8")
+    (repo / "briefs").mkdir(exist_ok=True)
+    for task_id in ("t-alpha", "t-beta"):
+        (repo / "briefs" / f"{task_id}.md").write_text("go\n", encoding="utf-8")
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    return config.load(repo / ".wringer.yaml")
+
+
+def test_a_scoped_fleet_dispatches_each_child_onto_its_own_gates(repo):
+    """The whole point, end to end through real child processes.
+
+    Measured pathology (dossier §3a–3b): unscoped, every child runs the WHOLE
+    gate set, so all but the last fail their first pass and the retry queue
+    harvests the work. Scoped, each child converges on its own gate the first
+    time — and `t-alpha` never once fails on `g-beta`.
+    """
+    cfg = shared_tree_fleet(repo)
+    tasks = two_tasks()
+
+    outcome = fleet.run(repo, cfg, tasks)
+
+    assert (outcome.succeeded, outcome.failed, outcome.parked) == (2, 0, 0)
+    # Each child converged on the FIRST attempt: no retry-harvest needed,
+    # because no child was ever blocked on the other's gate.
+    manifest = json.loads(
+        (outcome.directory / fleet.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    assert [t["attempts"] for t in manifest["tasks"]] == [1, 1]
+
+
+def test_scope_json_records_the_joins_the_unclaimed_and_the_declared_set(repo):
+    """`wringer.fleetscope.v1` — machine-readable at the fleet level.
+
+    Review finding 10, folded: `declared_gates` is here so a reader computes
+    each task's EXCLUDED gates from this file ALONE, rather than fetching
+    `.wringer.yaml` at that commit. The schema is frozen the moment it is
+    published, so a field missing today is missing forever.
+    """
+    cfg = shared_tree_fleet(repo)
+
+    outcome = fleet.run(repo, cfg, two_tasks())
+
+    written = json.loads(
+        (outcome.directory / fleet.SCOPE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert written["schema_version"] == "wringer.fleetscope.v1"
+    assert written["declared_gates"] == ["g-alpha", "g-beta"]
+    assert written["tasks"] == [
+        {"task": "t-alpha", "criteria": ["c-alpha"], "gates": ["g-alpha"]},
+        {"task": "t-beta", "criteria": ["c-beta"], "gates": ["g-beta"]},
+    ]
+    assert written["unclaimed_criteria"] == []
+    # The point of `declared_gates`: excluded is computable from this file.
+    excluded = set(written["declared_gates"]) - set(written["tasks"][0]["gates"])
+    assert excluded == {"g-beta"}
+
+
+# --- the guard pin: DONE box 3, the spec's one-sentence test ------------------
+
+
+def test_a_scoped_child_bundle_can_never_evidence_an_unscoped_criterion(repo):
+    """**Can the harness's own scoping ever make a green tick claim more than
+    it measured?** It cannot, and this is that sentence as a unit test.
+
+    Criterion `c-beta` is bound to `g-beta`; the child is scoped away from
+    it; `g-beta` therefore leaves no result, and acceptance must read that
+    absence as `gate-did-not-run` with `refuses` true — the shipped guard,
+    pinned against scope BY NAME. It pins behaviour that already ships (R0
+    measured it through `wring verify --gate`); the box stays because it is
+    what stops a later slice loosening the guard once scope has a reason to
+    want it loosened.
+    """
+    cfg = shared_tree_fleet(repo)
+    # Both gates would pass if both ran — so nothing but the SCOPE keeps
+    # `c-beta` from being claimed, which is exactly what is under test.
+    (repo / "alpha.txt").write_text("ALPHA\n", encoding="utf-8")
+    (repo / "beta.txt").write_text("BETA\n", encoding="utf-8")
+
+    outcome = verify.run(repo, cfg, verify.plan(cfg, ["g-alpha"]))
+
+    assert outcome.status == "passed"
+    acceptance = json.loads(
+        (outcome.bundle.directory / "acceptance.json").read_text(encoding="utf-8")
+    )
+    rows = {row["criterion"]: row for row in acceptance["criteria"]}
+    assert rows["c-beta"]["state"] == "gate-did-not-run"
+    assert rows["c-beta"]["refuses"] is True
+    # And the run that DID happen claims only what it measured.
+    assert rows["c-alpha"]["state"] != "gate-did-not-run"
+
+
+def test_a_real_scope_json_validates_against_its_published_schema(repo):
+    """`wringer.fleetscope.v1` is frozen the moment it is published, so the
+    document a real fleet writes must match it on the same commit — a
+    schema nothing produces is a promise nobody kept."""
+    from jsonschema import Draft202012Validator
+
+    schema_path = (
+        Path(__file__).resolve().parent.parent / "schema" / "fleetscope.schema.json"
+    )
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    Draft202012Validator.check_schema(schema)
+
+    cfg = shared_tree_fleet(repo)
+    outcome = fleet.run(repo, cfg, two_tasks())
+    written = json.loads(
+        (outcome.directory / fleet.SCOPE_FILENAME).read_text(encoding="utf-8")
+    )
+
+    errors = [
+        f"{e.json_path} {e.message}"
+        for e in Draft202012Validator(schema).iter_errors(written)
+    ]
+    assert not errors, "\n".join(errors)

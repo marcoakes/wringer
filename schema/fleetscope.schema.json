@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/fleetscope.schema.json",
+  "title": "Wringer fleet scope",
+  "description": "A `wringer.fleetscope.v1` document — `scope.json` in a fleet bundle: which criteria each task proved, which gates those resolved to, and which bound criteria no task claimed. Written at the START of a scoped fleet, before any child spawns, so a fleet killed mid-flight still says what it set out to prove. It is a RECORD and never an instruction: nothing reads it back, and the scope it describes came from `fleet.scope` in `.wringer.yaml`, which a human wrote (SPEC_SCOPE_V0 ruling 1 — the values are criteria ids, never gate ids, and no model ever sorts a criterion into a task). This file is the machine-readable third of the record; the run bundle's `summary.md` carries the human-readable 'Scoped out' section, and the absent gate results are the third — the one that actually refuses, because acceptance reads absence as `gate-did-not-run`.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "fleet_id",
+    "declared_gates",
+    "tasks",
+    "unclaimed_criteria"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.fleetscope.v1"
+    },
+    "fleet_id": {
+      "description": "The fleet bundle this scope belongs to.",
+      "type": "string"
+    },
+    "declared_gates": {
+      "description": "Every gate `.wringer.yaml` declared, in declared order, AS THIS RUN SAW IT. Present so a reader computes any task's EXCLUDED gates from this file alone — `declared_gates` minus that task's `gates` — rather than having to fetch the config at that commit. A scoped bundle that could not say what it left out would be a narrower claim wearing a full one's clothes.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasks": {
+      "description": "One entry per task in the fleet's task file. The map is TOTAL when it exists: a fleet where some children are scoped and some run the whole gate set would make 'succeeded' mean two different things in one summary table, and `wring fleet` refuses that before any child spawns.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "criteria",
+          "gates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "task": {
+            "description": "The task id, as it appears in the fleet's task file.",
+            "type": "string"
+          },
+          "criteria": {
+            "description": "The criteria this task proves, in the PM's vocabulary — the ids a human approved in `wringer.spec.yaml`. Never empty: a task with nothing to converge on is refused by name.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "gates": {
+            "description": "The gates those criteria resolved to, through the `proves:` bindings already installed in `.wringer.yaml`. One join, declared twice nowhere. Never empty — a task resolving to no gates is refused before the fleet starts.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "unclaimed_criteria": {
+      "description": "Bound criteria no task claimed. LEGAL and loud: nothing refuses here, because the operator's final unscoped `wring verify` runs their gates anyway — and if nobody built them those gates go red there, acceptance records it, and `wring deliver` refuses exactly as it does today. Listed so the gap is visible before the fleet runs rather than discovered after it.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import config, evidence, loop
+from wringer import accept, config, evidence, loop, spec
 from wringer.redact import Redactor
 
 FLEETS_DIRNAME = Path(".wringer") / "fleets"
@@ -46,6 +46,9 @@ POLL_SECONDS = 0.2
 
 SUCCEEDED, FAILED, PARKED = "succeeded", "failed", "parked"
 
+SCOPE_FILENAME = "scope.json"
+SCOPE_SCHEMA_VERSION = "wringer.fleetscope.v1"
+
 
 class FleetError(Exception):
     """The fleet could not run (CLI exit code 2)."""
@@ -56,6 +59,202 @@ class Task:
     id: str
     brief: str
     dir: str
+
+
+@dataclass(frozen=True)
+class ScopedTask:
+    """One task, the criteria it proves, and the gates those resolve to."""
+
+    task: str
+    criteria: tuple[str, ...]
+    gates: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class Scope:
+    """A resolved `fleet.scope` — SPEC_SCOPE_V0 ruling 1.
+
+    `declared` is the whole gate set AS THIS RUN SAW IT, so a reader computes
+    any task's EXCLUDED gates from `scope.json` alone rather than fetching
+    `.wringer.yaml` at that commit (review finding 10). `wringer.fleetscope.v1`
+    can never grow a field afterwards, which is why the review ran before the
+    freeze.
+    """
+
+    tasks: tuple[ScopedTask, ...]
+    unclaimed: tuple[str, ...]
+    declared: tuple[str, ...]
+
+    def gates_for(self, task_id: str) -> tuple[str, ...]:
+        for scoped in self.tasks:
+            if scoped.task == task_id:
+                return scoped.gates
+        return ()
+
+
+def resolve_scope(
+    root: Path, cfg: config.Config, tasks: list[Task]
+) -> Scope | None:
+    """Join task → criteria → gates, or refuse — ruling 5, EIGHT refusals.
+
+    Total by design: if `fleet.scope` is declared it must cover every task in
+    the task file. A fleet where some children are scoped and some run the
+    full set would make "succeeded" mean two different things in one summary
+    table.
+
+    **Every refusal names both sides** — the id and the document it is
+    missing from — and every one of them fires here, before any child spawns:
+    a fleet that spawned four children and then found its map wrong has
+    already spent somebody's money.
+    """
+    settings = cfg.fleet
+    if settings is None or settings.scope is None:
+        return None
+
+    where = config.CONFIG_FILENAME
+    declared = tuple(gate.id for gate in cfg.gates)
+
+    # Refusal 8 (review finding 1, HIGH) — FIRST, because it is the one that
+    # decides whether anything below is guarded at all. `accept.assess`
+    # returns None unless the spec is approved, so a scoped fleet in an
+    # unapproved repo writes no `acceptance.json`, and then there is nothing
+    # for `wring deliver` to refuse on: the absence that guards the tick is
+    # itself absent. `config._check_bindings` never consults `approved`, so
+    # this route really is open one join away.
+    approved = _approved_spec(root)
+    if approved is None:
+        raise FleetError(
+            f"{where} declares 'fleet.scope', but {spec.SPEC_FILENAME} is not "
+            "'approved: true'. A scoped run claims less than a full one, and "
+            "what makes that safe is that acceptance records the gates that "
+            "did not run — an artifact written only for an APPROVED spec. "
+            "Without it a scoped fleet would deliver on a bundle nothing "
+            "checked. Approve the spec, or drop 'fleet.scope'"
+        )
+
+    criteria = {c.id: c for c in approved.criteria}
+    bound = {gate.proves: gate.id for gate in cfg.gates if gate.proves}
+    declared_tasks = [task.id for task in tasks]
+    mapped = [entry.task for entry in settings.scope]
+
+    # Refusals 1 and 2 — the map and the task file must name the same tasks.
+    for task_id in mapped:
+        if task_id not in declared_tasks:
+            raise FleetError(
+                f"{where}: 'fleet.scope' names task '{task_id}', which is not "
+                f"in the task file (it has: {', '.join(declared_tasks)}). "
+                "Every scoped task must be one this fleet is going to run"
+            )
+    for task_id in declared_tasks:
+        if task_id not in mapped:
+            raise FleetError(
+                f"{where}: task '{task_id}' is in the task file but not in "
+                "'fleet.scope'. The map is total or it is absent — a fleet "
+                "where some children are scoped and some run the whole gate "
+                "set makes 'succeeded' mean two different things in one "
+                "summary table"
+            )
+
+    owners: dict[str, str] = {}
+    scoped_tasks: list[ScopedTask] = []
+    for entry in settings.scope:
+        # Refusal 7a (review finding 2) — BEFORE the zero-gates check, so the
+        # message names the defect the human actually made. "Bind a gate" is
+        # advice about a problem they do not have.
+        if not entry.criteria:
+            raise FleetError(
+                f"{where}: 'fleet.scope.{entry.task}' is empty, so that child "
+                "would have nothing to converge on. Give the task a "
+                "criterion, or drop it from the map and from the task file"
+            )
+
+        seen: set[str] = set()
+        for criterion_id in entry.criteria:
+            # Review finding 3 — a set would absorb it, and every other
+            # duplicate in this repo is loud.
+            if criterion_id in seen:
+                raise FleetError(
+                    f"{where}: 'fleet.scope.{entry.task}' lists "
+                    f"'{criterion_id}' twice. One mention is all it takes"
+                )
+            seen.add(criterion_id)
+
+            # Refusal 3 — unknown criterion.
+            criterion = criteria.get(criterion_id)
+            if criterion is None:
+                known = ", ".join(sorted(criteria)) or "none"
+                raise FleetError(
+                    f"{where}: 'fleet.scope.{entry.task}' names criterion "
+                    f"'{criterion_id}', which is not in {spec.SPEC_FILENAME}. "
+                    f"Declared there: {known}"
+                )
+            # Refusal 5 — a `human: true` criterion. Nothing to run: the same
+            # category error `config.check_bindings` refuses one join away.
+            if criterion.human:
+                raise FleetError(
+                    f"{where}: 'fleet.scope.{entry.task}' names criterion "
+                    f"'{criterion_id}', which {spec.SPEC_FILENAME} marks "
+                    "'human: true'. There is no gate to converge on — human "
+                    "criteria are answered by people, and a loop cannot "
+                    "satisfy one"
+                )
+            # Refusal 4 — bound to no gate.
+            if criterion_id not in bound:
+                raise FleetError(
+                    f"{where}: 'fleet.scope.{entry.task}' names criterion "
+                    f"'{criterion_id}', which no gate proves. Bind a gate to "
+                    f"it with 'proves: {criterion_id}', or remove it from the "
+                    "map — a child cannot converge on a criterion nothing "
+                    "measures"
+                )
+            # Refusal 6 — one criterion, one owner.
+            if criterion_id in owners:
+                raise FleetError(
+                    f"{where}: tasks '{owners[criterion_id]}' and "
+                    f"'{entry.task}' both claim criterion '{criterion_id}'. "
+                    "One criterion, one owner: two children converging on the "
+                    "same gate would each be told the other's work is theirs"
+                )
+            owners[criterion_id] = entry.task
+
+        gates_for_task = tuple(
+            gate.id for gate in cfg.gates if gate.proves in entry.criteria
+        )
+        # Refusal 7b — kept because refusal 4 is what normally catches this,
+        # and a resolution that silently produced an empty gate set would
+        # dispatch a child with no `--gate` at all, which is an UNSCOPED run
+        # wearing a scoped fleet's clothes.
+        if not gates_for_task:
+            raise FleetError(
+                f"{where}: 'fleet.scope.{entry.task}' resolves to no gates. "
+                "Bind a gate to one of its criteria, or run that task outside "
+                "the scoped fleet"
+            )
+        scoped_tasks.append(
+            ScopedTask(
+                task=entry.task,
+                criteria=entry.criteria,
+                gates=gates_for_task,
+            )
+        )
+
+    # Legal and LOUD (ruling 5's last sentence): a bound criterion no task
+    # claimed lands here, its gate goes red in the operator's final verify if
+    # nobody built it, and acceptance refuses delivery exactly as today.
+    unclaimed = tuple(sorted(set(bound) - set(owners)))
+    return Scope(
+        tasks=tuple(scoped_tasks), unclaimed=unclaimed, declared=declared
+    )
+
+
+def _approved_spec(root: Path) -> Any:
+    """The spec if a human approved it, else None.
+
+    Read through acceptance's own reader so the two cannot drift: the
+    boundary that decides whether `acceptance.json` exists is the boundary
+    that decides whether a scoped fleet may run at all.
+    """
+    return accept.read_spec(root)
 
 
 @dataclass
@@ -208,6 +407,41 @@ class Bundle:
             json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
         )
 
+    def write_scope(self, scope: Scope) -> Path:
+        """`scope.json` — who proved what, and what nobody ran.
+
+        The machine-readable third of the record (the run bundle's "Scoped
+        out" section is the human-readable one, and the absent result rows
+        are the one that actually refuses). Written at the START, before any
+        child: it is the fleet's declaration of intent, and a fleet killed
+        mid-flight should still say what it set out to prove.
+
+        `declared_gates` is the whole set as this run saw it, so a reader
+        computes any task's EXCLUDED gates from this file alone — review
+        finding 10, folded before the freeze precisely because
+        `wringer.fleetscope.v1` can never grow a field afterwards.
+        """
+        payload = {
+            "schema_version": SCOPE_SCHEMA_VERSION,
+            "fleet_id": self.fleet_id,
+            "declared_gates": list(scope.declared),
+            "tasks": [
+                {
+                    "task": scoped.task,
+                    "criteria": list(scoped.criteria),
+                    "gates": list(scoped.gates),
+                }
+                for scoped in scope.tasks
+            ],
+            "unclaimed_criteria": list(scope.unclaimed),
+        }
+        path = self.directory / SCOPE_FILENAME
+        path.write_text(
+            self.redactor.scrub(json.dumps(payload, indent=2)) + "\n",
+            encoding="utf-8",
+        )
+        return path
+
     def write_digests(self) -> Path:
         """Hash every file in this fleet bundle. **Written last.**"""
         return evidence.digest_directory(self.directory)
@@ -272,12 +506,18 @@ def run(
     """Supervise the queue until it empties or the deadline bites."""
     assert cfg.fleet is not None
     settings = cfg.fleet
+    # BEFORE the bundle, let alone a child: ruling 5's refusals are hard
+    # errors at `wring fleet` start, and a refused fleet leaves no directory
+    # behind to be mistaken for a run that happened.
+    scope = resolve_scope(root, cfg, tasks)
     # Every name this config declares. A fleet's bundle records what its
     # children did, and its children are the ones handed a credential.
     redactor = Redactor.from_config(
         cfg.evidence, extra_names=config.declared_secret_names(cfg)
     )
     bundle = Bundle.create(root / FLEETS_DIRNAME, redactor=redactor)
+    if scope is not None:
+        bundle.write_scope(scope)
 
     bundle.event(
         "fleet.started",
@@ -296,7 +536,7 @@ def run(
         expired = time.monotonic() >= deadline
         while queue and not expired and len(running) < settings.concurrency:
             state = queue.pop(0)
-            child = _spawn(root, bundle, state, settings)
+            child = _spawn(root, bundle, state, settings, scope)
             if child is None:
                 continue
             running.append(child)
@@ -392,7 +632,11 @@ def remove_worktree(root: Path, path: Path) -> None:
 
 
 def _spawn(
-    root: Path, bundle: Bundle, state: TaskState, settings: config.Fleet
+    root: Path,
+    bundle: Bundle,
+    state: TaskState,
+    settings: config.Fleet,
+    scope: Scope | None = None,
 ) -> _Child | None:
     if settings.worktree:
         made = make_worktree(root, state.task.id)
@@ -443,6 +687,11 @@ def _spawn(
         argv += ["--worker-timeout", str(settings.child_worker_timeout)]
     if settings.child_wall_clock is not None:
         argv += ["--wall-clock", str(settings.child_wall_clock)]
+    # SPEC_SCOPE_V0: the child converges on ITS task's gates and briefs on
+    # nothing else. `resolve_scope` has already refused a task that resolves
+    # to none, so this never dispatches an unscoped run by accident.
+    for gate_id in scope.gates_for(state.task.id) if scope is not None else ():
+        argv += ["--gate", gate_id]
 
     proc = subprocess.Popen(
         argv,
