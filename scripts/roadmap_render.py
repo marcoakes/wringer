@@ -185,6 +185,22 @@ MILESTONES: tuple[Milestone, ...] = (
         contains=(("docs/factory-dry-run.md", "reached `wring deliver`"),),
     ),
     Milestone(
+        # The other half of F4, and the larger one: the chain at SCALE. F4
+        # above is one task through `wring run`; this is many through
+        # `wring fleet` with `fleet.scope` — one approved spec, several
+        # children each converging on the criteria a human said it proves,
+        # one delivery.
+        #
+        # Probed on the same string as F4 and for the same reason: the
+        # document exists in order to publish where the chain STOPPED if it
+        # stopped, so a node green on the file's existence would read "proven
+        # at scale" off a page that might prove the opposite. It is born
+        # meaning something, and it was red until the capture existed.
+        "F4b", "at scale",
+        files=("SPEC_SCOPE_V0.md", "docs/fleet-scale.md"),
+        contains=(("docs/fleet-scale.md", "reached `wring deliver`"),),
+    ),
+    Milestone(
         # The environment-error class is wider than exit 127: a fresh repo's
         # first gate died on `No module named pytest` (exit 1) and the loop
         # briefed a worker to repair it. Found by the dry run. Blocked with

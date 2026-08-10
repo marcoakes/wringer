@@ -302,6 +302,38 @@ def _deliver_send_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return _argv_step(wring, "deliver", "--send")
 
 
+def _fleet_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """Many tasks, one tree, each child scoped to the gates its task proves.
+
+    `tasks.jsonl` is the file `wring plan` wrote two steps earlier, so the
+    name is literal rather than a placeholder. The children's own consoles go
+    to DEVNULL — a supervisor that interleaved four children's output would
+    be unreadable — which is why the step after this one reads their loop
+    summaries back off disk.
+    """
+    return _argv_step(wring, "fleet", "tasks.jsonl")
+
+
+# What each scoped child actually did, read back out of the bundles it wrote.
+#
+# This is the beat the whole recording rests on, and it cannot come from the
+# fleet's console: the fleet prints counts, and counts cannot show that
+# `csv`'s laps only ever failed on `g-hdr` and `g-rows` while `fmt`'s only
+# ever failed on `g-cents`. That is scoping demonstrated by BEHAVIOUR rather
+# than by a declaration, and it is also the multi-gate task arming its two
+# gates one red lap at a time.
+#
+# A glob, for `_approve_step`'s reason: the scratch tree holds exactly these
+# loops, so it expands to exactly these files, and it is a line a reader can
+# type verbatim. Written out, the two run ids would push the line past the
+# renderer's fixed 80-column canvas.
+CHILD_LAPS = "cat .wringer/loops/*/summary.md"
+
+
+def _child_laps_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return CHILD_LAPS, ["sh", "-c", CHILD_LAPS]
+
+
 def _graph_run_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The graph, up to the interlock. Exits 5 — parked, a person must act."""
     return _argv_step(wring, "graph", "run", "graph.yaml")
@@ -463,6 +495,26 @@ STEP_SETS = {
         _install_gates_step,
         _verify_step,
         _run_step,
+        _acceptance_step,
+        _deliver_send_step,
+    ),
+    # The same chain, at SCALE: one approved spec, two tasks, a fleet, one
+    # delivery. `gategen` drove a single task through `wring run`; this drives
+    # many through `wring fleet` with `fleet.scope`, which is the half of F4
+    # that had never been run on anything real.
+    #
+    # One task owns TWO gates on purpose (SPEC_SCOPE_V0 review finding 11,
+    # HIGH): `wring verify` still stops at the first required failure, so a
+    # capture built from one-gate tasks would go green while demonstrating
+    # strictly less than the DONE box claims — a check that narrowed while
+    # still passing, which is the defect class this program exists to catch.
+    "fleetscale": (
+        _plan_step,
+        _install_gates_step,
+        _verify_step,
+        _fleet_step,
+        _child_laps_step,
+        _verify_step,
         _acceptance_step,
         _deliver_send_step,
     ),

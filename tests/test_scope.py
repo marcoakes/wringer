@@ -809,6 +809,36 @@ def test_the_preserved_copies_are_never_a_discovery_root(repo):
     )
 
 
+def test_even_pointed_straight_at_them_the_copies_decide_nothing(repo):
+    """The other half of finding 5, and the half `search_roots` cannot cover.
+
+    `health.search_roots(root, extra)` APPENDS whatever `wring health --from`
+    was given, so an operator pointing it at a fleet bundle walks straight
+    past the discovery-root guard. What stops them arming a receipt there is
+    not position but KIND: ruling 8 preserves loop directories, and
+    `Bundle.qualifying` is `kind == "run" and not bench_sourced`. A loop
+    bundle is not a run bundle, and a loop directory holds no run bundle
+    inside it — which is also why the child's own `.wringer/runs/` are
+    deliberately left to go with the tree.
+    """
+    from wringer import health
+
+    cfg = worktree_repo(repo)
+    outcome = fleet.run(repo, cfg, worktree_tasks())
+
+    found = [
+        bundle
+        for bundle in health.discover(repo, extra=(outcome.directory,)).read
+        if fleet.FLEETS_DIRNAME.as_posix() in bundle.directory.as_posix()
+    ]
+    assert found, "--from found nothing, so this pins nothing"
+    # Out from under the worktree marker, exactly as the review measured...
+    assert not any(bundle.bench_sourced for bundle in found)
+    # ...and still unable to decide anything, because none of them is a run.
+    assert {bundle.kind for bundle in found} == {"loop"}
+    assert not any(bundle.qualifying for bundle in found)
+
+
 def test_the_summary_says_where_the_preserved_copies_are_and_what_they_are_not(
     repo,
 ):

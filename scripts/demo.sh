@@ -43,10 +43,11 @@ want() {
     [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]
 }
 case "$ONLY" in
-    "" | demo | start | vacuous | graph | bench | health | gategen) ;;
+    "" | demo | start | vacuous | graph | bench | health | gategen | fleetscale) ;;
     *)
         echo "FATAL: no recording called '$ONLY'. One of: demo start" >&2
-        echo "  vacuous graph bench health gategen — or omit it for all." >&2
+        echo "  vacuous graph bench health gategen fleetscale — or omit it" >&2
+        echo "  for all." >&2
         exit 2
         ;;
 esac
@@ -819,4 +820,254 @@ git remote set-head origin -a
     "$WRING" gategen
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/gategen.cast.json" \
     "$ROOT/docs/gategen.svg" "a criterion becomes a gate, and it is red first"
+fi
+
+# ---------------------------------------------------------------------------
+# The eighth recording: the same chain at SCALE — one spec, TWO tasks, a
+# fleet, one delivery.
+#
+# `gategen` drove a single task through `wring run` and reached delivery. This
+# is the other half of F4, the one that had never been run on anything real:
+# many agents, one tree, one delivery, with `fleet.scope` declaring which
+# criteria each task proves (SPEC_SCOPE_V0.md).
+#
+# THE TASK `csv` OWNS TWO GATES, and that is non-negotiable rather than
+# incidental (review finding 11, HIGH). `wring verify` stops at the first
+# required failure, so a scoped child whose task owns two gates arms them ONE
+# PER RED LAP — and only if its worker fixes them one at a time. A capture
+# built from one-gate tasks would go green while demonstrating strictly less
+# than the DONE box claims.
+#
+# `concurrency: 1` because ruling 4 says so in print: scoping fixes what the
+# harness SAYS, not what an agent may DO, and two workers in one shared tree
+# can still collide on a file. It also makes the recording deterministic.
+#
+# `retries: 0`, deliberately. The unscoped fleet's whole survival mechanism is
+# the retry queue harvesting first-pass failures (docs/fleet-scale.md §1); a
+# scoped fleet that converges every child on its first attempt with retries
+# turned OFF is the measurement that mechanism is no longer needed.
+#
+# Stdlib-only gates, as in `gategen` and for the same reason: F6 is specified
+# and unbuilt, so a gate needing pytest outside this venv fails with exit 1
+# and the loop briefs a worker to repair an environment no worker can affect.
+#
+# Gate commands are BYTE-IDENTICAL between the red laps and the green run.
+# Acceptance keys its receipt on `(gate id, command)`.
+# ---------------------------------------------------------------------------
+if want fleetscale; then
+FLEETSCALE=$(scratch_dir "${1:-}" fleetscale) || exit 2
+# Its own bare `origin`, cleared like the others: `wring deliver` refuses when
+# the remote's default branch cannot be resolved, and a bare repo left over
+# from a previous run already has `main`.
+FSORIGIN=$(scratch_dir "${1:-}" fleetscale-origin) || exit 2
+for tree in "$FLEETSCALE" "$FSORIGIN"; do
+    if [ -d "$tree" ]; then find "$tree" -mindepth 1 -delete 2>/dev/null; fi
+    mkdir -p "$tree"
+done
+cd "$FLEETSCALE"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+printf '.wringer/\n__pycache__/\n' > .gitignore
+
+# The repo as it stands: a reports module that works, and a check that says so.
+cat > reports.py <<'EOF'
+ROWS = [("alpha", 12.5), ("beta", 3.0)]
+
+
+def table():
+    """The report, header row first."""
+    return [("name", "amount"), *ROWS]
+EOF
+
+cat > test_reports.py <<'EOF'
+from reports import table
+
+assert table()[0] == ("name", "amount")
+assert len(table()) == 3
+EOF
+
+# The three acceptance checks, one per machine criterion. Two of them belong
+# to ONE task, which is the shape this recording exists to exercise.
+cat > g_hdr.py <<'EOF'
+"""hdr — the CSV header is the table's columns, in order."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+header = next(csv.reader(io.StringIO(reports.to_csv())))
+if header != list(reports.table()[0]):
+    raise SystemExit(f"header is {header}")
+EOF
+
+cat > g_rows.py <<'EOF'
+"""rows — every row of the table reaches the CSV."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+if len(out) != len(reports.table()):
+    raise SystemExit(f"{len(out)} rows, table has {len(reports.table())}")
+EOF
+
+cat > g_cents.py <<'EOF'
+"""cents — amounts keep two decimal places."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+for row in out[1:]:
+    if len(row[1].partition(".")[2]) != 2:
+        raise SystemExit(f"amount {row[1]} is not two decimals")
+EOF
+
+# The worker, standing in for a coding agent as everywhere else here. It
+# branches on WRINGER_TASK_ID — the variable the fleet already sets — so each
+# child only ever touches its own task's work, and it takes ONE step per call,
+# which is what makes `csv`'s two gates go red on two separate laps.
+cat > build.sh <<'EOF'
+if [ "$WRINGER_TASK_ID" = fmt ]; then
+    sed 's/{amount}/{amount:.2f}/' reports.py > r && mv r reports.py
+elif ! grep -q 'def to_csv' reports.py; then
+    cat >> reports.py <<'PY'
+
+
+def to_csv():
+    return ",".join(table()[0]) + "\n"
+PY
+elif ! grep -q 'for name' reports.py; then
+    cat > reports.py <<'PY'
+ROWS = [("alpha", 12.5), ("beta", 3.0)]
+
+
+def table():
+    """The report, header row first."""
+    return [("name", "amount"), *ROWS]
+
+
+def to_csv():
+    header, *rows = table()
+    out = [",".join(header)]
+    out += [f"{name},{amount}" for name, amount in rows]
+    return "\n".join(out) + "\n"
+PY
+fi
+EOF
+
+cat > patch.py <<'EOF'
+import json
+import sys
+
+sys.stdout.write(json.load(sys.stdin)["gate_diff"])
+EOF
+
+# `fleet.scope` is declared BEFORE the gates exist, and that is legal: the
+# config parser checks only the SHAPE, and ruling 5's refusals fire at
+# `wring fleet` start where the task file and the spec are both in hand. It
+# means the declaration is on camera in the install step, beside the
+# `proves:` lines it reaches the gates through.
+cat > .wringer.yaml <<'EOF'
+version: 1
+gates:
+  - id: test
+    run: "python3 test_reports.py"
+
+run:
+  worker: "sh ./build.sh"
+  max_iterations: 5
+
+fleet:
+  concurrency: 1
+  deadline: 300
+  retries: 0
+  scope:
+    csv: [hdr, rows]
+    fmt: [cents]
+
+deliver:
+  branch: "wringer/{run}"
+EOF
+
+# Two tasks, and the ownership is the whole point: `csv` proves two criteria,
+# `fmt` proves one. `csv` is first in the file, so with concurrency 1 it runs
+# first — `fmt`'s gate needs a to_csv() to exist before "not two decimals" is
+# the honest reason it is red.
+cat > wringer.spec.yaml <<'EOF'
+schema_version: wringer.spec.v1
+approved: true
+title: Export the report as CSV
+
+intent: |2
+  The table view is fine but nobody can get the numbers out of it.
+  Add a CSV export: same columns, same order, every row, and the
+  amounts must still read as money.
+
+open_questions: []
+
+criteria:
+  - id: hdr
+    title: The CSV header is the table's columns, in order
+    required: true
+    human: false
+  - id: rows
+    title: Every row of the table reaches the CSV
+    required: true
+    human: false
+  - id: cents
+    title: Amounts keep two decimal places
+    required: true
+    human: false
+
+gates: []
+
+tasks:
+  - id: csv
+    brief: briefs/csv.md
+    dir: .
+    objective: Add reports.to_csv() with the header and every row
+  - id: fmt
+    brief: briefs/fmt.md
+    dir: .
+    objective: Make the CSV amounts read as money, two decimals
+EOF
+
+cat > wringer.gates.yaml <<'EOF'
+schema_version: wringer.gatespec.v1
+
+gates:
+  - id: g-hdr
+    run: "python3 g_hdr.py"
+    proves: hdr
+  - id: g-rows
+    run: "python3 g_rows.py"
+    proves: rows
+  - id: g-cents
+    run: "python3 g_cents.py"
+    proves: cents
+EOF
+
+git add -A
+git commit -qm "the report, and a two-task spec asking for CSV export"
+
+git init -q --bare -b main "$FSORIGIN"
+git remote add origin "$FSORIGIN"
+git push -q origin main
+git remote set-head origin -a
+
+"$PY" "$ROOT/scripts/demo_record.py" "$FLEETSCALE" \
+    "$ROOT/docs/fleet-scale.cast.json" "$WRING" fleetscale
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/fleet-scale.cast.json" \
+    "$ROOT/docs/fleet-scale.svg" "one spec, two tasks, one delivery"
 fi
