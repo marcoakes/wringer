@@ -591,7 +591,14 @@ def render_request(
         "3. **Propose gates the repository could actually run** — its own "
         "test and lint commands. Propose none rather than inventing one.\n"
         "4. Split the work into tasks a single agent can finish. Give each an "
-        "`objective`: one paragraph saying what done looks like.\n\n"
+        "`objective`: one paragraph saying what done looks like.\n"
+        "5. **For each criterion a machine can decide, propose a "
+        "`gate_bindings` entry**: a command that FAILS today and passes only "
+        "once that criterion is met, and the criterion id it proves. One "
+        "criterion, one binding, and never a `human: true` one. **A binding "
+        "that already passes is worth nothing** — the criterion is unbuilt, "
+        "so a command that is green now is not testing it. Omit any binding "
+        "you cannot write that way rather than writing a weak one.\n\n"
         "## Reply format\n"
         "Return ONLY a JSON object, no prose and no code fence:\n"
         "{\n"
@@ -601,11 +608,15 @@ def render_request(
         '  "criteria": [{"id": "<slug>", "title": "<one line>", '
         '"guidance": "<how to check it>", "required": true, "human": false}],\n'
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'
+        '  "gate_bindings": [{"id": "<slug>", "run": "<shell command>", '
+        '"proves": "<criterion id from above>"}],\n'
         '  "tasks": [{"id": "<slug>", "brief": "briefs/<slug>.md", '
         '"dir": ".", "objective": "<one paragraph>"}]\n'
         "}\n"
         "Slugs are letters, digits, '-' and '_'. At least one criterion must "
-        "be `required`. At least one task."
+        "be `required`. At least one task. `gates` are the repository's "
+        "existing checks; `gate_bindings` are the per-criterion acceptance "
+        "checks, and only these carry `proves`."
     )
     return {
         "model": model,

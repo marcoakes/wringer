@@ -81,6 +81,21 @@ the loop's evidence honest rather than a conversation that drifts.
      paths must resolve inside the repo root (no `..`, no symlink escape),
      or the request is refused with an error. Wringer is not obliged to
      help an agent write outside the tree it was pointed at.
+
+     **AMENDED 2026-08-11 — what that bound does NOT claim.** It bounds the
+     path Wringer *serves*. It does not confine the agent. Measured on the
+     first real run ([docs/first-contact.md](docs/first-contact.md)): the
+     agent edited the repository through **its own filesystem access** and
+     never called `fs/write_text_file` once, so Wringer served zero writes
+     and the check above never executed. It cannot execute against any agent
+     that can open a file itself, which is every agent worth running.
+
+     So the honest statement, and the one this spec makes: **containment is
+     the container's job** (P0), and this refusal is a courtesy on one
+     optional channel — real where it applies, and silent where the agent
+     does not use it. A reader must not infer a sandbox from it. The same
+     goes for `session/request_permission`: an agent may launch itself in a
+     mode that never asks, and this one does.
    - `session/request_permission` — **auto-approve in v0, and record every
      approval on the ledger.** Rationale: the loop is already sandboxed by
      the container (P0) and bounded by the supervision invariants, and a

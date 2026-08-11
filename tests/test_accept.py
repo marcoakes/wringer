@@ -349,6 +349,65 @@ def test_a_sensitive_vacuity_row_evidences_and_carries_its_citation(
     assert row["receipt"]["cites"], "a sensitivity receipt with no citation"
 
 
+def test_a_sensitive_receipt_discloses_an_unverified_pre_change_environment(
+    repo, monkeypatch, capsys
+):
+    """RULED 2026-08-11: disclose, do not refuse.
+
+    A prove worktree carries TRACKED FILES ONLY, so in a repo whose
+    dependencies are gitignored every pre-change gate fails for that reason
+    and every criterion collects a receipt that means nothing
+    (SPEC_VACUITY_V0 §5a). Refusing on an absent `run.prove_setup` was the
+    obvious answer and is the wrong one: it would have refused the first real
+    agent measurement this program ever took, whose gates are stdlib, need no
+    setup, and whose receipts were true. So the row says what it did not
+    check.
+
+    In `reason` rather than in a key of its own, and that is not a detail:
+    `acceptance.json` is frozen (law 7), and a new key — even an optional
+    advisory one — is a silent break for every reader of a bundle already on
+    disk. `test_no_schema_frozen_at_v0_2_0_has_changed_a_byte` catches the
+    other choice, and caught it here.
+    """
+    write_spec(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    bound_config(repo, command="grep -q FIXED calc.py")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    row = artifact(repo)["criteria"][0]
+    # Counted, per the ruling — the disclosure is not a downgrade.
+    assert row["state"] == accept.EVIDENCED
+    assert row["refuses"] is False
+    assert "prove_setup" in row["reason"], row["reason"]
+    assert "unverified" in row["reason"]
+    # And the frozen shape is untouched: no new key on the receipt.
+    assert set(row["receipt"]) <= {"kind", "bundle", "cites"}, row["receipt"]
+
+
+def test_a_declared_prove_setup_needs_no_disclosure(repo, monkeypatch, capsys):
+    """The other half, or the sentence would be unfalsifiable boilerplate that
+    appears on every row whatever the repo did."""
+    write_spec(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    bound_config(repo, command="grep -q FIXED calc.py")
+    config_path = repo / ".wringer.yaml"
+    # `prove_setup` lives under `run:`, and `run:` needs a worker — the loop
+    # never runs here, but the section is parsed strictly either way.
+    with config_path.open("a", encoding="utf-8") as handle:
+        handle.write('run:\n  worker: "true"\n  prove_setup: "true"\n')
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    row = artifact(repo)["criteria"][0]
+    assert row["state"] == accept.EVIDENCED
+    assert "prove_setup" not in row["reason"], row["reason"]
+
+
 # --- the artifact itself ---------------------------------------------------
 
 

@@ -53,6 +53,53 @@ The one-sentence test: **could a worker that writes both the gate and the
 code get a criterion evidenced without a human and a red run in between?**
 If yes, the design is wrong.
 
+### AMENDED 2026-08-11 — born-red is the pedagogy; the comparison is the mechanism
+
+*Ruled after the first real agent run measured this spec's central assumption
+and found it does not hold for agents that work in one pass
+([docs/first-contact.md](docs/first-contact.md)).*
+
+The sentence above describes a gate going red **on the clock**, in a run
+somebody watched. That is how a person learns what a gate is for, and it is
+how the captured demos read, so it stays. **It is not, and can no longer be,
+the mechanism by which a criterion becomes evidenced.**
+
+Measured: `wring verify` stops at the first required failure. A real agent
+closed three gates in one turn, so two of them never ran at lap 1 and were
+born green at lap 2 — `evidenced: 0`, every criterion refusing delivery, on
+a change that genuinely satisfied all three. **A one-shot agent can evidence
+at most one criterion per red lap**, and every good agent is one-shot.
+
+So the mechanism is the **`sensitive` receipt**: `--prove` re-runs the bound
+gate against the pre-change tree, and a gate that fails there and passes here
+has demonstrated exactly what a historical red demonstrates — on the same
+commit, under a controlled comparison, rather than as an accident of when
+somebody happened to look. R0's HIGH finding named this route as an
+alternative path to `evidenced` and worried about it. It is now the primary
+one, deliberately, and the worry is answered by keeping `cites` mandatory on
+such a receipt and by the disclosure ruled below.
+
+Two consequences a reader must not have to infer:
+
+1. **`run.prove: true` is effectively required of any repo that binds
+   criteria.** Without it, acceptance can only evidence whichever criterion
+   happened to be first in the declared gate order.
+2. **A `sensitive` receipt produced with no `run.prove_setup` declares that
+   it did not verify the pre-change environment**, in the row's own `reason`.
+   A prove worktree carries tracked files only, so in a repo with gitignored
+   dependencies every pre-change gate would fail for that reason instead. It
+   is disclosed rather than refused: refusing on an absent setup command
+   would have refused this program's own first true measurement, whose gates
+   are stdlib and need none.
+
+**The drafter now proposes bindings.** The prompt asks for `gate_bindings`
+with `proves:` and says a binding that already passes is worth nothing. It
+had never asked — the sidecar writer, its parser and its tests all shipped
+while the request named only `gates: [{id, run}]`, so the channel was complete
+and unreachable, and the first real drafting call returned no binding for
+exactly that reason. Everything downstream is unchanged: the proposal is still
+a diff a human applies, and `wring plan` still stops.
+
 ## 1. What it does
 
 - **`wring spec` (the existing drafter, existing `--send`) also proposes

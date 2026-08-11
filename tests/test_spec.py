@@ -168,6 +168,36 @@ def test_print_request_writes_the_body_and_stops(repo, monkeypatch, capsys):
     assert not (repo / spec.SPECS_DIRNAME).exists()
 
 
+def test_the_request_asks_for_the_key_the_sidecar_is_written_from(
+    repo, monkeypatch, capsys
+):
+    """The drafter can only answer what it was asked.
+
+    Measured on a real model, 2026-08-11 (docs/first-contact.md): the reply
+    came back schema-valid on the first try and carried NO `gate_bindings`,
+    so no sidecar was written and `gate_diff` was empty. That was not the
+    model failing. `parse_bindings` and `render_gatespec` were shipped and
+    tested — every test around this one drives them — while the prompt asked
+    for `gates: [{id, run}]` and never once named the key the sidecar is
+    written from. A whole binding channel, complete and unreachable, because
+    the request omitted a word.
+
+    So this test pins the ASK rather than the parse: the machinery below it
+    was never broken.
+    """
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--print-request"]) == cli.EXIT_OK
+
+    asked = json.loads(capsys.readouterr().out)["messages"][1]["content"]
+    assert "gate_bindings" in asked
+    assert "proves" in asked
+    # And the reason a binding exists at all: a command that is green the day
+    # it is written has not been shown to tell satisfied from unsatisfied.
+    assert "FAILS today" in asked
+
+
 def test_a_repo_without_a_judge_section_cannot_reach_a_network(
     repo, write_config, monkeypatch, capsys
 ):

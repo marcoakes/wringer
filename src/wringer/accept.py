@@ -86,6 +86,25 @@ class Receipt:
     kind: str            # failure | sensitive
     bundle: str          # repo-relative path to the bundle holding it
     cites: str | None = None
+    # Only on a sensitive receipt, and only when the run that produced it
+    # declared no `run.prove_setup`. RULED 2026-08-11 as disclosure rather
+    # than refusal: a prove worktree carries tracked files only, so in a repo
+    # whose dependencies are gitignored EVERY pre-change gate fails for the
+    # wrong reason and every criterion collects a receipt that means nothing
+    # (SPEC_VACUITY_V0 §5a). But refusing on an absent `prove_setup` would
+    # have refused the first real measurement this program ever took, whose
+    # gates are stdlib and need no setup and whose receipts were true. So the
+    # artifact says what it did not check, and `cites` — already carried — is
+    # the tell that separates the two cases.
+    #
+    # **It rides in `reason`, not in a key of its own.** `acceptance.json` is
+    # frozen (law 7, `schema/frozen.json`), and a new key — even an optional
+    # advisory one — is a silent break for every reader of a bundle already on
+    # disk and costs a `wringer.acceptance.v2`. `reason` is free text in the
+    # same row, which is where the ruling asked for it: beside the receipt. If
+    # a machine-readable form is ever wanted, THAT is the version bump
+    # conversation, and it should not be had for a sentence.
+    environment: str | None = None
 
     def as_json(self) -> dict[str, Any]:
         recorded: dict[str, Any] = {"kind": self.kind, "bundle": self.bundle}
@@ -283,7 +302,10 @@ def _assess_one(criterion, bound, ran, discriminating, scrub) -> Row:
         **detail,
         state=EVIDENCED,
         receipt=receipt,
-        reason=f"`{gate.id}` passed, and the record shows it can fail",
+        reason=(
+            f"`{gate.id}` passed, and the record shows it can fail"
+            + (f". {receipt.environment}" if receipt.environment else "")
+        ),
     )
 
 
@@ -319,8 +341,34 @@ def _discriminating_pairs(root: Path) -> dict[tuple[str, str], Receipt]:
                     kind="sensitive",
                     bundle=bundle.receipt,
                     cites=_cite_of(bundle.directory, run.gate_id),
+                    environment=_environment_of(bundle.directory),
                 )
     return found
+
+
+def _environment_of(bundle_dir: Path) -> str | None:
+    """The E3 disclosure, or None when that run verified its own environment.
+
+    Read from the BUNDLE rather than from the live config on purpose: the
+    receipt is a claim about the run that produced it, and a `prove_setup`
+    added to `.wringer.yaml` afterwards would otherwise retroactively launder
+    every receipt already on disk.
+    """
+    from wringer import vacuity
+
+    try:
+        recorded = json.loads(
+            (bundle_dir / vacuity.VACUITY_FILENAME).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+    if recorded.get("setup"):
+        return None
+    return (
+        "unverified — this run declared no 'run.prove_setup', so a pre-change "
+        "tree missing its dependencies would have failed for that reason "
+        "instead. Read 'cites' to tell the two apart"
+    )
 
 
 def _cite_of(bundle_dir: Path, gate_id: str) -> str | None:
