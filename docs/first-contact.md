@@ -300,9 +300,9 @@ it did.
 
 | unknown | answer | evidence |
 |---|---|---|
-| `session/new` without `mcpServers` | **No.** Required in the published schema; rejected as `Invalid params` | the ledger event above; `@agentclientprotocol/sdk` `schema/schema.json` |
-| `fs/write_text_file` vs the agent's own filesystem calls | **BLOCKED** — the session never opened | — |
-| whether the `terminal` capability is needed | **BLOCKED** — same | — |
+| `session/new` without `mcpServers` | **No.** Rejected as `Invalid params`, with the agent naming the field | the ledger event above; the postscript's direct probe |
+| `fs/write_text_file` vs the agent's own filesystem calls | **BLOCKED** — no turn ran | — |
+| whether the `terminal` capability is needed | **PARTIAL** — not needed to open a session; unknown for doing work | the postscript |
 | whether the agent emits `usage_update` at all | **BLOCKED** — same | — |
 
 Three of four are blocked behind the first, and that is the shape of a
@@ -390,6 +390,53 @@ Neither of these is fixed here. Both are inputs to the next ruling.
   the request, so the whole suite passes over it.
 - **The ACP error path drops the method name**, so a wire rejection is recorded
   without saying which call was rejected.
+
+---
+
+## Postscript, 2026-08-11, a few hours later — the handshake, measured
+
+*Everything above is left exactly as it was written. This section adds what a
+second, **free** probe established: it stops after `session/new` and never
+sends `session/prompt`, so no model call is made and nothing is spent.*
+
+The page above named `session/new` as the rejected call **by elimination** —
+`initialize`'s only required field is one Wringer sends, and the prompt was
+never reached. That inference is now unnecessary. Run directly against
+`claude-agent-acp` 0.66.0, sending exactly what Wringer sends today, the agent
+names the field itself:
+
+```json
+{"code": -32602, "message": "Invalid params",
+ "data": {"_errors": [], "mcpServers": {"_errors": ["Required value is missing"]}}}
+```
+
+And the same request with one field added opens a session:
+
+```
+A — exactly what Wringer sends today   session/new: REFUSED
+B — plus mcpServers: []                session/new: OPENED   sessionId present
+```
+
+**So the one field is the whole fix, and that is measured rather than
+reasoned.** It matters because a cost estimate was resting on it: if adding
+`mcpServers` had merely moved the refusal to the next wall, "one field" would
+have been the wrong thing to rule against.
+
+Three smaller things the same probe recorded, all free:
+
+- **`initialize` succeeds and protocol version 1 is negotiated.** The agent
+  identifies as `@agentclientprotocol/claude-agent-acp` 0.66.0.
+- **The `terminal` capability is not required to open a session.** Wringer
+  offers `fs` read/write and no terminal — SPEC_ACP_V0's v0 non-goal — and the
+  session opened anyway. That is the third M4 unknown *partially* answered:
+  whether the agent needs terminal to do useful **work** still needs a turn,
+  and no turn has run.
+- The agent advertises `loadSession`, session `fork`/`resume`/`list`, and
+  `mcpCapabilities` for http and sse — none of which Wringer uses.
+
+The two defects this page names are still **not fixed**. The probe is a
+measurement and lives outside `src/`, like the rest of this cycle's
+scaffolding.
 
 ## What this page does not say
 
