@@ -556,6 +556,75 @@ measurement, and the honest form of it is: *four minutes and thirty-seven
 seconds later, three acceptance gates were green and none of them could be
 evidenced.* Both halves of that sentence are the finding.
 
+---
+
+## Postscript 3, 2026-08-11 — the drafter binds, and the bindings are worthless
+
+*The prompt was amended to ask for `gate_bindings` (`2a16d04`). This is that
+change measured against the real model rather than against a test, because
+"the prompt asks" and "the model answers usefully" are different claims and
+this repo refuses the weaker one.*
+
+**The mechanism works.** Same PRD, same shim, 27s, 972 in / 2049 out. The reply
+carried `gate_bindings` for the first time, they survived `parse_bindings` and
+`check_bindings`, and **a real model wrote a `wringer.gates.yaml` sidecar** —
+something that had never happened.
+
+**The bindings are worthless, and it is not a prompt-tuning problem.** All
+three:
+
+```yaml
+  - id: bind-export-button
+    run: python3 test_reports.py
+    proves: export-button-present
+  - id: bind-export-filter
+    run: python3 test_reports.py       # the same command
+    proves: export-respects-filter
+  - id: bind-valid-csv
+    run: python3 test_reports.py       # and again
+    proves: valid-csv-output
+```
+
+`python3 test_reports.py` is the repository's existing test and it **passes
+today** — so every binding is green at birth, which is the one thing the
+prompt explicitly told it not to do ("a command that FAILS today").
+
+The reason is structural, not stylistic. The drafter is shown the PRD and the
+repo's **declared gate commands**, never its code, and it cannot create a
+file. A gate that fails today for a feature that does not exist has to *be*
+something — a test somebody wrote. The drafter can only name a command, so the
+only commands it can honestly name are ones that already exist and therefore
+already pass. **Naming the binding channel was necessary and is not
+sufficient**, and the missing half is not more prompt.
+
+**The safety net held, which is the part that matters.** Applying the diff and
+verifying:
+
+```
+acceptance: {"evidenced": 0, "unevidenced": 5, "gate-failed": 0,
+             "gate-did-not-run": 0, "human": 1}
+```
+
+and `summary.md`, where a person actually looks:
+
+```
+## Bound gates that have never been red
+
+- ⚠ **`bind-export-button` should be RED.** It proves `export-button-present`,
+  and nothing in the record shows it can fail. …
+```
+
+Three warnings, one per weak binding, and delivery refuses. **A model proposed
+three gates, and the harness declined to call any of them evidence.** That is
+the architecture doing exactly what it was built for, on the first occasion it
+had ever been tested by a real proposal rather than a fixture.
+
+Worth being precise about one thing, since it looked like a defect for a
+minute: `wring plan` printed the diff with no warning at all. That is correct —
+`wring plan` runs nothing, by ruling, so it cannot know a proposed gate's
+colour. The colour is discovered by the run that follows, and that is where the
+warning lives.
+
 ## What this page does not say
 
 - No winner. Two rows stopped for unrelated reasons and neither was scored.
