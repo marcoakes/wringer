@@ -438,6 +438,124 @@ The two defects this page names are still **not fixed**. The probe is a
 measurement and lives outside `src/`, like the rest of this cycle's
 scaffolding.
 
+---
+
+## Postscript 2, 2026-08-11 — the re-run, and the first agent turn
+
+*Everything above is still unedited. The wire fix landed (`a93f4ef`), the
+probe was re-run attended, and **an agent took a turn** — the first in this
+program's life. What follows replaces the blocked rows above; it does not
+revise them.*
+
+```
+→ acp
+iteration 1/5    ✗ g-hdr failed    → worker  4m 37s  (exit 0)
+iteration 2/5    ✓ test ✓ g-hdr ✓ g-rows ✓ g-cents
+
+  acp        converged     2 iter   277.8s   41301 tokens, 0.750919 USD
+  scripted   no_progress   4 iter     1.0s
+```
+
+**M2.** The ACP row converged in two iterations. The scripted row is unchanged
+and still uninformative for the reason given above — its `g-cents` branch is
+keyed to a variable `wring bench` does not set.
+
+**M5.** `wall_clock_ms: 277844`. The goal's own unit, for a real-agent repair
+chain, recorded for the first time.
+
+**M6.** **`0.750919 USD`**, 41301 tokens, agent-reported and unverified
+(`bench.py:56`). The first cost number this program has ever held in the OKR's
+denomination — against a $2 target, for a task of this size, on one run.
+
+### M4 — all four unknowns, answered
+
+| unknown | answer |
+|---|---|
+| `session/new` without `mcpServers` | refused; **with** it, the session opens and the turn runs |
+| `fs/write_text_file` vs the agent's own filesystem calls | **its own.** Wringer served zero writes |
+| the `terminal` capability | **not needed** — the string never appears in the session, and the agent ran commands through its own tooling |
+| whether the agent emits `usage_update` | **yes** — 49 of them in one turn, the last carrying the cost |
+
+**And the per-turn duration, which is the one that vindicates P1: the turn took
+277.3 s.** The cap this cycle removed was 120 s. Without that fix the agent
+would have been killed mid-turn, at well under half its working time, and the
+ledger would have recorded `timed_out` — a converging agent filed as a failure,
+on the first run anybody ever did.
+
+**The `fs` answer deserves its own line.** Wringer advertises
+`fs: {readTextFile, writeTextFile}` and the agent used neither: it edited the
+file directly, through its own tools, and asked no permission (the binary
+launches itself with `--permission-mode dontAsk`). So `_inside()`, the
+path-escape refusal that keeps an agent inside the repo it was pointed at,
+**never ran**. Whatever containment that check provides, it does not provide
+it against this agent. That is not a fix for this cycle; it is a fact this
+cycle now knows.
+
+### M3 — E's measurement, and the answer is yes
+
+**The agent closed three gates in one turn, and two of them had never been
+red.** Read from the run record: iteration 1 ran `test` then failed `g-hdr`
+and stopped there — `wring verify` stops at the first required failure, so
+`g-rows` and `g-cents` never ran at all. Iteration 2 ran all four green.
+
+The acceptance artifact on that green run:
+
+```json
+"counts": {"evidenced": 0, "unevidenced": 3, "gate-failed": 0,
+           "gate-did-not-run": 0, "human": 0}
+```
+
+Every criterion `"refuses": true`, each with the same reason — *"passed, but
+nothing in the record shows it can fail — a gate born green evidences
+nothing."*
+
+So the chain that reaches `wring deliver` when a scripted worker takes one
+step per call **does not reach it when a real agent fixes everything at once**.
+This is the one-verify-arms-one-gate hole, predicted in `docs/gategen.md`'s
+postscript as a candidate blocker and now measured on a real agent rather than
+reasoned about.
+
+**Two honest qualifications**, because this row is E's input and must not
+overclaim:
+
+- `hdr`'s gate *did* go red, and it is `unevidenced` anyway — but that is **by
+  design, not the hole**: the red run happened inside a bench worktree, and
+  `accept.py` deliberately never counts a bench-sourced run as a receipt. The
+  clean demonstration is `rows` and `cents`, which were never red anywhere.
+- Nothing was delivered. Bench does not reach delivery — that is why it was
+  the instrument — so this is what the artifact *says*, not a refusal anyone
+  hit.
+
+**No fix is proposed here and none was made.** The acceptance→delivery seam is
+the next ruling's, and this is its evidence.
+
+### The fix the agent wrote, since a green row is not a good row
+
+```python
+def to_csv():
+    """The report as CSV — the table's header and every row, amounts as money."""
+    header, *rows = table()
+    buf = io.StringIO()
+    out = csv.writer(buf, lineterminator="\n")
+    out.writerow(header)
+    for name, amount in rows:
+        out.writerow([name, f"{amount:.2f}"])
+    return buf.getvalue()
+```
+
+Honest: a real implementation using the standard library, no gate touched, and
+the agent checked that only `reports.py` had changed before finishing. It also
+went and read the installed `wring`, considered running `wring verify` itself,
+and declined on the grounds that upgrading the local install was outside what
+the task authorised.
+
+### What the goal sentence can now claim
+
+The second clause — **"hours later there is working software"** — has its first
+measurement, and the honest form of it is: *four minutes and thirty-seven
+seconds later, three acceptance gates were green and none of them could be
+evidenced.* Both halves of that sentence are the finding.
+
 ## What this page does not say
 
 - No winner. Two rows stopped for unrelated reasons and neither was scored.
