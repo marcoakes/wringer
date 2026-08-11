@@ -360,14 +360,25 @@ is coherent, valid, and not buildable where it landed.
 Three things, recorded because a probe that reports only its own confirmations
 is the failure mode this program exists to catch.
 
-1. **The thinking block.** The charter ruled that on `claude-opus-5` thinking
-   is on whenever the parameter is omitted, so the reply would open with a
-   `thinking` block carrying no `text` key, and that indexing `content[0].text`
-   would therefore hand the parser an empty reply. The reply carried **one text
-   block and `thinking_tokens: 0`**. `content[0].text` would have worked.
-   Concatenating every text block was still the right build — it is correct in
-   both worlds and the log shows it discarded nothing — but the stated reason
-   for it did not occur.
+1. ~~**The thinking block.**~~ **WITHDRAWN 2026-08-11 — this finding was wrong,
+   and it was wrong in the direction that matters.** It read: the charter ruled
+   thinking would be on and a `thinking` block would lead the reply, and the
+   first call returned one text block with `thinking_tokens: 0`, so
+   `content[0].text` would have worked and the charter's stated reason did not
+   occur.
+
+   A later call on the same model, same parameters, returned
+   `['thinking', 'text']` with **1149 thinking tokens**. The charter was right;
+   the behaviour is simply not deterministic, and one call is not a
+   measurement of it. `content[0].text` would have returned a block with no
+   `text` key and handed `spec.parse_response` an empty reply — the exact
+   failure the charter described, filed as scaffolding's fault.
+
+   Left visible rather than deleted, because a probe that quietly edits out its
+   own wrong findings is worth less than one that keeps them: **n=1 against a
+   stochastic system is an anecdote**, and this page asserted a general fact
+   from a single sample while its own limits section says agents are
+   stochastic.
 2. **The bench pairing.** The charter chose the fleet-scale scenario for both
    halves so every output would have a hand-authored baseline. It did not
    notice that that scenario's worker branches on a variable only `wring fleet`
@@ -624,6 +635,65 @@ minute: `wring plan` printed the diff with no warning at all. That is correct �
 `wring plan` runs nothing, by ruling, so it cannot know a proposed gate's
 colour. The colour is discovered by the run that follows, and that is where the
 warning lives.
+
+---
+
+## Postscript 4, 2026-08-11 — the agent wrote its own acceptance tests, and the chain delivered
+
+*The whole arc was filmed end to end for the first time: real drafter, real
+agent, `wring deliver --send`. **The recording is not published**, because of
+what it recorded. It is kept as evidence outside this repository, and this is
+what it found.*
+
+Ten steps ran. Every one exited the way a demo would want. The result was
+`evidenced: 4, unevidenced: 0`, a pushed branch — and it should not have been.
+
+**What happened, in order:**
+
+1. The drafter proposed four bindings, each running a test in
+   `test_csv_export.py` — **a file that did not exist**.
+2. The gates therefore failed at once, with `ModuleNotFoundError`. Red, but
+   for the wrong reason: not *the feature is missing*, but *the test is
+   missing*.
+3. `wring run` handed that to the agent, which **wrote `test_csv_export.py`
+   itself**, along with the feature it checks.
+4. `--prove` re-ran the gates on the pre-change tree, where they failed
+   (no module), and on the changed tree, where they passed. Fail-then-pass is
+   a `sensitive` receipt.
+5. Acceptance counted four of them. `wring deliver --send` pushed.
+
+**So the harness certified four criteria whose acceptance tests were written
+by the same agent that wrote the code.** That is the shape this product exists
+to refuse, reached on the default path, with nothing constructed to provoke it.
+
+### What this is and is not
+
+- **It is not a new hole.** `accept.py`'s limit 4 states it — *a gate whose own
+  command arrived with the change reads sensitive for that reason alone* — and
+  SPEC_VACUITY_V0 §5a says `--prove` cannot see this class. Both were written
+  before any of this ran.
+- **What is new is that it happened by itself**, on the first real end-to-end
+  run, from an ordinary PRD, with no adversarial input. A documented limit that
+  fires unprompted on the happy path is a different thing from a documented
+  limit.
+- **The tell was there and nothing acted on it.** Each receipt's `cites` reads
+  `FAILED (errors=1)`, which is an import error and looks nothing like an
+  assertion failure. A person reading the receipt could catch it. The counts
+  could not, and delivery did not.
+
+### The other thing the run exposed, which is mine
+
+The recording's human-correction step **did nothing and reported success.**
+`rebind.py` matches the criterion ids used in the rehearsal (`hdr`, `rows`,
+`cents`); the real drafter named its criteria `csv-column-parity` and so on, so
+the script matched nothing, changed nothing, and printed *"rebound the
+acceptance gates to the checks that are red today"*. A step that looks like it
+worked and did not is worse than a step that fails, and it is exactly what a
+rehearsal against hand-made fixtures cannot catch.
+
+**No fix for any of this is made here.** The seam is E's, it was ruled on
+2026-08-11 on the evidence available then, and this is new evidence about that
+ruling rather than a licence to re-decide it in a build window.
 
 ## What this page does not say
 

@@ -1086,6 +1086,32 @@ every row that is in the table, and the amounts still reading as money rather
 than turning into long decimals.
 EOF
 
+# The PM's own act, and the one a flag deliberately cannot do. `wring spec`
+# writes `approved: false` and the drafter's open questions unanswered, so
+# `wring plan` refuses twice over — which is filmed, because the interlock
+# working IS the front door's argument.
+#
+# A script, for `patch.py`'s reason: the displayed command must be the command
+# that ran. What it writes is a SCOPE DECISION, and one a product manager
+# really can make — hold the build to what the PRD says and put everything
+# else beyond it. It is the same answer to every question because a recorder
+# cannot film a person typing ten considered ones; `docs/first-contact.md`
+# says so beside the picture rather than leaving a viewer to assume otherwise.
+cat > decide.py <<'EOF'
+import pathlib
+import re
+
+DECISION = "Out of scope for this build — hold it to what the PRD says."
+
+path = pathlib.Path("wringer.spec.yaml")
+text = path.read_text()
+text = re.sub(r"^approved: false", "approved: true ", text, count=1, flags=re.M)
+text = text.replace("    answer: ''", f"    answer: {DECISION}")
+path.write_text(text)
+answered = text.count(DECISION)
+print(f"approved, and answered {answered} open question(s) with one scope call")
+EOF
+
 # The human's correction, as a script for the same reason `patch.py` is one:
 # the displayed command must be the command that ran, and `sed -i` differs
 # between GNU and BSD. It rewrites the drafter's proposed commands — which name

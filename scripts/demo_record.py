@@ -365,6 +365,28 @@ def _rebind_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return REBIND, ["sh", "-c", REBIND]
 
 
+# The PM approves and answers, filmed — `_approve_step`'s shape and reason.
+# `wring spec` writes `approved: false`; there is no `--yes`, so the only
+# honest way to show this is to show something outside Wringer editing the
+# file the interlock reads.
+DECIDE = "python3 decide.py && grep -m1 approved wringer.spec.yaml"
+
+
+def _decide_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return DECIDE, ["sh", "-c", DECIDE]
+
+
+def _plan_refused_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """`wring plan` BEFORE the human has approved — the interlock refusing.
+
+    Filmed on purpose. Every other recording starts from a spec somebody had
+    already approved, so the refusal that makes the approval mean anything has
+    never been on camera. It exits non-zero and the recorder captures that the
+    same as any other output.
+    """
+    return _argv_step(wring, "plan")
+
+
 def _deliver_send_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The end of the chain, for real: branch, commit, push.
 
@@ -620,6 +642,8 @@ STEP_SETS = {
     # regenerated (docs/first-contact.md).
     "firstcontact": (
         _spec_send_step,
+        _plan_refused_step,
+        _decide_step,
         _plan_step,
         _install_gates_step,
         _verify_step,
