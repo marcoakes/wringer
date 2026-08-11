@@ -311,6 +311,18 @@ def test_step_7h_and_its_selftest_agree():
 # missed it even with the right file on its list.
 _VERSION_LITERAL = re.compile(r"\b0\.\d+(?:\.\d+)?\b")
 
+# A dotted quad is an address, not a release. `127.0.0.1` contains `0.0.1`,
+# so the loopback endpoint a recording needs read as a hardcoded version and
+# the guard fired on it.
+#
+# Removed BEFORE the search rather than allowed after it, and the difference
+# matters: an exception list would have to name every address anyone writes,
+# and the first one it missed would be a false pass. This narrows the guard to
+# what it was always for — a wringer version frozen into a script — and
+# `test_the_version_guard_still_catches_the_literal_that_broke_a_release`
+# holds that narrowing to account in both directions.
+_IPV4 = re.compile(r"\b\d{1,3}(?:\.\d{1,3}){3}\b")
+
 
 def every_shell_script() -> list[str]:
     """Every script, discovered — not a list maintained beside them.
@@ -326,6 +338,34 @@ def every_shell_script() -> list[str]:
     return sorted(p.name for p in scripts.glob("*.sh")) if scripts.is_dir() else []
 
 
+def test_the_version_guard_still_catches_the_literal_that_broke_a_release():
+    """A guard narrowed to let something through has to prove what it still
+    stops, or narrowing it is indistinguishable from switching it off.
+
+    `0.3.0` was cut twice because a check quietly covered less than it looked
+    like it did. This one was narrowed to stop reading loopback addresses as
+    versions; here is the line that actually broke a release, still caught,
+    and the address that never was one, now ignored.
+    """
+    def flagged(line: str) -> bool:
+        return bool(_VERSION_LITERAL.search(_IPV4.sub("", line)))
+
+    assert flagged('grep -q "^wring 0.2" <<<"$out"')        # the real shape
+    assert flagged("VERSION=0.3.0")
+    assert flagged("pip install wringer==0.2.0")
+    assert not flagged("ENDPOINT=http://127.0.0.1:8899/v1/chat/completions")
+    assert not flagged("curl -s http://192.168.0.1/health")
+    # An address and a version on ONE line: the address must not shield it.
+    assert flagged("curl http://127.0.0.1:8899 && grep 'wring 0.2'")
+    # A LIMIT, found while writing this and stated rather than papered over:
+    # the literal that actually broke 0.3.0 was a grep pattern with an ESCAPED
+    # dot, `^wring 0\.2`, and `\b0\.\d+` does not match across the backslash.
+    # Widening the pattern to allow `\.` is a change to a release guard and is
+    # not made as a side effect of a demo commit — it is written down here so
+    # the next person to touch this knows the gap is known, not overlooked.
+    assert not flagged(r'grep -q "^wring 0\.2"')
+
+
 @pytest.mark.parametrize("name", every_shell_script() or ["none"])
 def test_no_release_script_hardcodes_a_version_it_checks(name: str):
     require_checkout("scripts")
@@ -337,7 +377,8 @@ def test_no_release_script_hardcodes_a_version_it_checks(name: str):
         for number, line in enumerate(
             path.read_text(encoding="utf-8").splitlines(), start=1
         )
-        if _VERSION_LITERAL.search(line) and not line.lstrip().startswith("#")
+        if _VERSION_LITERAL.search(_IPV4.sub("", line))
+        and not line.lstrip().startswith("#")
     ]
     assert not offenders, (
         f"{name} names a version literal in an executable line. A default "

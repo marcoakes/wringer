@@ -43,14 +43,98 @@ want() {
     [ -z "$ONLY" ] || [ "$ONLY" = "$1" ]
 }
 case "$ONLY" in
-    "" | demo | start | vacuous | graph | bench | health | gategen | fleetscale) ;;
+    "" | demo | start | vacuous | graph | bench | health | gategen | fleetscale \
+    | firstcontact) ;;
     *)
         echo "FATAL: no recording called '$ONLY'. One of: demo start" >&2
-        echo "  vacuous graph bench health gategen fleetscale — or omit it" >&2
+        echo "  vacuous graph bench health gategen fleetscale firstcontact" >&2
+        echo "  — or omit it" >&2
         echo "  for all." >&2
         exit 2
         ;;
 esac
+
+# The CSV scenario's shared files — ONE copy, used by every recording
+# that films this scenario.
+#
+# They were duplicated between `gategen` and `fleetscale`, byte for byte,
+# including all three acceptance gates. Nothing had gone wrong yet, but a
+# hand-kept second copy of the checks a demo's whole argument rests on is
+# the exact defect this project exists to catch, and a third copy was
+# about to be written for `firstcontact`. Verified identical before they
+# were merged.
+#
+# What is NOT here is each section's worker, because that is precisely
+# what differs: `gategen` steps once per call, `fleetscale` branches on
+# the fleet's task id, and `firstcontact` has no scripted worker at all —
+# a real agent does the work.
+write_csv_scenario() {
+cat > reports.py <<'EOF'
+ROWS = [("alpha", 12.5), ("beta", 3.0)]
+
+
+def table():
+    """The report, header row first."""
+    return [("name", "amount"), *ROWS]
+EOF
+
+cat > test_reports.py <<'EOF'
+from reports import table
+
+assert table()[0] == ("name", "amount")
+assert len(table()) == 3
+EOF
+
+cat > g_hdr.py <<'EOF'
+"""hdr — the CSV header is the table's columns, in order."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+header = next(csv.reader(io.StringIO(reports.to_csv())))
+if header != list(reports.table()[0]):
+    raise SystemExit(f"header is {header}")
+EOF
+
+cat > g_rows.py <<'EOF'
+"""rows — every row of the table reaches the CSV."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+if len(out) != len(reports.table()):
+    raise SystemExit(f"{len(out)} rows, table has {len(reports.table())}")
+EOF
+
+cat > g_cents.py <<'EOF'
+"""cents — amounts keep two decimal places."""
+import csv
+import io
+
+import reports
+
+if not hasattr(reports, "to_csv"):
+    raise SystemExit("reports.to_csv() does not exist")
+out = list(csv.reader(io.StringIO(reports.to_csv())))
+for row in out[1:]:
+    if len(row[1].partition(".")[2]) != 2:
+        raise SystemExit(f"amount {row[1]} is not two decimals")
+EOF
+
+cat > patch.py <<'EOF'
+import json
+import sys
+
+sys.stdout.write(json.load(sys.stdin)["gate_diff"])
+EOF
+}
 
 if want demo; then
 if [ -d "$SCRATCH" ]; then find "$SCRATCH" -mindepth 1 -delete 2>/dev/null; fi
@@ -628,69 +712,7 @@ git config user.name "demo"
 printf '.wringer/\n__pycache__/\n' > .gitignore
 
 # The repo as it stands: a reports module that works, and a check that says so.
-cat > reports.py <<'EOF'
-ROWS = [("alpha", 12.5), ("beta", 3.0)]
-
-
-def table():
-    """The report, header row first."""
-    return [("name", "amount"), *ROWS]
-EOF
-
-# The repo's existing gate. Stdlib only, and no pytest deliberately.
-cat > test_reports.py <<'EOF'
-from reports import table
-
-assert table()[0] == ("name", "amount")
-assert len(table()) == 3
-EOF
-
-# The three acceptance checks, one per machine criterion, hand-written here
-# because there is no endpoint on this machine. Each one exits non-zero with a
-# SHORT message rather than a traceback: the failure is filmed, and a
-# twenty-line stack would be a wall rather than a demo.
-cat > g_hdr.py <<'EOF'
-"""hdr — the CSV header is the table's columns, in order."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-header = next(csv.reader(io.StringIO(reports.to_csv())))
-if header != list(reports.table()[0]):
-    raise SystemExit(f"header is {header}")
-EOF
-
-cat > g_rows.py <<'EOF'
-"""rows — every row of the table reaches the CSV."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-out = list(csv.reader(io.StringIO(reports.to_csv())))
-if len(out) != len(reports.table()):
-    raise SystemExit(f"{len(out)} rows, table has {len(reports.table())}")
-EOF
-
-cat > g_cents.py <<'EOF'
-"""cents — amounts keep two decimal places."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-out = list(csv.reader(io.StringIO(reports.to_csv())))
-for row in out[1:]:
-    if len(row[1].partition(".")[2]) != 2:
-        raise SystemExit(f"amount {row[1]} is not two decimals")
-EOF
+write_csv_scenario
 
 # The worker. It stands in for a coding agent and takes ONE step per call —
 # whichever failing gate is nearest — which is what a repair brief asks for and
@@ -722,17 +744,6 @@ PY
 else
     sed 's/{amount}/{amount:.2f}/' reports.py > r && mv r reports.py
 fi
-EOF
-
-# The diff `wring plan` prints is machine-readable too, and `gate_diff` writes
-# `a/` and `b/` prefixes so `git apply` takes it as-is. This is what lets the
-# install step be ONE line a reader can type — see docs/gategen.md for what
-# that does and does not prove about a human being in the loop.
-cat > patch.py <<'EOF'
-import json
-import sys
-
-sys.stdout.write(json.load(sys.stdin)["gate_diff"])
 EOF
 
 cat > .wringer.yaml <<'EOF'
@@ -872,66 +883,7 @@ git config user.name "demo"
 printf '.wringer/\n__pycache__/\n' > .gitignore
 
 # The repo as it stands: a reports module that works, and a check that says so.
-cat > reports.py <<'EOF'
-ROWS = [("alpha", 12.5), ("beta", 3.0)]
-
-
-def table():
-    """The report, header row first."""
-    return [("name", "amount"), *ROWS]
-EOF
-
-cat > test_reports.py <<'EOF'
-from reports import table
-
-assert table()[0] == ("name", "amount")
-assert len(table()) == 3
-EOF
-
-# The three acceptance checks, one per machine criterion. Two of them belong
-# to ONE task, which is the shape this recording exists to exercise.
-cat > g_hdr.py <<'EOF'
-"""hdr — the CSV header is the table's columns, in order."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-header = next(csv.reader(io.StringIO(reports.to_csv())))
-if header != list(reports.table()[0]):
-    raise SystemExit(f"header is {header}")
-EOF
-
-cat > g_rows.py <<'EOF'
-"""rows — every row of the table reaches the CSV."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-out = list(csv.reader(io.StringIO(reports.to_csv())))
-if len(out) != len(reports.table()):
-    raise SystemExit(f"{len(out)} rows, table has {len(reports.table())}")
-EOF
-
-cat > g_cents.py <<'EOF'
-"""cents — amounts keep two decimal places."""
-import csv
-import io
-
-import reports
-
-if not hasattr(reports, "to_csv"):
-    raise SystemExit("reports.to_csv() does not exist")
-out = list(csv.reader(io.StringIO(reports.to_csv())))
-for row in out[1:]:
-    if len(row[1].partition(".")[2]) != 2:
-        raise SystemExit(f"amount {row[1]} is not two decimals")
-EOF
+write_csv_scenario
 
 # The worker, standing in for a coding agent as everywhere else here. It
 # branches on WRINGER_TASK_ID — the variable the fleet already sets — so each
@@ -964,13 +916,6 @@ def to_csv():
     return "\n".join(out) + "\n"
 PY
 fi
-EOF
-
-cat > patch.py <<'EOF'
-import json
-import sys
-
-sys.stdout.write(json.load(sys.stdin)["gate_diff"])
 EOF
 
 # `fleet.scope` is declared BEFORE the gates exist, and that is legal: the
@@ -1070,4 +1015,148 @@ git remote set-head origin -a
     "$ROOT/docs/fleet-scale.cast.json" "$WRING" fleetscale
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/fleet-scale.cast.json" \
     "$ROOT/docs/fleet-scale.svg" "one spec, two tasks, one delivery"
+fi
+
+# ---------------------------------------------------------------------------
+# The ninth recording: THE GOAL SENTENCE, with a real model at BOTH ends.
+#
+# Every other recording in this file is offline by construction — stub agents,
+# shell one-liners, no credential, no socket. This one cannot be, and that is
+# the whole point of it: a real drafter turns a PRD into a spec, and a real
+# coding agent is handed the repair brief. So it REFUSES rather than
+# substituting a fixture when its preconditions are absent, because a
+# recording of this arc against a stub would be a picture of something that
+# never happened.
+#
+# Filmed ONCE and committed as evidence (docs/first-contact.md) rather than
+# regenerated casually: it costs about a dollar and needs a key. `wring spec`
+# reads its endpoint from `.wringer.yaml`, so anything speaking
+# chat-completions on loopback will do — the run that produced the committed
+# cast used a translation shim kept OUTSIDE this repository, and that page
+# says so and shows its source.
+#
+# What this recording shows that no other can: the harness rejecting a model's
+# own gate proposals, a person correcting them, the gate going honestly red,
+# and a real agent closing every criterion in one turn.
+FC_ENDPOINT=${FC_ENDPOINT:-http://127.0.0.1:8899/v1/chat/completions}
+if want firstcontact; then
+if [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+    echo "SKIP firstcontact: ANTHROPIC_API_KEY is not set." >&2
+    echo "  This recording drives a REAL agent and a REAL drafter; filming it" >&2
+    echo "  against a stub would record a session nobody had." >&2
+elif ! command -v claude-agent-acp >/dev/null 2>&1; then
+    echo "SKIP firstcontact: no 'claude-agent-acp' on PATH." >&2
+    echo "  Wringer never installs an agent — install the one you declared." >&2
+else
+FIRSTCONTACT=$(scratch_dir "${1:-}" firstcontact) || exit 2
+FCORIGIN=$(scratch_dir "${1:-}" firstcontact-origin) || exit 2
+for tree in "$FIRSTCONTACT" "$FCORIGIN"; do
+    if [ -d "$tree" ]; then find "$tree" -mindepth 1 -delete 2>/dev/null; fi
+    mkdir -p "$tree"
+done
+cd "$FIRSTCONTACT"
+
+git init -q -b main .
+git config user.email demo@example.invalid
+git config user.name "demo"
+printf '.wringer/\n__pycache__/\n' > .gitignore
+
+write_csv_scenario
+
+# The PRD, in a product manager's voice and NOT an engineer's. It names no
+# function, no file and no test — if it did, the drafter would be transcribing
+# rather than drafting and this recording would prove nothing about the first
+# clause of the goal sentence.
+#
+# It also, deliberately, describes something this repository can actually
+# build. Measured on 2026-08-11: handed a PRD about a web reports page, a real
+# drafter wrote criteria about rendering controls and download dispositions —
+# correct for the PRD, and unbuildable in a six-line module. The drafter sees
+# the PRD and the repo's declared gate COMMANDS, never its code, so pairing
+# them is the author's job and not the model's failure.
+cat > PRD.md <<'EOF'
+# Get the numbers out of the report
+
+The table view is fine, but nobody can get the numbers out of it. Finance asks
+for the figures every month and someone ends up retyping them by hand, which
+is slow and is how the January mistake happened.
+
+I want the report available as a CSV: the same columns in the same order,
+every row that is in the table, and the amounts still reading as money rather
+than turning into long decimals.
+EOF
+
+# The human's correction, as a script for the same reason `patch.py` is one:
+# the displayed command must be the command that ran, and `sed -i` differs
+# between GNU and BSD. It rewrites the drafter's proposed commands — which name
+# the repository's existing, passing test — to the acceptance checks that are
+# genuinely red until the feature exists.
+cat > rebind.py <<'EOF'
+import pathlib
+import re
+
+REAL = {"hdr": "g_hdr.py", "rows": "g_rows.py", "cents": "g_cents.py"}
+
+path = pathlib.Path(".wringer.yaml")
+lines = path.read_text().splitlines()
+out, current = [], None
+for line in lines:
+    named = re.match(r"  - id: (\S+)", line)
+    if named:
+        current = named.group(1)
+    proves = re.match(r"    proves: (\S+)", line)
+    if proves and proves.group(1) in REAL:
+        # rewrite the run: line already emitted for this gate
+        for back in range(len(out) - 1, -1, -1):
+            if out[back].startswith("    run:"):
+                out[back] = f'    run: "python3 {REAL[proves.group(1)]}"'
+                break
+    out.append(line)
+path.write_text("\n".join(out) + "\n")
+print("rebound the acceptance gates to the checks that are red today")
+EOF
+
+# `prove: true` is not decoration here and the recording depends on it. A real
+# agent closes several criteria in ONE turn, `wring verify` stops at the first
+# required failure, so the rest never go red and would evidence nothing —
+# measured, and the reason SPEC_GATEGEN was amended. The pre-change comparison
+# is what makes a one-shot agent's work evidenceable at all.
+cat > .wringer.yaml <<EOF
+version: 1
+gates:
+  - id: test
+    run: "python3 test_reports.py"
+
+run:
+  worker:
+    acp:
+      command: claude-agent-acp
+      env_passthrough: [ANTHROPIC_API_KEY]
+  max_iterations: 5
+  prove: true
+
+deliver:
+  branch: "wringer/{run}"
+
+judge:
+  endpoint: $FC_ENDPOINT
+  model: claude-opus-5
+  max_output_tokens: 16000
+  timeout: 600
+  rubric: wringer.rubric.yaml
+EOF
+
+git add -A
+git commit -qm "the report, and a PRD asking for CSV export"
+
+git init -q --bare -b main "$FCORIGIN"
+git remote add origin "$FCORIGIN"
+git push -q origin main
+git remote set-head origin -a
+
+"$PY" "$ROOT/scripts/demo_record.py" "$FIRSTCONTACT" \
+    "$ROOT/docs/first-contact.cast.json" "$WRING" firstcontact
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/first-contact.cast.json" \
+    "$ROOT/docs/first-contact.svg" "a PRD in, a real agent, evidence out"
+fi
 fi

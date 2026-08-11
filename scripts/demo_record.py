@@ -311,6 +311,60 @@ def _acceptance_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return shown, ["sh", "-c", shown]
 
 
+def _spec_send_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The drafter, against a REAL model — the only step in any recording here
+    that opens a socket to one.
+
+    Everything else in `scripts/demo.sh` runs offline against stubs and shell
+    one-liners, deliberately. This one cannot: the whole point of the
+    recording it belongs to is that a real model stands at both ends of the
+    goal sentence. `demo.sh` refuses to film it without an endpoint and an
+    agent, rather than quietly substituting a fixture.
+    """
+    return _argv_step(wring, "spec", "PRD.md", "--send")
+
+
+def _born_green_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """What the harness said about the model's own gate proposals.
+
+    The console reports the run as green — every gate passed. The judgement
+    that matters is in `summary.md`, and it is the opposite: those gates prove
+    nothing, because a gate written for a feature that does not exist has one
+    honest colour and it is not green. This step is the recording's argument.
+
+    `sed -n` over the section heading rather than a `grep` for the warning
+    text: the heading is the document's own structure, and quoting the whole
+    section shows how many criteria are affected rather than one line that
+    might be the only one.
+    """
+    newest = _newest(
+        scratch / ".wringer" / "runs",
+        "no run directory to read the born-green warnings from",
+    )
+    shown = (
+        f"sed -n '/never been red/,$p' .wringer/runs/{newest}/summary.md"
+    )
+    return shown, ["sh", "-c", shown]
+
+
+# The human's correction, filmed rather than done off-camera — `INSTALL`'s
+# shape and `INSTALL`'s reason. The drafter named the repository's existing
+# test command for all three criteria; a person replaces each with the
+# acceptance check that is actually red until the feature exists.
+#
+# It is a script in the scenario, like `patch.py`, because a `sed -i` one-liner
+# differs between GNU and BSD and the displayed command must be the command
+# that ran. What this proves and what it does not: something outside Wringer
+# edited the config, and Wringer then ran what the file said. It does NOT
+# prove a person read the diff — no recording can, and the page beside it says
+# so.
+REBIND = "python3 rebind.py && grep -A1 'bind-' .wringer.yaml"
+
+
+def _rebind_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    return REBIND, ["sh", "-c", REBIND]
+
+
 def _deliver_send_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The end of the chain, for real: branch, commit, push.
 
@@ -555,6 +609,27 @@ STEP_SETS = {
     # capture built from one-gate tasks would go green while demonstrating
     # strictly less than the DONE box claims — a check that narrowed while
     # still passing, which is the defect class this program exists to catch.
+    # The whole goal sentence, with a real model at BOTH ends — the drafter
+    # and the worker. Ten steps because the arc has ten, and the middle four
+    # are the ones no previous recording could show: the harness rejecting a
+    # model's own gate proposals, a person correcting them, the gate going
+    # honestly red, and a real agent closing every criterion in one turn.
+    #
+    # This is the only step set that needs a credential and a network, which
+    # is why `demo.sh` gates it and why it is filmed once rather than
+    # regenerated (docs/first-contact.md).
+    "firstcontact": (
+        _spec_send_step,
+        _plan_step,
+        _install_gates_step,
+        _verify_step,
+        _born_green_step,
+        _rebind_step,
+        _verify_step,
+        _run_step,
+        _acceptance_step,
+        _deliver_send_step,
+    ),
     "fleetscale": (
         _plan_step,
         _install_gates_step,
