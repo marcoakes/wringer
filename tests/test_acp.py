@@ -10,19 +10,23 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
 import time
 from pathlib import Path
 
 import pytest
 
-from wringer import cli, config, loop
+from wringer import acp, agents, cli, config, loop
 
 AGENT = Path(__file__).resolve().parent / "fake_acp_agent.py"
 
 
-def acp_config(behaviour: str, timeout: int = 30, **extra: str) -> str:
+def acp_config(
+    behaviour: str, timeout: int = 30, delay: float | None = None, **extra: str
+) -> str:
     passthrough = extra.get("env_passthrough", "")
+    tail = "" if delay is None else f", {json.dumps(str(delay))}"
     return f"""\
 version: 1
 gates:
@@ -32,7 +36,7 @@ run:
   worker:
     acp:
       command: {json.dumps(sys.executable)}
-      args: [{json.dumps(str(AGENT))}, {json.dumps(behaviour)}]
+      args: [{json.dumps(str(AGENT))}, {json.dumps(behaviour)}{tail}]
 {passthrough}
   max_iterations: 3
   worker_timeout: {timeout}
@@ -191,9 +195,73 @@ def test_a_hanging_agent_cannot_hang_the_loop(repo, monkeypatch, capsys):
     assert finished.get("timed_out") is True
 
 
-def test_a_missing_agent_binary_says_so_and_installs_nothing(
+def test_a_prompt_turn_is_bounded_by_worker_timeout_and_not_by_the_client(
     repo, monkeypatch, capsys
 ):
+    """The turn's deadline is the number the repo wrote down — SPEC_ACP_V0 §3.
+
+    Wringer's own per-request ceiling used to apply to `session/prompt` as
+    well as to the handshake, so a repo asking for `worker_timeout: 900` got
+    120 and the ledger recorded `timed_out` about an agent that was still
+    working. Measured before this fix: nothing in 1210 tests failed, because
+    every test agent answers instantly.
+
+    The ceiling is shrunk here rather than the agent slowed to two minutes —
+    the same trick `worker_timeout: 2` plays two tests up. It is the constant
+    under test, so patching it IS the test: with the cap cut to 2s and the
+    turn given 30, an agent that thinks for 3s must still converge.
+    """
+    setup(repo, "slow", timeout=30, delay=3.0)
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(acp, "REQUEST_TIMEOUT_SECONDS", 2)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert (repo / "calc.py").read_text(encoding="utf-8") == "FIXED\n"
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert finished.get("timed_out") is not True
+    assert "acp_error" not in finished, finished.get("acp_error")
+    # The handshake keeps its ceiling: it is a control-plane call, and an
+    # `initialize` that does not answer promptly is broken rather than busy.
+    assert acp.REQUEST_TIMEOUT_SECONDS == 2
+
+
+def test_the_handshake_still_has_a_ceiling_of_its_own(repo, monkeypatch, capsys):
+    """Uncapping the prompt must not uncap everything.
+
+    `initialize` keeps `REQUEST_TIMEOUT_SECONDS`, so an agent that never
+    completes the handshake fails fast instead of holding a ten-minute
+    `worker_timeout` open — which is what "the cap is for control-plane
+    calls" has to mean if it means anything.
+    """
+    setup(repo, "mute", timeout=600)
+    monkeypatch.chdir(repo)
+    monkeypatch.setattr(acp, "REQUEST_TIMEOUT_SECONDS", 2)
+
+    started = time.monotonic()
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    elapsed = time.monotonic() - started
+    capsys.readouterr()
+
+    assert elapsed < 120, f"the handshake held the turn for {elapsed:.0f}s"
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert "acp_error" in finished
+
+
+def test_a_missing_agent_binary_is_refused_before_the_loop_starts(
+    repo, monkeypatch, capsys
+):
+    """SPEC_ACP_V0 §3, first row: *binary missing → exit 2 before the loop
+    starts*.
+
+    It did not. The loop ran, failed to spawn anything, and printed
+    `→ worker (exit 1)` twice before stopping on `no_progress` — an absent
+    binary reported as the worker's fault, and a bundle written about a run
+    that never had an agent. `bench.py` refused correctly the whole time, so
+    the same missing agent meant two different things depending on which
+    command found it.
+    """
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         """\
@@ -211,13 +279,67 @@ run:
     )
     monkeypatch.chdir(repo)
 
-    cli.main(["run"])
-    capsys.readouterr()
+    assert cli.main(["run"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "definitely-not-installed-anywhere" in said
+    assert "never installs an agent" in said
+    # Nothing created: no bundle claiming a run that never had an agent.
+    assert not (repo / loop.LOOPS_DIRNAME).exists()
 
-    log = (
-        only_loop(repo) / loop.ITERATIONS_DIRNAME / "001" / "worker.stdout.log"
-    ).read_text(encoding="utf-8")
-    assert "never installs an agent" in log
+
+def test_a_missing_agent_offers_the_install_line_the_table_holds(
+    repo, monkeypatch, capsys
+):
+    """A binary the registry knows gets its install command; one it does not
+    gets no guess. `agents.py` is the only place a package name may live."""
+    known = agents.find("claude-code")
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        f"""\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED calc.py"
+run:
+  worker:
+    acp:
+      command: {known.command}
+  max_iterations: 2
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    # Narrowly: this machine may well have the real agent installed, and
+    # blanking `which` outright would take `git` with it.
+    real = shutil.which
+    monkeypatch.setattr(
+        loop.shutil,
+        "which",
+        lambda command, *a, **kw: None
+        if command == known.command
+        else real(command, *a, **kw),
+    )
+
+    assert cli.main(["run"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert known.install in said
+    assert known.package in said
+
+
+def test_the_registry_names_the_package_that_is_actually_published():
+    """A pinned vendor table, checked for the one thing a test can check.
+
+    Not that the package exists — that is a network call this suite refuses to
+    make, and the freshness check is `docs/MANUAL_CHECKS.md` sequence F. What
+    is checkable is that the entry's own two halves agree with what was
+    installed on 2026-08-11: the renamed package and the renamed binary, which
+    are not derivable from each other and drifted apart as a pair.
+    """
+    entry = agents.find("claude-code")
+    assert entry.command == "claude-agent-acp"
+    assert entry.package == "@agentclientprotocol/claude-agent-acp"
+    # The id is the handle config speaks and must survive a rename.
+    assert agents.by_command("claude-agent-acp") is entry
 
 
 def test_a_garbage_line_does_not_derail_the_session(repo, monkeypatch, capsys):
@@ -280,7 +402,7 @@ def test_the_acp_form_parses():
             "run": {
                 "worker": {
                     "acp": {
-                        "command": "claude-code-acp",
+                        "command": "claude-agent-acp",
                         "args": ["--stdio"],
                         "env_passthrough": ["ANTHROPIC_API_KEY"],
                     }
@@ -290,7 +412,7 @@ def test_the_acp_form_parses():
     )
     worker = cfg.run.worker
     assert isinstance(worker, config.AcpWorker)
-    assert worker.command == "claude-code-acp"
+    assert worker.command == "claude-agent-acp"
     assert worker.args == ("--stdio",)
     assert worker.env_passthrough == ("ANTHROPIC_API_KEY",)
 

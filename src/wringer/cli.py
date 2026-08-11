@@ -1664,6 +1664,13 @@ def cmd_run(args: argparse.Namespace) -> int:
         )
         return EXIT_CONFIG
 
+    # Before the bundle exists, so a refused loop leaves nothing behind
+    # (SPEC_ACP_V0 §3: binary missing → exit 2 before the loop starts).
+    absent = loop.missing_agent(cfg.run)
+    if absent is not None:
+        print(f"wring run: {absent}", file=sys.stderr)
+        return EXIT_CONFIG
+
     quiet = args.json
     try:
         outcome = loop.run(
@@ -1728,12 +1735,22 @@ def _duration(duration_ms: int) -> str:
     return f"{minutes}m {seconds:02d}s"
 
 
+# One line per reason `loop._REASONS` can produce, and
+# `test_the_console_names_every_reason_the_loop_can_stop_for` fails if the two
+# ever diverge again. They had: `oscillating` and `budget_exhausted` were
+# missing, so a loop that stopped for either printed the bare fallback while
+# `summary.md` beside it stated the true reason — a hand-kept table that
+# drifted, in the repo whose thesis is that hand-kept tables drift.
 _LOOP_ENDINGS = {
     "converged": "Converged in {n} iteration{s}.",
     "max_iterations": "Stopped after {n} iteration{s} — the budget ran out and "
     "the gates still fail.",
     "no_progress": "Stopped after {n} iteration{s} — the worker changed nothing, "
     "so the gates would say the same again.",
+    "oscillating": "Stopped after {n} iteration{s} — the same failure came back, "
+    "so the worker is not converging.",
+    "budget_exhausted": "Stopped after {n} iteration{s} — the wall-clock budget "
+    "ran out and the gates still fail.",
     "interrupted": "Interrupted after {n} iteration{s}.",
 }
 
@@ -2084,6 +2101,13 @@ def cmd_resume(args: argparse.Namespace) -> int:
             f"wring resume: no 'run:' section in {config.CONFIG_FILENAME}",
             file=sys.stderr,
         )
+        return EXIT_CONFIG
+
+    # Same refusal as `wring run`: resuming into an absent agent would spend
+    # the remaining iteration budget on turns that cannot happen.
+    absent = loop.missing_agent(cfg.run)
+    if absent is not None:
+        print(f"wring resume: {absent}", file=sys.stderr)
         return EXIT_CONFIG
 
     if args.loop is not None:

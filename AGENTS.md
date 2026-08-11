@@ -72,14 +72,14 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.1.0 shipped; 0.2 in progress on `main`
+## Current state — v0.3.0 shipped; unreleased work on `main`
 
-**`v0.1.0` is tagged and on PyPI** (`pip install wringer`). `wring init`,
-`wring verify` and `wring explain` are that release: `verify` runs a repo's
-whole declared gate set and writes a real bundle, `--json` feeds agents, and
-secrets never reach the disk.
+**`v0.1.0`, `v0.2.0` and `v0.3.0` are tagged and on PyPI**
+(`pip install wringer`). `wring init`, `wring verify` and `wring explain` were
+the first of those: `verify` runs a repo's whole declared gate set and writes
+a real bundle, `--json` feeds agents, and secrets never reach the disk.
 
-On `main` since, unreleased as 0.2: `wring run` closes the loop, `wring
+Since v0.1: `wring run` closes the loop, `wring
 resume` continues a killed one, `wring fleet` supervises hundreds, `wring
 judge` weighs a finished bundle against a rubric, `wring doctor` checks this
 machine's preconditions, the `acp:` worker form talks to any agent that speaks
@@ -87,7 +87,10 @@ the protocol, and `wring spec` / `wring plan` are the front door — a PRD in,
 a spec a human approves, work a fleet can run; P3 brings work in as a URL and
 sends it back out as a reviewed branch; P5 turns a finished run into an
 attestation `wring audit` checks offline; and P4's `wring start` is the guided
-launch a new user meets first. 830+ tests on Python 3.11–3.13 plus macOS in CI.
+launch a new user meets first; `wring bench` compares workers without crowning
+one, `wring health` reads a repo's gate history, `wring graph` sequences the
+whole thing, and `fleet.scope` lets a human declare which criteria each task
+proves. 1200+ tests on Python 3.11–3.13 plus macOS in CI.
 
 **Wringer verifies Wringer**: [`.wringer.yaml`](.wringer.yaml) declares this
 repo's own gates, CI runs `wring verify` and uploads the bundle, and a real

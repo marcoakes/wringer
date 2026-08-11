@@ -24,7 +24,7 @@ the whole neutrality position: Wringer supervises, the agent writes code.
 run:
   worker:
     acp:
-      command: claude-code-acp        # required; the agent binary
+      command: claude-agent-acp       # required; the agent binary
       args: ["--stdio"]               # optional
       env_passthrough: [ANTHROPIC_API_KEY]   # optional; NAMES only
   worker_timeout: 900

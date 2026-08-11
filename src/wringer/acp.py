@@ -38,11 +38,17 @@ PROTOCOL_VERSION = 1
 # gates a repo already declared, which is the part that gets verified.
 CLIENT_CAPABILITIES = {"fs": {"readTextFile": True, "writeTextFile": True}}
 
-# A ceiling on any single request, for the case where a turn has no deadline
-# of its own. The TURN's deadline — `worker_timeout` from the repo's config —
-# always wins when it is nearer, because the number a repo wrote down must be
-# the number that binds. Getting this wrong made a `worker_timeout: 2` agent
-# hang for two minutes.
+# A ceiling on a CONTROL-PLANE request — `initialize` and `session/new` — and
+# on any request made without a turn deadline at all. The handshake either
+# answers promptly or is broken, so a client-side ceiling there is a real
+# diagnostic.
+#
+# It is deliberately NOT applied to `session/prompt`. That is the turn, and
+# SPEC_ACP_V0 §3 makes `worker_timeout` the deadline a turn is killed against
+# — the number the repo wrote down is the number that binds. Applying this cap
+# to the prompt made a 900s default silently mean 120s for every repo, and the
+# ledger then recorded `timed_out` about an agent that was still working, which
+# reads as the agent being slow rather than Wringer being impatient.
 REQUEST_TIMEOUT_SECONDS = 120
 
 # A ceiling on one message reaching the agent. Writing to a pipe blocks when
@@ -163,14 +169,23 @@ class Connection:
             pass
         self._done.set()
 
-    def send_request(self, method: str, params: dict) -> dict:
+    def send_request(
+        self, method: str, params: dict, *, capped: bool = True
+    ) -> dict:
+        """Send one request and wait for its answer.
+
+        `capped` is the control-plane default: a handshake call gets
+        `REQUEST_TIMEOUT_SECONDS` as well as the turn's deadline. The prompt
+        turn passes `capped=False`, because the only clock that may end a turn
+        is the one the repo declared.
+        """
         with self._lock:
             self._next_id += 1
             request_id = self._next_id
         self._write(
             {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
         )
-        return self._await(request_id)
+        return self._await(request_id, capped=capped)
 
     def respond(self, request_id: Any, result: dict) -> None:
         self._write({"jsonrpc": "2.0", "id": request_id, "result": result})
@@ -227,16 +242,23 @@ class Connection:
         if failure:
             raise AcpError(f"the agent stopped listening: {failure[0]}")
 
-    def _await(self, request_id: int) -> dict:
+    def _await(self, request_id: int, capped: bool = True) -> dict:
         """Wait for one response, serving the agent's own requests meanwhile.
 
-        Bounded by whichever comes first: this request's own ceiling, or the
-        turn's deadline. `worker_timeout` is the repo's instruction and must
-        not be quietly outlived by a client-side default.
+        A capped request is bounded by whichever comes first: this request's
+        own ceiling, or the turn's deadline. An UNCAPPED one is bounded by the
+        turn's deadline alone — `worker_timeout` is the repo's instruction, and
+        it must not be quietly outlived by a client-side default in either
+        direction: not exceeded, and not undercut.
+
+        Every path still ends. A request made with no turn deadline at all
+        keeps the ceiling whether or not it asked for one, because an
+        unbounded wait is the one thing invariant 3 forbids.
         """
-        deadline = time.monotonic() + REQUEST_TIMEOUT_SECONDS
-        if self._deadline is not None:
-            deadline = min(deadline, self._deadline)
+        deadline = self._deadline
+        if capped or deadline is None:
+            ceiling = time.monotonic() + REQUEST_TIMEOUT_SECONDS
+            deadline = ceiling if deadline is None else min(ceiling, deadline)
         while time.monotonic() < deadline:
             with self._lock:
                 found = self._responses.pop(request_id, None)
@@ -397,6 +419,11 @@ def run_turn(
                 "sessionId": session_id,
                 "prompt": [{"type": "text", "text": brief}],
             },
+            # THE turn. Bounded by `worker_timeout` and nothing else — a
+            # repair turn on a real agent has no reason to fit inside a
+            # client-side handshake ceiling, and cutting it there would make
+            # the ledger blame the agent for Wringer's number.
+            capped=False,
         )
         # Recorded, never acted on — exactly as a shell worker's exit code is.
         turn.stop_reason = str(result.get("stopReason", "unknown"))

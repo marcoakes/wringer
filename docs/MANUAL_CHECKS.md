@@ -230,6 +230,47 @@ What a run would need, on a machine whose owner already has an agent installed:
 else's server to be up is a test that fails for reasons unrelated to this
 code. The https path is `wring get`'s, and it is the same function.
 
+## Sequence F — the agent table has not been renamed out from under us
+
+**Status: first run 2026-08-11, and it found a defect.**
+
+`src/wringer/agents.py` is a hand-kept vendor table: an id, a binary, a
+package, a credential variable. Nothing in the suite can check it is current,
+and nothing should — asking npm whether a package is deprecated is a network
+call in an offline-by-construction suite, in a project whose whole claim is
+that what proves anything makes no network call. So this is a dated row
+instead.
+
+What it costs to skip: on 2026-08-11 the first person ever to install one of
+these agents found `@zed-industries/claude-code-acp` deprecated and renamed.
+Both halves of the entry were stale together — the current package is
+`@agentclientprotocol/claude-agent-acp` and its binary is `claude-agent-acp`,
+frozen at 0.16.2 versus 0.66.0 — so a user following current npm guidance
+installed the agent successfully and `agents.located()` reported "not
+installed" about an agent that was installed, while `wring start` printed an
+install line for a dead package. Nothing in 1210 tests could have caught it,
+because until that day nobody had ever tried to install a real agent.
+
+Per entry in `agents.AGENTS`, on a machine with a network:
+
+- [ ] `npm view <package> deprecated` → empty. Any string here is the
+      finding: read it, it names the replacement.
+- [ ] `npm view <package> version` → compare with what the ecosystem is
+      actually installing. A package frozen many minor versions behind its
+      sibling is the same defect wearing a different hat.
+- [ ] `npm view <package> bin` → the key must match the entry's `command`.
+      The two are not derivable from each other and they drift as a pair.
+- [ ] If anything moved: change `agents.py`, move `SPEC_ACP_V0.md`'s config
+      example and `tests/test_acp.py`'s fixtures with it, leave `id` alone
+      (it is the vendor-neutral handle config speaks), and **do not edit the
+      filmed captures** — they record what was filmed.
+- [ ] **Record it.** Add a row below.
+
+| Entry | Package checked | Result | Date | Commit |
+|---|---|---|---|---|
+| `claude-code` | `@zed-industries/claude-code-acp` | **Deprecated and renamed** → `@agentclientprotocol/claude-agent-acp`, binary `claude-agent-acp`; table corrected | 2026-08-11 | this commit |
+| `gemini` | `@google/gemini-cli` | **never checked** | — | — |
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.

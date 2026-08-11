@@ -115,7 +115,7 @@ run:
     monkeypatch.chdir(repo)
 
     assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
-    capsys.readouterr()
+    said = capsys.readouterr().out
 
     outcome = result(repo)
     assert outcome["reason"] == "oscillating"
@@ -124,6 +124,9 @@ run:
     assert "not converging" in (only_loop(repo) / loop.SUMMARY_FILENAME).read_text(
         encoding="utf-8"
     )
+    # And the console says the same thing the summary does. It used to print
+    # the bare fallback here, so the two artefacts of one run disagreed.
+    assert "not converging" in said
 
 
 def test_the_breaker_does_not_fire_on_genuinely_different_failures(
@@ -205,10 +208,11 @@ run:
     started = time.monotonic()
     assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
     elapsed = time.monotonic() - started
-    capsys.readouterr()
+    said = capsys.readouterr().out
 
     outcome = result(repo)
     assert outcome["reason"] == "budget_exhausted"
+    assert "wall-clock budget ran out" in said
     # stopped early rather than running all nine laps
     assert outcome["iterations"] < 9
     assert elapsed < 30, f"the wall clock did not bind ({elapsed:.1f}s)"

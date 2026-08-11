@@ -21,6 +21,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
@@ -376,6 +377,39 @@ def reap_orphans(pgids: tuple[int, ...]) -> list[int]:
         except (ProcessLookupError, PermissionError, OSError):
             pass  # already gone, or never ours to signal
     return killed
+
+
+def missing_agent(settings: config.Run) -> str | None:
+    """Why this loop cannot start, or None — SPEC_ACP_V0 §3's first row.
+
+    An ACP worker whose binary is not on `PATH` is an environment error, and
+    the spec says so: *binary missing → exit 2 before the loop starts*. Without
+    this the loop ran, spawned nothing, and reported `worker (exit 1)` twice
+    before stopping on `no_progress` — blaming a worker for a binary nobody
+    installed, which is the misattribution class F6 exists to fix, one seam
+    over. `bench.py` has done this preflight since it shipped; the loop did
+    not, so the same absent agent read as two different things depending on
+    which command found it.
+
+    Returns the message rather than raising: the caller owns the exit code,
+    and `wring run`'s is 2.
+    """
+    worker = settings.worker
+    if not isinstance(worker, config.AcpWorker):
+        # A shell worker gets no preflight, for `bench.py`'s reason: its
+        # failure at runtime is that worker's recorded outcome, not a refusal.
+        return None
+    if shutil.which(worker.command) is not None:
+        return None
+    from wringer import agents
+
+    known = agents.by_command(worker.command)
+    hint = f"\n\nInstall it with: {known.install}" if known is not None else ""
+    return (
+        f"the ACP agent {worker.command!r} is not on PATH, so there is nothing "
+        f"to hand the brief to.{hint}\n\nWringer never installs an agent. "
+        "Nothing has been created."
+    )
 
 
 def _worker_text(worker: Any) -> str:

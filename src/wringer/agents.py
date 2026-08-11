@@ -67,11 +67,24 @@ class Agent:
 # The list is short on purpose: an agent Wringer names is one it is claiming
 # can be detected and driven, and a table padded with unverified entries would
 # be a guess wearing a mapping layer.
+#
+# **This table drifts, and nothing here can catch it.** On 2026-08-11 the first
+# person ever to install one of these found the `claude-code` entry naming a
+# package npm had deprecated and renamed: the current package installs
+# successfully and `located()` then reports "not installed" about an agent that
+# is installed. No test could have caught it — asking npm whether a package is
+# deprecated is a network call in an offline-by-construction suite — so the
+# check is a dated row in `docs/MANUAL_CHECKS.md` (sequence F) rather than a
+# guard that would make the suite phone a registry.
 AGENTS: tuple[Agent, ...] = (
     Agent(
+        # The id is the vendor-neutral handle config speaks and it does NOT
+        # move when the vendor renames a package — `agent: claude-code` in a
+        # bench contender or a `--agent` flag is unaffected by the line below.
+        # That is the whole reason ids and binaries are separate fields.
         id="claude-code",
-        command="claude-code-acp",
-        package="@zed-industries/claude-code-acp",
+        command="claude-agent-acp",
+        package="@agentclientprotocol/claude-agent-acp",
         key_env="ANTHROPIC_API_KEY",
     ),
     Agent(
@@ -91,6 +104,18 @@ def known() -> tuple[str, ...]:
 
 def find(agent_id: str) -> Agent | None:
     return next((agent for agent in AGENTS if agent.id == agent_id), None)
+
+
+def by_command(command: str) -> Agent | None:
+    """The entry that declares this binary, or None.
+
+    `run.worker.acp.command` is a command a human wrote down, not an id, so
+    the only honest way to offer an install line for it is to ask whether any
+    agent in the table names exactly that binary. Anything else — matching on
+    a substring, guessing a package from a filename — would be this module
+    inventing a vendor string instead of holding one.
+    """
+    return next((agent for agent in AGENTS if agent.command == command), None)
 
 
 def located(agent: Agent) -> str | None:

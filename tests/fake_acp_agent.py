@@ -16,6 +16,12 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
     hang       accept the prompt and never answer
+    mute       read stdin and never answer ANYTHING, including `initialize` —
+               a handshake that does not complete, which is what the
+               control-plane ceiling exists for
+    slow       think for argv[2] seconds, THEN fix — a turn that is working,
+               just not quickly. The shape a real repair turn has, and the one
+               a client-side per-request ceiling used to cut off
     deaf       answer session/new, then never read stdin again (pipe fills)
     garbage    emit a line that is not JSON, then behave
     noisy      flood stderr with far more than a pipe buffer holds, then
@@ -42,6 +48,10 @@ import sys
 import time
 
 BEHAVIOUR = sys.argv[1] if len(sys.argv) > 1 else "fix"
+# How long `slow` thinks before answering the prompt. On argv rather than in
+# the environment because an ACP agent is given only what `env_passthrough`
+# names, which is the behaviour under test elsewhere in this file.
+DELAY_SECONDS = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
 
 # The variables `leak` will echo if they reached it. One matches the
 # redactor's default `*KEY*` pattern and one deliberately matches none of
@@ -122,6 +132,12 @@ def main() -> int:
         method = message.get("method")
         request_id = message.get("id")
 
+        if BEHAVIOUR == "mute":
+            # Answer nothing, but keep reading — so the client's stdin close
+            # is still an EOF this process exits on, and the test measures the
+            # ceiling rather than the kill that follows it.
+            continue
+
         if method == "initialize":
             reply(request_id, {
                 "protocolVersion": 1,
@@ -149,6 +165,12 @@ def main() -> int:
                     if not line:
                         return 0
             notify(session_id, f"working ({BEHAVIOUR})")
+
+            if BEHAVIOUR == "slow":
+                # Working, not hung: the client is holding an open prompt
+                # request the whole time, which is exactly the wait a real
+                # repair turn produces.
+                time.sleep(DELAY_SECONDS)
 
             if BEHAVIOUR == "loudcrash":
                 notify(session_id, "THE LAST THING THE AGENT SAID")
@@ -207,7 +229,7 @@ def main() -> int:
                 })
 
             if BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy",
-                             "usage", "usageleak"):
+                             "slow", "usage", "usageleak"):
                 outbound += 1
                 request(outbound, "fs/write_text_file", {
                     "sessionId": session_id,

@@ -18,7 +18,7 @@ from pathlib import Path
 import pytest
 from conftest import flat
 
-from wringer import cli, evidence, loop
+from wringer import cli, evidence, graph, loop
 
 # A gate that passes only once calc.py has been fixed.
 CHECKS = """\
@@ -67,6 +67,31 @@ def types(loop_dir: Path) -> list[str]:
 
 def manifest(loop_dir: Path) -> dict:
     return json.loads((loop_dir / loop.MANIFEST_FILENAME).read_text(encoding="utf-8"))
+
+
+def test_the_console_names_every_reason_the_loop_can_stop_for():
+    """The console map and the loop's own reasons must agree.
+
+    They did not. `cli._LOOP_ENDINGS` carried four of six, so a loop that
+    stopped because the worker oscillated, or because the wall clock ran out,
+    printed the bare *"Stopped after N iterations."* fallback while
+    `summary.md` beside it stated the true reason. There was an agreement test
+    pinning graph↔loop and none pinning the console — a hand-kept table that
+    drifted, in the repo whose thesis is that hand-kept tables drift.
+
+    Set equality, not containment, in both directions: a console line for a
+    reason the loop cannot produce is dead text that reads as coverage.
+    """
+    assert set(cli._LOOP_ENDINGS) == set(loop._REASONS), {
+        "console is missing": sorted(set(loop._REASONS) - set(cli._LOOP_ENDINGS)),
+        "console invents": sorted(set(cli._LOOP_ENDINGS) - set(loop._REASONS)),
+    }
+    # And the third copy, so all three agree rather than two of three.
+    assert set(cli._LOOP_ENDINGS) == set(graph.LOOP_REASONS)
+    # Every line must actually render — a template naming a field the
+    # formatter is not given would raise at the worst possible moment.
+    for reason, line in cli._LOOP_ENDINGS.items():
+        assert line.format(n=1, s=""), reason
 
 
 def test_the_fingerprint_ignores_wringers_own_evidence(repo):

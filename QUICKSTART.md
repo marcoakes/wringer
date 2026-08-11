@@ -67,11 +67,16 @@ has the variable already set, which is the non-interactive form of that
 answer, and the terminal says so on the `[6/7] key` line. A recording that
 staged the typing would be a transcript of a session nobody had.
 
-*The agent in the recording is a stub.* A file named `claude-code-acp` on
-`PATH` that does nothing. Detection is `shutil.which` and nothing cleverer, so
-a stub is all it takes to film the step — and Wringer neither bundles nor
-installs an agent, so putting a real vendor binary in anyone's regeneration
-path would contradict the thing being demonstrated. The launch never runs it:
+*The agent in the recording is a stub.* A file on `PATH` that does nothing,
+named for whatever `src/wringer/agents.py` says the binary is. Detection is
+`shutil.which` and nothing cleverer, so a stub is all it takes to film the
+step — and Wringer neither bundles nor installs an agent, so putting a real
+vendor binary in anyone's regeneration path would contradict the thing being
+demonstrated. The recording shows `claude-code-acp`, which is what that table
+said when it was filmed; the vendor has since renamed the package and the
+table now says `claude-agent-acp`. **The recording is evidence and is not
+edited** — it records what was filmed. The stub name follows the table at the
+next re-film. The launch never runs it:
 the gates pass on the first try, so there is no failure to hand to a repair
 loop. What the recording shows is detection and consent, which is all that
 step does.
