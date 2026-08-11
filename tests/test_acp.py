@@ -15,6 +15,7 @@ import sys
 import time
 from pathlib import Path
 
+import fake_acp_agent
 import pytest
 
 from wringer import acp, agents, cli, config, loop
@@ -340,6 +341,91 @@ def test_the_registry_names_the_package_that_is_actually_published():
     assert entry.package == "@agentclientprotocol/claude-agent-acp"
     # The id is the handle config speaks and must survive a rename.
     assert agents.by_command("claude-agent-acp") is entry
+
+
+# --- the client speaks the protocol, and the double checks that it does ----
+
+
+def test_a_new_session_carries_every_field_the_protocol_requires(
+    repo, monkeypatch, capsys
+):
+    """`session/new` needs `mcpServers`, and Wringer used to omit it.
+
+    Measured on 2026-08-11 against `claude-agent-acp` 0.66.0: the real agent
+    refused every session with `Invalid params` naming this exact field, so no
+    ACP turn had ever run in this program's life — while 1210 tests passed,
+    because the fake agent answered without reading the request.
+
+    There is no separate assertion to make here. The double now refuses a
+    malformed request the way the real agent does, so **every test in this
+    file is the guard**: delete `mcpServers` from `acp.py` and the whole ACP
+    suite goes red. This test exists to say that in one place, and to pin the
+    field by name so a future edit cannot quietly drop it again.
+    """
+    setup(repo, "fix")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert finished["agent_name"] == "fake-acp-agent"
+    assert "acp_error" not in finished
+    assert "mcpServers" in fake_acp_agent.REQUIRED["session/new"]
+
+
+def test_the_fake_agent_refuses_what_a_real_agent_refuses(repo):
+    """The double's own rules, pinned — 2a's whole point.
+
+    A test double more permissive than the thing it stands in for does not
+    test a client, it launders it. The required-field table is transcribed
+    from the published schema by hand (a suite that reads a vendored copy goes
+    stale silently; one that fetches it phones a registry), so the
+    transcription is what a test can check.
+    """
+    assert fake_acp_agent.missing_fields("session/new", {"cwd": "."}) == [
+        "mcpServers"
+    ]
+    assert fake_acp_agent.missing_fields(
+        "session/new", {"cwd": ".", "mcpServers": []}
+    ) == []
+    assert fake_acp_agent.missing_fields("initialize", {}) == ["protocolVersion"]
+    assert fake_acp_agent.missing_fields("session/prompt", {"prompt": []}) == [
+        "sessionId"
+    ]
+    # A method the table says nothing about is not this fixture's business.
+    assert fake_acp_agent.missing_fields("session/update", {}) == []
+
+
+def test_a_refused_session_is_a_failed_turn_and_not_a_crash(
+    repo, monkeypatch, capsys
+):
+    """And when the client DOES get it wrong, the shape is the one measured.
+
+    The real agent's refusal is a JSON-RPC error, which `_await` raises as an
+    `AcpError` and the loop records as a failed worker turn — never a verdict
+    about the code. This drives that path deliberately, by asking the agent
+    for a session the protocol does not allow.
+    """
+    setup(repo, "fix")
+    monkeypatch.chdir(repo)
+    # The pre-fix client, reproduced exactly: `cwd` and nothing else.
+    original = acp.Connection.send_request
+
+    def without_mcp_servers(self, method, params, **kwargs):
+        if method == "session/new":
+            params = {"cwd": params["cwd"]}
+        return original(self, method, params, **kwargs)
+
+    monkeypatch.setattr(acp.Connection, "send_request", without_mcp_servers)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert finished["acp_error"] == "Invalid params"
+    assert result(repo)["status"] == "stopped"
+    assert (repo / "calc.py").read_text(encoding="utf-8") == "BROKEN\n"
 
 
 def test_a_garbage_line_does_not_derail_the_session(repo, monkeypatch, capsys):

@@ -408,7 +408,20 @@ def run_turn(
         turn.agent_name = str(agent.get("name", ""))
         turn.agent_version = str(agent.get("version", ""))
 
-        session = connection.send_request("session/new", {"cwd": str(root)})
+        session = connection.send_request(
+            "session/new",
+            # `mcpServers` is REQUIRED by the protocol — not optional, and not
+            # defaultable by the agent. Omitting it made every real agent
+            # refuse the session with `Invalid params` naming this field,
+            # which is the whole reason no ACP turn had ever run
+            # (docs/first-contact.md). Empty because Wringer connects the
+            # agent to no MCP servers: the tools an agent needs are the gates
+            # the repo already declared, which is SPEC_ACP_V0's v0 position
+            # and the same reason `terminal` is absent from
+            # CLIENT_CAPABILITIES. A future MCP story fills this list; it
+            # never removes it.
+            {"cwd": str(root), "mcpServers": []},
+        )
         session_id = session.get("sessionId")
         if not session_id:
             raise AcpError("the agent opened no session")

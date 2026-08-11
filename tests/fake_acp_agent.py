@@ -47,17 +47,56 @@ import os
 import sys
 import time
 
-BEHAVIOUR = sys.argv[1] if len(sys.argv) > 1 else "fix"
+
+def _argv(index: int, default: str) -> str:
+    """This file is BOTH a subprocess and an import.
+
+    Its normal life is a spawned agent reading argv. But `REQUIRED` below is
+    the double's contract and `tests/test_acp.py` asserts on it directly, so
+    the module is also imported into the runner — where argv carries pytest's
+    own flags, and a bare `float(sys.argv[2])` failed at import on `-q`.
+    """
+    return sys.argv[index] if len(sys.argv) > index else default
+
+
+BEHAVIOUR = _argv(1, "fix")
 # How long `slow` thinks before answering the prompt. On argv rather than in
 # the environment because an ACP agent is given only what `env_passthrough`
 # names, which is the behaviour under test elsewhere in this file.
-DELAY_SECONDS = float(sys.argv[2]) if len(sys.argv) > 2 else 0.0
+try:
+    DELAY_SECONDS = float(_argv(2, "0"))
+except ValueError:
+    DELAY_SECONDS = 0.0
 
 # The variables `leak` will echo if they reached it. One matches the
 # redactor's default `*KEY*` pattern and one deliberately matches none of
 # them, so the two tests can tell the acp.py scrub apart from the
 # env_passthrough folding.
 LEAKABLE = ("WRINGER_TEST_API_KEY", "WRINGER_TEST_CREDENTIAL")
+
+
+# What the protocol REQUIRES on each request, transcribed by hand from the
+# published schema's `required` arrays (`@agentclientprotocol/sdk`,
+# `schema/schema.json`). Transcribed rather than loaded: a test suite that
+# reads a vendored copy of someone else's file is a suite whose fixtures go
+# stale silently, and one that fetches it is a suite that phones a registry.
+#
+# **This table is here because its absence shipped a defect.** This agent used
+# to answer `session/new` without looking at the request at all, so Wringer
+# omitted `mcpServers` — required — and 1210 tests passed over a seam that had
+# never once worked against a real agent, which refused every session with
+# `Invalid params` naming exactly this field. A double more permissive than
+# the thing it stands in for does not test a client; it launders it.
+REQUIRED = {
+    "initialize": ("protocolVersion",),
+    "session/new": ("cwd", "mcpServers"),
+    "session/prompt": ("sessionId", "prompt"),
+}
+
+# JSON-RPC's own code for invalid params, and the real agent's shape for
+# saying which field is missing — copied from what `claude-agent-acp` 0.66.0
+# actually returned, so a test asserting on this is asserting on the wire.
+INVALID_PARAMS = -32602
 
 
 def send(message: dict) -> None:
@@ -67,6 +106,29 @@ def send(message: dict) -> None:
 
 def reply(request_id, result: dict) -> None:
     send({"jsonrpc": "2.0", "id": request_id, "result": result})
+
+
+def refuse(request_id, missing: list[str]) -> None:
+    send({
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {
+            "code": INVALID_PARAMS,
+            "message": "Invalid params",
+            "data": {
+                "_errors": [],
+                **{name: {"_errors": ["Required value is missing"]}
+                   for name in missing},
+            },
+        },
+    })
+
+
+def missing_fields(method: str, params: dict) -> list[str]:
+    """Which required fields this request left out, in schema order."""
+    if not isinstance(params, dict):
+        return list(REQUIRED.get(method, ()))
+    return [name for name in REQUIRED.get(method, ()) if name not in params]
 
 
 def request(request_id: int, method: str, params: dict) -> dict:
@@ -136,6 +198,13 @@ def main() -> int:
             # Answer nothing, but keep reading — so the client's stdin close
             # is still an EOF this process exits on, and the test measures the
             # ceiling rather than the kill that follows it.
+            continue
+
+        # BEFORE any behaviour branch: a malformed request is refused whatever
+        # this agent was told to pretend to be, because a real one would.
+        absent = missing_fields(method, message.get("params") or {})
+        if absent and request_id is not None:
+            refuse(request_id, absent)
             continue
 
         if method == "initialize":

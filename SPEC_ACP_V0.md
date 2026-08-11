@@ -65,7 +65,11 @@ the loop's evidence honest rather than a conversation that drifts.
 2. `initialize` — send `protocolVersion` and `clientCapabilities`
    (declare `fs` read/write; **no terminal capability in v0**). Record the
    negotiated `protocolVersion` and `agentInfo` on the ledger.
-3. `session/new` with `cwd` = the repo root. Keep the returned `sessionId`.
+3. `session/new` with `cwd` = the repo root **and `mcpServers: []`** — the
+   protocol marks both required, and omitting the second one refused every
+   real session this program ever attempted (`docs/first-contact.md`). Empty
+   because Wringer connects the agent to no MCP servers, for the same reason
+   `terminal` is absent above. Keep the returned `sessionId`.
 4. `session/prompt` with the brief's text as a single text ContentBlock —
    **the same brief file the shell worker gets**, so the two forms are
    comparable and the brief remains the single source of instruction.
