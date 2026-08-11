@@ -35,6 +35,29 @@ from pathlib import Path
 # Regeneration is a deliberate act, done when the flow changes.
 TIMING_QUANTUM = 0.1
 
+# The longest gap between two frames that survives into a cast, in seconds.
+#
+# Needed the moment a REAL agent went into a recording. A repair turn took
+# 4m37s (docs/first-contact.md), and the renderer paces the whole animation
+# against its last timestamp — so one honest turn would have produced a
+# five-minute SVG that is four and a half minutes of nothing. Nobody watches
+# that, and a demo nobody watches demonstrates nothing.
+#
+# **Pacing is presentation; text is captured.** That is this project's
+# standing rule and the reason `TIMING_QUANTUM` is allowed to exist at all.
+# Compression obeys the same boundary: not one byte of what the terminal said
+# is altered, and the real duration is not lost — it is INSIDE the captured
+# text, because the console prints `→ worker  4m 37s` itself. The recording
+# shows the wait as a beat and the transcript states its true length, which
+# is the honest way round. Reversing it — a real five-minute pause with the
+# duration edited out — is the one this must never become.
+#
+# Measured against the eight casts already committed: seven have no gap over
+# 2.5s at all, so this changes nothing about them. `health.cast.json` has one
+# 8.4s pause and will re-pace to 2.5s the next time it is regenerated — which
+# is a deliberate act, done when the flow changes, and within the same rule.
+MAX_GAP_SECONDS = 2.5
+
 
 # The agent `wring start` is told to use in the recording. A real id from
 # Wringer's own table — `tests/test_docs.py` asserts that — but the binary
@@ -392,6 +415,30 @@ def _graph_status_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     )
 
 
+def compress_gaps(cast: list[dict], cap: float = MAX_GAP_SECONDS) -> list[dict]:
+    """Shorten any silence longer than `cap`, and change no text.
+
+    Applied BEFORE `quantize`, so the grid is the last word on timings.
+
+    The shift is cumulative: once a gap is shortened every later frame moves
+    up by the same amount, which is what keeps the sequence monotonic and the
+    remaining gaps exactly as recorded. Only the waiting is compressed —
+    never the pace at which a command's own output arrives, because that
+    pace is part of what the recording shows.
+    """
+    if not cast:
+        return cast
+
+    out = [dict(cast[0])]
+    shift = 0.0
+    for previous, frame in zip(cast[:-1], cast[1:], strict=True):
+        gap = frame["at"] - previous["at"]
+        if gap > cap:
+            shift += gap - cap
+        out.append({**frame, "at": round(frame["at"] - shift, 3)})
+    return out
+
+
 def quantize(cast: list[dict], quantum: float = TIMING_QUANTUM) -> list[dict]:
     """Snap every `at` to the grid, leaving `text` untouched.
 
@@ -560,7 +607,7 @@ def main() -> int:
             cast.append({"at": round(offset + frame["at"], 3), "text": frame["text"]})
         offset += (frames[-1]["at"] if frames else 0.0) + 1.4
 
-    cast = quantize(cast)
+    cast = quantize(compress_gaps(cast))
     out.write_text(json.dumps(cast, indent=1) + "\n", encoding="utf-8")
     print(f"recorded {len(cast)} lines over {cast[-1]['at']:.1f}s -> {out}")
     return 0

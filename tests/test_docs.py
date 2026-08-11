@@ -486,6 +486,52 @@ def test_quantize_never_touches_the_captured_text():
     assert [f["at"] for f in snapped] == [0.0, 1.2, 3.0]
 
 
+def test_a_long_silence_is_compressed_and_the_transcript_is_not():
+    """The same boundary, for the same reason, on the gap a REAL agent leaves.
+
+    A measured repair turn took 4m37s, and the renderer paces the whole
+    animation against its last timestamp — so one honest turn would render as
+    four and a half minutes of nothing. Pacing is presentation; text is
+    evidence. What makes this safe rather than a law-8 lie is that the true
+    duration is not removed from the recording: the console prints it itself,
+    inside a captured line this function may not touch.
+    """
+    module = demo_record_module()
+    original = [
+        {"at": 0.0, "text": "$ wring run", "prompt": True},
+        {"at": 0.5, "text": "iteration 1/5"},
+        # the agent thinks for four and a half minutes
+        {"at": 278.0, "text": "→ worker             4m 37s  (exit 0)"},
+        {"at": 278.4, "text": "Converged in 2 iterations."},
+    ]
+    squeezed = module.compress_gaps(original, cap=2.5)
+
+    assert [f["text"] for f in squeezed] == [f["text"] for f in original]
+    # The wait becomes a beat...
+    assert squeezed[2]["at"] == 3.0
+    # ...every later frame moves up with it, and no gap that was already
+    # short is stretched or shrunk.
+    assert round(squeezed[3]["at"] - squeezed[2]["at"], 3) == 0.4
+    # ...and the recording still STATES how long it really took, because that
+    # sentence is captured text.
+    assert "4m 37s" in squeezed[2]["text"]
+    # Monotonic, or the SVG's keyframes would run backwards.
+    assert [f["at"] for f in squeezed] == sorted(f["at"] for f in squeezed)
+
+
+def test_compression_leaves_an_already_brisk_recording_alone():
+    """It must not quietly re-pace the recordings that already exist — the
+    committed casts are evidence, and a function that touched all of them
+    would make every future diff unreadable."""
+    module = demo_record_module()
+    original = [
+        {"at": 0.0, "text": "$ wring verify", "prompt": True},
+        {"at": 0.6, "text": "✓ lint passed"},
+        {"at": 2.4, "text": "✓ test passed"},
+    ]
+    assert module.compress_gaps(original, cap=2.5) == original
+
+
 # --- the launch demo -------------------------------------------------------
 #
 # `main()` iterates a hardcoded tuple, so a new recorded command REQUIRES a
