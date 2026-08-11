@@ -92,6 +92,39 @@ Two consequences a reader must not have to infer:
    would have refused this program's own first true measurement, whose gates
    are stdlib and need none.
 
+### AMENDED AGAIN, same day — the gate must pre-date the change it judges
+
+*The first end-to-end run with a real agent produced, unprompted, the thing
+the amendment above was warned about.*
+
+The drafter bound four criteria to tests in a file that did not exist. The
+gates failed instantly — red, but because the **test** was missing, not the
+feature. The agent then wrote that file along with the code it checks.
+`--prove` saw fail-then-pass, issued four `sensitive` receipts, acceptance
+counted them, and `wring deliver --send` pushed. **The harness certified work
+whose acceptance tests its own worker had written**, which is the shape this
+program exists to refuse, on the default path, from an ordinary PRD.
+
+**E1a is not reversed.** The pre-change comparison remains the mechanism by
+which a one-shot agent evidences anything. What is added is the one
+precondition the born-red story always implied: **a gate that arrived with the
+change cannot evidence the change.**
+
+Established **structurally** — from git's own untracked list, asking whether
+this change created any name the gate command exercises. Not by reading the
+failure message, and not by parsing the command for filenames: both are the
+classification §4b refuses, the second merely wearing a structural costume.
+Where it cannot be established at all, the receipt does not count and the row
+says why. **Un-establishable is unevidenced, never a pass** — this artifact
+held to its own standard.
+
+**The cost is accepted rather than softened.** An acceptance gate can no
+longer arrive in the same change as the code it checks. A task that
+legitimately writes its own test gets that criterion evidenced by the *next*
+change, or by a human receipt — not by the same commit. Greenfield work pays
+this in full, and that is the trade: a criterion evidenced one change later is
+worth more than one evidenced by a check its author wrote in the same breath.
+
 **The drafter now proposes bindings.** The prompt asks for `gate_bindings`
 with `proves:` and says a binding that already passes is worth nothing. It
 had never asked — the sidecar writer, its parser and its tests all shipped

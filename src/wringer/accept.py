@@ -35,6 +35,7 @@ give one a verdict.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -207,11 +208,56 @@ def read_spec(root: Path) -> spec_module.Spec | None:
     return loaded if loaded.approved else None
 
 
+def created_stems(state: Any) -> frozenset[str] | None:
+    """The names this change brought into existence, or None if unknowable.
+
+    Sourced from git's own untracked list — files it has never seen — so
+    nothing here parses a command or reads a failure message. Both were
+    considered and refused: classifying failure prose is what SPEC_VACUITY §4b
+    forbids, and parsing a shell command for filenames is that same
+    classification wearing a structural costume.
+
+    **Stems, not filenames**, and the reason is measured rather than
+    theoretical: the gate that exposed this ran
+    `python3 -m unittest test_csv_export.CsvExportTest.test_columns...`, which
+    names the MODULE. `test_csv_export.py` does not appear in it and a
+    filename match would have found nothing. The stem does.
+
+    The cost is stated rather than hidden: a change that creates `utils.py` in
+    a repo whose gate command happens to contain the word `utils` will refuse
+    a receipt it need not have. That direction is chosen. Ruled 2026-08-11 —
+    un-establishable is unevidenced, never a pass — which is the vacuity
+    precedent applied to this artifact itself.
+    """
+    untracked = getattr(state, "untracked", None)
+    if untracked is None:
+        return None
+    return frozenset(
+        Path(path).stem for path in untracked if Path(path).stem
+    )
+
+
+def _arrived_with_the_change(command: str | None, created: Any) -> str | None:
+    """The name this gate exercises that did not exist before, or None.
+
+    None means "nothing found", which is only an answer when `created` is a
+    real set. A None `created` means the question could not be asked, and the
+    caller treats that as unevidenced rather than as a pass.
+    """
+    if not command or not created:
+        return None
+    for stem in sorted(created):
+        if re.search(rf"\b{re.escape(stem)}\b", command):
+            return stem
+    return None
+
+
 def assess(
     root: Path,
     cfg: Any,
     results: Any,
     *,
+    state: Any = None,
     redactor: Redactor | None = None,
 ) -> Result | None:
     """What this run can say about each criterion. None when not opted in.
@@ -234,16 +280,20 @@ def assess(
     # the same bundles answer every question here, and re-walking them per row
     # would make the cost quadratic in criteria for no new information.
     discriminating = _discriminating_pairs(root)
+    # None when the caller had no git state to offer — and None is NOT an
+    # empty set here. "Nothing was created" and "we could not ask" are
+    # different claims, and only the first may earn a receipt.
+    created = created_stems(state)
 
     rows = []
     for criterion in approved.criteria:
         rows.append(
-            _assess_one(criterion, bound, ran, discriminating, scrub)
+            _assess_one(criterion, bound, ran, discriminating, created, scrub)
         )
     return Result(rows=tuple(rows))
 
 
-def _assess_one(criterion, bound, ran, discriminating, scrub) -> Row:
+def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
     common = {
         "criterion": criterion.id,
         "title": criterion.title,
@@ -298,6 +348,45 @@ def _assess_one(criterion, bound, ran, discriminating, scrub) -> Row:
                 f"fail — a gate born green evidences nothing. {_REMEDY}"
             ),
         )
+
+    # RULED 2026-08-11: the gate must PRE-DATE the change it judges.
+    #
+    # A sensitivity receipt says the gate failed before and passes now. That
+    # is the same sentence whether the feature was missing or the TEST was —
+    # and measured on the first real end-to-end run, it was the test: the
+    # drafter bound criteria to a file that did not exist, the agent wrote
+    # that file along with the code it checks, and four criteria came back
+    # `evidenced` on the strength of an import error. The harness certified
+    # work whose acceptance tests its own worker had written.
+    #
+    # E1a is NOT reversed by this. The pre-change comparison remains the
+    # mechanism by which a one-shot agent evidences anything; this adds the
+    # one precondition the born-red story always implied.
+    if receipt.kind == "sensitive":
+        if created is None:
+            return Row(
+                **detail,
+                state=UNEVIDENCED,
+                reason=(
+                    f"`{gate.id}` passed and the record shows it can fail, but "
+                    "this run could not establish that the gate existed before "
+                    "the change — and a receipt that cannot be established is "
+                    "not a receipt"
+                ),
+            )
+        arrived = _arrived_with_the_change(command, created)
+        if arrived is not None:
+            return Row(
+                **detail,
+                state=UNEVIDENCED,
+                reason=(
+                    f"`{gate.id}` exercises `{arrived}`, which this change "
+                    "CREATED — so it failed beforehand only because it did not "
+                    "exist yet. A gate that arrived with the work cannot "
+                    "evidence the work. Commit the check first and let it go "
+                    "red on its own"
+                ),
+            )
     return Row(
         **detail,
         state=EVIDENCED,

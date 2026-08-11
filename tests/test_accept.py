@@ -21,9 +21,25 @@ rather than described:
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from wringer import accept, cli, evidence
+
+
+def commit(repo: Path, message: str = "the code as it stood") -> None:
+    """Put the tree into HEAD, so what follows can be a CHANGE to it.
+
+    The `repo` fixture is one empty commit, so without this NOTHING in the
+    tree pre-dates the work — and since 2026-08-11 a sensitivity receipt has
+    to establish that the gate it rests on did. Refusing in a tree where
+    everything arrived at once is the ruled behaviour, not a quirk to work
+    around, so the tests that want a real receipt build a real repo.
+    """
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True,
+                   capture_output=True)
+    subprocess.run(["git", "commit", "-q", "-m", message], cwd=repo,
+                   check=True, capture_output=True)
 
 SPEC = """\
 schema_version: wringer.spec.v1
@@ -184,6 +200,66 @@ def test_a_recorded_failure_evidences_the_criterion(repo, monkeypatch, capsys):
     assert (repo / row["receipt"]["bundle"]).is_dir(), row["receipt"]
 
 
+def test_a_gate_that_arrived_with_the_change_cannot_evidence_it(
+    repo, monkeypatch, capsys
+):
+    """The defect a real end-to-end run produced by itself, 2026-08-11.
+
+    The drafter bound criteria to tests in a file that did not exist. The
+    gates failed at once — `ModuleNotFoundError`, red for the wrong reason —
+    and the agent then wrote that file along with the code it checks.
+    `--prove` saw fail-then-pass, issued `sensitive` receipts, acceptance
+    counted four of them and delivery went through. **The harness certified
+    work whose acceptance tests its own worker had written.**
+
+    A sensitivity receipt says "it failed before and passes now", which is the
+    same sentence whether the feature was missing or the TEST was. Ruled: the
+    gate must pre-date the change it judges, established structurally — from
+    git's own untracked list, never by reading the failure message or parsing
+    the command, both of which are the classification SPEC_VACUITY §4b
+    refuses.
+    """
+    write_spec(repo)
+    (repo / "reports.py").write_text("def to_csv():\n    return 'x'\n", "utf-8")
+    bound_config(repo, command="python3 -m unittest check_export.Case.test_it -v")
+    commit(repo)
+
+    # The change brings its OWN acceptance test with it — the shape measured.
+    (repo / "check_export.py").write_text(
+        "import unittest\n\n\nclass Case(unittest.TestCase):\n"
+        "    def test_it(self):\n        self.assertTrue(True)\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    row = artifact(repo)["criteria"][0]
+    assert row["state"] == accept.UNEVIDENCED, row
+    assert row["refuses"] is True, "the seam that let this through must refuse"
+    assert "check_export" in row["reason"], row["reason"]
+    assert "CREATED" in row["reason"]
+
+
+def test_a_receipt_whose_pre_dating_cannot_be_established_is_not_a_pass(repo):
+    """Un-establishable is unevidenced, never a pass — the vacuity precedent
+    applied to this artifact itself.
+
+    `assess` called without git state cannot ask whether the gate pre-dates
+    the change, and the conservative answer is the only safe one: a caller
+    that offers no state gets no sensitivity receipts counted. Asserted
+    directly on the seam, because no shipped caller takes that path — and a
+    default that only a future caller can hit is exactly the kind that is
+    wrong for a year before anyone notices.
+    """
+    assert accept.created_stems(None) is None
+    # A real state answers the question; the answer can be "nothing created".
+    class _State:
+        untracked = ()
+    assert accept.created_stems(_State()) == frozenset()
+
+
 def test_an_edited_gate_command_resets_the_evidence(repo, monkeypatch, capsys):
     """Identity is `(id, command)` — health ruling 2, applied to this join.
     Editing a gate is HOW checks narrow, so the old command's red history
@@ -336,8 +412,11 @@ def test_a_sensitive_vacuity_row_evidences_and_carries_its_citation(
     whose own command arrived with the change reads sensitive for that reason
     alone, and the citation beside it is how a reader tells."""
     write_spec(repo)
-    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    # The repo as it stood, in HEAD — then the change on top of it.
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     bound_config(repo, command="grep -q FIXED calc.py")
+    commit(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
@@ -370,8 +449,11 @@ def test_a_sensitive_receipt_discloses_an_unverified_pre_change_environment(
     other choice, and caught it here.
     """
     write_spec(repo)
-    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    # The repo as it stood, in HEAD — then the change on top of it.
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     bound_config(repo, command="grep -q FIXED calc.py")
+    commit(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
     monkeypatch.chdir(repo)
 
     assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
@@ -391,8 +473,11 @@ def test_a_declared_prove_setup_needs_no_disclosure(repo, monkeypatch, capsys):
     """The other half, or the sentence would be unfalsifiable boilerplate that
     appears on every row whatever the repo did."""
     write_spec(repo)
-    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    # The repo as it stood, in HEAD — then the change on top of it.
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     bound_config(repo, command="grep -q FIXED calc.py")
+    commit(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
     config_path = repo / ".wringer.yaml"
     # `prove_setup` lives under `run:`, and `run:` needs a worker — the loop
     # never runs here, but the section is parsed strictly either way.

@@ -287,7 +287,9 @@ def run(
     # tamper-evidence must cover it. Absent entirely unless an APPROVED spec
     # declares criteria (SPEC_ACCEPT_V0 ruling 8) — a repo that never opted
     # in writes a byte-identical bundle.
-    accepted = accept.assess(root, cfg, results, redactor=bundle.redactor)
+    accepted = accept.assess(
+        root, cfg, results, state=state, redactor=bundle.redactor
+    )
     if accepted is not None:
         accept.write(bundle.directory, accepted, redactor=bundle.redactor)
     # AFTER acceptance, which is a move made for one reason: SPEC_GATEGEN
