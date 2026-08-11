@@ -307,7 +307,12 @@ def _acceptance_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
         "no run directory to read acceptance from — the loop wrote no bundle, "
         "so there is no artifact to show",
     )
-    shown = f"head -24 .wringer/runs/{newest}/acceptance.json"
+    # `head -9` is the counts block entire, and it is chosen for width as
+    # much as for content: a run id is 20 characters, so anything richer
+    # than this overflows the renderer's fixed 80-column canvas. The
+    # receipts are in the artifact and the page beside this quotes one —
+    # what a fixed canvas can hold is the verdict, not the evidence.
+    shown = f"head -9 .wringer/runs/{newest}/acceptance.json"
     return shown, ["sh", "-c", shown]
 
 
@@ -358,7 +363,7 @@ def _born_green_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
 # edited the config, and Wringer then ran what the file said. It does NOT
 # prove a person read the diff — no recording can, and the page beside it says
 # so.
-REBIND = "python3 rebind.py && grep -A1 'bind-' .wringer.yaml"
+REBIND = "python3 rebind.py && grep -A2 'acc-' .wringer.yaml"
 
 
 def _rebind_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
@@ -645,9 +650,6 @@ STEP_SETS = {
         _plan_refused_step,
         _decide_step,
         _plan_step,
-        _install_gates_step,
-        _verify_step,
-        _born_green_step,
         _rebind_step,
         _verify_step,
         _run_step,

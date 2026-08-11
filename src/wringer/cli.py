@@ -2569,7 +2569,7 @@ def _report_spec(
 
     unresolved = sum(1 for q in drafted.questions if q.required and not q.answered)
     scored_by_hand = sum(1 for c in drafted.criteria if c.human)
-    print(f"Drafted {spec.SPEC_FILENAME} — {drafted.title}")
+    print(start.fit(f"Drafted {spec.SPEC_FILENAME} — {drafted.title}"))
     print(
         f"  {len(drafted.criteria)} criteria"
         + (f" ({scored_by_hand} need a human)" if scored_by_hand else "")
@@ -2603,9 +2603,10 @@ def cmd_plan(args: argparse.Namespace) -> int:
     if not loaded.approved:
         print(
             f"wring plan: {spec.SPEC_FILENAME} says 'approved: false', so "
-            "nothing was written.\n\nRead the file, then set 'approved: true' "
-            "in it by hand. There is deliberately no --yes: the whole point of "
-            "this step is that a person read what is about to be built.",
+            "nothing was written.\n\nRead the file, then set "
+            "'approved: true' in it by hand. There is deliberately no\n"
+            "--yes: the whole point of this step is that a person read\n"
+            "what is about to be built.",
             file=sys.stderr,
         )
         return EXIT_GATE_FAILED
@@ -2752,8 +2753,12 @@ def _report_plan(
 ) -> None:
     count = len(loaded.tasks)
     print(f"Wrote {spec.TASKS_FILENAME} — {count} task{'' if count == 1 else 's'}.")
-    print(f"Wrote {len(briefs)} brief{'' if len(briefs) == 1 else 's'}: "
-          f"{', '.join(briefs)}")
+    # One per line: the list is paths, and a joined run of them is the
+    # shape `start.fit` cannot help with — eliding the middle of a path list
+    # drops whole filenames rather than shortening one.
+    print(f"Wrote {len(briefs)} brief{'' if len(briefs) == 1 else 's'}:")
+    for brief in briefs:
+        print(f"  {start.fit(brief, 78)}")
     scored_by_hand = sum(1 for c in loaded.criteria if c.human)
     print(
         f"Wrote {spec.RUBRIC_FILENAME} — {len(loaded.criteria)} criteria"

@@ -1,5 +1,37 @@
 # First contact — a real model at both ends, and what it measured
 
+![a PRD in, a real agent, evidence out](first-contact.svg)
+
+*A product manager's PRD goes in. A real model drafts the spec. A person
+approves it, answers its questions, and installs the acceptance checks the
+drafter honestly declined to invent. The gate goes red. **A real coding agent
+takes a turn** — one minute thirty-five — and the gates go green. Three
+criteria come back `evidenced`, and a branch is pushed.*
+
+*Every frame is captured output from one run. Nothing is staged, and the model
+at both ends is real.*
+
+**Filmed once, and deliberately not regenerable.** Every other recording in
+this repository runs offline against stubs so anyone can re-film it; this one
+needs a credential and a network, and `scripts/demo.sh` refuses to film it
+rather than substitute a fixture. It cost about a dollar. Read
+[what this page does not say](#what-this-page-does-not-say) before quoting it.
+
+**Two things the recording shows that are easy to miss.** `wring plan` refuses
+twice before it proposes anything — once because nobody had approved the spec,
+once because required questions were unanswered — and the drafter proposes
+**no gates at all**, because a binding must name a check that already exists
+and nothing in that repository could decide a CSV criterion yet. Both are the
+interlocks working, and both had never been on camera.
+
+**What it took to get here is the rest of this page, and it is not tidy.** The
+arc above was the fifth attempt. The first four are below, unedited: the run
+that never opened a session, the run that certified work whose tests the agent
+had written, the finding I asserted from one sample and had to withdraw, and
+the step of my own that reported success while doing nothing.
+
+---
+
 *The first cycle since this repository began in which a real model stood at
 both ends of the goal sentence: a real drafter turning a PRD into a spec, and
 a real coding agent handed a repair brief. It ships **no feature**. It is a
@@ -694,6 +726,44 @@ rehearsal against hand-made fixtures cannot catch.
 **No fix for any of this is made here.** The seam is E's, it was ruled on
 2026-08-11 on the evidence available then, and this is new evidence about that
 ruling rather than a licence to re-decide it in a build window.
+
+---
+
+## Postscript 5 — the take at the top, and what it cost to get
+
+Five attempts. Four are already above; this is the fifth, and what the other
+four taught.
+
+**The pipeline is sound and the model is not deterministic.** One attempt died
+because the drafter added a single key the schema does not allow —
+`tasks[0]: unknown keys: objective_note` — and Wringer refused the entire
+reply rather than write half a spec. That is strict validation behaving
+exactly as specified, and it means **a one-take recording of a real drafter
+fails perhaps one time in four**, with the failure cascading: no spec, so no
+plan, so every later step errors. That is not a defect to fix. It is the cost
+of putting a stochastic system on camera with no retries, which is the whole
+reason the recording is worth anything.
+
+**Three console lines were too wide, and that was a product bug.** The
+renderer's canvas is a fixed 80 columns with no wrapping or truncation, so a
+165-character refusal message from `wring plan` would simply have drawn off
+the edge. `wring spec`'s drafted-title line now passes through `start.fit`,
+because that title is **model-authored** and unbounded; `wring plan`'s refusal
+is wrapped; and its brief list prints one path per line, because eliding the
+middle of a *list* of paths drops whole filenames rather than shortening one.
+`fit` is for one long thing, not for many.
+
+**A take was lost to my own impatience**, and it is recorded because the
+lesson is cheap here and expensive later: a good recording — full arc,
+`evidenced: 3`, branch pushed — was deleted to fix a single over-long line
+that I had introduced myself, and the re-film then failed for an unrelated
+reason. Copy the take aside before touching anything that regenerates it.
+
+**And the machine slept mid-run once**, wedging a take for 68 minutes: macOS
+timers do not advance through sleep, so `judge.timeout` and the shim's own
+ceiling both stalled while the connection died underneath them. It looked
+exactly like an agent hanging. Filming now runs under `caffeinate`. Whether
+that matters to an unattended run is a separate question and not this page's.
 
 ## What this page does not say
 

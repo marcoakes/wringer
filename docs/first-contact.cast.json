@@ -1,0 +1,415 @@
+[
+ {
+  "at": 0.0,
+  "text": "$ wring spec PRD.md --send",
+  "prompt": true
+ },
+ {
+  "at": 2.5,
+  "text": "Drafted wringer.spec.yaml \u2014 Export the \u2026le's columns, rows, and money formatting"
+ },
+ {
+  "at": 2.5,
+  "text": "  6 criteria (1 need a human) \u00b7 1 proposed gates \u00b7 3 tasks"
+ },
+ {
+  "at": 2.5,
+  "text": "  9 required questions it could not answer for you"
+ },
+ {
+  "at": 2.5,
+  "text": ""
+ },
+ {
+  "at": 2.5,
+  "text": "  approved: false   \u2190 nothing runs until you change this by hand"
+ },
+ {
+  "at": 2.5,
+  "text": ""
+ },
+ {
+  "at": 2.5,
+  "text": "Next:"
+ },
+ {
+  "at": 2.5,
+  "text": "  read wringer.spec.yaml, answer its open questions,"
+ },
+ {
+  "at": 2.5,
+  "text": "  set 'approved: true', then run: wring plan"
+ },
+ {
+  "at": 2.5,
+  "text": ""
+ },
+ {
+  "at": 2.5,
+  "text": "Draft evidence: .wringer/specs/20260811-222040-e0ce/"
+ },
+ {
+  "at": 3.9,
+  "text": ""
+ },
+ {
+  "at": 4.0,
+  "text": "$ wring plan",
+  "prompt": true
+ },
+ {
+  "at": 4.7,
+  "text": "wring plan: wringer.spec.yaml says 'approved: false', so nothing was written."
+ },
+ {
+  "at": 4.7,
+  "text": ""
+ },
+ {
+  "at": 4.7,
+  "text": "Read the file, then set 'approved: true' in it by hand. There is deliberately no"
+ },
+ {
+  "at": 4.7,
+  "text": "--yes: the whole point of this step is that a person read"
+ },
+ {
+  "at": 4.7,
+  "text": "what is about to be built."
+ },
+ {
+  "at": 6.1,
+  "text": ""
+ },
+ {
+  "at": 6.1,
+  "text": "$ python3 decide.py && grep -m1 approved wringer.spec.yaml",
+  "prompt": true
+ },
+ {
+  "at": 6.8,
+  "text": "approved, and answered 9 open question(s) with one scope call"
+ },
+ {
+  "at": 6.8,
+  "text": "# wringer.spec.v1 \u2014 drafted by `wring spec`, approved by you."
+ },
+ {
+  "at": 8.2,
+  "text": ""
+ },
+ {
+  "at": 8.2,
+  "text": "$ wring plan",
+  "prompt": true
+ },
+ {
+  "at": 8.9,
+  "text": "Wrote tasks.jsonl \u2014 3 tasks."
+ },
+ {
+  "at": 8.9,
+  "text": "Wrote 3 briefs:"
+ },
+ {
+  "at": 8.9,
+  "text": "  briefs/resolve-export-contract.md"
+ },
+ {
+  "at": 8.9,
+  "text": "  briefs/implement-csv-export.md"
+ },
+ {
+  "at": 8.9,
+  "text": "  briefs/add-csv-tests-to-suite.md"
+ },
+ {
+  "at": 8.9,
+  "text": "Wrote wringer.rubric.yaml \u2014 6 criteria (1 need a human)."
+ },
+ {
+  "at": 8.9,
+  "text": ""
+ },
+ {
+  "at": 8.9,
+  "text": "Already declared, so not proposed: test. Check they run what the spec meant."
+ },
+ {
+  "at": 8.9,
+  "text": ""
+ },
+ {
+  "at": 8.9,
+  "text": "Next:"
+ },
+ {
+  "at": 8.9,
+  "text": "  point 'judge.rubric:' at wringer.rubric.yaml"
+ },
+ {
+  "at": 8.9,
+  "text": "  wring fleet tasks.jsonl"
+ },
+ {
+  "at": 10.3,
+  "text": ""
+ },
+ {
+  "at": 10.4,
+  "text": "$ python3 rebind.py && grep -A2 'acc-' .wringer.yaml",
+  "prompt": true
+ },
+ {
+  "at": 11.0,
+  "text": "acc-csv-columns-match-table proves csv-columns-match-table -> python3 g_hdr.py"
+ },
+ {
+  "at": 11.0,
+  "text": "acc-csv-row-completeness proves csv-row-completeness -> python3 g_rows.py"
+ },
+ {
+  "at": 11.0,
+  "text": "acc-amounts-render-as-money proves amounts-render-as-money -> python3 g_cents.py"
+ },
+ {
+  "at": 11.0,
+  "text": "  - id: acc-csv-columns-match-table"
+ },
+ {
+  "at": 11.0,
+  "text": "    run: \"python3 g_hdr.py\""
+ },
+ {
+  "at": 11.0,
+  "text": "    proves: csv-columns-match-table"
+ },
+ {
+  "at": 11.0,
+  "text": "  - id: acc-csv-row-completeness"
+ },
+ {
+  "at": 11.0,
+  "text": "    run: \"python3 g_rows.py\""
+ },
+ {
+  "at": 11.0,
+  "text": "    proves: csv-row-completeness"
+ },
+ {
+  "at": 11.0,
+  "text": "  - id: acc-amounts-render-as-money"
+ },
+ {
+  "at": 11.0,
+  "text": "    run: \"python3 g_cents.py\""
+ },
+ {
+  "at": 11.0,
+  "text": "    proves: amounts-render-as-money"
+ },
+ {
+  "at": 12.4,
+  "text": ""
+ },
+ {
+  "at": 12.5,
+  "text": "$ wring verify",
+  "prompt": true
+ },
+ {
+  "at": 13.3,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 13.3,
+  "text": "\u2717 acc-csv-columns-match-table failed 0.0s"
+ },
+ {
+  "at": 13.3,
+  "text": ""
+ },
+ {
+  "at": 13.3,
+  "text": "--- gates/002_acc-csv-columns-match-table/stderr.log ---"
+ },
+ {
+  "at": 13.3,
+  "text": "reports.to_csv() does not exist"
+ },
+ {
+  "at": 13.3,
+  "text": ""
+ },
+ {
+  "at": 13.3,
+  "text": "Evidence written to:"
+ },
+ {
+  "at": 13.3,
+  "text": ".wringer/runs/20260811-222106-3dc7/"
+ },
+ {
+  "at": 13.3,
+  "text": ""
+ },
+ {
+  "at": 13.3,
+  "text": "Next:"
+ },
+ {
+  "at": 13.3,
+  "text": "  open .wringer/runs/20260811-222106-3dc7/summary.md"
+ },
+ {
+  "at": 13.3,
+  "text": "  rerun wring verify --gate acc-csv-columns-match-table"
+ },
+ {
+  "at": 14.7,
+  "text": ""
+ },
+ {
+  "at": 14.8,
+  "text": "$ wring run",
+  "prompt": true
+ },
+ {
+  "at": 15.7,
+  "text": ""
+ },
+ {
+  "at": 15.7,
+  "text": "iteration 1/5"
+ },
+ {
+  "at": 15.8,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 15.8,
+  "text": "\u2717 acc-csv-columns-match-table failed 0.0s"
+ },
+ {
+  "at": 18.3,
+  "text": "\u2192 worker             1m 35s  (exit 0)"
+ },
+ {
+  "at": 18.3,
+  "text": ""
+ },
+ {
+  "at": 18.3,
+  "text": "iteration 2/5"
+ },
+ {
+  "at": 18.4,
+  "text": "\u2713 test passed        0.0s"
+ },
+ {
+  "at": 18.4,
+  "text": "\u2713 acc-csv-columns-match-table passed 0.0s"
+ },
+ {
+  "at": 18.5,
+  "text": "\u2713 acc-csv-row-completeness passed 0.0s"
+ },
+ {
+  "at": 18.5,
+  "text": "\u2713 acc-amounts-render-as-money passed 0.0s"
+ },
+ {
+  "at": 18.6,
+  "text": ""
+ },
+ {
+  "at": 18.6,
+  "text": "Converged in 2 iterations."
+ },
+ {
+  "at": 18.6,
+  "text": "Loop evidence: .wringer/loops/20260811-222107-392f/"
+ },
+ {
+  "at": 20.0,
+  "text": ""
+ },
+ {
+  "at": 20.0,
+  "text": "$ head -9 .wringer/runs/20260811-222243-4825/acceptance.json",
+  "prompt": true
+ },
+ {
+  "at": 20.6,
+  "text": "{"
+ },
+ {
+  "at": 20.6,
+  "text": "  \"schema_version\": \"wringer.acceptance.v1\","
+ },
+ {
+  "at": 20.6,
+  "text": "  \"counts\": {"
+ },
+ {
+  "at": 20.6,
+  "text": "    \"evidenced\": 3,"
+ },
+ {
+  "at": 20.6,
+  "text": "    \"unevidenced\": 2,"
+ },
+ {
+  "at": 20.6,
+  "text": "    \"gate-failed\": 0,"
+ },
+ {
+  "at": 20.6,
+  "text": "    \"gate-did-not-run\": 0,"
+ },
+ {
+  "at": 20.6,
+  "text": "    \"human\": 1"
+ },
+ {
+  "at": 20.6,
+  "text": "  },"
+ },
+ {
+  "at": 22.0,
+  "text": ""
+ },
+ {
+  "at": 22.1,
+  "text": "$ wring deliver --send",
+  "prompt": true
+ },
+ {
+  "at": 23.2,
+  "text": "wring deliver: the branch is pushed, but no 'forge:' section is declared, so"
+ },
+ {
+  "at": 23.2,
+  "text": "no merge request was opened."
+ },
+ {
+  "at": 23.2,
+  "text": "Branch:  wringer/20260811-222243-4825"
+ },
+ {
+  "at": 23.2,
+  "text": "Commit:  b963f589e8b4"
+ },
+ {
+  "at": 23.2,
+  "text": "Pushed:  yes"
+ },
+ {
+  "at": 23.2,
+  "text": ""
+ },
+ {
+  "at": 23.2,
+  "text": "Delivery evidence: .wringer/deliveries/20260811-222244-4ab2/"
+ }
+]

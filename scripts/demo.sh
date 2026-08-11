@@ -1118,28 +1118,76 @@ EOF
 # the repository's existing, passing test — to the acceptance checks that are
 # genuinely red until the feature exists.
 cat > rebind.py <<'EOF'
+"""A person installs the acceptance checks the drafter could not.
+
+The drafter proposes no bindings here, and that is it behaving correctly: a
+binding must name a check that exists today, and nothing in this repository
+can decide "the CSV keeps the columns in order" until someone writes the
+check. So it says so and proposes none, which is the honest answer and the
+one that leaves this step to a human.
+
+These three checks were written by hand before any of this ran, and each is
+RED until the feature exists. Choosing which answers which criterion is an
+editorial act; it is a script so the filmed command is the command that ran.
+
+**It exits non-zero rather than reporting a success it did not have.** An
+earlier version matched criterion ids from a rehearsal fixture, found nothing
+in the real drafter's output, changed not one line and announced it had
+rebound them — and that went into a recording before anyone noticed.
+"""
 import pathlib
 import re
+import sys
 
-REAL = {"hdr": "g_hdr.py", "rows": "g_rows.py", "cents": "g_cents.py"}
+CHECKS = (
+    ("g_hdr.py", ("header", "column")),
+    ("g_rows.py", ("row",)),
+    ("g_cents.py", ("amount", "money", "decimal", "cent")),
+)
 
-path = pathlib.Path(".wringer.yaml")
-lines = path.read_text().splitlines()
-out, current = [], None
+spec = pathlib.Path("wringer.spec.yaml").read_text()
+found = re.findall(
+    r"  - id: (\S+)\n    title: ([^\n]+)(.*?)(?=\n  - id: |\Z)", spec, re.S
+)
+machine = [(i, t) for i, t, rest in found if "human: true" not in rest]
+
+bound, taken = [], set()
+for check, words in CHECKS:
+    for cid, title in machine:
+        if cid not in taken and any(w in title.lower() for w in words):
+            bound.append((cid, check))
+            taken.add(cid)
+            break
+
+unbound = [c for c, _ in CHECKS if c not in [b for _, b in bound]]
+if unbound:
+    sys.exit(
+        "could not bind " + ", ".join(unbound) + " to any drafted criterion.\n"
+        "Nothing was changed. Bind them by hand, or redraft."
+    )
+
+config = pathlib.Path(".wringer.yaml")
+lines = config.read_text().splitlines()
+stanzas = []
+for cid, check in bound:
+    stanzas += [
+        "  - id: acc-" + cid,
+        '    run: "python3 ' + check + '"',
+        "    proves: " + cid,
+    ]
+
+out, inserted = [], False
 for line in lines:
-    named = re.match(r"  - id: (\S+)", line)
-    if named:
-        current = named.group(1)
-    proves = re.match(r"    proves: (\S+)", line)
-    if proves and proves.group(1) in REAL:
-        # rewrite the run: line already emitted for this gate
-        for back in range(len(out) - 1, -1, -1):
-            if out[back].startswith("    run:"):
-                out[back] = f'    run: "python3 {REAL[proves.group(1)]}"'
-                break
+    if line.startswith("run:") and not inserted:
+        out += stanzas + [""]
+        inserted = True
     out.append(line)
-path.write_text("\n".join(out) + "\n")
-print("rebound the acceptance gates to the checks that are red today")
+if not inserted:
+    out += stanzas
+config.write_text("\n".join(out) + "\n")
+
+for cid, check in bound:
+    print("acc-" + cid + " proves " + cid + " -> python3 " + check)
 EOF
 
 # `prove: true` is not decoration here and the recording depends on it. A real
