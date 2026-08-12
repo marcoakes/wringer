@@ -96,6 +96,12 @@ VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
 STABILITY_FILENAME = "stability.json"
+# The one sibling written on EVERY run, opt-in or not, and the only place a
+# bundle says where its gates actually ran (SPEC_EXEC_V0.md §3). Every other
+# sibling is conditional because a reader who does not find it learns nothing
+# either way; this one is unconditional because a reader who is not told where
+# a command ran will assume the safer answer, and the safer answer is wrong.
+EXECUTION_FILENAME = "execution.json"
 
 # The id's timestamp prefix: `20260730-070601` of `20260730-070601-a13f`.
 _RUN_ID_TIME_FORMAT = "%Y%m%d-%H%M%S"
@@ -435,6 +441,7 @@ def _clear_previous(directory: Path) -> None:
         VACUITY_FILENAME,
         ACCEPTANCE_FILENAME,
         STABILITY_FILENAME,
+        EXECUTION_FILENAME,
     ):
         (directory / filename).unlink(missing_ok=True)
     for dirname in (GATES_DIRNAME, VACUITY_DIRNAME):

@@ -44,6 +44,26 @@ docker run --rm -v "$PWD:/workspace" ghcr.io/marcoakes/wringer:main verify
 The same image runs under Apple's `container` on macOS 26 and as a
 Kubernetes Job — see [docs/deployment.md](docs/deployment.md).
 
+**Since SPEC_EXEC_V0 the config can ask for it per repository**, rather than
+the whole harness being run in a box by hand:
+
+```yaml
+execution:
+  backend: container
+  image: ghcr.io/marcoakes/wringer:main
+  network: false        # the default; `true` is the only way to switch it on
+  env: [CI]             # NAMES only, and nothing not named is passed
+```
+
+Gates then run as `<runtime> run --rm --volume <repo>:/workspace --workdir
+/workspace --network none --entrypoint /bin/sh <image> -c '<gate>'`, and
+`execution.json` in every bundle records which backend ran and what it was
+asked for. Two things that config does **not** buy, both stated at length in
+SPEC_EXEC_V0 §5 and §7: `run.worker` still runs on the host — the published
+image ships no coding agent, so an agent worker cannot run inside it, and
+`worker_execution` is recorded separately saying exactly that — and none of
+those flags has been adversarially tested (see below).
+
 **What that is and is not.** It is meaningful isolation: a gate that deletes
 `$HOME`, installs packages, or scribbles outside the repo hits the
 container's filesystem, not yours. It is **not** a security boundary against
@@ -138,8 +158,9 @@ same statement in a different place.
 ### What is claimed for the container path, and what is untested
 
 The published image (`SETUP.md`) runs Wringer with an explicit repository
-mount. That is a real boundary and it is the one to use for untrusted
-repositories.
+mount, and the `execution:` backend above asks a runtime for that mount plus
+`--network none` and an environment allowlist. That is a real boundary and it is
+the one to use for untrusted repositories.
 
 **It has never been adversarially tested, and this document will not imply
 otherwise.** Nobody has yet attempted, from inside it, to read host SSH
@@ -147,6 +168,21 @@ keys, cloud credentials, or a Docker socket. Until somebody does and records
 the result, treat the container path as *"designed to isolate"* rather than
 *"demonstrated to isolate"* — `docs/MANUAL_CHECKS.md` sequence G is that
 work, unrun.
+
+**The `execution:` backend does not change that sentence, and it is worth being
+explicit about why.** Every property it provides is a flag in a command line,
+and every flag is pinned by a test — so what Wringer *asks the runtime for* is a
+fact. Whether the runtime delivers it is a different claim, and no container has
+ever run through this backend: the maintainer's machine has no container
+runtime. An argv is not a measurement, and upgrading this paragraph on the
+strength of one would be exactly the defect this repository exists to catch,
+committed by the tool itself.
+
+Sequence G is now one command — `sh scripts/sequence-g.sh` — which drives the
+attacks as gates through the real backend, and which **refuses rather than
+skips** when no runtime is present. Run here on 2026-08-12 it exited 2, having
+measured nothing. `execution.json` carries the same caveat in its own `limits`
+array, so a bundle handed to a stranger says it too.
 
 **Do not read an ordinary container as VM-strength isolation.** It is not,
 and no configuration in this repository makes it so.

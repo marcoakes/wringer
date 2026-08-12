@@ -275,27 +275,57 @@ Per entry in `agents.AGENTS`, on a machine with a network:
 
 **Status: never run by anyone.** No container runtime exists on the
 maintainer's machine, so this is structurally unrunnable there, exactly like
-sequence A.
+sequence A. Last attempted 2026-08-12: `sh scripts/sequence-g.sh` exited 2,
+having recorded nothing.
 
 `SECURITY.md` says the container path is *designed to* isolate and explicitly
 declines to say it is *demonstrated to*. This sequence is what would change
-that sentence. Run each attempt from a worker INSIDE the container, against a
-host that really holds the thing being reached for.
+that sentence.
+
+**It is now one command**, added with the `execution:` backend
+(SPEC_EXEC_V0.md §7):
+
+```
+sh scripts/sequence-g.sh [runtime] [image]
+```
+
+Two things about that script are the point of it. It drives every attack **as a
+gate through the real backend**, so what gets measured is the argv Wringer
+actually ships rather than a bespoke command line written for the occasion. And
+it **refuses rather than skips**: with no runtime on PATH it exits 2 and records
+nothing, because a checklist reporting no failures because it ran no attacks is
+the advert this sequence's own last line warns about.
+
+The seven attempts, which the script runs as optional gates so that one
+succeeding does not stop the rest:
 
 - [ ] `ls ~/.ssh` → must not reveal host keys.
 - [ ] `env | grep -Ei 'aws|github|token|secret'` → must be empty beyond what
-      the run explicitly declared.
+      the run explicitly declared. Note what the backend asks for here: an
+      env **allowlist** by name, so a variable Wringer has never heard of is
+      withheld for the same reason a named credential is. That is a fact about
+      the argv; whether the runtime honours it is what this sequence measures.
 - [ ] `cat /var/run/docker.sock` → must not exist. A reachable Docker socket
       is host root, and finding one makes every other line here moot.
 - [ ] `git config --global --list` → must not reveal host credentials.
 - [ ] Read a file outside the declared mount → must fail.
-- [ ] Open an outbound connection → record whether it succeeds. Network is
-      NOT currently claimed to be off; the point is to record which it is.
+- [ ] Open an outbound connection → record whether it succeeds. The backend now
+      passes `--network none` unless the repo typed `network: true`, so the
+      question has sharpened from "which is it?" to "does the flag hold?"
+- [ ] `ps aux` → record what of the host's process table is visible.
 - [ ] **Record it**, including every attempt that SUCCEEDED. An attack that
       works is the finding; a checklist with only passes is a advert.
 
 Classify each as `prevented`, `detected`, `mitigated` or `out_of_scope`, and
-never write `prevented` where Wringer merely records evidence afterwards.
+never write `prevented` where Wringer merely records evidence afterwards. The
+script prints those four definitions and then stops, because classifying is the
+half a script cannot do.
+
+**Until a row appears above, nothing in this repository may say the container
+path is demonstrated to isolate** — and that includes the `execution:` backend,
+whose every property is a flag with a test behind it and not a measurement.
+SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
+honest.
 
 ## What is *not* here, and why
 

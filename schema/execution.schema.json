@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/execution.schema.json",
+  "title": "Wringer execution record",
+  "description": "`execution.json` — where a bundle's gates actually ran. A SIBLING of manifest.json like digests.json, untracked.json, vacuity.json, acceptance.json and stability.json, and for the same law-7 reason: `wringer.evidence.v1` is frozen, so this arrives as its own file and a reader that does not know it ignores it. **Unlike every one of those siblings it is written on EVERY run, opt-in or not** (SPEC_EXEC_V0 §3). The others are conditional because a reader who does not find one learns nothing either way; this one is unconditional because a reader who is not told where a command ran will supply an answer, and the answer they supply is the flattering one. So a bundle nobody configured says `trusted_local` out loud, which is most bundles. Bundles written before this file existed do not have it, and a reader must treat its absence as `unknown` rather than as either mode. **What this file claims and does not:** for a container it records the command line Wringer ASKED the runtime for — every flag is pinned by a test, so that much is a fact — and it claims nothing about whether the runtime delivered it. That is a separate measurement this repository has not made: `docs/MANUAL_CHECKS.md` sequence G is the work and it is unrun, because no container runtime exists on the maintainer's machine. Nothing here upgrades SECURITY.md's \"designed to isolate\".",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "backend",
+    "execution_mode",
+    "gates",
+    "worker_execution",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.execution.v1"
+    },
+    "backend": {
+      "description": "Which backend ran the gates. `local` is what every run did before this record existed and is what a config with no `execution:` section still does.",
+      "enum": ["local", "container"]
+    },
+    "execution_mode": {
+      "description": "What that backend is WORTH, which is a different question from where it is. `trusted_local` means the gate ran on this machine with the invoking user's privileges and the whole environment inherited — **never `sandboxed`, never `isolated`**, because `.wringer.yaml` is arbitrary code by design and it ran as you. `container` means the command was handed to a container runtime with a named image and the argv recorded beside it, which is what the word means here and no more.",
+      "enum": ["trusted_local", "container"]
+    },
+    "gates": {
+      "description": "The gate ids this run attempted, in declared order. Present so a reader can tell a scoped run from a full one without joining to the manifest.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "worker_execution": {
+      "description": "Where `run.worker` runs, recorded SEPARATELY and never folded into `execution_mode` — a single field covering both would be the one field in this file capable of lying, and it would lie in the direction of claiming more. It is `trusted_local` whenever the repo declares a worker, because the container backend contains GATES and not the worker: the published image deliberately ships no coding agent, so an agent worker cannot run inside it (the Dockerfile's own comment says so), and pretending otherwise would break every real loop. `null` when the repo declares no `run:` section at all. This is a statement about the repository's policy rather than about this invocation, so it reads the same on the verify lap before a worker and the one after it.",
+      "type": ["string", "null"],
+      "enum": ["trusted_local", null]
+    },
+    "runtime": {
+      "description": "Container backend only. The runtime id as declared: `docker`, `podman` or `nerdctl`. Apple's `container` cannot appear, because `config.parse` refuses it — its flags have not been verified against the argv Wringer builds, and a silently-ignored `--network none` would record `network: false` over a live network (SPEC_EXEC_V0 ruling 4).",
+      "enum": ["docker", "podman", "nerdctl"]
+    },
+    "runtime_path": {
+      "description": "Container backend only. The RESOLVED path of the runtime binary, because two machines with `runtime: docker` can be running very different things and a bundle that says only \"docker\" cannot tell them apart. No version: reading one means spawning a process, and nothing in a verification should spawn a process to decorate a record.",
+      "type": ["string", "null"]
+    },
+    "image": {
+      "description": "Container backend only. The image as the repository declared it. There is no default and there will not be one — Wringer runs the image you wrote down, never one it guessed, the same rule `judge.endpoint` follows. A moving tag Wringer chose would put \"ran in a container\" in the evidence with nobody having decided which container.",
+      "type": "string"
+    },
+    "mount": {
+      "description": "Container backend only. Where the repository was mounted — always `/workspace`, matching the published Dockerfile's WORKDIR and its `safe.directory` scoping. **Read-write by design and not by oversight:** the evidence bundle is written to `.wringer/` inside the tree, so a read-only mount fails late and confusingly. It is also the honest limit of this boundary — a hostile gate can still corrupt the tree you handed it.",
+      "type": "string"
+    },
+    "network": {
+      "description": "Container backend only. Whether the container had a network. **Off by default**, via `--network none` in the argv; `true` means the repository typed `network: true`, which is the only kind of opt-in that means anything. Recorded either way, so a reader never has to infer it from a default.",
+      "type": "boolean"
+    },
+    "env_allowlist": {
+      "description": "Container backend only. The environment-variable NAMES the container was allowed to see. Everything not named is withheld, so a container gets a stated environment rather than the operator's whole shell — which is what keeps host SSH, cloud and forge credentials out of it by construction rather than by filtering. The argv uses `--env NAME` and never `--env NAME=VALUE`: a value in an argv is readable by anyone who can run `ps`.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "user": {
+      "description": "Container backend only. `uid` or `uid:gid` if the repository declared one, else null for the image's own user (uid 1000 in the published image). Offered rather than applied: overriding an image's declared user silently would contradict an image this repo does not own at run time, and a Linux bind mount owned by another uid is the case that needs it. Digits and one optional colon only — it reaches the runtime as a positional argument, so anything else could be read as a flag.",
+      "type": ["string", "null"]
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it rather than living in a spec nobody opened — the pattern `wringer.health.v1` and `wringer.acceptance.v1` set. An execution record is exactly the artifact a reader inflates into a security claim, and the container row is the one that would be inflated furthest. Pinned by CONTENT in the tests, not by non-emptiness.",
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    }
+  }
+}

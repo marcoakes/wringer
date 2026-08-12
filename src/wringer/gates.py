@@ -15,6 +15,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from wringer.config import Gate
 from wringer.redact import Redactor
@@ -39,6 +40,13 @@ _POSIX = os.name == "posix"
 
 # What wait() reports for a process killed by SIGKILL on POSIX.
 _KILLED = -9
+
+# What a POSIX shell reports when it cannot find the command at all, and what
+# Wringer records when a command could not be STARTED — so the two backends
+# fail identically whether the shell reported it or Popen raised. `health.py`
+# names the same number for the same reason: nothing ran, so nothing
+# discriminated.
+COMMAND_NOT_FOUND = 127
 
 
 @dataclass(frozen=True)
@@ -72,17 +80,28 @@ def run(
     stderr_path: Path,
     redactor: Redactor | None = None,
     on_spawn: Callable[[int], None] | None = None,
+    backend: Any = None,
 ) -> GateResult:
-    """Run `gate.run` through the shell in `cwd`, capturing its streams.
+    """Run `gate.run` in `cwd` through the given backend, capturing its streams.
 
-    `shell=True` is deliberate: gate commands are project-authored shell
-    strings (`make lint`, `pytest -q && ruff check .`), not argv vectors.
-    Wringer runs what the repo's own `.wringer.yaml` declares — no more
-    privilege than the developer typing it.
+    `backend` decides WHAT gets spawned; everything else here is the same
+    whichever backend it is — the timing, the process group, the timeout
+    ladder, the bounded drain, and scrub-then-cap log writing. `None` is
+    `backend.Local`, which is `shell=True` with the command string and is what
+    every caller did before backends existed.
+
+    `shell=True` for the local backend is deliberate: gate commands are
+    project-authored shell strings (`make lint`, `pytest -q && ruff check .`),
+    not argv vectors. Wringer runs what the repo's own `.wringer.yaml`
+    declares — no more privilege than the developer typing it.
 
     The gate gets its own process group (`start_new_session`) so that a
     timeout kills the shell *and* everything it spawned. Killing only the
-    shell would leave the real work running against the repo.
+    shell would leave the real work running against the repo. A container
+    backend needs one more step, because the process group reaches the runtime
+    CLIENT and not the container it asked for: `backend.cleanup` is called
+    after the kill, and without it a "killed" gate carries on working against
+    the mounted tree.
 
     Output travels through a pipe rather than straight to the log file so
     that secrets can be removed *before* anything is written — the spec's
@@ -90,16 +109,38 @@ def run(
     exits; a gate that emits gigabytes would be a problem, and streaming
     redaction is the v0.2 answer if one ever appears.
     """
+    from wringer import backend as backend_module
+
     redactor = redactor or Redactor()
+    engine = backend if backend is not None else backend_module.Local()
+    # The gate's own log directory. The container backend puts its cidfile
+    # here, so a timeout can kill what it started; it is unique per attempt by
+    # construction, which is what removes any need for a naming scheme.
+    workdir = stdout_path.parent
+    spawn = engine.spawn(gate, cwd, workdir)
     started = time.monotonic()
-    proc = subprocess.Popen(
-        gate.run,
-        shell=True,
-        cwd=cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        start_new_session=_POSIX,
-    )
+    try:
+        proc = subprocess.Popen(
+            spawn.args,
+            shell=spawn.shell,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=_POSIX,
+        )
+    except OSError as exc:
+        # **The two backends must fail the same way, and without this they do
+        # not.** `shell=True` hands a missing command to a shell, which reports
+        # exit 127 and Popen raises nothing; `shell=False` with an argv raises
+        # FileNotFoundError straight out of the verifier, so a runtime that
+        # vanished between preflight and this gate would abandon a half-written
+        # bundle with a traceback instead of a verdict.
+        #
+        # 127 is not an arbitrary choice: it is what the shell already reports,
+        # and `health.genuine_failure` singles it out as "nothing ran, so
+        # nothing discriminated" — the exact truth here. A gate that never
+        # started must not read as evidence that the gate can fail.
+        return _unstartable(gate, spawn, exc, stdout_path, stderr_path, redactor)
     # start_new_session makes the child a group leader, so its pgid IS its
     # pid. Reported the moment it exists, because a caller that wants to reap
     # an orphan after a SIGKILL needs this on disk *before* the work runs.
@@ -112,6 +153,11 @@ def run(
     except subprocess.TimeoutExpired:
         timed_out = True
         exit_code = _terminate(proc)
+        # AFTER the process-group kill and BEFORE the drain: killing the
+        # runtime client closes nothing the container holds, so a container
+        # still up here would keep the inherited pipe open and the drain would
+        # wait out its whole 5 seconds for work that is still running.
+        engine.cleanup(workdir)
         # Drain whatever the gate managed to say before it was stopped —
         # the last lines before a hang are usually the interesting ones.
         out, err = _drain(proc)
@@ -119,6 +165,7 @@ def run(
         # The gate runs in its own process group, so Ctrl-C reached wring and
         # not the gate: stopping it is our job, or it outlives the verifier.
         _terminate(proc)
+        engine.cleanup(workdir)
         out, err = _drain(proc)
         _write_logs(stdout_path, stderr_path, out, err, redactor)
         raise
@@ -134,6 +181,38 @@ def run(
         stderr_path=stderr_path,
         stdout_truncated=out_cut,
         stderr_truncated=err_cut,
+    )
+
+
+def _unstartable(
+    gate: Gate,
+    spawn: Any,
+    exc: OSError,
+    stdout_path: Path,
+    stderr_path: Path,
+    redactor: Redactor,
+) -> GateResult:
+    """A gate whose command could not be started at all.
+
+    The reason goes in `stderr.log` rather than only into an exception, because
+    a bundle is what outlives the terminal: "exit 127" with an empty log is a
+    reader's dead end, and the one thing they need is which program was not
+    found.
+    """
+    program = spawn.args if isinstance(spawn.args, str) else spawn.args[0]
+    note = (
+        f"[wringer: the gate could not be started — {exc}. "
+        f"Program: {program}. Nothing ran, so this run discriminated nothing "
+        f"about the tree.]\n"
+    )
+    _write_logs(stdout_path, stderr_path, b"", note.encode(), redactor)
+    return GateResult(
+        gate=gate,
+        exit_code=COMMAND_NOT_FOUND,
+        duration_ms=0,
+        timed_out=False,
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
     )
 
 

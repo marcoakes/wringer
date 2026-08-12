@@ -43,7 +43,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from wringer import evidence, fleet, loop, vacuity
+from wringer import evidence, fleet, gates, loop, vacuity
 from wringer import stability as stability_module
 
 # The committed fixture is named explicitly: `.wringer/` is gitignored, so in
@@ -67,9 +67,12 @@ _KINDS.update({version: "loop" for version in loop.SCHEMA_VERSIONS})
 GATES_DIRNAME = "gates"
 RESULT_FILENAME = "result.json"
 
-# What a POSIX shell reports when it cannot find the command at all. Not a
-# verdict about the tree: nothing ran, so nothing discriminated.
-COMMAND_NOT_FOUND = 127
+# What a POSIX shell reports when it cannot find the command at all, and what
+# `gates.py` records when a command could not be STARTED. Not a verdict about
+# the tree: nothing ran, so nothing discriminated. Taken from the writer rather
+# than restated, because a reader and a writer disagreeing about this number is
+# a run that discriminated nothing being counted as one that did.
+COMMAND_NOT_FOUND = gates.COMMAND_NOT_FOUND
 
 
 @dataclass(frozen=True)

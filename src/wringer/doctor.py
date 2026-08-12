@@ -71,7 +71,11 @@ def run_checks(root: Path) -> list[Check]:
     blocking ✗ makes a true statement into a false problem.
     """
     here = in_repository(root)
-    machine = [_python(), _wring(), _git(), _runtime(), _api_key(root)]
+    # Read once and handed in, so the runtime check knows whether it is
+    # answering "could you use a container?" or "will the next verify run at
+    # all?" — the same question with two different severities.
+    declared = _declared_execution(root) if here else None
+    machine = [_python(), _wring(), _git(), _runtime(declared), _api_key(root)]
     if not here:
         skipped = [
             Check(name, SKIP, "not a git repository — run from your repo to check",
@@ -139,12 +143,39 @@ def _git() -> Check:
         return Check("git", FAIL, "git is on PATH but did not run", "Reinstall git")
 
 
-def _runtime() -> Check:
-    """A container runtime, if the user wants one. Not required to run
-    Wringer directly — only to run it in the box."""
+def _runtime(demanded: object = None) -> Check:
+    """A container runtime, if the user wants one.
+
+    WARN normally: not required to run Wringer directly, only to run it in the
+    box. **FAIL when `execution.backend: container` is declared**, because it
+    has stopped being an option and become a precondition — and a doctor that
+    said "worth knowing" about the thing that will halt the next `wring verify`
+    is a doctor nobody consults. `demanded` is the repo's `execution:` section,
+    or None outside a repo and for every config that never mentioned one.
+    """
     apple = shutil.which("container")
     docker = shutil.which("docker")
     mac_arm = platform.system() == "Darwin" and platform.machine() == "arm64"
+
+    wanted = getattr(demanded, "runtime", None)
+    if wanted is not None:
+        # A specific runtime was named, so a different one being present
+        # answers nothing: this check is about the binary that will actually be
+        # invoked. Apple's `container` cannot be named — `config.parse` refuses
+        # it, because its flags have not been verified against the argv Wringer
+        # builds and a silently-ignored `--network none` would record
+        # `network: false` over a live network.
+        found = shutil.which(wanted)
+        if found is not None:
+            return Check("container runtime", OK, f"{wanted} at {found}")
+        return Check(
+            "container runtime", FAIL,
+            f"no {wanted} on PATH, and {config.CONFIG_FILENAME} declares "
+            "'execution.backend: container'",
+            f"Install {wanted}, point 'execution.runtime' at a runtime you "
+            "have, or drop the 'execution:' section to run gates on this "
+            "machine",
+        )
 
     if apple is not None:
         return Check("container runtime", OK, f"apple container at {apple}")
@@ -161,6 +192,22 @@ def _runtime() -> Check:
         "container runtime", WARN, "no container runtime found",
         "Install Docker, or run wring directly on this machine",
     )
+
+
+def _declared_execution(root: Path) -> object | None:
+    """The repo's `execution:` section, or None — total by construction.
+
+    An unreadable or invalid config is `_config`'s finding to report, not this
+    one's: two checks failing over the same broken file tells a reader nothing
+    the first did not.
+    """
+    path = root / config.CONFIG_FILENAME
+    if not path.is_file():
+        return None
+    try:
+        return config.load(path).execution
+    except config.ConfigError:
+        return None
 
 
 def _repo(root: Path) -> Check:

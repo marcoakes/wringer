@@ -19,6 +19,7 @@ from wringer import (
     __version__,
     acquire,
     agents,
+    backend,
     config,
     deliver,
     detect,
@@ -1003,7 +1004,7 @@ def _start_build(root: Path, worker: config.AcpWorker | None) -> int:
 
     try:
         outcome = verify.run(root, cfg, planned, on_gate=_report_gate)
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("start", exc)
         return EXIT_CONFIG
 
@@ -1019,6 +1020,7 @@ def _start_build(root: Path, worker: config.AcpWorker | None) -> int:
         _report_run(
             outcome.bundle, root, outcome.results, outcome.failed_gate,
             outcome.status, template_only=outcome.template_only,
+            execution=backend.for_config(cfg.execution),
         )
         _diagnose_failure(outcome)
         if worker is None:
@@ -1069,7 +1071,7 @@ def _start_repair(
             on_gate=_report_gate,
             on_worker=_report_worker,
         )
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("start", exc)
         return None
     _report_loop(loop_outcome, root)
@@ -1598,7 +1600,10 @@ def cmd_verify(args: argparse.Namespace) -> int:
             # inside `verify.wants_prove` and nothing here can turn it off.
             prove=args.prove,
         )
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
+        # A declared backend that cannot run here is a config error and exits
+        # 2, the same class as an invalid `.wringer.yaml` — because that is
+        # what it is: the file names an environment this machine is not.
         _fail("verify", exc)
         return EXIT_CONFIG
 
@@ -1619,6 +1624,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             outcome.status,
             template_only=outcome.template_only,
             vacuity_result=outcome.vacuity,
+            execution=backend.for_config(cfg.execution),
         )
 
     if outcome.interrupted is not None:
@@ -1685,7 +1691,7 @@ def cmd_run(args: argparse.Namespace) -> int:
             gates=args.gate,
             prove=args.prove,
         )
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("run", exc)
         return EXIT_CONFIG
 
@@ -1951,7 +1957,7 @@ def cmd_bench(args: argparse.Namespace) -> int:
     except bench.BenchError as exc:
         _fail("bench", exc)
         return EXIT_CONFIG
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("bench", exc)
         return EXIT_CONFIG
 
@@ -2149,7 +2155,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
 
     try:
         resumable = loop.inspect_for_resume(loop_dir)
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("resume", exc)
         return EXIT_CONFIG
 
@@ -2179,7 +2185,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
             on_worker=None if quiet else _report_worker,
             resuming=resumable,
         )
-    except evidence.EvidenceError as exc:
+    except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("resume", exc)
         return EXIT_CONFIG
 
@@ -3617,6 +3623,7 @@ def _report_run(
     status: str = "passed",
     template_only: bool = False,
     vacuity_result: object | None = None,
+    execution: object | None = None,
 ) -> None:
     if status == "interrupted":
         print("\n✗ interrupted — the run stopped before every gate finished")
@@ -3635,6 +3642,7 @@ def _report_run(
             "\n  mergeable."
         )
     _report_vacuity(vacuity_result, bundle, root)
+    _report_execution(execution)
 
     shown = _bundle_path(bundle, root)
     print(f"\nEvidence written to:\n{shown}/")
@@ -3644,6 +3652,29 @@ def _report_run(
             f"\nNext:\n  open {shown}/summary.md\n"
             f"  rerun wring verify --gate {failed_gate}"
         )
+
+
+def _report_execution(execution: object | None) -> None:
+    """Say on the terminal that gates ran in a container, when they did.
+
+    **Silent for `local`, and that asymmetry is the decision.** The bundle
+    records `trusted_local` on every run because a bundle outlives the terminal
+    and gets handed to strangers; the console would be printing "ran on this
+    machine" to the person who just typed the command in their own shell. That
+    is the nag SPEC_VACUITY_V0 §7 refuses, and the same reasoning applies here.
+
+    The container line is not a nag: it names the image, and an image is the one
+    thing about a contained run that a reader cannot infer from having typed
+    the command.
+    """
+    if execution is None or getattr(execution, "name", None) != backend.CONTAINER:
+        return
+    identity = execution.identity()
+    network = "on" if identity["network"] else "off"
+    print(
+        f"\nGates ran in a container: {identity['image']} "
+        f"({identity['runtime']}, network {network})"
+    )
 
 
 def _report_vacuity(

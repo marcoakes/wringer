@@ -36,6 +36,7 @@ rather than reverse-engineer it — the point of
 | [`bench-event.schema.json`](bench-event.schema.json) | **one line** of a bench's `bench.jsonl` |
 | [`acceptance.schema.json`](acceptance.schema.json) | `wringer.acceptance.v1` — `acceptance.json`, a sibling file in a verify bundle: per criterion, whether the record evidences it. Present only when an **approved** `wringer.spec.yaml` declares criteria |
 | [`health-report.schema.json`](health-report.schema.json) | `wringer.health.v1` — `wring health --json`. The one schema here that describes a **derived view rather than a bundle**: nothing is written under `.wringer/`, the bundles it read are the evidence, and the same bundles plus the same `.wringer.yaml` produce the same bytes |
+| [`execution.schema.json`](execution.schema.json) | `wringer.execution.v1` — `execution.json`, where a bundle's gates actually ran. **The one sibling written on every run**, opt-in or not: a reader who is not told supplies the flattering answer. `trusted_local` is never spelled `sandboxed` |
 | [`stability.schema.json`](stability.schema.json) | `wringer.stability.v1` — `stability.json`, a sibling file in a verify bundle: every attempt every gate that declared `stability:` made, and whether they add up to `stable_pass`, `stable_fail`, `flaky` or `unknown`. Present only when a gate declared a policy |
 
 The loop schemas carry their own version, now **`wringer.loop.v2`**, moving

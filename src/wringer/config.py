@@ -41,8 +41,17 @@ MAX_GATE_ID_LENGTH = 64
 
 _TOP_LEVEL_KEYS = {
     "version", "gates", "evidence", "run", "judge", "fleet", "workspace",
-    "forge", "deliver", "bench",
+    "forge", "deliver", "bench", "execution",
 }
+_EXECUTION_KEYS = {"backend", "image", "runtime", "network", "env", "user"}
+# Container runtimes whose command line is the Docker CLI's. Declared here as
+# well as in `backend.py` for the same reason every other vendor string is
+# behind one mapping — but the parser needs it before a backend object exists,
+# and `backend` imports `config`, so the direction of that dependency decides
+# which file holds the literal. `test_backend.py` pins the two together.
+_KNOWN_RUNTIMES = {"docker", "podman", "nerdctl"}
+# `execution.user` reaches argv positionally; see `backend.USER_PATTERN`.
+_USER_PATTERN = re.compile(r"\d+(?::\d+)?")
 _BENCH_KEYS = {"contender_wall_clock", "contenders"}
 # A contender varies the WORKER and nothing else (SPEC_BENCH_V0 §3). Every
 # other key an author might reach for — a budget, a gate list, a directory —
@@ -184,6 +193,42 @@ class Stability:
 
     attempts: int
     require_consistent: bool = True
+
+
+@dataclass(frozen=True)
+class Execution:
+    """The `execution:` section — WHERE a gate's command runs.
+
+    Absent means `local`, which is what every run did before this section
+    existed: `shell=True` in the repo root with the whole environment
+    inherited. That is not a default chosen for convenience — it is the
+    documented contract, because a tool that ran your commands somewhere other
+    than where you pointed it would be lying about what it verified.
+
+    `image` has **no default and never will**, the same rule as
+    `judge.endpoint`. Wringer runs the image you wrote down, never one it
+    guessed: a moving tag Wringer picked would put "ran in a container" in the
+    evidence with nobody having decided which container.
+
+    `network` defaults to **false**. An opt-in that had to be typed to be
+    switched ON is the only kind that means anything.
+    """
+
+    backend: str
+    image: str | None = None
+    runtime: str = "docker"
+    network: bool = False
+    # NAMES of variables the container may see, never values — the same rule
+    # `run.worker.acp.env_passthrough` follows, and for the same reason.
+    # Everything not named is withheld, so a container gets a stated
+    # environment rather than the operator's whole shell.
+    env: tuple[str, ...] = ()
+    # `uid` or `uid:gid`, or None for the image's own declared user. Offered
+    # rather than applied: the published image declares uid 1000 and its author
+    # wrote down why, so overriding that silently would contradict an image
+    # this repo does not own at run time. A Linux bind mount owned by another
+    # uid is what needs it; `wring doctor` prints the value.
+    user: str | None = None
 
 
 @dataclass(frozen=True)
@@ -412,6 +457,10 @@ class Config:
     # None when the repo has not opted into benching. Its absence is what
     # makes `wring bench` unreachable (SPEC_BENCH_V0.md §3).
     bench: Bench | None = None
+    # Where gates run (SPEC_EXEC_V0.md). None means `local`, which is what
+    # every run did before this section existed — and the bundle still says so
+    # out loud, because a reader who is not told assumes the safer answer.
+    execution: Execution | None = None
 
 
 def load(path: Path) -> Config:
@@ -554,6 +603,129 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
         deliver=_parse_deliver(raw.get("deliver"), source),
         workspace=workspace.strip() if workspace else None,
         bench=_parse_bench(raw.get("bench"), source),
+        execution=_parse_execution(raw.get("execution"), raw.get("fleet"), source),
+    )
+
+
+def _parse_execution(raw: Any, fleet_raw: Any, source: str) -> Execution | None:
+    """The `execution:` section, or None when the repo has not opted in."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: 'execution' must be a mapping")
+    unknown = sorted(set(raw) - _EXECUTION_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under 'execution': {', '.join(unknown)}"
+        )
+
+    backend = raw.get("backend")
+    if backend not in ("local", "container"):
+        raise ConfigError(
+            f"{source}: 'execution.backend' must be 'local' or 'container' "
+            f"(got {backend!r})"
+        )
+
+    image = raw.get("image")
+    runtime = raw.get("runtime", "docker")
+    if not isinstance(runtime, str) or runtime not in _KNOWN_RUNTIMES:
+        # Apple's `container` is refused BY NAME here rather than lumped in
+        # with a typo, because it is the one a macOS reader will reach for
+        # first and the reason is worth a sentence. See SPEC_EXEC_V0 ruling 4:
+        # its flag surface has not been verified against the argv Wringer
+        # builds, and a silently-ignored `--network none` would write
+        # `network: false` into the evidence while the network was up.
+        extra = ""
+        if runtime == "container":
+            extra = (
+                " — Apple's 'container' is deliberately not among them: its "
+                "flags have not been verified against the command line "
+                "Wringer builds, and a silently-ignored '--network none' "
+                "would record 'network: false' over a live network. Run the "
+                "image by hand under it if you like; Wringer will not "
+                "generate its argv"
+            )
+        raise ConfigError(
+            f"{source}: 'execution.runtime' must be one of "
+            f"{', '.join(sorted(_KNOWN_RUNTIMES))} (got {runtime!r}){extra}"
+        )
+
+    network = raw.get("network", False)
+    if not isinstance(network, bool):
+        raise ConfigError(f"{source}: 'execution.network' must be a boolean")
+
+    env = raw.get("env", [])
+    if not isinstance(env, list) or not all(
+        isinstance(name, str) and name.strip() for name in env
+    ):
+        raise ConfigError(
+            f"{source}: 'execution.env' must be a list of environment-variable "
+            "NAMES (values are read from the environment, never written here)"
+        )
+
+    user = raw.get("user")
+    if user is not None:
+        if not isinstance(user, str) or not _USER_PATTERN.fullmatch(user):
+            raise ConfigError(
+                f"{source}: 'execution.user' must be 'uid' or 'uid:gid', "
+                f"digits only (got {user!r}) — it reaches the runtime as a "
+                "positional argument, so anything else could be read as a flag"
+            )
+
+    if backend == "local":
+        # Every other key describes a container. Accepting them beside
+        # `local` would leave a config that reads as isolated and is not —
+        # the single most dangerous thing this section could be allowed to
+        # say, and the cheapest to refuse.
+        stated = sorted(set(raw) - {"backend"})
+        if stated:
+            raise ConfigError(
+                f"{source}: 'execution.backend: local' cannot carry "
+                f"{', '.join(stated)} — those describe a container, and a "
+                "config that mentions an image while running gates on this "
+                "machine reads as isolated when it is not"
+            )
+        return Execution(backend="local")
+
+    if not isinstance(image, str) or not image.strip():
+        raise ConfigError(
+            f"{source}: 'execution.backend: container' requires "
+            "'execution.image' — there is no default and there will not be "
+            "one. Wringer runs the image you wrote down, never one it guessed, "
+            "the same rule 'judge.endpoint' follows. The published image is "
+            "ghcr.io/marcoakes/wringer:main"
+        )
+    if image.strip().startswith("-"):
+        raise ConfigError(
+            f"{source}: 'execution.image' may not begin with '-' — it reaches "
+            "the runtime as a positional argument and would be read as a flag"
+        )
+
+    # A worktree's `.git` is a FILE pointing into the main repository's
+    # `.git/worktrees/`, and the container mounts one directory. Mount a
+    # worktree alone and every gate that touches git fails on a broken
+    # repository rather than on the code — which for the pre-change pass reads
+    # as PROOF (SPEC_VACUITY_V0 §1's table). Refused where the two keys meet,
+    # so no gate has to fail to discover it. `--prove` is the same collision
+    # arriving by flag: `vacuity` records `inconclusive` for it, which is
+    # already the published verdict for "the measurement could not be made
+    # honestly".
+    if isinstance(fleet_raw, dict) and fleet_raw.get("worktree") is True:
+        raise ConfigError(
+            f"{source}: 'fleet.worktree: true' cannot be combined with "
+            "'execution.backend: container'. A worktree's .git is a file "
+            "pointing into the main repository, and the container mounts one "
+            "directory — every gate that touches git would fail on a broken "
+            "repository rather than on the code. Pick one"
+        )
+
+    return Execution(
+        backend="container",
+        image=image.strip(),
+        runtime=runtime,
+        network=network,
+        env=tuple(name.strip() for name in env),
+        user=user,
     )
 
 

@@ -159,6 +159,33 @@ def prove(
 
     redactor = redactor or Redactor()
 
+    if cfg.execution is not None and cfg.execution.backend == "container":
+        # INCONCLUSIVE, and this is exactly what that verdict is for: "the
+        # measurement could not be made honestly."
+        #
+        # The pre-change tree is a detached git WORKTREE, whose `.git` is a
+        # file pointing into the main repository's `.git/worktrees/`. The
+        # container mounts one directory, so a worktree mounted alone is a
+        # broken repository — every gate that touches git fails there, and §1's
+        # comparison table reads a pre-change failure as PROOF. That is a false
+        # `proven` on every run, which is worse than no measurement, and it is
+        # the same trap `run.prove_setup` exists to close one layer down.
+        #
+        # Never `proven`, never silently dropped: the row goes in the bundle
+        # and `wring deliver` treats it as it treats any other inconclusive.
+        return Result(
+            verdict=INCONCLUSIVE,
+            reason=(
+                "gates run in a container ('execution.backend: container') and "
+                "the pre-change tree is a git worktree, whose .git is a file "
+                "pointing into the main repository — mounted alone it is a "
+                "broken repository, so every pre-change gate would fail on "
+                "that rather than on the change and the comparison would read "
+                "as proof. Nothing was proven either way; run the prove pass "
+                "with gates on this machine"
+            ),
+        )
+
     if not dirty:
         return not_applicable(
             "the working tree has no changes, so there is nothing for the "

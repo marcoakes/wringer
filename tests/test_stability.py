@@ -76,6 +76,13 @@ def test_a_repo_with_no_stability_key_writes_the_bundle_it_wrote_yesterday(
     always did, and produces no stability record at all. Asserted as the exact
     SET of files in the bundle rather than as "no stability.json", so an
     `attempts/` directory or a stray sibling appearing later fails here too.
+
+    **`execution.json` joined this set deliberately, and it is the one addition
+    that is allowed to.** SPEC_EXEC_V0 §3: every other sibling is conditional,
+    because a reader who does not find one learns nothing either way, and this
+    one is unconditional because a reader who is not told where a command ran
+    supplies the flattering answer. Anything else appearing here should fail
+    this test until somebody argues for it in a spec.
     """
     write_config(repo, "version: 1\ngates:\n  - id: unit\n    run: 'true'\n")
     monkeypatch.chdir(repo)
@@ -93,6 +100,7 @@ def test_a_repo_with_no_stability_key_writes_the_bundle_it_wrote_yesterday(
         "diff.patch",
         "digests.json",
         "evidence.jsonl",
+        "execution.json",
         "gates/001_unit/result.json",
         "gates/001_unit/stderr.log",
         "gates/001_unit/stdout.log",

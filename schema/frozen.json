@@ -10,6 +10,7 @@
     "delivery-manifest.schema.json": "46eb3fbc8be513979962213eee1c06d6783aeaea8b4afcf1ec3d155037f0aa33",
     "digests.schema.json": "ad0bd70c98149e2bc54ebf7abc1295bfbadc31a05b97e3ce92c24cccc8252ee8",
     "evidence-event.schema.json": "ddc61d7b0eaa39fd0d08cf77cd2eff64d9fc1bb959a5e8586b51543abfa5157e",
+    "execution.schema.json": "692e30cdb252873fe1ec9ee9a62c0118d1567fa995d5eb2be08c3f972331cc1e",
     "fleet-event.schema.json": "477527a1ffc141b9a0a2dfe47c43675b562b16d45bce21f35ab2667d971f1946",
     "fleet-manifest.schema.json": "594c5060c9fff05d05f5a23449e9008ec300eb5d70496bc165977baf9563ffe5",
     "fleetscope.schema.json": "31005bc4561fe6db4de567b525cb20d5fe522b0bdd17b15993343273e8c862d4",

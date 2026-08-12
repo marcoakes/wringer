@@ -51,6 +51,7 @@ def write(
     scoped_out: list[Gate] | None = None,
     scoped_to: list[str] | None = None,
     stability: Any = None,
+    execution: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -94,6 +95,8 @@ def write(
     # set is visible.
     for gate in skipped:
         lines.append(f"| {gate.id} | skipped | — | — |")
+
+    lines += _execution_section(execution)
 
     lines += _scoped_out_section(scoped_out, scoped_to)
 
@@ -151,6 +154,52 @@ def _scoped_out_section(
         "`gate-did-not-run` and delivery refuses on.",
         "",
         *[f"- `{gate.id}`" for gate in scoped_out],
+    ]
+
+
+def _execution_section(execution: Any) -> list[str]:
+    """Where these gates ran — one line for `local`, a table for a container.
+
+    Present on EVERY run, unlike every other section here, and for the reason
+    `execution.json` is unconditional: a reader who is not told where a command
+    ran supplies the flattering answer. One line is the whole cost of never
+    letting them.
+    """
+    if execution is None:  # pragma: no cover - verify always passes one
+        return []
+    from wringer import backend as backend_module
+
+    if execution.name == backend_module.LOCAL:
+        return [
+            "",
+            "## Where these gates ran",
+            "",
+            "**On this machine** (`execution_mode: trusted_local`), with the "
+            "invoking user's privileges and the whole environment inherited. "
+            "That is not a sandbox and Wringer has never claimed it is one — "
+            "`.wringer.yaml` is code, and it ran as you.",
+        ]
+    identity = execution.identity()
+    return [
+        "",
+        "## Where these gates ran",
+        "",
+        f"**In a container** — image `{identity['image']}` via "
+        f"`{identity['runtime']}`, mounted at `{identity['mount']}`, "
+        f"network {'ON (explicitly enabled)' if identity['network'] else 'off'}"
+        + (
+            f", environment allowlist: "
+            f"{', '.join(f'`{n}`' for n in identity['env_allowlist'])}"
+            if identity["env_allowlist"]
+            else ", no environment passed through"
+        )
+        + ".",
+        "",
+        "This records the command line Wringer **asked the runtime for**. "
+        "Whether the runtime delivered it is a separate claim this repository "
+        "has not measured — `docs/MANUAL_CHECKS.md` sequence G is that work, "
+        "and it is unrun. The mount is read-write by design, because the "
+        "evidence is written inside the tree.",
     ]
 
 

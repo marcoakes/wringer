@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from wringer import (
     __version__,
@@ -31,6 +32,7 @@ from wringer import (
     summary,
     vacuity,
 )
+from wringer import backend as backend_module
 
 # Called as each gate finishes, so a console can report a long run as it
 # happens rather than after it. None for callers that want no output.
@@ -168,7 +170,17 @@ def run(
     prove: bool = False,
 ) -> Outcome:
     """Verify once and write the bundle. Raises `evidence.EvidenceError` if
-    the bundle cannot be opened; the caller decides what that costs."""
+    the bundle cannot be opened; the caller decides what that costs.
+
+    Raises `backend.BackendError` when the declared execution backend cannot
+    run here — checked BEFORE the bundle is opened, so a missing container
+    runtime costs a sentence rather than a half-written bundle that proves
+    nothing.
+    """
+    engine = backend_module.for_config(cfg.execution)
+    refusal = engine.preflight()
+    if refusal is not None:
+        raise backend_module.BackendError(refusal)
     # Snapshot git before the bundle exists, so Wringer's own run directory
     # is never what makes the tree look dirty — or shows up in its own
     # evidence as an untracked file.
@@ -220,7 +232,9 @@ def run(
 
     for offset, (index, gate) in enumerate(planned):
         try:
-            result = _run_gate(bundle, gate, index, root, observed, on_gate)
+            result = _run_gate(
+                bundle, gate, index, root, observed, on_gate, engine
+            )
         except KeyboardInterrupt:
             # Ctrl-C: finish the bundle rather than abandon it half-written.
             # A run that stopped is evidence too, as long as it says so.
@@ -285,6 +299,22 @@ def run(
 
     observed_report = stability.Report(gates=tuple(observed))
     bundle.write_manifest(state=state, status=status, failed_gate=failed_gate)
+    # EVERY run, opt-in or not, and before the digests like every other sibling.
+    # A bundle that does not say where its gates ran is a bundle a reader fills
+    # in with an assumption, and the assumption is the flattering one
+    # (SPEC_EXEC_V0 §3).
+    #
+    # `worker` is whether the repo DECLARED one, not whether this invocation ran
+    # it: `worker_execution` is a statement about the repository's policy, and
+    # the policy is the same on the verify lap that precedes a worker and the
+    # one that follows it. Keyed off the declaration so a verify-only repo gets
+    # `null` rather than a sentence about a worker it does not have.
+    backend_module.write(
+        bundle.directory,
+        engine,
+        [gate.id for _, gate in planned],
+        worker=cfg.run is not None,
+    )
     # Before the digests, like every other sibling, so the bundle's own
     # tamper-evidence covers the retry record rather than sitting beside it.
     # Absent entirely when no gate declared a policy.
@@ -343,6 +373,7 @@ def run(
         vacuity=proved,
         acceptance=accepted,
         stability=observed_report,
+        execution=engine,
     )
     # LAST, so it covers everything else the run wrote. `digests.json` is what
     # lets a later `wring attest` say "and none of it has been altered since"
@@ -369,6 +400,7 @@ def _run_gate(
     root: Path,
     observed: list[stability.Observed],
     on_gate: GateReporter | None,
+    engine: Any,
 ) -> gates.GateResult:
     """Run one gate — every attempt it declared — and record all of them.
 
@@ -387,7 +419,7 @@ def _run_gate(
     policy = gate.stability
 
     if policy is None:
-        result = _one_attempt(bundle, gate, gate_dir, root)
+        result = _one_attempt(bundle, gate, gate_dir, root, engine)
         if on_gate is not None:
             on_gate(result)
         _gate_finished(bundle, result)
@@ -397,7 +429,11 @@ def _run_gate(
     try:
         for attempt in range(1, policy.attempts + 1):
             result = _one_attempt(
-                bundle, gate, stability.attempt_dir(gate_dir, attempt), root
+                bundle,
+                gate,
+                stability.attempt_dir(gate_dir, attempt),
+                root,
+                engine,
             )
             collected.append(result)
             # One console line per ATTEMPT, so a retry cannot be hidden from
@@ -430,7 +466,11 @@ def _run_gate(
 
 
 def _one_attempt(
-    bundle: evidence.Bundle, gate: config.Gate, directory: Path, root: Path
+    bundle: evidence.Bundle,
+    gate: config.Gate,
+    directory: Path,
+    root: Path,
+    engine: Any,
 ) -> gates.GateResult:
     """Run the gate's command once, into the directory it was given."""
     result = gates.run(
@@ -439,6 +479,7 @@ def _one_attempt(
         stdout_path=directory / "stdout.log",
         stderr_path=directory / "stderr.log",
         redactor=bundle.redactor,
+        backend=engine,
     )
     bundle.write_gate_result(directory, result)
     return result
