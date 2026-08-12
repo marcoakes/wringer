@@ -10,7 +10,15 @@
  },
  {
   "at": 0.7,
-  "text": "Wrote 2 briefs: briefs/csv.md, briefs/fmt.md"
+  "text": "Wrote 2 briefs:"
+ },
+ {
+  "at": 0.7,
+  "text": "  briefs/csv.md"
+ },
+ {
+  "at": 0.7,
+  "text": "  briefs/fmt.md"
  },
  {
   "at": 0.7,
@@ -259,47 +267,47 @@
   "text": "\u2717 g-hdr failed       0.0s"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "--- gates/002_g-hdr/stderr.log ---"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "reports.to_csv() does not exist"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "Evidence written to:"
  },
  {
-  "at": 5.1,
-  "text": ".wringer/runs/20260810-231722-4190/"
+  "at": 5.2,
+  "text": ".wringer/runs/20260812-162620-1fb6/"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": ""
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "Next:"
  },
  {
-  "at": 5.1,
-  "text": "  open .wringer/runs/20260810-231722-4190/summary.md"
+  "at": 5.2,
+  "text": "  open .wringer/runs/20260812-162620-1fb6/summary.md"
  },
  {
-  "at": 5.1,
+  "at": 5.2,
   "text": "  rerun wring verify --gate g-hdr"
  },
  {
-  "at": 6.5,
+  "at": 6.6,
   "text": ""
  },
  {
@@ -321,7 +329,7 @@
  },
  {
   "at": 8.8,
-  "text": "Fleet evidence: .wringer/fleets/20260810-231722-ac2d/"
+  "text": "Fleet evidence: .wringer/fleets/20260812-162620-0217/"
  },
  {
   "at": 10.2,
@@ -334,7 +342,7 @@
  },
  {
   "at": 10.8,
-  "text": "# wring run \u2014 20260810-231722-04bf"
+  "text": "# wring run \u2014 20260812-162620-60a4"
  },
  {
   "at": 10.8,
@@ -342,11 +350,11 @@
  },
  {
   "at": 10.8,
-  "text": "- repo: **wringer-fleetscale** @ `1029315`"
+  "text": "- repo: **wringer-fleetscale** @ `972a390`"
  },
  {
   "at": 10.8,
-  "text": "- started: 2026-08-11T00:17:22+01:00"
+  "text": "- started: 2026-08-12T17:26:20+01:00"
  },
  {
   "at": 10.8,
@@ -370,27 +378,15 @@
  },
  {
   "at": 10.8,
-  "text": "| 1 | failed (`g-hdr`) | exit 0 | `.wringer/runs/20260810-231722-5c7d` |"
+  "text": "| 1 | failed (`g-hdr`) | exit 0 | `.wringer/runs/20260812-162620-9e81` |"
  },
  {
   "at": 10.8,
-  "text": "| 2 | failed (`g-rows`) | exit 0 | `.wringer/runs/20260810-231723-6629` |"
+  "text": "| 2 | failed (`g-rows`) | exit 0 | `.wringer/runs/20260812-162620-d478` |"
  },
  {
   "at": 10.8,
-  "text": "| 3 | passed | \u2014 | `.wringer/runs/20260810-231723-4848` |"
- },
- {
-  "at": 10.8,
-  "text": ""
- },
- {
-  "at": 10.8,
-  "text": "Final verification: `.wringer/runs/20260810-231723-4848`"
- },
- {
-  "at": 10.8,
-  "text": "# wring run \u2014 20260810-231723-9d55"
+  "text": "| 3 | passed | \u2014 | `.wringer/runs/20260812-162621-2f85` |"
  },
  {
   "at": 10.8,
@@ -398,11 +394,23 @@
  },
  {
   "at": 10.8,
-  "text": "- repo: **wringer-fleetscale** @ `1029315`"
+  "text": "Final verification: `.wringer/runs/20260812-162621-2f85`"
  },
  {
   "at": 10.8,
-  "text": "- started: 2026-08-11T00:17:23+01:00"
+  "text": "# wring run \u2014 20260812-162621-8046"
+ },
+ {
+  "at": 10.8,
+  "text": ""
+ },
+ {
+  "at": 10.8,
+  "text": "- repo: **wringer-fleetscale** @ `972a390`"
+ },
+ {
+  "at": 10.8,
+  "text": "- started: 2026-08-12T17:26:21+01:00"
  },
  {
   "at": 10.8,
@@ -426,11 +434,11 @@
  },
  {
   "at": 10.8,
-  "text": "| 1 | failed (`g-cents`) | exit 0 | `.wringer/runs/20260810-231723-b485` |"
+  "text": "| 1 | failed (`g-cents`) | exit 0 | `.wringer/runs/20260812-162621-1a88` |"
  },
  {
   "at": 10.8,
-  "text": "| 2 | passed | \u2014 | `.wringer/runs/20260810-231723-49c8` |"
+  "text": "| 2 | passed | \u2014 | `.wringer/runs/20260812-162621-4eb7` |"
  },
  {
   "at": 10.8,
@@ -438,7 +446,7 @@
  },
  {
   "at": 10.8,
-  "text": "Final verification: `.wringer/runs/20260810-231723-49c8`"
+  "text": "Final verification: `.wringer/runs/20260812-162621-4eb7`"
  },
  {
   "at": 12.2,
@@ -458,7 +466,7 @@
   "text": "\u2713 g-hdr passed       0.0s"
  },
  {
-  "at": 13.2,
+  "at": 13.1,
   "text": "\u2713 g-rows passed      0.0s"
  },
  {
@@ -475,7 +483,7 @@
  },
  {
   "at": 13.2,
-  "text": ".wringer/runs/20260810-231724-a5ca/"
+  "text": ".wringer/runs/20260812-162622-560a/"
  },
  {
   "at": 14.6,
@@ -483,107 +491,47 @@
  },
  {
   "at": 14.6,
-  "text": "$ head -24 .wringer/runs/20260810-231724-a5ca/acceptance.json",
+  "text": "$ head -9 .wringer/runs/20260812-162622-560a/acceptance.json",
   "prompt": true
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "{"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "  \"schema_version\": \"wringer.acceptance.v1\","
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "  \"counts\": {"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "    \"evidenced\": 3,"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "    \"unevidenced\": 0,"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "    \"gate-failed\": 0,"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "    \"gate-did-not-run\": 0,"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "    \"human\": 0"
  },
  {
-  "at": 15.3,
+  "at": 15.2,
   "text": "  },"
  },
  {
-  "at": 15.3,
-  "text": "  \"criteria\": ["
- },
- {
-  "at": 15.3,
-  "text": "    {"
- },
- {
-  "at": 15.3,
-  "text": "      \"criterion\": \"hdr\","
- },
- {
-  "at": 15.3,
-  "text": "      \"title\": \"The CSV header is the table's columns, in order\","
- },
- {
-  "at": 15.3,
-  "text": "      \"required\": true,"
- },
- {
-  "at": 15.3,
-  "text": "      \"state\": \"evidenced\","
- },
- {
-  "at": 15.3,
-  "text": "      \"gate\": \"g-hdr\","
- },
- {
-  "at": 15.3,
-  "text": "      \"command\": \"python3 g_hdr.py\","
- },
- {
-  "at": 15.3,
-  "text": "      \"receipt\": {"
- },
- {
-  "at": 15.3,
-  "text": "        \"kind\": \"failure\","
- },
- {
-  "at": 15.3,
-  "text": "        \"bundle\": \".wringer/runs/20260810-231722-5c7d\""
- },
- {
-  "at": 15.3,
-  "text": "      },"
- },
- {
-  "at": 15.3,
-  "text": "      \"reason\": \"`g-hdr` passed, and the record shows it can fail\","
- },
- {
-  "at": 15.3,
-  "text": "      \"refuses\": false"
- },
- {
-  "at": 15.3,
-  "text": "    },"
- },
- {
-  "at": 16.7,
+  "at": 16.6,
   "text": ""
  },
  {
@@ -601,11 +549,11 @@
  },
  {
   "at": 17.8,
-  "text": "Branch:  wringer/20260810-231724-a5ca"
+  "text": "Branch:  wringer/20260812-162622-560a"
  },
  {
   "at": 17.8,
-  "text": "Commit:  35c28c01b55c"
+  "text": "Commit:  87a0426a89aa"
  },
  {
   "at": 17.8,
@@ -617,6 +565,6 @@
  },
  {
   "at": 17.8,
-  "text": "Delivery evidence: .wringer/deliveries/20260810-231724-40f7/"
+  "text": "Delivery evidence: .wringer/deliveries/20260812-162622-074b/"
  }
 ]
