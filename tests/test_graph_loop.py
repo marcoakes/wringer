@@ -241,7 +241,8 @@ nodes:
     kind: router
     routes:
       - when: "state.build-status in ['converged', 'max_iterations', \
-'no_progress', 'oscillating', 'budget_exhausted', 'interrupted']"
+'no_progress', 'oscillating', 'budget_exhausted', 'flaky_gate', \
+'interrupted']"
         to: done
     default: fail
 """

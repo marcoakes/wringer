@@ -62,6 +62,9 @@ LOOP_REASONS = frozenset(
         "no_progress",
         "oscillating",
         "budget_exhausted",
+        # A gate that did not give the same answer twice on one tree, so no
+        # worker ran at all (SPEC_STABILITY_V0 §4).
+        "flaky_gate",
         "interrupted",
     }
 )

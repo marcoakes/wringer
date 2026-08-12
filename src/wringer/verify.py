@@ -15,7 +15,7 @@ argument parsing, precondition messages, exit codes, and printing.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from wringer import (
@@ -27,6 +27,7 @@ from wringer import (
     gates,
     git,
     redact,
+    stability,
     summary,
     vacuity,
 )
@@ -57,6 +58,13 @@ class Outcome:
     # None means vacuity was never checked — which the console must stay
     # silent about (SPEC_VACUITY_V0 §7).
     vacuity: vacuity.Result | None = None
+    # Every gate that declared a `stability:` policy, with every attempt it
+    # made. Carried for the same reason as the two fields above and one more:
+    # `wring run` READS it to decide whether a failing gate may be handed to a
+    # worker, and a repair loop that cannot tell a flake from a bug hands the
+    # agent source that was never wrong (SPEC_STABILITY_V0 §4). Empty for
+    # every repo that declared no policy.
+    stability: stability.Report = field(default_factory=stability.Report)
 
     @property
     def passed(self) -> bool:
@@ -204,10 +212,15 @@ def run(
     skipped: list[config.Gate] = []
     failed_gate: str | None = None
     interrupted: summary.Interrupted | None = None
+    # Appended by `_run_gate` for every gate that declared a policy, INCLUDING
+    # one a Ctrl-C caught between attempts: the attempts that did run are on
+    # disk, so hiding them from the record here would be the retry-hiding this
+    # feature exists to make impossible.
+    observed: list[stability.Observed] = []
 
     for offset, (index, gate) in enumerate(planned):
         try:
-            result = _run_gate(bundle, gate, index, root)
+            result = _run_gate(bundle, gate, index, root, observed, on_gate)
         except KeyboardInterrupt:
             # Ctrl-C: finish the bundle rather than abandon it half-written.
             # A run that stopped is evidence too, as long as it says so.
@@ -220,11 +233,14 @@ def run(
             skipped = [pending for _, pending in planned[offset + 1 :]]
             break
         results.append(result)
-        if on_gate is not None:
-            on_gate(result)
         if not result.passed and not gate.optional:
             # Stop on the first required failure; everything after it is
-            # unrun, not passed, and the summary says so.
+            # unrun, not passed, and the summary says so. `result` is the
+            # DECIDING attempt for a gate that declared a policy, so a flaky
+            # gate stops the run here exactly as a broken one does — the
+            # difference is what a repair loop is then allowed to do with it,
+            # and that lives in the stability record rather than in this
+            # verdict (SPEC_STABILITY_V0 §4).
             failed_gate = gate.id
             skipped = [pending for _, pending in planned[offset + 1 :]]
             break
@@ -267,7 +283,17 @@ def run(
             "vacuity.finished", verdict=proved.verdict, reason=proved.reason
         )
 
+    observed_report = stability.Report(gates=tuple(observed))
     bundle.write_manifest(state=state, status=status, failed_gate=failed_gate)
+    # Before the digests, like every other sibling, so the bundle's own
+    # tamper-evidence covers the retry record rather than sitting beside it.
+    # Absent entirely when no gate declared a policy.
+    stability.write(
+        bundle.directory,
+        observed_report,
+        bundle.relative,
+        redactor=bundle.redactor,
+    )
     # Before the digests, so the digest covers it. git cannot diff a file it
     # has never seen, so without this an untracked file's *contents* are
     # absent from the bundle and delivery could only compare their names.
@@ -316,6 +342,7 @@ def run(
         template_only=template_only,
         vacuity=proved,
         acceptance=accepted,
+        stability=observed_report,
     )
     # LAST, so it covers everything else the run wrote. `digests.json` is what
     # lets a later `wring attest` say "and none of it has been altered since"
@@ -331,26 +358,102 @@ def run(
         status=status,
         template_only=template_only,
         vacuity=proved,
+        stability=observed_report,
     )
 
 
 def _run_gate(
-    bundle: evidence.Bundle, gate: config.Gate, index: int, root: Path
+    bundle: evidence.Bundle,
+    gate: config.Gate,
+    index: int,
+    root: Path,
+    observed: list[stability.Observed],
+    on_gate: GateReporter | None,
 ) -> gates.GateResult:
-    """Run one gate and record everything it produced."""
+    """Run one gate — every attempt it declared — and record all of them.
+
+    Returns the DECIDING attempt: the one whose files stand at the gate's
+    canonical path and whose verdict the run acts on. A gate that declared no
+    `stability:` policy makes exactly one attempt, writes exactly where it
+    always did, and appends nothing to `observed`.
+
+    **Every attempt runs, even after the answer looks settled.** Stopping at
+    the first failure would make `stable_fail` and `flaky` indistinguishable,
+    which is the whole measurement; stopping at the first pass would be
+    retry-until-green with a record attached.
+    """
     bundle.event("gate.started", gate_id=gate.id, command=gate.run)
     gate_dir = bundle.gate_dir(index, gate.id)
+    policy = gate.stability
+
+    if policy is None:
+        result = _one_attempt(bundle, gate, gate_dir, root)
+        if on_gate is not None:
+            on_gate(result)
+        _gate_finished(bundle, result)
+        return result
+
+    collected: list[gates.GateResult] = []
+    try:
+        for attempt in range(1, policy.attempts + 1):
+            result = _one_attempt(
+                bundle, gate, stability.attempt_dir(gate_dir, attempt), root
+            )
+            collected.append(result)
+            # One console line per ATTEMPT, so a retry cannot be hidden from
+            # the terminal either. Three lines carrying the same gate id is
+            # the honest shape: something ran three times.
+            if on_gate is not None:
+                on_gate(result)
+    except KeyboardInterrupt:
+        # The attempts that finished are on disk and belong in the record.
+        # `Observed` reads fewer results than requested as `unknown`, and the
+        # caller turns the interrupt into the run's own verdict.
+        observed.append(
+            stability.Observed(
+                gate=gate, requested=policy.attempts, results=tuple(collected)
+            )
+        )
+        raise
+
+    seen = stability.Observed(
+        gate=gate, requested=policy.attempts, results=tuple(collected)
+    )
+    observed.append(seen)
+    deciding = seen.deciding
+    # `deciding` is None only for `unresolved`, which needs an interrupt — and
+    # an interrupt left through the `except` above.
+    assert deciding is not None
+    adopted = bundle.adopt_gate_attempt(gate_dir, deciding)
+    _gate_finished(bundle, adopted)
+    return adopted
+
+
+def _one_attempt(
+    bundle: evidence.Bundle, gate: config.Gate, directory: Path, root: Path
+) -> gates.GateResult:
+    """Run the gate's command once, into the directory it was given."""
     result = gates.run(
         gate,
         cwd=root,
-        stdout_path=gate_dir / "stdout.log",
-        stderr_path=gate_dir / "stderr.log",
+        stdout_path=directory / "stdout.log",
+        stderr_path=directory / "stderr.log",
         redactor=bundle.redactor,
     )
-    bundle.write_gate_result(gate_dir, result)
+    bundle.write_gate_result(directory, result)
+    return result
 
+
+def _gate_finished(bundle: evidence.Bundle, result: gates.GateResult) -> None:
+    """The `gate.finished` event — one per gate, whatever it cost.
+
+    Deliberately unchanged in shape. `wringer.evidence.v1` closes every branch
+    with `additionalProperties: false`, so an `attempts` key here would make
+    every bundle fail the schema it publishes; law 7 says new shape arrives as
+    a new file, and `stability.json` is that file.
+    """
     finished: dict[str, object] = {
-        "gate_id": gate.id,
+        "gate_id": result.gate.id,
         "exit_code": result.exit_code,
         "duration_ms": result.duration_ms,
     }
@@ -362,4 +465,3 @@ def _run_gate(
         # Only when true: an absent key means the log is whole.
         finished["truncated"] = True
     bundle.event("gate.finished", **finished)
-    return result

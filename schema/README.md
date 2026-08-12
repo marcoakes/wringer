@@ -10,8 +10,10 @@ rather than reverse-engineer it — the point of
 | [`manifest.schema.json`](manifest.schema.json) | `manifest.json` — the run's index |
 | [`evidence-event.schema.json`](evidence-event.schema.json) | **one line** of `evidence.jsonl`, not the file |
 | [`gate-result.schema.json`](gate-result.schema.json) | `gates/NNN_<id>/result.json` |
-| [`loop-manifest.schema.json`](loop-manifest.schema.json) | `manifest.json` of a `wring run` loop bundle |
-| [`loop-event.schema.json`](loop-event.schema.json) | **one line** of a loop's `loop.jsonl` |
+| [`loop-manifest.schema.json`](loop-manifest.schema.json) | `wringer.loop.v1` — superseded by v2 below, still published and still valid; `manifest.json` of a `wring run` loop bundle, with `reason` as a closed enum of six values |
+| [`loop-manifest-v2.schema.json`](loop-manifest-v2.schema.json) | `wringer.loop.v2` — `manifest.json` of a `wring run` loop bundle. `reason` is an **open string**, so a new way for the loop to stop never costs a bundle-format version; the values the code emits are named in its description and pinned by a test |
+| [`loop-event.schema.json`](loop-event.schema.json) | superseded by v2 below, still published and still valid; **one line** of a loop's `loop.jsonl` |
+| [`loop-event-v2.schema.json`](loop-event-v2.schema.json) | **one line** of a loop's `loop.jsonl`, with `loop.finished.reason` open for the same reason |
 | [`rubric.schema.json`](rubric.schema.json) | `wringer.rubric.v1` — the acceptance criteria `wring judge` weighs a bundle against |
 | [`spec.schema.json`](spec.schema.json) | `wringer.spec.v1` — `wringer.spec.yaml`, what `wring spec` drafts and a human approves |
 | [`gatespec.schema.json`](gatespec.schema.json) | `wringer.gatespec.v1` — `wringer.gates.yaml`, proposed gates and the criterion each would prove. Read by nothing that runs |
@@ -34,11 +36,15 @@ rather than reverse-engineer it — the point of
 | [`bench-event.schema.json`](bench-event.schema.json) | **one line** of a bench's `bench.jsonl` |
 | [`acceptance.schema.json`](acceptance.schema.json) | `wringer.acceptance.v1` — `acceptance.json`, a sibling file in a verify bundle: per criterion, whether the record evidences it. Present only when an **approved** `wringer.spec.yaml` declares criteria |
 | [`health-report.schema.json`](health-report.schema.json) | `wringer.health.v1` — `wring health --json`. The one schema here that describes a **derived view rather than a bundle**: nothing is written under `.wringer/`, the bundles it read are the evidence, and the same bundles plus the same `.wringer.yaml` produce the same bytes |
+| [`stability.schema.json`](stability.schema.json) | `wringer.stability.v1` — `stability.json`, a sibling file in a verify bundle: every attempt every gate that declared `stability:` made, and whether they add up to `stable_pass`, `stable_fail`, `flaky` or `unknown`. Present only when a gate declared a policy |
 
-The loop schemas carry their own version, **`wringer.loop.v1`**, moving
+The loop schemas carry their own version, now **`wringer.loop.v2`**, moving
 independently of the evidence bundle: a loop *references* the runs it drove
 (`evidence_dir`) rather than containing them, so the two formats can change
-without dragging each other along.
+without dragging each other along. `loop.SCHEMA_VERSIONS` is the derived list
+of versions every reader accepts, and a v1 bundle already on disk is read by
+everything that read it before — a version bump that orphans existing evidence
+is not a bump, it is a deletion.
 
 `summary.md`, `diff.patch` and `status.txt` have no schema: they are for
 people, and machines should read the three files above instead.

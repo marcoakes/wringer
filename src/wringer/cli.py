@@ -1751,6 +1751,8 @@ _LOOP_ENDINGS = {
     "so the worker is not converging.",
     "budget_exhausted": "Stopped after {n} iteration{s} — the wall-clock budget "
     "ran out and the gates still fail.",
+    loop.FLAKY_GATE: "Stopped after {n} iteration{s} — the failing gate is "
+    "flaky, so no worker ran.",
     "interrupted": "Interrupted after {n} iteration{s}.",
 }
 
@@ -1761,6 +1763,25 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
         "\n"
         + ending.format(n=outcome.iterations, s="" if outcome.iterations == 1 else "s")
     )
+    if outcome.flaky_gate is not None:
+        # The gate BY NAME, and what not to do about it. A bare "the gate is
+        # flaky" sends the reader to the code, which is the one place the
+        # problem is not — and this console line is what an operator acts on
+        # before they open any bundle.
+        # `textwrap.fill` with a hanging indent, matching `_report_vacuity`:
+        # the two lines are the same kind of `!` note and must not indent two
+        # different ways on the same terminal.
+        print(
+            "! "
+            + textwrap.fill(
+                f"`{outcome.flaky_gate}` did not give the same answer twice on "
+                "one tree. Nothing in the tree explains the difference, so no "
+                "worker was called: an agent told to repair this would edit "
+                "source that was never wrong. Fix the gate, then run again.",
+                width=78,
+                subsequent_indent="  ",
+            )
+        )
     print(f"Loop evidence: {_relative(outcome.directory, root)}/")
     if not outcome.converged and outcome.final is not None:
         print(f"Last verification: {verify.bundle_path(outcome.final.bundle, root)}/")

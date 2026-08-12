@@ -178,14 +178,14 @@ run:
     for loop_dir in loops:
         check(
             json.loads((loop_dir / loop.MANIFEST_FILENAME).read_text("utf-8")),
-            load("loop-manifest.schema.json"),
+            load("loop-manifest-v2.schema.json"),
             f"{loop_dir.name}/manifest.json",
         )
         for line in (loop_dir / loop.EVENTS_FILENAME).read_text("utf-8").splitlines():
             event = json.loads(line)
             check(
                 event,
-                branch(event["type"], "loop-event.schema.json"),
+                branch(event["type"], "loop-event-v2.schema.json"),
                 f"{loop_dir.name} event {event['type']}",
             )
             seen.add(event["type"])
@@ -320,13 +320,13 @@ run:
     loop_dir = sorted((repo / loop.LOOPS_DIRNAME).iterdir())[0]
 
     errors: list[str] = []
-    for error in built["loop-manifest.schema.json"].iter_errors(
+    for error in built["loop-manifest-v2.schema.json"].iter_errors(
         json.loads((loop_dir / loop.MANIFEST_FILENAME).read_text("utf-8"))
     ):
         errors.append(f"loop manifest: {error.message}")
     for line in (loop_dir / loop.EVENTS_FILENAME).read_text("utf-8").splitlines():
         event = json.loads(line)
-        for error in built["loop-event.schema.json"].iter_errors(event):
+        for error in built["loop-event-v2.schema.json"].iter_errors(event):
             errors.append(f"{event['type']}: {error.message}")
 
     assert not errors, "\n".join(errors)
@@ -656,6 +656,104 @@ def test_a_pre_chain_bundle_is_still_a_valid_v1_bundle():
     # and the chained form is equally valid — both are v1
     chained = dict(event, prev_hash="b" * 64)
     assert not list(built["evidence-event.schema.json"].iter_errors(chained))
+
+
+# --- wringer.loop.v2 (SPEC_STABILITY_V0 §4, mechanics from SPEC_ENV_V0 §3) ---
+
+
+def test_a_v1_loop_bundle_is_still_valid_and_is_still_read(tmp_path: Path):
+    """**The bump must not orphan a single bundle already on disk.**
+
+    SPEC_ENV_V0 §3 names this as finding D3 for the version bump it chartered:
+    `health._KINDS` is keyed off `loop.SCHEMA_VERSION`, so moving the constant
+    without widening the map makes health forget every v1 loop — wordlessly,
+    which is the exact failure mode health exists to catch. Asserted through
+    the DERIVED reader rather than by inspecting the map, and against the v1
+    schema too, so "v1 is still published and still frozen" is a property here
+    rather than a sentence in a description.
+    """
+    from wringer import health
+
+    built = validators()
+    manifest = {
+        "schema_version": "wringer.loop.v1",
+        "loop_id": "20260801-120000-aaaa",
+        "started_at": "2026-08-01T12:00:00+01:00",
+        "repo": {"root": ".", "head_sha": "a" * 40, "branch": "main", "dirty": False},
+        "config": {"worker": "agent fix", "max_iterations": 3},
+        "result": {
+            "status": "stopped",
+            "reason": "oscillating",
+            "iterations": 3,
+            "final_run": ".wringer/runs/20260801-120000-bbbb",
+        },
+    }
+    assert not list(built["loop-manifest.schema.json"].iter_errors(manifest))
+
+    # ... and the derived reader still calls it a loop
+    bundle = tmp_path / ".wringer" / "loops" / manifest["loop_id"]
+    bundle.mkdir(parents=True)
+    (bundle / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    coverage = health.discover(tmp_path)
+
+    assert [b.kind for b in coverage.read] == ["loop"], (
+        "a v1 loop bundle became invisible to health — the naive version bump, "
+        f"skipped as: {[s.reason for s in coverage.skipped]}"
+    )
+
+
+def test_the_open_reason_is_what_lets_a_new_stop_reason_cost_no_version():
+    """v2's `reason` is a string, not an enum, and that is the design.
+
+    Closed, every future stop reason costs a bundle-format version — F6's
+    `environment` would have needed v3 — and version churn on the format is
+    what a frozen schema exists to prevent rather than cause. The fleet's own
+    `reason` has always been a plain string for the same reason.
+    """
+    built = validators()
+    for reason in ("flaky_gate", "environment", "some_reason_nobody_has_had_yet"):
+        event = {
+            "type": "loop.finished",
+            "ts": "2026-08-12T09:00:00+01:00",
+            "prev_hash": "0" * 64,
+            "status": "stopped",
+            "reason": reason,
+            "iterations": 1,
+        }
+        assert not list(built["loop-event-v2.schema.json"].iter_errors(event)), reason
+    # and v1 still refuses every one of them, which is what "frozen" means
+    assert list(
+        built["loop-event.schema.json"].iter_errors(
+            {
+                "type": "loop.finished",
+                "ts": "2026-08-12T09:00:00+01:00",
+                "prev_hash": "0" * 64,
+                "status": "stopped",
+                "reason": "flaky_gate",
+                "iterations": 1,
+            }
+        )
+    )
+
+
+def test_the_loop_reason_the_code_emits_is_the_reason_the_schema_documents():
+    """The drift guard the open string moves out of the schema.
+
+    An open `reason` cannot catch a typo, so the guard is that every value
+    `loop._REASONS` knows is named in v2's description and matched by
+    `graph.LOOP_REASONS`. A router comparing against a reason the loop never
+    emits is a route that silently never fires.
+    """
+    from wringer import graph
+    from wringer import loop as loop_module
+
+    described = load("loop-manifest-v2.schema.json")["properties"]["result"][
+        "properties"
+    ]["reason"]["description"]
+    for reason in loop_module._REASONS:
+        assert f"`{reason}`" in described, reason
+        assert reason in graph.LOOP_REASONS, reason
+
 
 # --- per-file digests (WRINGER_RELEASE_PLAN.md R3) -----------------------
 #
@@ -1658,3 +1756,99 @@ def test_what_the_sidecar_renderer_writes_round_trips_through_its_reader():
         config_module.DEFAULT_TIMEOUT_SECONDS, 45
     ]
     assert [g.proves for g in back] == ["c-one", "c-two"]
+
+
+# --- wringer.stability.v1 (SPEC_STABILITY_V0.md) -----------------------------
+
+
+def _flaked(repo: Path, monkeypatch, capsys, tmp_path: Path) -> dict:
+    """A real run of a real gate that really alternates, and its record."""
+    from wringer import stability
+
+    counter = tmp_path / "counter"
+    # `steady` FIRST, because a required failure stops the run: with the
+    # flaky gate ahead of it the second row would never be written, and this
+    # test would be checking the schema against one classification.
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        "  - id: steady\n    run: 'true'\n"
+        "    stability:\n      attempts: 2\n"
+        "  - id: coin\n"
+        f'    run: "n=$(cat {counter} 2>/dev/null || echo 0); n=$((n+1)); '
+        f'printf %s $n > {counter}; [ $((n % 2)) -eq 1 ]"\n'
+        "    stability:\n      attempts: 3\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    run_dir = sorted((repo / evidence.RUNS_DIRNAME).iterdir())[-1]
+    return json.loads(
+        (run_dir / stability.STABILITY_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+def test_a_real_stability_record_matches_its_schema(
+    repo, monkeypatch, capsys, tmp_path
+):
+    recorded = _flaked(repo, monkeypatch, capsys, tmp_path)
+    schema = load("stability.schema.json")
+    row_schema = schema["properties"]["gates"]["items"]
+
+    check(recorded, schema, "stability.json")
+    assert recorded["schema_version"] == "wringer.stability.v1"
+    for row in recorded["gates"]:
+        check(row, row_schema, f"stability row {row['gate_id']}")
+        for attempt in row["attempts"]:
+            check(
+                attempt,
+                row_schema["properties"]["attempts"]["items"],
+                f"attempt {attempt['attempt']}",
+            )
+    # both classifications really were exercised, or this test proves less than
+    # it looks like it does — a schema that only ever sees `flaky` has never
+    # been checked against the shape a passing gate writes
+    assert {row["classification"] for row in recorded["gates"]} == {
+        "flaky",
+        "stable_pass",
+    }
+
+
+def test_a_real_stability_record_validates_against_the_real_engine(
+    repo, monkeypatch, capsys, tmp_path
+):
+    built = validators()
+    recorded = _flaked(repo, monkeypatch, capsys, tmp_path)
+
+    errors = [
+        f"{e.json_path} {e.message}"
+        for e in built["stability.schema.json"].iter_errors(recorded)
+    ]
+    assert not errors, "\n".join(errors)
+
+
+def test_every_classification_the_schema_declares_is_reachable():
+    """A schema value no code can produce is a promise nobody keeps."""
+    from wringer import stability
+
+    declared = set(
+        load("stability.schema.json")["properties"]["gates"]["items"]["properties"][
+            "classification"
+        ]["enum"]
+    )
+    assert declared == set(stability.CLASSIFICATIONS)
+
+
+def test_every_routing_word_the_schema_declares_is_reachable():
+    from wringer import stability
+
+    declared = set(
+        load("stability.schema.json")["properties"]["gates"]["items"]["properties"][
+            "routing"
+        ]["enum"]
+    )
+    assert declared == {
+        stability.REPAIR,
+        stability.NO_REPAIR,
+        stability.NOTHING_TO_REPAIR,
+    }

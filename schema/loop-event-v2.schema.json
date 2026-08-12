@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/loop-event-v2.schema.json",
+  "title": "Wringer loop event",
+  "description": "One line of loop.jsonl. Append-only, one JSON object per line, in the order things happened. This schema describes a single line, not the file. Every event carries `type` and `ts`. **v2, and v1 is still published and still frozen.** The only change is that `loop.finished.reason` is an open string rather than a closed enum of six values — see loop-manifest-v2.schema.json for why, and `loop.SCHEMA_VERSIONS` for the derived list of versions every reader accepts. Events carry no version of their own; the bundle's manifest names it.",
+  "type": "object",
+  "required": [
+    "type",
+    "ts",
+    "prev_hash"
+  ],
+  "properties": {
+    "type": {
+      "enum": [
+        "loop.started",
+        "iteration.started",
+        "verify.finished",
+        "worker.started",
+        "worker.finished",
+        "loop.finished",
+        "loop.resumed",
+        "worker.permission"
+      ]
+    },
+    "ts": {
+      "description": "Local ISO-8601 with UTC offset, millisecond precision.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "prev_hash": {
+      "description": "sha256 of the previous whole line in this ledger, or 64 zeros for the first. Every event links to the one before it, so altering or removing a line breaks every hash after it. Tamper-EVIDENCE, not tamper-proofing: anyone who can write the file can rewrite the chain, but silent edits become detectable. Written now; `wring attest` / `wring audit` are the slice that verifies it.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "oneOf": [
+    {
+      "title": "loop.started",
+      "required": [
+        "type",
+        "ts",
+        "loop_id",
+        "wringer_version",
+        "repo",
+        "sha",
+        "max_iterations",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "loop.started"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "loop_id": {
+          "type": "string"
+        },
+        "wringer_version": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prev_hash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "iteration.started",
+      "required": [
+        "type",
+        "ts",
+        "iteration",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "iteration.started"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prev_hash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "verify.finished",
+      "description": "One full `wring verify`. Its own bundle is at evidence_dir and conforms to wringer.evidence.v1; it is referenced, never copied.",
+      "required": [
+        "type",
+        "ts",
+        "iteration",
+        "status",
+        "evidence_dir",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "verify.finished"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "interrupted"
+          ]
+        },
+        "failed_gate": {
+          "description": "PRESENT ONLY when a required gate failed.",
+          "type": "string"
+        },
+        "evidence_dir": {
+          "type": "string"
+        },
+        "failure_signature": {
+          "description": "sha256 of the normalized failure shape. PRESENT ONLY when a gate failed. Seeing the same signature twice in one loop trips the breaker.",
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "worker.started",
+      "description": "A worker.started with no matching worker.finished means the loop was interrupted while the worker was running — the same convention gate.started uses in an evidence bundle.",
+      "required": [
+        "type",
+        "ts",
+        "iteration",
+        "command",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "worker.started"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "command": {
+          "description": "The worker command AFTER placeholder substitution, redacted — what actually ran.",
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "worker_kind": {
+          "description": "PRESENT ONLY for an ACP worker. Absent means the shell form, which stays the default reading.",
+          "const": "acp"
+        }
+      }
+    },
+    {
+      "title": "worker.finished",
+      "description": "exit_code is recorded and never acted on: the evidence decides whether the loop continues, not the worker's opinion of itself.",
+      "required": [
+        "type",
+        "ts",
+        "iteration",
+        "exit_code",
+        "duration_ms",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "worker.finished"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exit_code": {
+          "description": "Negative when a signal ended it, which is what a timeout looks like.",
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timed_out": {
+          "description": "PRESENT ONLY when true.",
+          "const": true
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "worker_kind": {
+          "const": "acp",
+          "description": "PRESENT ONLY for an ACP worker."
+        },
+        "stop_reason": {
+          "description": "The agent's own stopReason. RECORDED AND NEVER ACTED ON, exactly as a shell worker's exit code is — the evidence decides.",
+          "type": "string"
+        },
+        "agent_name": {
+          "type": "string"
+        },
+        "agent_version": {
+          "type": "string"
+        },
+        "protocol_version": {
+          "type": "integer"
+        },
+        "refused_paths": {
+          "description": "How many writes were refused for escaping the repository. PRESENT ONLY when non-zero.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "acp_error": {
+          "description": "PRESENT ONLY when the session itself failed — never a verdict about the code.",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "loop.finished",
+      "required": [
+        "type",
+        "ts",
+        "status",
+        "reason",
+        "iterations",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "loop.finished"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "converged",
+            "stopped",
+            "interrupted"
+          ]
+        },
+        "reason": {
+          "description": "Why it ended. Same open string as the manifest's `result.reason`, and the same value in both — including `flaky_gate`, the one reason that is about the CHECK rather than about the worker or the budget.",
+          "type": "string",
+          "minLength": 1
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prev_hash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "loop.resumed",
+      "description": "A killed loop being continued. Its presence is what distinguishes a loop that lived twice from one that ran straight through; the events before it belong to the earlier life.",
+      "required": [
+        "type",
+        "ts",
+        "iterations_done",
+        "reaped_pgids",
+        "prev_hash"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "loop.resumed"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "iterations_done": {
+          "description": "Iterations completed by the earlier life, read from this ledger.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "reaped_pgids": {
+          "description": "Worker process groups this resume actually managed to kill — what it did, not what it attempted.",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "prev_hash": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "worker.permission",
+      "description": "An ACP agent asked permission and Wringer auto-approved it. v0 auto-approves because a consent prompt nobody is sitting at is not a safety control — the container and the supervision invariants are. This event is what makes that auditable rather than invisible.",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "iteration",
+        "tool",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "worker.permission"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tool": {
+          "description": "What the agent asked to do, truncated.",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "auto_approved"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -996,7 +996,30 @@ def _maybe_retry(
     A failure shape seen before for *this task* is deterministic: retrying it
     would reproduce it. That is invariant 2, and it is the single rule that
     would have saved the incident's twenty wasted agents.
+
+    A child that stopped on a flaky gate is not retried, and the ladder is not
+    entered at all. Invariant 2, generalised from "the same signature twice" to
+    "deterministic with respect to anything a retry can change": a retry re-runs
+    the same gate against the same tree, and this gate's answer does not follow
+    from the tree, so it buys a fresh coin flip rather than information. Worse,
+    a retry that happened to draw all-green would CONVERGE and record the task
+    as `succeeded` — a fleet-scale retry-until-green, arrived at without anybody
+    deciding to build one.
+
+    It stays FAILED rather than becoming PARKED, which is the weaker of the two
+    honest words and is chosen for a schema reason worth naming:
+    `task.parked`'s `why` is a CLOSED enum in the frozen `wringer.fleet.v1`
+    event schema, and none of its five values is true here — `deterministic` is
+    the opposite of what this is. Park would need `wringer.fleet.v2`, and
+    spending a second version bump inside one slice to upgrade a word is worse
+    than the word. `reason` is a free string in both the event and the manifest
+    (measured, and cited by SPEC_ENV_V0 §4 for the same reason), so the
+    diagnosis travels either way — and the retry, which is the part that could
+    manufacture a green, is already refused here.
     """
+    if reason == loop.FLAKY_GATE:
+        state.reason = f"{reason} (nondeterministic gate — a retry buys a coin flip)"
+        return
     if signature is not None and signature in state.signatures:
         state.status = PARKED
         state.reason = f"{reason} (same failure twice — retrying would repeat it)"

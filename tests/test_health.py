@@ -30,6 +30,7 @@ def write_run(
     *,
     started_at: str = "2026-08-01T10:00:00+01:00",
     vacuity_rows: list[dict] | None = None,
+    stability_rows: list[dict] | None = None,
 ) -> Path:
     """A verify bundle, in the shape `verify.run` really writes one."""
     directory.mkdir(parents=True, exist_ok=True)
@@ -83,7 +84,37 @@ def write_run(
             ),
             encoding="utf-8",
         )
+    if stability_rows is not None:
+        (directory / "stability.json").write_text(
+            json.dumps(
+                {"schema_version": "wringer.stability.v1", "gates": stability_rows}
+            ),
+            encoding="utf-8",
+        )
     return directory
+
+
+def stability_row(gate_id: str, classification: str) -> dict:
+    """One `stability.json` gate row, in the shape `verify.run` writes one.
+
+    Only the four keys this reader joins on are asserted anywhere; the rest are
+    carried so the fixture stays a real row rather than a subset that would
+    keep passing if the writer's shape moved.
+    """
+    return {
+        "gate_id": gate_id,
+        "optional": False,
+        "attempts_requested": 3,
+        "attempts_run": 3,
+        "require_consistent": True,
+        "classification": classification,
+        "tolerated": False,
+        "verdict": "failed" if classification != "stable_pass" else "passed",
+        "routing": "no_repair" if classification == "flaky" else "repair",
+        "reason": "planted",
+        "deciding_attempt": 1,
+        "attempts": [],
+    }
 
 
 def runs_dir(root: Path) -> Path:
@@ -413,13 +444,16 @@ def test_discovery_is_stable_across_repeated_reads(tmp_path):
 
 
 def plant(root: Path, count: int, *, gate="test", command="pytest -q",
-          status="passed", start=0, **kw) -> None:
+          status="passed", start=0, stability=None, **kw) -> None:
     """`count` verify bundles, each one qualifying run for one pair."""
     for index in range(start, start + count):
         write_run(
             runs_dir(root) / f"r{index:03d}", f"r{index:03d}",
             [dict(gate_id=gate, command=command, status=status, **kw)],
             started_at=f"2026-08-01T{index // 60:02d}:{index % 60:02d}:00+00:00",
+            stability_rows=(
+                None if stability is None else [stability_row(gate, stability)]
+            ),
         )
 
 
@@ -704,13 +738,15 @@ def test_the_coverage_statement_leads_the_human_report(tmp_path):
                for line in text.splitlines()), text
 
 
-def test_the_four_limits_are_pinned_by_content_not_by_length(tmp_path):
+def test_the_five_limits_are_pinned_by_content_not_by_length(tmp_path):
     """The narrowing lesson applied to this command's own output.
 
     A `limits` array checked for non-emptiness passes against a single entry
     reading "none". The fourth is the one a reader of a vitality report most
     needs and least wants: a sensitive row proves the gate's result changed
-    with the tree, not that the change was honest."""
+    with the tree, not that the change was honest. The fifth is the same
+    discipline applied to the stability numbers — a frequency in the record,
+    never a probability about the gate (SPEC_STABILITY_V0 §7)."""
     repo_with(tmp_path)
     plant(tmp_path, 2)
     coverage = health.discover(tmp_path)
@@ -719,7 +755,7 @@ def test_the_four_limits_are_pinned_by_content_not_by_length(tmp_path):
     emitted = health.as_json(coverage, assessed)
     text = health.render(coverage, assessed)
 
-    assert len(health.LIMITS) == 4, health.LIMITS
+    assert len(health.LIMITS) == 5, health.LIMITS
     for limit in health.LIMITS:
         assert limit in emitted["limits"], f"--json drops: {limit}"
     joined = " ".join(text.split())
@@ -730,17 +766,32 @@ def test_the_four_limits_are_pinned_by_content_not_by_length(tmp_path):
     assert blind_spot, "the vacuity blind spot is not among the limits"
     assert "5a" in blind_spot[0], "the blind-spot limit does not cite its source"
 
+    # The stability limit has to refuse the reading a rate would invite, and
+    # say that silence means nobody looked rather than that a gate is sound.
+    observed = [x for x in health.LIMITS if "frequency in the record" in x]
+    assert observed, "the stability limit is not among the limits"
+    assert "never a probability" in observed[0]
+    assert "nobody looked" in observed[0]
+
 
 def test_every_report_line_fits_a_terminal(tmp_path):
     """The sibling report in `bench` printed its limits at 115 columns for a
     whole slice, because it indented first and asked a helper to reflow a line
-    that helper treats as structure. Not twice."""
+    that helper treats as structure. Not twice.
+
+    The stability lines are planted here rather than trusted to a separate
+    test: this guard measured only the lines the fixture happened to produce,
+    so a new line it never saw was a new line it never checked — and the
+    flake note arrived four columns over the edge for exactly that reason.
+    """
     repo_with(tmp_path)
-    plant(tmp_path, 12)
+    plant(tmp_path, 12, stability="flaky")
     coverage = health.discover(tmp_path)
 
     text = health.render(coverage, health.assess(coverage, declared()))
 
+    assert "measured runs" in text, "the stability lines were not exercised"
+    assert "not counted as a failure" in text
     too_wide = [line for line in text.splitlines() if len(line) > 80]
     assert not too_wide, too_wide
 
@@ -958,3 +1009,144 @@ def test_a_gate_that_only_ever_died_of_a_missing_binary_is_not_alive(tmp_path):
         health.discover(tmp_path), declared={("lint", "ruff check")}
     )
     assert assessed[0].verdict == health.ZOMBIE, assessed[0].verdict
+
+
+# --- observed stability (SPEC_STABILITY_V0.md §7) ---------------------------
+
+
+def test_a_flaky_failure_does_not_make_a_gate_read_alive(tmp_path):
+    """**The exclusion, and the reason this reader had to change at all.**
+
+    `alive` means the record shows this gate can fail. A gate that failed
+    nondeterministically failed for a reason that is not the tree, so counting
+    it would let nondeterminism manufacture the demonstration `alive` rests on
+    — a gate that cannot tell satisfied from unsatisfied reading `alive`
+    forever precisely because it is broken. Same shape as the `127` exclusion
+    this command already carries: nothing discriminated.
+    """
+    for index in range(1, health.MIN_HISTORY + 1):
+        write_run(
+            runs_dir(tmp_path) / f"20260801-1000{index:02d}-aaaa",
+            f"20260801-1000{index:02d}-aaaa",
+            [{"gate_id": "coin", "command": "flip", "status": "failed"}],
+            started_at=f"2026-08-01T10:{index:02d}:00+01:00",
+            stability_rows=[stability_row("coin", "flaky")],
+        )
+    coverage = health.discover(tmp_path)
+    assessed = health.assess(coverage, {("coin", "flip")})
+
+    assert [a.verdict for a in assessed] == [health.ZOMBIE], (
+        "a run of flaky failures was counted as a demonstration that the gate "
+        "can fail"
+    )
+    assert assessed[0].last_failure is None
+
+
+def test_a_flaky_sensitive_row_does_not_make_a_gate_read_alive_either(tmp_path):
+    """Both routes to `alive` are closed against nondeterminism or neither is.
+
+    A flaky gate's pre-change draw is a coin flip, so `sensitive` says the
+    result differed between two trees without evidence that the tree is why.
+    """
+    for index in range(1, health.MIN_HISTORY + 1):
+        write_run(
+            runs_dir(tmp_path) / f"20260801-1000{index:02d}-aaaa",
+            f"20260801-1000{index:02d}-aaaa",
+            [{"gate_id": "coin", "command": "flip"}],
+            started_at=f"2026-08-01T10:{index:02d}:00+01:00",
+            vacuity_rows=[
+                {
+                    "gate_id": "coin",
+                    "changed": "passed",
+                    "pre_change": "failed",
+                    "sensitive": True,
+                    "cites": "planted",
+                    "pre_change_log": None,
+                }
+            ],
+            stability_rows=[stability_row("coin", "flaky")],
+        )
+    assessed = health.assess(health.discover(tmp_path), {("coin", "flip")})
+
+    assert [a.verdict for a in assessed] == [health.ZOMBIE]
+    assert assessed[0].last_sensitive is None
+
+
+def test_a_consistent_failure_still_reads_alive_with_stability_recorded(tmp_path):
+    """The other half, or the two tests above pass for a reader that ignores
+    the record entirely. Same fixture, `stable_fail` instead of `flaky`."""
+    write_run(
+        runs_dir(tmp_path) / "20260801-100001-aaaa",
+        "20260801-100001-aaaa",
+        [{"gate_id": "unit", "command": "pytest", "status": "failed"}],
+        stability_rows=[stability_row("unit", "stable_fail")],
+    )
+    assessed = health.assess(health.discover(tmp_path), {("unit", "pytest")})
+
+    assert [a.verdict for a in assessed] == [health.ALIVE]
+
+
+def test_the_report_states_stability_as_a_frequency_never_a_rate(tmp_path):
+    """A fact about the record, phrased so it cannot be read as a forecast.
+
+    "flaky in 2 of 4 measured runs" is a fact. "fails 50% of the time" is an
+    invented number of the kind SPEC_HEALTH_V0 §3c bans, and it would be read
+    as a prediction by an instrument that only reads bundles.
+    """
+    for index, kind in enumerate(
+        ["stable_pass", "flaky", "stable_pass", "flaky"], start=1
+    ):
+        write_run(
+            runs_dir(tmp_path) / f"20260801-1000{index:02d}-aaaa",
+            f"20260801-1000{index:02d}-aaaa",
+            [{"gate_id": "coin", "command": "flip"}],
+            started_at=f"2026-08-01T10:{index:02d}:00+01:00",
+            stability_rows=[stability_row("coin", kind)],
+        )
+    coverage = health.discover(tmp_path)
+    assessed = health.assess(coverage, {("coin", "flip")})
+
+    assert assessed[0].frequency == "flaky in 2 of 4 measured runs"
+    text = health.render(coverage, assessed)
+    assert "flaky in 2 of 4 measured runs" in text
+    assert "%" not in text
+
+
+def test_the_denominator_is_runs_that_measured_not_runs_that_happened(tmp_path):
+    """A gate given a `stability:` policy last week has a window full of runs
+    that made one attempt each and said nothing about determinism. Dividing by
+    those understates a real flake by exactly the length of the history before
+    anybody looked."""
+    for index in range(1, 4):  # three runs from before the policy existed
+        write_run(
+            runs_dir(tmp_path) / f"20260801-1000{index:02d}-aaaa",
+            f"20260801-1000{index:02d}-aaaa",
+            [{"gate_id": "coin", "command": "flip"}],
+            started_at=f"2026-08-01T10:{index:02d}:00+01:00",
+        )
+    write_run(
+        runs_dir(tmp_path) / "20260801-100004-aaaa",
+        "20260801-100004-aaaa",
+        [{"gate_id": "coin", "command": "flip"}],
+        started_at="2026-08-01T10:04:00+01:00",
+        stability_rows=[stability_row("coin", "flaky")],
+    )
+    assessed = health.assess(health.discover(tmp_path), {("coin", "flip")})
+
+    assert assessed[0].qualifying == 4
+    assert assessed[0].frequency == "flaky in 1 of 1 measured runs"
+
+
+def test_a_repo_that_never_measured_stability_is_not_nagged(tmp_path):
+    """Silence, not `stable in 0 of 0`. A repo that has not opted in gets the
+    report it always got — and the limits say silence means nobody looked."""
+    write_run(
+        runs_dir(tmp_path) / "20260801-100001-aaaa",
+        "20260801-100001-aaaa",
+        [{"gate_id": "unit", "command": "pytest"}],
+    )
+    coverage = health.discover(tmp_path)
+    assessed = health.assess(coverage, {("unit", "pytest")})
+
+    assert assessed[0].frequency is None
+    assert "measured runs" not in health.render(coverage, assessed)

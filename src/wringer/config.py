@@ -97,7 +97,21 @@ _GATE_KEYS = {"id", "run", "timeout", "optional", "required"}
 # odds with `spec.schema.json`'s `additionalProperties: false` over the same
 # bytes. The binding is a human's act in the config file, and the key set is
 # where that is enforced rather than merely asserted.
-_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves"}
+#
+# `stability` is here for the second of those reasons alone: it is a run
+# parameter like `timeout` and a drafter proposing one would be harmless, but
+# `spec.schema.json` is frozen with `additionalProperties: false`, so a
+# drafted gate carrying it would render a `wringer.spec.yaml` that fails its
+# own published schema.
+_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves", "stability"}
+_STABILITY_KEYS = {"attempts", "require_consistent"}
+
+# The most attempts one gate may declare. A ceiling rather than a taste:
+# attempts multiply a gate's wall clock, and a repo that needs 50 draws to
+# decide whether its test suite is deterministic has a different problem than
+# this feature solves. Deliberately not configurable — see `MIN_HISTORY` in
+# health.py for the same reasoning about knobs.
+MAX_STABILITY_ATTEMPTS = 10
 _EVIDENCE_KEYS = {"include", "redact"}
 _REDACT_KEYS = {"env"}
 _RUN_KEYS = {
@@ -154,6 +168,25 @@ class ConfigError(Exception):
 
 
 @dataclass(frozen=True)
+class Stability:
+    """A gate's `stability:` policy — SPEC_STABILITY_V0.md §2.
+
+    `attempts` is how many times the gate runs in one verification. Every
+    attempt is recorded; the classification comes from the observations and
+    from nothing else.
+
+    `require_consistent` defaults to **true**, and the default is the whole
+    safety story. `attempts: 3` on its own must not mean "retry until green":
+    that is the defect this feature exists to catch, and a key whose absence
+    installed it would be a trap. Opting out is legal, explicit, recorded in
+    the bundle, and refused outright on a gate that carries `proves:`.
+    """
+
+    attempts: int
+    require_consistent: bool = True
+
+
+@dataclass(frozen=True)
 class Gate:
     id: str
     run: str
@@ -162,6 +195,10 @@ class Gate:
     # The criterion this gate evidences (SPEC_ACCEPT_V0 §1). None is every
     # gate that exists today: absence is the opt-in boundary, not a default.
     proves: str | None = None
+    # How many times this gate runs, and whether a mixture is tolerated
+    # (SPEC_STABILITY_V0). None is every gate that exists today — one attempt,
+    # no `attempts/` directory, no `stability.json`, a byte-identical bundle.
+    stability: Stability | None = None
 
 
 @dataclass(frozen=True)
@@ -1337,9 +1374,78 @@ def parse_gate(
                 "criterion could never fire for this one"
             )
 
+    stability = _parse_stability(raw.get("stability"), where, gate_id)
+    if (
+        stability is not None
+        and not stability.require_consistent
+        and proves is not None
+    ):
+        # A tolerated flaky gate reads `passed` while its own record says the
+        # result was a coin flip, and `proves:` would turn that coin flip into
+        # acceptance evidence for a criterion. Worse, it would satisfy the
+        # hard half of `evidenced` for free: SPEC_ACCEPT_V0 §3 wants a gate
+        # that has demonstrably FAILED, and a nondeterministic gate
+        # manufactures that receipt without telling satisfied from
+        # unsatisfied. Refused where the two keys meet, so no acceptance code
+        # has to defend against it.
+        raise ConfigError(
+            f"{where} ('{gate_id}'): a gate that carries 'proves: {proves}' may "
+            "not also set 'require_consistent: false'. Tolerating a mixture "
+            "would let nondeterminism manufacture the failure that "
+            "'evidenced' rests on — fix the gate, or drop the binding"
+        )
+
     return Gate(
-        id=gate_id, run=run, timeout=timeout, optional=optional, proves=proves
+        id=gate_id,
+        run=run,
+        timeout=timeout,
+        optional=optional,
+        proves=proves,
+        stability=stability,
     )
+
+
+def _parse_stability(raw: Any, where: str, gate_id: str) -> Stability | None:
+    """The `stability:` block, or None when the gate declared none.
+
+    Absence is not `attempts: 1`. It is the whole pre-stability behaviour:
+    one attempt, and no stability record anywhere in the bundle.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{where} ('{gate_id}'): 'stability' must be a mapping")
+    unknown = sorted(set(raw) - _STABILITY_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): unknown stability keys: {', '.join(unknown)}"
+        )
+    if "attempts" not in raw:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'stability' must declare 'attempts' — "
+            "there is no default, because a number Wringer picked is a number "
+            "nobody agreed to spend"
+        )
+    attempts = raw["attempts"]
+    if not _is_int(attempts) or attempts < 1:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'stability.attempts' must be an integer "
+            f"of at least 1 (got {attempts!r})"
+        )
+    if attempts > MAX_STABILITY_ATTEMPTS:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'stability.attempts' must be at most "
+            f"{MAX_STABILITY_ATTEMPTS} (got {attempts}) — attempts multiply "
+            "this gate's wall clock, and a gate needing more draws than that "
+            "is a gate to fix rather than to measure"
+        )
+    consistent = raw.get("require_consistent", True)
+    if not isinstance(consistent, bool):
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'stability.require_consistent' must be "
+            "a boolean"
+        )
+    return Stability(attempts=attempts, require_consistent=consistent)
 
 
 def _is_int(value: Any) -> bool:

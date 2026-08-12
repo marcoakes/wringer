@@ -44,6 +44,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wringer import evidence, fleet, loop, vacuity
+from wringer import stability as stability_module
 
 # The committed fixture is named explicitly: `.wringer/` is gitignored, so in
 # a fresh clone this is the ONLY bundle in the tree, and it predates vacuity
@@ -52,10 +53,16 @@ EXAMPLE_DIRNAME = Path(".wringer.example")
 BENCHES_DIRNAME = Path(".wringer") / "benches"
 
 RUN_SCHEMA = evidence.SCHEMA_VERSION          # wringer.evidence.v1
-LOOP_SCHEMA = loop.SCHEMA_VERSION             # wringer.loop.v1
+LOOP_SCHEMA = loop.SCHEMA_VERSION             # wringer.loop.v2
 BENCH_SCHEMA = "wringer.bench.v1"
 
-_KINDS = {RUN_SCHEMA: "run", LOOP_SCHEMA: "loop", BENCH_SCHEMA: "bench"}
+# **Every loop version, DERIVED from `loop.SCHEMA_VERSIONS` rather than named
+# here.** A map keyed off the current version alone makes health forget every
+# bundle written by an earlier one — wordlessly, which is the failure mode this
+# whole command exists to catch. SPEC_ENV_V0 §3 names it as finding D3; the
+# `wringer.loop.v2` bump is where it would have fired.
+_KINDS = {RUN_SCHEMA: "run", BENCH_SCHEMA: "bench"}
+_KINDS.update({version: "loop" for version in loop.SCHEMA_VERSIONS})
 
 GATES_DIRNAME = "gates"
 RESULT_FILENAME = "result.json"
@@ -133,14 +140,22 @@ class GateRun:
     bench_sourced: bool
     # Joined from the same bundle's `vacuity.json` — see `_sensitivity`.
     sensitive: bool = False
+    # Joined from the same bundle's `stability.json`, when it wrote one. None
+    # for every run whose gates declared no policy, which is every bundle
+    # written before SPEC_STABILITY_V0 and every repo that has not opted in.
+    stability: str | None = None
     # The recorded process status. Read late (SPEC_ACCEPT_V0 §3): the frozen
     # gate-result schema has always carried it and this reader dropped it,
     # which is why a missing binary looked like a verdict for a whole release.
     exit_code: int = 1
 
     @property
+    def flaky(self) -> bool:
+        return self.stability == stability_module.FLAKY
+
+    @property
     def genuine_failure(self) -> bool:
-        """`status: failed`, NOT a timeout, and NOT a missing command (§3c).
+        """`status: failed`, NOT a timeout, NOT a missing command, NOT flaky.
 
         Each exclusion is a defect this repo actually shipped. The published
         gate-result schema has a two-value status whose own description reads
@@ -154,11 +169,20 @@ class GateRun:
         can fail. Found by dogfooding on 2026-08-09, when the repo's own
         `ruff` gate died at 127 under a naked PATH and every reader
         downstream — the loop, the router, this verdict — believed it.
+
+        `flaky` is the same mistake one layer sideways, and the exclusion is
+        the whole of what SPEC_STABILITY_V0 §7 asks of this reader. A gate that
+        failed nondeterministically failed for a reason that is not the tree,
+        so counting it would let nondeterminism manufacture the demonstration
+        `alive` rests on — a gate that cannot tell satisfied from unsatisfied
+        reading `alive` forever because it fails at random. `accept.py` reads
+        this same property, so the acceptance receipt closes with it.
         """
         return (
             self.status == "failed"
             and not self.timed_out
             and self.exit_code != COMMAND_NOT_FOUND
+            and not self.flaky
         )
 
 
@@ -357,6 +381,15 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
     if not gates_dir.is_dir():
         return []
     sensitive = _sensitivity(bundle.directory)
+    # Through `stability.read_report`, never by re-parsing the file, and keyed
+    # on the gate id because that is all the record carries — the same join
+    # `_sensitivity` makes, and the same caveat: the command comes from the
+    # sibling `result.json`, so an edited gate cannot inherit its
+    # predecessor's classification.
+    classified = {
+        row.gate_id: row.classification
+        for row in stability_module.read_report(bundle.directory)
+    }
 
     rows = []
     for entry in sorted(gates_dir.iterdir(), key=lambda p: p.name):
@@ -384,6 +417,7 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
                 # The join: this row's own command decides which pair the
                 # sensitivity attaches to.
                 sensitive=bool(sensitive.get(gate_id)),
+                stability=classified.get(gate_id),
             )
         )
     return rows
@@ -490,6 +524,40 @@ class Assessment:
     def required(self) -> bool:
         return not self.optional
 
+    @property
+    def measured(self) -> int:
+        """Runs in the window that measured this gate's stability at all.
+
+        The denominator, and it is NOT `qualifying`. A gate given a
+        `stability:` policy last week has a window full of runs that made one
+        attempt each and said nothing about determinism; dividing by those
+        would understate a real flake by exactly the length of the history
+        before anybody looked.
+        """
+        return sum(1 for run in self.window if run.stability is not None)
+
+    @property
+    def flaked(self) -> int:
+        return sum(1 for run in self.window if run.flaky)
+
+    @property
+    def frequency(self) -> str | None:
+        """Observed stability as a FREQUENCY IN THE RECORD.
+
+        Never a probability about the gate — "flaky in 2 of 14 recorded runs"
+        is a fact, and "this gate fails 14% of the time" is an invented number
+        of exactly the kind SPEC_HEALTH_V0 §3c bans. A rate would also be read
+        as a forecast, and this instrument cannot forecast: it reads bundles.
+
+        None when nothing measured it, which is silence rather than
+        `stable in 0 of 0` — a repo that never opted in must not be nagged.
+        """
+        if not self.measured:
+            return None
+        if self.flaked:
+            return f"flaky in {self.flaked} of {self.measured} measured runs"
+        return f"consistent in all {self.measured} measured runs"
+
 
 def _median(values: list[int]) -> float:
     ordered = sorted(values)
@@ -560,7 +628,12 @@ def assess(
         qualifying = tuple(run for run in pair.runs if not run.bench_sourced)
         window = qualifying[-WINDOW:]
         failures = [run for run in window if run.genuine_failure]
-        sensitives = [run for run in window if run.sensitive]
+        # `not run.flaky` for the reason `genuine_failure` carries it: a
+        # nondeterministic gate's pre-change draw is a coin flip, so a
+        # `sensitive` row from one says the result differed between two trees
+        # without evidence that the tree is why. Both routes to `alive` are
+        # closed against nondeterminism or neither is.
+        sensitives = [run for run in window if run.sensitive and not run.flaky]
 
         if pair.key not in current:
             verdict = RETIRED
@@ -610,6 +683,11 @@ LIMITS = (
     "that the change was honest. An agent deleting an already-failing "
     "assertion records one for the wrong reason (SPEC_VACUITY_V0 §5a), and "
     "health inherits that blind spot whole.",
+    "Observed stability is a frequency in the record, never a probability "
+    "about the gate. Only gates that declared `stability:` are measured at "
+    "all, so silence here means nobody looked rather than that a gate is "
+    "deterministic — and a flaky run is excluded from the failures that make "
+    "a gate read alive, because it did not follow from the tree.",
 )
 
 # The remedy printed beside a zombie, and what it cannot settle. The draft
@@ -726,6 +804,29 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
                 f"  {assessed.pair.gate_id:<{width}}  {assessed.verdict:<8} "
                 f"{plural(assessed.qualifying, 'run')}{drift}"
             )
+            # Its own line, like the zombie remedy and for the same reason:
+            # inline it ran past 80 columns on this repo's own evidence, and a
+            # stability observation a reader cannot see is one they will not act
+            # on. Silent when nothing measured it.
+            observed = assessed.frequency
+            if observed is not None:
+                lines.append(f"      · {observed}")
+                if assessed.flaked:
+                    # Wrapped by the wrapper, never hand-indented: the sibling
+                    # report in `bench` printed at 115 columns for a whole slice
+                    # by indenting first and asking a helper to reflow a line it
+                    # treats as structure.
+                    lines.append(
+                        textwrap.fill(
+                            "a flaky run is not counted as a failure here: it "
+                            "did not follow from the tree",
+                            width=78,
+                            initial_indent="        ",
+                            subsequent_indent="        ",
+                            break_long_words=False,
+                            break_on_hyphens=False,
+                        )
+                    )
             # The remedy goes on its OWN line rather than trailing the row:
             # inline it ran past 80 columns, and the remedy is the half of a
             # zombie verdict a reader is supposed to act on.

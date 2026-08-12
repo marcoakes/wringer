@@ -29,11 +29,48 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import __version__, accept, acp, config, evidence, gates, git, spec, verify
+from wringer import (
+    __version__,
+    accept,
+    acp,
+    config,
+    evidence,
+    gates,
+    git,
+    spec,
+    stability,
+    verify,
+)
 from wringer.redact import Redactor
 
 LOOPS_DIRNAME = Path(".wringer") / "loops"
-SCHEMA_VERSION = "wringer.loop.v1"
+# **v2, and v1 is still published and still frozen** — the `untracked-v2`
+# precedent, and the bump SPEC_ENV_V0 §3 already chartered the mechanics of.
+#
+# v1 froze `result.reason` and `loop.finished.reason` as CLOSED enums of six
+# values, so a seventh way for the loop to stop was unrepresentable without a
+# new version. `flaky_gate` is that seventh way, and none of the six is even
+# nearly true of it: no worker ran, the tree is not unchanged, and the same
+# failure did not come back — re-verifying would give a DIFFERENT answer,
+# which is the whole point.
+#
+# v2's `reason` is an open string with its known values in the description,
+# which is a deliberate design change and not laziness. The fleet's own
+# manifest and events have always recorded `reason` as a plain string, and
+# SPEC_ENV_V0 §4 cites that approvingly as the reason an environment stop
+# needs no fleet schema change at all. Closed here, every future stop reason
+# costs a version — F6's `environment` would have needed v3 — and version
+# churn on the bundle format is what a frozen schema is supposed to prevent,
+# not cause. The drift guard moves from the schema to
+# `test_the_console_names_every_reason_the_loop_can_stop_for`, which already
+# exists and already caught this class of gap once.
+SCHEMA_VERSION = "wringer.loop.v2"
+# Every version a reader accepts. DERIVED from here rather than named at each
+# reader, because the naive bump silently orphans every bundle already on disk
+# (SPEC_ENV_V0 §3, finding D3): `health._KINDS` is keyed off this constant, so
+# changing it without widening the map makes health forget every v1 loop —
+# wordlessly, which is the failure mode health exists to catch.
+SCHEMA_VERSIONS = (SCHEMA_VERSION, "wringer.loop.v1")
 EVENTS_FILENAME = "loop.jsonl"
 MANIFEST_FILENAME = "manifest.json"
 SUMMARY_FILENAME = "summary.md"
@@ -51,6 +88,12 @@ USAGE_SCHEMA_VERSION = "wringer.usage.v1"
 ITERATIONS_DIRNAME = "iterations"
 BRIEF_FILENAME = "brief.md"
 PGID_FILENAME = "worker.pgid"
+
+# Why a loop stopped without ever calling a worker: the gate that failed did
+# not give the same answer twice on one tree (SPEC_STABILITY_V0 §4). The value
+# v2 exists for, and the one reason in the table that is about the CHECK rather
+# than about the worker or the budget.
+FLAKY_GATE = "flaky_gate"
 
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
@@ -108,9 +151,13 @@ Reporter = Callable[..., None]
 class Outcome:
     directory: Path
     status: str  # converged | stopped | interrupted
-    reason: str  # converged | max_iterations | no_progress | interrupted
+    reason: str  # one of `_REASONS`
     iterations: int
     final: verify.Outcome | None
+    # The gate that stopped this loop for being nondeterministic, when one
+    # did. Carried so the console can NAME it: "stopped" with no gate id sends
+    # a reader looking for a worker problem that does not exist.
+    flaky_gate: str | None = None
 
     @property
     def converged(self) -> bool:
@@ -615,6 +662,10 @@ def run(
     final: verify.Outcome | None = None
     status = reason = "stopped"
     iterations = 0
+    # The gate that stopped this loop for being nondeterministic. Named in the
+    # summary and on the console: "stopped" with no gate id would send a reader
+    # looking for a worker problem that does not exist.
+    flaky_gate: str | None = None
     # One row per session that reported. Stays empty for every shell worker
     # and every agent that says nothing, and an empty list writes no file.
     usage_rows: list[dict[str, Any]] = []
@@ -664,6 +715,24 @@ def run(
             break
         if final.passed:
             status = reason = "converged"
+            break
+
+        # **A flaky gate is never handed to a worker.** Checked before every
+        # other stop, because every one of them is a statement about the
+        # WORKER and this is a statement about the CHECK: the gate did not give
+        # the same answer twice on one tree, so nothing in the tree explains
+        # the difference and there is nothing in it to fix. An agent briefed
+        # with this gate edits source that was never wrong, and the next draw
+        # comes up green and calls it a fix — the loop reporting `converged`
+        # over a repair that repaired nothing.
+        #
+        # It stops rather than re-verifying. Looping on a nondeterministic gate
+        # until it comes up all-green is retry-until-green one level up, and it
+        # would end in an honest-looking `converged` bought by re-drawing.
+        flaky = _flaky_failure(final)
+        if flaky is not None:
+            status, reason = "stopped", FLAKY_GATE
+            flaky_gate = flaky
             break
 
         current = fingerprint(root)
@@ -770,7 +839,9 @@ def run(
         iterations=iterations,
         final_run=final_run,
     )
-    _write_summary(bundle, state, status, reason, iterations, final_run)
+    _write_summary(
+        bundle, state, status, reason, iterations, final_run, flaky_gate
+    )
     bundle.write_usage(usage_rows)  # absent when nothing was reported
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
@@ -780,7 +851,26 @@ def run(
         reason=reason,
         iterations=iterations,
         final=final,
+        flaky_gate=flaky_gate,
     )
+
+
+def _flaky_failure(outcome: verify.Outcome) -> str | None:
+    """The failing gate's id when its own attempts disagreed, else None.
+
+    Read off the stability RECORD this verification just wrote, never inferred
+    from a red tick and never from a gate's output: the classifier is the one
+    in `stability.py` and there is deliberately no second one here. A gate with
+    no `stability:` policy has no row, so this is None for every repo that
+    never opted in — which is what keeps the loop's behaviour byte-identical
+    for them.
+    """
+    if outcome.failed_gate is None:
+        return None
+    row = outcome.stability.of(outcome.failed_gate)
+    if row is None or row.routing != stability.NO_REPAIR:
+        return None
+    return outcome.failed_gate
 
 
 def _run_worker(
@@ -1269,6 +1359,8 @@ _REASONS = {
     "no_progress": "the worker changed nothing, so the gates would say the same",
     "oscillating": "the same failure came back, so the worker is not converging",
     "budget_exhausted": "the wall-clock budget ran out",
+    FLAKY_GATE: "the failing gate is nondeterministic, so there is nothing in "
+    "the tree for a worker to fix",
     "interrupted": "stopped before it finished",
 }
 
@@ -1280,6 +1372,7 @@ def _write_summary(
     reason: str,
     iterations: int,
     final_run: str | None,
+    flaky_gate: str | None = None,
 ) -> None:
     events = [
         json.loads(line)
@@ -1318,6 +1411,17 @@ def _write_summary(
                 told += ", timed out"
         lines.append(f"| {number} | {outcome} | {told} | `{row['evidence_dir']}` |")
 
+    if flaky_gate is not None:
+        lines += [
+            "",
+            f"> ⚠ **No worker ran. `{flaky_gate}` is nondeterministic** — it did "
+            "not give the same answer twice on one tree, so nothing in the tree "
+            "explains the difference and there is nothing in it for a worker to "
+            "fix. An agent briefed with this gate would edit source that was "
+            "never wrong, and the next draw coming up green would read as a "
+            "fix. Fix the gate, then run again. The attempts are in the final "
+            "verification's `stability.json`.",
+        ]
     if final_run:
         lines += ["", f"Final verification: `{final_run}`"]
     (bundle.directory / SUMMARY_FILENAME).write_text(

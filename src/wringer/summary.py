@@ -50,6 +50,7 @@ def write(
     acceptance: Any = None,
     scoped_out: list[Gate] | None = None,
     scoped_to: list[str] | None = None,
+    stability: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -77,7 +78,7 @@ def write(
 
     for result in results:
         lines.append(
-            f"| {result.gate.id} | {_status(result)} "
+            f"| {result.gate.id} | {_status(result)}{_flake_mark(stability, result)} "
             f"| {result.duration_ms / 1000:.1f}s | {_logs(bundle, result)} |"
         )
     # The gate a Ctrl-C caught mid-flight: it ran, so "skipped" would be
@@ -95,6 +96,8 @@ def write(
         lines.append(f"| {gate.id} | skipped | — | — |")
 
     lines += _scoped_out_section(scoped_out, scoped_to)
+
+    lines += _stability_section(bundle, stability)
 
     if vacuity is not None:
         lines += _vacuity_section(vacuity)
@@ -149,6 +152,101 @@ def _scoped_out_section(
         "",
         *[f"- `{gate.id}`" for gate in scoped_out],
     ]
+
+
+def _flake_mark(stability: Any, result: GateResult) -> str:
+    """`(flaky)` beside a gate's status in the table above.
+
+    The table is the part of this document that looks like proof, and for a
+    flaky gate neither word in it is the whole truth: `failed` reads as "your
+    code is broken", and a TOLERATED mixture reads `passed` while the record
+    says the result was a coin flip. One word here is what stops a reader
+    acting on the row before they reach the section below.
+    """
+    if stability is None:
+        return ""
+    from wringer import stability as stability_module
+
+    row = stability.of(result.gate.id)
+    if row is None or row.classification != stability_module.FLAKY:
+        return ""
+    return " (flaky, tolerated)" if row.tolerated else " (flaky)"
+
+
+def _stability_section(bundle: Bundle, stability: Any) -> list[str]:
+    """Every attempt every stability-declaring gate made — SPEC_STABILITY_V0.
+
+    **This section is the anti-hidden-retry guarantee, in prose.** A gate run
+    three times that reports one clean line is exactly what a hidden flake
+    looks like, so the count, the per-attempt statuses and the links are here
+    whatever the classification came out as — including `stable_pass`, where
+    there is nothing to warn about and the reader still gets to see that three
+    runs bought the tick.
+
+    Absent entirely when no gate declared a policy, so every repo that has not
+    opted in writes the summary it always wrote.
+    """
+    if stability is None or not stability.gates:
+        return []
+    from wringer import stability as stability_module
+
+    lines = [
+        "",
+        "## Stability",
+        "",
+        "Gates that declared `stability:` ran more than once. Every attempt is "
+        "on disk; the classification comes from the observations and from no "
+        "gate's output.",
+        "",
+        "| gate | attempts | attempts ran | observed | classification |",
+        "|---|---|---|---|---|",
+    ]
+    for row in stability.gates:
+        observed = " ".join(
+            "✓" if result.passed else "✗" for result in row.results
+        ) or "—"
+        lines.append(
+            f"| {row.gate.id} | {row.requested} | {len(row.results)} "
+            f"| {observed} | **{row.classification}** |"
+        )
+    lines.append("")
+    for row in stability.gates:
+        lines.append(f"- `{row.gate.id}` — {row.reason}")
+        for number, result in enumerate(row.results, start=1):
+            where = bundle.relative(result.stdout_path.parent)
+            lines.append(
+                f"  - attempt {number}: {result.status}, exit "
+                f"{result.exit_code} — [`{where}/`]({where}/)"
+            )
+    flaky = [
+        row
+        for row in stability.gates
+        if row.classification == stability_module.FLAKY
+    ]
+    if flaky:
+        named = ", ".join(f"`{row.gate.id}`" for row in flaky)
+        lines += [
+            "",
+            f"> ⚠ **{named} did not give the same answer twice on one tree.** "
+            "Nothing in the tree explains the difference, so there is nothing "
+            "here for a worker to fix — `wring run` will not hand these over, "
+            "and an agent told to repair one would edit source that was never "
+            "wrong. Fix the gate, not the code.",
+        ]
+    unknown = [
+        row
+        for row in stability.gates
+        if row.classification == stability_module.UNKNOWN
+    ]
+    if unknown:
+        named = ", ".join(f"`{row.gate.id}`" for row in unknown)
+        lines += [
+            "",
+            f"> ⚠ **{named} ran fewer attempts than declared, so nothing was "
+            "measured about them.** Treated as `stable_fail`: a gate that did "
+            "not finish has not been shown to be deterministic.",
+        ]
+    return lines
 
 
 def _born_green_section(acceptance: Any) -> list[str]:

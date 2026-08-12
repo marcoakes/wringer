@@ -1,0 +1,132 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/stability.schema.json",
+  "title": "Wringer gate stability record",
+  "description": "`stability.json` — every attempt every gate that declared a `stability:` policy made in one `wring verify`, and what those attempts add up to. A SIBLING of manifest.json, like digests.json, untracked.json, vacuity.json and acceptance.json, and for the same reason: `wringer.evidence.v1` is frozen, so this arrives as its own file and a reader that does not know it ignores it. No event type was added to `evidence.jsonl` either — that schema's `type` is a closed enum whose every branch sets `additionalProperties: false`, so an `attempts` key on `gate.finished` would make every bundle fail the schema it publishes. ABSENT from any bundle whose gates declared no policy, which is every bundle written before this file existed and every repo that has not opted in: those write a byte-identical bundle to the one they wrote before. The classification comes from the OBSERVATIONS and from no gate's output — a classifier that reads text is a classifier the supervised worker can talk to. The record's purpose is that a retry can never be hidden: a gate run three times reporting one clean result is what a hidden flake looks like, so the count, every attempt's status and every attempt's directory are all here.",
+  "type": "object",
+  "required": ["schema_version", "gates"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.stability.v1"
+    },
+    "gates": {
+      "description": "One row per gate that declared a `stability:` policy AND was reached by this run, in declared order. Gates with no policy are absent — they made one attempt, which is the pre-stability contract. Gates skipped after a required failure are absent too: they did not run, and non-evidence is not evidence. This array is never empty, because a run with no rows writes no file at all and a reader never has to tell an empty record from a missing one.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "optional",
+          "attempts_requested",
+          "attempts_run",
+          "require_consistent",
+          "classification",
+          "tolerated",
+          "verdict",
+          "routing",
+          "reason",
+          "deciding_attempt",
+          "attempts"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "description": "The gate's id as declared. A slug, because it also names the directory the attempts live under.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "optional": {
+            "description": "Whether a failure here was allowed to leave the run passing. Recorded because a flaky OPTIONAL gate never stops a run, so the record is the only place its nondeterminism is visible at all.",
+            "type": "boolean"
+          },
+          "attempts_requested": {
+            "description": "`stability.attempts` as declared: how many times the gate was asked to run. At least 1 and at most 10 (`config.MAX_STABILITY_ATTEMPTS`) — attempts multiply a gate's wall clock, and a gate needing more draws than that is a gate to fix rather than to measure.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "attempts_run": {
+            "description": "How many attempts FINISHED. Smaller than `attempts_requested` exactly one way — a Ctrl-C between attempts — and that gap is what makes the classification `unknown`. Every attempt runs even after the answer looks settled: stopping at the first failure would make `stable_fail` and `flaky` indistinguishable, and stopping at the first pass would be retry-until-green with a record attached.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "require_consistent": {
+            "description": "`stability.require_consistent` as declared, defaulting to true. The default is the whole safety story: `attempts: 3` alone must not mean 'retry until green', because that is the defect this record exists to catch. `false` is legal, explicit, recorded here, and refused outright by the config loader on a gate that carries `proves:` — tolerating a mixture would let nondeterminism manufacture the failure that SPEC_ACCEPT_V0's `evidenced` rests on.",
+            "type": "boolean"
+          },
+          "classification": {
+            "description": "From the observations and from nothing else. `stable_pass` — every attempt passed. `stable_fail` — every attempt failed. `flaky` — a mixture, so the result does not follow from the tree. `unknown` — fewer attempts ran than were asked for, so nothing was measured; treated as `stable_fail`, because a gate that did not finish has not been shown to be deterministic.",
+            "enum": ["stable_pass", "stable_fail", "flaky", "unknown"]
+          },
+          "tolerated": {
+            "description": "A mixture that `require_consistent: false` declared acceptable. Only ever true alongside `flaky`. A tolerated gate's `verdict` is `passed` and its `routing` is still `no_repair`: tolerating the tick never makes the nondeterminism a thing a worker can fix.",
+            "type": "boolean"
+          },
+          "verdict": {
+            "description": "What the run ACTED ON for this gate, which is not always the first attempt's status. `passed` · `failed` · `unresolved` for a gate that never finished its attempts, which needs an interrupt and leaves the run itself interrupted. `gates/NNN_<id>/result.json` holds the attempt matching this word, so the gate's canonical result never contradicts the run's own verdict.",
+            "enum": ["passed", "failed", "unresolved"]
+          },
+          "routing": {
+            "description": "What a repair loop may do with this gate — read by `wring run`, never inferred there from a red tick. `repair` — hand it over, which is what the loop has always done. `no_repair` — do NOT: the result did not follow from the tree, so there is nothing in the tree to fix, and an agent told to repair it would edit source that was never wrong and call the next green draw a fix. `none` — the gate passed.",
+            "enum": ["repair", "no_repair", "none"]
+          },
+          "reason": {
+            "description": "The classification in a sentence, naming the counts it rests on. A refusal that only says no is a refusal people turn off, and this one is read by agents as well as people.",
+            "type": "string"
+          },
+          "deciding_attempt": {
+            "description": "The 1-based ordinal of the attempt whose files stand at `gates/NNN_<id>/` — the first attempt matching `verdict`. Null exactly when `verdict` is `unresolved`, in which case the gate has no canonical result at all, the same absence a gate interrupted mid-flight has always left.",
+            "type": ["integer", "null"],
+            "minimum": 1
+          },
+          "attempts": {
+            "description": "One row per attempt that finished, in order. This array is the anti-hidden-retry guarantee: a retried gate that reported one clean result would be indistinguishable from a gate that ran once.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "attempt",
+                "status",
+                "exit_code",
+                "duration_ms",
+                "timed_out",
+                "result"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attempt": {
+                  "description": "1-based ordinal, matching the directory name.",
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "status": {
+                  "description": "As `gate-result.schema.json` defines it: passed requires exit_code 0 AND timed_out false.",
+                  "enum": ["passed", "failed"]
+                },
+                "exit_code": {
+                  "description": "The process exit status. Negative when a signal ended it — which is what a timeout looks like.",
+                  "type": "integer"
+                },
+                "duration_ms": {
+                  "description": "Wall-clock milliseconds for THIS attempt. Recorded per attempt rather than summed, because the spread between attempts is often the only visible symptom of the cause.",
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "timed_out": {
+                  "description": "Whether this attempt overran the gate's declared timeout and was killed.",
+                  "type": "boolean"
+                },
+                "result": {
+                  "description": "Bundle-relative path to this attempt's own `result.json`, under `gates/NNN_<id>/attempts/NNN/`. Evidence, not summary: a reader who doubts a row reads the attempt's logs beside it.",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

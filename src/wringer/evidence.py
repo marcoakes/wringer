@@ -19,7 +19,7 @@ import secrets
 import shutil
 import stat
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -95,6 +95,7 @@ RUNS_DIRNAME = Path(".wringer") / "runs"
 VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
+STABILITY_FILENAME = "stability.json"
 
 # The id's timestamp prefix: `20260730-070601` of `20260730-070601-a13f`.
 _RUN_ID_TIME_FORMAT = "%Y%m%d-%H%M%S"
@@ -433,6 +434,7 @@ def _clear_previous(directory: Path) -> None:
         UNTRACKED_FILENAME,
         VACUITY_FILENAME,
         ACCEPTANCE_FILENAME,
+        STABILITY_FILENAME,
     ):
         (directory / filename).unlink(missing_ok=True)
     for dirname in (GATES_DIRNAME, VACUITY_DIRNAME):
@@ -635,6 +637,41 @@ class Bundle:
         path = gate_dir / RESULT_FILENAME
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         return path
+
+    def adopt_gate_attempt(
+        self, gate_dir: Path, result: gates.GateResult
+    ) -> gates.GateResult:
+        """Stand one attempt's files at the gate's canonical path.
+
+        A gate that declares `stability:` runs several times and every attempt
+        keeps its own directory under `attempts/`. `gates/NNN_<id>/` still has
+        to hold the attempt the RUN acted on, because that is where `explain`,
+        `health`, `accept` and `attest` have always looked, and a gate whose
+        canonical result contradicts the run's own verdict is the
+        self-contradicting bundle `_clear_previous` exists to prevent.
+
+        A copy rather than a move: `attempts/` must stay complete, or the
+        retry is hidden in the one place the record is supposed to make it
+        visible. A no-attempts gate already wrote here and is returned
+        untouched, which is what keeps its bundle byte-identical.
+        """
+        if result.stdout_path.parent == gate_dir:
+            return result
+        stdout, stderr = gate_dir / "stdout.log", gate_dir / "stderr.log"
+        for source, target in (
+            (result.stdout_path, stdout),
+            (result.stderr_path, stderr),
+        ):
+            data = source.read_bytes() if source.is_file() else b""
+            # Scrubbed again on the way in. The bytes were scrubbed when the
+            # attempt wrote them, so this cannot change them — but every write
+            # through a `Bundle` scrubs by construction rather than because
+            # someone checked the caller, and that is the guarantee
+            # SECURITY.md makes.
+            target.write_bytes(self.redactor.scrub_bytes(data))
+        adopted = replace(result, stdout_path=stdout, stderr_path=stderr)
+        self.write_gate_result(gate_dir, adopted)
+        return adopted
 
     def event(self, event_type: str, **fields: Any) -> None:
         """Append one `{"type": ..., "ts": ...}` object to `evidence.jsonl`.

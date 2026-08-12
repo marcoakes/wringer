@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/loop-manifest-v2.schema.json",
+  "title": "Wringer loop manifest",
+  "description": "manifest.json of a `wring run` loop bundle — the index of one repair loop. Schema version wringer.loop.v2, versioned independently of the evidence bundle (wringer.evidence.v1) that each iteration writes. **v2, and v1 is still published and still frozen** — the untracked-v2 precedent. v1 froze `result.reason` as a CLOSED enum of six values, so a seventh way for the loop to stop was unrepresentable: `flaky_gate` (SPEC_STABILITY_V0 §4) is a stop where NO worker ran, and none of the six is nearly true of it — the tree is not unchanged, the same failure did not come back, and re-verifying would give a DIFFERENT answer. v2's `reason` is therefore an open string with its known values in the description. That is a deliberate design change: the fleet's own manifest and events have always recorded `reason` as a plain string, and closed here every future stop reason costs a version — version churn on the bundle format is what a frozen schema exists to prevent, not cause. A v1 bundle stays readable by everything that read one before; `loop.SCHEMA_VERSIONS` is the derived list every reader accepts.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "loop_id",
+    "started_at",
+    "repo",
+    "config",
+    "result"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.loop.v2"
+    },
+    "loop_id": {
+      "description": "The loop directory's name, YYYYMMDD-HHMMSS-<4 hex>.",
+      "type": "string",
+      "minLength": 1
+    },
+    "started_at": {
+      "description": "Local time with UTC offset, seconds precision.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "repo": {
+      "description": "The tree as it was when the loop started — not after it ran.",
+      "type": "object",
+      "required": [
+        "root",
+        "head_sha",
+        "branch",
+        "dirty"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string"
+        },
+        "head_sha": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dirty": {
+          "type": "boolean"
+        }
+      }
+    },
+    "config": {
+      "description": "What the loop was told to do, redacted.",
+      "type": "object",
+      "required": [
+        "max_iterations",
+        "worker"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "max_iterations": {
+          "description": "The budget actually used, after any --max-iterations override.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "worker": {
+          "description": "The declared worker command, before placeholder substitution.",
+          "type": "string"
+        }
+      }
+    },
+    "result": {
+      "type": "object",
+      "required": [
+        "status",
+        "reason",
+        "iterations",
+        "final_run"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "description": "converged = the gates passed. stopped = they did not. interrupted = Ctrl-C.",
+          "enum": [
+            "converged",
+            "stopped",
+            "interrupted"
+          ]
+        },
+        "reason": {
+          "description": "Why it ended, as a free string. The values the shipped loop emits are `converged`, `max_iterations`, `no_progress` (the worker left the tree byte-identical), `oscillating` (it changed something but the same failure shape returned), `budget_exhausted` (the wall_clock ran out), `flaky_gate` (the failing gate did not give the same answer twice on one tree, so no worker was called at all — an agent briefed with it would edit source that was never wrong) and `interrupted`. Open rather than enumerated ON PURPOSE, so a new stop reason never costs a bundle-format version; the drift guard is `test_the_console_names_every_reason_the_loop_can_stop_for`, which pins `loop._REASONS`, `cli._LOOP_ENDINGS` and `graph.LOOP_REASONS` against each other and has already caught this class of gap once.",
+          "type": "string",
+          "minLength": 1
+        },
+        "iterations": {
+          "description": "How many verifications ran, including the one that converged.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "final_run": {
+          "description": "Repo-relative path of the last evidence bundle, or null if no verification completed.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}
