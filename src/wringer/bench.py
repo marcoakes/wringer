@@ -1,4 +1,4 @@
-"""`wring bench` — the same job, every declared worker, one at a time.
+"""`wring bench` — the same job, every declared worker, independently.
 
 **It measures. It does not crown.** (SPEC_BENCH_V0.md, ruling 6.) There is no
 winner here, no score, and no field in any schema that orders contenders — not
@@ -22,9 +22,23 @@ the only claim it does make:
 
 It wraps and never reimplements: `loop.run` in process (ruling 2), the fleet's
 own `make_worktree`, `verify.run` for the baseline, `vacuity`'s setup contract
-for the bare-worktree trap. Serial is measurement hygiene, not a missing
-feature — parallel contenders on one machine contend for CPU, IO and the
-network, and wall-clock is a primary column.
+for the bare-worktree trap.
+
+**Serial remains the default, and it is still measurement hygiene rather than a
+missing feature**: parallel contenders on one machine contend for CPU, IO and
+the network, and wall-clock is a primary column. `bench.parallel` lets a repo
+spend that column to buy elapsed time, and the artifact then says the column is
+contended rather than leaving a reader to compare numbers that cannot be
+compared (SPEC_ATTEMPTS_V0).
+
+**`bench.attempts` is what closes this module's own first stated limit** — *"one
+run per contender; agents are stochastic; a difference within noise is noise."*
+N independent attempts per contender, each with its own worktree, its own loop
+bundle and its own ledger, all from one checked baseline under one ceiling. What
+that buys is not a ranking: it is whether a contender agrees with ITSELF, which
+is the agent's own nondeterminism made visible — the same finding a flaky gate
+is one level down. Across contenders there is still no comparison, and
+*"insufficient to rank these"* stays a valid and expected answer.
 """
 
 from __future__ import annotations
@@ -42,7 +56,24 @@ from wringer import config, evidence, fleet, gates, git, loop, vacuity, verify
 from wringer.redact import Redactor
 
 BENCHES_DIRNAME = Path(".wringer") / "benches"
-SCHEMA_VERSION = "wringer.bench.v1"
+# **v2, and v1 is still published and still frozen** — the `untracked-v2` and
+# `wringer.loop.v2` precedent. v1's contender rows are `additionalProperties:
+# false` and its description says "one row per contender", both of which are
+# true only of a bench making ONE attempt each. `bench.attempts` makes N
+# independent attempts per contender, so a row needs to say which attempt it is
+# — and a bench with six rows for two contenders is not a v1 document however
+# permissively you read one.
+#
+# With `attempts: 1` — every bench that shipped — the rows are byte-identical to
+# v1's apart from the version string: `attempt` is absent, because a number that
+# is always 1 is noise in the one artifact a stranger reads.
+SCHEMA_VERSION = "wringer.bench.v2"
+# Every version a reader accepts, DERIVED here rather than named at each reader.
+# `health._KINDS` is keyed off this, and a bump that forgot it would make health
+# forget every bench already on disk — wordlessly, which is the failure mode
+# health exists to catch (SPEC_ENV_V0 §3's finding D3, met once already this
+# release by the loop bump).
+SCHEMA_VERSIONS = (SCHEMA_VERSION, "wringer.bench.v1")
 EVENTS_FILENAME = "bench.jsonl"
 MANIFEST_FILENAME = "manifest.json"
 SUMMARY_FILENAME = "summary.md"
@@ -58,6 +89,113 @@ LIMITS = (
     "A green gate proves the gates went green, not that the fix is honest — "
     "read the diffs before believing any row.",
 )
+
+
+# What a bench with repeats or parallelism does NOT claim, appended to LIMITS
+# only when the thing they qualify actually happened. Not folded into `LIMITS`
+# itself: a limit about attempts printed on a single-attempt bench is a sentence
+# a reader learns to skip, and this file's whole argument is that the limits are
+# the part they must not skip.
+ATTEMPT_LIMIT = (
+    "Repeated attempts are independent draws from a stochastic process. Two "
+    "attempts by the same contender disagreeing is the agent's own "
+    "nondeterminism, measured — not evidence that either attempt is the better "
+    "implementation. There is no field here that ranks them and no method here "
+    "that could."
+)
+PARALLEL_LIMIT = (
+    "These attempts ran CONCURRENTLY, so wall_clock_ms is contended and rows "
+    "may not be compared on it. It records elapsed time under load, which is "
+    "not the same quantity a serial bench records. Attempts also appear in the "
+    "ledger in declared order rather than completion order, because the ledger "
+    "is written by one thread — the `prev_hash` chain is what that protects."
+)
+
+
+# `LIMITS[0]` says "One run per contender", which is FALSE the moment
+# `bench.attempts` is more than one — and it was being printed directly above the
+# new limit that contradicted it. A stale claim beside its own correction is the
+# drift this repository hunts, so the sentence is REPLACED rather than
+# accompanied.
+SINGLE_RUN_LIMIT = LIMITS[0]
+REPEATED_RUNS_LIMIT = (
+    "Each contender ran more than once. Agents are stochastic, so these rows "
+    "are independent draws rather than one measurement each — read them "
+    "together, and read a difference between two attempts by the same "
+    "contender as that contender's own noise."
+)
+
+
+def attempt_limits(cfg_bench: config.Bench) -> tuple[str, ...]:
+    """The limits that only apply when repeats or parallelism actually ran."""
+    extra: list[str] = []
+    if cfg_bench.attempts > 1:
+        extra.append(ATTEMPT_LIMIT)
+    if cfg_bench.parallel > 1:
+        extra.append(PARALLEL_LIMIT)
+    return tuple(extra)
+
+
+def limits_for(cfg_bench: config.Bench | None) -> tuple[str, ...]:
+    """Every limit this bench's artifact should carry, with none of them false.
+
+    One SUBSTITUTION and then additions: a bench that made three attempts each
+    must not print "one run per contender" — that is the same class of defect as
+    a stale count in a document, committed by the file whose whole argument is
+    that the limits are the part a reader must not skip.
+    """
+    if cfg_bench is None:
+        return LIMITS
+    base = list(LIMITS)
+    if cfg_bench.attempts > 1:
+        base[0] = REPEATED_RUNS_LIMIT
+    return tuple(base) + attempt_limits(cfg_bench)
+
+
+def agreement(rows: tuple[Row, ...]) -> tuple[str, str]:
+    """Whether a contender's repeated attempts agreed, and what that is worth.
+
+    **This is the only comparison this module makes, and it compares a
+    contender with ITSELF.** Across contenders there is no comparison and never
+    will be (ruling 6). Within one contender, repeated attempts either reached
+    the same outcome or did not, and that is an observed fact about the agent
+    rather than a judgement about any implementation it produced.
+
+    Returns `(verdict, sentence)`. The verdict is deliberately not a score:
+    `insufficient` is a valid and expected answer and is the default, because
+    one attempt each cannot disagree with anything.
+    """
+    by_contender: dict[str, set[str]] = {}
+    for row in rows:
+        if row.attempt is None:
+            continue
+        by_contender.setdefault(row.contender, set()).add(row.outcome)
+    if not by_contender:
+        return (
+            "insufficient",
+            "One attempt each, so nothing here can agree or disagree with "
+            "anything. The evidence is insufficient to rank these, which is "
+            "the expected answer and not a shortfall.",
+        )
+    disagreed = sorted(name for name, seen in by_contender.items() if len(seen) > 1)
+    if not disagreed:
+        return (
+            "consistent",
+            "Every contender's attempts reached the same outcome as each "
+            "other. That says the agent was consistent here; it says nothing "
+            "about which contender is better, and the evidence is still "
+            "insufficient to rank them.",
+        )
+    named = ", ".join(f"`{name}`" for name in disagreed)
+    return (
+        "inconsistent",
+        f"{named} reached DIFFERENT outcomes across attempts on the same tree "
+        "from the same commit under the same ceiling. Nothing in the inputs "
+        "explains the difference, so it is the agent's own nondeterminism — "
+        "the same finding a flaky gate is one level down. A single run of "
+        "these contenders would have reported one of those outcomes as though "
+        "it were the answer.",
+    )
 
 
 class BenchError(Exception):
@@ -106,6 +244,13 @@ class Row:
     # advice that cannot be taken — and the summary prints exactly this line.
     final_run: str = ""
     usage: dict[str, Any] | None = None
+    # Which independent attempt this is, 1-based — or **None when the bench made
+    # one attempt each**, which is every bench that shipped. Two states rather
+    # than a number that is sometimes noise: `None` is omitted from the record,
+    # so a single-attempt bench's rows carry exactly the keys v1 published, and
+    # an int is always written, so attempt 1 of three is never mistaken for the
+    # only one.
+    attempt: int | None = None
 
     def as_json(self) -> dict[str, Any]:
         recorded: dict[str, Any] = {
@@ -123,6 +268,9 @@ class Row:
             recorded["agent"] = self.agent_id
         if self.usage is not None:
             recorded["usage"] = self.usage
+        # Present exactly when the bench made more than one attempt each.
+        if self.attempt is not None:
+            recorded["attempt"] = self.attempt
         return recorded
 
 
@@ -211,8 +359,12 @@ class Bundle:
             # Declared order, always. There is no ordering field here and no
             # sort anywhere: ruling 6.
             "contenders": [row.as_json() for row in rows],
-            "limits": list(LIMITS),
+            "limits": list(limits_for(cfg_bench)),
         }
+        if cfg_bench.attempts > 1:
+            payload["attempts"] = cfg_bench.attempts
+        if cfg_bench.parallel > 1:
+            payload["parallel"] = cfg_bench.parallel
         path = self.directory / MANIFEST_FILENAME
         path.write_text(
             json.dumps(evidence.deep_scrub(self.redactor, payload), indent=2) + "\n",
@@ -310,9 +462,13 @@ def run(
     # commit. `make_worktree` detaches at HEAD *at call time*, so a commit
     # landing between two creations would silently put contender 2 on a
     # different tree than contender 1 — the check is the mechanism.
-    trees: dict[str, Path] = {}
-    for contender in contenders:
-        tree = _worktree(root, bench_id, contender.id)
+    # One worktree per ATTEMPT, keyed by (contender, attempt). Independent by
+    # construction rather than by discipline: two attempts sharing a tree would
+    # be one attempt with a race in it, and nothing downstream could tell.
+    plan = _attempt_plan(contenders, settings.attempts)
+    trees: dict[tuple[str, int | None], Path] = {}
+    for contender, attempt in plan:
+        tree = _worktree(root, bench_id, _tree_name(contender.id, attempt))
         found = git.inspect(tree).head_sha
         if found != baseline_sha:
             raise BenchError(
@@ -321,7 +477,7 @@ def run(
                 "worktrees were being made, and rows from two different trees "
                 "cannot be compared. Nothing was run; bench again"
             )
-        trees[contender.id] = tree
+        trees[(contender.id, attempt)] = tree
 
     bundle = Bundle.create(
         root / BENCHES_DIRNAME, bench_id, started_at, redactor=redactor
@@ -340,18 +496,26 @@ def run(
         run_ref=baseline_ref,
     )
 
-    rows: list[Row] = []
-    for contender in contenders:
+    # **Every event in this ledger is written by THIS thread and no other.**
+    # `Bundle.event` reads the file's last line to compute `prev_hash` and then
+    # appends, so two threads interleaving there would break the chain that is
+    # the bundle's whole tamper-evidence — silently, and in a way `wring audit`
+    # would later report as tampering on an honest run. So the attempts run in a
+    # pool and the ledger is written around them, in DECLARED order.
+    #
+    # The cost is real and is stated in the artifact: under `parallel > 1` the
+    # ledger's order is declared order and not completion order.
+    for contender, _attempt in plan:
         if on_event is not None:
             on_event(contender)
         bundle.event("contender.started", contender=contender.id)
-        rows.append(
-            _bench_one(
-                root, cfg, settings, contender, trees[contender.id],
-                baseline_sha, prove, loop_console or {}, redactor,
-            )
-        )
-        bundle.event("contender.finished", **rows[-1].as_json())
+
+    rows = _run_attempts(
+        plan, trees, root, cfg, settings, baseline_sha, prove,
+        loop_console or {}, redactor,
+    )
+    for row in rows:
+        bundle.event("contender.finished", **row.as_json())
 
     # `rows`, not `contenders`: `bench.started` records the ids under that
     # name, and one key meaning an array in one event and a count in the next
@@ -371,7 +535,11 @@ def run(
             # Declared order here too, and the baseline first: these are the
             # directories the evidence lives in, so the reader gets them in
             # the order they read the rows.
-            (baseline_tree, *(trees[c.id] for c in contenders)),
+            # Declared order, one per ATTEMPT: these are the directories the
+            # evidence lives in, and a reader given fewer paths than there are
+            # rows cannot find half of it.
+            (baseline_tree, *(trees[key] for key in _plan_keys(plan))),
+            settings,
         )
     )
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
@@ -471,6 +639,120 @@ def _verify_baseline(
         raise BenchError(f"the baseline could not be verified: {exc}") from exc
 
 
+def _attempt_plan(
+    contenders: tuple[config.Contender, ...], attempts: int
+) -> list[tuple[config.Contender, int | None]]:
+    """Every (contender, attempt) this bench will run, in declared order.
+
+    `None` for the attempt when the bench makes one each, which is every bench
+    that shipped — it is what keeps the worktree names, the rows and the ledger
+    identical to what v1 wrote.
+    """
+    if attempts <= 1:
+        return [(contender, None) for contender in contenders]
+    return [
+        (contender, number)
+        for contender in contenders
+        for number in range(1, attempts + 1)
+    ]
+
+
+def _plan_keys(
+    plan: list[tuple[config.Contender, int | None]],
+) -> list[tuple[str, int | None]]:
+    return [(contender.id, attempt) for contender, attempt in plan]
+
+
+def _tree_name(contender_id: str, attempt: int | None) -> str:
+    """The worktree's name. Unchanged for a single-attempt bench, because the
+    directory a reader is pointed at should not move for a feature they did not
+    turn on."""
+    return contender_id if attempt is None else f"{contender_id}-a{attempt}"
+
+
+def _run_attempts(
+    plan: list[tuple[config.Contender, int | None]],
+    trees: dict[tuple[str, int | None], Path],
+    root: Path,
+    cfg: config.Config,
+    settings: config.Bench,
+    baseline_sha: str,
+    prove: bool,
+    console: dict[str, Any],
+    redactor: Redactor,
+) -> list[Row]:
+    """Run every attempt, serially or in a bounded pool, and return rows in
+    DECLARED order whatever order they finished in.
+
+    **Serial when `parallel: 1`, and that path does not touch a pool at all.**
+    Not an optimisation: it is what makes a bench that declared no parallelism
+    behave exactly as it did, including its console interleaving and its
+    interrupt handling.
+
+    Parallel attempts share nothing mutable. Each has its own worktree, its own
+    loop bundle, its own ledger, and its own `Config` — `_contender_config`
+    already returns a fresh frozen dataclass per contender. The one shared
+    object is the `Redactor`, which is frozen and read-only, and the bench
+    ledger, which this function never touches.
+    """
+    def one(pair: tuple[config.Contender, int | None]) -> Row:
+        contender, attempt = pair
+        return _bench_one(
+            root, cfg, settings, contender, trees[(contender.id, attempt)],
+            baseline_sha, prove, console, redactor, attempt,
+        )
+
+    if settings.parallel <= 1:
+        return [one(pair) for pair in plan]
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Threads rather than subprocesses, because SPEC_BENCH ruling 2 wraps
+    # `loop.run` IN PROCESS so the identical ceiling is handed over rather than
+    # re-derived on the far side of a CLI. The work each thread does is almost
+    # entirely waiting on `subprocess.communicate`, so the GIL is not the
+    # bottleneck — the agents are.
+    #
+    # `map` rather than `as_completed`: the results come back in plan order,
+    # which is what keeps the rows and the ledger deterministic. A bench whose
+    # artifact changed shape depending on which agent happened to finish first
+    # would be an artifact nobody could diff.
+    with ThreadPoolExecutor(max_workers=settings.parallel) as pool:
+        try:
+            return list(pool.map(one, plan))
+        except BaseException:
+            # A Ctrl-C reaches the MAIN thread only, so the workers are still
+            # inside `communicate` and their agents are still running. Reaping
+            # the process groups is what makes them return: every loop writes
+            # `worker.pgid` for exactly this, and `loop.reap_orphans` is the
+            # shipped machinery. Without this the pool's own shutdown waits for
+            # every agent's full timeout with nothing attached to its output —
+            # SPEC_SUPERVISION's reapability invariant, which a thread pool
+            # would otherwise quietly revoke.
+            _reap_attempts(trees.values())
+            raise
+
+
+def _reap_attempts(trees: Any) -> list[int]:
+    """Kill every worker any attempt left running. Total by construction.
+
+    Reads each worktree's loop bundles for the `worker.pgid` files `loop.run`
+    writes, and reaps them. Runs on the way out of an interrupt, so a failure
+    here must not replace the interrupt with a different exception.
+    """
+    killed: list[int] = []
+    for tree in trees:
+        try:
+            loops = tree / loop.LOOPS_DIRNAME
+            if not loops.is_dir():
+                continue
+            for directory in sorted(loops.iterdir()):
+                killed += loop.reap_orphans(loop.worker_pgids(directory))
+        except (OSError, ValueError):  # pragma: no cover - best effort
+            continue
+    return killed
+
+
 def _bench_one(
     root: Path,
     cfg: config.Config,
@@ -481,6 +763,7 @@ def _bench_one(
     prove: bool,
     console: dict[str, Any],
     redactor: Redactor,
+    attempt: int | None = None,
 ) -> Row:
     """One contender's loop, in process, under the shared ceiling."""
     # The config's OWN redactor, never a fresh empty one. `vacuity.prove`
@@ -513,6 +796,7 @@ def _bench_one(
             wall_clock_ms=int((time.monotonic() - started) * 1000),
             loop_ref="",
             head_moved=git.inspect(tree).head_sha != baseline_sha,
+            attempt=attempt,
         )
 
     return Row(
@@ -526,6 +810,7 @@ def _bench_one(
         head_moved=git.inspect(tree).head_sha != baseline_sha,
         final_run=_final_run_of(outcome.directory, tree, root),
         usage=_usage_of(outcome.directory),
+        attempt=attempt,
     )
 
 
@@ -605,6 +890,7 @@ def _summary(
     failing: tuple[str, ...],
     rows: tuple[Row, ...],
     trees: tuple[Path, ...] = (),
+    cfg_bench: config.Bench | None = None,
 ) -> str:
     """The human read-out. **Declared order, and no winner.**"""
     lines = [
@@ -623,8 +909,16 @@ def _summary(
         # An em dash where a number was never reported. Absent is absent all
         # the way to the screen: a 0 here would read as "spent nothing".
         spent = f"{cost.get('amount')} {cost.get('currency')}" if cost else "—"
+        # The attempt number in the id cell, because the table is what a reader
+        # scans and three rows called `claude` with no way to tell them apart is
+        # a table that cannot be read.
+        named = (
+            f"`{row.contender}`"
+            if row.attempt is None
+            else f"`{row.contender}` #{row.attempt}"
+        )
         lines.append(
-            f"| `{row.contender}` | {row.outcome} | {row.iterations} | "
+            f"| {named} | {row.outcome} | {row.iterations} | "
             f"{row.wall_clock_ms / 1000:.1f}s | "
             f"{usage.get('used', '—')} | {spent} |"
         )
@@ -638,8 +932,23 @@ def _summary(
             "worker moved.",
         ]
 
+    if cfg_bench is not None and cfg_bench.attempts > 1:
+        verdict, sentence = agreement(rows)
+        lines += [
+            "",
+            f"## Across attempts — **{verdict}**",
+            "",
+            sentence,
+        ]
+        if cfg_bench.parallel > 1:
+            lines += [
+                "",
+                f"Ran {cfg_bench.parallel} at a time, so the wall-clock column "
+                "is contended and rows may not be compared on it.",
+            ]
+
     lines += ["", "## What this does not say", ""]
-    lines += [f"- {limit}" for limit in LIMITS]
+    lines += [f"- {limit}" for limit in limits_for(cfg_bench)]
     lines += ["", "## Next", ""]
     for row in rows:
         if row.loop_ref:

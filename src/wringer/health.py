@@ -54,15 +54,22 @@ BENCHES_DIRNAME = Path(".wringer") / "benches"
 
 RUN_SCHEMA = evidence.SCHEMA_VERSION          # wringer.evidence.v1
 LOOP_SCHEMA = loop.SCHEMA_VERSION             # wringer.loop.v2
-BENCH_SCHEMA = "wringer.bench.v1"
+# Bench versions are LITERALS here and not imported, because `bench` imports
+# `verify` which imports `accept`, and `accept` reads this module — a top-level
+# import would make that cycle real the day somebody hoists `accept`'s local
+# `from wringer import health`. Same shape as `config._KNOWN_RUNTIMES`, and
+# pinned the same way: `test_bench.py` fails if the two lists diverge.
+BENCH_SCHEMAS = ("wringer.bench.v2", "wringer.bench.v1")
+BENCH_SCHEMA = BENCH_SCHEMAS[0]
 
 # **Every loop version, DERIVED from `loop.SCHEMA_VERSIONS` rather than named
 # here.** A map keyed off the current version alone makes health forget every
 # bundle written by an earlier one — wordlessly, which is the failure mode this
 # whole command exists to catch. SPEC_ENV_V0 §3 names it as finding D3; the
 # `wringer.loop.v2` bump is where it would have fired.
-_KINDS = {RUN_SCHEMA: "run", BENCH_SCHEMA: "bench"}
+_KINDS = {RUN_SCHEMA: "run"}
 _KINDS.update({version: "loop" for version in loop.SCHEMA_VERSIONS})
+_KINDS.update({version: "bench" for version in BENCH_SCHEMAS})
 
 GATES_DIRNAME = "gates"
 RESULT_FILENAME = "result.json"

@@ -1410,12 +1410,18 @@ def test_a_real_bench_bundle_matches_its_schemas(repo, git_run, monkeypatch, cap
     recorded = json.loads(
         (bundle / bench.MANIFEST_FILENAME).read_text(encoding="utf-8")
     )
-    check(recorded, load("bench-manifest.schema.json"), "bench manifest.json")
-    assert recorded["schema_version"] == "wringer.bench.v1"
+    check(recorded, load("bench-manifest-v2.schema.json"), "bench manifest.json")
+    assert recorded["schema_version"] == "wringer.bench.v2"
+    # One attempt each — the default — so the row keys are exactly the ones v1
+    # published, and `attempt` / `attempts` / `parallel` are absent. That
+    # absence is the compatibility claim, not an omission.
+    assert "attempts" not in recorded
+    assert "parallel" not in recorded
+    assert not any("attempt" in row for row in recorded["contenders"])
 
     # The rows are objects with their own declared shape; `check` is shallow,
     # so the item schema is applied to each row by hand.
-    row_schema = load("bench-manifest.schema.json")["properties"]["contenders"][
+    row_schema = load("bench-manifest-v2.schema.json")["properties"]["contenders"][
         "items"
     ]
     for row in recorded["contenders"]:
@@ -1426,7 +1432,7 @@ def test_a_real_bench_bundle_matches_its_schemas(repo, git_run, monkeypatch, cap
         event = json.loads(line)
         check(
             event,
-            branch(event["type"], "bench-event.schema.json"),
+            branch(event["type"], "bench-event-v2.schema.json"),
             f"bench event {event['type']}",
         )
         seen.add(event["type"])
@@ -1449,7 +1455,7 @@ def test_a_real_bench_bundle_validates_against_the_real_engine(
 
     errors = [
         f"manifest {e.json_path} {e.message}"
-        for e in built["bench-manifest.schema.json"].iter_errors(
+        for e in built["bench-manifest-v2.schema.json"].iter_errors(
             json.loads((bundle / bench.MANIFEST_FILENAME).read_text("utf-8"))
         )
     ]
@@ -1457,7 +1463,7 @@ def test_a_real_bench_bundle_validates_against_the_real_engine(
         event = json.loads(line)
         errors += [
             f"{event['type']} {e.json_path} {e.message}"
-            for e in built["bench-event.schema.json"].iter_errors(event)
+            for e in built["bench-event-v2.schema.json"].iter_errors(event)
         ]
     assert not errors, "\n".join(errors)
 
@@ -1469,7 +1475,7 @@ def test_every_bench_event_shape_the_schema_declares_is_produced():
     nowhere, so declaring it would publish a shape with no producer and no
     test."""
     declared = {
-        option["title"] for option in load("bench-event.schema.json")["oneOf"]
+        option["title"] for option in load("bench-event-v2.schema.json")["oneOf"]
     }
     assert declared == {
         "bench.started",
@@ -1498,7 +1504,7 @@ def test_no_bench_schema_carries_a_field_that_could_order_contenders():
     systematically rewards reward-hacking, because rewriting a failing test
     into a tautology converges faster than an honest fix."""
     banned = ("rank", "score", "winner", "position", "place", "fastest", "best")
-    for name in ("bench-event.schema.json", "bench-manifest.schema.json"):
+    for name in ("bench-event-v2.schema.json", "bench-manifest-v2.schema.json"):
         text = json.dumps(load(name))
         # Property NAMES only: the descriptions say "no winner" on purpose.
         found = [

@@ -40,7 +40,9 @@ moat; scope discipline is part of the design.
 ## 1. What it does
 
 ```
-wring bench                     run every declared contender, serially
+wring bench                     run every declared contender (serially by
+                                default; `bench.parallel` opts into
+                                concurrency — SPEC_ATTEMPTS_V0)
 wring bench --contender ID      ...only the named ones; repeatable, two minimum
 wring bench --prove             tighten: every contender's loop proves
 wring bench --json              one object on stdout, no human report
@@ -170,7 +172,17 @@ fails at runtime is that contender's recorded outcome, not a bench abort.
 **Serial is measurement hygiene, not a missing feature.** Parallel
 contenders on one machine contend for CPU, IO and the network, and
 wall-clock is a primary column (§3c) — concurrency would corrupt the very
-numbers the command exists to report. SPEC_GRAPH_V0 ruling 7 ("parallelism
+numbers the command exists to report.
+
+> **AMENDED 2026-08-12 by [SPEC_ATTEMPTS_V0.md](SPEC_ATTEMPTS_V0.md) §4.**
+> Serial is still the DEFAULT and every sentence above is still why. What
+> changed is that a repository may now *opt in* to `bench.parallel: N` and
+> **spend** the wall-clock column to buy elapsed time — and when it does, the
+> manifest and the summary both say the column is contended and that rows may
+> not be compared on it. The reasoning is unchanged rather than overturned: the
+> numbers would indeed be corrupted, so the artifact refuses to let a reader
+> treat them as if they were not. `parallel: 1` builds no pool at all, and a
+> test refuses a `ThreadPoolExecutor` to prove that path is untouched. SPEC_GRAPH_V0 ruling 7 ("parallelism
 belongs to the fleet") is untouched: fleet tasks are *independent work*,
 where throughput matters; contenders are *repeated measurements of the same
 work*, where interference is error. Ruling 4 ("wrap in-process; never shell
@@ -321,6 +333,18 @@ additive, nothing frozen is touched.
    ruling. Serial execution is measurement hygiene (§3b), not a
    concession, and it reconciles graph rulings 4 and 7 instead of choosing
    between them.
+
+   **AMENDED 2026-08-12 by [SPEC_ATTEMPTS_V0.md](SPEC_ATTEMPTS_V0.md).** *In
+   process* and *worktree-isolated* are untouched and load-bearing — the
+   attempts still call `loop.run` directly, which is what hands over an
+   identical ceiling rather than re-deriving one across a CLI, and each attempt
+   still gets its own worktree. *Serial* becomes the DEFAULT rather than the
+   only mode. Two consequences the amendment owns rather than inherits: a
+   Ctrl-C reaches the main thread only, so the interrupt path reaps through
+   `loop.worker_pgids` or a thread pool would quietly revoke
+   SPEC_SUPERVISION's reapability invariant; and no ledger event is written
+   from a worker, because `Bundle.event` computes `prev_hash` by reading the
+   last line and two threads there would break the chain silently.
 3. **Cost is measured-or-reported, never priced — DECIDED.**
    Deterministic measures are the primary columns; the agent's
    `usage_update` report is recorded verbatim as a claim; absence is

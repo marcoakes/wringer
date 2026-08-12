@@ -58,7 +58,13 @@ _KNOWN_RUNTIMES = {"docker", "podman", "nerdctl"}
 _KNOWN_SIGNERS = {"cosign", "gh"}
 # `execution.user` reaches argv positionally; see `backend.USER_PATTERN`.
 _USER_PATTERN = re.compile(r"\d+(?::\d+)?")
-_BENCH_KEYS = {"contender_wall_clock", "contenders"}
+_BENCH_KEYS = {"contender_wall_clock", "contenders", "attempts", "parallel"}
+# The most attempts and the most concurrency a bench may declare. Ceilings
+# rather than tastes: attempts multiply agent spend LINEARLY and every one of
+# them is a real model call, so a typo in a config file is a bill. Not
+# configurable, for the reason `health.MIN_HISTORY` is not.
+MAX_BENCH_ATTEMPTS = 10
+MAX_BENCH_PARALLEL = 8
 # A contender varies the WORKER and nothing else (SPEC_BENCH_V0 §3). Every
 # other key an author might reach for — a budget, a gate list, a directory —
 # is refused, because identical conditions are what make two rows comparable.
@@ -458,6 +464,17 @@ class Bench:
 
     contender_wall_clock: int
     contenders: tuple[Contender, ...]
+    # How many independent attempts each contender makes (SPEC_ATTEMPTS_V0).
+    # 1 is what every bench did before, and it is also bench's own first stated
+    # limit: "One run per contender. Agents are stochastic; a difference within
+    # noise is noise." Repeats are what let a reader see the noise instead of
+    # being warned about it.
+    attempts: int = 1
+    # How many attempts run at once. 1 is serial, which is what shipped, and
+    # serial is measurement hygiene rather than a missing feature — so raising
+    # this trades a comparable wall clock for elapsed time, and the artifact
+    # says so rather than leaving the reader to compare contended numbers.
+    parallel: int = 1
 
 
 @dataclass(frozen=True)
@@ -858,13 +875,48 @@ def _parse_bench(raw: Any, source: str) -> Bench | None:
         seen.add(contender.id)
         contenders.append(contender)
 
-    if len(contenders) < 2:
+    attempts = raw.get("attempts", 1)
+    if not _is_int(attempts) or attempts < 1:
         raise ConfigError(
-            f"{source}: 'bench.contenders' needs two or more — a comparison "
-            "of one is 'wring run', which is the command for it"
+            f"{source}: 'bench.attempts' must be an integer of at least 1 "
+            f"(got {attempts!r})"
+        )
+    if attempts > MAX_BENCH_ATTEMPTS:
+        raise ConfigError(
+            f"{source}: 'bench.attempts' must be at most "
+            f"{MAX_BENCH_ATTEMPTS} (got {attempts}) — every attempt is a real "
+            "agent run, so this multiplies the bill linearly and a typo here "
+            "is money"
         )
 
-    return Bench(contender_wall_clock=ceiling, contenders=tuple(contenders))
+    parallel = raw.get("parallel", 1)
+    if not _is_int(parallel) or parallel < 1:
+        raise ConfigError(
+            f"{source}: 'bench.parallel' must be an integer of at least 1 "
+            f"(got {parallel!r})"
+        )
+    if parallel > MAX_BENCH_PARALLEL:
+        raise ConfigError(
+            f"{source}: 'bench.parallel' must be at most "
+            f"{MAX_BENCH_PARALLEL} (got {parallel})"
+        )
+
+    if len(contenders) < 2 and attempts < 2:
+        raise ConfigError(
+            f"{source}: 'bench.contenders' needs two or more — a comparison "
+            "of one is 'wring run', which is the command for it. One "
+            "contender with 'bench.attempts: 2' or more is legal and is a "
+            "different measurement: repeated independent attempts at the same "
+            "requirement, which is how an agent's own nondeterminism becomes "
+            "visible"
+        )
+
+    return Bench(
+        contender_wall_clock=ceiling,
+        contenders=tuple(contenders),
+        attempts=attempts,
+        parallel=parallel,
+    )
 
 
 def _parse_contender(raw: Any, index: int, source: str) -> Contender:

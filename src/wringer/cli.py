@@ -2004,12 +2004,20 @@ def cmd_bench(args: argparse.Namespace) -> int:
                     # Declared order, never sorted — there is no winner
                     # (SPEC_BENCH_V0 ruling 6).
                     "contenders": [row.as_json() for row in outcome.rows],
-                    "limits": list(bench.LIMITS),
+                    # The attempt limits too, when they apply: `--json` is what
+                    # an agent reads, and an agent is the reader most likely to
+                    # treat three rows as three data points to average.
+                    "limits": list(bench.limits_for(cfg.bench)),
+                    **(
+                        {"across_attempts": bench.agreement(outcome.rows)[0]}
+                        if cfg.bench.attempts > 1
+                        else {}
+                    ),
                 }
             )
         )
     else:
-        _report_bench(outcome, root)
+        _report_bench(outcome, root, cfg.bench)
     return EXIT_OK
 
 
@@ -2017,7 +2025,7 @@ def _report_contender(contender) -> None:
     print(f"→ {contender.id}", flush=True)
 
 
-def _report_bench(outcome, root: Path) -> None:
+def _report_bench(outcome, root: Path, cfg_bench=None) -> None:
     """Declared order, and the limits printed with the numbers.
 
     A benchmark is the artifact most likely to be read as a larger claim than
@@ -2036,14 +2044,41 @@ def _report_bench(outcome, root: Path) -> None:
             if cost:
                 spent += f", {cost.get('amount')} {cost.get('currency')}"
         moved = "  ! HEAD moved" if row.head_moved else ""
+        # The attempt number in the id, because three lines reading `coin` with
+        # no way to tell them apart is a console a reader cannot use — and this
+        # is the surface where the disagreement is easiest to miss.
+        named = (
+            row.contender
+            if row.attempt is None
+            else f"{row.contender} #{row.attempt}"
+        )
         print(
-            f"  {row.contender:<16} {row.outcome:<16} "
+            f"  {named:<16} {row.outcome:<16} "
             f"{row.iterations} iter  {row.wall_clock_ms / 1000:>6.1f}s"
             f"{spent}{moved}"
         )
 
+    # The across-attempts verdict, on the terminal and not only in the summary.
+    # `inconsistent` is the whole point of having run repeats, and a finding
+    # that only appears in a file the reader has not opened yet is a finding
+    # that arrives too late to act on.
+    if cfg_bench is not None and cfg_bench.attempts > 1:
+        verdict, sentence = bench.agreement(outcome.rows)
+        mark = "!" if verdict == "inconsistent" else "·"
+        print(f"\n{mark} across attempts: {verdict}")
+        print(
+            textwrap.fill(
+                sentence,
+                width=78,
+                initial_indent="  ",
+                subsequent_indent="  ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
+
     print("\nWhat this does not say:")
-    for limit in bench.LIMITS:
+    for limit in bench.limits_for(cfg_bench):
         # NOT `_wrap_message(f"  - {limit}")`, which is what this was and which
         # silently did nothing: that helper treats an indented line as
         # structure the reader is meant to copy and passes it through

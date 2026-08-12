@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/bench-event-v2.schema.json",
+  "title": "Wringer bench event",
+  "description": "ONE LINE of `bench.jsonl`, not the file. Append-only, one JSON object per line, every line carrying `prev_hash` — the sha256 of the line before it, or 64 zeros for the first — verified by the same chain function `wring audit` uses, not a lookalike. Every string value is scrubbed by the redactor before it is written. Absence is meaningful throughout: a key appears only in the case it describes, and NO key here orders contenders (SPEC_BENCH_V0 ruling 6 — bench measures and does not crown). **v2, and v1 is still published and still frozen.** `contender.finished` may carry `attempt`, present exactly when the bench made more than one attempt each. Events carry no version of their own; the bundle's manifest names it. Under `bench.parallel` these appear in DECLARED order rather than completion order — the ledger is written by one thread, because two threads appending would break the `prev_hash` chain that is the bundle's tamper-evidence.",
+  "type": "object",
+  "required": [
+    "type",
+    "ts",
+    "prev_hash"
+  ],
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "ts": {
+      "description": "Local ISO-8601 with offset, millisecond precision — fine enough to order two fast events, coarse enough to stay readable.",
+      "type": "string"
+    },
+    "prev_hash": {
+      "description": "sha256 of the previous line, or 64 zeros for the first. Makes the LEDGER tamper-evident and says nothing about the rest of the bundle — that is `digests.json`'s job.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  },
+  "oneOf": [
+    {
+      "title": "bench.started",
+      "description": "The conditions every row below was measured under, recorded before any of them ran.",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "bench_id",
+        "sha",
+        "contenders",
+        "contender_wall_clock"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "bench.started"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "bench_id": {
+          "type": "string"
+        },
+        "sha": {
+          "description": "The baseline worktree's detached HEAD. Every contender worktree was checked against this one and a disagreement was refused, so one sha describes the whole bench.",
+          "type": "string"
+        },
+        "contenders": {
+          "description": "The selected contender ids, in DECLARED order. An array of ids here; `bench.finished` records a count under its own name, because one field meaning two things across two events is how a format becomes unreadable after it is frozen.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "contender_wall_clock": {
+          "description": "The SAME ceiling handed to every contender's loop — never a remainder, so no contender is measured under conditions its predecessor set.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "title": "baseline.verified",
+      "description": "The statement of the job. A bench needs something to repair, so a baseline where no required gate fails is refused (exit 1) and writes no bundle at all — which is why this event only ever records a failing status.",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "status",
+        "failing_gates",
+        "run_ref"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "baseline.verified"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "failing_gates": {
+          "description": "The required gates that failed at the baseline: the work every contender was measured on.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "run_ref": {
+          "description": "The baseline's verify bundle, by path, never nested — inside the kept baseline worktree.",
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "contender.started",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "contender"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "contender.started"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "contender": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "title": "contender.finished",
+      "description": "One contender's result. Two kinds of number with different authority: everything except `usage` is Wringer's own measurement, and `usage` is the AGENT'S OWN CLAIM, recorded verbatim and unverified. A contender that failed to converge is a RESULT here, not a bench failure.",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "contender",
+        "outcome",
+        "reason",
+        "iterations",
+        "wall_clock_ms",
+        "loop_ref",
+        "head_moved"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "contender.finished"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "contender": {
+          "type": "string"
+        },
+        "outcome": {
+          "description": "A loop reason, or `error` when the loop raised rather than returned. Not a grade: `no_progress` is a measurement, and nothing ranks it against `converged`.",
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "wall_clock_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "loop_ref": {
+          "description": "The contender's loop bundle, by path, inside its kept worktree. Never nested: one run, one bundle, one place.",
+          "type": "string"
+        },
+        "head_moved": {
+          "description": "Whether the worker moved its worktree's HEAD. The harness never writes git history, but a worker is somebody else's agent and may commit — and every tree-anchored verdict in this row is then relative to a tree the agent moved.",
+          "type": "boolean"
+        },
+        "final_run": {
+          "description": "The VERIFY bundle the loop's last verification wrote, rebased onto the repo root — the path `wring judge` can actually be handed. Absent when the loop verified nothing.",
+          "type": "string"
+        },
+        "agent": {
+          "description": "Present only when the contender was declared as `agent:` sugar: the table id the author wrote. The COMMAND behind it stays in `agents.py`, where every vendor string lives.",
+          "type": "string"
+        },
+        "usage": {
+          "description": "PRESENT ONLY when the agent reported it. Absent means unreported, NEVER zero — a zero here would be a number Wringer made up about somebody else's spending. There is no price table: cost is what the agent said it was, in the agent's own currency, or it is absent.",
+          "type": "object",
+          "required": [
+            "used",
+            "size",
+            "sessions"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "used": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sessions": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "cost": {
+              "description": "Present only when every reporting row shared one currency. Mixed currencies produce no total, because adding them would need an exchange rate — a live vendor fact with a shelf life, which this program deliberately does not hold.",
+              "type": "object",
+              "required": [
+                "amount",
+                "currency"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "amount": {
+                  "type": "number"
+                },
+                "currency": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            }
+          }
+        },
+        "attempt": {
+          "description": "Which independent attempt this is, 1-based. Present exactly when the bench made more than one attempt each.",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    {
+      "title": "bench.finished",
+      "description": "An interrupted bench still writes its manifest and digests over what exists, so a bundle without this line is a partial bench somebody may still audit — not a broken one.",
+      "required": [
+        "type",
+        "ts",
+        "prev_hash",
+        "rows"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "bench.finished"
+        },
+        "ts": {
+          "type": "string"
+        },
+        "prev_hash": {
+          "type": "string"
+        },
+        "rows": {
+          "description": "How many contender rows were written. A COUNT, under its own name — `bench.started`'s `contenders` is an array of ids, and reusing that key for a number would freeze an ambiguity into a published format.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  ]
+}
