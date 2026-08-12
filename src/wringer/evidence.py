@@ -86,6 +86,16 @@ SUMMARY_FILENAME = "summary.md"
 GATES_DIRNAME = "gates"
 RUNS_DIRNAME = Path(".wringer") / "runs"
 
+# The sibling artifacts written by modules this one cannot import — `vacuity`
+# and `accept` both import `evidence`, so the names live here as literals for
+# the same reason `SUMMARY_FILENAME` does: what a run writes has to be knowable
+# in one place to be REMOVABLE in one place. `_clear_previous` is that one
+# place, and every name missing from it is a file that survives into the next
+# run of a reused `--output` directory and describes it wrongly.
+VACUITY_FILENAME = "vacuity.json"
+VACUITY_DIRNAME = "vacuity"
+ACCEPTANCE_FILENAME = "acceptance.json"
+
 # The id's timestamp prefix: `20260730-070601` of `20260730-070601-a13f`.
 _RUN_ID_TIME_FORMAT = "%Y%m%d-%H%M%S"
 _RUN_ID_TIME_LENGTH = 15
@@ -400,6 +410,16 @@ def _clear_previous(directory: Path) -> None:
     say "and none of it has been altered since"; a survivor here would make
     it report tampering on an honest run.
 
+    `vacuity.json`, its `vacuity/` logs and `acceptance.json` are here for the
+    same reason and were missing for three slices. Both are written
+    CONDITIONALLY — vacuity only when the run proves, acceptance only when an
+    approved spec declares criteria — so a reused directory whose second run
+    dropped the condition kept the first run's verdict beside a bundle that
+    never made it. That is worse than the stale `result.json` this function was
+    written for: a `sensitive: true` row is one of the two receipts that
+    evidence an acceptance criterion, so a survivor could evidence a criterion
+    in a run that never proved anything.
+
     Only Wringer's own artifacts go: the directory belongs to the caller,
     and anything else they keep in it is theirs.
     """
@@ -411,13 +431,16 @@ def _clear_previous(directory: Path) -> None:
         STATUS_FILENAME,
         DIGESTS_FILENAME,
         UNTRACKED_FILENAME,
+        VACUITY_FILENAME,
+        ACCEPTANCE_FILENAME,
     ):
         (directory / filename).unlink(missing_ok=True)
-    previous_gates = directory / GATES_DIRNAME
-    if previous_gates.is_dir():
-        # Not ignore_errors: a gates/ tree we cannot clear would leave last
-        # run's verdicts in this run's bundle, and that must be loud.
-        shutil.rmtree(previous_gates)
+    for dirname in (GATES_DIRNAME, VACUITY_DIRNAME):
+        previous = directory / dirname
+        if previous.is_dir():
+            # Not ignore_errors: a gates/ tree we cannot clear would leave last
+            # run's verdicts in this run's bundle, and that must be loud.
+            shutil.rmtree(previous)
 
 
 GENESIS_HASH = "0" * 64

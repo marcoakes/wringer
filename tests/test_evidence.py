@@ -505,3 +505,49 @@ def test_reusing_an_output_directory_removes_the_previous_digests(tmp_path: Path
         "last run's digests.json survived into this run's bundle — a "
         "tamper-evidence record that fails against its own contents"
     )
+
+
+def test_reusing_an_output_directory_removes_the_conditional_siblings(
+    tmp_path: Path,
+):
+    """`vacuity.json`, its logs and `acceptance.json` must not outlive the run.
+
+    Sharper than the stale `result.json` `_clear_previous` was written for,
+    because these two are written CONDITIONALLY. A gate result is overwritten
+    by the next run of the same gate; a vacuity verdict is written only when
+    the run proves, and an acceptance artifact only when an approved spec
+    declares criteria. So a reused `--output` whose second run drops the
+    condition keeps the FIRST run's verdict beside a bundle that never made
+    it — and a surviving `sensitive: true` row is one of the two receipts that
+    evidence an acceptance criterion (SPEC_ACCEPT_V0 §3).
+
+    Asserted against the clearing itself for the same reason the digests test
+    is: a run that reaches the writers overwrites them either way, so a full
+    verify would pass with or without the fix.
+    """
+    directory = tmp_path / "fixed"
+    directory.mkdir()
+    (directory / evidence.MANIFEST_FILENAME).write_text("{}", encoding="utf-8")
+    verdict = directory / evidence.VACUITY_FILENAME
+    verdict.write_text(
+        '{"verdict": "proven", "gates": [{"gate_id": "gone", "sensitive": true}]}',
+        encoding="utf-8",
+    )
+    logs = directory / evidence.VACUITY_DIRNAME / "001_gone"
+    logs.mkdir(parents=True)
+    (logs / "stdout.log").write_text("pre-change output\n", encoding="utf-8")
+    accepted = directory / evidence.ACCEPTANCE_FILENAME
+    accepted.write_text('{"criteria": [{"id": "c1", "state": "evidenced"}]}', "utf-8")
+
+    evidence.Bundle.at(directory, now=NOW)
+
+    survivors = [
+        path.name
+        for path in (verdict, accepted, directory / evidence.VACUITY_DIRNAME)
+        if path.exists()
+    ]
+    assert not survivors, (
+        f"last run's {survivors} survived into this run's bundle — a verdict "
+        "about a run that never happened, and one of them can evidence an "
+        "acceptance criterion"
+    )

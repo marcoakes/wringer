@@ -40,11 +40,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from wringer import evidence as evidence_module
 from wringer import spec as spec_module
 from wringer.redact import Redactor
 
 SCHEMA_VERSION = "wringer.acceptance.v1"
-ACCEPTANCE_FILENAME = "acceptance.json"
+# Named in evidence.py with the bundle's other filenames and re-exported here:
+# this module writes it, and that one is the one that has to be able to REMOVE
+# it from a reused `--output` directory.
+ACCEPTANCE_FILENAME = evidence_module.ACCEPTANCE_FILENAME
 SPEC_FILENAME = spec_module.SPEC_FILENAME
 
 # The states an artifact records. The author's SORT is three declarations

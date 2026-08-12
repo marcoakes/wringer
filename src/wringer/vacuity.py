@@ -52,14 +52,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wringer import config, gates
+from wringer import config, evidence, gates
 from wringer.redact import Redactor
 
 SCHEMA_VERSION = "wringer.vacuity.v1"
-VACUITY_FILENAME = "vacuity.json"
+# Named in evidence.py with the bundle's other filenames and re-exported here,
+# because this module is the one that writes them and that one is the one that
+# has to be able to REMOVE them from a reused `--output` directory.
+VACUITY_FILENAME = evidence.VACUITY_FILENAME
 # The pre-change gate logs live here, in the bundle: evidence, not summary.
 # A reader who doubts a `sensitive` row can read both trees' output.
-VACUITY_DIRNAME = "vacuity"
+VACUITY_DIRNAME = evidence.VACUITY_DIRNAME
 
 PROVEN = "proven"
 GATES_VACUOUS = "gates_vacuous"
