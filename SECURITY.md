@@ -218,12 +218,16 @@ leave the machine the worker runs on — and Wringer does not do that for you.
 - **Nothing that proves anything touches a network, and nothing leaves this
   machine without a flag you typed.** `wring verify`, `wring run`,
   `wring resume`, `wring fleet`, `wring plan`, `wring explain`,
-  `wring attest` and `wring audit` make no outbound connections — nothing is
+  `wring attest` (without `--sign`) and `wring audit` (without
+  `--verify-signature`) make no outbound connections — nothing is
   uploaded, phoned home, or telemetered, ever, by design, in every release.
+  Those two flags are the exceptions and each says so at the point of use.
 
-  **Four commands SEND, each behind `--send` you type:** `wring judge`,
-  `wring spec`, `wring deliver` and `wring graph run --send` (or
-  `wring graph resume --send`). Each exists only when your repo declares
+  **Five commands SEND, each behind a flag you type:** `wring judge`,
+  `wring spec`, `wring deliver`, `wring graph run --send` (or
+  `wring graph resume --send`), and `wring attest --sign` — which shells to a
+  keyless signer that reaches Sigstore, holds no key, and refuses outside CI
+  where no OIDC identity is ambient. Each exists only when your repo declares
   the section it needs (`judge:`, `forge:` or `deliver:`), each defaults to
   building the request and sending nothing, and **each writes the exact bytes
   to disk before it opens a socket**, so what left the machine is auditable

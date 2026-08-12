@@ -39,7 +39,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import evidence
+from wringer import evidence, sign
 
 SCHEMA_VERSION = "wringer.attestation.v1"
 ATTESTATIONS_DIRNAME = Path(".wringer") / "attestations"
@@ -676,12 +676,32 @@ def render_summary(payload: dict[str, Any]) -> str:
 
 @dataclass
 class AuditReport:
+    """What an audit found, on THREE axes that are never collapsed.
+
+    A single boolean would have to pick a side on the ordinary local case — an
+    unsigned attestation whose bundles are all intact — and both answers are
+    wrong: `false` makes the normal case look broken, `true` hides that nobody
+    vouched for the document. So `integrity`, `signature` and `identity` are
+    reported separately and each carries its own vocabulary (SPEC_SIGN_V0 §4).
+
+    `ok` survives as the exit-code question, and it means: integrity holds, AND
+    nothing the caller explicitly ASKED about came back bad. Asking is what
+    makes a signature a requirement — `signature_missing` never makes this
+    false, because for local work it is the ordinary case and not a finding.
+    """
+
     ok: bool
     attestation: str
     checked: list[dict[str, Any]] = field(default_factory=list)
     limits: list[str] = field(default_factory=list)
     signature: str | None = None
     problem: str | None = None
+    # `integrity_valid` / `integrity_invalid` — the axis this command has always
+    # measured, now named rather than implied by `ok`.
+    integrity: str = sign.INTEGRITY_VALID
+    identity: str = sign.IDENTITY_UNKNOWN
+    signature_reason: str | None = None
+    signature_limits: list[str] = field(default_factory=list)
 
 
 def root_for(attestation_path: Path) -> Path:
@@ -700,16 +720,33 @@ def root_for(attestation_path: Path) -> Path:
     return resolved.parent
 
 
-def audit(attestation_path: Path) -> AuditReport:
+def audit(
+    attestation_path: Path,
+    signer: str = sign.DEFAULT_SIGNER,
+    expect_identity: str | None = None,
+    verify_signature: bool = False,
+) -> AuditReport:
     """Re-check every claim in an attestation, offline and without config.
 
-    An auditor may not have a `.wringer.yaml` and must not need one: nothing
-    in here reads the config, and nothing in here opens a socket.
+    An auditor may not have a `.wringer.yaml` and must not need one: **nothing
+    in here reads the config**, and that is why the signature parameters are
+    parameters. `provenance.expect_identity` is a delivery policy read where
+    delivery happens; letting it leak in here would mean two auditors holding
+    the same attestation got different answers about it depending on which
+    repository they happened to be standing in, and an audit whose result
+    depends on the auditor's filesystem is not an audit.
+
+    **Offline unless asked.** `verify_signature=False` is the default and keeps
+    the shipped promise literally: integrity is checked by reading files, and a
+    present signature is reported `signature_unverified`. Checking a keyless
+    signature reaches a transparency log and a trust root, so it is an explicit
+    step — the promise is re-worded rather than quietly broken (SPEC_SIGN_V0 §6).
     """
     payload = _read_json(attestation_path)
     if payload.get("schema_version") != SCHEMA_VERSION:
         return AuditReport(
             ok=False,
+            integrity=sign.INTEGRITY_INVALID,
             attestation=str(attestation_path),
             problem=(
                 f"{attestation_path.name} says it is "
@@ -722,6 +759,7 @@ def audit(attestation_path: Path) -> AuditReport:
     if UNSIGNED_LIMIT not in limits:
         return AuditReport(
             ok=False,
+            integrity=sign.INTEGRITY_INVALID,
             attestation=str(attestation_path),
             limits=limits,
             problem=(
@@ -738,6 +776,7 @@ def audit(attestation_path: Path) -> AuditReport:
     if not isinstance(refs, list) or not refs:
         return AuditReport(
             ok=False,
+            integrity=sign.INTEGRITY_INVALID,
             attestation=str(attestation_path),
             limits=limits,
             problem="this attestation names no bundles, so it claims nothing",
@@ -748,7 +787,8 @@ def audit(attestation_path: Path) -> AuditReport:
         bundle = root / named
         if not bundle.is_dir():
             return AuditReport(
-                ok=False, attestation=str(attestation_path), limits=limits,
+                ok=False, integrity=sign.INTEGRITY_INVALID,
+                attestation=str(attestation_path), limits=limits,
                 checked=checked,
                 problem=(
                     f"the {role} bundle `{named}` is not here, so nothing about "
@@ -764,12 +804,14 @@ def audit(attestation_path: Path) -> AuditReport:
                 check_chain(bundle / ledger, role)
         except Refused as exc:
             return AuditReport(
-                ok=False, attestation=str(attestation_path), limits=limits,
+                ok=False, integrity=sign.INTEGRITY_INVALID,
+                attestation=str(attestation_path), limits=limits,
                 checked=checked, problem=str(exc),
             )
         if digest != ref.get("digests_sha256"):
             return AuditReport(
-                ok=False, attestation=str(attestation_path), limits=limits,
+                ok=False, integrity=sign.INTEGRITY_INVALID,
+                attestation=str(attestation_path), limits=limits,
                 checked=checked,
                 problem=(
                     f"the {role} bundle `{named}` has a different "
@@ -783,17 +825,49 @@ def audit(attestation_path: Path) -> AuditReport:
 
     problem = _cross_check(root, payload)
     if problem is not None:
+        # `integrity_invalid`, like every other refusal above. A cross-check
+        # failure means the attestation's own clauses disagree with the bundles
+        # it names, which is exactly what integrity is about — and the console
+        # branches on this axis, so an omission here reports a broken
+        # attestation as verifying. It did, for one commit.
         return AuditReport(
-            ok=False, attestation=str(attestation_path), limits=limits,
+            ok=False, integrity=sign.INTEGRITY_INVALID,
+            attestation=str(attestation_path), limits=limits,
             checked=checked, problem=problem,
         )
 
+    # Integrity holds. Now the two axes a signature can move — assessed AFTER
+    # it, because a signature over a document whose bundles do not re-verify is
+    # a signature over a broken claim, and reporting it first would let a
+    # padlock lead a reader past the finding that matters.
+    assessed = sign.assess(
+        payload=attestation_path,
+        signature=attestation_path.with_name(SIGNATURE_FILENAME),
+        signer_id=signer,
+        expect_identity=expect_identity,
+        verify=verify_signature,
+    )
+    # **`ok` tracks integrity plus whatever the caller ASKED about.** Asking is
+    # what turns a signature into a requirement: an unsigned attestation is
+    # `signature_missing` and still passes, because that is the ordinary case
+    # for local work and a command that failed on it would teach everybody to
+    # stop running it.
+    ok = True
+    if verify_signature and assessed.signature == sign.SIGNATURE_INVALID:
+        ok = False
+    if expect_identity is not None and assessed.identity == sign.IDENTITY_UNTRUSTED:
+        ok = False
     return AuditReport(
-        ok=True,
+        ok=ok,
         attestation=str(attestation_path),
         checked=checked,
         limits=limits,
-        signature=None,
+        signature=assessed.signature,
+        integrity=sign.INTEGRITY_VALID,
+        identity=assessed.identity,
+        signature_reason=assessed.reason,
+        signature_limits=list(sign.LIMITS),
+        problem=None if ok else assessed.reason,
     )
 
 

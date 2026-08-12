@@ -34,6 +34,7 @@ from wringer import (
     loop,
     redact,
     rubric,
+    sign,
     spec,
     start,
     summary,
@@ -533,6 +534,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="emit one JSON object instead of the human report",
     )
+    parser_attest.add_argument(
+        "--sign",
+        action="store_true",
+        # The FIFTH way this program reaches a network, and the flag says so
+        # rather than leaving a reader to discover it. Keyless: nothing is
+        # stored, nothing is a key, and the signer is a program you already
+        # have. CI only, because that is where an OIDC identity is ambient.
+        help="sign the attestation with the keyless signer you declared "
+             "(CI only — needs an ambient OIDC identity; reaches a network "
+             "through that signer, and stores no credential)",
+    )
     parser_attest.set_defaults(func=cmd_attest)
 
     parser_audit = subparsers.add_parser(
@@ -548,6 +560,27 @@ def build_parser() -> argparse.ArgumentParser:
         "--json",
         action="store_true",
         help="emit one JSON object instead of the human report",
+    )
+    parser_audit.add_argument(
+        "--verify-signature",
+        action="store_true",
+        # Not the default, and that is what keeps this command's offline
+        # promise literally true rather than re-worded into meaninglessness.
+        help="also check the signature beside the attestation. NOT offline: "
+             "verifying a keyless signature reaches a transparency log",
+    )
+    parser_audit.add_argument(
+        "--expect-identity",
+        metavar="IDENTITY",
+        help="the signer identity a valid signature must be bound to. A FLAG "
+             "and never read from config, so two auditors holding the same "
+             "attestation get the same answer",
+    )
+    parser_audit.add_argument(
+        "--signer",
+        choices=sorted(config._KNOWN_SIGNERS),
+        default="cosign",
+        help="which signing tool to check with (default: cosign)",
     )
     parser_audit.set_defaults(func=cmd_audit)
 
@@ -3196,8 +3229,35 @@ def _refuse_unverifiable(root: Path, command: str) -> int | None:
     return None
 
 
+def _declared_signer(root: Path) -> str:
+    """Which signer this repo named, or the default.
+
+    Read only when `--sign` was typed, and total by construction: `wring attest`
+    has never needed a config and must not start needing one. A repo with no
+    `provenance:` section that asks to sign gets `cosign`, which is a program
+    name rather than a scheme — Wringer signs nothing itself either way.
+    """
+    from wringer import sign as sign_module
+
+    path = root / config.CONFIG_FILENAME
+    if not path.is_file():
+        return sign_module.DEFAULT_SIGNER
+    try:
+        declared = config.load(path).provenance
+    except config.ConfigError:
+        return sign_module.DEFAULT_SIGNER
+    return declared.signer if declared is not None else sign_module.DEFAULT_SIGNER
+
+
 def cmd_attest(args: argparse.Namespace) -> int:
-    """Assemble the provenance claim. Never opens a socket, never calls an LLM."""
+    """Assemble the provenance claim. Never opens a socket, never calls an LLM.
+
+    `--sign` is the one exception to that sentence and it is not a small one: it
+    shells to a signer which reaches Sigstore. Wringer opens no socket of its own
+    — the `deliver.send` precedent, where a `git push` in a subprocess is not a
+    socket this program opens — but the network is reached, the flag says so, and
+    every count in the documentation calls it the fifth sender.
+    """
     from wringer import attest
 
     root = git.find_root(Path.cwd())
@@ -3231,11 +3291,42 @@ def cmd_attest(args: argparse.Namespace) -> int:
     bundle = attest.Bundle.create(root, built.payload["attestation_id"])
     written = bundle.write(built.payload)
 
+    # AFTER the bytes are on disk, always. Same rule every `--send` in this
+    # program follows: the exact document is written before anything can reach a
+    # network, so a signature is over a file a reader can hold — and an
+    # attestation is never lost because a signer was missing.
+    signed_by: str | None = None
+    if args.sign:
+        from wringer import sign as sign_module
+
+        declared = _declared_signer(root)
+        try:
+            signed_by = sign_module.sign(
+                payload=written,
+                signature=written.with_name(attest.SIGNATURE_FILENAME),
+                signer_id=declared,
+            )
+        except sign_module.SignError as exc:
+            # Exit 2, and the attestation STAYS. It is a valid unsigned
+            # attestation, which is the ordinary artifact this program produces;
+            # deleting it because a signature could not be added would throw
+            # away the thing that was asked for over the thing that was not.
+            _fail("attest", exc)
+            print(
+                f"\nThe attestation itself is written and valid:"
+                f"\n  {_relative(written, root)}"
+                f"\nIt is unsigned, which `wring audit` reports as "
+                f"signature_missing — the ordinary case, not a failure.",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+
     if args.json:
         print(json.dumps({
             "attestation_id": built.payload["attestation_id"],
             "attestation": _relative(written, root),
             "signature": built.payload["signature"],
+            "signed_by": signed_by,
             "limits": built.payload["limits"],
             "bundles": built.payload["bundles"],
             "change": built.payload["change"],
@@ -3259,6 +3350,18 @@ def cmd_attest(args: argparse.Namespace) -> int:
     # nothing failed, and a red mark here would teach people to ignore the
     # one line that says what this artifact is not.
     print(f"\n! {attest.UNSIGNED_LIMIT}")
+    if signed_by is not None:
+        # **The line above stays and this one qualifies it**, rather than the
+        # limit being suppressed. The PAYLOAD is unsigned and its own `limits`
+        # array says so — `audit` refuses an attestation that has had that
+        # sentence removed, so the sentence cannot be conditional. What a
+        # signature adds sits BESIDE the document, and saying both is the only
+        # way to be accurate about either.
+        print(
+            f"  …and signed by {signed_by}, as a sibling: "
+            f"{attest.SIGNATURE_FILENAME}. That names who produced this "
+            f"document — not that the work is any good."
+        )
     print(f"\nWritten to {_relative(bundle.directory, root)}/")
     print(f"Check it yourself:\n  wring audit {_relative(written, root)}")
     return EXIT_OK
@@ -3276,7 +3379,12 @@ def cmd_audit(args: argparse.Namespace) -> int:
         return EXIT_CONFIG
 
     try:
-        report = attest.audit(path)
+        report = attest.audit(
+            path,
+            signer=args.signer,
+            expect_identity=args.expect_identity,
+            verify_signature=args.verify_signature,
+        )
     except attest.AttestError as exc:
         _fail("audit", exc)
         return EXIT_CONFIG
@@ -3287,12 +3395,19 @@ def cmd_audit(args: argparse.Namespace) -> int:
             "attestation": report.attestation,
             "checked": report.checked,
             "problem": report.problem,
+            # THREE axes, never collapsed. A consumer that wants one boolean
+            # has `ok` and is told what it means; a consumer that wants the
+            # truth reads these.
+            "integrity": report.integrity,
             "signature": report.signature,
+            "identity": report.identity,
+            "signature_reason": report.signature_reason,
             "limits": report.limits,
+            "signature_limits": report.signature_limits,
         }))
         return EXIT_OK if report.ok else EXIT_GATE_FAILED
 
-    if not report.ok:
+    if report.integrity == sign.INTEGRITY_INVALID:
         print(f"✗ {path.name} does not verify\n", file=sys.stderr)
         print(f"  {report.problem}", file=sys.stderr)
         return EXIT_GATE_FAILED
@@ -3303,10 +3418,67 @@ def cmd_audit(args: argparse.Namespace) -> int:
         print(f"  {entry['role']:<9} {entry['path']}  ({entry['files']} files)")
     print(f"\n  {len(report.checked)} bundle(s), {files} file(s) — every digest "
           "matches and every ledger chain is intact.")
+    _report_signature(report)
     # Repeated on SUCCESS, deliberately: a passing audit must not read as a
     # stronger claim than it is.
     print(f"\n! {attest.UNSIGNED_LIMIT}")
-    return EXIT_OK
+    if report.signature == sign.SIGNATURE_VALID:
+        # The limit above is about the PAYLOAD, whose own `limits` array carries
+        # that sentence and must — this command refuses an attestation that has
+        # had it removed. A verified sibling signature makes half of it stale, so
+        # the half that changed is said here rather than the whole sentence being
+        # suppressed. "not who produced them" is now answered; the rest stands.
+        print(
+            "  …except that a VERIFIED signature beside it does say who "
+            "produced it. Still not that the work is any good."
+        )
+    return EXIT_OK if report.ok else EXIT_GATE_FAILED
+
+
+# The mark each signature axis gets on the console. `signature_missing` is a
+# `·` and not a `!`: it is the ORDINARY case for local work, and a warning mark
+# beside the normal outcome is how a tool teaches people to ignore its marks.
+_SIGNATURE_MARKS = {
+    sign.SIGNATURE_VALID: "✓",
+    sign.SIGNATURE_INVALID: "✗",
+    sign.SIGNATURE_MISSING: "·",
+    sign.SIGNATURE_UNVERIFIED: "·",
+}
+_IDENTITY_MARKS = {
+    sign.IDENTITY_TRUSTED: "✓",
+    sign.IDENTITY_UNTRUSTED: "✗",
+    sign.IDENTITY_UNKNOWN: "·",
+}
+
+
+def _report_signature(report: object) -> None:
+    """The two signature axes, printed as their own lines and never folded into
+    the integrity verdict above.
+
+    A single line saying "verifies" would have to pick a side on the ordinary
+    case — an unsigned attestation whose bundles are all intact — and both
+    answers mislead: one makes the normal case look broken, the other hides that
+    nobody vouched for the document.
+    """
+    signature = getattr(report, "signature", None)
+    if signature is None:  # pragma: no cover - always set by audit()
+        return
+    identity = getattr(report, "identity", sign.IDENTITY_UNKNOWN)
+    print()
+    print(f"  {_SIGNATURE_MARKS.get(signature, '·')} {signature}")
+    print(f"  {_IDENTITY_MARKS.get(identity, '·')} {identity}")
+    reason = getattr(report, "signature_reason", None)
+    if reason:
+        print(
+            textwrap.fill(
+                str(reason),
+                width=78,
+                initial_indent="    ",
+                subsequent_indent="    ",
+                break_long_words=False,
+                break_on_hyphens=False,
+            )
+        )
 
 
 def cmd_explain(args: argparse.Namespace) -> int:

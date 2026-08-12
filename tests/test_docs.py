@@ -1443,6 +1443,15 @@ _UNDERSTATEMENTS = (
     "Three commands send",
     "three commands send",
     "three that send",
+    # SPEC_SIGN_V0. `wring attest --sign` shells to a keyless signer that
+    # reaches Sigstore, so the senders are five. Wringer still opens no socket
+    # of its own — the `deliver.send` precedent — and that claim is true and is
+    # deliberately not in this list.
+    "Four commands SEND",
+    "Four commands send",
+    "four commands send",
+    "four that send",
+    "four that can send",
     # QUICKSTART said this, and neither of the guards above could see it: it
     # does not use the word "commands", so the discovery regex never listed
     # the file. A phrase can understate the surface without counting anything.
@@ -1496,10 +1505,10 @@ def test_nothing_claims_the_network_surface_is_smaller_than_it_is():
                 continue
             offenders.append(f"{path.name}: {phrase!r}")
     assert not offenders, (
-        "these understate the network surface. FOUR commands SEND behind a "
-        "--send somebody typed (judge, spec, deliver, and graph run/resume "
-        "reaching deliver.send) and three FETCH (get, issue, start --clone) "
-        f"— SPEC_GET_V0 §7: {offenders}"
+        "these understate the network surface. FIVE commands SEND behind a "
+        "flag somebody typed (judge, spec, deliver, graph run/resume reaching "
+        "deliver.send, and attest --sign reaching a keyless signer) and three "
+        f"FETCH (get, issue, start --clone) — SPEC_GET_V0 §7: {offenders}"
     )
 
 

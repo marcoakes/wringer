@@ -41,8 +41,9 @@ MAX_GATE_ID_LENGTH = 64
 
 _TOP_LEVEL_KEYS = {
     "version", "gates", "evidence", "run", "judge", "fleet", "workspace",
-    "forge", "deliver", "bench", "execution",
+    "forge", "deliver", "bench", "execution", "provenance",
 }
+_PROVENANCE_KEYS = {"require_signature", "signer", "expect_identity"}
 _EXECUTION_KEYS = {"backend", "image", "runtime", "network", "env", "user"}
 # Container runtimes whose command line is the Docker CLI's. Declared here as
 # well as in `backend.py` for the same reason every other vendor string is
@@ -50,6 +51,11 @@ _EXECUTION_KEYS = {"backend", "image", "runtime", "network", "env", "user"}
 # and `backend` imports `config`, so the direction of that dependency decides
 # which file holds the literal. `test_backend.py` pins the two together.
 _KNOWN_RUNTIMES = {"docker", "podman", "nerdctl"}
+# Signing tools, declared here for the same reason `_KNOWN_RUNTIMES` is: the
+# parser needs the set before a `sign` object exists, and `sign` imports nothing
+# from here only because it holds no config type. `test_sign.py` pins the two
+# tables together.
+_KNOWN_SIGNERS = {"cosign", "gh"}
 # `execution.user` reaches argv positionally; see `backend.USER_PATTERN`.
 _USER_PATTERN = re.compile(r"\d+(?::\d+)?")
 _BENCH_KEYS = {"contender_wall_clock", "contenders"}
@@ -193,6 +199,30 @@ class Stability:
 
     attempts: int
     require_consistent: bool = True
+
+
+@dataclass(frozen=True)
+class Provenance:
+    """The `provenance:` section — SPEC_SIGN_V0.md §5.
+
+    Absent means every attestation this repo writes is unsigned, which is what
+    every attestation written before this section existed already was, and which
+    `wring audit` reports as `signature_missing` — the ordinary case, not a
+    failure.
+
+    `require_signature` is a **delivery** policy: it says changes leave this
+    repository only from an environment that can sign the record. It is checked
+    where delivery happens rather than where attestation does, because an
+    attestation is written after a delivery and a policy that could only refuse
+    afterwards would refuse nothing.
+    """
+
+    require_signature: bool = False
+    signer: str = "cosign"
+    # WHO to expect, so a verified signature can be held to a workload. Absent
+    # means `identity_unknown` forever — never `trusted`, which would let
+    # "signed by somebody" read as "signed by the right somebody".
+    expect_identity: str | None = None
 
 
 @dataclass(frozen=True)
@@ -461,6 +491,10 @@ class Config:
     # every run did before this section existed — and the bundle still says so
     # out loud, because a reader who is not told assumes the safer answer.
     execution: Execution | None = None
+    # Signing policy (SPEC_SIGN_V0.md). None means unsigned, which every
+    # attestation written before this section was — and which `wring audit`
+    # reports as `signature_missing`, the ordinary case rather than a failure.
+    provenance: Provenance | None = None
 
 
 def load(path: Path) -> Config:
@@ -604,6 +638,51 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
         workspace=workspace.strip() if workspace else None,
         bench=_parse_bench(raw.get("bench"), source),
         execution=_parse_execution(raw.get("execution"), raw.get("fleet"), source),
+        provenance=_parse_provenance(raw.get("provenance"), source),
+    )
+
+
+def _parse_provenance(raw: Any, source: str) -> Provenance | None:
+    """The `provenance:` section, or None when the repo has not opted in."""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: 'provenance' must be a mapping")
+    unknown = sorted(set(raw) - _PROVENANCE_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under 'provenance': {', '.join(unknown)}"
+        )
+
+    require = raw.get("require_signature", False)
+    if not isinstance(require, bool):
+        raise ConfigError(
+            f"{source}: 'provenance.require_signature' must be a boolean"
+        )
+
+    signer = raw.get("signer", "cosign")
+    if signer not in _KNOWN_SIGNERS:
+        raise ConfigError(
+            f"{source}: 'provenance.signer' must be one of "
+            f"{', '.join(sorted(_KNOWN_SIGNERS))} (got {signer!r}). Wringer "
+            "signs nothing itself — it shells to the signer you already have, "
+            "so this names a program rather than a scheme"
+        )
+
+    identity = raw.get("expect_identity")
+    if identity is not None and (
+        not isinstance(identity, str) or not identity.strip()
+    ):
+        raise ConfigError(
+            f"{source}: 'provenance.expect_identity' must be a non-empty "
+            "string — the signer identity a verified signature has to match, "
+            "e.g. a workflow URL"
+        )
+
+    return Provenance(
+        require_signature=require,
+        signer=signer,
+        expect_identity=identity.strip() if identity else None,
     )
 
 

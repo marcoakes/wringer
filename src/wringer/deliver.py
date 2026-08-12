@@ -473,6 +473,48 @@ def _check_not_vacuous(run_dir: Path) -> None:
     )
 
 
+def _check_can_sign(cfg: config.Config) -> None:
+    """Refuse to deliver from an environment that cannot sign the record.
+
+    **The one refusal here that is about the MACHINE rather than the bundle**,
+    and the reason it lands at delivery time rather than at attestation time is
+    the order of operations: an attestation names the branch a delivery created,
+    so it is written AFTER the push. A policy that could only refuse afterwards
+    would refuse nothing — the change would already be on the remote.
+
+    So `provenance.require_signature: true` reads as *changes leave this
+    repository only from somewhere that can sign the record*, and that is
+    checkable before the push: it needs an ambient OIDC identity and a signer
+    binary, neither of which a laptop has.
+
+    **No silent bypass and no flag.** Ruling 1 of SPEC_VACUITY established that
+    flags may tighten and never loosen, and a `--allow-unsigned` would be the
+    counter-example. The escape is to deliver from CI, or to stop requiring it.
+
+    Absent `provenance:`, or `require_signature: false`, returns immediately —
+    every repository that has not opted in delivers exactly as it did before.
+    """
+    policy = cfg.provenance
+    if policy is None or not policy.require_signature:
+        return
+    from wringer import sign
+
+    refusal = sign.can_sign_here(policy.signer)
+    if refusal is None:
+        return
+    raise Refused(
+        "refusing to deliver — this repository declares "
+        "'provenance.require_signature: true', which means changes leave it "
+        "only from an environment that can sign the record. This environment "
+        f"cannot: {refusal}\n\n"
+        "The attestation is written after the push, so this is checked here "
+        "rather than later — a policy that could only refuse afterwards would "
+        "refuse nothing. There is deliberately no flag to wave it through: "
+        "deliver from CI, or stop requiring a signature.",
+        1,
+    )
+
+
 def _check_acceptance(run_dir: Path) -> None:
     """Refuse a bundle whose spec is not satisfied (SPEC_ACCEPT_V0 §5).
 
@@ -612,6 +654,11 @@ def plan(
     # refuse (ruling 9), so a repo that has declared criteria without binding
     # them is loud in the artifact and delivers exactly as before.
     _check_acceptance(run_dir)
+    # And once more for the signing policy, which is a statement about the
+    # ENVIRONMENT rather than about the bundle: a repo that declared
+    # `provenance.require_signature: true` ships only from somewhere that can
+    # sign the record.
+    _check_can_sign(cfg)
 
     state = git.inspect(root)
     check_verified_tree(root, run_dir, state, redactor)

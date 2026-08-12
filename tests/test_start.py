@@ -345,6 +345,13 @@ ALLOWED_PACKAGE_MANAGER_MENTIONS = {
     # doctor's fix line, and further from an invocation than either, since
     # nothing in Wringer ever reads that comment back.
     "detect.py": ["pip install"],
+    # The signer table (SPEC_SIGN_V0). Exactly `agents.py`'s standing and for
+    # exactly its reason: Wringer signs nothing itself, it shells to a signer
+    # the user already has, and the install line is what a refusal tells them
+    # to run. It is never an argv — `sign_argv` and `verify_argv` are the only
+    # command lines this module builds, and a test asserts neither carries a
+    # `--key`.
+    "sign.py": ["brew install"],
 }
 
 

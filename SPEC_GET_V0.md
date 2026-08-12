@@ -172,9 +172,11 @@ kept**. The rule that actually matters, and that holds:
 > machine without a flag a human typed.**
 
 `verify`, `run`, `resume`, `fleet` and `plan` cannot reach a network at all.
-Four commands SEND, each behind `--send` and each writing the exact bytes to
-disk first: `judge`, `spec`, `deliver`, and `wring graph run --send` (or
-`resume --send`), which reaches one only through `deliver.send`.
+Five commands SEND, each behind a flag and each writing the exact bytes to
+disk first: `judge`, `spec`, `deliver`, `wring graph run --send` (or
+`resume --send`), which reaches one only through `deliver.send`, and
+`wring attest --sign`, added by SPEC_SIGN_V0 — a keyless signer in a
+subprocess, CI-only, holding no key.
 **Three commands FETCH**, and are not
 behind a flag because fetching is their entire purpose — `wring get` clones a
 repository, `wring issue` reads one issue, and `wring start --clone` clones
