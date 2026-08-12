@@ -151,6 +151,32 @@ work, unrun.
 **Do not read an ordinary container as VM-strength isolation.** It is not,
 and no configuration in this repository makes it so.
 
+## Who may do what — the authority model
+
+*Added 2026-08-11 (programme §16). Every row states what ENFORCES it, and
+the classification is the programme's own vocabulary: `prevented` means the
+thing cannot be done, `detected` means it can be done and will be found.
+**Never `prevented` where Wringer merely records evidence afterwards.***
+
+| authority | who holds it | what enforces it | class |
+|---|---|---|---|
+| produce a change | the worker | — | by design |
+| approve a specification | a human, by editing the file | `approved: false` is written as a CONSTANT; a reply carrying an `approved` key is refused outright. There is no `--yes` | **prevented** |
+| answer an open question | a human | a reply that answers its own open question is refused, whole | **prevented** |
+| install a gate or a criterion binding | a human, by applying a diff | `wring plan` prints the diff and stops; nothing in the program applies it | **prevented** |
+| call a criterion `evidenced` | nobody — it is derived | the bound gate must pass now, the record must show it can fail, and (2026-08-11) the gate must pre-date the change it judges | derived |
+| authorise delivery | a human, per invocation | `--send` is typed on the command line; no file may carry it, and a graph file that tries is a named error | **prevented** |
+| write git history | `deliver.py`, and only there | five refusals, each with a test that fails without it: only on `--send`, only onto a branch it created, never the default branch, never a force push, ledger event before each write | **prevented** |
+| **rewrite evidence already on disk** | **a worker can** | nothing stops it — a worker has the filesystem access its own tooling gives it, measured 2026-08-11. `digests.json`, the `prev_hash` ledger chain and `wring audit` make it **findable** | **detected, NOT prevented** |
+| sign an attestation | nobody | attestations are unsigned by ruling; `attestation.json.sig` is reserved and unused | not offered |
+
+**The row that matters is the one in bold.** Wringer's evidence is
+tamper-EVIDENT, not tamper-PROOF. A worker that can write files can edit a
+bundle written an hour ago; what it cannot do is make the edit undetectable,
+because the digests and the ledger chain are checked by a reader who was not
+there. If you need prevention rather than detection, the evidence has to
+leave the machine the worker runs on — and Wringer does not do that for you.
+
 ## What Wringer never does
 
 - **Nothing that proves anything touches a network, and nothing leaves this
