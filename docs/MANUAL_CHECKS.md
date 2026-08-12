@@ -271,6 +271,32 @@ Per entry in `agents.AGENTS`, on a machine with a network:
 | `claude-code` | `@zed-industries/claude-code-acp` | **Deprecated and renamed** → `@agentclientprotocol/claude-agent-acp`, binary `claude-agent-acp`; table corrected | 2026-08-11 | this commit |
 | `gemini` | `@google/gemini-cli` | **never checked** | — | — |
 
+## Sequence G — the container path, attacked
+
+**Status: never run by anyone.** No container runtime exists on the
+maintainer's machine, so this is structurally unrunnable there, exactly like
+sequence A.
+
+`SECURITY.md` says the container path is *designed to* isolate and explicitly
+declines to say it is *demonstrated to*. This sequence is what would change
+that sentence. Run each attempt from a worker INSIDE the container, against a
+host that really holds the thing being reached for.
+
+- [ ] `ls ~/.ssh` → must not reveal host keys.
+- [ ] `env | grep -Ei 'aws|github|token|secret'` → must be empty beyond what
+      the run explicitly declared.
+- [ ] `cat /var/run/docker.sock` → must not exist. A reachable Docker socket
+      is host root, and finding one makes every other line here moot.
+- [ ] `git config --global --list` → must not reveal host credentials.
+- [ ] Read a file outside the declared mount → must fail.
+- [ ] Open an outbound connection → record whether it succeeds. Network is
+      NOT currently claimed to be off; the point is to record which it is.
+- [ ] **Record it**, including every attempt that SUCCEEDED. An attack that
+      works is the finding; a checklist with only passes is a advert.
+
+Classify each as `prevented`, `detected`, `mitigated` or `out_of_scope`, and
+never write `prevented` where Wringer merely records evidence afterwards.
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.

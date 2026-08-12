@@ -93,6 +93,64 @@ and binary file contents never enter `diff.patch` — not even when the
 repository's own `.gitattributes` defines a `textconv` driver that would
 turn them into text.
 
+## The execution boundary, stated precisely
+
+*Added 2026-08-11 after the first real agent runs. Every claim here was
+measured on this machine, and the ones that are **not** claims are marked as
+loudly as the ones that are.*
+
+**Local execution is `trusted_local`. It is not a sandbox, and this document
+will not call it one.** A worker runs on your machine with your user's
+reach. What follows is exactly what that does and does not bound.
+
+### What IS bounded, and is tested
+
+**An ACP agent gets a named environment, not your shell.** `acp.run_turn`
+builds the child's environment from nothing: `PATH`, `HOME`, `LANG`, plus the
+variables `run.worker.acp.env_passthrough` names. A cloud credential, a forge
+token or an SSH agent socket sitting in your environment is **not** handed to
+the agent unless a human wrote its name in `.wringer.yaml`.
+
+`test_the_agent_gets_a_minimal_environment` proves it by making the agent
+report the variable names it received. That test was previously vacuous —
+it passed while the agent was handed `dict(os.environ)` — which is worth
+knowing when weighing how much any untested claim here is worth.
+
+**Paths Wringer serves are confined to the repository.** `fs/write_text_file`
+and `fs/read_text_file` resolve inside the root or are refused, symlinks
+included.
+
+### What is NOT bounded, measured rather than assumed
+
+**An ACP agent's own filesystem access is unrestricted.** Measured
+2026-08-11: a real agent edited the repository through its own tools and
+called `fs/write_text_file` **zero times**, so the confinement above never
+executed. It cannot execute against any agent that can open a file itself,
+which is every agent worth running. **Any file your user can read, the agent
+can read** — including `~/.ssh`, `~/.aws` and a Docker socket.
+
+**A shell worker inherits your whole environment**, exactly as a `Makefile`
+target does. `.wringer.yaml` is arbitrary code by design, and that is the
+same statement in a different place.
+
+**Network access is not restricted** in local execution.
+
+### What is claimed for the container path, and what is untested
+
+The published image (`SETUP.md`) runs Wringer with an explicit repository
+mount. That is a real boundary and it is the one to use for untrusted
+repositories.
+
+**It has never been adversarially tested, and this document will not imply
+otherwise.** Nobody has yet attempted, from inside it, to read host SSH
+keys, cloud credentials, or a Docker socket. Until somebody does and records
+the result, treat the container path as *"designed to isolate"* rather than
+*"demonstrated to isolate"* — `docs/MANUAL_CHECKS.md` sequence G is that
+work, unrun.
+
+**Do not read an ordinary container as VM-strength isolation.** It is not,
+and no configuration in this repository makes it so.
+
 ## What Wringer never does
 
 - **Nothing that proves anything touches a network, and nothing leaves this
