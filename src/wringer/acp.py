@@ -185,7 +185,7 @@ class Connection:
         self._write(
             {"jsonrpc": "2.0", "id": request_id, "method": method, "params": params}
         )
-        return self._await(request_id, capped=capped)
+        return self._await(request_id, method, capped=capped)
 
     def respond(self, request_id: Any, result: dict) -> None:
         self._write({"jsonrpc": "2.0", "id": request_id, "result": result})
@@ -242,7 +242,8 @@ class Connection:
         if failure:
             raise AcpError(f"the agent stopped listening: {failure[0]}")
 
-    def _await(self, request_id: int, capped: bool = True) -> dict:
+    def _await(self, request_id: int, method: str = "a request",
+               capped: bool = True) -> dict:
         """Wait for one response, serving the agent's own requests meanwhile.
 
         A capped request is bounded by whichever comes first: this request's
@@ -268,7 +269,14 @@ class Connection:
                 self._serve(message)
             if found is not None:
                 if "error" in found:
-                    raise AcpError(f"{found['error'].get('message', 'agent error')}")
+                    # The METHOD is carried, not just the message. Without
+                    # it a rejection reads only `Invalid params`, and
+                    # diagnosing the first real-agent failure meant reading
+                    # someone else's schema to work out which call it was
+                    # (docs/first-contact.md). The agent names what is
+                    # wrong; only Wringer knows what it asked.
+                    said = found["error"].get("message", "agent error")
+                    raise AcpError(f"{method} was refused: {said}")
                 return found.get("result", {})
             if self._done.is_set() and self._proc.poll() is not None:
                 # ONE LAST DRAIN before giving up, and it is load-bearing.
@@ -280,12 +288,16 @@ class Connection:
                 # it is a race that shows up on a loaded machine and never on
                 # a fast one.
                 self.drain()
-                raise AcpError("the agent exited before replying")
+                raise AcpError(
+                    f"the agent exited before replying to {method}"
+                )
             time.sleep(0.01)
         # Same reason on the deadline path: an agent that ran out of time
         # usually said why first.
         self.drain()
-        raise AcpError("the agent did not reply before the turn's deadline")
+        raise AcpError(
+            f"the agent did not reply to {method} before the turn's deadline"
+        )
 
     # Set by the session so inbound requests can be served with context.
     handler: Any = None

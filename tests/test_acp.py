@@ -423,7 +423,11 @@ def test_a_refused_session_is_a_failed_turn_and_not_a_crash(
     capsys.readouterr()
 
     finished = next(e for e in events(repo) if e["type"] == "worker.finished")
-    assert finished["acp_error"] == "Invalid params"
+    # The METHOD is named, not just the agent's complaint. Diagnosing the
+    # first real-agent refusal meant reading someone else's schema to work
+    # out which of three calls `Invalid params` referred to; the agent says
+    # what is wrong and only Wringer knows what it asked.
+    assert finished["acp_error"] == "session/new was refused: Invalid params"
     assert result(repo)["status"] == "stopped"
     assert (repo / "calc.py").read_text(encoding="utf-8") == "BROKEN\n"
 
