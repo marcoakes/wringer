@@ -444,25 +444,90 @@ def test_a_garbage_line_does_not_derail_the_session(repo, monkeypatch, capsys):
 
 
 def test_the_agent_gets_a_minimal_environment(repo, monkeypatch, capsys):
-    """Anything not named in env_passthrough is withheld: an agent gets what
-    it needs, not the operator's whole shell."""
+    """Anything not named in `env_passthrough` is WITHHELD from the agent.
+
+    This test used to be vacuous, and it guarded a security property while
+    being so. It set a secret variable, ran the loop, and then asserted that
+    an unrelated freshly-parsed config had an empty `env_passthrough` — an
+    assertion with no connection to the run. Measured 2026-08-11: replacing
+    `acp.run_turn`'s allowlist with `dict(os.environ)`, so the agent was
+    handed every credential on the machine, left it PASSING.
+
+    So the agent now reports the variable NAMES it was given and the test
+    reads them. Names rather than values, deliberately: the question is which
+    variables crossed the boundary, and printing their contents would write
+    the credentials under test into a log.
+    """
     monkeypatch.setenv("WRINGER_TEST_SECRET_VAR", "should-not-be-visible")
-    setup(repo, "fix")
+    monkeypatch.setenv("WRINGER_TEST_CREDENTIAL", "named-so-allowed")
+    setup(
+        repo,
+        "env",
+        env_passthrough="      env_passthrough: [WRINGER_TEST_CREDENTIAL]\n",
+    )
     monkeypatch.chdir(repo)
 
     assert cli.main(["run"]) == cli.EXIT_OK
     capsys.readouterr()
 
-    # the fake agent inherits nothing it was not given; PATH and HOME are
-    # passed because a subprocess without them cannot run at all
-    passed = config.parse(
-        {
-            "version": 1,
-            "gates": [{"id": "t", "run": "true"}],
-            "run": {"worker": {"acp": {"command": "x"}}},
-        }
-    ).run.worker
-    assert passed.env_passthrough == ()
+    log = (
+        only_loop(repo) / loop.ITERATIONS_DIRNAME / "001" / "worker.stdout.log"
+    ).read_text(encoding="utf-8")
+    reported = next(
+        line for line in log.splitlines() if "env: " in line
+    ).split("env: ", 1)[1]
+    seen = set(reported.replace('"}', "").split())
+
+    # The claim, tested at last.
+    assert "WRINGER_TEST_SECRET_VAR" not in seen, (
+        "the agent was handed a variable no config named"
+    )
+    # And the other half, or the test would also pass on an empty environment.
+    assert "WRINGER_TEST_CREDENTIAL" in seen, (
+        "a NAMED passthrough did not reach the agent"
+    )
+    # What every process needs to run at all, and nothing more.
+    assert {"PATH", "HOME"} <= seen
+    assert "AWS_SECRET_ACCESS_KEY" not in seen and "GITHUB_TOKEN" not in seen
+
+
+def test_a_shell_worker_inherits_the_whole_environment_by_design(
+    repo, monkeypatch, capsys
+):
+    """The other half of the boundary, asserted so nobody mistakes it.
+
+    `.wringer.yaml` is arbitrary code by design (SECURITY.md), so a SHELL
+    worker runs with the operator's environment exactly as any Makefile
+    target would. That is not a hole and it is not something the ACP
+    allowlist implies has been closed — the two worker forms have genuinely
+    different boundaries, and a reader who saw only the test above would
+    reasonably assume otherwise.
+
+    Written as a test rather than a comment because a boundary nobody
+    exercises is a boundary nobody notices moving.
+    """
+    monkeypatch.setenv("WRINGER_TEST_SECRET_VAR", "visible-to-a-shell-worker")
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        """\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED calc.py"
+run:
+  worker: "printenv WRINGER_TEST_SECRET_VAR > seen.txt; echo FIXED > calc.py"
+  max_iterations: 3
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert (repo / "seen.txt").read_text(encoding="utf-8").strip() == (
+        "visible-to-a-shell-worker"
+    ), "a shell worker's inheritance is by design; if this changed, say so"
 
 
 # --- config ---------------------------------------------------------------

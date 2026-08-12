@@ -16,6 +16,8 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
     hang       accept the prompt and never answer
+    env        report the NAMES of every variable it can see, then fix — the
+               only way a test can assert what the agent was and was not given
     mute       read stdin and never answer ANYTHING, including `initialize` —
                a handshake that does not complete, which is what the
                control-plane ceiling exists for
@@ -235,6 +237,12 @@ def main() -> int:
                         return 0
             notify(session_id, f"working ({BEHAVIOUR})")
 
+            if BEHAVIOUR == "env":
+                # NAMES only, never values. The point is which variables
+                # crossed the boundary; printing their contents would put the
+                # very credentials under test into a log.
+                notify(session_id, "env: " + " ".join(sorted(os.environ)))
+
             if BEHAVIOUR == "slow":
                 # Working, not hung: the client is holding an open prompt
                 # request the whole time, which is exactly the wait a real
@@ -298,7 +306,7 @@ def main() -> int:
                 })
 
             if BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy",
-                             "slow", "usage", "usageleak"):
+                             "slow", "env", "usage", "usageleak"):
                 outbound += 1
                 request(outbound, "fs/write_text_file", {
                     "sessionId": session_id,
