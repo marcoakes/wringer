@@ -130,6 +130,9 @@ LIMITS = (
     "EVIDENCE. Exit 2 or 3 is a config or precondition problem and is VOID, "
     "because a constant refuser would otherwise score perfect precision on an "
     "accident of the machine.",
+    "A Wringer CRASH is VOID and never a refusal. An unhandled exception also "
+    "exits 1, so exit code alone cannot tell a verdict from a bug — and scoring "
+    "a bug as a refusal enters a data point Wringer never earned.",
 )
 
 
@@ -659,6 +662,26 @@ def run_under_wringer(
     if delivered.returncode == WRINGER_OK:
         return True, "wring deliver would deliver this (dry run, exit 0)"
     if delivered.returncode == WRINGER_EVIDENCE:
+        # **A CRASH IS NOT A REFUSAL**, and exit 1 alone cannot tell them apart:
+        # an unhandled Python exception also exits 1. The first real agent run
+        # recorded `false_refusal` for a `UnicodeDecodeError` in `git.py` — a
+        # refusal Wringer never made, entered as a data point against it.
+        #
+        # Sniffing for a traceback is text-matching, which this harness refuses
+        # to do to a GATE's output. It is different here: this is Wringer's own
+        # crash signature, in a tool we own, and the alternative is silently
+        # scoring bugs as verdicts.
+        if "Traceback (most recent call last)" in (delivered.stderr or ""):
+            last = [
+                line for line in (delivered.stderr or "").strip().splitlines()
+                if line.strip()
+            ]
+            return None, (
+                "`wring deliver` CRASHED rather than deciding — "
+                f"{last[-1] if last else 'unknown exception'}. That is a defect "
+                "in Wringer, not a verdict about the change, so this arm "
+                "measured nothing"
+            )
         # The measurement. Wringer looked at the evidence and said no.
         return False, f"wring deliver refused on the evidence: {detail}"
     if ran.returncode in (WRINGER_CONFIG, WRINGER_PRECONDITION):
@@ -802,7 +825,10 @@ def main(argv: list[str] | None = None) -> int:
     wanted = {
         "a": [ARM_NATIVE], "b": [ARM_WRINGER], "both": list(ARMS),
     }[args.arm]
-    out = Path(args.out)
+    # RESOLVED, because ACP refuses a relative `cwd`: `session/new` returned
+    # "Invalid params: `cwd` must be an absolute path" and arm A recorded VOID on
+    # the first real agent run. Every path derived from `--out` inherits this.
+    out = Path(args.out).resolve()
 
     rows: list[Row] = []
     for arm in wanted:

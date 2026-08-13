@@ -19,6 +19,13 @@ __pycache__/
 *.sqlite
 *.sqlite-journal
 
+# benchmark arms — a real agent run writes git worktrees and megabytes of
+# agent logs in here. The record of a run is its capture document
+# (docs/benchmark-first-run.md); the tree is not committable anyway, because
+# the worktrees' .git files are absolute paths into one machine.
+/benchmark/results/
+/results/
+
 # env & secrets
 .env
 .env.*

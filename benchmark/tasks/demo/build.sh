@@ -44,7 +44,16 @@
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 VARIANT=${1:-narrow}
+# ABSOLUTE before anything `cd`s. A relative DEST resolved against the new cwd
+# after `cd "$REPO"` below, so `build.sh agent benchmark/tasks/demo` planted the
+# bare origin INSIDE the repo — where its zlib objects became untracked non-UTF-8
+# files, and the first real agent run then crashed `wring deliver` on them.
+# Earlier callers all passed absolute paths, which is why nothing caught it.
 DEST=${2:-$HERE}
+case "$DEST" in
+    /*) ;;
+    *) DEST="$(pwd)/$DEST" ;;
+esac
 PYTHON=${3:-python3}
 REPO="$DEST/repo-$VARIANT"
 rm -rf "$REPO"
@@ -139,7 +148,9 @@ deliver:
 CONFIG
 fi
 
-printf '.wringer/\n' > .gitignore
+# `__pycache__/` too: pytest creates it when the gate runs, and an untracked
+# binary tree inside a repo being delivered is noise at best.
+printf '.wringer/\n__pycache__/\n' > .gitignore
 git add -A
 git commit -qm "a calculator with a planted bug"
 

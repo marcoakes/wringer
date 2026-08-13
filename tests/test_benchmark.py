@@ -605,3 +605,46 @@ def test_presence_is_checked_without_asking_for_the_value():
 
     assert "-w" not in harness.keychain_argv(agent, reveal=False)
     assert "-w" in harness.keychain_argv(agent, reveal=True)
+
+
+def test_a_wringer_crash_is_void_and_never_a_refusal(tmp_path: Path, monkeypatch):
+    """**A crash is not a verdict, and exit 1 alone cannot tell them apart.**
+
+    An unhandled Python exception exits 1 exactly as a failed gate does. The
+    first real agent run recorded `false_refusal` for a `UnicodeDecodeError` in
+    `git.py` — a refusal Wringer never made, entered as a data point against it.
+
+    Sniffing for a traceback is text-matching, which this harness refuses to do
+    to a GATE's output. It is different here: this is Wringer's own crash
+    signature in a tool we own, and the alternative is scoring bugs as verdicts.
+    """
+    repo = build_demo("covering", tmp_path)
+    out = tmp_path / "out"
+    task = harness.load_task(task_file("covering", repo, tmp_path))
+
+    real = harness.subprocess.run
+
+    def crash(argv, **kw):
+        done = real(argv, **kw)
+        if "deliver" in argv:
+            done.returncode = 1
+            done.stderr = (
+                "Traceback (most recent call last):\n"
+                '  File "src/wringer/git.py", line 47, in decode\n'
+                "UnicodeDecodeError: 'utf-8' codec can't decode byte 0xe9\n"
+            )
+        return done
+
+    monkeypatch.setattr(harness.subprocess, "run", crash)
+    workdir = out / task.id / harness.ARM_WRINGER
+    workdir.mkdir(parents=True)
+    claimed, reason = harness.run_under_wringer(task, repo, workdir)
+
+    assert claimed is None, "a crash was scored as a claim"
+    assert "CRASHED rather than deciding" in reason
+    assert "not a verdict about the change" in reason
+
+
+def test_the_limits_say_a_crash_is_not_a_refusal():
+    joined = " ".join(harness.LIMITS)
+    assert "A Wringer CRASH is VOID and never a refusal" in joined
