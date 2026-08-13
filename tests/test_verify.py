@@ -775,51 +775,68 @@ gates:
 
 
 
-def test_the_gate_runner_stays_serial_until_a_spec_says_otherwise():
-    """The parallel-gates fence, enforced rather than written down.
+def test_gates_are_serial_unless_a_repo_declared_otherwise():
+    """The parallel-gates fence, MOVED rather than removed.
 
-    Running gates concurrently is the speedup everyone asks for first, and it
-    is the one that cannot be taken quietly: `duration_ms` is not private to a
-    run. `wring health` compares it across the window and flags drift past 2×
-    (`health._median`, oldest-five vs newest-five). Run two gates at once on a
-    laptop and every gate's wall-clock inflates by an amount nobody recorded,
-    so a repo that turned this on would read as drifting everywhere at once —
-    and the honest reading of that report is that the INSTRUMENT moved, not
-    the gates.
+    It used to forbid `concurrent` from being imported at all, and its own name
+    said "until a spec says otherwise". SPEC_PERF_V0 says otherwise, so the fence
+    now guards what the old one was protecting — which was never the import.
 
-    That is the same argument SPEC_BENCH_V0 ruling 2 already makes for
-    contenders ("concurrency would corrupt the very numbers the command exists
-    to report"), reaching one module further than bench. So it is a spec
-    question — `~/Claude/WRINGER_SPEED_PLAN.md` §4 R1–R4, undecided — and this
-    test is the fence, because a plan file is exactly the kind of fence a
-    later window walks past without noticing.
+    **What it was protecting: `duration_ms` is not private to a run.** `wring
+    health` compares it across the window and flags drift past 2x
+    (`health._median`, oldest-five against newest-five). Run two gates at once
+    and every gate's wall clock inflates by an amount nobody recorded, so a repo
+    that turned this on would read as drifting everywhere at once — and the
+    honest reading of that report is that the INSTRUMENT moved, not the gates.
+    That is the same argument SPEC_BENCH_V0 ruling 2 makes for contenders,
+    reaching one module further.
 
-    `vacuity.py` is deliberately NOT covered: the prove pass runs the same
-    gates on a throwaway pre-change tree where no published number compares
-    those durations to anything, and it is parallel on purpose (measured
-    3.95x). The fence is around the numbers a bundle publishes, not around
-    concurrency as such.
+    That is SPEED_PLAN §4 R1, and its FIRST option is what shipped: record the
+    duration, record that the gate ran concurrently, and have health exclude
+    those rows from the comparison rather than compare two different quantities.
+    R2 is answered by finishing the group before deciding the stop (the loop's own
+    precedent), R3 by a per-gate declaration rather than a job count, and R4 by
+    leaving pass/fail untouched — SPEC_PERF_V0 §6 states all four.
+
+    Three properties, each asserted rather than described:
+
+    1. the DEFAULT is serial — a config that declares nothing gets one group per
+       gate, and a group of one builds no pool;
+    2. concurrency is a per-gate DECLARATION and only groups CONSECUTIVE gates,
+       because declared order is a contract and two gates share one working tree;
+    3. a contended duration is recorded AND excluded from drift, with the
+       exclusion counted rather than silent.
+
+    Do not delete this test to pass it. If concurrency changes again, change what
+    it guards and say here why.
     """
-    import ast
-
-    from wringer import gates as gates_module
+    from wringer import config as config_module
+    from wringer import health as health_module
     from wringer import verify as verify_module
 
-    for module in (verify_module, gates_module):
-        source = Path(module.__file__).read_text(encoding="utf-8")
-        imported: set[str] = set()
-        for node in ast.walk(ast.parse(source)):
-            if isinstance(node, ast.Import):
-                imported.update(a.name.split(".")[0] for a in node.names)
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                imported.add(node.module.split(".")[0])
+    plain = [
+        (1, config_module.Gate(id="a", run="true")),
+        (2, config_module.Gate(id="b", run="true")),
+    ]
+    assert verify_module.group_gates(plain) == [[plain[0]], [plain[1]]]
 
-        for forbidden in ("threading", "multiprocessing", "concurrent", "asyncio"):
-            assert forbidden not in imported, (
-                f"{forbidden} reached wringer/{Path(module.__file__).name} — "
-                "gates run one at a time until a spec decides what "
-                "`duration_ms` means under concurrency (WRINGER_SPEED_PLAN "
-                "§4 R1). Health flags 2x duration drift off that number, so "
-                "parallel gates and health's drift facts cannot both keep "
-                "their current meaning. Do not delete this test to pass it."
-            )
+    declared = [
+        (1, config_module.Gate(id="a", run="true", concurrent=True)),
+        (2, config_module.Gate(id="b", run="true", concurrent=True)),
+        (3, config_module.Gate(id="c", run="true")),
+        (4, config_module.Gate(id="d", run="true", concurrent=True)),
+    ]
+    assert [
+        [gate.id for _, gate in group]
+        for group in verify_module.group_gates(declared)
+    ] == [["a", "b"], ["c"], ["d"]]
+
+    window = tuple(
+        health_module.GateRun(
+            gate_id="a", command="true", status="passed", timed_out=False,
+            optional=False, duration_ms=10, truncated=False, receipt=f"r{n}",
+            started_at="", bench_sourced=False, concurrent=n >= 10,
+        )
+        for n in range(12)
+    )
+    assert health_module._drift(window).contended == 2

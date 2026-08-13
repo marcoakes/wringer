@@ -124,7 +124,7 @@ _GATE_KEYS = {"id", "run", "timeout", "optional", "required"}
 # `spec.schema.json` is frozen with `additionalProperties: false`, so a
 # drafted gate carrying it would render a `wringer.spec.yaml` that fails its
 # own published schema.
-_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves", "stability"}
+_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves", "stability", "concurrent"}
 _STABILITY_KEYS = {"attempts", "require_consistent"}
 
 # The most attempts one gate may declare. A ceiling rather than a taste:
@@ -280,6 +280,12 @@ class Gate:
     # (SPEC_STABILITY_V0). None is every gate that exists today — one attempt,
     # no `attempts/` directory, no `stability.json`, a byte-identical bundle.
     stability: Stability | None = None
+    # Whether this gate may run BESIDE its concurrent neighbours
+    # (SPEC_PERF_V0 §2). False is every gate that shipped, and the default is
+    # not caution for its own sake: two gates share one working tree, and
+    # Wringer cannot know whether they interfere. Only the repository knows,
+    # so only the repository may say.
+    concurrent: bool = False
 
 
 @dataclass(frozen=True)
@@ -1677,6 +1683,10 @@ def parse_gate(
                 "criterion could never fire for this one"
             )
 
+    concurrent = raw.get("concurrent", False)
+    if not isinstance(concurrent, bool):
+        raise ConfigError(f"{where} ('{gate_id}'): 'concurrent' must be a boolean")
+
     stability = _parse_stability(raw.get("stability"), where, gate_id)
     if (
         stability is not None
@@ -1705,6 +1715,7 @@ def parse_gate(
         optional=optional,
         proves=proves,
         stability=stability,
+        concurrent=concurrent,
     )
 
 

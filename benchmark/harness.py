@@ -226,12 +226,19 @@ def load_task(path: Path) -> Task:
         if not isinstance(budget.get(key), int) or budget[key] < 1:
             raise TaskError(f"{path}: 'budget.{key}' must be a positive integer")
 
+    # `{python}` in a held-out command resolves to the interpreter running this
+    # harness. Same reason the demo's gate takes one: a bare `python3` is whatever
+    # PATH resolves to, and a scoring command that cannot import pytest scores the
+    # environment rather than the change. A fresh-clone repro found this by
+    # resolving `python3` to Xcode's.
+    held_out_command = str(held_out["run"]).replace("{python}", sys.executable)
+
     base = path.parent
     return Task(
         id=str(raw["id"]),
         repo=(base / str(raw["repo"])).resolve(),
         statement=str(raw["statement"]),
-        held_out_run=str(held_out["run"]),
+        held_out_run=held_out_command,
         held_out_files=tuple((base / str(name)).resolve() for name in files),
         worker=str(raw["worker"]),
         wall_clock=int(budget["wall_clock"]),

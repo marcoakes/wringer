@@ -209,6 +209,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="write the bundle here instead of a new .wringer/runs/<run_id>/",
     )
     parser_verify.add_argument(
+        "--serial",
+        action="store_true",
+        # **Tightens only, and there is deliberately no `--jobs N`.** The
+        # flags-may-tighten-never-loosen rule (SPEC_VACUITY ruling 1) means a
+        # concurrency flag may lower the count and never raise it — so the only
+        # honest form is "run everything one at a time", which is what this is.
+        # A `--jobs 4` would let an operator overlap gates the repository never
+        # declared safe to overlap, from outside the file that knows.
+        help="run every gate one at a time, ignoring any 'concurrent: true' a "
+             "gate declared. Tightens; there is no flag that widens",
+    )
+    parser_verify.add_argument(
         "--prove",
         action="store_true",
         help=(
@@ -1632,6 +1644,9 @@ def cmd_verify(args: argparse.Namespace) -> int:
             # The flag TIGHTENS; `run.prove: true` in the config is read
             # inside `verify.wants_prove` and nothing here can turn it off.
             prove=args.prove,
+            # Also tightens: it can only collapse a declared group, never build
+            # one the config did not declare.
+            serial=args.serial,
         )
     except (evidence.EvidenceError, backend.BackendError) as exc:
         # A declared backend that cannot run here is a config error and exits

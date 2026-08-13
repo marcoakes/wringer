@@ -37,7 +37,10 @@ held_out:
   # Copied in only for scoring, into a third tree, after the arm has finished.
   files:
     - held_out_demo.py
-  run: "python3 -m pytest held_out_demo.py -q"
+  # `{python}` is the interpreter running the harness. A bare `python3`
+  # is whatever PATH resolves to, and one without pytest scores the
+  # environment rather than the change.
+  run: "{python} -m pytest held_out_demo.py -q"
 
 # The SAME command for both arms — the treatment is what it is told, not which
 # program runs. `{brief}` is substituted with the statement in arm A and by

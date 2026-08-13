@@ -112,21 +112,34 @@ def test_json_reports_the_interruption_too(
     assert payload["failed_gate"] is None
 
 
-# **These ceilings measure the MACHINE, not the code**, so they are generous
-# rather than tight. Each one bounds "did Wringer stop when signalled" — a
-# broken implementation still fails, because it never stops at all and the
-# ceiling is reached however large it is. A tight ceiling only adds a second
-# failure mode: a loaded machine.
+# A process whose SIGINT is SIG_IGN cannot be interrupted, and neither can its
+# children — dispositions are inherited across fork and exec. So these two tests
+# CANNOT pass in a background or `nohup`'d job, and the failure they produce is
+# about the invocation rather than about the code.
 #
-# Both were 20s/30s, chosen on a quiet machine, and both timed out in a fresh
-# `scripts/ci-repro.sh` clone on 2026-08-13 — the whole suite under `-n auto`
-# took 338s that run, against 65s unloaded, and these two tests spawn a real
-# `python -m wringer` with cold imports in a fresh venv. Raising them removes a
-# threshold that was reporting the machine's load as a defect in the signal
-# handling; nothing about what they guard changes.
-SIGNAL_CEILING_SECONDS = 120
+# **This was diagnosed wrongly once, on 2026-08-13.** A `nohup`'d
+# `scripts/ci-repro.sh` reported both as `subprocess.TimeoutExpired` against their
+# 20s/30s ceilings, and the ceilings were raised to 120s on the theory that they
+# were measuring a loaded machine. They were not: the signal was being dropped, so
+# `sleep 30` ran to completion and `wring verify` exited 0. Raising the ceiling
+# only changed the symptom from a timeout to a clean pass, and made a genuine hang
+# six times slower to surface. The ceilings are back where they were, and this is
+# the guard that should have been written instead.
+def _sigint_is_deliverable() -> bool:
+    return signal.getsignal(signal.SIGINT) is not signal.SIG_IGN
 
 
+needs_sigint = pytest.mark.skipif(
+    not _sigint_is_deliverable(),
+    reason=(
+        "SIGINT is SIG_IGN in this process, so children inherit it and cannot "
+        "be interrupted — a background or nohup'd job. Run the suite in the "
+        "foreground to exercise this."
+    ),
+)
+
+
+@needs_sigint
 def test_a_real_sigint_kills_the_gate_and_exits_four(repo, write_config):
     """The gate runs in its own process group, so Ctrl-C never reaches it.
     If Wringer does not stop it, it outlives the verifier."""
@@ -149,13 +162,13 @@ gates:
     )
 
     pid_file = repo / "gate.pid"
-    deadline = time.monotonic() + SIGNAL_CEILING_SECONDS
+    deadline = time.monotonic() + 20
     while not pid_file.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
     assert pid_file.exists(), "the gate never started"
 
     proc.send_signal(signal.SIGINT)
-    proc.communicate(timeout=SIGNAL_CEILING_SECONDS)
+    proc.communicate(timeout=20)
 
     assert proc.returncode == cli.EXIT_INTERRUPTED
 

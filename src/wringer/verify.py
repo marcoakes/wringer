@@ -14,6 +14,8 @@ argument parsing, precondition messages, exit codes, and printing.
 
 from __future__ import annotations
 
+import os
+import signal
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -22,6 +24,7 @@ from typing import Any
 from wringer import (
     __version__,
     accept,
+    concurrency,
     config,
     detect,
     evidence,
@@ -168,6 +171,7 @@ def run(
     output: str | None = None,
     on_gate: GateReporter | None = None,
     prove: bool = False,
+    serial: bool = False,
 ) -> Outcome:
     """Verify once and write the bundle. Raises `evidence.EvidenceError` if
     the bundle cannot be opened; the caller decides what that costs.
@@ -229,11 +233,29 @@ def run(
     # disk, so hiding them from the record here would be the retry-hiding this
     # feature exists to make impossible.
     observed: list[stability.Observed] = []
+    # One row per gate that ran beside another. Empty for every repo that
+    # declared no concurrency, and an empty list writes no file.
+    ran_beside: list[concurrency.Ran] = []
 
-    for offset, (index, gate) in enumerate(planned):
+    # Gates run in GROUPS, in declared order. A group is one gate, or a maximal
+    # run of consecutive `concurrent: true` gates (SPEC_PERF_V0 §2). A repo that
+    # declared none gets a group per gate, which is exactly the loop that shipped.
+    grouped = group_gates(planned, serial=serial)
+    for offset, group in enumerate(grouped):
+        if len(group) > 1:
+            names = [gate.id for _, gate in group]
+            ran_beside += [
+                concurrency.Ran(
+                    gate_id=gate.id,
+                    group=offset + 1,
+                    beside=tuple(n for n in names if n != gate.id),
+                )
+                for _, gate in group
+            ]
+        remaining = [pending for _, pending in _flatten(grouped[offset + 1 :])]
         try:
-            result = _run_gate(
-                bundle, gate, index, root, observed, on_gate, engine
+            done = _run_group(
+                bundle, group, root, observed, on_gate, engine
             )
         except KeyboardInterrupt:
             # Ctrl-C: finish the bundle rather than abandon it half-written.
@@ -241,22 +263,26 @@ def run(
             # The gate that was running is neither passed nor skipped, so it
             # is carried separately — its directory already exists and holds
             # whatever it printed before it was killed.
+            index, gate = group[0]
             interrupted = summary.Interrupted(
                 gate=gate, directory=bundle.gate_dir(index, gate.id)
             )
-            skipped = [pending for _, pending in planned[offset + 1 :]]
+            skipped = [pending for _, pending in group[1:]] + remaining
             break
-        results.append(result)
-        if not result.passed and not gate.optional:
-            # Stop on the first required failure; everything after it is
-            # unrun, not passed, and the summary says so. `result` is the
-            # DECIDING attempt for a gate that declared a policy, so a flaky
-            # gate stops the run here exactly as a broken one does — the
-            # difference is what a repair loop is then allowed to do with it,
-            # and that lives in the stability record rather than in this
-            # verdict (SPEC_STABILITY_V0 §4).
-            failed_gate = gate.id
-            skipped = [pending for _, pending in planned[offset + 1 :]]
+        results.extend(done)
+        # **Every gate in a group runs, and only then is the stop decided.**
+        # Within a group there is no early exit — the gates are already in
+        # flight, so "stop at the first required failure" cannot mean what it
+        # means serially. The contract is preserved at GROUP granularity: a
+        # failure here still skips every later group, and a repo that declared
+        # no concurrency has one gate per group and so keeps the contract
+        # exactly.
+        failed = next(
+            (r for r in done if not r.passed and not r.gate.optional), None
+        )
+        if failed is not None:
+            failed_gate = failed.gate.id
+            skipped = remaining
             break
 
     if interrupted is not None:
@@ -324,6 +350,12 @@ def run(
         bundle.relative,
         redactor=bundle.redactor,
     )
+    # Before the digests like every other sibling. This is the record that keeps
+    # `wring health`'s duration drift honest: a contended wall clock is a real
+    # number and a different quantity, so health excludes these rows from the
+    # comparison rather than treating the instrument's movement as the gates'
+    # (SPEC_PERF_V0 §3, answering SPEED_PLAN R1).
+    concurrency.write(bundle.directory, ran_beside)
     # Before the digests, so the digest covers it. git cannot diff a file it
     # has never seen, so without this an untracked file's *contents* are
     # absent from the bundle and delivery could only compare their names.
@@ -393,6 +425,135 @@ def run(
     )
 
 
+Group = list[tuple[int, config.Gate]]
+
+
+def group_gates(
+    planned: list[tuple[int, config.Gate]], serial: bool = False
+) -> list[Group]:
+    """Partition the planned gates into groups that run together.
+
+    A group is one gate, or a **maximal run of CONSECUTIVE** `concurrent: true`
+    gates. Consecutive is the whole rule: collecting every concurrent gate into
+    one group wherever it sat would reorder them relative to the serial gates
+    between, and declared order is a contract — the config decides what runs
+    cheapest first.
+
+    A repo that declared no concurrency gets one group per gate, which is the
+    loop that shipped.
+
+    `serial=True` — `wring verify --serial` — collapses every group to one gate.
+    It TIGHTENS and there is deliberately no flag that widens: a `--jobs N` would
+    let an operator overlap gates the repository never declared safe to overlap,
+    from outside the only file that knows whether they interfere.
+    """
+    if serial:
+        return [[entry] for entry in planned]
+
+    groups: list[Group] = []
+    for entry in planned:
+        _, gate = entry
+        if gate.concurrent and groups and groups[-1][-1][1].concurrent:
+            groups[-1].append(entry)
+        else:
+            groups.append([entry])
+    return groups
+
+
+def _flatten(groups: list[Group]) -> list[tuple[int, config.Gate]]:
+    return [entry for group in groups for entry in group]
+
+
+def _run_group(
+    bundle: evidence.Bundle,
+    group: Group,
+    root: Path,
+    observed: list[stability.Observed],
+    on_gate: GateReporter | None,
+    engine: Any,
+) -> list[gates.GateResult]:
+    """Run one group and return its results in DECLARED order.
+
+    **The ledger is written by this thread and no other.** `Bundle.event` reads
+    the file's last line to compute `prev_hash` and then appends, so two threads
+    there would break the chain that is the bundle's whole tamper-evidence —
+    silently, and in a way `wring audit` would later report as tampering on an
+    honest run. The same rule `wring bench`'s parallel attempts follow, and for
+    the same reason.
+
+    So `gates.run` is what goes in the pool, and every event and every write into
+    the bundle happens out here, in declared order, after the join. A group of
+    one takes the serial path and does not build a pool at all — not an
+    optimisation, but what keeps a repo that declared no concurrency running
+    exactly as it did, live console output included.
+    """
+    for _index, gate in group:
+        bundle.event("gate.started", gate_id=gate.id, command=gate.run)
+
+    if len(group) == 1:
+        index, gate = group[0]
+        result = _run_gate(bundle, gate, index, root, observed, on_gate, engine)
+        _gate_finished(bundle, result)
+        return [result]
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    # Every process group these gates start, so a Ctrl-C can reach them. A
+    # thread pool does not receive SIGINT — only the main thread does — so
+    # without this the pool's own shutdown would wait out every gate's full
+    # timeout (900s by default) with nothing attached to its output. That is
+    # SPEC_VERIFY's exit-4 contract quietly revoked by a pool, and it is the
+    # same hazard `wring bench`'s parallel attempts reap through
+    # `loop.worker_pgids`. Here the pids arrive through `gates.run`'s existing
+    # `on_spawn`, which was written for precisely this.
+    live: list[int] = []
+    per_thread: list[list[stability.Observed]] = [[] for _ in group]
+
+    def one(slot: int) -> gates.GateResult:
+        index, gate = group[slot]
+        return _run_gate(
+            bundle, gate, index, root, per_thread[slot], on_gate, engine,
+            on_spawn=live.append,
+        )
+
+    # Bounded by the group the repository declared and by nothing else. Wringer
+    # does not invent a worker count: the repo said which gates may overlap, and
+    # that IS the bound. A repo that marks twenty gates concurrent has asked for
+    # twenty, and SPEC_PERF_V0 §5 says so rather than quietly capping it.
+    with ThreadPoolExecutor(max_workers=len(group)) as pool:
+        try:
+            # `map`, not `as_completed`: results come back in declared order,
+            # which is what keeps the bundle byte-deterministic over the same
+            # inputs — and what lets the ledger below be written in that order.
+            results = list(pool.map(one, range(len(group))))
+        except BaseException:
+            _kill_groups(live)
+            # In declared order, so a partial record is still ordered.
+            for collected in per_thread:
+                observed.extend(collected)
+            raise
+
+    for collected in per_thread:
+        observed.extend(collected)
+    for result in results:
+        _gate_finished(bundle, result)
+    return results
+
+
+def _kill_groups(pids: list[int]) -> None:
+    """Kill the process groups of gates still in flight. Total by construction.
+
+    Runs on the way out of an interrupt, so a failure here must not replace the
+    interrupt with a different exception. `start_new_session` makes each gate a
+    group leader, so its pid IS its pgid — the same fact `gates._stop` relies on.
+    """
+    for pid in list(pids):
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError, OSError):
+            continue
+
+
 def _run_gate(
     bundle: evidence.Bundle,
     gate: config.Gate,
@@ -401,8 +562,16 @@ def _run_gate(
     observed: list[stability.Observed],
     on_gate: GateReporter | None,
     engine: Any,
+    on_spawn: Any = None,
 ) -> gates.GateResult:
     """Run one gate — every attempt it declared — and record all of them.
+
+    **Emits no ledger event.** `gate.started` and `gate.finished` are the
+    caller's, written on one thread in declared order, because `Bundle.event`
+    computes `prev_hash` from the ledger's last line and two threads there would
+    break the chain silently (SPEC_PERF_V0 §3). This function may therefore run
+    inside a pool; the two things in it that are not thread-safe — the events and
+    the position in `observed` — were moved out for exactly that reason.
 
     Returns the DECIDING attempt: the one whose files stand at the gate's
     canonical path and whose verdict the run acts on. A gate that declared no
@@ -414,15 +583,13 @@ def _run_gate(
     which is the whole measurement; stopping at the first pass would be
     retry-until-green with a record attached.
     """
-    bundle.event("gate.started", gate_id=gate.id, command=gate.run)
     gate_dir = bundle.gate_dir(index, gate.id)
     policy = gate.stability
 
     if policy is None:
-        result = _one_attempt(bundle, gate, gate_dir, root, engine)
+        result = _one_attempt(bundle, gate, gate_dir, root, engine, on_spawn)
         if on_gate is not None:
             on_gate(result)
-        _gate_finished(bundle, result)
         return result
 
     collected: list[gates.GateResult] = []
@@ -434,6 +601,7 @@ def _run_gate(
                 stability.attempt_dir(gate_dir, attempt),
                 root,
                 engine,
+                on_spawn,
             )
             collected.append(result)
             # One console line per ATTEMPT, so a retry cannot be hidden from
@@ -461,7 +629,6 @@ def _run_gate(
     # an interrupt left through the `except` above.
     assert deciding is not None
     adopted = bundle.adopt_gate_attempt(gate_dir, deciding)
-    _gate_finished(bundle, adopted)
     return adopted
 
 
@@ -471,6 +638,7 @@ def _one_attempt(
     directory: Path,
     root: Path,
     engine: Any,
+    on_spawn: Any = None,
 ) -> gates.GateResult:
     """Run the gate's command once, into the directory it was given."""
     result = gates.run(
@@ -480,6 +648,7 @@ def _one_attempt(
         stderr_path=directory / "stderr.log",
         redactor=bundle.redactor,
         backend=engine,
+        on_spawn=on_spawn,
     )
     bundle.write_gate_result(directory, result)
     return result

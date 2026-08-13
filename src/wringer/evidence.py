@@ -96,6 +96,9 @@ VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
 STABILITY_FILENAME = "stability.json"
+# Which gates ran beside which (SPEC_PERF_V0). Absent when every gate ran
+# alone, which is every bundle written before concurrency existed.
+CONCURRENCY_FILENAME = "concurrency.json"
 # The one sibling written on EVERY run, opt-in or not, and the only place a
 # bundle says where its gates actually ran (SPEC_EXEC_V0.md §3). Every other
 # sibling is conditional because a reader who does not find it learns nothing
@@ -442,6 +445,7 @@ def _clear_previous(directory: Path) -> None:
         ACCEPTANCE_FILENAME,
         STABILITY_FILENAME,
         EXECUTION_FILENAME,
+        CONCURRENCY_FILENAME,
     ):
         (directory / filename).unlink(missing_ok=True)
     for dirname in (GATES_DIRNAME, VACUITY_DIRNAME):

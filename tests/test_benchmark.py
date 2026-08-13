@@ -47,7 +47,15 @@ harness = load_harness()
 def build_demo(variant: str, into: Path) -> Path:
     """Build one demo repo into a temp directory, through its own script."""
     done = subprocess.run(
-        ["sh", str(BENCHMARK / "tasks" / "demo" / "build.sh"), variant, str(into)],
+        [
+            "sh", str(BENCHMARK / "tasks" / "demo" / "build.sh"),
+            variant, str(into),
+            # THIS interpreter, not whatever PATH resolves `python3` to. A
+            # fresh-clone repro resolved it to Xcode's, which has no pytest, so
+            # the demo's gate failed for a reason the experiment never chose and
+            # arm B scored a refusal on an environment accident.
+            sys.executable,
+        ],
         capture_output=True, text=True,
     )
     assert done.returncode == 0, done.stderr

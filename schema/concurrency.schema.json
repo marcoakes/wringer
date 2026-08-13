@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/concurrency.schema.json",
+  "title": "Wringer gate concurrency record",
+  "description": "`concurrency.json` — which gates ran BESIDE which in one `wring verify`. A SIBLING of manifest.json, like vacuity.json, acceptance.json and stability.json, and for the same law-7 reason: `wringer.evidence.v1` is frozen and `gate-result.schema.json` is closed, so the mark cannot go on the row it describes. ABSENT when every gate ran alone, which is every bundle written before this existed and every repo that has not declared `concurrent: true` on anything. **It exists because duration_ms is not private to a run.** `wring health` compares it across a window and flags drift past 2x, so a contended wall clock — a real measurement of a different quantity — must be excluded from that comparison rather than reported as the gate slowing. Health reads this file, excludes those rows from the duration trend, and COUNTS the exclusion, because a ratio over four of twelve runs is a different claim from one over twelve. Nothing here decides a verdict: concurrency changes a duration and never a pass/fail, which is why SPEC_ACCEPT §3 clause 2 survives it untouched.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gates"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.concurrency.v1"
+    },
+    "gates": {
+      "description": "One row per gate that ran beside another, in declared order. Never empty: a run with no concurrent group writes no file at all, so a reader never has to tell an empty record from a missing one.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "group",
+          "beside"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "group": {
+            "description": "Which group this gate ran in, 1-based over the groups of the whole run. Groups are maximal runs of CONSECUTIVE `concurrent: true` gates and execute in declared order, so a reader can reconstruct the schedule from this number alone.",
+            "type": "integer",
+            "minimum": 1
+          },
+          "beside": {
+            "description": "The other gates in the same group, by id. Present because \"this gate was concurrent\" is not actionable on its own: a reader looking at an inflated duration wants to know what it was competing with.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  }
+}

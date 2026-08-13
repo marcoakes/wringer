@@ -23,7 +23,16 @@
 # the repository's own gates.** It runs the checks a repo wrote down and cannot
 # invent the one nobody wrote.
 #
-# Usage:  sh build.sh [narrow|covering] [destination-dir]
+# Usage:  sh build.sh [narrow|covering] [destination-dir] [python]
+#
+# `python` defaults to `python3`, and the default is a real dependency rather
+# than a convenience: the gate this writes runs `<python> -m pytest`, so it needs
+# an interpreter that HAS pytest. A fresh-clone repro on 2026-08-13 resolved
+# `python3` to Xcode's, which does not — the gate then failed for a reason
+# nothing in the experiment chose, and arm B scored `true_refusal` on an
+# environment accident rather than on the change. That is the same class of
+# false precision the harness already refuses for preconditions, one layer down
+# in the fixture. The test suite passes `sys.executable`.
 #
 # The destination defaults to this directory, which is gitignored — a built repo
 # must never be committed, because a git repository inside this one is a gitlink
@@ -33,6 +42,7 @@ set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 VARIANT=${1:-narrow}
 DEST=${2:-$HERE}
+PYTHON=${3:-python3}
 REPO="$DEST/repo-$VARIANT"
 rm -rf "$REPO"
 mkdir -p "$REPO"
@@ -91,11 +101,11 @@ EOF
 FIXER
 chmod +x scripted-fix.sh
 
-cat > .wringer.yaml <<'CONFIG'
+cat > .wringer.yaml <<CONFIG
 version: 1
 gates:
   - id: test
-    run: "python3 -m pytest test_calc.py -q"
+    run: "$PYTHON -m pytest test_calc.py -q"
 run:
   worker: "sh ./scripted-fix.sh"
   max_iterations: 3

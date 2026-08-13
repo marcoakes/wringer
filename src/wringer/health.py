@@ -43,6 +43,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from wringer import concurrency as concurrency_module
 from wringer import evidence, fleet, gates, loop, vacuity
 from wringer import stability as stability_module
 
@@ -154,6 +155,11 @@ class GateRun:
     # for every run whose gates declared no policy, which is every bundle
     # written before SPEC_STABILITY_V0 and every repo that has not opted in.
     stability: str | None = None
+    # Whether this gate ran BESIDE another (SPEC_PERF_V0 §3). Its `duration_ms`
+    # is then a contended wall clock — a real number, and not the same quantity
+    # as a duration measured alone, so `_drift` excludes it from the comparison
+    # rather than reporting the instrument's movement as the gate's.
+    concurrent: bool = False
     # The recorded process status. Read late (SPEC_ACCEPT_V0 §3): the frozen
     # gate-result schema has always carried it and this reader dropped it,
     # which is why a missing binary looked like a verdict for a whole release.
@@ -400,6 +406,10 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
         row.gate_id: row.classification
         for row in stability_module.read_report(bundle.directory)
     }
+    # The same join once more, and for the same reason: keyed on the gate id
+    # because that is all the record carries, with the command coming from the
+    # sibling `result.json`.
+    contended = concurrency_module.read_ids(bundle.directory)
 
     rows = []
     for entry in sorted(gates_dir.iterdir(), key=lambda p: p.name):
@@ -428,6 +438,7 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
                 # sensitivity attaches to.
                 sensitive=bool(sensitive.get(gate_id)),
                 stability=classified.get(gate_id),
+                concurrent=gate_id in contended,
             )
         )
     return rows
@@ -508,6 +519,12 @@ class Drift:
     slowest_ratio: float | None = None
     timeouts: int = 0
     truncations: int = 0
+    # How many runs in the window were EXCLUDED from the duration comparison
+    # because the gate ran beside another (SPEC_PERF_V0 §3). Reported rather
+    # than silently dropped: a ratio computed over four of twelve runs is a
+    # different claim from one computed over twelve, and `no_silent_caps` is a
+    # rule this file already lives by.
+    contended: int = 0
 
     @property
     def slow(self) -> bool:
@@ -580,8 +597,21 @@ def _median(values: list[int]) -> float:
 
 
 def _drift(window: tuple[GateRun, ...]) -> Drift:
-    """Duration trend over the window, timeouts, truncation."""
-    durations = [run.duration_ms for run in window]
+    """Duration trend over the window, timeouts, truncation.
+
+    **Concurrent runs are excluded from the duration comparison** — SPEED_PLAN
+    R1's first option, taken. Two gates at once inflate each other's wall clock
+    by an amount nobody recorded, so comparing a contended duration to a solitary
+    one reports the INSTRUMENT moving as the gate slowing. The excluded count is
+    reported beside the ratio, because a ratio over four of twelve runs is a
+    different claim from one over twelve.
+
+    Timeouts and truncations are NOT excluded: those are facts about what
+    happened, not comparisons between numbers, and a gate that timed out under
+    contention still timed out.
+    """
+    solitary = [run for run in window if not run.concurrent]
+    durations = [run.duration_ms for run in solitary]
     ratio = None
     if len(durations) >= 10:
         oldest = _median(durations[:5])
@@ -592,6 +622,7 @@ def _drift(window: tuple[GateRun, ...]) -> Drift:
         slowest_ratio=ratio,
         timeouts=sum(1 for run in window if run.timed_out),
         truncations=sum(1 for run in window if run.truncated),
+        contended=len(window) - len(solitary),
     )
 
 
@@ -809,6 +840,13 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
                 flags.append(f"{assessed.drift.timeouts} timed out")
             if assessed.drift.truncations:
                 flags.append(f"{assessed.drift.truncations} truncated")
+            if assessed.drift.contended:
+                # Named, never silent. A duration comparison that quietly
+                # dropped runs would be the narrowing check this command hunts.
+                flags.append(
+                    f"{assessed.drift.contended} ran concurrently, excluded "
+                    "from the duration trend"
+                )
             drift = f"  [{', '.join(flags)}]" if flags else ""
             lines.append(
                 f"  {assessed.pair.gate_id:<{width}}  {assessed.verdict:<8} "

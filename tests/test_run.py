@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 from conftest import flat
-from test_interrupt import SIGNAL_CEILING_SECONDS
+from test_interrupt import needs_sigint
 
 from wringer import cli, evidence, graph, loop
 
@@ -378,6 +378,7 @@ run:
     capsys.readouterr()
 
 
+@needs_sigint
 def test_a_real_sigint_stops_the_loop_and_the_worker(repo):
     """Ctrl-C during a worker's turn: exit 4, the worker's process group
     dies with it, and the bundle admits where it stopped."""
@@ -403,13 +404,13 @@ run:
         text=True,
     )
     pid_file = repo / "worker.pid"
-    deadline = time.monotonic() + SIGNAL_CEILING_SECONDS
+    deadline = time.monotonic() + 30
     while not pid_file.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
     assert pid_file.exists(), "the worker never started"
 
     proc.send_signal(signal.SIGINT)
-    proc.communicate(timeout=SIGNAL_CEILING_SECONDS)
+    proc.communicate(timeout=30)
     assert proc.returncode == cli.EXIT_INTERRUPTED
 
     worker_pid = int(pid_file.read_text(encoding="utf-8").strip())
