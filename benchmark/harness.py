@@ -102,7 +102,26 @@ FALSE_REFUSAL = "false_refusal"
 VOID = "void"
 
 RESULTS_FILENAME = "rows.jsonl"
-SCHEMA_VERSION = "wringer.benchmark.v1"
+# v2 adds `usage` — what each arm's agent reported it spent.
+#
+# A NEW VERSION rather than a field bolted onto v1, and the reason is law 7's
+# even though this schema is not in `schema/frozen.json`: rows from the
+# 2026-08-13 smoke run are already on disk claiming v1, and two files carrying
+# the same version with different shapes is precisely the confusion freezing
+# exists to prevent. The rule is cheap to obey here, so it is obeyed here.
+#
+# Why it went in before the corpus run and not after: a corpus costs $80-400
+# and `CORPUS.md`'s table has a cost column. v1 recorded no spend on ANY row —
+# arm A's was never read off the turn and arm B's sat unread inside the loop
+# bundle — so a completed corpus would have produced one aggregate number off a
+# credit-card statement and no per-task attribution at all.
+SCHEMA_VERSION = "wringer.benchmark.v2"
+PREVIOUS_SCHEMA_VERSIONS = ("wringer.benchmark.v1",)
+
+# Where each arm's spend lands, in the arm's own directory. Same filename and
+# the same `totals` shape as `wringer.usage.v1` inside a loop bundle, so a
+# reader who has seen one has seen both.
+USAGE_FILENAME = "usage.json"
 
 # What every number this harness emits does NOT say. Travels in each row, for the
 # reason `bench.LIMITS` and `health.LIMITS` do: a benchmark is the artifact most
@@ -212,6 +231,11 @@ class Row:
     cell: str
     reason: str
     wall_clock_ms: int
+    # What the agent SAID it spent. Absent when it said nothing, and absent all
+    # the way to the file — a zero here would be a number this harness invented
+    # about somebody else's bill, which is the honest-absence rule the loop's
+    # own usage record already follows.
+    usage: dict[str, Any] | None = None
     deviations: list[str] = field(default_factory=list)
     evidence: dict[str, Any] = field(default_factory=dict)
     limits: list[str] = field(default_factory=lambda: list(LIMITS))
@@ -579,6 +603,31 @@ def run_agent_alone(
             f"{redactor.scrub(str(exc))}), so this arm measured nothing"
         )
 
+    # What the agent said it spent, in the same shape and the same filename the
+    # loop writes for arm B, so the two arms are read the same way. It is the
+    # AGENT'S OWN CLAIM and `verified: false` says so — there is no price table
+    # here, per SPEC_BENCH_V0 ruling 3, and an agent that reports nothing
+    # produces no file rather than a zero somebody could add up.
+    reported = getattr(turn, "usage", None)
+    if reported is not None:
+        from wringer import loop as loop_module
+
+        row = reported.as_json()
+        (workdir / USAGE_FILENAME).write_text(
+            json.dumps(
+                {
+                    "schema_version": "wringer.usage.v1",
+                    "reported_by": "agent",
+                    "verified": False,
+                    "rows": [{"iteration": 1, **row}],
+                    "totals": loop_module.usage_totals([row]),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
     reason = getattr(turn, "stop_reason", None)
     if code != 0 and reason is None:
         return None, (
@@ -649,6 +698,14 @@ def run_under_wringer(
     (workdir / "run.stdout.log").write_text(ran.stdout, encoding="utf-8")
     (workdir / "run.stderr.log").write_text(ran.stderr, encoding="utf-8")
 
+    # The loop already wrote what the agent reported, into its own bundle. Copy
+    # it up beside arm A's so both arms answer "what did this cost" from the
+    # same filename. The LAST loop's file wins: a tree can hold several loop
+    # bundles, and only the one this arm just ran is this arm's spend.
+    loops = sorted((tree / ".wringer" / "loops").glob("*/" + USAGE_FILENAME))
+    if loops:
+        shutil.copy2(loops[-1], workdir / USAGE_FILENAME)
+
     delivered = subprocess.run(
         [sys.executable, "-m", "wringer", "deliver", "--json"],
         cwd=tree, capture_output=True, text=True, timeout=task.wall_clock,
@@ -697,6 +754,23 @@ def run_under_wringer(
         f"{delivered.returncode}) — a config or precondition problem, not a "
         f"verdict about the change: {detail}"
     )
+
+
+def usage_of(workdir: Path) -> dict[str, Any] | None:
+    """What the arm's agent reported, if it reported anything.
+
+    Total by construction: an unreadable or malformed file is the same answer
+    as no file, because a benchmark that guessed at a cost would be worse than
+    one that admits it does not know. The raw file stays on disk either way.
+    """
+    path = workdir / USAGE_FILENAME
+    if not path.is_file():
+        return None
+    try:
+        totals = json.loads(path.read_text(encoding="utf-8")).get("totals")
+    except (OSError, ValueError):
+        return None
+    return totals if isinstance(totals, dict) else None
 
 
 def classify(claimed: bool, held_out_passed: bool) -> str:
@@ -768,6 +842,10 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
             cell=VOID, reason=claim_reason,
             wall_clock_ms=int((time.monotonic() - started) * 1000),
+            # A VOID arm still costs money — an agent that ran and then
+            # produced no claim was PAID for the turn, and a corpus total that
+            # skipped those rows would understate the bill.
+            usage=usage_of(workdir),
             deviations=deviations_for(arm),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -783,6 +861,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         cell=classify(claimed, passed),
         reason=f"{claim_reason}; held-out: {held_reason}",
         wall_clock_ms=int((time.monotonic() - started) * 1000),
+        usage=usage_of(workdir),
         deviations=deviations_for(arm),
         evidence={
             "tree": str(tree),

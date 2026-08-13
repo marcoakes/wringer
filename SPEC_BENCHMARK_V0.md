@@ -137,6 +137,34 @@ There is no `summarise`, no rate, no score — a test greps for their absence. A
 rate over two scripted rows would be a number worth nothing, and the moment one
 exists somebody will quote it. Aggregation lands with a corpus, or not at all.
 
+## 8a. AMENDED 2026-08-13 — the row records what the arm cost
+
+`wringer.benchmark.v1` recorded spend on **no row**. Arm A's was never read off
+the ACP turn; arm B's was written by the loop into its own bundle and nothing
+looked at it. That was survivable for two scripted demo tasks, which cost
+nothing, and not survivable for a corpus: `CORPUS.md`'s table has a cost column,
+and a finished corpus would have had one aggregate figure off a credit-card
+statement with no per-task attribution.
+
+So the row grew a `usage` field and the version moved to
+**`wringer.benchmark.v2`**. A new version rather than a field added to v1, even
+though this schema is not in `schema/frozen.json` and law 7 does not formally
+reach it: rows from the 2026-08-13 smoke run already exist on disk claiming v1,
+and two shapes under one version is the exact confusion freezing prevents.
+
+Three rulings travel with it, none of them new — they are the loop's own usage
+rulings applied one level up:
+
+1. **Absent stays absent.** No report, no file, or a malformed file all produce
+   `usage: null`. A zero would be a number this harness invented about somebody
+   else's bill, and it would then be summed.
+2. **It is the agent's claim, not a measurement.** `verified: false` travels in
+   the file. There is no price table here (SPEC_BENCH_V0 ruling 3) and there
+   will not be one.
+3. **A VOID row still carries its cost.** An agent that ran and then produced no
+   claim was still paid for the turn, and a corpus total that skipped those rows
+   would understate the bill.
+
 ## 9. What was measured, and what was not
 
 **Measured, on this machine, at zero cost.** Two demo tasks with a scripted worker

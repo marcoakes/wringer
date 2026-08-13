@@ -648,3 +648,88 @@ def test_a_wringer_crash_is_void_and_never_a_refusal(tmp_path: Path, monkeypatch
 def test_the_limits_say_a_crash_is_not_a_refusal():
     joined = " ".join(harness.LIMITS)
     assert "A Wringer CRASH is VOID and never a refusal" in joined
+
+
+# --- what it cost, which v1 recorded nowhere -------------------------------
+
+
+def test_a_row_carries_what_the_agent_said_it_spent(tmp_path: Path):
+    """**The corpus run's cost column comes from here.**
+
+    v1 recorded spend on no row at all: arm A's was never read off the ACP
+    turn, and arm B's sat inside the loop bundle where nothing looked. A
+    completed $80-400 corpus would have produced one aggregate number off a
+    credit-card statement and no per-task attribution — so this landed BEFORE
+    the corpus ran rather than after, which is the only order in which it is
+    worth anything.
+    """
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    (workdir / harness.USAGE_FILENAME).write_text(
+        json.dumps({
+            "schema_version": "wringer.usage.v1",
+            "reported_by": "agent",
+            "verified": False,
+            "totals": {"used": 23319, "sessions": 1,
+                       "cost": {"amount": 0.135286, "currency": "USD"}},
+        }),
+        encoding="utf-8",
+    )
+
+    totals = harness.usage_of(workdir)
+
+    assert totals == {"used": 23319, "sessions": 1,
+                      "cost": {"amount": 0.135286, "currency": "USD"}}
+
+
+@pytest.mark.parametrize(
+    "written",
+    [None, "", "not json at all", '{"schema_version": "x"}', '{"totals": 7}'],
+)
+def test_an_unreported_cost_stays_ABSENT_and_never_becomes_a_zero(
+    tmp_path: Path, written: str | None
+):
+    """A zero here would be a number this harness invented about somebody
+    else's bill, and it would then be SUMMED. Absent is absent, whether the
+    agent said nothing, the file is missing, or the file is rubbish — every one
+    of those is the same answer: this harness does not know."""
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    if written is not None:
+        (workdir / harness.USAGE_FILENAME).write_text(written, encoding="utf-8")
+
+    assert harness.usage_of(workdir) is None
+
+
+def test_the_row_schema_moved_because_the_row_grew():
+    """Law 7's discipline applied where law 7 does not reach.
+
+    This schema is not in `schema/frozen.json` — the harness ships outside the
+    package. But rows from the 2026-08-13 smoke run are already on disk saying
+    v1, and adding a field to v1 would put two shapes under one version, which
+    is exactly the confusion freezing prevents. So v1 is named as PAST, and a
+    reader who finds a v1 row knows what it cannot tell them.
+    """
+    assert harness.SCHEMA_VERSION == "wringer.benchmark.v2"
+    assert "wringer.benchmark.v1" in harness.PREVIOUS_SCHEMA_VERSIONS
+    assert harness.SCHEMA_VERSION not in harness.PREVIOUS_SCHEMA_VERSIONS
+
+
+def test_a_scripted_task_reports_no_cost_because_a_shell_script_has_none(
+    tmp_path: Path
+):
+    """The demo tasks run a shell script, which spends nothing and reports
+    nothing. Their rows must therefore carry `usage: null` — not a zero, and
+    not a missing key that a reader could mistake for an unfinished row."""
+    repo = build_demo("covering", tmp_path)
+    task = task_file("covering", repo, tmp_path)
+    out = tmp_path / "out"
+
+    assert run_harness(task, out) == 0
+
+    rows = rows_from(out)
+    assert rows, "no rows were written"
+    for row in rows:
+        assert "usage" in row, f"the key must exist to be readable: {row}"
+        assert row["usage"] is None, row
+        assert row["schema_version"] == "wringer.benchmark.v2"
