@@ -97,7 +97,28 @@ attestation `wring audit` checks offline; and P4's `wring start` is the guided
 launch a new user meets first; `wring bench` compares workers without crowning
 one, `wring health` reads a repo's gate history, `wring graph` sequences the
 whole thing, and `fleet.scope` lets a human declare which criteria each task
-proves. 1200+ tests on Python 3.11–3.13 plus macOS in CI.
+proves. 1400+ tests on Python 3.11–3.13 plus macOS in CI.
+
+**2026-08-13 — six slices landed in one arc, and the order they are listed in
+is the order to read them.** Each has its own spec; each names what it did NOT
+do, and two of them say the honest answer was "not this".
+
+| slice | what now works that did not | and what it does not |
+|---|---|---|
+| flaky gates ([SPEC_STABILITY_V0](SPEC_STABILITY_V0.md)) | a gate can declare `stability: {attempts}`, its attempts are classified from OBSERVATIONS alone, every attempt is on disk, and a `flaky` gate is **never handed to a worker** — `wring run` stops rather than asking an agent to fix nondeterminism | `wring health --json` says nothing about stability (frozen schema); a flaky fleet child is `failed` rather than `parked` |
+| where gates run ([SPEC_EXEC_V0](SPEC_EXEC_V0.md)) | `execution: {backend: container}`, and **every bundle now says where its gates ran** — `trusted_local`, never `sandboxed` | **sequence G is still unrun**: every container property is a flag with a test behind it, no container has ever run through the backend, and SECURITY.md's "designed to isolate" is deliberately unchanged |
+| signed provenance ([SPEC_SIGN_V0](SPEC_SIGN_V0.md)) | `wring attest --sign` in CI via keyless OIDC, and `wring audit` reports integrity / signature / identity **separately** with `signature_missing` as the ordinary case | Sigstore itself is argv-only — neither cosign nor gh is on this machine |
+| independent attempts ([SPEC_ATTEMPTS_V0](SPEC_ATTEMPTS_V0.md)) | `bench.attempts` / `bench.parallel`: N independent attempts per contender, and `agreement` — which compares a contender **with itself** and still crowns nobody | no aggregate over attempts, ever: a mean is a score wearing a statistic |
+| the benchmark ([SPEC_BENCHMARK_V0](SPEC_BENCHMARK_V0.md)) | `benchmark/` runs a task through two arms against upstream's held-out tests and writes a 2×2 row. **Proven on two scripted tasks at zero cost** | **no corpus run** (~$80–400, Marc's to approve). Its first finding is a Wringer LOSS: precision is bounded by the quality of the gates the repo wrote down |
+| gate parallelism ([SPEC_PERF_V0](SPEC_PERF_V0.md)) | `gates[].concurrent: true`, `wring verify --serial`, and health excluding contended durations from its drift trend — answering all four of WRINGER_SPEED_PLAN §4's open rulings | **no caching**: no cache key can enumerate the environment, the toolchain or the clock, so every hit can be a false green (§7 has the analysis). **No judge calibration**: its precondition was that the benchmark show judge quality load-bearing, and the evidence shows the opposite |
+
+Three bundle formats moved, each with v1 still published and still frozen, and
+each with a test proving a v1 bundle already on disk is still read:
+**`wringer.loop.v2`** (an OPEN `reason` string, so no future stop reason costs a
+version), **`wringer.bench.v2`** (a per-row `attempt`), and four new siblings —
+`execution.json`, `stability.json`, `concurrency.json` and `attestation.json.sig`.
+`wring attest --sign` makes the senders **five**, and every count in the docs says
+so.
 
 **Wringer verifies Wringer**: [`.wringer.yaml`](.wringer.yaml) declares this
 repo's own gates, CI runs `wring verify` and uploads the bundle, and a real
