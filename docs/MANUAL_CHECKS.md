@@ -27,6 +27,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Docker stub (R2-02) | Apple silicon, MDM-managed | macOS 26.5.2 | none — `/Applications/Docker.app` present as a stripped stub | 2026-08-05 | `75167c2` | **Observed, not executed as a sequence.** `d--------- 2 root admin 64`, no binary, no socket — seen while diagnosing step 4B. Sequence C below was written afterwards and has never been run as written |
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
 | Sequence G — the container path, attacked | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | **podman 6.1.0**, `applehv` provider, vfkit 0.6.4 + gvproxy 0.8.9, all in `~/.local` with no admin | 2026-08-13 | `c6fce0c`+ | **RAN AND CLASSIFIED — 7 attacks, 6 prevented / 1 mitigated, and the first run found 2 of the 7 measuring nothing at all.** Read the caveat: on macOS a Linux VM sits between container and host, so this is NOT evidence about the Linux case |
+| Sequence G — **on LINUX, shared kernel** | the Fedora CoreOS guest of that same podman machine | Fedora CoreOS 44.20260720.3.1 | podman 6.1.0 rootless, native | 2026-08-13 | `9065310` | **RAN AND CLASSIFIED — same 7 attacks, same 6 prevented / 1 mitigated, on a host whose kernel the container SHARES.** The host had real key material at `/home/core/.ssh/authorized_keys.d/ignition` and the container saw none of it |
 | Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | 2026-08-13 | `f0b44bc` | **EXECUTED for the first time** — [run 31692802687](https://github.com/marcoakes/wringer/actions/runs/31692802687), job `attack` succeeded, 16 KB of output in the `sequence-g` artifact. **UNCLASSIFIED: nobody has read it.** The artifact and the logs both need GitHub auth (401 unauthenticated), so the seven attempts have not been sorted into prevented / detected / mitigated / out_of_scope by anybody. Until they are, this row records that the sequence RAN and nothing about what it found |
 | Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
@@ -402,6 +403,53 @@ isolation and are NOT evidence about container ⇢ Linux host isolation.** The
 | 6 | outbound-network | prevented | `--network none` is real and it is not just DNS: `socket.gaierror: [Errno -3] Temporary failure in name resolution` AND, on a raw IP with no name lookup, `OSError: [Errno 101] Network is unreachable` |
 | 7 | host-process-table | prevented | **3** pids visible in the namespace; pid 1 is the gate's own `/bin/sh -c`. `/proc/uptime` is readable and leaks the VM's uptime — bounded, and not the host's |
 
+### The same seven on LINUX, where the kernel IS shared
+
+**Run the same day, inside the Fedora CoreOS guest that podman machine created**
+— `podman machine ssh`, clone at `9065310`, `pip install -e .`, native rootless
+podman 6.1.0. From the container's point of view that guest is an ordinary
+Linux host sharing its kernel, which is the configuration everyone reading
+`SECURITY.md` actually runs, and the one the macOS row above explicitly could
+not speak for.
+
+**The verdicts are identical: six prevented, one mitigated.** What makes the
+Linux run worth more than a repeat is that the attacks had something real to
+find:
+
+- **The host genuinely had private key material.** `/home/core/.ssh/authorized_keys.d/ignition`
+  exists on that host — podman machine's own ssh key, 118 bytes, mode `600`.
+  The container saw `/home/*/.ssh: No such file or directory`. On macOS the
+  equivalent probe could only prove a path was absent; here it proves a real
+  secret was present and unreachable.
+- `--network none` again blocks both the name and the raw IP
+  (`gaierror` then `OSError: [Errno 101] Network is unreachable`) — on a shared
+  kernel this is a real network namespace, not a VM boundary doing the work.
+- 3 pids in the namespace, pid 1 is the gate's own `/bin/sh`.
+- `/proc/uptime` is readable and here it IS the host's uptime (528s). A bounded
+  info leak, and worth naming rather than rounding down to "prevented".
+- `/etc/shadow` is `Permission denied` for the same reason as on macOS — the
+  image's `USER wring`, which **Wringer does not set** — so item 5 stays
+  `mitigated` on both platforms.
+
+**Verdict on `SECURITY.md`: the wording still does NOT change.** "Designed to
+isolate" stays, and now for a sharper reason than "we only tested macOS":
+
+- Seven scripted probes are not an escape suite. Nothing here attempted a
+  kernel exploit, a cgroup or `/proc/sys` write, a capability abuse, or a
+  `--privileged` comparison. "These seven attacks were prevented" is a much
+  smaller sentence than "demonstrated to isolate", and the script's own
+  definition is strict: *prevented — the thing cannot be done. Not "it failed
+  this time."*
+- One runtime, one distro, one image. **Docker has still never been measured
+  by anyone here** — the `ubuntu-latest` CI run's artifact remains unopened.
+- The one non-prevented item is carried by the image, not by Wringer.
+
+**What would earn the stronger word**, stated so the next window does not have
+to re-derive it: the same seven under **docker** with the results read, plus at
+least one probe that attacks the boundary itself rather than reading through it
+(a `--privileged` control run showing the same attacks SUCCEED is the cheapest
+honest way to prove the flags are what stopped them).
+
 **Verdict on `SECURITY.md`: the wording does NOT change, and this run is the
 argument for leaving it alone rather than an argument nobody made.** "Designed
 to isolate" stays. A macOS run cannot upgrade a claim about Linux, and item 5
@@ -441,8 +489,10 @@ opened it. Classification is the half a script cannot do, and an unread artifact
 classifies nothing. The macOS row IS classified, and its own caveat says why
 that does not settle the Linux question.
 
-**Until a LINUX row appears with classifications, nothing in this repository may
-say the container path is demonstrated to isolate** — and that includes the `execution:` backend,
+**The Linux row now exists and it is still not enough to change the wording** —
+see the verdict above for exactly why, and for the two things that would.
+Nothing in this repository may say the container path is demonstrated to
+isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.

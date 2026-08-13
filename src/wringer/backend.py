@@ -26,11 +26,19 @@ can never be read as claiming more than it measured.
 
 **What is measured here and what is not.** Every argv this module builds is
 pinned by tests, so what Wringer ASKS the runtime for is a fact. Whether the
-runtime delivers it is a different claim, and this repo has not measured it:
-`docs/MANUAL_CHECKS.md` sequence G is that work and it is unrun, because no
-container runtime exists on the maintainer's machine. Nothing in this file,
-and nothing in SECURITY.md, upgrades "designed to isolate" on the strength of
-an argv.
+runtime delivers it is a different claim, and on 2026-08-13 it stopped being
+entirely unmeasured: `docs/MANUAL_CHECKS.md` sequence G ran seven named attacks
+under rootless podman, first on macOS and then inside a Linux guest whose
+kernel the container shares, and six of the seven were prevented — including
+private key material that really was on that host.
+
+**That still does not upgrade "designed to isolate", and the reason is worth
+keeping next to the argv.** Seven scripted reads are not an escape suite:
+nothing attempted a kernel exploit, a capability abuse, a cgroup or
+`/proc/sys` write, or a `--privileged` control run to prove these flags are
+what stopped them. One runtime, one distro, one image; docker remains
+unmeasured by anyone. Nothing in this file, and nothing in SECURITY.md,
+upgrades the claim on the strength of an argv.
 """
 
 from __future__ import annotations
@@ -387,9 +395,11 @@ LIMITS = (
     "user's privileges and the whole environment inherited. It is not a "
     "sandbox and Wringer has never claimed it is one.",
     "A container backend records the command line Wringer ASKED the runtime "
-    "for. Whether the runtime delivered it is a separate claim this "
-    "repository has not measured: docs/MANUAL_CHECKS.md sequence G is that "
-    "work and it is unrun.",
+    "for. Whether the runtime delivered it is a separate claim, now PARTLY "
+    "measured: docs/MANUAL_CHECKS.md sequence G ran seven named attacks under "
+    "rootless podman, on macOS and on a shared-kernel Linux host, and six were "
+    "prevented. Seven probes on one runtime is not an escape suite and docker "
+    "is still unmeasured, so this file records a request, not a guarantee.",
     "The mount is read-write by design, because the evidence bundle is "
     "written inside the tree. A hostile gate can still corrupt the tree you "
     "gave it, and container escapes exist.",

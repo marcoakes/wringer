@@ -534,17 +534,47 @@ def test_the_worker_is_recorded_separately_and_is_never_contained(
     assert recorded["worker_execution"] == "trusted_local"
 
 
-def test_the_limits_say_the_container_claim_is_unmeasured():
+def test_the_limits_never_inflate_the_container_claim():
     """Pinned by CONTENT, not by non-emptiness — the narrowing lesson applied
     to this record's own output. An execution record is exactly the artifact a
-    reader inflates into a security claim."""
+    reader inflates into a security claim.
+
+    **This test used to assert the word `unrun`, and on 2026-08-13 that word
+    became false**: sequence G ran, twice, under rootless podman on macOS and
+    then on a shared-kernel Linux host, and six of seven attacks were
+    prevented (docs/MANUAL_CHECKS.md). A record that still told its reader the
+    work was unrun would be the stale-claim class this repository hunts,
+    shipped inside the evidence.
+
+    So what is pinned here is not the old sentence but the SHAPE every version
+    of it must keep: name the measurement, name what the measurement did NOT
+    cover, and never let an argv read as a boundary. A future window that
+    measures docker should have to edit this test, and should find the reason
+    written down when it does.
+    """
     joined = " ".join(backend.LIMITS)
 
+    # Still points at the measurement rather than asserting a conclusion.
     assert "sequence G" in joined
-    assert "unrun" in joined
+    # Still names the three limits that have nothing to do with G.
     assert "is not a sandbox" in joined
     assert "read-write by design" in joined
     assert "not contained" in joined
+    # The measurement is bounded IN THE RECORD, not only in a doc nobody opens:
+    # what ran, and the two things that did not.
+    assert "not an escape suite" in joined
+    assert "docker is still unmeasured" in joined
+    assert "not a guarantee" in joined
+
+    # And it never upgrades itself. These are the phrases a reader would quote
+    # back at us, so none of them may appear at all.
+    for claim in (
+        "demonstrated to isolate",
+        "proven secure",
+        "cannot escape",
+        "guaranteed",
+    ):
+        assert claim not in joined.lower(), claim
 
 
 def test_the_summary_says_where_the_gates_ran(
