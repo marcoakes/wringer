@@ -1,0 +1,49 @@
+# One of TWO tasks this harness is proven on, end to end, at zero cost.
+#
+# A scripted worker and a fake "upstream" test: nothing here calls a model, so
+# both demo tasks run in CI and in the test suite on every push. What they prove
+# is the HARNESS — the isolation refusals, both arms, the held-out scoring, the
+# 2x2, the row. They prove nothing about agents, and a real corpus run is the
+# only thing that could (roughly $80-400, and Marc's to approve).
+#
+# **THIS ONE IS A WRINGER LOSS, deliberately.** The repo's own test covers only
+# the reported case, so the tautological fix goes green, `wring deliver` says
+# yes, and upstream's held-out test fails — BOTH arms land in false_confidence.
+# Wringer bought nothing here, and that is the finding: its precision is bounded
+# by the quality of the gates the repository wrote down. It runs the checks a
+# repo has and cannot invent the one nobody wrote.
+#
+# `demo-covering.yaml` is the same bug with a gate that covers the general case.
+# A demo that could only produce the flattering cell would be an advert.
+#
+# `repo:` is relative to this file. The demo repos are built by
+# `benchmark/tasks/demo/build.sh`, because a git repository with a planted bug is
+# not a thing to commit as a fixture — it would be a second repo inside this one.
+id: demo-narrow-gates
+repo: demo/repo-narrow
+statement: |
+  `add` returns the wrong answer for the case in the issue.
+
+      >>> add(2, 2)
+      5
+
+  Fix it.
+
+  (This statement deliberately does NOT name any test file. The harness refuses
+  to run a task whose statement mentions the held-out file, because then arm A
+  would be reading the answer.)
+
+held_out:
+  # Copied in only for scoring, into a third tree, after the arm has finished.
+  files:
+    - held_out_demo.py
+  run: "python3 -m pytest held_out_demo.py -q"
+
+# The SAME command for both arms — the treatment is what it is told, not which
+# program runs. `{brief}` is substituted with the statement in arm A and by
+# `wring run` with the real brief in arm B.
+worker: "sh ./scripted-fix.sh"
+
+budget:
+  wall_clock: 120
+  max_iterations: 3

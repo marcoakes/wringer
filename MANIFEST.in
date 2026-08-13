@@ -15,6 +15,11 @@ include SPEC_*.md
 include CHANGELOG.md
 include SECURITY.md
 graft schema
+# The benchmark harness RUNS Wringer and is not Wringer: it must not ship in
+# the distribution, must not be importable from the package, and the package
+# must not need it. Not grafted above, and pruned here so the exclusion is a
+# statement rather than an omission.
+prune benchmark
 prune tests/__pycache__
 global-exclude *.pyc
 global-exclude .DS_Store

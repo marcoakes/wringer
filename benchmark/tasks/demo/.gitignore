@@ -1,0 +1,5 @@
+# Built by build.sh, never committed: a git repository inside this one is a
+# gitlink that confuses every tool walking the tree — including Wringer's own
+# bundle discovery, which is the tool this benchmark exists to measure.
+repo-*/
+origin-*.git/
