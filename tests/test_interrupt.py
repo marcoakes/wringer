@@ -112,6 +112,21 @@ def test_json_reports_the_interruption_too(
     assert payload["failed_gate"] is None
 
 
+# **These ceilings measure the MACHINE, not the code**, so they are generous
+# rather than tight. Each one bounds "did Wringer stop when signalled" — a
+# broken implementation still fails, because it never stops at all and the
+# ceiling is reached however large it is. A tight ceiling only adds a second
+# failure mode: a loaded machine.
+#
+# Both were 20s/30s, chosen on a quiet machine, and both timed out in a fresh
+# `scripts/ci-repro.sh` clone on 2026-08-13 — the whole suite under `-n auto`
+# took 338s that run, against 65s unloaded, and these two tests spawn a real
+# `python -m wringer` with cold imports in a fresh venv. Raising them removes a
+# threshold that was reporting the machine's load as a defect in the signal
+# handling; nothing about what they guard changes.
+SIGNAL_CEILING_SECONDS = 120
+
+
 def test_a_real_sigint_kills_the_gate_and_exits_four(repo, write_config):
     """The gate runs in its own process group, so Ctrl-C never reaches it.
     If Wringer does not stop it, it outlives the verifier."""
@@ -134,13 +149,13 @@ gates:
     )
 
     pid_file = repo / "gate.pid"
-    deadline = time.monotonic() + 20
+    deadline = time.monotonic() + SIGNAL_CEILING_SECONDS
     while not pid_file.exists() and time.monotonic() < deadline:
         time.sleep(0.05)
     assert pid_file.exists(), "the gate never started"
 
     proc.send_signal(signal.SIGINT)
-    proc.communicate(timeout=20)
+    proc.communicate(timeout=SIGNAL_CEILING_SECONDS)
 
     assert proc.returncode == cli.EXIT_INTERRUPTED
 
