@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import shutil
 import subprocess
 import sys
@@ -130,14 +131,33 @@ def check_credential(harness, task) -> Check:
     """
     if task.agent is None or not task.agent.keychain_service:
         return Check(NOTE, "credential", "this task declares none")
-    argv = [
-        "security", "find-generic-password", "-s", task.agent.keychain_service
-    ]
-    if task.agent.keychain_account:
-        argv += ["-a", task.agent.keychain_account]
-    done = subprocess.run(argv, capture_output=True, text=True)
     where = task.agent.keychain_service + (
         f"/{task.agent.keychain_account}" if task.agent.keychain_account else ""
+    )
+    name = task.agent.keychain_env or "the declared variable"
+
+    # **The Keychain is macOS-only**, and asking for it elsewhere raised a
+    # FileNotFoundError rather than answering — CI on `ubuntu-latest` is where
+    # that was found, with macOS green beside it.
+    if not harness.keychain_available():
+        if os.environ.get(task.agent.keychain_env or ""):
+            return Check(
+                OK, "credential",
+                f"${name} is set in this environment (value not read). No macOS "
+                "Keychain here, which is expected off macOS",
+            )
+        return Check(
+            FAIL, "credential",
+            f"no macOS Keychain here (`security` is not on PATH) and ${name} "
+            "is not set",
+            f"export {name}=... before running",
+        )
+
+    # `-w` is the flag that prints the secret, and `keychain_argv(reveal=False)`
+    # is the whole reason this asks through the harness: presence is metadata.
+    done = subprocess.run(
+        harness.keychain_argv(task.agent, reveal=False),
+        capture_output=True, text=True,
     )
     if done.returncode != 0:
         return Check(

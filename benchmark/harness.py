@@ -431,30 +431,82 @@ WRINGER_PRECONDITION = 3  # refused a precondition: nothing was measured
 COMMAND_NOT_FOUND = 127
 
 
+def keychain_argv(agent: Agent, *, reveal: bool) -> list[str]:
+    """The `security` command line. `reveal=False` asks for METADATA only.
+
+    Split out so the preflight can check PRESENCE without ever passing `-w`, the
+    flag that prints the secret. A report that had to read the value to say it
+    exists would be a report that could leak it into a terminal or a screenshot.
+    """
+    argv = ["security", "find-generic-password", "-s", agent.keychain_service or ""]
+    if agent.keychain_account:
+        argv += ["-a", agent.keychain_account]
+    if reveal:
+        argv.append("-w")
+    return argv
+
+
+def keychain_available() -> bool:
+    """Whether macOS's `security` is here at all.
+
+    **It is macOS-only**, and `subprocess.run` RAISES on a missing binary rather
+    than returning non-zero — so without this check a Linux run died with a
+    `FileNotFoundError` traceback instead of a message. Found by CI on
+    `ubuntu-latest`, where the whole suite went red; macOS was green, which is
+    exactly the shape a platform assumption has.
+    """
+    return shutil.which("security") is not None
+
+
 def keychain_secret(agent: Agent) -> str | None:
-    """Ask macOS for the credential this agent needs, or None if it declared none.
+    """The credential this agent needs, or None if it declared none.
 
     **Never printed, never written, never returned to a caller that logs.** It
     goes into one child's environment and nowhere else, and `wringer.acp` folds
     it into the redactor so an agent that echoes it cannot put it in a log. The
     value is not in this repository, not in a task file, and not in a shell
-    history — `security` is asked at the moment it is needed.
+    history.
+
+    Two sources, in this order, because the Keychain is macOS-only and a corpus
+    run may well happen on Linux:
+
+    1. **macOS Keychain**, asked at the moment it is needed;
+    2. **an environment variable already set by the caller**, when there is no
+       Keychain — the ordinary way on Linux and in CI.
+
+    The order matters and is not a fallback chain to be extended casually: the
+    Keychain wins where it exists, so a stale variable in a shell cannot quietly
+    override the credential a person put in the OS keystore.
     """
     if not (agent.keychain_service and agent.keychain_env):
         return None
-    argv = ["security", "find-generic-password", "-s", agent.keychain_service]
-    if agent.keychain_account:
-        argv += ["-a", agent.keychain_account]
-    argv.append("-w")
-    done = subprocess.run(argv, capture_output=True, text=True)
-    if done.returncode != 0 or not done.stdout.strip():
+
+    if keychain_available():
+        done = subprocess.run(
+            keychain_argv(agent, reveal=True), capture_output=True, text=True
+        )
+        if done.returncode == 0 and done.stdout.strip():
+            return done.stdout.strip()
         raise TaskError(
             f"no Keychain entry for service '{agent.keychain_service}'"
             + (f" account '{agent.keychain_account}'" if agent.keychain_account else "")
             + ". Add one with:  security add-generic-password -U -s "
             f"{agent.keychain_service} -a {agent.keychain_account or 'wringer'} -w"
         )
-    return done.stdout.strip()
+
+    # No Keychain: this is not macOS. The variable the task NAMES is the only
+    # other place the value may come from, and it must already be set — nothing
+    # here prompts, and nothing here reads a file.
+    from_env = os.environ.get(agent.keychain_env)
+    if from_env:
+        return from_env
+    raise TaskError(
+        f"no macOS Keychain here (`security` is not on PATH), and "
+        f"${agent.keychain_env} is not set. On Linux or in CI, export it "
+        f"yourself before running; on macOS, add it to the Keychain with: "
+        f"security add-generic-password -U -s {agent.keychain_service} "
+        f"-a {agent.keychain_account or 'wringer'} -w"
+    )
 
 
 def agent_env(task: Task) -> dict[str, str]:

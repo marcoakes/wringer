@@ -559,3 +559,49 @@ def test_the_corpus_is_empty_and_its_rule_is_written_down():
     assert "a good agent plausibly declares success" in text
     # and the smoke task is explicitly NOT corpus evidence
     assert "Not a corpus task and not evidence about agents" in text
+
+
+def test_the_credential_source_works_off_macos(tmp_path: Path, monkeypatch):
+    """**`security` is macOS-only, and a missing binary RAISES.**
+
+    Found by CI on `ubuntu-latest`, with macOS green beside it — the exact shape
+    a platform assumption has. Without this the whole suite died on a
+    `FileNotFoundError` traceback rather than a message, and a Linux user running
+    a corpus would have hit the same wall.
+
+    Two sources in a fixed order: the Keychain wins where it exists, so a stale
+    variable in a shell cannot quietly override what somebody put in the OS
+    keystore.
+    """
+    agent = harness.Agent(
+        command="claude-agent-acp",
+        args=(),
+        env_passthrough=("ANTHROPIC_API_KEY",),
+        keychain_service="anthropic",
+        keychain_account="wringer",
+        keychain_env="ANTHROPIC_API_KEY",
+    )
+
+    monkeypatch.setattr(harness.shutil, "which", lambda _n: None)  # no Keychain
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "from-the-environment")
+    assert harness.keychain_secret(agent) == "from-the-environment"
+
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    with pytest.raises(harness.TaskError) as caught:
+        harness.keychain_secret(agent)
+    message = str(caught.value)
+    assert "no macOS Keychain here" in message
+    assert "export it" in message
+
+
+def test_presence_is_checked_without_asking_for_the_value():
+    """`-w` is the flag that prints the secret. A report that had to read the
+    value to say it exists is a report that could leak it into a screenshot."""
+    agent = harness.Agent(
+        command="x", args=(), env_passthrough=(),
+        keychain_service="anthropic", keychain_account="wringer",
+        keychain_env="ANTHROPIC_API_KEY",
+    )
+
+    assert "-w" not in harness.keychain_argv(agent, reveal=False)
+    assert "-w" in harness.keychain_argv(agent, reveal=True)
