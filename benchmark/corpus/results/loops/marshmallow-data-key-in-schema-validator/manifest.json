@@ -1,0 +1,21 @@
+{
+  "schema_version": "wringer.loop.v2",
+  "loop_id": "20260813-160857-cdb3",
+  "started_at": "2026-08-13T17:08:57+01:00",
+  "repo": {
+    "root": ".",
+    "head_sha": "84b237a3a8c41f283c7238de919dfd2579bc54bc",
+    "branch": "main",
+    "dirty": true
+  },
+  "config": {
+    "max_iterations": 3,
+    "worker": "acp: claude-agent-acp"
+  },
+  "result": {
+    "status": "converged",
+    "reason": "converged",
+    "iterations": 1,
+    "final_run": ".wringer/runs/20260813-160857-9368"
+  }
+}

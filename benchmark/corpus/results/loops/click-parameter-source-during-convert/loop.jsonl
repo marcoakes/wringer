@@ -1,0 +1,4 @@
+{"type": "loop.started", "ts": "2026-08-13T17:57:51.077+01:00", "prev_hash": "0000000000000000000000000000000000000000000000000000000000000000", "loop_id": "20260813-165751-5c27", "wringer_version": "0.3.0", "repo": "tree", "sha": "9c275dc20deac06f8c7a43b0b5919f37233a8bc7", "max_iterations": 3}
+{"type": "iteration.started", "ts": "2026-08-13T17:57:51.078+01:00", "prev_hash": "cb8ad9e0f042e469e917e6dde7b017c708696a56e43af70d84c8a44ba5421b76", "iteration": 1}
+{"type": "verify.finished", "ts": "2026-08-13T17:57:54.114+01:00", "prev_hash": "ed51f1cca22a3e9f6885309b12677eecbfbfb74d15d662e7e10b5c8670504b30", "iteration": 1, "status": "passed", "evidence_dir": ".wringer/runs/20260813-165751-8ae2"}
+{"type": "loop.finished", "ts": "2026-08-13T17:57:54.114+01:00", "prev_hash": "af15f81805c50b75485a7be94885178441bf5c242c24ad05b20d3fd72ef8d3b3", "status": "converged", "reason": "converged", "iterations": 1}

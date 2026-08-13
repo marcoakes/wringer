@@ -558,21 +558,48 @@ def test_the_agent_variant_declares_an_acp_worker_and_the_covering_suite(
     assert "test_the_general_case" in (repo / "test_calc.py").read_text("utf-8")
 
 
-def test_the_corpus_is_empty_and_its_rule_is_written_down():
+def test_the_corpus_rule_was_written_before_the_corpus_existed():
     """`CORPUS.md` §4: the rule is fixed BEFORE selection, because whoever picks
-    the tasks can pick the result. Nothing is selected yet, and the file says so
-    rather than implying a corpus exists."""
+    the tasks can pick the result.
+
+    **This test used to assert the corpus was EMPTY.** On 2026-08-13 it stopped
+    being empty, and what the guard protects moved with it: not the absence of a
+    corpus, but the ORDER — the rule dated before selection, every candidate
+    recorded rather than only the chosen ones, and the smoke task still marked
+    as not being evidence about agents.
+
+    The counts are asserted as a range rather than a number so that adding a
+    reserved candidate later does not silently pass; §4 requires a second corpus
+    published beside this one, never an extension of this one.
+    """
+    import yaml
+
     text = (BENCHMARK / "CORPUS.md").read_text(encoding="utf-8")
 
     assert "before any task that costs money has been run" in text
-    assert "nothing examined yet" in text
-    # the rule that can void the whole run is stated as a rule, not a hope
-    # A phrase that lives on ONE line. Flattening does not help here: the rule
-    # is a blockquote, so a wrapped continuation carries a leading `>` that
-    # lands between the words.
+    # the rule that can void the whole run is stated as a rule, not a hope.
+    # A phrase that lives on ONE line: the rule is a blockquote, so a wrapped
+    # continuation carries a leading `>` that lands between the words.
     assert "a good agent plausibly declares success" in text
-    # and the smoke task is explicitly NOT corpus evidence
     assert "Not a corpus task and not evidence about agents" in text
+
+    # Every candidate examined is recorded, kept or excluded — not just the kept.
+    assert "commits examined across five repositories" in text
+    assert "dropped by the critic" in text
+    assert "survived, not selected" in text
+
+    manifest = yaml.safe_load(
+        (BENCHMARK / "corpus" / "corpus.yaml").read_text(encoding="utf-8")
+    )
+    tasks = manifest["tasks"]
+    # §4: 3-5 repositories, 10-20 tasks.
+    assert 10 <= len(tasks) <= 20, len(tasks)
+    assert 3 <= len({t["repo_key"] for t in tasks}) <= 5
+    # and every one of them names the licence it is used under
+    assert all(t.get("licence") for t in tasks)
+    # the fix commit is recorded so a reader can diff agent against upstream,
+    # and it is never handed to an arm
+    assert all(t.get("fix_sha") and t.get("base_sha") for t in tasks)
 
 
 def test_the_credential_source_works_off_macos(tmp_path: Path, monkeypatch):

@@ -1,0 +1,239 @@
+{
+  "_what_this_is": "`wring verify --prove` run on each arm-B tree AFTER the corpus run, costing nothing. The corpus itself ran WITHOUT run.prove, so these verdicts are not what decided any row \u2014 they are what WOULD have decided every row had the flag been set, and they are unanimous.",
+  "verdicts": {
+    "attrs-frozen-exception-mutable-attrs": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 42,
+      "prove_ms": 7024,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "attrs-order-check-after-transformer": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 43,
+      "prove_ms": 7342,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "attrs-slots-cached-property-attributeerror": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 41,
+      "prove_ms": 7095,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "click-help-hint-shadowed-name": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 47,
+      "prove_ms": 3492,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "click-parameter-source-during-convert": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 47,
+      "prove_ms": 3830,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "click-zsh-completion-colons": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 44,
+      "prove_ms": 1512,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "marshmallow-constant-required": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 40,
+      "prove_ms": 1324,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "marshmallow-data-key-in-schema-validator": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 37,
+      "prove_ms": 1428,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "marshmallow-email-idn": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 39,
+      "prove_ms": 1437,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "packaging-arbitrary-equality-intersection": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 48,
+      "prove_ms": 10689,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "packaging-filter-exclusionary-bridges": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 46,
+      "prove_ms": 11219,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "pyparsing-located-leading-whitespace": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 122,
+      "prove_ms": 36659,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    },
+    "pyparsing-quotedstring-whitespace-delims": {
+      "schema_version": "wringer.vacuity.v1",
+      "verdict": "gates_vacuous",
+      "reason": "every required gate passed without the change too (test), so they proved nothing about it \u2014 write a test that fails without your change",
+      "worktree_ms": 111,
+      "prove_ms": 39745,
+      "setup": null,
+      "gates": [
+        {
+          "gate_id": "test",
+          "changed": "passed",
+          "pre_change": "passed",
+          "sensitive": false,
+          "cites": null,
+          "pre_change_log": "vacuity/001_test.stdout.log"
+        }
+      ]
+    }
+  }
+}
