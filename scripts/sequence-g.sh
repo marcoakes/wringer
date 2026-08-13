@@ -64,6 +64,22 @@ git commit -q --allow-empty -m "initial"
 # `optional: true` on every one of them: an attack that succeeds must not stop
 # the run before the later attacks get their turn — a partial sequence is the
 # checklist-with-only-passes failure wearing a different hat.
+#
+# EVERY ATTACK MUST USE A TOOL THE IMAGE ACTUALLY HAS, and that is a rule this
+# script learned the hard way on 2026-08-13, the first time anybody ran it.
+# `outbound-network` shelled out to `curl` and `host-process-table` to `ps`;
+# the image this repo publishes has NEITHER, so both attacks printed a
+# not-found line and measured nothing — while the run reported seven attacks.
+# That is the "table of passes is an advert" failure happening INSIDE a script
+# written to refuse exactly that. What the image does have is `python3`,
+# `getent`, `cat`, `grep` and `/proc`, so the probes below use those.
+#
+# The heredoc is UNQUOTED, because ${IMAGE} and ${RUNTIME} have to be expanded
+# here. That means every OTHER `$` must be escaped as `\$` or the host shell
+# eats it — which is the second thing this script got wrong: `${HOME:-/root}`
+# expanded on the HOST at write time, so `outside-the-mount` asked the
+# container to list `/Users/marc` instead of its own home. It still measured
+# something real (a host path is not visible), but not the thing its name says.
 cat > .wringer.yaml <<YAML
 version: 1
 gates:
@@ -81,13 +97,13 @@ gates:
     run: "git config --global --list 2>&1; cat ~/.gitconfig 2>&1; cat ~/.git-credentials 2>&1"
   - id: outside-the-mount
     optional: true
-    run: "ls -la / 2>&1; cat /etc/shadow 2>&1 | head -c 64; ls ${HOME:-/root} 2>&1"
+    run: "ls -la / 2>&1; cat /etc/shadow 2>&1 | head -c 64; ls -la \${HOME:-/root} 2>&1; ls -la /Users 2>&1"
   - id: outbound-network
     optional: true
-    run: "getent hosts example.com 2>&1; (command -v curl >/dev/null && curl -sS -m 5 -o /dev/null -w 'HTTP %{http_code}\\n' https://example.com 2>&1) || echo 'no curl in image'"
+    run: 'getent hosts example.com && echo "DNS RESOLVED" || echo "DNS FAILED (getent exit past this line)"; python3 -c "import socket; socket.setdefaulttimeout(5); print(''DNS RESOLVED'', socket.gethostbyname(''example.com''))" 2>&1 | tail -1; python3 -c "import socket; socket.setdefaulttimeout(5); s=socket.create_connection((''1.1.1.1'', 443), 5); print(''TCP CONNECTED'', s.getpeername())" 2>&1 | tail -1'
   - id: host-process-table
     optional: true
-    run: "ps aux 2>&1 | head -20"
+    run: 'echo "processes visible in this PID namespace:"; ls /proc | grep -c "^[0-9][0-9]*\$"; echo "pid 1 is:"; tr "\\0" " " < /proc/1/cmdline; echo; cat /proc/1/comm 2>&1; echo "host uptime readable:"; head -c 40 /proc/uptime 2>&1; echo'
 execution:
   backend: container
   image: ${IMAGE}

@@ -26,6 +26,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Apple `container` | Apple silicon, MDM-managed, uid:gid `502:20` | macOS 26.5.2, `Darwin arm64` | Apple `container` 1.2.0 (Homebrew formula, Workbrew 1.7.3 / Homebrew 6.0.15) | 2026-08-05 | `75167c2` | **Passed with corrections applied by hand** — see the note below |
 | Docker stub (R2-02) | Apple silicon, MDM-managed | macOS 26.5.2 | none — `/Applications/Docker.app` present as a stripped stub | 2026-08-05 | `75167c2` | **Observed, not executed as a sequence.** `d--------- 2 root admin 64`, no binary, no socket — seen while diagnosing step 4B. Sequence C below was written afterwards and has never been run as written |
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
+| Sequence G — the container path, attacked | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | **podman 6.1.0**, `applehv` provider, vfkit 0.6.4 + gvproxy 0.8.9, all in `~/.local` with no admin | 2026-08-13 | `c6fce0c`+ | **RAN AND CLASSIFIED — 7 attacks, 6 prevented / 1 mitigated, and the first run found 2 of the 7 measuring nothing at all.** Read the caveat: on macOS a Linux VM sits between container and host, so this is NOT evidence about the Linux case |
 | Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | 2026-08-13 | `f0b44bc` | **EXECUTED for the first time** — [run 31692802687](https://github.com/marcoakes/wringer/actions/runs/31692802687), job `attack` succeeded, 16 KB of output in the `sequence-g` artifact. **UNCLASSIFIED: nobody has read it.** The artifact and the logs both need GitHub auth (401 unauthenticated), so the seven attempts have not been sorted into prevented / detected / mitigated / out_of_scope by anybody. Until they are, this row records that the sequence RAN and nothing about what it found |
 | Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
@@ -275,10 +276,12 @@ Per entry in `agents.AGENTS`, on a machine with a network:
 
 ## Sequence G — the container path, attacked
 
-**Status: never run by anyone.** No container runtime exists on the
-maintainer's machine, so this is structurally unrunnable there, exactly like
-sequence A. Last attempted 2026-08-12: `sh scripts/sequence-g.sh` exited 2,
-having recorded nothing.
+**Status: RUN AND CLASSIFIED, 2026-08-13, on macOS via podman — and read the
+caveat before you read the table, because the caveat is bigger than the
+result.** A container runtime now exists on the maintainer's machine: podman
+6.1.0 installed into `~/.local` with no admin rights, `applehv` provider,
+vfkit + gvproxy as helper binaries. Previously unrunnable there; last refusal
+was 2026-08-12, exit 2, recording nothing.
 
 `SECURITY.md` says the container path is *designed to* isolate and explicitly
 declines to say it is *demonstrated to*. This sequence is what would change
@@ -333,18 +336,112 @@ succeeding does not stop the rest:
 - [ ] **Record it**, including every attempt that SUCCEEDED. An attack that
       works is the finding; a checklist with only passes is a advert.
 
+
+### How the runtime got there, with no admin rights
+
+Recorded because "install a runtime" was the blocker for eight months and the
+answer turned out to be four downloads and no password. Every step ran as the
+ordinary user; nothing needed `sudo`; nothing was installed system-wide.
+
+Apple's `container` is deliberately NOT the answer here — `backend.py`'s
+`_DOCKER_DIALECT` accepts `docker`, `podman` and `nerdctl` only, and
+SPEC_EXEC_V0 ruling 4 says why guessing at a fourth flag surface is the worst
+failure available.
+
+1. `podman-remote-release-darwin_arm64.zip` (25,374,988 bytes) from podman's
+   GitHub releases → extract `usr/bin/podman` to `~/.local/podman/bin/`,
+   symlink into `~/.local/bin/`.
+2. The archive contains **no VM helpers**, which is the step that is easy to
+   miss. Fetch two more: `vfkit` from `crc-org/vfkit` (Developer-ID signed,
+   and `codesign -d --entitlements -` shows `com.apple.security.virtualization
+   = true`, which is the entitlement the whole thing turns on) and
+   `gvproxy-darwin` from `containers/gvisor-tap-vsock`. Same directory.
+3. `~/.config/containers/containers.conf`:
+
+   ```
+   [engine]
+   helper_binaries_dir = ["/Users/<you>/.local/podman/bin"]
+
+   [machine]
+   provider = "applehv"
+   ```
+
+   **The `provider` line is required.** podman 6 defaults to `krunkit` on Apple
+   silicon, which is a separate binary this recipe does not install; without it
+   `podman machine start` dies with `exec: "krunkit": executable file not
+   found in $PATH` after a successful `init`, which reads like a broken install
+   rather than a wrong default.
+4. `podman machine init --disk-size 20 --memory 4096 --cpus 4 && podman machine
+   start`. The machine image is ~1 GB and the running VM cost about 6 GB of
+   disk here.
+
+Then `sh scripts/sequence-g.sh podman ghcr.io/marcoakes/wringer:main`. Bind
+mounts from both `$HOME` and `$TMPDIR` resolve inside the VM without extra
+configuration, which is what lets the workspace mount work at all.
+
+### What it found — macOS / podman 6.1.0 / `ghcr.io/marcoakes/wringer:main`
+
+**THE CAVEAT FIRST, because it decides how much the table below is worth.
+On macOS there is a LINUX VM between the container and the host.** podman runs
+containers inside a Fedora CoreOS guest, so every "the host is not reachable"
+result here is really *the VM is not reachable from the container*, and macOS
+was never the thing being escaped from. On Linux — where docker and podman share
+the host kernel and where anyone reading `SECURITY.md` will actually run this —
+none of that VM exists. **These seven results are evidence about container ⇢ VM
+isolation and are NOT evidence about container ⇢ Linux host isolation.** The
+`/proc/uptime` line below proves the point: the container reads an uptime of
+223 seconds, which is the VM's age, not the Mac's.
+
+| # | attack | verdict | what it actually saw |
+|---|---|---|---|
+| 1 | host-ssh-keys | prevented | `/home/wring/.ssh` and `/home/*/.ssh` do not exist; `/root/.ssh` is `Permission denied`. No host key material is reachable |
+| 2 | host-credentials-in-env | prevented **by default only** | `NONE FOUND`. Wringer emits `--env NAME` solely for names in `execution.env`, which is empty here. This says the DEFAULT is clean; it says nothing about a declared passthrough, which is opt-in and is meant to arrive |
+| 3 | docker-socket | prevented | neither `/var/run/docker.sock` nor `/run/docker.sock` exists. Rootless podman binds no socket into the container |
+| 4 | host-git-config | prevented | `fatal: unable to read config file '/home/wring/.gitconfig'`; no `.git-credentials` |
+| 5 | outside-the-mount | **mitigated, not prevented** | `/etc/shadow` is `Permission denied` — the file IS there and the barrier is the image's `USER wring`, which **Wringer does not set**. An image whose user is root reads it. `${HOME}` shows only the container's own skeleton; `/Users` does not exist |
+| 6 | outbound-network | prevented | `--network none` is real and it is not just DNS: `socket.gaierror: [Errno -3] Temporary failure in name resolution` AND, on a raw IP with no name lookup, `OSError: [Errno 101] Network is unreachable` |
+| 7 | host-process-table | prevented | **3** pids visible in the namespace; pid 1 is the gate's own `/bin/sh -c`. `/proc/uptime` is readable and leaks the VM's uptime — bounded, and not the host's |
+
+**Verdict on `SECURITY.md`: the wording does NOT change, and this run is the
+argument for leaving it alone rather than an argument nobody made.** "Designed
+to isolate" stays. A macOS run cannot upgrade a claim about Linux, and item 5
+is carried by the image's user rather than by anything Wringer asks for.
+
+### The finding that matters more than the table
+
+**Two of the seven attacks measured NOTHING the first time, and the run
+reported seven attacks.** `outbound-network` shelled out to `curl` and
+`host-process-table` to `ps`; the image this repository publishes has neither,
+so they printed `no curl in image` and `ps: not found` and were counted. That is
+the "a table of passes is an advert" failure occurring *inside the script
+written to refuse exactly that* — a check that narrowed while still passing,
+which is this repository's own named defect class, found in its own security
+checklist. Both probes now use tools the image has (`python3`, `getent`,
+`/proc`), and the fixed run is the table above.
+
+A third bug, same commit: the heredoc that writes `.wringer.yaml` is unquoted,
+so `${HOME:-/root}` expanded on the HOST and attack 5 asked the container to
+list `/Users/marc` rather than its own home. It measured something real either
+way, but not the thing its name claims. Escaped now.
+
+**What is still unrun: this sequence on LINUX with the results read.** The
+2026-08-13 CI row above executed it on `ubuntu-latest` and nobody has opened the
+artifact. That job is where the claim that matters would come from, and until
+someone reads it the Linux case is unmeasured.
+
 Classify each as `prevented`, `detected`, `mitigated` or `out_of_scope`, and
 never write `prevented` where Wringer merely records evidence afterwards. The
 script prints those four definitions and then stops, because classifying is the
 half a script cannot do.
 
 **A row saying the sequence RAN is not a row saying what it found.** The
-2026-08-13 Linux row above is exactly that halfway state: the job executed the
+2026-08-13 Linux CI row is exactly that halfway state: the job executed the
 seven attempts against a real Docker and uploaded the output, and no human has
 opened it. Classification is the half a script cannot do, and an unread artifact
-classifies nothing.
+classifies nothing. The macOS row IS classified, and its own caveat says why
+that does not settle the Linux question.
 
-**Until a row appears above WITH classifications, nothing in this repository may
+**Until a LINUX row appears with classifications, nothing in this repository may
 say the container path is demonstrated to isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
