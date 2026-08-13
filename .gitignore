@@ -26,6 +26,11 @@ __pycache__/
 /benchmark/results/
 /results/
 
+# corpus — generated task files name absolute clone and venv paths, so they are
+# a machine's, not the project's. The reviewable artifacts (corpus.yaml, the
+# held-out tests, the upstream statements) are all committed.
+/benchmark/corpus/tasks/
+
 # env & secrets
 .env
 .env.*

@@ -329,7 +329,15 @@ def test_a_worker_that_cannot_start_is_void_for_arm_a(tmp_path: Path):
 
 def test_every_row_carries_deviations_and_they_are_never_empty(tmp_path: Path):
     """A row listing no deviations would be the overclaim this harness exists to
-    avoid: the arms differ in PROMPT as well as in supervision, always."""
+    avoid.
+
+    **The prompt deviation is gone as of 2026-08-13, and its absence is the
+    finding rather than an omission.** Both arms are now handed the same
+    statement, so "the arms differ in prompt" would be a FALSE deviation — and a
+    list padded with a limitation that no longer applies is as dishonest as one
+    missing a limitation that does. What replaced it is the one that is now
+    load-bearing: two independent draws from a stochastic agent.
+    """
     repo = build_demo("covering", tmp_path)
     out = tmp_path / "out"
 
@@ -338,8 +346,11 @@ def test_every_row_carries_deviations_and_they_are_never_empty(tmp_path: Path):
     for row in rows_from(out):
         assert row["deviations"], row
         joined = " ".join(row["deviations"])
-        assert "differ in prompt, not only in supervision" in joined
         assert "one attempt only" in joined
+        assert "two INDEPENDENT agent runs" in joined
+        assert "variance" in joined
+        # The stale one must not come back with the arms as they now are.
+        assert "differ in prompt" not in joined.lower(), joined
 
 
 def test_every_row_carries_the_limits(tmp_path: Path):
@@ -355,7 +366,10 @@ def test_every_row_carries_the_limits(tmp_path: Path):
     assert "agreement with UPSTREAM'S fix" in joined
     assert "inflates the measured false-refusal rate" in joined
     assert "claim of completion is its EXIT CODE" in joined
-    assert "differ in PROMPT" in joined
+    # Was "the arms differ in PROMPT". They no longer do; this is the limit that
+    # took its place, and it is the one a reader now has to hold.
+    assert "two INDEPENDENT draws from a stochastic agent" in joined
+    assert "differ in PROMPT" not in joined
     assert "void row contributes to no rate" in joined
     assert "constant refuser" in joined
 

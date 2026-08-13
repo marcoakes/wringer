@@ -57,11 +57,22 @@ footnote.
 
 ## What is NOT claimed about the two arms
 
-Arm B hands the agent a *brief built from failing gates*; arm A hands it the task
-text. That is the treatment, not a rigged comparison — but the arms differ in
-**prompt**, not only in supervision. Every row carries that as a `deviation`, and
-the list is never empty, because a write-up saying "the same agent" without
-saying "given different information" would be overclaiming.
+**Both arms are handed the same statement.** Arm B then runs `wring run` over
+what came back — which engages the repair loop only if the change broke a
+declared gate — and asks `wring deliver` for a decision. So the arms differ in
+supervision and in nothing else, which is what the claim is about.
+
+That changed on 2026-08-13, forced by a zero-cost oracle run against the first
+real corpus task. Arm B used to be `wring run` alone, whose brief is built from
+FAILING gates. `CORPUS.md` §3 requires tasks where the repository's own gates do
+not cover the issue — so those gates are green at base, `loop.run` verifies first
+and stops at `converged`, and arm B would have run no agent at all, delivered
+nothing, and scored `true_refusal` on every task that mattered. Wringer would
+have won the benchmark by never attempting the work.
+
+What still cannot be claimed: the arms are two INDEPENDENT draws from a
+stochastic agent, so the difference between them mixes supervision with variance.
+Every row carries that as a `deviation`, and the list is never empty.
 
 Usage:
 
@@ -135,10 +146,10 @@ LIMITS = (
     "Arm A's claim of completion is its EXIT CODE. An agent that exits 0 having "
     "done nothing is recorded as claiming success, because that is what a "
     "caller with no harness would believe.",
-    "The arms differ in PROMPT as well as in supervision: arm B is handed a "
-    "brief built from failing gates. That is the treatment, and every row lists "
-    "it as a deviation. 'The same agent' without 'given different information' "
-    "would be overclaiming.",
+    "The arms are two INDEPENDENT draws from a stochastic agent given the same "
+    "statement. The difference between them therefore mixes the supervision "
+    "with the agent's own variance between draws, and one task cannot separate "
+    "them.",
     "One attempt per arm per task. Agents are stochastic, so a single row is a "
     "draw and not a measurement — SPEC_ATTEMPTS_V0 is the same lesson one layer "
     "down.",
@@ -772,16 +783,64 @@ def run_native(task: Task, tree: Path, workdir: Path) -> tuple[bool | None, str]
     return done.returncode == 0, f"agent exit {done.returncode}"
 
 
+def do_the_work(task: Task, tree: Path, workdir: Path) -> tuple[bool | None, str]:
+    """Somebody attempts the task in this tree. **Both arms come through here.**
+
+    A real agent when the task names one, the scripted worker otherwise. Arm A
+    stops at what this returns; arm B carries on into supervision. One function
+    is what makes "the arms differ only in supervision" a fact about the code
+    rather than a sentence in a document.
+    """
+    if task.agent is not None:
+        return run_agent_alone(task, tree, workdir)
+    return run_native(task, tree, workdir)
+
+
 def run_under_wringer(
     task: Task, tree: Path, workdir: Path
 ) -> tuple[bool | None, str]:
-    """**Arm B: the same agent under `wring run`, then `wring deliver`.**
+    """**Arm B: the same agent, the same statement, and then supervision.**
 
     `delivery_eligible` is measured by ASKING WRINGER — a dry-run
     `wring deliver`, whose exit code is its actual decision. A reimplementation
     here would be a second opinion that could drift from the product, and the
     thing being measured is the product's decision.
+
+    ## Why the agent runs FIRST, which changed on 2026-08-13
+
+    Arm B used to be `wring run` alone, whose brief is built from failing gates.
+    That works on the demo repo, where a planted bug makes the repo's own suite
+    red at the base commit. **It cannot work on a corpus task**, and the oracle
+    build proved it before a penny was spent: `CORPUS.md` §3 requires tasks where
+    the repository's own gates do NOT cover the issue, so those gates are GREEN
+    at base — and `loop.run` verifies before it does anything else and stops at
+    `converged` without ever calling a worker.
+
+    The consequence was not a small one. On exactly the tasks that decide the
+    claim, arm B would have run no agent, produced a clean tree, been refused by
+    `wring deliver` for having nothing to deliver, and scored `true_refusal`.
+    Wringer would have "won" the benchmark by never attempting the work — an
+    artifact of the harness, and the precise failure §1 names when it says a
+    refusing system completes fewer.
+
+    So the statement goes to the agent first, exactly as in arm A, and Wringer
+    supervises what comes back: `wring run` (which engages the loop only if the
+    change broke a gate — which IS the supervision, and is silent when there is
+    nothing to say) and then the delivery decision.
+
+    **This makes the experiment better, not merely possible.** The arms now
+    differ ONLY in supervision. The prompt deviation that every v1 row had to
+    carry — "arm B is given a brief built from failing gates" — is gone, because
+    both arms are now given the same words.
     """
+    # The identical call arm A makes, into arm B's own directory. A failure here
+    # is VOID for the same reason it is in arm A: no claim was made. A scripted
+    # task goes through the same door, which is what makes the zero-cost oracle
+    # a faithful rehearsal of THIS arm rather than of a different one.
+    attempted, why = do_the_work(task, tree, workdir)
+    if attempted is None:
+        return None, why
+
     ran = subprocess.run(
         [
             sys.executable, "-m", "wringer", "run",
@@ -800,9 +859,39 @@ def run_under_wringer(
     # it up beside arm A's so both arms answer "what did this cost" from the
     # same filename. The LAST loop's file wins: a tree can hold several loop
     # bundles, and only the one this arm just ran is this arm's spend.
+    # **Arm B's spend is now two things: the agent's own turn and whatever the
+    # loop spent afterwards.** Copying the loop's file over the turn's would
+    # silently drop the larger half — the turn is where the work happens and the
+    # loop is often silent — so they are MERGED and the totals recomputed.
     loops = sorted((tree / ".wringer" / "loops").glob("*/" + USAGE_FILENAME))
     if loops:
-        shutil.copy2(loops[-1], workdir / USAGE_FILENAME)
+        from wringer import loop as loop_module
+
+        rows: list[dict[str, Any]] = []
+        for source in (workdir / USAGE_FILENAME, loops[-1]):
+            if not source.is_file():
+                continue
+            try:
+                rows.extend(
+                    json.loads(source.read_text(encoding="utf-8")).get("rows") or []
+                )
+            except (OSError, ValueError):  # unreadable is the same as unreported
+                continue
+        if rows:
+            (workdir / USAGE_FILENAME).write_text(
+                json.dumps(
+                    {
+                        "schema_version": "wringer.usage.v1",
+                        "reported_by": "agent",
+                        "verified": False,
+                        "rows": rows,
+                        "totals": loop_module.usage_totals(rows),
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
 
     delivered = subprocess.run(
         [sys.executable, "-m", "wringer", "deliver", "--json"],
@@ -888,19 +977,23 @@ def deviations_for(arm: str) -> list[str]:
     avoid."""
     shared = [
         "one attempt only — agents are stochastic and a single row is a draw",
+        "the two arms are two INDEPENDENT agent runs from the same statement, "
+        "so the difference between them mixes the supervision with the "
+        "agent's own variance between draws",
     ]
     if arm == ARM_NATIVE:
         return shared + [
-            "given the task STATEMENT; arm B is given a brief built from "
-            "failing gates. The arms differ in prompt, not only in supervision",
-            "claim of completion is the agent's EXIT CODE, which is the "
+            "claim of completion is the agent's own end of turn, which is the "
             "strongest signal a caller without a harness has",
+            "nothing runs the repository's tests in this arm — that is the "
+            "point of it, and it is also why this arm is cheaper",
         ]
     return shared + [
-        "given a BRIEF built from failing gates; arm A is given the task "
-        "statement. The arms differ in prompt, not only in supervision",
         "claim of completion is a dry-run `wring deliver` exit code, which is "
         "the product's own decision rather than a reimplementation of it",
+        "the loop engages only when the change broke a declared gate. On a task "
+        "whose gates were green at base and stayed green, arm B's supervision "
+        "is the DELIVERY DECISION alone and no repair happened",
     ]
 
 
@@ -924,10 +1017,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
 
     sha = head_sha(tree)
     if arm == ARM_NATIVE:
-        if task.agent is not None:
-            claimed, claim_reason = run_agent_alone(task, tree, workdir)
-        else:
-            claimed, claim_reason = run_native(task, tree, workdir)
+        claimed, claim_reason = do_the_work(task, tree, workdir)
     else:
         claimed, claim_reason = run_under_wringer(task, tree, workdir)
 

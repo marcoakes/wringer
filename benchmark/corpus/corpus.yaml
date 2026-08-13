@@ -1,0 +1,518 @@
+# THE CORPUS — the committed task list `CORPUS.md` §4 requires before any paid
+# run, and it is committed BEFORE the first paid run rather than after.
+#
+# HOW THESE WERE CHOSEN. Five permissively-licensed, pure-Python repositories
+# with offline test suites were mined from their own git history for commits
+# that fix a bug AND add tests — upstream's FAIL_TO_PASS shape. 86 commits were
+# examined across the five. 25 passed the miner's checks. Each was then handed
+# to a SECOND reader told to REFUTE it, which re-ran every measurement from a
+# verified-clean tree and dropped 5. Of the 20 survivors, 13 are here.
+#
+# The rule they were selected against (`benchmark/CORPUS.md`) was written and
+# committed before any of this, because whoever picks the tasks can pick the
+# result. Everything examined — kept, dropped by the critic, or not selected —
+# is recorded in `CORPUS.md` §6.
+#
+# WHAT A ROW MEANS
+#   base_sha      the fix commit's PARENT. Both arms start from exactly this.
+#   fix_sha       upstream's real fix. Given to NO arm. Used only by the
+#                 zero-cost oracle build, which proves the task is winnable.
+#   gate          the repository's OWN suite, as its maintainers run it, and
+#                 the single Wringer gate. Where it does not cover the issue is
+#                 exactly where Wringer can lose — CORPUS.md §3.
+#   held_out      upstream's later tests, copied in ONLY for scoring. The WHOLE
+#                 FILE must pass: stricter than the added ids alone, because it
+#                 also catches a change that broke a neighbouring test, and it
+#                 needs no shell quoting of unicode parametrised node ids.
+#   tests         the names upstream ADDED. Never appear in any tree an arm
+#                 sees; `check_isolation` enforces that and voids the task if
+#                 one does.
+#
+# THE REPOSITORY IS NEVER INSTALLED into a venv. The working tree must win on
+# sys.path, or checking out a different commit changes nothing and every
+# measurement here is meaningless. Where a suite carries a test that asserts
+# installed-distribution metadata, that ONE file is excluded by name in the
+# gate command and the exclusion is visible above — the dishonest alternative
+# is `pip install`, which would let an agent that broke `src/` still import a
+# working copy and turn a broken tree into a green gate.
+#
+# PYTEST IS PINNED for click and packaging. Both set `filterwarnings = ["error"]`
+# in their own config, and pytest 9 emits a removal warning during collection
+# that those repos then turn into a collection failure. An unpinned pytest makes
+# every task on them fail for a reason the experiment never chose.
+
+version: 1
+
+tasks:
+  - id: marshmallow-data-key-in-schema-validator
+    repo_key: marshmallow
+    repo_url: https://github.com/marshmallow-code/marshmallow.git
+    licence: MIT (LICENSE)
+    base_sha: a578ed23092bd558acfbd9cd09a164108689326d
+    fix_sha: 9f751e1cef943e2ca1a77f93d3483b4a171d4303
+    upstream: Fix handling data_key in ValidationErrors raised in schema validators (#2792)
+    difficulty: discriminating
+    why: 'Three separate error paths must all collapse onto the same output key: @validates
+      (already keyed by data_key at base), @validates_schema raising with field_name=''foo''
+      (keyed by attr name at base), and @validates_schema raising the dict {''fooKey'': ...}.
+      The held-out test asserts all three merge into ONE list under ''fooKey''. Plausible wrong
+      fixes that keep the whole 1223-test suite green: (a) translate field_name -> data_key
+      inside ValidationError instead of in Schema._run_validator, which also rewrites errors
+      raised from field-level validators and double-translates; (b) handle only the field_name=
+      string form and leave the dict form under ''ip_addresses''; (c) do the mapping in error_store.store_error
+      globally, which breaks the SCHEMA sentinel path. The repo has ~30 decorator tests at base
+      and none exercises data_key together with a schema-level validator, so the repo''s own
+      gate does not cover the issue at all. The statement is a real user bug report that prints
+      observed and expected dicts, so it is reproducible without naming any test.'
+    source_files:
+    - src/marshmallow/decorators.py
+    - src/marshmallow/schema.py
+    - src/marshmallow/types.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_version_attributes.py
+    test_deps: &id001
+    - simplejson
+    - packaging
+    held_out:
+      files:
+      - src: tests__test_decorators.py
+        dest: tests/test_decorators.py
+      tests:
+      - test_data_key_is_used_in_errors_dict
+      run: '{python} -m pytest tests/test_decorators.py -q'
+    evidence:
+      baseline: 1223 passed in 1.87s
+      red: 'FAILED tests/test_decorators.py::TestValidatesSchemaDecorator::test_data_key_is_used_in_errors_dict
+
+        1 failed in 0.11s'
+      green: 1 passed in 0.08s
+  - id: marshmallow-email-idn
+    repo_key: marshmallow
+    repo_url: https://github.com/marshmallow-code/marshmallow.git
+    licence: MIT (LICENSE)
+    base_sha: 4acb783c73130f762aa5b0df6b65ff7685d5ff2c
+    fix_sha: f07eadc87dfac25ed505d5cd9d186920f2682733
+    upstream: Fix validate.Email to accept IDNs (#2937)
+    difficulty: discriminating
+    why: 'The statement asks only to ''support IDNs in the Email validator''. At base, Email
+      already half-supports IDNs through a `domain_part.encode(''idna'')` round-trip fallback,
+      so 8 of the 10 added cases ALREADY PASS at base. The two that fail are rejections: ''user@-muenchen.de''
+      and ''user@muenchen-.de''. An agent that does the natural thing - widen DOMAIN_REGEX with
+      the unicode-letter class so IDNs match directly - will make every positive case pass,
+      will pass the repo''s entire existing suite (1157 tests), and will declare success. But
+      unless it ALSO deletes the idna round-trip fallback, punycode normalisation still lets
+      the leading/trailing-hyphen domains through and both FAIL_TO_PASS ids stay red. The repo''s
+      own gate contains no case for hyphen-edged IDN domains at all, so the gate cannot catch
+      this. This is the exact shape of the difficulty rule: a plausible, well-motivated, suite-green
+      fix that is still wrong.'
+    source_files:
+    - src/marshmallow/validate.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_version_attributes.py
+    test_deps: *id001
+    held_out:
+      files:
+      - src: tests__test_validate.py
+        dest: tests/test_validate.py
+      tests:
+      - test_email_idn_invalid
+      - test_email_idn_valid
+      run: '{python} -m pytest tests/test_validate.py -q'
+    evidence:
+      baseline: 1157 passed in 1.54s
+      red: 'FAILED tests/test_validate.py::test_email_idn_invalid[user@-m\xfcnchen.de] - ...
+
+        FAILED tests/test_validate.py::test_email_idn_invalid[user@m\xfcnchen-.de] - ...
+
+        2 failed, 8 passed in 0.22s   <-- ONLY 2 of the 10 added ids are red at base; the other
+        8 already pass at base and are PASS_TO_PASS, not FAIL_TO_PASS'
+      green: 10 passed in 0.03s
+  - id: marshmallow-constant-required
+    repo_key: marshmallow
+    repo_url: https://github.com/marshmallow-code/marshmallow.git
+    licence: MIT (LICENSE)
+    base_sha: fea5428567960f15be0c9a3a4b99c0d9bb63848c
+    fix_sha: 070dde08bad456e743a0d2e1842c142a799a9568
+    upstream: Fix Constant field with required=True raising ValueError (#2901)
+    difficulty: discriminating
+    why: 'The fix is boxed in on three sides and only a narrow solution satisfies all of them.
+      (1) Removing the global guard ''load_default must not be set for required fields'' is
+      blocked - tests/test_fields.py:75 asserts that ValueError and is in the base suite. (2)
+      Simply not setting load_default when required=True clears the ValueError but then load({})
+      raises ''Missing data for required field'', so the held-out test stays red. (3) Reverting
+      the earlier #2894 change outright re-breaks test_constant_none_allows_none_value, also
+      in the base suite. Upstream''s answer was to stop routing constant through kwargs, re-derive
+      allow_none locally, AND override Field._validate_missing so a required Constant tolerates
+      an absent key. Several natural agent fixes clear the repo''s 1136-test gate while leaving
+      the held-out assertion red, and the statement (a real user report) does not spell the
+      solution out - it proposes a direction the maintainers did not fully take.'
+    source_files:
+    - src/marshmallow/fields.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_version_attributes.py
+    test_deps: *id001
+    held_out:
+      files:
+      - src: tests__test_deserialization.py
+        dest: tests/test_deserialization.py
+      tests:
+      - test_constant_with_required
+      run: '{python} -m pytest tests/test_deserialization.py -q'
+    evidence:
+      baseline: 1136 passed in 1.69s
+      red: 'FAILED tests/test_deserialization.py::TestFieldDeserialization::test_constant_with_required
+
+        1 failed in 0.35s'
+      green: 1 passed in 0.04s
+  - id: click-zsh-completion-colons
+    repo_key: click
+    repo_url: https://github.com/pallets/click.git
+    licence: BSD-3-Clause (LICENSE.txt)
+    base_sha: 565f36d5bc4a15d304337b749e113fb4477b1843
+    fix_sha: a1235aacb1be55dc66ddcfefbf64dec44b6ab54d
+    upstream: Fix Zsh completions with colons (#2846)
+    difficulty: discriminating
+    why: 'The statement (issue #2703) itself proposes the WRONG fix: it says the earlier ''"fake
+      escaping" the colons via .replace(":", "\\:")'' seems to work. Applying that unconditionally
+      in ZshComplete.format_completion fixes the reported symptom and passes the repo''s entire
+      suite at base (the existing zsh cases in test_full_complete contain no colons at all),
+      but it is wrong: the frozen zsh script routes items WITH help through `_describe` (which
+      understands backslash-escaped colons) and items WITHOUT help through `compadd` (which
+      does not, and would show a literal backslash). The held-out parametrisation asserts exactly
+      that asymmetry - `c\:d` with help `cee:dee` escaped, `c:e` with no help left raw - so
+      an agent that follows the issue''s own suggestion declares success and is wrong.'
+    source_files:
+    - src/click/shell_completion.py
+    pythonpath: src
+    gate: pytest -q
+    test_deps: &id002
+    - pytest<9
+    held_out:
+      files:
+      - src: tests__test_shell_completion.py
+        dest: tests/test_shell_completion.py
+      tests:
+      - test_zsh_full_complete_with_colons
+      run: '{python} -m pytest tests/test_shell_completion.py -q'
+    evidence:
+      baseline: 870 passed, 22 skipped, 1 xfailed in 2.46s
+      red: 3 failed in 0.11s
+      green: 3 passed in 0.02s
+  - id: click-parameter-source-during-convert
+    repo_key: click
+    repo_url: https://github.com/pallets/click.git
+    licence: BSD-3-Clause (LICENSE.txt)
+    base_sha: 4b24a6c8f6658ef89fd6db4dcaf8ee88eef75dfa
+    fix_sha: 7d05a59b9d46a415d85937630d1d812cf477f60a
+    upstream: Fix get_parameter_source() during type conversion and eager callbacks
+    difficulty: discriminating
+    why: 'The one-move fix is obvious from the statement - move `ctx.set_parameter_source(self.name,
+      source)` back to before `process_value()` in Parameter.handle_parse_result - and it makes
+      both directly-reported symptoms pass and leaves the repo''s own suite green. It is still
+      wrong: recording the source early means an option that LOSES feature-switch-group arbitration
+      (several options sharing one parameter name) leaves its provisional source in the slot
+      and clobbers the winner''s. The upstream fix therefore also restores `existing_source`
+      when arbitration is lost. The held-out `test_flask_debug_env_not_stomped_by_default_flag`
+      is the case that catches it. Note the fix commit also added `tests/test_options.py::test_bool_flag_group_parameter_source`,
+      which WOULD catch the naive fix - but that file is not the held-out file, so at base it
+      is the pre-fix version and the gate does not contain it. Verified: that test already passes
+      at base, so it is not part of the red set.'
+    source_files:
+    - src/click/core.py
+    pythonpath: src
+    gate: pytest -q
+    test_deps: *id002
+    held_out:
+      files:
+      - src: tests__test_defaults.py
+        dest: tests/test_defaults.py
+      tests:
+      - test_flask_debug_env_not_stomped_by_default_flag
+      - test_parameter_source_during_eager_callback
+      - test_parameter_source_during_paramtype_convert
+      run: '{python} -m pytest tests/test_defaults.py -q'
+    evidence:
+      baseline: 1623 passed, 25 skipped, 30000 deselected, 1 xfailed in 3.78s
+      red: 3 failed in 0.99s
+      green: 3 passed in 0.14s
+  - id: click-help-hint-shadowed-name
+    repo_key: click
+    repo_url: https://github.com/pallets/click.git
+    licence: BSD-3-Clause (LICENSE.txt)
+    base_sha: f1f191ecd2c790b161187c78e7c88440e9524e5c
+    fix_sha: 1241abaed4e441582a21f4bf90c8482de02b92df
+    upstream: Use non-shadowed help option name in error hint
+    difficulty: discriminating
+    why: 'Issue #2790 shows only the `-h` shadowed case and its ''Possible solutions'' section
+      literally asks for `Try ''click-test-cli foo --help'' for help.` An agent that hard-codes
+      a preference for `--help`, or takes `get_help_option_names(ctx)[0]`, fixes the reported
+      case and keeps the whole existing suite green. The held-out parametrisation adds the two
+      cases the issue never mentions: `--help` itself shadowed (by `--help-file`, `--help`)
+      so the hint must fall back to `-h`, and BOTH names shadowed so no `Try ...` line may be
+      printed at all. Verified red node ids at base: [help_names0-extra_options0-...], [help_names1-extra_options1-...],
+      [help_names5-extra_options5-...].'
+    source_files:
+    - src/click/exceptions.py
+    pythonpath: src
+    gate: pytest -q
+    test_deps: *id002
+    held_out:
+      files:
+      - src: tests__test_formatting.py
+        dest: tests/test_formatting.py
+      tests:
+      - test_formatting_usage_error_help_hint
+      run: '{python} -m pytest tests/test_formatting.py -q'
+    evidence:
+      baseline: 1435 passed, 24 skipped, 30000 deselected, 1 xfailed in 3.86s
+      red: 3 failed, 3 passed in 0.06s
+      green: 6 passed in 0.02s
+  - id: attrs-frozen-exception-mutable-attrs
+    repo_key: attrs
+    repo_url: https://github.com/python-attrs/attrs.git
+    licence: MIT (LICENSE)
+    base_sha: 58cd3ae112abf36fcd8c1cdf2a55e21b3a5734d3
+    fix_sha: 1921da6eac6231b7bc058b076c0648b2d1b5c042
+    upstream: allow __suppress_context__ and __notes__ to be mutated on frozen exceptions (#1365)
+    difficulty: discriminating
+    why: The obvious fix — add "__suppress_context__" and "__notes__" to the allow-list in _frozen_setattrs
+      — is only HALF of it. `del exc.__notes__` must also work, which needs a matching change
+      in _frozen_delattrs, and BaseException.add_note() followed by `del __notes__` is the real-world
+      path. The base suite's only coverage of this area sets __traceback__, so an agent that
+      patches __setattr__ alone leaves all 1324 existing tests green and confidently reports
+      success while `del` still raises FrozenInstanceError. The statement is the terse upstream
+      changelog line, which says "mutated" and never mentions deletion — exactly the shape where
+      a good agent declares success wrongly.
+    source_files:
+    - src/attr/_make.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_packaging.py
+    test_deps: &id003
+    - hypothesis
+    - cloudpickle
+    - pympler
+    held_out:
+      files:
+      - src: tests__test_next_gen.py
+        dest: tests/test_next_gen.py
+      tests:
+      - test_setting_exception_mutable_attributes
+      run: '{python} -m pytest tests/test_next_gen.py -q'
+    evidence:
+      baseline: 1324 passed, 4 skipped, 1 xfailed in 10.32s
+      red: 2 failed in 0.08s
+      green: 2 passed in 0.02s
+  - id: attrs-order-check-after-transformer
+    repo_key: attrs
+    repo_url: https://github.com/python-attrs/attrs.git
+    licence: MIT (LICENSE)
+    base_sha: 75723b7720952ac0a4c7d3e277b6714ba55ded18
+    fix_sha: e048efcb395443608d184a149c0adbca166cb833
+    upstream: Perform attr order checks after field transformer. (#1401)
+    difficulty: discriminating
+    why: 'The fix moves the field_transformer call BEFORE the mandatory-vs-default order check,
+      but the check must survive the move and still fire on the POST-transformer order, and
+      the alias-resolution pass that used to sit after the transformer must stay after it. Three
+      wrong fixes all keep the repo''s 1331-test base suite green: (a) drop the order check
+      whenever a field_transformer is present — nothing existing tests that a reordered class
+      with a bad final order still raises; (b) run the check both before and after the transformer;
+      (c) hoist alias resolution up with the transformer, silently changing what transformers
+      see. Only the two held-out tests separate these from the real fix.'
+    source_files:
+    - src/attr/_make.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_packaging.py
+    test_deps: *id003
+    held_out:
+      files:
+      - src: tests__test_hooks.py
+        dest: tests/test_hooks.py
+      tests:
+      - test_hook_conflicting_defaults_after_reorder
+      - test_hook_reorder_fields_before_order_check
+      run: '{python} -m pytest tests/test_hooks.py -q'
+    evidence:
+      baseline: 1331 passed, 7 skipped, 1 xfailed in 10.90s
+      red: 2 failed in 0.15s
+      green: 2 passed in 0.02s
+  - id: attrs-slots-cached-property-attributeerror
+    repo_key: attrs
+    repo_url: https://github.com/python-attrs/attrs.git
+    licence: MIT (LICENSE)
+    base_sha: 82a14627fddbd0b2d802fbc574fa3b1ef010a801
+    fix_sha: 88e2896ca9351cd48711bd320571a832ae122cd5
+    upstream: Preserve AttributeError in slotted classes with cached_property (#1253)
+    difficulty: discriminating
+    why: 'The edit lands in a __getattr__ that attrs GENERATES AS SOURCE TEXT for slotted classes
+      with functools.cached_property, so the agent is patching a string-built code path with
+      no direct unit under test. The bug: an AttributeError raised by an inner @property is
+      swallowed and replaced by the generic "''A'' object has no attribute ''y''". The base
+      suite pins the generic message and the delegate-to-original-__getattr__ behaviour, so
+      a fix that special-cases only the branch where the class has no original __getattr__ keeps
+      all 1297 existing tests green while the propagation case stays broken. Only the held-out
+      test asserts the property''s own message survives, and it also checks the non-raising
+      cached_property still works — so a fix that swallows too little is caught too.'
+    source_files:
+    - src/attr/_make.py
+    pythonpath: src
+    gate: pytest -q --ignore=tests/test_packaging.py
+    test_deps: *id003
+    held_out:
+      files:
+      - src: tests__test_slots.py
+        dest: tests/test_slots.py
+      tests:
+      - test_slots_cached_property_raising_attributeerror
+      run: '{python} -m pytest tests/test_slots.py -q'
+    evidence:
+      baseline: 1297 passed, 4 skipped, 1 xfailed in 9.81s
+      red: 1 failed in 0.15s
+      green: 1 passed in 0.02s
+  - id: packaging-arbitrary-equality-intersection
+    repo_key: packaging
+    repo_url: https://github.com/pypa/packaging.git
+    licence: Apache-2.0 OR BSD-2-Clause (LICENSE, LICENSE.APACHE, LICENSE.BSD)
+    base_sha: a1f705642e50b79da6be83fb0f6149daa32fc7cc
+    fix_sha: b68980bcd1f6c824a2a154d8b0e8aa5e0a1faa02
+    upstream: Fix arbitrary equality intersection preservation in `SpecifierSet` (#951)
+    difficulty: discriminating
+    why: 'The visible symptom is SpecifierSet(''===1.0,===1.0.0'').filter([...]) returning [''1.0'']
+      instead of []. The obvious place to look is filter()/contains(), and a fix there can be
+      made to pass the reported reproduction. But the real cause is two layers away: Specifier._canonical_spec
+      ran canonicalize_version on the ''==='' operand, so Specifier(''===1.0'') and Specifier(''===1.0.0'')
+      hash and compare equal, and SpecifierSet stores members in a frozenset — one of the two
+      arbitrary-equality specifiers is silently dropped at construction. An agent that patches
+      filter/contains leaves __hash__/__eq__ wrong, so len(SpecifierSet(''===1.0,===1.0.0''))
+      is still 1 and set/dict use is still broken, while the existing suite (green at base)
+      never checks it. The held-out test asserts the general intersection-preservation law over
+      both operand orders and both input orders, which catches the surface patch.'
+    source_files:
+    - src/packaging/specifiers.py
+    pythonpath: src
+    gate: pytest -q
+    test_deps: &id004
+    - pytest==8.3.5
+    - pretend
+    - hypothesis
+    - tomli_w
+    held_out:
+      files:
+      - src: tests__test_specifiers.py
+        dest: tests/test_specifiers.py
+      tests:
+      - test_arbitrary_equality_is_intersection_preserving
+      run: '{python} -m pytest tests/test_specifiers.py -q'
+    evidence:
+      baseline: 'SKIPPED [1] tests/test_manylinux.py:151: requires Linux / 27297 passed, 1 skipped
+        in 11.88s'
+      red: 4 failed, 4 passed in 0.49s
+      green: 8 passed in 0.28s
+  - id: packaging-filter-exclusionary-bridges
+    repo_key: packaging
+    repo_url: https://github.com/pypa/packaging.git
+    licence: Apache-2.0 OR BSD-2-Clause (LICENSE, LICENSE.APACHE, LICENSE.BSD)
+    base_sha: 1b66ec21f7d107a29955b2300806b0d5328b85bc
+    fix_sha: 25b1f44e0e9e1a7ccce330c457ba64a74f973836
+    upstream: Fix pep440 edge case in `SpecifierSet.filter` (#942)
+    difficulty: discriminating
+    why: SpecifierSet.filter chained each member Specifier's own filter, so the prereleases=None
+      PEP 440 rule ('drop pre-releases unless nothing else matched') was applied independently
+      by every member instead of once over the conjunction. With '>=1,!=1.*,!=2.*,!=3.0,<=3.0'
+      the only satisfying versions are 3.0 pre-releases, and an intermediate specifier discards
+      them before the last one can decide. This is a three-valued flag (None/True/False) crossed
+      with member chaining; the correct fix must push prereleases=True through the members and
+      apply the None rule once at the end, while still preserving empty-SpecifierSet behaviour
+      for True and False. It is easy to produce a patch that fixes the reported example and
+      quietly changes behaviour for prereleases=False or the empty set. The existing suite is
+      green at base and the held-out file has 107 other filter cases a wrong fix can still satisfy
+      — only 2 of 109 are red at base, so the discriminating margin is narrow and precise.
+    source_files:
+    - src/packaging/specifiers.py
+    pythonpath: src
+    gate: pytest -q
+    test_deps: *id004
+    held_out:
+      files:
+      - src: tests__test_specifiers.py
+        dest: tests/test_specifiers.py
+      tests:
+      - test_filter_exclusionary_bridges
+      run: '{python} -m pytest tests/test_specifiers.py -q'
+    evidence:
+      baseline: 'SKIPPED [1] tests/test_manylinux.py:151: requires Linux / 27152 passed, 1 skipped
+        in 14.01s'
+      red: 2 failed, 107 passed in 0.53s
+      green: 109 passed in 0.37s
+    tests_note: the miner also listed test_contains_exclusionary_bridges; the critic isolated
+      it at base and found 77 passed — it is PASS_TO_PASS, not FAIL_TO_PASS, and is not held
+      out
+  - id: pyparsing-located-leading-whitespace
+    repo_key: pyparsing
+    repo_url: https://github.com/pyparsing/pyparsing.git
+    licence: MIT (LICENSE)
+    base_sha: 057a2e6d1b8391dc85abe725d4d12c0987a9ec10
+    fix_sha: 0a2d906a3e6b9a30b6a0701588caec3937ff271f
+    upstream: Fix Located capturing leading whitespace in its location (#621)
+    difficulty: discriminating
+    why: 'MEASURED, not argued. I wrote the obvious wrong fix at the base commit — in Located.parseImpl,
+      advance `start` past self.whiteChars before recording it — which reproduces the issue''s
+      exact repro correctly. The repo''s OWN ENTIRE SUITE PASSES with that fix: ''2001 passed,
+      27 skipped, 2011 subtests passed in 55.50s'', identical to the clean baseline. All six
+      held-out tests still FAIL (''6 failed in 1.99s''), because the held-out test also asserts
+      that Located(Word('' abc'').leave_whitespace()) keeps locn_start at 0. The correct fix
+      delegates to self.expr.preParse, which honours leave_whitespace; a hand-rolled whitespace
+      skip does not. This is exactly the demo-narrow-gates condition: an agent can fix the reported
+      symptom, watch the full repo suite go green, and declare success while silently breaking
+      leave_whitespace.'
+    source_files:
+    - pyparsing/core.py
+    pythonpath: .
+    gate: pytest tests -q
+    test_deps: &id005
+    - railroad-diagrams
+    - jinja2
+    held_out:
+      files:
+      - src: tests__test_unit.py
+        dest: tests/test_unit.py
+      tests:
+      - testLocatedExprLeadingWhitespace
+      run: '{python} -m pytest tests/test_unit.py -q'
+    evidence:
+      baseline: 2001 passed, 27 skipped, 2011 subtests passed in 48.29s
+      red: 6 failed in 1.31s
+      green: 6 passed in 0.20s
+  - id: pyparsing-quotedstring-whitespace-delims
+    repo_key: pyparsing
+    repo_url: https://github.com/pyparsing/pyparsing.git
+    licence: MIT (LICENSE)
+    base_sha: d3388aaf5c60d1069b7294a743ccd0e7c87a1d1d
+    fix_sha: 59b167db1ba364422e1505e8e112f8447764cd22
+    upstream: 'Preserve whitespace in QuotedString multi-char delimiters (fixes #492)'
+    difficulty: discriminating
+    why: 'The fix must keep TWO behaviours that pull against each other: stop stripping whitespace
+      off a legitimate multi-char delimiter such as ''\n;'', while still raising ValueError
+      for a delimiter that is empty OR all whitespace (''   '', ''\n''), and for end_quote_char
+      as well as quote_char. Only the held-out test asserts the whitespace-only rejection. Honest
+      caveat, measured: I probed the most obvious wrong fix (delete both .strip() calls, keep
+      `if not quote_char`) and the repo''s OWN suite CAUGHT it — ''6 failed, 2025 passed, 27
+      skipped, 2023 subtests passed in 42.31s'' via the existing testQuotedStrings. So the gate
+      here is not as narrow as 0a2d906a''s; the surviving wrong-fix path is a partial one (fixing
+      quote_char but not end_quote_char, or special-casing leading newlines), which is why I
+      rate this moderate rather than discriminating.'
+    source_files:
+    - pyparsing/core.py
+    pythonpath: .
+    gate: pytest tests -q
+    test_deps: *id005
+    held_out:
+      files:
+      - src: tests__test_unit.py
+        dest: tests/test_unit.py
+      tests:
+      - testQuotedStringWithWhitespaceInQuoteChars
+      run: '{python} -m pytest tests/test_unit.py -q'
+    evidence:
+      baseline: 2025 passed, 27 skipped, 2029 subtests passed in 43.31s
+      red: 6 failed in 1.45s
+      green: 6 passed in 0.14s
