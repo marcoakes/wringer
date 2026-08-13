@@ -1,0 +1,64 @@
+# THE FIRST THING TO RUN WHEN THE ACCOUNT HAS CREDIT. It costs roughly $1-3.
+#
+# It is deliberately NOT a corpus task, and `CORPUS.md` §5 keeps it out of the
+# table: the repo is ours, the bug is planted, and one draw of one task measures
+# nothing about any agent. What it proves is that the AGENT PATH works end to end
+# — a real model, both arms, the Keychain credential, the held-out scoring, a row
+# on disk — so that the $80-400 corpus run is not the first time a real model
+# meets this harness.
+#
+# Same planted bug and the same held-out test as the scripted demos. The repo's
+# own suite is the COVERING one, so a tautological fix cannot make the gate green
+# and arm B's refusal, if it comes, is earned.
+#
+# Build the repo first:
+#   sh benchmark/tasks/demo/build.sh agent benchmark/tasks/demo <python-with-pytest>
+#
+# Then check every precondition WITHOUT spending anything:
+#   python3 benchmark/preflight.py --task benchmark/tasks/smoke-real-agent.yaml
+id: smoke-real-agent
+repo: demo/repo-agent
+statement: |
+  `add` returns the wrong answer.
+
+      >>> add(2, 2)
+      5
+
+  Fix it.
+
+  (This statement deliberately names no test file. The harness refuses a task
+  whose statement mentions the held-out file, because then arm A would be
+  reading the answer.)
+
+held_out:
+  files:
+    - held_out_demo.py
+  run: "{python} -m pytest held_out_demo.py -q"
+
+# BOTH ARMS reach the agent through this, and that is a reduction in deviations
+# rather than an oversight. Arm A gets one ACP turn with the statement and
+# nothing checks the result; arm B gets `wring run`, whose brief is built from
+# the failing gate. So the arms differ in what the agent is TOLD and in whether
+# anything verifies it — and not in which program invokes it.
+#
+# The credential is NAMED here and never held: `keychain` says where to ask macOS
+# for it at the moment it is needed. It is not in this file, not in the repo, and
+# not in a shell history.
+agent:
+  command: claude-agent-acp
+  env_passthrough: [ANTHROPIC_API_KEY]
+  keychain:
+    service: anthropic
+    account: wringer
+    env: ANTHROPIC_API_KEY
+
+# Unused by the agent arms (the ACP worker is what runs), kept so the task file
+# validates against the same loader the scripted tasks use.
+worker: "sh ./scripted-fix.sh"
+
+budget:
+  # Generous on purpose: a real model's turn on a cold session took 4m37s the
+  # first time anybody measured it here (docs/first-contact.md). A tight ceiling
+  # would record the budget rather than the agent.
+  wall_clock: 900
+  max_iterations: 3

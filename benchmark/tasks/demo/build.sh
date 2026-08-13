@@ -18,6 +18,9 @@
 #   covering  the same bug with a repo test that covers the general case. The
 #             gate stays red, delivery is refused on the evidence, and the claim
 #             is demonstrated.
+#   agent     `covering`'s gates, but `run.worker` is a REAL ACP agent instead of
+#             the scripted fix. This is the only variant that costs money, and it
+#             is what `smoke-real-agent.yaml` points at.
 #
 # The contrast IS the finding: **Wringer's precision is bounded by the quality of
 # the repository's own gates.** It runs the checks a repo wrote down and cannot
@@ -60,7 +63,7 @@ CALC
 
 # The repo's OWN test — the one a declared gate runs, and the only one either arm
 # can see.
-if [ "$VARIANT" = "covering" ]; then
+if [ "$VARIANT" = "covering" ] || [ "$VARIANT" = "agent" ]; then
   cat > test_calc.py <<'COVERING'
 from calc import add
 
@@ -101,7 +104,28 @@ EOF
 FIXER
 chmod +x scripted-fix.sh
 
-cat > .wringer.yaml <<CONFIG
+if [ "$VARIANT" = "agent" ]; then
+  # A REAL agent as the worker. `env_passthrough` names the credential's
+  # variable and never its value, which is what folds it into Wringer's
+  # redactor so the agent cannot put it in a bundle.
+  cat > .wringer.yaml <<CONFIG
+version: 1
+gates:
+  - id: test
+    run: "$PYTHON -m pytest test_calc.py -q"
+run:
+  worker:
+    acp:
+      command: claude-agent-acp
+      env_passthrough: [ANTHROPIC_API_KEY]
+  max_iterations: 3
+  worker_timeout: 600
+deliver:
+  remote: origin
+  base: main
+CONFIG
+else
+  cat > .wringer.yaml <<CONFIG
 version: 1
 gates:
   - id: test
@@ -113,6 +137,7 @@ deliver:
   remote: origin
   base: main
 CONFIG
+fi
 
 printf '.wringer/\n' > .gitignore
 git add -A

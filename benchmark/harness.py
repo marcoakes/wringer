@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -147,6 +148,30 @@ class Void(Exception):
 
 
 @dataclass(frozen=True)
+class Agent:
+    """A real coding agent, spoken to over ACP.
+
+    **Both arms use this same invocation path**, and that is a deliberate
+    reduction in deviations rather than an oversight. Arm A is "the agent alone"
+    — no gates, no loop, no verification, no brief built from failures — and the
+    transport it is reached through is a wire protocol, not supervision. Using
+    two different CLIs for the two arms would have added a difference the
+    experiment is not trying to measure.
+
+    The credential is named, never held: `keychain_*` say where to ASK macOS for
+    it, the value goes straight into one child's environment, and `wringer.acp`
+    folds it into the redactor so it cannot reach a log.
+    """
+
+    command: str
+    args: tuple[str, ...]
+    env_passthrough: tuple[str, ...]
+    keychain_service: str | None = None
+    keychain_account: str | None = None
+    keychain_env: str | None = None
+
+
+@dataclass(frozen=True)
 class Task:
     """One benchmark task, as a human wrote it down."""
 
@@ -161,6 +186,9 @@ class Task:
     wall_clock: int
     max_iterations: int
     base_sha: str | None = None
+    # None for a scripted task, which is what the two demo tasks are. Present
+    # for a task that costs money.
+    agent: Agent | None = None
 
     @property
     def held_out_names(self) -> tuple[str, ...]:
@@ -233,6 +261,23 @@ def load_task(path: Path) -> Task:
     # resolving `python3` to Xcode's.
     held_out_command = str(held_out["run"]).replace("{python}", sys.executable)
 
+    agent = None
+    raw_agent = raw.get("agent")
+    if raw_agent is not None:
+        if not isinstance(raw_agent, dict) or "command" not in raw_agent:
+            raise TaskError(f"{path}: 'agent' needs a 'command'")
+        keychain = raw_agent.get("keychain") or {}
+        agent = Agent(
+            command=str(raw_agent["command"]),
+            args=tuple(str(a) for a in raw_agent.get("args") or ()),
+            env_passthrough=tuple(
+                str(n) for n in raw_agent.get("env_passthrough") or ()
+            ),
+            keychain_service=keychain.get("service"),
+            keychain_account=keychain.get("account"),
+            keychain_env=keychain.get("env"),
+        )
+
     base = path.parent
     return Task(
         id=str(raw["id"]),
@@ -244,6 +289,7 @@ def load_task(path: Path) -> Task:
         wall_clock=int(budget["wall_clock"]),
         max_iterations=int(budget["max_iterations"]),
         base_sha=str(raw["base_sha"]) if raw.get("base_sha") else None,
+        agent=agent,
     )
 
 
@@ -385,6 +431,109 @@ WRINGER_PRECONDITION = 3  # refused a precondition: nothing was measured
 COMMAND_NOT_FOUND = 127
 
 
+def keychain_secret(agent: Agent) -> str | None:
+    """Ask macOS for the credential this agent needs, or None if it declared none.
+
+    **Never printed, never written, never returned to a caller that logs.** It
+    goes into one child's environment and nowhere else, and `wringer.acp` folds
+    it into the redactor so an agent that echoes it cannot put it in a log. The
+    value is not in this repository, not in a task file, and not in a shell
+    history — `security` is asked at the moment it is needed.
+    """
+    if not (agent.keychain_service and agent.keychain_env):
+        return None
+    argv = ["security", "find-generic-password", "-s", agent.keychain_service]
+    if agent.keychain_account:
+        argv += ["-a", agent.keychain_account]
+    argv.append("-w")
+    done = subprocess.run(argv, capture_output=True, text=True)
+    if done.returncode != 0 or not done.stdout.strip():
+        raise TaskError(
+            f"no Keychain entry for service '{agent.keychain_service}'"
+            + (f" account '{agent.keychain_account}'" if agent.keychain_account else "")
+            + ". Add one with:  security add-generic-password -U -s "
+            f"{agent.keychain_service} -a {agent.keychain_account or 'wringer'} -w"
+        )
+    return done.stdout.strip()
+
+
+def agent_env(task: Task) -> dict[str, str]:
+    """The environment an arm's child gets: this process's, plus the credential.
+
+    A copy rather than a mutation of `os.environ`, so nothing else in this
+    process — including anything that later writes a log — can read it back out.
+    """
+    environ = dict(os.environ)
+    if task.agent is not None:
+        secret = keychain_secret(task.agent)
+        if secret is not None and task.agent.keychain_env:
+            environ[task.agent.keychain_env] = secret
+    return environ
+
+
+def run_agent_alone(
+    task: Task, tree: Path, workdir: Path
+) -> tuple[bool | None, str]:
+    """**Arm A with a real agent: one ACP turn, and nothing checks the result.**
+
+    No gates, no loop, no verification, no brief built from failures. The agent
+    is handed the task statement and its own turn, exactly as a person with no
+    harness would.
+
+    `wringer.acp.run_turn` is the transport, and using it is a deliberate
+    reduction in deviations: both arms then reach the agent the same way, so the
+    only differences left are what it is TOLD and whether anything checks what it
+    did. Two different CLIs would have added a difference this experiment is not
+    measuring. It also buys the redactor, so a credential the agent echoes cannot
+    reach a log.
+
+    The claim of completion is `turn.stop_reason == "end_turn"` — the agent
+    saying it is finished, which is the closest thing arm A has to "the agent
+    says it is done".
+    """
+    from wringer import acp
+    from wringer.redact import Redactor
+
+    agent = task.agent
+    assert agent is not None
+    secret = keychain_secret(agent)
+    redactor = Redactor(secrets=(secret,) if secret else ())
+    if secret and agent.keychain_env:
+        # `acp.run_turn` builds the child's environment from the NAMES in
+        # `env_passthrough`, read out of this process's environment — so the
+        # value has to be here for the child to receive it. Set as late as
+        # possible and never written anywhere: this harness process is
+        # short-lived, and the redactor above covers every log the turn writes.
+        os.environ[agent.keychain_env] = secret
+
+    try:
+        turn, code = acp.run_turn(
+            command=agent.command,
+            args=agent.args,
+            env_passthrough=agent.env_passthrough,
+            brief=task.statement,
+            root=tree,
+            timeout=task.wall_clock,
+            stdout_path=workdir / "agent.stdout.log",
+            stderr_path=workdir / "agent.stderr.log",
+            redactor=redactor,
+        )
+    except Exception as exc:  # noqa: BLE001 - any failure here is VOID, not a claim
+        return None, (
+            f"the agent could not be run ({type(exc).__name__}: "
+            f"{redactor.scrub(str(exc))}), so this arm measured nothing"
+        )
+
+    reason = getattr(turn, "stop_reason", None)
+    if code != 0 and reason is None:
+        return None, (
+            f"the agent exited {code} without completing a turn, so it claimed "
+            "nothing"
+        )
+    claimed = reason == "end_turn"
+    return claimed, f"agent stop_reason={reason!r}"
+
+
 def run_native(task: Task, tree: Path, workdir: Path) -> tuple[bool | None, str]:
     """**Arm A: the agent, alone.** No gates, no loop, no harness.
 
@@ -437,6 +586,10 @@ def run_under_wringer(
             "--wall-clock", str(task.wall_clock),
         ],
         cwd=tree, capture_output=True, text=True, timeout=task.wall_clock * 2,
+        # The credential reaches the child through its environment and nowhere
+        # else. Wringer's own redactor keeps it out of the bundle, because the
+        # repo's `run.worker.acp.env_passthrough` names it.
+        env=agent_env(task),
     )
     (workdir / "run.stdout.log").write_text(ran.stdout, encoding="utf-8")
     (workdir / "run.stderr.log").write_text(ran.stderr, encoding="utf-8")
@@ -524,7 +677,10 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
 
     sha = head_sha(tree)
     if arm == ARM_NATIVE:
-        claimed, claim_reason = run_native(task, tree, workdir)
+        if task.agent is not None:
+            claimed, claim_reason = run_agent_alone(task, tree, workdir)
+        else:
+            claimed, claim_reason = run_native(task, tree, workdir)
     else:
         claimed, claim_reason = run_under_wringer(task, tree, workdir)
 

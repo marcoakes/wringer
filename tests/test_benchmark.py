@@ -423,3 +423,139 @@ def test_both_shipped_tasks_load():
         assert task.id
         assert task.held_out_files
         assert task.wall_clock > 0
+
+
+# --- the paid path, checked without paying -----------------------------------
+
+
+def load_preflight():
+    spec = importlib.util.spec_from_file_location(
+        "wringer_benchmark_preflight", BENCHMARK / "preflight.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_real_agent_task_loads_and_declares_its_credential_by_name():
+    """The credential is NAMED and never held: the task says where to ask macOS
+    for it, and the value is not in this repository, this file, or a history."""
+    task = harness.load_task(BENCHMARK / "tasks" / "smoke-real-agent.yaml")
+
+    assert task.agent is not None
+    assert task.agent.command == "claude-agent-acp"
+    assert task.agent.env_passthrough == ("ANTHROPIC_API_KEY",)
+    assert task.agent.keychain_service == "anthropic"
+    assert task.agent.keychain_env == "ANTHROPIC_API_KEY"
+
+    # ...and no task file anywhere carries something shaped like a key
+    for path in sorted((BENCHMARK / "tasks").glob("*.yaml")):
+        assert "sk-ant" not in path.read_text(encoding="utf-8"), path
+
+
+def test_the_scripted_tasks_declare_no_agent_and_so_cost_nothing():
+    """The boundary between free and paid is a field, not a convention."""
+    for name in ("demo-narrow.yaml", "demo-covering.yaml"):
+        assert harness.load_task(BENCHMARK / "tasks" / name).agent is None
+
+
+def test_preflight_makes_no_api_call(tmp_path: Path, monkeypatch):
+    """**The whole promise of the command.** It reports every precondition it can
+    check offline and then says that credit is the one it cannot — so running it
+    is free, and a green report means money is the only thing left."""
+    source = (BENCHMARK / "preflight.py").read_text(encoding="utf-8")
+
+    for forbidden in ("urllib", "requests", "httpx", "api.anthropic.com", "socket"):
+        assert forbidden not in source, forbidden
+    assert "No API call has been made" in source
+
+
+def test_preflight_never_reads_the_secret_value():
+    """`find-generic-password` WITHOUT `-w` prints metadata, not the secret. The
+    preflight checks presence only, so nothing it emits can leak into a terminal,
+    a log or a screenshot."""
+    source = (BENCHMARK / "preflight.py").read_text(encoding="utf-8")
+    credential = source[source.index("def check_credential") : source.index(
+        "def check_isolation"
+    )]
+
+    assert '"-w"' not in credential, "the preflight asked for the secret VALUE"
+    assert "value not read" in credential
+
+
+def test_preflight_checks_the_wringer_the_harness_will_actually_use():
+    """It checked the wrong one first: the harness invokes `sys.executable -m
+    wringer`, and PATH here had a stale `wring` at 0.2.0 shadowing the repo's
+    0.3.0 — a green report about a version nothing would execute."""
+    preflight = load_preflight()
+    checks = preflight.check_wring()
+
+    assert checks[0].name == "wringer"
+    assert sys.executable in checks[0].detail
+
+
+def test_preflight_reports_a_scripted_task_as_free(tmp_path: Path, capsys):
+    """A task with no agent needs no credential and costs nothing, and the
+    report says so rather than asking for a key it will not use."""
+    preflight = load_preflight()
+    repo = build_demo("covering", tmp_path)
+    task = task_file("covering", repo, tmp_path)
+
+    assert preflight.main(["--task", str(task)]) == 0
+    out = capsys.readouterr().out
+
+    assert "costs nothing" in out
+    assert "only thing left is money" not in out
+
+
+def test_preflight_refuses_a_task_whose_repo_is_not_built(tmp_path: Path, capsys):
+    preflight = load_preflight()
+    import yaml
+
+    raw = yaml.safe_load(
+        (BENCHMARK / "tasks" / "smoke-real-agent.yaml").read_text(encoding="utf-8")
+    )
+    raw["repo"] = str(tmp_path / "nothing-here")
+    path = tmp_path / "unbuilt.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    assert preflight.main(["--task", str(path)]) == 1
+    out = capsys.readouterr().out
+    assert "NOT READY" in out
+    assert "build.sh" in out
+
+
+def test_the_agent_variant_declares_an_acp_worker_and_the_covering_suite(
+    tmp_path: Path,
+):
+    """Arm B must reach the agent through Wringer, and the repo's own gate must
+    cover the general case — or arm B's refusal would be luck rather than the
+    mechanism."""
+    repo = build_demo("agent", tmp_path)
+    config = (repo / ".wringer.yaml").read_text(encoding="utf-8")
+
+    assert "acp:" in config
+    assert "claude-agent-acp" in config
+    # the credential by NAME, which is what folds it into Wringer's redactor
+    assert "env_passthrough: [ANTHROPIC_API_KEY]" in config
+    assert "sk-ant" not in config
+    # ...and the covering test suite, so a tautological fix cannot pass
+    assert "test_the_general_case" in (repo / "test_calc.py").read_text("utf-8")
+
+
+def test_the_corpus_is_empty_and_its_rule_is_written_down():
+    """`CORPUS.md` §4: the rule is fixed BEFORE selection, because whoever picks
+    the tasks can pick the result. Nothing is selected yet, and the file says so
+    rather than implying a corpus exists."""
+    text = (BENCHMARK / "CORPUS.md").read_text(encoding="utf-8")
+
+    assert "before any task that costs money has been run" in text
+    assert "nothing examined yet" in text
+    # the rule that can void the whole run is stated as a rule, not a hope
+    # A phrase that lives on ONE line. Flattening does not help here: the rule
+    # is a blockquote, so a wrapped continuation carries a leading `>` that
+    # lands between the words.
+    assert "a good agent plausibly declares success" in text
+    # and the smoke task is explicitly NOT corpus evidence
+    assert "Not a corpus task and not evidence about agents" in text

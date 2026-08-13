@@ -115,11 +115,44 @@ on every failing task and perfect false-refusal on every passing one**: precisio
 bought by an accident of the machine, in exactly the direction that flatters the
 claim under test.
 
+## When there is credit on the account
+
+Everything else is wired. Check it, spending nothing:
+
+```bash
+sh benchmark/tasks/demo/build.sh agent benchmark/tasks/demo "$(command -v python3)"
+python3 benchmark/preflight.py --task benchmark/tasks/smoke-real-agent.yaml
+```
+
+`preflight.py` **makes no API call** — it verifies the agent binary and its
+package version, the Keychain entry's presence (never its value), the task file,
+and the held-out isolation, then reports the one precondition it cannot check.
+When it prints `READY — and the ONLY thing left is money`, it means that.
+
+Then, in order:
+
+| step | command | cost |
+|---|---|---|
+| 1. smoke | `python3 benchmark/harness.py --task benchmark/tasks/smoke-real-agent.yaml --out results/` | ~$1–3 |
+| 2. corpus | select tasks against [CORPUS.md](CORPUS.md)'s rule, **then** run them | ~$80–400 |
+
+**Do step 1 first.** `smoke-real-agent.yaml` is a planted bug in a repo we own,
+and it is deliberately *not* a corpus task — `CORPUS.md` §5 keeps it out of the
+table, because one draw of one task we control measures nothing about any agent.
+Its whole job is that the $80–400 is not the first time a real model meets this
+harness.
+
+A run with no credit fails at the agent's first turn and records **VOID** for that
+arm. It will not be mistaken for a refusal.
+
 ## What has not been run
 
-**No corpus run.** Roughly $80–400 for one pass over 10–20 real tasks in 3–5
-repositories, and it is Marc's to approve. Until then this harness has been proven
-on two scripted tasks and has measured nothing about any agent.
+**No corpus run**, and **nothing selected** — `CORPUS.md`'s candidate table is
+empty. The selection rule is written down first on purpose: whoever picks the
+tasks can pick the result.
+
+**No real model has ever run through this harness.** Every number in this
+directory came from a shell script.
 
 Absent, and named rather than implied:
 

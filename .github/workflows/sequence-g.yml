@@ -1,0 +1,103 @@
+# Sequence G — the container path, attacked, on a machine that has a runtime.
+#
+# `docs/MANUAL_CHECKS.md` sequence G has been unrun since 0.2, and the reason is
+# structural rather than neglect: the maintainer's Mac has no container runtime,
+# and installing one needs an admin password no agent may supply. GitHub's
+# `ubuntu-latest` runners have Docker preinstalled, so this is the one place the
+# sequence can actually execute today.
+#
+# WHAT THIS MEASURES AND WHAT IT DOES NOT. Docker on Linux, in CI. That is one
+# row of MANUAL_CHECKS' coverage table and not the others: Docker Desktop on
+# macOS and Apple's `container` stay UNCLAIMED, because mount and uid behaviour
+# turned out to be genuinely runtime-specific (the 2026-08-05 field report is
+# where that was learned). A green run here must never be written up as "the
+# container path is demonstrated to isolate" — only as "Docker on Linux is".
+#
+# NOT PART OF THE MAIN MATRIX, on purpose. `tests.yml` gates every push, and
+# this job pulls an image and runs seven adversarial commands inside it; making
+# every push depend on a registry being reachable would trade a real gate for a
+# flaky one. It runs when the thing it measures changes, and on demand.
+#
+# IT CANNOT PASS OR FAIL BY ITSELF. The script drives the attacks and prints
+# what each one saw; classifying them — prevented / detected / mitigated /
+# out_of_scope — is a human's judgement and stays one. So this job's product is
+# its LOG and its artifact, and the last step puts the raw output in the run
+# summary for pasting into MANUAL_CHECKS. A job that went green would be
+# claiming the classification it deliberately does not make.
+name: sequence-g
+
+on:
+  workflow_dispatch:
+    inputs:
+      image:
+        description: "container image to attack from"
+        required: false
+        default: "debian:stable-slim"
+  push:
+    paths:
+      # The argv under test, the script that drives it, and the words it would
+      # let somebody upgrade. Anything else changing cannot move this result.
+      - "src/wringer/backend.py"
+      - "scripts/sequence-g.sh"
+      - "SECURITY.md"
+      - ".github/workflows/sequence-g.yml"
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
+
+      - name: Say what runtime is actually here
+        run: |
+          docker version
+          docker info --format 'server: {{.ServerVersion}} · driver: {{.Driver}} · rootless: {{.SecurityOptions}}'
+
+      # The image is an INPUT with a plain-Debian default rather than the
+      # published Wringer image. Two reasons, both about what is being measured:
+      # the attacks are `ls`, `env`, `cat`, `getent` and `ps`, which any image
+      # has, and the boundary under test is the RUNTIME's, not the image's — so
+      # a base image keeps the result about Docker instead of about whatever
+      # `ghcr.io/marcoakes/wringer:main` happens to contain today. Pass the
+      # published image on a dispatch when that is the question.
+      - name: Sequence G
+        id: g
+        run: |
+          set -o pipefail
+          sh scripts/sequence-g.sh docker "${{ inputs.image || 'debian:stable-slim' }}" \
+            2>&1 | tee sequence-g.log
+
+      - name: Upload the bundle and the log
+        if: always() # a refused or broken run is the evidence worth having
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequence-g
+          path: |
+            sequence-g.log
+            .wringer/sequence-g-bundle/
+
+      # The raw output into the run summary, so recording a row is a copy rather
+      # than a re-run. `MANUAL_CHECKS.md` is subject to law 1 like everything
+      # else: a check nobody wrote down is a check nobody ran.
+      - name: Put the output where a row can be copied from it
+        if: always()
+        run: |
+          {
+            echo '## Sequence G — raw output'
+            echo
+            echo 'Classify each attempt BY HAND: prevented / detected /'
+            echo 'mitigated / out_of_scope. Never `prevented` where Wringer'
+            echo 'merely records evidence afterwards. Record every attempt that'
+            echo 'SUCCEEDED — an attack that works is the finding.'
+            echo
+            echo 'Then add a row to docs/MANUAL_CHECKS.md naming THIS host:'
+            echo 'Docker on Linux, GitHub Actions. macOS stays unclaimed.'
+            echo
+            echo '```'
+            cat sequence-g.log || echo '(no log — the job died before the script ran)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

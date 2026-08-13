@@ -26,6 +26,8 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Apple `container` | Apple silicon, MDM-managed, uid:gid `502:20` | macOS 26.5.2, `Darwin arm64` | Apple `container` 1.2.0 (Homebrew formula, Workbrew 1.7.3 / Homebrew 6.0.15) | 2026-08-05 | `75167c2` | **Passed with corrections applied by hand** — see the note below |
 | Docker stub (R2-02) | Apple silicon, MDM-managed | macOS 26.5.2 | none — `/Applications/Docker.app` present as a stripped stub | 2026-08-05 | `75167c2` | **Observed, not executed as a sequence.** `d--------- 2 root admin 64`, no binary, no socket — seen while diagnosing step 4B. Sequence C below was written afterwards and has never been run as written |
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
+| Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | **never run yet** | — | **Runnable in one click since 2026-08-13** (`.github/workflows/sequence-g.yml`). No row until somebody dispatches it and classifies the output |
+| Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
 
 ### About the 2026-08-05 Apple row
@@ -288,6 +290,21 @@ that sentence.
 ```
 sh scripts/sequence-g.sh [runtime] [image]
 ```
+
+**And it now RUNS somewhere.** `.github/workflows/sequence-g.yml` drives it on
+`ubuntu-latest`, which has Docker preinstalled — the one machine available to
+this project where the sequence can execute at all. Trigger it from the Actions
+tab (`workflow_dispatch`, optionally naming an image), or it fires on a push
+that touches `src/wringer/backend.py`, `scripts/sequence-g.sh` or
+`SECURITY.md`. The raw output lands in the run summary so recording a row is a
+copy rather than a re-run, and the bundle is uploaded as an artifact.
+
+**That job cannot go green as an answer, and does not try to.** Classifying the
+seven attempts is a human's judgement; the job runs them and stops. It also
+covers exactly ONE row of the table above — *Docker on Linux, GitHub Actions*.
+Docker Desktop on macOS and Apple's `container` stay UNCLAIMED, because mount
+and uid behaviour turned out to be genuinely runtime-specific (the 2026-08-05
+field report is where that was learned).
 
 Two things about that script are the point of it. It drives every attack **as a
 gate through the real backend**, so what gets measured is the argv Wringer
