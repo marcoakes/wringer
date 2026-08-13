@@ -56,6 +56,11 @@ where = ["src"]
 testpaths = ["tests"]
 
 [tool.ruff]
+# Upstream's own test files, vendored verbatim as the corpus ground truth. They
+# are EVIDENCE, not this project's code: reformatting them would change the
+# thing being measured, and a lint failure in somebody else's test is not a
+# defect in this repository.
+extend-exclude = ["benchmark/corpus/held_out"]
 line-length = 88
 target-version = "py311"
 

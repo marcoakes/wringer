@@ -232,6 +232,15 @@ class Task:
     # held out is not the FILE but these TESTS, and `check_isolation` enforces
     # exactly that: none of these names may appear anywhere in the tree.
     held_out_tests: tuple[str, ...]
+    # Commits that must NOT be reachable in the arm's repository — in practice
+    # the upstream fix this task is asking for.
+    #
+    # **The isolation hole that a real corpus run walked straight into.** A
+    # `git clone` brings the whole history, so the working tree sits at the base
+    # commit while the answer waits in `.git`, reachable by sha and usually by
+    # tag. Every other isolation rule here looks at the working tree or at a
+    # command string, and none of them can see an object store.
+    forbidden_shas: tuple[str, ...]
     worker: str
     wall_clock: int
     max_iterations: int
@@ -338,6 +347,12 @@ def load_task(path: Path) -> Task:
     if not isinstance(tests, list) or not all(isinstance(t, str) for t in tests):
         raise TaskError(f"{path}: 'held_out.tests' must be a list of test names")
 
+    forbidden = raw.get("forbidden_shas") or []
+    if not isinstance(forbidden, list) or not all(
+        isinstance(x, str) for x in forbidden
+    ):
+        raise TaskError(f"{path}: 'forbidden_shas' must be a list of commit shas")
+
     budget = raw["budget"]
     if not isinstance(budget, dict):
         raise TaskError(f"{path}: 'budget' must be a mapping")
@@ -379,6 +394,7 @@ def load_task(path: Path) -> Task:
             ((base / src).resolve(), dest) for src, dest in pairs
         ),
         held_out_tests=tuple(tests),
+        forbidden_shas=tuple(forbidden),
         worker=str(raw["worker"]),
         wall_clock=int(budget["wall_clock"]),
         max_iterations=int(budget["max_iterations"]),
@@ -454,6 +470,20 @@ def check_isolation(task: Task, tree: Path) -> None:
                         "not held out from anything. Whatever else it is, it is "
                         "not an independent signal"
                     )
+
+    for sha in task.forbidden_shas:
+        found = subprocess.run(
+            ["git", "-C", str(tree), "cat-file", "-t", sha],
+            capture_output=True, text=True,
+        )
+        if found.returncode == 0:
+            raise Void(
+                f"the commit this task is asking the agent to write ({sha[:12]}) "
+                f"is REACHABLE in the arm's own repository — `git cat-file -t` "
+                f"says {found.stdout.strip()!r}. The working tree is at the base "
+                "commit and the answer is in .git, which is not held out from "
+                "anything: an agent with a shell can read the diff, and one did"
+            )
 
     config_path = tree / ".wringer.yaml"
     if config_path.is_file():

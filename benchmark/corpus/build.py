@@ -152,12 +152,31 @@ def build_task(
     unlock(tree)
     shutil.rmtree(tree, ignore_errors=True)
     tree.parent.mkdir(parents=True, exist_ok=True)
-    run(["git", "clone", "--quiet", "--no-checkout", str(mirror), str(tree)])
-
     base = task["base_sha"]
-    # A BRANCH at the base commit, not a detached head: `wring deliver` needs a
-    # base branch it can name, and the demo repo learned the same lesson.
-    run(["git", "checkout", "--quiet", "-B", "main", base], cwd=tree)
+    # **ONE COMMIT. NOT A CLONE.**
+    #
+    # A `git clone` of the mirror brings the WHOLE history — including upstream's
+    # fix, which is what this task is asking the agent to write. The working tree
+    # is at the base commit and the answer is sitting in `.git`, reachable by sha
+    # and usually by tag. `check_isolation` never saw it: it checks the working
+    # tree and the gate commands, not the object store.
+    #
+    # This was not hypothetical. In the 2026-08-13 corpus run, agents reached it:
+    # `git cat-file -t <fix_sha>` resolved in all 13 trees, three runs quoted the
+    # fix sha in their logs, and on marshmallow-email-idn the agent fetched the
+    # upstream patch — which CONTAINS the held-out test file — and produced a
+    # source change byte-identical to upstream's. That single row was the entire
+    # measured difference between the two arms.
+    #
+    # `fetch --depth 1 <sha>` gives exactly that commit and nothing after it, so
+    # the answer is not in the repository at all.
+    run(["git", "init", "--quiet", "-b", "main", str(tree)])
+    run(["git", "remote", "add", "upstream-mirror", str(mirror)], cwd=tree)
+    run(["git", "fetch", "--quiet", "--depth", "1", "upstream-mirror", base], cwd=tree)
+    run(["git", "checkout", "--quiet", "-B", "main", "FETCH_HEAD"], cwd=tree)
+    # And the route back to the rest of the history goes too, so a `git fetch`
+    # inside the tree cannot re-open what this just closed.
+    run(["git", "remote", "remove", "upstream-mirror"], cwd=tree)
 
     # A GIT IDENTITY IN THE CLONE'S OWN CONFIG, not just on the commit this
     # script makes. Wringer commits as you and refuses to invent an author, so
@@ -233,7 +252,9 @@ def build_task(
     existing = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
     for line in (".wringer/", "__pycache__/"):
         if line not in existing:
-            existing += ("" if existing.endswith("\n") or not existing else "\n") + line + "\n"
+            if existing and not existing.endswith("\n"):
+                existing += "\n"
+            existing += line + "\n"
     gitignore.write_text(existing, encoding="utf-8")
 
     # RUN THE GATE ONCE, HERE, FOR TWO REASONS.
@@ -292,10 +313,11 @@ def build_task(
     shutil.rmtree(origin, ignore_errors=True)
     origin.parent.mkdir(parents=True, exist_ok=True)
     run(["git", "init", "--quiet", "--bare", "-b", "main", str(origin)])
-    # The clone already has an `origin` — the mirror it came from. That one
-    # points at a read-only bare repo full of upstream's history, so `wring
-    # deliver` would be aiming at the wrong place; replace it rather than adding
-    # a second remote nobody chose.
+    # The tree is a ONE-COMMIT shallow history now, and a bare repo refuses a
+    # shallow push by default ("shallow update not allowed"). Allowing it here
+    # is safe and local: this origin exists only so `wring deliver` has a real
+    # remote to resolve a base branch against.
+    run(["git", "config", "receive.shallowUpdate", "true"], cwd=origin)
     run(["git", "remote", "remove", "origin"], cwd=tree, check=False)
     run(["git", "remote", "add", "origin", str(origin)], cwd=tree)
     run(["git", "push", "--quiet", "origin", "main"], cwd=tree)
@@ -316,6 +338,9 @@ def build_task(
                 "id": task_id,
                 "repo": str(tree),
                 "statement": statement,
+                # The answer, named so the HARNESS can refuse the task if it
+                # is ever reachable again — enforced rather than promised.
+                "forbidden_shas": [task["fix_sha"]],
                 "held_out": {
                     "files": [
                         {"src": str(held_dir / entry["src"]), "dest": entry["dest"]}

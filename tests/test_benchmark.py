@@ -935,3 +935,55 @@ def test_a_held_out_destination_cannot_escape_the_tree(tmp_path: Path, dest: str
 
     # Exit 2: the task file cannot be used at all, which is not a void row.
     assert run_harness(task, tmp_path / "out") == 2
+
+
+# --- the answer must not be in the repository -------------------------------
+
+
+def test_a_reachable_fix_commit_is_void_because_the_answer_is_not_held_out(
+    tmp_path: Path
+):
+    """**The isolation hole a real corpus run walked straight into.**
+
+    Every other rule here looks at the working tree or at a command string.
+    None of them can see an object store — so a `git clone` puts the working
+    tree at the base commit and leaves the answer in `.git`, reachable by sha
+    and usually by tag.
+
+    That is not hypothetical. In the 2026-08-13 corpus run the upstream fix was
+    reachable in all 13 task trees, three agent runs quoted its sha, and on one
+    task the agent fetched the upstream patch — which CONTAINS the held-out test
+    file — and produced a source change byte-identical to upstream's. That row
+    was the entire measured difference between the two arms.
+    """
+    repo = build_demo("covering", tmp_path)
+    # A commit that exists in this repo's history and must not be reachable.
+    sha = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    raw["forbidden_shas"] = [sha]
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert run_harness(task, out) == 1
+    rows = rows_from(out)
+    assert rows
+    for row in rows:
+        assert row["cell"] == harness.VOID, row
+        assert sha[:12] in row["reason"], row
+        assert "the answer is in .git" in row["reason"], row
+
+
+def test_a_task_naming_no_forbidden_sha_still_runs(tmp_path: Path):
+    """The check is opt-in by declaration, so every task written before it
+    still loads and runs. A task that names nothing forbids nothing."""
+    repo = build_demo("covering", tmp_path)
+    out = tmp_path / "out"
+
+    assert run_harness(task_file("covering", repo, tmp_path), out) == 0
+    assert all(row["cell"] != harness.VOID for row in rows_from(out))
