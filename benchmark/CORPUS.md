@@ -76,12 +76,24 @@ proven only on tasks nobody selected:
 |---|---|---|---|
 | `demo-narrow.yaml` | scripted | nothing | the harness, and a **Wringer loss** — precision is bounded by the repo's own gates |
 | `demo-covering.yaml` | scripted | nothing | the harness, and the claim demonstrated |
-| `smoke-real-agent.yaml` | **real agent, one repo we control** | ~$1–3 | that the agent path works end to end. **Not a corpus task and not evidence about agents** — one draw on a planted bug |
+| `smoke-real-agent.yaml` | **real agent, one repo we control** | **$0.135 measured** | that the agent path works end to end — **RUN 2026-08-13**, both arms `true_confidence`, see [docs/benchmark-first-run.md](../docs/benchmark-first-run.md). **Not a corpus task and not evidence about agents** — one draw on a planted bug |
 
 `smoke-real-agent.yaml` is the first thing to run when the account has credit,
 and it exists so that the $80–400 is not the first time a real model meets this
 harness. It is deliberately **not** in the corpus table: the repo is ours, the
 bug is planted, and one draw of one task measures nothing about anything.
+
+**It has now run, and it demonstrated §3's rule by falling foul of it.** Both arms
+landed in `true_confidence` — the real agent wrote the honest one-line fix with and
+without supervision, so the task discriminates nothing and the cell that decides
+the claim stayed empty. That is the correct outcome for an easy task and it is why
+§3 is a selection criterion rather than a hope. Full record, including the three
+defects the run found:
+[docs/benchmark-first-run.md](../docs/benchmark-first-run.md).
+
+Worth carrying into selection: the two most interesting cells this project has
+produced still come from a worker *written* to be dishonest. Whether a real agent
+ever lands in them is unmeasured, and a corpus of easy tasks will never find out.
 
 ## 6. Candidates examined
 

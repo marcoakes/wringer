@@ -350,6 +350,42 @@ whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.
 
+## OPEN — a bench usage flake, one red run in seven, unreproduced
+
+**2026-08-13.** `tests/test_bench.py::test_what_the_agent_reported_reaches_the_row_and_the_json`
+failed once under `sh scripts/check.sh` and has not failed since. It is recorded
+here rather than fixed, because **there is no diagnosis** and a guessed fix would
+be worse than an honest open item — this repository has already spent a session
+raising two timeouts on a "loaded machine" theory that turned out to be a
+`nohup`'d SIGINT disposition.
+
+What the failure was: `cli.main(["bench", "--json"])` returned 0, the row for the
+`reporter` contender existed, and its `usage` key was **absent**. So no iteration
+of that contender's loop had `turn.usage` set, and `write_usage` therefore wrote no
+`usage.json`.
+
+What has been ruled out, with the runs to say so:
+
+| probe | result |
+|---|---|
+| the test alone | passes, 1.5s |
+| `tests/test_bench.py` alone, `-n auto`, 3× | 84 passes, no failure |
+| the FULL suite, `-n auto`, 6× | 1448 passes each time |
+| the test 12× under 12 spinning CPU hogs on 8 cores | 12 passes |
+| random test ordering | not installed — only `pytest-xdist` |
+| cross-test pollution of module globals or `os.environ` | grepped; the one direct `os.environ` write (`test_start.py:800`) is an assertion about a different variable |
+| reordered messages from the fake agent | impossible by construction: one stdout, flushed per message, usage sent before the prompt reply |
+| a lost notification in `Connection._await` | the response and the inbound queue are snapshotted under ONE lock and pending messages are served BEFORE the response is returned |
+
+What is left, unproven: the nondeterminism `--dist load` introduces is *which
+worker* runs this test beside which neighbours, so a per-worker-process
+interaction remains the open candidate. Nothing has been changed on that theory.
+
+**Do not "fix" this without a reproduction.** When it recurs, the assertion prints
+the whole row — capture that output, and note that pytest keeps only the last three
+`pytest-of-*` tmp trees, so the loop bundle must be copied out of tmp before three
+more runs go by.
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.

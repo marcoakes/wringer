@@ -151,8 +151,16 @@ arm. It will not be mistaken for a refusal.
 empty. The selection rule is written down first on purpose: whoever picks the
 tasks can pick the result.
 
-**No real model has ever run through this harness.** Every number in this
-directory came from a shell script.
+**A real model HAS now run through it, once** — 2026-08-13, both arms
+`true_confidence`, $0.135 reported, recorded in
+[docs/benchmark-first-run.md](../docs/benchmark-first-run.md). What that
+established is that the plumbing works with a real model at both ends. What it did
+NOT establish is anything about the claim: both arms landed in the same cell, so
+the task discriminated nothing.
+
+**No task hard enough to discriminate has ever been run**, so
+`SPEC_BENCHMARK_V0` §1's claim has not been tested once. Every interesting cell
+this project has produced still comes from a worker written to be dishonest.
 
 Absent, and named rather than implied:
 
