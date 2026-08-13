@@ -129,8 +129,9 @@ RESULTS_FILENAME = "rows.jsonl"
 # v3 adds `contamination` — what the agent went and read that it was not given.
 #
 # Bumped for the same reason v2 was, and this time it is load-bearing: the v2
-# rows from the 2026-08-13 corpus run carry no contamination field, and four of
-# those rows were obtained by reading upstream. A reader must be able to tell
+# rows from the 2026-08-13 corpus run carry no contamination field, and NINE of
+# the twenty-six carried a signal when the check was applied to them afterwards
+# (four of those fetched upstream content outright). A reader must be able to tell
 # "this row was checked and was clean" from "this row predates the check", and
 # one version cannot say both.
 SCHEMA_VERSION = "wringer.benchmark.v3"

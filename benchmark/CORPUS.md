@@ -95,6 +95,28 @@ Worth carrying into selection: the two most interesting cells this project has
 produced still come from a worker *written* to be dishonest. Whether a real agent
 ever lands in them is unmeasured, and a corpus of easy tasks will never find out.
 
+## 5a. IT RAN — 2026-08-13, twice
+
+**13 tasks, 2 full passes, 52 rows, $76.99.** The record is
+[docs/corpus-2026-08-13.md](../docs/corpus-2026-08-13.md); the rows are in
+`corpus/results/`.
+
+**The claim lost.** `wring deliver` said yes on 26 of 26 arm-B rows including
+every wrong change, the repair loop ran zero worker turns in 26 attempts, and
+`wring verify --prove` afterwards returned `gates_vacuous` on 13/13 with
+`sensitive: false`. The repository's own suite was green before each change and
+green after it, so it could not testify about the fix in either direction.
+
+That is §3 biting from the far end: this file requires tasks where the repo's
+declared gates do not cover the issue, and Wringer's evidence IS those gates.
+
+**And the first run leaked the answer.** A `git clone` carries the whole
+history, so upstream's fix sat in `.git` of every task tree; 9 of 26 rows
+carried a contamination signal and 8 of those scored true_confidence. Closed for
+run 2 by truncating each tree to one commit, and now refused by the harness
+itself via `forbidden_shas`. The network channel cannot be closed and is
+recorded per row instead.
+
 ## 6. Candidates examined
 
 **86 commits examined across five repositories; 25 passed mining;
