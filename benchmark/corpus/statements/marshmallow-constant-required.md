@@ -1,5 +1,3 @@
-Source: https://github.com/marshmallow-code/marshmallow/issues/2900 (VERBATIM)
-
 # `fields.Constant` with `required=True` flag raised `load_default` warning
 
 I have a schema containing a `Constant`, with `required=True` set, as the schema is ultimately exported to an OpenAPI spec, and the field must be marked as `required` there.

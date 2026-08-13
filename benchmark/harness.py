@@ -126,8 +126,15 @@ RESULTS_FILENAME = "rows.jsonl"
 # arm A's was never read off the turn and arm B's sat unread inside the loop
 # bundle — so a completed corpus would have produced one aggregate number off a
 # credit-card statement and no per-task attribution at all.
-SCHEMA_VERSION = "wringer.benchmark.v2"
-PREVIOUS_SCHEMA_VERSIONS = ("wringer.benchmark.v1",)
+# v3 adds `contamination` — what the agent went and read that it was not given.
+#
+# Bumped for the same reason v2 was, and this time it is load-bearing: the v2
+# rows from the 2026-08-13 corpus run carry no contamination field, and four of
+# those rows were obtained by reading upstream. A reader must be able to tell
+# "this row was checked and was clean" from "this row predates the check", and
+# one version cannot say both.
+SCHEMA_VERSION = "wringer.benchmark.v3"
+PREVIOUS_SCHEMA_VERSIONS = ("wringer.benchmark.v1", "wringer.benchmark.v2")
 
 # Where each arm's spend lands, in the arm's own directory. Same filename and
 # the same `totals` shape as `wringer.usage.v1` inside a loop bundle, so a
@@ -248,6 +255,9 @@ class Task:
     # None for a scripted task, which is what the two demo tasks are. Present
     # for a task that costs money.
     agent: Agent | None = None
+    # The upstream project, e.g. "marshmallow-code/marshmallow". Used ONLY to
+    # notice afterwards that an agent went and read it.
+    upstream_repo: str | None = None
 
     @property
     def held_out_names(self) -> tuple[str, ...]:
@@ -284,6 +294,10 @@ class Row:
     # about somebody else's bill, which is the honest-absence rule the loop's
     # own usage record already follows.
     usage: dict[str, Any] | None = None
+    # What the agent read that it was not given. Empty is the normal case and
+    # is NOT a promise of cleanliness — it is the absence of a signal this
+    # harness knows how to look for.
+    contamination: list[str] = field(default_factory=list)
     deviations: list[str] = field(default_factory=list)
     evidence: dict[str, Any] = field(default_factory=dict)
     limits: list[str] = field(default_factory=lambda: list(LIMITS))
@@ -347,6 +361,7 @@ def load_task(path: Path) -> Task:
     if not isinstance(tests, list) or not all(isinstance(t, str) for t in tests):
         raise TaskError(f"{path}: 'held_out.tests' must be a list of test names")
 
+    upstream_repo = raw.get("upstream_repo")
     forbidden = raw.get("forbidden_shas") or []
     if not isinstance(forbidden, list) or not all(
         isinstance(x, str) for x in forbidden
@@ -395,6 +410,7 @@ def load_task(path: Path) -> Task:
         ),
         held_out_tests=tuple(tests),
         forbidden_shas=tuple(forbidden),
+        upstream_repo=str(upstream_repo) if upstream_repo else None,
         worker=str(raw["worker"]),
         wall_clock=int(budget["wall_clock"]),
         max_iterations=int(budget["max_iterations"]),
@@ -990,6 +1006,51 @@ def usage_of(workdir: Path) -> dict[str, Any] | None:
     return totals if isinstance(totals, dict) else None
 
 
+def contamination(task: Task, workdir: Path) -> list[str]:
+    """What the agent went and read that it was not given. **Detected, because
+    it cannot be prevented.**
+
+    The agent has a shell and a network, and it needs the network to reach its
+    own API — so there is no way from here to stop it opening the upstream
+    repository this task was cut from. Every task built from public history has
+    this hole, and the honest response is the one this project applies to
+    container escapes: if you cannot prevent it, record that it happened, and
+    never let silence be read as absence.
+
+    The 2026-08-13 corpus run is why. Agents fetched `<fix>.patch` — which
+    contains the held-out test file — pulled post-fix copies of the very source
+    file they had to change, and ran `git log --all --grep` to find the fix
+    commit by subject. One arm's change came back byte-identical to upstream's.
+    None of it was visible in the rows.
+    """
+    signals: list[str] = []
+    for name in ("agent.stdout.log", "agent.stderr.log", "worker.stdout.log"):
+        log = workdir / name
+        if not log.is_file():
+            continue
+        text = log.read_text(encoding="utf-8", errors="replace")
+        for sha in task.forbidden_shas:
+            # Any prefix long enough to be a deliberate reference.
+            if sha[:8] in text:
+                signals.append(
+                    f"the fix commit {sha[:12]} is quoted in {name} — the agent "
+                    "found the answer"
+                )
+        if task.upstream_repo and task.upstream_repo in text:
+            signals.append(
+                f"the upstream repository {task.upstream_repo} is named in "
+                f"{name}, so the agent may have read the fix"
+            )
+        for needle, why in (
+            (".patch", "fetched a patch"),
+            ("patch-diff.githubusercontent.com", "fetched a PR diff"),
+            ("raw.githubusercontent.com", "fetched a file from GitHub"),
+        ):
+            if needle in text:
+                signals.append(f"{why} ({needle} appears in {name})")
+    return sorted(set(signals))
+
+
 def classify(claimed: bool, held_out_passed: bool) -> str:
     """The 2x2, and nothing else. No weighting, no score, no aggregate."""
     if claimed and held_out_passed:
@@ -1064,6 +1125,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # produced no claim was PAID for the turn, and a corpus total that
             # skipped those rows would understate the bill.
             usage=usage_of(workdir),
+            contamination=contamination(task, workdir),
             deviations=deviations_for(arm),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -1080,6 +1142,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         reason=f"{claim_reason}; held-out: {held_reason}",
         wall_clock_ms=int((time.monotonic() - started) * 1000),
         usage=usage_of(workdir),
+        contamination=contamination(task, workdir),
         deviations=deviations_for(arm),
         evidence={
             "tree": str(tree),

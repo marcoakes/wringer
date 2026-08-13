@@ -751,8 +751,9 @@ def test_the_row_schema_moved_because_the_row_grew():
     is exactly the confusion freezing prevents. So v1 is named as PAST, and a
     reader who finds a v1 row knows what it cannot tell them.
     """
-    assert harness.SCHEMA_VERSION == "wringer.benchmark.v2"
+    assert harness.SCHEMA_VERSION == "wringer.benchmark.v3"
     assert "wringer.benchmark.v1" in harness.PREVIOUS_SCHEMA_VERSIONS
+    assert "wringer.benchmark.v2" in harness.PREVIOUS_SCHEMA_VERSIONS
     assert harness.SCHEMA_VERSION not in harness.PREVIOUS_SCHEMA_VERSIONS
 
 
@@ -773,7 +774,7 @@ def test_a_scripted_task_reports_no_cost_because_a_shell_script_has_none(
     for row in rows:
         assert "usage" in row, f"the key must exist to be readable: {row}"
         assert row["usage"] is None, row
-        assert row["schema_version"] == "wringer.benchmark.v2"
+        assert row["schema_version"] == "wringer.benchmark.v3"
 
 
 # --- a real repository keeps its tests in tests/ ----------------------------
@@ -987,3 +988,62 @@ def test_a_task_naming_no_forbidden_sha_still_runs(tmp_path: Path):
 
     assert run_harness(task_file("covering", repo, tmp_path), out) == 0
     assert all(row["cell"] != harness.VOID for row in rows_from(out))
+
+
+# --- what cannot be prevented is recorded -----------------------------------
+
+
+def test_a_row_records_that_the_agent_went_and_read_upstream(tmp_path: Path):
+    """**Detected, because it cannot be prevented.**
+
+    The agent has a shell and a network and needs the network for its own API,
+    so nothing here can stop it opening the public repository this task was cut
+    from. The 2026-08-13 corpus run is why this exists: agents fetched
+    `<fix>.patch` — which contains the held-out test file — pulled post-fix
+    copies of the file they had to change, and ran `git log --all --grep` to
+    find the fix by subject. One arm's change came back byte-identical to
+    upstream's. None of it appeared in the rows.
+    """
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    (workdir / "agent.stdout.log").write_text(
+        "let me check upstream\n"
+        "curl -sL https://github.com/pallets/click/commit/a1235aacb1be.patch\n"
+        "WebFetch https://raw.githubusercontent.com/pallets/click/main/x.py\n",
+        encoding="utf-8",
+    )
+    task = harness.Task(
+        id="t", repo=tmp_path, statement="fix it", held_out_run="true",
+        held_out_files=(), held_out_tests=(), worker="true",
+        wall_clock=1, max_iterations=1,
+        forbidden_shas=("a1235aacb1be4444555566667777888899990000",),
+        upstream_repo="pallets/click",
+    )
+
+    found = harness.contamination(task, workdir)
+
+    joined = " ".join(found)
+    assert "the agent found the answer" in joined, found
+    assert "pallets/click" in joined, found
+    assert "fetched a patch" in joined, found
+
+
+def test_a_clean_run_records_nothing_and_that_is_not_a_promise(tmp_path: Path):
+    """An empty list is the absence of a signal this harness knows how to look
+    for — never a guarantee the agent read nothing. The docstring on
+    `contamination` says so, and this pins the empty case so a future change
+    cannot start inventing findings."""
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    (workdir / "agent.stdout.log").write_text(
+        "I read src/click/core.py and fixed the bug.\n", encoding="utf-8"
+    )
+    task = harness.Task(
+        id="t", repo=tmp_path, statement="fix it", held_out_run="true",
+        held_out_files=(), held_out_tests=(), worker="true",
+        wall_clock=1, max_iterations=1,
+        forbidden_shas=("a1235aacb1be4444555566667777888899990000",),
+        upstream_repo="pallets/click",
+    )
+
+    assert harness.contamination(task, workdir) == []

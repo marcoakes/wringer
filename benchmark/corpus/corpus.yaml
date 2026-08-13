@@ -45,6 +45,9 @@ version: 1
 
 tasks:
   - id: marshmallow-data-key-in-schema-validator
+    # Provenance, kept OUT of the statement the agent sees: a 'Source:'
+    # line naming the upstream issue or PR is a pointer at the answer.
+    statement_source: "https://github.com/marshmallow-code/marshmallow/issues/2170 (VERBATIM)"
     repo_key: marshmallow
     repo_url: https://github.com/marshmallow-code/marshmallow.git
     licence: MIT (LICENSE)
@@ -87,6 +90,9 @@ tasks:
         1 failed in 0.11s'
       green: 1 passed in 0.08s
   - id: marshmallow-email-idn
+    # Provenance, kept OUT of the statement the agent sees: a 'Source:'
+    # line naming the upstream issue or PR is a pointer at the answer.
+    statement_source: "https://github.com/marshmallow-code/marshmallow/issues/2936 (VERBATIM)"
     repo_key: marshmallow
     repo_url: https://github.com/marshmallow-code/marshmallow.git
     licence: MIT (LICENSE)
@@ -128,6 +134,9 @@ tasks:
         8 already pass at base and are PASS_TO_PASS, not FAIL_TO_PASS'
       green: 10 passed in 0.03s
   - id: marshmallow-constant-required
+    # Provenance, kept OUT of the statement the agent sees: a 'Source:'
+    # line naming the upstream issue or PR is a pointer at the answer.
+    statement_source: "https://github.com/marshmallow-code/marshmallow/issues/2900 (VERBATIM)"
     repo_key: marshmallow
     repo_url: https://github.com/marshmallow-code/marshmallow.git
     licence: MIT (LICENSE)
@@ -369,6 +378,9 @@ tasks:
       red: 1 failed in 0.15s
       green: 1 passed in 0.02s
   - id: packaging-arbitrary-equality-intersection
+    # Provenance, kept OUT of the statement the agent sees: a 'Source:'
+    # line naming the upstream issue or PR is a pointer at the answer.
+    statement_source: "pypa/packaging PR #951 description (verbatim)"
     repo_key: packaging
     repo_url: https://github.com/pypa/packaging.git
     licence: Apache-2.0 OR BSD-2-Clause (LICENSE, LICENSE.APACHE, LICENSE.BSD)
@@ -408,6 +420,9 @@ tasks:
       red: 4 failed, 4 passed in 0.49s
       green: 8 passed in 0.28s
   - id: packaging-filter-exclusionary-bridges
+    # Provenance, kept OUT of the statement the agent sees: a 'Source:'
+    # line naming the upstream issue or PR is a pointer at the answer.
+    statement_source: "pypa/packaging issue #941 (verbatim)"
     repo_key: packaging
     repo_url: https://github.com/pypa/packaging.git
     licence: Apache-2.0 OR BSD-2-Clause (LICENSE, LICENSE.APACHE, LICENSE.BSD)

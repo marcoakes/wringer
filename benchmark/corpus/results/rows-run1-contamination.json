@@ -1,0 +1,186 @@
+{
+  "_what_this_is": "The 2026-08-13 corpus run's rows, re-scanned AFTERWARDS with the contamination detector that did not exist when they were written. The rows are unchanged and still say wringer.benchmark.v2; this is the check applied to them, not a re-scoring of them.",
+  "rows_with_a_signal": 9,
+  "rows_total": 26,
+  "rows": [
+    {
+      "task": "marshmallow-data-key-in-schema-validator",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": [
+        "the upstream repository marshmallow-code/marshmallow is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "marshmallow-data-key-in-schema-validator",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": [
+        "fetched a file from GitHub (raw.githubusercontent.com appears in agent.stdout.log)",
+        "the upstream repository marshmallow-code/marshmallow is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "marshmallow-email-idn",
+      "arm": "a_native",
+      "cell": "false_confidence",
+      "contamination": [
+        "the upstream repository marshmallow-code/marshmallow is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "marshmallow-email-idn",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": [
+        "fetched a file from GitHub (raw.githubusercontent.com appears in agent.stdout.log)",
+        "fetched a patch (.patch appears in agent.stdout.log)",
+        "the fix commit f07eadc87dfa is quoted in agent.stdout.log \u2014 the agent found the answer",
+        "the upstream repository marshmallow-code/marshmallow is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "marshmallow-constant-required",
+      "arm": "a_native",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "marshmallow-constant-required",
+      "arm": "b_wringer",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "click-zsh-completion-colons",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": [
+        "the fix commit a1235aacb1be is quoted in agent.stdout.log \u2014 the agent found the answer"
+      ]
+    },
+    {
+      "task": "click-zsh-completion-colons",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": [
+        "the fix commit a1235aacb1be is quoted in agent.stdout.log \u2014 the agent found the answer"
+      ]
+    },
+    {
+      "task": "click-parameter-source-during-convert",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": [
+        "the upstream repository pallets/click is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "click-parameter-source-during-convert",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "click-help-hint-shadowed-name",
+      "arm": "a_native",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "click-help-hint-shadowed-name",
+      "arm": "b_wringer",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "attrs-frozen-exception-mutable-attrs",
+      "arm": "a_native",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "attrs-frozen-exception-mutable-attrs",
+      "arm": "b_wringer",
+      "cell": "false_confidence",
+      "contamination": []
+    },
+    {
+      "task": "attrs-order-check-after-transformer",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "attrs-order-check-after-transformer",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "attrs-slots-cached-property-attributeerror",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": [
+        "the upstream repository python-attrs/attrs is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "attrs-slots-cached-property-attributeerror",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "packaging-arbitrary-equality-intersection",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "packaging-arbitrary-equality-intersection",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": [
+        "fetched a PR diff (patch-diff.githubusercontent.com appears in agent.stdout.log)",
+        "the upstream repository pypa/packaging is named in agent.stdout.log, so the agent may have read the fix"
+      ]
+    },
+    {
+      "task": "packaging-filter-exclusionary-bridges",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "packaging-filter-exclusionary-bridges",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "pyparsing-located-leading-whitespace",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "pyparsing-located-leading-whitespace",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "pyparsing-quotedstring-whitespace-delims",
+      "arm": "a_native",
+      "cell": "true_confidence",
+      "contamination": []
+    },
+    {
+      "task": "pyparsing-quotedstring-whitespace-delims",
+      "arm": "b_wringer",
+      "cell": "true_confidence",
+      "contamination": []
+    }
+  ]
+}

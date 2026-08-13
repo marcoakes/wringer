@@ -1,5 +1,3 @@
-Source: https://github.com/marshmallow-code/marshmallow/issues/2170 (VERBATIM)
-
 # Inconsistent field_name when validating schema
 
 There is inconsistent field_name meaning when validating fields:

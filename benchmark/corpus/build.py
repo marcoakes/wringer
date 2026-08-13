@@ -341,6 +341,12 @@ def build_task(
                 # The answer, named so the HARNESS can refuse the task if it
                 # is ever reachable again — enforced rather than promised.
                 "forbidden_shas": [task["fix_sha"]],
+                # Named so a row can RECORD that the agent went and read it.
+                # It cannot be prevented: the agent needs a network to reach
+                # its own API, and this task was cut from a public repository.
+                "upstream_repo": task["repo_url"]
+                .removeprefix("https://github.com/")
+                .removesuffix(".git"),
                 "held_out": {
                     "files": [
                         {"src": str(held_dir / entry["src"]), "dest": entry["dest"]}

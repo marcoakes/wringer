@@ -1,5 +1,3 @@
-Source: pypa/packaging PR #951 description (verbatim).
-
 Towards https://github.com/pypa/packaging/issues/943
 
 I am reviewing arbitrary equality edge cases, here's an edge case that violates intersection preservation :

@@ -1,5 +1,3 @@
-Source: pypa/packaging issue #941 (verbatim).
-
 I found this while implementing https://github.com/pypa/packaging/issues/940
 
 Here is an example:
