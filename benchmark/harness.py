@@ -202,8 +202,25 @@ class Task:
     statement: str
     held_out_run: str
     # Files the held-out suite needs, copied in ONLY for scoring and never into
-    # a tree an agent can see. Paths are relative to the task file.
-    held_out_files: tuple[Path, ...]
+    # a tree an agent can see. `(source, destination)`: the source is relative to
+    # the task file, the destination is relative to the tree.
+    #
+    # A DESTINATION exists because a real repository keeps its tests in
+    # `tests/`, beside a `conftest.py` that its fixtures come from. Landing them
+    # at the tree root — which is all v1 could do — collects a file with no
+    # fixtures and scores the environment.
+    held_out_files: tuple[tuple[Path, str], ...]
+    # The test names upstream ADDED for this issue, when the held-out file is a
+    # newer version of one the repo already has.
+    #
+    # **This is what makes the FAIL_TO_PASS shape possible at all.** Upstream
+    # usually extends an existing test file rather than creating one, so the
+    # destination legitimately exists at base, and refusing that (which is the
+    # only thing v1 could do) restricts a corpus to the rare fix that invented a
+    # whole new file — a small and badly biased subset. What must actually be
+    # held out is not the FILE but these TESTS, and `check_isolation` enforces
+    # exactly that: none of these names may appear anywhere in the tree.
+    held_out_tests: tuple[str, ...]
     worker: str
     wall_clock: int
     max_iterations: int
@@ -214,9 +231,20 @@ class Task:
 
     @property
     def held_out_names(self) -> tuple[str, ...]:
-        """The paths the held-out files will occupy in the tree, as strings a
-        gate command or a brief could plausibly mention."""
-        return tuple(path.name for path in self.held_out_files)
+        """Every string that would give the held-out signal away.
+
+        Both the destination path AND its bare basename, because a gate command
+        or a statement can name either and both are equally revealing. Plus the
+        added test names, which are the actual signal when the file itself is
+        one the repo already has.
+        """
+        names: list[str] = []
+        for _, dest in self.held_out_files:
+            names.append(dest)
+            base = dest.rsplit("/", 1)[-1]
+            if base != dest:
+                names.append(base)
+        return tuple(dict.fromkeys(names + list(self.held_out_tests)))
 
 
 @dataclass
@@ -273,6 +301,31 @@ def load_task(path: Path) -> Task:
             "scoring. A held-out suite with no files is one that was already in "
             "the tree, which is the void this harness refuses"
         )
+    # A bare string keeps v1's meaning exactly — land at the tree root under the
+    # same basename — so every task written before this still loads unchanged.
+    pairs: list[tuple[str, str]] = []
+    for entry in files:
+        if isinstance(entry, str):
+            pairs.append((entry, Path(entry).name))
+        elif isinstance(entry, dict) and "src" in entry:
+            src = str(entry["src"])
+            pairs.append((src, str(entry.get("dest") or Path(src).name)))
+        else:
+            raise TaskError(
+                f"{path}: each 'held_out.files' entry is a path, or a mapping "
+                f"with 'src' and optionally 'dest'. Got: {entry!r}"
+            )
+    for _, dest in pairs:
+        if Path(dest).is_absolute() or ".." in Path(dest).parts:
+            raise TaskError(
+                f"{path}: held-out destination {dest!r} must be inside the "
+                "tree. An absolute path or a '..' would write outside the copy "
+                "being scored"
+            )
+
+    tests = held_out.get("tests") or []
+    if not isinstance(tests, list) or not all(isinstance(t, str) for t in tests):
+        raise TaskError(f"{path}: 'held_out.tests' must be a list of test names")
 
     budget = raw["budget"]
     if not isinstance(budget, dict):
@@ -311,13 +364,36 @@ def load_task(path: Path) -> Task:
         repo=(base / str(raw["repo"])).resolve(),
         statement=str(raw["statement"]),
         held_out_run=held_out_command,
-        held_out_files=tuple((base / str(name)).resolve() for name in files),
+        held_out_files=tuple(
+            ((base / src).resolve(), dest) for src, dest in pairs
+        ),
+        held_out_tests=tuple(tests),
         worker=str(raw["worker"]),
         wall_clock=int(budget["wall_clock"]),
         max_iterations=int(budget["max_iterations"]),
         base_sha=str(raw["base_sha"]) if raw.get("base_sha") else None,
         agent=agent,
     )
+
+
+# Directories whose contents are not the repository's source, and which a real
+# clone makes expensive to walk. `.git` alone is thousands of files.
+_NOT_SOURCE = {".git", ".venv", "venv", "__pycache__", ".mypy_cache",
+               ".pytest_cache", ".ruff_cache", ".tox", "node_modules"}
+
+
+def _tree_files(tree: Path) -> list[Path]:
+    """Every source file in the tree, skipping the directories that are not it.
+
+    Walked rather than globbed so `.git` can be pruned before it is descended
+    into: on a real repository that is the difference between reading a hundred
+    files and reading ten thousand.
+    """
+    found: list[Path] = []
+    for parent, dirs, names in os.walk(tree):
+        dirs[:] = [d for d in dirs if d not in _NOT_SOURCE]
+        found.extend(Path(parent) / name for name in names)
+    return found
 
 
 def check_isolation(task: Task, tree: Path) -> None:
@@ -335,18 +411,38 @@ def check_isolation(task: Task, tree: Path) -> None:
     built by `wring run` from failing gates, and a gate cannot name the held-out
     file without tripping (2).
     """
-    for path in task.held_out_files:
+    for path, dest in task.held_out_files:
         if not path.is_file():
             raise TaskError(f"held-out file {path} does not exist")
-        landing = tree / path.name
-        if landing.exists():
+        landing = tree / dest
+        if landing.exists() and not task.held_out_tests:
             raise Void(
-                f"the held-out file '{path.name}' is already in the working "
+                f"the held-out file '{dest}' is already in the working "
                 "tree, so it is not held out from anything. The worker can read "
                 "the test it is being scored against, which is the 'worker "
                 "writes its own success criterion' defect at the benchmark's "
                 "own level"
             )
+
+    # When the held-out file OVERWRITES one the repo already has, the file being
+    # present is expected and the signal is the added tests. So the check moves
+    # to them, and it is stricter than a filename comparison: the names must not
+    # appear ANYWHERE in the tree — not in the file they will land in, not in a
+    # neighbouring test, not in a fixture, not in a changelog that quotes them.
+    if task.held_out_tests:
+        for found in _tree_files(tree):
+            try:
+                text = found.read_text(encoding="utf-8", errors="replace")
+            except OSError:  # pragma: no cover - unreadable is not readable
+                continue
+            for name in task.held_out_tests:
+                if name in text:
+                    raise Void(
+                        f"the held-out test '{name}' already appears in the "
+                        f"working tree ({found.relative_to(tree)}), so it is "
+                        "not held out from anything. Whatever else it is, it is "
+                        "not an independent signal"
+                    )
 
     config_path = tree / ".wringer.yaml"
     if config_path.is_file():
@@ -373,7 +469,7 @@ def check_isolation(task: Task, tree: Path) -> None:
     for name in task.held_out_names:
         if name in task.statement:
             raise Void(
-                f"the task statement mentions the held-out file '{name}', so "
+                f"the task statement mentions '{name}', which is held out, so "
                 "the agent is told which test it is scored against. Arm A would "
                 "be reading the answer"
             )
@@ -423,8 +519,10 @@ def score_held_out(task: Task, tree: Path, workdir: Path) -> tuple[bool, str]:
     """
     scoring = workdir / "scoring"
     shutil.copytree(tree, scoring, symlinks=True)
-    for path in task.held_out_files:
-        shutil.copy2(path, scoring / path.name)
+    for path, dest in task.held_out_files:
+        landing = scoring / dest
+        landing.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, landing)
 
     done = subprocess.run(
         task.held_out_run,

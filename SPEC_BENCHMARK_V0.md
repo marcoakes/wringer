@@ -165,6 +165,41 @@ rulings applied one level up:
    claim was still paid for the turn, and a corpus total that skipped those rows
    would understate the bill.
 
+## 8b. AMENDED 2026-08-13 — held-out tests, not a held-out file
+
+§4's rule was "the held-out FILE must not be in the working tree". Against a
+real repository that rule makes the corpus impossible, and it took until the
+first corpus was being assembled to see it.
+
+**Upstream extends an existing test file.** It does not usually invent a new
+one. So `tests/test_specifiers.py` legitimately exists at the base commit, and
+the held-out artifact is the *newer version* of it — the FAIL_TO_PASS shape
+§1.1 requires. A rule that refuses any existing destination restricts the
+corpus to the rare fix that created a whole new file, which is a small and
+badly biased subset of real bugs.
+
+So the rule MOVES rather than disappearing, and gets stricter where it lands:
+
+- `held_out.files` entries may now be `{src, dest}`, so a file lands where its
+  `conftest.py` is. A bare string keeps the old meaning exactly. **A `dest` that
+  is absolute or contains `..` is exit 2** — `deliver.remote`'s lesson, three
+  modules over: a value out of a file becomes a path, so it is bounded where it
+  is read.
+- `held_out.tests` names what upstream ADDED. When it is present the
+  destination may exist, and the check becomes: **none of those names may
+  appear anywhere in the tree.** Not in the file they will overwrite, not in a
+  neighbouring test, not in a changelog quoting them. When it is absent the old
+  rule applies unchanged, so a task that forgets to say what is new is still
+  refused.
+- Every one of those names is also checked against the statement and against
+  each declared gate command, on the same reasoning as the filename: a test
+  name is at least as revealing as the file that holds it.
+
+**What this does NOT fix.** The held-out suite still measures agreement with
+upstream's fix (§3's limit is untouched), and a repository whose tests cannot
+run offline at the base commit is still excluded by `CORPUS.md` §1.3 rather
+than by anything here.
+
 ## 9. What was measured, and what was not
 
 **Measured, on this machine, at zero cost.** Two demo tasks with a scripted worker

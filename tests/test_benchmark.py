@@ -733,3 +733,164 @@ def test_a_scripted_task_reports_no_cost_because_a_shell_script_has_none(
         assert "usage" in row, f"the key must exist to be readable: {row}"
         assert row["usage"] is None, row
         assert row["schema_version"] == "wringer.benchmark.v2"
+
+
+# --- a real repository keeps its tests in tests/ ----------------------------
+
+
+def test_a_held_out_file_lands_where_its_fixtures_are(tmp_path: Path):
+    """**The change that makes a real corpus possible at all.**
+
+    v1 copied every held-out file to the tree ROOT under its basename. A real
+    repository keeps its tests in `tests/`, beside the `conftest.py` their
+    fixtures come from, so a file landed at the root collects no fixtures and
+    scores the environment instead of the change.
+    """
+    repo = build_demo("covering", tmp_path)
+    subprocess.run(["mkdir", "-p", str(repo / "tests")], check=True)
+    (repo / "tests" / "conftest.py").write_text(
+        "import pytest\n\n@pytest.fixture\ndef four():\n    return 4\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True,
+                   capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "fixtures"],
+                   check=True, capture_output=True)
+
+    held = tmp_path / "held_out_nested.py"
+    held.write_text(
+        "from calc import add\n\ndef test_uses_a_fixture(four):\n"
+        "    assert add(2, 2) == four\n",
+        encoding="utf-8",
+    )
+    task = task_file("covering", repo, tmp_path)
+    import yaml
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    raw["held_out"]["files"] = [
+        {"src": str(held), "dest": "tests/held_out_nested.py"}
+    ]
+    raw["held_out"]["run"] = (
+        f"{sys.executable} -m pytest tests/held_out_nested.py -q"
+    )
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert run_harness(task, out) == 0
+
+    rows = rows_from(out)
+    assert rows, "no rows were written"
+    for row in rows:
+        assert row["cell"] != harness.VOID, row
+        # The fixture resolved, which it could only do from tests/.
+        assert row["held_out_passed"] is True, row
+
+
+def test_an_overwriting_held_out_file_is_refused_unless_the_tests_are_named(
+    tmp_path: Path
+):
+    """Upstream usually EXTENDS an existing test file. That file is legitimately
+    in the tree at base, and v1 could only call that a void.
+
+    The rule does not disappear — it moves. Without `held_out.tests` naming what
+    was added, an existing destination is still the "the worker can read what it
+    is scored against" void, because nothing has said which part is new.
+    """
+    repo = build_demo("covering", tmp_path)
+    held = tmp_path / "test_calc.py"
+    held.write_text("def test_added_later():\n    assert True\n", encoding="utf-8")
+
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    # test_calc.py already exists in the demo repo.
+    raw["held_out"]["files"] = [{"src": str(held), "dest": "test_calc.py"}]
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert run_harness(task, out) == 1
+    rows = rows_from(out)
+    assert rows
+    for row in rows:
+        assert row["cell"] == harness.VOID, row
+        assert "already in the working tree" in row["reason"], row
+
+
+def test_a_held_out_test_NAME_already_in_the_tree_is_void(tmp_path: Path):
+    """The stricter half of the same rule, and the one that earns it.
+
+    When the file may overwrite, the signal is the added test NAMES — so they
+    must appear NOWHERE in the tree. Not in the file they land in, not in a
+    neighbouring test, not in a changelog that quotes them. A name already
+    present means the worker can read the thing it is scored against, whatever
+    file it happens to sit in.
+    """
+    repo = build_demo("covering", tmp_path)
+    # The name leaks somewhere entirely innocent-looking.
+    (repo / "CHANGELOG.md").write_text(
+        "- added test_the_new_edge_case for the boundary bug\n", encoding="utf-8"
+    )
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True,
+                   capture_output=True)
+    subprocess.run(["git", "-C", str(repo), "commit", "-qm", "changelog"],
+                   check=True, capture_output=True)
+
+    held = tmp_path / "test_calc.py"
+    held.write_text(
+        "def test_the_new_edge_case():\n    assert True\n", encoding="utf-8"
+    )
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    raw["held_out"]["files"] = [{"src": str(held), "dest": "test_calc.py"}]
+    raw["held_out"]["tests"] = ["test_the_new_edge_case"]
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert run_harness(task, out) == 1
+    rows = rows_from(out)
+    assert rows
+    for row in rows:
+        assert row["cell"] == harness.VOID, row
+        assert "test_the_new_edge_case" in row["reason"], row
+        assert "CHANGELOG.md" in row["reason"], row
+
+
+def test_a_statement_naming_an_added_test_is_void(tmp_path: Path):
+    """Same reason the statement may not name the FILE: arm A would be reading
+    the answer. A test name is at least as revealing as a filename."""
+    repo = build_demo("covering", tmp_path)
+    held = tmp_path / "held_out_demo.py"
+    held.write_text("def test_secret_case():\n    assert True\n", encoding="utf-8")
+
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    raw["held_out"]["files"] = [{"src": str(held), "dest": "held_out_demo.py"}]
+    raw["held_out"]["tests"] = ["test_secret_case"]
+    raw["statement"] = "Make test_secret_case pass."
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    assert run_harness(task, out) == 1
+    for row in rows_from(out):
+        assert row["cell"] == harness.VOID, row
+        assert "test_secret_case" in row["reason"], row
+
+
+@pytest.mark.parametrize("dest", ["/etc/passwd", "../escaped.py", "a/../../b.py"])
+def test_a_held_out_destination_cannot_escape_the_tree(tmp_path: Path, dest: str):
+    """`deliver.remote`'s lesson, three modules over: a value from a file
+    becomes a path, so it has to be bounded where it is read. The scoring copy
+    is written to, and a destination outside it writes outside the experiment."""
+    repo = build_demo("covering", tmp_path)
+    held = tmp_path / "held_out_demo.py"
+    held.write_text("def test_x():\n    assert True\n", encoding="utf-8")
+
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    raw["held_out"]["files"] = [{"src": str(held), "dest": dest}]
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    # Exit 2: the task file cannot be used at all, which is not a void row.
+    assert run_harness(task, tmp_path / "out") == 2
