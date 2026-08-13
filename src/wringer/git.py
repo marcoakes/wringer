@@ -17,9 +17,36 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+
 # A wedged `git` (a stale index lock, a credential prompt, a network remote)
 # must not hang the verifier. Every internal call is bounded; a call that
 # overruns is treated exactly like a call that failed.
+def decode(raw: bytes) -> str:
+    """Bytes from another program, as text, without ever raising.
+
+    **The one place this repository decodes somebody else's output**, so the
+    policy is stated once rather than argued at each call site.
+
+    `errors="replace"` and not `"strict"`: git hands over the CONTENTS of files
+    it considers text, and "text" to git means "no NUL in the first 8000 bytes" —
+    which a latin-1 file satisfies while not being UTF-8 at all. Strict decoding
+    turned that into a `UnicodeDecodeError` from inside `diff_untracked`, so
+    `wring deliver` — the one command that writes git history — died with a
+    traceback and exit 1, which is indistinguishable from "a gate failed" to
+    anything reading exit codes. A benchmark harness read exactly that and
+    recorded a refusal Wringer never made.
+
+    A replacement character in an evidence file is a small, visible loss. A crash
+    in the command that pushes a branch is not small, and a wrong exit code is
+    not visible at all.
+
+    NOT `"surrogateescape"`, which round-trips the bytes but produces strings
+    that blow up again the moment anything writes them as UTF-8 — moving the
+    crash from here to the bundle writer, where it would be harder to trace.
+    """
+    return raw.decode("utf-8", errors="replace")
+
+
 GIT_TIMEOUT_SECONDS = 10
 
 # Paths git leaves inside .git while an operation is unfinished, and the
@@ -279,7 +306,18 @@ def _git(
             ["git", *args],
             cwd=cwd,
             capture_output=True,
-            text=True,
+            # BYTES, decoded below with `errors="replace"` — never `text=True`.
+            # `text=True` decodes strictly, and git emits the CONTENTS of files
+            # it considers text: an untracked latin-1 file has no NUL, so git
+            # calls it text and hands over bytes that are not UTF-8. That
+            # crashed `wring deliver` with a UnicodeDecodeError from inside
+            # `diff_untracked` — exit 1 with a traceback, indistinguishable from
+            # "a gate failed" to anything reading exit codes.
+            #
+            # Found 2026-08-13 by the first real agent run through the benchmark
+            # harness, and reproduced with one file containing `café` in
+            # latin-1. Recording a replacement character is honest; crashing in
+            # the command that writes git history is not.
             timeout=GIT_TIMEOUT_SECONDS,
         )
     except OSError:  # no git on PATH, cwd gone
@@ -288,4 +326,5 @@ def _git(
         return None
     if proc.returncode != 0 and not allow_failure:
         return None
-    return proc.stdout.strip() if strip else proc.stdout
+    text = decode(proc.stdout)
+    return text.strip() if strip else text

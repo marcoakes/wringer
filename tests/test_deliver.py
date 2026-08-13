@@ -2037,3 +2037,60 @@ def test_a_repo_with_no_spec_delivers_exactly_as_before(
 
     assert cli.main(["deliver"]) == cli.EXIT_OK
     capsys.readouterr()
+
+
+def test_an_untracked_latin1_file_does_not_crash_delivery(repo, write_config, git_run):
+    """**`wring deliver` died with a UnicodeDecodeError, exit 1, on one file.**
+
+    Found on 2026-08-13 by the first real agent run through the benchmark
+    harness. `git.py`'s `_git` used `text=True`, which decodes strictly — and git
+    emits the CONTENTS of files it considers text, where "text" to git means "no
+    NUL in the first 8000 bytes". A latin-1 file satisfies that while not being
+    UTF-8 at all, so `diff_untracked` handed those bytes to a strict decoder.
+
+    Two reasons this is worse than an ordinary crash. It is in the ONE command
+    that writes git history; and it exits 1 with a traceback, which is
+    indistinguishable from "a required gate failed" to anything reading exit
+    codes. The harness that found it recorded a refusal Wringer never made.
+
+    A `.pyc` does NOT reproduce it — git finds the NUL, calls it binary, and
+    prints "Binary files differ". It has to be non-UTF-8 text.
+    """
+    (repo / "calc.py").write_text("def add(a, b):\n    return a + b\n", "utf-8")
+    write_config(
+        repo,
+        "version: 1\ngates:\n  - id: t\n    run: 'true'\n"
+        "deliver:\n  remote: origin\n  base: main\n",
+    )
+    git_run(repo, "add", "-A")
+    git_run(repo, "commit", "-qm", "a calculator")
+
+    # the change to deliver, and ONE untracked latin-1 file beside it
+    (repo / "calc.py").write_text("def add(a, b):\n    return a + b  # fixed\n")
+    (repo / "notes.txt").write_bytes("café costs 3€\n".encode("latin-1", "replace"))
+
+    # The crash was inside this call, before any refusal could be reached.
+    from wringer import git as git_module
+
+    patch = git_module.diff_untracked(repo, ("notes.txt",))
+
+    assert patch is not None
+    # the undecodable byte became a replacement character rather than an
+    # exception — a small visible loss instead of a dead command
+    assert "�" in patch or "notes.txt" in patch
+
+
+def test_git_decode_never_raises_on_bytes_git_chose():
+    """The policy, stated once and asserted here rather than at each call site.
+
+    NOT `surrogateescape`: that round-trips the bytes but produces strings which
+    blow up again the moment anything writes them as UTF-8 — moving the crash
+    from the reader to the bundle writer, where it is harder to trace.
+    """
+    from wringer import git as git_module
+
+    assert git_module.decode(b"caf\xe9") == "caf�"
+    assert git_module.decode(b"\x8f\x90\xca") == "���"
+    assert git_module.decode(b"plain ascii") == "plain ascii"
+    # and the result is writable as UTF-8, which surrogateescape's would not be
+    git_module.decode(b"caf\xe9").encode("utf-8")

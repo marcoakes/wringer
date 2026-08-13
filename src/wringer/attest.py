@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 from wringer import evidence, sign
+from wringer import git as git_module
 
 SCHEMA_VERSION = "wringer.attestation.v1"
 ATTESTATIONS_DIRNAME = Path(".wringer") / "attestations"
@@ -262,14 +263,14 @@ def _git(root: Path, args: list[str]) -> str | None:
             ["git", *args],
             cwd=root,
             capture_output=True,
-            text=True,
+
             timeout=_GIT_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
     if proc.returncode != 0:
         return None
-    return proc.stdout.strip()
+    return git_module.decode(proc.stdout).strip()
 
 
 # --- building the claim ----------------------------------------------------

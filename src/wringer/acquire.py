@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from wringer import evidence
+from wringer import git as git_module
 
 ACQUIRED_DIRNAME = Path(".wringer") / "acquired"
 SCHEMA_VERSION = "wringer.acquired.v1"
@@ -158,13 +159,16 @@ def default_branch(root: Path, remote: str = "origin") -> str | None:
 
 
 def _read(args: list[str], cwd: Path) -> str | None:
+    """Read a git value. Decoded lossily — see `git.decode`."""
     try:
         proc = subprocess.run(
-            ["git", *args], cwd=cwd, capture_output=True, text=True, timeout=30
+            ["git", *args], cwd=cwd, capture_output=True, timeout=30
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return proc.stdout.strip() if proc.returncode == 0 else None
+    if proc.returncode != 0:
+        return None
+    return git_module.decode(proc.stdout).strip()
 
 
 def record(root: Path, acquired: Acquired, redactor: object = None) -> Path:

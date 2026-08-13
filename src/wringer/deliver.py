@@ -1233,13 +1233,17 @@ def _git(
         proc = subprocess.run(
             ["git", *args],
             cwd=root,
-            input=stdin,
+            # ENCODED here because the pipe is bytes both ways now. Output is
+            # decoded through `git.decode` rather than by `text=True`, which
+            # decodes strictly and crashed this command on an untracked latin-1
+            # file — see `git.decode` for the run that found it. Input is ours
+            # (a commit message), so strict UTF-8 out is correct for it.
+            input=stdin.encode("utf-8") if stdin is not None else None,
             capture_output=True,
-            text=True,
             timeout=GIT_TIMEOUT_SECONDS,
         )
     except subprocess.TimeoutExpired as exc:
         raise DeliverError(f"git {' '.join(args)} did not finish") from exc
     except OSError as exc:
         raise DeliverError(f"could not run git: {exc}") from exc
-    return proc.returncode, (proc.stderr or proc.stdout).strip()
+    return proc.returncode, git.decode(proc.stderr or proc.stdout).strip()
