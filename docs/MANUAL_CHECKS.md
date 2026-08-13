@@ -26,7 +26,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Apple `container` | Apple silicon, MDM-managed, uid:gid `502:20` | macOS 26.5.2, `Darwin arm64` | Apple `container` 1.2.0 (Homebrew formula, Workbrew 1.7.3 / Homebrew 6.0.15) | 2026-08-05 | `75167c2` | **Passed with corrections applied by hand** — see the note below |
 | Docker stub (R2-02) | Apple silicon, MDM-managed | macOS 26.5.2 | none — `/Applications/Docker.app` present as a stripped stub | 2026-08-05 | `75167c2` | **Observed, not executed as a sequence.** `d--------- 2 root admin 64`, no binary, no socket — seen while diagnosing step 4B. Sequence C below was written afterwards and has never been run as written |
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
-| Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | **never run yet** | — | **Runnable in one click since 2026-08-13** (`.github/workflows/sequence-g.yml`). No row until somebody dispatches it and classifies the output |
+| Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | 2026-08-13 | `f0b44bc` | **EXECUTED for the first time** — [run 31692802687](https://github.com/marcoakes/wringer/actions/runs/31692802687), job `attack` succeeded, 16 KB of output in the `sequence-g` artifact. **UNCLASSIFIED: nobody has read it.** The artifact and the logs both need GitHub auth (401 unauthenticated), so the seven attempts have not been sorted into prevented / detected / mitigated / out_of_scope by anybody. Until they are, this row records that the sequence RAN and nothing about what it found |
 | Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
 
@@ -338,8 +338,14 @@ never write `prevented` where Wringer merely records evidence afterwards. The
 script prints those four definitions and then stops, because classifying is the
 half a script cannot do.
 
-**Until a row appears above, nothing in this repository may say the container
-path is demonstrated to isolate** — and that includes the `execution:` backend,
+**A row saying the sequence RAN is not a row saying what it found.** The
+2026-08-13 Linux row above is exactly that halfway state: the job executed the
+seven attempts against a real Docker and uploaded the output, and no human has
+opened it. Classification is the half a script cannot do, and an unread artifact
+classifies nothing.
+
+**Until a row appears above WITH classifications, nothing in this repository may
+say the container path is demonstrated to isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.
