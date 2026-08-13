@@ -147,3 +147,19 @@ corpus costs.
 - **A task hard enough to discriminate.** §3's rule is unexercised, and until it
   is, the claim in `SPEC_BENCHMARK_V0` §1 has not been tested once.
 - **Arm A's spend.** The harness reads no usage from a `Turn`.
+
+---
+
+## Postscript, 2026-08-13 — the stale binary is gone
+
+`~/.local/bin/wring` was a `uv tool install` from 2026-08-05 pinned at **0.2.0**,
+and it is what the agent picked up off PATH to verify its own work.
+
+Reinstalled **editable against this repository**
+(`uv tool install --force --editable .`), so the binary on PATH is now the same
+source tree as the one under test and cannot drift from it again — which a
+re-pinned 0.3.0 snapshot would have done the moment the repo moved.
+
+Verified rather than assumed: a `wring verify` in a fresh repo, run through
+`~/.local/bin/wring`, records `wringer_version: 0.3.0` in `run.started` and
+writes `execution.json` — the sibling whose absence was the original symptom.
