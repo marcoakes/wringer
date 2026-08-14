@@ -125,7 +125,7 @@ where they are used; nothing here is a preview.
 **Nothing reaches a network while it is proving.** That is the line that
 matters: the gates, the loop and the vacuity check run offline everywhere they
 appear, so the code that decides whether a change is good cannot be reached by
-anything outside your machine. Four commands can send, each on a flag you type
+anything outside your machine. Five commands can send, each on a flag you type
 and each needing a section your repo declared. `get` and `issue` fetch,
 because fetching is what they are for.
 

@@ -1504,6 +1504,27 @@ def test_nothing_claims_the_network_surface_is_smaller_than_it_is():
             if path.suffix == ".md" and f'"{phrase}' in flat:
                 continue
             offenders.append(f"{path.name}: {phrase!r}")
+    # AND a pattern, not only the list above. The list is hand-kept, and a
+    # hand-kept list of phrasings is the narrowing-check defect this repository
+    # keeps finding in itself: on 2026-08-14 QUICKSTART said "Four commands can
+    # send" and slipped between "Four commands send" and "four that can send",
+    # both of which ARE in the list. Counting is what the guard is for, so the
+    # guard now counts.
+    understates = re.compile(
+        r"\b(one|two|three|four)\s+(?:commands?|that)\s+(?:can\s+)?sends?\b",
+        re.IGNORECASE,
+    )
+    for path in searched:
+        if path.name.startswith("field-report"):
+            continue
+        flat = " ".join(path.read_text(encoding="utf-8").split())
+        if path.suffix == ".py":
+            flat = re.sub(r'"\s*"', "", flat)
+        for hit in understates.finditer(flat):
+            if path.suffix == ".md" and f'"{hit.group(0)}' in flat:
+                continue
+            offenders.append(f"{path.name}: {hit.group(0)!r} (pattern)")
+
     assert not offenders, (
         "these understate the network surface. FIVE commands SEND behind a "
         "flag somebody typed (judge, spec, deliver, graph run/resume reaching "
