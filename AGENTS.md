@@ -122,6 +122,27 @@ version), **`wringer.bench.v2`** (a per-row `attempt`), and four new siblings �
 `wring attest --sign` makes the senders **five**, and every count in the docs says
 so.
 
+**2026-08-14 — `wringer.benchmark.v4`: a row now carries the change it is
+about.** Until v4 a row's `evidence` was `{tree, base_sha, workdir}`, and
+`tree` is a path into a `/private/tmp` session scratchpad. So the 52 published
+corpus rows described 52 agent changes of which this repository held **no
+copy**, and the only copies were uncommitted edits in scratch directories that
+are deleted without warning. They were still there and are now in
+[`benchmark/corpus/results/patches/`](benchmark/corpus/results/patches/):
+**52/52 trees reachable, 0 gone, 51 patches, all 51 verified to apply to their
+`base_sha`**; the 52nd is an agent that changed nothing and claimed success
+anyway. v1–v3 are named as PAST and the published v2/v3 rows are untouched.
+
+Two things in `change_patch` are load-bearing and each has a test that has been
+watched to fail: it stages before diffing, because part of a real change is
+*untracked* and a bare `git diff` drops the agent's new test files
+(`deliver.py` shipped that exact bug once); and it stages into a **throwaway
+index** under `GIT_INDEX_FILE`, because the arm's tree is the exhibit and a
+harness that rewrote its index while recording would be editing the evidence.
+`patch: None` with `patch_error: None` means the agent changed nothing —
+never conflated with a failed capture, which is an instrument malfunction and
+says so.
+
 **Wringer verifies Wringer**: [`.wringer.yaml`](.wringer.yaml) declares this
 repo's own gates, CI runs `wring verify` and uploads the bundle, and a real
 one is committed at [`.wringer.example/`](.wringer.example/).

@@ -752,9 +752,9 @@ def test_the_row_schema_moved_because_the_row_grew():
     is exactly the confusion freezing prevents. So v1 is named as PAST, and a
     reader who finds a v1 row knows what it cannot tell them.
     """
-    assert harness.SCHEMA_VERSION == "wringer.benchmark.v3"
-    assert "wringer.benchmark.v1" in harness.PREVIOUS_SCHEMA_VERSIONS
-    assert "wringer.benchmark.v2" in harness.PREVIOUS_SCHEMA_VERSIONS
+    assert harness.SCHEMA_VERSION == "wringer.benchmark.v4"
+    for past in ("v1", "v2", "v3"):
+        assert f"wringer.benchmark.{past}" in harness.PREVIOUS_SCHEMA_VERSIONS
     assert harness.SCHEMA_VERSION not in harness.PREVIOUS_SCHEMA_VERSIONS
 
 
@@ -775,7 +775,7 @@ def test_a_scripted_task_reports_no_cost_because_a_shell_script_has_none(
     for row in rows:
         assert "usage" in row, f"the key must exist to be readable: {row}"
         assert row["usage"] is None, row
-        assert row["schema_version"] == "wringer.benchmark.v3"
+        assert row["schema_version"] == "wringer.benchmark.v4"
 
 
 # --- a real repository keeps its tests in tests/ ----------------------------
@@ -1179,3 +1179,163 @@ def test_no_task_statement_carries_a_pointer_somebody_ADDED(tmp_path: Path):
     assert not offenders, (
         "these hand the agent a pointer at the upstream fix: " + str(offenders)
     )
+
+
+# --- a row carries the change, because the tree does not ---------------------
+
+
+def _arm_tree(tmp_path: Path) -> tuple[Path, str]:
+    """A committed tree, the shape an arm is handed and then edits."""
+    tree = tmp_path / "arm" / "tree"
+    tree.mkdir(parents=True)
+
+    def run(*args: str) -> None:
+        done = subprocess.run(
+            ["git", "-C", str(tree), *args], capture_output=True, text=True
+        )
+        assert done.returncode == 0, done.stderr
+
+    run("init", "-q", "-b", "main")
+    # Pinned locally for the reason tests/conftest.py pins them globally: a
+    # developer's git config must never decide a test's outcome.
+    run("config", "user.email", "harness@example.invalid")
+    run("config", "user.name", "harness")
+    run("config", "commit.gpgsign", "false")
+    (tree / "src.py").write_text("value = 1\n", encoding="utf-8")
+    run("add", "-A")
+    run("commit", "-qm", "base")
+    sha = subprocess.run(
+        ["git", "-C", str(tree), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    return tree, sha
+
+
+def test_a_patch_carries_the_files_git_has_never_seen(tmp_path: Path):
+    """**The property the whole field exists for.**
+
+    A real agent change is part edit and part new file — a new test, a new
+    changelog fragment. `git diff` alone is silent about content git has never
+    seen, so a row built on it would record the edit, omit the agent's new
+    test, and look complete while understating every change in the corpus.
+    `deliver.py` shipped that bug once already.
+    """
+    tree, sha = _arm_tree(tmp_path)
+    (tree / "src.py").write_text("value = 2\n", encoding="utf-8")
+    (tree / "test_new.py").write_text("def test_it():\n    assert True\n", "utf-8")
+
+    patch, error = harness.change_patch(tree, sha)
+
+    assert error is None, error
+    assert "src.py" in patch, "the tracked edit is missing"
+    assert "test_new.py" in patch, (
+        "the agent's NEW file is missing — this is the bug this field exists "
+        "to prevent, and a bare `git diff` reproduces it"
+    )
+    # The baseline that makes the assertion above mean something: the obvious
+    # implementation really does drop the new file.
+    naive = subprocess.run(
+        ["git", "-C", str(tree), "diff", sha],
+        capture_output=True, text=True,
+    ).stdout
+    assert "test_new.py" not in naive
+
+
+def test_a_patch_applies_to_the_base_the_row_names(tmp_path: Path):
+    """A patch nobody can apply is a string, not evidence."""
+    tree, sha = _arm_tree(tmp_path)
+    (tree / "src.py").write_text("value = 2\n", encoding="utf-8")
+    (tree / "test_new.py").write_text("def test_it():\n    assert True\n", "utf-8")
+
+    patch, error = harness.change_patch(tree, sha)
+    assert error is None, error
+
+    written = tmp_path / "change.patch"
+    written.write_text(patch, encoding="utf-8")
+    fresh = tmp_path / "fresh"
+    subprocess.run(
+        ["git", "-C", str(tree), "worktree", "add", "--detach", str(fresh), sha],
+        capture_output=True, text=True, check=True,
+    )
+    done = subprocess.run(
+        ["git", "-C", str(fresh), "apply", "--check", "--binary", str(written)],
+        capture_output=True, text=True,
+    )
+    assert done.returncode == 0, done.stderr
+
+
+def test_capturing_a_patch_leaves_the_arms_tree_exactly_as_found(tmp_path: Path):
+    """The tree is the exhibit. Staging into the arm's own index would mean the
+    harness edited the evidence while recording it, and the next reader — a
+    human running `git status` in the workdir — would see the harness's
+    staging rather than the agent's change."""
+    tree, sha = _arm_tree(tmp_path)
+    (tree / "src.py").write_text("value = 2\n", encoding="utf-8")
+    (tree / "test_new.py").write_text("def test_it():\n    assert True\n", "utf-8")
+
+    def status() -> str:
+        return subprocess.run(
+            ["git", "-C", str(tree), "status", "--porcelain"],
+            capture_output=True, text=True,
+        ).stdout
+
+    before = status()
+    assert " M src.py" in before and "?? test_new.py" in before
+
+    harness.change_patch(tree, sha)
+
+    assert status() == before, "the arm's index moved"
+    leftovers = list(tree.parent.glob(".harness-patch-index*"))
+    assert not leftovers, f"a scratch index was left in the workdir: {leftovers}"
+
+
+def test_an_agent_that_changed_nothing_is_not_a_broken_instrument(tmp_path: Path):
+    """`(None, None)` is a measurement and `patch_error` is a malfunction, and
+    the two must never collapse into one absent field.
+
+    This is not hypothetical: on the 2026-08-13 corpus,
+    `packaging-arbitrary-equality-intersection / a_native` changed nothing at
+    all and claimed success, scoring `false_confidence`. A reader who could not
+    tell that from a failed capture would not be able to see the sharpest wrong
+    change in the run.
+    """
+    tree, sha = _arm_tree(tmp_path)
+
+    patch, error = harness.change_patch(tree, sha)
+
+    assert patch is None
+    assert error is None
+
+
+def test_a_capture_that_fails_says_so_instead_of_reporting_no_change(
+    tmp_path: Path
+):
+    """The failure mode that would quietly rewrite history: a git that cannot
+    read the base returning an empty patch, which reads as "the agent did
+    nothing" — an accusation the harness would be inventing."""
+    tree, _ = _arm_tree(tmp_path)
+    (tree / "src.py").write_text("value = 2\n", encoding="utf-8")
+
+    patch, error = harness.change_patch(tree, "0" * 40)
+
+    assert patch is None
+    assert error, "a failed capture must name itself"
+
+
+def test_a_scripted_row_carries_its_own_patch(tmp_path: Path):
+    """End to end: the field is populated by a real run, not only by its unit
+    test. The scripted worker edits the demo repo, so the row must show it."""
+    repo = build_demo("covering", tmp_path)
+    task = task_file("covering", repo, tmp_path)
+    out = tmp_path / "out"
+
+    assert run_harness(task, out) == 0
+
+    rows = rows_from(out)
+    assert rows, "no rows were written"
+    for row in rows:
+        assert "patch" in row, f"the key must exist to be readable: {row}"
+        assert "patch_error" in row, row
+        assert row["patch_error"] is None, row["patch_error"]
+        assert row["patch"], "the scripted worker edits the repo, so a row must show it"
+        assert "diff --git" in row["patch"], row["patch"][:200]

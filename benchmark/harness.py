@@ -134,8 +134,12 @@ RESULTS_FILENAME = "rows.jsonl"
 # (four of those fetched upstream content outright). A reader must be able to tell
 # "this row was checked and was clean" from "this row predates the check", and
 # one version cannot say both.
-SCHEMA_VERSION = "wringer.benchmark.v3"
-PREVIOUS_SCHEMA_VERSIONS = ("wringer.benchmark.v1", "wringer.benchmark.v2")
+SCHEMA_VERSION = "wringer.benchmark.v4"
+PREVIOUS_SCHEMA_VERSIONS = (
+    "wringer.benchmark.v1",
+    "wringer.benchmark.v2",
+    "wringer.benchmark.v3",
+)
 
 # Where each arm's spend lands, in the arm's own directory. Same filename and
 # the same `totals` shape as `wringer.usage.v1` inside a loop bundle, so a
@@ -301,6 +305,22 @@ class Row:
     contamination: list[str] = field(default_factory=list)
     deviations: list[str] = field(default_factory=list)
     evidence: dict[str, Any] = field(default_factory=dict)
+    # The change itself, as a patch against `evidence.base_sha`.
+    #
+    # Until v4 a row recorded only where the tree WAS, and the tree is session
+    # scratch. On 2026-08-14 the 52 published corpus rows described 52 changes
+    # of which the repository held no copy; they were recovered from
+    # /private/tmp with hours to spare and are in corpus/results/patches/. A
+    # result that cannot show what was done is not a result anybody can check.
+    #
+    # None means no patch was captured. When `patch_error` is also None that is
+    # the honest answer that the agent changed nothing — which happened, and
+    # was scored `false_confidence` because it also claimed success.
+    patch: str | None = None
+    # Why there is no patch, when its absence is this harness malfunctioning
+    # rather than an empty change. Never conflate the two: one is a measurement
+    # and the other is a broken instrument.
+    patch_error: str | None = None
     limits: list[str] = field(default_factory=lambda: list(LIMITS))
 
 
@@ -1080,6 +1100,52 @@ def classify(claimed: bool, held_out_passed: bool) -> str:
     return FALSE_REFUSAL
 
 
+def change_patch(tree: Path, base_sha: str) -> tuple[str | None, str | None]:
+    """The arm's change as a patch against `base_sha`, and why not, if not.
+
+    **Staging is the whole point.** Part of a real agent change is untracked —
+    a new test file, a new `changelog.d/` fragment — and `git diff` alone is
+    silent about content git has never seen. `deliver.py` learned this once
+    already: a change made entirely of new files rendered an empty patch, so
+    approving it meant approving nothing. A benchmark row that dropped the
+    agent's new tests would understate every change it recorded.
+
+    So everything is staged and diffed from the index — but into a THROWAWAY
+    index under `GIT_INDEX_FILE`, never the tree's own. The tree is the
+    evidence an arm leaves behind and the next thing to touch it is a human
+    reading it; a harness that rewrote the index while recording would be
+    editing its own exhibit. `deliver.py` reaches for `--no-index` for the same
+    reason, and this reaches for a scratch index because it wants ONE patch
+    that `git apply` accepts rather than a concatenation of per-file diffs.
+
+    Returns `(patch, error)`. `(None, None)` is the honest empty change.
+    """
+    index = tree.parent / ".harness-patch-index"
+    env = {**os.environ, "GIT_INDEX_FILE": str(index)}
+    try:
+        for argv in (
+            ["git", "-C", str(tree), "read-tree", base_sha],
+            ["git", "-C", str(tree), "add", "-A"],
+        ):
+            step = subprocess.run(argv, capture_output=True, text=True, env=env)
+            if step.returncode != 0:
+                return None, f"{' '.join(argv[3:])}: {step.stderr.strip()[:200]}"
+        done = subprocess.run(
+            ["git", "-C", str(tree), "diff", "--cached", "--binary",
+             "--no-color", "--no-ext-diff", base_sha],
+            capture_output=True, text=True, errors="replace", env=env,
+        )
+        if done.returncode != 0:
+            return None, f"diff --cached: {done.stderr.strip()[:200]}"
+    except OSError as exc:
+        return None, f"git unavailable: {exc}"
+    finally:
+        # A stale scratch index left beside the tree would be read as part of
+        # the evidence by whoever opens the workdir next.
+        index.unlink(missing_ok=True)
+    return (done.stdout or None), None
+
+
 def deviations_for(arm: str) -> list[str]:
     """**Never empty.** Every arm deviates from "identical conditions" somewhere,
     and a row that listed none would be the overclaim this harness exists to
@@ -1134,6 +1200,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         # The arm never produced a claim, so there is nothing to put in the
         # table. The held-out suite is deliberately NOT run: a cell needs both
         # coordinates, and half a row invites somebody to fill in the other half.
+        patch, patch_error = change_patch(tree, sha)
         return Row(
             schema_version=SCHEMA_VERSION,
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
@@ -1147,6 +1214,10 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             deviations=deviations_for(arm),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
+            # A VOID arm leaves a change on disk the same as any other, and
+            # what an agent did before it failed to claim anything is often the
+            # most interesting thing in the row.
+            patch=patch, patch_error=patch_error,
         )
 
     # **ISOLATION AGAIN, NOW THAT THE ARM HAS FINISHED.**
@@ -1164,6 +1235,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
     try:
         check_isolation(task, tree)
     except Void as exc:
+        patch, patch_error = change_patch(tree, sha)
         return Row(
             schema_version=SCHEMA_VERSION,
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
@@ -1175,9 +1247,17 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             deviations=deviations_for(arm),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
+            # Kept precisely BECAUSE the row is void: a change made by an arm
+            # that reached the answer is the exhibit for how it reached it.
+            patch=patch, patch_error=patch_error,
         )
 
     passed, held_reason = score_held_out(task, tree, workdir)
+    # From the ARM's tree, which scoring never touches — it copies forward into
+    # `scoring/` and adds the held-out files there. So a row's patch cannot
+    # contain upstream's tests no matter when this runs, and the one thing a
+    # reader would suspect a self-recorded patch of is structurally impossible.
+    patch, patch_error = change_patch(tree, sha)
     return Row(
         schema_version=SCHEMA_VERSION,
         task=task.id,
@@ -1195,6 +1275,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             "base_sha": sha,
             "workdir": str(workdir),
         },
+        patch=patch,
+        patch_error=patch_error,
     )
 
 
