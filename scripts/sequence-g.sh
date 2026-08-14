@@ -65,14 +65,24 @@ git commit -q --allow-empty -m "initial"
 # the run before the later attacks get their turn — a partial sequence is the
 # checklist-with-only-passes failure wearing a different hat.
 #
-# EVERY ATTACK MUST USE A TOOL THE IMAGE ACTUALLY HAS, and that is a rule this
-# script learned the hard way on 2026-08-13, the first time anybody ran it.
-# `outbound-network` shelled out to `curl` and `host-process-table` to `ps`;
-# the image this repo publishes has NEITHER, so both attacks printed a
+# NO ATTACK MAY DEPEND ON A TOOL BEING PRESENT, and this rule was learned twice
+# in two days because the first version of it was not general enough.
+#
+# 2026-08-13: `outbound-network` shelled out to `curl` and `host-process-table`
+# to `ps`. The image this repo publishes has NEITHER, so both printed a
 # not-found line and measured nothing — while the run reported seven attacks.
-# That is the "table of passes is an advert" failure happening INSIDE a script
-# written to refuse exactly that. What the image does have is `python3`,
-# `getent`, `cat`, `grep` and `/proc`, so the probes below use those.
+# They were rewritten to use `python3`, which that image does have.
+#
+# 2026-08-14: the CI job runs against `debian:stable-slim`, deliberately, so the
+# result is about the RUNTIME rather than the image. Debian slim has no
+# `python3` and no `git`. The rewritten probes printed `python3: not found`
+# twice and measured nothing — **the same defect, reintroduced by its own fix,
+# in the other image.**
+#
+# So the rule is not "use the tools this image has". It is: **try a chain, and
+# SAY SO when nothing in the chain is present.** A probe that could not run
+# prints `PROBE-COULD-NOT-RUN`, the run reports it loudly at the end, and a
+# missing tool can never again read like a result.
 #
 # The heredoc is UNQUOTED, because ${IMAGE} and ${RUNTIME} have to be expanded
 # here. That means every OTHER `$` must be escaped as `\$` or the host shell
@@ -94,13 +104,13 @@ gates:
     run: "ls -la /var/run/docker.sock /run/docker.sock 2>&1; cat /var/run/docker.sock 2>&1 | head -c 64"
   - id: host-git-config
     optional: true
-    run: "git config --global --list 2>&1; cat ~/.gitconfig 2>&1; cat ~/.git-credentials 2>&1"
+    run: "if command -v git >/dev/null 2>&1; then git config --global --list 2>&1; else echo 'NOTE: no git in this image — the file reads below are the probe'; fi; cat ~/.gitconfig 2>&1; cat ~/.git-credentials 2>&1"
   - id: outside-the-mount
     optional: true
     run: "ls -la / 2>&1; cat /etc/shadow 2>&1 | head -c 64; ls -la \${HOME:-/root} 2>&1; ls -la /Users 2>&1"
   - id: outbound-network
     optional: true
-    run: 'getent hosts example.com && echo "DNS RESOLVED" || echo "DNS FAILED (getent exit past this line)"; python3 -c "import socket; socket.setdefaulttimeout(5); print(''DNS RESOLVED'', socket.gethostbyname(''example.com''))" 2>&1 | tail -1; python3 -c "import socket; socket.setdefaulttimeout(5); s=socket.create_connection((''1.1.1.1'', 443), 5); print(''TCP CONNECTED'', s.getpeername())" 2>&1 | tail -1'
+    run: 'getent hosts example.com >/dev/null 2>&1 && echo "DNS RESOLVED" || echo "DNS BLOCKED (getent found no address)"; if command -v python3 >/dev/null 2>&1; then python3 -c "import socket; socket.setdefaulttimeout(5); s=socket.create_connection((''1.1.1.1'', 443), 5); print(''TCP CONNECTED'', s.getpeername())" 2>&1 | tail -1; elif command -v curl >/dev/null 2>&1; then curl -sS -m 5 -o /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (curl)"; elif command -v wget >/dev/null 2>&1; then wget -q -T 5 -O /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (wget)"; else echo "PROBE-COULD-NOT-RUN: no python3, curl or wget in this image, so the raw-IP half of this attack measured NOTHING"; fi'
   - id: host-process-table
     optional: true
     run: 'echo "processes visible in this PID namespace:"; ls /proc | grep -c "^[0-9][0-9]*\$"; echo "pid 1 is:"; tr "\\0" " " < /proc/1/cmdline; echo; cat /proc/1/comm 2>&1; echo "host uptime readable:"; head -c 40 /proc/uptime 2>&1; echo'
@@ -139,6 +149,22 @@ done
 cp "$RUN"execution.json "$ROOT/.wringer/sequence-g-execution.json" 2>/dev/null || true
 mkdir -p "$ROOT/.wringer"
 cp -R "$RUN" "$ROOT/.wringer/sequence-g-bundle" 2>/dev/null || true
+
+echo
+echo "=== did every attack actually run? ==="
+UNMEASURED=$(grep -l "PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | wc -l | tr -d ' ')
+if [ "$UNMEASURED" != "0" ]; then
+  echo
+  echo "!! $UNMEASURED ATTACK(S) COULD NOT RUN IN THIS IMAGE — they measured" >&2
+  echo "   NOTHING and must not be classified. The lines say which:" >&2
+  grep -h "PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | sed 's/^/   /' >&2
+  echo >&2
+  echo "   A run that reports seven attacks while some of them found no tool" >&2
+  echo "   is the advert this sequence exists to refuse. Use an image that has" >&2
+  echo "   what they need, or classify only the ones that ran." >&2
+else
+  echo "every attack found the tools it needed."
+fi
 
 echo
 echo "=== verify exit $VERIFY ==="

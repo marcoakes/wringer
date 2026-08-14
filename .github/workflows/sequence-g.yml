@@ -57,18 +57,25 @@ jobs:
           docker version
           docker info --format 'server: {{.ServerVersion}} · driver: {{.Driver}} · rootless: {{.SecurityOptions}}'
 
-      # The image is an INPUT with a plain-Debian default rather than the
-      # published Wringer image. Two reasons, both about what is being measured:
-      # the attacks are `ls`, `env`, `cat`, `getent` and `ps`, which any image
-      # has, and the boundary under test is the RUNTIME's, not the image's — so
-      # a base image keeps the result about Docker instead of about whatever
-      # `ghcr.io/marcoakes/wringer:main` happens to contain today. Pass the
-      # published image on a dispatch when that is the question.
+      # The image is an INPUT with a neutral default rather than the published
+      # Wringer image, because the boundary under test is the RUNTIME's, not the
+      # image's — a base image keeps the result about Docker instead of about
+      # whatever `ghcr.io/marcoakes/wringer:main` happens to contain today.
+      #
+      # **`python:3-slim`, not `debian:stable-slim`, and that is the whole
+      # lesson of 2026-08-14.** The comment here used to say "the attacks are
+      # `ls`, `env`, `cat`, `getent` and `ps`, which any image has". It was
+      # wrong twice over: the attacks had already been rewritten off `ps`, and
+      # Debian slim has no `python3`, no `curl` and no `wget` — so the raw-IP
+      # half of `outbound-network` printed `python3: not found` and measured
+      # nothing, while the job reported seven attacks. The script now says
+      # PROBE-COULD-NOT-RUN and reports it loudly, and the default image is one
+      # where every probe can actually execute.
       - name: Sequence G
         id: g
         run: |
           set -o pipefail
-          sh scripts/sequence-g.sh docker "${{ inputs.image || 'debian:stable-slim' }}" \
+          sh scripts/sequence-g.sh docker "${{ inputs.image || 'python:3-slim' }}" \
             2>&1 | tee sequence-g.log
 
       - name: Upload the bundle and the log
