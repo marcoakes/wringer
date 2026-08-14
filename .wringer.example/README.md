@@ -35,3 +35,22 @@ The M3 chain is the one place in this repository where the graph, the loop,
 the verify runs and the delivery can be followed end to end as one piece of
 work. It is a README edit — deliberately small, and it does not demonstrate a
 factory. `docs/factory-dry-run.md` is the honest measurement of that.
+
+---
+
+## One thing in here is wrong, and it is left wrong on purpose
+
+`deliveries/20260809-134416-59b1/manifest.json` records an **absolute**
+`run_dir`:
+
+    /Users/marc/Claude/wringer/.wringer/runs/20260809-133147-2c91
+
+Every other cross-bundle reference in this repository is repo-relative, and on
+2026-08-14 `deliver.py` was fixed so new manifests are too
+(`_relative_to_root`, with a test that fails when it is reverted).
+
+**This bundle is not edited to match.** It is evidence of a real delivery, its
+`digests.json` covers `manifest.json`, and a project whose whole argument is that
+recorded evidence must not be rewritten does not get to rewrite its own when the
+record is embarrassing. A reader who wonders why the old path is here is reading
+the point.

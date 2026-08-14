@@ -2094,3 +2094,35 @@ def test_git_decode_never_raises_on_bytes_git_chose():
     assert git_module.decode(b"plain ascii") == "plain ascii"
     # and the result is writable as UTF-8, which surrogateescape's would not be
     git_module.decode(b"caf\xe9").encode("utf-8")
+
+
+def test_a_delivery_manifest_records_the_run_the_way_the_REPOSITORY_sees_it(
+    delivery_repo, monkeypatch, capsys
+):
+    """**No machine's home directory in a published artifact.**
+
+    Every cross-bundle reference in this program is repo-relative — `loop`'s
+    `final_run`, health's discovery, `_wanted` in this very module. The delivery
+    manifest's `run_dir` was the one that was not: it recorded `str(run_dir)`,
+    absolute, so a committed example in this repository still reads
+    `/Users/<somebody>/Claude/wringer/.wringer/runs/<id>`.
+
+    That is the only reference in any bundle a stranger could not resolve
+    against the repository they were handed, in an artifact whose entire purpose
+    is that a stranger can read it.
+    """
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = sorted((delivery_repo / deliver.DELIVERIES_DIRNAME).iterdir())[0]
+    manifest = json.loads(
+        (written / deliver.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+
+    recorded = manifest["run_dir"]
+    assert not recorded.startswith("/"), recorded
+    assert ".wringer/runs/" in recorded, recorded
+    # and it resolves against the repository, which is the whole point
+    assert (delivery_repo / recorded).is_dir(), recorded

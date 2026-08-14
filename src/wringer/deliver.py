@@ -90,6 +90,19 @@ class Plan:
     spec_sha256: str | None = None
 
 
+def _relative_to_root(path: Path, root: Path) -> str:
+    """A bundle path as the repository sees it, never as this machine does.
+
+    Falls back to the absolute string when the run genuinely lives outside the
+    repository — a caller can point `--run` anywhere — because a wrong relative
+    path is worse than an honest absolute one.
+    """
+    try:
+        return path.resolve().relative_to(root.resolve()).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def resolve_branch(template: str, run_id: str, task: str | None) -> str:
     """Fill the declared placeholders, then check git would accept the name."""
     name = config.substitute(template, run=run_id, task=task or run_id)
@@ -738,7 +751,17 @@ def plan(
         mr_body=_mr_body(run_dir, root, state, len(carried)),
         patch=patch,
         changed_files=carried,
-        run_dir=str(run_dir),
+        # **REPO-RELATIVE, like every other cross-bundle reference in this
+        # program.** It used to be `str(run_dir)`, which is absolute, so a
+        # delivery manifest recorded `/Users/<somebody>/... /.wringer/runs/<id>`
+        # — a machine's home directory, published into an artifact whose whole
+        # purpose is that a stranger can read it, and the only reference in any
+        # bundle that a reader could not resolve against the repository they
+        # were given.
+        #
+        # `loop.final_run`, `health`'s discovery and `_wanted` in this module all
+        # speak repo-relative posix already; this is the one that did not.
+        run_dir=_relative_to_root(run_dir, root),
         spec_sha256=_spec_module().authorising_sha256(root),
         commands=(
             f"git switch --create {branch}",
