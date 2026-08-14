@@ -1,0 +1,78 @@
+diff --git a/changelog.d/1365.change.md b/changelog.d/1365.change.md
+new file mode 100644
+index 00000000..24fa6cf8
+--- /dev/null
++++ b/changelog.d/1365.change.md
+@@ -0,0 +1 @@
++Allow mutating `__suppress_context__` and `__notes__` on frozen exceptions.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 274d4121..bc170597 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -542,6 +542,8 @@ def _frozen_setattrs(self, name, value):
+     if isinstance(self, BaseException) and name in (
+         "__cause__",
+         "__context__",
++        "__notes__",
++        "__suppress_context__",
+         "__traceback__",
+     ):
+         BaseException.__setattr__(self, name, value)
+diff --git a/tests/test_next_gen.py b/tests/test_next_gen.py
+index a171749a..68e75efb 100644
+--- a/tests/test_next_gen.py
++++ b/tests/test_next_gen.py
+@@ -355,6 +355,53 @@ class TestNextGen:
+         # this should not raise an exception either
+         ei.value.__traceback__ = ei.value.__traceback__
+ 
++    @pytest.mark.parametrize(
++        "decorator",
++        [
++            partial(_attr.s, frozen=True, slots=True, auto_exc=True),
++            attrs.frozen,
++            attrs.define,
++            attrs.mutable,
++        ],
++    )
++    def test_add_note_on_exception(self, decorator):
++        """
++        BaseException.add_note() sets __notes__ using setattr, so it must work
++        on frozen exceptions.
++        """
++
++        @decorator
++        class MyException(Exception):
++            pass
++
++        exc = MyException()
++        exc.add_note("note")
++
++        assert ["note"] == exc.__notes__
++
++    @pytest.mark.parametrize(
++        "decorator",
++        [
++            partial(_attr.s, frozen=True, slots=True, auto_exc=True),
++            attrs.frozen,
++            attrs.define,
++            attrs.mutable,
++        ],
++    )
++    def test_setting_suppress_context_on_exception(self, decorator):
++        """
++        __suppress_context__ can be set explicitly on frozen exceptions.
++        """
++
++        @decorator
++        class MyException(Exception):
++            pass
++
++        exc = MyException()
++        exc.__suppress_context__ = True
++
++        assert exc.__suppress_context__ is True
++
+     def test_converts_and_validates_by_default(self):
+         """
+         If no on_setattr is set, assume setters.convert, setters.validate.

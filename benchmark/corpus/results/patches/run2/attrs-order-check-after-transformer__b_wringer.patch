@@ -1,0 +1,108 @@
+diff --git a/changelog.d/1147.change.md b/changelog.d/1147.change.md
+new file mode 100644
+index 0000000..ecd7d8c
+--- /dev/null
++++ b/changelog.d/1147.change.md
+@@ -0,0 +1,2 @@
++The check that mandatory fields must not follow fields with a default now runs *after* the *field_transformer* hook, instead of before it.
++This allows a *field_transformer* to reorder fields into a valid order.
+diff --git a/docs/extending.md b/docs/extending.md
+index c3a475a..8555a6b 100644
+--- a/docs/extending.md
++++ b/docs/extending.md
+@@ -200,7 +200,9 @@ This hook must have the following signature:
+   This means it does not yet have the `__attrs_attrs__` attribute.
+ - *fields* is a list of all `attrs.Attribute` instances that will later be set to `__attrs_attrs__`.
+   You can modify these attributes any way you want:
+-  You can add converters, change types, and even remove attributes completely or create new ones!
++  You can add converters, change types, reorder them, and even remove attributes completely or create new ones!
++
++  Since the hook is free to reorder fields, the rule that mandatory fields must not follow fields with a default is only enforced on the list that your hook *returns*.
+ 
+ For example, let's assume that you really don't like floats:
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index a7a4075..92b0276 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -449,6 +449,13 @@ def _transform_attrs(
+ 
+     attrs = base_attrs + own_attrs
+ 
++    if field_transformer is not None:
++        attrs = field_transformer(cls, attrs)
++
++    # Check the order of the attrs *after* the field transformer has run, since
++    # it is allowed to reorder them into a valid order (or to break a valid
++    # one). See #1147.
++    #
+     # Mandatory vs non-mandatory attr order only matters when they are part of
+     # the __init__ signature and when they aren't kw_only (which are moved to
+     # the end and can be mandatory or non-mandatory in any order, as they will
+@@ -462,9 +469,6 @@ def _transform_attrs(
+         if had_default is False and a.default is not NOTHING:
+             had_default = True
+ 
+-    if field_transformer is not None:
+-        attrs = field_transformer(cls, attrs)
+-
+     # Resolve default field alias after executing field_transformer.
+     # This allows field_transformer to differentiate between explicit vs
+     # default aliases and supply their own defaults.
+diff --git a/tests/test_hooks.py b/tests/test_hooks.py
+index 9c37a98..4add958 100644
+--- a/tests/test_hooks.py
++++ b/tests/test_hooks.py
+@@ -4,6 +4,8 @@ from __future__ import annotations
+ 
+ from datetime import datetime
+ 
++import pytest
++
+ import attr
+ 
+ 
+@@ -138,6 +140,43 @@ class TestTransformHook:
+ 
+         assert attr.asdict(Sub(2)) == {"y": 2}
+ 
++    def test_hook_can_fix_field_order(self):
++        """
++        The hook may reorder fields so that mandatory fields follow defaulted
++        ones, because the order is only checked after it has run.
++
++        Regression test for #1147.
++        """
++
++        def order_by_metadata(cls, attribs):
++            return sorted(attribs, key=lambda a: a.metadata["field_order"])
++
++        @attr.s(auto_attribs=True, field_transformer=order_by_metadata)
++        class C:
++            x: int = attr.ib(metadata={"field_order": 1}, default=0)
++            y: int = attr.ib(metadata={"field_order": 0})
++
++        assert [a.name for a in attr.fields(C)] == ["y", "x"]
++        assert attr.asdict(C(1)) == {"y": 1, "x": 0}
++
++    def test_hook_can_break_field_order(self):
++        """
++        The field order is (re-)checked after the hook has run, so a hook that
++        moves a mandatory field behind a defaulted one is an error.
++        """
++
++        def reverse(cls, attribs):
++            return list(reversed(attribs))
++
++        with pytest.raises(ValueError, match="No mandatory attributes") as ei:
++
++            @attr.s(auto_attribs=True, field_transformer=reverse)
++            class C:
++                y: int
++                x: int = 0
++
++        assert "name='y'" in ei.value.args[0]
++
+     def test_attrs_attrclass(self):
+         """
+         The list of attrs returned by a field_transformer is converted to

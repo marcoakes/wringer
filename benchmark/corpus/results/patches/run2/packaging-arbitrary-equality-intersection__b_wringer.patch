@@ -1,0 +1,15 @@
+diff --git a/src/packaging/specifiers.py b/src/packaging/specifiers.py
+index fb5811f..01655b1 100644
+--- a/src/packaging/specifiers.py
++++ b/src/packaging/specifiers.py
+@@ -322,6 +322,10 @@ class Specifier(BaseSpecifier):
+ 
+     @property
+     def _canonical_spec(self) -> tuple[str, str]:
++        if self._spec[0] == "===":
++            # Arbitrary equality matches on the literal string, so two
++            # arbitrary specifiers are only equivalent if they are identical.
++            return self._spec
+         canonical_version = canonicalize_version(
+             self._spec[1],
+             strip_trailing_zero=(self._spec[0] != "~="),

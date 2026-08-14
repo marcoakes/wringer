@@ -1,0 +1,83 @@
+diff --git a/CHANGES b/CHANGES
+index 933395b..c878617 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -33,6 +33,11 @@ Version 3.3.3 - in development
+   `leave_whitespace(recursive=True)`. Issue #633, reported by Ahmed Mohamed Abdelaal,
+   PR submitted by fcardosojr18 et AI.
+ 
++- Fixed bug in `Located`, which reported a `locn_start` that included any leading
++  whitespace when the located expression was one that skips whitespace from within
++  its `parseImpl` (such as `MatchFirst`, `Or`, and `Each`) instead of in `preParse`.
++  Issue #621.
++
+ - Update type checking to use `mypy 1.20.0`.
+ 
+ - 5-8% performance boost optimizing `ParseResults.copy()`. Inspired by similar changes
+diff --git a/pyparsing/core.py b/pyparsing/core.py
+index 6e8f389..b785069 100644
+--- a/pyparsing/core.py
++++ b/pyparsing/core.py
+@@ -5583,7 +5583,12 @@ class Located(ParseElementEnhance):
+     """
+ 
+     def parseImpl(self, instring, loc, do_actions=True) -> ParseImplReturnType:
+-        start = loc
++        # skip whitespace and ignorables that the contained expression would skip on its
++        # own, so that locn_start is the start of the matched text and not the start of
++        # the whitespace preceding it; Located's own preParse cannot be relied on for
++        # this, since expressions such as MatchFirst have callPreparse == False and do
++        # their whitespace skipping from within their parseImpl
++        start = self.expr.preParse(instring, loc)
+         loc, tokens = self.expr._parse(instring, start, do_actions, callPreParse=False)
+         ret_tokens = ParseResults([start, tokens, loc])
+         ret_tokens["locn_start"] = start
+diff --git a/tests/test_unit.py b/tests/test_unit.py
+index aead9ef..fec6596 100644
+--- a/tests/test_unit.py
++++ b/tests/test_unit.py
+@@ -6570,6 +6570,44 @@ class Test02_WithoutPackrat(ppt.TestParseResultsAsserts, TestCase):
+             print(re_match)
+             print(pp_match.value)
+ 
++    def testLocatedSkipsLeadingWhitespace(self):
++        # Located must report the location of the matched text, not of the whitespace
++        # preceding it, even for expressions that skip whitespace from within their
++        # parseImpl instead of in preParse (Issue #621)
++        abc = pp.Keyword("abc")
++        test_string = "ignored   abc"
++
++        for expr in (
++            abc,
++            abc | abc,
++            abc ^ abc,
++            pp.Each([abc]),
++            pp.MatchFirst([pp.MatchFirst([abc]), abc]),
++        ):
++            with self.subTest(expr=expr):
++                located = pp.Suppress(pp.SkipTo(expr, False)) + pp.Located(expr)
++                res = located.parse_string(test_string)
++                print(res.dump())
++                self.assertParseResultsEquals(
++                    res,
++                    [10, ["abc"], 13],
++                    {"locn_start": 10, "value": ["abc"], "locn_end": 13},
++                )
++                self.assertEqual(
++                    "abc",
++                    test_string[res.locn_start : res.locn_end],
++                    "incorrect location calculation",
++                )
++
++        # ignored expressions are skipped too, and expressions that match leading
++        # whitespace still get a location that includes it
++        located_ignoring_comments = pp.Located(abc | abc).ignore(pp.cpp_style_comment)
++        res = located_ignoring_comments.parse_string(" /*c*/ abc")
++        self.assertParseResultsEquals(res, [7, ["abc"], 10])
++
++        res = pp.Located(pp.White() | abc).parse_string("   abc")
++        self.assertParseResultsEquals(res, [0, ["   "], 3])
++
+     def testPop(self):
+         source = "AAA 123 456 789 234"
+         patt = pp.Word(pp.alphas)("name") + pp.Word(pp.nums) * (1,)

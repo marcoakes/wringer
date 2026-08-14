@@ -1,0 +1,321 @@
+diff --git a/changelog.d/1230.change.md b/changelog.d/1230.change.md
+new file mode 100644
+index 00000000..07af88ef
+--- /dev/null
++++ b/changelog.d/1230.change.md
+@@ -0,0 +1,3 @@
++`AttributeError`s that are raised by properties (or any other descriptors) of slotted classes with `functools.cached_property`s are not replaced by a generic "object has no attribute" error anymore.
++
++To achieve that, slotted cached properties are now implemented as descriptors that fill their slot, instead of a class-wide `__getattr__` that would be called for *every* failing attribute access.
+diff --git a/docs/how-does-it-work.md b/docs/how-does-it-work.md
+index 70ecd455..05df11dd 100644
+--- a/docs/how-does-it-work.md
++++ b/docs/how-does-it-work.md
+@@ -111,7 +111,7 @@ Therefore, *attrs* converts `cached_property`-decorated methods when constructin
+ Getting this working is achieved by:
+ 
+ * Adding names to `__slots__` for the wrapped methods.
+-* Adding a `__getattr__` method to set values on the wrapped methods.
++* Replacing the wrapped methods by descriptors that compute the value on first access and cache it in the slot of the same name.
+ 
+ For most users, this should mean that it works transparently.
+ 
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 0114582a..a57f8f2d 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -598,58 +598,61 @@ def _transform_attrs(
+     return _Attributes((AttrsClass(attrs), base_attrs, base_attr_map))
+ 
+ 
+-def _make_cached_property_getattr(cached_properties, original_getattr, cls):
+-    lines = [
+-        # Wrapped to get `__class__` into closure cell for super()
+-        # (It will be replaced with the newly constructed class after construction).
+-        "def wrapper(_cls):",
+-        "    __class__ = _cls",
+-        "    def __getattr__(self, item, cached_properties=cached_properties, original_getattr=original_getattr, _cached_setattr_get=_cached_setattr_get):",
+-        "         func = cached_properties.get(item)",
+-        "         if func is not None:",
+-        "              result = func(self)",
+-        "              _setter = _cached_setattr_get(self)",
+-        "              _setter(item, result)",
+-        "              return result",
+-    ]
+-    if original_getattr is not None:
+-        lines.append(
+-            "         return original_getattr(self, item)",
+-        )
+-    else:
+-        lines.extend(
+-            [
+-                "         if hasattr(super(), '__getattr__'):",
+-                "              return super().__getattr__(item)",
+-                "         original_error = f\"'{self.__class__.__name__}' object has no attribute '{item}'\"",
+-                "         raise AttributeError(original_error)",
+-            ]
+-        )
++class _SlottedCachedProperty:
++    """
++    A `functools.cached_property` for slotted classes.
+ 
+-    lines.extend(
+-        [
+-            "    return __getattr__",
+-            "__getattr__ = wrapper(_cls)",
+-        ]
+-    )
++    Slotted classes have no ``__dict__`` to cache the value in, so it's stored
++    in a slot of the same name instead.  Since that slot's descriptor is
++    shadowed by us, it's passed in as *slot* and used directly.
+ 
+-    unique_filename = _generate_unique_filename(cls, "getattr")
++    This is a *data* descriptor which -- unlike a ``__getattr__``-based
++    approach -- leaves the AttributeErrors that are raised by the class's other
++    descriptors alone.
++    """
+ 
+-    glob = {
+-        "cached_properties": cached_properties,
+-        "_cached_setattr_get": _OBJ_SETATTR.__get__,
+-        "original_getattr": original_getattr,
+-    }
++    def __init__(self, func, slot):
++        self.func = func
++        self.slot = slot
++        self.__doc__ = func.__doc__
+ 
+-    return _make_method(
+-        "__getattr__",
+-        "\n".join(lines),
+-        unique_filename,
+-        glob,
+-        locals={
+-            "_cls": cls,
+-        },
+-    )
++    def __get__(self, instance, owner=None):
++        if instance is None:
++            return self
++
++        try:
++            return self.slot.__get__(instance, owner)
++        except AttributeError:
++            # Not cached yet.  The value is computed *outside* of this handler,
++            # so errors from func aren't chained to a spurious AttributeError.
++            pass
++
++        value = self.func(instance)
++        self.slot.__set__(instance, value)
++
++        return value
++
++    def __set__(self, instance, value):
++        self.slot.__set__(instance, value)
++
++    def __delete__(self, instance):
++        self.slot.__delete__(instance)
++
++
++def _get_existing_slot_descriptor(cls, name):
++    """
++    Return the descriptor that owns the storage of the slot *name* on *cls*, so
++    that a subclass can reuse it.
++
++    Cached properties shadow their slot's descriptor, therefore it has to be
++    unwrapped.
++    """
++    descriptor = getattr(cls, name)
++
++    if isinstance(descriptor, _SlottedCachedProperty):
++        return descriptor.slot
++
++    return descriptor
+ 
+ 
+ def _frozen_setattrs(self, name, value):
+@@ -896,7 +899,7 @@ class _ClassBuilder:
+                 weakref_inherited = True
+             existing_slots.update(
+                 {
+-                    name: getattr(base_cls, name)
++                    name: _get_existing_slot_descriptor(base_cls, name)
+                     for name in getattr(base_cls, "__slots__", [])
+                 }
+             )
+@@ -944,14 +947,6 @@ class _ClassBuilder:
+                 if annotation is not inspect.Parameter.empty:
+                     class_annotations[name] = annotation
+ 
+-            original_getattr = cd.get("__getattr__")
+-            if original_getattr is not None:
+-                additional_closure_functions_to_update.append(original_getattr)
+-
+-            cd["__getattr__"] = _make_cached_property_getattr(
+-                cached_properties, original_getattr, self._cls
+-            )
+-
+         # We only add the names of attributes that aren't inherited.
+         # Setting __slots__ to inherited attributes wastes memory.
+         slot_names = [name for name in names if name not in base_names]
+@@ -977,6 +972,17 @@ class _ClassBuilder:
+         # Create new class based on old class and our methods.
+         cls = type(self._cls)(self._cls.__name__, self._cls.__bases__, cd)
+ 
++        # Now that the slots that hold the cached values exist, their
++        # descriptors can be replaced by the cached properties that fill them.
++        # A name that has no descriptor of its own is shadowed by an inherited
++        # attribute and therefore left alone.
++        for name, func in cached_properties.items():
++            slot_descriptor = cls.__dict__.get(name)
++            if slot_descriptor is not None:
++                setattr(
++                    cls, name, _SlottedCachedProperty(func, slot_descriptor)
++                )
++
+         # The following is a fix for
+         # <https://github.com/python-attrs/attrs/issues/102>.
+         # If a method mentions `__class__` or uses the no-arg super(), the
+diff --git a/tests/test_slots.py b/tests/test_slots.py
+index c1332f2d..2a1ff0f3 100644
+--- a/tests/test_slots.py
++++ b/tests/test_slots.py
+@@ -1097,6 +1097,138 @@ def test_slots_cached_properties_work_independently():
+     assert obj.f_2 == 2
+ 
+ 
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_does_not_add_getattr():
++    """
++    Cached properties don't need a __getattr__ that would swallow the
++    AttributeErrors of other descriptors.
++    """
++
++    @attr.s(slots=True)
++    class A:
++        x = attr.ib()
++
++        @functools.cached_property
++        def f(self):
++            return self.x
++
++    assert "__getattr__" not in A.__dict__
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_propagates_attribute_error(slots):
++    """
++    An AttributeError raised by another descriptor while a cached property is
++    computed keeps its message -- just like on a dict class.
++
++    See #1230.
++    """
++
++    @attr.s(slots=slots)
++    class A:
++        @functools.cached_property
++        def f(self):
++            return self.g
++
++        @property
++        def g(self):
++            raise AttributeError("Message")
++
++    with pytest.raises(AttributeError, match="^Message$"):
++        A().f
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_raising_attribute_error(slots):
++    """
++    An AttributeError raised by the cached property itself keeps its message.
++    """
++
++    @attr.s(slots=slots)
++    class A:
++        @functools.cached_property
++        def f(self):
++            raise AttributeError("Message")
++
++    with pytest.raises(AttributeError, match="^Message$"):
++        A().f
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_missing_attribute_names_itself(slots):
++    """
++    A genuinely missing attribute that's accessed by a cached property is
++    reported under its own name.
++    """
++
++    @attr.s(slots=slots)
++    class A:
++        @functools.cached_property
++        def f(self):
++            return self.g
++
++    with pytest.raises(
++        AttributeError, match="'A' object has no attribute 'g'"
++    ):
++        A().f
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_set_and_delete():
++    """
++    The cached value can be overwritten and deleted, deleting it triggers a
++    recomputation on the next access.
++    """
++    call_count = 0
++
++    @attr.s(slots=True)
++    class A:
++        x = attr.ib()
++
++        @functools.cached_property
++        def f(self):
++            nonlocal call_count
++            call_count += 1
++            return self.x
++
++    obj = A(1)
++
++    obj.f = 42
++    assert 42 == obj.f
++    assert 0 == call_count
++
++    del obj.f
++    assert 1 == obj.f
++    assert 1 == call_count
++
++    del obj.f
++    with pytest.raises(AttributeError):
++        del obj.f
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_frozen_stays_frozen():
++    """
++    Filling the cache of a cached property doesn't make frozen instances
++    settable.
++    """
++
++    @attrs.frozen
++    class A:
++        x: int
++
++        @functools.cached_property
++        def f(self) -> int:
++            return self.x
++
++    obj = A(1)
++
++    assert 1 == obj.f
++
++    with pytest.raises(attr.exceptions.FrozenInstanceError):
++        obj.f = 2
++
++
+ @attr.s(slots=True)
+ class A:
+     x = attr.ib()

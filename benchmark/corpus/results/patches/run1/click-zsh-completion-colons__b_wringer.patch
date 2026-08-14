@@ -1,0 +1,136 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index fbb3254d..83f88462 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,9 @@ Unreleased
+ -   Fix reconciliation of `default`, `flag_value` and `type` parameters for
+     flag options, as well as parsing and normalization of environment variables.
+     :issue:`2952` :pr:`2956`
++-   Fix Zsh completion for completion items whose value contains a colon or a
++    backslash. Such values were truncated at the first colon when the item also
++    had a help text. :issue:`2703`
+ 
+ Version 8.2.1
+ -------------
+diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py
+index 6c39d5eb..a0b4080e 100644
+--- a/src/click/shell_completion.py
++++ b/src/click/shell_completion.py
+@@ -124,6 +124,9 @@ _SOURCE_BASH = """\
+ %(complete_func)s_setup;
+ """
+ 
++# ``ZshComplete.format_completion`` escapes item values to match the way
++# this script splits them, so read it (and issue #2703) before changing
++# which builtin handles which item here.
+ _SOURCE_ZSH = """\
+ #compdef %(prog_name)s
+ 
+@@ -373,7 +376,33 @@ class ZshComplete(ShellComplete):
+         return args, incomplete
+ 
+     def format_completion(self, item: CompletionItem) -> str:
+-        return f"{item.type}\n{item.value}\n{item.help if item.help else '_'}"
++        help_ = item.help if item.help else "_"
++
++        # The completion script feeds items to one of two zsh builtins
++        # depending on whether they have a help text, and the two
++        # disagree about quoting:
++        #
++        # * Items with help go to ``_describe``, which splits each
++        #   "value:description" spec at the first *unescaped* colon, so
++        #   colons belonging to the value must be backslash-escaped.
++        #   Backslashes are unquoted too, so they need escaping as well,
++        #   otherwise a value such as ``a\b`` arrives as ``ab``.
++        # * Items without help go to ``compadd``, which takes the value
++        #   literally and has no notion of escaping, so escaping there
++        #   would insert the backslashes into the command line.
++        #
++        # Escape accordingly, keying off the same "_" sentinel the
++        # completion script uses to tell the two cases apart. The script
++        # is widely deployed already, so it is easier to fix up the data
++        # here than to change the script.
++        #
++        # See issue #1812 and issue #2703 for further context.
++        if help_ != "_":
++            value = item.value.replace("\\", "\\\\").replace(":", "\\:")
++        else:
++            value = item.value
++
++        return f"{item.type}\n{value}\n{help_}"
+ 
+ 
+ class FishComplete(ShellComplete):
+diff --git a/tests/test_shell_completion.py b/tests/test_shell_completion.py
+index fb39486d..cc4d35cd 100644
+--- a/tests/test_shell_completion.py
++++ b/tests/test_shell_completion.py
+@@ -12,6 +12,7 @@ from click.shell_completion import CompletionItem
+ from click.shell_completion import ShellComplete
+ from click.types import Choice
+ from click.types import File
++from click.types import ParamType
+ from click.types import Path
+ 
+ 
+@@ -354,6 +355,60 @@ def test_full_complete(runner, shell, env, expect):
+     assert result.output == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("value", "help", "expect"),
++    [
++        # Items with a help text are passed to zsh's `_describe`, which
++        # splits "value:description" at the first unescaped colon, so
++        # colons and backslashes in the value must be escaped.
++        ("baz:quux", "adsf", "plain\nbaz\\:quux\nadsf"),
++        ("a:b:c", "d:e", "plain\na\\:b\\:c\nd:e"),
++        ("back\\slash", "adsf", "plain\nback\\\\slash\nadsf"),
++        ("a\\:b", "adsf", "plain\na\\\\\\:b\nadsf"),
++        # Items without a help text are passed to `compadd`, which takes
++        # the value literally and would insert the backslashes.
++        ("baz:quux", None, "plain\nbaz:quux\n_"),
++        ("back\\slash", None, "plain\nback\\slash\n_"),
++        # Nothing to escape.
++        ("plainvalue", None, "plain\nplainvalue\n_"),
++        ("plainvalue", "adsf", "plain\nplainvalue\nadsf"),
++    ],
++)
++def test_zsh_format_completion_escaping(value, help, expect):
++    cli = Command("cli")
++    comp = click.shell_completion.ZshComplete(cli, {}, cli.name, "_CLI_COMPLETE")
++    assert comp.format_completion(CompletionItem(value, help=help)) == expect
++
++
++@pytest.mark.parametrize(
++    "env",
++    [
++        {"COMP_WORDS": "", "COMP_CWORD": "0"},
++        # A colon in the word being completed must not confuse the
++        # round trip either.
++        {"COMP_WORDS": "baz:", "COMP_CWORD": "0"},
++    ],
++)
++@pytest.mark.usefixtures("_patch_for_completion")
++def test_zsh_full_complete_with_colons(runner, env):
++    """Values containing colons survive the round trip through the zsh
++    completion script. See issue #2703.
++    """
++
++    class Foo(ParamType):
++        def shell_complete(self, ctx, param, incomplete):
++            return [
++                CompletionItem(value="baz:quux", help="adsf"),
++                # No help text, so this one takes the `compadd` path.
++                CompletionItem(value="spam:eggs"),
++            ]
++
++    cli = Command("cli", params=[Argument(["foo"], type=Foo())])
++    env["_CLI_COMPLETE"] = "zsh_complete"
++    result = runner.invoke(cli, env=env)
++    assert result.output == "plain\nbaz\\:quux\nadsf\nplain\nspam:eggs\n_\n"
++
++
+ @pytest.mark.usefixtures("_patch_for_completion")
+ def test_context_settings(runner):
+     def complete(ctx, param, incomplete):

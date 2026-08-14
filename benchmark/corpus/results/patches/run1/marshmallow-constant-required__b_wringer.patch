@@ -1,0 +1,98 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 8b903697..6984b704 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,8 @@ Bug fixes:
+ 
+ - Make `marshmallow.fields.Number` and `marshmallow.fields.Mapping` abstract base classes to
+   prevent using them within Schemas (:issue:`2924`). Thanks :user:`MartingaleCoda` for reporting.
++- Fix `ValueError` raised when passing ``required=True`` to
++  `marshmallow.fields.Constant` (:issue:`2900`).
+ 
+ 
+ 4.2.2 (2026-02-04)
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index b081b4ba..ed4c601c 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -2074,10 +2074,18 @@ class Constant(Field[_ContantT]):
+     _CHECK_ATTRIBUTE = False
+ 
+     def __init__(self, constant: _ContantT, **kwargs: Unpack[_BaseFieldKwargs]):
+-        kwargs["load_default"] = constant
+-        kwargs["dump_default"] = constant
++        # Mirror the implicit `allow_none` of `Field(load_default=None)`:
++        # if the constant is `None` and `allow_none` is unset,
++        # `None` should be considered valid input.
++        if kwargs.get("allow_none") is None:
++            kwargs["allow_none"] = constant is None
+         super().__init__(**kwargs)
+         self.constant = constant
++        # Set the defaults after calling `super().__init__` so that passing
++        # `required=True` doesn't trigger the `load_default` check.
++        # `load_default` is unused for required fields anyway.
++        self.load_default = constant
++        self.dump_default = constant
+ 
+     def _serialize(self, value, *args, **kwargs) -> _ContantT:
+         return self.constant
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index 7cbe28e4..5e90c939 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -1422,6 +1422,36 @@ class TestFieldDeserialization:
+         assert sch.load({})["foo"] is None
+         assert sch.load({"foo": "ignored"})["foo"] is None
+ 
++    def test_constant_none_with_allow_none_false(self):
++        class MySchema(Schema):
++            foo = fields.Constant(None, allow_none=False)
++
++        sch = MySchema()
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({"foo": None})
++        assert excinfo.value.messages == {"foo": ["Field may not be null."]}
++        assert sch.load({})["foo"] is None
++
++    def test_constant_field_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(42, required=True)
++
++        sch = MySchema()
++        assert sch.load({"foo": 24})["foo"] == 42
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({})
++        assert excinfo.value.messages == {"foo": ["Missing data for required field."]}
++
++    def test_constant_none_field_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(None, required=True)
++
++        sch = MySchema()
++        assert sch.load({"foo": None})["foo"] is None
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({})
++        assert excinfo.value.messages == {"foo": ["Missing data for required field."]}
++
+     def test_field_deserialization_with_user_validator_function(self):
+         field = fields.String(validate=predicate(lambda s: s.lower() == "valid"))
+         assert field.deserialize("Valid") == "Valid"
+diff --git a/tests/test_serialization.py b/tests/test_serialization.py
+index f04e21b5..d1a6397a 100644
+--- a/tests/test_serialization.py
++++ b/tests/test_serialization.py
+@@ -917,6 +917,14 @@ class TestFieldSerialization:
+         assert sch.dump({"bar": 24})["foo"] == 42
+         assert sch.dump({"foo": 24})["foo"] == 42
+ 
++    def test_constant_field_serialization_when_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(42, required=True)
++
++        sch = MySchema()
++        assert sch.dump({})["foo"] == 42
++        assert sch.dump({"foo": 24})["foo"] == 42
++
+     def test_constant_field_serialize_when_omitted(self):
+         class MiniUserSchema(Schema):
+             name = fields.Constant("bill")

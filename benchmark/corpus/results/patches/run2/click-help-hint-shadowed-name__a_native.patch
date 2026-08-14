@@ -1,0 +1,129 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index af3a025..1ff62fa 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -40,6 +40,13 @@ Unreleased
+ -   Change :class:`ParameterSource` to an :class:`~enum.IntEnum` and reorder
+     its members from most to least explicit, so values can be compared to
+     check whether a parameter was explicitly provided. :issue:`2879` :pr:`3248`
++-   The "Try '... --help' for help." hint in usage errors now suggests a name
++    the command's help option actually accepts. Previously it used the first
++    configured ``help_option_names`` entry even when another parameter of that
++    command had claimed it, suggesting a command that failed. The hint is
++    omitted if every help name is shadowed. ``Command.get_help_option_names``
++    now also returns names in ``help_option_names`` order rather than an
++    arbitrary set order. :issue:`2790`
+ 
+ Version 8.3.2
+ -------------
+diff --git a/src/click/core.py b/src/click/core.py
+index d940dd8..c89ff83 100644
+--- a/src/click/core.py
++++ b/src/click/core.py
+@@ -1074,11 +1074,18 @@ class Command:
+ 
+     def get_help_option_names(self, ctx: Context) -> list[str]:
+         """Returns the names for the help option."""
+-        all_names = set(ctx.help_option_names)
++        # Preserve the order given in ``help_option_names`` so that the first
++        # remaining name is a predictable choice for help hints.
++        seen: set[str] = set()
+         for param in self.params:
+-            all_names.difference_update(param.opts)
+-            all_names.difference_update(param.secondary_opts)
+-        return list(all_names)
++            seen.update(param.opts)
++            seen.update(param.secondary_opts)
++        names = []
++        for name in ctx.help_option_names:
++            if name not in seen:
++                seen.add(name)
++                names.append(name)
++        return names
+ 
+     def get_help_option(self, ctx: Context) -> Option | None:
+         """Returns the help option object.
+diff --git a/src/click/exceptions.py b/src/click/exceptions.py
+index 4d782ee..4b8af74 100644
+--- a/src/click/exceptions.py
++++ b/src/click/exceptions.py
+@@ -74,14 +74,16 @@ class UsageError(ClickException):
+             file = get_text_stderr()
+         color = None
+         hint = ""
+-        if (
+-            self.ctx is not None
+-            and self.ctx.command.get_help_option(self.ctx) is not None
+-        ):
+-            hint = _("Try '{command} {option}' for help.").format(
+-                command=self.ctx.command_path, option=self.ctx.help_option_names[0]
+-            )
+-            hint = f"{hint}\n"
++        if self.ctx is not None:
++            help_option = self.ctx.command.get_help_option(self.ctx)
++
++            # Suggest a name the help option actually responds to. Names taken
++            # by another parameter of this command are not registered for it.
++            if help_option is not None and help_option.opts:
++                hint = _("Try '{command} {option}' for help.").format(
++                    command=self.ctx.command_path, option=help_option.opts[0]
++                )
++                hint = f"{hint}\n"
+         if self.ctx is not None:
+             color = self.ctx.color
+             echo(f"{self.ctx.get_usage()}\n{hint}", file=file, color=color)
+diff --git a/tests/test_formatting.py b/tests/test_formatting.py
+index c79f657..6462f97 100644
+--- a/tests/test_formatting.py
++++ b/tests/test_formatting.py
+@@ -215,6 +215,50 @@ def test_formatting_usage_error_nested(runner):
+     ]
+ 
+ 
++def test_formatting_usage_error_shadowed_help_name(runner):
++    """The hint skips help names claimed by another parameter. See #2790."""
++
++    @click.group(context_settings={"help_option_names": ["-h", "--help"]})
++    def cmd():
++        pass
++
++    @cmd.command()
++    @click.argument("bar")
++    @click.option("-h", "--host")
++    def foo(bar, host):
++        click.echo(f"foo:{bar}")
++
++    result = runner.invoke(cmd, ["foo"])
++    assert result.exit_code == 2
++    assert result.output.splitlines() == [
++        "Usage: cmd foo [OPTIONS] BAR",
++        "Try 'cmd foo --help' for help.",
++        "",
++        "Error: Missing argument 'BAR'.",
++    ]
++
++    # The group itself keeps the shadowed name, and the suggestion works.
++    result = runner.invoke(cmd, ["foo", "--help"])
++    assert result.exit_code == 0
++    assert "Usage: cmd foo [OPTIONS] BAR" in result.output
++
++
++def test_formatting_usage_error_all_help_names_shadowed(runner):
++    @click.command(context_settings={"help_option_names": ["-h"]})
++    @click.argument("bar")
++    @click.option("-h", "--host")
++    def cmd(bar, host):
++        click.echo(f"cmd:{bar}")
++
++    result = runner.invoke(cmd, [])
++    assert result.exit_code == 2
++    assert result.output.splitlines() == [
++        "Usage: cmd [OPTIONS] BAR",
++        "",
++        "Error: Missing argument 'BAR'.",
++    ]
++
++
+ def test_formatting_usage_error_no_help(runner):
+     @click.command(add_help_option=False)
+     @click.argument("arg")

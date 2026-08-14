@@ -1,0 +1,110 @@
+diff --git a/changelog.d/1230.change.md b/changelog.d/1230.change.md
+new file mode 100644
+index 0000000..a0e7be6
+--- /dev/null
++++ b/changelog.d/1230.change.md
+@@ -0,0 +1,2 @@
++`AttributeError`s raised by properties (and other descriptors) are not swallowed anymore by the `__getattr__` that slotted classes with `functools.cached_property`s get.
++Previously, such errors were replaced by an `AttributeError` claiming the attribute doesn't exist -- for example when a `cached_property` accessed a `property` that raises.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 0114582..dee273e 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -619,10 +619,15 @@ def _make_cached_property_getattr(cached_properties, original_getattr, cls):
+     else:
+         lines.extend(
+             [
+-                "         if hasattr(super(), '__getattr__'):",
++                # Redo the lookup instead of raising a fresh AttributeError, so
++                # that errors raised by descriptors (e.g. an AttributeError from
++                # a property's getter) aren't swallowed by this __getattr__.
++                "         try:",
++                "              return super().__getattribute__(item)",
++                "         except AttributeError:",
++                "              if not hasattr(super(), '__getattr__'):",
++                "                   raise",
+                 "              return super().__getattr__(item)",
+-                "         original_error = f\"'{self.__class__.__name__}' object has no attribute '{item}'\"",
+-                "         raise AttributeError(original_error)",
+             ]
+         )
+ 
+diff --git a/tests/test_slots.py b/tests/test_slots.py
+index c1332f2..6e12fb0 100644
+--- a/tests/test_slots.py
++++ b/tests/test_slots.py
+@@ -806,6 +806,74 @@ def test_slots_cached_property_with_empty_getattr_raises_attribute_error_of_requ
+         a.z
+ 
+ 
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_raising_attributeerror():
++    """
++    Ensures AttributeError raised by a property is preserved, instead of being
++    replaced by a AttributeError about a missing attribute.
++
++    Regression test for #1230
++    """
++
++    @attr.s(slots=True)
++    class A:
++        x = attr.ib()
++
++        @functools.cached_property
++        def f(self):
++            return self.p
++
++        @property
++        def p(self):
++            raise AttributeError("Attribute error inside property")
++
++    a = A(1)
++
++    with pytest.raises(
++        AttributeError, match="Attribute error inside property"
++    ):
++        a.p
++
++    with pytest.raises(
++        AttributeError, match="Attribute error inside property"
++    ):
++        a.f
++
++    with pytest.raises(
++        AttributeError, match="'A' object has no attribute 'z'"
++    ):
++        a.z
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_raising_attributeerror_with_getattr():
++    """
++    A user-defined `__getattr__` still gets the chance to handle the
++    AttributeError raised by a property -- exactly like on a dict class.
++    """
++
++    @attr.s(slots=True)
++    class A:
++        x = attr.ib()
++
++        @functools.cached_property
++        def f(self):
++            return self.p
++
++        @property
++        def p(self):
++            raise AttributeError("Attribute error inside property")
++
++        def __getattr__(self, item):
++            return item
++
++    a = A(1)
++
++    assert "z" == a.z
++    assert "p" == a.p
++    assert "p" == a.f
++
++
+ @pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
+ def test_slots_cached_property_with_getattr_calls_getattr_for_missing_attributes():
+     """

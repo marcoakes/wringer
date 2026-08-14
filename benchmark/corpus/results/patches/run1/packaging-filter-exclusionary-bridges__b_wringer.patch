@@ -1,0 +1,157 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 63333a7..ecc6867 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -5,6 +5,8 @@ Changelog
+ ~~~~~~~~~~~~
+ 
+ * Change project license metadata to use an SPDX license expression.
++* Fix ``SpecifierSet.filter`` dropping prereleases that match the whole set when
++  a final release matches only some of its specifiers (:issue:`941`)
+ 
+ 
+ 25.0 - 2025-04-19
+diff --git a/src/packaging/specifiers.py b/src/packaging/specifiers.py
+index 17a82f9..cff5cb5 100644
+--- a/src/packaging/specifiers.py
++++ b/src/packaging/specifiers.py
+@@ -945,34 +945,41 @@ class SpecifierSet(BaseSpecifier):
+         if prereleases is None and self.prereleases is not None:
+             prereleases = self.prereleases
+ 
+-        # If we have any specifiers, then we want to wrap our iterable in the
+-        # filter method for each one, this will act as a logical AND amongst
+-        # each specifier.
+-        if self._specs:
+-            for spec in self._specs:
+-                iterable = spec.filter(iterable, prereleases=prereleases)
+-            return iter(iterable)
+-        # If we do not have any specifiers, then we need to have a rough filter
+-        # which will filter out any pre-releases, unless there are no final
+-        # releases.
+-        else:
+-            filtered: list[UnparsedVersionVar] = []
+-            found_prereleases: list[UnparsedVersionVar] = []
+-
+-            for item in iterable:
+-                parsed_version = _coerce_version(item)
+-
+-                # Store any item which is a pre-release for later unless we've
+-                # already found a final version or we are accepting prereleases
+-                if parsed_version.is_prerelease and not prereleases:
+-                    if not filtered:
+-                        found_prereleases.append(item)
+-                else:
+-                    filtered.append(item)
+-
+-            # If we've found no items except for pre-releases, then we'll go
+-            # ahead and use the pre-releases
+-            if not filtered and found_prereleases and prereleases is None:
+-                return iter(found_prereleases)
+-
+-            return iter(filtered)
++        # ``SpecifierSet.prereleases`` reports True when any specifier accepts
++        # prereleases, but collapses an explicit opt-out to None, so honour that
++        # opt-out here instead.
++        if prereleases is None and any(s._prereleases is False for s in self._specs):
++            prereleases = False
++
++        filtered: list[UnparsedVersionVar] = []
++        found_prereleases: list[UnparsedVersionVar] = []
++
++        for item in iterable:
++            parsed_version = _coerce_version(item)
++
++            # A version has to satisfy every specifier in the set, which acts as
++            # a logical AND amongst them. Each specifier is asked to accept
++            # prereleases, so that the "only fall back to prereleases when there
++            # is nothing else" rule is applied once, below, to the set as a
++            # whole. Applying it per specifier instead would let a final release
++            # suppress the prereleases held back by one specifier even though
++            # another specifier goes on to reject that final release.
++            if not all(
++                spec.contains(parsed_version, prereleases=True) for spec in self._specs
++            ):
++                continue
++
++            # Store any item which is a pre-release for later unless we've
++            # already found a final version or we are accepting prereleases
++            if parsed_version.is_prerelease and not prereleases:
++                if not filtered:
++                    found_prereleases.append(item)
++            else:
++                filtered.append(item)
++
++        # If we've found no items except for pre-releases, then we'll go
++        # ahead and use the pre-releases
++        if not filtered and found_prereleases and prereleases is None:
++            return iter(found_prereleases)
++
++        return iter(filtered)
+diff --git a/tests/test_specifiers.py b/tests/test_specifiers.py
+index 4b756e5..578b65b 100644
+--- a/tests/test_specifiers.py
++++ b/tests/test_specifiers.py
+@@ -960,6 +960,25 @@ class TestSpecifierSet:
+             (">=1.0,<=2.0", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
+             (">=1.0,<=2.0dev", True, False, ["1.0", "1.5a1"], ["1.0"]),
+             (">=1.0,<=2.0dev", False, True, ["1.0", "1.5a1"], ["1.0", "1.5a1"]),
++            # A final release that only satisfies some of the specifiers must not
++            # suppress the prereleases that satisfy all of them.
++            (">=1.0,<2.0", None, None, ["1.5a1", "3.0"], ["1.5a1"]),
++            (">=1.0,<2.0", None, False, ["1.5a1", "3.0"], []),
++            (">=1.0,<2.0", None, True, ["1.5a1", "3.0"], ["1.5a1"]),
++            (
++                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
++                None,
++                None,
++                ["0.9", "3.0.dev0", "3.0a1", "4.0"],
++                ["3.0.dev0", "3.0a1"],
++            ),
++            (
++                ">=1,!=1.*,!=2.*,!=3.0,<=3.0",
++                None,
++                None,
++                ["3.0.dev0"],
++                ["3.0.dev0"],
++            ),
+         ],
+     )
+     def test_specifier_filter(
+@@ -974,6 +993,36 @@ class TestSpecifierSet:
+ 
+         assert list(spec.filter(input, **kwargs)) == expected
+ 
++    @pytest.mark.parametrize(
++        ("specifier", "input"),
++        [
++            (">=1,!=1.*,!=2.*,!=3.0,<=3.0", ["0.9", "3.0.dev0", "3.0a1", "4.0"]),
++            (">=1.0,<2.0", ["1.5a1", "3.0"]),
++            (">=1.0,<=2.0", ["1.0", "1.5a1"]),
++            (">=1.0,<=2.0dev", ["1.0", "1.5a1"]),
++        ],
++    )
++    def test_specifier_filter_prereleases_are_set_wide(self, specifier, input):
++        # Whether a version is kept must not depend on which other versions
++        # happen to be in the iterable alongside it, beyond the documented
++        # "fall back to prereleases only when no final release matches" rule.
++        # See https://github.com/pypa/packaging/issues/941.
++        spec = SpecifierSet(specifier)
++        filtered = list(spec.filter(input))
++
++        matching = [v for v in input if spec.contains(v, prereleases=True)]
++        finals = [v for v in matching if not Version(v).is_prerelease]
++
++        if spec.prereleases:
++            assert filtered == matching
++        elif finals:
++            assert filtered == finals
++        else:
++            # Nothing but prereleases match the set, so every matching
++            # prerelease is kept -- exactly what a one-item filter call keeps.
++            assert filtered == matching
++            assert filtered == [v for v in input if list(spec.filter([v]))]
++
+     @pytest.mark.parametrize(
+         ("specifier", "expected"),
+         [

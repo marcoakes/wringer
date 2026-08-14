@@ -1,0 +1,89 @@
+diff --git a/changelog.d/1365.change.md b/changelog.d/1365.change.md
+new file mode 100644
+index 0000000..24fa6cf
+--- /dev/null
++++ b/changelog.d/1365.change.md
+@@ -0,0 +1 @@
++Allow mutating `__suppress_context__` and `__notes__` on frozen exceptions.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 274d412..bc17059 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -542,6 +542,8 @@ def _frozen_setattrs(self, name, value):
+     if isinstance(self, BaseException) and name in (
+         "__cause__",
+         "__context__",
++        "__notes__",
++        "__suppress_context__",
+         "__traceback__",
+     ):
+         BaseException.__setattr__(self, name, value)
+diff --git a/tests/test_next_gen.py b/tests/test_next_gen.py
+index a171749..43f658b 100644
+--- a/tests/test_next_gen.py
++++ b/tests/test_next_gen.py
+@@ -355,6 +355,64 @@ class TestNextGen:
+         # this should not raise an exception either
+         ei.value.__traceback__ = ei.value.__traceback__
+ 
++    @pytest.mark.parametrize(
++        "decorator",
++        [
++            partial(_attr.s, frozen=True, slots=True, auto_exc=True),
++            attrs.frozen,
++            attrs.define,
++            attrs.mutable,
++        ],
++    )
++    def test_add_note_on_exception(self, decorator):
++        """
++        BaseException.add_note() mutates __notes__ and therefore works on
++        frozen exceptions, too.
++        """
++
++        @decorator
++        class MyException(Exception):
++            pass
++
++        exc = MyException()
++        exc.add_note("note 1")
++        exc.add_note("note 2")
++
++        assert ["note 1", "note 2"] == exc.__notes__
++
++        # Setting it wholesale works, too.
++        exc.__notes__ = ["note 3"]
++
++        assert ["note 3"] == exc.__notes__
++
++    @pytest.mark.parametrize(
++        "decorator",
++        [
++            partial(_attr.s, frozen=True, slots=True, auto_exc=True),
++            attrs.frozen,
++            attrs.define,
++            attrs.mutable,
++        ],
++    )
++    def test_setting_suppress_context_on_exception(self, decorator):
++        """
++        Libraries that re-raise exceptions set __suppress_context__ explicitly.
++
++        Ensure that works.
++        """
++
++        @decorator
++        class MyException(Exception):
++            pass
++
++        exc = MyException()
++
++        assert False is exc.__suppress_context__
++
++        exc.__suppress_context__ = True
++
++        assert True is exc.__suppress_context__
++
+     def test_converts_and_validates_by_default(self):
+         """
+         If no on_setattr is set, assume setters.convert, setters.validate.

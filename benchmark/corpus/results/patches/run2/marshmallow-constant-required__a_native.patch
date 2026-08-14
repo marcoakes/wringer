@@ -1,0 +1,98 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 8b90369..b2a1c73 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,9 @@ Bug fixes:
+ 
+ - Make `marshmallow.fields.Number` and `marshmallow.fields.Mapping` abstract base classes to
+   prevent using them within Schemas (:issue:`2924`). Thanks :user:`MartingaleCoda` for reporting.
++- Allow passing ``required=True`` to `marshmallow.fields.Constant` again. It erroneously
++  raised ``ValueError: 'load_default' must not be set for required fields.`` since 4.2.2
++  (:issue:`2927`).
+ 
+ 
+ 4.2.2 (2026-02-04)
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index b081b4b..351ab48 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -2069,15 +2069,28 @@ class Constant(Field[_ContantT]):
+     ``dump_only=True`` or ``load_only=True`` respectively.
+ 
+     :param constant: The constant to return for the field attribute.
++
++    .. versionchanged:: 4.2.3
++        ``required=True`` may be passed again. Note that a required
++        `Constant <marshmallow.fields.Constant>` raises a
++        :exc:`ValidationError <marshmallow.exceptions.ValidationError>` when the field is
++        missing from the input data rather than falling back to the constant.
+     """
+ 
+     _CHECK_ATTRIBUTE = False
+ 
+     def __init__(self, constant: _ContantT, **kwargs: Unpack[_BaseFieldKwargs]):
+-        kwargs["load_default"] = constant
+-        kwargs["dump_default"] = constant
+         super().__init__(**kwargs)
+         self.constant = constant
++        # Set the defaults after calling the parent constructor so that
++        # `required=True` can be used, which forbids passing `load_default`.
++        self.load_default = constant
++        self.dump_default = constant
++        # If allow_none is unset and the constant is None,
++        # None should be considered valid, mirroring the `load_default` behavior
++        # of `Field`.
++        if kwargs.get("allow_none") is None:
++            self.allow_none = constant is None
+ 
+     def _serialize(self, value, *args, **kwargs) -> _ContantT:
+         return self.constant
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index 7cbe28e..f33f036 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -1422,6 +1422,26 @@ class TestFieldDeserialization:
+         assert sch.load({})["foo"] is None
+         assert sch.load({"foo": "ignored"})["foo"] is None
+ 
++    def test_constant_none_disallows_none_value_if_allow_none_is_false(self):
++        class MySchema(Schema):
++            foo = fields.Constant(None, allow_none=False)
++
++        sch = MySchema()
++        assert sch.load({})["foo"] is None
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({"foo": None})
++        assert excinfo.value.messages == {"foo": ["Field may not be null."]}
++
++    def test_constant_may_be_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(42, required=True)
++
++        sch = MySchema()
++        assert sch.load({"foo": 24})["foo"] == 42
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({})
++        assert excinfo.value.messages == {"foo": ["Missing data for required field."]}
++
+     def test_field_deserialization_with_user_validator_function(self):
+         field = fields.String(validate=predicate(lambda s: s.lower() == "valid"))
+         assert field.deserialize("Valid") == "Valid"
+diff --git a/tests/test_serialization.py b/tests/test_serialization.py
+index f04e21b..0d82dbf 100644
+--- a/tests/test_serialization.py
++++ b/tests/test_serialization.py
+@@ -924,6 +924,13 @@ class TestFieldSerialization:
+         s = MiniUserSchema()
+         assert s.dump({})["name"] == "bill"
+ 
++    def test_required_constant_field_serialize_when_omitted(self):
++        class MiniUserSchema(Schema):
++            name = fields.Constant("bill", required=True)
++
++        s = MiniUserSchema()
++        assert s.dump({})["name"] == "bill"
++
+     @pytest.mark.parametrize("FieldClass", ALL_FIELDS)
+     def test_all_fields_serialize_none_to_none(self, FieldClass):
+         field = FieldClass(allow_none=True)

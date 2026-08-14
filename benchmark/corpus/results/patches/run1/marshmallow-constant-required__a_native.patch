@@ -1,0 +1,78 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 8b903697..6da2d370 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,8 @@ Bug fixes:
+ 
+ - Make `marshmallow.fields.Number` and `marshmallow.fields.Mapping` abstract base classes to
+   prevent using them within Schemas (:issue:`2924`). Thanks :user:`MartingaleCoda` for reporting.
++- Fix ``fields.Constant`` raising ``ValueError`` when ``required=True`` is passed,
++  a regression introduced in 4.2.2 (:issue:`2900`).
+ 
+ 
+ 4.2.2 (2026-02-04)
+diff --git a/src/marshmallow/fields.py b/src/marshmallow/fields.py
+index b081b4ba..af7da71c 100644
+--- a/src/marshmallow/fields.py
++++ b/src/marshmallow/fields.py
+@@ -2074,10 +2074,18 @@ class Constant(Field[_ContantT]):
+     _CHECK_ATTRIBUTE = False
+ 
+     def __init__(self, constant: _ContantT, **kwargs: Unpack[_BaseFieldKwargs]):
+-        kwargs["load_default"] = constant
+-        kwargs["dump_default"] = constant
++        # `load_default` and `dump_default` are set after calling `super().__init__`
++        # so that `required=True` may be passed, which `Field` disallows in
++        # combination with `load_default`.
++        # Therefore, reproduce the `allow_none` initialization that `Field` performs
++        # for `load_default=None`: if `allow_none` is unset and the constant is `None`,
++        # `None` should be considered valid.
++        if kwargs.get("allow_none") is None:
++            kwargs["allow_none"] = constant is None
+         super().__init__(**kwargs)
+         self.constant = constant
++        self.load_default = constant
++        self.dump_default = constant
+ 
+     def _serialize(self, value, *args, **kwargs) -> _ContantT:
+         return self.constant
+diff --git a/tests/test_deserialization.py b/tests/test_deserialization.py
+index 7cbe28e4..a8fd4e32 100644
+--- a/tests/test_deserialization.py
++++ b/tests/test_deserialization.py
+@@ -1422,6 +1422,35 @@ class TestFieldDeserialization:
+         assert sch.load({})["foo"] is None
+         assert sch.load({"foo": "ignored"})["foo"] is None
+ 
++    def test_constant_none_with_explicit_allow_none_false(self):
++        class MySchema(Schema):
++            foo = fields.Constant(None, allow_none=False)
++
++        sch = MySchema()
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({"foo": None})
++        assert excinfo.value.messages == {"foo": ["Field may not be null."]}
++
++    def test_constant_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(42, required=True)
++
++        sch = MySchema()
++        assert sch.load({"foo": 24})["foo"] == 42
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({})
++        assert excinfo.value.messages == {"foo": ["Missing data for required field."]}
++
++    def test_constant_none_required(self):
++        class MySchema(Schema):
++            foo = fields.Constant(None, required=True)
++
++        sch = MySchema()
++        assert sch.load({"foo": None})["foo"] is None
++        with pytest.raises(ValidationError) as excinfo:
++            sch.load({})
++        assert excinfo.value.messages == {"foo": ["Missing data for required field."]}
++
+     def test_field_deserialization_with_user_validator_function(self):
+         field = fields.String(validate=predicate(lambda s: s.lower() == "valid"))
+         assert field.deserialize("Valid") == "Valid"

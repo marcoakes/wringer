@@ -1,0 +1,105 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index fbb3254d..139d533b 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,8 @@ Unreleased
+ -   Fix reconciliation of `default`, `flag_value` and `type` parameters for
+     flag options, as well as parsing and normalization of environment variables.
+     :issue:`2952` :pr:`2956`
++-   Fix completion for the Z shell (``zsh``) for completion items containing
++    colons. :issue:`2703`
+ 
+ Version 8.2.1
+ -------------
+diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py
+index 6c39d5eb..e9096eb4 100644
+--- a/src/click/shell_completion.py
++++ b/src/click/shell_completion.py
+@@ -124,6 +124,9 @@ _SOURCE_BASH = """\
+ %(complete_func)s_setup;
+ """
+ 
++# Read ZshComplete.format_completion before changing the "plain" branches
++# below: which of `_describe`/`compadd` an item is routed to determines
++# whether its value arrives colon-escaped.
+ _SOURCE_ZSH = """\
+ #compdef %(prog_name)s
+ 
+@@ -373,7 +376,21 @@ class ZshComplete(ShellComplete):
+         return args, incomplete
+ 
+     def format_completion(self, item: CompletionItem) -> str:
+-        return f"{item.type}\n{item.value}\n{item.help if item.help else '_'}"
++        help_ = item.help if item.help else "_"
++        # The zsh script passes items that have a help text to
++        # `_describe`, which splits "value:description" pairs at the
++        # first unescaped colon, so colons in the value must be escaped.
++        # Items without a help text go to `compadd`, which uses the
++        # value verbatim and does not unescape colons, so escaping there
++        # would insert literal backslashes. Therefore escape only when
++        # the help text is not the "_" sentinel used by the script.
++        #
++        # Doing this here rather than in the script means already
++        # generated and deployed scripts get the fix too.
++        #
++        # See issue #1812 and issue #2703.
++        value = item.value.replace(":", r"\:") if help_ != "_" else item.value
++        return f"{item.type}\n{value}\n{help_}"
+ 
+ 
+ class FishComplete(ShellComplete):
+diff --git a/tests/test_shell_completion.py b/tests/test_shell_completion.py
+index fb39486d..0a2e9bef 100644
+--- a/tests/test_shell_completion.py
++++ b/tests/test_shell_completion.py
+@@ -354,6 +354,50 @@ def test_full_complete(runner, shell, env, expect):
+     assert result.output == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("value", "help_text", "expect"),
++    [
++        # Items with a help text go through `_describe`, which splits at
++        # the first unescaped colon, so colons in the value are escaped.
++        # Colons in the help text itself need no escaping.
++        ("baz:quux", "adsf", "plain\nbaz\\:quux\nadsf"),
++        ("a:b:c", "d:e", "plain\na\\:b\\:c\nd:e"),
++        ("nocolon", "adsf", "plain\nnocolon\nadsf"),
++        # Items without a help text go through `compadd`, which does not
++        # unescape colons, so the value is passed through untouched.
++        ("baz:quux", None, "plain\nbaz:quux\n_"),
++        ("baz:quux", "", "plain\nbaz:quux\n_"),
++    ],
++)
++def test_zsh_format_completion_escapes_colons(value, help_text, expect):
++    """Colons are escaped only on the `_describe` code path. See issue #2703."""
++    comp = click.shell_completion.ZshComplete(
++        Command("cli"), {}, "cli", "_CLI_COMPLETE"
++    )
++    assert comp.format_completion(CompletionItem(value, help=help_text)) == expect
++
++
++@pytest.mark.usefixtures("_patch_for_completion")
++def test_zsh_full_complete_with_colons(runner):
++    """Completions containing colons survive the round trip. See issue #2703."""
++    cli = Group(
++        "cli",
++        commands=[
++            Command("c:d", help="cee:dee"),
++            Command("c:e"),
++        ],
++    )
++    result = runner.invoke(
++        cli,
++        env={
++            "COMP_WORDS": "c:",
++            "COMP_CWORD": "0",
++            "_CLI_COMPLETE": "zsh_complete",
++        },
++    )
++    assert result.output == "plain\nc\\:d\ncee:dee\nplain\nc:e\n_\n"
++
++
+ @pytest.mark.usefixtures("_patch_for_completion")
+ def test_context_settings(runner):
+     def complete(ctx, param, incomplete):

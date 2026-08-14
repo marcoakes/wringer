@@ -1,0 +1,128 @@
+diff --git a/changelog.d/1147.change.md b/changelog.d/1147.change.md
+new file mode 100644
+index 00000000..cac84471
+--- /dev/null
++++ b/changelog.d/1147.change.md
+@@ -0,0 +1,2 @@
++The check that no mandatory field follows a field with a default now runs *after* the *field_transformer* hook, instead of before it.
++This allows a *field_transformer* that reorders fields to produce a valid order.
+diff --git a/docs/extending.md b/docs/extending.md
+index c3a475ae..6e9fa4eb 100644
+--- a/docs/extending.md
++++ b/docs/extending.md
+@@ -269,6 +269,22 @@ Note, *field_transformer* operates on {class}`attrs.Attribute` instances before
+ Data(public=42, _private='spam', explicit='yes')
+ ```
+ 
++Since the hook may also *reorder* fields, the check that no mandatory field follows a field with a default is performed *after* the *field_transformer* has run.
++That means a hook is free to fix up an order that would otherwise be rejected:
++
++```{doctest}
++>>> def order_by_metadata(cls, fields):
++...     return sorted(fields, key=lambda f: f.metadata["field_order"])
++...
++>>> @frozen(field_transformer=order_by_metadata)
++... class Data:
++...     x: int = field(metadata={"field_order": 1}, default=0)
++...     y: int = field(metadata={"field_order": 0})
++...
++>>> Data(42)
++Data(y=42, x=0)
++```
++
+ ## Customize Value Serialization in `asdict()`
+ 
+ *attrs* allows you to serialize instances of *attrs* classes to dicts using the {func}`attrs.asdict` function.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index a7a4075a..93231901 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -449,10 +449,17 @@ def _transform_attrs(
+ 
+     attrs = base_attrs + own_attrs
+ 
++    if field_transformer is not None:
++        # Materialize the result: it is iterated more than once below and a
++        # hook is free to return any iterable.
++        attrs = list(field_transformer(cls, attrs))
++
+     # Mandatory vs non-mandatory attr order only matters when they are part of
+     # the __init__ signature and when they aren't kw_only (which are moved to
+     # the end and can be mandatory or non-mandatory in any order, as they will
+-    # be specified as keyword args anyway). Check the order of those attrs:
++    # be specified as keyword args anyway). Check the order of those attrs.
++    # This happens *after* the field_transformer ran, so that it gets a chance
++    # to fix the order itself (see #1147).
+     had_default = False
+     for a in (a for a in attrs if a.init is not False and a.kw_only is False):
+         if had_default is True and a.default is NOTHING:
+@@ -462,9 +469,6 @@ def _transform_attrs(
+         if had_default is False and a.default is not NOTHING:
+             had_default = True
+ 
+-    if field_transformer is not None:
+-        attrs = field_transformer(cls, attrs)
+-
+     # Resolve default field alias after executing field_transformer.
+     # This allows field_transformer to differentiate between explicit vs
+     # default aliases and supply their own defaults.
+diff --git a/tests/test_hooks.py b/tests/test_hooks.py
+index 9c37a98c..80e2f1e7 100644
+--- a/tests/test_hooks.py
++++ b/tests/test_hooks.py
+@@ -4,7 +4,10 @@ from __future__ import annotations
+ 
+ from datetime import datetime
+ 
++import pytest
++
+ import attr
++import attrs
+ 
+ 
+ class TestTransformHook:
+@@ -138,6 +141,44 @@ class TestTransformHook:
+ 
+         assert attr.asdict(Sub(2)) == {"y": 2}
+ 
++    def test_hook_can_fix_field_order(self):
++        """
++        The mandatory-after-default check runs *after* the field_transformer,
++        so a hook may reorder fields into a valid order.
++
++        Regression test for #1147.
++        """
++
++        def order_by_metadata(cls, attribs):
++            return sorted(attribs, key=lambda a: a.metadata["field_order"])
++
++        @attrs.define(field_transformer=order_by_metadata)
++        class C:
++            x: int = attrs.field(metadata={"field_order": 1}, default=0)
++            y: int = attrs.field(metadata={"field_order": 0})
++
++        assert ["y", "x"] == [a.name for a in attr.fields(C)]
++        assert C(1) == C(y=1, x=0)
++        assert C(1, 2) == C(y=1, x=2)
++
++    def test_hook_breaking_field_order_still_raises(self):
++        """
++        A field_transformer that *introduces* a mandatory field after a
++        defaulted one is still caught by the order check.
++        """
++
++        def reverse(cls, attribs):
++            return list(reversed(attribs))
++
++        with pytest.raises(
++            ValueError, match="No mandatory attributes allowed"
++        ):
++
++            @attrs.define(field_transformer=reverse)
++            class C:
++                x: int
++                y: int = 0
++
+     def test_attrs_attrclass(self):
+         """
+         The list of attrs returned by a field_transformer is converted to

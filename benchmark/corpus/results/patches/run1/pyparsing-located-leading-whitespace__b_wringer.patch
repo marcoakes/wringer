@@ -1,0 +1,94 @@
+diff --git a/CHANGES b/CHANGES
+index 933395b..17e386f 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -29,6 +29,12 @@ Version 3.3.3 - in development
+ ------------------------------
+ - Adding support for Python 3.15.
+ 
++- Fixed bug in `Located`, in which the reported `locn_start` included leading
++  whitespace if the contained expression skipped whitespace itself instead of
++  having it skipped by `Located` (as is the case for `MatchFirst` and `Or`
++  expressions, which defer whitespace skipping to their alternatives).
++  Issue #621.
++
+ - Fixed matching bug in `match_previous_expr()`, when expression is modified with
+   `leave_whitespace(recursive=True)`. Issue #633, reported by Ahmed Mohamed Abdelaal,
+   PR submitted by fcardosojr18 et AI.
+diff --git a/pyparsing/core.py b/pyparsing/core.py
+index 6e8f389..18a82e2 100644
+--- a/pyparsing/core.py
++++ b/pyparsing/core.py
+@@ -5583,7 +5583,15 @@ class Located(ParseElementEnhance):
+     """
+ 
+     def parseImpl(self, instring, loc, do_actions=True) -> ParseImplReturnType:
+-        start = loc
++        if self.callPreparse:
++            # leading whitespace and ignorables were already skipped in _parse
++            start = loc
++        else:
++            # this Located does not preParse (as when the contained expression is a
++            # MatchFirst or Or, which leave whitespace skipping to their alternatives),
++            # so skip ahead using the contained expression's whitespace settings, to
++            # keep the reported start location from including leading whitespace
++            start = self.expr.preParse(instring, loc)
+         loc, tokens = self.expr._parse(instring, start, do_actions, callPreParse=False)
+         ret_tokens = ParseResults([start, tokens, loc])
+         ret_tokens["locn_start"] = start
+diff --git a/tests/test_unit.py b/tests/test_unit.py
+index aead9ef..676327a 100644
+--- a/tests/test_unit.py
++++ b/tests/test_unit.py
+@@ -6570,6 +6570,51 @@ class Test02_WithoutPackrat(ppt.TestParseResultsAsserts, TestCase):
+             print(re_match)
+             print(pp_match.value)
+ 
++    def testLocatedStartLocationSkipsLeadingWhitespace(self):
++        # Located must not include leading whitespace in its reported location,
++        # even when the contained expression does its own whitespace skipping
++        # (as MatchFirst and Or do, deferring to their alternatives)
++        #              0123456789012
++        test_string = "ignored   abc"
++        abc = pp.Keyword("abc")
++
++        for label, expr in (
++            ("Keyword", abc),
++            ("MatchFirst", abc | abc),
++            ("Or", abc ^ abc),
++            ("And", abc + pp.Empty()),
++            ("Group(MatchFirst)", pp.Group(abc | abc)),
++        ):
++            with self.subTest(label):
++                located = pp.Located(expr)
++                result = (pp.Suppress(pp.SkipTo(expr)) + located).parse_string(
++                    test_string
++                )
++                print(label, result.dump())
++                self.assertEqual(
++                    10,
++                    result.locn_start,
++                    f"incorrect locn_start for Located({label})",
++                )
++                self.assertEqual(
++                    13, result.locn_end, f"incorrect locn_end for Located({label})"
++                )
++                self.assertEqual(
++                    "abc", test_string[result.locn_start : result.locn_end]
++                )
++
++                # search_string finds the same span
++                match = located.search_string(test_string)[0]
++                self.assertEqual([10, 13], [match.locn_start, match.locn_end])
++
++    def testLocatedWithLeaveWhitespace(self):
++        # leave_whitespace on a Located expression is still honored
++        expr = pp.Located(pp.Keyword("abc") | pp.Keyword("abc")).leave_whitespace()
++
++        self.assertParseResultsEquals(expr.parse_string("abc"), [0, ["abc"], 3])
++        with self.assertRaisesParseException():
++            expr.parse_string("   abc")
++
+     def testPop(self):
+         source = "AAA 123 456 789 234"
+         patt = pp.Word(pp.alphas)("name") + pp.Word(pp.nums) * (1,)

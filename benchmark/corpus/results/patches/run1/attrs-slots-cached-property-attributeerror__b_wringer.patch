@@ -1,0 +1,67 @@
+diff --git a/changelog.d/1230.change.md b/changelog.d/1230.change.md
+new file mode 100644
+index 00000000..2fb53e59
+--- /dev/null
++++ b/changelog.d/1230.change.md
+@@ -0,0 +1 @@
++On slotted classes with `functools.cached_property`s, an `AttributeError` raised by a property (or any other descriptor) is no longer replaced by a generic `AttributeError` from the `__getattr__` that attrs adds to support cached properties.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 0114582a..1b4aef62 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -619,10 +619,15 @@ def _make_cached_property_getattr(cached_properties, original_getattr, cls):
+     else:
+         lines.extend(
+             [
+-                "         if hasattr(super(), '__getattr__'):",
++                # Redo the lookup that got us here, so that an AttributeError
++                # raised by e.g. a property is propagated as-is instead of
++                # being replaced by a generic one.
++                "         try:",
++                "              return super().__getattribute__(item)",
++                "         except AttributeError:",
++                "              if not hasattr(super(), '__getattr__'):",
++                "                   raise",
+                 "              return super().__getattr__(item)",
+-                "         original_error = f\"'{self.__class__.__name__}' object has no attribute '{item}'\"",
+-                "         raise AttributeError(original_error)",
+             ]
+         )
+ 
+diff --git a/tests/test_slots.py b/tests/test_slots.py
+index c1332f2d..e545ab5c 100644
+--- a/tests/test_slots.py
++++ b/tests/test_slots.py
+@@ -806,6 +806,32 @@ def test_slots_cached_property_with_empty_getattr_raises_attribute_error_of_requ
+         a.z
+ 
+ 
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++@pytest.mark.parametrize("slots", [True, False])
++def test_cached_property_does_not_swallow_attribute_error(slots):
++    """
++    An AttributeError raised inside an attribute accessed by a cached property
++    is propagated as-is, instead of being replaced by the __getattr__ that is
++    added for cached properties on slotted classes.
++    """
++
++    @attr.s(slots=slots)
++    class A:
++        @functools.cached_property
++        def f(self):
++            return self.g
++
++        @property
++        def g(self):
++            raise AttributeError("Message")
++
++    with pytest.raises(AttributeError, match="^Message$"):
++        A().f
++
++    with pytest.raises(AttributeError, match="^Message$"):
++        A().g
++
++
+ @pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
+ def test_slots_cached_property_with_getattr_calls_getattr_for_missing_attributes():
+     """

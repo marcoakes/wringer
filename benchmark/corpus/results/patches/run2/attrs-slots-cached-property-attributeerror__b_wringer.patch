@@ -1,0 +1,96 @@
+diff --git a/changelog.d/1230.change.md b/changelog.d/1230.change.md
+new file mode 100644
+index 0000000..e2e536a
+--- /dev/null
++++ b/changelog.d/1230.change.md
+@@ -0,0 +1 @@
++On slotted classes with `functools.cached_property`s, an `AttributeError` raised by a property (or any other descriptor) is no longer replaced by a generic `'C' object has no attribute 'x'` error from the `__getattr__` that *attrs* adds to support cached properties.
+diff --git a/src/attr/_make.py b/src/attr/_make.py
+index 0114582..aa6c6c4 100644
+--- a/src/attr/_make.py
++++ b/src/attr/_make.py
+@@ -619,10 +619,18 @@ def _make_cached_property_getattr(cached_properties, original_getattr, cls):
+     else:
+         lines.extend(
+             [
+-                "         if hasattr(super(), '__getattr__'):",
+-                "              return super().__getattr__(item)",
+-                "         original_error = f\"'{self.__class__.__name__}' object has no attribute '{item}'\"",
+-                "         raise AttributeError(original_error)",
++                # Retry the lookup instead of raising a fresh AttributeError.
++                # Since we're the fallback for *every* failed attribute access
++                # on this class -- not just cached properties -- swallowing the
++                # error here would hide, for example, an AttributeError raised
++                # by a property's own body. Note that object.__getattribute__
++                # does not consult __getattr__, so this doesn't recurse.
++                "         try:",
++                "             return super().__getattribute__(item)",
++                "         except AttributeError:",
++                "             if not hasattr(super(), '__getattr__'):",
++                "                 raise",
++                "             return super().__getattr__(item)",
+             ]
+         )
+ 
+diff --git a/tests/test_slots.py b/tests/test_slots.py
+index c1332f2..1ce379b 100644
+--- a/tests/test_slots.py
++++ b/tests/test_slots.py
+@@ -806,6 +806,57 @@ def test_slots_cached_property_with_empty_getattr_raises_attribute_error_of_requ
+         a.z
+ 
+ 
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_raising_attribute_error():
++    """
++    Ensures error information is not lost when a cached_property raises an
++    AttributeError itself.
++    """
++
++    @attr.s(slots=True)
++    class A:
++        x = attr.ib()
++
++        @functools.cached_property
++        def f(self):
++            raise AttributeError("Big Problem")
++
++    a = A(1)
++    with pytest.raises(AttributeError, match="Big Problem"):
++        a.f
++
++
++@pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
++def test_slots_cached_property_propagating_attribute_error_from_property():
++    """
++    An AttributeError raised by a property that a cached_property depends on
++    keeps its message, instead of being replaced by the __getattr__ fallback's
++    generic "no attribute" error.
++
++    Regression test for #1230.
++    """
++
++    @attr.s(slots=True)
++    class A:
++        @functools.cached_property
++        def x(self):
++            return self.y
++
++        @property
++        def y(self):
++            raise AttributeError("Message")
++
++    a = A()
++
++    with pytest.raises(AttributeError, match="Message"):
++        a.x
++
++    # Also when accessed directly -- the __getattr__ that attrs adds for the
++    # cached property must not swallow it either.
++    with pytest.raises(AttributeError, match="Message"):
++        a.y
++
++
+ @pytest.mark.skipif(not PY_3_8_PLUS, reason="cached_property is 3.8+")
+ def test_slots_cached_property_with_getattr_calls_getattr_for_missing_attributes():
+     """

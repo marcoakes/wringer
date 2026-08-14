@@ -1,0 +1,66 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index fbb3254..b5b985e 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,8 @@ Unreleased
+ -   Fix reconciliation of `default`, `flag_value` and `type` parameters for
+     flag options, as well as parsing and normalization of environment variables.
+     :issue:`2952` :pr:`2956`
++-   Escape colons and backslashes in Zsh completion values that have help
++    text, so they are no longer truncated at the first colon. :issue:`2703`
+ 
+ Version 8.2.1
+ -------------
+diff --git a/src/click/shell_completion.py b/src/click/shell_completion.py
+index 6c39d5e..53485f9 100644
+--- a/src/click/shell_completion.py
++++ b/src/click/shell_completion.py
+@@ -373,7 +373,16 @@ class ZshComplete(ShellComplete):
+         return args, incomplete
+ 
+     def format_completion(self, item: CompletionItem) -> str:
+-        return f"{item.type}\n{item.value}\n{item.help if item.help else '_'}"
++        if not item.help:
++            # Values without help are passed to compadd, which takes them
++            # literally, so they must not be escaped.
++            return f"{item.type}\n{item.value}\n_"
++
++        # Values with help are passed to _describe as "value:description"
++        # pairs, where an unescaped colon separates the two and a backslash
++        # escapes the next character.
++        value = item.value.replace("\\", "\\\\").replace(":", "\\:")
++        return f"{item.type}\n{value}\n{item.help}"
+ 
+ 
+ class FishComplete(ShellComplete):
+diff --git a/tests/test_shell_completion.py b/tests/test_shell_completion.py
+index fb39486..1649b4b 100644
+--- a/tests/test_shell_completion.py
++++ b/tests/test_shell_completion.py
+@@ -354,6 +354,26 @@ def test_full_complete(runner, shell, env, expect):
+     assert result.output == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("value", "help", "expect"),
++    [
++        # _describe splits "value:description" on the first unescaped colon,
++        # so colons and backslashes in the value must be escaped.
++        ("baz:quux", "adsf", "plain\nbaz\\:quux\nadsf"),
++        ("back\\slash", "adsf", "plain\nback\\\\slash\nadsf"),
++        ("a:b\\c", "d:e\\f", "plain\na\\:b\\\\c\nd:e\\f"),
++        # Without help the value goes to compadd, which takes it literally.
++        ("baz:quux", None, "plain\nbaz:quux\n_"),
++        ("back\\slash", None, "plain\nback\\slash\n_"),
++    ],
++)
++def test_zsh_escapes_colons_in_values(value, help, expect):
++    comp = click.shell_completion.ZshComplete(
++        Command("cli"), {}, "cli", "_CLI_COMPLETE"
++    )
++    assert comp.format_completion(CompletionItem(value, help=help)) == expect
++
++
+ @pytest.mark.usefixtures("_patch_for_completion")
+ def test_context_settings(runner):
+     def complete(ctx, param, incomplete):

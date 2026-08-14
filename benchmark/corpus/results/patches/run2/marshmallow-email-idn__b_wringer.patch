@@ -1,0 +1,109 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index bad4e19..9e9a8ab 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,10 @@ Bug fixes:
+ 
+ - `marshmallow.validate.URL` accepts Internationalized Domain Names (IDNs) (:issue:`2821`).
+   Thanks :user:`touhidurrr` for the report.
++- `marshmallow.validate.Email` accepts internationalized email addresses (:issue:`2936`).
++  The local part may now contain any non-ASCII character, including the combining
++  marks used by scripts such as Bengali, Devanagari, and Thai.
++  Thanks :user:`touhidurrr` for the report.
+ - Typing: Fix typing of ``netsted`` in `marshmallow.fields.Nested` (:pr:`2935`).
+ 
+ 4.2.3 (2026-03-25)
+diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py
+index 3d2ce44..a96548b 100644
+--- a/src/marshmallow/validate.py
++++ b/src/marshmallow/validate.py
+@@ -244,17 +244,36 @@ class URL(Validator):
+         return value
+ 
+ 
++# Internationalized email addresses (:rfc:`6531`) may use any non-ASCII character in
++# their local part. Whitespace and C1 control characters are excluded: they are no more
++# part of an address than their ASCII counterparts, which aren't allowed either.
++# This deliberately doesn't overlap the ASCII classes below. `\w` would overlap, and
++# rejecting an invalid local part would then take exponential time, since every
++# non-ASCII character could be matched by either branch. `\w` also wouldn't cover the
++# combining marks used by scripts such as Bengali, Devanagari, and Thai.
++_NON_ASCII_CHAR = r"[^\x00-\xa0\s]"
++# atext (:rfc:`5322`), extended with non-ASCII characters
++_ATEXT_CHAR = r"(?:[-0-9A-Z_!#$%&'*+/=?^`{}|~]|" + _NON_ASCII_CHAR + ")"
++# qtext (:rfc:`5322`), extended with non-ASCII characters
++_QTEXT_CHAR = r"(?:[\001-\010\013\014\016-\037!#-\[\]-\177]|" + _NON_ASCII_CHAR + ")"
++
++
+ class Email(Validator):
+     """Validate an email address.
+ 
++    Internationalized email addresses (:rfc:`6531`) are supported: the local part may
++    contain non-ASCII characters, and the domain may be an internationalized domain
++    name (IDN), given either as Unicode or in ASCII-compatible (Punycode) form.
++
+     :param error: Error message to raise in case of a validation error. Can be
+         interpolated with `{input}`.
+     """
+ 
+     USER_REGEX = re.compile(
+-        r"(^[-!#$%&'*+/=?^`{}|~\w]+(\.[-!#$%&'*+/=?^`{}|~\w]+)*\Z"  # dot-atom
++        # dot-atom
++        rf"(^{_ATEXT_CHAR}+(\.{_ATEXT_CHAR}+)*\Z"
+         # quoted-string
+-        r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
++        rf'|^"({_QTEXT_CHAR}'
+         r'|\\[\001-\011\013\014\016-\177])*"\Z)',
+         re.IGNORECASE | re.UNICODE,
+     )
+diff --git a/tests/test_validate.py b/tests/test_validate.py
+index 00fca55..8e99daf 100644
+--- a/tests/test_validate.py
++++ b/tests/test_validate.py
+@@ -368,6 +368,46 @@ def test_email_invalid(invalid_email):
+         validator(invalid_email)
+ 
+ 
++@pytest.mark.parametrize(
++    "valid_email",
++    [
++        # non-ASCII local part, including scripts that use combining marks
++        "গিটহাব@তৌহিদুর.বাংলা",
++        "தமிழ்@example.com",
++        "हिन्दी@उदाहरण.भारत",
++        "ผู้ใช้@example.co.th",
++        "почта@яндекс.рф",
++        '"üser"@example.com',
++        # IDN domain, in Unicode and in ASCII-compatible (Punycode) form
++        "user@münchen.de",
++        "user@例え.jp",
++        "user@xn--wgv71a119e.jp",
++        "user@www.اختبار.com",
++    ],
++)
++def test_email_idn_valid(valid_email):
++    validator = validate.Email()
++    assert validator(valid_email) == valid_email
++
++
++@pytest.mark.parametrize(
++    "invalid_email",
++    [
++        # non-ASCII whitespace is no more allowed than the ASCII kind
++        "গিটহাব　ছদ্মনাম@example.com",
++        '"üser name"@example.com',
++        # an IDN still needs a TLD
++        "গিটহাব@তৌহিদুর",
++        # label too long to be encoded as Punycode
++        f"user@{'ü' * 70}.de",
++    ],
++)
++def test_email_idn_invalid(invalid_email):
++    validator = validate.Email()
++    with pytest.raises(ValidationError):
++        validator(invalid_email)
++
++
+ def test_email_custom_message():
+     validator = validate.Email(error="{input} is not an email addy.")
+     with pytest.raises(ValidationError, match="invalid is not an email addy."):

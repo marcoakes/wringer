@@ -1,0 +1,107 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index bad4e19e..012cdca5 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,9 @@ Bug fixes:
+ 
+ - `marshmallow.validate.URL` accepts Internationalized Domain Names (IDNs) (:issue:`2821`).
+   Thanks :user:`touhidurrr` for the report.
++- `marshmallow.validate.Email` accepts internationalized email addresses whose local
++  part contains non-ASCII characters, e.g. combining marks used by Bengali and
++  Devanagari (:issue:`2936`). Thanks :user:`touhidurrr` for the report.
+ - Typing: Fix typing of ``netsted`` in `marshmallow.fields.Nested` (:pr:`2935`).
+ 
+ 4.2.3 (2026-03-25)
+diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py
+index 3d2ce442..05d56814 100644
+--- a/src/marshmallow/validate.py
++++ b/src/marshmallow/validate.py
+@@ -14,6 +14,11 @@ if typing.TYPE_CHECKING:
+ 
+ _T = typing.TypeVar("_T")
+ 
++# Non-ASCII characters permitted in internationalized domain names and in
++# internationalized email local parts. The range starts at U+00A1 so that the
++# C1 control characters and the no-break space are excluded.
++_UNICODE_CHARS = "\u00a1-\uffff"
++
+ 
+ class Validator(ABC):
+     """Abstract base class for validators.
+@@ -103,7 +108,7 @@ class URL(Validator):
+         def _regex_generator(
+             self, *, relative: bool, absolute: bool, require_tld: bool
+         ) -> typing.Pattern:
+-            unicode_letters = "\u00a1-\uffff"
++            unicode_letters = _UNICODE_CHARS
+             hostname_variants = [
+                 # a normal domain name, expressed in [A-Z0-9] chars (plus unicode letters)
+                 # with hyphens allowed only in the middle
+@@ -251,10 +256,16 @@ class Email(Validator):
+         interpolated with `{input}`.
+     """
+ 
++    # non-ASCII characters are allowed in the local part of an internationalized
++    # email address (RFC 6531). \w alone is not sufficient: it does not match
++    # combining marks, which are required by scripts such as Bengali and Devanagari
++    _ATEXT = r"-!#$%&'*+/=?^`{}|~\w" + _UNICODE_CHARS
++
+     USER_REGEX = re.compile(
+-        r"(^[-!#$%&'*+/=?^`{}|~\w]+(\.[-!#$%&'*+/=?^`{}|~\w]+)*\Z"  # dot-atom
++        # dot-atom
++        rf"(^[{_ATEXT}]+(\.[{_ATEXT}]+)*\Z"
+         # quoted-string
+-        r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
++        rf'|^"([\001-\010\013\014\016-\037!#-\[\]-\177{_UNICODE_CHARS}]'
+         r'|\\[\001-\011\013\014\016-\177])*"\Z)',
+         re.IGNORECASE | re.UNICODE,
+     )
+diff --git a/tests/test_validate.py b/tests/test_validate.py
+index 00fca55b..3650ae61 100644
+--- a/tests/test_validate.py
++++ b/tests/test_validate.py
+@@ -368,6 +368,44 @@ def test_email_invalid(invalid_email):
+         validator(invalid_email)
+ 
+ 
++@pytest.mark.parametrize(
++    "valid_email",
++    [
++        "গিটহাব@তৌহিদুর.বাংলা",
++        "নমস্কার@example.com",
++        "नमस्ते@उदाहरण.भारत",
++        "ทดสอบ@ไทย.th",
++        "இந்தியா@இந்தியா.இந்தியா",
++        "müller@münchen.de",
++        "日本語@例え.jp",
++        "user@xn--mnchen-3ya.de",
++        '"গিটহাব"@example.com',
++    ],
++)
++def test_email_idn_valid(valid_email):
++    validator = validate.Email()
++    assert validator(valid_email) == valid_email
++
++
++@pytest.mark.parametrize(
++    "invalid_email",
++    [
++        # no TLD
++        "গিটহাব@তৌহিদুর",
++        # space in the local part
++        "গিট হাব@তৌহিদুর.বাংলা",
++        # no-break space in the local part
++        "গিটহাব\N{NO-BREAK SPACE}@তৌহিদুর.বাংলা",
++        # leading dot in the local part
++        ".গিটহাব@তৌহিদুর.বাংলা",
++    ],
++)
++def test_email_idn_invalid(invalid_email):
++    validator = validate.Email()
++    with pytest.raises(ValidationError):
++        validator(invalid_email)
++
++
+ def test_email_custom_message():
+     validator = validate.Email(error="{input} is not an email addy.")
+     with pytest.raises(ValidationError, match="invalid is not an email addy."):

@@ -1,0 +1,97 @@
+diff --git a/CHANGES b/CHANGES
+index 933395b..4283e6f 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -33,6 +33,10 @@ Version 3.3.3 - in development
+   `leave_whitespace(recursive=True)`. Issue #633, reported by Ahmed Mohamed Abdelaal,
+   PR submitted by fcardosojr18 et AI.
+ 
++- Fixed bug in `Located`, which reported a `locn_start` that included any leading
++  whitespace, if the contained expression left pre-parsing to its own contained
++  expressions (as `MatchFirst` and `Or` do). Issue #621.
++
+ - Update type checking to use `mypy 1.20.0`.
+ 
+ - 5-8% performance boost optimizing `ParseResults.copy()`. Inspired by similar changes
+diff --git a/pyparsing/core.py b/pyparsing/core.py
+index 6e8f389..d594b9b 100644
+--- a/pyparsing/core.py
++++ b/pyparsing/core.py
+@@ -5582,6 +5582,16 @@ class Located(ParseElementEnhance):
+         [18, ['lkkjj'], 23]
+     """
+ 
++    def __init__(self, expr: Union[ParserElement, str]) -> None:
++        super().__init__(expr)
++        # parseImpl parses the contained expression with callPreParse=False, taking
++        # responsibility for pre-parsing itself so that it can capture the location
++        # where the match actually starts. So Located must always pre-parse, even if
++        # the contained expression would not have (as is the case for ParseExpressions
++        # such as MatchFirst and Or, which leave pre-parsing to their alternatives);
++        # otherwise the reported start location would include the leading whitespace.
++        self.callPreparse = True
++
+     def parseImpl(self, instring, loc, do_actions=True) -> ParseImplReturnType:
+         start = loc
+         loc, tokens = self.expr._parse(instring, start, do_actions, callPreParse=False)
+diff --git a/tests/test_unit.py b/tests/test_unit.py
+index aead9ef..13fc149 100644
+--- a/tests/test_unit.py
++++ b/tests/test_unit.py
+@@ -6570,6 +6570,56 @@ class Test02_WithoutPackrat(ppt.TestParseResultsAsserts, TestCase):
+             print(re_match)
+             print(pp_match.value)
+ 
++    def testLocatedWithLeadingWhitespace(self):
++        # Located must report the location where the contained expression starts
++        # matching, and not include any leading whitespace - even if the contained
++        # expression is one that leaves pre-parsing to its own contained expressions,
++        # such as MatchFirst or Or. (Issue #621)
++        abc = pp.Keyword("abc")
++
++        #              0123456789012
++        test_string = "ignored   abc"
++
++        contained_exprs = [
++            ("Keyword", abc),
++            ("MatchFirst", abc | abc),
++            ("Or", abc ^ abc),
++            ("And", abc + pp.Empty()),
++            ("Forward", pp.Forward() << (abc | abc)),
++        ]
++        preceding_exprs = [
++            ("Literal", lambda contained_expr: pp.Literal("ignored")),
++            ("SkipTo", lambda contained_expr: pp.SkipTo(contained_expr, False)),
++        ]
++        for expr_name, contained_expr in contained_exprs:
++            for preceding_name, make_preceding_expr in preceding_exprs:
++                with self.subTest(contained_expr=expr_name, preceded_by=preceding_name):
++                    located = pp.Located(contained_expr)
++                    expr = pp.Suppress(make_preceding_expr(contained_expr)) + located
++                    result = expr.parse_string(test_string)
++                    print(result.dump())
++                    self.assertParseResultsEquals(
++                        result,
++                        [10, ["abc"], 13],
++                        {"locn_start": 10, "locn_end": 13, "value": ["abc"]},
++                    )
++                    self.assertEqual(
++                        "abc",
++                        test_string[result.locn_start : result.locn_end],
++                        "incorrect location calculation",
++                    )
++
++        # Located as the leading expression of an And must also skip leading whitespace
++        result = (pp.Located(abc | abc) + pp.StringEnd()).parse_string("   abc")
++        self.assertParseResultsEquals(result, [3, ["abc"], 6])
++
++        # but if the contained expression leaves whitespace, so must Located
++        leading_ws_not_skipped = pp.Located(
++            (abc | abc).leave_whitespace(recursive=True)
++        )
++        with self.assertRaisesParseException():
++            leading_ws_not_skipped.parse_string("   abc")
++
+     def testPop(self):
+         source = "AAA 123 456 789 234"
+         patt = pp.Word(pp.alphas)("name") + pp.Word(pp.nums) * (1,)

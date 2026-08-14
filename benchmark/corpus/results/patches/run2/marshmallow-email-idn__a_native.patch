@@ -1,0 +1,171 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index bad4e19..6f65986 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -8,6 +8,9 @@ Bug fixes:
+ 
+ - `marshmallow.validate.URL` accepts Internationalized Domain Names (IDNs) (:issue:`2821`).
+   Thanks :user:`touhidurrr` for the report.
++- `marshmallow.validate.Email` accepts Internationalized Domain Names (IDNs) and
++  internationalized local parts (:issue:`2936`).
++  Thanks :user:`touhidurrr` for the report.
+ - Typing: Fix typing of ``netsted`` in `marshmallow.fields.Nested` (:pr:`2935`).
+ 
+ 4.2.3 (2026-03-25)
+diff --git a/src/marshmallow/validate.py b/src/marshmallow/validate.py
+index 3d2ce44..2fb2f2c 100644
+--- a/src/marshmallow/validate.py
++++ b/src/marshmallow/validate.py
+@@ -14,6 +14,10 @@ if typing.TYPE_CHECKING:
+ 
+ _T = typing.TypeVar("_T")
+ 
++#: Character range used to allow non-ASCII characters, e.g. in internationalized
++#: domain names (IDNs), within regexes that are otherwise expressed in ASCII.
++_UNICODE_LETTERS = "\u00a1-\uffff"
++
+ 
+ class Validator(ABC):
+     """Abstract base class for validators.
+@@ -103,23 +107,22 @@ class URL(Validator):
+         def _regex_generator(
+             self, *, relative: bool, absolute: bool, require_tld: bool
+         ) -> typing.Pattern:
+-            unicode_letters = "\u00a1-\uffff"
+             hostname_variants = [
+                 # a normal domain name, expressed in [A-Z0-9] chars (plus unicode letters)
+                 # with hyphens allowed only in the middle
+                 # note that the regex will be compiled with IGNORECASE, so these are upper and lowercase chars
+                 (
+                     r"(?:[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"](?:[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"-]{0,61}[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"])?\.)+"
+                     r"(?:[A-Z"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"]{2,6}\.?|[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"-]{2,}\.?)"
+                 ),
+                 # or the special string 'localhost'
+@@ -133,11 +136,11 @@ class URL(Validator):
+                 # allow dotless hostnames
+                 hostname_variants.append(
+                     r"(?:[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"](?:[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"-]{0,61}[A-Z0-9"
+-                    + unicode_letters
++                    + _UNICODE_LETTERS
+                     + r"])?\.?)"
+                 )
+ 
+@@ -251,8 +254,11 @@ class Email(Validator):
+         interpolated with `{input}`.
+     """
+ 
++    # non-ASCII characters are allowed in the local part (RFC 6531), including
++    # combining marks, which ``\w`` does not match
+     USER_REGEX = re.compile(
+-        r"(^[-!#$%&'*+/=?^`{}|~\w]+(\.[-!#$%&'*+/=?^`{}|~\w]+)*\Z"  # dot-atom
++        r"(^[-!#$%&'*+/=?^`{}|~\w" + _UNICODE_LETTERS + r"]+"
++        r"(\.[-!#$%&'*+/=?^`{}|~\w" + _UNICODE_LETTERS + r"]+)*\Z"  # dot-atom
+         # quoted-string
+         r'|^"([\001-\010\013\014\016-\037!#-\[\]-\177]'
+         r'|\\[\001-\011\013\014\016-\177])*"\Z)',
+@@ -260,9 +266,14 @@ class Email(Validator):
+     )
+ 
+     DOMAIN_REGEX = re.compile(
+-        # domain
+-        r"(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+"
+-        r"(?:[A-Z]{2,6}|[A-Z0-9-]{2,})\Z"
++        # domain, in [A-Z0-9] chars plus unicode letters so that internationalized
++        # domain names (IDNs) are accepted in their unicode form as well as
++        # their punycode form
++        r"(?:[A-Z0-9" + _UNICODE_LETTERS + r"]"
++        r"(?:[A-Z0-9" + _UNICODE_LETTERS + r"-]{0,61}"
++        r"[A-Z0-9" + _UNICODE_LETTERS + r"])?\.)+"
++        r"(?:[A-Z" + _UNICODE_LETTERS + r"]{2,6}"
++        r"|[A-Z0-9" + _UNICODE_LETTERS + r"-]{2,})\Z"
+         # literal form, ipv4 address (SMTP 4.1.3)
+         r"|^\[(25[0-5]|2[0-4]\d|[0-1]?\d?\d)"
+         r"(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\]\Z",
+@@ -292,13 +303,6 @@ class Email(Validator):
+ 
+         if domain_part not in self.DOMAIN_WHITELIST:
+             if not self.DOMAIN_REGEX.match(domain_part):
+-                try:
+-                    domain_part = domain_part.encode("idna").decode("ascii")
+-                except UnicodeError:
+-                    pass
+-                else:
+-                    if self.DOMAIN_REGEX.match(domain_part):
+-                        return value
+                 raise ValidationError(message)
+ 
+         return value
+diff --git a/tests/test_validate.py b/tests/test_validate.py
+index 00fca55..40a71c5 100644
+--- a/tests/test_validate.py
++++ b/tests/test_validate.py
+@@ -368,6 +368,48 @@ def test_email_invalid(invalid_email):
+         validator(invalid_email)
+ 
+ 
++@pytest.mark.parametrize(
++    "valid_email",
++    [
++        "গিটহাব@তৌহিদুর.বাংলা",
++        "user@তৌহিদুর.বাংলা",
++        "গিটহাব@example.com",
++        "संपर्क@डाटामेल.भारत",
++        "квіточка@пошта.укр",
++        "чебурашка@почта-россии.рф",
++        "我買@屋企.香港",
++        "user@münchen.de",
++        # punycode form of the same domain
++        "user@xn--mnchen-3ya.de",
++    ],
++)
++def test_email_idn_valid(valid_email):
++    validator = validate.Email()
++    assert validator(valid_email) == valid_email
++
++
++@pytest.mark.parametrize(
++    "invalid_email",
++    [
++        # hyphens are only allowed in the middle of a label
++        "user@-münchen.de",
++        "user@münchen-.de",
++        # empty labels
++        "user@пример..рф",
++        "user@.рф",
++        # no TLD
++        "user@例",
++        # whitespace is not a letter
++        "us er@пример.рф",
++        "user@пример .рф",
++    ],
++)
++def test_email_idn_invalid(invalid_email):
++    validator = validate.Email()
++    with pytest.raises(ValidationError):
++        validator(invalid_email)
++
++
+ def test_email_custom_message():
+     validator = validate.Email(error="{input} is not an email addy.")
+     with pytest.raises(ValidationError, match="invalid is not an email addy."):

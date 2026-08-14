@@ -1,0 +1,202 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 144ff9af..a653aef6 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -10,6 +10,13 @@ Features:
+ - Typing: Improve type coverage of `marshmallow.Schema.SchemaMeta` (:pr:`2761`).
+ - Typing: `marshmallow.Schema.loads` parameter allows `bytes` and `bytesarray` (:pr:`2769`).
+ 
++Bug fixes:
++
++- Errors reported for a specific field by a `validates_schema <marshmallow.validates_schema>`
++  method are keyed by the field's ``data_key``, if it has one. This makes them consistent
++  with field errors and errors raised by `validates <marshmallow.validates>` methods
++  (:issue:`2170`).
++
+ Documentation:
+ 
+ - Add :doc:`upgrading guides <upgrading>` for 3.24 and 3.26 (:pr:`2780`).
+diff --git a/docs/extending.rst b/docs/extending.rst
+index be3a277b..bc7bb68a 100644
+--- a/docs/extending.rst
++++ b/docs/extending.rst
+@@ -295,6 +295,34 @@ When multiple schema-leval validator return errors, the error structures are mer
+     #     ]
+     #    }
+ 
++Fields are referred to by name, but, as with any other validation error, the resulting
++message is keyed by the field's ``data_key``, if it has one.
++
++.. code-block:: python
++
++    from marshmallow import Schema, fields, validates_schema, ValidationError
++
++
++    class UserSchema(Schema):
++        first_name = fields.String(data_key="firstName")
++
++        @validates_schema
++        def validate_first_name(self, data, **kwargs):
++            if not data["first_name"].istitle():
++                raise ValidationError("Must be capitalized.", "first_name")
++
++
++    schema = UserSchema()
++    try:
++        schema.load({"firstName": "monty"})
++    except ValidationError as err:
++        err.messages
++    # => {'firstName': ['Must be capitalized.']}
++
++.. versionchanged:: 3.26.0
++    Errors reported on a specific field are keyed by ``data_key``.
++    Earlier versions keyed them by field name.
++
+ Using original input data
+ -------------------------
+ 
+diff --git a/docs/upgrading.rst b/docs/upgrading.rst
+index caa56c1b..8edc2127 100644
+--- a/docs/upgrading.rst
++++ b/docs/upgrading.rst
+@@ -6,6 +6,39 @@ This section documents migration paths to new releases.
+ Upgrading to 3.26
+ +++++++++++++++++
+ 
++Schema-level validator errors are keyed by ``data_key``
++*******************************************************
++
++Errors reported by a `validates_schema <marshmallow.validates_schema>` method for a
++specific field are now keyed by that field's ``data_key``, if it has one. This makes
++them consistent with errors raised by fields and by
++`validates <marshmallow.validates>` methods, which have always used ``data_key``.
++
++.. code-block:: python
++
++    from marshmallow import Schema, ValidationError, fields, validates_schema
++
++
++    class MySchema(Schema):
++        ip_addresses = fields.String(data_key="ipAddresses")
++
++        @validates_schema
++        def validate_ip_addresses(self, data, **kwargs):
++            raise ValidationError("Invalid IP addresses.", "ip_addresses")
++
++
++    # <3.26
++    MySchema().validate({"ipAddresses": "invalid"})
++    # {'ip_addresses': ['Invalid IP addresses.']}
++
++    # >=3.26
++    MySchema().validate({"ipAddresses": "invalid"})
++    # {'ipAddresses': ['Invalid IP addresses.']}
++
++Note that the argument passed to `ValidationError <marshmallow.exceptions.ValidationError>`
++(or used as a key in its error dict) is still the *field name*, not the ``data_key``.
++Only the key of the resulting error message changes.
++
+ ``ordered`` is deprecated
+ *************************
+ 
+diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py
+index 6009a436..4a1f2d30 100644
+--- a/src/marshmallow/schema.py
++++ b/src/marshmallow/schema.py
+@@ -26,8 +26,8 @@ from marshmallow.decorators import (
+     VALIDATES,
+     VALIDATES_SCHEMA,
+ )
+-from marshmallow.error_store import ErrorStore
+-from marshmallow.exceptions import StringNotCollectionError, ValidationError
++from marshmallow.error_store import ErrorStore, merge_errors
++from marshmallow.exceptions import SCHEMA, StringNotCollectionError, ValidationError
+ from marshmallow.orderedset import OrderedSet
+ from marshmallow.utils import (
+     EXCLUDE,
+@@ -840,7 +840,37 @@ class Schema(base.SchemaABC, metaclass=SchemaMeta):
+             else:
+                 validator_func(output, partial=partial, many=many)
+         except ValidationError as err:
+-            error_store.store_error(err.messages, err.field_name, index=index)
++            messages, field_name = self._normalize_error_keys(
++                err.messages, err.field_name
++            )
++            error_store.store_error(messages, field_name, index=index)
++
++    def _load_data_key(self, field_name: str) -> str:
++        """Return the key under which errors for ``field_name`` are stored.
++
++        Errors are keyed by ``data_key`` when the field defines one, so that
++        schema-level validators report errors under the same key as
++        field-level validation.
++        """
++        field_obj = self.load_fields.get(field_name)
++        if field_obj is not None and field_obj.data_key is not None:
++            return field_obj.data_key
++        return field_name
++
++    def _normalize_error_keys(self, messages, field_name: str):
++        """Translate the field names in a schema-level validator's error to data keys."""
++        if field_name != SCHEMA:
++            return messages, self._load_data_key(field_name)
++        if isinstance(messages, dict):
++            normalized: dict[str, typing.Any] = {}
++            for key, value in messages.items():
++                data_key = self._load_data_key(key) if isinstance(key, str) else key
++                if data_key in normalized:
++                    normalized[data_key] = merge_errors(normalized[data_key], value)
++                else:
++                    normalized[data_key] = value
++            return normalized, field_name
++        return messages, field_name
+ 
+     def validate(
+         self,
+diff --git a/tests/test_decorators.py b/tests/test_decorators.py
+index a97bf591..d10c5be4 100644
+--- a/tests/test_decorators.py
++++ b/tests/test_decorators.py
+@@ -639,6 +639,42 @@ class TestValidatesSchemaDecorator:
+         assert errors["bar"]["baz"] == "Non-matching value"
+         assert errors["bam"] == "Value should be less than foo"
+ 
++    # Regression test for https://github.com/marshmallow-code/marshmallow/issues/2170
++    def test_field_errors_are_keyed_by_data_key(self):
++        class MySchema(Schema):
++            foo = fields.Int(data_key="Foo")
++            bar = fields.Int(data_key="Bar")
++
++            @validates_schema(skip_on_field_errors=False)
++            def validate_foo(self, data, **kwargs):
++                raise ValidationError("Invalid foo", "foo")
++
++            @validates_schema(skip_on_field_errors=False)
++            def validate_bar(self, data, **kwargs):
++                raise ValidationError({"bar": ["Invalid bar"]})
++
++            @validates("foo")
++            def validate_foo_field(self, value):
++                raise ValidationError("Invalid foo field")
++
++        errors = MySchema().validate({"Foo": 1, "Bar": 2})
++        assert errors == {
++            "Foo": ["Invalid foo field", "Invalid foo"],
++            "Bar": ["Invalid bar"],
++        }
++
++    # Regression test for https://github.com/marshmallow-code/marshmallow/issues/2170
++    def test_field_errors_are_keyed_by_data_key_many(self):
++        class MySchema(Schema):
++            foo = fields.Int(data_key="Foo")
++
++            @validates_schema
++            def validate_foo(self, data, **kwargs):
++                raise ValidationError("Invalid foo", "foo")
++
++        errors = MySchema(many=True).validate([{"Foo": 1}, {"Foo": 2}])
++        assert errors == {0: {"Foo": ["Invalid foo"]}, 1: {"Foo": ["Invalid foo"]}}
++
+     # https://github.com/marshmallow-code/marshmallow/issues/273
+     def test_allow_arbitrary_field_names_in_error(self):
+         class MySchema(Schema):

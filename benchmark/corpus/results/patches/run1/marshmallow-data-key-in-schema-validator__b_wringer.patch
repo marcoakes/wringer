@@ -1,0 +1,144 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 144ff9af..e5277fc6 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -10,6 +10,11 @@ Features:
+ - Typing: Improve type coverage of `marshmallow.Schema.SchemaMeta` (:pr:`2761`).
+ - Typing: `marshmallow.Schema.loads` parameter allows `bytes` and `bytesarray` (:pr:`2769`).
+ 
++Bug fixes:
++
++- Respect ``data_key`` when schema validators raise a `ValidationError <marshmallow.exceptions.ValidationError>`
++  with a ``field_name`` argument (:issue:`2170`). Thanks :user:`matejsp` for reporting.
++
+ Documentation:
+ 
+ - Add :doc:`upgrading guides <upgrading>` for 3.24 and 3.26 (:pr:`2780`).
+diff --git a/docs/extending.rst b/docs/extending.rst
+index be3a277b..feb9f48b 100644
+--- a/docs/extending.rst
++++ b/docs/extending.rst
+@@ -247,6 +247,14 @@ It is possible to report errors on fields and subfields using a `dict`.
+ 
+ When multiple schema-leval validator return errors, the error structures are merged together in the :exc:`ValidationError <marshmallow.exceptions.ValidationError>` raised at the end of the validation.
+ 
++.. note::
++
++    A `dict` passed to :exc:`ValidationError <marshmallow.exceptions.ValidationError>`
++    is merged into the error structure as-is, so its keys need to be ``data_key``\s
++    for fields that define one. To let marshmallow resolve the ``data_key`` for you,
++    pass the field name as the ``field_name`` argument instead, e.g.
++    ``raise ValidationError("field_b must be greater than field_a", "field_b")``.
++
+ .. code-block:: python
+ 
+     from marshmallow import Schema, fields, validates_schema, ValidationError
+diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py
+index 6009a436..0d8d73e6 100644
+--- a/src/marshmallow/schema.py
++++ b/src/marshmallow/schema.py
+@@ -27,7 +27,7 @@ from marshmallow.decorators import (
+     VALIDATES_SCHEMA,
+ )
+ from marshmallow.error_store import ErrorStore
+-from marshmallow.exceptions import StringNotCollectionError, ValidationError
++from marshmallow.exceptions import SCHEMA, StringNotCollectionError, ValidationError
+ from marshmallow.orderedset import OrderedSet
+ from marshmallow.utils import (
+     EXCLUDE,
+@@ -840,7 +840,26 @@ class Schema(base.SchemaABC, metaclass=SchemaMeta):
+             else:
+                 validator_func(output, partial=partial, many=many)
+         except ValidationError as err:
+-            error_store.store_error(err.messages, err.field_name, index=index)
++            field_name = err.field_name
++            data_key: str
++            if field_name == SCHEMA:
++                data_key = SCHEMA
++            else:
++                field_obj: Field | None = None
++                try:
++                    field_obj = self.fields[field_name]
++                except KeyError:
++                    if field_name in self.declared_fields:
++                        field_obj = self.declared_fields[field_name]
++                if field_obj:
++                    data_key = (
++                        field_obj.data_key
++                        if field_obj.data_key is not None
++                        else field_name
++                    )
++                else:
++                    data_key = field_name
++            error_store.store_error(err.messages, data_key, index=index)
+ 
+     def validate(
+         self,
+diff --git a/tests/test_decorators.py b/tests/test_decorators.py
+index a97bf591..86f586b0 100644
+--- a/tests/test_decorators.py
++++ b/tests/test_decorators.py
+@@ -450,6 +450,63 @@ class TestValidatesSchemaDecorator:
+         assert 0 in errors["nested"]
+         assert errors["nested"][0] == {"foo": ["This will never work."]}
+ 
++    # Regression test for https://github.com/marshmallow-code/marshmallow/issues/2170
++    def test_validator_with_data_key(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++
++            @validates_schema
++            def validate_schema(self, data, **kwargs):
++                raise ValidationError("Invalid IP addresses.", "ip_addresses")
++
++        schema = MySchema()
++        assert schema.validate({"ipAddresses": "127.0.0.1"}) == {
++            "ipAddresses": ["Invalid IP addresses."]
++        }
++        assert schema.validate([{"ipAddresses": "127.0.0.1"}], many=True) == {
++            0: {"ipAddresses": ["Invalid IP addresses."]}
++        }
++
++    # Schema- and field-level validators store errors under the same key
++    def test_validator_with_data_key_consistent_with_field_validator(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++
++            @validates_schema(skip_on_field_errors=False)
++            def validate_schema(self, data, **kwargs):
++                raise ValidationError("Schema-level error.", "ip_addresses")
++
++            @validates("ip_addresses")
++            def validate_ip_addresses(self, value):
++                raise ValidationError("Field-level error.")
++
++        errors = MySchema().validate({"ipAddresses": "127.0.0.1"})
++        assert errors == {"ipAddresses": ["Field-level error.", "Schema-level error."]}
++
++    def test_validator_with_data_key_on_excluded_field(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++            name = fields.String()
++
++            @validates_schema
++            def validate_schema(self, data, **kwargs):
++                raise ValidationError("Invalid IP addresses.", "ip_addresses")
++
++        schema = MySchema(only=("name",))
++        assert schema.validate({"name": "foo"}) == {
++            "ipAddresses": ["Invalid IP addresses."]
++        }
++
++    def test_validator_with_unknown_field_name(self):
++        class MySchema(Schema):
++            foo = fields.String(data_key="fooName")
++
++            @validates_schema
++            def validate_schema(self, data, **kwargs):
++                raise ValidationError("Nope.", "bar")
++
++        assert MySchema().validate({"fooName": "1"}) == {"bar": ["Nope."]}
++
+     @pytest.mark.parametrize("data", ([{"foo": 1, "bar": 2}],))
+     @pytest.mark.parametrize(
+         ("pass_many", "expected_data", "expected_original_data"),

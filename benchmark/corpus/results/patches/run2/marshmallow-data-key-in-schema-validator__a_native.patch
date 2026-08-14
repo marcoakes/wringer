@@ -1,0 +1,214 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 144ff9a..36ff356 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -10,6 +10,13 @@ Features:
+ - Typing: Improve type coverage of `marshmallow.Schema.SchemaMeta` (:pr:`2761`).
+ - Typing: `marshmallow.Schema.loads` parameter allows `bytes` and `bytesarray` (:pr:`2769`).
+ 
++Bug fixes:
++
++- Field names in errors raised by `validates_schema <marshmallow.decorators.validates_schema>`
++  methods are translated to their ``data_key``, so that they are keyed consistently with
++  field-level errors (:issue:`1755`). Keys that don't match a field name, including a
++  ``data_key`` passed directly, are still stored as-is.
++
+ Documentation:
+ 
+ - Add :doc:`upgrading guides <upgrading>` for 3.24 and 3.26 (:pr:`2780`).
+diff --git a/docs/extending.rst b/docs/extending.rst
+index be3a277..ce950ba 100644
+--- a/docs/extending.rst
++++ b/docs/extending.rst
+@@ -295,6 +295,33 @@ When multiple schema-leval validator return errors, the error structures are mer
+     #     ]
+     #    }
+ 
++Errors are keyed by ``data_key``, just like field-level errors, so a schema-level
++validator refers to a field by its name, not by its ``data_key``.
++
++.. code-block:: python
++
++    from marshmallow import Schema, fields, validates_schema, ValidationError
++
++
++    class NumberSchema(Schema):
++        field_a = fields.Integer(data_key="fieldA")
++
++        @validates_schema
++        def validate_field_a(self, data, **kwargs):
++            if data["field_a"] < 0:
++                raise ValidationError("field_a must be positive", "field_a")
++
++
++    schema = NumberSchema()
++    try:
++        schema.load({"fieldA": -1})
++    except ValidationError as err:
++        err.messages
++    # => {'fieldA': ['field_a must be positive']}
++
++Keys that don't match a field name are stored as-is, which allows reporting errors
++on arbitrary keys.
++
+ Using original input data
+ -------------------------
+ 
+diff --git a/src/marshmallow/schema.py b/src/marshmallow/schema.py
+index 6009a43..60290ef 100644
+--- a/src/marshmallow/schema.py
++++ b/src/marshmallow/schema.py
+@@ -26,8 +26,8 @@ from marshmallow.decorators import (
+     VALIDATES,
+     VALIDATES_SCHEMA,
+ )
+-from marshmallow.error_store import ErrorStore
+-from marshmallow.exceptions import StringNotCollectionError, ValidationError
++from marshmallow.error_store import ErrorStore, merge_errors
++from marshmallow.exceptions import SCHEMA, StringNotCollectionError, ValidationError
+ from marshmallow.orderedset import OrderedSet
+ from marshmallow.utils import (
+     EXCLUDE,
+@@ -822,6 +822,19 @@ class Schema(base.SchemaABC, metaclass=SchemaMeta):
+         data = self.opts.render_module.loads(json_data, **kwargs)
+         return self.load(data, many=many, partial=partial, unknown=unknown)
+ 
++    def _error_key(self, field_name):
++        """Return the key that errors for ``field_name`` should be stored under.
++
++        Field names are translated to their ``data_key`` so that errors raised by
++        schema-level validators are keyed like field-level errors. Names that don't
++        belong to a load field -- `SCHEMA <marshmallow.exceptions.SCHEMA>`, a
++        ``data_key`` passed directly, or an arbitrary key -- pass through unchanged.
++        """
++        field_obj = self.load_fields.get(field_name)
++        if field_obj is None or field_obj.data_key is None:
++            return field_name
++        return field_obj.data_key
++
+     def _run_validator(
+         self,
+         validator_func,
+@@ -840,7 +853,23 @@ class Schema(base.SchemaABC, metaclass=SchemaMeta):
+             else:
+                 validator_func(output, partial=partial, many=many)
+         except ValidationError as err:
+-            error_store.store_error(err.messages, err.field_name, index=index)
++            if err.field_name != SCHEMA:
++                error_store.store_error(
++                    err.messages, self._error_key(err.field_name), index=index
++                )
++            elif isinstance(err.messages, dict):
++                # Top-level keys name fields, so translate them to their data_key.
++                messages = {}
++                for key, value in err.messages.items():
++                    error_key = self._error_key(key)
++                    messages[error_key] = (
++                        merge_errors(messages[error_key], value)
++                        if error_key in messages
++                        else value
++                    )
++                error_store.store_error(messages, index=index)
++            else:
++                error_store.store_error(err.messages, index=index)
+ 
+     def validate(
+         self,
+diff --git a/tests/test_decorators.py b/tests/test_decorators.py
+index a97bf59..027f8a9 100644
+--- a/tests/test_decorators.py
++++ b/tests/test_decorators.py
+@@ -649,6 +649,93 @@ class TestValidatesSchemaDecorator:
+         errors = MySchema().validate({})
+         assert errors["arbitrary_key"] == ["Error message"]
+ 
++    # https://github.com/marshmallow-code/marshmallow/issues/1755
++    def test_field_names_in_error_are_translated_to_data_keys(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(required=True, data_key="ipAddresses")
++
++            @validates_schema(skip_on_field_errors=False)
++            def validate_with_dict(self, data, **kwargs):
++                raise ValidationError({"ip_addresses": "Dict error."})
++
++            @validates_schema(skip_on_field_errors=False)
++            def validate_with_field_name(self, data, **kwargs):
++                raise ValidationError("Field name error.", field_name="ip_addresses")
++
++            @validates("ip_addresses")
++            def validate_ip_addresses(self, data):
++                raise ValidationError("Field validator error.")
++
++        errors = MySchema().validate({"ipAddresses": "192.168.0.1"})
++        # All errors are reported under the same key, whichever validator raised them
++        assert errors == {
++            "ipAddresses": [
++                "Field validator error.",
++                "Dict error.",
++                "Field name error.",
++            ]
++        }
++
++    def test_data_key_in_error_is_left_as_is(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++
++            @validates_schema
++            def validate_with_dict(self, data, **kwargs):
++                raise ValidationError({"ipAddresses": ["Dict error."]})
++
++            @validates_schema
++            def validate_with_field_name(self, data, **kwargs):
++                raise ValidationError("Field name error.", field_name="ipAddresses")
++
++        assert MySchema().validate({}) == {
++            "ipAddresses": ["Dict error.", "Field name error."]
++        }
++
++    def test_field_name_and_data_key_errors_are_merged(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++
++            @validates_schema
++            def validator(self, data, **kwargs):
++                raise ValidationError(
++                    {"ip_addresses": ["Error 1"], "ipAddresses": ["Error 2"]}
++                )
++
++        assert MySchema().validate({}) == {"ipAddresses": ["Error 1", "Error 2"]}
++
++    def test_keys_without_a_data_key_are_left_as_is(self):
++        class MySchema(Schema):
++            foo = fields.Int()
++            bar = fields.Int(data_key="Bar")
++
++            @validates_schema
++            def validator(self, data, **kwargs):
++                raise ValidationError(
++                    {"foo": ["Foo error"], "arbitrary_key": ["Arbitrary error"]}
++                )
++
++        assert MySchema().validate({}) == {
++            "foo": ["Foo error"],
++            "arbitrary_key": ["Arbitrary error"],
++        }
++
++    def test_field_names_in_error_are_translated_to_data_keys_many(self):
++        class MySchema(Schema):
++            ip_addresses = fields.String(data_key="ipAddresses")
++
++            @validates_schema
++            def validator(self, data, **kwargs):
++                raise ValidationError("Error message", field_name="ip_addresses")
++
++        errors = MySchema(many=True).validate(
++            [{"ipAddresses": "192.168.0.1"}, {"ipAddresses": "192.168.0.2"}]
++        )
++        assert errors == {
++            0: {"ipAddresses": ["Error message"]},
++            1: {"ipAddresses": ["Error message"]},
++        }
++
+     def test_skip_on_field_errors(self):
+         class MySchema(Schema):
+             foo = fields.Int(required=True, validate=lambda n: n == 3)

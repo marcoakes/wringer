@@ -1,0 +1,136 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 0af01f6..144d375 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,9 @@ Unreleased
+ -   Zsh completion scripts parse correctly on Windows. :issue:`3277`
+ -   Shell completion of `Choice` `Enum` values produces a valid completion
+     result. :issue:`3015`
++-   :meth:`Context.get_parameter_source` again returns the parameter's source
++    while its value is being converted by :meth:`ParamType.convert` or handled
++    by a parameter callback, instead of ``None``. :issue:`3458`
+ 
+ 
+ Version 8.4.0
+diff --git a/src/click/core.py b/src/click/core.py
+index 3544c03..0a65445 100644
+--- a/src/click/core.py
++++ b/src/click/core.py
+@@ -2609,6 +2609,12 @@ class Parameter(ABC):
+         with augment_usage_errors(ctx, param=self):
+             value, source = self.consume_value(ctx, opts)
+ 
++            # Publish our source before the value is processed, so that
++            # ``ParamType.convert`` and callbacks can look it up with
++            # ``Context.get_parameter_source``. If another parameter turns out to own
++            # the slot, its source is restored after processing.
++            ctx.set_parameter_source(self.name, source)
++
+             # Display a deprecation warning if necessary.
+             if (
+                 self.deprecated
+@@ -2654,14 +2660,14 @@ class Parameter(ABC):
+         )
+ 
+         if is_winner:
+-            ctx.set_parameter_source(self.name, source)
+             if self.expose_value:
+                 ctx.params[self.name] = value
+                 ctx._param_default_explicit[self.name] = self._default_explicit
+-        elif existing_source is None:
+-            # Nothing has claimed the slot yet. Record at least our source so downstream
+-            # lookups don't return ``None``.
+-            ctx.set_parameter_source(self.name, source)
++        elif existing_source is not None:
++            # Another parameter owns the slot, so hand the source back to it. When
++            # nothing has claimed the slot yet, our provisional source stays in place
++            # so downstream lookups don't return ``None``.
++            ctx.set_parameter_source(self.name, existing_source)
+ 
+         return value, args
+ 
+diff --git a/tests/test_context.py b/tests/test_context.py
+index e35c532..8149955 100644
+--- a/tests/test_context.py
++++ b/tests/test_context.py
+@@ -774,6 +774,80 @@ def test_parameter_source(runner, option_args, invoke_args, expect):
+     assert rv.return_value == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("invoke_args", "expect"),
++    [
++        pytest.param({}, ParameterSource.DEFAULT, id="default"),
++        pytest.param({"args": ["-o", "1"]}, ParameterSource.COMMANDLINE, id="cli"),
++        pytest.param(
++            {"default_map": {"option": "1"}}, ParameterSource.DEFAULT_MAP, id="map"
++        ),
++        pytest.param(
++            {"envvar": "NAME", "env": {"NAME": "1"}},
++            ParameterSource.ENVIRONMENT,
++            id="envvar",
++        ),
++    ],
++)
++def test_parameter_source_during_convert(runner, invoke_args, expect):
++    """The source is available while the value is being converted by the type.
++
++    https://github.com/pallets/click/issues/3458
++    """
++    envvar = invoke_args.pop("envvar", None)
++
++    class Source(click.ParamType):
++        name = "source"
++
++        def convert(self, value, param, ctx):
++            return ctx.get_parameter_source(param.name)
++
++    @click.command()
++    @click.option("-o", "--option", type=Source(), default="1", envvar=envvar)
++    def cli(option):
++        return option
++
++    rv = runner.invoke(cli, standalone_mode=False, **invoke_args)
++    assert rv.return_value == expect
++
++
++def test_parameter_source_during_callback(runner):
++    """The source is also available to a parameter's callback."""
++
++    def callback(ctx, param, value):
++        return value, ctx.get_parameter_source(param.name)
++
++    @click.command()
++    @click.option("-o", "--option", default=1, callback=callback)
++    def cli(option):
++        return option
++
++    assert runner.invoke(cli, standalone_mode=False).return_value == (
++        1,
++        ParameterSource.DEFAULT,
++    )
++    rv = runner.invoke(cli, args=["-o", "2"], standalone_mode=False)
++    assert rv.return_value == (2, ParameterSource.COMMANDLINE)
++
++
++def test_parameter_source_feature_switch_group_not_clobbered(runner):
++    """The provisional source set before conversion must not overwrite the source
++    of the parameter that actually owns the shared slot."""
++
++    @click.command()
++    @click.option("--upper", "transform", flag_value="upper", default=True)
++    @click.option("--lower", "transform", flag_value="lower")
++    @click.pass_context
++    def cli(ctx, transform):
++        return transform, ctx.get_parameter_source("transform")
++
++    rv = runner.invoke(cli, args=["--lower"], standalone_mode=False)
++    assert rv.return_value == ("lower", ParameterSource.COMMANDLINE)
++
++    rv = runner.invoke(cli, standalone_mode=False)
++    assert rv.return_value == ("upper", ParameterSource.DEFAULT)
++
++
+ def test_propagate_opt_prefixes():
+     parent = click.Context(click.Command("test"))
+     parent._opt_prefixes = {"-", "--", "!"}

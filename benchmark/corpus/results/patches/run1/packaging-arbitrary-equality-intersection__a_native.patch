@@ -1,0 +1,77 @@
+diff --git a/CHANGELOG.rst b/CHANGELOG.rst
+index 63333a7..24a8802 100644
+--- a/CHANGELOG.rst
++++ b/CHANGELOG.rst
+@@ -5,6 +5,9 @@ Changelog
+ ~~~~~~~~~~~~
+ 
+ * Change project license metadata to use an SPDX license expression.
++* Do not canonicalize the version of arbitrary equality (``===``) specifiers when
++  comparing them, so that a ``SpecifierSet`` such as ``===1.0,===1.0.0`` keeps
++  both specifiers and matches their intersection. (:issue:`943`)
+ 
+ 
+ 25.0 - 2025-04-19
+diff --git a/src/packaging/specifiers.py b/src/packaging/specifiers.py
+index fb5811f..9a9d1b2 100644
+--- a/src/packaging/specifiers.py
++++ b/src/packaging/specifiers.py
+@@ -322,6 +322,13 @@ class Specifier(BaseSpecifier):
+ 
+     @property
+     def _canonical_spec(self) -> tuple[str, str]:
++        # Arbitrary equality matches the version string as-is (ignoring case),
++        # so two such specifiers are only equivalent if their versions are
++        # identical. Canonicalizing here would conflate specifiers that match
++        # different sets of versions, e.g. ===1.0 and ===1.0.0.
++        if self._spec[0] == "===":
++            return self._spec[0], self._spec[1].lower()
++
+         canonical_version = canonicalize_version(
+             self._spec[1],
+             strip_trailing_zero=(self._spec[0] != "~="),
+diff --git a/tests/test_specifiers.py b/tests/test_specifiers.py
+index 8388684..27b13ce 100644
+--- a/tests/test_specifiers.py
++++ b/tests/test_specifiers.py
+@@ -740,6 +740,17 @@ class TestSpecifier:
+     def test_specifier_hash_for_compatible_operator(self):
+         assert hash(Specifier("~=1.18.0")) != hash(Specifier("~=1.18"))
+ 
++    def test_specifier_equal_for_arbitrary_operator(self):
++        # Arbitrary equality is not canonicalized, ===1.0 and ===1.0.0 match
++        # different versions, but it does ignore case.
++        assert Specifier("===1.0") != Specifier("===1.0.0")
++        assert Specifier("===1.0") == Specifier("===1.0")
++        assert Specifier("===Lolwat") == Specifier("===lolwat")
++
++    def test_specifier_hash_for_arbitrary_operator(self):
++        assert hash(Specifier("===1.0")) != hash(Specifier("===1.0.0"))
++        assert hash(Specifier("===Lolwat")) == hash(Specifier("===lolwat"))
++
+ 
+ class TestSpecifierSet:
+     @pytest.mark.parametrize("version", VERSIONS)
+@@ -1229,6 +1240,22 @@ class TestSpecifierSet:
+         kwargs = {"prereleases": prereleases} if prereleases is not None else {}
+         assert list(spec.filter(input, **kwargs)) == expected
+ 
++    def test_filter_arbitrary_equality_intersection(self):
++        """
++        Test that a set of arbitrary equality specifiers is their intersection.
++
++        Two arbitrary equality specifiers can match different versions, so the
++        set must not collapse them into a single specifier.
++        """
++        versions = ["1.0", "1.0.0"]
++
++        assert list(SpecifierSet("===1.0").filter(versions)) == ["1.0"]
++        assert list(SpecifierSet("===1.0.0").filter(versions)) == ["1.0.0"]
++        assert list(SpecifierSet("===1.0,===1.0.0").filter(versions)) == []
++
++        assert not SpecifierSet("===1.0,===1.0.0").contains("1.0")
++        assert not SpecifierSet("===1.0,===1.0.0").contains("1.0.0")
++
+     @pytest.mark.parametrize(
+         ("specifier", "prereleases", "version", "expected"),
+         [

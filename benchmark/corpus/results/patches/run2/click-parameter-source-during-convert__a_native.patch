@@ -1,0 +1,204 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 0af01f6..1a3b4b9 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,10 @@ Unreleased
+ -   Zsh completion scripts parse correctly on Windows. :issue:`3277`
+ -   Shell completion of `Choice` `Enum` values produces a valid completion
+     result. :issue:`3015`
++-   :meth:`Context.get_parameter_source` no longer returns ``None`` when
++    called from :meth:`ParamType.convert` or from a parameter's callback.
++    The source is recorded before the value is processed again.
++    :issue:`3458`
+ 
+ 
+ Version 8.4.0
+diff --git a/src/click/core.py b/src/click/core.py
+index 3544c03..0ba3e9f 100644
+--- a/src/click/core.py
++++ b/src/click/core.py
+@@ -2609,6 +2609,13 @@ class Parameter(ABC):
+         with augment_usage_errors(ctx, param=self):
+             value, source = self.consume_value(ctx, opts)
+ 
++            # Record the source before the value is processed, so that
++            # ``Context.get_parameter_source`` reports it to the code that runs during
++            # processing, i.e. ``ParamType.convert()`` and the parameter's callback. If
++            # we end up losing the arbitration below, the previous source is restored.
++            # See: https://github.com/pallets/click/issues/3458
++            ctx.set_parameter_source(self.name, source)
++
+             # Display a deprecation warning if necessary.
+             if (
+                 self.deprecated
+@@ -2654,14 +2661,14 @@ class Parameter(ABC):
+         )
+ 
+         if is_winner:
+-            ctx.set_parameter_source(self.name, source)
+             if self.expose_value:
+                 ctx.params[self.name] = value
+                 ctx._param_default_explicit[self.name] = self._default_explicit
+-        elif existing_source is None:
+-            # Nothing has claimed the slot yet. Record at least our source so downstream
+-            # lookups don't return ``None``.
+-            ctx.set_parameter_source(self.name, source)
++        elif existing_source is not None:
++            # The slot belongs to another parameter: undo the source we tentatively
++            # recorded above and give it back its own. If no source was recorded yet we
++            # keep ours, so that downstream lookups don't return ``None``.
++            ctx.set_parameter_source(self.name, existing_source)
+ 
+         return value, args
+ 
+diff --git a/tests/test_context.py b/tests/test_context.py
+index e35c532..9493d8e 100644
+--- a/tests/test_context.py
++++ b/tests/test_context.py
+@@ -774,6 +774,146 @@ def test_parameter_source(runner, option_args, invoke_args, expect):
+     assert rv.return_value == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("option_args", "invoke_args", "expect"),
++    [
++        pytest.param({}, {}, ParameterSource.DEFAULT, id="default"),
++        pytest.param(
++            {},
++            {"default_map": {"option": "1"}},
++            ParameterSource.DEFAULT_MAP,
++            id="default_map",
++        ),
++        pytest.param(
++            {},
++            {"args": ["-o", "1"]},
++            ParameterSource.COMMANDLINE,
++            id="commandline",
++        ),
++        pytest.param(
++            {"envvar": "NAME"},
++            {"env": {"NAME": "1"}},
++            ParameterSource.ENVIRONMENT,
++            id="environment",
++        ),
++    ],
++)
++def test_parameter_source_during_convert(runner, option_args, invoke_args, expect):
++    """The source is available to ``ParamType.convert()``.
++
++    Regression test for https://github.com/pallets/click/issues/3458
++    """
++    seen = []
++
++    class Source(click.ParamType):
++        name = "source"
++
++        def convert(self, value, param, ctx):
++            seen.append(ctx.get_parameter_source(param.name))
++            return value
++
++    @click.command()
++    @click.option("-o", "--option", type=Source(), default="1", **option_args)
++    def cli(option):
++        pass
++
++    result = runner.invoke(cli, **invoke_args)
++    assert result.exit_code == 0, result.output
++    assert seen == [expect]
++
++
++def test_parameter_source_during_convert_prompt(runner):
++    """A prompted value is converted twice: once to validate the answer while
++    prompting, and once when the value is processed. The source is only known for the
++    second one, which has been the case since well before
++    https://github.com/pallets/click/issues/3458
++    """
++    seen = []
++
++    class Source(click.ParamType):
++        name = "source"
++
++        def convert(self, value, param, ctx):
++            seen.append(ctx.get_parameter_source(param.name))
++            return value
++
++    @click.command()
++    @click.option("-o", "--option", type=Source(), default="1", prompt=True)
++    def cli(option):
++        pass
++
++    result = runner.invoke(cli, input="2\n")
++    assert result.exit_code == 0, result.output
++    assert seen == [None, ParameterSource.PROMPT]
++
++
++def test_parameter_source_during_callback(runner):
++    """The source is available to a parameter's callback.
++
++    Regression test for https://github.com/pallets/click/issues/3458
++    """
++    seen = []
++
++    def callback(ctx, param, value):
++        seen.append(ctx.get_parameter_source(param.name))
++        return value
++
++    @click.command()
++    @click.option("-o", "--option", default="1", callback=callback)
++    def cli(option):
++        pass
++
++    result = runner.invoke(cli, ["-o", "2"])
++    assert result.exit_code == 0, result.output
++    assert seen == [ParameterSource.COMMANDLINE]
++
++
++@pytest.mark.parametrize("swap", [False, True], ids=["default-first", "envvar-first"])
++def test_parameter_source_during_convert_in_group(runner, swap):
++    """Each option of a group sharing one variable name sees its own incoming source.
++
++    Once parsing is over, the recorded source is the one of the option that won the
++    shared slot, whatever the order the options are declared in.
++
++    Regression tests for https://github.com/pallets/click/issues/3458 and
++    https://github.com/pallets/click/issues/3403
++    """
++    seen = {}
++
++    class Source(click.ParamType):
++        name = "source"
++
++        def convert(self, value, param, ctx):
++            seen[param.opts[0]] = ctx.get_parameter_source(param.name)
++            return value
++
++    @click.command()
++    @click.pass_context
++    def cli(ctx, shared):
++        click.echo(f"{shared} {ctx.get_parameter_source('shared').name}", nl=False)
++
++    decorators = [
++        click.option("--alpha", "shared", type=Source(), default="alpha-default"),
++        click.option("--beta", "shared", type=Source(), envvar="BETA"),
++    ]
++
++    if swap:
++        decorators.reverse()
++
++    for decorator in decorators:
++        cli = decorator(cli)
++
++    result = runner.invoke(cli, env={"BETA": "beta-env"})
++    assert result.exit_code == 0, result.output
++    # ``--alpha`` only has its default to offer, while ``--beta`` picks up the
++    # environment variable and so wins the slot.
++    assert seen == {
++        "--alpha": ParameterSource.DEFAULT,
++        "--beta": ParameterSource.ENVIRONMENT,
++    }
++    assert result.output == "beta-env ENVIRONMENT"
++
++
+ def test_propagate_opt_prefixes():
+     parent = click.Context(click.Command("test"))
+     parent._opt_prefixes = {"-", "--", "!"}

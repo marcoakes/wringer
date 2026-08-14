@@ -1,0 +1,187 @@
+diff --git a/CHANGES b/CHANGES
+index 49d881f..b32d342 100644
+--- a/CHANGES
++++ b/CHANGES
+@@ -29,6 +29,16 @@ Version 3.3.3 - in development
+ ------------------------------
+ - Adding support for Python 3.15.
+ 
++- Fixed `QuotedString` silently discarding white space in its quote strings, so
++  that `QuotedString("\n;", multiline=True)` behaved as if it had been defined
++  with just `";"`. Quote strings are no longer stripped, and if the opening
++  quote string starts with white space, those characters are removed from the
++  expression's whitespace chars so they are not skipped over before the opening
++  quote is matched. Quote strings that are entirely white space (and so could
++  never match) still raise `ValueError`, and a quote string containing a line
++  end no longer lets the quoted body span lines when `multiline` is `False`.
++  Issue #492.
++
+ - Fixed `pyparsing_common.as_datetime` raising `Invalid date/time: microsecond
+   must be in 0..999999` for valid ISO-8601 timestamps whose fractional seconds
+   round up to a full second (e.g. `2021-06-15T12:30:59.9999995`, common in
+diff --git a/pyparsing/core.py b/pyparsing/core.py
+index 3b33295..c888362 100644
+--- a/pyparsing/core.py
++++ b/pyparsing/core.py
+@@ -3664,6 +3664,12 @@ class QuotedString(Token):
+     .. caution:: ``convert_whitespace_escapes`` has no effect if
+        ``unquote_results`` is ``False``.
+ 
++    ``quote_char`` and ``end_quote_char`` may contain white space (as in
++    ``"\n;"``), but must contain at least one non-white-space character. If the
++    opening quote string starts with white space, those characters are removed
++    from the expression's whitespace chars, so that they are not skipped over
++    before looking for the opening quote.
++
+     Example:
+ 
+     .. doctest::
+@@ -3679,6 +3685,9 @@ class QuotedString(Token):
+         >>> print(sql_qs.search_string(
+         ...     'lsjdf "This is the quote with ""embedded"" quotes" sldjf'))
+         [['This is the quote with "embedded" quotes']]
++        >>> newline_qs = QuotedString("\n;", multiline=True)
++        >>> print(newline_qs.search_string("lsjdf \n;Hi \n mum!\n; sldjf"))
++        [['Hi \n mum!']]
+     """
+ 
+     ws_map = dict(((r"\t", "\t"), (r"\n", "\n"), (r"\f", "\f"), (r"\r", "\r")))
+@@ -3715,17 +3724,17 @@ class QuotedString(Token):
+         )
+         quote_char = quoteChar or quote_char
+ 
+-        # remove white space from quote chars
+-        quote_char = quote_char.strip()
+-        if not quote_char:
+-            raise ValueError("quote_char cannot be the empty string")
++        # quote chars may contain white space (as in "\n;"), but must contain at
++        # least one non-white-space character
++        if not quote_char.strip():
++            raise ValueError("quote_char cannot be the empty string or all white space")
+ 
+         if end_quote_char is None:
+             end_quote_char = quote_char
+-        else:
+-            end_quote_char = end_quote_char.strip()
+-            if not end_quote_char:
+-                raise ValueError("end_quote_char cannot be the empty string")
++        elif not end_quote_char.strip():
++            raise ValueError(
++                "end_quote_char cannot be the empty string or all white space"
++            )
+ 
+         self.quote_char: str = quote_char
+         self.quote_char_len: int = len(quote_char)
+@@ -3740,6 +3749,12 @@ class QuotedString(Token):
+         self.multiline = multiline
+         self.re_flags = re.RegexFlag(0)
+ 
++        # if the opening quote starts with white space, that white space must not
++        # be skipped over before matching, or the quote could never be found
++        leading_ws = quote_char[: len(quote_char) - len(quote_char.lstrip())]
++        if leading_ws:
++            self.set_whitespace_chars(self.whiteChars - set(leading_ws))
++
+         # fmt: off
+         # build up re pattern for the content between the quote delimiters
+         inner_pattern: list[str] = []
+@@ -3751,14 +3766,17 @@ class QuotedString(Token):
+             inner_pattern.append(rf"(?:{re.escape(esc_char)}.)")
+ 
+         if len(self.end_quote_char) > 1:
+-            inner_pattern.append(
+-                "(?:"
+-                + "|".join(
+-                    f"(?:{re.escape(self.end_quote_char[:i])}(?!{re.escape(self.end_quote_char[i:])}))"
+-                    for i in range(len(self.end_quote_char) - 1, 0, -1)
+-                )
+-                + ")"
+-            )
++            # partial matches of the end quote string are part of the quoted body,
++            # unless the quotes cannot span lines and the partial match contains
++            # a line end
++            excluded_chars: set[str] = set() if self.multiline else set("\n\r")
++            partial_end_quotes = [
++                f"(?:{re.escape(self.end_quote_char[:i])}(?!{re.escape(self.end_quote_char[i:])}))"
++                for i in range(len(self.end_quote_char) - 1, 0, -1)
++                if not excluded_chars & set(self.end_quote_char[:i])
++            ]
++            if partial_end_quotes:
++                inner_pattern.append("(?:" + "|".join(partial_end_quotes) + ")")
+ 
+         if self.multiline:
+             self.re_flags |= re.MULTILINE | re.DOTALL
+diff --git a/tests/test_unit.py b/tests/test_unit.py
+index 253ac5a..b518f64 100644
+--- a/tests/test_unit.py
++++ b/tests/test_unit.py
+@@ -2209,6 +2209,69 @@ class Test02_WithoutPackrat(ppt.TestParseResultsAsserts, TestCase):
+         with self.assertRaises(ValueError):
+             pp.QuotedString("", "\\")
+ 
++    def testCustomQuotesWithWhitespace(self):
++        # test for Issue #492 - white space in the quote string was silently
++        # stripped away, so "\n;" behaved just like ";"
++        qs = pp.QuotedString("\n;", multiline=True)
++        print(qs.pattern)
++
++        self.assertEqual("\n;", qs.quote_char)
++        self.assertEqual("\n;", qs.end_quote_char)
++
++        # the leading newline of the quote string must not be skipped over as
++        # whitespace, but the other default whitespace chars still are
++        self.assertNotIn("\n", qs.whiteChars)
++        self.assertIn(" ", qs.whiteChars)
++        self.assertNotIn("\n", qs.copy().whiteChars)
++
++        self.assertEqual(
++            [["Hi \n mum!"]],
++            qs.search_string("lsjdf \n;Hi \n mum!\n; sldjf").as_list(),
++        )
++        # the end quote char is only a delimiter when preceded by a newline
++        self.assertEqual(
++            [["Hi \n m;um!"]],
++            qs.search_string("lsjdf \n;Hi \n m;um!\n; sldjf").as_list(),
++        )
++        # a ';' ahead of the opening quote is not an opening quote
++        self.assertEqual(
++            [["Hi \n m;um!"]],
++            qs.search_string("lsj;df \n;Hi \n m;um!\n; sldjf").as_list(),
++        )
++
++        # same expression, with whitespace skipping fully disabled by the caller
++        with ppt.reset_pyparsing_context():
++            pp.ParserElement.set_default_whitespace_chars("")
++            qs = pp.QuotedString("\n;", multiline=True)
++            self.assertEqual(
++                [["Hi \n m;um!"]],
++                qs.search_string("lsj;df \n;Hi \n m;um!\n; sldjf").as_list(),
++            )
++
++        # without multiline, the quoted body cannot contain a line end, even
++        # though the quote strings themselves do
++        qs = pp.QuotedString("\n;")
++        print(qs.pattern)
++        self.assertEqual(
++            [], qs.search_string("lsjdf \n;Hi \n mum!\n; sldjf").as_list()
++        )
++        self.assertEqual(
++            [["one; line"]],
++            qs.search_string("lsjdf \n;one; line\n; sldjf").as_list(),
++        )
++
++        # trailing whitespace in the quote string is significant too
++        qs = pp.QuotedString("<< ", end_quote_char=" >>")
++        self.assertParseAndCheckList(qs, "<< abc >>", ["abc"])
++        with self.assertRaisesParseException():
++            qs.parse_string("<<abc>>")
++
++        # quote chars that are nothing but whitespace can never match
++        with self.assertRaises(ValueError):
++            pp.QuotedString(" \t\n")
++        with self.assertRaises(ValueError):
++            pp.QuotedString('"', end_quote_char=" ")
++
+     def testCustomQuotes2(self):
+         qs = pp.QuotedString(quote_char=".[", end_quote_char="].")
+         print(qs.reString)

@@ -1,0 +1,156 @@
+diff --git a/CHANGES.rst b/CHANGES.rst
+index 0af01f64..86b3897d 100644
+--- a/CHANGES.rst
++++ b/CHANGES.rst
+@@ -8,6 +8,9 @@ Unreleased
+ -   Zsh completion scripts parse correctly on Windows. :issue:`3277`
+ -   Shell completion of `Choice` `Enum` values produces a valid completion
+     result. :issue:`3015`
++-   :meth:`Context.get_parameter_source` returns the source of the value being
++    processed instead of ``None`` when called from a ``ParamType.convert()``
++    implementation or a parameter callback. :issue:`3458`
+ 
+ 
+ Version 8.4.0
+diff --git a/src/click/core.py b/src/click/core.py
+index 3544c03b..aed56da0 100644
+--- a/src/click/core.py
++++ b/src/click/core.py
+@@ -2609,6 +2609,13 @@ class Parameter(ABC):
+         with augment_usage_errors(ctx, param=self):
+             value, source = self.consume_value(ctx, opts)
+ 
++            # Publish the source before the value is processed, so that
++            # ``ParamType.convert()`` and callbacks can already rely on
++            # ``Context.get_parameter_source``. If this parameter ends up losing the
++            # arbitration below, the source of the previous owner is restored.
++            # See: https://github.com/pallets/click/issues/3458
++            ctx.set_parameter_source(self.name, source)
++
+             # Display a deprecation warning if necessary.
+             if (
+                 self.deprecated
+@@ -2654,14 +2661,16 @@ class Parameter(ABC):
+         )
+ 
+         if is_winner:
+-            ctx.set_parameter_source(self.name, source)
++            # Our source was already recorded above.
+             if self.expose_value:
+                 ctx.params[self.name] = value
+                 ctx._param_default_explicit[self.name] = self._default_explicit
+-        elif existing_source is None:
+-            # Nothing has claimed the slot yet. Record at least our source so downstream
+-            # lookups don't return ``None``.
+-            ctx.set_parameter_source(self.name, source)
++        elif existing_source is not None:
++            # Another parameter owns the slot, so undo the source we published for the
++            # benefit of the type conversion and give it back to that owner. If no
++            # source was recorded yet, ours is kept so downstream lookups don't return
++            # ``None``.
++            ctx.set_parameter_source(self.name, existing_source)
+ 
+         return value, args
+ 
+diff --git a/tests/test_context.py b/tests/test_context.py
+index e35c5325..9ec6a75f 100644
+--- a/tests/test_context.py
++++ b/tests/test_context.py
+@@ -774,6 +774,97 @@ def test_parameter_source(runner, option_args, invoke_args, expect):
+     assert rv.return_value == expect
+ 
+ 
++@pytest.mark.parametrize(
++    ("option_args", "invoke_args", "expect"),
++    [
++        pytest.param({}, {}, ParameterSource.DEFAULT, id="default"),
++        pytest.param(
++            {},
++            {"default_map": {"option": "1"}},
++            ParameterSource.DEFAULT_MAP,
++            id="default_map",
++        ),
++        pytest.param(
++            {},
++            {"args": ["--option", "1"]},
++            ParameterSource.COMMANDLINE,
++            id="commandline",
++        ),
++        pytest.param(
++            {"envvar": "NAME"},
++            {"env": {"NAME": "1"}},
++            ParameterSource.ENVIRONMENT,
++            id="environment",
++        ),
++    ],
++)
++def test_parameter_source_during_convert(runner, option_args, invoke_args, expect):
++    """The source is recorded before the value is processed, so a custom type can
++    look it up from within ``convert()``.
++
++    https://github.com/pallets/click/issues/3458
++    """
++
++    class Source(click.ParamType):
++        name = "source"
++
++        def convert(self, value, param, ctx):
++            return ctx.get_parameter_source(param.name)
++
++    @click.command()
++    @click.option("--option", type=Source(), default="1", **option_args)
++    def cli(option):
++        return option
++
++    rv = runner.invoke(cli, standalone_mode=False, **invoke_args)
++    assert rv.return_value == expect
++
++
++def test_parameter_source_during_callback(runner):
++    """A parameter callback can also look up the source of the value it receives."""
++
++    def callback(ctx, param, value):
++        return ctx.get_parameter_source(param.name)
++
++    @click.command()
++    @click.option("--option", callback=callback)
++    def cli(option):
++        return option
++
++    rv = runner.invoke(cli, standalone_mode=False)
++    assert rv.return_value == ParameterSource.DEFAULT
++
++    rv = runner.invoke(cli, ["--option", "1"], standalone_mode=False)
++    assert rv.return_value == ParameterSource.COMMANDLINE
++
++
++@pytest.mark.parametrize(
++    ("args", "expect_value", "expect_source"),
++    [
++        pytest.param([], True, ParameterSource.DEFAULT, id="no args"),
++        pytest.param(["--with-xyz"], True, ParameterSource.COMMANDLINE, id="with only"),
++        pytest.param(
++            ["--without-xyz"], False, ParameterSource.COMMANDLINE, id="without only"
++        ),
++    ],
++)
++def test_parameter_source_shared_slot(runner, args, expect_value, expect_source):
++    """When several parameters write the same variable, the source belongs to the
++    one that won the slot, even though each of them publishes its own source while
++    its value is being processed.
++    """
++
++    @click.command()
++    @click.pass_context
++    @click.option("--without-xyz", "xyz", flag_value=False)
++    @click.option("--with-xyz", "xyz", flag_value=True, default=True)
++    def cli(ctx, xyz):
++        return xyz, ctx.get_parameter_source("xyz")
++
++    rv = runner.invoke(cli, args, standalone_mode=False)
++    assert rv.return_value == (expect_value, expect_source)
++
++
+ def test_propagate_opt_prefixes():
+     parent = click.Context(click.Command("test"))
+     parent._opt_prefixes = {"-", "--", "!"}
