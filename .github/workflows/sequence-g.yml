@@ -80,6 +80,46 @@ jobs:
             sequence-g.log
             .wringer/sequence-g-bundle/
 
+      # ANNOTATIONS, because the artifact and the step summary are LOGIN-WALLED
+      # and the row they exist to justify has therefore never been written.
+      #
+      # This is not a guess. On 2026-08-13 this job ran three times against a
+      # real Docker and uploaded three artifacts, and MANUAL_CHECKS.md recorded
+      # only that it RAN — "an unread artifact classifies nothing". A check of
+      # `/repos/.../check-runs/<id>/annotations` on 2026-08-14 returned exactly
+      # one annotation for the attack job, and it was a Node.js deprecation
+      # warning.
+      #
+      # The annotations endpoint is PUBLIC on a public repository — this repo's
+      # own gotcha list already says so, and says a day was lost to guessing at
+      # red builds while the failing assertions sat in that endpoint. So the
+      # attack output goes there: readable by anyone, with no token, forever.
+      - name: Emit the attacks as annotations, so a stranger can read them
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import pathlib
+
+          bundle = pathlib.Path(".wringer/sequence-g-bundle/gates")
+          if not bundle.is_dir():
+              print("::error title=sequence G::no bundle — nothing was measured")
+              raise SystemExit(0)
+
+          for gate in sorted(bundle.iterdir()):
+              name = gate.name.split("_", 1)[-1]
+              seen = ""
+              for log in ("stdout.log", "stderr.log"):
+                  path = gate / log
+                  if path.is_file():
+                      seen += path.read_text(errors="replace")
+              # A workflow command is ONE line: newlines are %0A or the rest is
+              # silently dropped, which would be this fix reproducing the very
+              # defect it exists to close.
+              body = seen.strip()[:3000].replace("%", "%25")
+              body = body.replace("\r", "").replace("\n", "%0A")
+              print(f"::notice title=sequence G — {name}::{body}")
+          PY
+
       # The raw output into the run summary, so recording a row is a copy rather
       # than a re-run. `MANUAL_CHECKS.md` is subject to law 1 like everything
       # else: a check nobody wrote down is a check nobody ran.
