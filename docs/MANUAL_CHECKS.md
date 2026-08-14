@@ -28,6 +28,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
 | Sequence G — the container path, attacked | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | **podman 6.1.0**, `applehv` provider, vfkit 0.6.4 + gvproxy 0.8.9, all in `~/.local` with no admin | 2026-08-13 | `c6fce0c`+ | **RAN AND CLASSIFIED — 7 attacks, 6 prevented / 1 mitigated, and the first run found 2 of the 7 measuring nothing at all.** Read the caveat: on macOS a Linux VM sits between container and host, so this is NOT evidence about the Linux case |
 | Sequence G — **on LINUX, shared kernel** | the Fedora CoreOS guest of that same podman machine | Fedora CoreOS 44.20260720.3.1 | podman 6.1.0 rootless, native | 2026-08-13 | `9065310` | **RAN AND CLASSIFIED — same 7 attacks, same 6 prevented / 1 mitigated, on a host whose kernel the container SHARES.** The host had real key material at `/home/core/.ssh/authorized_keys.d/ignition` and the container saw none of it |
+| Sequence G — **DOCKER on Linux, READ AT LAST** | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled), image `python:3-slim` | 2026-08-14 | `fe21b6e` | **RAN AND CLASSIFIED — 6 prevented, 1 out_of_scope.** Readable without a token because the job now emits each attack as a public `::notice::` annotation. `--network none` holds on Docker (DNS blocked AND `OSError: [Errno 101] Network is unreachable` on a raw IP); no docker socket; 3 pids. **`/etc/shadow` WAS readable** — see below |
 | Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | 2026-08-13 | `f0b44bc` | **EXECUTED for the first time** — [run 31692802687](https://github.com/marcoakes/wringer/actions/runs/31692802687), job `attack` succeeded, 16 KB of output in the `sequence-g` artifact. **UNCLASSIFIED: nobody has read it.** The artifact and the logs both need GitHub auth (401 unauthenticated), so the seven attempts have not been sorted into prevented / detected / mitigated / out_of_scope by anybody. Until they are, this row records that the sequence RAN and nothing about what it found |
 | Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
@@ -454,6 +455,52 @@ honest way to prove the flags are what stopped them).
 argument for leaving it alone rather than an argument nobody made.** "Designed
 to isolate" stays. A macOS run cannot upgrade a claim about Linux, and item 5
 is carried by the image's user rather than by anything Wringer asks for.
+
+### Docker, finally read — and it settles what "mitigated" meant
+
+For eight months this sequence's Docker result existed and nobody had seen it:
+the job ran, uploaded an artifact, and both the artifact and the step summary are
+login-walled. Since `86ac742` each attack's output is emitted as a public
+`::notice::` annotation, so `/repos/marcoakes/wringer/check-runs/<id>/annotations`
+now answers without a token. **This row was written by reading that.**
+
+Six prevented, on the same argv as the podman runs:
+
+- **`--network none` holds on Docker.** `DNS BLOCKED (getent found no address)`
+  and, on a raw IP with no name lookup, `OSError: [Errno 101] Network is
+  unreachable`.
+- **No docker socket** at `/var/run/docker.sock` or `/run/docker.sock` — the
+  classic container escape is simply not reachable, which is the single most
+  important thing to be able to say about a Docker backend.
+- 3 pids in the namespace, pid 1 is the gate's own `/bin/sh`; `/proc/uptime`
+  reads the runner's 164s — a bounded leak, named rather than rounded down.
+- No host ssh keys, no host gitconfig, `/Users` absent, and the workspace mount
+  owned by the runner uid `1001`.
+
+**And the seventh settles a question the earlier runs could only guess at.**
+On macOS and on the shared-kernel Linux guest, `cat /etc/shadow` returned
+`Permission denied`, and this document classified that `mitigated` while saying
+the barrier was the image's `USER wring` rather than anything Wringer asks for.
+On Docker with `python:3-slim`, which has no `USER`, the same argv produced:
+
+```
+root:*:20668:0:99999:7:::
+daemon:*:20668:0:99999:7:::
+```
+
+**That is the container's own `/etc/shadow`, not the host's** — no host secret
+was exposed, and the file is a stock image artifact with no real hashes in it. It
+is recorded as `out_of_scope` rather than a failure. But it demonstrates the
+point that could previously only be asserted: **Wringer sets no `--user` unless a
+config asks for it, so whatever privilege a gate has inside the container is the
+IMAGE's choice, and a root image gives it root.** Any repository pointing
+`execution.image` at something that runs as root should know that.
+
+**What this does NOT do is upgrade `SECURITY.md`.** Three runtimes now agree on
+six attacks, which is a broader base than one — and it is still seven scripted
+reads, still no kernel exploit, no capability abuse, no cgroup or `/proc/sys`
+write, and still no `--privileged` control run proving the flags are what stopped
+anything.
 
 ### The finding that matters more than the table
 
