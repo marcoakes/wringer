@@ -81,8 +81,13 @@ git commit -q --allow-empty -m "initial"
 #
 # So the rule is not "use the tools this image has". It is: **try a chain, and
 # SAY SO when nothing in the chain is present.** A probe that could not run
-# prints `PROBE-COULD-NOT-RUN`, the run reports it loudly at the end, and a
-# missing tool can never again read like a result.
+# prints `PROBE-COULD-NOT-RUN` AT THE START OF A LINE, the run reports it loudly
+# at the end, and a missing tool can never again read like a result.
+#
+# The anchor is load-bearing and was learned immediately: `host-process-table`
+# prints `/proc/1/cmdline`, which is its own command line — so an unanchored
+# grep matched the marker inside the very `if` branch that would have printed
+# it, and the reporter accused a probe that had run perfectly well.
 #
 # The heredoc is UNQUOTED, because ${IMAGE} and ${RUNTIME} have to be expanded
 # here. That means every OTHER `$` must be escaped as `\$` or the host shell
@@ -110,10 +115,10 @@ gates:
     run: "ls -la / 2>&1; cat /etc/shadow 2>&1 | head -c 64; ls -la \${HOME:-/root} 2>&1; ls -la /Users 2>&1"
   - id: outbound-network
     optional: true
-    run: 'getent hosts example.com >/dev/null 2>&1 && echo "DNS RESOLVED" || echo "DNS BLOCKED (getent found no address)"; if command -v python3 >/dev/null 2>&1; then python3 -c "import socket; socket.setdefaulttimeout(5); s=socket.create_connection((''1.1.1.1'', 443), 5); print(''TCP CONNECTED'', s.getpeername())" 2>&1 | tail -1; elif command -v curl >/dev/null 2>&1; then curl -sS -m 5 -o /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (curl)"; elif command -v wget >/dev/null 2>&1; then wget -q -T 5 -O /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (wget)"; else echo "PROBE-COULD-NOT-RUN: no python3, curl or wget in this image, so the raw-IP half of this attack measured NOTHING"; fi'
+    run: 'if command -v getent >/dev/null 2>&1; then getent hosts example.com >/dev/null 2>&1 && echo "DNS RESOLVED" || echo "DNS BLOCKED (getent found no address)"; else echo "PROBE-COULD-NOT-RUN: no getent in this image, so the DNS half of this attack measured NOTHING"; fi; if command -v python3 >/dev/null 2>&1; then python3 -c "import socket; socket.setdefaulttimeout(5); s=socket.create_connection((''1.1.1.1'', 443), 5); print(''TCP CONNECTED'', s.getpeername())" 2>&1 | tail -1; elif command -v curl >/dev/null 2>&1; then curl -sS -m 5 -o /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (curl)"; elif command -v wget >/dev/null 2>&1; then wget -q -T 5 -O /dev/null https://1.1.1.1/ 2>&1 && echo "TCP CONNECTED" || echo "TCP BLOCKED (wget)"; else echo "PROBE-COULD-NOT-RUN: no python3, curl or wget in this image, so the raw-IP half of this attack measured NOTHING"; fi'
   - id: host-process-table
     optional: true
-    run: 'echo "processes visible in this PID namespace:"; ls /proc | grep -c "^[0-9][0-9]*\$"; echo "pid 1 is:"; tr "\\0" " " < /proc/1/cmdline; echo; cat /proc/1/comm 2>&1; echo "host uptime readable:"; head -c 40 /proc/uptime 2>&1; echo'
+    run: 'if [ ! -d /proc ]; then echo "PROBE-COULD-NOT-RUN: no /proc in this image, so this attack measured NOTHING"; exit 0; fi; echo "processes visible in this PID namespace:"; ls /proc | grep -c "^[0-9][0-9]*\$"; echo "pid 1 is:"; tr "\\0" " " < /proc/1/cmdline; echo; cat /proc/1/comm 2>&1; echo "host uptime readable:"; head -c 40 /proc/uptime 2>&1; echo'
 execution:
   backend: container
   image: ${IMAGE}
@@ -152,12 +157,12 @@ cp -R "$RUN" "$ROOT/.wringer/sequence-g-bundle" 2>/dev/null || true
 
 echo
 echo "=== did every attack actually run? ==="
-UNMEASURED=$(grep -l "PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | wc -l | tr -d ' ')
+UNMEASURED=$(grep -l "^PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | sed 's|/[^/]*$||' | sort -u | wc -l | tr -d ' ')
 if [ "$UNMEASURED" != "0" ]; then
   echo
   echo "!! $UNMEASURED ATTACK(S) COULD NOT RUN IN THIS IMAGE — they measured" >&2
   echo "   NOTHING and must not be classified. The lines say which:" >&2
-  grep -h "PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | sed 's/^/   /' >&2
+  grep -h "^PROBE-COULD-NOT-RUN" "$RUN"gates/*/*.log 2>/dev/null | sed 's/^/   /' >&2
   echo >&2
   echo "   A run that reports seven attacks while some of them found no tool" >&2
   echo "   is the advert this sequence exists to refuse. Use an image that has" >&2

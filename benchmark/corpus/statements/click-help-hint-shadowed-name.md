@@ -1,6 +1,5 @@
 # Nested command option shadowing `-h` prints wrong suggestion
 
-Source: pallets/click issue #2790 (https://github.com/pallets/click/issues/2790) — body reproduced VERBATIM below.
 
 ---
 

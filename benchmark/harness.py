@@ -1037,12 +1037,29 @@ def contamination(task: Task, workdir: Path) -> list[str]:
                     f"the fix commit {sha[:12]} is quoted in {name} — the agent "
                     "found the answer"
                 )
-        if task.upstream_repo and task.upstream_repo in text:
+        # **Only when the STATEMENT did not already name it.** An independent
+        # review pointed out on 2026-08-14 that 12 of 13 corpus statements name
+        # the upstream slug in upstream's own prose — so an agent that merely
+        # quotes its own brief back tripped this, and the published counts were
+        # upper bounds inflated by brief-echo rather than measurements. The
+        # docstring says "what the agent went and read THAT IT WAS NOT GIVEN",
+        # and this is the line that has to honour it.
+        given = task.upstream_repo is not None and task.upstream_repo in task.statement
+        if task.upstream_repo and task.upstream_repo in text and not given:
             signals.append(
                 f"the upstream repository {task.upstream_repo} is named in "
-                f"{name}, so the agent may have read the fix"
+                f"{name} and NOT in the statement, so the agent found it"
             )
         for needle, why in (
+            # The local route, added after a review reproduced it: one
+            # `git fetch` at the URL `.git/FETCH_HEAD` records brings the whole
+            # history back, fix commit included.
+            ("FETCH_HEAD", "read .git/FETCH_HEAD, which names the full-history "
+                           "mirror this tree was cut from"),
+            ("wringer-corpus/mirrors", "named the corpus mirror, which has the "
+                                       "whole history including the fix"),
+            ("git fetch", "ran `git fetch`, which can re-open a truncated "
+                          "history"),
             (".patch", "fetched a patch"),
             ("patch-diff.githubusercontent.com", "fetched a PR diff"),
             ("raw.githubusercontent.com", "fetched a file from GitHub"),
@@ -1125,6 +1142,34 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # A VOID arm still costs money — an agent that ran and then
             # produced no claim was PAID for the turn, and a corpus total that
             # skipped those rows would understate the bill.
+            usage=usage_of(workdir),
+            contamination=contamination(task, workdir),
+            deviations=deviations_for(arm),
+            evidence={"tree": str(tree), "base_sha": sha,
+                      "workdir": str(workdir)},
+        )
+
+    # **ISOLATION AGAIN, NOW THAT THE ARM HAS FINISHED.**
+    #
+    # The first check proves only that the answer was unreachable when the arm
+    # STARTED. An agent with a shell can make it reachable while it works — and
+    # on the 2026-08-13 corpus exactly one line was needed, because
+    # `.git/FETCH_HEAD` still named the full-history mirror the tree was cut
+    # from. That hole is narrowed now, and a narrowed hole that is checked once
+    # at the start is still an unchecked hole.
+    #
+    # A run that ends with the answer in its own repository did not measure the
+    # agent, whatever the held-out tests then say, so it is VOID rather than a
+    # cell.
+    try:
+        check_isolation(task, tree)
+    except Void as exc:
+        return Row(
+            schema_version=SCHEMA_VERSION,
+            task=task.id, arm=arm, claimed=None, held_out_passed=None,
+            cell=VOID,
+            reason=f"AFTER the arm ran: {exc}",
+            wall_clock_ms=int((time.monotonic() - started) * 1000),
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
             deviations=deviations_for(arm),

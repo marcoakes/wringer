@@ -441,8 +441,9 @@ isolate" stays, and now for a sharper reason than "we only tested macOS":
   smaller sentence than "demonstrated to isolate", and the script's own
   definition is strict: *prevented — the thing cannot be done. Not "it failed
   this time."*
-- One runtime, one distro, one image. **Docker has still never been measured
-  by anyone here** — the `ubuntu-latest` CI run's artifact remains unopened.
+- One runtime, one distro, one image at the time this was written. **Docker was
+  measured on 2026-08-14** — the row and the classification are below. It went
+  unread until then because the artifact and the step summary are login-walled.
 - The one non-prevented item is carried by the image, not by Wringer.
 
 **What would earn the stronger word**, stated so the next window does not have
@@ -458,7 +459,10 @@ is carried by the image's user rather than by anything Wringer asks for.
 
 ### Docker, finally read — and it settles what "mitigated" meant
 
-For eight months this sequence's Docker result existed and nobody had seen it:
+This sequence went eight months unrun; its Docker RESULT then existed for one
+day before anybody saw it. (The first draft of this section merged those two
+facts into "eight months", which is a different and wrong sentence.) Why nobody
+saw it:
 the job ran, uploaded an artifact, and both the artifact and the step summary are
 login-walled. Since `86ac742` each attack's output is emitted as a public
 `::notice::` annotation, so `/repos/marcoakes/wringer/check-runs/<id>/annotations`
@@ -519,10 +523,13 @@ so `${HOME:-/root}` expanded on the HOST and attack 5 asked the container to
 list `/Users/marc` rather than its own home. It measured something real either
 way, but not the thing its name claims. Escaped now.
 
-**What is still unrun: this sequence on LINUX with the results read.** The
-2026-08-13 CI row above executed it on `ubuntu-latest` and nobody has opened the
-artifact. That job is where the claim that matters would come from, and until
-someone reads it the Linux case is unmeasured.
+**Linux is now measured twice and read both times** — the shared-kernel podman
+guest above, and Docker on `ubuntu-latest` below. What remains unrun is anything
+that attacks the boundary rather than reading through it: no kernel exploit, no
+capability abuse, no cgroup or `/proc/sys` write, and no `--privileged` control
+run showing these same attacks SUCCEED when the flags are removed. That control
+is the cheapest honest way to show the flags are what stopped them, and it has
+never been done.
 
 Classify each as `prevented`, `detected`, `mitigated` or `out_of_scope`, and
 never write `prevented` where Wringer merely records evidence afterwards. The

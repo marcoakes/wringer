@@ -1,4 +1,4 @@
-# pyparsing issue #492: `QuotedString`, `multiline=True` and a newline in the quote sequence
+# `QuotedString`, `multiline=True` and a newline in the quote sequence
 
 (verbatim body of https://github.com/pyparsing/pyparsing/issues/492)
 

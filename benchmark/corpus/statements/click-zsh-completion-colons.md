@@ -1,6 +1,5 @@
 # zsh completion still misbehaving in the presence of `:`
 
-Source: pallets/click issue #2703 (https://github.com/pallets/click/issues/2703) — body reproduced VERBATIM below.
 
 ---
 

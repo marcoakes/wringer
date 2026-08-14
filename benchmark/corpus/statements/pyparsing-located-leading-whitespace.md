@@ -1,4 +1,4 @@
-# pyparsing issue #621: Some matches include erroneous leading whitespace
+# Some matches include erroneous leading whitespace
 
 (verbatim body of https://github.com/pyparsing/pyparsing/issues/621)
 

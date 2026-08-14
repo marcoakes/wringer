@@ -32,7 +32,7 @@ on:
       image:
         description: "container image to attack from"
         required: false
-        default: "debian:stable-slim"
+        default: "python:3-slim"
   push:
     paths:
       # The argv under test, the script that drives it, and the words it would

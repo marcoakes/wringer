@@ -174,9 +174,20 @@ def build_task(
     run(["git", "remote", "add", "upstream-mirror", str(mirror)], cwd=tree)
     run(["git", "fetch", "--quiet", "--depth", "1", "upstream-mirror", base], cwd=tree)
     run(["git", "checkout", "--quiet", "-B", "main", "FETCH_HEAD"], cwd=tree)
-    # And the route back to the rest of the history goes too, so a `git fetch`
-    # inside the tree cannot re-open what this just closed.
+    # And the routes back go too. `git remote remove` deletes the CONFIG entry
+    # and nothing else — **`.git/FETCH_HEAD` still records the URL it fetched
+    # from**, and an independent review reproduced the consequence on a real
+    # corpus tree on 2026-08-14:
+    #
+    #     git fetch "$(sed -n '1s/.* of //p' .git/FETCH_HEAD)" main
+    #     git cat-file -t <fix_sha>   ->  commit
+    #
+    # One line, no guessing, and the answer is back. So the pointer is deleted
+    # too. This NARROWS the route rather than closing it — an agent that thinks
+    # to guess the mirror path can still walk it — which is why
+    # `check_isolation` now runs again AFTER the arm.
     run(["git", "remote", "remove", "upstream-mirror"], cwd=tree)
+    (tree / ".git" / "FETCH_HEAD").unlink(missing_ok=True)
 
     # A GIT IDENTITY IN THE CLONE'S OWN CONFIG, not just on the commit this
     # script makes. Wringer commits as you and refuses to invent an author, so

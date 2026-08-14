@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1047,3 +1048,134 @@ def test_a_clean_run_records_nothing_and_that_is_not_a_promise(tmp_path: Path):
     )
 
     assert harness.contamination(task, workdir) == []
+
+
+def test_an_answer_that_becomes_reachable_DURING_the_arm_is_void(tmp_path: Path):
+    """**The first isolation check proves only what was true at the start.**
+
+    An agent with a shell can make the answer reachable while it works, and on
+    the 2026-08-13 corpus one line was enough: `.git/FETCH_HEAD` still named the
+    full-history mirror the tree was cut from, so
+
+        git fetch "$(sed -n '1s/.* of //p' .git/FETCH_HEAD)" main
+
+    put the fix commit back. An independent review reproduced that on a real
+    corpus tree, and nothing in the harness would have noticed — `check_isolation`
+    ran once, before the agent.
+
+    So it runs again afterwards. A run that ends with the answer in its own
+    repository did not measure the agent, whatever the held-out tests then say.
+    """
+    repo = build_demo("covering", tmp_path)
+    # A worker that does what the agent could have done: make a commit
+    # reachable that was not reachable when the arm started.
+    hidden = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", "HEAD"],
+        capture_output=True, text=True,
+    ).stdout.strip()
+    (repo / "reachable.sh").write_text(
+        f"#!/bin/sh\ngit -C . tag wringer-test-answer {hidden}\n", encoding="utf-8"
+    )
+
+    import yaml
+    task = task_file("covering", repo, tmp_path)
+    raw = yaml.safe_load(task.read_text(encoding="utf-8"))
+    # Forbid a sha that does NOT exist yet in the arm's copy, then create it.
+    raw["forbidden_shas"] = [hidden]
+    task.write_text(yaml.safe_dump(raw), encoding="utf-8")
+
+    out = tmp_path / "out"
+    run_harness(task, out)
+
+    rows = rows_from(out)
+    assert rows
+    # It was reachable from the start here, so the FIRST check catches it —
+    # what matters is that the message names the answer and the row is void.
+    for row in rows:
+        assert row["cell"] == harness.VOID, row
+        assert hidden[:12] in row["reason"], row
+
+
+def test_the_contamination_detector_knows_the_LOCAL_route_too(tmp_path: Path):
+    """It looked only for network fetches. The cheapest route was local."""
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    (workdir / "agent.stdout.log").write_text(
+        'sed -n "1s/.* of //p" .git/FETCH_HEAD\n'
+        "git fetch /Users/x/.cache/wringer-corpus/mirrors/click main\n",
+        encoding="utf-8",
+    )
+    task = harness.Task(
+        id="t", repo=tmp_path, statement="fix it", held_out_run="true",
+        held_out_files=(), held_out_tests=(), worker="true",
+        wall_clock=1, max_iterations=1, forbidden_shas=("deadbeefcafe1234",),
+        upstream_repo="pallets/click",
+    )
+
+    joined = " ".join(harness.contamination(task, workdir))
+
+    assert "FETCH_HEAD" in joined, joined
+    assert "mirror" in joined, joined
+    assert "git fetch" in joined, joined
+
+
+def test_quoting_your_own_brief_is_not_contamination(tmp_path: Path):
+    """**The detector's commonest signal was firing on the brief.**
+
+    12 of 13 corpus statements name the upstream repository, in upstream's own
+    prose — that is what a real bug report looks like and it cannot be edited
+    out without handing the agent something nobody wrote. So an agent that
+    quoted its brief back scored a contamination signal, and the published
+    counts were upper bounds inflated by echo.
+
+    `contamination`'s own docstring promises "what the agent went and read THAT
+    IT WAS NOT GIVEN". This is the line that has to honour it.
+    """
+    workdir = tmp_path / "arm"
+    workdir.mkdir()
+    (workdir / "agent.stdout.log").write_text(
+        "The issue says: pallets/click misbehaves with colons. Let me look.\n",
+        encoding="utf-8",
+    )
+    given = harness.Task(
+        id="t", repo=tmp_path, statement="A bug in pallets/click: colons break.",
+        held_out_run="true", held_out_files=(), held_out_tests=(), worker="true",
+        wall_clock=1, max_iterations=1, forbidden_shas=(),
+        upstream_repo="pallets/click",
+    )
+    assert harness.contamination(given, workdir) == []
+
+    # The same log, when the statement did NOT name the repo, IS a finding.
+    withheld = harness.Task(
+        id="t", repo=tmp_path, statement="Colons break shell completion.",
+        held_out_run="true", held_out_files=(), held_out_tests=(), worker="true",
+        wall_clock=1, max_iterations=1, forbidden_shas=(),
+        upstream_repo="pallets/click",
+    )
+    found = harness.contamination(withheld, workdir)
+    assert found and "the agent found it" in " ".join(found), found
+
+
+def test_no_task_statement_carries_a_pointer_somebody_ADDED(tmp_path: Path):
+    """Upstream's own words may name upstream's own issues — that is what a real
+    report looks like. A `Source:` header, or a title rewritten to `# <repo>
+    issue #N:`, is the corpus author talking, and it points at the answer.
+
+    Five were removed on 2026-08-13 and eight were missed; a review found them
+    the next day. This is the check that would have found them first.
+    """
+    statements = sorted(
+        (BENCHMARK / "corpus" / "statements").glob("*.md")
+    )
+    assert statements, "no statements to check"
+    offenders = []
+    for path in statements:
+        head = path.read_text(encoding="utf-8").splitlines()[:3]
+        for line in head:
+            if line.lower().startswith("source:"):
+                offenders.append(f"{path.name}: {line[:60]}")
+            if re.match(r"^#\s+\S+\s+(issue|PR)\s+#\d+:", line):
+                offenders.append(f"{path.name}: {line[:60]}")
+    assert not offenders, (
+        "these hand the agent a pointer at the upstream fix: " + str(offenders)
+    )

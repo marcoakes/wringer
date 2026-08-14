@@ -1,6 +1,5 @@
 # `get_parameter_source()` returns `None` in 8.4.0
 
-Source: pallets/click issue #3458 (https://github.com/pallets/click/issues/3458) — body reproduced VERBATIM below.
 
 ---
 
