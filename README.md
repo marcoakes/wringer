@@ -293,16 +293,21 @@ proves the stated criterion could fail and was made to pass; it does not
 certify agreement with an unstated intended fix, and where the criterion
 under-describes the intent, the witness inherits that gap.**
 
-*Status, 2026-08-15 — said here rather than left to be discovered. The
-net-new half ships: it is `--prove`, the generated gate and the pre-change red
-run, all above. **The bug-fix witness lane is not in this code yet.** It was
-authored and calibrated offline — 12/13 proved red for the right reason, 10/12
-green on upstream's own fix, in
-[`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md)
-— and it is wired into delivery, and re-tested live, in Phase 3. The sentence
-above is the claim this programme committed to publishing and to defending;
+*Status, 2026-08-15 — said here rather than left to be discovered, and
+corrected the same day the sentence it replaced became false. The net-new half
+ships: it is `--prove`, the generated gate and the pre-change red run, all
+above. **The bug-fix witness lane is now in this code and wired to delivery**:
+`wring spec --send --witness` authors it, `wring run` proves it red on a
+pre-change worktree and pins it before the first worker turn, and a red witness
+REFUSES delivery over a green vacuous gate — driven end to end, offline. It was
+calibrated first — 12/13 proved red for the right reason, 10/12 green on
+upstream's own fix, in
+[`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md).
+**What has NOT happened is the live re-test**: the claim above was measured
+against a 13-task corpus once and LOST, and it is re-measured on that same
+corpus under §5's pre-registered numbers.
 [`docs/witness-programme.md`](docs/witness-programme.md) says exactly what
-takes it back out.*
+takes the sentence back out, and a loss takes it out automatically.*
 
 ### Two objections, answered where the claims live
 
