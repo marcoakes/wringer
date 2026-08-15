@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wringer import gates
+from wringer import containment, gates
 from wringer.redact import Redactor
 
 PROTOCOL_VERSION = 1
@@ -315,12 +315,25 @@ class Connection:
             self._serve(message)
 
 
-def _inside(root: Path, candidate: str) -> Path | None:
+def _inside(root: Path, candidate: str, contained: bool = False) -> Path | None:
     """Resolve a path the agent named, or None if it escapes the repo.
 
     Wringer is not obliged to help an agent write outside the tree it was
     pointed at, and a symlink is not an argument.
+
+    **`contained` translates before it resolves, and the order is the whole
+    safety argument** (SPEC_CONTAIN_V0 §11 A-4). A contained agent sees the
+    repository at /workspace, so every path it names is a container path;
+    untranslated, `/workspace/x` resolves outside the host root and is refused,
+    which fails closed in the right direction and the wrong answer. Translation
+    runs FIRST and the resolve is then byte for byte the one it always was — so
+    a `..`, a symlink, or a path that was never under /workspace still escapes
+    to exactly the refusal it did before. Nothing here widens what an agent may
+    reach; it stops the boundary from lying to the agent about where the tree
+    is.
     """
+    if contained:
+        candidate = containment.inbound(candidate, root)
     try:
         resolved = (root / candidate).resolve()
         return resolved if resolved.is_relative_to(root.resolve()) else None
@@ -339,8 +352,19 @@ def run_turn(
     stderr_path: Path,
     on_spawn: Callable[[int], None] | None = None,
     redactor: Redactor | None = None,
+    containment_settings: Any = None,
+    established: Any = None,
+    workdir: Path | None = None,
 ) -> tuple[Turn, int]:
     """Hold one ACP session and return what it did, plus the exit status.
+
+    **Under a containment the agent runs inside the boundary** rather than on
+    this machine (SPEC_CONTAIN_V0 §11). The session is the same session — one
+    stdio JSON-RPC exchange — and three things change, each ruled rather than
+    incidental: the process spawned is the runtime carrying the agent argv with
+    `--interactive` so stdin survives; the session's `cwd` is the mount rather
+    than a host path that does not exist inside it; and paths the agent names
+    come back translated, because it sees the repository at /workspace.
 
     The agent runs in its own process group, so the loop's existing kill and
     drain behaviour applies unchanged — an ACP worker is a worker.
@@ -364,14 +388,48 @@ def run_turn(
         "HOME": os.environ.get("HOME", ""),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
     }
-    for name in env_passthrough:
+    crossing = env_passthrough
+    if containment_settings is not None:
+        # Both declared allowlists apply, and the union is ruled rather than
+        # assumed (SPEC_CONTAIN_V0 §11 A-6). Wringer's own environment is what
+        # the runtime CLIENT reads `--env NAME` values out of, so a name the
+        # boundary declares has to be present here too or it would pass
+        # nothing — an intersection arrived at by accident, which is exactly
+        # the silently-inert key refusal 11 exists to prevent.
+        crossing = containment.env_names(containment_settings, env_passthrough)
+    for name in crossing:
         if name in os.environ:
             env[name] = os.environ[name]
 
+    contained = containment_settings is not None and established is not None
+    if contained:
+        if workdir is None:  # pragma: no cover - the loop always passes one
+            raise AcpError(
+                "a contained ACP session needs a working directory for its "
+                "cidfile, and none was given. Refusing rather than starting a "
+                "container nothing can reap"
+            )
+        # The runtime carries the agent argv UNSPLIT — `--entrypoint` names the
+        # binary, everything after the image is its arguments — so nothing
+        # re-splits a quoted argument the way a shell would. `--env NAME` for
+        # each passed-through name is built in `session_argv`; the values stay
+        # in Wringer's own environment and are read by the runtime, never
+        # written into an argv anyone can see with `ps`.
+        spawn = containment.session_argv(
+            containment_settings, established, command, args, root, workdir,
+            env_passthrough,
+        )
+        # The runtime CLIENT is what Popen holds; its cwd is irrelevant to the
+        # agent, which gets `--workdir /workspace` inside the boundary.
+        spawn_cwd = root
+    else:
+        spawn = [command, *args]
+        spawn_cwd = root
+
     try:
         proc = subprocess.Popen(
-            [command, *args],
-            cwd=root,
+            spawn,
+            cwd=spawn_cwd,
             env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
@@ -404,7 +462,9 @@ def run_turn(
 
     turn = Turn()
     connection = Connection(proc, deadline=time.monotonic() + timeout)
-    connection.handler = lambda message: _handle(message, connection, root, turn)
+    connection.handler = lambda message: _handle(
+        message, connection, root, turn, contained
+    )
 
     try:
         info = connection.send_request(
@@ -432,7 +492,16 @@ def run_turn(
             # and the same reason `terminal` is absent from
             # CLIENT_CAPABILITIES. A future MCP story fills this list; it
             # never removes it.
-            {"cwd": str(root), "mcpServers": []},
+            # **The cwd is the SECOND translation site** (SPEC_CONTAIN_V0 §11
+            # A-3), and the shell path does not have it: that path's problem
+            # was a brief file path substituted into a command string, and this
+            # one is a protocol field. Under a containment the repository is at
+            # /workspace, so a host path here opens a session rooted at a
+            # directory that does not exist inside the boundary.
+            {
+                "cwd": containment.WORKSPACE if contained else str(root),
+                "mcpServers": [],
+            },
         )
         session_id = session.get("sessionId")
         if not session_id:
@@ -541,8 +610,19 @@ def _usage(update: dict) -> Usage | None:
     return Usage(used=used, size=size, cost_amount=amount, cost_currency=currency)
 
 
-def _handle(message: dict, connection: Connection, root: Path, turn: Turn) -> None:
-    """Serve one agent-to-client message."""
+def _handle(
+    message: dict,
+    connection: Connection,
+    root: Path,
+    turn: Turn,
+    contained: bool = False,
+) -> None:
+    """Serve one agent-to-client message.
+
+    `contained` is carried down to `_inside` and nowhere else: a contained
+    agent names container paths, and the translation happens at the one place
+    that resolves them (SPEC_CONTAIN_V0 §11 A-4).
+    """
     method = message.get("method", "")
     params = message.get("params") or {}
     request_id = message.get("id")
@@ -566,7 +646,7 @@ def _handle(message: dict, connection: Connection, root: Path, turn: Turn) -> No
         return
 
     if method == "fs/read_text_file":
-        path = _inside(root, str(params.get("path", "")))
+        path = _inside(root, str(params.get("path", "")), contained)
         if path is None or not path.is_file():
             connection.respond_error(request_id, "no such file inside the repository")
             turn.refusals.append(str(params.get("path", "")))
@@ -578,7 +658,7 @@ def _handle(message: dict, connection: Connection, root: Path, turn: Turn) -> No
 
     if method == "fs/write_text_file":
         named = str(params.get("path", ""))
-        path = _inside(root, named)
+        path = _inside(root, named, contained)
         if path is None:
             # The refusal is the interesting event: an agent trying to write
             # outside the repo is worth a line in the evidence.

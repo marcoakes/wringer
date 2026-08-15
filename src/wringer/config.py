@@ -1453,7 +1453,7 @@ def _parse_run(raw: Any, source: str, fleet_raw: Any = None) -> Run | None:
         raise ConfigError(f"{source}: unknown keys under 'run': {', '.join(unknown)}")
 
     worker = _parse_worker(raw.get("worker"), source)
-    containment = _parse_containment(raw.get("containment"), worker, source)
+    containment = _parse_containment(raw.get("containment"), source)
 
     # **Refusal 8, config half.** The same collision `execution.backend:
     # container` already refuses one section over, arriving through the other
@@ -1496,9 +1496,7 @@ def _parse_run(raw: Any, source: str, fleet_raw: Any = None) -> Run | None:
     )
 
 
-def _parse_containment(
-    raw: Any, worker: Any, source: str
-) -> Containment | None:
+def _parse_containment(raw: Any, source: str) -> Containment | None:
     """`run.containment`, or None when the repo has not opted in.
 
     Every refusal here is STATIC in SPEC_CONTAIN_V0 ruling 3's sense: it costs
@@ -1517,25 +1515,24 @@ def _parse_containment(
             f"{', '.join(unknown)}"
         )
 
-    # **Refusal 10.** `run.worker` has two forms and only one of them goes
-    # through a command Wringer spawns into a container. An ACP worker is a
-    # stdio JSON-RPC session `acp.run_turn` starts itself, with its own
-    # environment allowlist and no backend anywhere in the path — so a
-    # containment declaration beside one would leave the agent running
-    # uncontained under a config claiming containment, which is the exact
-    # defect this whole section exists to refuse. Carrying that session across
-    # a container boundary is a real design and it is not v0's.
-    if isinstance(worker, AcpWorker):
-        raise ConfigError(
-            f"{source}: 'run.containment' cannot be declared beside an ACP "
-            "worker ('run.worker.acp'). An ACP worker is a stdio session "
-            "Wringer holds open with the agent process, not a command it "
-            "spawns into a container, so nothing here would contain it — and "
-            "a config that reads as contained while the agent runs on this "
-            "machine is worse than one that says trusted_local. Use a shell "
-            "worker under containment, or drop 'run.containment'"
-        )
-
+    # **Refusal 10 was here, and on 2026-08-15 it became a capability**
+    # (SPEC_CONTAIN_V0 §11, ruled by R-C). It refused `run.containment` beside
+    # an ACP worker, because an ACP worker is a stdio JSON-RPC session
+    # `acp.run_turn` holds open rather than a command spawned into a container,
+    # and running it uncontained under a config claiming containment is the
+    # exact defect this section exists to refuse.
+    #
+    # The refusal named its own second branch — *"Phase 3 must read this: the
+    # re-test's worker is a shell worker, or Phase 3 builds the ACP path"* —
+    # and Phase 3 built the ACP path, because the escape hatch does not
+    # survive contact with what the re-test measures: the corpus tasks are
+    # real upstream bug fixes and a shell script does not fix them.
+    #
+    # The session now crosses the boundary with its stdio attached
+    # (`containment.session_argv`), its cwd translated to the mount, and the
+    # agent's own binary required of the image. **Every other refusal in §3
+    # still fires**, and this is deliberately not a general loosening: what
+    # changed is that one combination is now implemented rather than refused.
     runtime = raw.get("runtime", "docker")
     if not isinstance(runtime, str) or runtime not in _KNOWN_RUNTIMES:
         extra = ""

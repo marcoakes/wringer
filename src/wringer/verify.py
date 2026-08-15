@@ -201,7 +201,18 @@ def run(
     # means issuing a DNS query, and SECURITY.md promises `wring verify` makes
     # no outbound connection.
     worker_containment = cfg.run.containment if cfg.run is not None else None
-    containment_refusal = containment_module.preflight(worker_containment, root)
+    # What Wringer KNOWS the image must carry, as opposed to what the
+    # repository declared in `requires:` (SPEC_CONTAIN_V0 §11 A-5). An ACP
+    # worker names its own binary, so an image that cannot run the declared
+    # agent is refused through refusal 4 by name — at `wring verify` time,
+    # rather than an hour into a corpus pass — without the repository having to
+    # write the same name in two places and remember to keep them in step.
+    worker_requires: tuple[str, ...] = ()
+    if cfg.run is not None and isinstance(cfg.run.worker, config.AcpWorker):
+        worker_requires = (cfg.run.worker.command,)
+    containment_refusal = containment_module.preflight(
+        worker_containment, root, worker_requires
+    )
     if containment_refusal is not None:
         raise backend_module.BackendError(containment_refusal)
     # Snapshot git before the bundle exists, so Wringer's own run directory

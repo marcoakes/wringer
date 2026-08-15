@@ -841,6 +841,8 @@ def run(
                 result = _run_acp_worker(
                     bundle, acp_worker, brief, turn_ceiling,
                     iteration, root,
+                    containment_settings=worker_containment,
+                    established=established,
                 )
             else:
                 result = _run_worker(
@@ -1024,6 +1026,8 @@ def _run_acp_worker(
     timeout: int,
     iteration: int,
     root: Path,
+    containment_settings: config.Containment | None = None,
+    established: containment.Established | None = None,
 ) -> gates.GateResult:
     """One ACP session, shaped into the same GateResult a shell worker gives.
 
@@ -1063,6 +1067,13 @@ def _run_acp_worker(
             # this bundle, so they get the bundle's redactor — the same one
             # every other write path here already uses.
             redactor=bundle.redactor,
+            # **Both spawn paths now carry the boundary** (SPEC_CONTAIN_V0
+            # §11). Passed unconditionally: `run_turn` treats a None pair as
+            # uncontained, which is byte-for-byte today's behaviour for every
+            # repository that declares no containment.
+            containment_settings=containment_settings,
+            established=established,
+            workdir=directory,
         )
     except acp.AcpError as exc:
         # It is over either way, so the pgid goes: a stale one names a process
@@ -1095,6 +1106,15 @@ def _run_acp_worker(
         )
         object.__setattr__(result, "acp_extras", {**extras, "acp_error": str(exc)})
         return result
+    finally:
+        if containment_settings is not None:
+            # The container the runtime CLIENT started outlives a kill of the
+            # client, so a session that died mid-turn would otherwise leave the
+            # agent running against the mounted tree. The shell path does this
+            # for the same reason (`_run_worker`); in a `finally` here because
+            # the failure path returns early, and a reap that only runs when
+            # the turn succeeded reaps exactly the cases that do not need it.
+            containment.teardown(containment_settings, directory)
 
     # The session is over, so the group is gone with it.
     pgid_file.unlink(missing_ok=True)

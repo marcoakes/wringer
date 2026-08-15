@@ -18,7 +18,7 @@ from pathlib import Path
 import fake_acp_agent
 import pytest
 
-from wringer import acp, agents, cli, config, loop
+from wringer import acp, agents, cli, config, containment, loop
 
 AGENT = Path(__file__).resolve().parent / "fake_acp_agent.py"
 
@@ -938,3 +938,159 @@ def test_the_last_message_is_served_even_when_it_lands_as_the_agent_exits():
         "the agent's last message was dropped because it arrived while the "
         "client was deciding the agent had gone"
     )
+
+
+# --- §11: the contained session ---------------------------------------------
+
+
+def fake_established():
+    """An `Established` with no holder — the `--network none` shape, which is
+    the one that needs no runtime to reason about."""
+    return containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+
+
+def contained_settings():
+    parsed = config.parse(
+        {
+            "version": 1,
+            "gates": [{"id": "unit", "run": "true"}],
+            "run": {
+                "worker": {"acp": {"command": "some-agent"}},
+                "containment": {
+                    "runtime": "podman",
+                    "image": "example/agent:tag",
+                    "egress": {"policy": "none"},
+                },
+            },
+        }
+    )
+    assert parsed.run is not None and parsed.run.containment is not None
+    return parsed.run.containment
+
+
+def run_contained(tmp_path, monkeypatch, behaviour, **kwargs):
+    """Drive a REAL ACP session that believes it is contained.
+
+    `session_argv` is replaced by one that runs the agent directly, and that
+    substitution is the whole point rather than a shortcut: it removes the
+    container and leaves every other consequence of containment in place — the
+    translated cwd and the translated inbound paths — so these tests measure
+    the protocol behaviour on a machine with no runtime. What the argv itself
+    contains is asserted exhaustively in `test_containment.py`, where it is a
+    pure function.
+    """
+    captured: dict = {}
+    # Bound BEFORE the patch: calling through the module name afterwards would
+    # reach the replacement and recurse.
+    real_session_argv = containment.session_argv
+
+    def fake_session_argv(settings, established, command, args, root, workdir,
+                          passthrough=()):
+        captured["argv"] = real_session_argv(
+            settings, established, command, args, root, workdir, passthrough
+        )
+        return [command, *args]
+
+    monkeypatch.setattr(acp.containment, "session_argv", fake_session_argv)
+
+    turn, code = acp.run_turn(
+        command=sys.executable,
+        args=(str(AGENT), behaviour),
+        env_passthrough=(),
+        brief="fix it",
+        root=tmp_path,
+        timeout=30,
+        stdout_path=tmp_path / "out.log",
+        stderr_path=tmp_path / "err.log",
+        containment_settings=contained_settings(),
+        established=fake_established(),
+        workdir=tmp_path,
+        **kwargs,
+    )
+    return turn, code, captured
+
+
+def test_a_contained_session_is_rooted_at_the_mount_not_a_host_path(
+    tmp_path, monkeypatch
+):
+    """**The second translation site** (SPEC_CONTAIN_V0 §11 A-3), asserted over
+    the wire rather than in a dict.
+
+    `session/new` carries an absolute path, and inside the container the host
+    path does not exist — so an untranslated cwd opens a session rooted at a
+    directory that is not there. The agent reports back what it was actually
+    sent, which is the only way to tell a translated field from a translated
+    intention.
+    """
+    turn, _, _ = run_contained(tmp_path, monkeypatch, "cwd")
+    said = " ".join(turn.updates)
+
+    assert f"CWD {containment.WORKSPACE}" in said, said
+    assert str(tmp_path) not in said, (
+        "the agent was handed a host path it cannot open from inside the mount"
+    )
+
+
+def test_an_uncontained_session_is_still_rooted_at_the_real_tree(
+    tmp_path, monkeypatch
+):
+    """The other direction, and it is the one that keeps this from being a
+    regression for every repository that declares no containment: with no
+    containment the cwd is the tree, byte for byte as before."""
+    turn, _ = acp.run_turn(
+        command=sys.executable,
+        args=(str(AGENT), "cwd"),
+        env_passthrough=(),
+        brief="fix it",
+        root=tmp_path,
+        timeout=30,
+        stdout_path=tmp_path / "out.log",
+        stderr_path=tmp_path / "err.log",
+    )
+    said = " ".join(turn.updates)
+    assert f"CWD {tmp_path}" in said, said
+    assert containment.WORKSPACE not in said
+
+
+def test_a_contained_agent_may_name_the_path_it_can_see(tmp_path, monkeypatch):
+    """**Inbound translation** (§11 A-4). The agent sees /workspace, so that is
+    what it names — and untranslated the write is refused, which fails closed
+    in the right direction and the wrong answer."""
+    (tmp_path / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+
+    turn, _, _ = run_contained(tmp_path, monkeypatch, "containedwrite")
+
+    assert (tmp_path / "calc.py").read_text(encoding="utf-8") == "FIXED\n"
+    assert turn.refusals == [], turn.refusals
+    assert "contained write refused: False" in " ".join(turn.updates)
+
+
+def test_containment_never_widens_what_an_agent_may_reach(tmp_path, monkeypatch):
+    """Translation runs BEFORE the resolve, so confinement is byte for byte
+    what it was. An escape is still an escape — asserted under containment
+    specifically, because that is the configuration where a translation bug
+    would hand the agent the whole filesystem."""
+    (tmp_path / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+
+    turn, _, _ = run_contained(tmp_path, monkeypatch, "escape")
+
+    assert turn.refusals, "a contained agent escaped the repository"
+    assert not (tmp_path.parent / "escaped.txt").exists()
+
+
+def test_the_contained_spawn_is_the_runtime_and_keeps_stdin(
+    tmp_path, monkeypatch
+):
+    """The argv the session would really have spawned, captured on the way
+    past: the runtime, the mount, and `--interactive` so the JSON-RPC session
+    survives its first write."""
+    _, _, captured = run_contained(tmp_path, monkeypatch, "cwd")
+    argv = captured["argv"]
+
+    assert argv[0] == "podman" and argv[1] == "run"
+    assert "--interactive" in argv
+    assert "--tty" not in argv
+    assert f"--workdir" in argv and containment.WORKSPACE in argv
+    assert argv[-2:] == [str(AGENT), "cwd"]

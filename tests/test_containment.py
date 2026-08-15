@@ -189,27 +189,84 @@ def test_refusal_11_hosts_under_policy_none_are_refused_by_name():
     assert "reads as a permission that does not exist" in message
 
 
-def test_refusal_10_an_acp_worker_cannot_be_contained_and_says_why():
-    """**R-3's structural case.** `run.worker` has two forms and only one of
-    them is a command Wringer spawns into a container: `acp.run_turn` starts
-    its own process and no backend is in that path. A containment declaration
-    beside one would leave the agent running on the host under a config
-    claiming containment.
+def test_refusal_10_became_a_capability_and_an_acp_worker_now_parses():
+    """**Refusal 10 named its own second branch, and this is it.**
+
+    It refused `run.containment` beside an ACP worker and said *"Phase 3 must
+    read this: the re-test's worker is a shell worker, or Phase 3 builds the
+    ACP path."* Phase 3 built the ACP path, because the escape hatch does not
+    survive contact with what the re-test measures — the corpus tasks are real
+    upstream bug fixes and a shell script does not fix them
+    (SPEC_CONTAIN_V0 §11, ruled by R-C).
+
+    The combination is now IMPLEMENTED rather than refused. This is not a
+    general loosening, and the test below is the half that proves it: every
+    other refusal in §3 still fires.
     """
+    cfg = config.parse(
+        {
+            "version": 1,
+            "gates": [{"id": "unit", "run": "true"}],
+            "run": {
+                "worker": {"acp": {"command": "some-agent"}},
+                "containment": declaration(),
+            },
+        }
+    )
+    assert cfg.run is not None
+    assert cfg.run.containment is not None
+    assert isinstance(cfg.run.worker, config.AcpWorker)
+
+
+def test_the_other_refusals_still_fire_beside_an_acp_worker():
+    """**The half that keeps §11 from reading as a general loosening.**
+
+    One combination became implementable. Nothing else did, and a reviewer's
+    fair question about an amendment that removes a refusal is whether the
+    neighbours went with it. Refusals 8, 9 and 11 are checked here **against an
+    ACP worker specifically**, because that is the configuration whose refusal
+    was lifted and therefore the one where a mistake would hide.
+    """
+    acp_worker = {"acp": {"command": "some-agent"}}
+
+    # Refusal 8 — a worktree-based fleet.
     with pytest.raises(config.ConfigError) as caught:
         config.parse(
             {
                 "version": 1,
                 "gates": [{"id": "unit", "run": "true"}],
-                "run": {
-                    "worker": {"acp": {"command": "some-agent"}},
-                    "containment": declaration(),
-                },
+                "fleet": {"worktree": True},
+                "run": {"worker": acp_worker, "containment": declaration()},
             }
         )
-    message = str(caught.value)
-    assert "cannot be declared beside an ACP worker" in message
-    assert "trusted_local" in message
+    assert "worktree" in str(caught.value)
+
+    # Refusal 11 — allowlist keys that would be inert under `policy: none`.
+    inert = declaration()
+    inert["egress"] = {"policy": "none", "hosts": ["api.anthropic.com"]}
+    with pytest.raises(config.ConfigError) as caught:
+        config.parse(
+            {
+                "version": 1,
+                "gates": [{"id": "unit", "run": "true"}],
+                "run": {"worker": acp_worker, "containment": inert},
+            }
+        )
+    assert "policy: none" in str(caught.value) or "none" in str(caught.value)
+
+    # And the closed key set still refuses a typo, which is what stops a
+    # containment declaration meaning something other than it reads.
+    typo = declaration()
+    typo["imag"] = "example/image:tag"
+    with pytest.raises(config.ConfigError) as caught:
+        config.parse(
+            {
+                "version": 1,
+                "gates": [{"id": "unit", "run": "true"}],
+                "run": {"worker": acp_worker, "containment": typo},
+            }
+        )
+    assert "imag" in str(caught.value)
 
 
 def test_refusal_8_a_worktree_fleet_and_containment_are_refused_where_they_meet():
@@ -861,21 +918,121 @@ def test_no_route_reaches_a_worker_turn_with_containment_declared_and_unestablis
                 "recovery from a containment that could not be stood up — "
                 "carrying on is the silent fallback ruling 3 forbids"
             )
-    # And the ACP path is refused rather than silently uncontained. Asserted
-    # by DRIVING the parser, not by grepping for the sentence: the message is
-    # wrapped across source lines, so a substring check would fail on correct
-    # code and pass on a reworded refusal that no longer fires.
-    with pytest.raises(config.ConfigError):
-        config.parse(
-            {
-                "version": 1,
-                "gates": [{"id": "unit", "run": "true"}],
-                "run": {
-                    "worker": {"acp": {"command": "some-agent"}},
-                    "containment": declaration(),
-                },
-            }
+    # **And the ACP path is CONTAINED rather than refused** (SPEC_CONTAIN_V0
+    # §11). Until 2026-08-15 this guard was satisfied by one path being
+    # contained and the other being refused at parse; the refusal is gone, so
+    # the second path has to carry the boundary itself or this whole guard
+    # would pass while an agent ran uncontained under a config claiming
+    # containment — R-3's named defect class, arriving through the door the
+    # amendment opened.
+    acp_source = (repo_root() / "src" / "wringer" / "acp.py").read_text(
+        encoding="utf-8"
+    )
+    acp_tree = ast.parse(acp_source)
+
+    # Every `subprocess.Popen` in acp.py spawns whatever `spawn` names, and
+    # `spawn` is the runtime argv whenever a containment was established.
+    # Asserted from the AST so a second Popen added later cannot slip past by
+    # not matching a grep.
+    popens = [
+        node
+        for node in ast.walk(acp_tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "Popen"
+    ]
+    assert popens, "acp.py no longer spawns anything; this guard is stale"
+    assert len(popens) == 1, (
+        f"acp.py has {len(popens)} `subprocess.Popen` call sites. Each one is "
+        "a worker spawn, and this guard proves the boundary for exactly one — "
+        "the assumption that there was a single spawn path is what let the "
+        "ACP worker run uncontained in the first place"
+    )
+    for node in ast.walk(popens[0]):
+        if isinstance(node, ast.Name) and node.id == "spawn":
+            break
+    else:  # pragma: no cover - the assertion below reports it
+        raise AssertionError(
+            "acp.py's Popen no longer spawns `spawn`, which is the name that "
+            "holds the runtime argv under a containment. A literal "
+            "`[command, *args]` here runs the agent on this machine"
         )
+    assert "containment.session_argv(" in acp_source, (
+        "acp.py never builds a contained session argv, so a declared "
+        "containment would not reach the agent"
+    )
+    # The session's cwd is translated, and the fs/ boundary knows it is
+    # contained — the two sites §11 A-3 and A-4 name.
+    assert "containment.WORKSPACE if contained" in acp_source
+    assert "containment.inbound(" in (
+        repo_root() / "src" / "wringer" / "acp.py"
+    ).read_text(encoding="utf-8")
+
+    # And the loop hands the ACP path the same containment it hands the shell
+    # path. A boundary built but never passed is the same as no boundary.
+    acp_call = next(
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "_run_acp_worker"
+    )
+    passed = {kw.arg for kw in acp_call.keywords}
+    assert {"containment_settings", "established"} <= passed, (
+        "loop.py calls `_run_acp_worker` without the containment it "
+        f"established; it passes {sorted(passed)}"
+    )
+
+
+def test_both_spawn_shapes_derive_from_one_boundary_builder():
+    """**The structural answer to "there are two spawn paths"**
+    (SPEC_CONTAIN_V0 §11 A-1).
+
+    The review's fifth HIGH was that a guard assuming one spawn path passes
+    while the second runs uncontained. Two containment implementations would
+    have the same disease one layer down: a flag added to one and forgotten on
+    the other, with nothing to notice. So both tails derive from `_base`, and
+    this test fails if a boundary flag reaches one and not the other.
+    """
+    tree = containment_tree()
+    for name in ("argv", "session_argv"):
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == name
+        )
+        calls = [
+            node.func.id
+            for node in ast.walk(function)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        ]
+        assert "_base" in calls, (
+            f"containment.{name} does not build on `_base`, so the boundary is "
+            "built twice and the two copies will drift"
+        )
+
+    # And the boundary flags really are all in the base rather than duplicated
+    # into a tail, which is the way this would rot without anyone noticing.
+    declared = settings()
+    established = containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+    root, workdir = Path("/repo"), Path("/work")
+    shell = containment.argv(declared, established, "true", root, workdir)
+    session = containment.session_argv(
+        declared, established, "some-agent", ("--stdio",), root, workdir
+    )
+
+    for flag in ("--rm", "--cidfile", "--volume", "--workdir", "--network"):
+        assert flag in shell, flag
+        assert flag in session, (
+            f"the ACP spawn is missing {flag}, which the shell spawn has. "
+            "Every boundary flag belongs to `_base` and reaches both"
+        )
+    assert shell[: shell.index("--entrypoint")] == (
+        session[: session.index("--interactive")]
+    ), (
+        "the two spawn shapes disagree before their tails, so the boundary is "
+        "not the same boundary"
+    )
 
 
 def test_the_worker_mode_word_is_named_apart_from_the_gate_one():
@@ -928,3 +1085,105 @@ def test_the_holder_is_reaped_by_cidfile_and_never_by_process_group():
         )
     assert containment.HOLDER_CIDFILE.endswith(".cid")
     assert containment.WORKER_CIDFILE.endswith(".cid")
+
+
+# --- §11: the contained ACP session -----------------------------------------
+
+
+def session(**overrides):
+    declared = settings(**overrides)
+    established = containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+    return containment.session_argv(
+        declared, established, "some-agent", ("acp", "--stdio"),
+        Path("/repo"), Path("/work"),
+    )
+
+
+def test_the_session_keeps_stdin_attached_and_never_asks_for_a_tty():
+    """**Both halves are ruled** (SPEC_CONTAIN_V0 §11 A-2).
+
+    Without `-i` a `run --rm` closes the child's stdin at once and the JSON-RPC
+    session dies on its first write — presenting as an agent that hangs during
+    `initialize`, which `acp.py` already names as the case somebody SIGKILLs
+    the loop over. So the missing flag would read as an agent defect.
+
+    `--tty` is forbidden rather than merely unused: a tty line-buffers, echoes
+    what is written to it and rewrites newlines, and ACP frames messages as
+    newline-delimited JSON on a raw pipe. That corruption reads as a protocol
+    bug in the agent rather than as a flag Wringer chose.
+    """
+    argv = session()
+    assert "--interactive" in argv
+    for forbidden in ("--tty", "-t"):
+        assert forbidden not in argv, (
+            f"the ACP spawn asks for {forbidden}; a tty corrupts JSON-RPC "
+            "framing in a way that looks like the agent's fault"
+        )
+    # And it is a `run` flag, so it must precede the image or the runtime reads
+    # it as an argument to the agent.
+    assert argv.index("--interactive") < argv.index("example/agent:tag")
+
+
+def test_the_agent_argv_survives_unsplit():
+    """`--entrypoint` names the binary and everything after the image is its
+    arguments, so nothing re-splits a quoted argument the way a shell would.
+    The shell path needs `shlex.join` for exactly the reason this path does
+    not."""
+    argv = session()
+    assert argv[-3:] == ["example/agent:tag", "acp", "--stdio"]
+    assert argv[argv.index("--entrypoint") + 1] == "some-agent"
+    assert "/bin/sh" not in argv, (
+        "the ACP spawn goes through a shell, which would re-split the agent's "
+        "own arguments"
+    )
+
+
+def test_both_declared_allowlists_cross_the_boundary():
+    """**The union, ruled** (§11 A-6). An ACP worker has two allowlists: the
+    boundary's `run.containment.env` and the agent's own
+    `run.worker.acp.env_passthrough`. Each name in either was typed into
+    `.wringer.yaml` by a human, which is the whole property an
+    allowlist-by-name protects.
+
+    The intersection was the other candidate and it is worse: it makes a
+    declared key silently inert — refusal 11's named defect class arriving
+    through the back door — and presents as an agent mysteriously receiving no
+    credential.
+    """
+    declared = settings(env=["BOUNDARY_NAME"])
+    established = containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+    argv = containment.session_argv(
+        declared, established, "some-agent", (), Path("/repo"), Path("/work"),
+        ("AGENT_NAME", "BOUNDARY_NAME"),
+    )
+    passed = [argv[i + 1] for i, a in enumerate(argv) if a == "--env"]
+    assert passed == ["BOUNDARY_NAME", "AGENT_NAME"], passed
+    # Never `--env NAME=VALUE`: an argv is readable by anyone who can run `ps`.
+    for name in passed:
+        assert "=" not in name
+
+
+def test_an_inbound_path_is_translated_before_it_is_resolved():
+    """**The ordering is the safety argument** (§11 A-4).
+
+    Translation runs BEFORE `_inside` resolves, so confinement is byte for
+    byte what it was: a `..`, a symlink, or a path that was never under
+    /workspace still escapes to exactly the refusal it did before. This widens
+    nothing; it stops the boundary from lying to the agent about where the
+    tree is.
+    """
+    root = Path("/repo")
+    assert containment.inbound("/workspace/src/x.py", root) == "/repo/src/x.py"
+    assert containment.inbound("/workspace", root) == "/repo"
+    # Not under the mount: left exactly as written, so it is refused by the
+    # same resolve that always refused it.
+    assert containment.inbound("/etc/passwd", root) == "/etc/passwd"
+    assert containment.inbound("relative/x.py", root) == "relative/x.py"
+    # A near-miss prefix is NOT the mount and must not be rewritten into the
+    # tree — the classic prefix bug, which would hand the agent a path it
+    # never named.
+    assert containment.inbound("/workspacex/x", root) == "/workspacex/x"

@@ -160,6 +160,19 @@ def notify(session_id: str, text: str) -> None:
     })
 
 
+def report(session_id: str, text: str) -> None:
+    """One plain `session/update`, for an agent reporting a fact about its own
+    session back to a test."""
+    send({
+        "jsonrpc": "2.0",
+        "method": "session/update",
+        "params": {
+            "sessionId": session_id,
+            "update": {"sessionUpdate": "agent_message_chunk", "text": text},
+        },
+    })
+
+
 def usage(session_id: str, used: int, size: int, cost: dict | None = None,
           note: str | None = None) -> None:
     """A real `usage_update`, the shape the protocol defines: token counts on
@@ -218,6 +231,14 @@ def main() -> int:
         elif method == "session/new":
             if BEHAVIOUR == "crash":
                 return 3
+            if BEHAVIOUR == "cwd":
+                # Report the working directory the CLIENT named, over the
+                # wire, so a test can assert what Wringer actually sent rather
+                # than what a dict in the client's own process said. Under a
+                # containment this must be the mount, not a host path that
+                # does not exist inside the boundary.
+                params = message.get("params") or {}
+                report(session_id, f"CWD {params.get('cwd')}")
             reply(request_id, {"sessionId": session_id})
             if BEHAVIOUR == "deaf":
                 # Answer, then stop reading stdin FOREVER. The client's next
@@ -305,8 +326,21 @@ def main() -> int:
                     ],
                 })
 
-            if BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy",
-                             "slow", "env", "usage", "usageleak"):
+            if BEHAVIOUR == "containedwrite":
+                # A path as the agent SEES it from inside the boundary. It
+                # resolves only if Wringer translated /workspace back to the
+                # host tree before resolving — and if it did not, the write is
+                # refused and the gate stays red, which is the failure this
+                # behaviour exists to make visible.
+                outbound += 1
+                answer = request(outbound, "fs/write_text_file", {
+                    "sessionId": session_id,
+                    "path": "/workspace/calc.py",
+                    "content": "FIXED\n",
+                })
+                report(session_id, f"contained write refused: {'error' in answer}")
+            elif BEHAVIOUR in ("fix", "permission", "garbage", "leak", "noisy",
+                               "slow", "env", "usage", "usageleak", "cwd"):
                 outbound += 1
                 request(outbound, "fs/write_text_file", {
                     "sessionId": session_id,

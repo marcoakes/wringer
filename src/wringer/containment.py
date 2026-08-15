@@ -171,13 +171,23 @@ def declared_record(settings: Containment) -> dict[str, Any]:
 # --- the static refusals ----------------------------------------------------
 
 
-def preflight(settings: Containment | None, root: Path) -> str | None:
+def preflight(
+    settings: Containment | None,
+    root: Path,
+    worker_requires: tuple[str, ...] = (),
+) -> str | None:
     """Why this containment cannot be honoured here, or None.
 
     STATIC only (ruling 3): refusals 1, 3, 4, 6 and 9. No container is started
     and no name is resolved, so this runs on `wring verify` too — which is the
     point, because a missing image discovered by CI costs a sentence and one
     discovered by `wring run` costs an hour of a corpus pass.
+
+    `worker_requires` is what Wringer KNOWS the image must carry, as opposed to
+    what the repository declared in `requires:` (SPEC_CONTAIN_V0 §11 A-5). For
+    an ACP worker the agent binary is `run.worker.acp.command`, so the check no
+    longer depends on the repository remembering to name it twice — the two
+    sets are unioned and refusal 4 reports whatever is missing, by name.
     """
     if settings is None:
         return None
@@ -237,11 +247,17 @@ def preflight(settings: Containment | None, root: Path) -> str | None:
     # reason. So an image that cannot run the declared worker is a declaration
     # that cannot be honoured, and finding that out on the first turn — after
     # a verify lap, a brief and a spawn — is finding it out too late.
-    missing = _missing_binaries(binary, settings.image, settings.requires)
+    required = tuple(dict.fromkeys((*settings.requires, *worker_requires)))
+    missing = _missing_binaries(binary, settings.image, required)
     if missing:
+        named = (
+            "'run.containment.requires' names"
+            if all(name in settings.requires for name in missing)
+            else "your worker needs"
+        )
         return (
             f"the image {settings.image!r} does not carry "
-            f"{', '.join(missing)}, which 'run.containment.requires' names. "
+            f"{', '.join(missing)}, which {named}. "
             "Wringer ships no coding agent from any vendor, so the image that "
             "runs your worker has to be one that carries it — build one FROM "
             "your base that adds the agent you chose, or correct 'requires'"
@@ -535,20 +551,51 @@ for ip in $ADDRS; do echo "RESOLVED $ip"; done
     return resolved
 
 
-def argv(
+def env_names(settings: Containment, passthrough: tuple[str, ...] = ()) -> tuple[str, ...]:
+    """Which NAMES cross the boundary, when two allowlists both apply.
+
+    A shell worker has one declared allowlist: `run.containment.env`. An ACP
+    worker has a second, `run.worker.acp.env_passthrough`, which existed before
+    containment did and is the one a repository already writes for an agent.
+
+    **Ruled: the union, and never the intersection** (SPEC_CONTAIN_V0 §11 A-6).
+    Each name in either list was typed into `.wringer.yaml` by a human, which
+    is the entire property an allowlist-by-name protects; taking the
+    intersection would instead make a declared key silently inert — refusal
+    11's named defect class, arriving through the back door — and would present
+    as an agent mysteriously receiving no credential.
+
+    Order is preserved and duplicates collapse, so the argv is stable and a
+    test can assert it.
+    """
+    return tuple(dict.fromkeys((*settings.env, *passthrough)))
+
+
+def _base(
     settings: Containment,
     established: Established,
-    command: str,
     root: Path,
     workdir: Path,
+    passthrough: tuple[str, ...] = (),
 ) -> list[str]:
-    """The whole worker command line, as a list a reviewer can read top down.
+    """Every flag that IS the boundary, built once for both spawn shapes.
+
+    **This function exists because there are two worker spawn paths and a
+    boundary built twice is a boundary that drifts** (SPEC_CONTAIN_V0 §11 A-1).
+    A shell worker goes through `gates.run`; an ACP worker is a stdio session
+    `acp.run_turn` holds open. They differ only in their tail — what is
+    executed and whether stdin stays attached — and everything before that tail
+    is the same mount, the same workdir, the same cidfile, the same network
+    arm, the same uid and the same `--env NAME` allowlist.
+
+    Deriving both from here means a flag added to the boundary lands on both
+    paths by construction rather than by whoever remembers, which is the
+    structural answer to the review finding that a guard assuming one spawn
+    path would pass while the second ran uncontained.
 
     A pure function of the config, the established containment and two paths —
-    no clock, no environment read, no runtime call — so a test can assert
-    every flag on a machine with no container runtime at all. That is the same
-    property `backend.Container.argv` has and for the same reason: it is the
-    half of this feature that can be proven anywhere.
+    no clock, no environment read, no runtime call — so a test can assert every
+    flag on a machine with no container runtime at all.
     """
     binary = _DOCKER_DIALECT[settings.runtime]
     args = [
@@ -587,15 +634,65 @@ def argv(
         ]
     if settings.user is not None:
         args += ["--user", settings.user]
-    for name in settings.env:
+    for name in env_names(settings, passthrough):
         # `--env NAME`, never `--env NAME=VALUE`. The runtime reads the value
         # from Wringer's own environment, so a credential handed to a worker
         # never becomes readable by anyone who can run `ps`. The two forms
         # differ by exactly that, and this is the whole of what "Wringer
         # stores no credential" means at the point of spawn.
         args += ["--env", name]
-    args += ["--entrypoint", "/bin/sh", settings.image, "-c", command]
     return args
+
+
+def argv(
+    settings: Containment,
+    established: Established,
+    command: str,
+    root: Path,
+    workdir: Path,
+) -> list[str]:
+    """The whole SHELL worker command line, as a list a reviewer reads top down.
+
+    The tail is `/bin/sh -c <command>`, because a shell worker is one shell
+    string the repository wrote down. Everything before it is `_base`.
+    """
+    return _base(settings, established, root, workdir) + [
+        "--entrypoint", "/bin/sh", settings.image, "-c", command,
+    ]
+
+
+def session_argv(
+    settings: Containment,
+    established: Established,
+    command: str,
+    args: tuple[str, ...],
+    root: Path,
+    workdir: Path,
+    passthrough: tuple[str, ...] = (),
+) -> list[str]:
+    """The whole ACP worker command line — a stdio session inside the boundary.
+
+    Two differences from `argv`, and both are ruled rather than incidental
+    (SPEC_CONTAIN_V0 §11 A-1, A-2):
+
+    1. **`--interactive`, and it is required.** A `run --rm` with no `-i`
+       closes the child's stdin at once, and a JSON-RPC session dies on its
+       first write. The agent would present as hanging during `initialize`,
+       which `acp.py` already names as the case somebody SIGKILLs the loop
+       over — so the missing flag would look like an agent defect.
+    2. **Never `--tty`.** ACP frames messages as newline-delimited JSON on a
+       raw pipe. A tty line-buffers, echoes what is written to it and rewrites
+       newlines, corrupting that framing in a way that reads as a protocol bug
+       in the agent rather than as a flag Wringer chose.
+
+    The agent argv is carried UNSPLIT: `--entrypoint` names the binary and
+    everything after the image is its arguments, so nothing re-splits a
+    quoted argument the way a shell would.
+    """
+    return _base(settings, established, root, workdir, passthrough) + [
+        "--interactive",
+        "--entrypoint", command, settings.image, *args,
+    ]
 
 
 def translate(command: str, root: Path) -> str:
@@ -617,6 +714,33 @@ def translate(command: str, root: Path) -> str:
     if prefix in command:
         return command.replace(prefix, WORKSPACE)
     return command
+
+
+def inbound(candidate: str, root: Path) -> str:
+    """Rewrite a path the CONTAINED agent named back into the host tree.
+
+    `translate` goes one way — host paths out, into a command the container
+    runs. This is the other way, and the ACP path is the only one that needs
+    it: the agent sees the repository at /workspace, so every path it names in
+    `fs/read_text_file` or `fs/write_text_file` is a container path, and
+    `acp._inside` resolves candidates against the HOST root.
+
+    Untranslated, `/workspace/x` resolves outside the root and is refused —
+    which fails closed, the right direction and the wrong answer, because it
+    refuses the agent's legitimate request.
+
+    **Confinement is unchanged, and the ordering is why.** This runs BEFORE
+    `_inside` resolves, so a `..` or a symlink still escapes to exactly the
+    refusal it always did, and a path that is not under /workspace is not
+    rewritten into the tree at all. This function widens no permission; it
+    only stops the boundary from lying to the agent about where the tree is.
+    """
+    if candidate == WORKSPACE:
+        return str(root)
+    prefix = WORKSPACE + "/"
+    if candidate.startswith(prefix):
+        return str(root / candidate[len(prefix):])
+    return candidate
 
 
 def teardown(settings: Containment, workdir: Path) -> None:

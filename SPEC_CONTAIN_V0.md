@@ -746,6 +746,176 @@ in §8. Both are Sequence I's to answer, and neither is a document's to claim.
 
 ---
 
+## §11 — AMENDED 2026-08-15 — refusal 10 becomes a capability: the ACP worker is contained
+
+*Amended by the Fable rulings of 2026-08-15, third block, **R-C**, through the
+amendment machinery this document already carries. **§1–§10 are otherwise
+untouched, and every other refusal in §3 stands exactly as written.** The
+original refusal 10 is preserved verbatim below rather than deleted — a spec
+that quietly loses the reason it once refused something cannot be audited.*
+
+### What refusal 10 said, kept
+
+> **10 · S ·** `run.containment` beside an **ACP worker** — that an ACP worker
+> is a stdio JSON-RPC session `acp.py:372` spawns directly, with its own env
+> allowlist and no backend; carrying that session across a container boundary
+> is a real design and is **not v0's**. Refused by name where the two keys
+> meet, rather than running uncontained under a config claiming containment
+> (review finding 5). **Phase 3 must read this**: the re-test's worker is a
+> shell worker, or Phase 3 builds the ACP path.
+
+Phase 3 read it, and built the ACP path. **This is the second branch of the
+sentence, not an override of the first.**
+
+### Why the re-test cannot use the escape hatch refusal 10 offered
+
+R-C decides it on evidence rather than on preference. The residual
+contamination channel — *the agent has a shell and a network* — was **measured
+in use**: three arm-B rows of the 2026-08-13 corpus run fetched a `.patch`, a
+PR diff and a post-fix source file (`docs/corpus-2026-08-13.md` §4). A channel
+measured in use, left open for a money run, is discountable by exactly the
+audit that discounted run 1 — and post-hoc detection cannot carry it, because
+an agent's fetch need leave no trace in a bundle.
+
+The escape hatch — *use a shell worker* — does not survive contact with what
+the re-test measures. The 13 corpus tasks are real upstream bug fixes; a shell
+script does not fix them. **The worker that has to be contained is the agent.**
+
+### A-1 — One boundary builder, two spawn shapes
+
+The review's fifth HIGH stands as the design constraint: **there are two worker
+spawn paths and a guard that assumes one is worthless.** The answer is not two
+containment implementations. Every boundary flag — the mount, the workdir, the
+cidfile, the network arm, the hosts mount, `--user`, the `--env NAME`
+allowlist — is built **once**, and the two spawn shapes differ only in their
+tail:
+
+| | shell worker | ACP worker |
+|---|---|---|
+| tail | `--entrypoint /bin/sh <image> -c <command>` | `--interactive --entrypoint <agent> <image> <args…>` |
+| stdio | inherited through `gates.run` | **attached**: `--interactive`, and never `--tty` |
+| carries | one shell string | the agent argv, unsplit |
+
+**This is structural, and it is the point.** A flag added to the boundary lands
+on both paths by construction rather than by whoever remembers. The guard
+asserts it: both builders must derive from the same base, and a boundary flag
+present in one tail and absent from the other fails.
+
+### A-2 — `--interactive`, and never `--tty`
+
+A `run --rm` with no `-i` closes the child's stdin immediately, and a JSON-RPC
+session dies on its first write — the agent would look like it hung during
+`initialize`, which is the failure `acp.py` already warns is the one somebody
+SIGKILLs the loop over. So `--interactive` is **required** for this path.
+
+`--tty` is **forbidden**, and that is a ruling rather than an omission. A tty
+line-buffers, echoes what is written to it, and rewrites `\n`. ACP frames
+messages as newline-delimited JSON on a raw pipe; a tty corrupts that framing
+in a way that looks like a protocol bug in the agent.
+
+### A-3 — The cwd is a SECOND translation site, and the shell path does not have it
+
+`session/new` sends `{"cwd": str(root), …}` — an absolute **host** path
+(`acp.py:437`). Inside the container that path does not exist, so the agent
+would open a session rooted at a directory that is not there.
+
+**Ruled: under an established containment, the session's `cwd` is `WORKSPACE`.**
+This is the ACP analogue of §4's `{brief}` rule, and it is a *different* site:
+the shell path's problem was a brief file path substituted into a command
+string, and this one is a protocol field. A window that translated only the
+first would ship an agent that starts and immediately has nowhere to work.
+
+**`{brief}` itself does not arise here.** An ACP worker is handed the brief's
+*content* over the protocol (`brief=brief.read_text(...)`, `loop.py:1055`),
+never its path, so there is no host path in it to translate.
+
+### A-4 — Inbound `fs/` paths travel the other way
+
+The agent sees the repository at `/workspace`, so any path it names in
+`fs/read_text_file` or `fs/write_text_file` is a **container** path. `_inside`
+resolves candidates against the host root (`acp.py:318-329`), so an untranslated
+`/workspace/x` resolves outside the root and is refused.
+
+That fails closed, which is the right direction and the wrong answer: it
+refuses the agent's legitimate request. **Ruled: under an established
+containment, a candidate under `WORKSPACE` is rewritten to the host root before
+`_inside` resolves it — and `_inside` then does exactly what it always did.**
+The confinement property is unchanged: translation happens *before* the
+resolve, so a symlink or a `..` still escapes to the same refusal it always
+did, and a path outside `WORKSPACE` is still not rewritten into the tree.
+
+**Stated limit:** this matters less than it looks. SECURITY.md records that a
+real agent edited the repository through its own tools and called
+`fs/write_text_file` **zero times**. The path is served because it is declared,
+not because it is the one the agent uses.
+
+### A-5 — The image must carry the agent, and Wringer now checks rather than asks
+
+`requires:` is how a repository states what its image must hold, and refusal 4
+checks it. For an ACP worker Wringer **knows** the binary — it is
+`run.worker.acp.command` — so the check no longer depends on the repository
+remembering to declare it.
+
+**Ruled: an ACP worker's own command is added to the required binaries
+automatically.** A containment naming an image without the agent in it refuses
+through refusal 4, by name, at `wring verify` time, with no new refusal number
+and no new vocabulary.
+
+### A-6 — What does NOT change
+
+- **`execution.backend` is still never the carrier.** R-1 and W9 are untouched;
+  `vacuity.py:162` is byte-unchanged and the prove pass is still untouched by
+  construction. Nothing in this amendment goes near `execution:`.
+- **Every other refusal in §3 stands**, including 8 (worktree-based runs) and
+  11 (inert keys under `policy: none`).
+- **The record shape is unchanged.** An ACP worker under containment writes the
+  same `wringer.execution.v2` with the same `declared`/`established` split.
+  `worker_execution` says nothing about which spawn shape ran, because the
+  boundary is the same boundary.
+- **The env allowlist is still by NAME.** An ACP worker's `env_passthrough` is
+  its own allowlist and remains the one that governs; the container receives
+  `--env NAME` for exactly those names and never `--env NAME=VALUE`.
+- **No 20th command, no new config key, no new egress value.**
+
+### A-7 — What this amendment does NOT license
+
+1. **It does not extend §7's ceiling by one word.** The canaries measured what
+   they measured, on one platform, one runtime, one image. An ACP worker inside
+   the boundary is subject to the same boundary and to the same limits — an
+   address allowlist with co-tenants, a snapshot of resolved addresses, a
+   read-write mount, and the image's choice of uid.
+2. **A contained agent is not a trustworthy agent.** §7.6 governs this
+   amendment verbatim: containment closes a contamination channel so that a
+   *measurement* is worth reading. It says nothing about whether the agent's
+   change is correct.
+3. **The session is not durable across a container restart.** If the runtime
+   kills the container mid-turn, the turn is over — the same as any other
+   worker turn that died, recorded the same way.
+4. **Nothing here claims the agent's own network use is bounded beyond the
+   allowlist.** An agent that reaches the model API can be told anything by the
+   model API. That is the trust boundary the whole product sits inside, and it
+   is not moved by a container.
+
+### A-8 — Definition of DONE for this amendment
+
+- [ ] `run.containment` beside `run.worker.acp` parses instead of refusing;
+      every other refusal in §3 still fires, each still with its test
+- [ ] one base builder; the shell and session tails derive from it, pinned by a
+      test that fails if a boundary flag reaches one tail and not the other
+- [ ] `--interactive` present on the session argv, `--tty` absent, each pinned
+- [ ] `session/new` sends `WORKSPACE` as `cwd` under an established containment
+      and the host root without one
+- [ ] an inbound `fs/` path under `WORKSPACE` resolves to the host tree, and an
+      escaping one is still refused
+- [ ] an ACP worker's `command` is required of the image without the repository
+      declaring it, refused through refusal 4 by name
+- [ ] the AST guard proves **both** spawn paths contained, rather than one
+      contained and one refused
+- [ ] sequence I re-run against a contained **ACP** worker, per (platform,
+      runtime, image), with the `--privileged` control beside it
+
+---
+
 ## §10 — Definition of DONE
 
 - [ ] `run.containment` parses, with closed key sets and named refusals
