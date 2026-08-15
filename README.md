@@ -40,6 +40,13 @@ does. Wringer is the part that refuses to believe it, so what comes out the
 far end is what the spec actually asked for rather than what an agent
 reported doing.
 
+**And three shelves it does not go on**, because they are where it gets
+mis-filed: **not a CI tool** — CI runs your checks, Wringer proves a check
+*could have failed* and, once you switch that on, refuses the delivery when it
+could not; **not an eval framework** — evals score models, Wringer gates
+deliveries; **not test generation** — generators write tests for developers,
+Wringer manufactures the evidence a delivery is refused without.
+
 The committed direction ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)): **every
 acceptance criterion carries the evidence that proves it — or is marked as
 the human judgement it always was.** A PM's criteria already travel
@@ -294,6 +301,40 @@ green on upstream's own fix, in
 above is the claim this programme committed to publishing and to defending;
 [`docs/witness-programme.md`](docs/witness-programme.md) says exactly what
 takes it back out.*
+
+### Two objections, answered where the claims live
+
+**"Isn't this just tests?"** The difference is *when* a check earns trust and
+what is kept afterwards. A check here is proved able to fail before it is
+believed: the receipt on a passing criterion cites a run on disk where that same
+check — same id, same command — was recorded failing, so you can go and read it.
+Edit the command and the history resets, because editing is how checks quietly
+narrow. And `wring verify --prove` re-runs the gates against the *pre-change*
+tree: every required gate passing on both is `gates_vacuous`, and `wring
+deliver` refuses that bundle with no flag to wave it through. A test suite tells
+you it is green. This tells you what the green is worth.
+
+**"The LLM writes the check — isn't that circular?"** Three things break the
+circle, and all three ship. **Temporal independence:** a proposed gate goes
+through `wring plan`'s diff to a human, and it is recorded RED before any work
+begins — one `wring verify` arms one gate, because verify stops at the first
+required failure, which is why `run.prove: true` exists for specs with many.
+**A check that arrived with the work cannot evidence the work:** where a
+criterion's only receipt is a `--prove` sensitivity row and the check's command
+names a file git reports as new, the receipt is refused and the criterion exits
+`unevidenced`, by name, in `acceptance.json`, with the remedy printed beside it.
+**Nothing may move under the work:** the spec, the rubric and the gate config
+are digested when the loop is briefed, and delivery refuses if any of the three
+has moved since — the loop itself stops `authority_moved` mid-flight when the
+spec or the rubric does. Nothing is reverted; the work simply is not accepted
+against a question that changed. Beside all three, the
+brief a worker is handed carries the objective and the failing gate's own
+output, never the check's source; and once `wring attest` records a bundle,
+`wring audit` reports `integrity_invalid` if any file in it was altered
+afterwards.
+
+**Both answers are bounded by the ceiling above.** Answering an objection never
+widens the claim: what is evidenced is the criterion *as it was written down*.
 
 ## Is your green still worth anything?
 
