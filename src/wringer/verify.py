@@ -174,6 +174,7 @@ def run(
     prove: bool = False,
     serial: bool = False,
     established: object | None = None,
+    witnesses: object | None = None,
 ) -> Outcome:
     """Verify once and write the bundle. Raises `evidence.EvidenceError` if
     the bundle cannot be opened; the caller decides what that costs.
@@ -431,8 +432,18 @@ def run(
     # tamper-evidence must cover it. Absent entirely unless an APPROVED spec
     # declares criteria (SPEC_ACCEPT_V0 ruling 8) — a repo that never opted
     # in writes a byte-identical bundle.
+    # **The witnesses run HERE, not once at the end of the loop**, and that is
+    # the placement W4 asks for: the pin is re-checked immediately before every
+    # execution, so "the bytes that ran are the bytes that were pinned" is a
+    # claim about this moment rather than about an hour ago. It also means every
+    # lap's `acceptance.json` is a true statement about that lap, instead of one
+    # lap's artifact being retro-fitted after the loop.
+    witness_evidence = _run_witnesses(
+        root, witnesses, bundle, cfg
+    )
     accepted = accept.assess(
-        root, cfg, results, state=state, redactor=bundle.redactor
+        root, cfg, results, state=state, redactor=bundle.redactor,
+        witnesses=witness_evidence,
     )
     if accepted is not None:
         accept.write(bundle.directory, accepted, redactor=bundle.redactor)
@@ -731,3 +742,60 @@ def _gate_finished(bundle: evidence.Bundle, result: gates.GateResult) -> None:
         # Only when true: an absent key means the log is whole.
         finished["truncated"] = True
     bundle.event("gate.finished", **finished)
+
+
+def _run_witnesses(
+    root: Path, witnesses: object | None, bundle: Any, cfg: config.Config
+) -> dict[str, accept.WitnessEvidence]:
+    """Execute each pinned witness against THIS tree, and report what it did.
+
+    Returns evidence keyed by criterion, in the shape `accept.assess` consumes.
+    An empty dict for every repository with no witness lane, which is what
+    keeps their bundles byte-identical.
+
+    **The pin is re-checked here, immediately before each execution**, against
+    the bytes on disk (SPEC_GATEGEN_V0 §6 W4). A mismatch raises
+    `witness.WitnessError` and VOIDs the run — not a failing gate, no run at
+    all — because a check the worker could edit is a check that says nothing.
+
+    A DISCARDED witness is still reported. It evidences nothing, but a reader
+    needs to see that a criterion went to a human because its witness was born
+    green or could not be collected, rather than finding a silent gap.
+    """
+    from wringer import witness as witness_module
+
+    if not witnesses:
+        return {}
+
+    worker_containment = cfg.run.containment if cfg.run is not None else None
+    evidence_by_criterion: dict[str, accept.WitnessEvidence] = {}
+    for item in witnesses:
+        pinned = item.record.get("pinned") or {}
+        proved = item.proved_red.outcome if item.proved_red is not None else (
+            witness_module.COLLECTION_ERROR
+        )
+        if not item.usable or not pinned:
+            evidence_by_criterion[item.criterion] = accept.WitnessEvidence(
+                pinned_sha256=pinned.get("sha256", ""),
+                proved_red=proved,
+                result="not_run",
+                discarded=item.discarded or "the witness was never pinned",
+                bundle=bundle_path(bundle, root),
+            )
+            continue
+
+        witness_module.check_pin(item, pinned, root)
+        executed = witness_module.execute(
+            root, item,
+            containment_settings=worker_containment,
+            established=None,
+        )
+        item.executed = executed
+        evidence_by_criterion[item.criterion] = accept.WitnessEvidence(
+            pinned_sha256=pinned.get("sha256", ""),
+            proved_red=proved,
+            result="passed" if executed.passed else "failed",
+            discarded=None,
+            bundle=bundle_path(bundle, root),
+        )
+    return evidence_by_criterion

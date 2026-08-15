@@ -45,6 +45,20 @@ from wringer import spec as spec_module
 from wringer.redact import Redactor
 
 SCHEMA_VERSION = "wringer.acceptance.v1"
+# **v2, written ONLY when the run carried a witness lane** (SPEC_GATEGEN_V0 §6
+# W6, which named this cost before it was paid). A repository with no witness
+# writes a byte-identical v1 and pays nothing, and the ABSENCE of a v2 record is
+# the compatibility boundary — the `wringer.execution.v2` precedent, for the
+# same reason.
+#
+# **Why a version and not an added key.** v1 says in its own field description
+# that only a required and BOUND criterion can refuse, so `gate: null` implies
+# `refuses: false` to every existing reader. A witness covers a criterion that
+# no gate binds, so v2 has rows with `gate: null` and `refuses: true`. That is a
+# meaning change in a field readers already act on, not a new field they can
+# ignore, and `accept.py`'s own standing rule is that even an optional new key
+# is a silent break.
+SCHEMA_VERSION_V2 = "wringer.acceptance.v2"
 # Named in evidence.py with the bundle's other filenames and re-exported here:
 # this module writes it, and that one is the one that has to be able to REMOVE
 # it from a reused `--output` directory.
@@ -62,6 +76,14 @@ HUMAN = "human"
 
 STATES = (EVIDENCED, UNEVIDENCED, GATE_FAILED, GATE_DID_NOT_RUN, HUMAN)
 
+# Receipt kinds. `witness` is v2's, and it is the only addition to this
+# vocabulary — **the STATE vocabulary above is untouched**, which is the
+# ruling: delivery consumes the witness through the existing taxonomy and no
+# new verdict word exists anywhere.
+FAILURE = "failure"
+SENSITIVE = "sensitive"
+WITNESS = "witness"
+
 # What this artifact does NOT say, travelling with the numbers rather than
 # living in a spec nobody opened. A test pins each by content.
 LIMITS = (
@@ -76,6 +98,24 @@ LIMITS = (
     "trees, not that the difference was the change. A gate whose own "
     "command arrived with the change reads sensitive for that reason alone "
     "— the citation beside it is how you tell.",
+)
+
+# What a v2 artifact does not say, on top of everything v1 does not say. This
+# is `WRINGER_RULING_2026-08-15` Q1's ceiling, travelling with the numbers
+# rather than living in a ruling nobody opened, and no artifact anywhere may
+# exceed it.
+LIMITS_V2 = LIMITS + (
+    "A witness proves the stated criterion could fail and was made to pass. It "
+    "does not certify agreement with an unstated intended fix, and where the "
+    "criterion under-describes the intent the witness inherits that gap. "
+    "Nothing here catches a change that satisfies the criterion and is still "
+    "wrong.",
+    "A witness evidences ONE criterion. A manufactured fail-to-pass check is "
+    "necessary and demonstrably not sufficient — it raises the floor and does "
+    "not make a delivery safe.",
+    "The pin is tamper-EVIDENT, not tamper-proof: a worker on the host can "
+    "read and rewrite what it finds there. It becomes a boundary only under "
+    "run.containment.",
 )
 
 _REMEDY = (
@@ -121,6 +161,46 @@ class Receipt:
 
 
 @dataclass(frozen=True)
+class WitnessEvidence:
+    """Wringer's own manufactured evidence for one criterion, as v2 records it.
+
+    Carried on the row **independently of the receipt**, because the case a
+    reader most needs to see is the one where they disagree: a green gate
+    beside a witness that still fails. That is the corpus's headline finding —
+    26 of 26 delivered yes on gates that carried zero information — and a
+    format that could not show it would be certifying the same thing again.
+    """
+
+    pinned_sha256: str
+    proved_red: str          # assertion | collection_error | green
+    result: str              # passed | failed | not_run
+    discarded: str | None = None
+    # Where the witness record lives, so a receipt can send a reader to it.
+    # Deliberately absent from `as_json`: this belongs on the RECEIPT, which is
+    # the field whose whole job is "go and look here", and duplicating it into
+    # the witness object would be two copies of one fact to keep in step.
+    bundle: str = ""
+
+    @property
+    def covers(self) -> bool:
+        """Whether this witness may decide anything about its criterion.
+
+        Only a witness proved red FOR THE RIGHT REASON covers one. A discarded
+        witness leaves the criterion uncovered, which routes to a human — an
+        honest outcome, and deliberately not a failure.
+        """
+        return self.discarded is None and self.proved_red == "assertion"
+
+    def as_json(self) -> dict[str, Any]:
+        return {
+            "pinned_sha256": self.pinned_sha256,
+            "proved_red": self.proved_red,
+            "result": self.result,
+            "discarded": self.discarded,
+        }
+
+
+@dataclass(frozen=True)
 class Row:
     """One criterion, and what this run can honestly say about it."""
 
@@ -132,22 +212,36 @@ class Row:
     command: str | None = None
     receipt: Receipt | None = None
     reason: str = ""
+    witness: WitnessEvidence | None = None
+
+    @property
+    def covered(self) -> bool:
+        """Whether anything in this run is answerable for the criterion.
+
+        A gate binding it, or a witness that covers it. **This is the v1-to-v2
+        change**: in v1 the only possible answer was a gate.
+        """
+        return self.gate_id is not None or (
+            self.witness is not None and self.witness.covers
+        )
 
     @property
     def refuses(self) -> bool:
         """Whether this row stops delivery (ruling 9).
 
-        Only a BOUND criterion can refuse, and only when it is required. An
-        unbound one is a debt the author has not paid yet — loud, never
+        Only a COVERED criterion can refuse, and only when it is required. An
+        uncovered one is a debt the author has not paid yet — loud, never
         fatal — because every spec starts with all its criteria required and
-        none of them bound, and refusing there would refuse the first
+        nothing covering them, and refusing there would refuse the first
         delivery in every repo that ever ran `wring spec`.
+
+        **v2 widens "covered" from "bound" to "bound or witnessed", and that is
+        the whole reason the version moved.** A criterion no gate binds can now
+        stop a delivery, on exactly the same terms — required, covered, not
+        evidenced. A v1 reader meeting such a row would read `gate: null` and
+        conclude it cannot refuse, which is why this could not be an added key.
         """
-        return (
-            self.required
-            and self.gate_id is not None
-            and self.state != EVIDENCED
-        )
+        return self.required and self.covered and self.state != EVIDENCED
 
     def as_json(self) -> dict[str, Any]:
         return {
@@ -160,6 +254,7 @@ class Row:
             "receipt": self.receipt.as_json() if self.receipt else None,
             "reason": self.reason,
             "refuses": self.refuses,
+            "witness": self.witness.as_json() if self.witness else None,
         }
 
 
@@ -170,6 +265,17 @@ class Result:
     @property
     def refusing(self) -> tuple[Row, ...]:
         return tuple(row for row in self.rows if row.refuses)
+
+    @property
+    def has_witness(self) -> bool:
+        """Whether this run carried a witness lane at all.
+
+        **The version selector, and the compatibility boundary.** A repository
+        with no witness writes a byte-identical v1 and pays nothing; the
+        absence of a v2 record is what tells a v1 reader it may proceed. The
+        `wringer.execution.v2` precedent, for the same reason.
+        """
+        return any(row.witness is not None for row in self.rows)
 
     def counts(self) -> dict[str, int]:
         """One key per state, always all of them.
@@ -186,11 +292,33 @@ class Result:
         return tally
 
     def as_json(self) -> dict[str, Any]:
+        """The artifact, at v1 unless this run carried a witness.
+
+        **The version moves with the CONTENT, not with the code version.** A
+        repository that never opted into the witness lane keeps writing exactly
+        the bytes it wrote before this feature existed — which is the whole
+        compatibility promise, and the reason the row's `witness` key is
+        absent rather than null there.
+        """
+        if not self.has_witness:
+            return {
+                "schema_version": SCHEMA_VERSION,
+                "counts": self.counts(),
+                "criteria": [
+                    {
+                        key: value
+                        for key, value in row.as_json().items()
+                        if key != "witness"
+                    }
+                    for row in self.rows
+                ],
+                "limits": list(LIMITS),
+            }
         return {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": SCHEMA_VERSION_V2,
             "counts": self.counts(),
             "criteria": [row.as_json() for row in self.rows],
-            "limits": list(LIMITS),
+            "limits": list(LIMITS_V2),
         }
 
 
@@ -263,12 +391,21 @@ def assess(
     *,
     state: Any = None,
     redactor: Redactor | None = None,
+    witnesses: Any = None,
 ) -> Result | None:
     """What this run can say about each criterion. None when not opted in.
 
     `results` is the run's own gate results — the gates that actually ran and
     finished. A criterion whose gate is absent from them did not run, and
     absence is absence: never a pass-through to an older green.
+
+    `witnesses` is the witness lane's answer for the same criteria, as
+    `WitnessEvidence` keyed by criterion id. **It is consumed through the
+    EXISTING taxonomy and adds no verdict vocabulary** — that is the ruling,
+    and it is why this is an argument rather than a second artifact: a
+    criterion evidenced by a witness is `evidenced`, one whose witness still
+    fails is `gate-failed`, and one covered by neither is `unevidenced` and
+    goes to a human. Three states this module already had.
     """
     approved = read_spec(root)
     if approved is None:
@@ -289,15 +426,39 @@ def assess(
     # different claims, and only the first may earn a receipt.
     created = created_stems(state)
 
+    by_criterion = dict(witnesses or {})
+
     rows = []
     for criterion in approved.criteria:
         rows.append(
-            _assess_one(criterion, bound, ran, discriminating, created, scrub)
+            _assess_one(
+                criterion, bound, ran, discriminating, created, scrub,
+                by_criterion.get(criterion.id),
+            )
         )
     return Result(rows=tuple(rows))
 
 
-def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
+def _assess_one(
+    criterion, bound, ran, discriminating, created, scrub, witness=None
+) -> Row:
+    """One criterion's verdict, gate and witness together.
+
+    **The ordering is the whole design and it is not arbitrary:**
+
+    1. A FAILING gate wins over everything. The criterion is not met, and that
+       is the ordinary honest state of work in progress.
+    2. Otherwise a covering WITNESS decides — including over a PASSING gate.
+       This is the point of the lane. The corpus measured the declared gates
+       returning green on all 13 tasks including every wrong change, so a
+       design in which a green gate could overrule a red witness would
+       reproduce exactly the result that disproved this programme's operating
+       assumption.
+    3. Otherwise the gate decides, exactly as it did in v1.
+
+    A DISCARDED witness decides nothing in either direction: it leaves the
+    criterion as the gate found it, or uncovered if no gate binds it.
+    """
     common = {
         "criterion": criterion.id,
         "title": criterion.title,
@@ -313,12 +474,25 @@ def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
 
     gate = bound.get(criterion.id)
     if gate is None:
+        # **v2's new branch.** No gate binds this criterion, and in v1 that was
+        # the end of it. A witness can now cover it — which is the entire
+        # reason the lane exists, because the criteria this programme targets
+        # are exactly the ones the repository has no check for.
+        if witness is not None and witness.covers:
+            return _witness_verdict(common, witness, gate=None)
         return Row(
             **common,
             state=UNEVIDENCED,
+            witness=witness,
             reason=(
-                "no gate proves this criterion — add `proves: "
-                f"{criterion.id}` to the gate that evidences it"
+                "no gate proves this criterion"
+                + (
+                    f", and its witness evidences nothing ({witness.discarded})"
+                    " — a human decides"
+                    if witness is not None and witness.discarded
+                    else f" — add `proves: {criterion.id}` to the gate that "
+                    "evidences it"
+                )
             ),
         )
 
@@ -330,6 +504,7 @@ def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
         return Row(
             **detail,
             state=GATE_DID_NOT_RUN,
+            witness=witness,
             reason=(
                 f"`{gate.id}` left no result in this run, so this run says "
                 "nothing about the criterion"
@@ -339,14 +514,23 @@ def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
         return Row(
             **detail,
             state=GATE_FAILED,
+            witness=witness,
             reason=f"`{gate.id}` failed, so the criterion is not met",
         )
+
+    # **Rule 2: the gate passed, so now the witness decides if it covers.**
+    # A witness that is red on the changed tree means the criterion is not
+    # satisfied, whatever the declared gates said — and the declared gates
+    # saying yes anyway is the measured baseline this lane exists to break.
+    if witness is not None and witness.covers:
+        return _witness_verdict(detail, witness, gate=gate)
 
     receipt = discriminating.get((gate.id, command))
     if receipt is None:
         return Row(
             **detail,
             state=UNEVIDENCED,
+            witness=witness,
             reason=(
                 f"`{gate.id}` passed, but nothing in the record shows it can "
                 f"fail — a gate born green evidences nothing. {_REMEDY}"
@@ -395,9 +579,42 @@ def _assess_one(criterion, bound, ran, discriminating, created, scrub) -> Row:
         **detail,
         state=EVIDENCED,
         receipt=receipt,
+        witness=witness,
         reason=(
             f"`{gate.id}` passed, and the record shows it can fail"
             + (f". {receipt.environment}" if receipt.environment else "")
+        ),
+    )
+
+
+def _witness_verdict(fields: dict, witness, gate) -> Row:
+    """What a COVERING witness says, in the existing vocabulary.
+
+    Red on the changed tree is `gate-failed` — the criterion is not met. Green
+    is `evidenced`, with a receipt whose kind names where the evidence came
+    from, so a reader is never left guessing whether a green came from the
+    repository's own check or from one Wringer manufactured.
+    """
+    where = f"`{gate.id}` passed, but " if gate is not None else ""
+    if witness.result != "passed":
+        return Row(
+            **fields,
+            state=GATE_FAILED,
+            witness=witness,
+            reason=(
+                f"{where}the check Wringer authored for this criterion — "
+                "proved red before the work began — is still red. The "
+                "criterion is not satisfied"
+            ),
+        )
+    return Row(
+        **fields,
+        state=EVIDENCED,
+        receipt=Receipt(kind=WITNESS, bundle=witness.bundle),
+        witness=witness,
+        reason=(
+            "a check Wringer authored for this criterion was proved red "
+            "before the work began, pinned, and passes now"
         ),
     )
 

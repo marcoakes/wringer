@@ -746,6 +746,11 @@ def run(
         final = verify.run(
             root, cfg, planned, on_gate=on_gate, prove=prove,
             established=established,
+            # Handed to EVERY lap, so each lap's `acceptance.json` is a true
+            # statement about that lap rather than one artifact retro-fitted
+            # after the loop. The pin is re-checked inside, immediately before
+            # each execution.
+            witnesses=witnesses,
         )
         signature = failure_signature(final)
         bundle.event(
@@ -910,12 +915,12 @@ def run(
     if worker_containment is not None:
         containment.teardown(worker_containment, bundle.directory)
 
-    # **The other half of the comparison** (W4). The pin was established
-    # against the pre-change tree; this is the same bytes run against the tree
-    # the worker produced, with the pin re-checked immediately before —
-    # because a check the worker could edit is a check that says nothing, and
-    # the only moment that matters is the moment before it executes.
-    _execute_witnesses(bundle, root, witnesses, worker_containment, established)
+    # No separate post-loop execution: `verify.run` executes the witnesses on
+    # every lap, which is where the pin re-check belongs and which makes each
+    # lap's acceptance artifact honest on its own. The first draft ran them
+    # once at the end and then had no way to get the result into the
+    # acceptance the loop had already written.
+    _write_witness_record(bundle, witnesses)
 
     bundle.event(
         "loop.finished", status=status, reason=reason, iterations=iterations
@@ -1279,46 +1284,21 @@ def _pin_witnesses(
     return found
 
 
-def _execute_witnesses(
-    bundle: Bundle,
-    root: Path,
-    witnesses: list[witness.Witness],
-    containment_settings: config.Containment | None,
-    established: containment.Established | None,
-) -> Path | None:
-    """Run each usable witness against the CHANGED tree, and write the record.
+def _write_witness_record(bundle: Bundle, witnesses: list) -> Path | None:
+    """The lane's own sibling artifact, `witness.json` (`wringer.witness.v1`).
 
-    The pin is re-checked immediately before every execution rather than once
-    at the start: the whole claim is that the bytes which ran are the bytes
-    that were pinned, and a check performed an hour earlier is a check about a
-    different file.
+    A SIBLING file rather than ledger events, and that is a correction the
+    independent review forced: the first draft emitted `witness.pinned` and
+    `witness.executed` into `loop.jsonl`, whose `type` is a CLOSED enum with
+    `additionalProperties: false` on every branch — so every bundle carrying a
+    witness lane wrote a ledger that failed its own published, frozen schema.
+    This module declines a containment event 200 lines above for exactly that
+    reason. `vacuity.json` set the pattern: a new file costs no version.
 
-    **A mismatch VOIDs the run**, and that is not a failing gate — it is no run
-    at all. Exit `EXIT_REFUSED`, not 1, which would file it as evidence about
-    the change, and not 2, which would blame a configuration that is fine.
+    Absent entirely from every run with no witness lane.
     """
     if not witnesses:
         return None
-
-    for item in witnesses:
-        if not item.usable:
-            continue
-        pinned = item.record.get("pinned")
-        if not pinned:  # pragma: no cover - pinned beside usable
-            continue
-        # `root` is what makes this a comparison rather than a tautology: the
-        # bytes on disk are re-hashed here, immediately before they run. The
-        # first draft compared the in-memory object against a pin derived from
-        # that same object, which could not fail. A mismatch raises and the
-        # run VOIDs — exit 3, never 1 (which would file it as evidence about
-        # the change) and never 2 (which would blame a config that is fine).
-        witness.check_pin(item, pinned, root)
-        item.executed = witness.execute(
-            root, item,
-            containment_settings=containment_settings,
-            established=established,
-        )
-
     payload = {
         "schema_version": witness.SCHEMA_VERSION,
         "witnesses": [
@@ -1339,16 +1319,9 @@ def _execute_witnesses(
                 "executed": (
                     {
                         "sha256": item.sha256,
-                        # MEASURED, not asserted. This was the literal `True`
-                        # until the review pointed out that W6 calls this field
-                        # "the comparison that VOIDs a run" — a field carrying
-                        # a constant is not a comparison. It reaches here only
-                        # on the path where `check_pin` against the disk has
-                        # already passed, and it records what that check saw.
-                        "matches_pin": (
-                            witness.on_disk_sha256(root, item) == item.sha256
+                        "result": (
+                            "passed" if item.executed.passed else "failed"
                         ),
-                        "result": "passed" if item.executed.passed else "failed",
                         "exit_code": item.executed.exit_code,
                     }
                     if item.executed is not None else None
@@ -1360,7 +1333,11 @@ def _execute_witnesses(
         "limits": list(witness.LIMITS),
     }
     path = bundle.directory / witness.WITNESS_FILENAME
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # Through the redactor, like every other artifact this bundle writes. The
+    # first draft wrote it raw, and the payload carries output lifted from
+    # model-authored Python that ran with the whole host environment.
+    text = json.dumps(payload, indent=2) + "\n"
+    path.write_text(bundle.redactor.scrub(text), encoding="utf-8")
     return path
 
 

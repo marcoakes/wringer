@@ -24,7 +24,7 @@ import json
 import subprocess
 from pathlib import Path
 
-from wringer import accept, cli, evidence
+from wringer import accept, cli, config, evidence
 
 
 def commit(repo: Path, message: str = "the code as it stood") -> None:
@@ -617,3 +617,160 @@ def test_an_unbound_criterion_is_not_called_out_as_born_green(
     capsys.readouterr()
 
     assert "should be RED" not in summary_of(repo)
+
+
+# --- wringer.acceptance.v2: the witness lane --------------------------------
+
+
+def witness_evidence(**overrides):
+    fields = {
+        "pinned_sha256": "a" * 64,
+        "proved_red": "assertion",
+        "result": "passed",
+        "discarded": None,
+        "bundle": ".wringer/runs/x",
+    }
+    fields.update(overrides)
+    return accept.WitnessEvidence(**fields)
+
+
+def test_a_run_with_no_witness_writes_v1_and_no_witness_key():
+    """**The compatibility boundary.** Every repository in the world that
+    never opted into the witness lane keeps writing exactly the bytes it wrote
+    before the lane existed — and the ABSENCE of a v2 record is what tells a v1
+    reader it may proceed."""
+    result = accept.Result(rows=(
+        accept.Row(criterion="c", title="t", required=True,
+                   state=accept.EVIDENCED, gate_id="g", command="true"),
+    ))
+    payload = result.as_json()
+
+    assert payload["schema_version"] == accept.SCHEMA_VERSION
+    assert payload["limits"] == list(accept.LIMITS)
+    assert "witness" not in payload["criteria"][0], (
+        "a v1 row grew a key, which is a silent break for every existing "
+        "reader — the rule this module states about itself"
+    )
+
+
+def test_a_run_with_a_witness_writes_v2():
+    result = accept.Result(rows=(
+        accept.Row(criterion="c", title="t", required=True,
+                   state=accept.EVIDENCED, witness=witness_evidence()),
+    ))
+    payload = result.as_json()
+
+    assert payload["schema_version"] == accept.SCHEMA_VERSION_V2
+    assert payload["criteria"][0]["witness"]["proved_red"] == "assertion"
+    # Q1's ceiling travels with the numbers.
+    joined = " ".join(payload["limits"]).lower()
+    assert "does not certify agreement" in joined
+
+
+def test_a_witnessed_criterion_with_NO_GATE_can_refuse():
+    """**This is the whole reason the version moved.** In v1 only a bound
+    criterion could refuse, so `gate: null` implied `refuses: false` to every
+    reader. A witness covers a criterion no gate binds, and it must be able to
+    stop a delivery on the same terms."""
+    row = accept.Row(
+        criterion="c", title="t", required=True, state=accept.GATE_FAILED,
+        gate_id=None, witness=witness_evidence(result="failed"),
+    )
+    assert row.covered
+    assert row.refuses, (
+        "a required criterion whose witness is still red does not refuse, so "
+        "the lane is decorative"
+    )
+
+
+def test_a_DISCARDED_witness_covers_nothing_and_refuses_nothing():
+    """A witness born green, or one the runner could not collect, evidences
+    nothing in EITHER direction. The criterion is uncovered and goes to a
+    human, which is honest and deliberately not a failure."""
+    for discarded, proved in (
+        ("born green", "green"), ("could not collect", "collection_error"),
+    ):
+        row = accept.Row(
+            criterion="c", title="t", required=True, state=accept.UNEVIDENCED,
+            gate_id=None,
+            witness=witness_evidence(discarded=discarded, proved_red=proved,
+                                     result="not_run"),
+        )
+        assert not row.covered, discarded
+        assert not row.refuses, discarded
+
+
+def test_a_red_witness_beats_a_PASSING_gate(repo, monkeypatch):
+    """**The measured baseline this lane exists to break.**
+
+    The corpus ran 13 real bug fixes: `--prove` returned `gates_vacuous` on
+    13 of 13, and `wring deliver` said yes on 26 of 26 rows including every
+    wrong change. The declared gates carried zero information about the change.
+
+    So a design in which a green gate could overrule a red witness would
+    reproduce exactly the result that disproved this programme's operating
+    assumption. The witness wins.
+    """
+    write_spec(repo)
+    write_config(repo, '  - id: vacuous\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    cfg = config.load(repo / ".wringer.yaml")
+
+    assessed = accept.assess(
+        repo, cfg, [],
+        witnesses={"csv-downloads": witness_evidence(result="failed")},
+    )
+    row = assessed.rows[0]
+
+    assert row.state == accept.GATE_FAILED
+    assert row.refuses, "a red witness does not stop delivery"
+    assert "still red" in row.reason
+
+
+def test_a_green_witness_evidences_a_criterion_no_gate_binds(
+    repo, monkeypatch
+):
+    """The other direction, and the receipt names where the evidence came
+    from — so a reader is never left guessing whether a green came from the
+    repository's own check or one Wringer manufactured."""
+    write_spec(repo)
+    write_config(repo, '  - id: vacuous\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    cfg = config.load(repo / ".wringer.yaml")
+
+    assessed = accept.assess(
+        repo, cfg, [],
+        witnesses={"csv-downloads": witness_evidence(result="passed")},
+    )
+    row = assessed.rows[0]
+
+    assert row.state == accept.EVIDENCED
+    assert not row.refuses
+    assert row.receipt is not None and row.receipt.kind == accept.WITNESS
+
+
+def test_a_FAILING_gate_still_outranks_a_green_witness(repo, monkeypatch):
+    """Rule 1 of the ordering: a failing gate wins over everything. The
+    criterion is not met, and that is the ordinary honest state of work in
+    progress — a witness passing does not paper over it."""
+    write_spec(repo)
+    write_config(
+        repo, '  - id: g\n    run: "false"\n    proves: csv-downloads\n'
+    )
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+
+    row = artifact(repo)["criteria"][0]
+    assert row["state"] == accept.GATE_FAILED, (
+        "a failing gate must win: the criterion is not met, and a witness "
+        "passing does not paper over work in progress"
+    )
+
+
+def test_the_state_vocabulary_gained_no_word():
+    """**No new verdict vocabulary** is the ruling, and it is checked by value
+    rather than trusted: delivery consumes the witness through the taxonomy
+    this module already had."""
+    assert accept.STATES == (
+        "evidenced", "unevidenced", "gate-failed", "gate-did-not-run", "human"
+    )

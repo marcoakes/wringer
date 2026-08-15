@@ -119,6 +119,19 @@ EXIT_FAILED = 1
 EXIT_INTERRUPTED = 2
 EXIT_NO_TESTS = 5
 
+# **The witness must leave the tree exactly as it found it**, and without this
+# it does not. Running pytest in the repository root writes `__pycache__` beside
+# every module it imports, which makes the working tree dirty — and `wring
+# deliver` then refuses with *"the working tree has moved since … verified it"*,
+# naming a `.pyc` file. Measured, not anticipated: it appeared the first time
+# the lane reached a real delivery.
+#
+# That failure would have been invisible and expensive in the corpus re-test —
+# every row blocked at delivery for a reason that has nothing to do with the
+# row. `-p no:cacheprovider` already suppresses pytest's own cache; this
+# suppresses the interpreter's.
+RUNNER_ENV = {"PYTHONDONTWRITEBYTECODE": "1"}
+
 # `proved_red.outcome` — W8's structural discriminator.
 ASSERTION = "assertion"
 COLLECTION_ERROR = "collection_error"
@@ -593,7 +606,7 @@ def execute(
                 capture_output=True,
                 text=True,
                 timeout=TIMEOUT_SECONDS,
-                env={**os.environ, **(env or {})},
+                env={**os.environ, **RUNNER_ENV, **(env or {})},
             )
         except subprocess.TimeoutExpired:
             return Execution(
