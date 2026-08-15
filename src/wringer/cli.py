@@ -36,6 +36,7 @@ from wringer import (
     rubric,
     sign,
     spec,
+    staleness,
     start,
     summary,
     verify,
@@ -1807,6 +1808,9 @@ _LOOP_ENDINGS = {
     "ran out and the gates still fail.",
     loop.FLAKY_GATE: "Stopped after {n} iteration{s} — the failing gate is "
     "flaky, so no worker ran.",
+    staleness.AUTHORITY_MOVED: "Stopped after {n} iteration{s} — the spec, the "
+    "rubric or the gate config moved after the loop was briefed. The work that "
+    "landed is untouched; nothing was reverted.",
     "interrupted": "Interrupted after {n} iteration{s}.",
 }
 

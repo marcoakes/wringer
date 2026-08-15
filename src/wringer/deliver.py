@@ -486,6 +486,41 @@ def _check_not_vacuous(run_dir: Path) -> None:
     )
 
 
+def _check_not_stale(root: Path, run_dir: Path) -> None:
+    """Refuse a delivery whose authorising documents moved after the brief.
+
+    The vacuity precedent, one document over: `spec_sha256` was WRITTEN at
+    three sites in this module and COMPARED at none, and `authorising_sha256`
+    hashes the spec as it is now — so "authorised by spec S" named whatever
+    was on disk at delivery time rather than what the work was briefed on.
+
+    Exit 1, like the vacuity and acceptance refusals: this is a statement
+    about the EVIDENCE, not about the machine (2) and not about an unsafe tree
+    (3). The benchmark's rule 2 turns on that distinction.
+
+    **Nothing is reverted and nothing is aborted.** The loop already stopped
+    at its own iteration boundary if it saw this while running; by the time
+    delivery looks, the work has landed and stays landed.
+    """
+    from wringer import staleness
+
+    found = staleness.loop_for_run(root, _relative_to_root(run_dir, root))
+    if found is None:
+        return
+    loop_dir, loop_id = found
+    recorded = staleness.read(loop_dir)
+    if recorded is None:
+        return
+    current = staleness.capture(root)
+    names = staleness.moved(recorded, current)
+    if not names:
+        return
+    raise Refused(
+        staleness.refusal_message(run_dir.name, loop_id, names, recorded, current),
+        1,
+    )
+
+
 def _check_can_sign(cfg: config.Config) -> None:
     """Refuse to deliver from an environment that cannot sign the record.
 
@@ -672,6 +707,13 @@ def plan(
     # `provenance.require_signature: true` ships only from somewhere that can
     # sign the record.
     _check_can_sign(cfg)
+    # And once more for the DOCUMENTS the work was authorised by. Gates
+    # passing says the change is mergeable and acceptance says what was asked
+    # for exists — neither says the question is still the one that was asked.
+    # A run no loop produced records no brief and is unaffected, which is
+    # every `wring verify` run and every loop bundle written before this
+    # existed.
+    _check_not_stale(root, run_dir)
 
     state = git.inspect(root)
     check_verified_tree(root, run_dir, state, redactor)

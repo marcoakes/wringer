@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/briefed.schema.json",
+  "title": "What a loop was briefed with",
+  "description": "`briefed.json` — the digests of the documents that authorised one `wring run`, captured BEFORE the first worker turn. A SIBLING of the loop bundle's manifest, like `digests.json` and `vacuity.json` and for the same law-7 reason: `wringer.loop.v2`'s manifest is frozen, so this arrives as its own file and a reader that does not know it ignores it. Written before `digests.json`, so the loop's own tamper-evidence covers it. It exists because `deliver.py` wrote `spec_sha256` at three sites and compared it at NONE, and `spec.authorising_sha256` hashes the spec as it is NOW — so a delivery manifest could say 'authorised by spec S' where S was whatever sat on disk at delivery time rather than what the work was briefed against, and `spec.py`'s own docstring named the gap ('a spec could be edited after approval with no trace'). Three documents, because three things authorise a loop's work: the approved spec is the authority everything downstream runs on, the rubric is what 'satisfied' means, and `.wringer.yaml` is what 'verified' means. A mismatch stops the loop at an ITERATION BOUNDARY with reason `authority_moved` — never mid-turn, because a turn that has run cannot be un-run — and refuses delivery with a named reason. Nothing is ever reverted: `deliver.py`'s standing ruling against auto-reversal binds this and binds the wording of the refusal too. ABSENT from every loop bundle written before this file existed, and from every run no loop produced; those deliver exactly as they always have.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "captured_at",
+    "documents"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Identifies the record a reader is holding. Versioned independently of the loop bundle (`wringer.loop.v2`) it sits beside.",
+      "const": "wringer.briefed.v1"
+    },
+    "captured_at": {
+      "description": "Local ISO-8601 with UTC offset, second precision. When the brief was hashed, which is before the first worker turn and after any resume rebuilt the loop.",
+      "type": "string"
+    },
+    "documents": {
+      "description": "Repo-relative path -> sha256 of its bytes, or null when the document did not exist when the loop was briefed. `null` is a VALUE and not an omission: a spec that appears mid-loop is a move, because the landed work was not briefed against it. A capture that names only some of the documents is a statement about those documents alone and never a claim that the rest were absent.",
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "null"],
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}

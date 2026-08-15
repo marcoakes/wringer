@@ -41,7 +41,23 @@ def flaky_config(counter: Path, *, parallel: int = 1) -> str:
 
     The counter lives OUTSIDE every worktree, which is what makes the attempts
     share nothing but the thing being measured.
+
+    **The increment is LOCKED, and the lock is not decoration.** With
+    `parallel: 3` these workers run at the same time, and a bare
+    read-modify-write on one file lets two of them read the same `n`, take the
+    same branch and converge together — so the bench sees three consistent
+    attempts and `across_attempts` comes back `consistent`, failing the two
+    tests that assert `inconsistent`. That is a race in the FIXTURE and never
+    in the product: it made those two tests flaky, they failed once in a full
+    suite run on 2026-08-15, and the diagnosis was confirmed by widening the
+    window with a `sleep` between the read and the write, which failed 3 of 3.
+
+    `mkdir` is the mutex because it is atomic on every POSIX filesystem and
+    needs no tool this suite does not already assume. The attempts still race
+    for WHICH of them draws 1, 2 and 3 — that is the nondeterminism being
+    measured — but exactly one draws each.
     """
+    lock = f"{counter}.lock"
     return (
         "version: 1\n"
         "gates:\n"
@@ -52,8 +68,9 @@ def flaky_config(counter: Path, *, parallel: int = 1) -> str:
         f"  parallel: {parallel}\n"
         "  contenders:\n"
         "    - id: coin\n"
-        f'      worker: "n=$(cat {counter} 2>/dev/null || echo 0); '
-        f'n=$((n+1)); printf %s $n > {counter}; '
+        f'      worker: "until mkdir {lock} 2>/dev/null; do sleep 0.01; done; '
+        f'n=$(cat {counter} 2>/dev/null || echo 0); '
+        f'n=$((n+1)); printf %s $n > {counter}; rmdir {lock}; '
         'if [ $((n % 2)) -eq 1 ]; then echo FIXED > calc.py; fi"\n'
     )
 

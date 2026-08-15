@@ -39,6 +39,7 @@ from wringer import (
     git,
     spec,
     stability,
+    staleness,
     verify,
 )
 from wringer.redact import Redactor
@@ -659,6 +660,16 @@ def run(
             max_iterations=budget,
         )
 
+    # What authorises this loop's work, hashed BEFORE the first worker turn.
+    # A resumed loop keeps the capture its first life wrote: the brief this
+    # compares against is the one the work was actually done under, and
+    # re-capturing on resume would quietly bless anything edited while the
+    # loop was dead (SPEC_RUN_V0 §the staleness rider).
+    briefed = staleness.read(bundle.directory)
+    if briefed is None:
+        briefed = staleness.capture(root)
+        staleness.write(bundle.directory, briefed)
+
     final: verify.Outcome | None = None
     status = reason = "stopped"
     iterations = 0
@@ -826,6 +837,25 @@ def run(
             usage_rows.append({"iteration": iteration, **reported.as_json()})
         if on_worker is not None:
             on_worker(result)
+
+        # **The iteration boundary, and it is here for a reason.** The turn
+        # has finished; the next one has not started. `deliver.py`'s standing
+        # ruling is inherited verbatim — invalidate AFTER landing, never abort
+        # in flight, because a turn that has run cannot be un-run — so this
+        # never interrupts a worker and never reverts anything. The landed
+        # work stays exactly where it is and the loop declines to spend
+        # another turn answering a question that has changed.
+        #
+        # `wringer.loop.v2` froze `reason` as an OPEN string precisely so a
+        # new stop reason costs no schema version, which is why this needs no
+        # `loop-event-v3`. The ruling's stale-MARKING event still does, and is
+        # deferred until v3 can be designed once carrying both it and the
+        # witness pin.
+        if staleness.moved(
+            briefed, staleness.capture(root), staleness.BOUNDARY_DOCUMENTS
+        ):
+            status, reason = "stopped", staleness.AUTHORITY_MOVED
+            break
 
     bundle.event(
         "loop.finished", status=status, reason=reason, iterations=iterations
@@ -1361,6 +1391,9 @@ _REASONS = {
     "budget_exhausted": "the wall-clock budget ran out",
     FLAKY_GATE: "the failing gate is nondeterministic, so there is nothing in "
     "the tree for a worker to fix",
+    staleness.AUTHORITY_MOVED: "the spec, the rubric or the gate config moved "
+    "after this loop was briefed, so the landed work answers a question that "
+    "has changed. Nothing is reverted",
     "interrupted": "stopped before it finished",
 }
 

@@ -190,6 +190,66 @@ object, keys always present:
 `converged | max_iterations | no_progress | interrupted`; `final` is the last
 verify's `--json` object, or `null` if none completed.
 
+## AMENDED 2026-08-15 — the staleness rider: what a loop was briefed with
+
+*`WRINGER_RULING_2026-08-14` Phase 1's rider, sliced by Marc on 2026-08-15 into
+**detection and refusal now, the stale-marking ledger event deferred**. The
+ruling says the rider marks landed work stale *via a new ledger event*, and
+`loop-event-v2.schema.json` is a closed `oneOf` of eight branches — so that
+event costs `loop-event-v3`, and once v3 freezes, adding the witness pin to it
+later is an edit to a frozen file. v3 is therefore designed **once**, carrying
+both, when the witness lane's own future is decided. This half needs no event
+at all: `wringer.loop.v2` froze `reason` as an OPEN string precisely so a new
+stop reason never costs a bundle-format version.*
+
+**The hole.** `deliver.py` wrote `spec_sha256` at three sites and compared it
+at **none**, and `spec.authorising_sha256` hashes the spec *as it is now* — so
+a delivery manifest said "authorised by spec S" where S was whatever sat on
+disk at delivery time. `spec.py`'s own docstring named the gap.
+
+**The capture.** Before the first worker turn, `wring run` writes
+`briefed.json` (`wringer.briefed.v1`) into the loop bundle: the sha256 of
+`wringer.spec.yaml`, `wringer.rubric.yaml` and `.wringer.yaml`, with `null`
+for a document that was not there. A sibling file rather than a manifest key,
+on the `digests.json` pattern, and written **before** `digests.json` so the
+loop's own tamper-evidence covers it. **A resumed loop keeps its first
+capture** — re-hashing on resume would quietly bless anything edited while the
+loop was dead.
+
+**The comparison, and it is deliberately asymmetric.**
+
+| where | documents compared | what happens |
+|---|---|---|
+| **iteration boundary** | spec, rubric | the loop stops, `reason: authority_moved` |
+| **`wring deliver`** | spec, rubric, **and `.wringer.yaml`** | `Refused`, exit 1, by name |
+
+`.wringer.yaml` is left out of the boundary check on purpose. `verify` re-reads
+it on **every lap**, so a change to it is observed and acted on rather than
+silently assumed; the spec and the rubric are never re-read by the loop at all,
+and that is the drift this rider is about. It is also what keeps `wring resume`
+usable: `run.worker` lives in `.wringer.yaml`, and editing the worker between a
+kill and a resume is a documented, tested workflow — comparing the config at
+the boundary would stop every resumed loop for doing what the manual says.
+Delivery compares all three, because delivery is where the combined claim
+("authorised by spec S, verified by gates G") is actually made.
+
+**Three rulings inherited verbatim from `deliver.py`, none of them negotiable.**
+*Invalidate after landing* — the check runs at an iteration boundary, after a
+worker's turn has completed. *Never abort in flight* — no worker is ever
+killed for this; a turn that has run cannot be un-run. *Revert nothing* — the
+work stays exactly where the worker left it, and the refusal's wording does not
+suggest otherwise, because an agent reading "revert" in a refusal is an agent
+about to undo work nobody asked it to undo.
+
+**The compatibility boundary is the absence of the file.** A run no loop
+produced records no brief, so the join finds nothing and the check compares
+nothing — every `wring verify` run, and every loop bundle written before this
+existed, delivers exactly as it did before. There is no flag to wave it
+through: flags tighten, never loosen.
+
+**Still open, and named rather than discovered later:** the ruling's
+stale-MARKING event, which waits on `loop-event-v3`.
+
 ## Non-goals for this slice (binding)
 
 LLM judge and rubrics · issue ingestion · branch, commit, push, PR or MR

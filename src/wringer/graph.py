@@ -65,6 +65,11 @@ LOOP_REASONS = frozenset(
         # A gate that did not give the same answer twice on one tree, so no
         # worker ran at all (SPEC_STABILITY_V0 §4).
         "flaky_gate",
+        # An authorising document moved under the loop after it was briefed
+        # (the WRINGER_RULING_2026-08-14 Phase 1 rider). Checked at an
+        # iteration boundary, so the landed turn stands and nothing is
+        # reverted.
+        "authority_moved",
         "interrupted",
     }
 )

@@ -860,9 +860,25 @@ def test_the_loop_reason_the_code_emits_is_the_reason_the_schema_documents():
     """The drift guard the open string moves out of the schema.
 
     An open `reason` cannot catch a typo, so the guard is that every value
-    `loop._REASONS` knows is named in v2's description and matched by
-    `graph.LOOP_REASONS`. A router comparing against a reason the loop never
-    emits is a route that silently never fires.
+    `loop._REASONS` knows is matched by `graph.LOOP_REASONS`. A router
+    comparing against a reason the loop never emits is a route that silently
+    never fires.
+
+    **AMENDED 2026-08-15, and the amendment is the more interesting half.**
+    This also asserted that v2's `reason` *description* enumerates every live
+    reason — which cannot hold. The description is inside a FROZEN schema, so
+    a new stop reason could only satisfy it by editing frozen bytes, and the
+    open string exists in the first place *so that a new stop reason never
+    costs a bundle-format version*. The assertion therefore made every new
+    reason a Law 7 violation: **a check nobody can satisfy without breaking a
+    law is a check that gets broken.** `authority_moved` is the reason that
+    found it.
+
+    So the description is read as what it is — a SNAPSHOT of the reasons that
+    existed when v2 froze — and the live guard is the three-table agreement in
+    `test_the_console_names_every_reason_the_loop_can_stop_for`, which pins
+    `loop._REASONS`, `cli._LOOP_ENDINGS` and `graph.LOOP_REASONS` against each
+    other and is not frozen.
     """
     from wringer import graph
     from wringer import loop as loop_module
@@ -870,8 +886,19 @@ def test_the_loop_reason_the_code_emits_is_the_reason_the_schema_documents():
     described = load("loop-manifest-v2.schema.json")["properties"]["result"][
         "properties"
     ]["reason"]["description"]
-    for reason in loop_module._REASONS:
+    # The seven that existed at the freeze. Verbatim, so a schema edit that
+    # dropped one from the prose still reddens.
+    frozen_at_v2 = (
+        "converged", "max_iterations", "no_progress", "oscillating",
+        "budget_exhausted", "flaky_gate", "interrupted",
+    )
+    for reason in frozen_at_v2:
         assert f"`{reason}`" in described, reason
+        assert reason in loop_module._REASONS, (
+            f"the schema describes `{reason}` and the loop can no longer emit "
+            f"it — a published format naming a value that cannot occur"
+        )
+    for reason in loop_module._REASONS:
         assert reason in graph.LOOP_REASONS, reason
 
 
