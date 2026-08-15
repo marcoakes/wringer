@@ -267,6 +267,32 @@ What the check buys is that gaps in the map are loud.
   the same breath as downloading them. Typing any of the three is itself the
   decision to reach a network.
 
+  **One config section RESOLVES, and it is stated here rather than left to be
+  discovered.** `run.containment.egress.policy: allowlist` (SPEC_CONTAIN_V0)
+  builds a firewall allowlist for a contained worker, and an allowlist of
+  hostnames has to become an allowlist of addresses before it can be enforced
+  — so `wring run` starts the broker container and resolves the declared
+  hosts **inside it**, which issues a DNS query. That is a packet caused by
+  `wring run`, and the paragraph above would otherwise say it never happens.
+
+  Four bounds on it, each of which is why this is a sentence rather than a
+  retraction. It happens **only** when a repository declares that policy;
+  the names resolved are **only** the ones the repository wrote down; the
+  resolved addresses are **written into the bundle** (`worker_execution.
+  established.egress.resolved`), so what was asked is auditable rather than
+  asserted; and `wring verify` does **not** do it — the containment checks it
+  performs are the static ones, which cost no process and no packet, exactly
+  so that this sentence stays true of `verify`. Nothing is uploaded and
+  nothing is phoned home: a DNS query for a host the repository named is the
+  whole of it.
+
+  This is also why `tests/test_network_surface.py` is not the guard here and
+  does not pretend to be: it parses Python for `urllib` call sites, and a
+  container runtime invoked as a subprocess is invisible to it. The guard for
+  this paragraph is the same one that guards the rest of it —
+  `tests/test_docs.py` discovers every document that enumerates senders and
+  fetchers and fails when one stops naming a command that can reach a network.
+
   **Every socket in the program lives in two functions** — `judge.send` and
   `forge.request` — and a third would be a review comment.
   `tests/test_network_surface.py` is what enforces that: it parses every
