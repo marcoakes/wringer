@@ -202,9 +202,12 @@ on them would be ceremony rather than safety.
 > resume`, authorises the deliver node that invocation reaches once, and no
 > graph file and no decision file may carry it: a file is not a typed flag.
 
-Every socket lives in `judge.send` or `forge.request`, and
-`grep -rn "build_opener" src/` must return exactly those two. Both are reached only with a flag a human typed, only
-against an endpoint the repo declared, and only after the bytes are on disk.
+Every socket lives in `judge.send` or `forge.request`, and there are exactly
+two such calls. Both are reached only with a flag a human typed, only against
+an endpoint the repo declared, and only after the bytes are on disk. This
+paragraph named a grep until 2026-08-15 and the grep counted its own
+documentation; `tests/test_network_surface.py` enforces the property by
+parsing instead.
 
 Vendor strings live behind `forge.py` (AGENTS.md rule 5): GitHub and GitLab
 differ in path shape and field names, and neither name may appear in `cli.py`.

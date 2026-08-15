@@ -297,12 +297,12 @@ def _strip_fences(text: str) -> str:
 def send(request: dict, endpoint: str, timeout: int, api_key: str | None) -> dict:
     """Post the request and return the parsed reply.
 
-    **One of the two functions in Wringer that open a socket** — deliberately,
-    so
-    that `grep -rn build_opener src/` has exactly two answers — this and
-    `forge.request`, added in P3 and named in SPEC_GET_V0.md §7. It is reached only
-    from `wring judge --send`, only when a repo declared an endpoint, and
-    only after `request.json` is already on disk.
+    **One of the two functions in Wringer that open a socket** — this and
+    `forge.request`, added in P3 and named in SPEC_GET_V0.md §7. It is reached
+    only from `wring judge --send`, only when a repo declared an endpoint, and
+    only after `request.json` is already on disk. This docstring used to name
+    a grep as the proof and was one of the grep's own hits;
+    `tests/test_network_surface.py` enforces the property by parsing.
 
     Redirects are not followed: a redirect could move a diff to a host the
     repo never declared, and the endpoint safety rules were checked against

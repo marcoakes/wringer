@@ -829,15 +829,30 @@ judge calibration.
       criterion, isolated per W2 — pinned by a test that reddens if the author
       is handed a reachable upstream or the worker's session
 - [ ] `--witness` without `--send` refuses by name
-- [ ] `grep -rn "urllib.request.build_opener" src/` returns exactly two, **and
-      a test enforces it** — the property is one of the program's headline
-      claims and is currently guarded by nothing
-- [ ] the sender count is still **five**, enforced by a guard that **derives
-      the count from the CLI parsers** and asserts the docs agree. The existing
-      `tests/test_docs.py:1464` guard catches only *understatement* and its
-      regex stops at "four", so a sixth sender would leave every document
-      saying five and the suite green — a check that narrows, in the box
-      written to prevent one
+- [x] **DONE 2026-08-15** — the two-socket property is enforced by
+      `tests/test_network_surface.py`, which does **not** grep. This box asked
+      for a grep on the fully-qualified call and **that repair does not work
+      either**: correcting the three docstrings to name the qualified form
+      made the qualified grep return five as well. *A grep count over a string
+      is unstable under documenting the string, in every spelling.* The guard
+      therefore parses each module, resolves every call through that module's
+      own imports, and asserts both the owning functions
+      (`{forge.request, judge.send}`) and the call count (2). Watched to fail
+      three ways: a network call planted in a third module, a second call
+      inside `judge.send` (which the owner assertion alone does not catch),
+      and a document promising the grep again. No document promises a grep
+      count now; they name the test
+- [x] **DONE 2026-08-15** — the sender count derives from the CLI:
+      `tests/test_docs.py::test_the_documented_sender_count_is_the_one_the_parsers_carry`
+      walks the parser tree for `--send`/`--sign` (a subtree hit counts once,
+      so `graph run`/`graph resume` make `graph` one sender) and compares
+      every number-word count any document states, **in both directions and
+      with no ceiling**. The capped regex it replaces is deleted from
+      `test_nothing_claims_the_network_surface_is_smaller_than_it_is`, which
+      keeps only the hand-kept phrasings that name no number. Watched to fail:
+      `--send` added to an existing command — the command count stays 19, the
+      whole rest of the suite stays green, and only this guard reddens; the
+      old capped regex on the same tree returns no offenders at all
 - [ ] the pin covers **bytes, command and materialisation path**; re-checked
       before every execution; a mismatch exits 3 and writes no verdict — pinned
       by a test per element, each mutating one and watching the run refuse
@@ -951,7 +966,7 @@ finding below is about a claim, a guard, or a gap, not about the shape.*
 | 6 | MEDIUM | born-red on the working tree ≠ the HEAD worktree when the tree is dirty | W8: born red runs on a HEAD worktree; `authored.tree_dirty` recorded |
 | 7 | MEDIUM | the named brief tripwire cannot fire — `test_run.py:596` is the no-approved-spec case | DONE box rewritten to name `:767`/`:791` and to require a witness-present fixture |
 | 8 | MEDIUM | the sender-count guard only catches understatement and its regex stops at "four" | DONE box now requires a guard deriving the count from the CLI |
-| 9 | MEDIUM | `grep -rn build_opener src/` returns five, not two; nothing enforces it | W2.1 corrected to the literal-call grep; DONE box adds the missing test |
+| 9 | MEDIUM | `grep -rn build_opener src/` returns five, not two; nothing enforces it | W2.1 corrected to the literal-call grep; DONE box adds the missing test. **BUILT 2026-08-15, and the correction was itself wrong**: the literal-call grep returns five once the docstrings name it. The property cannot be a grep in any spelling and is now parsed — `tests/test_network_surface.py` |
 | 10 | MEDIUM | container backend makes `--prove` `INCONCLUSIVE`, killing the lane in exactly Phase 2's configuration | **W9** added as a binding input to Phase 2 |
 | 11 | MEDIUM | the authored→pinned window is unprotected; `spec` has no chained ledger | declared in W7.3 and in Limits; authored digest recorded and re-checked at pin |
 | 12 | MEDIUM | the pin covers bytes but not the command or path; materialisation failures unruled | W4 extends the pin to all three and rules the symlink/overwrite/failure cases |

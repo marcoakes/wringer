@@ -6,9 +6,10 @@ merge request a pull request, that GitLab numbers issues `iid`, or which
 header carries the token. Adding a forge is adding a row.
 
 `request()` is **the second and last function in Wringer that opens a
-socket** — `judge.send` is the other, and `grep -rn "build_opener" src/` must
-return exactly those two. Until this slice that sentence said "only", and
-SPEC_GET_V0.md §7 restates it rather than quietly keeping the old claim.
+socket** — `judge.send` is the other. Until this slice that sentence said
+"only", and SPEC_GET_V0.md §7 restates it rather than quietly keeping the old
+claim. It used to name a grep that would prove it; the grep counted this
+docstring, so `tests/test_network_surface.py` parses the modules instead.
 
 Both sockets obey the same rules: reached only with a flag a human typed,
 only against an endpoint the repo declared, only after the bytes are on

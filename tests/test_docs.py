@@ -1504,26 +1504,13 @@ def test_nothing_claims_the_network_surface_is_smaller_than_it_is():
             if path.suffix == ".md" and f'"{phrase}' in flat:
                 continue
             offenders.append(f"{path.name}: {phrase!r}")
-    # AND a pattern, not only the list above. The list is hand-kept, and a
-    # hand-kept list of phrasings is the narrowing-check defect this repository
-    # keeps finding in itself: on 2026-08-14 QUICKSTART said "Four commands can
-    # send" and slipped between "Four commands send" and "four that can send",
-    # both of which ARE in the list. Counting is what the guard is for, so the
-    # guard now counts.
-    understates = re.compile(
-        r"\b(one|two|three|four)\s+(?:commands?|that)\s+(?:can\s+)?sends?\b",
-        re.IGNORECASE,
-    )
-    for path in searched:
-        if path.name.startswith("field-report"):
-            continue
-        flat = " ".join(path.read_text(encoding="utf-8").split())
-        if path.suffix == ".py":
-            flat = re.sub(r'"\s*"', "", flat)
-        for hit in understates.finditer(flat):
-            if path.suffix == ".md" and f'"{hit.group(0)}' in flat:
-                continue
-            offenders.append(f"{path.name}: {hit.group(0)!r} (pattern)")
+    # The COUNTING arm used to live here as a regex capped at
+    # `(one|two|three|four)`, which could only ever catch understatement and
+    # stopped one below the true number — a sixth sender would have left every
+    # document saying five and this suite green. It moved to
+    # `test_the_documented_sender_count_is_the_one_the_parsers_carry`, which
+    # derives the number from the CLI instead of hard-coding a ceiling. What
+    # stays here is the hand-kept list of phrasings that name no number at all.
 
     assert not offenders, (
         "these understate the network surface. FIVE commands SEND behind a "
@@ -1540,6 +1527,105 @@ NUMBER_WORDS = {
     "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18,
     "nineteen": 19, "twenty": 20,
 }
+
+# Deliberately a SEPARATE mapping. `NUMBER_WORDS` is consulted by the
+# release-count guards, which scan for "<word> commands" across the runbooks;
+# widening it to the small numbers made "Three commands fetch" in README read
+# as an unversioned command count. The sender surface is small and needs the
+# small words, so it gets its own table rather than a shared one that changes
+# what a neighbouring guard sees.
+SENDER_NUMBER_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+}
+
+
+def sender_command_names() -> set[str]:
+    """The commands that can reach a network on a flag somebody typed.
+
+    Derived from the parsers, never from a list here: a command is a sender
+    when `--send` or `--sign` is registered anywhere in its subtree, so
+    `wring graph run --send` and `wring graph resume --send` both make `graph`
+    one sender rather than two — the count the documentation states is a count
+    of COMMANDS.
+    """
+    import argparse
+
+    from wringer import cli
+
+    def subcommands(parser: argparse.ArgumentParser) -> dict:
+        for action in parser._actions:
+            if isinstance(action, argparse._SubParsersAction):
+                return action.choices
+        return {}
+
+    def carries_flag(parser: argparse.ArgumentParser) -> bool:
+        for action in parser._actions:
+            if {"--send", "--sign"} & set(action.option_strings):
+                return True
+        return any(carries_flag(child) for child in subcommands(parser).values())
+
+    return {
+        name
+        for name, sub in subcommands(cli.build_parser()).items()
+        if carries_flag(sub)
+    }
+
+
+def test_the_documented_sender_count_is_the_one_the_parsers_carry():
+    """A sixth sender must break this suite, and until now it would not have.
+
+    The guard this replaces checked a hand-kept list of phrasings plus a regex
+    banning `(one|two|three|four) ... sends`. That catches UNDERSTATEMENT only,
+    and it stops one short of the true number — so adding a sixth sender would
+    have left every document saying five and every test green. The direction
+    that matters was the one it could not fail in.
+
+    The number now comes from the CLI: which top-level commands register
+    `--send` or `--sign` anywhere in their subtree. Every count a document
+    states is compared with that, in both directions and with no ceiling.
+    """
+    derived = sender_command_names()
+    assert derived, "no command registers --send or --sign; the parser walk broke"
+
+    words = "|".join(SENDER_NUMBER_WORDS)
+    stated = re.compile(
+        rf"\b({words})\s+(?:commands?|that)\s+(?:can\s+)?sends?\b", re.IGNORECASE
+    )
+    searched = (
+        sorted(repo_root().glob("*.md"))
+        + sorted(repo_root().glob("docs/*.md"))
+        + sorted((repo_root() / "src" / "wringer").glob("*.py"))
+    )
+    offenders, seen = [], 0
+    for path in searched:
+        if path.name.startswith("field-report"):
+            continue
+        flat = " ".join(path.read_text(encoding="utf-8").split())
+        if path.suffix == ".py":
+            flat = re.sub(r'"\s*"', "", flat)
+        for hit in stated.finditer(flat):
+            # A document may QUOTE a superseded count in order to correct it —
+            # SPEC_SIGN_V0 §9 does exactly that with "four commands SEND". The
+            # `container images` rule: prose may name the old claim, source may
+            # not, because in source the string IS what a user is told.
+            if path.suffix == ".md" and f'"{hit.group(0)}' in flat:
+                continue
+            seen += 1
+            if SENDER_NUMBER_WORDS[hit.group(1).lower()] != len(derived):
+                offenders.append(f"{path.name}: {hit.group(0)!r}")
+
+    assert seen, (
+        "no document states a sender count in a form this guard can read. It "
+        "was written because the documented number and the parsers had no "
+        "relationship a test could check; a guard that reads nothing has the "
+        "same problem"
+    )
+    assert not offenders, (
+        f"the parsers register {len(derived)} commands that can reach a "
+        f"network on a typed flag ({', '.join(sorted(derived))}), and these "
+        f"documents state a different number: {offenders}"
+    )
 
 
 def registered_command_count() -> int:

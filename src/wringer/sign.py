@@ -28,8 +28,10 @@ downstream treats it as a failure unless a repository explicitly asked.
 
 **Wringer never signs anything itself.** It shells to a signer the user already
 has, exactly as it shells to `git` — so the runtime dependency list is still
-PyYAML alone, no key is ever handled, and `grep -rn build_opener src/` still has
-two answers. A subprocess reaching a network is the `deliver.send` precedent
+PyYAML alone, no key is ever handled, and the program still opens a socket in
+exactly two places (`tests/test_network_surface.py`; this line named a grep
+until 2026-08-15 and the grep counted itself). A subprocess
+reaching a network is the `deliver.send` precedent
 (SPEC_GET_V0 §7), not a new socket in this program. It is still a fifth way to
 reach a network and every count in the documentation says so.
 """

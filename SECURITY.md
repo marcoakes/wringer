@@ -253,8 +253,17 @@ leave the machine the worker runs on — and Wringer does not do that for you.
   decision to reach a network.
 
   **Every socket in the program lives in two functions** — `judge.send` and
-  `forge.request` — so `grep -rn build_opener src/` returns exactly two
-  answers, and a third would be a review comment.
+  `forge.request` — and a third would be a review comment.
+  `tests/test_network_surface.py` is what enforces that: it parses every
+  module, resolves each call through that module's own imports, and asserts
+  both which functions contain a network call and that there are exactly two
+  such calls.
+
+  This paragraph used to promise a grep count instead, and **the promise was
+  false**: the command it named counted its own documentation, so it returned
+  five. Spelling the call out in full does not fix it — the corrected
+  docstrings become hits too. A grep is not available as the check here, in
+  any spelling, which is why the check parses.
 
   This paragraph is the one SPEC_GET_V0 §7 and SPEC_START_V0 §3e-i enumerate,
   and it is restated whenever a command changes it rather than quietly kept —

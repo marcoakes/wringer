@@ -166,7 +166,9 @@ shells to `git`. Consequences, all of them deliberate:
   `--sk` or `COSIGN_PASSWORD` appears in either dialect's command line, in
   either direction. That absence is what let the 2026-08-05 ruling be revisited,
   so a `--key` creeping in would silently undo it.
-- **`grep -rn build_opener src/` still has exactly two answers.** A subprocess
+- **The program still opens a socket in exactly two places**, and since
+  2026-08-15 `tests/test_network_surface.py` says so. (This line named a grep
+  until then; the grep counted its own documentation.) A subprocess
   reaching a network is the `deliver.send` precedent (SPEC_GET_V0 §7), where a
   `git push` in a subprocess is not a socket this program opens.
 - **It is still a fifth way to reach a network**, and every count in the

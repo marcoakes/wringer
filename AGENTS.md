@@ -319,9 +319,17 @@ a fresh clone is untrusted input and running its gates in the same invocation
 would be the most dangerous command in the program aimed at the least
 technical user it has (SPEC_START_V0.md §3e).
 
-**Every socket lives in `judge.send` or `forge.request`**, so `grep -rn
-build_opener src/` has exactly two answers and must keep having exactly two —
-a clone is `git` in a subprocess, not a socket this program opens. Everything
+**Every socket lives in `judge.send` or `forge.request`**, and there are
+exactly two such calls in the program — a clone is `git` in a subprocess, not
+a socket this program opens. Enforced since 2026-08-15 by
+`tests/test_network_surface.py`, which parses every module, resolves each call
+through that module's own imports, and asserts both the owning functions and
+the count. **Until then the claim was in four documents and three docstrings
+and in no test**, and the form it was published in — a grep for the function
+name, promising exactly two answers — was false: the command counted its own
+documentation and returned five. Qualifying the name does not repair it, since
+the correction becomes a hit as well. **A grep count over a string is unstable
+under documenting the string**, so no document here promises one. Everything
 that *proves* anything still makes no LLM call and no network call: the worker
 is the user's own program, and every worker in the test suite is a shell
 one-liner or the repo's own fake ACP agent.
