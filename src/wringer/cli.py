@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import textwrap
 from pathlib import Path
@@ -40,6 +41,7 @@ from wringer import (
     start,
     summary,
     verify,
+    witness,
 )
 
 EXIT_OK = 0
@@ -447,6 +449,15 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "actually contact the endpoint. Without it, the request is built "
             "and written but nothing is sent and nothing is drafted."
+        ),
+    )
+    parser_spec.add_argument(
+        "--witness",
+        action="store_true",
+        help=(
+            "also author a reproduction witness for every machine criterion — "
+            "a check Wringer owns, proved red before any work begins. "
+            "Requires --send: authoring is a model call."
         ),
     )
     parser_spec.add_argument(
@@ -2501,6 +2512,20 @@ def cmd_spec(args: argparse.Namespace) -> int:
     """
     root = git.find_root(Path.cwd())
 
+    # **A flag tightens and never loosens**, and `--witness` without `--send`
+    # asks for a model call from a command that was told not to make one. It is
+    # refused by name rather than silently ignored: a flag that appears to have
+    # been honoured and was not is how a repository comes to believe it has a
+    # witness lane it does not have.
+    if args.witness and not args.send:
+        print(
+            "wring spec: --witness authors a check by asking a model, so it "
+            "needs --send. Without it nothing is sent and nothing is authored "
+            "— run `wring spec <PRD> --send --witness` when you are ready.",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+
     try:
         cfg = config.load(root / config.CONFIG_FILENAME)
     except config.ConfigError as exc:
@@ -2632,6 +2657,10 @@ def cmd_spec(args: argparse.Namespace) -> int:
                     spec.render_gatespec(proposed), encoding="utf-8"
                 )
 
+    authored: list[Any] = []
+    if args.send and args.witness and drafted is not None:
+        authored = _author_witnesses(root, cfg, drafted, redactor)
+
     bundle.write_summary(
         mode, args.prd, cfg.judge.endpoint, cfg.judge.model, drafted
     )
@@ -2654,6 +2683,116 @@ def cmd_spec(args: argparse.Namespace) -> int:
     else:
         _report_spec(drafted, bundle, root)
     return EXIT_OK
+
+
+def _author_witnesses(
+    root: Path, cfg: Any, drafted: spec.Spec, redactor: Any
+) -> list[Any]:
+    """One authoring call per MACHINE criterion (SPEC_GATEGEN_V0 §6 W2).
+
+    **Authoring is unconditional over machine criteria, and vacuity SELECTS.**
+    The first draft of the spec said a witness is authored "when the
+    criterion's declared gates cannot discriminate", and at `wring spec` time
+    that is unknowable: the gates for these criteria do not exist yet — they
+    are proposed into the sidecar and installed later by a human — and
+    vacuity's verdict comes from `--prove`, which is `not_applicable` on a
+    clean tree and runs only after every required gate has already passed. So
+    manufacture is unconditional; consultation is triggered. The cost is one
+    call per machine criterion, always, and that is the honest price of putting
+    the author in a command that cannot run anything.
+
+    **A human criterion never gets one** — that is a binding non-goal, and it
+    is the one place where "answered by people" has to stay answered by people.
+    """
+    machine = [c for c in drafted.criteria if not c.human]
+    if not machine:
+        return []
+
+    state = git.inspect(root)
+    # What the author is GIVEN, and the isolation is the claim. Never
+    # upstream's fix, never a held-out test, never the worker's session — and
+    # the tree summary is built from this repository alone.
+    summary = _tree_summary(root)
+    isolation = {
+        "tree": "pre-change",
+        "history": "not consulted",
+        "upstream": "not reachable",
+        "worker_session": "absent",
+    }
+
+    witnesses: list[Any] = []
+    digests: dict[str, str] = {}
+    for criterion in machine:
+        request = witness.render_request(
+            criterion.title,
+            criterion.id,
+            cfg.judge.model,
+            cfg.judge.max_output_tokens,
+            summary,
+        )
+        try:
+            body = judge.send(
+                request,
+                cfg.judge.endpoint,
+                cfg.judge.timeout,
+                os.environ.get(cfg.judge.api_key_env or ""),
+            )
+            source = witness.parse_response(body)
+        except (judge.TransportFailed, witness.WitnessError) as exc:
+            # One criterion's author failing is not the lane failing. The
+            # criterion is simply UNCOVERED, which routes to a human — the
+            # honest outcome, and deliberately not a refusal of the whole
+            # command.
+            print(
+                f"wring spec: no witness for `{criterion.id}` ({exc}). That "
+                "criterion will need a human unless a gate proves it.",
+                file=sys.stderr,
+            )
+            continue
+        item = witness.Witness(criterion=criterion.id, source=source)
+        witness.store(root, item)
+        witnesses.append(item)
+        digests[f"criterion:{criterion.id}"] = witness.digest(
+            criterion.title.encode("utf-8")
+        )
+        digests[f"prompt:{criterion.id}"] = witness.digest(
+            json.dumps(request, sort_keys=True).encode("utf-8")
+        )
+
+    if witnesses:
+        witness.record(
+            root,
+            witnesses,
+            model=cfg.judge.model,
+            base_sha=state.head_sha,
+            # Recorded rather than gated: born red is established on a HEAD
+            # worktree, so a dirty tree does not make the pre-change tree
+            # ambiguous — but a reader still needs to see when they differed.
+            tree_dirty=state.dirty,
+            isolation=isolation,
+            prompt_digests=digests,
+        )
+    return witnesses
+
+
+def _tree_summary(root: Path, limit: int = 120) -> str:
+    """What the repository looks like, for an author that may not read it.
+
+    Paths only. The author is given the criterion and the shape of the tree —
+    never its contents wholesale, which would be both enormous and the channel
+    by which a held-out test could reach it.
+    """
+    try:
+        done = subprocess.run(
+            ["git", "ls-files"],
+            cwd=root, capture_output=True, text=True, timeout=30,
+        )
+        paths = [p for p in done.stdout.splitlines() if p][:limit]
+    except (OSError, subprocess.SubprocessError):  # pragma: no cover
+        paths = []
+    if not paths:
+        return "(the repository lists no tracked files)"
+    return "\n".join(paths)
 
 
 def _report_spec(

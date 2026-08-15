@@ -34,15 +34,18 @@ from wringer import (
     __version__,
     accept,
     acp,
+    attest,
     config,
     containment,
     evidence,
+    fleet,
     gates,
     git,
     spec,
     stability,
     staleness,
     verify,
+    witness,
 )
 from wringer.redact import Redactor
 
@@ -695,6 +698,15 @@ def run(
     # by every verify lap of this loop. A second record of the same fact is a
     # second thing to keep in step.
 
+    # **The witness lane, pinned before the first worker turn** (SPEC_GATEGEN
+    # §6 W4). Everything here is offline: no LLM, no network. Authoring already
+    # happened at `wring spec --send --witness`, which is what makes the check
+    # pre-date the work — the load-bearing property, because a check authored
+    # before the work exists cannot have been written to flatter it.
+    witnesses = _pin_witnesses(
+        bundle, root, worker_containment, established
+    )
+
     final: verify.Outcome | None = None
     status = reason = "stopped"
     iterations = 0
@@ -811,7 +823,7 @@ def run(
             break
 
         brief = bundle.write_brief(
-            iteration, _brief(final, root, cfg, scoped)
+            iteration, _brief(final, root, cfg, scoped, witnesses)
         )
         before_worker = current
 
@@ -897,6 +909,13 @@ def run(
     # case this line cannot cover, a SIGKILL of the loop itself.
     if worker_containment is not None:
         containment.teardown(worker_containment, bundle.directory)
+
+    # **The other half of the comparison** (W4). The pin was established
+    # against the pre-change tree; this is the same bytes run against the tree
+    # the worker produced, with the pin re-checked immediately before —
+    # because a check the worker could edit is a check that says nothing, and
+    # the only moment that matters is the moment before it executes.
+    _execute_witnesses(bundle, root, witnesses, worker_containment, established)
 
     bundle.event(
         "loop.finished", status=status, reason=reason, iterations=iterations
@@ -1182,11 +1201,175 @@ def usage_totals(rows: list[dict[str, Any]]) -> dict[str, Any]:
     return totals
 
 
+def _pin_witnesses(
+    bundle: Bundle,
+    root: Path,
+    containment_settings: config.Containment | None,
+    established: containment.Established | None,
+) -> list[witness.Witness]:
+    """Establish the born red, pin it, and record the pin. Or VOID.
+
+    **Three things happen here and the order is the argument** (W4):
+
+    1. The ledger's own hash chain is walked BEFORE any pin is trusted. Today
+       the chain is walked only by `attest.audit` — i.e. after somebody
+       attests and then audits — never at the moment a pin is read. A pin read
+       out of a ledger nobody checked is a pin that proves nothing.
+    2. Born red is established on a **HEAD worktree**, not on the working
+       tree. The spec's first draft said the working tree *is* the pre-change
+       tree because the worker has not run, and then said the HEAD worktree at
+       proving time is the same tree — which agree only when the tree is
+       clean, and nothing enforces that. Using the same mechanism makes the
+       identity true by construction.
+    3. A witness that is born GREEN, or that the runner could not COLLECT, is
+       discarded and its criterion reported uncovered. That is W8, and it is
+       the hole that let four criteria come back `evidenced` on the strength of
+       an import error.
+
+    Absence is absence: a repository with no witness lane gets an empty list
+    and every downstream behaviour is byte for byte what it was.
+    """
+    try:
+        found = witness.load(root)
+    except witness.WitnessError as exc:
+        raise verify.Refused(str(exc)) from exc
+    if not found:
+        return []
+
+    # (1) The chain, before anything in it is believed.
+    try:
+        attest.check_chain(bundle.directory / EVENTS_FILENAME, "loop")
+    except attest.Refused as exc:
+        raise verify.Refused(
+            f"the loop ledger's hash chain is broken ({exc}), so a pin read "
+            "out of it cannot be trusted. This VOIDs the run"
+        ) from exc
+
+    # (2) The pre-change tree, by the mechanism that makes it one.
+    tree = fleet.make_worktree(root, f"witness-{bundle.directory.name}")
+    if tree is None:
+        raise verify.Refused(
+            "a scratch worktree could not be created, so no witness could be "
+            "proved red against the pre-change tree. Nothing is claimed either "
+            "way and the run does not proceed on an unproved witness"
+        )
+    try:
+        for item in found:
+            witness.prove_red(
+                tree, item,
+                containment_settings=containment_settings,
+                established=established,
+            )
+    finally:
+        fleet.remove_worktree(root, tree)
+
+    for item in found:
+        pinned = witness.pin(item, bundle.directory.name)
+        item.record["pinned"] = pinned
+        bundle.event(
+            "witness.pinned",
+            proves=item.criterion,
+            sha256=pinned["sha256"],
+            path=pinned["path"],
+            outcome=item.proved_red.outcome if item.proved_red else "none",
+            verdict=witness.PROVEN if item.usable else witness.NOT_ESTABLISHED,
+            # The citation is mandatory: a verdict with nowhere to look is the
+            # shape this repository keeps finding in itself.
+            first_line=item.proved_red.first_line if item.proved_red else "",
+            discarded=item.discarded or "",
+        )
+    return found
+
+
+def _execute_witnesses(
+    bundle: Bundle,
+    root: Path,
+    witnesses: list[witness.Witness],
+    containment_settings: config.Containment | None,
+    established: containment.Established | None,
+) -> Path | None:
+    """Run each usable witness against the CHANGED tree, and write the record.
+
+    The pin is re-checked immediately before every execution rather than once
+    at the start: the whole claim is that the bytes which ran are the bytes
+    that were pinned, and a check performed an hour earlier is a check about a
+    different file.
+
+    **A mismatch VOIDs the run**, and that is not a failing gate — it is no run
+    at all. Exit `EXIT_REFUSED`, not 1, which would file it as evidence about
+    the change, and not 2, which would blame a configuration that is fine.
+    """
+    if not witnesses:
+        return None
+
+    for item in witnesses:
+        if not item.usable:
+            continue
+        pinned = item.record.get("pinned")
+        if not pinned:  # pragma: no cover - pinned beside usable
+            continue
+        try:
+            witness.check_pin(item, pinned)
+        except witness.WitnessError as exc:
+            raise verify.Refused(str(exc)) from exc
+        item.executed = witness.execute(
+            root, item,
+            containment_settings=containment_settings,
+            established=established,
+        )
+        bundle.event(
+            "witness.executed",
+            proves=item.criterion,
+            sha256=item.sha256,
+            matches_pin=True,
+            passed=item.executed.passed,
+            exit_code=item.executed.exit_code,
+            first_line=item.executed.first_line,
+        )
+
+    payload = {
+        "schema_version": witness.SCHEMA_VERSION,
+        "witnesses": [
+            {
+                **item.record,
+                "proved_red": (
+                    {
+                        "outcome": item.proved_red.outcome,
+                        "exit_code": item.proved_red.exit_code,
+                        "first_line": item.proved_red.first_line,
+                        "verdict": (
+                            witness.PROVEN if item.usable
+                            else witness.NOT_ESTABLISHED
+                        ),
+                    }
+                    if item.proved_red is not None else None
+                ),
+                "executed": (
+                    {
+                        "sha256": item.sha256,
+                        "matches_pin": True,
+                        "result": "passed" if item.executed.passed else "failed",
+                        "exit_code": item.executed.exit_code,
+                    }
+                    if item.executed is not None else None
+                ),
+                "discarded": item.discarded,
+            }
+            for item in witnesses
+        ],
+        "limits": list(witness.LIMITS),
+    }
+    path = bundle.directory / witness.WITNESS_FILENAME
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return path
+
+
 def _brief(
     outcome: verify.Outcome,
     root: Path,
     cfg: config.Config,
     scoped: set[str] | None = None,
+    witnesses: list[witness.Witness] | None = None,
 ) -> str:
     """What the worker is told: what is being built, then what is broken.
 
@@ -1202,7 +1385,11 @@ def _brief(
     anything here**, as nowhere else in this module, and the redactor still
     owns the write (`Bundle.write_brief`).
     """
-    return _objective(root, cfg, scoped) + _repair_brief(outcome, root)
+    return (
+        _objective(root, cfg, scoped)
+        + _repair_brief(outcome, root)
+        + "\n".join(witness.brief_section(witnesses or []))
+    )
 
 
 def _objective(
