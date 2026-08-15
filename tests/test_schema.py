@@ -338,6 +338,126 @@ run:
 # but the same rule applies: a published schema that stops describing what the
 # code writes is worse than no schema, because someone targeted it.
 
+# --- `--prove`, which no drift test ran until 2026-08-15 -------------------
+#
+# The gap that let one through: the drift tests above never pass `--prove`,
+# and the vacuity tests read `vacuity.json` and never the ledger. So for as
+# long as the feature has existed, every `--prove` run wrote a
+# `vacuity.finished` line into `evidence.jsonl` that
+# `evidence-event.schema.json` — a CLOSED `oneOf` of five branches — does not
+# describe, after the `run.finished` every reader treats as the last line.
+# It was found by reading the code, not by running it.
+#
+# These two tests run the command.
+
+PROVE_TAUTOLOGY = """\
+version: 1
+gates:
+  - id: test
+    run: "true"
+"""
+
+# The other way in. `run.prove: true` reaches the same code through config
+# rather than through a typed flag, and a guard that only ever tried one of
+# them would be testing the flag rather than the prove pass.
+PROVE_BY_CONFIG = """\
+version: 1
+gates:
+  - id: test
+    run: "true"
+run:
+  worker: "true"
+  prove: true
+"""
+
+
+def proving_repo(repo: Path, config_text: str = PROVE_TAUTOLOGY) -> Path:
+    """A repo with one committed file and one uncommitted change to prove."""
+    (repo / "README.md").write_text("a project\n", encoding="utf-8")
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
+         "-c", "commit.gpgsign=false", "add", "-A"],
+        cwd=repo, check=True, capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
+         "-c", "commit.gpgsign=false", "commit", "-qm", "initial"],
+        cwd=repo, check=True, capture_output=True,
+    )
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(config_text, encoding="utf-8")
+    return repo
+
+
+def test_a_proving_run_writes_no_event_the_schema_does_not_describe(
+    repo, monkeypatch, capsys
+):
+    """The dependency-free drift check, on a `--prove` bundle.
+
+    `evidence.jsonl`'s `type` is a closed enum. A sixth type is not a key the
+    schema forgot to declare — it is a line the published contract rejects
+    outright, and `wringer.evidence.v1` is frozen, so the answer is a SIBLING
+    FILE rather than a sixth branch. `vacuity.json` already is that file, and
+    it carries both fields the event carried.
+    """
+    monkeypatch.chdir(proving_repo(repo))
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+    bundle = only_bundle(repo)
+
+    assert (bundle / "vacuity.json").exists(), "the prove pass did not run"
+    declared = set(load("evidence-event.schema.json")["properties"]["type"]["enum"])
+    written = [
+        json.loads(line)["type"]
+        for line in (bundle / evidence.EVIDENCE_FILENAME)
+        .read_text("utf-8")
+        .splitlines()
+    ]
+    undescribed = sorted(set(written) - declared)
+    assert not undescribed, (
+        f"a `--prove` run wrote event types no published schema describes: "
+        f"{undescribed}. `wringer.evidence.v1` is frozen — the fact belongs "
+        f"in a sibling file, as `vacuity.json`, `digests.json`, "
+        f"`untracked.json` and `stability.json` all say in their own "
+        f"descriptions"
+    )
+    assert written[-1] == "run.finished", (
+        f"`run.finished` is the last line of a ledger; this one ends with "
+        f"{written[-1]!r}"
+    )
+
+
+def test_a_real_proving_bundle_validates_against_the_real_engine(
+    repo, monkeypatch, capsys
+):
+    """The same run through a genuine draft-2020-12 validator — the ledger,
+    the manifest, and the `vacuity.json` the prove pass wrote."""
+    built = validators()
+    monkeypatch.chdir(proving_repo(repo, PROVE_BY_CONFIG))
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+    bundle = only_bundle(repo)
+
+    assert (bundle / "vacuity.json").exists(), "`run.prove: true` did not prove"
+    errors: list[str] = []
+    for name, instance in (
+        ("manifest.schema.json",
+         json.loads((bundle / evidence.MANIFEST_FILENAME).read_text("utf-8"))),
+        ("vacuity.schema.json",
+         json.loads((bundle / "vacuity.json").read_text("utf-8"))),
+        ("digests.schema.json",
+         json.loads((bundle / evidence.DIGESTS_FILENAME).read_text("utf-8"))),
+    ):
+        for error in built[name].iter_errors(instance):
+            errors.append(f"{name}: {error.json_path} {error.message}")
+    for line in (bundle / evidence.EVIDENCE_FILENAME).read_text("utf-8").splitlines():
+        event = json.loads(line)
+        for error in built["evidence-event.schema.json"].iter_errors(event):
+            errors.append(f"event {event['type']}: {error.json_path} {error.message}")
+
+    assert not errors, "\n".join(errors)
+
+
 SPEC_CONFIG = """\
 version: 1
 gates:

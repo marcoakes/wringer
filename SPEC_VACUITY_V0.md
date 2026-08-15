@@ -49,6 +49,30 @@ nothing to prove about a failure — law 3's shape).
 so the digest covers the vacuity evidence too. The existing write-order
 test extends.
 
+**AMENDED 2026-08-15 — and the amendment is that this section was already
+right and the code did not obey it.** Beside `vacuity.json`, `verify.py`
+also appended a `vacuity.finished` event to `evidence.jsonl`, carrying the
+verdict and the reason a second time. `evidence-event.schema.json` is a
+closed `oneOf` of five branches, so **every `--prove` run's ledger carried a
+line no published schema describes** — and it landed after `run.finished`,
+which every reader treats as the last line of a ledger.
+
+Nothing read it: one producer, zero consumers, and both fields are already
+in `vacuity.json`, which is written before `digests.json` and is therefore
+inside the bundle's own tamper-evidence. The event is **removed**, which is
+this section's own rule — `wringer.evidence.v1` is frozen and the verdict
+lives in a sibling — rather than a sixth branch or a `wringer.evidence.v2`
+for a line nobody reads.
+
+**Why nothing caught it for the feature's whole life, which is the more
+useful finding:** the drift tests never passed `--prove`, and the vacuity
+tests read `vacuity.json` and never the ledger. Between the two suites the
+`--prove` ledger was in no test's field of view. Closed by
+`test_a_proving_run_writes_no_event_the_schema_does_not_describe` and
+`test_a_real_proving_bundle_validates_against_the_real_engine`, which run
+the command both ways — the typed flag and `run.prove: true` — and validate
+every line.
+
 ## 3. Consequences downstream — where the teeth are
 
 - **`wring attest` refuses `gates_vacuous`** (SPEC_PROVENANCE §3 gains the

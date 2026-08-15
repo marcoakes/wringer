@@ -392,6 +392,16 @@ new field costs.
 
 Three conventions inside the bundle are load-bearing:
 
+- **`evidence.jsonl` grows no event type.** Its `type` is a closed enum and
+  every branch sets `additionalProperties: false`, so a new fact arrives as
+  its own SIBLING FILE — `digests.json`, `untracked.json`, `vacuity.json`,
+  `stability.json`, `concurrency.json`, `execution.json` — and a reader that
+  does not know the file ignores it. Four of those schemas say so in their own
+  descriptions. It was broken once anyway: `--prove` appended a
+  `vacuity.finished` line for the whole life of the feature, after
+  `run.finished`, described by nothing, seen by no test because the drift
+  tests never proved and the vacuity tests never read the ledger (removed
+  2026-08-15, SPEC_VACUITY §2).
 - **`gates/NNN_<id>/` numbering follows the *declared* order, not the run.**
   `wring verify --gate test` on a three-gate config still writes
   `gates/003_test/`, so a directory name means the same thing in a full

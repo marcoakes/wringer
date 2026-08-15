@@ -319,9 +319,25 @@ def run(
                 # bundle files written with no scrubbing at all.
                 redactor=bundle.redactor,
             )
-        bundle.event(
-            "vacuity.finished", verdict=proved.verdict, reason=proved.reason
-        )
+        # NO LEDGER EVENT. This appended `vacuity.finished` until 2026-08-15,
+        # and no published schema described it: `evidence-event.schema.json`
+        # is a closed `oneOf` of five branches, so every `--prove` run's
+        # ledger carried a line the bundle's own schema rejects — and it
+        # landed AFTER `run.finished`, which every other reader treats as the
+        # last line.
+        #
+        # The rule it broke is the one four sibling schemas already state in
+        # writing (`vacuity`, `digests`, `untracked`, `stability`): the
+        # evidence bundle is frozen at `wringer.evidence.v1`, so a new fact
+        # arrives as its OWN FILE and `evidence.jsonl` grows no event type.
+        # `stability.schema.json` says exactly that and then does it.
+        #
+        # Nothing read the event — one producer, zero consumers — and both of
+        # its fields are in `vacuity.json`, which is written BEFORE
+        # `digests.json` and is therefore covered by the bundle's own
+        # tamper-evidence. Adding `wringer.evidence.v2` for a line nobody
+        # reads would move the bundle-format version against four published
+        # schemas saying that is precisely what siblings exist to avoid.
 
     observed_report = stability.Report(gates=tuple(observed))
     bundle.write_manifest(state=state, status=status, failed_gate=failed_gate)
