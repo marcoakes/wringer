@@ -29,7 +29,7 @@
 # Usage:
 #   sh scripts/sequence-i.sh <runtime> <worker-image> <broker-image> [arm]
 #
-#   arm: contained (default) | privileged | local
+#   arm: contained (default) | acp | privileged | local
 #
 # `privileged` and `local` are the CONTROL arms and their attacks are expected
 # to SUCCEED. If they do not, the canaries prove nothing — that is a finding to
@@ -113,7 +113,9 @@ git config commit.gpgsign false
 cat > probe.py <<'PROBE'
 """The contained worker. Every line here is an attack, and it says so."""
 import os
+import shutil
 import socket
+import subprocess
 import sys
 
 CANARY_FILE = sys.argv[1]
@@ -185,9 +187,17 @@ else:
 # I6 — resolution of a name Wringer did NOT write into the hosts file. NOT
 # "any name": the mounted hosts file is what makes I4 possible, so the
 # declared host resolves through `files` by design.
+#
+# **REPAIRED 2026-08-15 (D4-b).** The first run asked for
+# `example.invalid.wringer-canary.test`, which does not resolve ANYWHERE — so
+# the control arm returned BLOCKED too and the row distinguished nothing. It
+# was recorded honestly as "measured nothing", and this is the fix: a name that
+# genuinely resolves on an unrestricted host, so the two arms can differ. Under
+# the boundary there is no DNS at all and the name is not in the mounted hosts
+# file, so it must fail; with the boundary removed it must succeed.
 try:
-    socket.getaddrinfo("example.invalid.wringer-canary.test", 443)
-    record("I6-dns-for-an-undeclared-name", "REACHED", "resolved")
+    socket.getaddrinfo(DENIED_HOST, 443)
+    record("I6-dns-for-an-undeclared-name", "REACHED", f"resolved {DENIED_HOST}")
 except Exception as exc:
     record("I6-dns-for-an-undeclared-name", "BLOCKED",
            f"{type(exc).__name__}: {exc}")
@@ -199,10 +209,18 @@ except Exception as exc:
 # it is a probe that could not execute, counted as a pass. Sequence G's third
 # lesson committed inside the script written to refuse it, which is why the
 # tool check comes first and produces its own verdict.
-import shutil
-import subprocess
-
-if shutil.which("iptables") is None:
+if os.environ.get("WRINGER_CANARY_ARM") == "local":
+    # **REPAIRED 2026-08-15 (D4-b).** This row used to report TOOL_ABSENT in
+    # the trusted_local arm, because macOS has no iptables — which reads as a
+    # broken probe when it is actually a meaningless question: there is no
+    # boundary to disarm when no boundary was established. The CONTROL for I7
+    # is the `privileged` arm, where the image HAS iptables and the container
+    # HAS NET_ADMIN, so the disarm must SUCCEED. Naming that here is what turns
+    # "measured nothing" into "measured the right thing somewhere else".
+    record("I7-disarm", "NOT_APPLICABLE",
+           "no containment was established in this arm, so there is no "
+           "boundary to disarm. I7's control is the privileged arm")
+elif shutil.which("iptables") is None:
     record("I7-disarm", "TOOL_ABSENT",
            "no iptables in this image, so nothing was attempted. This is an "
            "ERROR and not a pass: a probe that cannot run measures nothing")
@@ -218,15 +236,28 @@ else:
 # I8 — the host process table. R-2's rationale for `--env NAME` is that an
 # argv is readable by anyone who can run `ps`, so the criterion is: no host
 # argv, and no credential VALUE, visible from in here.
+# **REPAIRED 2026-08-15 (D4-b).** This row used to read `/proc` only, so in
+# the trusted_local arm on macOS — which has no `/proc` — it raised OSError and
+# was recorded as ERROR. A canary whose control arm cannot execute measures
+# nothing, which is Sequence G's third lesson committed one more time. `ps` is
+# the portable spelling and is what the control arm now uses, so BOTH arms
+# answer the same question about the same thing.
 try:
-    pids = [p for p in os.listdir("/proc") if p.isdigit()]
-    argvs = []
-    for pid in pids:
-        try:
-            with open(f"/proc/{pid}/cmdline", "rb") as handle:
-                argvs.append(handle.read().decode("utf-8", "replace"))
-        except OSError:
-            pass
+    if os.path.isdir("/proc"):
+        pids = [p for p in os.listdir("/proc") if p.isdigit()]
+        argvs = []
+        for pid in pids:
+            try:
+                with open(f"/proc/{pid}/cmdline", "rb") as handle:
+                    argvs.append(handle.read().decode("utf-8", "replace"))
+            except OSError:
+                pass
+    else:
+        done = subprocess.run(["ps", "-Ao", "pid,args"],
+                              capture_output=True, text=True, timeout=30)
+        lines = [ln for ln in done.stdout.splitlines()[1:] if ln.strip()]
+        pids = [ln.split()[0] for ln in lines]
+        argvs = [ln.partition(" ")[2] for ln in lines]
     joined = " ".join(argvs)
     # The suffix only the VALUE carries. The canary FILE PATH is in this
     # probe's own argv, so a prefix match reported a leak that was the probe
@@ -244,6 +275,67 @@ for name, verdict, saw in results:
     print(f"{name}\t{verdict}\t{saw}")
 print("=== END ===")
 PROBE
+
+# The ACP wrapper. **It runs the SAME probe rather than a second copy**, which
+# is the whole reason it is a wrapper: two probe implementations would drift,
+# and the drifted one would be the one measuring the boundary.
+cat > probe_acp.py <<'ACP'
+"""The probe, wrapped in a real ACP session — SPEC_CONTAIN_V0 §11.
+
+Sequence I's contained arm attacks the SHELL worker. This attacks the other
+spawn path: a stdio JSON-RPC session carried across the container boundary,
+which is what refusal 10 used to forbid and what the re-test's worker actually
+is. The agent runs INSIDE the container; the probe results travel out as
+session updates, which is the only channel a contained agent has.
+"""
+import json
+import subprocess
+import sys
+
+
+def send(message):
+    sys.stdout.write(json.dumps(message) + "\n")
+    sys.stdout.flush()
+
+
+def main():
+    sid = "sequence-i"
+    for raw in sys.stdin:
+        raw = raw.strip()
+        if not raw:
+            continue
+        message = json.loads(raw)
+        method, rid = message.get("method"), message.get("id")
+
+        if method == "initialize":
+            send({"jsonrpc": "2.0", "id": rid, "result": {
+                "protocolVersion": 1, "agentCapabilities": {},
+                "agentInfo": {"name": "sequence-i-probe", "version": "1"}}})
+        elif method == "session/new":
+            cwd = (message.get("params") or {}).get("cwd")
+            send({"jsonrpc": "2.0", "id": rid, "result": {"sessionId": sid}})
+            send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                "sessionId": sid, "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "text": f"ACP-CWD\t{cwd}"}}})
+        elif method == "session/prompt":
+            done = subprocess.run(
+                [sys.executable, "/workspace/probe.py", *sys.argv[1:]],
+                capture_output=True, text=True, timeout=300,
+            )
+            for line in (done.stdout + done.stderr).splitlines():
+                send({"jsonrpc": "2.0", "method": "session/update", "params": {
+                    "sessionId": sid, "update": {
+                        "sessionUpdate": "agent_message_chunk",
+                        "text": line}}})
+            send({"jsonrpc": "2.0", "id": rid,
+                  "result": {"stopReason": "end_turn"}})
+            return 0
+    return 0
+
+
+main()
+ACP
 
 WORKER_CMD="python3 /workspace/probe.py '$CANARY_FILE' '$MIRROR' '$API_HOST' '$DENIED_HOST' '$DENIED_ADDR'"
 
@@ -270,6 +362,34 @@ run:
       broker_image: $BROKER_IMAGE
 YAML
     ;;
+  acp)
+    # **The arm the hard gate needs** (SPEC_CONTAIN_V0 §11). Same boundary,
+    # same probes, the OTHER spawn path — a stdio JSON-RPC session held open
+    # across the container boundary rather than a shell string handed to
+    # `gates.run`. Refusal 10 used to refuse this combination outright; the
+    # re-test's worker is an agent, so it had to become a capability.
+    cat > .wringer.yaml <<YAML
+version: 1
+gates:
+  - id: unit
+    run: 'false'
+run:
+  worker:
+    acp:
+      command: python3
+      args: ["/workspace/probe_acp.py", "$CANARY_FILE", "$MIRROR", "$API_HOST", "$DENIED_HOST", "$DENIED_ADDR"]
+  max_iterations: 2
+  worker_timeout: 300
+  containment:
+    runtime: $RUNTIME
+    image: $WORKER_IMAGE
+    requires: [python3, iptables]
+    egress:
+      policy: allowlist
+      hosts: [$API_HOST]
+      broker_image: $BROKER_IMAGE
+YAML
+    ;;
   local)
     # CONTROL ARM ONE: the worker as it runs today. Every attack is expected
     # to SUCCEED, and this is the arm that shows the canaries measure
@@ -280,7 +400,7 @@ gates:
   - id: unit
     run: 'false'
 run:
-  worker: python3 probe.py '$CANARY_FILE' '$MIRROR' '$API_HOST' '$DENIED_HOST' '$DENIED_ADDR'
+  worker: WRINGER_CANARY_ARM=local python3 probe.py '$CANARY_FILE' '$MIRROR' '$API_HOST' '$DENIED_HOST' '$DENIED_ADDR'
   max_iterations: 2
 YAML
     ;;
@@ -301,7 +421,7 @@ YAML
     exit $?
     ;;
   *)
-    echo "sequence I: unknown arm '$ARM' (contained | privileged | local)" >&2
+    echo "sequence I: unknown arm '$ARM' (contained | acp | privileged | local)" >&2
     exit 2
     ;;
 esac

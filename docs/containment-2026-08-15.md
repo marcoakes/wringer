@@ -244,3 +244,82 @@ repeated here. The four that matter most for a reader of this page:
 mechanism, and wiring it into the harness is Phase 3's. Refusal 10 is what
 Phase 3 must read first — an ACP worker cannot be contained in v0, so the
 re-test's worker is a shell worker or Phase 3 builds that path.
+
+---
+
+## Postscript, 2026-08-15 — the ACP arm, and three repaired probes
+
+*Appended, never a rewrite: the page above recorded what was true when it was
+written, and the last paragraph in particular — "an ACP worker cannot be
+contained in v0" — is the sentence this postscript answers. Captures are
+evidence.*
+
+**Refusal 10 became a capability** (`SPEC_CONTAIN_V0` §11). The page above ends
+by telling Phase 3 that the re-test's worker is a shell worker *or Phase 3
+builds that path*. Phase 3 built that path, because the corpus tasks are real
+upstream bug fixes and a shell script does not fix them.
+
+### Sequence I, re-run against a contained ACP worker
+
+**macOS 26.5.2 `Darwin arm64` · rootless podman 6.1.0 `applehv`, no admin ·
+worker `localhost/wringer-canary-worker:probe` (`python:3-slim` + `iptables`) ·
+broker `localhost/wringer-broker:probe` (`alpine` + `iptables`).** Same
+mechanism, same probes, the OTHER spawn path — a stdio JSON-RPC session held
+open across the container boundary rather than a shell string handed to
+`gates.run`.
+
+The session reported its own working directory back over the wire as the first
+thing it did: `ACP-CWD /workspace`. That is the path translation measured in
+the real mechanism rather than asserted in a test.
+
+| # | probe | contained (ACP) | `--privileged` control | `trusted_local` control |
+|---|---|---|---|---|
+| I0 | probe can run | TOOL_PRESENT | TOOL_PRESENT | TOOL_PRESENT |
+| I1 | host credential file | **BLOCKED** | REACHED — read the secret | REACHED |
+| I2 | host credential in env | **BLOCKED** | REACHED — read the secret | REACHED |
+| I3 | corpus mirror | **BLOCKED** | REACHED — **listed 5 mirrors** | REACHED — 5 mirrors |
+| I4 | model API | **REACHED** | REACHED | REACHED |
+| I5a | denied host by name | **BLOCKED** | REACHED | REACHED |
+| I5b | denied host by address | **BLOCKED** | REACHED | REACHED |
+| I6 | DNS for an undeclared name | **BLOCKED** | REACHED | REACHED |
+| I7 | worker disarms the allowlist | **BLOCKED** | REACHED (exit 0) | NOT_APPLICABLE |
+| I8 | process table | **BLOCKED** — 2 pids | REACHED — 161 pids | REACHED — 554 pids |
+
+**Seven of the eight attack probes flip when the boundary is removed. The
+eighth is I4, and it is not supposed to flip** — a battery demonstrating only
+the "nothing else" half would be indistinguishable from `--network none`, which
+proves nothing about a broker.
+
+**I3 is the row this whole phase exists for.** With the boundary removed the
+probe lists the corpus mirrors by name — `attrs.git`, `click.git`,
+`marshmallow.git`, `packaging.git`, `pyparsing.git` — which is the
+contamination channel `docs/corpus-2026-08-13.md` §4 recorded in use. With the
+boundary on, the path is not there.
+
+### The three probes that measured nothing, repaired
+
+The page above records honestly that two probes measured nothing and says which.
+All three are fixed, and each fix is about the CONTROL rather than the probe:
+
+- **I6** asked for `example.invalid.wringer-canary.test`, which resolves
+  nowhere — so the control returned BLOCKED too and the row distinguished
+  nothing. It now asks for the denied host, which genuinely resolves on an
+  unrestricted machine.
+- **I7** reported `TOOL_ABSENT` in the `trusted_local` arm because macOS has no
+  `iptables`. That reads as a broken probe when the question is actually
+  meaningless — there is no boundary to disarm where none was established. The
+  arm now says `NOT_APPLICABLE` with that reason, and **I7's real control is the
+  `privileged` arm**, where the image has `iptables` and the container has
+  `NET_ADMIN`: the disarm succeeds there, exit 0.
+- **I8** read `/proc` only, so on the macOS host it raised and was recorded
+  `ERROR`. It now falls back to `ps`, and both arms answer the same question
+  about the same thing.
+
+### What this still does not license
+
+Everything in §7 and in the section above stands unchanged. In particular: this
+is one platform, one runtime, one image, with a Linux VM in the path; ten
+scripted probes are not an escape suite; and **a contained agent is not a
+trustworthy agent** — containment closes a contamination channel so that a
+measurement is worth reading, and says nothing about whether the agent's change
+is correct.

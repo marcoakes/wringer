@@ -93,6 +93,7 @@ LEDGER_SUBJECTS = {
     "docker stub (r2-02)": OTHER,
     "docker desktop on macos": OTHER,
     "sequence i — the contained worker, attacked": ATTACK,
+    "sequence i — the contained acp worker, attacked": ATTACK,
     "sequence g — the container path, attacked": ATTACK,
     "sequence g — **on linux, shared kernel**": ATTACK,
     "sequence g — **docker on linux, read at last**": ATTACK,
