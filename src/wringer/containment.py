@@ -183,10 +183,23 @@ def preflight(
 ) -> str | None:
     """Why this containment cannot be honoured here, or None.
 
-    STATIC only (ruling 3): refusals 1, 3, 4, 6 and 9. No container is started
-    and no name is resolved, so this runs on `wring verify` too — which is the
-    point, because a missing image discovered by CI costs a sentence and one
-    discovered by `wring run` costs an hour of a corpus pass.
+    STATIC only (ruling 3): refusals 1, 3, 4, 6 and 9. So this runs on `wring
+    verify` too — which is the point, because a missing image discovered by CI
+    costs a sentence and one discovered by `wring run` costs an hour of a
+    corpus pass.
+
+    **What STATIC means here, corrected 2026-08-15.** An earlier draft of this
+    docstring said *"no container is started"*, and that was false: refusals 4
+    and 6 answer "does this image carry the agent" by running one throwaway
+    `--network none` container with no mount and asking `command -v`
+    (`_missing_binaries`). There is no offline way to read the PATH of an image
+    without executing in it. What static actually promises — and what
+    SECURITY.md's `wring verify` row depends on — is **no packet and no DNS**:
+    every probe on this path runs with `--network none`, resolves no name and
+    reaches nothing. `wring verify`'s "makes no outbound connection" promise is
+    untouched and remains true. What is dynamic is the part that needs a
+    NETWORK: the holder, the allowlist and the DNS the allowlist resolves,
+    which is refusals 2 and 7 at `establish`.
 
     `worker_requires` is what Wringer KNOWS the image must carry, as opposed to
     what the repository declared in `requires:` (SPEC_CONTAIN_V0 §11 A-5). For

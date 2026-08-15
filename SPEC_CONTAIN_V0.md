@@ -176,15 +176,29 @@ means starting a holder and issuing DNS, on a command SECURITY.md promises
 makes no outbound connection. So:
 
 - **STATIC refusals (1, 3, 4, 5, 6, 8, 9, 10, 11)** are checked by every
-  command that reads the config, `wring verify` included. They cost no process
-  and no packet: a `which`, an `image exists`, an `image inspect`, and parse.
+  command that reads the config, `wring verify` included. They cost no packet
+  and no name resolution: a `which`, an `image exists`, an `image inspect`, a
+  parse — and, for 4 and 6, one throwaway `--network none` container.
 - **DYNAMIC refusals (2, 7)** are checked only where a worker is about to run —
   `wring run`, at `establish()`. They are the ones that need the holder.
 
 `wring verify` therefore refuses a *statically* broken declaration in CI, which
-is most of them, and never starts a container. **The sentence "REFUSES if
-containment cannot be established" is now split into the two things it meant,
-because as one sentence it promised a check it could not perform.**
+is most of them. **The sentence "REFUSES if containment cannot be established"
+is now split into the two things it meant, because as one sentence it promised
+a check it could not perform.**
+
+> **AMENDED 2026-08-15 — what STATIC promises, corrected.** The paragraph above
+> read *"and never starts a container"* until this date, and it was false when
+> written. Refusals 4 and 6 answer *"does this image carry the agent / does the
+> broker image carry `iptables`"*, and there is no offline way to read an
+> image's PATH without executing in it: `_missing_binaries` runs one throwaway
+> container, `--network none`, no mount, `command -v` per name. The original
+> text is preserved above rather than rewritten, per this file's amendment
+> convention. **The line STATIC actually draws is the network, not the
+> process** — no packet, no DNS, nothing reachable — which is the property
+> `SECURITY.md`'s `wring verify` row and §7's "makes no outbound connection"
+> promise both rest on, and both remain true. DYNAMIC is what needs a network:
+> the holder, arming the allowlist, and the names it resolves.
 
 **Why the refusal is load-bearing rather than defensive.** A policy statement
 is only worth reading if a repository that cannot honour its policy produces no
@@ -876,6 +890,31 @@ and no new vocabulary.
   its own allowlist and remains the one that governs; the container receives
   `--env NAME` for exactly those names and never `--env NAME=VALUE`.
 - **No 20th command, no new config key, no new egress value.**
+
+> **AMENDED 2026-08-15 — the two allowlists UNION, and this bullet said
+> otherwise.** The independent review of the witness slice found that
+> `containment.env_names` passes `run.containment.env` ∪
+> `run.worker.acp.env_passthrough` while the bullet above says
+> `env_passthrough` alone governs. The **union is RULED and the code is
+> right**; the original bullet is preserved above rather than rewritten, per
+> this file's amendment convention.
+>
+> The reason is refusal 11's own defect class. Every name in either list was
+> typed into `.wringer.yaml` by a human, which is the entire property an
+> allowlist-by-name protects. An intersection would make a name a repository
+> explicitly declared under `run.containment.env` **silently inert** whenever
+> an ACP worker was configured — a declared key that does nothing, which is
+> precisely what refusal 11 exists to refuse, arriving through the back door.
+> It would present to the operator as an agent mysteriously receiving no
+> credential, with the config that names it sitting right there.
+>
+> **What the union does NOT widen.** It is still names only — never
+> `--env NAME=VALUE`, so Wringer still stores and passes no value. It reaches
+> only names a human wrote in this repository's own config. It grants nothing
+> a repository did not declare somewhere, which is the property `§3`'s record
+> and `SECURITY.md`'s row both claim. Pinned by
+> `test_containment.py`'s `env_names` tests, which assert the union, the
+> order, and the collapse of duplicates.
 
 ### A-7 — What this amendment does NOT license
 
