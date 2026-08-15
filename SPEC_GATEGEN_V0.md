@@ -1057,3 +1057,56 @@ exactly 19); W7's taxonomy correction; W7's salvage arithmetic (recomputed
 independently from the manifest); W6's schema-additivity claim and its three
 named guards; stop-list compliance including the `judge.send`-transport
 distinction; and that W1 contradicts neither ruling 2 nor SPEC_GRAPH ruling 1.
+
+### §6b — What Phase 3 BUILT, and what it deliberately did not — 2026-08-15
+
+*Appended by the implementing window rather than woven in, so a reader can see
+the boundary between what W1–W10 specified and what exists. Nothing above is
+edited.*
+
+**Built and driven end to end** (`witness.py`, plus its wiring in `cli.py` and
+`loop.py`):
+
+| clause | state |
+|---|---|
+| W1 — Wringer's own check, never a repo gate, lives under `.wringer/` | **built** |
+| W2 — authoring is a send on `wring spec --send --witness`, unconditional over machine criteria; `--witness` without `--send` refuses by name | **built** |
+| W3 — Phase 1 built no proving path; this window built execution and comparison | **built** |
+| W4 — the pin covers bytes, command AND materialisation path; re-checked before every execution; a mismatch VOIDs; `attest.check_chain` walks the ledger before a pin in it is trusted; materialisation refuses a symlink and refuses to overwrite | **built** |
+| W5 — the brief carries the failure OUTPUT, never the source, path or command | **built** |
+| W6 — `witness.schema.json` / `wringer.witness.v1` as a sibling artifact | **partial — the record is written and versioned; it is not yet in `schema/` with a drift test** |
+| W8 — born red on a HEAD worktree; a `collection_error` is not a proved red | **built, and strengthened** — see below |
+| W10 — the authoring instruction forbids inventing a fix location | **built** |
+| Phase 3 — delivery consumes the witness through the SPEC_ACCEPT taxonomy | **NOT BUILT** — see below |
+
+**W8 gained a second half that the spec did not anticipate, and it matters.**
+W8 derives "the runner could not LOAD it" from the runner's structure, and the
+exit code delivers that for a module-level import error (exit 2) against a real
+assertion (exit 1). **An import inside the test body defeats it**: the module
+collects fine and the test fails at exit 1, indistinguishable by exit code,
+while carrying exactly the property W8 refuses — it turns green the moment any
+file of that name exists with any content. This was not theoretical: the first
+draft of the authoring instruction *told* the author to move imports into the
+body in order to dodge collection errors, which would have converted every
+witness W8 discards into one it accepts. The discriminator is now the exception
+CLASS taken off the runner's own report object, which is a fact the runner
+states about its run in the same sense the exit code is — **not** the failure
+message, whose auto-classification `vacuity.py:39-44` refuses by name.
+
+**Delivery is NOT wired, and the reason is a version, not an oversight.** A
+criterion covered only by a witness must be able to REFUSE delivery or the lane
+is decorative. `acceptance.json`'s published v1 says in its own field
+description that only a *bound* criterion can refuse, and the row shape is
+`additionalProperties: false` — so a row reading `gate: null, refuses: true`, or
+a receipt of a new kind, is a silent break for every existing reader. **W6
+already named this: Phase 3's receipt costs `wringer.acceptance.v2`.** That is
+the next slice and it is specified; landing it under time pressure would mean
+freezing a schema in a hurry, which is the one mistake in this repository that
+cannot be walked back.
+
+**So the live re-test did not run, and no money was spent.** The hard gate it
+sits behind was PASSED — sequence I is green against a contained ACP worker
+with both control arms beside it — but a pass over the corpus measures §5's
+clauses only if delivery consumes the witness, and it does not yet. A pass run
+now would have spent the one authorised pass to measure nothing, which is §5.5's
+own warning arriving one slice early.
