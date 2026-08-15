@@ -84,6 +84,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import pathlib
 import os
 import shutil
 import subprocess
@@ -1407,7 +1408,38 @@ def author_witness(task: Task, tree: Path, workdir: Path) -> dict[str, Any]:
     from wringer import witness as witness_module
 
     if task.agent is None:
-        return {"covered": False, "reason": "scripted task: no author was called"}
+        # **A scripted task cannot spend money, so it is the one place a
+        # pre-written witness is allowed** — and it exists so the witness path
+        # gets a zero-cost REHEARSAL before a corpus pass drives it for the
+        # first time with $38 on the table. Without this the oracle rehearses
+        # everything except the lane the pass is being run to measure, which is
+        # the shape of mistake this harness was built to refuse.
+        #
+        # Deliberately gated on `task.agent is None` rather than on a flag: a
+        # task that costs money ALWAYS authors for real, and there is no
+        # spelling of this that would let a supplied witness reach a paid row.
+        supplied = os.environ.get("WRINGER_BENCH_WITNESS_SOURCE")
+        if not supplied:
+            return {
+                "covered": False,
+                "reason": "scripted task: no author was called",
+            }
+        source = pathlib.Path(supplied).read_text(encoding="utf-8")
+        item = witness_module.Witness(
+            criterion=WITNESS_CRITERION, source=source
+        )
+        witness_module.store(tree, item)
+        witness_module.record(
+            tree, [item], model="pre-written (scripted rehearsal)",
+            base_sha=head_sha(tree), tree_dirty=False,
+            isolation={"tree": "pre-change", "author": "not called"},
+            prompt_digests={},
+        )
+        return {
+            "covered": True,
+            "reason": "a pre-written witness, for a task that costs nothing",
+            "sha256": item.sha256,
+        }
 
     secret = keychain_secret(task.agent)
     if not secret:
