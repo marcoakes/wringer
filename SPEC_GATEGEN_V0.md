@@ -1170,3 +1170,60 @@ they are listed here rather than quietly carried:
 **None of these is a claim this repository is currently making.** Each is a gap
 between what the lane does and what a careful reader would assume — which is
 exactly the register this file is supposed to keep.
+
+### §6e — What the FIRST real corpus task found, 2026-08-15
+
+*Recorded before any money was spent on a full pass, because one task's
+validation found two things that would have destroyed it. Both are measured,
+not predicted.*
+
+**1. A real agent read Wringer's witness and rewrote it.** On
+`marshmallow-constant-required`, the agent opened
+`.wringer/witness/test_witness_issue.py` and replaced `pytest.warns(None)` —
+removed in pytest 8 — with a `catch_warnings` block, adding the import. A
+helpful, competent edit. The pin caught it and the run VOIDed by name:
+
+    the witness for `issue` does not match the digest its author recorded
+    (1bc9b81aeffc != 53b57acc1df2)
+
+**W4 worked.** The tamper-evidence this lane was built around fired on the
+first real agent it ever met, which is the strongest evidence the mechanism has
+ever had. It is also unusable as-is: §5's void rule invalidates a pass at three
+VOID rows, and an agent that tidies a check it can see will do this on most
+tasks. W5 always said the worker gets the failure output and never the source,
+and said in the same breath that this is *a rule about what Wringer hands over,
+not a sandbox*. That sentence was exactly right and the agent proved it.
+
+Fixed for the CONTAINED case: the worker container now gets an empty anonymous
+volume where the witness bytes live, so `ls` shows nothing, `cat` finds
+nothing, and a write lands in a volume that is discarded. Measured.
+
+**2. The fix is not enough, because the turn that matters is not contained.**
+`benchmark/harness.py`'s arm B runs the agent through `do_the_work` FIRST —
+the identical call arm A makes, deliberately, so that *"the arms differ only in
+supervision"* is a fact about the code — and only then runs `wring run`.
+**Containment therefore covers the repair loop's worker turns and not the
+primary turn**, which is the one that does the work, holds the shell, and has
+the network.
+
+For R-C that is decisive: the contamination channel it exists to close is open
+during exactly the turn the channel matters in, and the witness bytes are
+reachable from it on the host, where no mount can shadow them.
+
+**Two options, and the choice is not an implementer's.**
+
+- **Contain arm B's primary turn too.** Honest, and arguably right —
+  containment IS part of supervision. It changes what the arms differ by, which
+  is a change to the experiment's design and belongs to whoever owns the
+  experiment.
+- **Move the witness bytes out of the repository entirely.** W4 put them under
+  `.wringer/` because the pre-change worktree carries tracked files only; a
+  path outside the repo satisfies that reasoning better and is unreachable by a
+  contained worker AND by an uncontained one that stays in its tree. Packaging
+  is explicitly free under the 2026-08-14 ruling §6, so this one IS an
+  implementer's — but it does not by itself close R-C's channel, which is the
+  first option's job.
+
+**No corpus pass was run and the $38 was not spent.** Validating one task cost
+a few cents and found both of these. A pass launched without it would have
+produced VOID rows on most tasks and burned the single authorised run.
