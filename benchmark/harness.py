@@ -161,8 +161,18 @@ RESULTS_FILENAME = "rows.jsonl"
 # `--prove` returned `gates_vacuous` on 13 of 13 and `wring deliver` said yes on
 # 26 of 26. A reader must be able to tell a row where a witness covered the
 # criterion from one that predates the lane, and one version cannot say both.
-SCHEMA_VERSION = "wringer.benchmark.v5"
+# v6 adds `containment` — what each TURN actually got, as ESTABLISHED (P4-4,
+# ruled 2026-08-15) — and the bump is load-bearing in exactly the way v2's was.
+# Every v5 row was produced while arm B's PRIMARY turn ran on the host: `wring
+# run` contained the turns it spawned, and the agent's own turn — the one that
+# does the work, holds the shell and has the network — was not one of them. A
+# reader must be able to tell a row whose worker was inside the boundary from
+# one that predates that being true, and one version cannot say both. This is
+# the same reason v2 exists for the contamination field, and it matters more
+# here: the field a v5 row is missing is the §5 PRECONDITION.
+SCHEMA_VERSION = "wringer.benchmark.v6"
 PREVIOUS_SCHEMA_VERSIONS = (
+    "wringer.benchmark.v5",
     "wringer.benchmark.v4",
     "wringer.benchmark.v1",
     "wringer.benchmark.v2",
@@ -360,6 +370,19 @@ class Row:
     # not satisfy, whatever the declared gates said — and the declared gates
     # saying yes anyway is the measured baseline this lane exists to break.
     witness: dict[str, Any] | None = None
+    # **What each TURN actually got, as ESTABLISHED** (P4-4, ruled 2026-08-15).
+    #
+    # Two keys because there are two spawns and they were not the same thing:
+    # `primary` is the agent's own turn — the one that does the work, holds the
+    # shell and has the network — and `loop` is whatever the repair turns got.
+    # Until P4-2 the primary turn ran on the host in every row, while the
+    # deviations said the arms "differ only in supervision".
+    #
+    # Reported as established rather than as declared, and that distinction is
+    # the whole field: a config line says a repository asked for a boundary, not
+    # that one existed. `DECLARED_BUT_NOT_ESTABLISHED` in either key stops the
+    # pass; it is a gate failure, never a deviation.
+    containment: dict[str, Any] = field(default_factory=dict)
     limits: list[str] = field(default_factory=lambda: list(LIMITS))
 
 
@@ -766,9 +789,12 @@ def agent_env(task: Task) -> dict[str, str]:
 
 
 def run_agent_alone(
-    task: Task, tree: Path, workdir: Path
+    task: Task,
+    tree: Path,
+    workdir: Path,
+    contained: tuple[Any, Any] | None = None,
 ) -> tuple[bool | None, str]:
-    """**Arm A with a real agent: one ACP turn, and nothing checks the result.**
+    """**One ACP turn — the agent, the statement, and nothing checking it.**
 
     No gates, no loop, no verification, no brief built from failures. The agent
     is handed the task statement and its own turn, exactly as a person with no
@@ -784,6 +810,12 @@ def run_agent_alone(
     The claim of completion is `turn.stop_reason == "end_turn"` — the agent
     saying it is finished, which is the closest thing arm A has to "the agent
     says it is done".
+
+    **`contained` is arm B's boundary, and arm A never passes one** (P4-2). The
+    same `containment_settings`/`established` pair `loop.py` hands its repair
+    turns, through the same `session_argv` path, so there is exactly one spawn
+    shape for a contained ACP session in this program and the benchmark does not
+    own a second copy of it.
     """
     from wringer import acp
     from wringer.redact import Redactor
@@ -800,6 +832,7 @@ def run_agent_alone(
         # short-lived, and the redactor above covers every log the turn writes.
         os.environ[agent.keychain_env] = secret
 
+    settings, established = contained or (None, None)
     try:
         turn, code = acp.run_turn(
             command=agent.command,
@@ -811,6 +844,9 @@ def run_agent_alone(
             stdout_path=workdir / "agent.stdout.log",
             stderr_path=workdir / "agent.stderr.log",
             redactor=redactor,
+            containment_settings=settings,
+            established=established,
+            workdir=workdir,
         )
     except Exception as exc:  # noqa: BLE001 - any failure here is VOID, not a claim
         return None, (
@@ -889,16 +925,27 @@ def run_native(task: Task, tree: Path, workdir: Path) -> tuple[bool | None, str]
     return done.returncode == 0, f"agent exit {done.returncode}"
 
 
-def do_the_work(task: Task, tree: Path, workdir: Path) -> tuple[bool | None, str]:
+def do_the_work(
+    task: Task,
+    tree: Path,
+    workdir: Path,
+    contained: tuple[Any, Any] | None = None,
+) -> tuple[bool | None, str]:
     """Somebody attempts the task in this tree. **Both arms come through here.**
 
     A real agent when the task names one, the scripted worker otherwise. Arm A
     stops at what this returns; arm B carries on into supervision. One function
     is what makes "the arms differ only in supervision" a fact about the code
     rather than a sentence in a document.
+
+    **`contained` is P4-2 and it is what the arms now differ BY** (ruled
+    2026-08-15). Arm A passes None — it is the unsupervised control, what a
+    caller without a harness gets, and containing it would make it a different
+    arm. Arm B passes its established boundary, because §5's precondition reads
+    *"worker contained"* and the worker is the turn that does the work.
     """
     if task.agent is not None:
-        return run_agent_alone(task, tree, workdir)
+        return run_agent_alone(task, tree, workdir, contained=contained)
     return run_native(task, tree, workdir)
 
 
@@ -957,11 +1004,42 @@ def run_under_wringer(
         json.dumps(authored, indent=2), encoding="utf-8"
     )
 
-    # The identical call arm A makes, into arm B's own directory. A failure here
-    # is VOID for the same reason it is in arm A: no claim was made. A scripted
-    # task goes through the same door, which is what makes the zero-cost oracle
-    # a faithful rehearsal of THIS arm rather than of a different one.
-    attempted, why = do_the_work(task, tree, workdir)
+    # **The primary turn runs INSIDE the boundary the config declares** (P4-2,
+    # ruled 2026-08-15), and until that ruling it did not.
+    #
+    # `wring run` establishes a containment for the turns IT spawns, so
+    # containment reached the repair loop's worker turns and not this one —
+    # the turn that does the work, holds the shell and has the network. The
+    # 2026-08-13 run measured that channel IN USE: three arm-B rows fetched a
+    # `.patch`, a PR diff and a post-fix source file. A pass whose primary turn
+    # is uncontained is discountable by exactly the audit that discounted run 1,
+    # and no post-hoc check rescues it, because a fetch need leave no trace.
+    #
+    # A refusal here is LOUD and stops the arm. `establish` has no return path
+    # that yields a partial boundary, and this has no branch that carries on
+    # without one: a row claiming a containment it did not have is the defect
+    # SPEC_CONTAIN_V0 ruling 4a exists to prevent, and it would be worse than
+    # an honest uncontained row.
+    boundary = None
+    primary = "n/a"
+    try:
+        if uncontained is None:
+            boundary = establish_for_primary(task, tree, workdir)
+            primary = "established"
+        else:
+            primary = "UNCONTAINED"
+        # The identical call arm A makes, into arm B's own directory — with the
+        # boundary, which is what supervision now includes. A failure is VOID
+        # for the same reason it is in arm A: no claim was made. A scripted task
+        # goes through the same door, which is what makes the zero-cost oracle a
+        # faithful rehearsal of THIS arm rather than of a different one.
+        attempted, why = do_the_work(task, tree, workdir, contained=boundary)
+    finally:
+        teardown_primary(task, tree, workdir, boundary)
+    (workdir / "primary-containment.json").write_text(
+        json.dumps({"primary_turn": primary, "why": uncontained}, indent=2),
+        encoding="utf-8",
+    )
     if attempted is None:
         return None, why
 
@@ -1203,15 +1281,33 @@ def change_patch(tree: Path, base_sha: str) -> tuple[str | None, str | None]:
     return (done.stdout or None), None
 
 
-def deviations_for(arm: str, contained: bool = True) -> list[str]:
+def deviations_for(arm: str, report: dict[str, Any] | None = None) -> list[str]:
     """**Never empty.** Every arm deviates from "identical conditions" somewhere,
     and a row that listed none would be the overclaim this harness exists to
-    avoid."""
+    avoid.
+
+    **The arms' registered MEANING changed on 2026-08-15 and this is where it
+    is said** (P4-2). The list used to carry *"the arms differ only in
+    supervision"* unqualified. That sentence was true of the code and false as
+    a description of the experiment the moment containment entered arm B, and
+    it is now stated the other way round: arm B's supervision INCLUDES the
+    boundary; arm A runs uncontained on the host by design. Arm A is the
+    control — what a caller without a harness gets — and containing it would
+    make it a different arm rather than a fairer one.
+    """
+    report = report or {}
     shared = [
         "one attempt only — agents are stochastic and a single row is a draw",
         "the two arms are two INDEPENDENT agent runs from the same statement, "
         "so the difference between them mixes the supervision with the "
         "agent's own variance between draws",
+        # The P4-2 sentence, in EVERY row of both arms, because it describes
+        # what the comparison is rather than what one arm did.
+        "**arm B's supervision INCLUDES the boundary; arm A runs uncontained "
+        "on the host by design.** The arms no longer differ only in whether "
+        "something checks the result — they differ in that plus containment, "
+        "and containment IS part of supervision. Arm A is the control: what a "
+        "caller without a harness gets",
     ]
     if arm == ARM_NATIVE:
         return shared + [
@@ -1220,7 +1316,7 @@ def deviations_for(arm: str, contained: bool = True) -> list[str]:
             "nothing runs the repository's tests in this arm — that is the "
             "point of it, and it is also why this arm is cheaper",
         ]
-    uncontained = [] if contained else [
+    uncontained = [] if report.get("primary") == "established" else [
         "**THE WORKER RAN UNCONTAINED.** The residual contamination channel — "
         "the agent has a shell and a network — was measured IN USE on the "
         "2026-08-13 run, where three arm-B rows fetched a .patch, a PR diff "
@@ -1239,14 +1335,15 @@ def deviations_for(arm: str, contained: bool = True) -> list[str]:
 
 def run_arm(task: Task, arm: str, out: Path) -> Row:
     """One arm, end to end, into its own directory."""
-    # Assigned before ANY return path, because the pre-arm isolation
-    # check returns a Row of its own and that row reports containment too.
-    contained = True
     workdir = out / task.id / arm
     workdir.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
 
     tree = prepare_tree(task, workdir)
+    # Computed before ANY return path, because the pre-arm isolation check
+    # returns a Row of its own and that row reports containment too. Nothing
+    # has been established yet, so on this path it reports exactly that.
+    report = containment_report(tree, workdir, arm)
     try:
         check_isolation(task, tree)
     except Void as exc:
@@ -1255,7 +1352,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
             cell=VOID, reason=str(exc),
             wall_clock_ms=int((time.monotonic() - started) * 1000),
-            deviations=deviations_for(arm, contained),
+            deviations=deviations_for(arm, report),
+            containment=report,
             witness=witness_outcome(tree, workdir),
         )
 
@@ -1267,9 +1365,14 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         claimed, claim_reason = do_the_work(task, tree, workdir)
     else:
         claimed, claim_reason = run_under_wringer(task, tree, workdir)
-        contained = (tree / ".wringer.yaml").read_text(
-            encoding="utf-8"
-        ).find("containment") >= 0
+
+    # **Recomputed AFTER the arm ran, and that is the whole of P4-4.** Before
+    # it ran there was nothing to report but a config file; the question the row
+    # answers is what each turn actually got. `check_containment_is_real` then
+    # refuses to let a row claim a boundary it did not have — a gate failure
+    # that stops the pass, never a deviation somebody might read past.
+    report = containment_report(tree, workdir, arm)
+    check_containment_is_real(report, task.id, arm)
 
     if claimed is None:
         # The arm never produced a claim, so there is nothing to put in the
@@ -1286,7 +1389,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # skipped those rows would understate the bill.
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm, contained),
+            deviations=deviations_for(arm, report),
+            containment=report,
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -1320,7 +1424,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             wall_clock_ms=int((time.monotonic() - started) * 1000),
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm, contained),
+            deviations=deviations_for(arm, report),
+            containment=report,
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -1346,7 +1451,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         wall_clock_ms=int((time.monotonic() - started) * 1000),
         usage=usage_of(workdir),
         contamination=contamination(task, workdir),
-        deviations=deviations_for(arm, contained),
+        deviations=deviations_for(arm, report),
+        containment=report,
         # **The row that actually gets scored**, and it was the one the first
         # pass of this edit missed — the three VOID rows carried the witness
         # and the measured row did not, which would have produced a corpus with
@@ -1459,6 +1565,191 @@ def declare_containment(task: Task, tree: Path) -> str | None:
     }
     path.write_text(yaml.safe_dump(declared, sort_keys=False), encoding="utf-8")
     return None
+
+
+PRIMARY_CONTAINMENT_DIRNAME = "primary-containment"
+
+
+def _declared_containment(tree: Path) -> Any:
+    """The `Containment` this tree's config declares, or None.
+
+    Parsed through Wringer's own loader rather than off the YAML this harness
+    just wrote. The two would agree today and the point is that they cannot
+    drift: what gets established has to be what the product would establish
+    from the same file, or the boundary the row reports is the harness's and
+    not the product's.
+    """
+    from wringer import config as config_module
+
+    cfg = config_module.load(tree / ".wringer.yaml")
+    return cfg.run.containment if cfg.run is not None else None
+
+
+def establish_for_primary(
+    task: Task, tree: Path, workdir: Path
+) -> tuple[Any, Any] | None:
+    """Stand up arm B's boundary for the PRIMARY turn, or raise (P4-2).
+
+    Static refusals first, through the same `preflight` `wring verify` runs, so
+    a broken declaration costs a sentence here rather than an hour into a pass.
+    `worker_requires` carries the agent's own binary, which is A-5's derived
+    check: the image has to hold the agent, and Wringer knows its name.
+
+    Returns None only when nothing was declared — the scripted-oracle path.
+    There is deliberately no return that means "carried on without one".
+    """
+    from wringer import containment as containment_module
+
+    settings = _declared_containment(tree)
+    if settings is None:
+        return None
+    requires = (task.agent.command,) if task.agent is not None else ()
+    refusal = containment_module.preflight(settings, tree, requires)
+    if refusal is not None:
+        raise TaskError(
+            f"arm B's primary turn cannot be contained: {refusal}. The pass "
+            "does not proceed uncontained — §5's precondition reads 'worker "
+            "contained', and the worker is the turn that does the work"
+        )
+    established = containment_module.establish(
+        settings, tree, workdir / PRIMARY_CONTAINMENT_DIRNAME
+    )
+    return settings, established
+
+
+def teardown_primary(
+    task: Task, tree: Path, workdir: Path, boundary: tuple[Any, Any] | None
+) -> None:
+    """Remove the primary turn's holder. Total by construction.
+
+    The holder owns a network namespace and outlives the turn that joined it,
+    so it is torn down once the turn is over — before `wring run` establishes
+    its own, which is deliberate: two holders alive at once would be two
+    boundaries where the record describes one.
+    """
+    if boundary is None:
+        return
+    from wringer import containment as containment_module
+
+    settings, _ = boundary
+    containment_module.teardown(
+        settings, workdir / PRIMARY_CONTAINMENT_DIRNAME
+    )
+
+
+def loop_containment(tree: Path) -> str:
+    """What the LOOP's turns actually got, read off Wringer's own record.
+
+    `execution.json`'s `worker_execution` splits `declared` from `established`
+    for exactly this reason (SPEC_CONTAIN_V0 ruling 4a): a run that declared a
+    containment and never stood one up must not read the same as one that did.
+    So this reports the `established` block's presence, never the config's.
+
+    `"none"` when the loop never ran a worker turn — which is the honest answer
+    on a task whose gates were green and whose witness converted on the first
+    lap, and is not the same claim as "it ran uncontained".
+    """
+    records = sorted((tree / ".wringer" / "runs").glob("*/execution.json"))
+    if not records:
+        return "no_record"
+    seen = set()
+    for path in records:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            seen.add("unreadable")
+            continue
+        worker = payload.get("worker_execution")
+        if not isinstance(worker, dict):
+            # `wringer.execution.v1` writes a STRING here, always
+            # `trusted_local`, because the container backend contained gates
+            # and not the worker. A v1 record is a run that declared no
+            # containment; reading it as anything else would be this harness
+            # guessing past a schema version, which is the exact thing the v1/v2
+            # boundary exists to stop.
+            seen.add("none")
+        elif not worker.get("declared"):
+            seen.add("none")
+        elif worker.get("established"):
+            seen.add("established")
+        else:
+            seen.add("DECLARED_BUT_NOT_ESTABLISHED")
+    if "DECLARED_BUT_NOT_ESTABLISHED" in seen:
+        return "DECLARED_BUT_NOT_ESTABLISHED"
+    if seen == {"established"}:
+        return "established"
+    if seen == {"none"}:
+        return "none"
+    return "+".join(sorted(seen))
+
+
+def containment_report(tree: Path, workdir: Path, arm: str) -> dict[str, Any]:
+    """**Containment as ESTABLISHED, per turn** (P4-4, ruled 2026-08-15).
+
+    The field this replaces read the arm's `.wringer.yaml` for the substring
+    `"containment"` and reported the answer as the row's containment. That is a
+    statement about a config file — it says the repository asked for a boundary,
+    not that one existed — and *"a run claiming a containment it did not have"*
+    is the exact shape SPEC_CONTAIN_V0 ruling 4a was written against.
+
+    Two turns, reported separately, because they are two spawns and they can
+    differ: the PRIMARY turn (the agent's own, arm B's first act) and the LOOP's
+    repair turns. Arm A has neither — it is the uncontained control by design,
+    and `arm_a` is what it says.
+    """
+    if arm == ARM_NATIVE:
+        return {
+            "primary": "uncontained_by_design",
+            "loop": "n/a",
+            "note": (
+                "arm A is the unsupervised control: what a caller without a "
+                "harness gets. Containing it would make it a different arm"
+            ),
+        }
+    recorded: dict[str, Any] = {"primary": "n/a", "loop": loop_containment(tree)}
+    path = workdir / "primary-containment.json"
+    if path.is_file():
+        try:
+            recorded["primary"] = json.loads(
+                path.read_text(encoding="utf-8")
+            ).get("primary_turn", "n/a")
+        except (OSError, ValueError):
+            recorded["primary"] = "unreadable"
+    recorded["declared"] = _declares_containment(tree)
+    return recorded
+
+
+def _declares_containment(tree: Path) -> bool:
+    try:
+        return _declared_containment(tree) is not None
+    except Exception:  # noqa: BLE001 - an unparseable config declares nothing
+        return False
+
+
+class ContainmentGap(TaskError):
+    """The config declared a containment and a turn ran without one.
+
+    **A gate failure, not a deviation** (P4-4). A row that reports a boundary it
+    did not have is worse than an honest uncontained row: the uncontained row
+    can be discounted by a reader, and this one cannot be, because it does not
+    tell them. So it stops the pass rather than landing.
+    """
+
+
+def check_containment_is_real(report: dict[str, Any], task: str, arm: str) -> None:
+    """Refuse to proceed on a declared-but-not-established turn (P4-4)."""
+    if not report.get("declared"):
+        return
+    for turn in ("primary", "loop"):
+        state = report.get(turn)
+        if state in ("established", "none", "n/a"):
+            continue
+        raise ContainmentGap(
+            f"{task} {arm}: the config DECLARES a containment and the {turn} "
+            f"turn reports {state!r}. This row would claim a boundary it did "
+            "not have, which is the defect the declared/established split "
+            "exists to prevent. The pass does not proceed"
+        )
 
 
 def author_witness(task: Task, tree: Path, workdir: Path) -> dict[str, Any]:

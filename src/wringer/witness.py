@@ -57,6 +57,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -68,18 +69,80 @@ from wringer import evidence as evidence_module
 
 SCHEMA_VERSION = "wringer.witness.v1"
 
-# Where the bytes of record live. Under `.wringer/`, which is gitignored, and
-# that is derived rather than chosen (W4): the pre-change worktree carries
-# TRACKED files only, so an untracked witness in the working tree would be
-# absent there and would "fail" for file-not-found — a false `proven` wearing
-# this amendment's badge. Committing it instead is refused by law 6. So the
-# bytes live here and are MATERIALISED into whichever tree is executing.
-WITNESS_DIRNAME = Path(".wringer") / "witness"
+# **Where the bytes of record live — OUTSIDE every repository root** (P4-3,
+# ruled 2026-08-15). This moved, and it moved because of something measured
+# rather than something imagined.
+#
+# The bytes used to live at `<root>/.wringer/witness/`. W4 put them there by a
+# correct piece of reasoning — the pre-change worktree carries TRACKED files
+# only, so an untracked witness in the working tree would be absent there and
+# would "fail" for file-not-found, a false `proven` wearing the amendment's
+# badge — and committing them instead is refused by law 6. But `.wringer/` is
+# inside the repository, and the repository is the thing an agent is pointed at.
+#
+# On the FIRST real corpus task an agent opened `.wringer/witness/…py` and
+# rewrote it: it replaced `pytest.warns(None)`, removed in pytest 8, with a
+# `catch_warnings` block. A helpful, competent edit by an agent tidying a file
+# it found in its own tree. The pin caught it and the run VOIDed by name, which
+# is W4 working perfectly — and unusable, because §5's void rule invalidates a
+# whole pass at three such rows and an agent that tidies what it can see will
+# do it on most tasks.
+#
+# The first repair shadowed the path with an anonymous volume inside the
+# worker's container. That closed it for a CONTAINED worker and left it wide
+# open for an uncontained one on the host — including arm B's primary turn,
+# which is the turn that does the work. A store outside every repository root
+# satisfies W4's original reasoning BETTER than `.wringer/` did and closes both
+# cases at once, so the mount is gone and this is the whole of the fix.
+#
+# **The honest residual, stated here rather than discovered later** (it is the
+# sentence the removed mount's comment used to carry): an UNCONTAINED worker on
+# the host can still reach this store if it goes looking for it — the path is
+# derivable, and nothing about a filesystem path is a boundary. What this buys
+# is that the store is not in the tree the agent was handed, so no agent reaches
+# it by tidying up. The pin remains tamper-EVIDENCE; containment remains the
+# boundary. Packaging is explicitly free under the 2026-08-14 ruling §6, which
+# is the licence this layout is chosen under.
+STORE_ENV = "WRINGER_WITNESS_STORE"
+
+
+def store_dir(root: Path) -> Path:
+    """Where this repository's witness bytes live, outside this repository.
+
+    Deterministic in the repository's resolved path, so the same repository
+    always resolves to the same store and two checkouts of the same project
+    never share one. The directory NAME carries the repository's basename for a
+    human reading `ls`, and a digest of the full path for uniqueness — two
+    repositories called `wringer` in different directories are different stores.
+
+    `WRINGER_WITNESS_STORE` overrides the base, which is what the suite uses so
+    that no test writes into a developer's real state directory.
+    """
+    override = os.environ.get(STORE_ENV)
+    if override:
+        base = Path(override)
+    else:
+        base = Path(
+            os.environ.get("XDG_STATE_HOME") or Path.home() / ".local" / "state"
+        ) / "wringer" / "witness"
+    resolved = root.resolve()
+    key = f"{resolved.name or 'repo'}-{digest(str(resolved).encode('utf-8'))[:16]}"
+    return base / key
+
 
 # Where a witness is materialised inside the tree under test. One fixed
 # relative path, so the pin can cover it: pinning bytes alone would let a
 # worker rewrite the command to `true` while the file stayed byte-identical.
-MATERIAL_DIRNAME = ".wringer-witness"
+#
+# **Moved under `.wringer/` by P4-3**, from a top-level `.wringer-witness/`.
+# `.wringer/` is already gitignored and its stem is already outside anything
+# `created_stems` reads, so a SIGKILL between `materialise` and `clean` now
+# leaves nothing that `git status` shows and nothing `wring deliver` can trip
+# over — which closes §6d item 8 as a consequence of this move rather than as a
+# separate patch. The window itself is unchanged and is narrow by construction:
+# a witness is materialised, run, and removed inside one `try/finally`, between
+# worker turns and never during one.
+MATERIAL_DIRNAME = ".wringer/witness"
 
 WITNESS_FILENAME = "witness.json"
 
@@ -371,8 +434,8 @@ def parse_response(body: Any) -> str:
 
 
 def store(root: Path, witness: Witness) -> Path:
-    """Write the bytes of record under `.wringer/witness/`."""
-    directory = root / WITNESS_DIRNAME
+    """Write the bytes of record into this repository's store, outside it."""
+    directory = store_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / witness.filename
     path.write_text(witness.source, encoding="utf-8")
@@ -385,7 +448,7 @@ def load(root: Path) -> list[Witness]:
     Absence is absence: a repository with no witness lane returns an empty
     list and every downstream behaviour is byte for byte what it was.
     """
-    directory = root / WITNESS_DIRNAME
+    directory = store_dir(root)
     record_path = directory / WITNESS_FILENAME
     if not record_path.is_file():
         return []
@@ -393,7 +456,7 @@ def load(root: Path) -> list[Witness]:
         recorded = json.loads(record_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         raise WitnessError(
-            f"the witness record at {WITNESS_DIRNAME}/{WITNESS_FILENAME} "
+            f"the witness record at {directory}/{WITNESS_FILENAME} "
             f"could not be read ({exc}), so no witness can be trusted. This "
             "VOIDs the run rather than proceeding without one"
         ) from exc
@@ -415,7 +478,24 @@ def load(root: Path) -> list[Witness]:
         # be closed: the bytes must still be the bytes the author recorded.
         expected = (row.get("authored") or {}).get("sha256")
         actual = digest(source.encode("utf-8"))
-        if expected and expected != actual:
+        # **Fail CLOSED on an absent digest** (§6d item 7, closed by P4-5.7).
+        # The first draft read `if expected and expected != actual`, so a
+        # record with no `authored.sha256` — or an empty one — skipped the
+        # comparison silently and the witness was trusted anyway. That is the
+        # one direction this check must never fail in: deleting a field is
+        # strictly easier than forging a digest, so a fail-open check is a
+        # check an editor turns off by removing it. A record whose digest
+        # cannot be verified is not a weaker record, it is no record.
+        if not expected:
+            raise WitnessError(
+                f"the witness for `{criterion}` carries no authored digest, so "
+                "the bytes on disk cannot be compared to the bytes its author "
+                "produced. This VOIDs the run: an unverifiable record is not a "
+                "weaker record, it is no record — and a check that skips itself "
+                "when a field is missing is a check anyone can switch off by "
+                "deleting the field"
+            )
+        if expected != actual:
             raise WitnessError(
                 f"the witness for `{criterion}` does not match the digest its "
                 f"author recorded ({actual[:12]} != {expected[:12]}). Someone "
@@ -508,12 +588,24 @@ def materialise(tree: Path, witness: Witness) -> Path:
     """
     directory = tree / MATERIAL_DIRNAME
     path = directory / witness.filename
-    if directory.is_symlink() or path.is_symlink():
-        raise WitnessError(
-            f"a symlink is planted at the witness materialisation path "
-            f"({MATERIAL_DIRNAME}). Wringer will not follow it: the write "
-            "would land somewhere nobody named. This VOIDs the run"
-        )
+    # **Every component, not just the leaf.** The materialisation path became
+    # nested when P4-3 moved it under `.wringer/`, and a leaf-only check on a
+    # nested path is a check with a hole in it: a symlink planted at `.wringer`
+    # redirects the write exactly as one planted at `.wringer/witness` would,
+    # and `mkdir(parents=True)` would follow it without complaint. The whole
+    # reason W4 rules this rather than leaving it to the implementation is that
+    # the write landing somewhere nobody named makes the cleanup delete
+    # something nobody named either.
+    walked = tree
+    for part in (*Path(MATERIAL_DIRNAME).parts, witness.filename):
+        walked = walked / part
+        if walked.is_symlink():
+            raise WitnessError(
+                f"a symlink is planted at the witness materialisation path "
+                f"({walked.relative_to(tree)}, under {MATERIAL_DIRNAME}). "
+                "Wringer will not follow it: the write would land somewhere "
+                "nobody named. This VOIDs the run"
+            )
     if path.exists():
         raise WitnessError(
             f"something already exists at {MATERIAL_DIRNAME}/"
@@ -654,7 +746,7 @@ def execute(
         return Execution(
             exit_code=done.returncode,
             outcome=classify(done.returncode, raised),
-            first_line=_first_meaningful_line(log),
+            first_line=_first_meaningful_line(log, witness),
             log=log,
         )
     finally:
@@ -694,12 +786,69 @@ def classify(exit_code: int, raised: frozenset[str] = frozenset()) -> str:
     return COLLECTION_ERROR
 
 
-def _first_meaningful_line(log: str) -> str:
+# pytest's per-test progress line: outcome characters, optionally followed by
+# a `[ 50%]` counter. `F  [100%]` is what `-q` prints first, and it was what the
+# citation and the brief both carried until 2026-08-15 — the review's finding 6.
+_PROGRESS_LINE = re.compile(r"^[.FEsxXpuw]+\s*(\[\s*\d+%\])?$")
+
+# pytest marks the failure's own line with a leading `E`. That line IS the
+# failure — `E   assert 1 == 2`, `E   AssertionError: ...` — which is what W5
+# means by the worker receiving the failure OUTPUT.
+_ERROR_LINE = re.compile(r"^E\s+(.*)$")
+
+
+def _first_meaningful_line(log: str, witness: Witness | None = None) -> str:
+    """The line that says what FAILED — never the progress bar (P4-5.1).
+
+    **Closing the review's finding 6.** This returned pytest's progress bar,
+    `F  [100%]`, because that is genuinely the first non-`=` line `-q` prints.
+    So the mandatory `proved_red.first_line` citation and the brief's witness
+    line both said `F [100%]` — W5's *"carries the failure"* half delivering a
+    character and a percentage. A worker briefed with that has been told a
+    check failed and nothing whatsoever about how.
+
+    This is CITATION text, not classification. W8's discriminator still comes
+    from the exit code and the exception class off the runner's report object;
+    nothing here decides anything, and `vacuity.py:39-44`'s refusal to
+    auto-classify by reading failure prose is untouched. This only chooses
+    which line of the runner's own output to quote.
+
+    **W5's other half is enforced here too**: the citation may not carry the
+    witness's source, path or command. pytest's short-summary line is
+    `FAILED .wringer/witness/test_witness_x.py::test_it - assert ...`, which
+    names the path — so the path is scrubbed out of whatever line is chosen,
+    rather than the choice being trusted to avoid it. A worker that learns the
+    materialisation path can go and read the check.
+    """
+    chosen = ""
     for line in log.splitlines():
         stripped = line.strip()
-        if stripped and not stripped.startswith("="):
-            return stripped[:200]
-    return ""
+        if not stripped or stripped.startswith("=") or _PROGRESS_LINE.match(
+            stripped
+        ):
+            continue
+        error = _ERROR_LINE.match(stripped)
+        if error is not None and error.group(1).strip():
+            chosen = error.group(1).strip()
+            break
+        if not chosen:
+            # The best line seen so far. Kept rather than returned, because an
+            # `E` line later in the log is strictly better and this is only the
+            # fallback for a runner that printed none.
+            chosen = stripped
+    return _without_the_witness(chosen, witness)[:200]
+
+
+def _without_the_witness(line: str, witness: Witness | None) -> str:
+    """Scrub the path and filename W5 forbids handing over."""
+    for secret in (
+        f"{MATERIAL_DIRNAME}/{witness.filename}" if witness else "",
+        witness.filename if witness else "",
+        MATERIAL_DIRNAME,
+    ):
+        if secret:
+            line = line.replace(secret, "the witness")
+    return line.strip()
 
 
 def prove_red(
@@ -774,7 +923,7 @@ def on_disk_sha256(root: Path, witness: Witness) -> str | None:
     pinned. That is a claim about a FILE, so it has to be answered by reading
     the file.
     """
-    path = root / WITNESS_DIRNAME / witness.filename
+    path = store_dir(root) / witness.filename
     try:
         return digest(path.read_bytes())
     except OSError:
@@ -842,8 +991,8 @@ def record(
     isolation: dict[str, Any],
     prompt_digests: dict[str, str],
 ) -> Path:
-    """Write `.wringer/witness/witness.json` — `wringer.witness.v1`."""
-    directory = root / WITNESS_DIRNAME
+    """Write the store's `witness.json` — `wringer.witness.v1`."""
+    directory = store_dir(root)
     directory.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": SCHEMA_VERSION,
@@ -890,22 +1039,44 @@ def brief_section(witnesses: list[Witness]) -> list[str]:
     headline finding relocated from `.git` to `.wringer/`, and it becomes a
     boundary only under containment.
     """
-    usable = [w for w in witnesses if w.usable]
-    if not usable:
+    outstanding = [w for w in witnesses if unconverted(w)]
+    if not outstanding:
         return []
     lines = [
         "",
         "## What is not yet demonstrated",
         "",
-        "Wringer holds a check for each criterion below. Each one fails "
-        "today. Make it pass by satisfying the criterion — the check itself "
-        "is not yours to edit, and it is not in this tree.",
+        "Wringer holds a check for each criterion below. Each one is failing "
+        "on the tree as it stands right now. Make it pass by satisfying the "
+        "criterion — the check itself is not yours to edit, and it is not in "
+        "this tree.",
         "",
     ]
-    for witness in usable:
-        first = witness.proved_red.first_line if witness.proved_red else ""
-        lines.append(f"- `{witness.criterion}` — {first}")
+    for item in outstanding:
+        # **The CURRENT failure, not the pre-change one** (P4-1). The loop now
+        # continues while a witness is red, so a worker on lap 3 needs to know
+        # what the check says on lap 3's tree; the born-red line is a fact
+        # about a tree three turns ago. `proved_red` is the fallback for the
+        # first brief of a run where the witness has not been executed against
+        # the working tree yet.
+        latest = item.executed or item.proved_red
+        first = latest.first_line if latest is not None else ""
+        lines.append(f"- `{item.criterion}` — {first}")
     return lines
+
+
+def unconverted(item: Witness) -> bool:
+    """Whether this witness is usable and still RED on the tree as it stands.
+
+    **The predicate the repair loop turns on** (P4-1). A usable witness that has
+    not been executed yet counts as unconverted: it was proved red on the
+    pre-change tree and nothing since has shown otherwise, so treating "not yet
+    measured" as converted would be the fail-open direction on the one check
+    that carries information about the change.
+    """
+    if not item.usable:
+        return False
+    return item.executed is None or not item.executed.passed
 
 
 # What this artifact does NOT claim, travelling with it rather than living in a

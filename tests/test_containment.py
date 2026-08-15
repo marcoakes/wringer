@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -486,30 +487,29 @@ def build(tmp_path: Path, holder: str | None = None, **overrides) -> list[str]:
 def test_the_repository_is_mounted_and_is_the_only_mount_without_an_allowlist(
     tmp_path: Path,
 ):
-    """The repository, and ONE deliberate second mount that shadows the
-    witness bytes out of the worker's view.
+    """The repository, and NOTHING else.
 
-    **The second mount is a repair for something measured, not a convenience.**
-    On the first real corpus task the agent opened Wringer's witness and
-    rewrote it — replacing `pytest.warns(None)`, removed in pytest 8, with a
-    `catch_warnings` block. The pin caught it and VOIDed the run, which is W4
-    working, but a lane that VOIDs whenever an agent tidies up measures
-    nothing. `.wringer/` lives inside the repository and the repository is the
-    mount, so W5's "the worker never sees the source" could only be a rule
-    about what Wringer hands over until this.
+    **This went back to one mount on 2026-08-15 and that is the P4-3 repair.**
+    For one day there was a second: an anonymous volume shadowing
+    `/workspace/.wringer/witness` so a contained agent could not read or edit
+    the witness it would otherwise find in its own tree. It worked, and it was
+    the wrong shape — it protected the witness from a contained worker while
+    arm B's PRIMARY turn, the one that does the work, ran on the host where no
+    mount of this container's reaches.
+
+    The bytes now live outside every repository root, so there is nothing here
+    to shadow and the mount is gone. A second mount would now be a boundary
+    over a path that holds nothing, which reads as protection and is not.
     """
     built = build(tmp_path)
     volumes = [
         built[i + 1] for i, arg in enumerate(built) if arg == "--volume"
     ]
-    assert volumes == [
-        f"{tmp_path.resolve()}:/workspace",
-        "/workspace/.wringer/witness",
-    ], (
-        "the worker's mounts changed. The repository is the first; the second "
-        "is an anonymous volume that gives the container an EMPTY directory "
-        "where the witness bytes live on the host. A third mount is a new "
-        "reachable path and needs its own reason"
+    assert volumes == [f"{tmp_path.resolve()}:/workspace"], (
+        "the worker's mounts changed. Without an allowlist the repository is "
+        "the only one. A second mount is a second reachable path and needs its "
+        "own reason — the witness shadow was one and it is gone, because the "
+        "bytes left the repository entirely"
     )
     assert built[built.index("--workdir") + 1] == "/workspace"
 
@@ -886,13 +886,19 @@ def test_the_broker_takes_a_party_and_hardcodes_none():
                 "not this module's to wire"
             )
         for name in names:
-            if "witness" in name.lower():
-                assert name in ("WITNESS_DIRNAME", "witness_dirname"), (
-                    f"containment.py has a witness identifier {name!r}. The "
-                    "only one allowed is the directory constant it shadows "
-                    "from the worker's mount — anything else is the lane's "
-                    "logic leaking into the boundary"
-                )
+            # **R-6 is WHOLE again**, and it was not for one day. The shadow
+            # mount needed `WITNESS_DIRNAME`, so this guard carried an
+            # exception for it. P4-3 moved the witness bytes outside every
+            # repository root, the mount went with them, and the exception is
+            # gone: this module knows nothing about the witness lane again.
+            # Containment is a boundary, the witness is a check, and a module
+            # that knows both is where the two vocabularies collapse.
+            assert "witness" not in name.lower(), (
+                f"containment.py has a witness identifier {name!r}. It needs "
+                "none: the bytes live outside every repository root, so there "
+                "is no path here to shadow and no reason for this module to "
+                "know the lane exists"
+            )
     assert "witness" not in config._CONTAINMENT_KEYS
     assert "author" not in config._CONTAINMENT_KEYS
 
@@ -1226,49 +1232,147 @@ def test_an_inbound_path_is_translated_before_it_is_resolved():
     assert containment.inbound("/workspacex/x", root) == "/workspacex/x"
 
 
-def test_the_witness_bytes_are_shadowed_out_of_the_workers_view():
-    """**W5 stops being a request and becomes a boundary** — and this is a
-    repair for something measured on a real task, not a precaution.
+def test_the_boundary_carries_no_witness_shadow_because_the_bytes_left(
+    tmp_path: Path,
+):
+    """**The mount is GONE, and its absence is the repair** (P4-3).
 
-    On the first corpus task driven through the new lane, the agent OPENED
-    Wringer's witness and rewrote it: it replaced `pytest.warns(None)`, removed
-    in pytest 8, with a `catch_warnings` block and added the import. Helpful,
-    and fatal. The pin caught it and VOIDed the run — W4 working exactly as
-    designed — but a lane that VOIDs every time an agent tidies up measures
-    nothing, and §5's void rule invalidates a whole pass at three such rows.
+    The story, because a deleted mount that nobody explains reads as a
+    regression. On the first corpus task driven through the new lane, the agent
+    OPENED Wringer's witness and rewrote it: it replaced `pytest.warns(None)`,
+    removed in pytest 8, with a `catch_warnings` block. Helpful, and fatal — the
+    pin caught it and VOIDed the run, which is W4 working exactly as designed,
+    and a lane that VOIDs every time an agent tidies up measures nothing.
 
-    W5 always said the worker gets the failure output and never the source,
-    and said in the same breath that this is *"a rule about what Wringer hands
-    over, not a sandbox"*, because `.wringer/` lives inside the repository and
-    the repository is the mount. An anonymous volume at that path gives the
-    container an empty directory instead.
+    The first repair was an anonymous volume at `/workspace/.wringer/witness`,
+    which gave a contained worker an empty directory there. Measured, and real.
+    It was also only half the surface: `benchmark/harness.py`'s arm B runs the
+    agent's PRIMARY turn — the one that does the work, holds the shell and has
+    the network — and that turn ran on the host, where this container's mounts
+    reach nothing.
 
-    Measured on this machine, podman 6.1.0, before this test was written: the
-    contained worker's `ls` shows an empty directory, its `cat` finds nothing,
-    its write reports success into the discarded volume, and the bytes on the
-    host are byte-for-byte unchanged.
+    So the bytes moved out of every repository root instead. Now they are absent
+    from the mount for the same reason they are absent from the tree, for a
+    contained worker and an uncontained one alike, and the mount that shadowed
+    them would be a boundary over an empty path — dead code that reads as
+    protection.
     """
     declared = settings()
     established = containment.Established(
         runtime_path="/bin/podman", holder_cid=None, resolved=(),
     )
-    argv = containment.argv(
-        declared, established, "true", Path("/repo"), Path("/work")
+    for built in (
+        containment.argv(
+            declared, established, "true", tmp_path, tmp_path / "work"
+        ),
+        containment.session_argv(
+            declared, established, "agent", (), tmp_path, tmp_path / "work"
+        ),
+    ):
+        volumes = [
+            built[i + 1] for i, arg in enumerate(built) if arg == "--volume"
+        ]
+        assert volumes == [f"{tmp_path.resolve()}:{containment.WORKSPACE}"], (
+            "a witness shadow mount is back. The bytes live outside every "
+            "repository root now, so this would shadow an empty path — and a "
+            "boundary over nothing reads as protection while providing none"
+        )
+
+    # And the store really is outside the tree that gets mounted, which is the
+    # fact the deletion above rests on. Asserted here rather than trusted,
+    # because if this ever became false the missing mount WOULD be a regression.
+    from wringer import witness as witness_module
+
+    store = witness_module.store_dir(tmp_path).resolve()
+    assert not str(store).startswith(str(tmp_path.resolve()) + os.sep), (
+        f"the witness store {store} is inside the repository {tmp_path}, which "
+        "is the mount. Removing the shadow mount is only safe while this holds"
     )
 
-    shadow = f"{containment.WORKSPACE}/.wringer/witness"
-    assert shadow in argv, (
-        "the witness bytes are reachable from inside the worker's mount. An "
-        "agent that finds them can edit them, and a lane that VOIDs whenever "
-        "it does measures nothing"
-    )
-    # An ANONYMOUS volume — no host source — so the container gets an empty
-    # directory rather than a window onto anything.
-    assert ":" not in shadow
 
-    # And the same shadow reaches the ACP spawn, because the boundary is built
-    # once for both tails.
-    session = containment.session_argv(
-        declared, established, "agent", (), Path("/repo"), Path("/work")
+# --- A-5: the derived `worker_requires` (§6d item 4, closed by P4-5.4) -------
+
+
+def test_an_ACP_workers_own_binary_is_added_to_the_required_set(monkeypatch):
+    """**A-5, which had no test at all** — deleting the derivation reddened
+    nothing, which the independent review found and §6d carried as open.
+
+    `requires:` is how a repository states what its image must hold. For an ACP
+    worker Wringer KNOWS the binary — it is `run.worker.acp.command` — so
+    refusal 4 no longer depends on the repository writing the same name in two
+    places and remembering to keep them in step.
+
+    Asserted on the set `preflight` hands the probe rather than on a refusal
+    string, because the claim is about what gets CHECKED. A guard on the message
+    would still pass if the derived name were checked and then dropped.
+    """
+    asked: list[tuple[str, ...]] = []
+
+    def spy(binary, image, required):
+        asked.append(required)
+        return []
+
+    monkeypatch.setattr(containment, "_missing_binaries", spy)
+    monkeypatch.setattr(containment, "_image_exists", lambda binary, image: True)
+    monkeypatch.setattr(containment.shutil, "which", lambda name: f"/bin/{name}")
+
+    declared = settings()
+    containment.preflight(declared, Path("/repo"), ("the-agent-binary",))
+
+    assert asked, "preflight never probed the image at all"
+    assert "the-agent-binary" in asked[0], (
+        f"the ACP worker's own command is not in the required set {asked[0]}. "
+        "An image without the agent then refuses on the first turn — after a "
+        "verify lap, a brief and a spawn — instead of at `wring verify` time"
     )
-    assert shadow in session
+
+
+def test_the_derived_and_declared_requirements_UNION_without_duplicating(
+    monkeypatch,
+):
+    """Both lists reach the probe, in order, and a name in both is asked once.
+
+    The union rather than either alone: `requires:` may name things Wringer
+    cannot know (a compiler, a system library), and the agent binary is
+    something the repository should not have to repeat.
+    """
+    asked: list[tuple[str, ...]] = []
+    monkeypatch.setattr(
+        containment, "_missing_binaries",
+        lambda binary, image, required: asked.append(required) or [],
+    )
+    monkeypatch.setattr(containment, "_image_exists", lambda binary, image: True)
+    monkeypatch.setattr(containment.shutil, "which", lambda name: f"/bin/{name}")
+
+    declared = settings(requires=["git", "the-agent-binary"])
+    containment.preflight(declared, Path("/repo"), ("the-agent-binary",))
+
+    assert asked[0] == ("git", "the-agent-binary"), asked[0]
+
+
+def test_a_SHELL_worker_derives_nothing_because_nothing_is_known(monkeypatch):
+    """The other direction, and it is why this is `worker_requires` rather than
+    a general "add the worker command".
+
+    A shell worker is an arbitrary command line the repository wrote down —
+    `sh -c "..."` — and there is no binary in it Wringer can name without
+    parsing a shell string, which is the classification SPEC_VACUITY §4b
+    refuses in its own domain. So nothing is derived and `requires:` is the
+    whole of the check, which is what it always was.
+    """
+    from wringer import config as config_module
+
+    source = (Path(__file__).resolve().parent.parent
+              / "src" / "wringer" / "verify.py").read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    assigns = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.If)
+        and "AcpWorker" in ast.dump(node.test)
+    ]
+    assert assigns, (
+        "verify.py no longer guards the derivation on the worker being an ACP "
+        "worker. A shell worker's command is a shell string, and naming a "
+        "binary out of it means parsing one"
+    )
+    assert hasattr(config_module, "AcpWorker")

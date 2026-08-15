@@ -52,10 +52,14 @@ from typing import Any
 
 from wringer.config import Containment, EGRESS_ALLOWLIST
 
-# Where the witness bytes of record live inside a repository. Imported as a
-# value rather than re-spelled, so the directory this shadows and the directory
-# `witness.py` writes to cannot drift apart into a boundary over the wrong path.
-from wringer.witness import WITNESS_DIRNAME
+# **No witness import, and R-6's rule is whole again.** R-6 forbids this module
+# knowing anything about the witness lane: containment is a boundary and the
+# witness is a check, and a module that knows both is a module where the two
+# vocabularies collapse. The shadow mount forced one narrow exception —
+# `WITNESS_DIRNAME`, imported as a value so the shadowed path could not drift
+# from the written path. P4-3 moved the bytes out of every repository root, the
+# mount went with them, and the exception is gone. `tests/test_containment.py`
+# asserts this file contains no witness identifier at all.
 
 # Where the repository is mounted inside the worker image. The same path
 # `backend.WORKSPACE` uses, and for the same reason: the published Dockerfile's
@@ -650,26 +654,26 @@ def _base(
             "--volume",
             f"{established.hosts_path.resolve()}:{HOSTS_PATH}:ro",
         ]
-    # **The witness bytes are shadowed out of the worker's view**, and this is
-    # not a precaution — it is a repair for something measured.
+    # **No witness mount here, and its absence is the fix rather than a gap**
+    # (P4-3, ruled 2026-08-15). A `--volume {WORKSPACE}/.wringer/witness`
+    # shadowing the witness bytes stood on this line until then. It worked, and
+    # it was the wrong shape: it protected the witness from a CONTAINED worker
+    # only, while the turn that actually does the work in arm B ran on the host,
+    # where no mount of this container's can shadow anything.
     #
-    # On the first real corpus task the agent OPENED Wringer's witness and
-    # rewrote it: it replaced `pytest.warns(None)`, removed in pytest 8, with a
-    # `catch_warnings` block and added the import. A helpful edit, and fatal.
-    # The pin caught it and VOIDed the run — W4 working exactly as designed —
-    # but a lane that VOIDs whenever the agent tidies up measures nothing, and
-    # §5's void rule invalidates a whole pass at three such rows.
+    # The bytes now live outside every repository root (`witness.store_dir`), so
+    # they are absent from the mount for the same reason they are absent from
+    # the tree — there is nothing here to shadow. A boundary drawn over a path
+    # that no longer holds bytes is dead code that READS as protection, which is
+    # worse than no line at all.
     #
-    # W5 says the worker gets the witness's failure output and never its
-    # source, and says in the same breath that this is a rule about what
-    # Wringer HANDS OVER rather than a sandbox. `.wringer/` sits inside the
-    # repository, the repository is the mount, so a contained worker could
-    # still walk to it. An anonymous volume mounted at that path gives the
-    # container an empty directory there instead: the bytes are on the host,
-    # outside anything the worker can reach, and the disclosure W5 could only
-    # discourage becomes a boundary — which is the sentence W4 uses for the
-    # pin, arriving here for the source.
-    args += ["--volume", f"{WORKSPACE}/{WITNESS_DIRNAME.as_posix()}"]
+    # **The honest residual, kept where the mount's comment was:** an
+    # uncontained worker on the host can still reach the store if it goes
+    # looking. Deriving a path is not hard and a path is not a boundary. What
+    # the move buys is that no agent reaches the witness by tidying up its own
+    # tree, which is the failure that was measured. The pin stays
+    # tamper-EVIDENCE; THIS — the container, the namespace, the mount set — is
+    # the boundary, and it is the only thing in this program that is one.
     if settings.user is not None:
         args += ["--user", settings.user]
     for name in env_names(settings, passthrough):

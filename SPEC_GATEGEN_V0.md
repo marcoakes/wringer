@@ -1227,3 +1227,160 @@ reachable from it on the host, where no mount can shadow them.
 **No corpus pass was run and the $38 was not spent.** Validating one task cost
 a few cents and found both of these. A pass launched without it would have
 produced VOID rows on most tasks and burned the single authorised run.
+
+### §6f — What Phase 4 BUILT, and the four rulings it executed — 2026-08-16
+
+*Appended rather than woven in, like §6b, so the boundary between what W1–W10
+specified and what exists stays visible. Nothing above is edited. The rulings
+executed here are P4-1 through P4-6 of the 2026-08-15 Fable block; they are
+restated where they land rather than paraphrased.*
+
+**P4-1 — the loop engages while a pinned witness is red.** This is the largest
+item and it is the one that made the money worth spending.
+
+`loop.py`'s continuation predicate was `final.passed` — gates only. `CORPUS.md`
+§3 selects tasks whose declared gates do NOT cover the issue, so on every corpus
+task the gates are green at base, so every loop converged at iteration 1 having
+briefed nobody. **`WRINGER_RULING_2026-08-14` §5.3 was therefore unsatisfiable
+as built**: it requires a row where the repair loop ran ≥1 worker turn with a
+red witness converting to green, and the shipped loop could not produce one on
+this corpus in any circumstance. The measured zero-worker-turns-in-26-attempts
+result, rebuilt one layer up, and it would have consumed the single authorised
+pass measuring nothing.
+
+A usable witness that is red on the changed tree is now **work to do**. What
+changed, exactly:
+
+| | |
+|---|---|
+| the predicate | `final.passed and not outstanding`, where `outstanding` is every REQUIRED criterion whose usable witness has not converted |
+| where `required` comes from | the acceptance row, never recomputed — `accept.Row` already decides it, and a second reader of one fact is a second thing to keep in step |
+| `verify.Outcome` | gains `acceptance`, for the same reason it carries `vacuity` and `stability`: a caller cannot say what a run did if the outcome does not tell it |
+| the brief | carries the CURRENT failure, not the born-red one. A worker on lap 3 needs what the check says about lap 3's tree |
+| budgets | **unchanged.** `max_iterations`, the wall clock and the worker timeout are the same numbers doing the same job |
+| new stop reasons | **none**, and this is asserted against `cli._LOOP_ENDINGS` rather than by inspection |
+
+**Anti-thrash covers this path, and it is the constraint the ruling attaches.**
+`failure_signature` returned None whenever `failed_gate` was None — which is
+every lap of a red-witness-green-gate run. Without a signature the breaker is
+blind, `no_progress` is the only stop left, and a worker that changes something
+irrelevant every turn runs to the ceiling every time. The witness's failure now
+feeds the same signature the gates feed, normalised by the same `_normalize`.
+So a witness that never converts ends through `no_progress` or `oscillating`,
+and then refuses at delivery — which is W10's companion clause ("surface through
+the existing refusal machinery rather than loop forever") made concrete rather
+than restated.
+
+**The two required drives, both offline, both in `tests/test_witness_loop.py`:**
+
+1. vacuous gate green + witness red → ≥1 real worker turn → the witness converts
+   → `wring deliver` says yes;
+2. the same scenario with a mid-loop tamper → **VOID, exit 3, refused by name**,
+   with a second test proving the tamper landed on the SECOND lap so that what
+   is measured is the re-check rather than the first-lap check.
+
+*One thing found while driving them, recorded because it would otherwise be
+invisible: `accept.read_spec` is total by construction — a spec it cannot parse
+is treated as one that is not there, silently. A `tasks: []` typo in the fixture
+sent every test in the file down `_unconverted`'s no-acceptance fallback, where
+the loop still engages, so they all passed while measuring the wrong branch. The
+only symptom was a delivery that said yes. The fixture now asserts the spec
+parses before anything else runs.*
+
+**P4-2 — arm B's PRIMARY turn is contained; arm A stays uncontained.** §6e
+measured that containment reached the loop's repair turns and not the agent's
+own turn — the one that does the work, holds the shell and has the network.
+`benchmark/harness.py` now establishes the declared boundary around the primary
+turn, through the same `session_argv` path `loop.py` uses, and tears it down
+before `wring run` establishes its own. Arm A is deliberately untouched: it is
+the control, what a caller without a harness gets, and containing it would make
+it a different arm rather than a fairer one.
+
+**The registered meaning of the arms changed, and every row says so.** The
+deviations no longer carry *"the arms differ only in supervision"* unqualified.
+They carry, in both arms: *arm B's supervision INCLUDES the boundary; arm A runs
+uncontained on the host by design.*
+
+**P4-3 — the witness store leaves the repository; the shadow mount is removed.**
+The bytes of record lived at `<root>/.wringer/witness/`. W4's reasoning for that
+was right about the constraint — the pre-change worktree carries tracked files
+only — and wrong about the destination: `.wringer/` is inside the repository,
+and the repository is what an agent is pointed at. §6e measured the consequence
+on the first real task.
+
+The bytes now live in a store outside every repository root, keyed
+deterministically off the resolved repo path (`witness.store_dir`;
+`WRINGER_WITNESS_STORE` overrides the base, and the suite sets it so no test
+writes into a developer's real state directory). Materialisation moved from a
+top-level `.wringer-witness/` to `.wringer/witness` — already gitignored by
+`wring init`'s own entry, already outside anything `created_stems` reads — which
+closes §6d item 8 as a consequence of the move rather than as a separate patch.
+
+**The anonymous-volume shadow mount is GONE**, and its absence is the fix. It
+protected the witness from a CONTAINED worker only, while arm B's primary turn
+ran on the host where no mount of that container's reaches. A boundary over a
+path that no longer holds bytes is dead code that reads as protection.
+`containment.py` imports nothing from the witness lane again, which makes R-6
+whole: it carried one narrow exception for exactly this mount.
+
+*The honest residual, kept where the mount's comment was: an uncontained worker
+on the host can still reach the store if it goes looking. Deriving a path is not
+hard and a path is not a boundary. What the move buys is that no agent reaches
+the witness by tidying up its own tree, which is the failure that was measured.
+The pin stays tamper-EVIDENCE; the container is the boundary.*
+
+**P4-4 — the containment flag tells the truth per turn.** A row reported
+containment by searching its own `.wringer.yaml` for the substring
+`"containment"`. That is a statement about a config file: it says the repository
+ASKED for a boundary, not that one existed — *"a run claiming a containment it
+did not have"* is the exact shape SPEC_CONTAIN_V0 ruling 4a was written against.
+
+A row now carries `containment: {primary, loop, declared}`, reported as
+ESTABLISHED and per turn: `primary` from what the harness actually stood up,
+`loop` read off `execution.json`'s `worker_execution.established` block. A
+`DECLARED_BUT_NOT_ESTABLISHED` in either **stops the pass** —
+`check_containment_is_real` raises, and it is a gate failure rather than a
+deviation, because an uncontained row can be discounted by a reader and a row
+that misreports cannot be. The row schema moves to `wringer.benchmark.v6`: every
+v5 row was produced while the primary turn ran on the host, and the field a v5
+row is missing is the §5 PRECONDITION.
+
+**P4-5 — the eight §6d items, closed.**
+
+| # | what it was | what closed it |
+|---|---|---|
+| 1 | `first_line` was pytest's progress bar, so the mandatory `proved_red` citation and the brief both read `F [100%]` | the citation is the `E` line out of the runner's own log — the failure as pytest renders it — with the path and filename SCRUBBED rather than merely avoided. Citation text, not classification: W8's discriminator is still the exit code and the exception class |
+| 2 | the env union under containment contradicted A-6 | A-6 AMENDED, dated, original preserved. The union is ruled and the code is right; an intersection makes a name a human typed silently inert, which is refusal 11's defect class through the back door |
+| 3 | `README.md` said the lane was not in this code | corrected as a truth correction in its own commit, BEFORE any of this — and corrected in both directions, because it now also says the live re-test has not happened |
+| 4 | A-5's derived `worker_requires` had no test; deleting it reddened nothing | three tests, asserting the set handed to the PROBE rather than a refusal string — a guard on the message would still pass if the derived name were checked and then dropped |
+| 5 | `containment.preflight` starts a container while its docstring said it does not | corrected where it lives, in the docstring and in ruling 3, dated. STATIC means **no packet and no DNS**, which is what `SECURITY.md`'s row and §7's promise actually rest on, and both remain true |
+| 6 | `witness.json` was published-in-effect and absent from `schema/` | `schema/witness.schema.json` written, frozen in `frozen.json`, rowed in `schema/README.md`, and drift-tested against records a REAL run wrote — both shapes, converted and discarded. (The redactor half of this item was already fixed.) |
+| 7 | the `authored.sha256` check failed OPEN when the field was absent or empty | it VOIDs. Deleting a field is strictly easier than forging a digest, so a fail-open check is one that anyone who can edit the record switches off by removing a line |
+| 8 | `.wringer-witness/` was not gitignored | subsumed by P4-3's materialisation move |
+
+*One thing tightened beyond the list: `materialise` checked for a symlink at the
+leaf only, and P4-3 made the path nested. A symlink at `.wringer` redirects the
+write exactly as one at `.wringer/witness` does, and `mkdir(parents=True)` would
+follow it. Every component is checked, with one test per component.*
+
+**P4-6 — the witness author needs no containment machinery, and this is
+recorded so nobody builds it.** `establish(party="author")` is NOT built and is
+not owed. The author's isolation is what it is SHOWN: the criterion, a filtered
+path listing, no tools, no tree access, no fetch capability. It is one LLM call
+that returns text. The `party` parameter stays on `establish` because removing
+it would be a rewrite, and the held-out filter on the path listing stands as
+shipped. There is nothing here for a boundary to bound.
+
+**What is NOT in this slice, named rather than left to be found:**
+
+- R3's in-toto emission. Unbuilt at the time of writing; it is Phase 4's own
+  later step and rides the release path.
+- `loop-event-v3`. Still owed, still to be designed ONCE, carrying the witness
+  facts and the staleness rider's stale-marking event together. Nothing in this
+  slice emits a new event type; `test_the_lane_emits_no_event_the_frozen_ledger_schema_forbids`
+  still derives the permitted set from the schema.
+- The flaky-witness limit. A witness that is nondeterministic across laps ends
+  through the existing stops — the signature moves, the breaker does not fire,
+  and `max_iterations` bounds it — but nothing DETECTS it the way
+  `stability.py` detects a flaky gate, and no row would say so. Banked and
+  named; not built.

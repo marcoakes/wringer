@@ -71,6 +71,19 @@ class Outcome:
     # agent source that was never wrong (SPEC_STABILITY_V0 §4). Empty for
     # every repo that declared no policy.
     stability: stability.Report = field(default_factory=stability.Report)
+    # This lap's acceptance verdict, or None when no APPROVED spec declares
+    # criteria — which is most repositories, and their bundles are unchanged.
+    #
+    # **Carried for the same reason `vacuity` and `stability` are, and P4-1 is
+    # the caller that needed it.** The repair loop's continuation predicate was
+    # `passed` alone, so a criterion whose witness was red while every declared
+    # gate was green looked exactly like a converged run — which on the corpus
+    # is EVERY task, because `CORPUS.md` §3 selects for gates that do not cover
+    # the issue. The loop cannot ask "is there work left" from `results`, since
+    # the answer lives in the acceptance row. `accept.assess` already computes
+    # `required`, `covered` and `refuses`; recomputing any of that in `loop.py`
+    # would be a second reader of one fact, drifting from the first.
+    acceptance: accept.Result | None = None
 
     @property
     def passed(self) -> bool:
@@ -489,6 +502,7 @@ def run(
         template_only=template_only,
         vacuity=proved,
         stability=observed_report,
+        acceptance=accepted,
     )
 
 

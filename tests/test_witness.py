@@ -14,6 +14,7 @@ the most tests.
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -185,12 +186,25 @@ def test_an_untouched_pin_passes():
 # --- W4: materialisation ----------------------------------------------------
 
 
-def test_materialisation_refuses_a_symlink(tmp_path):
-    """Left unspecified, a symlink planted at this path makes the write land
-    elsewhere and the cleanup delete something else."""
+@pytest.mark.parametrize(
+    "depth", range(1, len(Path(witness.MATERIAL_DIRNAME).parts) + 1)
+)
+def test_materialisation_refuses_a_symlink_at_any_component(tmp_path, depth):
+    """Left unspecified, a symlink planted on this path makes the write land
+    elsewhere and the cleanup delete something else.
+
+    **Parametrised over every component, because P4-3 made the path nested.**
+    It was a single top-level `.wringer-witness/`, and a leaf-only check
+    covered it. Under `.wringer/witness` a symlink at `.wringer` redirects the
+    write exactly as one at `.wringer/witness` does, and `mkdir(parents=True)`
+    follows it without a word. One case per component, so the guard cannot
+    quietly cover fewer than it claims.
+    """
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    (tmp_path / witness.MATERIAL_DIRNAME).symlink_to(elsewhere)
+    planted = tmp_path.joinpath(*Path(witness.MATERIAL_DIRNAME).parts[:depth])
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.symlink_to(elsewhere)
 
     with pytest.raises(witness.WitnessError) as caught:
         witness.materialise(tmp_path, make(ASSERTING))
@@ -258,17 +272,94 @@ def test_a_fenced_reply_is_accepted_and_an_empty_one_is_not():
 # --- W5: what the worker is told --------------------------------------------
 
 
-def test_the_brief_carries_the_failure_and_never_the_source(tmp_path):
-    """Name-only, on the precedent human criteria set: they appear in the
-    brief by id ALONE with guidance withheld."""
+def test_the_brief_carries_the_failure_and_never_the_path_or_command(tmp_path):
+    """W5's two halves, and **the boundary moved on 2026-08-15 — deliberately,
+    and this docstring is where that is recorded rather than in a diff nobody
+    reads.**
+
+    This test used to assert the brief contained no line of the witness at all,
+    including `assert 1 == 2`. It passed — and it passed for the wrong reason.
+    `_first_meaningful_line` returned pytest's progress bar, so the brief said
+
+        - `sum` — F [100%]
+
+    and of course that contains no source. The independent review found it
+    (finding 6): W5's *"carries the failure"* half had no assertion behind it
+    and was in fact not happening. A worker told `F [100%]` has been told that
+    a check it cannot see failed, and nothing else. That is the brief F3 was
+    written about, one layer up.
+
+    **P4-5.1 rules the citation to be the assertion or error line out of the
+    runner's own log**, which is what pytest calls the failure. So the line the
+    worker gets is now the failure as pytest renders it — one line, capped at
+    200 characters, one per criterion.
+
+    What stays forbidden is unchanged and is what this now pins:
+
+    - the **materialisation path** — pytest's short-summary line is
+      `FAILED .wringer/witness/test_witness_sum.py::test_it - ...`, and a
+      worker that learns that path can go and read the whole check;
+    - the **filename**, for the same reason;
+    - the **command**, which is what W4 pins so that it cannot become `true`;
+    - the **file**. One rendered failure line is not the source: it says
+      nothing about the check's structure, its other assertions, or what it
+      does not test.
+
+    The scrub is done in `_without_the_witness` rather than by trusting the
+    choice of line, because "the line I picked happens not to contain the path"
+    is not a property, it is a coincidence that holds until pytest changes its
+    output.
+    """
     item = make(ASSERTING)
     witness.prove_red(tmp_path, item)
     section = "\n".join(witness.brief_section([item]))
 
     assert "`sum`" in section
-    assert "assert 1 == 2" not in section, "the brief leaked the witness source"
+    # The failure IS carried — the half that was missing.
+    assert "assert 1 == 2" in section, (
+        "the brief no longer carries the failure, which is W5's other half and "
+        "the one the review found unenforced"
+    )
     assert witness.MATERIAL_DIRNAME not in section, "the brief leaked the path"
+    assert item.filename not in section, "the brief leaked the filename"
     assert "-m pytest" not in section, "the brief leaked the command"
+    # One line per criterion, so a longer failure cannot become the file.
+    assert len([ln for ln in section.splitlines() if ln.startswith("- ")]) == 1
+
+
+def test_the_citation_is_never_the_progress_bar(tmp_path):
+    """**The review's finding 6, pinned so it cannot come back.**
+
+    `pytest -q` prints `F  [100%]` as its first non-`=` line, and the first
+    draft's *"first meaningful line"* returned exactly that — for the brief AND
+    for `proved_red.first_line`, which W8 makes a MANDATORY citation. A
+    mandatory citation that reads `F [100%]` is a field that is always present
+    and never says anything, which is worse than an absent one: it looks like
+    evidence.
+    """
+    item = make(ASSERTING)
+    result = witness.prove_red(tmp_path, item)
+
+    assert result.first_line, "the citation is empty"
+    assert not re.fullmatch(r"[.FEsxXpuw]+\s*(\[\s*\d+%\])?", result.first_line), (
+        f"the citation is pytest's progress bar again: {result.first_line!r}"
+    )
+    assert "assert 1 == 2" in result.first_line
+
+
+def test_the_citation_prefers_the_error_line_over_earlier_noise(tmp_path):
+    """A witness whose failure is an exception, not a bare assert: the
+    citation must be the `E` line pytest marks as the failure, not the first
+    stray line of a traceback."""
+    raising = (
+        "def test_it():\n"
+        "    raise ValueError('the total was 5, expected 6')\n"
+    )
+    item = make(raising)
+    result = witness.prove_red(tmp_path, item)
+
+    assert "ValueError" in result.first_line
+    assert "the total was 5, expected 6" in result.first_line
 
 
 def test_a_discarded_witness_is_absent_from_the_brief(tmp_path):
@@ -286,7 +377,7 @@ def test_the_record_refuses_bytes_that_do_not_match_the_authored_digest(tmp_path
     """The authored-to-pinned window is unprotected — `wring spec` has no
     hash-chained ledger — and this is what closes it as far as it can be
     closed."""
-    directory = tmp_path / witness.WITNESS_DIRNAME
+    directory = witness.store_dir(tmp_path)
     directory.mkdir(parents=True)
     (directory / "test_witness_sum.py").write_text(ASSERTING, encoding="utf-8")
     (directory / witness.WITNESS_FILENAME).write_text(
@@ -348,7 +439,7 @@ def test_the_pin_is_compared_against_the_BYTES_ON_DISK(tmp_path):
     W4's claim is that the bytes which RAN are the bytes that were PINNED. That
     is a claim about a file, so it is answered by reading the file.
     """
-    directory = tmp_path / witness.WITNESS_DIRNAME
+    directory = witness.store_dir(tmp_path)
     directory.mkdir(parents=True)
     item = make(ASSERTING)
     (directory / item.filename).write_text(ASSERTING, encoding="utf-8")
@@ -371,7 +462,7 @@ def test_the_pin_is_compared_against_the_BYTES_ON_DISK(tmp_path):
 def test_a_witness_that_vanished_from_disk_voids_rather_than_passing(tmp_path):
     """The other half of the same defect: an unreadable file must not be a
     silent pass."""
-    directory = tmp_path / witness.WITNESS_DIRNAME
+    directory = witness.store_dir(tmp_path)
     directory.mkdir(parents=True)
     item = make(ASSERTING)
     pinned = witness.pin(item, "run-1")
@@ -519,3 +610,150 @@ def test_the_lane_emits_no_event_the_frozen_ledger_schema_forbids():
         "schema. A new event type costs `loop-event-v3` — put the fact in a "
         "sibling file instead, as `vacuity.json` and `witness.json` do"
     )
+
+
+# --- P4-3: the bytes of record live outside every repository -----------------
+
+
+def test_the_store_is_outside_the_repository_it_belongs_to(tmp_path):
+    """**The measured failure, and the fix that closes it for BOTH arms.**
+
+    On the first real corpus task the agent opened `.wringer/witness/…py` and
+    rewrote it — replacing `pytest.warns(None)`, removed in pytest 8, with a
+    `catch_warnings` block. Competent, helpful, and fatal: the pin caught it,
+    the run VOIDed by name, and §5's void rule invalidates a whole pass at
+    three such rows. An agent that tidies a file it finds in its own tree will
+    do it on most tasks.
+
+    W4's reasoning for `.wringer/` was right about the constraint and wrong
+    about the destination: the pre-change worktree carries TRACKED files only,
+    so the bytes may not live in the working tree — and a path outside the
+    repository satisfies that better than a gitignored path inside it, while
+    also being absent from the tree the agent was handed.
+    """
+    repo_root = tmp_path / "project"
+    repo_root.mkdir()
+    store = witness.store_dir(repo_root).resolve()
+
+    assert not str(store).startswith(str(repo_root.resolve()) + os.sep), (
+        f"the store {store} is inside the repository {repo_root}. That is the "
+        "arrangement an agent tidied up, and it VOIDed the run"
+    )
+
+
+def test_the_store_is_deterministic_and_per_repository(tmp_path):
+    """Same repository, same store, every time — and two repositories never
+    share one, even when they have the same basename.
+
+    Determinism is what lets `wring run` find what `wring spec --send
+    --witness` wrote in an earlier process. Per-repository separation is what
+    stops two checkouts of the same project from reading each other's
+    witnesses, which would silently break the one-criterion-one-witness
+    property the record is keyed on.
+    """
+    one = tmp_path / "a" / "project"
+    two = tmp_path / "b" / "project"
+    for path in (one, two):
+        path.mkdir(parents=True)
+
+    assert witness.store_dir(one) == witness.store_dir(one)
+    assert witness.store_dir(one) != witness.store_dir(two), (
+        "two repositories with the same basename resolved to one store"
+    )
+    # The basename is carried for a human reading `ls`; the digest is what
+    # makes it unique. Both, or the directory is either unreadable or unsafe.
+    assert witness.store_dir(one).name.startswith("project-")
+
+
+def test_a_record_with_no_authored_digest_voids_rather_than_trusting_it(
+    tmp_path,
+):
+    """**Fail CLOSED** (§6d item 7, closed by P4-5.7).
+
+    The first draft read `if expected and expected != actual`, so a record with
+    no `authored.sha256` skipped the comparison and the witness was trusted
+    anyway. That is the one direction this check must never fail in: deleting a
+    field is strictly easier than forging a digest, so a fail-open check is a
+    check that anyone who can edit the record can switch off by removing a
+    line.
+    """
+    directory = witness.store_dir(tmp_path)
+    directory.mkdir(parents=True)
+    (directory / "test_witness_sum.py").write_text(ASSERTING, encoding="utf-8")
+
+    for authored in ({}, {"sha256": ""}):
+        (directory / witness.WITNESS_FILENAME).write_text(
+            json.dumps({
+                "schema_version": witness.SCHEMA_VERSION,
+                "witnesses": [{
+                    "id": "w-sum", "proves": "sum",
+                    "path": "test_witness_sum.py",
+                    "authored": authored,
+                }],
+            }),
+            encoding="utf-8",
+        )
+        with pytest.raises(witness.WitnessError) as caught:
+            witness.load(tmp_path)
+        message = str(caught.value)
+        assert "no authored digest" in message
+        assert "VOID" in message
+
+
+# --- P4-1: a red witness is work to do ---------------------------------------
+
+
+def test_an_unexecuted_usable_witness_counts_as_unconverted(tmp_path):
+    """"Not yet measured" is not "converted", and the direction matters.
+
+    The loop's continuation predicate reads this. Treating an unexecuted
+    witness as green would fail open on the ONE check in the run that carries
+    information about the change — it was proved red on the pre-change tree and
+    nothing since has shown otherwise.
+    """
+    item = make(ASSERTING)
+    witness.prove_red(tmp_path, item)
+    assert item.usable
+    assert witness.unconverted(item)
+
+
+def test_a_discarded_witness_is_never_work_to_do(tmp_path):
+    """A witness that proves nothing must not hold the loop open. It leaves
+    the criterion uncovered and routes to a human, which is the honest
+    outcome — spending worker turns on it would be demanding a repair with no
+    evidence behind it."""
+    item = make(PASSING)
+    witness.prove_red(tmp_path, item)
+    assert not item.usable
+    assert not witness.unconverted(item)
+
+
+def test_a_converted_witness_stops_being_work_and_leaves_the_brief(tmp_path):
+    """The other end of the loop: once the tree makes the check pass, the
+    criterion is done and the worker must not be told to fix it again."""
+    item = make(ASSERTING)
+    witness.prove_red(tmp_path, item)
+    assert witness.brief_section([item]) != []
+
+    item.executed = witness.execute(tmp_path, make(PASSING))
+    assert item.executed.passed
+    assert not witness.unconverted(item)
+    assert witness.brief_section([item]) == []
+
+
+def test_the_brief_quotes_the_CURRENT_failure_not_the_pre_change_one(tmp_path):
+    """A worker on lap 3 needs what the check says about lap 3's tree.
+
+    The born-red line is a fact about a tree three turns ago. Briefing it every
+    lap would tell a worker that made real progress that nothing had changed.
+    """
+    item = make(ASSERTING)
+    witness.prove_red(tmp_path, item)
+    item.executed = witness.execute(
+        tmp_path,
+        make("def test_it():\n    raise ValueError('closer, but no')\n"),
+    )
+
+    section = "\n".join(witness.brief_section([item]))
+    assert "closer, but no" in section
+    assert "assert 1 == 2" not in section

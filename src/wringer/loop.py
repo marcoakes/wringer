@@ -472,7 +472,40 @@ def _worker_text(worker: Any) -> str:
     return str(worker)
 
 
-def failure_signature(outcome: verify.Outcome) -> str | None:
+def _unconverted(
+    outcome: verify.Outcome, witnesses: list[witness.Witness] | None
+) -> list[witness.Witness]:
+    """Every REQUIRED criterion whose usable witness is still red (P4-1).
+
+    Empty for every repository with no witness lane, which is what keeps their
+    loops byte-identical: `[]` is falsy, the continuation predicate collapses
+    back to `final.passed`, and nothing about them moved.
+
+    `required` comes from the acceptance row rather than being recomputed here.
+    Only a REQUIRED criterion may hold the loop open, for exactly the reason
+    only a required one may refuse a delivery (`accept.Row.refuses`): an
+    optional criterion is a statement, not a gate, and spending worker turns on
+    one would be this loop inventing a requirement the spec declined to make.
+    """
+    if not witnesses:
+        return []
+    accepted = outcome.acceptance
+    if accepted is None:
+        # Unreachable in a run that HAS witnesses — they are authored from an
+        # approved spec's criteria, which is the same condition that makes
+        # `assess` return a verdict. Kept explicit rather than assumed away,
+        # and in the direction that repairs rather than the one that skips.
+        return [item for item in witnesses if witness.unconverted(item)]
+    required = {row.criterion for row in accepted.rows if row.required}
+    return [
+        item for item in witnesses
+        if item.criterion in required and witness.unconverted(item)
+    ]
+
+
+def failure_signature(
+    outcome: verify.Outcome, witnesses: list[witness.Witness] | None = None
+) -> str | None:
     """A hash of the *shape* of a failure, or None if nothing failed.
 
     Two failures with the same signature are the same failure. Retrying one
@@ -483,23 +516,48 @@ def failure_signature(outcome: verify.Outcome) -> str | None:
     Normalization is deliberately conservative. A false negative merely
     spends budget the iteration ceiling still bounds; a false positive would
     stop a loop that was genuinely making progress.
+
+    **A red witness is part of the shape** (P4-1), and this is the constraint
+    that ruling attaches to loop engagement rather than an optimisation. The
+    loop now continues on a red witness with every gate green, where
+    `failed_gate` is None — so without this the signature would be None on
+    every one of those laps, the breaker would never see a repeat, and the only
+    stop left would be `no_progress` plus the iteration ceiling. A worker that
+    changes something irrelevant every turn would run to the ceiling every
+    time. Feeding the witness's failure into the SAME machinery gates feed is
+    how a witness that never converts ends through the stops that already
+    exist, which is what W10's companion clause asks for: surface through the
+    existing refusal machinery rather than loop forever.
     """
-    if outcome.failed_gate is None:
-        return None
-    failing = next(
-        (r for r in outcome.results if r.gate.id == outcome.failed_gate), None
-    )
-    if failing is None:  # pragma: no cover - a failed_gate always has a result
-        return None
+    parts: list[str] = []
+    if outcome.failed_gate is not None:
+        failing = next(
+            (r for r in outcome.results if r.gate.id == outcome.failed_gate),
+            None,
+        )
+        if failing is not None:
+            parts += [outcome.failed_gate, str(failing.exit_code)]
+            for path in (failing.stdout_path, failing.stderr_path):
+                try:
+                    text = path.read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    text = ""
+                parts.append(_normalize(text))
 
-    parts = [outcome.failed_gate, str(failing.exit_code)]
-    for path in (failing.stdout_path, failing.stderr_path):
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-        except OSError:
-            text = ""
-        parts.append(_normalize(text))
+    for item in _unconverted(outcome, witnesses):
+        executed = item.executed
+        # The criterion and the log, normalised exactly as a gate's log is —
+        # the same `_normalize`, so a timestamp or a path in a witness failure
+        # is stripped by the same rules and cannot make two identical failures
+        # look different.
+        parts += [
+            f"witness:{item.criterion}",
+            str(executed.exit_code) if executed is not None else "unrun",
+            _normalize(executed.log if executed is not None else ""),
+        ]
 
+    if not parts:
+        return None
     return hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()
 
 
@@ -752,7 +810,22 @@ def run(
             # each execution.
             witnesses=witnesses,
         )
-        signature = failure_signature(final)
+        # **Work remaining is gates OR witnesses, and that is P4-1** (ruled
+        # 2026-08-15). The continuation predicate was `final.passed` alone, and
+        # on the corpus that made §5.3 unsatisfiable as built: `CORPUS.md` §3
+        # selects tasks whose declared gates do NOT cover the issue, so those
+        # gates are green at base, so every loop converged at iteration 1
+        # having briefed nobody — the measured zero-worker-turns-in-26-attempts
+        # result, rebuilt one layer up. A red witness meant a refusal at
+        # delivery and nothing before it, which is a supervisor that watches a
+        # repair it never asks for.
+        #
+        # A usable witness that is red on the changed tree is WORK TO DO. The
+        # loop continues while any required criterion has one, inside every
+        # budget it already had — `max_iterations`, the wall clock, the worker
+        # timeout are untouched, and this adds no new budget and no new stop.
+        outstanding = _unconverted(final, witnesses)
+        signature = failure_signature(final, witnesses)
         bundle.event(
             "verify.finished",
             iteration=iteration,
@@ -769,7 +842,7 @@ def run(
         if final.status == "interrupted":
             status = reason = "interrupted"
             break
-        if final.passed:
+        if final.passed and not outstanding:
             status = reason = "converged"
             break
 

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/witness.schema.json",
+  "title": "Wringer witness record — the check Wringer authored",
+  "description": "`witness.json` — what Wringer's own manufactured check did for each criterion in this run (SPEC_GATEGEN_V0 §6, W6). A SIBLING of `manifest.json`, like `vacuity.json` and `digests.json` and for exactly the same reason: `wringer.loop.v2`'s ledger has a CLOSED `type` enum with `additionalProperties: false` on every branch, so a `witness.pinned` event would have made every bundle carrying this lane fail its own published schema — measured, and folded, as HIGH finding 2 of the 2026-08-15 review. A reader that does not know this file ignores it, and a repository that never opted into the lane writes no such file at all. **What a witness is.** The 2026-08-13 corpus run measured this program's operating assumption and disproved it: on 13 real bug fixes the declared gates returned `gates_vacuous` 13 times of 13, and `wring deliver` said yes on 26 of 26 supervised rows including every wrong change. Evidence is MANUFACTURED, not found — a check is evidence about a change only if it was demonstrated able to fail in that change's absence with respect to the criterion it proves. Where the repository has no such check, Wringer authors one at `wring spec --send --witness`, BEFORE any work exists, proves it red on a pre-change worktree, and digest-pins its bytes, its command and its materialisation path. **The claim ceiling, which binds every reader of this file** (`WRINGER_RULING_2026-08-15` Q1): a witness proves the stated criterion could fail and was made to pass; it does not certify agreement with an unstated intended fix, and where the criterion under-describes the intent the witness inherits that gap. Nothing may read this file as evidence that a wrong fix was caught.",
+  "type": "object",
+  "required": ["schema_version", "witnesses", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.witness.v1"
+    },
+    "witnesses": {
+      "description": "One entry per criterion the author was asked to cover. A criterion with no entry was never offered to the author; an entry with `discarded` set was offered, authored, and refused — and those are different facts about the run, so neither stands in for the other.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "proves", "authored"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "`w-<criterion>`. Stable within a run, and derived rather than allocated, so a reader can join this file to `acceptance.json` without a lookup table.",
+            "type": "string"
+          },
+          "proves": {
+            "description": "The criterion id this witness is evidence about — the same id `acceptance.json`'s row carries. A witness evidences ONE criterion and says nothing about the rest of the change.",
+            "type": "string"
+          },
+          "path": {
+            "description": "The witness's filename inside the store. NOT a path into the repository: since 2026-08-15 the bytes of record live OUTSIDE every repository root, because an agent on the first real corpus task found `.wringer/witness/…py` in its own tree and helpfully rewrote it, VOIDing the run.",
+            "type": "string"
+          },
+          "authored": {
+            "description": "Who wrote it, when, and against what. Temporal independence is the load-bearing property of the whole lane: a check authored before the work exists cannot have been written to flatter the work.",
+            "type": "object",
+            "required": ["by", "base_sha", "sha256"],
+            "additionalProperties": true,
+            "properties": {
+              "by": {
+                "type": "object",
+                "required": ["model"],
+                "additionalProperties": true,
+                "properties": {
+                  "model": {
+                    "description": "The model that authored the bytes. Recorded because the author is a model and a model can write a check that fails for the wrong reason — the loudest case, red because the runner could not LOAD it, is refused structurally, and the rest is a stated limit.",
+                    "type": "string"
+                  }
+                }
+              },
+              "base_sha": {
+                "description": "The commit the pre-change tree was at when this witness was authored and proved red.",
+                "type": "string"
+              },
+              "tree_dirty": {
+                "description": "Whether the working tree carried uncommitted edits at authoring time. Born red is established on a HEAD worktree rather than on the working tree, so this is a fact about the conditions rather than about the measurement.",
+                "type": "boolean"
+              },
+              "criterion_sha256": {
+                "description": "Digest of the criterion text the author was given.",
+                "type": "string"
+              },
+              "prompt_sha256": {
+                "description": "Digest of the whole authoring prompt. A DIGEST and never the text: the prompt carries the PRD, and a bundle handed to a stranger must not become the channel that publishes it.",
+                "type": "string"
+              },
+              "isolation": {
+                "description": "What the author could reach — pre-change tree, truncated history, no upstream reachability. The 2026-08-14 ruling §5 requires the author be isolated identically to the worker.",
+                "type": "object",
+                "additionalProperties": true
+              },
+              "sha256": {
+                "description": "Digest of the bytes as the author produced them. Re-checked when the record is loaded, and an ABSENT or empty value VOIDs the run rather than skipping the comparison — deleting a field is easier than forging a digest, so a check that fails open is a check anyone can switch off.",
+                "type": "string"
+              }
+            }
+          },
+          "pinned": {
+            "description": "What was pinned before the first worker turn, and what every later execution is compared against. Covers three things a forgery would move, not one: pinning bytes alone would let a worker rewrite the command to `true` while the file stayed byte-identical.",
+            "type": ["object", "null"],
+            "required": ["sha256", "run", "path", "command"],
+            "additionalProperties": false,
+            "properties": {
+              "sha256": {"type": "string"},
+              "run": {
+                "description": "The run this pin was taken in.",
+                "type": "string"
+              },
+              "path": {
+                "description": "Where the bytes are materialised inside the tree under test, for the moments they are executing.",
+                "type": "string"
+              },
+              "command": {
+                "description": "The exact command line the runner is given.",
+                "type": "string"
+              }
+            }
+          },
+          "proved_red": {
+            "description": "What the witness did on the PRE-CHANGE tree, before any work existed. Null when it was never proved. This is §5.1's number: a witness that was not proved red for the right reason covers nothing, and its criterion exits to a human — which is the honest outcome and deliberately not a failure.",
+            "type": ["object", "null"],
+            "required": ["outcome", "exit_code", "first_line", "verdict"],
+            "additionalProperties": false,
+            "properties": {
+              "outcome": {
+                "description": "W8's STRUCTURAL discriminator, taken from the runner's own exit code and the exception class off its report object — never from reading the failure message, which `vacuity.py` refuses to auto-classify by name. `assertion`: collected, ran, failed on behaviour. `collection_error`: the runner could not load it, or loaded it and failed on a missing name — which turns green the moment any file of that name exists with any content, and evidences nothing. `green`: it passed on the pre-change tree, so it demonstrates nothing about the change.",
+                "enum": ["assertion", "collection_error", "green"]
+              },
+              "exit_code": {"type": "integer"},
+              "first_line": {
+                "description": "The failure, as the runner reported it — the assertion or error line out of its own log, with the witness's path and filename scrubbed out. NOT the source: W5 gives the worker the failure output and never the check. This field carried pytest's progress bar (`F [100%]`) until 2026-08-15, which is a citation that is always present and never says anything.",
+                "type": "string"
+              },
+              "verdict": {
+                "description": "`proven` — red for the right reason, so this witness may evidence its criterion. `not_established` — anything else. There is deliberately no third value: an outcome nobody anticipated claims less rather than more.",
+                "enum": ["proven", "not_established"]
+              }
+            }
+          },
+          "executed": {
+            "description": "What the SAME pinned bytes did against the changed tree, on the last lap that ran them. Null when the witness was never executed — a discarded witness is still recorded, because a reader needs to see that a criterion went to a human rather than finding a silent gap.",
+            "type": ["object", "null"],
+            "required": ["sha256", "result", "exit_code"],
+            "additionalProperties": false,
+            "properties": {
+              "sha256": {
+                "description": "The digest of what actually ran. Equal to `pinned.sha256` or the run does not exist: a mismatch VOIDs, and is not a failing gate.",
+                "type": "string"
+              },
+              "result": {
+                "description": "`passed` — the criterion is evidenced by a check that was demonstrated able to fail. `failed` — it is not, whatever the declared gates said, and delivery refuses.",
+                "enum": ["passed", "failed"]
+              },
+              "exit_code": {"type": "integer"}
+            }
+          },
+          "discarded": {
+            "description": "Why this witness evidences nothing, or null. A discarded witness leaves its criterion UNCOVERED, which routes to a human — it never counts as a pass, and it never holds the repair loop open.",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this artifact does NOT claim, travelling WITH it rather than living in a spec nobody opened — the pattern `health.LIMITS` and `accept.LIMITS` set. A green artifact stripped of its caveats is a failure this repository has paid for more than once.",
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    }
+  }
+}

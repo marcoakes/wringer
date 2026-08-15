@@ -34,6 +34,25 @@ def _git(cwd: Path, *args: str, check: bool = True) -> str:
     return proc.stdout.strip()
 
 
+@pytest.fixture(autouse=True)
+def witness_store(tmp_path_factory, monkeypatch):
+    """**Every test's witness store is a scratch directory, never a real one.**
+
+    `witness.store_dir` deliberately resolves OUTSIDE the repository under test
+    (SPEC_GATEGEN §6 P4-3): the bytes moved out because an agent found them in
+    its own tree and tidied them up. The cost of moving them out is that the
+    default location is a developer's real `~/.local/state`, and a suite that
+    wrote model-authored Python there would be a test suite with a side effect
+    outside its own tmp dir — which is the one thing a scratch fixture exists to
+    prevent.
+
+    `autouse`, because opting in per test is a guard that a new test forgets.
+    """
+    monkeypatch.setenv(
+        "WRINGER_WITNESS_STORE", str(tmp_path_factory.mktemp("witness-store"))
+    )
+
+
 @pytest.fixture
 def git_run():
     """Run an isolated git command in a scratch repo; returns its stdout."""
