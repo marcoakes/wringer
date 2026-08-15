@@ -117,6 +117,15 @@ VOID = "void"
 # `keychain_secret`, because the isolation claim is about what the author is
 # SHOWN rather than about which model it is — and a second credential path
 # would be a second thing to keep out of the bundle.
+# The image carrying the agent the corpus declares, so arm B's worker can be
+# CONTAINED (SPEC_CONTAIN_V0 §11, ruled by R-C). **Wringer ships no agent from
+# any vendor**, so this names an image the operator built; absent, arm B runs
+# uncontained and every row says so in its deviations rather than the run
+# quietly measuring something weaker than it claims.
+CONTAINMENT_IMAGE_ENV = "WRINGER_BENCH_WORKER_IMAGE"
+CONTAINMENT_BROKER_ENV = "WRINGER_BENCH_BROKER_IMAGE"
+CONTAINMENT_RUNTIME_ENV = "WRINGER_BENCH_RUNTIME"
+
 WITNESS_ENDPOINT = "https://api.anthropic.com/v1/messages"
 WITNESS_MODEL = "claude-sonnet-4-5-20250929"
 WITNESS_MAX_TOKENS = 4000
@@ -941,7 +950,9 @@ def run_under_wringer(
     # exits uncovered, routes to a human, and counts as neither a win nor a
     # loss — which is why this never raises.
     write_witness_spec(task, tree)
+    uncontained = declare_containment(task, tree)
     authored = author_witness(task, tree, workdir)
+    authored["containment"] = uncontained or "contained"
     (workdir / "witness-authored.json").write_text(
         json.dumps(authored, indent=2), encoding="utf-8"
     )
@@ -1192,7 +1203,7 @@ def change_patch(tree: Path, base_sha: str) -> tuple[str | None, str | None]:
     return (done.stdout or None), None
 
 
-def deviations_for(arm: str) -> list[str]:
+def deviations_for(arm: str, contained: bool = True) -> list[str]:
     """**Never empty.** Every arm deviates from "identical conditions" somewhere,
     and a row that listed none would be the overclaim this harness exists to
     avoid."""
@@ -1209,7 +1220,15 @@ def deviations_for(arm: str) -> list[str]:
             "nothing runs the repository's tests in this arm — that is the "
             "point of it, and it is also why this arm is cheaper",
         ]
-    return shared + [
+    uncontained = [] if contained else [
+        "**THE WORKER RAN UNCONTAINED.** The residual contamination channel — "
+        "the agent has a shell and a network — was measured IN USE on the "
+        "2026-08-13 run, where three arm-B rows fetched a .patch, a PR diff "
+        "and a post-fix source file. A row produced without the boundary is "
+        "discountable by exactly the audit that discounted that run, and "
+        "post-hoc detection cannot rescue it: a fetch need leave no trace",
+    ]
+    return shared + uncontained + [
         "claim of completion is a dry-run `wring deliver` exit code, which is "
         "the product's own decision rather than a reimplementation of it",
         "the loop engages only when the change broke a declared gate. On a task "
@@ -1220,6 +1239,9 @@ def deviations_for(arm: str) -> list[str]:
 
 def run_arm(task: Task, arm: str, out: Path) -> Row:
     """One arm, end to end, into its own directory."""
+    # Assigned before ANY return path, because the pre-arm isolation
+    # check returns a Row of its own and that row reports containment too.
+    contained = True
     workdir = out / task.id / arm
     workdir.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
@@ -1233,15 +1255,21 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
             cell=VOID, reason=str(exc),
             wall_clock_ms=int((time.monotonic() - started) * 1000),
-            deviations=deviations_for(arm),
+            deviations=deviations_for(arm, contained),
             witness=witness_outcome(tree, workdir),
         )
 
     sha = head_sha(tree)
     if arm == ARM_NATIVE:
+        # Arm A is the UNSUPERVISED control and is deliberately not contained:
+        # it is what a caller without a harness gets, and containing it would
+        # make it a different arm.
         claimed, claim_reason = do_the_work(task, tree, workdir)
     else:
         claimed, claim_reason = run_under_wringer(task, tree, workdir)
+        contained = (tree / ".wringer.yaml").read_text(
+            encoding="utf-8"
+        ).find("containment") >= 0
 
     if claimed is None:
         # The arm never produced a claim, so there is nothing to put in the
@@ -1258,7 +1286,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # skipped those rows would understate the bill.
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm),
+            deviations=deviations_for(arm, contained),
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -1292,7 +1320,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             wall_clock_ms=int((time.monotonic() - started) * 1000),
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm),
+            deviations=deviations_for(arm, contained),
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
@@ -1318,7 +1346,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         wall_clock_ms=int((time.monotonic() - started) * 1000),
         usage=usage_of(workdir),
         contamination=contamination(task, workdir),
-        deviations=deviations_for(arm),
+        deviations=deviations_for(arm, contained),
         # **The row that actually gets scored**, and it was the one the first
         # pass of this edit missed — the three VOID rows carried the witness
         # and the measured row did not, which would have produced a corpus with
@@ -1386,6 +1414,51 @@ def write_witness_spec(task: Task, tree: Path) -> Path:
     path = tree / "wringer.spec.yaml"
     path.write_text(spec_text, encoding="utf-8")
     return path
+
+
+def declare_containment(task: Task, tree: Path) -> str | None:
+    """Add `run.containment` to the arm's config, or say why not.
+
+    **The re-test's worker must be contained or the pass is discountable the
+    way run 1 was** (R-C). The residual channel — the agent has a shell and a
+    network — was measured IN USE: three arm-B rows of the 2026-08-13 run
+    fetched a `.patch`, a PR diff and a post-fix source file. A channel measured
+    in use and left open for a money run is discountable by exactly the audit
+    that discounted run 1, and post-hoc detection cannot carry it because a
+    fetch need leave no trace in a bundle.
+
+    Only the WORKER moves. `execution:` is untouched, so the gates keep running
+    on the host against the corpus's own venvs — which is what they need, and
+    which is the `execution:` versus `run.containment` separation R-1 draws.
+    """
+    if task.agent is None:
+        return "scripted task: nothing to contain"
+    image = os.environ.get(CONTAINMENT_IMAGE_ENV)
+    broker = os.environ.get(CONTAINMENT_BROKER_ENV)
+    if not image or not broker:
+        return (
+            f"no {CONTAINMENT_IMAGE_ENV}/{CONTAINMENT_BROKER_ENV} in the "
+            "environment, so the worker runs UNCONTAINED"
+        )
+
+    path = tree / ".wringer.yaml"
+    declared = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    run = declared.setdefault("run", {})
+    run["containment"] = {
+        "runtime": os.environ.get(CONTAINMENT_RUNTIME_ENV, "podman"),
+        "image": image,
+        # Wringer checks rather than assumes that the image can run the agent
+        # (refusal 4), and for an ACP worker it derives the binary itself.
+        "requires": [task.agent.command],
+        "env": list(task.agent.env_passthrough),
+        "egress": {
+            "policy": "allowlist",
+            "hosts": ["api.anthropic.com"],
+            "broker_image": broker,
+        },
+    }
+    path.write_text(yaml.safe_dump(declared, sort_keys=False), encoding="utf-8")
+    return None
 
 
 def author_witness(task: Task, tree: Path, workdir: Path) -> dict[str, Any]:
