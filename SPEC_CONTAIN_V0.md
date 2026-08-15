@@ -898,21 +898,40 @@ and no new vocabulary.
 
 ### A-8 — Definition of DONE for this amendment
 
-- [ ] `run.containment` beside `run.worker.acp` parses instead of refusing;
-      every other refusal in §3 still fires, each still with its test
-- [ ] one base builder; the shell and session tails derive from it, pinned by a
-      test that fails if a boundary flag reaches one tail and not the other
-- [ ] `--interactive` present on the session argv, `--tty` absent, each pinned
-- [ ] `session/new` sends `WORKSPACE` as `cwd` under an established containment
-      and the host root without one
-- [ ] an inbound `fs/` path under `WORKSPACE` resolves to the host tree, and an
-      escaping one is still refused
-- [ ] an ACP worker's `command` is required of the image without the repository
+- [x] `run.containment` beside `run.worker.acp` parses instead of refusing;
+      every other refusal in §3 still fires, each still with its test —
+      8, 9 and 11 re-checked **against an ACP worker specifically**, because
+      that is the configuration whose refusal was lifted and where a mistake
+      would hide
+- [x] one base builder; the shell and session tails derive from it, pinned by a
+      test that fails if a boundary flag reaches one tail and not the other,
+      and by an assertion that the two argvs are identical before their tails
+- [x] `--interactive` present on the session argv, `--tty` absent, each pinned,
+      and `--interactive` asserted to precede the image
+- [x] `session/new` sends `WORKSPACE` as `cwd` under an established containment
+      and the host root without one — driven over the real wire, with the agent
+      reporting back what it was actually sent
+- [x] an inbound `fs/` path under `WORKSPACE` resolves to the host tree, and an
+      escaping one is still refused — including the near-miss prefix
+      `/workspacex`, which must **not** be rewritten into the tree
+- [x] an ACP worker's `command` is required of the image without the repository
       declaring it, refused through refusal 4 by name
-- [ ] the AST guard proves **both** spawn paths contained, rather than one
-      contained and one refused
-- [ ] sequence I re-run against a contained **ACP** worker, per (platform,
-      runtime, image), with the `--privileged` control beside it
+- [x] the AST guard proves **both** spawn paths contained, rather than one
+      contained and one refused; it also asserts `acp.py` has exactly ONE
+      `subprocess.Popen`, since the original defect was assuming a single spawn
+      path
+- [x] sequence I re-run against a contained **ACP** worker, per (platform,
+      runtime, image), with the `--privileged` control beside it —
+      macOS 26.5.2 / rootless podman 6.1.0 `applehv` / worker
+      `python:3-slim`+`iptables`, broker `alpine`+`iptables`. **7 of the 8
+      attack probes flip with the boundary removed**, and the 8th is the model
+      API, which must not flip. `docs/containment-2026-08-15.md`'s postscript
+      is the capture
+
+**Not done, and named rather than left to be discovered:** a Linux arm and a
+Docker arm of sequence I against the ACP worker. Every row above is a fact
+about macOS with a Linux VM in the path, and `SPEC_CONTAIN_V0` §7.1 governs
+what that may be read to mean.
 
 ---
 
