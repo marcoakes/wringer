@@ -568,12 +568,23 @@ def execute(
     never ran this" from "the runner ran it and it failed" is a fact the runner
     reports.
 
-    **A witness is model-authored Python, and executing it is code execution
-    this lane introduces.** Where a containment is declared it runs INSIDE that
-    boundary, on the same mechanism and the same holder as the worker. Saying
-    so here rather than in a limit: a lane that manufactures a check and then
-    runs it unbounded on the developer's machine would have added a risk while
-    closing one, and the boundary already exists.
+    **Where a witness runs, and the claim corrected 2026-08-15.** An earlier
+    draft of this docstring said that under a declared containment the witness
+    runs inside that boundary. **The `verify` path does not do that, and it
+    should not.** `run.containment` governs the WORKER — the untrusted party
+    that writes code. A witness is a CHECK, and a check has to run where the
+    project's dependencies are: in a bare worker image every witness would fail
+    on a missing import, which is a `collection_error`, which discards it — the
+    lane inert again, in a new costume. So the witness runs where the GATES
+    run, which is the separation `execution:` versus `run.containment` already
+    draws, and R-1 and W9 are why that separation exists.
+
+    The contained path below is real and is used by callers that pass an
+    established containment; `verify` passes none. **The honest limit, and it
+    is a real one: a witness is model-authored Python, and running it on the
+    host is code execution this lane introduces.** It is pinned and it is
+    Wringer's own artifact rather than the worker's, which is the whole of what
+    bounds it today.
     """
     path = materialise(tree, witness)
     relative = str(path.relative_to(tree))
@@ -918,4 +929,9 @@ LIMITS = (
     "The pin is tamper-EVIDENT, not tamper-proof. A worker on the host can "
     "read .wringer/ and rewrite a hash chain from genesis; the pin becomes a "
     "boundary only under run.containment.",
+    "A witness is model-authored code and it runs where the GATES run, not "
+    "inside the worker's containment — a check needs the project's "
+    "dependencies, and in a bare worker image every witness would fail on a "
+    "missing import and be discarded. Running it is code execution this lane "
+    "introduces; the pin bounds what runs, not what it may do.",
 )
