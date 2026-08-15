@@ -59,10 +59,11 @@ Gates then run as `<runtime> run --rm --volume <repo>:/workspace --workdir
 /workspace --network none --entrypoint /bin/sh <image> -c '<gate>'`, and
 `execution.json` in every bundle records which backend ran and what it was
 asked for. Two things that config does **not** buy, both stated at length in
-SPEC_EXEC_V0 §5 and §7: `run.worker` still runs on the host — the published
-image ships no coding agent, so an agent worker cannot run inside it, and
-`worker_execution` is recorded separately saying exactly that — and none of
-those flags has been adversarially tested (see below).
+SPEC_EXEC_V0 §5 and §7: **`execution:` contains gates and never the worker** —
+`run.worker` runs on the host unless a separate `run.containment` section
+contains it (SPEC_CONTAIN_V0), and `worker_execution` is recorded separately
+saying which of those happened — and those flags buy only what the attacks below
+actually measured, which is bounded and stated there rather than assumed here.
 
 **What that is and is not.** It is meaningful isolation: a gate that deletes
 `$HOME`, installs packages, or scribbles outside the repo hits the
@@ -155,37 +156,71 @@ same statement in a different place.
 
 **Network access is not restricted** in local execution.
 
-### What is claimed for the container path, and what is untested
+### What the container path has been measured to do, and where it stops
+
+*Corrected 2026-08-15. Until this date the section below said the container
+path had **never been adversarially tested** and that sequence G was **unrun**.
+Both sentences were false, and had been for two days: sequence G ran and was
+classified on 2026-08-13 (twice) and on 2026-08-14. `backend.LIMITS` was
+corrected for exactly this on 2026-08-13 and this page was not, because nothing
+derived one from the other. `tests/test_security_isolation_ledger.py` is now
+that derivation. **Understatement is also a stale claim**, and this is the
+second time this repository has paid for that lesson.*
 
 The published image (`SETUP.md`) runs Wringer with an explicit repository
 mount, and the `execution:` backend above asks a runtime for that mount plus
 `--network none` and an environment allowlist. That is a real boundary and it is
 the one to use for untrusted repositories.
 
-**It has never been adversarially tested, and this document will not imply
-otherwise.** Nobody has yet attempted, from inside it, to read host SSH
-keys, cloud credentials, or a Docker socket. Until somebody does and records
-the result, treat the container path as *"designed to isolate"* rather than
-*"demonstrated to isolate"* — `docs/MANUAL_CHECKS.md` sequence G is that
-work, unrun.
+**It has been adversarially tested.** `docs/MANUAL_CHECKS.md` sequence G drives
+seven named attacks as gates through the real backend, and **refuses rather than
+skips** when no runtime is present. The coverage record in that file is the
+ledger, and this table may not disagree with it:
 
-**The `execution:` backend does not change that sentence, and it is worth being
-explicit about why.** Every property it provides is a flag in a command line,
-and every flag is pinned by a test — so what Wringer *asks the runtime for* is a
-fact. Whether the runtime delivers it is a different claim, and no container has
-ever run through this backend: the maintainer's machine has no container
-runtime. An argv is not a measurement, and upgrading this paragraph on the
-strength of one would be exactly the defect this repository exists to catch,
-committed by the tool itself.
+| sequence | platform | runtime | date | what the attacks found |
+|---|---|---|---|---|
+| G | macOS | podman | 2026-08-13 | 6 prevented, 1 mitigated |
+| G | Linux | podman | 2026-08-13 | 6 prevented, 1 mitigated — on a host whose kernel the container **shares** |
+| G | Linux | docker | 2026-08-14 | 6 prevented, 1 out_of_scope |
+| I | macOS | podman | 2026-08-15 | 8 worker probes, 6 flipping against a `--privileged` control |
 
-Sequence G is now one command — `sh scripts/sequence-g.sh` — which drives the
-attacks as gates through the real backend, and which **refuses rather than
-skips** when no runtime is present. Run here on 2026-08-12 it exited 2, having
-measured nothing. `execution.json` carries the same caveat in its own `limits`
-array, so a bundle handed to a stranger says it too.
+**What the prevented attacks cover**: no host SSH keys, no host gitconfig or
+`.git-credentials`, no Docker socket, no host credential in the environment
+beyond the names `execution.env` declares, a process table bounded to the
+container's own namespace, and `--network none` holding against **both** a name
+and a raw address.
+
+**The seventh attack is the one to read.** `cat /etc/shadow` was
+`Permission denied` under the published image and **succeeded** under
+`python:3-slim` — the container's own file, no host secret, recorded
+`out_of_scope`. The barrier in the first two rows was the image's own
+`USER wring`, which **Wringer does not set**. Wringer sets no `--user` unless a
+config asks for it, so the privilege a gate holds inside the container is the
+**image's** choice, and an image that runs as root gives it root.
+
+**This still does not say "demonstrated to isolate", and the reasons are
+specific rather than cautious.** Seven scripted reads are not an escape suite:
+nothing attempted a kernel exploit, a capability abuse, a cgroup or
+`/proc/sys` write, or a container escape. **There is no `--privileged` control
+run for sequence G**, so nothing here shows that these flags are what stopped
+the attacks rather than something else — that control is the cheapest honest way
+to show it and for the *gate* path it has never been done. `prevented` means
+*the thing cannot be done*, the classification is a human's and no test replaces
+it, and a result is a fact about one platform, one runtime and one image.
+
+**Sequence I is a different boundary and does not extend these rows.** It
+measures the WORKER under `run.containment` (SPEC_CONTAIN_V0), which is a
+different mechanism — a netns holder the worker joins without `NET_ADMIN` — and
+it carries the `--privileged` control run sequence G lacks, the first in this
+repository. Its capture is `docs/containment-2026-08-15.md`. It is macOS and
+podman only, so it says nothing about Linux or Docker, and it says nothing about
+the gate path above.
 
 **Do not read an ordinary container as VM-strength isolation.** It is not,
-and no configuration in this repository makes it so.
+and no configuration in this repository makes it so. On macOS a Linux VM sits
+between the container and the host, so **every macOS row above is evidence about
+container ⇢ VM isolation and not about the Linux case** — which is why the
+shared-kernel Linux row was run separately rather than inferred.
 
 ## Who may do what — the authority model
 
