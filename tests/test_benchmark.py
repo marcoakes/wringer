@@ -752,7 +752,7 @@ def test_the_row_schema_moved_because_the_row_grew():
     is exactly the confusion freezing prevents. So v1 is named as PAST, and a
     reader who finds a v1 row knows what it cannot tell them.
     """
-    assert harness.SCHEMA_VERSION == "wringer.benchmark.v4"
+    assert harness.SCHEMA_VERSION == "wringer.benchmark.v5"
     for past in ("v1", "v2", "v3"):
         assert f"wringer.benchmark.{past}" in harness.PREVIOUS_SCHEMA_VERSIONS
     assert harness.SCHEMA_VERSION not in harness.PREVIOUS_SCHEMA_VERSIONS
@@ -775,7 +775,7 @@ def test_a_scripted_task_reports_no_cost_because_a_shell_script_has_none(
     for row in rows:
         assert "usage" in row, f"the key must exist to be readable: {row}"
         assert row["usage"] is None, row
-        assert row["schema_version"] == "wringer.benchmark.v4"
+        assert row["schema_version"] == "wringer.benchmark.v5"
 
 
 # --- a real repository keeps its tests in tests/ ----------------------------

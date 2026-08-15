@@ -112,6 +112,15 @@ FALSE_REFUSAL = "false_refusal"
 # to NO rate — counting it anywhere would be inventing a data point.
 VOID = "void"
 
+# The author's endpoint and model. The SAME vendor and key the agent uses, by
+# `keychain_secret`, because the isolation claim is about what the author is
+# SHOWN rather than about which model it is — and a second credential path
+# would be a second thing to keep out of the bundle.
+WITNESS_ENDPOINT = "https://api.anthropic.com/v1/messages"
+WITNESS_MODEL = "claude-sonnet-4-5-20250929"
+WITNESS_MAX_TOKENS = 4000
+WITNESS_TIMEOUT = 180
+
 RESULTS_FILENAME = "rows.jsonl"
 # v2 adds `usage` — what each arm's agent reported it spent.
 #
@@ -134,8 +143,17 @@ RESULTS_FILENAME = "rows.jsonl"
 # (four of those fetched upstream content outright). A reader must be able to tell
 # "this row was checked and was clean" from "this row predates the check", and
 # one version cannot say both.
-SCHEMA_VERSION = "wringer.benchmark.v4"
+# v5 adds `witness` — what the check WRINGER authored for this task's criterion
+# did, and it is what makes §5's clauses scorable at all.
+#
+# Bumped for the reason v2, v3 and v4 were. The 2026-08-13 rows record a run in
+# which Wringer's verdict was set by a config flag rather than by the work:
+# `--prove` returned `gates_vacuous` on 13 of 13 and `wring deliver` said yes on
+# 26 of 26. A reader must be able to tell a row where a witness covered the
+# criterion from one that predates the lane, and one version cannot say both.
+SCHEMA_VERSION = "wringer.benchmark.v5"
 PREVIOUS_SCHEMA_VERSIONS = (
+    "wringer.benchmark.v4",
     "wringer.benchmark.v1",
     "wringer.benchmark.v2",
     "wringer.benchmark.v3",
@@ -321,6 +339,17 @@ class Row:
     # rather than an empty change. Never conflate the two: one is a measurement
     # and the other is a broken instrument.
     patch_error: str | None = None
+    # **What Wringer's own manufactured check did** (SPEC_GATEGEN_V0 §6).
+    # None means this row had no witness lane at all — which is what every row
+    # before 2026-08-15 means, and is why the schema version moved.
+    #
+    # `covered` is the §5.1 number: whether a witness was proved RED for the
+    # right reason on the pre-change tree, before the agent was given the
+    # statement. `result` is what the same pinned bytes did afterwards. A row
+    # that is covered and whose witness ends RED is a criterion the agent did
+    # not satisfy, whatever the declared gates said — and the declared gates
+    # saying yes anyway is the measured baseline this lane exists to break.
+    witness: dict[str, Any] | None = None
     limits: list[str] = field(default_factory=lambda: list(LIMITS))
 
 
@@ -900,6 +929,22 @@ def run_under_wringer(
     carry — "arm B is given a brief built from failing gates" — is gone, because
     both arms are now given the same words.
     """
+    # **The witness is authored BEFORE the agent is given anything**
+    # (SPEC_GATEGEN_V0 §6 W2). Temporal independence is the load-bearing
+    # property: a check written after the work exists could have been written
+    # to flatter it, and no amount of later scrutiny recovers that. This is
+    # also the only ordering under which §5.1's "proved RED pre-work" is a
+    # statement about the pre-change tree.
+    #
+    # A criterion the author could not cover is NOT a failure of the task. It
+    # exits uncovered, routes to a human, and counts as neither a win nor a
+    # loss — which is why this never raises.
+    write_witness_spec(task, tree)
+    authored = author_witness(task, tree, workdir)
+    (workdir / "witness-authored.json").write_text(
+        json.dumps(authored, indent=2), encoding="utf-8"
+    )
+
     # The identical call arm A makes, into arm B's own directory. A failure here
     # is VOID for the same reason it is in arm A: no claim was made. A scripted
     # task goes through the same door, which is what makes the zero-cost oracle
@@ -1188,6 +1233,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             cell=VOID, reason=str(exc),
             wall_clock_ms=int((time.monotonic() - started) * 1000),
             deviations=deviations_for(arm),
+            witness=witness_outcome(tree, workdir),
         )
 
     sha = head_sha(tree)
@@ -1212,6 +1258,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
             deviations=deviations_for(arm),
+            witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
             # A VOID arm leaves a change on disk the same as any other, and
@@ -1245,6 +1292,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
             deviations=deviations_for(arm),
+            witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
                       "workdir": str(workdir)},
             # Kept precisely BECAUSE the row is void: a change made by an arm
@@ -1270,6 +1318,11 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         usage=usage_of(workdir),
         contamination=contamination(task, workdir),
         deviations=deviations_for(arm),
+        # **The row that actually gets scored**, and it was the one the first
+        # pass of this edit missed — the three VOID rows carried the witness
+        # and the measured row did not, which would have produced a corpus with
+        # a witness column that was null on every row that counted.
+        witness=witness_outcome(tree, workdir),
         evidence={
             "tree": str(tree),
             "base_sha": sha,
@@ -1279,6 +1332,233 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         patch_error=patch_error,
     )
 
+
+# --- the witness lane (SPEC_GATEGEN_V0 §6, wired here by Phase 3) ------------
+
+WITNESS_SPEC = """\
+schema_version: wringer.spec.v1
+approved: true
+title: {title}
+intent: |2
+{intent}
+open_questions: []
+criteria:
+  - id: {criterion}
+    title: {criterion_title}
+    required: true
+    human: false
+tasks:
+  - id: t1
+    brief: {brief}
+    objective: {brief}
+"""
+
+WITNESS_CRITERION = "issue"
+
+
+def _one_line(text: str, limit: int = 300) -> str:
+    """A statement squashed onto one YAML-safe line."""
+    flat = " ".join(text.split())
+    return json.dumps(flat[:limit])
+
+
+def write_witness_spec(task: Task, tree: Path) -> Path:
+    """Turn the task statement into an APPROVED criterion Wringer can act on.
+
+    **The corpus task IS the criterion**, and that is not a convenience: the
+    statement is the upstream issue text, which is exactly what a PM hands over,
+    and the whole claim under test is that Wringer can manufacture evidence for
+    a criterion the repository has no check for.
+
+    `approved: true` is written by the harness rather than by a model, which is
+    the interlock working as designed — a person (here, the corpus author)
+    decides that this text is the requirement.
+    """
+    flat = " ".join(task.statement.split())
+    spec_text = WITNESS_SPEC.format(
+        title=_one_line(f"{task.id}"),
+        intent="\n".join(f"  {line}" for line in task.statement.splitlines()),
+        criterion=WITNESS_CRITERION,
+        criterion_title=_one_line(flat),
+        brief=_one_line(flat),
+    )
+    path = tree / "wringer.spec.yaml"
+    path.write_text(spec_text, encoding="utf-8")
+    return path
+
+
+def author_witness(task: Task, tree: Path, workdir: Path) -> dict[str, Any]:
+    """One authoring call, before the agent is given anything.
+
+    **Temporal independence is the load-bearing property**: a check authored
+    before the work exists cannot have been written to flatter the work. It runs
+    here, at the top of arm B, and never after.
+
+    The author is given the criterion and the paths in the pre-change tree, and
+    **never** upstream's fix, the held-out tests, or the agent's session — the
+    same isolation the worker gets. `check_isolation` has already refused the
+    tree if the answer is reachable in it, so "the pre-change tree" is a tree
+    the answer is genuinely absent from.
+
+    Returns what happened, for the row. A failure to author is NOT a failure of
+    the task: that criterion is simply uncovered, which routes to a human and
+    counts as neither a win nor a loss under §5.1.
+    """
+    from wringer import witness as witness_module
+
+    if task.agent is None:
+        return {"covered": False, "reason": "scripted task: no author was called"}
+
+    secret = keychain_secret(task.agent)
+    if not secret:
+        return {"covered": False, "reason": "no credential for the author"}
+
+    listing = subprocess.run(
+        ["git", "ls-files"], cwd=tree, capture_output=True, text=True, timeout=60,
+    )
+    paths = [p for p in listing.stdout.splitlines() if p][:120]
+    # **The author must not be shown the held-out signal.** `check_isolation`
+    # guarantees the tree does not contain it, and this is the belt to that
+    # brace: a path list is the one thing here assembled from the tree rather
+    # than from the task file.
+    for name in task.held_out_names:
+        paths = [p for p in paths if name not in p]
+
+    request = witness_module.render_request(
+        " ".join(task.statement.split()),
+        WITNESS_CRITERION,
+        WITNESS_MODEL,
+        WITNESS_MAX_TOKENS,
+        "\n".join(paths) or "(no tracked files)",
+    )
+    (workdir / "witness-request.json").write_text(
+        json.dumps(request, indent=2), encoding="utf-8"
+    )
+    body, why = _post_to_author(request, secret)
+    if body is None:
+        return {"covered": False, "reason": f"the author failed ({why})"}
+    try:
+        source = witness_module.parse_response(body)
+    except Exception as exc:  # a reply carrying no source
+        return {
+            "covered": False,
+            "reason": f"the author returned nothing usable ({exc})",
+        }
+
+    item = witness_module.Witness(criterion=WITNESS_CRITERION, source=source)
+    witness_module.store(tree, item)
+    witness_module.record(
+        tree, [item],
+        model=WITNESS_MODEL,
+        base_sha=head_sha(tree),
+        tree_dirty=False,
+        isolation={
+            "tree": "pre-change",
+            "history": "truncated",
+            "upstream": "not reachable",
+            "held_out": "withheld",
+        },
+        prompt_digests={
+            f"criterion:{WITNESS_CRITERION}": witness_module.digest(
+                " ".join(task.statement.split()).encode("utf-8")
+            ),
+            f"prompt:{WITNESS_CRITERION}": witness_module.digest(
+                json.dumps(request, sort_keys=True).encode("utf-8")
+            ),
+        },
+    )
+    (workdir / "witness-source.py").write_text(source, encoding="utf-8")
+    return {"covered": True, "reason": "authored", "sha256": item.sha256}
+
+
+def _post_to_author(
+    payload: dict[str, Any], key: str
+) -> tuple[dict[str, Any] | None, str]:
+    """POST one authoring request, with the vendor's own headers.
+
+    **Not `judge.send`, and the reason is a header rather than a preference.**
+    `judge.send` sends `Authorization: Bearer`, which is right for the
+    OpenAI-compatible endpoints `judge:` is configured against and wrong for
+    this vendor's API keys — those go in `x-api-key` beside an
+    `anthropic-version`. The Phase 1 calibration proved this exact transport
+    against this exact endpoint; reusing a sender whose headers do not fit
+    would fail 401 and be recorded as a model result.
+
+    The witness LOGIC — the prompt, W10's instruction, the parsing — is the
+    product's (`witness.render_request`, `witness.parse_response`). Only the
+    socket is local, and only because the vendor differs.
+
+    **Retries are for transport only.** A 400 or a 401 is a real answer: the
+    server understood the request and rejected it, so retrying buys nothing and
+    spends money. Phase 1 learned this the other way round — two authoring
+    calls died on transport and were recorded as `author_failed`, which is an
+    instrument malfunction sitting in a column that means "model result".
+    """
+    import urllib.error
+    import urllib.request
+
+    last = ""
+    for attempt in range(3):
+        posted = urllib.request.Request(
+            WITNESS_ENDPOINT,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "content-type": "application/json",
+                "anthropic-version": "2023-06-01",
+                "x-api-key": key,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(posted, timeout=WITNESS_TIMEOUT) as reply:
+                return json.loads(reply.read().decode("utf-8")), ""
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", "replace")[:300]
+            except Exception:  # noqa: BLE001 - the body is best-effort
+                pass
+            last = f"HTTP {exc.code}: {detail}".strip()
+            if exc.code not in (408, 429, 500, 502, 503, 504):
+                return None, last
+        except Exception as exc:  # noqa: BLE001 - transport, and retryable
+            last = f"{type(exc).__name__}: {exc}"
+        if attempt < 2:
+            time.sleep(2 * (2 ** attempt))
+    return None, last
+
+
+def witness_outcome(tree: Path, workdir: Path) -> dict[str, Any] | None:
+    """What the lane recorded, read off Wringer's own artifact.
+
+    Read rather than recomputed, for the reason arm B asks Wringer for the
+    delivery decision instead of reimplementing it: a second opinion here could
+    drift from the product, and the product's answer is the thing being
+    measured.
+    """
+    loops = sorted((tree / ".wringer" / "loops").glob("*/witness.json"))
+    if not loops:
+        return None
+    try:
+        recorded = json.loads(loops[-1].read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    rows = recorded.get("witnesses") or []
+    if not rows:
+        return None
+    row = rows[0]
+    proved = (row.get("proved_red") or {})
+    executed = (row.get("executed") or {})
+    shutil.copy2(loops[-1], workdir / "witness.json")
+    return {
+        # §5.1's number: proved RED for the right reason, before the work.
+        "covered": proved.get("outcome") == "assertion",
+        "proved_red": proved.get("outcome"),
+        "verdict": proved.get("verdict"),
+        "result": executed.get("result"),
+        "discarded": row.get("discarded"),
+        "pinned_sha256": (row.get("pinned") or {}).get("sha256"),
+    }
 
 def write_rows(out: Path, rows: list[Row]) -> Path:
     """Append the rows. **Append, never rewrite**: a corpus run is resumable and
@@ -1349,3 +1629,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":  # pragma: no cover - the entry point
     raise SystemExit(main())
+
+
