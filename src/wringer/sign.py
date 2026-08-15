@@ -78,6 +78,17 @@ IDENTITY_TRUSTED = "identity_trusted"
 IDENTITY_UNTRUSTED = "identity_untrusted"
 IDENTITY_UNKNOWN = "identity_unknown"
 
+# The third collection, and it was missing while its two siblings existed.
+# Not cosmetic: `SIGNATURE_STATES` and `IDENTITY_STATES` are what a reader —
+# and a schema, and a test — consults to learn what an axis may hold, and the
+# integrity axis had no such list at all. Its two values sat in no collection
+# and no enum, so "what can this field be?" was answerable for two of the
+# three axes and not for the one that decides whether a bundle was tampered
+# with. `test_sign.py` now pins all three against the module's own constants,
+# in both directions, so a fourth value added to any axis without joining its
+# tuple reddens rather than ageing quietly.
+INTEGRITY_STATES = (INTEGRITY_VALID, INTEGRITY_INVALID)
+
 SIGNATURE_STATES = (
     SIGNATURE_VALID,
     SIGNATURE_INVALID,

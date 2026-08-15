@@ -343,6 +343,54 @@ def test_every_state_the_module_declares_is_reachable():
     assert len(sign.IDENTITY_STATES) == 3
 
 
+def test_all_three_axes_have_a_collection_and_it_holds_every_value():
+    """**Derived, in both directions, over all three axes.**
+
+    `sign.py` reports three axes and never collapses them into one boolean —
+    and until 2026-08-15 only two of them had a collection naming what they
+    may hold. The integrity axis had none: `INTEGRITY_VALID` and
+    `INTEGRITY_INVALID` sat in no tuple and no schema enum, so "what can this
+    field be?" was answerable for the two axes about a signature and not for
+    the one that decides whether a bundle was tampered with.
+
+    The check is derived rather than hand-kept, and that is the half that
+    makes it worth anything: the module's `*_VALID`/`*_INVALID`/`*_MISSING`
+    constants are discovered by prefix and compared against the tuple for that
+    prefix, **in both directions**. A fourth value added without joining its
+    tuple reddens; a tuple carrying a value the module no longer defines
+    reddens too. The sender-count guard's lesson, which this repository has
+    now paid for twice: a guard that can only catch one direction is half a
+    guard.
+    """
+    collections = {
+        "INTEGRITY": sign.INTEGRITY_STATES,
+        "SIGNATURE": sign.SIGNATURE_STATES,
+        "IDENTITY": sign.IDENTITY_STATES,
+    }
+    for prefix, declared in collections.items():
+        defined = {
+            value
+            for name, value in vars(sign).items()
+            if name.startswith(f"{prefix}_")
+            and not name.endswith("_STATES")
+            and isinstance(value, str)
+        }
+        assert defined, f"no {prefix}_* constants found — did they move?"
+        assert set(declared) == defined, (
+            f"{prefix}_STATES is {sorted(declared)} but the module defines "
+            f"{sorted(defined)}. Every value an axis can hold belongs in its "
+            "collection, and every value in the collection has to exist"
+        )
+        assert len(declared) == len(set(declared)), (
+            f"{prefix}_STATES repeats a value"
+        )
+
+    # And the three axes stay three: a value shared between them would make
+    # a reader unable to tell which question a status answers.
+    everything = [value for values in collections.values() for value in values]
+    assert len(everything) == len(set(everything))
+
+
 def test_the_limits_refuse_the_reading_a_padlock_invites():
     """Pinned by CONTENT. This is the artifact most likely to be over-read,
     because the word "signed" does a lot of work in a reader's head."""
