@@ -486,10 +486,30 @@ def build(tmp_path: Path, holder: str | None = None, **overrides) -> list[str]:
 def test_the_repository_is_mounted_and_is_the_only_mount_without_an_allowlist(
     tmp_path: Path,
 ):
+    """The repository, and ONE deliberate second mount that shadows the
+    witness bytes out of the worker's view.
+
+    **The second mount is a repair for something measured, not a convenience.**
+    On the first real corpus task the agent opened Wringer's witness and
+    rewrote it — replacing `pytest.warns(None)`, removed in pytest 8, with a
+    `catch_warnings` block. The pin caught it and VOIDed the run, which is W4
+    working, but a lane that VOIDs whenever an agent tidies up measures
+    nothing. `.wringer/` lives inside the repository and the repository is the
+    mount, so W5's "the worker never sees the source" could only be a rule
+    about what Wringer hands over until this.
+    """
     built = build(tmp_path)
-    assert built.count("--volume") == 1
-    assert built[built.index("--volume") + 1] == (
-        f"{tmp_path.resolve()}:/workspace"
+    volumes = [
+        built[i + 1] for i, arg in enumerate(built) if arg == "--volume"
+    ]
+    assert volumes == [
+        f"{tmp_path.resolve()}:/workspace",
+        "/workspace/.wringer/witness",
+    ], (
+        "the worker's mounts changed. The repository is the first; the second "
+        "is an anonymous volume that gives the container an EMPTY directory "
+        "where the witness bytes live on the host. A third mount is a new "
+        "reachable path and needs its own reason"
     )
     assert built[built.index("--workdir") + 1] == "/workspace"
 
@@ -850,11 +870,28 @@ def test_the_broker_takes_a_party_and_hardcodes_none():
         elif isinstance(node, ast.arg):
             names.append(node.arg)
         for name in names:
-            for scope_creep in ("witness", "author"):
-                assert scope_creep not in name.lower(), (
-                    f"containment.py has an identifier {name!r}. The party "
-                    "parameter is the whole of the concession to Phase 3; the "
-                    "author path is Phase 3's to wire"
+            # **`author` still, `witness` no longer.** R-6 forbade both to stop
+            # Phase 2 creeping into Phase 3's work. Phase 3 arrived, and the
+            # witness needs exactly one thing from this module: the directory
+            # its bytes live in, so the worker container can be given an empty
+            # one in its place. That is a BOUNDARY, which is this module's
+            # whole job, and it is imported as a value so the path it shadows
+            # cannot drift from the path `witness.py` writes to.
+            #
+            # The author path is still Phase 3's and still unbuilt here, so
+            # that half of the guard stands unchanged.
+            assert "author" not in name.lower(), (
+                f"containment.py has an identifier {name!r}. The party "
+                "parameter is the whole of the concession; the author path is "
+                "not this module's to wire"
+            )
+        for name in names:
+            if "witness" in name.lower():
+                assert name in ("WITNESS_DIRNAME", "witness_dirname"), (
+                    f"containment.py has a witness identifier {name!r}. The "
+                    "only one allowed is the directory constant it shadows "
+                    "from the worker's mount — anything else is the lane's "
+                    "logic leaking into the boundary"
                 )
     assert "witness" not in config._CONTAINMENT_KEYS
     assert "author" not in config._CONTAINMENT_KEYS
@@ -1187,3 +1224,51 @@ def test_an_inbound_path_is_translated_before_it_is_resolved():
     # tree — the classic prefix bug, which would hand the agent a path it
     # never named.
     assert containment.inbound("/workspacex/x", root) == "/workspacex/x"
+
+
+def test_the_witness_bytes_are_shadowed_out_of_the_workers_view():
+    """**W5 stops being a request and becomes a boundary** — and this is a
+    repair for something measured on a real task, not a precaution.
+
+    On the first corpus task driven through the new lane, the agent OPENED
+    Wringer's witness and rewrote it: it replaced `pytest.warns(None)`, removed
+    in pytest 8, with a `catch_warnings` block and added the import. Helpful,
+    and fatal. The pin caught it and VOIDed the run — W4 working exactly as
+    designed — but a lane that VOIDs every time an agent tidies up measures
+    nothing, and §5's void rule invalidates a whole pass at three such rows.
+
+    W5 always said the worker gets the failure output and never the source,
+    and said in the same breath that this is *"a rule about what Wringer hands
+    over, not a sandbox"*, because `.wringer/` lives inside the repository and
+    the repository is the mount. An anonymous volume at that path gives the
+    container an empty directory instead.
+
+    Measured on this machine, podman 6.1.0, before this test was written: the
+    contained worker's `ls` shows an empty directory, its `cat` finds nothing,
+    its write reports success into the discarded volume, and the bytes on the
+    host are byte-for-byte unchanged.
+    """
+    declared = settings()
+    established = containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+    argv = containment.argv(
+        declared, established, "true", Path("/repo"), Path("/work")
+    )
+
+    shadow = f"{containment.WORKSPACE}/.wringer/witness"
+    assert shadow in argv, (
+        "the witness bytes are reachable from inside the worker's mount. An "
+        "agent that finds them can edit them, and a lane that VOIDs whenever "
+        "it does measures nothing"
+    )
+    # An ANONYMOUS volume — no host source — so the container gets an empty
+    # directory rather than a window onto anything.
+    assert ":" not in shadow
+
+    # And the same shadow reaches the ACP spawn, because the boundary is built
+    # once for both tails.
+    session = containment.session_argv(
+        declared, established, "agent", (), Path("/repo"), Path("/work")
+    )
+    assert shadow in session

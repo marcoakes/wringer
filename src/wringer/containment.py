@@ -52,6 +52,11 @@ from typing import Any
 
 from wringer.config import Containment, EGRESS_ALLOWLIST
 
+# Where the witness bytes of record live inside a repository. Imported as a
+# value rather than re-spelled, so the directory this shadows and the directory
+# `witness.py` writes to cannot drift apart into a boundary over the wrong path.
+from wringer.witness import WITNESS_DIRNAME
+
 # Where the repository is mounted inside the worker image. The same path
 # `backend.WORKSPACE` uses, and for the same reason: the published Dockerfile's
 # WORKDIR and its `safe.directory` scoping are written against it, so a
@@ -632,6 +637,26 @@ def _base(
             "--volume",
             f"{established.hosts_path.resolve()}:{HOSTS_PATH}:ro",
         ]
+    # **The witness bytes are shadowed out of the worker's view**, and this is
+    # not a precaution — it is a repair for something measured.
+    #
+    # On the first real corpus task the agent OPENED Wringer's witness and
+    # rewrote it: it replaced `pytest.warns(None)`, removed in pytest 8, with a
+    # `catch_warnings` block and added the import. A helpful edit, and fatal.
+    # The pin caught it and VOIDed the run — W4 working exactly as designed —
+    # but a lane that VOIDs whenever the agent tidies up measures nothing, and
+    # §5's void rule invalidates a whole pass at three such rows.
+    #
+    # W5 says the worker gets the witness's failure output and never its
+    # source, and says in the same breath that this is a rule about what
+    # Wringer HANDS OVER rather than a sandbox. `.wringer/` sits inside the
+    # repository, the repository is the mount, so a contained worker could
+    # still walk to it. An anonymous volume mounted at that path gives the
+    # container an empty directory there instead: the bytes are on the host,
+    # outside anything the worker can reach, and the disclosure W5 could only
+    # discourage becomes a boundary — which is the sentence W4 uses for the
+    # pin, arriving here for the source.
+    args += ["--volume", f"{WORKSPACE}/{WITNESS_DIRNAME.as_posix()}"]
     if settings.user is not None:
         args += ["--user", settings.user]
     for name in env_names(settings, passthrough):
