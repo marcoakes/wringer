@@ -1641,6 +1641,40 @@ def registered_command_count() -> int:
     )
 
 
+def commands_at_tag(version: str) -> int | None:
+    """How many top-level commands a PUBLISHED release registered, or None.
+
+    None means this checkout cannot answer — no git, no tag, no `cli.py` at
+    it — and the caller skips rather than guessing. An sdist has no history
+    and must not fail here; a wrong answer would be worse than no answer,
+    which is the same rule `require_checkout` follows one level up.
+
+    Read off the tagged source by counting `subparsers.add_parser(` rather
+    than by importing it: an old `cli.py` is not importable against today's
+    modules, and exec'ing a historical file to count its parsers is a much
+    larger thing to do than reading it.
+    """
+    import re as _re
+    import subprocess
+
+    for tag in (f"v{version}", version):
+        try:
+            done = subprocess.run(
+                ["git", "show", f"{tag}:src/wringer/cli.py"],
+                cwd=repo_root(),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        if done.returncode == 0 and done.stdout:
+            return len(
+                _re.findall(r"\bsubparsers\.add_parser\(", done.stdout)
+            )
+    return None
+
+
 def test_the_command_table_heading_counts_the_commands_that_exist():
     """QUICKSTART's heading is where a reader counts, and it said thirteen
     while the parser registered sixteen for three days.
@@ -1691,12 +1725,48 @@ def test_a_count_tied_to_a_release_says_which_release():
             if not match:
                 continue
             claimed = NUMBER_WORDS.get(match.group(1).lower())
-            if claimed is None or claimed == registered_command_count():
+            if claimed is None:
                 continue
-            assert re.search(r"\d+\.\d+\.\d+", line), (
+            version = re.search(r"\d+\.\d+\.\d+", line)
+
+            # **A line that names a release is checked against THAT release,
+            # first, and regardless of what this tree registers.**
+            #
+            # Until 2026-08-15 this guard did the opposite: it skipped any
+            # line whose count matched the CURRENT parser, then merely
+            # required a version string on the rest. Both halves leaked.
+            # `0.3.0, nineteen commands` sailed through because the tree
+            # happens to register nineteen — a false claim about a published
+            # release, invisible precisely while the tree agreed with it —
+            # and `0.4.0, seventeen commands` would sail through for ever
+            # because naming *a* version was the whole test. Watched to fail
+            # both ways before this sentence was written.
+            #
+            # Ruled on in passing, and it is why this guard exists in this
+            # shape: WRINGER_PHASE2's rider 1 asked for README's "seventeen"
+            # to become "nineteen". **It is not stale.** v0.3.0's `cli.py`
+            # registers exactly seventeen subparsers, so the sentence is TRUE
+            # of the release it names, and rewriting it would have put a false
+            # claim about a published release into the README — the
+            # overstatement half of the defect class SECURITY.md's signing row
+            # just cost this repository. The rider's purpose was that the
+            # count be guarded; this is that, derived.
+            if version is not None:
+                shipped = commands_at_tag(version.group(0))
+                if shipped is None:
+                    continue    # not a tag this checkout has; nothing to check
+                assert claimed == shipped, (
+                    f"{name} says '{match.group(1)} commands' for "
+                    f"{version.group(0)}, which registered {shipped}: "
+                    f"{line.strip()!r}"
+                )
+                continue
+
+            assert claimed == registered_command_count(), (
                 f"{name} claims '{match.group(1)} commands' without naming the "
-                f"release it belongs to, and the parser registers "
-                f"{registered_command_count()}: {line.strip()!r}"
+                f"release it belongs to, so it is a claim about THIS tree, "
+                f"and the parser registers {registered_command_count()}: "
+                f"{line.strip()!r}"
             )
 
 
