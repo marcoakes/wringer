@@ -196,10 +196,12 @@ def _execution_section(execution: Any) -> list[str]:
         + ".",
         "",
         "This records the command line Wringer **asked the runtime for**. "
-        "Whether the runtime delivered it is a separate claim this repository "
-        "has not measured — `docs/MANUAL_CHECKS.md` sequence G is that work, "
-        "and it is unrun. The mount is read-write by design, because the "
-        "evidence is written inside the tree.",
+        "Whether the runtime delivered it is a separate claim, measured in "
+        "part: `docs/MANUAL_CHECKS.md` sequence G ran seven named attacks on "
+        "three platform-and-runtime combinations and six were prevented in "
+        "each. That is not an escape suite, and no `--privileged` control run "
+        "has shown these flags are what stopped them. The mount is read-write "
+        "by design, because the evidence is written inside the tree.",
     ]
 
 

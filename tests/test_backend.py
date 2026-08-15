@@ -1,11 +1,15 @@
 """Where a gate runs — SPEC_EXEC_V0.md.
 
-**Read the split in this file before adding to it.** There is no container
-runtime on the machine this was written on, so nothing here observes a
+**Read the split in this file before adding to it.** Nothing here observes a
 container. What it does observe is the ARGV Wringer builds, exhaustively —
 which is a fact about Wringer and says nothing about what a runtime does with
-it. The second half of that claim is `docs/MANUAL_CHECKS.md` sequence G, it is
-unrun, and no test in this file may be written as though it were run.
+it. The second half of that claim is `docs/MANUAL_CHECKS.md` sequence G, which
+now HAS run and been classified on three platform-and-runtime combinations —
+and **no test in this file may be written as though it were run here.** The
+measurement lives in that ledger and in `SECURITY.md`'s table, which
+`tests/test_security_isolation_ledger.py` keeps in agreement; a test in this
+file that asserted a runtime behaviour would be claiming a measurement it did
+not make.
 
 The local backend IS observed end to end, because it is today's behaviour.
 """
@@ -588,6 +592,20 @@ def test_the_limits_never_inflate_the_container_claim():
     cover, and never let an argv read as a boundary. A future window that
     measures docker should have to edit this test, and should find the reason
     written down when it does.
+
+    **That window arrived, and this is the edit it was told to make.** Sequence
+    G ran on Docker on `ubuntu-latest` and was classified on 2026-08-14 — six
+    prevented, one `out_of_scope` — so `"docker is still unmeasured"` became
+    false, and the assertion pinning that string was holding a known-false
+    sentence into every new record. Corrected 2026-08-15 under the ruling that
+    governs exactly this: **Law 7 protects parsers, and nothing parses this
+    prose**, so a `limits` sentence is correctable in place when and only when
+    a named, dated measurement in the repository makes it false, guard edited
+    in the same commit. The SHAPE is unchanged and is what the assertions below
+    still pin — what moved is the string naming the un-covered half, from
+    "docker" (now measured) to the `--privileged` control run for the gate
+    path, which genuinely has never been done. Bundles already on disk are not
+    rewritten; they were true when they were written.
     """
     joined = " ".join(backend.LIMITS)
 
@@ -598,9 +616,12 @@ def test_the_limits_never_inflate_the_container_claim():
     assert "read-write by design" in joined
     assert "not contained" in joined
     # The measurement is bounded IN THE RECORD, not only in a doc nobody opens:
-    # what ran, and the two things that did not.
+    # what ran, and what did not. The un-covered half named here is now the
+    # control run rather than docker, because docker was measured on
+    # 2026-08-14 and the control run has still never happened for the gate
+    # path — which is the honest remaining limit rather than a stale one.
     assert "not an escape suite" in joined
-    assert "docker is still unmeasured" in joined
+    assert "control run" in joined
     assert "not a guarantee" in joined
 
     # And it never upgrades itself. These are the phrases a reader would quote

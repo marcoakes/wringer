@@ -439,19 +439,33 @@ def write(
 # field this repository invented so a record could state what it does not
 # claim. Editing it in place was the other exit and it breaks v1's
 # byte-identity, which is the compatibility promise ruling 4 makes. So:
-# `LIMITS_V1` keeps the shipped bytes, forever, and `LIMITS_V2` says what a
+# `LIMITS_V1` keeps the shipped SHAPE, forever, and `LIMITS_V2` says what a
 # containment record does not claim. Found by the independent review of
 # SPEC_CONTAIN_V0, which called it the most dangerous thing in the first draft.
+#
+# **What "frozen" governs here, ruled 2026-08-15 (R-B).** Law 7 protects
+# PARSERS — field names, shapes, meanings — and no code anywhere dispatches on
+# this prose; humans read it. So a `limits` sentence is correctable in place
+# **when and only when a named, dated measurement in this repository makes it
+# false**, with the guard edited in the same commit and the reason written in
+# the guard's docstring. Shipping a known-false sentence into every new record
+# is the worse breach, and it is the exact defect this tuple exists to prevent.
+# Row two was corrected on 2026-08-15: it said "docker is still unmeasured"
+# after sequence G ran and was classified on Docker on 2026-08-14, and it said
+# "seven probes on one runtime" after three combinations had been measured.
+# **Records already on disk are never rewritten** — they were true when written.
 LIMITS_V1 = (
     "trusted_local means the gate ran on this machine with the invoking "
     "user's privileges and the whole environment inherited. It is not a "
     "sandbox and Wringer has never claimed it is one.",
     "A container backend records the command line Wringer ASKED the runtime "
     "for. Whether the runtime delivered it is a separate claim, now PARTLY "
-    "measured: docs/MANUAL_CHECKS.md sequence G ran seven named attacks under "
-    "rootless podman, on macOS and on a shared-kernel Linux host, and six were "
-    "prevented. Seven probes on one runtime is not an escape suite and docker "
-    "is still unmeasured, so this file records a request, not a guarantee.",
+    "measured: docs/MANUAL_CHECKS.md sequence G ran seven named attacks on "
+    "three platform-and-runtime combinations — rootless podman on macOS and on "
+    "a shared-kernel Linux host, and Docker on Linux CI — and six were "
+    "prevented in each. Seven scripted reads are not an escape suite, and no "
+    "--privileged control run has shown that these flags are what stopped "
+    "them, so this file records a request, not a guarantee.",
     "The mount is read-write by design, because the evidence bundle is "
     "written inside the tree. A hostile gate can still corrupt the tree you "
     "gave it, and container escapes exist.",

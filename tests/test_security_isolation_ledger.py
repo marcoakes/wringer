@@ -299,6 +299,71 @@ def test_no_watched_document_calls_a_classified_sequence_unrun(document):
             )
 
 
+def product_claims() -> dict[str, str]:
+    """The isolation sentences Wringer SHIPS, by value rather than by source.
+
+    A document nobody opens going stale is bad; a **record** going stale is
+    worse, because it travels. `execution.json`'s `limits` array and the run
+    summary's *"Where these gates ran"* section are handed to strangers as
+    evidence, and both carried "sequence G … is unrun" for two days after
+    sequence G ran.
+
+    Read as values, not as file text: a guard grepping `backend.py` would pass
+    the moment somebody moved the string to a constant, and the thing that must
+    be true is about what lands in the bundle.
+    """
+    from wringer import backend, config, containment, summary
+
+    execution = backend.Container(
+        settings=config.Execution(
+            backend="container",
+            runtime="podman",
+            image="example/image:tag",
+            network=False,
+            env=(),
+            user=None,
+        )
+    )
+    return {
+        "backend.LIMITS_V1": " ".join(backend.LIMITS_V1),
+        "backend.LIMITS_V2": " ".join(backend.LIMITS_V2),
+        "containment.LIMITS": " ".join(containment.LIMITS),
+        "summary._execution_section": "\n".join(
+            summary._execution_section(execution)
+        ),
+    }
+
+
+@pytest.mark.parametrize("source", sorted(product_claims()))
+def test_no_shipped_record_calls_a_classified_sequence_unrun(source):
+    """**The same derivation, aimed at what travels.**
+
+    `backend.LIMITS_V1` said *"docker is still unmeasured"* until 2026-08-15,
+    which had been false since the 2026-08-14 Docker classification, and the
+    run summary said sequence G *"is unrun"* for two days. Both were stamped
+    into every new bundle. The guard that pinned the first of those sentences
+    is `test_the_limits_never_inflate_the_container_claim`, and its own
+    docstring had pre-authorised this edit — *"a future window that measures
+    docker should have to edit this test"* — which is why the correction and
+    the guard move together rather than one arriving later.
+    """
+    classified = [row for row in read_ledger()
+                  if LEDGER_SUBJECTS.get(row.subject) == ATTACK
+                  and row.classified]
+    if not classified:  # pragma: no cover - the ledger has classified rows
+        pytest.skip("no attack sequence is classified in the ledger")
+
+    text = product_claims()[source]
+    for pattern in UNRUN_CLAIMS:
+        for found in re.finditer(pattern, text, re.IGNORECASE):
+            assert _is_a_mention(text, found.start()), (
+                f"{source} ships {found.group(0)!r} into every record it "
+                f"writes, and {LEDGER} carries {len(classified)} classified "
+                "attack run(s). A stale sentence in a document misleads a "
+                "reader; a stale sentence in a record travels"
+            )
+
+
 def test_the_mention_and_the_assertion_are_told_apart():
     """**The fixture that pins the distinction**, on the pattern SPEC_CONTAIN
     used for its own `sandboxed` sentence: the document this guard watches most
