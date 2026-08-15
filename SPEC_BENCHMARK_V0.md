@@ -61,6 +61,42 @@ different-but-correct implementation fails it. That is a false negative in the
 than the false-confidence rate — conservative in the direction that matters and
 generous in the direction that flatters.
 
+### AMENDED 2026-08-15 — the limit above came true, and it landed somewhere else
+
+*Dated amendment. The paragraph above is preserved exactly as written and is
+NOT corrected — it was right, and being right in writing before any number
+existed is the whole reason it can be cited now.*
+
+The limit above was pre-registered here as a prediction about the measured
+**false-refusal** rate. It landed instead on **calibration target (c)** of the
+witness programme's Phase 1 — the stop condition asking whether a
+criterion-authored witness stays red on the corpus's known-wrong changes.
+
+What happened, in one line: the corpus's `wrong` label is assigned by the
+held-out suite, so it is an **upstream-agreement** verdict, exactly as this
+section says. A judge diagnostic with 8/8 negative controls found **12 of 12**
+covered `false_confidence` changes satisfy their stated criterion while
+**12 of 12** fail upstream's held-out test. So (c) asked a criterion-derived
+check to reproduce an upstream-agreement oracle, which no criterion-derived
+instrument can do in principle. (c) was **retired as invalid-as-specified**;
+the measurement is
+[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md)
+Postscripts 2 and 3.
+
+**What this amendment changes in this spec: nothing.** §3's design stands, the
+limit still travels in every row, and no number here is restated. It is
+recorded because a pre-registration that turns out to be right must be
+*visible* at the place it was registered — otherwise the next window reads a
+retirement decided after a bad number and cannot tell it from a theory invented
+to explain one.
+
+**What it changes for a reader of a row:** the direction named above —
+"inflates the false-refusal rate rather than the false-confidence rate" — is
+the direction to expect *within an arm's outcome*. Beyond that, any
+`false_confidence` label is a statement about agreement with upstream and not
+about whether the requirement was met, and nothing derived from that label may
+be reported as though it were.
+
 ## 4. Isolation, enforced rather than promised
 
 Held-out tests must not be in the working tree, must not be reachable by any

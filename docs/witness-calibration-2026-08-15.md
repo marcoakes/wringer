@@ -26,6 +26,11 @@ else here touches a network.
 > box is the first pass as published and is not rewritten.
 > [Postscript 2](#postscript-2--what-the-eleven-changes-actually-are-2026-08-15)
 > answers the question §"What this does and does not say" left open.
+> **[Postscript 3](#postscript-3--the-fork-was-ruled-and-c-is-retired-2026-08-15)
+> is the ruling on that fork: (c) is RETIRED as invalid-as-specified, Phase 1
+> closes on (a)+(b), and the de-scope §"What this licenses" describes did not
+> fire — it moved to Phase 3 and became automatic. Read it before acting on
+> anything in this capture.**
 
 ## What was measured, and how it was made checkable first
 
@@ -129,6 +134,13 @@ would likely land at 11–12 of 13 with them, which changes nothing about (c).
   and not independently verified here).
 
 ## What this licenses
+
+> *SUPERSEDED 2026-08-15 by
+> [Postscript 3](#postscript-3--the-fork-was-ruled-and-c-is-retired-2026-08-15).
+> The paragraph below is preserved as published. The de-scope it describes did
+> NOT fire: (c) was retired as an invalid measurement, Phase 1 closed on
+> (a)+(b), and the retreat moved to Phase 3 where it now fires automatically on
+> a loss.*
 
 Nothing yet. The ruling is explicit that a miss on the calibration stop is a
 result rather than something to negotiate around, and that if Phase 1 misses,
@@ -319,3 +331,108 @@ Marc and to a Fable window, not here.
 *Artifacts: `~/Claude/wringer-phase1-2026-08-15/judge-result.json`,
 `judge-controls.json`, `witness_judge.py`, `judge_controls.py`,
 `retry_two.py`, and `calibration-result.pre-retry.json` — the first pass, kept.*
+
+---
+
+## Postscript 3 — the fork was ruled, and (c) is retired (2026-08-15)
+
+*A postscript, like the two above. **Nothing in the body or in Postscripts 1
+and 2 is edited.** The 8% stands exactly where it was published. Nothing here
+re-scores anything; what changed is what the number was ever capable of
+measuring.*
+
+Postscript 2 measured the fork and left the decision to Marc and a ruling
+window. That ruling was made the same day (`WRINGER_RULING_2026-08-15`, the
+fork ruling), and it went **against the de-scope that this capture's "What this
+licenses" section said was waiting.**
+
+### (c) is retired as invalid-as-specified
+
+Not softened, not re-targeted, not re-run: **retired.** The instrument scores
+**upstream agreement**, which no criterion-derived check can measure. A change
+that satisfies the stated criterion while diverging from upstream is
+indistinguishable *from the criterion* from one that agrees, so scoring a
+criterion-authored witness against an upstream-agreement label measures
+criterion under-specification, not witness quality. Three legs hold that up and
+they are all already in this document: Postscript 2's judge diagnostic (12/12
+"satisfies the requirement" × 12/12 held-out FAIL, with 8/8 negative controls
+refused); the textual fact that needs no judge (the `attrs-frozen` criterion
+names two attributes while upstream's held-out test exercises six behaviours
+the criterion never mentions); and `SPEC_BENCHMARK_V0` §3, which pre-registered
+this exact limit **in writing before any number existed** — it predicted the
+consequence would land on false refusals and it landed on (c) instead, but it
+is the same limit and not a theory invented after a bad number. §3 now carries
+a dated amendment saying so.
+
+**Re-targeting (c) was refused too**, and independently: the diagnostic says
+all 12 covered wrong changes *do* satisfy their criterion, so a re-targeted (c)
+has an empty denominator — there is nothing to re-run against without
+synthesizing wrong changes, which Phase 1 forbids — and its adjudicator would
+be a judge, which is on the dead list and stays there. The $0.50 that had been
+set aside stays unspent.
+
+### Phase 1 is CLOSED, on (a) + (b)
+
+The calibration stop is amended to (a)+(b). Both hit — **12/13** and **10/12**.
+No re-run, no re-target, no new Phase-1 number, and no Phase-1 work of any kind
+remains.
+
+### W10, and the honest (c) is 0/12
+
+The fork ruling also decided the question §"The one catch, read honestly" left
+hanging: **may a witness pick where a fix lives? No.** That is now
+[SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) §6 **W10** — a witness must observe
+the criterion's stated symptom at the interface the criterion names, and where
+the criterion states no location it must not pin an implementation locus.
+
+Two consequences for this capture, neither of which edits it:
+
+- **The `click-zsh-completion-colons` catch is location-luck, not creditable
+  prevention.** Postscript 1 already recorded that the witness tested
+  `format_completion` and the agent had escaped in the generated zsh script
+  instead; issue #2703 describes a symptom at the shell and never says where
+  the escaping belongs. Under W10 an interface-level witness would likely have
+  passed that change. **So the honest (c) is 0 of 12, not 1 of 12** — which
+  *strengthens* the retirement rather than rescuing it: the number being retired
+  was inflated.
+- **That witness file's always-RED test is the (b)-miss class.** W8's
+  right-reason discipline governs it at authoring time. Live, a witness that
+  never goes green across a whole run is a witness-defect signal and must
+  surface through the existing refusal machinery rather than loop forever.
+  Phase 3's design watches for it. Guidance, not a new mechanism.
+
+### The de-scope did not fire here — it moved, and it grew teeth
+
+This capture's §"What this licenses" says a Phase 1 miss fires R2's de-scope.
+**Read that as superseded, and read what replaced it, because the replacement
+is stricter and not weaker.** The pre-commitment's premise failed, not its
+spirit: "if (c) misses, retreat" presupposed that (c) measured the witness.
+
+- **Bug fixes stay in scope**, under the claim they actually calibrated. The
+  identifiability limit is universal — a net-new gate can no more catch a
+  criterion-satisfying-but-wrong implementation than a witness can; it is
+  merely unmeasurable for net-new work, because no upstream ground truth exists
+  there. Retreating only where we happen to own a ruler is ruler-availability
+  bias, not honesty. And (a)+(b) show the lane does its stated job.
+- **The prevention question moves to Phase 3, under its stop as written**, with
+  no number softened.
+- **A Phase 3 loss now fires the bug-fix de-scope AUTOMATICALLY** — the README
+  edit performed by the implementing window with no further ruling (Marc may
+  overrule). Previously a loss meant "back to ruling"; now the retreat executes
+  itself. Pre-registered so it cannot be lawyered afterwards: **a loss driven by
+  criterion-satisfying-but-upstream-divergent deliveries still fires it.**
+
+The trigger, the Phase 3 stop transcribed in full, and the claim ceiling are
+recorded **in this repository** at
+[docs/witness-programme.md](witness-programme.md), so the window that executes
+the retreat needs nothing outside the checkout.
+
+### What no artifact may say
+
+> A witness proves the stated criterion could fail and was made to pass; it
+> does not certify agreement with an unstated intended fix, and where the
+> criterion under-describes the intent, the witness inherits that gap.
+
+That is the ceiling. **No artifact anywhere may claim the witness "catches
+wrong fixes."** This capture never did, and after this postscript it says why
+it never could.

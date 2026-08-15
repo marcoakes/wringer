@@ -468,6 +468,16 @@ design itself was that it is right and worth building.*
 calibration are Phase 1, execution/receipt/delivery are Phase 3, standard
 emission is Phase 4.*
 
+***AMENDED AGAIN 2026-08-15 — W10 added**, by `WRINGER_RULING_2026-08-15` (the
+fork ruling), after Phase 1's offline calibration ran and its single
+prevention-style catch turned out to be location-luck. W1–W9 are untouched.
+**Phase 1 is now CLOSED** on stop conditions (a) and (b), both hit; the third
+was retired as an invalid measurement and the prevention question moved to
+Phase 3, where a loss now fires the bug-fix de-scope automatically. The
+schedule, the trigger and the Phase 3 stop are recorded in the repository at
+[docs/witness-programme.md](docs/witness-programme.md); the measurement is
+[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md).*
+
 ### What the measurement disproved
 
 This spec has always assumed the discriminating check **already exists in the
@@ -501,8 +511,10 @@ survives and gains a second — the one the corpus failed:
 > **Does the bundle contain a check that Wringer authored, proved RED for the
 > right reason on the pre-change tree, and the worker could not edit?**
 
-Today: no. W1–W9 make it yes. *"For the right reason" is not decoration — it is
-W8, and the review is why it is in the sentence.*
+Today: no. W1–W10 make it yes. *"For the right reason" is not decoration — it
+is W8, and the review is why it is in the sentence. Nor is "the criterion" —
+that is W10, and a measured location-lucky catch is why it is in the
+sentence.*
 
 ### W1 — The witness is Wringer's own check, not a repo gate — DECIDED
 
@@ -811,6 +823,62 @@ in the re-test is `inconclusive` and R2's committed pass measures nothing.**
 **Ruled: worker containment must not be expressed through
 `execution.backend`, or the prove pass's worktree handling is fixed first.**
 Phase 2 owns the choice; it does not own the option of discovering this late.
+
+### W10 — A witness may not pick WHERE the fix lives — DECIDED
+
+*Added 2026-08-15 by `WRINGER_RULING_2026-08-15` (the fork ruling),
+sub-ruling 2, through the amendment machinery this section already carries.
+W1–W9 are untouched. Ruled on evidence rather than in the abstract: it is the
+question the Phase 1 capture's §"The one catch, read honestly" left hanging.*
+
+> **W10 — a witness must observe the criterion's stated symptom at the
+> interface the criterion names; when the criterion states no location, the
+> witness must not pin an implementation locus. A catch obtained by
+> location-guessing is not creditable prevention.**
+
+The measured case, from
+[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md)
+Postscript 1. Issue #2703 describes a symptom **at the shell**: a completion
+value containing a colon is mangled. It never says where the escaping belongs.
+Upstream escapes in `format_completion` (Python); the salvaged agent change
+escaped in the generated zsh script. The authored witness happened to test
+`format_completion`, so it stayed red on the agent's change and was scored as
+the calibration's single catch.
+
+That is a coin landing the right way up, not prevention. A witness that had
+probed the symptom end to end — the interface the criterion actually names —
+would have had to decide the same question the criterion leaves open, and
+would likely have gone green. **Under W10 the honest score for that stop
+condition is 0, and the retired number was inflated rather than deflated.**
+
+Why this is a rule and not a preference: a witness that pins a locus the
+criterion does not state has silently added a requirement the PM never wrote,
+and then evidences *that*. It manufactures false refusals against every
+correct fix that lands somewhere else — which is the (b) failure mode, on
+purpose this time — and its occasional catch cannot be distinguished from
+luck by anyone reading the bundle. Both halves are the same defect: the
+witness is no longer a check on the criterion.
+
+**What this binds, concretely:**
+
+- The authoring prompt must not be given, and must not infer, a fix location
+  that the criterion does not state. Where the criterion names an interface —
+  a CLI invocation, a shell completion, an HTTP response, a public function —
+  the witness exercises *that* interface.
+- A criterion that genuinely names an implementation locus is not caught by
+  this: W10 forbids **inventing** a locus, never honouring a stated one.
+- **This is authoring discipline, not a new runtime check**, and nothing here
+  claims a mechanism enforces it. There is no automatic way to tell an
+  interface-level witness from an implementation-level one, and pretending
+  otherwise would be this repository's own recurring defect. It governs the
+  author's instructions and the review of an authored witness, and it is the
+  reason a location-lucky catch may never be reported as prevention.
+- **Companion, from the same capture and the same ruling:** a witness that is
+  red on *everything it is ever shown* — including upstream's own fix — is a
+  witness defect, not a strict check. W8 governs it at authoring time. Live, a
+  witness that never goes green across a whole run must surface through the
+  existing refusal machinery rather than loop forever; Phase 3's design
+  watches for it. Guidance, not a new mechanism.
 
 ### Non-goals of this amendment (binding)
 
