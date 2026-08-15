@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/execution-v2.schema.json",
+  "title": "Wringer execution record, v2 — the worker's containment",
+  "description": "`execution.json` when — and ONLY when — `.wringer.yaml` declares `run.containment` (SPEC_CONTAIN_V0 ruling 4). Every other run writes `wringer.execution.v1`, byte-identical to what it wrote before this file existed, so the compatibility cost for a repository that has not opted in is exactly zero. **The absence of a v2 record is the compatibility boundary:** a reader that knows only v1 and meets this version must decline to read the file rather than guess, because the alternative is reading a `worker_execution` of the wrong shape and supplying the flattering answer. `wringer.execution.v1` and its schema are frozen and are not edited by this file's existence. **What is different from v1, and why:** v1's `worker_execution` is a string that always says `trusted_local`, because the container backend contained gates and not the worker (SPEC_EXEC_V0 §5). That is still true of every v1 record and is false of this one, so the field becomes an object with two blocks — `declared`, which is repository policy and is always present, and `established`, which is what THIS lap actually stood up and is absent when it stood up nothing. Three of the four callers that write this record never start a container, so a single flat block would have recorded addresses that were never admitted — a run claiming a containment it did not have. **`limits` differs from v1's for one specific reason**: v1's fourth row states that `run.worker` is not contained and that `worker_execution` always says `trusted_local`, which would be a denial of this record's own claim shipped inside the record. `LIMITS_V2` drops it and adds what a containment record cannot say.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "backend",
+    "execution_mode",
+    "gates",
+    "worker_execution",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.execution.v2"
+    },
+    "backend": {
+      "description": "Which backend ran the GATES. Independent of the worker's containment in both directions: a repository may contain its worker and run its gates locally, or the reverse, or both, or neither.",
+      "enum": ["local", "container"]
+    },
+    "execution_mode": {
+      "description": "What that gate backend is WORTH. **`trusted_local` appears here legitimately in a v2 record** whenever the gates ran on this machine, and that is not in tension with a contained worker — it is SPEC_CONTAIN_V0 ruling 7, the same separation v1 already makes. Any guard reading this FILE for the string `trusted_local` is reading the wrong thing; the field to read is `worker_execution.declared.mode`.",
+      "enum": ["trusted_local", "container"]
+    },
+    "gates": {
+      "description": "The gate ids this run attempted, in declared order.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "worker_execution": {
+      "description": "Where `run.worker` runs, in two blocks that answer two different questions. Never folded into `execution_mode` — a single field covering both would be the one field in this file capable of lying, and it would lie in the direction of claiming more.",
+      "type": "object",
+      "required": ["declared"],
+      "additionalProperties": false,
+      "properties": {
+        "declared": {
+          "description": "Repository POLICY, always present. This is `worker_execution`'s shipped meaning carried forward — *a statement about the repository's policy rather than about this invocation* — so it reads the same on the verify lap before a worker and the one after. It is worth reading because a repository that cannot honour its declaration produces no bundle at all: the declaration is checked before any bundle is opened and refuses with a named reason, never degrading to `trusted_local`.",
+          "type": "object",
+          "required": ["mode", "runtime", "image", "env_allowlist", "user", "egress"],
+          "additionalProperties": false,
+          "properties": {
+            "mode": {
+              "description": "**`contained`**, and deliberately not `sandboxed`, `isolated` or `secure` — the rule the `execution_mode` enum already follows. Also deliberately not `container`, which is the GATE vocabulary: two words one letter apart with different meanings is a trap for a bundle reader, so the constants are named apart (`containment.WORKER_CONTAINED` beside `backend.CONTAINED`).",
+              "enum": ["contained"]
+            },
+            "runtime": {
+              "description": "The runtime id as declared. Apple's `container` cannot appear — `config.parse` refuses it, because its flags have not been verified against the argv Wringer builds.",
+              "enum": ["docker", "podman", "nerdctl"]
+            },
+            "image": {
+              "description": "The image as the repository declared it. There is no default and there will not be one: Wringer ships no coding agent from any vendor — the published image's own Dockerfile says so and gives the reason — so the image that runs a worker is one a human named and one that carries the agent they chose.",
+              "type": "string"
+            },
+            "env_allowlist": {
+              "description": "The environment-variable NAMES the worker was allowed to see. Everything not named is withheld, so the worker gets a stated environment rather than the operator's whole shell. The argv uses `--env NAME` and never `--env NAME=VALUE`: a value in an argv is readable by anyone who can run `ps`, and that difference is the whole of what \"Wringer stores no credential\" means at the point of spawn.",
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "user": {
+              "description": "`uid` or `uid:gid` if the repository declared one, else null for the image's own user. Offered rather than applied — but read `limits`: a worker's whole job is to WRITE the mount, so an image running as root leaves root-owned files in the developer's real repository. That consequence differs in kind from the gate case the same ruling was written for.",
+              "type": ["string", "null"]
+            },
+            "egress": {
+              "description": "What the worker was permitted to reach. A closed vocabulary with no way to spell \"unrestricted\": a worker that wants the open network declares no containment at all, and gets a v1 record saying `trusted_local` out loud.",
+              "type": "object",
+              "required": ["policy"],
+              "additionalProperties": false,
+              "properties": {
+                "policy": {
+                  "description": "`none` is `--network none`, which the runtime enforces. `allowlist` is a netns holder: a separate container owning the network namespace with `NET_ADMIN`, arming an address allowlist that the worker — joining that namespace WITHOUT `NET_ADMIN` — is subject to and cannot disarm. The boundary is deliberately not inside the thing it bounds.",
+                  "enum": ["none", "allowlist"]
+                },
+                "hosts": {
+                  "description": "Allowlist only. The hostnames the repository declared. **What is enforced is the addresses these resolved to, not the names** — see `established.egress.resolved` and the co-tenancy row in `limits`.",
+                  "type": "array",
+                  "items": {"type": "string"}
+                },
+                "ports": {
+                  "description": "Allowlist only. The TCP ports admitted to each resolved address. Defaults to `[443]`, and exists as a key because a self-hosted or proxied model endpoint on another port would otherwise fail closed with no named reason.",
+                  "type": "array",
+                  "items": {"type": "integer"}
+                },
+                "broker_image": {
+                  "description": "Allowlist only. The image the netns holder runs, which must carry `iptables` — checked before any worker starts, because a policy that cannot be established must refuse rather than quietly become no policy. No default here either.",
+                  "type": ["string", "null"]
+                }
+              }
+            }
+          }
+        },
+        "established": {
+          "description": "What THIS lap actually stood up. **Absent when it stood up nothing, and absence is the honest reading rather than a gap.** `wring verify`, `wring start` and a loop's own verify laps all write this record without starting a container, so a placeholder here would be the record claiming a containment that did not happen — which is the single failure SPEC_CONTAIN_V0 is answerable to.",
+          "type": "object",
+          "required": ["runtime_path", "mount"],
+          "additionalProperties": false,
+          "properties": {
+            "runtime_path": {
+              "description": "The RESOLVED path of the runtime binary, because two machines with `runtime: docker` can be running very different things. No version and no image digest: reading either means spawning a process, and nothing in a verification should spawn a process to decorate a record.",
+              "type": ["string", "null"]
+            },
+            "mount": {
+              "description": "Where the repository was mounted inside the worker container — always `/workspace`, matching the published Dockerfile's WORKDIR and its `safe.directory` scoping. **Read-write by design**, because changing the tree is the worker's entire job, which is also the honest limit of this boundary.",
+              "type": "string"
+            },
+            "egress": {
+              "description": "Present only for an armed allowlist.",
+              "type": "object",
+              "required": ["resolved"],
+              "additionalProperties": false,
+              "properties": {
+                "resolved": {
+                  "description": "**The exact addresses the allowlist admitted.** Not decoration: a reader who wants to know what the worker could reach reads this array rather than trusting a hostname, and it is what makes a rotation failure legible after the fact. Resolution happens inside the broker container rather than on the Wringer host, because on macOS the runtime's containers live in a Linux VM with its own resolver and a host-side answer can name an address the container's resolver never returns — which would block the very endpoint the allowlist was written to admit.",
+                  "type": "array",
+                  "items": {"type": "string"}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "runtime": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "enum": ["docker", "podman", "nerdctl"]
+    },
+    "runtime_path": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": ["string", "null"]
+    },
+    "image": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": "string"
+    },
+    "mount": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": "string"
+    },
+    "network": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": "boolean"
+    },
+    "env_allowlist": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "user": {
+      "description": "Gate container backend only, unchanged from v1.",
+      "type": ["string", "null"]
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it rather than living in a spec nobody opened. **Not v1's list**, and the difference is the point: v1's fourth row says `run.worker` is not contained and `worker_execution` always says `trusted_local`, which inside this record would be a denial of its own claim — a green artifact carrying somebody else's caveat, in the one field this repository invented so a record could state what it does not claim. Pinned by CONTENT in the tests, not by non-emptiness.",
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    }
+  }
+}

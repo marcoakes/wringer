@@ -152,6 +152,13 @@ def _runtime(demanded: object = None) -> Check:
     said "worth knowing" about the thing that will halt the next `wring verify`
     is a doctor nobody consults. `demanded` is the repo's `execution:` section,
     or None outside a repo and for every config that never mentioned one.
+
+    **`run.containment` demands one too** (SPEC_CONTAIN_V0 §3). Without this,
+    a repo that contains its worker and leaves `execution:` alone got OK or
+    WARN from `wring doctor` while `wring verify` exited 2 — which silently
+    narrows SPEC_EXEC_V0 §9's shipped invariant to gates, and leaves the one
+    command whose whole job is to diagnose this disagreeing with the command
+    it is diagnosing for.
     """
     apple = shutil.which("container")
     docker = shutil.which("docker")
@@ -168,13 +175,19 @@ def _runtime(demanded: object = None) -> Check:
         found = shutil.which(wanted)
         if found is not None:
             return Check("container runtime", OK, f"{wanted} at {found}")
+        contained = isinstance(demanded, config.Containment)
+        declares = (
+            "'run.containment'" if contained
+            else "'execution.backend: container'"
+        )
+        section = "run.containment" if contained else "execution"
         return Check(
             "container runtime", FAIL,
             f"no {wanted} on PATH, and {config.CONFIG_FILENAME} declares "
-            "'execution.backend: container'",
-            f"Install {wanted}, point 'execution.runtime' at a runtime you "
-            "have, or drop the 'execution:' section to run gates on this "
-            "machine",
+            f"{declares}",
+            f"Install {wanted}, point '{section}.runtime' at a runtime you "
+            f"have, or drop the '{section}:' section to run "
+            f"{'the worker' if contained else 'gates'} on this machine",
         )
 
     if apple is not None:
@@ -195,19 +208,30 @@ def _runtime(demanded: object = None) -> Check:
 
 
 def _declared_execution(root: Path) -> object | None:
-    """The repo's `execution:` section, or None — total by construction.
+    """Whichever section demands a container runtime, or None.
 
-    An unreadable or invalid config is `_config`'s finding to report, not this
-    one's: two checks failing over the same broken file tells a reader nothing
-    the first did not.
+    Two sections can: `execution:` for gates, and `run.containment` for the
+    worker. Both carry a `runtime` attribute, which is all `_runtime` reads —
+    and `execution:` is checked first only because it is the older key, not
+    because it outranks anything. A repo declaring both names one runtime
+    twice or has a config problem `_config` will report.
+
+    Total by construction: an unreadable or invalid config is `_config`'s
+    finding, not this one's, because two checks failing over the same broken
+    file tells a reader nothing the first did not.
     """
     path = root / config.CONFIG_FILENAME
     if not path.is_file():
         return None
     try:
-        return config.load(path).execution
+        cfg = config.load(path)
     except config.ConfigError:
         return None
+    if cfg.execution is not None:
+        return cfg.execution
+    if cfg.run is not None and cfg.run.containment is not None:
+        return cfg.run.containment
+    return None
 
 
 def _repo(root: Path) -> Check:

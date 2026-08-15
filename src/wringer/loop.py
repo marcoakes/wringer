@@ -21,6 +21,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import shutil
 import time
 from collections.abc import Callable, Sequence
@@ -34,6 +35,7 @@ from wringer import (
     accept,
     acp,
     config,
+    containment,
     evidence,
     gates,
     git,
@@ -670,6 +672,29 @@ def run(
         briefed = staleness.capture(root)
         staleness.write(bundle.directory, briefed)
 
+    # **Declaring is not establishing** (SPEC_CONTAIN_V0 ruling 3). The static
+    # refusals have already fired inside `verify.run`'s preflight; this is
+    # where the containment is actually stood up, once, before the first
+    # worker turn — and where the dynamic refusals live, because arming an
+    # allowlist means starting a container and issuing a DNS query.
+    #
+    # `establish` raises or returns; it has no path that yields a falsy answer,
+    # so there is deliberately no `except` here that could carry on with an
+    # uncontained worker under a config claiming containment. That fallback is
+    # the defect class this whole programme exists to catch.
+    worker_containment = settings.containment
+    established = None
+    if worker_containment is not None:
+        established = containment.establish(
+            worker_containment, root, bundle.directory
+        )
+    # No ledger event for this, deliberately. `loop.jsonl`'s `type` is a closed
+    # enum with `additionalProperties: false` on every branch, so a new event
+    # costs a schema version — and the fact already has a home that costs
+    # none: `execution.json`'s `worker_execution.established` block, written
+    # by every verify lap of this loop. A second record of the same fact is a
+    # second thing to keep in step.
+
     final: verify.Outcome | None = None
     status = reason = "stopped"
     iterations = 0
@@ -706,7 +731,10 @@ def run(
             on_iteration(iteration, budget)
         bundle.event("iteration.started", iteration=iteration)
 
-        final = verify.run(root, cfg, planned, on_gate=on_gate, prove=prove)
+        final = verify.run(
+            root, cfg, planned, on_gate=on_gate, prove=prove,
+            established=established,
+        )
         signature = failure_signature(final)
         bundle.event(
             "verify.finished",
@@ -816,7 +844,9 @@ def run(
                 )
             else:
                 result = _run_worker(
-                    bundle, command, turn_ceiling, iteration, root
+                    bundle, command, turn_ceiling, iteration, root,
+                    containment_settings=worker_containment,
+                    established=established,
                 )
         except KeyboardInterrupt:
             # A worker.started with no worker.finished, mirroring how verify
@@ -856,6 +886,15 @@ def run(
         ):
             status, reason = "stopped", staleness.AUTHORITY_MOVED
             break
+
+    # The holder outlives every worker turn on purpose — it owns the network
+    # namespace they join — so it is torn down here, once, when the loop is
+    # over. Total by construction like every other cleanup on this path: a
+    # failure to remove a container must not replace the loop's real verdict
+    # with a cleanup error. `HOLDER_MAX_SECONDS` is the backstop for the one
+    # case this line cannot cover, a SIGKILL of the loop itself.
+    if worker_containment is not None:
+        containment.teardown(worker_containment, bundle.directory)
 
     bundle.event(
         "loop.finished", status=status, reason=reason, iterations=iterations
@@ -904,10 +943,24 @@ def _flaky_failure(outcome: verify.Outcome) -> str | None:
 
 
 def _run_worker(
-    bundle: Bundle, command: str, timeout: int, iteration: int, root: Path
+    bundle: Bundle,
+    command: str,
+    timeout: int,
+    iteration: int,
+    root: Path,
+    containment_settings: config.Containment | None = None,
+    established: containment.Established | None = None,
 ) -> gates.GateResult:
     """Run the worker through the gate runner, for its process-group kill,
-    its bounded drain, and its scrub-then-cap log writing."""
+    its bounded drain, and its scrub-then-cap log writing.
+
+    Under a containment the command is not the worker's own — it is a runtime
+    argv that carries the worker's command into a container. `gates.run` is
+    still what spawns it, so the timeout ladder, the process group, the
+    bounded drain and the scrub-then-cap logging are the same machinery in
+    both cases. That machinery took four bolts to get right and is not
+    reimplemented for a second spawn path.
+    """
     directory = bundle.iteration_dir(iteration)
     pgid_file = directory / PGID_FILENAME
 
@@ -917,14 +970,47 @@ def _run_worker(
         # than an event: it is operational state, not a claim about the run.
         pgid_file.write_text(str(pid), encoding="utf-8")
 
+    spawn = command
+    if containment_settings is not None and established is not None:
+        # **Path translation, and without it every documented worker command
+        # fails on its first line.** `{brief}` substitutes an absolute HOST
+        # path, and the documented worker form is
+        # `claude -p "$(cat {brief})"`; inside a container with the repository
+        # at /workspace that file does not exist, so the worker's first act
+        # would be to read a brief that is not there. That is F3 in a new
+        # costume — the worker not being told what it is building — and it
+        # would look like an agent failure rather than a mount problem.
+        #
+        # `shlex.join`, never `" ".join`: this string goes to `gates.run`,
+        # which spawns with `shell=True`, and the worker's own command is the
+        # last element — full of spaces, quotes and `$(...)`. Joining by hand
+        # would let the shell re-split it, which is a different command from
+        # the one the repository wrote down.
+        spawn = shlex.join(
+            containment.argv(
+                containment_settings,
+                established,
+                containment.translate(command, root),
+                root,
+                directory,
+            )
+        )
+
     result = gates.run(
-        config.Gate(id=WORKER_ID, run=command, timeout=timeout),
+        config.Gate(id=WORKER_ID, run=spawn, timeout=timeout),
         cwd=root,
         stdout_path=directory / "worker.stdout.log",
         stderr_path=directory / "worker.stderr.log",
         redactor=bundle.redactor,
         on_spawn=remember,
     )
+    if containment_settings is not None:
+        # The container the runtime CLIENT started outlives a kill of the
+        # client, so a timeout that killed the process group would otherwise
+        # leave the worker running against the mounted tree — the timeout not
+        # being enforced at all. By cidfile, never by pgid: a container has no
+        # host process group, and on macOS it lives inside the runtime's VM.
+        containment.teardown(containment_settings, directory)
     # It finished, so there is nothing to reap and a stale pgid could name a
     # process the OS has since given to somebody else.
     pgid_file.unlink(missing_ok=True)

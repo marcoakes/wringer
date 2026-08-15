@@ -64,20 +64,57 @@ def test_local_records_trusted_local_and_never_says_sandboxed():
     isolation. Asserted against the schema's whole enum rather than against
     this one instance: a future third backend inheriting a flattering word is
     the failure this guards, and it would not be written here.
+
+    **Extended 2026-08-15 to every mode-bearing enum in every published
+    execution schema.** It used to read `properties.execution_mode.enum` of
+    v1 and nothing else, so when SPEC_CONTAIN_V0 put a new mode word in
+    `worker_execution.declared.mode` of a DIFFERENT schema file, the rule this
+    test exists for was entirely unguarded for the new field while
+    SPEC_CONTAIN's own mapping table claimed it was covered for free. The
+    independent review caught it, and the fix is to find the enums rather than
+    to name them — a hand-kept list of places to look is the failure mode one
+    layer up.
     """
     identity = backend.Local().identity()
     assert identity == {"backend": "local", "execution_mode": "trusted_local"}
 
-    published = json.loads(
-        (
-            Path(__file__).resolve().parent.parent
-            / "schema"
-            / "execution.schema.json"
-        ).read_text(encoding="utf-8")
+    schema_dir = Path(__file__).resolve().parent.parent / "schema"
+
+    def mode_enums(node: object, path: str = "") -> list[tuple[str, list]]:
+        found: list[tuple[str, list]] = []
+        if isinstance(node, dict):
+            for key, value in node.items():
+                here = f"{path}.{key}" if path else key
+                if key.endswith("mode") and isinstance(value, dict):
+                    if isinstance(value.get("enum"), list):
+                        found.append((here, value["enum"]))
+                    if isinstance(value.get("const"), str):
+                        found.append((here, [value["const"]]))
+                found.extend(mode_enums(value, here))
+        elif isinstance(node, list):
+            for index, value in enumerate(node):
+                found.extend(mode_enums(value, f"{path}[{index}]"))
+        return found
+
+    checked = 0
+    for path in sorted(schema_dir.glob("execution*.schema.json")):
+        published = json.loads(path.read_text(encoding="utf-8"))
+        enums = mode_enums(published)
+        assert enums, f"{path.name} declares no mode enum — did it move?"
+        for where, values in enums:
+            for value in values:
+                checked += 1
+                for forbidden in (
+                    "sandbox", "isolat", "secure", "safe", "protect"
+                ):
+                    assert forbidden not in value.lower(), (
+                        f"{path.name} {where} may hold {value!r}, which reads "
+                        f"as {forbidden}"
+                    )
+    assert checked >= 4, (
+        "this guard found almost nothing to check, which is how it passed "
+        "while a new mode word shipped unguarded"
     )
-    for value in published["properties"]["execution_mode"]["enum"]:
-        for forbidden in ("sandbox", "isolat", "secure", "safe", "protect"):
-            assert forbidden not in value.lower(), f"{value} reads as {forbidden}"
 
 
 def test_local_needs_no_preflight_and_cleans_nothing_up(tmp_path: Path):

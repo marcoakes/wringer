@@ -36,6 +36,7 @@ from wringer import (
     vacuity,
 )
 from wringer import backend as backend_module
+from wringer import containment as containment_module
 
 # Called as each gate finishes, so a console can report a long run as it
 # happens rather than after it. None for callers that want no output.
@@ -172,6 +173,7 @@ def run(
     on_gate: GateReporter | None = None,
     prove: bool = False,
     serial: bool = False,
+    established: object | None = None,
 ) -> Outcome:
     """Verify once and write the bundle. Raises `evidence.EvidenceError` if
     the bundle cannot be opened; the caller decides what that costs.
@@ -185,6 +187,23 @@ def run(
     refusal = engine.preflight()
     if refusal is not None:
         raise backend_module.BackendError(refusal)
+    # The worker's containment, checked in the same breath and the same place
+    # (SPEC_CONTAIN_V0 ruling 3). STATIC refusals only — a `which`, an image
+    # lookup, an image probe — so this costs no packet and `wring verify`
+    # performs it too. That is the point: a repository whose containment is
+    # broken finds out in CI rather than an hour into a corpus pass, and a
+    # record that states repository policy is only worth reading if a
+    # repository unable to honour its policy produces no bundle at all.
+    #
+    # The refusals that need a running container (a runtime that will not
+    # start, an allowlist that will not arm) belong to `containment.establish`
+    # and fire where a worker is about to run — because arming an allowlist
+    # means issuing a DNS query, and SECURITY.md promises `wring verify` makes
+    # no outbound connection.
+    worker_containment = cfg.run.containment if cfg.run is not None else None
+    containment_refusal = containment_module.preflight(worker_containment, root)
+    if containment_refusal is not None:
+        raise backend_module.BackendError(containment_refusal)
     # Snapshot git before the bundle exists, so Wringer's own run directory
     # is never what makes the tree look dirty — or shows up in its own
     # evidence as an untracked file.
@@ -351,11 +370,21 @@ def run(
     # the policy is the same on the verify lap that precedes a worker and the
     # one that follows it. Keyed off the declaration so a verify-only repo gets
     # `null` rather than a sentence about a worker it does not have.
+    #
+    # `containment` is what moves this record to `wringer.execution.v2`, and
+    # `established` is what separates POLICY from what this lap actually stood
+    # up. `verify.run` never starts a holder — `wring verify`, `wring start`
+    # and `wring bench`'s baseline all reach here having contained nothing —
+    # so `established` is None and the record says so by omitting the block.
+    # Absence is the honest reading; a placeholder would be this file claiming
+    # a containment it did not have.
     backend_module.write(
         bundle.directory,
         engine,
         [gate.id for _, gate in planned],
         worker=cfg.run is not None,
+        containment=worker_containment,
+        established=established,
     )
     # Before the digests, like every other sibling, so the bundle's own
     # tamper-evidence covers the retry record rather than sitting beside it.

@@ -430,6 +430,25 @@ def run(
     contenders = _selected(settings, selected)
     preflight(contenders)
 
+    # **Refusal 8, runtime half** (SPEC_CONTAIN_V0 §3). `_for_contender`
+    # carries `run:` — and therefore `run.containment` — into every contender,
+    # and every contender runs in a detached worktree under
+    # `.wringer/worktrees/`. A worktree's `.git` is a FILE pointing into the
+    # main repository, so a container mounting it alone opens a broken
+    # repository; a refusal keyed on `fleet.worktree` is structurally blind to
+    # this, because bench never reads that key. SPEC_EXEC_V0 §8 kept bench out
+    # of the gate backend deliberately, and this keeps it out of the worker
+    # one rather than handing it containment by inheritance.
+    if cfg.run is not None and cfg.run.containment is not None:
+        raise BenchError(
+            "'run.containment' cannot be used with 'wring bench'. Every "
+            "contender runs in a detached worktree, whose .git is a file "
+            "pointing into the main repository — mounted alone it is a broken "
+            "repository, so every contender's worker would fail on that "
+            "rather than on the work. Bench a repository without "
+            "'run.containment', or contain the worker under 'wring run'"
+        )
+
     redactor = Redactor.from_config(
         cfg.evidence, extra_names=config.declared_secret_names(cfg)
     )

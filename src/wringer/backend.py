@@ -52,6 +52,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wringer import containment as _containment
 from wringer import evidence
 from wringer.config import Execution, Gate
 
@@ -345,6 +346,16 @@ def for_config(settings: Execution | None) -> Local | Container:
 
 
 SCHEMA_VERSION = "wringer.execution.v1"
+# SPEC_CONTAIN_V0 ruling 4. Written ONLY where `run.containment` is declared;
+# every other run stays on v1, byte-identical to what it wrote before this
+# existed. Law 7, and the house precedent for a bumped version is a second
+# schema file — `untracked-v2`, `loop-event-v2`, `bench-event-v2`.
+#
+# **The absence of a v2 record is the compatibility boundary.** A reader that
+# knows only v1 and meets a v2 record must treat it as a version it does not
+# know and decline to read it. That is the honest failure: the alternative is
+# reading a `worker_execution: trusted_local` that is false.
+SCHEMA_VERSION_V2 = "wringer.execution.v2"
 
 
 def write(
@@ -352,6 +363,8 @@ def write(
     engine: Local | Container,
     gate_ids: list[str],
     worker: bool,
+    containment: Any = None,
+    established: Any = None,
 ) -> Path:
     """Write `execution.json` — where these gates ran, on every single run.
 
@@ -362,24 +375,51 @@ def write(
     answer they supply is the flattering one. So the bundle says
     `trusted_local` out loud on runs nobody configured, which is most of them.
 
-    `worker_execution` is recorded SEPARATELY and, when the repo declares a
-    worker at all, always says `trusted_local` — because it is true: this
-    module contains gates and not the worker. A single `execution_mode`
+    `worker_execution` is recorded SEPARATELY and, on v1, always says
+    `trusted_local` when the repo declares a worker — because it is true:
+    this module contains gates and not the worker. A single `execution_mode`
     covering both would be the one field in this file capable of lying, and it
     would lie in the direction of claiming more.
+
+    **`containment` is what makes this a v2 record** (SPEC_CONTAIN_V0
+    ruling 4). Passing it does two things at once and both are deliberate: the
+    schema version moves, so a v1 reader stops rather than misreads, and
+    `limits` moves with it, so the record does not carry `LIMITS_V1`'s fourth
+    row — *"run.worker is not contained … it always says trusted_local"* —
+    inside the artifact certifying containment.
+
+    `established` is present only when this lap actually stood a containment
+    up (ruling 4a). Three of this function's four callers never start a
+    holder, and a record claiming addresses that were never admitted would be
+    a run claiming a containment it did not have.
     """
-    payload = {
-        "schema_version": SCHEMA_VERSION,
-        **engine.identity(),
-        "gates": gate_ids,
-        # The worker is a command too, and it is NOT contained: the published
-        # image ships no coding agent, so an agent worker cannot run inside it
-        # (the Dockerfile says so in its own comment). Recorded on every run
-        # rather than only on loops, because absence would be read as "no
-        # worker was involved" when it means "this file did not say".
-        "worker_execution": TRUSTED_LOCAL if worker else None,
-        "limits": list(LIMITS),
-    }
+    if containment is None:
+        payload = {
+            "schema_version": SCHEMA_VERSION,
+            **engine.identity(),
+            "gates": gate_ids,
+            # The worker is a command too, and it is NOT contained: the
+            # published image ships no coding agent, so an agent worker cannot
+            # run inside it (the Dockerfile says so in its own comment).
+            # Recorded on every run rather than only on loops, because absence
+            # would be read as "no worker was involved" when it means "this
+            # file did not say".
+            "worker_execution": TRUSTED_LOCAL if worker else None,
+            "limits": list(LIMITS_V1),
+        }
+    else:
+        recorded: dict[str, Any] = {
+            "declared": _containment.declared_record(containment)
+        }
+        if established is not None:
+            recorded["established"] = established.as_json()
+        payload = {
+            "schema_version": SCHEMA_VERSION_V2,
+            **engine.identity(),
+            "gates": gate_ids,
+            "worker_execution": recorded,
+            "limits": list(LIMITS_V2),
+        }
     path = directory / evidence.EXECUTION_FILENAME
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return path
@@ -390,7 +430,19 @@ def write(
 # execution record is exactly the artifact a reader will inflate into a
 # security claim, and the container row is the one that would be inflated
 # furthest.
-LIMITS = (
+#
+# **V1 AND V2 ARE SEPARATE TUPLES, AND THE SPLIT IS NOT TIDINESS.** The fourth
+# row below states "run.worker is not contained … worker_execution says so
+# separately, and it always says trusted_local". That sentence is true of
+# every v1 record and FALSE inside a v2 one — so a single shared tuple would
+# ship a denial of the claim inside the artifact that certifies it, in the one
+# field this repository invented so a record could state what it does not
+# claim. Editing it in place was the other exit and it breaks v1's
+# byte-identity, which is the compatibility promise ruling 4 makes. So:
+# `LIMITS_V1` keeps the shipped bytes, forever, and `LIMITS_V2` says what a
+# containment record does not claim. Found by the independent review of
+# SPEC_CONTAIN_V0, which called it the most dangerous thing in the first draft.
+LIMITS_V1 = (
     "trusted_local means the gate ran on this machine with the invoking "
     "user's privileges and the whole environment inherited. It is not a "
     "sandbox and Wringer has never claimed it is one.",
@@ -407,6 +459,19 @@ LIMITS = (
     "so an agent worker cannot run inside it — worker_execution says so "
     "separately, and it always says trusted_local.",
 )
+
+# Kept so that anything still importing the old name gets v1's bytes, which is
+# what it always got. Not a shim to be removed later: v1 is frozen, so this
+# name means exactly one thing forever.
+LIMITS = LIMITS_V1
+
+# v1's first three rows, plus what a CONTAINED worker record cannot say. Row
+# four of `LIMITS_V1` is deliberately absent — it is the row that would deny
+# this record's own claim, and dropping it is the whole reason the tuples
+# split. Everything the containment mechanism does not claim comes from
+# `containment.LIMITS`, which lives beside the code that would have to change
+# for any of it to stop being true.
+LIMITS_V2 = LIMITS_V1[:3] + _containment.LIMITS
 
 
 def host_user() -> str:

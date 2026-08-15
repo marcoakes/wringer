@@ -143,6 +143,13 @@ _RUN_KEYS = {
     # wrote. `.wringer.yaml` is committed and reviewed like code, and what
     # counts as *proven* for a repository belongs there.
     "prove", "prove_setup",
+    # SPEC_CONTAIN_V0 ruling 1. Worker containment lives HERE and never under
+    # `execution:`, and that is not a naming preference: `vacuity.prove`
+    # returns INCONCLUSIVE unconditionally when `execution.backend` is
+    # `container` (vacuity.py:161-187), so containment expressed through that
+    # key would make every witness in Phase 3's committed pass `inconclusive`
+    # and the money would measure nothing. This key is what W9 ruled.
+    "containment",
     # There is deliberately NO ceiling key here (ruling 3). Every answer to
     # "what happens when you hit it" is worse than the cost: skipping
     # re-introduces the vacuity the feature exists to catch, refusing is a
@@ -163,6 +170,19 @@ _FLEET_KEYS = {
 }
 _CHILD_KEYS = {"max_iterations", "worker_timeout", "wall_clock"}
 _ACP_KEYS = {"command", "args", "env_passthrough"}
+
+# SPEC_CONTAIN_V0 §3. Closed, like every other section here: a typo in a
+# containment declaration must not silently change what "contained" means.
+_CONTAINMENT_KEYS = {"runtime", "image", "requires", "env", "user", "egress"}
+_EGRESS_KEYS = {"policy", "hosts", "ports", "broker_image"}
+# Two values, and a third is a spec change rather than a config addition.
+# There is no `all` and no way to spell "unrestricted": a worker that wants
+# the open network declares no containment and the record says `trusted_local`
+# out loud. Flags tighten and never loosen, and so do sections.
+EGRESS_NONE = "none"
+EGRESS_ALLOWLIST = "allowlist"
+_EGRESS_POLICIES = (EGRESS_NONE, EGRESS_ALLOWLIST)
+DEFAULT_EGRESS_PORTS = (443,)
 
 _JUDGE_KEYS = {
     "endpoint",
@@ -289,6 +309,67 @@ class Gate:
 
 
 @dataclass(frozen=True)
+class Egress:
+    """`run.containment.egress` — what the contained worker may reach.
+
+    A closed vocabulary, and each value names the mechanism that enforces it
+    (SPEC_CONTAIN_V0 ruling 5):
+
+    - `none` gets `--network none`, which the runtime enforces and which
+      `docs/MANUAL_CHECKS.md` sequence G measured prevented on three runtimes,
+      DNS *and* a raw IP.
+    - `allowlist` gets a netns holder: a separate container that owns the
+      network namespace, holds `NET_ADMIN`, and arms an address allowlist the
+      worker — which joins that namespace **without** `NET_ADMIN` — cannot
+      disarm. The boundary is deliberately not inside the thing it bounds.
+
+    `ports` exists because a self-hosted or proxied model endpoint on another
+    port would otherwise fail closed with no named reason, which is the
+    opposite of what the refusals are for.
+    """
+
+    policy: str
+    hosts: tuple[str, ...] = ()
+    ports: tuple[int, ...] = DEFAULT_EGRESS_PORTS
+    broker_image: str | None = None
+
+
+@dataclass(frozen=True)
+class Containment:
+    """`run.containment` — WHERE THE WORKER RUNS (SPEC_CONTAIN_V0).
+
+    `execution:` answers where GATES run and says at full volume that it
+    contains gates and not the worker (SPEC_EXEC_V0 §5). This is the other
+    half, and it is a separate key by ruling rather than by taste — W9.
+
+    `image` has **no default and never will**, the `judge.endpoint` rule.
+    Wringer ships no coding agent, from any vendor, deliberately: the
+    published image's own Dockerfile says so, and that comment is the reason
+    SPEC_EXEC_V0 gave for leaving the worker uncontained in the first place.
+    So the repository names an image carrying the agent it chose, `requires:`
+    is how it states what that image must hold, and `containment.preflight`
+    is how Wringer checks rather than assumes.
+
+    **Declaring is not establishing.** A declaration that cannot be honoured
+    refuses and never degrades to `trusted_local` — that refusal is what
+    converts this config section into evidence, because a record stating
+    repository policy is worth reading only if a repository unable to honour
+    its policy produces no bundle at all.
+    """
+
+    runtime: str
+    image: str
+    egress: Egress
+    requires: tuple[str, ...] = ()
+    # NAMES of variables the worker may see, never values — the rule
+    # `execution.env` and `run.worker.acp.env_passthrough` both follow. An
+    # argv is readable by anyone who can run `ps`, so the value is read from
+    # Wringer's own environment and never written into a command line.
+    env: tuple[str, ...] = ()
+    user: str | None = None
+
+
+@dataclass(frozen=True)
 class Run:
     """The `run:` section — what `wring run` drives (SPEC_RUN_V0.md).
 
@@ -320,6 +401,11 @@ class Run:
     # gitignored fails every pre-change gate on a missing environment, and
     # §1's comparison table reads that as PROOF. See vacuity.py's docstring.
     prove_setup: str | None = None
+    # SPEC_CONTAIN_V0. None is every repository that shipped, and absence is
+    # the contract rather than a default chosen here: a repo that declares
+    # nothing gets exactly today's behaviour, byte for byte, and its bundle
+    # still says `trusted_local` out loud.
+    containment: Containment | None = None
 
 
 @dataclass(frozen=True)
@@ -653,7 +739,7 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
         version=version,
         gates=gates,
         evidence=evidence,
-        run=_parse_run(raw.get("run"), source),
+        run=_parse_run(raw.get("run"), source, fleet_raw=raw.get("fleet")),
         judge=_parse_judge(raw.get("judge"), source),
         fleet=_parse_fleet(raw.get("fleet"), source),
         forge=_parse_forge(raw.get("forge"), source),
@@ -1355,7 +1441,7 @@ def _validate_endpoint(endpoint: str, source: str, key: str = "judge.endpoint") 
         )
 
 
-def _parse_run(raw: Any, source: str) -> Run | None:
+def _parse_run(raw: Any, source: str, fleet_raw: Any = None) -> Run | None:
     """The `run:` section, or None when the repo has not opted into the loop."""
     if raw is None:
         return None
@@ -1367,9 +1453,33 @@ def _parse_run(raw: Any, source: str) -> Run | None:
         raise ConfigError(f"{source}: unknown keys under 'run': {', '.join(unknown)}")
 
     worker = _parse_worker(raw.get("worker"), source)
+    containment = _parse_containment(raw.get("containment"), worker, source)
+
+    # **Refusal 8, config half.** The same collision `execution.backend:
+    # container` already refuses one section over, arriving through the other
+    # key: a detached worktree's `.git` is a FILE pointing into the main
+    # repository's `.git/worktrees/`, and a container mounts one directory, so
+    # a worktree mounted alone is a broken repository for a worker exactly as
+    # it is for a gate. Refused where the two keys meet, so no turn has to
+    # fail to discover it.
+    #
+    # The runtime half is in `bench.py`: `_for_contender` carries `run:`
+    # through to every contender and every contender runs in a detached
+    # worktree, so a refusal keyed on `fleet.worktree` alone is blind to it.
+    if containment is not None and (
+        isinstance(fleet_raw, dict) and fleet_raw.get("worktree") is True
+    ):
+        raise ConfigError(
+            f"{source}: 'fleet.worktree: true' cannot be combined with "
+            "'run.containment'. A worktree's .git is a file pointing into the "
+            "main repository, and the container mounts one directory — the "
+            "worker would open a broken repository rather than your code. "
+            "Pick one"
+        )
 
     return Run(
         worker=worker,
+        containment=containment,
         max_iterations=_positive_int(
             raw, "max_iterations", DEFAULT_MAX_ITERATIONS, source
         ),
@@ -1383,6 +1493,225 @@ def _parse_run(raw: Any, source: str) -> Run | None:
         ),
         prove=_bool(raw, "prove", False, source, section="run"),
         prove_setup=_optional_command(raw, "prove_setup", source, section="run"),
+    )
+
+
+def _parse_containment(
+    raw: Any, worker: Any, source: str
+) -> Containment | None:
+    """`run.containment`, or None when the repo has not opted in.
+
+    Every refusal here is STATIC in SPEC_CONTAIN_V0 ruling 3's sense: it costs
+    no process and no packet, so `wring verify` performs it too and a broken
+    declaration is found in CI rather than an hour into a corpus pass. The
+    refusals that need a running container live in `containment.py`.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: 'run.containment' must be a mapping")
+    unknown = sorted(set(raw) - _CONTAINMENT_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under 'run.containment': "
+            f"{', '.join(unknown)}"
+        )
+
+    # **Refusal 10.** `run.worker` has two forms and only one of them goes
+    # through a command Wringer spawns into a container. An ACP worker is a
+    # stdio JSON-RPC session `acp.run_turn` starts itself, with its own
+    # environment allowlist and no backend anywhere in the path — so a
+    # containment declaration beside one would leave the agent running
+    # uncontained under a config claiming containment, which is the exact
+    # defect this whole section exists to refuse. Carrying that session across
+    # a container boundary is a real design and it is not v0's.
+    if isinstance(worker, AcpWorker):
+        raise ConfigError(
+            f"{source}: 'run.containment' cannot be declared beside an ACP "
+            "worker ('run.worker.acp'). An ACP worker is a stdio session "
+            "Wringer holds open with the agent process, not a command it "
+            "spawns into a container, so nothing here would contain it — and "
+            "a config that reads as contained while the agent runs on this "
+            "machine is worse than one that says trusted_local. Use a shell "
+            "worker under containment, or drop 'run.containment'"
+        )
+
+    runtime = raw.get("runtime", "docker")
+    if not isinstance(runtime, str) or runtime not in _KNOWN_RUNTIMES:
+        extra = ""
+        if runtime == "container":
+            extra = (
+                " — Apple's 'container' is deliberately not among them, for "
+                "the reason SPEC_EXEC_V0 ruling 4 gives: its flags have not "
+                "been verified against the command line Wringer builds"
+            )
+        raise ConfigError(
+            f"{source}: 'run.containment.runtime' must be one of "
+            f"{', '.join(sorted(_KNOWN_RUNTIMES))} (got {runtime!r}){extra}"
+        )
+
+    image = raw.get("image")
+    if not isinstance(image, str) or not image.strip():
+        raise ConfigError(
+            f"{source}: 'run.containment' requires 'image' — there is no "
+            "default and there will not be one, the same rule "
+            "'judge.endpoint' and 'execution.image' follow. Wringer ships no "
+            "coding agent from any vendor, so the image that runs your worker "
+            "is one you name and one that carries it"
+        )
+    if image.strip().startswith("-"):
+        raise ConfigError(
+            f"{source}: 'run.containment.image' may not begin with '-' — it "
+            "reaches the runtime positionally and would be read as a flag"
+        )
+
+    requires = raw.get("requires", [])
+    if not isinstance(requires, list) or not all(
+        isinstance(name, str) and name.strip() for name in requires
+    ):
+        raise ConfigError(
+            f"{source}: 'run.containment.requires' must be a list of binary "
+            "NAMES the image must carry — the worker's own command is the "
+            "one that matters, and Wringer refuses rather than discovering it "
+            "missing on the first turn"
+        )
+
+    env = raw.get("env", [])
+    if not isinstance(env, list) or not all(
+        isinstance(name, str) and name.strip() for name in env
+    ):
+        raise ConfigError(
+            f"{source}: 'run.containment.env' must be a list of "
+            "environment-variable NAMES (values are read from the environment "
+            "at spawn time, never written here and never into an argv)"
+        )
+
+    user = raw.get("user")
+    if user is not None:
+        if not isinstance(user, str) or not _USER_PATTERN.fullmatch(user):
+            raise ConfigError(
+                f"{source}: 'run.containment.user' must be 'uid' or "
+                f"'uid:gid', digits only (got {user!r}) — it reaches the "
+                "runtime as a positional argument, so anything else could be "
+                "read as a flag"
+            )
+
+    return Containment(
+        runtime=runtime,
+        image=image.strip(),
+        egress=_parse_egress(raw.get("egress"), source),
+        requires=tuple(requires),
+        env=tuple(env),
+        user=user,
+    )
+
+
+def _parse_egress(raw: Any, source: str) -> Egress:
+    """`run.containment.egress`. Required: there is no default policy.
+
+    A default would have to be one of "open" or "closed", and both are wrong
+    to choose on somebody's behalf — open makes containment a word rather
+    than a boundary, closed silently breaks every worker that needs a model
+    API. So the repository says which.
+    """
+    if raw is None:
+        raise ConfigError(
+            f"{source}: 'run.containment' requires an 'egress' section with a "
+            f"'policy' of {' or '.join(_EGRESS_POLICIES)}. There is no "
+            "default: 'none' would silently break a worker that needs a model "
+            "API, and anything opener would make 'contained' a word rather "
+            "than a boundary"
+        )
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            f"{source}: 'run.containment.egress' must be a mapping"
+        )
+    unknown = sorted(set(raw) - _EGRESS_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under 'run.containment.egress': "
+            f"{', '.join(unknown)}"
+        )
+
+    policy = raw.get("policy")
+    if policy not in _EGRESS_POLICIES:
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.policy' must be "
+            f"{' or '.join(_EGRESS_POLICIES)} (got {policy!r}). There is no "
+            "'all' and no way to spell unrestricted — a worker that wants the "
+            "open network declares no containment, and its bundle says "
+            "trusted_local out loud"
+        )
+
+    hosts = raw.get("hosts", [])
+    if not isinstance(hosts, list) or not all(
+        isinstance(name, str) and name.strip() for name in hosts
+    ):
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.hosts' must be a list of "
+            "hostnames"
+        )
+
+    ports_raw = raw.get("ports", list(DEFAULT_EGRESS_PORTS))
+    if not isinstance(ports_raw, list) or not ports_raw or not all(
+        isinstance(port, int) and not isinstance(port, bool) and 0 < port < 65536
+        for port in ports_raw
+    ):
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.ports' must be a non-empty "
+            "list of port numbers"
+        )
+
+    broker_image = raw.get("broker_image")
+    if broker_image is not None and (
+        not isinstance(broker_image, str) or not broker_image.strip()
+    ):
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.broker_image' must be an "
+            "image name"
+        )
+
+    if policy == EGRESS_NONE:
+        # **Refusal 11.** These keys are KNOWN, so the closed key set above
+        # lets them through — and a declaration reading "these hosts are
+        # reachable" beside `--network none` is exactly the silent
+        # meaning-change closed key sets exist to prevent. Named rather than
+        # ignored, because ignoring it is how a reader comes to believe a
+        # policy the mechanism never had.
+        stated = sorted(set(raw) - {"policy"})
+        if stated:
+            raise ConfigError(
+                f"{source}: 'run.containment.egress.policy: none' cannot "
+                f"carry {', '.join(stated)} — 'none' is '--network none' and "
+                "reaches nothing, so a declaration naming hosts beside it "
+                "reads as a permission that does not exist"
+            )
+        return Egress(policy=EGRESS_NONE)
+
+    # **Refusal 5.** An allowlist is enforced by a netns holder, and the
+    # holder is a container started from an image that carries `iptables`.
+    # Wringer names no image it was not given, here as everywhere.
+    if not hosts:
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.policy: allowlist' needs at "
+            "least one host under 'hosts' — an allowlist of nothing is "
+            "'none' spelled at greater length"
+        )
+    if broker_image is None:
+        raise ConfigError(
+            f"{source}: 'run.containment.egress.policy: allowlist' requires "
+            "'broker_image'. The allowlist is armed inside a separate "
+            "container that owns the network namespace and holds NET_ADMIN — "
+            "the worker joins that namespace without it, which is what stops "
+            "the worker disarming its own boundary — and that container needs "
+            "an image carrying 'iptables'. Wringer has no default image here "
+            "for the same reason it has none anywhere"
+        )
+    return Egress(
+        policy=EGRESS_ALLOWLIST,
+        hosts=tuple(hosts),
+        ports=tuple(ports_raw),
+        broker_image=broker_image.strip(),
     )
 
 
