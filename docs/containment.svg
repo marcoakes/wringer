@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="708" height="792" viewBox="0 0 708 792" font-family="ui-monospace,SFMono-Regular,'SF Mono',Menlo,Consolas,'Liberation Mono',monospace" font-size="13" role="img" aria-label="the worker runs in a box, and the bundle says so">
+  <style>
+    .l { opacity: 0; animation-duration: 6.30s;
+         animation-timing-function: linear; animation-iteration-count: infinite; }
+    @media (prefers-reduced-motion: reduce) {
+      .l { animation: none; opacity: 1; }
+    }
+  </style>
+  <rect width="100%" height="100%" rx="10" fill="#11141a"/>
+  <circle cx="24" cy="20" r="5.5" fill="#ff5f57"/>
+  <circle cx="43" cy="20" r="5.5" fill="#febc2e"/>
+  <circle cx="62" cy="20" r="5.5" fill="#28c840"/>
+  <text x="354" y="24" fill="#7d8590" font-size="11" text-anchor="middle">the worker runs in a box, and the bundle says so</text>
+  <g>
+        <text class="l l0" x="18" y="54" xml:space="preserve" fill="#56b6c2">$ wring run</text>
+    <text class="l l1" x="18" y="74" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l2" x="18" y="94" xml:space="preserve" fill="#7d8590">iteration 1/3</text>
+    <text class="l l3" x="18" y="114" xml:space="preserve" fill="#f85149">✗ feature failed     0.0s</text>
+    <text class="l l4" x="18" y="134" xml:space="preserve" fill="#7d8590">→ worker             0.2s  (exit 0)</text>
+    <text class="l l5" x="18" y="154" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l6" x="18" y="174" xml:space="preserve" fill="#7d8590">iteration 2/3</text>
+    <text class="l l7" x="18" y="194" xml:space="preserve" fill="#3fb950">✓ feature passed     0.0s</text>
+    <text class="l l8" x="18" y="214" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l9" x="18" y="234" xml:space="preserve" fill="#d7dae0">Converged in 2 iterations.</text>
+    <text class="l l10" x="18" y="254" xml:space="preserve" fill="#d7dae0">Loop evidence: .wringer/loops/20260815-142639-f00f/</text>
+    <text class="l l11" x="18" y="274" xml:space="preserve" fill="#d7dae0">&#160;</text>
+    <text class="l l12" x="18" y="294" xml:space="preserve" fill="#56b6c2">$ head -23 .wringer/runs/20260815-142640-5822/execution.json</text>
+    <text class="l l13" x="18" y="314" xml:space="preserve" fill="#d7dae0">{</text>
+    <text class="l l14" x="18" y="334" xml:space="preserve" fill="#d7dae0">  &quot;schema_version&quot;: &quot;wringer.execution.v2&quot;,</text>
+    <text class="l l15" x="18" y="354" xml:space="preserve" fill="#d7dae0">  &quot;backend&quot;: &quot;local&quot;,</text>
+    <text class="l l16" x="18" y="374" xml:space="preserve" fill="#d7dae0">  &quot;execution_mode&quot;: &quot;trusted_local&quot;,</text>
+    <text class="l l17" x="18" y="394" xml:space="preserve" fill="#d7dae0">  &quot;gates&quot;: [</text>
+    <text class="l l18" x="18" y="414" xml:space="preserve" fill="#d7dae0">    &quot;feature&quot;</text>
+    <text class="l l19" x="18" y="434" xml:space="preserve" fill="#d7dae0">  ],</text>
+    <text class="l l20" x="18" y="454" xml:space="preserve" fill="#d7dae0">  &quot;worker_execution&quot;: {</text>
+    <text class="l l21" x="18" y="474" xml:space="preserve" fill="#d7dae0">    &quot;declared&quot;: {</text>
+    <text class="l l22" x="18" y="494" xml:space="preserve" fill="#d7dae0">      &quot;mode&quot;: &quot;contained&quot;,</text>
+    <text class="l l23" x="18" y="514" xml:space="preserve" fill="#d7dae0">      &quot;runtime&quot;: &quot;podman&quot;,</text>
+    <text class="l l24" x="18" y="534" xml:space="preserve" fill="#d7dae0">      &quot;image&quot;: &quot;localhost/wringer-canary-worker:probe&quot;,</text>
+    <text class="l l25" x="18" y="554" xml:space="preserve" fill="#d7dae0">      &quot;env_allowlist&quot;: [],</text>
+    <text class="l l26" x="18" y="574" xml:space="preserve" fill="#d7dae0">      &quot;user&quot;: null,</text>
+    <text class="l l27" x="18" y="594" xml:space="preserve" fill="#d7dae0">      &quot;egress&quot;: {</text>
+    <text class="l l28" x="18" y="614" xml:space="preserve" fill="#d7dae0">        &quot;policy&quot;: &quot;none&quot;</text>
+    <text class="l l29" x="18" y="634" xml:space="preserve" fill="#d7dae0">      }</text>
+    <text class="l l30" x="18" y="654" xml:space="preserve" fill="#d7dae0">    },</text>
+    <text class="l l31" x="18" y="674" xml:space="preserve" fill="#d7dae0">    &quot;established&quot;: {</text>
+    <text class="l l32" x="18" y="694" xml:space="preserve" fill="#d7dae0">      &quot;runtime_path&quot;: &quot;/Users/marc/.local/bin/podman&quot;,</text>
+    <text class="l l33" x="18" y="714" xml:space="preserve" fill="#d7dae0">      &quot;mount&quot;: &quot;/workspace&quot;</text>
+    <text class="l l34" x="18" y="734" xml:space="preserve" fill="#d7dae0">    }</text>
+    <text class="l l35" x="18" y="754" xml:space="preserve" fill="#d7dae0">  },</text>
+  </g>
+  <style>@keyframes k0{0%,0.00%{opacity:0}0.40%,95%{opacity:1}100%{opacity:0}}.l0{animation-name:k0}@keyframes k1{0%,19.05%{opacity:0}19.45%,95%{opacity:1}100%{opacity:0}}.l1{animation-name:k1}@keyframes k2{0%,19.05%{opacity:0}19.45%,95%{opacity:1}100%{opacity:0}}.l2{animation-name:k2}@keyframes k3{0%,20.63%{opacity:0}21.03%,95%{opacity:1}100%{opacity:0}}.l3{animation-name:k3}@keyframes k4{0%,25.40%{opacity:0}25.80%,95%{opacity:1}100%{opacity:0}}.l4{animation-name:k4}@keyframes k5{0%,25.40%{opacity:0}25.80%,95%{opacity:1}100%{opacity:0}}.l5{animation-name:k5}@keyframes k6{0%,25.40%{opacity:0}25.80%,95%{opacity:1}100%{opacity:0}}.l6{animation-name:k6}@keyframes k7{0%,26.98%{opacity:0}27.38%,95%{opacity:1}100%{opacity:0}}.l7{animation-name:k7}@keyframes k8{0%,26.98%{opacity:0}27.38%,95%{opacity:1}100%{opacity:0}}.l8{animation-name:k8}@keyframes k9{0%,26.98%{opacity:0}27.38%,95%{opacity:1}100%{opacity:0}}.l9{animation-name:k9}@keyframes k10{0%,26.98%{opacity:0}27.38%,95%{opacity:1}100%{opacity:0}}.l10{animation-name:k10}@keyframes k11{0%,49.21%{opacity:0}49.61%,95%{opacity:1}100%{opacity:0}}.l11{animation-name:k11}@keyframes k12{0%,50.79%{opacity:0}51.19%,95%{opacity:1}100%{opacity:0}}.l12{animation-name:k12}@keyframes k13{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l13{animation-name:k13}@keyframes k14{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l14{animation-name:k14}@keyframes k15{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l15{animation-name:k15}@keyframes k16{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l16{animation-name:k16}@keyframes k17{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l17{animation-name:k17}@keyframes k18{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l18{animation-name:k18}@keyframes k19{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l19{animation-name:k19}@keyframes k20{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l20{animation-name:k20}@keyframes k21{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l21{animation-name:k21}@keyframes k22{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l22{animation-name:k22}@keyframes k23{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l23{animation-name:k23}@keyframes k24{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l24{animation-name:k24}@keyframes k25{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l25{animation-name:k25}@keyframes k26{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l26{animation-name:k26}@keyframes k27{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l27{animation-name:k27}@keyframes k28{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l28{animation-name:k28}@keyframes k29{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l29{animation-name:k29}@keyframes k30{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l30{animation-name:k30}@keyframes k31{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l31{animation-name:k31}@keyframes k32{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l32{animation-name:k32}@keyframes k33{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l33{animation-name:k33}@keyframes k34{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l34{animation-name:k34}@keyframes k35{0%,60.32%{opacity:0}60.72%,95%{opacity:1}100%{opacity:0}}.l35{animation-name:k35}</style>
+</svg>

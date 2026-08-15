@@ -44,10 +44,11 @@ want() {
 }
 case "$ONLY" in
     "" | demo | start | vacuous | graph | bench | health | gategen | fleetscale \
-    | firstcontact) ;;
+    | contained | firstcontact) ;;
     *)
         echo "FATAL: no recording called '$ONLY'. One of: demo start" >&2
-        echo "  vacuous graph bench health gategen fleetscale firstcontact" >&2
+        echo "  vacuous graph bench health gategen fleetscale contained" >&2
+        echo "  firstcontact" >&2
         echo "  — or omit it" >&2
         echo "  for all." >&2
         exit 2
@@ -1233,4 +1234,66 @@ git remote set-head origin -a
 "$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/first-contact.cast.json" \
     "$ROOT/docs/first-contact.svg" "a PRD in, a real agent, evidence out"
 fi
+fi
+
+# --- DEMO C — the WORKER in a container, and the bundle that says so --------
+#
+# SPEC_EXEC_V0 §5 recorded this gap at full volume and left it open: the
+# container backend contains GATES, and `run.worker` runs on the host, always.
+# SPEC_CONTAIN_V0 is that gap closed, and this is it on camera.
+#
+# `egress.policy: none` and a shell worker, so there is no agent, no
+# credential and no network: the recording costs $0 and anyone with a
+# container runtime can regenerate it. The allowlist path is measured by
+# `scripts/sequence-i.sh` rather than filmed, because a TCP connect is not
+# something a terminal recording can show honestly.
+#
+# It REFUSES rather than skipping when no runtime is present, for the reason
+# every sequence in this repository refuses: a recording of a containment that
+# was not established would be the advert.
+if want contained; then
+CONTAINED=$(scratch_dir "${1:-}" contained) || exit 2
+CONTAINED_RUNTIME=${WRINGER_DEMO_RUNTIME:-podman}
+CONTAINED_IMAGE=${WRINGER_DEMO_IMAGE:-localhost/wringer-canary-worker:probe}
+
+if ! command -v "$CONTAINED_RUNTIME" >/dev/null 2>&1; then
+    echo "demo C: no '$CONTAINED_RUNTIME' on PATH — refusing rather than" >&2
+    echo "filming a containment that was never established." >&2
+    exit 2
+fi
+
+rm -rf "$CONTAINED"
+mkdir -p "$CONTAINED"
+cd "$CONTAINED" || exit 2
+
+git init -q -b main .
+git config user.name "wringer demo"
+git config user.email "demo@example.invalid"
+git config commit.gpgsign false
+
+# A gate that is RED until the worker builds the thing, so the loop actually
+# hands the worker a turn. A green tree converges at iteration 1 having
+# contained nothing, which would film a claim rather than a mechanism.
+cat > .wringer.yaml <<EOF
+version: 1
+gates:
+  - id: feature
+    run: test -f feature.txt
+run:
+  worker: sh -c 'echo built > /workspace/feature.txt'
+  max_iterations: 3
+  containment:
+    runtime: $CONTAINED_RUNTIME
+    image: $CONTAINED_IMAGE
+    egress:
+      policy: none
+EOF
+
+git add -A
+git commit -qm "a gate that is red until the worker builds it"
+
+"$PY" "$ROOT/scripts/demo_record.py" "$CONTAINED" \
+    "$ROOT/docs/containment.cast.json" "$WRING" contained
+"$PY" "$ROOT/scripts/demo_render.py" "$ROOT/docs/containment.cast.json" \
+    "$ROOT/docs/containment.svg" "the worker runs in a box, and the bundle says so"
 fi

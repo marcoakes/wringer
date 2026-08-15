@@ -127,6 +127,49 @@ def _deliver_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     return _argv_step(wring, "deliver")
 
 
+def _contained_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """DEMO C — the worker runs in a container, and the bundle says so.
+
+    SPEC_EXEC_V0 §5 recorded a gap at full volume and left it open: the
+    container backend contains GATES, and `run.worker` runs on the host,
+    always. This is that gap closed. The worker here is a shell script, so the
+    recording needs no agent, no credential and no network, and it costs $0.
+    """
+    return _argv_step(wring, "run")
+
+
+def _contained_record_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
+    """The record, which is the half a converged run does not show.
+
+    `wring run` printing "converged" looks the same whether the worker ran in
+    a box or on your laptop — which is exactly why `execution.json` exists and
+    why it is written on every run. `worker_execution.declared` is the
+    repository's policy and `established` is what THIS lap actually stood up;
+    a lap that stood up nothing has no `established` block at all, because
+    absence is the honest reading and a placeholder would be the record
+    claiming a containment that did not happen.
+    """
+    newest = _newest(
+        scratch / ".wringer" / "runs",
+        "no run directory — `wring run` wrote none, so there is no record to "
+        "show, and a demo of containment with no record is the advert",
+    )
+    # `head -23` and not `cat`, because the `limits` array below line 23 is
+    # six sentences of prose and each is one JSON line far wider than the
+    # renderer's 80-column canvas — `test_every_line_of_every_committed_cast_
+    # fits_the_renderers_canvas` catches it, correctly, since a clipped SVG
+    # would show a record that says less than the file does. The limits are
+    # not being hidden: they are quoted in full in
+    # `docs/containment-2026-08-15.md`, and the point of THIS frame is the
+    # `worker_execution` block, which is exactly what the first 23 lines are.
+    #
+    # Displayed and executed as ONE string, `_listing_step`'s rule: the cast
+    # showing one command while another ran is the law-8 failure this project
+    # keeps finding in itself, and `tests/test_docs.py` pins it.
+    shown = f"head -23 .wringer/runs/{newest}/execution.json"
+    return shown, ["sh", "-c", shown]
+
+
 def _bench_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """Two workers, one job, one comparison — and no winner.
 
@@ -655,6 +698,14 @@ STEP_SETS = {
         _run_step,
         _acceptance_step,
         _deliver_send_step,
+    ),
+    # DEMO C — containment on camera, a scripted worker, $0. Two steps
+    # because the arc has two: the loop converges exactly as it always did,
+    # and then the record says where the worker was while it happened. The
+    # second step is the one that could not be filmed before this cycle.
+    "contained": (
+        _contained_step,
+        _contained_record_step,
     ),
     "fleetscale": (
         _plan_step,

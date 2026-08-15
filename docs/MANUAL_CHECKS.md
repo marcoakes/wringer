@@ -26,6 +26,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Apple `container` | Apple silicon, MDM-managed, uid:gid `502:20` | macOS 26.5.2, `Darwin arm64` | Apple `container` 1.2.0 (Homebrew formula, Workbrew 1.7.3 / Homebrew 6.0.15) | 2026-08-05 | `75167c2` | **Passed with corrections applied by hand** — see the note below |
 | Docker stub (R2-02) | Apple silicon, MDM-managed | macOS 26.5.2 | none — `/Applications/Docker.app` present as a stripped stub | 2026-08-05 | `75167c2` | **Observed, not executed as a sequence.** `d--------- 2 root admin 64`, no binary, no socket — seen while diagnosing step 4B. Sequence C below was written afterwards and has never been run as written |
 | Docker Desktop on macOS | — | — | — | **never** | — | **UNCLAIMED — never tested by anyone** |
+| Sequence I — the contained WORKER, attacked | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | **podman 6.1.0** rootless, `applehv`, no admin; worker `python:3-slim`+`iptables`, broker `alpine`+`iptables` | 2026-08-15 | this commit | **RAN AND CLASSIFIED — 8 probes, and for the first time in this repository a `--privileged` CONTROL RUN beside them: 6 of the 8 flip with the boundary removed.** Host credential (file and env) unreachable; corpus mirror unreachable; github unreachable by name AND by raw address; the worker cannot disarm its own allowlist; the model API stays reachable. **2 probes measured nothing and say so** — I6's control cannot distinguish it, and I7/I8 have no tools in the `trusted_local` arm. Same macOS caveat as sequence G: a Linux VM is in the path, so this is NOT evidence about the Linux case. Capture: [containment-2026-08-15.md](containment-2026-08-15.md) |
 | Sequence G — the container path, attacked | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | **podman 6.1.0**, `applehv` provider, vfkit 0.6.4 + gvproxy 0.8.9, all in `~/.local` with no admin | 2026-08-13 | `c6fce0c`+ | **RAN AND CLASSIFIED — 7 attacks, 6 prevented / 1 mitigated, and the first run found 2 of the 7 measuring nothing at all.** Read the caveat: on macOS a Linux VM sits between container and host, so this is NOT evidence about the Linux case |
 | Sequence G — **on LINUX, shared kernel** | the Fedora CoreOS guest of that same podman machine | Fedora CoreOS 44.20260720.3.1 | podman 6.1.0 rootless, native | 2026-08-13 | `9065310` | **RAN AND CLASSIFIED — same 7 attacks, same 6 prevented / 1 mitigated, on a host whose kernel the container SHARES.** The host had real key material at `/home/core/.ssh/authorized_keys.d/ignition` and the container saw none of it |
 | Sequence G — **DOCKER on Linux, READ AT LAST** | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled), image `python:3-slim` | 2026-08-14 | `fe21b6e` | **RAN AND CLASSIFIED — 6 prevented, 1 out_of_scope.** Readable without a token because the job now emits each attack as a public `::notice::` annotation. `--network none` holds on Docker (DNS blocked AND `OSError: [Errno 101] Network is unreachable` on a raw IP); no docker socket; 3 pids. **`/etc/shadow` WAS readable** — see below |
@@ -556,6 +557,80 @@ isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.
+
+## Sequence I — the contained WORKER, attacked
+
+**Status: RUN AND CLASSIFIED, 2026-08-15, on macOS via podman — with a
+`--privileged` control run, which this repository had never done.**
+
+Sequence G attacks the gate backend. This attacks the half SPEC_EXEC_V0 §5
+recorded and left open: *"`run.worker` runs on the host. Always."*
+SPEC_CONTAIN_V0 closes it, and this is what closing it is worth.
+
+```
+sh scripts/sequence-i.sh <runtime> <worker-image> <broker-image> [arm]
+```
+
+`arm` is `contained` (default), `privileged`, or `local`. **The two control
+arms exist because their attacks are expected to SUCCEED** — if they do not,
+the canaries prove nothing, and that is a finding to chase rather than a pass.
+
+**It inherits three of Sequence G's lessons and the third is the one that
+matters.** It drives every probe through the real mechanism — the probe script
+*is* `run.worker`, so what is measured is the argv Wringer ships. It refuses
+rather than skips with no runtime. **And it refuses when a probe's own tool is
+absent from the declared image**, because G's own section titled *"the finding
+that matters more than the table"* records two of its seven attacks measuring
+nothing while the run reported seven attacks. Under SPEC_CONTAIN the image is
+the REPOSITORY's, so that failure is strictly more likely here — and the
+control arm does not rescue it, because a missing binary fails identically in
+both arms and reads as "no difference" rather than as a broken probe.
+
+**The first run of this script committed that failure anyway**, and it is
+recorded in the capture rather than quietly fixed: I7 reported
+`BLOCKED  FileNotFoundError: iptables` — a probe that could not execute,
+counted as a boundary holding — and I8 reported a credential leak that was the
+probe matching its own argv. Both are corrected; the correction is why the
+table below is worth reading.
+
+### What it found — macOS / podman 6.1.0
+
+The table, the two controls beside it, and the two rows that measured nothing
+are in [containment-2026-08-15.md](containment-2026-08-15.md). Summarised:
+six probes hold under containment and flip under `--privileged`; the model API
+stays reachable, which is what distinguishes a broker from `--network none`.
+
+**Verdict on `SECURITY.md`: the wording still does NOT change.** The reasons
+are Sequence G's, unchanged and now joined by one more:
+
+- Eight scripted probes are not an escape suite. No kernel exploit, no
+  capability abuse, no cgroup or `/proc/sys` write, no escape attempt.
+- One platform, one runtime, one image — and macOS, where a Linux VM is in the
+  path. The Linux arm is unrun and docker is unrun.
+- **The egress allowlist is an ADDRESS allowlist**, so anything co-tenanted at
+  those addresses is reachable and no probe here can see it. That limit travels
+  in the bundle's own `limits` array.
+
+**What would earn a stronger word**, stated so the next window does not
+re-derive it: the same eight inside the podman machine's Linux guest, where the
+kernel is shared — the arm that made Sequence G's Linux row worth more than its
+macOS one — plus docker, plus one probe that attacks the boundary rather than
+reading through it.
+
+### How the broker image got there
+
+Recorded because "the holder needs `iptables`" is a real precondition and
+Wringer refuses without it (refusal 6), so anyone reproducing this needs the
+recipe. Two lines, no admin:
+
+```
+FROM docker.io/library/alpine:latest
+RUN apk add --no-cache iptables
+```
+
+The worker image for the canary is `python:3-slim` plus `iptables` — python3
+for the probes, and `iptables` so that I7 can actually **attempt** a disarm.
+An image without it makes I7 measure nothing, which is the whole point above.
 
 ## Sequence H — `wring attest --sign` against live Sigstore
 
