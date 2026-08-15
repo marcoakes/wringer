@@ -272,6 +272,29 @@ increasingly the agent itself. `--prove` tightens for one run; there is no
 [`docs/prove-the-gates-can-fail.md`](docs/prove-the-gates-can-fail.md).
 Contract: **[SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md)**.
 
+**Wringer delivers only on evidence that could have failed.** For net-new
+work, a generated gate is red because the feature does not exist yet. For bug
+fixes, Wringer authors a reproduction witness from the criterion and proves it
+red on the pre-change tree before the work begins. Where no red witness can be
+established, Wringer does not guess: the criterion exits `unevidenced` and a
+human decides.
+
+And the ceiling on that claim, which no artifact here may exceed: **a witness
+proves the stated criterion could fail and was made to pass; it does not
+certify agreement with an unstated intended fix, and where the criterion
+under-describes the intent, the witness inherits that gap.**
+
+*Status, 2026-08-15 — said here rather than left to be discovered. The
+net-new half ships: it is `--prove`, the generated gate and the pre-change red
+run, all above. **The bug-fix witness lane is not in this code yet.** It was
+authored and calibrated offline — 12/13 proved red for the right reason, 10/12
+green on upstream's own fix, in
+[`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md)
+— and it is wired into delivery, and re-tested live, in Phase 3. The sentence
+above is the claim this programme committed to publishing and to defending;
+[`docs/witness-programme.md`](docs/witness-programme.md) says exactly what
+takes it back out.*
+
 ## Is your green still worth anything?
 
 `--prove` catches a check that proved nothing *at one moment*. `wring health`
@@ -355,13 +378,23 @@ branch B, and every bundle backing that is byte-identical to when it was
 written.* `wring audit` checks it offline, with no config, by someone who
 trusts nobody involved. Neither calls an LLM and neither opens a socket.
 
-Change one byte in one gate log and `audit` names that file and exits 1. The
-attestation is **unsigned**, by decision, and says so in its own `limits`
-array — delete that sentence and `audit` refuses it, because a green artifact
-stripped of its own caveats reads as a stronger claim than it is. The captured
-transcript, including the tamper detection, is
-[`docs/attest-and-audit.md`](docs/attest-and-audit.md). Contract:
-**[SPEC_PROVENANCE_V0.md](SPEC_PROVENANCE_V0.md)**.
+Change one byte in one gate log and `audit` names that file and exits 1.
+
+**Signing is offered in CI only**, through `wring attest --sign` — keyless
+Sigstore OIDC, so Wringer holds no key and signs nothing itself: it shells out
+to `cosign`/`gh`. A laptop has no ambient identity, so `signature_missing` is
+the ordinary result of a local run and is not a failure — exit 0, a `·` and
+not a `!`. **The signer path has been exercised only against a stub and has
+never run against live Sigstore.** Every attestation carries the unsigned
+sentence in its own `limits` array whether or not a signature exists — delete
+that sentence and `audit` refuses it, because a green artifact stripped of its
+own caveats reads as a stronger claim than it is; when a signature *is*
+present, the console says so and qualifies the half of that sentence the
+signature changed, rather than suppressing the whole. The captured transcript,
+including the tamper detection, is
+[`docs/attest-and-audit.md`](docs/attest-and-audit.md). Contracts:
+**[SPEC_PROVENANCE_V0.md](SPEC_PROVENANCE_V0.md)** and
+**[SPEC_SIGN_V0.md](SPEC_SIGN_V0.md)**.
 
 ## The format is targetable, not just readable
 

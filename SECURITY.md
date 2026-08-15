@@ -204,7 +204,7 @@ thing cannot be done, `detected` means it can be done and will be found.
 | authorise delivery | a human, per invocation | `--send` is typed on the command line; no file may carry it, and a graph file that tries is a named error | **prevented** |
 | write git history | `deliver.py`, and only there | five refusals, each with a test that fails without it: only on `--send`, only onto a branch it created, never the default branch, never a force push, ledger event before each write | **prevented** |
 | **rewrite evidence already on disk** | **a worker can** | nothing stops it — a worker has the filesystem access its own tooling gives it, measured 2026-08-11. `digests.json`, the `prev_hash` ledger chain and `wring audit` make it **findable** | **detected, NOT prevented** |
-| sign an attestation | nobody | attestations are unsigned by ruling; `attestation.json.sig` is reserved and unused | not offered |
+| sign an attestation | a person typing `--sign` in CI; the identity is the runner's ambient OIDC, never a key Wringer holds | `wring attest --sign` shells out to `cosign`/`gh` for keyless Sigstore signing and writes the sibling `attestation.json.sig` (`sign.py`); `can_sign_here` refuses off-CI, where the keyless flow would need an interactive browser login, so `signature_missing` is the ordinary local result and exits 0. **Caveat, in this row on purpose: the signer path has been exercised only against a stub signer and has never run against live Sigstore.** | offered, CI only |
 
 **The row that matters is the one in bold.** Wringer's evidence is
 tamper-EVIDENT, not tamper-PROOF. A worker that can write files can edit a
@@ -212,6 +212,21 @@ bundle written an hour ago; what it cannot do is make the edit undetectable,
 because the digests and the ledger chain are checked by a reader who was not
 there. If you need prevention rather than detection, the evidence has to
 leave the machine the worker runs on — and Wringer does not do that for you.
+
+**Every row above is parsed and probed by
+[`tests/test_security_capabilities.py`](tests/test_security_capabilities.py)**,
+added 2026-08-15 with the signing row's correction, in the same commit as it.
+The signing row had been wrong on three counts at once — it said the
+capability was not offered, that it was unsigned *by ruling* (that ruling was
+reopened by [SPEC_SIGN_V0.md](SPEC_SIGN_V0.md)), and that
+`attestation.json.sig` was reserved and unused while `sign.py` had been
+writing it since 2026-08-12 — and it stayed wrong because a hand-kept table
+had no relationship to the program that a test could check. Now a row
+claiming a capability is not offered must ship a probe showing the entrypoint
+absent or refusing, a row claiming one is offered must ship a probe exercising
+it, and **a row with no probe at all fails the suite**. The honest limit is
+stated in that file's docstring: the row→probe map is written by hand once.
+What the check buys is that gaps in the map are loud.
 
 ## What Wringer never does
 

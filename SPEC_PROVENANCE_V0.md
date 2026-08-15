@@ -5,6 +5,37 @@ both rulings decided (§5). Binding.** Builds on machinery that already
 ships: `digests.json` per bundle, `prev_hash` on every ledger,
 `spec_sha256` in deliveries, the rubric's sha256 in verdicts.*
 
+### AMENDED 2026-08-15 — ruling 1 is SUPERSEDED; this contract is no longer the whole signing story
+
+*Header amendment, per the SPEC_GATEGEN precedent: a contract a reader is
+sent to must carry its own history, rather than being silently correct in one
+section and stale in three others.*
+
+**Ruling 1 (§5) decided UNSIGNED on 2026-08-05. That decision was reopened
+and is superseded by [SPEC_SIGN_V0.md](SPEC_SIGN_V0.md), BUILT 2026-08-12.**
+The premise changed, not the reasoning: ruling 1 refused a **key in CI
+secrets**, and keyless Sigstore signing holds no long-lived key at all — the
+same shape as this project's tokenless PyPI publish. Ruling 1's binding
+consequences §1a, §1b and §1c all stand exactly as written and are what made
+the reopening cheap: the limits sentence is still in every artifact, the
+signature is still a sibling file, and `wringer.attestation.v1` never changed.
+
+The narrow true state today, and it is a ceiling — no document here may claim
+more in either direction:
+
+> Signing is offered in CI only, via `wring attest --sign`, through keyless
+> Sigstore OIDC; Wringer holds no key and signs nothing itself — it shells
+> out to `cosign`/`gh`. `signature_missing` is the ordinary result for local
+> runs and is not a failure (exit 0). The signer path has been exercised only
+> against a stub and has never run against live Sigstore.
+
+**Every sentence below that says an attestation is unsigned describes the
+2026-08-05 decision.** The original text is preserved rather than rewritten —
+this repository does not edit a decided ruling into agreement with a later
+one — and the three places it appears are marked in place: §1's "what it does
+not claim" bullet, §5 ruling 1, and §6's non-goals. Read them as history and
+`SPEC_SIGN_V0.md` as the live contract.
+
 ## Positioning
 
 > **"Who wrote this code, under whose authority, verified how?" — answered
@@ -40,6 +71,10 @@ And it must say, in its own artifact, what it does **not** claim:
 - **Unsigned. It does not say who produced it.** v0 attestations carry no
   signature, so they prove the evidence is unaltered and say nothing about
   authorship (ruling 1). The artifact states this itself — see §1a.
+  *SUPERSEDED 2026-08-15 by [SPEC_SIGN_V0.md](SPEC_SIGN_V0.md); see the
+  header amendment. A CI attestation signed with `--sign` does say who
+  produced it, and the console qualifies this sentence rather than
+  suppressing it. Unsigned remains the ordinary local result.*
 
 ## 1a. Saying the limit out loud — BINDING (ruling 1)
 
@@ -180,7 +215,12 @@ failure output names the first clause that broke and stops.
 
 ## 5. Rulings
 
-1. **Signing — DECIDED 2026-08-05: unsigned.** Not the weaker of two
+1. **Signing — DECIDED 2026-08-05: unsigned. SUPERSEDED-BY
+   [`SPEC_SIGN_V0.md`](SPEC_SIGN_V0.md), 2026-08-15** *(built 2026-08-12; see
+   the header amendment for why the premise, not the reasoning, is what
+   changed). The original ruling is preserved below, unedited. Its binding
+   consequences §1a, §1b and §1c are NOT superseded and still hold.* Not the
+   weaker of two
    options; the one that keeps `wring attest` free of setup. Signing in v0
    would force four answers nobody asked for — which key, where the public
    half lives, what `audit` does when it cannot find it, and what CI does —
@@ -241,6 +281,11 @@ Signing in v0 · verifying a commit signature rather than recording it ·
 transparency logs · in-toto/SLSA format compatibility (map later, don't
 contort now) · attesting anything a bundle does not already record ·
 network anything.
+
+*AMENDED 2026-08-15: the first non-goal is SUPERSEDED by
+[SPEC_SIGN_V0.md](SPEC_SIGN_V0.md) — signing is offered in CI only, keyless,
+with no key held (header amendment). The rest stand; in-toto emission is
+sequenced as Phase 4 of the witness programme and is not built.*
 
 ## 7. Definition of DONE
 

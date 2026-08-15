@@ -198,6 +198,12 @@ What a run would need, on a machine whose owner already signs commits:
 SPEC_PROVENANCE_V0 ruling 1 refused, and a test is not worth contradicting the
 promise it exists to protect.
 
+*Note 2026-08-15: that refusal is about a **signing key**, and it stands.
+Ruling 1's separate conclusion that attestations are unsigned was superseded
+by [SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) — keyless signing holds no key, so
+the sentence above is not in tension with it. Sequence H below is the other
+half, and is also unrun.*
+
 ## Sequence E — `wring start` against a real agent binary
 
 **Status: unverified. Never run by anyone.**
@@ -550,6 +556,52 @@ isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
 SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.
+
+## Sequence H — `wring attest --sign` against live Sigstore
+
+**Status: unverified. Never run by anyone. Added 2026-08-15 to record a debt
+that was being carried in prose and nowhere else.**
+
+`wring attest --sign` is offered in CI only. It shells out to `cosign`/`gh`
+for keyless Sigstore OIDC signing, holds no key, and writes the sibling
+`attestation.json.sig`. **Every exercise of it, in the whole suite, uses a
+stub signer placed on `PATH`** (`tests/test_sign.py::stub_signer`, whose body
+is `echo "SIGNATURE" > "$4"`). SPEC_SIGN_V0 §9 says the same thing about
+itself; this file is where an unrun check is supposed to be recorded, and it
+was not here.
+
+So what is proven is Wringer's half: the argv it builds, `can_sign_here`
+refusing off-CI, the sibling file being written only on success and never
+partially, and `wring audit --verify-signature` reading a `.sig` back. What is
+**not** proven is that a real `cosign sign-blob` or `gh attestation` accepts
+that argv, that a real Fulcio certificate is minted from the runner's OIDC
+identity, or that a real verification succeeds against Rekor.
+
+What a run would need, in CI on a repository whose workflow has
+`id-token: write`:
+
+1. A workflow step that installs real `cosign`, then runs `wring verify` and
+   `wring attest --sign` — nothing stubbed, nothing on `PATH` but the real
+   binary.
+2. Confirm `attestation.json.sig` exists and is not the stub's literal
+   `SIGNATURE` bytes.
+3. `wring audit <attestation> --verify-signature` in a **later, separate** job
+   — one with no ambient identity of its own — and confirm it reports
+   `signature_valid`.
+4. Confirm the console still prints the unsigned limits sentence beside the
+   signature, qualified rather than suppressed. That is
+   `test_a_successful_signing_says_so_and_qualifies_the_unsigned_limit`
+   happening for real.
+5. Repeat with the `.sig` truncated by one byte: `signature_invalid`, and the
+   audit must fail rather than fall back to `signature_missing`.
+
+**Until this row is filled in, every document that mentions signing must carry
+"exercised only against a stub".** That wording is currently in `README.md`,
+`SECURITY.md`'s capability table, `SPEC_PROVENANCE_V0.md`'s header amendment
+and `docs/attest-and-audit.md`'s postscript — and `SECURITY.md`'s row is
+probed by `tests/test_security_capabilities.py`.
+
+- [ ] **Record it.** Add a row to the coverage record above.
 
 ## OPEN — a bench usage flake, one red run in seven, unreproduced
 

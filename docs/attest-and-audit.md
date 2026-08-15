@@ -216,3 +216,47 @@ A signature, if one ever arrives, is the **sibling file**
 additive: every v0 attestation stays valid byte-for-byte, `audit` gains one
 more clause, and no format migration is ever needed. `wring audit` already
 ignores a `.sig` it finds rather than choking on it — there is a test.
+
+---
+
+## Postscript — the signature arrived (2026-08-15)
+
+*A postscript, not a rewrite. Everything above is real captured output and
+stays exactly as captured; what follows is what changed after the capture was
+taken, dated so a reader can see which is which.*
+
+The section above says "if one ever arrives". **It arrived.**
+[SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) was built on **2026-08-12** and reopened
+the 2026-08-05 unsigned ruling — not by reversing its reasoning, but because
+its premise had changed. That ruling refused a **signing key in CI secrets**;
+keyless Sigstore signing holds no long-lived key, so the objection does not
+reach it.
+
+The narrow true state, which is a ceiling — nothing may claim more in either
+direction:
+
+> Signing is offered in CI only, via `wring attest --sign`, through keyless
+> Sigstore OIDC; Wringer holds no key and signs nothing itself — it shells
+> out to `cosign`/`gh`. `signature_missing` is the ordinary result for local
+> runs and is not a failure (exit 0). The signer path has been exercised only
+> against a stub and has never run against live Sigstore.
+
+Three consequences for the transcript above, and no others:
+
+- The `! unsigned — …` line is still correct for every run captured here, and
+  for every local run anyone makes. It is the ordinary case, not a warning:
+  `signature_missing` exits 0 and the console marks it `·`.
+- The limits sentence is **not** suppressed when a signature exists. It stays
+  in the artifact — `audit` still refuses an attestation whose limits array has
+  had it removed — and a second line qualifies the half a signature changes.
+  `tests/test_sign.py::test_a_successful_signing_says_so_and_qualifies_the_unsigned_limit`
+  is that behaviour, asserted.
+- `attestation.json.sig` is no longer reserved-and-unused. `sign.sign` writes
+  it, beside the attestation, after the attestation's bytes are already on
+  disk — the same rule every `--send` in this program follows.
+
+**What is NOT captured, here or anywhere:** a real Sigstore signature. Every
+exercise of this path in the suite uses a stub signer on `PATH`, so what is
+demonstrated is Wringer's half — the argv it builds, the refusals off-CI, the
+sibling file, and `audit` reading it back. The live half is unrun, and
+[`docs/MANUAL_CHECKS.md`](MANUAL_CHECKS.md) is where that debt is recorded.
