@@ -92,6 +92,15 @@ Two consequences a reader must not have to infer:
    would have refused this program's own first true measurement, whose gates
    are stdlib and need none.
 
+### AMENDED 2026-08-15 — the check may have to be MANUFACTURED
+
+*The corpus measured this spec's central assumption — that the discriminating
+check already exists in the repository — and disproved it: `gates_vacuous` on
+13 of 13 tasks. **§6 is the amendment that follows**, and it is the largest one
+this spec has taken: when a criterion's declared gates cannot discriminate,
+Wringer authors a check of its own, proves it red before the work, and pins it.
+Read §6 before acting on anything above it.*
+
 ### AMENDED AGAIN, same day — the gate must pre-date the change it judges
 
 *The first end-to-end run with a real agent produced, unprompted, the thing
@@ -432,3 +441,389 @@ today's `src/` rather than against the review that wrote them.
 - **The `wringer.gates.yaml` sidecar is not a new trust category** (finding
   6's point, re-verified): the spec's own `gates:` block already carried
   model-drafted `run:` strings, and nothing about SPEC_GRAPH ruling 1 moved.
+
+## 6. AMENDED 2026-08-15 — the witness: Wringer authors the discriminating check
+
+*Ruled in `~/Claude/WRINGER_RULING_2026-08-14.md` ("the witness ruling"), R1,
+after the first corpus run measured this program's operating assumption and
+disproved it ([docs/corpus-2026-08-13.md](docs/corpus-2026-08-13.md)). The
+ruling delegates two choices to the implementation — which existing command
+hosts the author, and how the witness is packaged — and both are DECIDED here,
+against the tree rather than in the abstract. Nothing here is built by the
+slice that writes it: the author is Phase 1, delivery consumption is Phase 3,
+standard emission is Phase 4.*
+
+### What the measurement disproved
+
+This spec has always assumed the discriminating check **already exists in the
+repository** and needs only to be bound, sequenced and caught red. The corpus
+measured that assumption in the regime the product targets — changes whose
+correctness the declared gates do not cover — and it does not hold:
+`wring verify --prove` afterwards returns **`gates_vacuous` on 13 of 13
+tasks**, `sensitive: false` throughout. The repo's own suite was green before
+each change and green after it. `wring deliver` said yes on 26 of 26 supervised
+rows, including every wrong change.
+
+The declared gates carried **zero information about the change**: constant yes
+without `--prove`, constant no with it. The verdict was set by a config flag
+rather than by the work. A binding channel, a human diff and a red run are
+worth nothing when there is nothing red to catch.
+
+**The replacement, in one sentence:**
+
+> **Evidence is manufactured, not found.** A check is evidence about a change
+> only if it was demonstrated able to fail in that change's absence with
+> respect to the criterion it proves; Wringer's job is to ensure such a check
+> exists — authoring it when the repository lacks one — to prove the red, pin
+> it, and to refuse or route to a human when it cannot.
+
+`gates_vacuous` stops being a terminal verdict Wringer *reports* and becomes
+the condition on which Wringer *acts*: vacuity triggers manufacture.
+
+### The one-sentence test, restated
+
+§Positioning asks whether a worker that writes both the gate and the code can
+get a criterion evidenced without a human and a red run in between. That test
+survives and gains a second — the one the corpus failed:
+
+> **Does the bundle contain a check that Wringer authored, proved RED on the
+> pre-change tree, and the worker could not edit?**
+
+Today: no. W1–W5 make it yes.
+
+### W1 — The witness is Wringer's own check, not a repo gate — DECIDED
+
+A **witness** is a fail-to-pass check that Wringer authors for one criterion
+when that criterion's declared gates cannot discriminate. It is deliberately
+**not** an entry in `.wringer.yaml`, and the distinction is load-bearing in
+both directions:
+
+- A gate in `.wringer.yaml` is the **repository's** claim, installed by a
+  person applying a diff. Ruling 2 and SPEC_GRAPH ruling 1 are untouched:
+  nothing here writes that file, and no witness is ever proposed into it.
+- A witness is **Wringer's** manufactured evidence about a criterion the
+  repository left uncovered. Wringer owns, pins and executes it, and it lives
+  under `.wringer/` rather than in the source tree.
+
+This is why a witness needs no human install and does not contradict ruling 2.
+It also bounds the claim: a witness evidences the criterion it was authored
+for and says nothing about the rest of the change.
+
+**Why not "generated gate".** A generated gate is a proposal into the sidecar —
+ruling 1's channel, requiring a human. The witness is a different object with a
+different trust story, and reusing the gate vocabulary would collapse the two.
+
+### W2 — Authoring is a SEND, hosted on `wring spec` — DECIDED
+
+The author is an LLM call, so under the typed-send law it is a flag typed on
+the invocation and carried by no file: **`wring spec --send --witness`**.
+
+**The host was chosen by elimination against a law, not by preference.**
+
+> *"No LLM and no network in any command that **proves** anything — `verify`,
+> `run`, `resume`, `fleet` and `plan` cannot reach one."* — README.md:98
+
+| candidate | verdict |
+|---|---|
+| a new top-level command | refused — 19 is the ceiling this cycle |
+| `wring run` | **refused by law.** `run` proves. The first draft of this amendment hosted the author here and was wrong; the claim above is published, and `tests/test_docs.py` fails when a file that counts senders stops naming one |
+| `wring verify` | same law, and verify is the floor the program stands on |
+| `wring plan` | same law; also runs nothing and has no ledger |
+| `wring deliver --send` | a sender, but it runs after the work — far too late to pre-date it |
+| `wring attest --sign` | post-hoc by construction |
+| `wring judge --send` | judge is ruled dead and stays dead |
+| **`wring spec --send`** | **chosen** — already a sender, already the authoring surface, and it runs before any work exists |
+
+Three properties make this strictly better than hosting it on the loop:
+
+1. **No new socket.** `spec.py:25`: *"This module opens no socket. `wring spec
+   --send` reuses `judge.send`."* Every socket in the program lives in
+   `judge.send` and `forge.request`, and `grep -rn build_opener src/` must
+   return exactly two answers. The author reuses the same transport and that
+   grep still returns two.
+2. **The sender count does not move.** It stays **five**. Nothing in
+   README/SECURITY/SPEC_GET §7/SPEC_START §3e-i needs restating, and the
+   derived guard keeps it honest.
+3. **Reusing `judge.send` is not reviving the judge.** The stop-list kills the
+   `wring judge` command and judge *calibration*; `judge.send` is the HTTP
+   transport `wring spec` has always used. A test should pin that distinction
+   so a later reader does not mistake one for the other.
+
+**Temporal independence is the load-bearing property.** A check authored before
+the work exists cannot have been written to flatter the work. That is this
+spec's own amended precondition — *a gate that arrived with the change cannot
+evidence the change* — applied to authorship rather than to arrival.
+
+**Isolation of the author, and it is not optional.** The author gets the
+criterion and the pre-change tree, isolated exactly as the corpus isolates a
+worker: truncated history, no upstream reachability, the criterion statement
+only. Never upstream's fix, never the held-out tests, never the worker's
+session. An author that can reach the answer measures nothing — the finding the
+corpus audit produced the hard way.
+
+**The sequencing consequence, named because it is a real cost.** The witness
+lane requires `wring spec` to have run. A flow that goes straight to `wring
+run` from a bug report has no criteria and therefore no witness. Wiring that
+for the re-test is Phase 3's problem and is named here as its input, not solved
+here.
+
+### W3 — Proving stays free of network and LLM — DECIDED
+
+**The proving mechanism is already shipped; only the author was missing.** The
+2026-08-11 amendment above made pre-change execution via the `--prove`
+`sensitive` receipt the *primary* route to `evidenced`. A witness reuses it
+unchanged: it is executed against the pre-change tree and **must fail there**.
+
+1. `run.prove: true` is required for the witness lane, for the reason E1a
+   already gives. A repo that has not opted in gets no witness lane and is told
+   so by name rather than getting a witness nobody can prove.
+2. A witness whose pre-change failure looks environmental is **not** a proved
+   red. Ruling 3's finding 7 is the precedent and binds harder here, because a
+   witness Wringer authored and Wringer scored would otherwise be marking its
+   own homework. `run.prove_setup` and the mandatory `cites` line are
+   preconditions of a witness receipt, not decorations on it.
+3. **It dissolves the `--prove` asymmetry.** SPEC_VACUITY's pre-change tree
+   drops the agent's new tests, so a correct fix that brought its own tests is
+   refused as fast as a tautological one — which is why "just turn `--prove`
+   on" was never the answer to the corpus. The witness is present in the
+   pre-change tree **because it is not the agent's**: Wringer materialises it
+   there from the pin. A correct fix is no longer refused for having brought
+   its own tests, because the thing proved red is Wringer's check.
+
+**There are TWO red proofs and they are not the same claim.** Conflating them
+is how this would quietly become weaker than it sounds:
+
+| | when | mechanism | what it establishes |
+|---|---|---|---|
+| **(a) born red** | at pin time, before the first worker turn | Wringer executes the witness directly on the working tree, which *is* the pre-change tree because the worker has not run | the check could fail, **on the clock, before the work existed**. This is the strong claim and the one temporal independence rests on |
+| **(b) the receipt** | after the fix, on a passing verify | the existing `--prove` comparison: passes on the changed tree, fails on the HEAD worktree → `sensitive` row | the artefact acceptance actually consumes (SPEC_ACCEPT §3 clause 2) |
+
+Both are offline. **(a) is not `--prove`** — `--prove` runs only when every
+required gate already passed (`verify.py:307`), which is precisely not the
+state of the world before the work. A witness that is *green* at (a) is
+self-refuting exactly as ruling 3 says a born-green gate is: the criterion is
+unmet, so a correct witness must fail. It is discarded and the criterion is
+reported uncovered rather than being handed a witness that proves nothing.
+
+*Two shipped `--prove` behaviours the witness lane inherits and must not
+quietly diverge from:* it **skips `optional` gates** (`vacuity.py:241-246`),
+and HEAD does not move during a loop, so the HEAD worktree at (b) is the same
+tree as (a).
+
+### W4 — Pinning is the "could not edit"; author and pin are separate steps — DECIDED
+
+**Authoring is a send; pinning and proving are offline.** They happen in
+different commands and that separation is the design, not an accident of it:
+
+1. **`wring spec --send --witness` authors.** The model call happens, the bytes
+   are written under `.wringer/witness/`, and nothing is trusted yet.
+2. **The next `wring run` pins, before the first worker turn.** Offline: it
+   hashes the bytes, writes the pin as a ledger event, and proves the witness
+   red on the pre-change tree. No LLM, no network — `run`'s law is intact.
+
+**The pin goes in the ledger because the ledger is hash-chained.** A witness
+manifest sitting on disk beside the bytes would be no protection at all: a
+worker with a shell could edit the witness and the manifest together and keep
+them consistent. The ledger's `prev_hash` chain is the one integrity structure
+in this program that a consistent local edit cannot forge, and `wring audit`
+already verifies it offline. Pinning anywhere else would be security theatre.
+
+**The cost of that, stated: it is a new schema version.**
+`schema/loop-event-v2.schema.json` is a **closed `oneOf` of eight branches**,
+so a `witness.pinned` event is not something an existing published format
+admits. Law 7's route is the one loop v1→v2 and untracked v1→v2 already took:
+a new `loop-event-v3.schema.json` and `wringer.loop.v3`, with **v2 still
+published, still frozen, and a test proving a v2 bundle already on disk is
+still read**. The version moves because an event type was added — not because
+a field was edited, which would be the unlawful move.
+
+**At every execution, on either tree, Wringer hashes the bytes it is about to
+run and compares them to the chained pin. A mismatch VOIDs the run.** It is not
+a failing gate — it is no run at all, because the artifact that was supposed to
+be immutable was not, and nothing interpretable happened. The run exits
+`EXIT_REFUSED` (3, `cli.py:47`): not `EXIT_GATE_FAILED` (1), which would file
+it as evidence about the change, and not `EXIT_CONFIG` (2), which would blame a
+configuration that is fine.
+
+**Packaging is derived, not chosen.** The ruling left layout free under the
+pinned-bytes invariant; against this tree the invariant leaves one honest shape:
+
+- The pre-change tree is `git worktree add --detach HEAD` — **tracked files and
+  nothing else** (SPEC_VACUITY §4b). An untracked witness written into the
+  working tree would be *absent* there and would "fail" for file-not-found,
+  which is §4b's false `proven` wearing this amendment's badge.
+- Committing it instead is refused: git history is written only on a typed
+  `--send`, onto a branch Wringer created (law 6).
+
+**Therefore the bytes of record live under `.wringer/witness/` (gitignored,
+`.gitignore:18`), and Wringer materialises them into whichever tree is being
+executed immediately before execution, verifies the digest, runs, and removes
+them.** Between executions there is no witness file in the source tree.
+
+**What this closes that nothing else in the program does.** Acceptance identity
+is `(id, command)` (SPEC_ACCEPT §3, health ruling 2), so editing a gate's
+command resets its history — but rewriting the *test file* while the command
+string stays identical does not, and that is named as an inherited blind spot
+in both SPEC_VACUITY §5a and ruling 4 above. **A pinned witness is the first
+check in this program whose identity covers its own content.** The blind spot
+is not closed for repo gates; it is closed for the witness, and the difference
+is worth saying rather than letting a reader generalise it.
+
+### W5 — The worker sees the failure, never the source — DECIDED
+
+The loop brief carries the witness's **failure output**. It never carries the
+witness source, its path, or its command. Finding 8 binds without restatement:
+the brief must carry no instruction a worker can satisfy by damaging the
+evidence.
+
+**The honest limit, stated here rather than found in the field: this is a rule
+about what Wringer hands over, not a sandbox.** A worker with a shell can read
+`.wringer/`, and `worker_execution` is `trusted_local` today (SPEC_EXEC §5).
+So:
+
+- **The threat model this closes is TAMPERING, not disclosure.** A worker that
+  reads the witness and writes code that passes it is a worker doing its job —
+  that is test-driven development, and the pre-change red is what makes the
+  test meaningful. A worker that *edits* the witness is what the pin catches.
+- Disclosure is closed by Phase 2's containment, not by this amendment, and
+  any artifact claiming otherwise is overclaiming.
+- **The brief's pointer is already unbounded and stays that way.** It ends by
+  naming the whole evidence directory (`loop.py:1332-1334`) and telling the
+  worker *"Do not edit anything under `.wringer/`"* (`loop.py:1334-1337`) —
+  an instruction, not a boundary. The witness adds nothing to that exposure and
+  removes nothing from it.
+
+**The precedent for naming a thing without showing it already ships.** Human
+criteria appear in the brief by id and title with their `guidance` deliberately
+withheld (`loop.py:1256-1262`). The witness section follows that shape
+exactly.
+
+### W6 — The schema is frozen once, and R3's mapping is designed with it — DECIDED
+
+A new published schema, `witness.schema.json` / **`wringer.witness.v1`**, a
+sibling artifact in the run bundle on the `vacuity.json` pattern: absent
+entirely from runs with no witness lane, covered by `digests.json`, written
+through the bundle's redactor, recorded in `schema/frozen.json` in the same
+commit. Law 7's axis is clean — adding a schema is additive, and
+`test_a_new_schema_may_be_added_without_touching_the_freeze` says so by name.
+
+**The fields are designed together with R3's in-toto mapping so the schema
+freezes once rather than twice.** Phase 4 emits in-toto `test-result` v0.1 plus
+exactly one custom predicate; those consumers are listed now so no field has to
+be added later:
+
+| witness field | why it exists | R3 destination |
+|---|---|---|
+| `id`, `proves` | which criterion this manufactures evidence for | custom predicate |
+| `authored.at`, `authored.by.model` | temporal independence is the claim; the model is provenance | custom predicate |
+| `authored.base_sha` | the tree it was authored against, so "before the work" is checkable | custom predicate |
+| `authored.criterion_sha256`, `authored.prompt_sha256` | what the author was given — digests, never the text, which may carry repo content | custom predicate |
+| `authored.isolation` | truncated history / no upstream reachability (W2) | custom predicate |
+| `pinned.sha256` | **the pin** | custom predicate |
+| `pinned.run`, `pinned.path` | how it executes and where it materialises | `configuration` |
+| `proved_red.receipt`, `.exit_code`, `.first_line` | the `sensitive` receipt and its mandatory citation (W3.2) | custom predicate |
+| `proved_red.verdict` | `proven` / `inconclusive` / `not_established` | custom predicate |
+| `executed.sha256`, `.matches_pin` | the comparison that VOIDs a run | custom predicate |
+| `executed.result` | passed / failed on the changed tree | `result`, `passedTests`, `failedTests` |
+
+`wringer.attestation.v1` stays frozen and gains no v2 dialect. **Phase 4 builds
+the emission; this amendment builds none of it** — it fixes the field list so
+Phase 4 is a mapping exercise and not a schema migration.
+
+### W7 — Where this amendment corrects the ruling document — DECIDED
+
+Named rather than silently reconciled, because a spec that quietly diverges
+from the ruling it cites is the drift this repository exists to catch.
+
+1. **The author cannot live on `wring run`.** The ruling leaves the host open
+   and names only the no-20th-command ceiling and the typed-send law. A third
+   constraint decides it and is not in the ruling: `run` is a command that
+   proves, and the published claim is that it *cannot reach* a model. W2 is
+   the resolution; no ruling is overturned.
+2. **`not_evidenced` is not a state in this program.** The ruling's Phase 3
+   says an uncovered criterion "exits `not_evidenced`". SPEC_ACCEPT §2's
+   taxonomy is `evidenced` / `unevidenced` / `gate-failed` / `human` /
+   `gate-did-not-run`, and the ruling elsewhere instructs "no new verdict
+   vocabulary". **The word is `unevidenced`**, which already means what the
+   ruling describes and already refuses delivery when required.
+3. **The pre-dating guard must be taught about witnesses, and that is Phase 3.**
+   `accept._arrived_with_the_change` (`accept.py:355-393`, entered for a
+   `sensitive` receipt at `accept.py:369`) establishes structurally, from git's
+   untracked list, that a gate did not arrive with the change. A witness is
+   never in that list — it is materialised and removed, and `.wringer/` is
+   gitignored — so the guard neither passes nor fails it meaningfully. The
+   witness's equivalent of that guard is the *pin* plus `authored.base_sha`,
+   which is strictly more checkable; wiring acceptance to read it is Phase 3's
+   work and is named here so Phase 3 does not discover it.
+4. **"Six known-wrong changes" was low, and the useful number is different.**
+   The salvage recovered **15 rows labelled `false_confidence`, 14 with patch
+   content** — spanning only **5 of the 13 tasks**
+   (`benchmark/corpus/results/patches/README.md`). Stop condition (c) is scored
+   on the overlap between the witness's covered tasks and those five. The rule
+   is retained unchanged; the count it was estimated against is corrected.
+
+### Non-goals of this amendment (binding)
+
+Auto-installing a witness into `.wringer.yaml` · proposing witnesses through
+the sidecar · a witness for a `human: true` criterion · more than one witness
+per criterion · witness selection · mutation testing of any kind (the sole
+sanctioned future use — mutating the *fixed* tree at the fix site to test
+whether the witness can kill — is DEFERRED and not authorised this cycle) · a
+`--no-witness` or any bypass, because flags tighten and never loosen · a new
+top-level command · a third socket · emitting in-toto (Phase 4) · consuming the
+witness at delivery (Phase 3) · caching · judge calibration.
+
+### Definition of DONE for the authoring slice (Phase 1)
+
+- [ ] `wring spec --send --witness` authors a witness per uncovered machine
+      criterion, isolated per W2 — pinned by a test that reddens if the author
+      is handed a reachable upstream or the worker's session
+- [ ] `grep -rn build_opener src/` still returns exactly two answers, and a
+      test pins that the author reuses `judge.send` rather than reviving the
+      judge
+- [ ] the sender count is still **five** everywhere it is stated, enforced by
+      the existing `tests/test_docs.py` guard
+- [ ] the pin: bytes hashed offline at the start of `wring run`, written as a
+      ledger event before the first worker turn, re-hashed before every
+      execution; **a mismatch exits 3 and writes no verdict**, pinned by a test
+      that mutates the bytes between pinning and execution
+- [ ] the witness file is absent from the source tree except during its own
+      execution, pinned by a test that inspects the tree during the worker's
+      turn
+- [ ] `witness.schema.json` published + frozen in the same commit, drift test,
+      schema README row (three derived guards already fire)
+- [ ] `--witness` without `--send` refuses by name — the author is an LLM call
+      and no flag may reach a model without the send somebody typed
+- [ ] the loop brief carries the witness's failure output and **not** its
+      source, path or command — pinned by content, and the pinned content
+      carries no instruction its reader can satisfy by damaging the evidence.
+      **`tests/test_run.py:596` pins the repair brief's exact heading sequence
+      and any new section breaks it**; that test is updated deliberately, in
+      the same commit, or the brief is not changed
+- [ ] `loop-event-v3.schema.json` published + frozen beside an untouched v2,
+      with a test proving a v2 loop bundle already on disk is still read
+- [ ] `run.prove: false` with a witness present refuses by name rather than
+      proceeding with a witness nobody can prove
+- [ ] the offline calibration result, published whichever way it lands: the
+      three numbers of the ruling's Phase 1 stop, against the salvaged corpus,
+      with the 5-task ceiling on (c) stated beside them
+
+### Limits, stated here rather than discovered later
+
+- **A manufactured fail-to-pass witness is necessary and demonstrably not
+  sufficient.** UTBoost found 345 erroneous patches passing curated tests;
+  PVBench found >40% of patches failing the developer's own PoC tests. The
+  witness raises the floor. It does not license "delivery is safe", and every
+  artifact that mentions it carries this sentence.
+- **A witness evidences one criterion**, and says nothing about the rest of the
+  change. A bundle with one green witness is not a verified change.
+- **The author is a model, and a model can write a witness that passes for the
+  wrong reason.** Red-then-green is consistent with a witness testing something
+  adjacent to the criterion. This is why W3.2's environmental-failure rule is a
+  precondition rather than advice.
+- **Disclosure is not closed here** (W5), and `worker_execution` remains
+  `trusted_local` until Phase 2.
+- **Nothing here enforces sequencing.** Finding 9's correction stands and now
+  applies to the witness: the guarantee is the recorded pin and the recorded
+  receipt, both checkable, and not the order in which things happened, which is
+  not.
