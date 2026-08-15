@@ -14,6 +14,7 @@ the most tests.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -326,3 +327,195 @@ def test_the_limits_never_claim_the_witness_catches_wrong_fixes():
         "guarantees",
     ):
         assert claim not in joined, claim
+
+
+# --- the independent review's HIGH findings, each with the guard it earned ---
+
+
+def test_the_pin_is_compared_against_the_BYTES_ON_DISK(tmp_path):
+    """**The review's first HIGH, and it was fatal to W4's whole claim.**
+
+    `pin()` built its digest from the in-memory `Witness`; `check_pin()`
+    compared that same object's digest back against it. Same field, same
+    object — the comparison could not fail. The source was read from disk once,
+    before the first worker turn, so every later "re-check" re-checked a value
+    against itself, and a worker that rewrote the witness mid-loop passed:
+
+        pinned sha:      9065b312e262
+        on-disk sha now: e0d5bd480a37
+        check_pin: PASSED
+
+    W4's claim is that the bytes which RAN are the bytes that were PINNED. That
+    is a claim about a file, so it is answered by reading the file.
+    """
+    directory = tmp_path / witness.WITNESS_DIRNAME
+    directory.mkdir(parents=True)
+    item = make(ASSERTING)
+    (directory / item.filename).write_text(ASSERTING, encoding="utf-8")
+    pinned = witness.pin(item, "run-1")
+
+    # Unchanged: passes.
+    witness.check_pin(item, pinned, tmp_path)
+
+    # The worker rewrites the witness on disk, which is what W4 says a worker
+    # on the host can do.
+    (directory / item.filename).write_text(PASSING, encoding="utf-8")
+
+    with pytest.raises(witness.WitnessError) as caught:
+        witness.check_pin(item, pinned, tmp_path)
+    message = str(caught.value)
+    assert "VOID" in message
+    assert "on disk" in message
+
+
+def test_a_witness_that_vanished_from_disk_voids_rather_than_passing(tmp_path):
+    """The other half of the same defect: an unreadable file must not be a
+    silent pass."""
+    directory = tmp_path / witness.WITNESS_DIRNAME
+    directory.mkdir(parents=True)
+    item = make(ASSERTING)
+    pinned = witness.pin(item, "run-1")
+
+    with pytest.raises(witness.WitnessError) as caught:
+        witness.check_pin(item, pinned, tmp_path)
+    assert "no longer readable" in str(caught.value)
+
+
+def test_a_missing_binary_or_file_is_not_a_proved_red(tmp_path):
+    """**The review's third HIGH, and W10 was steering authors into it.**
+
+    W10 directs the author to exercise the INTERFACE the criterion names — a
+    CLI, a shell completion, an endpoint. On a pre-change tree, a witness that
+    shells out to a tool which does not exist yet raises `FileNotFoundError`,
+    which the first draft classified as a real assertion. That failure has
+    W8's defining property verbatim: it turns green the moment any binary of
+    that name exists, with any content.
+    """
+    shelling_out = (
+        "import subprocess\n"
+        "\n"
+        "def test_it():\n"
+        "    done = subprocess.run(['wringer-no-such-tool', '--sum'],\n"
+        "                          capture_output=True, text=True)\n"
+        "    assert done.stdout.strip() == '6'\n"
+    )
+    result = witness.execute(tmp_path, make(shelling_out))
+    assert result.exit_code == 1, "premise: this looks like an assertion"
+    assert result.outcome == witness.COLLECTION_ERROR
+
+    reading_a_file = (
+        "import pathlib\n"
+        "\n"
+        "def test_it():\n"
+        "    text = pathlib.Path('src/calc.py').read_text()\n"
+        "    assert 'def total' in text\n"
+    )
+    assert witness.execute(tmp_path, make(reading_a_file)).outcome == (
+        witness.COLLECTION_ERROR
+    )
+
+
+def test_an_image_without_pytest_is_LOUD_and_never_a_silent_discard(tmp_path):
+    """**The review's fourth HIGH: the lane was inert in the one configuration
+    the re-test needs.**
+
+    `sys.executable` is a host path that does not exist inside the image, so
+    the contained branch ran `/host/path/python -m pytest`, the shell exited
+    127, and `classify` read that as `collection_error`. Every witness was
+    silently discarded, every criterion reported uncovered, and the reason
+    given was a witness defect — while the docstring claimed the lane ran
+    inside the boundary.
+
+    A criterion must never be reported uncovered for a reason that is not
+    about the criterion.
+    """
+    assert witness.CONTAINED_RUNNER[0] == "python3", (
+        "the contained runner is a host-absolute interpreter path again"
+    )
+
+    from wringer import config, containment
+
+    parsed = config.parse({
+        "version": 1,
+        "gates": [{"id": "unit", "run": "true"}],
+        "run": {
+            "worker": "agent",
+            "containment": {
+                "runtime": "podman",
+                "image": "example/image:tag",
+                "egress": {"policy": "none"},
+            },
+        },
+    })
+    settings = parsed.run.containment
+    established = containment.Established(
+        runtime_path="/bin/podman", holder_cid=None, resolved=(),
+    )
+
+    # Driven through the real classification path with a runtime that is not
+    # there, so the spawn fails exactly as a missing interpreter inside a real
+    # image does: a 127 under containment is a configuration fault and must
+    # raise rather than be classified as a witness defect.
+    monkeypatched = witness.subprocess.run
+
+    class _Done:
+        returncode = 127
+        stdout = ""
+        stderr = "sh: python3: not found"
+
+    witness.subprocess.run = lambda *a, **k: _Done()
+    try:
+        with pytest.raises(witness.WitnessError) as caught:
+            witness.execute(
+                tmp_path, make(ASSERTING),
+                containment_settings=settings,
+                established=established,
+            )
+    finally:
+        witness.subprocess.run = monkeypatched
+    message = str(caught.value)
+    assert "not in the image" in message
+    assert "will not report a criterion uncovered" in message
+
+
+def test_the_lane_emits_no_event_the_frozen_ledger_schema_forbids():
+    """**The review's second HIGH.** `loop.jsonl`'s `type` is a CLOSED enum of
+    eight branches with `additionalProperties: false` on every one, so the
+    first draft's `witness.pinned` and `witness.executed` made every bundle
+    with a witness lane fail its own published, frozen schema.
+
+    `loop.py` says this itself 375 lines above the offending calls, where it
+    declines to add a containment event for exactly this reason, and W6 names
+    the cost in advance: the pin event needs `loop-event-v3`. The facts live in
+    the sibling `witness.json` instead, on the `vacuity.json` pattern, which
+    costs no version at all.
+    """
+    import json as json_module
+
+    source = (
+        Path(__file__).resolve().parent.parent / "src" / "wringer" / "loop.py"
+    ).read_text(encoding="utf-8")
+    schema = json_module.loads(
+        (
+            Path(__file__).resolve().parent.parent
+            / "schema" / "loop-event-v2.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+
+    declared = set(
+        (schema.get("properties", {}).get("type", {}) or {}).get("enum", [])
+    )
+    for branch in schema.get("oneOf", []):
+        enum = (branch.get("properties", {}).get("type", {}) or {}).get("enum")
+        if enum:
+            declared.update(enum)
+    assert declared, "the loop-event schema declares no event types"
+
+    emitted = set(re.findall(r'bundle\.event\(\s*\n?\s*"([^"]+)"', source))
+    unknown = sorted(emitted - declared)
+    assert not unknown, (
+        f"loop.py emits event types the frozen `loop-event-v2` schema does not "
+        f"admit: {unknown}. Every bundle carrying one fails its own published "
+        "schema. A new event type costs `loop-event-v3` — put the fact in a "
+        "sibling file instead, as `vacuity.json` and `witness.json` do"
+    )

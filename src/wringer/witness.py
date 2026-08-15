@@ -100,6 +100,21 @@ WITNESS_FILENAME = "witness.json"
 # about whether a message *looks* environmental.
 RUNNER = (sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider")
 
+# The same runner as seen from INSIDE a container. `sys.executable` is a host
+# path and is absent from the image, so it is resolved on `PATH` there instead.
+# The image must therefore carry python and pytest; a repository that declares
+# a containment and no pytest gets a witness that cannot run, and gets told so
+# by `WITNESS_UNRUNNABLE` rather than having its criteria quietly reported
+# uncovered.
+CONTAINED_RUNNER = ("python3", "-m", "pytest", "-q", "-p", "no:cacheprovider")
+
+# Exit 127 is the shell saying the command does not exist. Under a containment
+# that means the image carries no python or no pytest, which is a CONFIGURATION
+# fault and not a witness defect — and reporting it as "the runner could not
+# collect it" is how the lane silently produced nothing while claiming to run
+# inside the boundary.
+EXIT_NO_COMMAND = 127
+
 EXIT_FAILED = 1
 EXIT_INTERRUPTED = 2
 EXIT_NO_TESTS = 5
@@ -443,12 +458,31 @@ def pytest_runtest_makereport(item, call):
 '''.replace("OUTCOME_FILENAME", OUTCOME_FILENAME)
 
 # The exception classes that mean "the check could not find the thing it was
-# written against" rather than "the thing behaved wrongly". Deliberately short:
-# `AttributeError` is NOT here, because a missing attribute is frequently a
-# real behavioural failure, and a guard that claims more than it can tell is
-# the defect this lane exists to refuse.
+# written against" rather than "the thing behaved wrongly".
+#
+# **`FileNotFoundError` was missing and the independent review measured the
+# consequence.** W10 directs the author to exercise the INTERFACE the criterion
+# names — a CLI, a shell completion, an HTTP endpoint — and on a pre-change
+# tree a witness that shells out to a tool which does not exist yet raises
+# exactly this. That failure has W8's defining property verbatim: it turns
+# green the moment any binary or file of that name exists, with any content.
+# So the rule W10 mandates was steering authors straight into the hole W8
+# exists to close, and three class names were not enough to catch it.
+#
+# `AttributeError` is still deliberately absent: a missing attribute is
+# frequently a real behavioural failure, and a guard that claims more than it
+# can tell is the defect this lane exists to refuse. The asymmetry is
+# deliberate — discarding a witness costs a criterion its coverage and sends it
+# to a human, which is the safe direction; accepting a bad one manufactures
+# evidence, which is not.
 LOAD_FAILURES = frozenset(
-    {"ImportError", "ModuleNotFoundError", "NameError"}
+    {
+        "ImportError",
+        "ModuleNotFoundError",
+        "NameError",
+        "FileNotFoundError",
+        "NotADirectoryError",
+    }
 )
 
 
@@ -536,10 +570,19 @@ def execute(
         if containment_settings is not None and established is not None:
             from wringer import containment as containment_module
 
+            # **`sys.executable` is a HOST path and it does not exist inside
+            # the image.** The first draft passed `RUNNER` straight through, so
+            # the container ran `/host/path/to/python -m pytest …`, the shell
+            # exited 127, and `classify` read that as `collection_error` — so
+            # under a declared containment EVERY witness was silently
+            # discarded and every criterion reported uncovered, while the
+            # module docstring claimed the lane ran inside the boundary. The
+            # review measured it. That is the configuration the re-test needs,
+            # which made it the worst place for the lane to be inert.
             argv = containment_module.argv(
                 containment_settings,
                 established,
-                " ".join([*RUNNER, relative]),
+                " ".join([*CONTAINED_RUNNER, relative]),
                 tree,
                 tree / MATERIAL_DIRNAME,
             )
@@ -567,6 +610,22 @@ def execute(
                 log="",
             )
         log = (done.stdout or "") + (done.stderr or "")
+        if (
+            containment_settings is not None
+            and done.returncode == EXIT_NO_COMMAND
+        ):
+            # Loud, not silent. A witness "discarded" because the image has no
+            # pytest is a criterion reported uncovered for a reason that has
+            # nothing to do with the criterion, and the reader would never
+            # learn which.
+            raise WitnessError(
+                f"the witness for `{witness.criterion}` could not run inside "
+                f"the containment: `{CONTAINED_RUNNER[0]}` or pytest is not in "
+                f"the image {containment_settings.image!r}. Add them to the "
+                "image, or drop 'run.containment' — Wringer will not report a "
+                "criterion uncovered for a reason that is not about the "
+                "criterion"
+            )
         raised = _raised(tree)
         return Execution(
             exit_code=done.returncode,
@@ -672,12 +731,62 @@ def pin(witness: Witness, run_id: str) -> dict[str, Any]:
     }
 
 
-def check_pin(witness: Witness, pinned: dict[str, Any]) -> None:
+def on_disk_sha256(root: Path, witness: Witness) -> str | None:
+    """Hash the bytes that are actually on disk right now, or None.
+
+    **This function exists because the first draft's pin was a tautology, and
+    the independent review measured it.** `pin()` built its digest from the
+    in-memory `Witness`, and `check_pin()` compared that same object's digest
+    back against it — the same field of the same object, so the comparison
+    could not fail. The source was read from disk exactly once, before the
+    first worker turn, and every later "re-check" re-checked a value against
+    itself. A worker that rewrote `.wringer/witness/*.py` mid-loop passed:
+
+        pinned sha:      9065b312e262
+        on-disk sha now: e0d5bd480a37
+        check_pin: PASSED
+
+    The whole claim of W4 is that the bytes which ran are the bytes that were
+    pinned. That is a claim about a FILE, so it has to be answered by reading
+    the file.
+    """
+    path = root / WITNESS_DIRNAME / witness.filename
+    try:
+        return digest(path.read_bytes())
+    except OSError:
+        return None
+
+
+def check_pin(
+    witness: Witness, pinned: dict[str, Any], root: Path | None = None
+) -> None:
     """Compare what is about to run against what was pinned, or VOID.
 
     Called before EVERY execution, including on `wring resume` — a resumed loop
     that neither pins nor re-verifies would execute an unpinned witness (W7.7).
+
+    `root` is what makes this a real comparison rather than a tautology: with
+    it, the bytes on disk are re-hashed and compared to the pin. Without it
+    only the in-memory object is checked, which is the degenerate case and is
+    why the parameter has no default at the call sites that matter.
     """
+    if root is not None:
+        actual = on_disk_sha256(root, witness)
+        if actual is None:
+            raise WitnessError(
+                f"the witness for `{witness.criterion}` is no longer readable "
+                "on disk, so the bytes about to run cannot be compared to the "
+                "pin. This VOIDs the run"
+            )
+        if actual != pinned.get("sha256"):
+            raise WitnessError(
+                f"the witness for `{witness.criterion}` on disk is not the one "
+                f"that was pinned ({actual[:12]} != "
+                f"{str(pinned.get('sha256'))[:12]}). Something rewrote it after "
+                "it was pinned. This VOIDs the run: it is not a failing gate, "
+                "it is no run at all, because a check the worker could edit is "
+                "a check that says nothing"
+            )
     if witness.sha256 != pinned.get("sha256"):
         raise WitnessError(
             f"the witness for `{witness.criterion}` is not the one that was "

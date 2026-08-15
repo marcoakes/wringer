@@ -177,12 +177,13 @@ seven named attacks as gates through the real backend, and **refuses rather than
 skips** when no runtime is present. The coverage record in that file is the
 ledger, and this table may not disagree with it:
 
-| sequence | platform | runtime | date | what the attacks found |
-|---|---|---|---|---|
-| G | macOS | podman | 2026-08-13 | 6 prevented, 1 mitigated |
-| G | Linux | podman | 2026-08-13 | 6 prevented, 1 mitigated — on a host whose kernel the container **shares** |
-| G | Linux | docker | 2026-08-14 | 6 prevented, 1 out_of_scope |
-| I | macOS | podman | 2026-08-15 | 8 worker probes, 6 flipping against a `--privileged` control |
+| sequence | platform | runtime | date | worker | what the attacks found |
+|---|---|---|---|---|---|
+| G | macOS | podman | 2026-08-13 | gates (shell) | 6 prevented, 1 mitigated |
+| G | Linux | podman | 2026-08-13 | gates (shell) | 6 prevented, 1 mitigated — on a host whose kernel the container **shares** |
+| G | Linux | docker | 2026-08-14 | gates (shell) | 6 prevented, 1 out_of_scope |
+| I | macOS | podman | 2026-08-15 | shell worker | 8 worker probes, 6 flipping against a `--privileged` control |
+| I | macOS | podman | 2026-08-15 | ACP agent | 10 probes; **7 of the 8 attack probes flip** against the control, and the 8th is the model API, which must not flip |
 
 **What the prevented attacks cover**: no host SSH keys, no host gitconfig or
 `.git-credentials`, no Docker socket, no host credential in the environment

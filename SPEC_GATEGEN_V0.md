@@ -1110,3 +1110,63 @@ with both control arms beside it — but a pass over the corpus measures §5's
 clauses only if delivery consumes the witness, and it does not yet. A pass run
 now would have spent the one authorised pass to measure nothing, which is §5.5's
 own warning arriving one slice early.
+
+### §6c — The independent review, and the four HIGH findings it folded
+
+*One agent, 2026-08-15, over the finished slice, instructed to refute; neither
+the drafter nor the builder (the no-fleets rule). **Verdict on the witness lane:
+NOT SOUND — three of its four load-bearing claims did not hold as built.** Every
+finding below is folded; none is rebutted. The review is recorded here in full
+rather than summarised, because a NOT SOUND verdict that gets paraphrased into
+a footnote is the drift this repository exists to catch.*
+
+| # | sev | the finding | resolution |
+|---|---|---|---|
+| 1 | HIGH | **The pin was a tautology.** `pin()` built its digest from the in-memory `Witness` and `check_pin()` compared that same object's digest back against it — the same field of the same object, so it could not fail. The source was read from disk exactly once, before the first worker turn; every later "re-check" re-checked a value against itself. Measured: a worker that rewrote the witness mid-loop passed (`9065b312e262` pinned, `e0d5bd480a37` on disk, `check_pin: PASSED`). `executed.matches_pin` was the literal `True`, which W6 calls "the comparison that VOIDs a run" | `witness.on_disk_sha256` added; `check_pin` takes `root` and re-hashes the FILE immediately before it runs; `matches_pin` is now measured. Pinned by `test_the_pin_is_compared_against_the_BYTES_ON_DISK`, which rewrites the file on disk and watches the VOID |
+| 2 | HIGH | **The lane emitted two event types the frozen `loop-event-v2` forbids.** `type` is a closed enum of eight with `additionalProperties: false` on every branch, so every bundle with a witness lane wrote a ledger failing its own published schema. `loop.py` says this itself 375 lines above, declining a containment event for that exact reason, and W6 named the cost in advance | both events removed. The facts live in the sibling `witness.json`, on the `vacuity.json` pattern, which costs no version. `loop-event-v3` is still owed and is still to be designed ONCE, carrying this and the staleness rider's stale-marking event. Pinned by `test_the_lane_emits_no_event_the_frozen_ledger_schema_forbids`, which derives the permitted set from the schema |
+| 3 | HIGH | **W8 accepted `FileNotFoundError`, and W10 was steering authors into it.** W10 mandates exercising the interface the criterion names; on a pre-change tree a witness that shells out to a tool which does not exist yet raises `FileNotFoundError` at exit 1 — classified `assertion`, while carrying W8's defining property verbatim: green the moment any binary of that name exists | `FileNotFoundError` and `NotADirectoryError` added to `LOAD_FAILURES`. `AttributeError` stays out, deliberately. The asymmetry is stated: discarding costs a criterion its coverage and sends it to a human, which is safe; accepting a bad witness manufactures evidence, which is not |
+| 4 | HIGH | **The lane was inert under containment — the one configuration the re-test needs.** `RUNNER[0]` is `sys.executable`, a host path absent from the image, so the contained branch exited 127, `classify` read that as `collection_error`, every witness was silently discarded and every criterion reported uncovered — while the docstring claimed the lane ran inside the boundary | `CONTAINED_RUNNER` resolves `python3` on the image's PATH; a 127 under containment now RAISES by name rather than being classified, because a criterion must never be reported uncovered for a reason that is not about the criterion |
+| 5 | HIGH | **The isolation-ledger guard's key collapsed two rows**, so the contained-ACP run was absent from `SECURITY.md` and the guard did not fire — the counter-example landing one commit after the guard | the key gained a fifth part, the spawn shape; `SECURITY.md`'s table gained the ACP row and a `worker` column. This was my own guard failing at exactly the thing it was written to catch |
+| 6 | MED | the brief's "failure output" is a pytest progress bar, and W5's "carries the failure" half has no assertion | **open, and named** — see §6d |
+| 7 | MED | a containment widens the ACP agent's environment beyond `env_passthrough`, and A-6 says the opposite | **open, and named** — the union may be right, but the spec must say so; §6d |
+| 8 | MED | `README.md:298` says the witness lane is "not in this code yet", which this slice made false | **open, and named** — §6d |
+| 10–11 | MED | A-5 has no test; refusal 4 starts a container while `preflight`'s docstring says it starts none | **open, and named** — §6d |
+| 12 | MED | `witness.json` is written without the redactor and is not in `schema/frozen.json` | **open, and named** — §6d |
+| 13 | MED | "the constant-yes broken" is not supported: nothing outside the lane reads a witness | **accepted, and it is the same fact §6b already records.** Delivery is not wired, so a failing witness changes no verdict. The claim belonged in a commit that could support it |
+| 14–20 | LOW | fail-open digest when `authored.sha256` is absent; a `//` path edge; laundering windows in `HISTORY_MARKERS`; an AST guard whose name outruns its body; a misattributing refusal message; an unused `redactor` argument; `.wringer-witness/` not gitignored | **open, and named** — §6d |
+
+**What the review checked and found correct**, recorded so an unexamined area
+and a held one do not read alike: the containment boundary is built once and
+both tails derive from it; path translation genuinely leaves confinement
+unchanged under `..`, symlinks, absolute paths and the `/workspacex` prefix; no
+shipped route runs a contained ACP worker uncontained; sequence I's ACP arm
+drives the shipped mechanism and wraps the same probe rather than a second copy;
+`backend.LIMITS_V1`'s new sentence is TRUE against the coverage record; the
+ledger guard's completeness forcing is real in both directions; Q1's claim
+ceiling is respected in every artifact it looked at; `vacuity.py:162` and
+`execution.backend` are untouched; and the two defects found by driving the lane
+— the `__pycache__` cleanup bug and the body-import hole — are correctly fixed
+and pinned.
+
+### §6d — What is still open, named rather than left to be found
+
+The five HIGH findings are folded. **The MEDIUM and LOW ones are not**, and
+they are listed here rather than quietly carried:
+
+1. `_first_meaningful_line` returns pytest's progress bar, so the brief's
+   witness line and the mandatory `proved_red.first_line` citation are both
+   uninformative. W5's *"carries the failure"* half has no assertion.
+2. The env union under containment contradicts A-6's text. The union is
+   probably right; the spec has to say so, or the code has to narrow.
+3. `README.md` still says the witness lane is not in this code.
+4. A-5's derived `worker_requires` has no test; deleting it reddens nothing.
+5. `containment.preflight` starts a container while its docstring says it does
+   not, and A-5 made that universal for ACP repositories — every verify lap.
+6. `witness.json` bypasses the redactor and is absent from `schema/frozen.json`.
+7. The `authored.sha256` check fails open when the field is absent or empty.
+8. `.wringer-witness/` is not gitignored, so a SIGKILL mid-execution leaves
+   model-authored Python in the working tree where `created_stems` reads it.
+
+**None of these is a claim this repository is currently making.** Each is a gap
+between what the lane does and what a careful reader would assume — which is
+exactly the register this file is supposed to keep.

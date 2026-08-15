@@ -1229,10 +1229,7 @@ def _pin_witnesses(
     Absence is absence: a repository with no witness lane gets an empty list
     and every downstream behaviour is byte for byte what it was.
     """
-    try:
-        found = witness.load(root)
-    except witness.WitnessError as exc:
-        raise verify.Refused(str(exc)) from exc
+    found = witness.load(root)
     if not found:
         return []
 
@@ -1240,7 +1237,7 @@ def _pin_witnesses(
     try:
         attest.check_chain(bundle.directory / EVENTS_FILENAME, "loop")
     except attest.Refused as exc:
-        raise verify.Refused(
+        raise witness.WitnessError(
             f"the loop ledger's hash chain is broken ({exc}), so a pin read "
             "out of it cannot be trusted. This VOIDs the run"
         ) from exc
@@ -1248,7 +1245,7 @@ def _pin_witnesses(
     # (2) The pre-change tree, by the mechanism that makes it one.
     tree = fleet.make_worktree(root, f"witness-{bundle.directory.name}")
     if tree is None:
-        raise verify.Refused(
+        raise witness.WitnessError(
             "a scratch worktree could not be created, so no witness could be "
             "proved red against the pre-change tree. Nothing is claimed either "
             "way and the run does not proceed on an unproved witness"
@@ -1266,18 +1263,19 @@ def _pin_witnesses(
     for item in found:
         pinned = witness.pin(item, bundle.directory.name)
         item.record["pinned"] = pinned
-        bundle.event(
-            "witness.pinned",
-            proves=item.criterion,
-            sha256=pinned["sha256"],
-            path=pinned["path"],
-            outcome=item.proved_red.outcome if item.proved_red else "none",
-            verdict=witness.PROVEN if item.usable else witness.NOT_ESTABLISHED,
-            # The citation is mandatory: a verdict with nowhere to look is the
-            # shape this repository keeps finding in itself.
-            first_line=item.proved_red.first_line if item.proved_red else "",
-            discarded=item.discarded or "",
-        )
+    # **No ledger event, and that is a correction rather than a preference.**
+    # The first draft emitted `witness.pinned` and `witness.executed` into
+    # `loop.jsonl`, whose `type` is a CLOSED enum of eight branches with
+    # `additionalProperties: false` on every one — so every bundle with a
+    # witness lane wrote a ledger that failed its own published, frozen schema.
+    # This module says so 375 lines above, where it declines to emit a
+    # containment event for exactly this reason, and `SPEC_GATEGEN` §6 W6 names
+    # the cost in advance: the pin event needs `loop-event-v3`.
+    #
+    # The facts have a home that costs no version — the sibling `witness.json`,
+    # on the `vacuity.json` pattern — so they go there and the frozen schema is
+    # left alone. Designing v3 once, carrying both this and the staleness
+    # rider's stale-marking event, is still the right move and is still owed.
     return found
 
 
@@ -1308,23 +1306,17 @@ def _execute_witnesses(
         pinned = item.record.get("pinned")
         if not pinned:  # pragma: no cover - pinned beside usable
             continue
-        try:
-            witness.check_pin(item, pinned)
-        except witness.WitnessError as exc:
-            raise verify.Refused(str(exc)) from exc
+        # `root` is what makes this a comparison rather than a tautology: the
+        # bytes on disk are re-hashed here, immediately before they run. The
+        # first draft compared the in-memory object against a pin derived from
+        # that same object, which could not fail. A mismatch raises and the
+        # run VOIDs — exit 3, never 1 (which would file it as evidence about
+        # the change) and never 2 (which would blame a config that is fine).
+        witness.check_pin(item, pinned, root)
         item.executed = witness.execute(
             root, item,
             containment_settings=containment_settings,
             established=established,
-        )
-        bundle.event(
-            "witness.executed",
-            proves=item.criterion,
-            sha256=item.sha256,
-            matches_pin=True,
-            passed=item.executed.passed,
-            exit_code=item.executed.exit_code,
-            first_line=item.executed.first_line,
         )
 
     payload = {
@@ -1347,7 +1339,15 @@ def _execute_witnesses(
                 "executed": (
                     {
                         "sha256": item.sha256,
-                        "matches_pin": True,
+                        # MEASURED, not asserted. This was the literal `True`
+                        # until the review pointed out that W6 calls this field
+                        # "the comparison that VOIDs a run" — a field carrying
+                        # a constant is not a comparison. It reaches here only
+                        # on the path where `check_pin` against the disk has
+                        # already passed, and it records what that check saw.
+                        "matches_pin": (
+                            witness.on_disk_sha256(root, item) == item.sha256
+                        ),
                         "result": "passed" if item.executed.passed else "failed",
                         "exit_code": item.executed.exit_code,
                     }

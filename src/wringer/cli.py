@@ -1751,6 +1751,13 @@ def cmd_run(args: argparse.Namespace) -> int:
             gates=args.gate,
             prove=args.prove,
         )
+    except witness.WitnessError as exc:
+        # **A VOID, and the exit code is ruled** (SPEC_GATEGEN_V0 §6 W4). Not
+        # 1, which would file it as evidence ABOUT the change, and not 2,
+        # which would blame a configuration that is fine. A witness that does
+        # not match its pin means there was no run at all.
+        _fail("run", exc)
+        return EXIT_REFUSED
     except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("run", exc)
         return EXIT_CONFIG

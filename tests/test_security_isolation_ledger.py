@@ -172,6 +172,24 @@ def read_ledger() -> list[LedgerRow]:
     return rows
 
 
+def spawn_family(text: str) -> str:
+    """Which WORKER a sequence-I row attacked.
+
+    **The key had four parts and needed five, and the counter-example landed
+    one commit after the guard.** The contained shell worker and the contained
+    ACP worker were both measured on macOS/podman on 2026-08-15, so they
+    collapsed to one key: the ledger gained a classified run,
+    `SECURITY.md` kept the older narrower story naming only the shell row, and
+    all twelve tests here passed. That is precisely the drift this file was
+    written to catch, committed by the file that catches it.
+
+    They are different boundaries in the sense that matters to a reader — a
+    shell string handed to `gates.run` versus a stdio session carried across
+    the boundary — and the second is the one the re-test uses.
+    """
+    return "acp" if "acp" in text.lower() else "shell"
+
+
 def platform_family(text: str) -> str:
     lowered = text.lower()
     if "macos" in lowered or "darwin" in lowered:
@@ -399,9 +417,9 @@ def test_the_mention_and_the_assertion_are_told_apart():
 # --- direction 2: the results table equals the ledger -----------------------
 
 
-def read_narrative_table() -> set[tuple[str, str, str, str]]:
+def read_narrative_table() -> set[tuple[str, str, str, str, str]]:
     """SECURITY.md's measured-results table, as (sequence, platform, runtime,
-    date) keys."""
+    date, worker) keys."""
     text = (repo_root() / NARRATIVE).read_text(encoding="utf-8")
     assert NARRATIVE_HEADING in text, (
         f"{NARRATIVE} lost the heading this guard reads "
@@ -409,7 +427,7 @@ def read_narrative_table() -> set[tuple[str, str, str, str]]:
     )
     after = text.split(NARRATIVE_HEADING, 1)[1]
 
-    keys: set[tuple[str, str, str, str]] = set()
+    keys: set[tuple[str, str, str, str, str]] = set()
     started = False
     for line in after.splitlines():
         stripped = line.strip()
@@ -421,13 +439,15 @@ def read_narrative_table() -> set[tuple[str, str, str, str]]:
         if cells and set(cells[0]) <= {"-", ":"} and cells[0]:
             continue
         if not started:
-            assert cells[:4] == ["sequence", "platform", "runtime", "date"], (
+            assert cells[:5] == [
+                "sequence", "platform", "runtime", "date", "worker"
+            ], (
                 f"{NARRATIVE}'s results table no longer carries the columns "
-                f"this guard derives from; it reads {cells[:4]}"
+                f"this guard derives from; it reads {cells[:5]}"
             )
             started = True
             continue
-        if len(cells) < 4:
+        if len(cells) < 5:
             continue
         keys.add(
             (
@@ -435,13 +455,14 @@ def read_narrative_table() -> set[tuple[str, str, str, str]]:
                 platform_family(cells[1]),
                 runtime_family(cells[2]),
                 cells[3].strip(),
+                spawn_family(cells[4]),
             )
         )
     assert started, f"{NARRATIVE} has no results table under {NARRATIVE_HEADING!r}"
     return keys
 
 
-def ledger_keys() -> set[tuple[str, str, str, str]]:
+def ledger_keys() -> set[tuple[str, str, str, str, str]]:
     keys = set()
     for row in read_ledger():
         if LEDGER_SUBJECTS.get(row.subject) != ATTACK or not row.classified:
@@ -456,6 +477,7 @@ def ledger_keys() -> set[tuple[str, str, str, str]]:
                 platform_family(f"{row.os_cell} {row.subject}"),
                 runtime_family(row.runtime_cell),
                 row.date,
+                spawn_family(row.subject),
             )
         )
     return keys
