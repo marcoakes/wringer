@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/banner.webp" alt="A vintage wringer washing machine. Tangled code feeds into the rollers from the left; a receipt stamped EVIDENCED comes out on the right; drops marked with red crosses drip from the rollers into the tub below." width="900">
+
 # 🗜️ Wringer
 
 **The vendor-neutral AI-DLC harness — a control plane for AI-driven development,
