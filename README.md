@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.webp" alt="A vintage wringer washing machine. Tangled code feeds into the rollers from the left; a receipt stamped EVIDENCED comes out on the right; drops marked with red crosses drip from the rollers into the tub below." width="900">
+<img src="docs/banner.webp" alt="A vintage wringer washing machine, cranked by hand. Two things feed into the rollers from the left: a git diff with a stream of tangled code, and a handwritten note reading 'I want a button that... downloads as a spreadsheet...'. A red tag on the roller says RED FIRST, and drops marked with red crosses drip into the tub below. Out of the right comes a perforated page headed EVERY GREEN WAS RED FIRST, carrying three cards — DONE — PROVED, NOT YET, NEEDS YOU — on a stack of fanfold paper stamped EVIDENCED. In the corner a terminal shows 'wring deliver' ticking off approved by you, red first, evidence, then REFUSED: 1 -- needs you." width="900">
 
 # 🗜️ Wringer
 
