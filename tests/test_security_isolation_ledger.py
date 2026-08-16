@@ -94,6 +94,15 @@ LEDGER_SUBJECTS = {
     "docker desktop on macos": OTHER,
     "sequence i — the contained worker, attacked": ATTACK,
     "sequence i — the contained acp worker, attacked": ATTACK,
+    # The first row in this ledger for which the macOS VM caveat does not
+    # apply: Docker on a shared Linux kernel, both spawn shapes, with the
+    # control beside them.
+    "sequence i — **docker on linux, shared kernel**": ATTACK,
+    # ATTACK, and deliberately NOT classified: it REFUSED, exit 2, and carries
+    # none of `CLASSIFIED`'s words. Kept as a row because the refusal is the
+    # evidence — a sequence that says "nothing was measured" is worth more on
+    # the record than one quietly re-run until it looked green.
+    "sequence i — docker on linux, first attempt": ATTACK,
     "sequence g — the container path, attacked": ATTACK,
     "sequence g — **on linux, shared kernel**": ATTACK,
     "sequence g — **docker on linux, read at last**": ATTACK,

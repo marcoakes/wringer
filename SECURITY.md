@@ -184,6 +184,7 @@ ledger, and this table may not disagree with it:
 | G | Linux | docker | 2026-08-14 | gates (shell) | 6 prevented, 1 out_of_scope |
 | I | macOS | podman | 2026-08-15 | shell worker | 8 worker probes, 6 flipping against a `--privileged` control |
 | I | macOS | podman | 2026-08-15 | ACP agent | 10 probes; **7 of the 8 attack probes flip** against the control, and the 8th is the model API, which must not flip |
+| I | Linux | docker | 2026-08-16 | shell worker | **The macOS VM caveat falls away for this row and for nothing else.** Both spawn shapes and a `--privileged` control, on a shared kernel: **7 of the 8 attack probes flip** — host credential by file and by env, github by name AND by raw address, DNS for an undeclared name, disarming the allowlist, and the process table (2 pids contained, 202 privileged). The model API stays reachable in both, which is the allowlist working. **I3 measured nothing here and says so**: a CI runner has no corpus mirror, so both arms are BLOCKED for the same reason |
 
 **What the prevented attacks cover**: no host SSH keys, no host gitconfig or
 `.git-credentials`, no Docker socket, no host credential in the environment
