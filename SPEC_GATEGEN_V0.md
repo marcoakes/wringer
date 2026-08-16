@@ -1494,3 +1494,32 @@ number the pass is scored on.
 
 *The re-validation is re-run after the fix, and no money is spent on the pass
 until a row comes back with a covered witness that actually executed.*
+
+### §6i — The gate PASSED, and what a whole chain looks like — 2026-08-16
+
+*Third re-validation of `marshmallow-constant-required`, after the two fixes
+§6h records. This is P4-7 satisfied, and it is the first time every link in the
+lane has held at once on a real task.*
+
+| | arm A (control) | arm B (supervised) |
+|---|---|---|
+| cell | `false_confidence` | **`true_confidence`** |
+| held-out suite | **1 failed**, 380 passed | **381 passed** |
+| witness | — | `covered: true`, `proved_red: assertion`, `verdict: proven`, **`result: passed`** |
+| containment | uncontained **by design** — it is the control | `primary: established`, `loop: established` |
+
+**Every link, in order:** a witness authored before the agent was given
+anything → proved RED on the pre-change tree, for an assertion and not a load
+failure → pinned over bytes, command and path → the agent's PRIMARY turn ran
+inside the boundary → the loop engaged because the witness was red while every
+declared gate was green → the witness CONVERTED red to green → delivery said
+yes → and upstream's held-out suite, which no arm ever sees, agreed.
+
+**The control is the other half of the result.** The same agent, the same
+statement, one turn, nothing checking it: a confident claim and a suite that
+still fails. That is the row the 2026-08-13 pass produced 26 times and
+delivered every one of.
+
+*What this row does NOT license, and it is the same ceiling as everywhere else:
+one task is one draw. It says the mechanism works end to end; it says nothing
+about a rate, and §5's clauses are scored over a pass rather than over this.*
