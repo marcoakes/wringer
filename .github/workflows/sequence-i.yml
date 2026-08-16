@@ -60,7 +60,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e '.[dev]'
+
+      # **A `.venv`, because that is what the script invokes**, and the first
+      # run of this workflow measured the cost of not having one. `pip install
+      # -e .` alone put `wring` on the runner's PATH and NOT at
+      # `$ROOT/.venv/bin/wring`, which `scripts/sequence-i.sh:434` runs
+      # explicitly. Both contained arms then reported
+      #
+      #     .venv/bin/wring: not found
+      #     sequence I: no loop bundle was written; nothing was measured.
+      #
+      # and exited 2. That is the script's refuse-rather-than-skip discipline
+      # working exactly as designed — it said NOTHING WAS MEASURED rather than
+      # reporting arms it never ran — and it is also why the run produced one
+      # control arm and no measurement. The absolute path is deliberate in the
+      # script: it pins WHICH wringer is under test, so the fix belongs here.
+      - name: Install into the .venv the sequence expects
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install -q -e '.[dev]'
+          .venv/bin/wring --version
 
       - name: Say what runtime is actually here
         run: |
