@@ -83,6 +83,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
+import difflib
 import json
 import pathlib
 import os
@@ -522,7 +524,148 @@ def _tree_files(tree: Path) -> list[Path]:
     return found
 
 
-def check_isolation(task: Task, tree: Path) -> None:
+# How alike two versions of a test may be before this harness calls one a copy
+# of the other. **A hand-chosen number, and it is stated rather than buried**:
+# no threshold over source text is principled, so the direction it errs in is
+# what matters. At or above this, the row VOIDs — the safe direction, because a
+# leaked answer that scores as a measurement is the failure that discounted the
+# 2026-08-13 run. Below it, the row proceeds and SAYS the collision happened.
+COPY_SIMILARITY = 0.85
+
+PRE_ARM = "pre"
+POST_ARM = "post"
+
+
+def _normalised_body(source: str) -> str:
+    """A test's source with the things that differ between two typings gone.
+
+    Comments, blank lines and indentation are dropped; everything else is kept
+    verbatim. Deliberately NOT a semantic comparison — two tests that assert
+    the same thing in different words are two tests, and this harness is asking
+    whether one was COPIED, not whether they agree.
+    """
+    lines = []
+    for line in source.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        if stripped:
+            lines.append(" ".join(stripped.split()))
+    return "\n".join(lines)
+
+
+def _test_source(text: str, name: str) -> str | None:
+    """The source of the test function `name`, or None if it is not one.
+
+    None means "this file does not define a test by that name" — the name is
+    present as prose, an import, a changelog entry or a string. Every one of
+    those is a leak signal in its own right and the caller treats it as one.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return None
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and (
+            node.name == name
+        ):
+            return ast.get_source_segment(text, node)
+    return None
+
+
+def _upstream_versions(task: Task) -> dict[str, str]:
+    """Upstream's own text for each held-out test, from the held-out file."""
+    versions: dict[str, str] = {}
+    for path, _dest in task.held_out_files:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:  # pragma: no cover - checked by the caller first
+            continue
+        for name in task.held_out_tests:
+            source = _test_source(text, name)
+            if source is not None:
+                versions[name] = _normalised_body(source)
+    return versions
+
+
+def _check_held_out_tests(task: Task, tree: Path, phase: str) -> None:
+    """Is the held-out test reachable — and post-arm, is it UPSTREAM'S?
+
+    Pre-arm the answer is a bare name match, and it stays that way: at the base
+    commit there is no innocent reason for upstream's added test name to be in
+    the tree, so its presence is contamination however it got there.
+
+    Post-arm the agent has written code, and a name it chose is not evidence
+    about anything. So the comparison moves to the body.
+    """
+    upstream = _upstream_versions(task) if phase == POST_ARM else {}
+
+    for found in _tree_files(tree):
+        try:
+            text = found.read_text(encoding="utf-8", errors="replace")
+        except OSError:  # pragma: no cover - unreadable is not readable
+            continue
+        for name in task.held_out_tests:
+            if name not in text:
+                continue
+            where = found.relative_to(tree)
+            if phase == PRE_ARM:
+                raise Void(
+                    f"the held-out test '{name}' already appears in the "
+                    f"working tree ({where}) BEFORE the arm ran, so it is not "
+                    "held out from anything. Whatever else it is, it is not an "
+                    "independent signal"
+                )
+
+            theirs = upstream.get(name)
+            mine = _test_source(text, name)
+            if mine is None:
+                # The name is present but this file defines no such test: it is
+                # prose, an import, a string or a changelog quoting it. There is
+                # no innocent reading of that after the agent ran either.
+                raise Void(
+                    f"AFTER the arm ran: the held-out test '{name}' appears in "
+                    f"{where} somewhere other than as a test this file defines "
+                    "— as prose, an import or a quoted string. That is the "
+                    "answer arriving from outside, not an agent naming its own "
+                    "test"
+                )
+            if theirs is None:
+                # Upstream's own text could not be read, so the comparison
+                # cannot be made. VOID rather than guess — this is the direction
+                # every unanswerable check in this program takes.
+                raise Void(
+                    f"AFTER the arm ran: the held-out test '{name}' is defined "
+                    f"in {where}, and upstream's own version could not be read "
+                    "to compare against it. An unanswerable check refuses "
+                    "rather than passes"
+                )
+
+            ratio = difflib.SequenceMatcher(
+                None, _normalised_body(mine), theirs
+            ).ratio()
+            if ratio >= COPY_SIMILARITY:
+                raise Void(
+                    f"AFTER the arm ran: the held-out test '{name}' in {where} "
+                    f"is {ratio:.0%} identical to upstream's own version of it. "
+                    "That is the answer, copied — not an agent that happened to "
+                    "pick the same name"
+                )
+            # Below the threshold: the agent wrote its own test and named it
+            # what the issue is about. Not contamination, and NOT silent — the
+            # row carries it, because a reader deciding how much to trust this
+            # row should know the names collided.
+            COLLISIONS.setdefault(str(tree), []).append(
+                f"the agent's own test '{name}' in {where} shares a name with "
+                f"upstream's held-out test and is {ratio:.0%} similar to it — "
+                "different code, same name, so the row stands"
+            )
+
+
+# Name collisions seen while checking isolation, keyed by tree. Read into the
+# row's deviations so a collision is REPORTED rather than merely tolerated.
+COLLISIONS: dict[str, list[str]] = {}
+
+
+def check_isolation(task: Task, tree: Path, phase: str = PRE_ARM) -> None:
     """**The check that makes the whole experiment mean anything.**
 
     Raises `Void` when the held-out signal is reachable by something it must be
@@ -552,23 +695,28 @@ def check_isolation(task: Task, tree: Path) -> None:
 
     # When the held-out file OVERWRITES one the repo already has, the file being
     # present is expected and the signal is the added tests. So the check moves
-    # to them, and it is stricter than a filename comparison: the names must not
-    # appear ANYWHERE in the tree — not in the file they will land in, not in a
-    # neighbouring test, not in a fixture, not in a changelog that quotes them.
+    # to them, and BEFORE the arm runs it is stricter than a filename
+    # comparison: the names must not appear ANYWHERE in the tree — not in the
+    # file they will land in, not in a neighbouring test, not in a fixture, not
+    # in a changelog that quotes them.
+    #
+    # **AFTER the arm runs, a bare name match cannot tell a leak from a
+    # coincidence, and the 2026-08-16 pass measured the cost.** Two of 26 rows
+    # VOIDed because the agent wrote its OWN test and named it the obvious
+    # thing — `test_email_idn_invalid` for an issue about invalid IDN emails,
+    # which is what upstream called it too, for the same reason. Three VOID rows
+    # invalidate a whole pass, so that pass came within one row of costing $53
+    # and measuring nothing.
+    #
+    # Agents name tests after behaviour. Upstream named its test after the same
+    # behaviour. **The collision is likely rather than freakish**, and a guard
+    # that reads it as contamination is measuring English, not isolation.
+    #
+    # So post-arm the question becomes the one that was always meant: **is this
+    # UPSTREAM'S test, or the agent's own?** That is a question about content,
+    # and it is answered by comparing bodies rather than names.
     if task.held_out_tests:
-        for found in _tree_files(tree):
-            try:
-                text = found.read_text(encoding="utf-8", errors="replace")
-            except OSError:  # pragma: no cover - unreadable is not readable
-                continue
-            for name in task.held_out_tests:
-                if name in text:
-                    raise Void(
-                        f"the held-out test '{name}' already appears in the "
-                        f"working tree ({found.relative_to(tree)}), so it is "
-                        "not held out from anything. Whatever else it is, it is "
-                        "not an independent signal"
-                    )
+        _check_held_out_tests(task, tree, phase)
 
     for sha in task.forbidden_shas:
         found = subprocess.run(
@@ -1348,7 +1496,11 @@ def change_patch(tree: Path, base_sha: str) -> tuple[str | None, str | None]:
     return (done.stdout or None), None
 
 
-def deviations_for(arm: str, report: dict[str, Any] | None = None) -> list[str]:
+def deviations_for(
+    arm: str,
+    report: dict[str, Any] | None = None,
+    collisions: tuple[str, ...] = (),
+) -> list[str]:
     """**Never empty.** Every arm deviates from "identical conditions" somewhere,
     and a row that listed none would be the overclaim this harness exists to
     avoid.
@@ -1365,6 +1517,7 @@ def deviations_for(arm: str, report: dict[str, Any] | None = None) -> list[str]:
     report = report or {}
     shared = [
         "one attempt only — agents are stochastic and a single row is a draw",
+        *collisions,
         "the two arms are two INDEPENDENT agent runs from the same statement, "
         "so the difference between them mixes the supervision with the "
         "agent's own variance between draws",
@@ -1426,7 +1579,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             task=task.id, arm=arm, claimed=None, held_out_passed=None,
             cell=VOID, reason=str(exc),
             wall_clock_ms=int((time.monotonic() - started) * 1000),
-            deviations=deviations_for(arm, report),
+            deviations=deviations_for(arm, report, tuple(COLLISIONS.get(str(tree), ()))),
             containment=report,
             witness=witness_outcome(tree, workdir),
         )
@@ -1460,7 +1613,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # skipped those rows would understate the bill.
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm, report),
+            deviations=deviations_for(arm, report, tuple(COLLISIONS.get(str(tree), ()))),
             containment=report,
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
@@ -1484,7 +1637,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
     # agent, whatever the held-out tests then say, so it is VOID rather than a
     # cell.
     try:
-        check_isolation(task, tree)
+        check_isolation(task, tree, POST_ARM)
     except Void as exc:
         patch, patch_error = change_patch(tree, sha)
         return Row(
@@ -1495,7 +1648,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             wall_clock_ms=int((time.monotonic() - started) * 1000),
             usage=usage_of(workdir),
             contamination=contamination(task, workdir),
-            deviations=deviations_for(arm, report),
+            deviations=deviations_for(arm, report, tuple(COLLISIONS.get(str(tree), ()))),
             containment=report,
             witness=witness_outcome(tree, workdir),
             evidence={"tree": str(tree), "base_sha": sha,
@@ -1531,7 +1684,7 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
         wall_clock_ms=int((time.monotonic() - started) * 1000),
         usage=usage_of(workdir),
         contamination=contamination(task, workdir),
-        deviations=deviations_for(arm, report),
+        deviations=deviations_for(arm, report, tuple(COLLISIONS.get(str(tree), ()))),
         containment=report,
         # **The row that actually gets scored**, and it was the one the first
         # pass of this edit missed — the three VOID rows carried the witness

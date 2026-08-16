@@ -1533,3 +1533,140 @@ def test_every_row_says_what_the_arms_now_differ_BY(tmp_path):
         said = " ".join(harness.deviations_for(arm, {"primary": "established"}))
         assert "arm A runs uncontained on the host by design" in said, arm
         assert "supervision INCLUDES the boundary" in said, arm
+
+
+# --- the held-out NAME collision, measured on the 2026-08-16 pass ------------
+
+UPSTREAM_TEST = '''\
+import pytest
+
+
+def test_email_idn_invalid():
+    """Upstream's own version."""
+    with pytest.raises(ValidationError):
+        validate.Email()("user@\\u0261oogle.com")
+    assert normalise("\\u0261oogle.com") != "google.com"
+'''
+
+AGENTS_OWN_TEST = '''\
+def test_email_idn_invalid():
+    schema = EmailSchema()
+    result = schema.load({"email": "a@b.test"})
+    assert result["email"] == "a@b.test"
+'''
+
+
+def _collision_task(tmp_path: Path, harness, tree_body: str):
+    """A task whose held-out file adds `test_email_idn_invalid`, and a tree
+    that already contains a test of that name."""
+    held = tmp_path / "held_out.py"
+    held.write_text(UPSTREAM_TEST, encoding="utf-8")
+    tree = tmp_path / "tree"
+    (tree / "tests").mkdir(parents=True)
+    (tree / "tests" / "test_validate.py").write_text(tree_body, encoding="utf-8")
+
+    task = harness.Task(
+        id="t", repo=tree, statement="s", held_out_run="true",
+        held_out_files=((held, "tests/test_validate.py"),),
+        held_out_tests=("test_email_idn_invalid",),
+        forbidden_shas=(), worker="true", wall_clock=1, max_iterations=1,
+    )
+    return task, tree
+
+
+def test_the_agents_OWN_test_of_the_same_name_is_not_contamination(tmp_path):
+    """**Two of 26 rows on the 2026-08-16 pass VOIDed for this**, and three
+    would have invalidated the whole pass — so it came within one row of costing
+    $53 and measuring nothing.
+
+    The agent wrote its own test and called it the obvious thing:
+    `test_email_idn_invalid`, for an issue about invalid IDN emails. Upstream
+    called it that too, for the same reason. **The collision is likely rather
+    than freakish** — agents name tests after behaviour and so do maintainers —
+    and a guard that reads it as contamination is measuring English, not
+    isolation.
+    """
+    harness = load_harness()
+    harness.COLLISIONS.clear()
+    task, tree = _collision_task(tmp_path, harness, AGENTS_OWN_TEST)
+
+    # Post-arm: the agent wrote this, and it is not upstream's.
+    harness.check_isolation(task, tree, harness.POST_ARM)
+
+    said = " ".join(harness.COLLISIONS[str(tree)])
+    assert "shares a name with" in said, "the collision was tolerated SILENTLY"
+    assert "the row stands" in said
+
+
+def test_a_COPY_of_upstreams_test_still_voids(tmp_path):
+    """The direction that must not be weakened. A leaked answer scoring as a
+    measurement is the failure that discounted the 2026-08-13 run, and this
+    change makes the guard more precise, never more permissive."""
+    harness = load_harness()
+    harness.COLLISIONS.clear()
+    task, tree = _collision_task(tmp_path, harness, UPSTREAM_TEST)
+
+    with pytest.raises(harness.Void) as caught:
+        harness.check_isolation(task, tree, harness.POST_ARM)
+    message = str(caught.value)
+    assert "copied" in message
+    assert "identical to upstream" in message
+
+
+def test_PRE_ARM_the_bare_name_is_still_contamination(tmp_path):
+    """At the base commit there is no innocent reason for upstream's added test
+    name to be in the tree — no agent has run, so nobody could have written it
+    independently. That half of the guard is unchanged."""
+    harness = load_harness()
+    task, tree = _collision_task(tmp_path, harness, AGENTS_OWN_TEST)
+
+    with pytest.raises(harness.Void) as caught:
+        harness.check_isolation(task, tree, harness.PRE_ARM)
+    assert "BEFORE the arm ran" in str(caught.value)
+
+
+def test_the_name_as_PROSE_or_an_import_still_voids_post_arm(tmp_path):
+    """A changelog quoting the test name, or an import of it, is the answer
+    arriving from outside. There is no innocent reading of that either, so the
+    content comparison only applies to a test this file actually DEFINES."""
+    harness = load_harness()
+    harness.COLLISIONS.clear()
+    task, tree = _collision_task(
+        tmp_path, harness,
+        "# see upstream's test_email_idn_invalid for the expected behaviour\n",
+    )
+
+    with pytest.raises(harness.Void) as caught:
+        harness.check_isolation(task, tree, harness.POST_ARM)
+    assert "somewhere other than as a test this file defines" in str(caught.value)
+
+
+def test_an_UNREADABLE_upstream_version_voids_rather_than_guessing(tmp_path):
+    """An unanswerable check refuses rather than passes — the direction every
+    other unanswerable check in this program takes."""
+    harness = load_harness()
+    harness.COLLISIONS.clear()
+    task, tree = _collision_task(tmp_path, harness, AGENTS_OWN_TEST)
+    # Upstream's file no longer defines the test, so there is nothing to
+    # compare the agent's version against.
+    task.held_out_files[0][0].write_text("def test_other(): pass\n", encoding="utf-8")
+
+    with pytest.raises(harness.Void) as caught:
+        harness.check_isolation(task, tree, harness.POST_ARM)
+    assert "could not be read to compare" in str(caught.value)
+
+
+def test_a_reported_collision_reaches_the_ROW(tmp_path):
+    """Not merely tolerated — REPORTED. A reader deciding how much to trust a
+    row should know the names collided, and `deviations` is where this harness
+    puts everything it cannot make go away."""
+    harness = load_harness()
+    harness.COLLISIONS.clear()
+    task, tree = _collision_task(tmp_path, harness, AGENTS_OWN_TEST)
+    harness.check_isolation(task, tree, harness.POST_ARM)
+
+    said = " ".join(harness.deviations_for(
+        harness.ARM_WRINGER, {"primary": "established"},
+        tuple(harness.COLLISIONS[str(tree)]),
+    ))
+    assert "shares a name with" in said
