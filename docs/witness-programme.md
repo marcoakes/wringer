@@ -143,3 +143,51 @@ judge may retire a ruler, it may never become one), evidence-aware caching is
 dead, mutation testing as a merge gate is dead. No 20th top-level command; the
 witness lane lives inside existing surfaces. `wringer.attestation.v1` is frozen
 and gains no v2 dialect — P4 emits the standard alongside it.
+
+---
+
+## 2026-08-16 — Phase 4: what landed, and what is still in flight
+
+*Appended by the implementing window. The programme document says what takes
+R2's README sentence back out; this records where the answer stands.*
+
+**The de-scope has NOT fired, and it has NOT been earned off either.** Its
+trigger is a Phase 3 LOSS on §5 as written, and §5 is defined over *one pass
+over the 13 tasks*. That pass was launched on 2026-08-16 and had not finished
+when this window ended, so there is no §5 verdict — not a win, not a loss.
+**Nothing in this window licenses R2's sentence any more widely than it already
+was, and nothing takes it away.**
+
+**Why the money waited, and it was not caution.** `WRINGER_RULING_2026-08-14`
+§5.3 requires a row where the repair loop ran ≥1 worker turn with a red witness
+converting to green. The loop's continuation predicate was gate-only, and the
+corpus selects tasks whose declared gates do NOT cover the issue — so on every
+task the gates were green at base and every loop converged at iteration 1
+having briefed nobody. **§5.3 was unsatisfiable as built**, and a pass launched
+before P4-1 would have spent the single authorised run measuring nothing.
+
+**Three independent checks each found something the others did not**, which is
+the part worth carrying forward:
+
+| check | what it cost | what it found |
+|---|---|---|
+| the suite | $0 | nothing — every defect below passed it |
+| one review agent, refute-instructed | $0 | **NOT SOUND**: 14 findings, 4 HIGH. Both HIGHs against the spec's own claims came from MUTATION — deleting a mechanism and watching the suite stay green — not from reading |
+| the re-armed gate, one real task | ~$20 | a **false proved-red** (a witness proved inside the containment, executed on the host, recorded `covered: true` for a check that never ran), then a **0/13 coverage wipe** (the corpus's dependencies live in a separate gate venv) |
+
+**The rule that generalises: a false proved-red is strictly worse than an
+uncovered criterion.** Uncovered exits to a human and counts as neither a win
+nor a loss, by §5.1's own terms. A false one manufactures coverage out of a
+check that cannot execute — in the exact number the pass is scored on.
+
+**A spend guard was added and it is a deviation worth naming.** The prompt
+budgeted ~$38 for the pass. Three measured tasks came in at $1.63, $5.71 and
+$11.01, so 13 tasks could have crossed the $75 authorisation. The pass now runs
+one task at a time and stops while it can still afford the worst task it has
+seen. **A partial pass cannot satisfy §5**, which is defined over one pass
+across the corpus, and any un-run task is named rather than dropped.
+
+**One task can never count until its repository is rebuilt.**
+`attrs-frozen-exception-mutable-attrs` has the answer commit reachable in its
+own `.git`; preflight refused it at $0 rather than paying for a row that would
+have been VOID.
