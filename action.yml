@@ -1,0 +1,373 @@
+# Wringer, as one line in somebody else's workflow.
+#
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: marcoakes/wringer@main
+#
+# That is the whole adoption path. It runs the gates THIS repository declares
+# in its own `.wringer.yaml`, writes an evidence bundle, and renders three
+# things into the job summary: what ran, whether there is any evidence each
+# gate can still fail, and — if an approved `wringer.spec.yaml` declares
+# criteria — what the record evidences criterion by criterion.
+#
+# WHAT A GREEN TICK HERE DOES NOT MEAN. A gate proves what it checks. A
+# criterion's witness proves the stated criterion could fail and was made to
+# pass; it does not certify agreement with an unstated intended fix, and where
+# the criterion under-describes the intent the witness inherits that gap.
+# Nothing in this file claims the run caught a wrong change, and the
+# acceptance section below carries `acceptance.json`'s own limits verbatim
+# rather than a summary somebody wrote here.
+#
+# NO CREDENTIAL, AND NO `--send`. `--send` is the typed flag that lets Wringer
+# write git history or contact a model endpoint; without it those paths are
+# unreachable. It appears nowhere in this file and no input can introduce one,
+# so nothing here reads `GITHUB_TOKEN` or any secret. `tests/test_docs.py`
+# parses every `wring` line below against the real argument parser and fails
+# on `--send`, on a URL, and on a command or flag that does not exist.
+#
+# THE FIRST RUN READS THIN. This is the part to know before you conclude the
+# vitality table is broken. `wring health` answers "is there any recorded
+# evidence this gate can still fail" from bundles, and a fresh checkout has
+# none: `wring init` adds `.wringer/` to `.gitignore`, so the job holds
+# exactly the one bundle `wring verify` just wrote. A gate with fewer than ten
+# qualifying runs in the window and nothing positive in them reads `untested`
+# — too thin to say anything, never "probably fine". So this action carries
+# its own cache
+# restore/save: each run reads the bundles the previous runs left and adds its
+# own, and the table fills in over roughly ten runs. One recorded genuine
+# failure (or one sensitive `--prove` row) makes a gate read `alive`
+# immediately, at any depth — a demonstration is a demonstration.
+#
+# Run it on pushes to your default branch as well as on pull requests. A job
+# that only ever sees other pull requests' history builds that record much
+# more slowly.
+#
+# WHAT IS DELIBERATELY NOT HERE:
+#
+#   * `wring verify --prove`. The prove pass compares the gates against the
+#     pre-change tree, and it refuses to guess: with no changes in the working
+#     tree it records `not_applicable` and measures nothing. A pull-request
+#     checkout is clean, so `--prove` in this venue is inert — and on a tree
+#     made dirty by something unrelated (an install writing files git does not
+#     ignore) the pre-change worktree lacks that environment, every pre-change
+#     gate fails on it, and the comparison reads that as proof. Each
+#     `sensitive` row cites the line it rests on, which is how a reader tells
+#     the difference — but a job summary is read at a glance, and a false
+#     "proven" is worse than no measurement. Run `--prove` where there is a
+#     change to be insensitive to.
+#
+#   * `wring deliver`, and therefore the merge block. Delivery is where the
+#     acceptance refusal lives (exit 1, naming each required, bound criterion
+#     the record does not evidence), but it needs a `deliver:` section in
+#     `.wringer.yaml` and `wring init` writes none — so putting it on this
+#     action's default path would fail a stranger's first run for a reason
+#     that has nothing to do with their change. The workflow in
+#     `examples/github-actions/wringer.yml` is where that shape lives, for a
+#     repository that has configured delivery. This action RENDERS the
+#     acceptance rows; it does not re-decide them, because a second decider is
+#     a decider that can drift from the first.
+#
+#   * An artifact upload. Naming an artifact safely depends on whether you run
+#     this in a matrix, which this action cannot know. The bundle is left in
+#     the workspace under `.wringer/runs/`, and the `evidence-dir` output
+#     names the exact directory, so a caller can add:
+#
+#       - uses: actions/upload-artifact@v4
+#         if: always()
+#         with:
+#           name: wringer-evidence
+#           path: .wringer/runs/
+#
+# WHERE THE GATES RUN. On the runner, with the job's privileges and the whole
+# environment inherited. `.wringer.yaml` is code and it runs as you — that is
+# not a sandbox and Wringer has never claimed it is one. Read a pull request's
+# `.wringer.yaml` before you let a workflow run it, exactly as you would read
+# any other file it executes.
+
+name: 'Wringer'
+description: >-
+  Run this repository's own gates, keep an evidence bundle a stranger can
+  audit, and report whether there is any evidence each gate can still fail.
+author: 'Marc Oakes'
+
+branding:
+  icon: 'check-square'
+  color: 'purple'
+
+inputs:
+  version:
+    description: >-
+      The Wringer version to install, e.g. "0.3.0". Empty installs the latest
+      release from PyPI. Pin it if you want the tool that reads your evidence
+      to be the same tool next month.
+    required: false
+    default: ''
+  history-key:
+    description: >-
+      Prefix for the Actions cache entry that carries evidence between runs.
+      Give each leg of a matrix its own prefix: two jobs sharing one prefix
+      restore each other's bundles, and a gate's history is per (id, command),
+      not per platform.
+    required: false
+    default: 'wringer-history'
+
+outputs:
+  evidence-dir:
+    description: >-
+      The bundle this run wrote, relative to the workspace — e.g.
+      `.wringer/runs/20260816-214832-ba18`. Empty if no bundle was written,
+      which is what a configuration error looks like.
+    value: ${{ steps.verify.outputs.evidence-dir }}
+  verify-exit-code:
+    description: >-
+      `wring verify`'s exit code, passed through unchanged: 0 when every
+      required gate passed, non-zero otherwise — 1 is a failed required gate
+      and 2 an unreadable configuration, and the command has further non-zero
+      codes this reports rather than reinterprets. The last step of this
+      action exits with it, so the job's colour is the gates' answer.
+    value: ${{ steps.verify.outputs.verify-exit-code }}
+
+runs:
+  using: composite
+  steps:
+    # The history, restored FIRST so `wring health` has something to read.
+    # It lives in the runner's temp directory, outside the checkout, and that
+    # placement is load-bearing: Wringer hashes every untracked path except
+    # its own `.wringer/`, so a history directory inside the work tree would
+    # be recorded as part of the change under review and rehashed on every
+    # run.
+    #
+    # `key` is unique per run, so the save at the end always writes a new
+    # entry; `restore-keys` is the prefix, so this run reads the newest entry
+    # from a previous one. A miss is not an error — it is the cold start, and
+    # the summary says so in the words a reader needs.
+    - name: Restore the evidence history
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ runner.temp }}/wringer-history
+        key: ${{ inputs.history-key }}-${{ github.run_id }}-${{ github.run_attempt }}
+        restore-keys: |
+          ${{ inputs.history-key }}-
+
+    # Into a virtualenv of its own, never into the job's interpreter.
+    #
+    # Wringer is a CLI, not a library your gates import: installing it beside
+    # your dependencies is how a version conflict in OUR dependency becomes a
+    # failure in YOUR test run. `--system-site-packages` keeps everything the
+    # job already installed importable, so putting this venv first on PATH
+    # does not hide the packages your gates need.
+    #
+    # The version goes through `env:` rather than into the script text,
+    # because expressions are substituted before the shell parses the line.
+    - name: Install Wringer
+      shell: bash
+      env:
+        WRINGER_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::Wringer needs python3 on PATH. Add actions/setup-python before this action." >&2
+          exit 1
+        fi
+        if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
+          echo "::error::Wringer requires Python 3.11 or newer; this runner has $(python3 -V). Add actions/setup-python with python-version 3.12 before this action." >&2
+          exit 1
+        fi
+        python3 -m venv --system-site-packages "$RUNNER_TEMP/wringer-venv"
+        # `bin` on Linux and macOS. The `Scripts` fallback is what a Windows
+        # runner would need; nobody here has run this action on Windows, so
+        # treat that path as untried rather than supported.
+        bin="$RUNNER_TEMP/wringer-venv/bin"
+        [ -d "$bin" ] || bin="$RUNNER_TEMP/wringer-venv/Scripts"
+        spec="wringer"
+        if [ -n "${WRINGER_VERSION}" ]; then
+          spec="wringer==${WRINGER_VERSION}"
+        fi
+        "$bin/python" -m pip install --disable-pip-version-check --quiet "$spec"
+        echo "$bin" >> "$GITHUB_PATH"
+
+    # The gates the repository declares, and nothing this action invented.
+    #
+    # The exit code is captured rather than raised here, so that a failed run
+    # still gets its evidence into the history and its summary onto the page —
+    # a failing gate is the evidence most worth keeping, because it is the
+    # thing that proves the gate can fail. The last step re-raises it.
+    - name: Verify — run the gates this repository declares
+      id: verify
+      shell: bash
+      run: |
+        set -uo pipefail
+        wring --version
+        set +e
+        wring verify
+        code=$?
+        set -e
+        echo "verify-exit-code=$code" >> "$GITHUB_OUTPUT"
+        # The bundle `wring verify` just wrote. Run ids are UTC-stamped, so
+        # they sort chronologically, and a fresh checkout holds exactly this
+        # one — the restored history lives outside the work tree, precisely so
+        # that it is not confused with it.
+        bundle=""
+        if [ -d .wringer/runs ]; then
+          bundle=$(ls -1d .wringer/runs/*/ 2>/dev/null | sort | tail -1 || true)
+        fi
+        echo "evidence-dir=${bundle%/}" >> "$GITHUB_OUTPUT"
+
+    # The empty directory is not decoration: `wring health --from` exits 2 on
+    # a directory that does not exist, and on a cold start nothing has created
+    # one. This step is also why health runs BEFORE the copy below — the
+    # bundle this run just wrote is already visible under `.wringer/runs`, and
+    # copying it in first would present it twice. Health would name it a
+    # duplicate and count it once, which is correct and needless.
+    - name: Make sure there is a history directory to read
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/wringer-history"
+
+    # VITALITY. Per gate: is there any evidence in the record that this check
+    # can still fail? A gate that has passed for thirty runs and never once
+    # discriminated is indistinguishable from a healthy one everywhere green
+    # ticks are counted.
+    #
+    # Wringer opens nothing here and fetches nothing. It reads a directory
+    # this workflow populated, exactly as `--from` reads one anywhere. The
+    # command is an observer: it exits 0 whatever the report says, so a
+    # decaying gate is reported, never enforced.
+    - name: Vitality — is there any evidence each gate can still fail?
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        wring health --from "$RUNNER_TEMP/wringer-history" --output "$RUNNER_TEMP/wringer-health.txt"
+
+    - name: Carry this run's evidence into the history
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/wringer-history"
+        if [ -d .wringer/runs ]; then
+          cp -R .wringer/runs/. "$RUNNER_TEMP/wringer-history/"
+        fi
+
+    # Restore and save are separate on purpose. A workflow that only restores
+    # reads the same thin history for ever and every gate stays `untested`,
+    # which looks exactly like the tool being broken.
+    - name: Save the evidence history
+      if: always()
+      uses: actions/cache/save@v4
+      with:
+        path: ${{ runner.temp }}/wringer-history
+        key: ${{ inputs.history-key }}-${{ github.run_id }}-${{ github.run_attempt }}
+
+    # The job summary: what ran, what the vitality table says, and what the
+    # record evidences per criterion. Everything here is READ from the files
+    # Wringer wrote — `summary.md` verbatim, the health report verbatim, and
+    # `acceptance.json`'s rows and its own `limits` verbatim. Nothing on this
+    # page is a second opinion about the evidence.
+    - name: Render the evidence into the job summary
+      if: always()
+      shell: bash
+      env:
+        WRINGER_BUNDLE: ${{ steps.verify.outputs.evidence-dir }}
+        WRINGER_HEALTH: ${{ runner.temp }}/wringer-health.txt
+      run: |
+        set -euo pipefail
+        python3 - >> "$GITHUB_STEP_SUMMARY" <<'PY'
+        import json
+        import os
+        import pathlib
+
+        bundle = os.environ.get("WRINGER_BUNDLE") or ""
+        health = pathlib.Path(os.environ["WRINGER_HEALTH"])
+        directory = pathlib.Path(bundle) if bundle else None
+        out = []
+
+        summary = directory / "summary.md" if directory else None
+        if summary is not None and summary.is_file():
+            out.append(summary.read_text(encoding="utf-8").rstrip())
+        else:
+            out.append("## Wringer")
+            out.append("")
+            out.append(
+                "`wring verify` wrote no evidence bundle, so there is nothing "
+                "to render here. The step log above says why; a missing or "
+                "unreadable `.wringer.yaml` is the usual reason."
+            )
+
+        out += ["", "## Vitality — is there any evidence each gate can still fail?", ""]
+        if health.is_file():
+            out += ["```", health.read_text(encoding="utf-8").rstrip(), "```"]
+        else:
+            out.append("`wring health` wrote no report; see the step log.")
+        out += [
+            "",
+            "> **A first run reads thin, and that is the true answer rather "
+            "than a defect.** `untested` means fewer than ten qualifying runs "
+            "in the window and nothing positive in them — too thin to say "
+            "anything, never \"probably fine\". This job restores the previous "
+            "runs' bundles and adds its own, so the record grows one run at a "
+            "time. One recorded genuine failure makes a gate read `alive` "
+            "straight away, at any depth.",
+        ]
+
+        acceptance = directory / "acceptance.json" if directory else None
+        out += ["", "## Acceptance — what the record evidences, criterion by criterion", ""]
+        # Two absences, said apart. "No bundle" and "no approved spec" are
+        # different facts, and answering the first with the second would be
+        # this page inventing a reason it does not have.
+        if acceptance is None:
+            out.append(
+                "There is no evidence bundle to read an acceptance artifact "
+                "from, so nothing here was assessed."
+            )
+        elif not acceptance.is_file():
+            out.append(
+                "No approved `wringer.spec.yaml` declares criteria in this "
+                "repository, so `wring verify` wrote no acceptance artifact "
+                "and nothing here was assessed. Absence, not a pass."
+            )
+        else:
+            data = json.loads(acceptance.read_text(encoding="utf-8"))
+            rows = data.get("criteria") or []
+            out += [
+                "| criterion | state | refuses delivery | why |",
+                "|---|---|---|---|",
+            ]
+            for row in rows:
+                why = " ".join(str(row.get("reason") or "").split())
+                why = why.replace("|", "\\|") or "—"
+                out.append(
+                    "| `{criterion}` | **{state}** | {refuses} | {why} |".format(
+                        criterion=row.get("criterion"),
+                        state=row.get("state"),
+                        refuses="yes" if row.get("refuses") else "no",
+                        why=why,
+                    )
+                )
+            out += ["", "**What this artifact does not say**", ""]
+            for limit in data.get("limits") or []:
+                out.append("- " + " ".join(str(limit).split()))
+            out += [
+                "",
+                "A row that refuses is refused in one place: `wring deliver` "
+                "exits 1 on a bundle whose required, bound criteria the record "
+                "does not evidence. This action renders the rows and decides "
+                "nothing.",
+            ]
+
+        print("\n".join(out))
+        PY
+
+    # The gates decide the job, and nothing else does. A missing exit code
+    # fails rather than passes: a harness that goes green when it has lost
+    # track of the result is the false green this whole tool exists to refuse.
+    - name: The gates decide the job
+      shell: bash
+      env:
+        VERIFY_EXIT: ${{ steps.verify.outputs.verify-exit-code }}
+      run: |
+        set -euo pipefail
+        exit "${VERIFY_EXIT:-1}"

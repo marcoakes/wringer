@@ -1263,24 +1263,39 @@ def test_the_rendered_flow_matches_the_stages():
     )
 
 
-# --- the Actions recipe must stay runnable ---------------------------------
+# --- the shipped workflows must stay runnable ------------------------------
 #
 # A workflow committed under `examples/` is never executed by anything, so it
-# rots in total silence — the exact failure mode SETUP.md had twice. These
-# parse every `wring` line in it against the real CLI.
+# rots in total silence — the exact failure mode SETUP.md had twice.
+# `action.yml` is that defect with a longer reach: a stranger references it in
+# one line and never opens it, so a `wring` line that cannot run fails on
+# THEIR pull request, in a repository nobody here can see. These parse every
+# `wring` line in both against the real CLI.
 
 RECIPE = "examples/github-actions/wringer.yml"
+# The composite action a stranger references in one line
+# (`uses: marcoakes/wringer@main`), per the Citadel ruling R3.
+ACTION = "action.yml"
+# Every law below that is about the COMMANDS rather than about one file's
+# prose holds for both, so it is asserted over both rather than copied.
+WORKFLOWS = (RECIPE, ACTION)
 
 
-def recipe_wring_lines() -> list[str]:
-    """Every `wring …` the recipe would actually execute.
+def workflow_wring_lines(document: str) -> list[str]:
+    """Every `wring …` `document` would actually execute.
 
     Both shapes YAML allows — `run: wring verify` on one line, and a bare
     `wring verify` inside a `run: |` block — and comments in neither, since
-    the header explains the commands as prose and those are not invocations.
+    the headers explain the commands as prose and those are not invocations.
+
+    No shell operator is stripped, deliberately. SPEC_HEALTH_V0 §1 says a
+    redirect cannot appear in a `wring` line because it "lands in `argv` as an
+    unrecognised argument", and that is why `--output FILE` exists at all — a
+    guard that quietly tolerated `> file` would retire the reason that flag
+    was added.
     """
     found = []
-    for raw in (repo_root() / RECIPE).read_text(encoding="utf-8").splitlines():
+    for raw in (repo_root() / document).read_text(encoding="utf-8").splitlines():
         line = raw.strip()
         if line.startswith("#"):
             continue
@@ -1291,31 +1306,63 @@ def recipe_wring_lines() -> list[str]:
     return found
 
 
-def test_every_wring_command_in_the_actions_recipe_parses():
-    require_checkout(RECIPE)
+def recipe_wring_lines() -> list[str]:
+    return workflow_wring_lines(RECIPE)
+
+
+def parsed_wring_line(line: str):
+    """One `wring` line, through the REAL parser, as a namespace.
+
+    A FRESH parser per line, which is not fussiness: `--from` is registered
+    `action="append"` over a shared default list (`cli.py`, `parser_health`),
+    so one parser reused across several lines hands back the previous line's
+    directories as well as this one's.
+
+    `shlex`, not `str.split`, because a path a workflow has to quote —
+    `--from "$RUNNER_TEMP/wringer-history"` — is one argument, and splitting on
+    whitespace hands argparse a quote character it would reject for a reason
+    that has nothing to do with the command being wrong.
+    """
+    import shlex
+
     from wringer import cli
 
-    lines = recipe_wring_lines()
-    assert lines, f"{RECIPE} invokes wring nowhere — it is not a recipe"
+    argv = shlex.split(line)
+    assert argv[0] == "wring", argv
+    return cli.build_parser().parse_args(argv[1:])
 
-    parser = cli.build_parser()
+
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_every_wring_command_in_a_shipped_workflow_parses(document: str):
+    require_checkout(document)
+
+    lines = workflow_wring_lines(document)
+    assert lines, f"{document} invokes wring nowhere — it is not a recipe"
+
     for line in lines:
-        argv = line.replace("- run:", "").strip().split()
-        assert argv[0] == "wring", argv
-        # SystemExit here means an unknown subcommand or an unknown flag: the
-        # recipe would fail on someone's PR with `invalid choice`.
-        parser.parse_args(argv[1:])
+        try:
+            parsed_wring_line(line)
+        except SystemExit as stopped:
+            # Exit 0 is `--version` or `--help`: the line runs, prints, and
+            # succeeds. Anything else is `invalid choice` or `unrecognized
+            # arguments` — the workflow failing on somebody's pull request.
+            assert stopped.code == 0, (
+                f"{document} cannot run `{line}` — argparse exits "
+                f"{stopped.code}"
+            )
 
 
-def test_the_recipe_never_sends_anything():
-    """`--send` is what writes git history and opens merge requests. A recipe
-    that ran it would push branches from every pull request, and it would do
-    so in the document people copy without reading."""
-    require_checkout(RECIPE)
-    text = (repo_root() / RECIPE).read_text(encoding="utf-8")
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_no_shipped_workflow_sends_anything(document: str):
+    """`--send` is what writes git history and opens merge requests. A
+    workflow that ran it would push branches from every pull request, and it
+    would do so in the document people copy without reading — or, for the
+    action, reference without opening at all."""
+    require_checkout(document)
+    text = (repo_root() / document).read_text(encoding="utf-8")
     offenders = [line.strip() for line in text.splitlines()
                  if "--send" in line and not line.strip().startswith("#")]
-    assert not offenders, f"the recipe sends: {offenders}"
+    assert not offenders, f"{document} sends: {offenders}"
 
 
 def test_the_recipe_blocks_the_merge_on_a_vacuous_bundle():
@@ -1807,7 +1854,58 @@ def test_a_count_tied_to_a_release_says_which_release():
             )
 
 
-def test_the_recipes_health_step_reads_history_rather_than_nothing():
+def health_lines(document: str) -> list[str]:
+    return [
+        line
+        for line in workflow_wring_lines(document)
+        if line.split()[1:2] == ["health"]
+    ]
+
+
+def one_spelling(text: str) -> str:
+    """`${{ runner.temp }}` and `$RUNNER_TEMP` are one directory in two
+    dialects — the expression's and the shell's — and a workflow needs both,
+    because `with:` has no shell and `run:` has no expression it should be
+    trusting. A guard that cannot see they are the same cannot check the join
+    between the step that RESTORES the history and the step that READS it,
+    which is precisely the join whose failure is silent: point them at
+    different paths and everything still runs, every gate just reads
+    `untested` for ever.
+    """
+    return text.replace("${{ runner.temp }}", "$RUNNER_TEMP")
+
+
+def cache_steps(document: str) -> list[dict]:
+    """Every `actions/cache` step, whatever shape of YAML it lives in.
+
+    A workflow's `jobs.*.steps` and a composite action's `runs.steps` are
+    different trees; this walks for the step rather than for the path to it,
+    so neither shape needs naming here.
+    """
+    import yaml
+
+    loaded = yaml.safe_load((repo_root() / document).read_text(encoding="utf-8"))
+    found: list[dict] = []
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            uses = node.get("uses")
+            if isinstance(uses, str) and uses.startswith("actions/cache"):
+                found.append(node)
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(loaded)
+    return found
+
+
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_the_health_step_reads_a_history_the_same_file_restores_and_saves(
+    document: str,
+):
     """The spec's first draft said only "run `wring health --json` after
     verify", and that step is INERT: `.wringer/` is gitignored, a fresh
     checkout holds exactly the one bundle `wring verify` just wrote, and one
@@ -1815,44 +1913,184 @@ def test_the_recipes_health_step_reads_history_rather_than_nothing():
     render `untested`, for ever, in the venue the whole feature is sold on.
 
     The old DONE box ("the step parses against the real CLI, sends nothing")
-    passes against precisely that inert step. This one pins the part that
-    makes it work: history is carried in, and `--from` reads it."""
-    require_checkout(RECIPE)
-    text = (repo_root() / RECIPE).read_text(encoding="utf-8")
+    passes against precisely that inert step. This one pins the parts that
+    make it work, and pins them against `action.yml` too, where the reader is
+    a stranger who referenced one line and will never open the file:
 
-    health_lines = [
-        line for line in recipe_wring_lines() if line.split()[1:2] == ["health"]
-    ]
-    assert health_lines, "the recipe never runs wring health"
-    for line in health_lines:
-        assert "--from" in line, (
+    1. `wring health` is run, and it reads a `--from` directory — read off the
+       REAL parser, so `--from` being spelled differently one day reaches this
+       guard through argparse rather than past it.
+    2. Something restores that directory AND something saves it. Restore-only
+       is the quiet version of the same defect: the job reads the same empty
+       history every time and the table never fills in.
+    3. The directory health reads is the directory the cache step names. Two
+       spellings of one path is a join that fails silently.
+    4. The file says `untested` somewhere a reader will meet it.
+    """
+    require_checkout(document)
+    text = (repo_root() / document).read_text(encoding="utf-8")
+
+    lines = health_lines(document)
+    assert lines, f"{document} never runs wring health"
+    read_from: list[str] = []
+    for line in lines:
+        directories = parsed_wring_line(line).from_dirs
+        assert directories, (
             f"the health step reads no restored history, so it can only ever "
             f"print `untested`: {line!r}"
         )
+        read_from.extend(directories)
 
-    # And the history really is restored and carried, not just referenced.
-    assert "actions/cache@v4" in text, (
-        "nothing carries evidence across runs, so --from names an empty "
+    steps = cache_steps(document)
+    assert steps, (
+        f"{document} carries nothing across runs, so --from names an empty "
         "directory and the step is inert by another route"
     )
-    assert "ci-history" in text
+    restores = [
+        step for step in steps
+        if not step["uses"].startswith("actions/cache/save")
+    ]
+    saves = [
+        step for step in steps
+        if not step["uses"].startswith("actions/cache/restore")
+    ]
+    assert restores, f"{document} saves a history it never reads back"
+    assert saves, (
+        f"{document} restores a history that nothing ever writes, so every "
+        "run reads the same empty directory and every gate stays `untested`"
+    )
+
+    def paths_of(group: list[dict]) -> set[str]:
+        return {
+            one_spelling(str(step.get("with", {}).get("path", "")))
+            for step in group
+        }
+
+    # BOTH ends, separately. Checking that some cache step somewhere names the
+    # directory passes a file that restores from one path and saves to
+    # another, which is the same silent nothing with an extra step in it.
+    for directory in read_from:
+        wanted = one_spelling(directory)
+        assert any(wanted in path for path in paths_of(restores)), (
+            f"{document} reads history from {directory!r} and restores "
+            f"{sorted(paths_of(restores))} — the reader and the restore are "
+            "different directories, and a run cannot show you that"
+        )
+        assert any(wanted in path for path in paths_of(saves)), (
+            f"{document} reads history from {directory!r} and saves "
+            f"{sorted(paths_of(saves))} — this run's evidence never reaches "
+            "the next one, so the history stops growing where nobody looks"
+        )
 
     # The reader is told what a first run looks like, in the file they copy
     # without reading.
     assert "untested" in text, (
-        "the recipe never says that a run with no restored history reads "
+        f"{document} never says that a run with no restored history reads "
         "`untested` — which is the first thing every adopter will see"
     )
 
 
-def test_the_recipe_never_asks_wringer_to_reach_a_network():
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_what_the_health_step_writes_is_something_the_workflow_reads(
+    document: str,
+):
+    """`--output FILE` exists because a redirect cannot appear in a `wring`
+    line (SPEC_HEALTH_V0 §1), and the file it names is only useful if
+    something later reads it. A typo'd path is silent: `wring health` still
+    runs, still exits 0, and the summary just never gets the table.
+    """
+    require_checkout(document)
+    text = one_spelling((repo_root() / document).read_text(encoding="utf-8"))
+    for line in health_lines(document):
+        written = parsed_wring_line(line).output
+        if written is None:
+            continue
+        assert text.count(one_spelling(written)) >= 2, (
+            f"{document} writes the vitality report to {written!r} and "
+            "nothing else in the file names that path, so the report is "
+            "written and never read"
+        )
+
+
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_no_shipped_workflow_asks_wringer_to_reach_a_network(document: str):
     """The health step reads a directory somebody else populated. It is the
     workflow that carries evidence between runs, never Wringer — so no `wring`
-    line in the recipe may name a fetch, a send, or a URL."""
-    require_checkout(RECIPE)
-    for line in recipe_wring_lines():
+    line in either file may name a fetch, a send, or a URL."""
+    require_checkout(document)
+    for line in workflow_wring_lines(document):
         for forbidden in ("--send", "http://", "https://", "--clone"):
-            assert forbidden not in line, f"{forbidden} in a recipe wring line: {line}"
+            assert forbidden not in line, (
+                f"{forbidden} in a {document} wring line: {line}"
+            )
+
+
+@pytest.mark.parametrize("document", WORKFLOWS)
+def test_both_shipped_workflows_render_to_the_step_summary(document: str):
+    """SPEC_HEALTH_V0 §6: the vitality table renders into the job's step
+    summary, "where a reviewer reads it beside the gates". A run that writes
+    the report into a file nobody opens is the same inert step in a later
+    disguise."""
+    require_checkout(document)
+    text = (repo_root() / document).read_text(encoding="utf-8")
+    assert "GITHUB_STEP_SUMMARY" in text, (
+        f"{document} never writes to $GITHUB_STEP_SUMMARY, so whatever it "
+        "learned stays in a log nobody opens"
+    )
+
+
+def test_the_action_renders_the_acceptance_artifact_and_decides_nothing():
+    """Citadel ruling R3: "the health + acceptance step-summary render inside
+    it". Health has a command that renders itself; acceptance does not — the
+    artifact is `acceptance.json`, written into the bundle by `wring verify`
+    only when an approved `wringer.spec.yaml` declares criteria — so the
+    action reads that file.
+
+    What it must not do is form an opinion. The refusal has exactly one venue,
+    `wring deliver`, which exits 1 on a bundle whose required, bound criteria
+    the record does not evidence. A second decider in YAML would be free to
+    drift from the first, and the limits it renders would be a paraphrase
+    nobody re-checked — so the artifact's own `limits` travel with the rows.
+    """
+    require_checkout(ACTION)
+    text = (repo_root() / ACTION).read_text(encoding="utf-8")
+    # Outside a comment: a file that only MENTIONS the artifact renders
+    # nothing, and mentioning it is exactly what a stale action would do.
+    running = [
+        line for line in text.splitlines() if not line.strip().startswith("#")
+    ]
+    assert any("acceptance.json" in line for line in running), (
+        "action.yml renders no acceptance rows, so a repository that declared "
+        "criteria learns nothing about them from the run that could have "
+        "answered"
+    )
+    assert '"limits"' in text, (
+        "the acceptance render drops the artifact's own limits — the four "
+        "sentences that say what `evidenced` does NOT mean travel with the "
+        "numbers or they are not travelling at all"
+    )
+
+
+def test_the_action_says_a_first_run_reads_thin_in_a_comment_and_on_the_page():
+    """R3 again, literally: the action "must carry its cache/restore step and
+    say in its own comments that a first run reads thin — or the first
+    stranger concludes it is broken."
+
+    Both venues, because they are read by different people. The comment is for
+    whoever opens the file; the rendered line is for the stranger who never
+    will, and who is looking at a job summary where every gate says
+    `untested`.
+    """
+    require_checkout(ACTION)
+    lines = (repo_root() / ACTION).read_text(encoding="utf-8").splitlines()
+    said = [line for line in lines if "untested" in line]
+    assert [line for line in said if line.strip().startswith("#")], (
+        "action.yml never explains `untested` in its own comments"
+    )
+    assert [line for line in said if not line.strip().startswith("#")], (
+        "action.yml explains the cold start only in a comment, and the "
+        "stranger who referenced it in one line reads the job summary instead"
+    )
 
 
 def test_the_readme_leads_with_the_thesis_and_not_a_deferred_runtime():
