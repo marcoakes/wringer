@@ -1,0 +1,189 @@
+# Sequence I — the CONTAINED WORKER, attacked, on Linux with a real Docker.
+#
+# `docs/MANUAL_CHECKS.md` sequence I has only ever run on ONE host: podman 6.1.0
+# inside an applehv VM on the maintainer's Mac. Every row in the coverage record
+# carries the same caveat — the "container" is a Linux VM, and a boundary
+# measured in a VM says nothing about the same boundary on a shared kernel,
+# which is where every CI runner and every production agent actually lives.
+#
+# This is the other host. GitHub's `ubuntu-latest` runners have Docker
+# preinstalled on a real Linux kernel, so the netns holder, the iptables
+# allowlist and the joiner's lack of NET_ADMIN can all be exercised where they
+# would actually be deployed.
+#
+# WHAT THIS MEASURES AND WHAT IT DOES NOT. Docker on Linux, in GitHub Actions,
+# against images this job builds. That is one row of the coverage table and not
+# the others: podman-on-macOS keeps its own rows and its own caveat, and Apple's
+# `container` stays UNCLAIMED. **A green run here is never written up as "the
+# worker boundary is demonstrated to isolate."** Ten scripted probes are not an
+# escape suite; `prevented` still means "this probe could not do it here", and
+# SPEC_CONTAIN_V0 §7's ceiling is untouched by anything in this file.
+#
+# IT CANNOT PASS OR FAIL BY ITSELF, exactly as sequence G cannot. The script
+# drives the probes and prints what each one saw; classifying them — prevented /
+# mitigated / out_of_scope — is a human's judgement and stays one. A job that
+# went green would be claiming the classification it deliberately does not make.
+# So this job's product is its ANNOTATIONS: public, readable with no login,
+# because sequence G ran three times into login-walled artifacts and
+# `MANUAL_CHECKS.md` could only record that it RAN. An unread artifact
+# classifies nothing.
+#
+# NO CREDENTIAL, EVER. The `acp` arm's probe speaks local JSON-RPC to a stub; it
+# never reaches a model API and no secret is defined, referenced or needed by
+# this workflow. That is a hard constraint, not a convenience: a corpus
+# credential in CI would put a live key one `echo` away from a public log.
+name: sequence-i
+
+on:
+  workflow_dispatch:
+    inputs:
+      arms:
+        description: "space-separated arms to run"
+        required: false
+        default: "contained privileged acp"
+  push:
+    paths:
+      # The mechanism under test, the script that drives it, the words a green
+      # run would let somebody upgrade, and this file. Nothing else can move
+      # this result.
+      - "src/wringer/containment.py"
+      - "src/wringer/acp.py"
+      - "scripts/sequence-i.sh"
+      - "SECURITY.md"
+      - ".github/workflows/sequence-i.yml"
+
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
+
+      - name: Say what runtime is actually here
+        run: |
+          docker version
+          docker info --format 'server: {{.ServerVersion}} · driver: {{.Driver}} · rootless: {{.SecurityOptions}}'
+          uname -a
+
+      # The images are BUILT IN JOB rather than pulled, and the recipes live
+      # here rather than in a scratch directory somebody deletes. The macOS
+      # images were built from a Containerfile in a session scratchpad; the
+      # scratchpad was swept and the recipe went with it, which is a
+      # reproducibility hole this file closes by being the recipe.
+      - name: Build the worker and broker images
+        run: |
+          cat > /tmp/Containerfile.worker <<'EOF'
+          FROM python:3-slim
+          RUN apt-get update \
+           && apt-get install -y --no-install-recommends git iptables curl \
+           && rm -rf /var/lib/apt/lists/*
+          EOF
+          docker build -f /tmp/Containerfile.worker -t wringer-canary-worker:probe /tmp
+
+          # The broker's only job is to hold a network namespace and arm
+          # iptables inside it. It carries iptables and nothing else it does
+          # not need.
+          cat > /tmp/Containerfile.broker <<'EOF'
+          FROM debian:stable-slim
+          RUN apt-get update \
+           && apt-get install -y --no-install-recommends iptables iproute2 dnsutils \
+           && rm -rf /var/lib/apt/lists/*
+          EOF
+          docker build -f /tmp/Containerfile.broker -t wringer-broker:probe /tmp
+
+          # The ACP arm needs a real agent BINARY on PATH — refusal 4 checks for
+          # it and the spawn shape is `--entrypoint <agent>`. The vendor package
+          # is installed from npm; no credential is needed to install it, and
+          # the probe never asks it to reach a model.
+          cat > /tmp/Containerfile.acp <<'EOF'
+          FROM node:22-slim
+          RUN apt-get update \
+           && apt-get install -y --no-install-recommends python3 git iptables curl \
+           && rm -rf /var/lib/apt/lists/*
+          RUN npm install -g @agentclientprotocol/claude-agent-acp
+          EOF
+          docker build -f /tmp/Containerfile.acp -t wringer-acp-worker:probe /tmp
+
+          docker images
+
+      - name: Sequence I — every arm
+        id: i
+        if: always()
+        run: |
+          set -o pipefail
+          : > sequence-i.log
+          for arm in ${{ inputs.arms || 'contained privileged acp' }}; do
+            case "$arm" in
+              acp) image=wringer-acp-worker:probe ;;
+              *)   image=wringer-canary-worker:probe ;;
+            esac
+            echo "===== ARM: $arm (image $image) =====" | tee -a sequence-i.log
+            # `|| true` per arm, deliberately: the CONTROL arms are expected to
+            # succeed at attacks, so a non-zero exit is data and not a failure,
+            # and one arm dying must not hide the arms after it.
+            sh scripts/sequence-i.sh docker "$image" wringer-broker:probe "$arm" \
+              2>&1 | tee -a sequence-i.log || true
+          done
+
+      - name: Upload the log and every bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sequence-i
+          path: |
+            sequence-i.log
+            .wringer/
+
+      # ANNOTATIONS, because artifacts and step summaries are LOGIN-WALLED and
+      # the rows they exist to justify therefore never get written. The
+      # annotations endpoint is PUBLIC on a public repository. This is sequence
+      # G's hardest-won lesson and it is inherited verbatim.
+      - name: Emit each probe as a public annotation
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import pathlib, re
+
+          log = pathlib.Path("sequence-i.log")
+          if not log.is_file() or not log.read_text(errors="replace").strip():
+              print("::error title=sequence I::no log — nothing was measured")
+              raise SystemExit(0)
+
+          text = log.read_text(errors="replace")
+          arm = "?"
+          for block in re.split(r"^===== ARM: ", text, flags=re.M)[1:]:
+              arm = block.split("\n", 1)[0].split(" ", 1)[0]
+              # One workflow command is ONE line: a newline silently truncates
+              # the rest, which would be this fix reproducing the defect it
+              # exists to close.
+              body = block.strip()[:3000].replace("%", "%25")
+              body = body.replace("\r", "").replace("\n", "%0A")
+              print(f"::notice title=sequence I — arm {arm}::{body}")
+          PY
+
+      - name: Put the output where a row can be copied from it
+        if: always()
+        run: |
+          {
+            echo '## Sequence I — raw output, Docker on Linux'
+            echo
+            echo 'Classify each probe BY HAND: prevented / mitigated /'
+            echo 'out_of_scope. A script never classifies. Never `prevented`'
+            echo 'where Wringer merely records evidence afterwards, and record'
+            echo 'every probe that SUCCEEDED — a probe that works is the finding.'
+            echo
+            echo 'The CONTROL arm (`privileged`) is expected to SUCCEED at the'
+            echo 'attacks. If it does not, the canaries prove nothing: that is a'
+            echo 'finding to chase, not a pass.'
+            echo
+            echo 'Then add rows to docs/MANUAL_CHECKS.md naming THIS host:'
+            echo 'Docker on Linux, GitHub Actions, shared kernel. The macOS rows'
+            echo 'keep their VM caveat and are not superseded by these.'
+            echo
+            echo '```'
+            cat sequence-i.log || echo '(no log — the job died before the script ran)'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
