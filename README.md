@@ -281,12 +281,36 @@ increasingly the agent itself. `--prove` tightens for one run; there is no
 [`docs/prove-the-gates-can-fail.md`](docs/prove-the-gates-can-fail.md).
 Contract: **[SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md)**.
 
-**Wringer delivers only on evidence that could have failed.** For net-new
-work, a generated gate is red because the feature does not exist yet. For bug
-fixes, Wringer authors a reproduction witness from the criterion and proves it
-red on the pre-change tree before the work begins. Where no red witness can be
-established, Wringer does not guess: the criterion exits `unevidenced` and a
-human decides.
+**Wringer delivers only on evidence that could have failed** — **for net-new
+work**, where a generated gate is red because the feature does not exist yet.
+Where no red can be established, Wringer does not guess: the criterion exits
+`unevidenced` and a human decides.
+
+> **The bug-fix claim was withdrawn on 2026-08-16, and this is the retreat
+> said out loud rather than performed quietly.** Until that date this sentence
+> also claimed that for bug fixes Wringer authors a reproduction witness from
+> the criterion and proves it red before the work begins. That claim was
+> pre-committed to a test — one pass over a 13-task corpus of real upstream bug
+> fixes, with the numbers written down in advance — and **it lost**.
+>
+> It lost on three of six clauses. Two changes passed Wringer's own manufactured
+> check and still failed upstream's held-out tests, against a ceiling of one.
+> Of three wrong changes on covered rows, one was repaired or refused, against a
+> required two thirds. And no row showed the repair loop converting a red
+> witness to green.
+>
+> **The mechanism works and the claim was still too wide.** The witness lane
+> did what it says: a check was authored before the work on 11 of 13 tasks,
+> proved red for the right reason, pinned so a worker could not edit it, and it
+> refused a real wrong change on `marshmallow-constant-required`. What it
+> cannot do is tell a change that satisfies the stated criterion from one that
+> also matches what the maintainer intended — and on this corpus that gap
+> produced two false greens and two false refusals. That limit was written down
+> before the pass, not after it: it is the sentence immediately below.
+>
+> The numbers, the rows and the failure are in
+> [`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md). Nothing in the
+> calibration captures has been rewritten.
 
 And the ceiling on that claim, which no artifact here may exceed: **a witness
 proves the stated criterion could fail and was made to pass; it does not
