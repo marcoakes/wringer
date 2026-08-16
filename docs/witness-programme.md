@@ -32,9 +32,9 @@ on 13 of 13. The replacement thesis is one sentence:
 |---|---|---|
 | **P0** | Salvage the corpus patches | **DONE** 2026-08-13/14 — 52 trees, 51 patches verified, `wringer.benchmark.v4` |
 | **P1** | The witness author, calibrated offline | **CLOSED** 2026-08-15 on (a)+(b); see below |
-| **P2** | Contain the worker | **NEXT.** Not started |
-| **P3** | Wire delivery, then re-test live | not started; **stop by 2026-09-30** |
-| **P4** | Standard emission (in-toto), then release 0.4.0 | not started |
+| **P2** | Contain the worker | **DONE** 2026-08-15 — [SPEC_CONTAIN_V0.md](../SPEC_CONTAIN_V0.md), built at `f002bd0`: the worker joins a netns holder WITHOUT `NET_ADMIN`, so it cannot disarm its own boundary. Sequence I ran against it with a `--privileged` control |
+| **P3** | Wire delivery, then re-test live | **DONE 2026-08-16, and the re-test LOST.** Wired at `f310b7f` (`wringer.acceptance.v2` — a red witness refuses a delivery); the pass ran the same day and missed three of §5's six clauses ([corpus-2026-08-16.md](corpus-2026-08-16.md)). The stop was 2026-09-30; it ran six weeks early |
+| **P4** | Standard emission (in-toto), then release 0.4.0 | **Half done, and the other half will not happen.** In-toto emits beside the bundle (`f27681a`, R3 discharged). **0.4.0 does not ship** — R4 gates the release on a re-test WIN and the re-test lost. Tags stop at `v0.3.0` |
 
 ### P1 — closed, and how
 
@@ -146,17 +146,33 @@ and gains no v2 dialect — P4 emits the standard alongside it.
 
 ---
 
-## 2026-08-16 — Phase 4: what landed, and what is still in flight
+## 2026-08-16 — Phase 4: what landed, and how the programme ended
 
 *Appended by the implementing window. The programme document says what takes
 R2's README sentence back out; this records where the answer stands.*
 
-**The de-scope has NOT fired, and it has NOT been earned off either.** Its
-trigger is a Phase 3 LOSS on §5 as written, and §5 is defined over *one pass
-over the 13 tasks*. That pass was launched on 2026-08-16 and had not finished
-when this window ended, so there is no §5 verdict — not a win, not a loss.
-**Nothing in this window licenses R2's sentence any more widely than it already
-was, and nothing takes it away.**
+> **CORRECTED 2026-08-16, later the same day.** The paragraph below said *"The
+> de-scope has NOT fired, and it has NOT been earned off either"* — true at the
+> moment it was written, with the pass still running, and false by the time the
+> pass finished that afternoon. **The de-scope FIRED.** The pass lost on three of §5's
+> six clauses, and commit `039bebc` performed R2's README edit automatically,
+> exactly as the pre-commitment below requires. The original paragraph is kept
+> underneath rather than deleted, because a status document that silently
+> flips its own answer is the defect this correction exists to stop — the
+> third time this class has been caught in this repository, after `SECURITY.md`
+> and `backend.LIMITS_V1`.
+>
+> The retreat, in one line: the bug-fix sentence is out of the README, the
+> ratchet seam is served by GATEGEN alone, and no artifact here may present the
+> witness lane as a second supplier unless Marc authorises another pass and it
+> wins. The evidence is [corpus-2026-08-16.md](corpus-2026-08-16.md).
+
+*Superseded, kept for the record:* **The de-scope has NOT fired, and it has NOT
+been earned off either.** Its trigger is a Phase 3 LOSS on §5 as written, and §5
+is defined over *one pass over the 13 tasks*. That pass was launched on
+2026-08-16 and had not finished when this window ended, so there is no §5
+verdict — not a win, not a loss. **Nothing in this window licenses R2's sentence
+any more widely than it already was, and nothing takes it away.**
 
 **Why the money waited, and it was not caution.** `WRINGER_RULING_2026-08-14`
 §5.3 requires a row where the repair loop ran ≥1 worker turn with a red witness
