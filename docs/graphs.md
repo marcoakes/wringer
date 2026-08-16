@@ -281,11 +281,11 @@ enforcement is the loop's existing enforcement rather than a second timer to
 keep honest.
 
 Every loop outcome — `converged`, `max_iterations`, `no_progress`,
-`oscillating`, `budget_exhausted`, `interrupted` — is a **routing fact, never
-a graph failure**. The node completes and writes the reason into its declared
-state path; the router decides what it means. A graph that treated
-`no_progress` as a crash could not express "escalate to a human", which is the
-whole point of having a router.
+`oscillating`, `budget_exhausted`, `flaky_gate`, `authority_moved`,
+`interrupted` — is a **routing fact, never a graph failure**. The node
+completes and writes the reason into its declared state path; the router
+decides what it means. A graph that treated `no_progress` as a crash could not
+express "escalate to a human", which is the whole point of having a router.
 
 The repo's own `.wringer.yaml` supplies the worker and the gates. A graph
 cannot substitute either, and `run.prove: true` binds here as everywhere: a

@@ -857,6 +857,43 @@ def test_setup_no_longer_says_wring_start_is_not_built():
     )
 
 
+def test_the_graphs_doc_enumerates_every_loop_outcome_there_is():
+    """`docs/graphs.md` said "Every loop outcome" and then listed SIX of eight.
+
+    It went false the way this repository's stale sentences always go false:
+    the code table grew and its prose sibling did not. `flaky_gate` landed with
+    SPEC_STABILITY_V0 and `authority_moved` with the 2026-08-14 rider, and the
+    paragraph that claims to be exhaustive kept naming the six it was written
+    with. Nothing guarded it — found by the independent review of
+    SPEC_ENV_V0.md on 2026-08-16, which is the sixth occurrence of this class.
+
+    The word doing the damage is **"Every"**. A list that claimed to be a
+    sample would have aged honestly; a list that claims to be total is a
+    falsifiable statement, and this is the guard that falsifies it. Set
+    equality in both directions, because a name in the prose that the engine
+    cannot produce is dead text that reads as coverage.
+    """
+    require_checkout("docs/graphs.md")
+    from wringer import graph
+
+    text = (repo_root() / "docs" / "graphs.md").read_text(encoding="utf-8")
+    match = re.search(r"Every loop outcome —(.+?)— is a", text, re.DOTALL)
+    assert match, (
+        "docs/graphs.md no longer carries the 'Every loop outcome — ... — is "
+        "a' sentence this guard is derived from. If the sentence was "
+        "deliberately reworded, rewrite the guard against the new wording "
+        "rather than deleting it: the claim it protects is that the list is "
+        "TOTAL, and an unguarded total claim is what went false here."
+    )
+    listed = set(re.findall(r"`([a-z_]+)`", match.group(1)))
+    assert listed == set(graph.LOOP_REASONS), (
+        "docs/graphs.md's 'Every loop outcome' list disagrees with "
+        "graph.LOOP_REASONS. In the document and not the engine: "
+        f"{sorted(listed - set(graph.LOOP_REASONS))}. In the engine and not "
+        f"the document: {sorted(set(graph.LOOP_REASONS) - listed)}"
+    )
+
+
 def test_the_document_hierarchy_lists_every_spec_in_the_repo():
     """AGENTS.md's table listed four specs while the repo had nine, and
     nothing guarded it (operating rule 6). A hierarchy that omits half the
