@@ -219,6 +219,41 @@ RUNNER = (
     sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--color=no"
 )
 
+# **Which interpreter the witness runs under, when it is not Wringer's own.**
+#
+# `execute`'s docstring says the witness runs WHERE THE GATES RUN, and that is
+# right — a check needs the project's dependencies. On an ordinary repository
+# `sys.executable` IS where the gates run, because you install Wringer beside
+# the project it verifies, so nothing here changes for anybody.
+#
+# It is not true of the corpus, and the P4-7 gate measured that too. Each corpus
+# repository's gate is `PYTHONPATH=src <its own venv>/bin/python -m pytest …`,
+# and Wringer runs from Wringer's venv. So the witness could not import
+# `marshmallow` at all: exit 2, `collection_error`, DISCARDED — every criterion
+# uncovered for a reason that has nothing to do with the criterion, which is
+# the same defect the review's fourth HIGH closed one layer down.
+#
+# **Named rather than derived.** The gate is a shell string; picking an
+# interpreter out of it means parsing a command line, which is exactly the
+# classification `vacuity.py:39-44` refuses by name. So the operator states it,
+# the way `run.prove_setup` is stated, and Wringer does not guess. Absent — the
+# ordinary case — this is `sys.executable` and nothing has moved.
+RUNNER_PYTHON_ENV = "WRINGER_WITNESS_PYTHON"
+
+
+def runner(contained: bool = False) -> tuple[str, ...]:
+    """The runner argv, host or contained.
+
+    A function rather than a constant because `RUNNER_PYTHON_ENV` is read at
+    call time: the pin covers the COMMAND as well as the bytes, so an
+    interpreter that changed between pinning and execution VOIDs the run — and
+    that is the correct outcome, not something to paper over by caching.
+    """
+    if contained:
+        return CONTAINED_RUNNER
+    interpreter = os.environ.get(RUNNER_PYTHON_ENV) or sys.executable
+    return (interpreter, *RUNNER[1:])
+
 # The same runner as seen from INSIDE a container. `sys.executable` is a host
 # path and is absent from the image, so it is resolved on `PATH` there instead.
 # The image must therefore carry python and pytest; a repository that declares
@@ -375,7 +410,7 @@ class Witness:
 
     @property
     def command(self) -> str:
-        return " ".join((*RUNNER, f"{MATERIAL_DIRNAME}/{self.filename}"))
+        return " ".join((*runner(), f"{MATERIAL_DIRNAME}/{self.filename}"))
 
     @property
     def usable(self) -> bool:
@@ -775,12 +810,9 @@ def execute(
     # The probe is structural in exactly the sense W8 requires — `--version`
     # exits 0 if and only if the runner can import itself, which is a fact the
     # runner states about its own installation. No message is read.
-    runner = (
-        CONTAINED_RUNNER
-        if containment_settings is not None and established is not None
-        else RUNNER
-    )
-    unrunnable = _runner_missing(runner, tree, env, containment_settings, established)
+    contained = containment_settings is not None and established is not None
+    chosen = runner(contained)
+    unrunnable = _runner_missing(chosen, tree, env, containment_settings, established)
     if unrunnable is not None:
         raise WitnessError(
             f"the witness for `{witness.criterion}` cannot run: {unrunnable}. "
@@ -792,7 +824,7 @@ def execute(
     path = materialise(tree, witness)
     relative = str(path.relative_to(tree))
     try:
-        argv: list[str] = [*RUNNER, relative]
+        argv: list[str] = [*chosen, relative]
         cwd = tree
         if containment_settings is not None and established is not None:
             from wringer import containment as containment_module

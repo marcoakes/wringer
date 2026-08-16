@@ -788,6 +788,59 @@ def agent_env(task: Task) -> dict[str, str]:
     return environ
 
 
+# Where `benchmark/corpus/build.py` puts each repository's venvs. Read from the
+# same environment variable build.py reads, so the two cannot drift apart into a
+# harness looking for a venv the builder put somewhere else.
+CORPUS_WORK = Path(
+    os.environ.get("WRINGER_CORPUS_WORK", Path.home() / ".cache" / "wringer-corpus")
+)
+
+
+def witness_environment(task: Task, tree: Path) -> dict[str, str]:
+    """Tell the witness which interpreter the GATES run under, or say nothing.
+
+    **Named, never parsed.** The gate is a shell string
+    (`PYTHONPATH=src <venv>/bin/python -m pytest …`) and picking an interpreter
+    out of it means parsing a command line — the classification
+    `vacuity.py:39-44` refuses by name, and refusing it there while doing it
+    here would be the same mistake in a different file.
+
+    So the path is CONSTRUCTED from `build.py`'s own convention —
+    `<work>/venvs/<repo-key>-gate` — and used only if it is actually there. A
+    task whose venv is missing gets no variable at all, and the witness falls
+    back to `sys.executable`: the ordinary behaviour, for the ordinary case
+    where Wringer is installed beside the project it verifies.
+
+    `PYTHONPATH=src` rides along for the same reason it is in the gate command:
+    these repositories are src-layout, and a witness that cannot import the
+    package is measuring the environment rather than the change.
+    """
+    environment: dict[str, str] = {}
+    venvs = CORPUS_WORK / "venvs"
+    if not venvs.is_dir():
+        return environment
+    # **Matched against the venvs that EXIST**, not split out of the task id.
+    # `build.py` names them `<repo-key>-gate` and a task id is
+    # `<repo-key>-<issue-slug>` — so the key is a prefix, and splitting on the
+    # first `-` would be a guess about how issue slugs are written. Matching
+    # against real directories is a lookup, and an ambiguous or absent answer
+    # yields NOTHING rather than a wrong interpreter.
+    matches = sorted(
+        candidate for candidate in venvs.glob("*-gate")
+        if task.id.startswith(candidate.name[: -len("-gate")] + "-")
+        and (candidate / "bin" / "python").is_file()
+    )
+    if len(matches) != 1:
+        return environment
+    environment["WRINGER_WITNESS_PYTHON"] = str(matches[0] / "bin" / "python")
+    if (tree / "src").is_dir():
+        existing = os.environ.get("PYTHONPATH")
+        environment["PYTHONPATH"] = (
+            f"src{os.pathsep}{existing}" if existing else "src"
+        )
+    return environment
+
+
 def run_agent_alone(
     task: Task,
     tree: Path,
@@ -1058,7 +1111,15 @@ def run_under_wringer(
         # The credential reaches the child through its environment and nowhere
         # else. Wringer's own redactor keeps it out of the bundle, because the
         # repo's `run.worker.acp.env_passthrough` names it.
-        env=agent_env(task),
+        #
+        # **Plus the interpreter the witness must run under**, which the P4-7
+        # gate found the hard way. A witness runs where the GATES run, and each
+        # corpus repository's gate is its OWN venv with `PYTHONPATH=src` —
+        # while Wringer runs from Wringer's venv. Without this the witness
+        # cannot import the project at all: exit 2, `collection_error`,
+        # DISCARDED, and every criterion reported uncovered for a reason that
+        # has nothing to do with the criterion.
+        env={**agent_env(task), **witness_environment(task, tree)},
     )
     (workdir / "run.stdout.log").write_text(ran.stdout, encoding="utf-8")
     (workdir / "run.stderr.log").write_text(ran.stderr, encoding="utf-8")
