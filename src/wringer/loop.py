@@ -1360,11 +1360,26 @@ def _pin_witnesses(
         )
     try:
         for item in found:
-            witness.prove_red(
-                tree, item,
-                containment_settings=containment_settings,
-                established=established,
-            )
+            # **Proved where it will be EXECUTED, which is where the gates run**
+            # — not inside the worker's containment. This passed the worker's
+            # containment through until 2026-08-16, and the first real corpus
+            # task under the fixed lane measured the consequence.
+            #
+            # `witness.execute`'s own docstring already says the witness runs
+            # where the gates run, and `verify._run_witnesses` already passed no
+            # established containment. So proving contained and executing
+            # uncontained meant the two halves of one claim ran in two different
+            # environments — and the worker image has the AGENT, not the
+            # project's dependencies. On `marshmallow-constant-required` the
+            # proving run came back `/usr/bin/python3: No module named pytest`,
+            # exit 1, no exception class recorded, which `classify` read as a
+            # genuine ASSERTION. The row went out `covered: true`,
+            # `verdict: proven`, for a witness that had never run.
+            #
+            # That is a FALSE proved-red — §5.1's coverage number inflated by
+            # witnesses that could not execute — and it is worse than an
+            # uncovered criterion, which merely goes to a human.
+            witness.prove_red(tree, item)
     finally:
         fleet.remove_worktree(root, tree)
 

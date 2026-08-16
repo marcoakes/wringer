@@ -1437,3 +1437,60 @@ corrections are correct in both directions.
 suite (it timed out waiting; the three files under review ran 106 passed), live
 containment under podman, `wring resume` end to end with a lane, `--serial`, and
 most of `benchmark/harness.py` outside the P4-2/P4-4 surface.
+
+### §6h — What the RE-ARMED gate caught, 2026-08-16, before any money
+
+*P4-7's second half — one corpus task end to end, ~$5 — found a defect that
+would have corrupted §5.1 on every covered row of the pass. Recorded here
+because it is the second time in this programme that validating one task before
+buying thirteen paid for itself, and because the defect is a FALSE POSITIVE,
+which is the direction this lane exists to refuse.*
+
+**The row reached a CELL and the CELL was built on a lie.**
+`marshmallow-constant-required` scored arm A `false_confidence` and arm B
+`true_refusal`, with `witness: {covered: true, proved_red: "assertion", verdict:
+"proven"}`. Read the citation:
+
+    proved_red.first_line = "/usr/bin/python3: No module named pytest"
+
+`/usr/bin/python3` is `CONTAINED_RUNNER`. **The witness was PROVED inside the
+worker's containment and EXECUTED on the host** — two halves of one claim, in
+two different environments — and the worker image carries the AGENT, not the
+project's dependencies. So the proving run never ran a test at all.
+
+**Why nothing caught it.** `python3 -m pytest` with no pytest installed exits
+**1**, not 127. The 127 branch added by the previous review's fourth HIGH sees
+only the case where the interpreter itself is absent. Exit 1 with no exception
+class recorded is `classify`'s definition of a genuine ASSERTION — so the
+witness was recorded `proven`, the criterion `covered`, and §5.1's coverage
+number would have counted it.
+
+**A false proved-red is strictly worse than an uncovered criterion.** Uncovered
+exits to a human and counts as neither a win nor a loss, by §5.1's own terms.
+This one manufactures coverage out of a check that cannot execute, in the exact
+number the pass is scored on.
+
+**Two fixes, and the first is the real one.**
+
+1. **`_pin_witnesses` proves where the witness will be EXECUTED — on the host,
+   where the gates run.** `witness.execute`'s docstring already said this and
+   `verify._run_witnesses` already did it; only the proving path disagreed.
+   That disagreement was invisible until an image without pytest met it.
+2. **The runner is probed before anything is classified.** `-m pytest
+   --version` collects nothing, writes nothing, and exits 0 if and only if the
+   interpreter can import pytest — a fact the runner states about its own
+   installation, which is the only kind of fact W8 lets a decision rest on. A
+   runner that cannot import pytest now RAISES by name instead of producing an
+   assertion, in both the contained and the host configuration.
+
+**The rest of the gate was green**, and is recorded for the capture:
+
+| | |
+|---|---|
+| sequence I, ACP arm, contained | I1 host credential file, I2 credential env, I3 corpus mirror, I5a/I5b denied host by name and by address, I6 undeclared DNS, I7 disarm — **all BLOCKED**. I4, the declared model API, REACHED, which is the allowlist working rather than failing |
+| the `--privileged` control | **every one of those flips to REACHED**, including `I3` listing the corpus mirrors by name — `attrs.git`, `click.git`, `marshmallow.git`, `packaging.git`, `pyparsing.git`. The flags are what stopped them |
+| the primary turn | `containment: {primary: "established", loop: "established"}` — **the first row in this programme's life whose agent turn ran inside the boundary** (P4-2) |
+| the loop | **2 real worker turns**, stopping on `oscillating` at iteration 3. Every declared gate was green throughout; the only thing holding the loop open was the witness. That is P4-1 on a real corpus task, and it is the mechanism §5.3 needs |
+
+*The re-validation is re-run after the fix, and no money is spent on the pass
+until a row comes back with a covered witness that actually executed.*

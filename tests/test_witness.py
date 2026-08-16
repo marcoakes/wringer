@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -565,8 +566,16 @@ def test_an_image_without_pytest_is_LOUD_and_never_a_silent_discard(tmp_path):
     finally:
         witness.subprocess.run = monkeypatched
     message = str(caught.value)
-    assert "not in the image" in message
-    assert "will not report a criterion uncovered" in message
+    # **The refusal now arrives EARLIER and says more**, and the assertion moved
+    # with it rather than being deleted. The 127 branch below `materialise`
+    # still exists and still fires; what changed on 2026-08-16 is that the
+    # runner is probed with `--version` BEFORE anything is materialised, so the
+    # same configuration fault is caught before the tree is touched — and it
+    # catches the sibling case 127 cannot see, where `python3` exists and pytest
+    # does not (exit 1, which `classify` read as a genuine assertion).
+    assert "pytest is not importable" in message
+    assert "example/image:tag" in message, "the refusal does not name the image"
+    assert "not about the criterion" in message
 
 
 def test_the_lane_emits_no_event_the_frozen_ledger_schema_forbids():
@@ -919,3 +928,48 @@ def test_a_store_OUTSIDE_the_repository_is_accepted(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv(witness.STORE_ENV, str(tmp_path / "store"))
     assert witness.store_dir(repo).is_relative_to(tmp_path / "store")
+
+
+def test_a_runner_that_cannot_IMPORT_PYTEST_is_never_a_proved_red(
+    tmp_path, monkeypatch
+):
+    """**The defect the P4-7 gate caught on a real corpus task, before the
+    money.**
+
+    `python3 -m pytest` with no pytest installed prints `No module named
+    pytest` and exits **1** — not 127, which the containment branch already
+    catches. Exit 1 with no exception class recorded is `classify`'s definition
+    of a genuine ASSERTION, so on `marshmallow-constant-required` the witness
+    came back:
+
+        proved_red.outcome  = "assertion"
+        proved_red.verdict  = "proven"
+        first_line          = "/usr/bin/python3: No module named pytest"
+        row.witness.covered = true
+
+    for a check that had never run. **A false proved-red is strictly worse than
+    an uncovered criterion**: uncovered goes to a human, this inflates §5.1's
+    coverage number with checks that cannot execute — and §5.1 is the clause the
+    whole pass is scored on.
+
+    The guard is `--version`, which exits 0 iff the interpreter can import
+    pytest. That is a fact the runner states about its own installation, which
+    is the only kind of fact W8 lets a decision rest on. No message is read.
+    """
+    broken = (sys.executable, "-c", "raise SystemExit(1)")
+    monkeypatch.setattr(witness, "RUNNER", broken)
+
+    with pytest.raises(witness.WitnessError) as caught:
+        witness.prove_red(tmp_path, make(ASSERTING))
+    message = str(caught.value)
+    assert "cannot run" in message
+    assert "pytest is not importable" in message
+    assert "not about the criterion" in message
+
+
+def test_the_runner_probe_costs_no_test_run_and_touches_no_tree(tmp_path):
+    """The probe must not itself be a side effect: it collects nothing, writes
+    nothing, and leaves the tree exactly as it found it."""
+    before = sorted(p.name for p in tmp_path.iterdir())
+    assert witness._runner_missing(witness.RUNNER, tmp_path, None) is None
+    assert sorted(p.name for p in tmp_path.iterdir()) == before

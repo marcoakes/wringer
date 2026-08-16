@@ -759,6 +759,36 @@ def execute(
     Wringer's own artifact rather than the worker's, which is the whole of what
     bounds it today.
     """
+    # **Is the runner actually there?** Asked before anything is classified,
+    # because the failure mode it closes was measured on a real corpus task and
+    # is silent: `python3 -m pytest` with no pytest installed prints
+    # `No module named pytest` and exits **1** — not 127, which the containment
+    # branch below already catches. Exit 1 with no exception class recorded is
+    # `classify`'s definition of a genuine ASSERTION, so the witness came back
+    # `proved_red: assertion`, `verdict: proven`, `covered: true` — for a check
+    # that had never run at all.
+    #
+    # A false proved-red is strictly worse than an uncovered criterion: an
+    # uncovered criterion goes to a human, and this one inflates §5.1's coverage
+    # number with checks that cannot execute.
+    #
+    # The probe is structural in exactly the sense W8 requires — `--version`
+    # exits 0 if and only if the runner can import itself, which is a fact the
+    # runner states about its own installation. No message is read.
+    runner = (
+        CONTAINED_RUNNER
+        if containment_settings is not None and established is not None
+        else RUNNER
+    )
+    unrunnable = _runner_missing(runner, tree, env, containment_settings, established)
+    if unrunnable is not None:
+        raise WitnessError(
+            f"the witness for `{witness.criterion}` cannot run: {unrunnable}. "
+            "Wringer will not report a criterion covered, or uncovered, for a "
+            "reason that is not about the criterion — a check that never "
+            "executed is not evidence in either direction"
+        )
+
     path = materialise(tree, witness)
     relative = str(path.relative_to(tree))
     try:
@@ -832,6 +862,54 @@ def execute(
         )
     finally:
         clean(tree)
+
+
+def _runner_missing(
+    runner: tuple[str, ...],
+    tree: Path,
+    env: dict[str, str] | None,
+    containment_settings: Any = None,
+    established: Any = None,
+) -> str | None:
+    """Why this runner cannot run, or None. Structural, never a message read.
+
+    `-m pytest --version` collects nothing, imports no test, touches no tree,
+    and exits 0 if and only if the interpreter can import pytest. That is the
+    same KIND of fact the exit code of a real run is, which is the only kind W8
+    permits a decision to rest on.
+    """
+    argv: list[str] = [*runner, "--version"]
+    if containment_settings is not None and established is not None:
+        from wringer import containment as containment_module
+
+        argv = containment_module.argv(
+            containment_settings, established,
+            " ".join([*CONTAINED_RUNNER, "--version"]), tree, tree,
+        )
+    try:
+        done = subprocess.run(
+            argv,
+            cwd=tree,
+            capture_output=True,
+            text=True,
+            timeout=TIMEOUT_SECONDS,
+            env={**os.environ, **RUNNER_ENV, **(env or {})},
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"the runner {runner[0]!r} could not be started ({exc})"
+    if done.returncode != 0:
+        where = (
+            f"inside the containment (image "
+            f"{getattr(containment_settings, 'image', '?')!r})"
+            if containment_settings is not None and established is not None
+            else f"at {runner[0]}"
+        )
+        return (
+            f"pytest is not importable {where} — `{' '.join(runner)} --version` "
+            f"exited {done.returncode}. Install pytest there, or point the "
+            "witness lane at an interpreter that has it"
+        )
+    return None
 
 
 def _raised(tree: Path) -> frozenset[str]:
