@@ -39,6 +39,15 @@ __pycache__/
 # personal Claude Code settings (permission allowlist) — not the team's
 .claude/settings.local.json
 
+# uv's resolver lock. This project publishes a library, not an application:
+# `pyproject.toml` declares the ranges that are the contract, and a pinned
+# resolution of one machine's transitive tree is not one. It has been
+# untracked three times (8738240, 80b7822, and this) and re-added three times
+# by a `git add -A`, which is why it is ignored now rather than untracked a
+# fourth time — the instruction "commit with explicit pathspecs" is a habit
+# and this is a mechanism.
+uv.lock
+
 # editor/os
 .DS_Store
 .idea/
