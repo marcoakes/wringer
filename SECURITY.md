@@ -214,9 +214,17 @@ it, and a result is a fact about one platform, one runtime and one image.
 measures the WORKER under `run.containment` (SPEC_CONTAIN_V0), which is a
 different mechanism — a netns holder the worker joins without `NET_ADMIN` — and
 it carries the `--privileged` control run sequence G lacks, the first in this
-repository. Its capture is `docs/containment-2026-08-15.md`. It is macOS and
-podman only, so it says nothing about Linux or Docker, and it says nothing about
-the gate path above.
+repository. Its capture is `docs/containment-2026-08-15.md`.
+
+*Corrected 2026-08-16: the sentence here read "It is macOS and podman only, so
+it says nothing about Linux or Docker" — written when that was true, and false
+from the moment the Linux/docker row above was added to the table on the same
+page. Third occurrence of one class: a claim is corrected in one place and its
+sibling sentence is not.* **Sequence I now has one Linux/docker row, run in
+CI**, and the table says what that row bought — a shared kernel, so the macOS
+VM caveat falls away **for that row and for nothing else**. Every other
+sequence I row is macOS and podman. All of them say nothing about the gate path
+above.
 
 **Do not read an ordinary container as VM-strength isolation.** It is not,
 and no configuration in this repository makes it so. On macOS a Linux VM sits
