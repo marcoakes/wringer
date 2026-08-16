@@ -164,6 +164,15 @@ class Outcome:
     # did. Carried so the console can NAME it: "stopped" with no gate id sends
     # a reader looking for a worker problem that does not exist.
     flaky_gate: str | None = None
+    # The criteria whose witness was still red when the loop stopped, if any.
+    #
+    # Carried for the same reason `flaky_gate` is: the console has to be able to
+    # NAME what is outstanding. The review found three of `_LOOP_ENDINGS`'
+    # sentences saying *"the gates still fail"* over a run where every declared
+    # gate was green and only the manufactured witness was red — which is the
+    # corpus's shape and therefore the shape P4-1 exists for. Generalising the
+    # sentence to "the checks" made it true; this is what stops it being vague.
+    unconverted: tuple[str, ...] = ()
 
     @property
     def converged(self) -> bool:
@@ -546,10 +555,24 @@ def failure_signature(
 
     for item in _unconverted(outcome, witnesses):
         executed = item.executed
-        # The criterion and the log, normalised exactly as a gate's log is —
-        # the same `_normalize`, so a timestamp or a path in a witness failure
-        # is stripped by the same rules and cannot make two identical failures
-        # look different.
+        # The criterion and the log, normalised by exactly the rules a gate's
+        # log gets — the same `_normalize`, deliberately, because a second
+        # normaliser for witnesses would be a second thing to keep in step.
+        #
+        # **What that does and does not buy, corrected after the review.** An
+        # earlier draft of this comment said a timestamp or a path "is stripped
+        # by the same rules and cannot make two identical failures look
+        # different". `_NOISE` strips ISO timestamps, clock times, run ids,
+        # `0x` addresses, durations, pids, and paths under `/tmp`,
+        # `/private/var` and `/var/folders` — and measurably NOT UUIDs, nor
+        # absolute paths elsewhere (`/Users/…`, `/home/…`, `/workspace/…`). A
+        # witness whose failure carries one of those gets a fresh signature
+        # every lap, so the breaker never fires and the loop spends its whole
+        # `max_iterations` before stopping.
+        #
+        # That is bounded, not unbounded — the ceiling is unconditional — and it
+        # is the flaky-witness limit §6f banks by name rather than a defect this
+        # comment may claim is absent.
         parts += [
             f"witness:{item.criterion}",
             str(executed.exit_code) if executed is not None else "unrun",
@@ -1020,6 +1043,13 @@ def run(
         iterations=iterations,
         final=final,
         flaky_gate=flaky_gate,
+        # From the LAST lap's own answer, not recomputed: `final` is the
+        # verification the loop stopped on, and `witnesses` holds what those
+        # laps executed. Empty for every repository with no witness lane, so
+        # their console output is byte-identical.
+        unconverted=tuple(
+            item.criterion for item in _unconverted(final, witnesses)
+        ) if final is not None else (),
     )
 
 
@@ -1376,7 +1406,25 @@ def _write_witness_record(bundle: Bundle, witnesses: list) -> Path | None:
         "schema_version": witness.SCHEMA_VERSION,
         "witnesses": [
             {
-                **item.record,
+                # **NAMED FIELDS, never a splat of the stored record**, and
+                # this is the review's finding 5 folded. `witness.load` sets
+                # `record` verbatim from the store's own `witness.json`, and
+                # splatting it into this row — which `witness.schema.json`
+                # closes with `additionalProperties: false` — means one extra
+                # key in the store produces a bundle that fails its own
+                # published, frozen schema. That is HIGH finding 2 of the
+                # PREVIOUS review ("every bundle carrying this lane wrote a
+                # ledger that failed its own published schema") arriving one
+                # file over, and the schema being frozen now is exactly what
+                # makes a future store field trigger it.
+                "id": item.record.get("id", f"w-{item.criterion}"),
+                "proves": item.record.get("proves", item.criterion),
+                "path": item.record.get("path", item.filename),
+                "authored": item.record.get("authored", {}),
+                **(
+                    {"pinned": item.record["pinned"]}
+                    if item.record.get("pinned") is not None else {}
+                ),
                 "proved_red": (
                     {
                         "outcome": item.proved_red.outcome,

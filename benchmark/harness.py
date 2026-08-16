@@ -1025,7 +1025,13 @@ def run_under_wringer(
     try:
         if uncontained is None:
             boundary = establish_for_primary(task, tree, workdir)
-            primary = "established"
+            # **Derived from what came back, never assumed** (review finding
+            # 6). `establish_for_primary` returns None when the tree declares
+            # nothing, and the first draft recorded `established` anyway while
+            # running the turn with no boundary at all — a fail-open on the one
+            # field P4-4 exists to make honest, and one `check_containment_is_
+            # real` could not catch, because `declared` is false on that path.
+            primary = "established" if boundary is not None else "none"
         else:
             primary = "UNCONTAINED"
         # The identical call arm A makes, into arm B's own directory — with the
@@ -1316,7 +1322,14 @@ def deviations_for(arm: str, report: dict[str, Any] | None = None) -> list[str]:
             "nothing runs the repository's tests in this arm — that is the "
             "point of it, and it is also why this arm is cheaper",
         ]
-    uncontained = [] if report.get("primary") == "established" else [
+    # **Only when a worker actually RAN outside a boundary** (review finding
+    # 12). The pre-arm `check_isolation` VOID builds its row from a report
+    # computed before anything happened — `primary: "n/a"` — and the first draft
+    # then told the reader *"THE WORKER RAN UNCONTAINED"* about a row where no
+    # worker ran at all. A deviation that describes something that did not
+    # happen is noise in the one field this harness uses to stay honest.
+    primary = report.get("primary")
+    uncontained = [] if primary in ("established", "n/a", None) else [
         "**THE WORKER RAN UNCONTAINED.** The residual contamination channel — "
         "the agent has a shell and a network — was measured IN USE on the "
         "2026-08-13 run, where three arm-B rows fetched a .patch, a PR diff "
@@ -1368,11 +1381,8 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
 
     # **Recomputed AFTER the arm ran, and that is the whole of P4-4.** Before
     # it ran there was nothing to report but a config file; the question the row
-    # answers is what each turn actually got. `check_containment_is_real` then
-    # refuses to let a row claim a boundary it did not have — a gate failure
-    # that stops the pass, never a deviation somebody might read past.
+    # answers is what each turn actually got.
     report = containment_report(tree, workdir, arm)
-    check_containment_is_real(report, task.id, arm)
 
     if claimed is None:
         # The arm never produced a claim, so there is nothing to put in the
@@ -1433,6 +1443,15 @@ def run_arm(task: Task, arm: str, out: Path) -> Row:
             # that reached the answer is the exhibit for how it reached it.
             patch=patch, patch_error=patch_error,
         )
+
+    # **The guard fires HERE — on the scored path, and only here** (P4-4, with
+    # the review's HIGH finding 3 folded). Every return above this line is a
+    # VOID row: it contributes to no rate, it claims nothing about containment,
+    # and taking the whole task down over one would convert §5's tolerated first
+    # VOID into a hard stop that also discards the other arm's already-paid row.
+    # A row that is about to be SCORED is the one that must not claim a boundary
+    # it did not have.
+    check_containment_is_real(report, task.id, arm)
 
     passed, held_reason = score_held_out(task, tree, workdir)
     # From the ARM's tree, which scoring never touches — it copies forward into
@@ -1637,23 +1656,72 @@ def teardown_primary(
     )
 
 
+# What the loop's turns got, when the answer is "there were none to contain".
+# These are ANSWERS, not gaps: no worker ran, so no worker ran uncontained.
+NO_WORKER_TURNS = "no_worker_turns"
+NO_LOOP = "no_loop"
+NOT_ESTABLISHED = "DECLARED_BUT_NOT_ESTABLISHED"
+
+
 def loop_containment(tree: Path) -> str:
-    """What the LOOP's turns actually got, read off Wringer's own record.
+    """What THIS LOOP's worker turns actually got, read off Wringer's record.
 
     `execution.json`'s `worker_execution` splits `declared` from `established`
     for exactly this reason (SPEC_CONTAIN_V0 ruling 4a): a run that declared a
     containment and never stood one up must not read the same as one that did.
     So this reports the `established` block's presence, never the config's.
 
-    `"none"` when the loop never ran a worker turn — which is the honest answer
-    on a task whose gates were green and whose witness converted on the first
-    lap, and is not the same claim as "it ran uncontained".
+    **The join is through the LOOP's own ledger, and the first draft's glob was
+    a real defect the independent review measured.** Globbing every
+    `execution.json` in the tree reads records `wring verify` wrote — and
+    `backend.write` says in its own words that *three of its four callers never
+    start a holder*, so a plain `wring verify` in the tree writes
+    `declared` with no `established` and is INDISTINGUISHABLE from a loop that
+    failed to contain its worker. One `wring verify` — run by the agent, by a
+    gate, or by a person looking at the tree — would have stopped the pass and
+    blamed the loop. The events carry `evidence_dir` (required by
+    `loop-event-v2.schema.json`), so the join is real rather than hopeful.
+
+    Three answers are not gaps and must not read like one:
+
+    - `no_loop` — arm B never reached `wring run`.
+    - `no_worker_turns` — the loop ran and briefed nobody, which is the
+      ordinary outcome when the gates were green and the witness converted on
+      the first lap. **No worker ran, so no worker ran uncontained.**
+    - `none` — the config declared no containment at all.
     """
-    records = sorted((tree / ".wringer" / "runs").glob("*/execution.json"))
-    if not records:
-        return "no_record"
+    loops = sorted((tree / ".wringer" / "loops").iterdir()) if (
+        (tree / ".wringer" / "loops").is_dir()
+    ) else []
+    if not loops:
+        return NO_LOOP
+    ledger = loops[-1] / "loop.jsonl"
+    if not ledger.is_file():
+        return NO_LOOP
+
+    turns = 0
+    referenced: list[str] = []
+    for line in ledger.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if event.get("type") == "worker.started":
+            turns += 1
+        elif event.get("type") == "verify.finished":
+            directory = event.get("evidence_dir")
+            if directory:
+                referenced.append(directory)
+    if turns == 0:
+        return NO_WORKER_TURNS
+
     seen = set()
-    for path in records:
+    for relative in referenced:
+        path = (tree / relative / "execution.json")
+        if not path.is_file():
+            continue
         try:
             payload = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
@@ -1673,9 +1741,11 @@ def loop_containment(tree: Path) -> str:
         elif worker.get("established"):
             seen.add("established")
         else:
-            seen.add("DECLARED_BUT_NOT_ESTABLISHED")
-    if "DECLARED_BUT_NOT_ESTABLISHED" in seen:
-        return "DECLARED_BUT_NOT_ESTABLISHED"
+            seen.add(NOT_ESTABLISHED)
+    if not seen:
+        return "no_record"
+    if NOT_ESTABLISHED in seen:
+        return NOT_ESTABLISHED
     if seen == {"established"}:
         return "established"
     if seen == {"none"}:
@@ -1698,15 +1768,22 @@ def containment_report(tree: Path, workdir: Path, arm: str) -> dict[str, Any]:
     and `arm_a` is what it says.
     """
     if arm == ARM_NATIVE:
+        # **The same KEYS as arm B** (review finding 13). They differed, so a
+        # consumer of `wringer.benchmark.v6` reading `row["containment"]
+        # ["declared"]` raised `KeyError` on every arm A row — a schema whose
+        # shape depends on which arm wrote it is two schemas under one version.
         return {
             "primary": "uncontained_by_design",
             "loop": "n/a",
+            "declared": False,
             "note": (
                 "arm A is the unsupervised control: what a caller without a "
                 "harness gets. Containing it would make it a different arm"
             ),
         }
-    recorded: dict[str, Any] = {"primary": "n/a", "loop": loop_containment(tree)}
+    recorded: dict[str, Any] = {
+        "primary": "n/a", "loop": loop_containment(tree), "note": None,
+    }
     path = workdir / "primary-containment.json"
     if path.is_file():
         try:
@@ -1736,13 +1813,37 @@ class ContainmentGap(TaskError):
     """
 
 
+# The states a turn may honestly report under a declared containment.
+#
+# **This list is what the review's HIGH finding 3 was about.** The first draft
+# admitted `established`, `none` and `n/a` — and rejected everything else,
+# including `no_record`, which is what an honest VOID arm produces: the primary
+# turn failed, `wring run` never ran, so no loop record exists. That aborted the
+# task AND discarded arm A's already-paid row, converting §5's tolerated first
+# VOID into a hard stop plus a wasted bill.
+#
+# What belongs here is every state that is an ANSWER. `no_loop`,
+# `no_worker_turns` and `no_record` all mean *no worker turn ran*, and no worker
+# turn cannot have run uncontained. What does NOT belong is
+# `DECLARED_BUT_NOT_ESTABLISHED` and `UNCONTAINED` — a turn that ran outside a
+# boundary the config claims — which is the whole point of the guard.
+HONEST_TURN_STATES = frozenset(
+    {"established", "none", "n/a", NO_LOOP, NO_WORKER_TURNS, "no_record"}
+)
+
+
 def check_containment_is_real(report: dict[str, Any], task: str, arm: str) -> None:
-    """Refuse to proceed on a declared-but-not-established turn (P4-4)."""
+    """Refuse to proceed on a turn that RAN outside a declared boundary (P4-4).
+
+    Called only where a SCORED row is about to be built. A VOID row is not
+    scored and contributes to no rate, so it lands honestly with whatever it
+    measured rather than taking the pass down with it.
+    """
     if not report.get("declared"):
         return
     for turn in ("primary", "loop"):
         state = report.get(turn)
-        if state in ("established", "none", "n/a"):
+        if state in HONEST_TURN_STATES:
             continue
         raise ContainmentGap(
             f"{task} {arm}: the config DECLARES a containment and the {turn} "
@@ -1995,12 +2096,31 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out).resolve()
 
     rows: list[Row] = []
+    failure: str | None = None
     for arm in wanted:
         try:
             rows.append(run_arm(task, arm, out))
         except (TaskError, subprocess.SubprocessError, OSError) as exc:
+            # **The rows already collected are WRITTEN, and then we stop**
+            # (review HIGH finding 3, second half). Returning here discarded
+            # arm A's completed row — an agent turn that had already been paid
+            # for — because arm B died afterwards. A harness that throws away
+            # measurements it bought is a harness whose bill and whose results
+            # disagree, and `write_rows` appends precisely so that a partial run
+            # is recoverable.
             print(f"harness: {task.id} {arm}: {exc}", file=sys.stderr)
-            return 2
+            failure = f"{arm}: {exc}"
+            break
+
+    if failure is not None:
+        if rows:
+            print(
+                f"harness: writing the {len(rows)} row(s) already measured "
+                f"before stopping — they were paid for",
+                file=sys.stderr,
+            )
+            write_rows(out, rows)
+        return 2
 
     path = write_rows(out, rows)
     for row in rows:

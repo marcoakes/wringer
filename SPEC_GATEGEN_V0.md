@@ -1384,3 +1384,56 @@ shipped. There is nothing here for a boundary to bound.
   and `max_iterations` bounds it — but nothing DETECTS it the way
   `stability.py` detects a flaky gate, and no row would say so. Banked and
   named; not built.
+
+### §6g — The independent review of the Phase 4 slice, and its fourteen findings
+
+*One agent, 2026-08-16, over `ef07f97`, instructed to refute; neither the
+drafter nor the builder (the no-fleets rule). **Verdict: NOT SOUND — two of the
+four load-bearing claims did not hold as built.** Every finding is folded; none
+is rebutted. Recorded in full rather than summarised, on §6c's precedent: a NOT
+SOUND verdict paraphrased into a footnote is the drift this repository exists to
+catch.*
+
+**What the reviewer did that reading could not.** It applied nine mutations —
+deleting or neutering each mechanism in turn and running the suite — and the two
+HIGH findings against §6f's own claims both came out of that, not out of
+reading. This is now the second review in a row where mutation found what
+inspection did not.
+
+| # | sev | the finding | resolution |
+|---|---|---|---|
+| 1 | HIGH | **The W5 scrub was live and entirely untested.** Replacing the body of `_without_the_witness` with `return line.strip()` left the witness suite at 51 passed, 0 failed. `test_the_brief_carries_the_failure_and_never_the_path_or_command` asserts the path is absent — but its fixture fails on `assert 1 == 2`, a line that never contains a path, so it pinned the COINCIDENCE its own docstring says it refuses to rely on | a fixture whose failure MESSAGE carries the path and the filename, which is the one arrival no choice of line can dodge. Mutation-checked: neutering the scrub now turns it red |
+| 2 | HIGH | **The citation regressed to `F [100%]` under `FORCE_COLOR`/`PY_COLORS`.** `execute` passes `{**os.environ, …}`, so pytest wraps its progress line in ANSI, and an ANSI-prefixed line matched neither pattern. §6d item 1 reopened by one environment variable — and many CI images set it by default | `--color=no` on both runners AND an ANSI strip before any pattern is applied: the flag closes the environment's route in, the strip closes every other. Pinned for both variables |
+| 3 | HIGH | **An honest VOID arm aborted the task and threw away the other arm's paid row.** A failed primary turn means no `wring run`, so no loop record, so `no_record` — which the guard's allowlist rejected. §5 tolerates three VOIDs per pass; this turned the first into a hard stop, and `main` returned before `write_rows`, discarding an agent turn that had already been billed | the guard fires on the SCORED path only, its allowlist admits every state that means *no worker turn ran* (`no_loop`, `no_worker_turns`, `no_record`), and `main` writes the rows it already measured before stopping |
+| 4 | HIGH | **`loop_containment` accused `wring verify` of running an uncontained worker.** It globbed every `execution.json` in the tree, and `backend.py` says in its own words that three of its four callers never start a holder — so a bare `wring verify` writes `declared` with no `established` and is indistinguishable, to a glob, from a loop that failed to contain its worker. One verification in the tree, by the agent or by a person, would have stopped the pass | the join goes through the LOOP's own ledger — `verify.finished`'s `evidence_dir`, required by `loop-event-v2.schema.json` — so it reads the laps that loop ran and nothing else |
+| 5 | MED | **`**item.record` re-opened the drift failure §6f cites as its own reason to exist.** The store's record is splatted into a bundle row closed with `additionalProperties: false`, so one extra key in the store writes a bundle failing its own published, frozen schema | named fields, never a splat. The schema being frozen is what would have made a future store field trigger this |
+| 6 | MED | `primary = "established"` was set without checking what `establish_for_primary` returned — a fail-open on the one field P4-4 exists to make honest | derived from the return value |
+| 7 | MED | **Nothing enforced that the store is outside the repository**, and the mount that used to cover that case was deleted on the strength of it. `HOME`, `XDG_STATE_HOME` or the override pointing at the repo root all put the bytes back inside — and `HOME=<repo>` is an ordinary container shape | `store_dir` REFUSES, naming the variable to change. Not a silent relocation: moving bytes somewhere the operator did not choose is its own surprise |
+| 8 | MED | **The console said something false on the witness path.** Three `_LOOP_ENDINGS` sentences say *"the gates still fail"*; on the corpus shape P4-1 exists for the gates are GREEN and only the witness is red. Observed verbatim over a `run: "true"` gate | the sentences name "the checks", which covers both and stays true in the case they were written for; and `_report_loop` now NAMES the outstanding criterion, so nothing is lost to the generality |
+| 9 | MED | `_normalize`'s comment claimed it strips "a timestamp or a path"; it strips neither UUIDs nor absolute paths outside three prefixes | the comment now states exactly what is stripped and what is not, and points at the flaky-witness limit §6f already banks. The behaviour is bounded by the iteration ceiling and is unchanged |
+| 10 | MED | `pytest.fail(msg, pytrace=False)` and a strict `xfail` emit no `E` line, so the citation fell back to pytest's `____ test_it ____` separator — always present, never says anything, and `pytest.fail` is a plausible idiom for a model-authored witness | separators are noise; the body line is preferred; the short-summary line is the last resort. (pytest TRUNCATES its own short summary — measured while writing the test — which is why the body outranks it) |
+| 11 | MED | A criterion id containing `/` or `..` escaped both the store and the tree, and `clean()` would then delete outside the tree — exactly what `materialise`'s own comment warns of | refused by name. Not slugified: a silent rewrite would break the id-keyed join to `acceptance.json` |
+| 12 | LOW | A row where NO worker ran carried *"THE WORKER RAN UNCONTAINED"* | the deviation appears only when a worker actually ran outside a boundary |
+| 13 | LOW | Arm A and arm B rows carried different `containment` key sets, so `row["containment"]["declared"]` raised on every arm A row | the same keys in both arms |
+| 14 | LOW | `test_a_repository_with_no_witness_lane_is_byte_for_byte_unmoved` compared no bytes | renamed to what it actually pins, and a second test compares the signature against a REIMPLEMENTATION of the pre-P4-1 algorithm — written out rather than imported, because importing the shipped one is how the pin became a tautology last time |
+
+**What the review checked and found CORRECT**, recorded so an unexamined area
+and a held one do not read alike. **P4-1 holds**, and by mutation rather than by
+reading: reverting the predicate turns six tests red; removing the `required`
+filter turns one red; making `failure_signature` blind to witnesses turns the
+breaker test red and the loop then runs to its ceiling. Every exit from the loop
+is bounded and a nondeterministic witness costs the budget and terminates — it
+cannot wedge. Absence is absence: `failure_signature` with no lane produces a
+hash byte-identical to a reimplementation of the pre-commit algorithm. **P4-3
+holds** for the shipped configuration — the mount is gone from both spawn
+shapes, `containment.py` carries no witness identifier at all, `store_dir` is
+stable under a symlinked root and a relative path, and reverting it turns eleven
+tests red across three files. The corpus trees resolve outside every mount.
+**Law 7 holds**: addition only, and the recorded digest matches the bytes. **The
+Q1 ceiling holds** in every artifact the review looked at, and both truth
+corrections are correct in both directions.
+
+**What it could not reach**, named rather than left to be assumed: the full
+suite (it timed out waiting; the three files under review ran 106 passed), live
+containment under podman, `wring resume` end to end with a lane, `--serial`, and
+most of `benchmark/harness.py` outside the P4-2/P4-4 surface.

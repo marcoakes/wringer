@@ -105,6 +105,10 @@ SCHEMA_VERSION = "wringer.witness.v1"
 # is the licence this layout is chosen under.
 STORE_ENV = "WRINGER_WITNESS_STORE"
 
+# A criterion id that may safely be interpolated into a filename. Anything with
+# a separator, or a bare `.`/`..`, is refused rather than rewritten.
+_SAFE_ID = re.compile(r"(?!\.+$)[A-Za-z0-9._-]+")
+
 
 def store_dir(root: Path) -> Path:
     """Where this repository's witness bytes live, outside this repository.
@@ -117,6 +121,18 @@ def store_dir(root: Path) -> Path:
 
     `WRINGER_WITNESS_STORE` overrides the base, which is what the suite uses so
     that no test writes into a developer's real state directory.
+
+    **"Outside" is ENFORCED here, not assumed** — the independent review found
+    it was neither. `HOME`, `XDG_STATE_HOME` or the override pointing at the
+    repository root all resolved the store back INSIDE the tree, and
+    `HOME=<repo>` is an ordinary container and CI shape rather than an exotic
+    one. Inside the tree the bytes are back where an agent tidies them, back
+    inside the container mount the shadow no longer covers, and untracked —
+    so `loop.fingerprint` hashes them and `git status` shows them.
+    P4-3 removed the mount *on the strength of* this property, so the property
+    has to hold rather than be hoped for, and a refusal is the only honest
+    answer: silently relocating would put the bytes somewhere the operator did
+    not choose, and carrying on would ship the failure the move was made to fix.
     """
     override = os.environ.get(STORE_ENV)
     if override:
@@ -127,7 +143,34 @@ def store_dir(root: Path) -> Path:
         ) / "wringer" / "witness"
     resolved = root.resolve()
     key = f"{resolved.name or 'repo'}-{digest(str(resolved).encode('utf-8'))[:16]}"
-    return base / key
+    store = base / key
+    inside = store.resolve() if store.exists() else _resolve_unborn(store)
+    if inside == resolved or resolved in inside.parents:
+        raise WitnessError(
+            f"the witness store would be {inside}, which is INSIDE the "
+            f"repository at {resolved}. The bytes of record must live outside "
+            "every repository root: inside one they are in the tree an agent "
+            "was handed, they are reachable through the worker's mount, and "
+            "they make the working tree dirty. Set "
+            f"{STORE_ENV} to a directory outside this repository — or unset "
+            "the HOME/XDG_STATE_HOME that put it here"
+        )
+    return store
+
+
+def _resolve_unborn(path: Path) -> Path:
+    """`Path.resolve()` for a path that does not exist yet, symlinks and all.
+
+    `resolve()` on a missing path is already non-strict, but its PARENTS may be
+    symlinks that exist — a `~` pointing into the repository is the case that
+    matters — and only resolving what exists answers that.
+    """
+    existing = path
+    while not existing.exists() and existing != existing.parent:
+        existing = existing.parent
+    return existing.resolve() / path.relative_to(existing) if existing != path else (
+        existing.resolve()
+    )
 
 
 # Where a witness is materialised inside the tree under test. One fixed
@@ -161,7 +204,20 @@ WITNESS_FILENAME = "witness.json"
 # So "the runner ran it and it failed" and "the runner never ran this" are
 # different exit codes, which is a fact the runner reports rather than a guess
 # about whether a message *looks* environmental.
-RUNNER = (sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider")
+#
+# **`--color=no`, and it is load-bearing rather than tidy.** The independent
+# review measured the consequence of its absence: `execute` hands the child
+# `{**os.environ, ...}`, so a `FORCE_COLOR=1` or `PY_COLORS=1` in the
+# environment — which many CI images set by default — makes pytest wrap its
+# progress line in ANSI, and an ANSI-prefixed line matches neither the
+# progress-line pattern nor the error-line pattern below. The citation then
+# falls back to the coloured progress bar, which is §6d item 1 reopened by one
+# environment variable: `\x1b[31mF\x1b[0m…[100%]`, measured. The flag is the fix
+# at the source; `_STRIP_ANSI` below is the belt to its braces, because the
+# environment is not the only way colour can arrive.
+RUNNER = (
+    sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "--color=no"
+)
 
 # The same runner as seen from INSIDE a container. `sys.executable` is a host
 # path and is absent from the image, so it is resolved on `PATH` there instead.
@@ -169,7 +225,9 @@ RUNNER = (sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider")
 # a containment and no pytest gets a witness that cannot run, and gets told so
 # by `WITNESS_UNRUNNABLE` rather than having its criteria quietly reported
 # uncovered.
-CONTAINED_RUNNER = ("python3", "-m", "pytest", "-q", "-p", "no:cacheprovider")
+CONTAINED_RUNNER = (
+    "python3", "-m", "pytest", "-q", "-p", "no:cacheprovider", "--color=no"
+)
 
 # Exit 127 is the shell saying the command does not exist. Under a containment
 # that means the image carries no python or no pytest, which is a CONFIGURATION
@@ -290,6 +348,29 @@ class Witness:
 
     @property
     def filename(self) -> str:
+        """The witness's filename, refusing any criterion id that is a PATH.
+
+        **The id is interpolated into two write paths and one delete**, and the
+        first draft only replaced `-`. A criterion called `../../../pwned`
+        therefore wrote outside the store, materialised outside the tree, and
+        `clean()` would then remove outside the tree — which is precisely what
+        `materialise`'s own comment warns about: *the write landing somewhere
+        nobody named makes the cleanup delete something nobody named*.
+
+        Refused rather than slugified. Ids come from a human-approved spec, so
+        this is robustness rather than attack surface — and a silent rewrite
+        would break the join between this file and `acceptance.json`, which is
+        keyed on the id. A loud refusal costs a person one edit.
+        """
+        if not _SAFE_ID.fullmatch(self.criterion):
+            raise WitnessError(
+                f"the criterion id {self.criterion!r} cannot name a witness "
+                "file: it must be letters, digits, '-', '_' or '.', and may "
+                "not be '.' or '..'. The id is interpolated into the path the "
+                "bytes are written to, the path they are materialised at, and "
+                "the path the cleanup removes — so an id that is a path makes "
+                "all three land somewhere nobody named"
+            )
         return f"test_witness_{self.criterion.replace('-', '_')}.py"
 
     @property
@@ -786,15 +867,36 @@ def classify(exit_code: int, raised: frozenset[str] = frozenset()) -> str:
     return COLLECTION_ERROR
 
 
+# **ANSI, stripped before anything is matched.** `--color=no` is on the runner
+# and this is the second line of defence, because a pattern that only holds when
+# the environment is clean is a pattern that holds until somebody sets
+# `FORCE_COLOR=1` in CI — which is exactly how the progress bar came back in the
+# measurement that produced this constant.
+_STRIP_ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
 # pytest's per-test progress line: outcome characters, optionally followed by
 # a `[ 50%]` counter. `F  [100%]` is what `-q` prints first, and it was what the
 # citation and the brief both carried until 2026-08-15 — the review's finding 6.
 _PROGRESS_LINE = re.compile(r"^[.FEsxXpuw]+\s*(\[\s*\d+%\])?$")
 
+# pytest's section separators: `____ test_it ____`, `---- Captured ----`. They
+# carry the TEST'S OWN NAME and no failure at all, and they are what the
+# citation fell back to for two very ordinary witness shapes —
+# `pytest.fail(msg, pytrace=False)` and a strict `xfail`, neither of which emits
+# an `E` line. Same defect class as the progress bar: a mandatory citation that
+# is always present and never says anything.
+_SEPARATOR_LINE = re.compile(r"^[_=~-]{3,}.*[_=~-]{3,}$|^[_=~-]{3,}$")
+
 # pytest marks the failure's own line with a leading `E`. That line IS the
 # failure — `E   assert 1 == 2`, `E   AssertionError: ...` — which is what W5
 # means by the worker receiving the failure OUTPUT.
 _ERROR_LINE = re.compile(r"^E\s+(.*)$")
+
+# `-q`'s short-summary line: `FAILED path::test - the message`. The message
+# after the dash is a real failure statement and is the best fallback when no
+# `E` line exists; everything before it is the PATH, which W5 forbids handing
+# over, so only the tail is ever taken.
+_SHORT_SUMMARY = re.compile(r"^(?:FAILED|ERROR)\s+\S+\s+-\s+(.*)$")
 
 
 def _first_meaningful_line(log: str, witness: Witness | None = None) -> str:
@@ -821,22 +923,34 @@ def _first_meaningful_line(log: str, witness: Witness | None = None) -> str:
     materialisation path can go and read the check.
     """
     chosen = ""
-    for line in log.splitlines():
-        stripped = line.strip()
-        if not stripped or stripped.startswith("=") or _PROGRESS_LINE.match(
-            stripped
+    summary = ""
+    for raw in log.splitlines():
+        # ANSI first, before ANY pattern is applied. A coloured progress bar
+        # matches none of them and was therefore chosen as the citation.
+        stripped = _STRIP_ANSI.sub("", raw).strip()
+        if (
+            not stripped
+            or _PROGRESS_LINE.match(stripped)
+            or _SEPARATOR_LINE.match(stripped)
         ):
             continue
         error = _ERROR_LINE.match(stripped)
         if error is not None and error.group(1).strip():
-            chosen = error.group(1).strip()
-            break
-        if not chosen:
-            # The best line seen so far. Kept rather than returned, because an
-            # `E` line later in the log is strictly better and this is only the
-            # fallback for a runner that printed none.
+            return _without_the_witness(error.group(1).strip(), witness)[:200]
+        short = _SHORT_SUMMARY.match(stripped)
+        if short is not None and short.group(1).strip():
+            # Held, never returned early: it is printed AFTER the body, and
+            # **pytest TRUNCATES it** — `Failed: the total was ...` where the
+            # body carries `Failed: the total was 5, expected 6`. Measured
+            # while writing the test for finding 10, which is why this ranks
+            # below an ordinary body line rather than above it.
+            summary = summary or short.group(1).strip()
+        elif not chosen:
+            # The first ordinary line of the failure block. For the shapes that
+            # print no `E` line at all — `pytest.fail(..., pytrace=False)`, a
+            # strict xfail — this IS the failure, in full.
             chosen = stripped
-    return _without_the_witness(chosen, witness)[:200]
+    return _without_the_witness(chosen or summary, witness)[:200]
 
 
 def _without_the_witness(line: str, witness: Witness | None) -> str:

@@ -376,13 +376,18 @@ def test_a_worker_going_in_circles_on_a_witness_trips_the_BREAKER(
     assert finished["iterations"] < 6, finished
 
 
-def test_a_repository_with_no_witness_lane_is_byte_for_byte_unmoved(
+def test_a_repository_with_no_witness_lane_still_converges_and_briefs_nobody(
     repo, git_run, monkeypatch
 ):
-    """Absence is absence. P4-1 changed the continuation predicate for every
-    loop in the world, so the case where nothing was added has to be pinned:
-    with no witness, `_unconverted` is empty, the predicate collapses to
-    `final.passed`, and the signature is what it always was."""
+    """Absence is absence. P4-1 changed the continuation predicate for EVERY
+    loop in the world, so the case where nothing was added has to be pinned.
+
+    **Renamed** — it used to be called `..._is_byte_for_byte_unmoved` and
+    compared no bytes at all (review finding 14). The property is real and it is
+    now pinned by the test below, which compares the signature against a
+    reimplementation of the pre-P4-1 algorithm. This one pins the behaviour a
+    user sees: converged, and nobody briefed.
+    """
     write_repo(repo, worker="true", max_iterations=2)
     (repo / "wringer.spec.yaml").unlink()
     commit_everything(repo, git_run)
@@ -397,6 +402,54 @@ def test_a_repository_with_no_witness_lane_is_byte_for_byte_unmoved(
     assert not [e for e in recorded if e["type"] == "worker.started"], (
         "a repository with no witness lane ran a worker turn it never used to"
     )
+
+
+def test_without_a_lane_the_signature_is_the_one_that_shipped_before_P4_1():
+    """**The bytes, actually compared** (review finding 14).
+
+    `failure_signature` grew a second source of parts. For a repository with no
+    witness lane the hash must be the SAME HASH it was before — not merely
+    "still a hash" — or every resumed loop in the world would trip its own
+    breaker against signatures recorded by an older version.
+
+    The pre-change algorithm is reimplemented here rather than imported,
+    deliberately: importing the shipped one would compare it to itself, which is
+    how the pin became a tautology the last time this repository trusted a
+    comparison it had not written out.
+    """
+    import hashlib
+    import types
+
+    class _FakeResult:
+        def __init__(self, gate_id, exit_code, out, err):
+            self.gate = types.SimpleNamespace(id=gate_id)
+            self.exit_code = exit_code
+            self.stdout_path = out
+            self.stderr_path = err
+
+    class _MissingPath:
+        def read_text(self, **kwargs):
+            raise OSError("absent")
+
+    failing = _FakeResult("unit", 1, _MissingPath(), _MissingPath())
+    outcome = types.SimpleNamespace(
+        failed_gate="unit", results=[failing], acceptance=None,
+    )
+
+    # The algorithm as it stood before P4-1, written out.
+    parts = ["unit", "1", loop._normalize(""), loop._normalize("")]
+    expected = hashlib.sha256("\0".join(parts).encode("utf-8")).hexdigest()
+
+    for witnesses in (None, []):
+        assert loop.failure_signature(outcome, witnesses) == expected, (
+            "the signature moved for a repository with no witness lane"
+        )
+
+    # And a run with nothing failing still returns None, which is what the
+    # breaker and the ledger both key on.
+    green = types.SimpleNamespace(failed_gate=None, results=[], acceptance=None)
+    assert loop.failure_signature(green, None) is None
+    assert loop.failure_signature(green, []) is None
 
 
 # --- DRIVE 2 ----------------------------------------------------------------
@@ -639,3 +692,46 @@ def test_the_schema_declares_every_outcome_the_code_can_produce():
 
     verdicts = set(row["proved_red"]["properties"]["verdict"]["enum"])
     assert verdicts == {witness.PROVEN, witness.NOT_ESTABLISHED}
+
+
+def test_an_EXTRA_key_in_the_store_record_cannot_break_the_bundles_schema(
+    repo, git_run, monkeypatch
+):
+    """**MEDIUM finding 5, folded.**
+
+    `witness.load` sets `record` verbatim from the store's own `witness.json`,
+    and `_write_witness_record` splatted it into a bundle row that
+    `witness.schema.json` closes with `additionalProperties: false`. One extra
+    key in the store therefore produced a bundle failing its own published,
+    frozen schema — which is HIGH finding 2 of the PREVIOUS review ("every
+    bundle carrying this lane wrote a ledger that failed its own published
+    schema") arriving one file over. The schema being frozen now is exactly
+    what makes a future store field trigger it.
+
+    The row is built from NAMED fields, so the store may grow and the bundle
+    stays inside its contract.
+    """
+    write_repo(repo, worker="true", max_iterations=1)
+    commit_everything(repo, git_run)
+    monkeypatch.chdir(repo)
+    author_the_witness(repo)
+
+    # A store record from a hypothetical LATER version of the lane.
+    record_path = witness.store_dir(repo) / witness.WITNESS_FILENAME
+    stored = json.loads(record_path.read_text(encoding="utf-8"))
+    stored["witnesses"][0]["notes"] = "a field a future version added"
+    record_path.write_text(json.dumps(stored, indent=2), encoding="utf-8")
+
+    cli.main(["run"])
+
+    recorded = json.loads(
+        (only_loop(repo) / witness.WITNESS_FILENAME).read_text(encoding="utf-8")
+    )
+    errors = [
+        f"{e.json_path}: {e.message}" for e in _validator().iter_errors(recorded)
+    ]
+    assert not errors, (
+        "an extra key in the STORE produced a bundle that fails its own "
+        "published, frozen schema:\n" + "\n".join(errors)
+    )
+    assert "notes" not in recorded["witnesses"][0]

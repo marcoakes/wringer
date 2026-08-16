@@ -1814,16 +1814,27 @@ def _duration(duration_ms: int) -> str:
 # missing, so a loop that stopped for either printed the bare fallback while
 # `summary.md` beside it stated the true reason — a hand-kept table that
 # drifted, in the repo whose thesis is that hand-kept tables drift.
+# **Three of these said "the gates" and the witness lane made that false**
+# (review finding 8, folded). On the corpus shape P4-1 was built for, every
+# declared gate is GREEN and only the manufactured witness is red — so
+# `Stopped … the budget ran out and the gates still fail` printed over a
+# `run: "true"` gate, measured. §6f was right that no new stop reason exists and
+# silent about three existing ones becoming untrue.
+#
+# The wording now names the CHECKS rather than the gates. That word covers both
+# — a declared gate is a check and so is a witness — and it stays true in the
+# case these sentences were originally written for. `_report_loop` names which
+# below, so nothing is lost by the sentence being general.
 _LOOP_ENDINGS = {
     "converged": "Converged in {n} iteration{s}.",
     "max_iterations": "Stopped after {n} iteration{s} — the budget ran out and "
-    "the gates still fail.",
+    "the checks still fail.",
     "no_progress": "Stopped after {n} iteration{s} — the worker changed nothing, "
-    "so the gates would say the same again.",
+    "so the checks would say the same again.",
     "oscillating": "Stopped after {n} iteration{s} — the same failure came back, "
     "so the worker is not converging.",
     "budget_exhausted": "Stopped after {n} iteration{s} — the wall-clock budget "
-    "ran out and the gates still fail.",
+    "ran out and the checks still fail.",
     loop.FLAKY_GATE: "Stopped after {n} iteration{s} — the failing gate is "
     "flaky, so no worker ran.",
     staleness.AUTHORITY_MOVED: "Stopped after {n} iteration{s} — the spec, the "
@@ -1839,6 +1850,22 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
         "\n"
         + ending.format(n=outcome.iterations, s="" if outcome.iterations == 1 else "s")
     )
+    if outcome.unconverted:
+        # WHICH check is still red, when it is a witness rather than a gate.
+        # A reader of "the checks still fail" over an all-green gate list would
+        # otherwise go looking for a gate that is not there — the same wrong
+        # search `flaky_gate` exists to prevent one line below.
+        names = ", ".join(f"`{name}`" for name in outcome.unconverted)
+        print(
+            "! "
+            + textwrap.fill(
+                f"Wringer's own check for {names} is still failing. The "
+                "declared gates say nothing about it — that is why the check "
+                "exists — so this will refuse at delivery until it passes.",
+                width=76,
+                subsequent_indent="  ",
+            )
+        )
     if outcome.flaky_gate is not None:
         # The gate BY NAME, and what not to do about it. A bare "the gate is
         # flaky" sends the reader to the code, which is the one place the

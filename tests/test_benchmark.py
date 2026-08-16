@@ -1339,3 +1339,197 @@ def test_a_scripted_row_carries_its_own_patch(tmp_path: Path):
         assert row["patch_error"] is None, row["patch_error"]
         assert row["patch"], "the scripted worker edits the repo, so a row must show it"
         assert "diff --git" in row["patch"], row["patch"][:200]
+
+
+# --- P4-4, and what the independent review of 2026-08-16 found in it ---------
+
+
+def containment_report_cases():
+    """Every state a turn can report, and whether it may proceed."""
+    return [
+        # (report, may_proceed, why it matters)
+        ({"declared": False, "primary": "UNCONTAINED", "loop": "none"}, True,
+         "nothing was declared, so nothing is being claimed"),
+        ({"declared": True, "primary": "established", "loop": "established"},
+         True, "the ordinary contained row"),
+        ({"declared": True, "primary": "established", "loop": "no_worker_turns"},
+         True, "the loop briefed nobody — no worker ran, so none ran uncontained"),
+        ({"declared": True, "primary": "established", "loop": "no_loop"},
+         True, "arm B never reached `wring run`"),
+        ({"declared": True, "primary": "established", "loop": "no_record"},
+         True, "the loop ran but wrote no execution record this could read"),
+        ({"declared": True, "primary": "UNCONTAINED", "loop": "established"},
+         False, "the turn that does the work ran outside the boundary"),
+        ({"declared": True, "primary": "established",
+          "loop": "DECLARED_BUT_NOT_ESTABLISHED"}, False,
+         "a repair turn ran outside a boundary the config claims"),
+    ]
+
+
+@pytest.mark.parametrize(
+    "report,may_proceed,why",
+    containment_report_cases(),
+    ids=[c[2][:40] for c in containment_report_cases()],
+)
+def test_only_a_turn_that_RAN_uncontained_stops_the_pass(report, may_proceed, why):
+    """**HIGH finding 3, folded.** The first draft's allowlist was
+    `{established, none, n/a}` and rejected everything else — including
+    `no_record`, which is what an HONEST VOID arm produces: the primary turn
+    failed, `wring run` never ran, so there is no loop record to read.
+
+    That aborted the whole task and discarded arm A's already-paid row,
+    converting §5's tolerated first VOID into a hard stop plus a wasted bill.
+
+    What must stop the pass is a turn that RAN outside a boundary the config
+    claims. What must not is a turn that never ran at all: no worker cannot
+    have run uncontained.
+    """
+    harness = load_harness()
+    if may_proceed:
+        harness.check_containment_is_real(report, "task", "wringer")
+    else:
+        with pytest.raises(harness.ContainmentGap) as caught:
+            harness.check_containment_is_real(report, "task", "wringer")
+        assert "did not have" in str(caught.value)
+
+
+def test_the_loop_containment_read_IGNORES_a_bare_wring_verify_record(tmp_path):
+    """**HIGH finding 4, folded.**
+
+    `loop_containment` globbed EVERY `execution.json` in the tree. `backend.py`
+    says in its own words that *three of its four callers never start a
+    holder*, so a plain `wring verify` under a `run.containment` config writes
+    `declared` with no `established` — indistinguishable, to a glob, from a
+    loop that failed to contain its worker. One `wring verify` in arm B's tree,
+    run by the agent or by a person, would have stopped the pass and blamed the
+    loop for it.
+
+    The join is now through the LOOP's own ledger, whose `verify.finished`
+    events carry `evidence_dir` (required by `loop-event-v2.schema.json`).
+    """
+    harness = load_harness()
+    tree = tmp_path / "tree"
+    loop_dir = tree / ".wringer" / "loops" / "20260816-000000-aaaa"
+    loop_dir.mkdir(parents=True)
+
+    # The loop's OWN lap: contained, established.
+    mine = tree / ".wringer" / "runs" / "20260816-000001-bbbb"
+    mine.mkdir(parents=True)
+    (mine / "execution.json").write_text(json.dumps({
+        "worker_execution": {
+            "declared": {"mode": "contained"},
+            "established": {"runtime_path": "/bin/podman"},
+        }
+    }), encoding="utf-8")
+
+    # A BARE `wring verify` in the same tree: declared, never established.
+    # Nothing in this run was a worker turn.
+    stray = tree / ".wringer" / "runs" / "20260816-000002-cccc"
+    stray.mkdir(parents=True)
+    (stray / "execution.json").write_text(json.dumps({
+        "worker_execution": {"declared": {"mode": "contained"}}
+    }), encoding="utf-8")
+
+    (loop_dir / "loop.jsonl").write_text("\n".join([
+        json.dumps({"type": "verify.finished",
+                    "evidence_dir": ".wringer/runs/20260816-000001-bbbb"}),
+        json.dumps({"type": "worker.started", "iteration": 1}),
+    ]) + "\n", encoding="utf-8")
+
+    assert harness.loop_containment(tree) == "established", (
+        "a bare `wring verify` record was read as the loop's own, so an "
+        "ordinary verification in the tree stops the pass"
+    )
+
+
+def test_a_loop_that_briefed_NOBODY_is_an_answer_and_not_a_gap(tmp_path):
+    """No worker ran, so no worker ran uncontained. This is the ordinary
+    outcome on a task whose gates were green and whose witness converted on the
+    first lap, and it must not read like a failure to contain."""
+    harness = load_harness()
+    tree = tmp_path / "tree"
+    loop_dir = tree / ".wringer" / "loops" / "20260816-000000-aaaa"
+    loop_dir.mkdir(parents=True)
+    (loop_dir / "loop.jsonl").write_text(
+        json.dumps({"type": "loop.finished", "reason": "converged"}) + "\n",
+        encoding="utf-8",
+    )
+    assert harness.loop_containment(tree) == harness.NO_WORKER_TURNS
+    harness.check_containment_is_real(
+        {"declared": True, "primary": "established",
+         "loop": harness.NO_WORKER_TURNS}, "task", "wringer",
+    )
+
+
+def test_a_loop_turn_that_ran_UNESTABLISHED_is_still_caught(tmp_path):
+    """The other direction, so the fix for finding 4 is not a blanket pass."""
+    harness = load_harness()
+    tree = tmp_path / "tree"
+    loop_dir = tree / ".wringer" / "loops" / "20260816-000000-aaaa"
+    loop_dir.mkdir(parents=True)
+    run = tree / ".wringer" / "runs" / "20260816-000001-bbbb"
+    run.mkdir(parents=True)
+    (run / "execution.json").write_text(json.dumps({
+        "worker_execution": {"declared": {"mode": "contained"}}
+    }), encoding="utf-8")
+    (loop_dir / "loop.jsonl").write_text("\n".join([
+        json.dumps({"type": "verify.finished",
+                    "evidence_dir": ".wringer/runs/20260816-000001-bbbb"}),
+        json.dumps({"type": "worker.started", "iteration": 1}),
+    ]) + "\n", encoding="utf-8")
+
+    assert harness.loop_containment(tree) == harness.NOT_ESTABLISHED
+    with pytest.raises(harness.ContainmentGap):
+        harness.check_containment_is_real(
+            {"declared": True, "primary": "established",
+             "loop": harness.NOT_ESTABLISHED}, "task", "wringer",
+        )
+
+
+def test_both_arms_report_the_SAME_containment_keys(tmp_path):
+    """**LOW finding 13.** Arm A got `{primary, loop, note}` and arm B got
+    `{primary, loop, declared}`, so a consumer of `wringer.benchmark.v6`
+    reading `row["containment"]["declared"]` raised `KeyError` on every arm A
+    row. A schema whose shape depends on which arm wrote it is two schemas
+    wearing one version."""
+    harness = load_harness()
+    tree = tmp_path / "tree"
+    tree.mkdir()
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+
+    native = harness.containment_report(tree, workdir, harness.ARM_NATIVE)
+    supervised = harness.containment_report(tree, workdir, harness.ARM_WRINGER)
+    assert set(native) == set(supervised), (
+        f"arm A keys {sorted(native)} != arm B keys {sorted(supervised)}"
+    )
+
+
+def test_a_row_where_no_worker_ran_does_not_claim_one_ran_uncontained(tmp_path):
+    """**LOW finding 12.** The pre-arm `check_isolation` VOID builds its row
+    from a report computed before anything happened, and the deviations then
+    told the reader *"THE WORKER RAN UNCONTAINED"* about a row where no worker
+    ran at all. A deviation describing something that did not happen is noise
+    in the one field this harness uses to stay honest."""
+    harness = load_harness()
+    nothing_ran = {"declared": True, "primary": "n/a", "loop": "no_loop"}
+    said = " ".join(harness.deviations_for(harness.ARM_WRINGER, nothing_ran))
+    assert "RAN UNCONTAINED" not in said, said
+
+    # And it IS said when a worker really did run outside the boundary.
+    ran_uncontained = {
+        "declared": True, "primary": "UNCONTAINED", "loop": "none",
+    }
+    said = " ".join(harness.deviations_for(harness.ARM_WRINGER, ran_uncontained))
+    assert "RAN UNCONTAINED" in said
+
+
+def test_every_row_says_what_the_arms_now_differ_BY(tmp_path):
+    """P4-2's registered-meaning sentence, in BOTH arms, on every row. The
+    deviations used to carry "the arms differ only in supervision" unqualified,
+    which stopped being true the moment containment entered arm B."""
+    harness = load_harness()
+    for arm in (harness.ARM_NATIVE, harness.ARM_WRINGER):
+        said = " ".join(harness.deviations_for(arm, {"primary": "established"}))
+        assert "arm A runs uncontained on the host by design" in said, arm
+        assert "supervision INCLUDES the boundary" in said, arm

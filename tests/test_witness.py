@@ -757,3 +757,165 @@ def test_the_brief_quotes_the_CURRENT_failure_not_the_pre_change_one(tmp_path):
     section = "\n".join(witness.brief_section([item]))
     assert "closer, but no" in section
     assert "assert 1 == 2" not in section
+
+
+# --- what the independent review of 2026-08-16 found, pinned ----------------
+
+
+def test_the_SCRUB_is_what_keeps_the_path_out_and_it_is_measured_here(tmp_path):
+    """**HIGH finding 1: the scrub was live and entirely untested.**
+
+    `test_the_brief_carries_the_failure_and_never_the_path_or_command` asserts
+    the path is absent, but its fixture fails on `assert 1 == 2` — a line that
+    never contains a path in the first place. So the assertion pinned the
+    COINCIDENCE its own docstring says it refuses to rely on, and deleting the
+    body of `_without_the_witness` left the whole witness suite green. Measured
+    by the reviewer, and this is the test that makes it go red.
+
+    The fixture below puts the materialisation path and the filename INSIDE the
+    failure message, which is the one place they can arrive that no choice of
+    line can dodge — a witness's own assertion text is the author's, and the
+    author is a model that has been told which interface to exercise.
+    """
+    item = make("x")
+    leaky = (
+        "def test_it():\n"
+        f"    raise RuntimeError('boom in {witness.MATERIAL_DIRNAME}/"
+        f"{item.filename}')\n"
+    )
+    item = witness.Witness(criterion="sum", source=leaky)
+    result = witness.prove_red(tmp_path, item)
+
+    assert "boom in" in result.first_line, (
+        f"the citation lost the failure entirely: {result.first_line!r}"
+    )
+    assert witness.MATERIAL_DIRNAME not in result.first_line, (
+        f"the citation leaked the materialisation path: {result.first_line!r}"
+    )
+    assert item.filename not in result.first_line, (
+        f"the citation leaked the witness filename: {result.first_line!r}"
+    )
+    # And the same through the brief, which is the surface W5 actually binds.
+    section = "\n".join(witness.brief_section([item]))
+    assert witness.MATERIAL_DIRNAME not in section
+    assert item.filename not in section
+
+
+@pytest.mark.parametrize("colour", ["FORCE_COLOR", "PY_COLORS"])
+def test_a_COLOURED_runner_does_not_bring_the_progress_bar_back(
+    tmp_path, monkeypatch, colour
+):
+    """**HIGH finding 2: §6d item 1 reopened by one environment variable.**
+
+    `execute` hands the child `{**os.environ, ...}`. With `FORCE_COLOR=1` — set
+    by default in many CI images — pytest wraps its progress line in ANSI, and
+    an ANSI-prefixed line matched neither the progress pattern nor the error
+    pattern. The citation fell back to the coloured bar:
+
+        '\\x1b[31mF\\x1b[0m\\x1b[31m                    [100%]\\x1b[0m'
+
+    which is the exact string §6d item 1 was written about, wearing a costume.
+    Measured by the reviewer. Fixed twice over — `--color=no` on the runner and
+    an ANSI strip before any pattern is applied — because the flag fixes the
+    environment's route in and the strip fixes every other one.
+    """
+    monkeypatch.setenv(colour, "1")
+    result = witness.prove_red(tmp_path, make(ASSERTING))
+
+    assert "\x1b" not in result.first_line, (
+        f"the citation carries ANSI escapes: {result.first_line!r}"
+    )
+    assert "assert 1 == 2" in result.first_line, (
+        f"the citation is not the failure: {result.first_line!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "source,expected",
+    [
+        (
+            "import pytest\n\n\ndef test_it():\n"
+            "    pytest.fail('the total was 5, expected 6', pytrace=False)\n",
+            "the total was 5, expected 6",
+        ),
+        (
+            "import pytest\n\n\n@pytest.mark.xfail(strict=True)\ndef test_it():\n"
+            "    assert True\n",
+            "XPASS",
+        ),
+    ],
+    ids=["pytest.fail-no-traceback", "strict-xfail"],
+)
+def test_the_citation_survives_witness_shapes_that_emit_no_E_LINE(
+    tmp_path, source, expected
+):
+    """**MEDIUM finding 10.** Two very ordinary shapes print no `E` line at all,
+    and the citation fell back to pytest's section separator —
+    `____________ test_it ____________` — which carries the test's own name and
+    no failure. Same defect class as the progress bar: always present, never
+    says anything. `pytest.fail(...)` is a plausible idiom for a model-authored
+    witness, so this is not an exotic input.
+    """
+    result = witness.prove_red(tmp_path, witness.Witness(
+        criterion="sum", source=source,
+    ))
+
+    assert "___" not in result.first_line, (
+        f"the citation is pytest's separator: {result.first_line!r}"
+    )
+    assert expected in result.first_line, (
+        f"the citation does not carry the failure: {result.first_line!r}"
+    )
+
+
+@pytest.mark.parametrize(
+    "criterion", ["../../../pwned", "a/b", "..", ".", "with space"]
+)
+def test_a_criterion_id_that_is_a_PATH_is_refused(criterion):
+    """**MEDIUM finding 11.** The id is interpolated into two write paths and
+    one delete, and only `-` was being replaced. `../../../pwned` wrote outside
+    the store and would have had `clean()` remove outside the tree — the exact
+    thing `materialise`'s own comment warns about.
+
+    Refused rather than slugified: a silent rewrite would break the join
+    between `witness.json` and `acceptance.json`, which is keyed on the id.
+    """
+    with pytest.raises(witness.WitnessError) as caught:
+        witness.Witness(criterion=criterion, source=ASSERTING).filename
+    assert "cannot name a witness file" in str(caught.value)
+
+
+def test_a_store_that_would_land_INSIDE_the_repository_is_refused(
+    tmp_path, monkeypatch
+):
+    """**MEDIUM finding 7, and it is the precondition the removed mount used to
+    cover.**
+
+    P4-3 deleted the anonymous-volume shadow ON THE STRENGTH of the store being
+    outside the repository — and nothing enforced that. `HOME`, `XDG_STATE_HOME`
+    or the override pointing at the repo root all put it back inside, and
+    `HOME=<repo>` is an ordinary container and CI shape. Inside the tree the
+    bytes are back where an agent tidies them, back inside the mount, and
+    untracked — so the tree is dirty and `wring deliver` refuses.
+
+    A refusal rather than a silent relocation: moving the bytes somewhere the
+    operator did not choose is its own surprise, and carrying on would ship the
+    failure the move was made to fix.
+    """
+    for variable in (witness.STORE_ENV, "XDG_STATE_HOME", "HOME"):
+        monkeypatch.delenv(witness.STORE_ENV, raising=False)
+        monkeypatch.setenv(variable, str(tmp_path))
+        with pytest.raises(witness.WitnessError) as caught:
+            witness.store_dir(tmp_path)
+        message = str(caught.value)
+        assert "INSIDE the repository" in message, variable
+        assert witness.STORE_ENV in message, "the refusal does not say what to do"
+        monkeypatch.delenv(variable, raising=False)
+
+
+def test_a_store_OUTSIDE_the_repository_is_accepted(tmp_path, monkeypatch):
+    """The other direction, so the guard above cannot be a blanket refusal."""
+    repo = tmp_path / "project"
+    repo.mkdir()
+    monkeypatch.setenv(witness.STORE_ENV, str(tmp_path / "store"))
+    assert witness.store_dir(repo).is_relative_to(tmp_path / "store")
