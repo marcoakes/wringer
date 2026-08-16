@@ -549,12 +549,39 @@ class Bundle:
             raise AttestError(f"cannot create {directory}: {exc}") from exc
         return cls(directory, attestation_id)
 
-    def write(self, payload: dict[str, Any]) -> Path:
+    def write(self, payload: dict[str, Any], root: Path | None = None) -> Path:
         path = self.directory / ATTESTATION_FILENAME
         path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         (self.directory / SUMMARY_FILENAME).write_text(
             render_summary(payload), encoding="utf-8"
         )
+        # **The standard, emitted BESIDE this and never instead of it** (R3).
+        # `wringer.attestation.v1` is frozen and gains no v2 dialect; these are
+        # in-toto Statements in their own files, on the pattern `digests.json`
+        # and `vacuity.json` set. A reader that wants the standard gets it; a
+        # reader that wants Wringer's own record finds it byte-identical to
+        # what it has always been.
+        #
+        # Written HERE rather than into the run bundle, because a run's
+        # `digests.json` commits to its own contents and on-disk bundles are
+        # never rewritten.
+        if root is not None:
+            from wringer import intoto
+
+            run = payload.get("proven_by", {}).get("run")
+            if run:
+                try:
+                    intoto.write(root, root / run, self.directory)
+                except Exception as exc:  # noqa: BLE001
+                    # Total by construction, like every other sibling write on
+                    # this path: an emission that cannot be produced must not
+                    # replace an attestation that was. **The reason is
+                    # recorded** rather than swallowed silently — a sibling
+                    # that vanishes without a word is how a reader concludes
+                    # the feature is not there.
+                    (self.directory / "emission-refused.txt").write_text(
+                        f"{type(exc).__name__}: {exc}\n", encoding="utf-8"
+                    )
         return path
 
 

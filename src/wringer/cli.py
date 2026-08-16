@@ -1191,7 +1191,8 @@ def _start_receipt(root: Path, anchor: Path) -> int:
         return EXIT_REFUSED
 
     bundle = attest.Bundle.create(root, built.payload["attestation_id"])
-    written = bundle.write(built.payload)
+    # `root` is what lets the in-toto siblings be emitted beside this (R3).
+    written = bundle.write(built.payload, root)
     print(f"\nReceipt:  {_relative(written, root)}")
     print("\n" + start.wrap(f"! {attest.UNSIGNED_LIMIT}", indent="  "))
     print(
@@ -3516,7 +3517,8 @@ def cmd_attest(args: argparse.Namespace) -> int:
         return EXIT_CONFIG
 
     bundle = attest.Bundle.create(root, built.payload["attestation_id"])
-    written = bundle.write(built.payload)
+    # `root` is what lets the in-toto siblings be emitted beside this (R3).
+    written = bundle.write(built.payload, root)
 
     # AFTER the bytes are on disk, always. Same rule every `--send` in this
     # program follows: the exact document is written before anything can reach a
