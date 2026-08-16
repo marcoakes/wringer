@@ -49,14 +49,64 @@ could not; **not an eval framework** — evals score models, Wringer gates
 deliveries; **not test generation** — generators write tests for developers,
 Wringer manufactures the evidence a delivery is refused without.
 
-The committed direction ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)): **every
-acceptance criterion carries the evidence that proves it — or is marked as
-the human judgement it always was.** A PM's criteria already travel
-untranslated from spec to rubric; the bridge binds each one to the gate that
-evidences it, and a criterion whose gate has never demonstrably failed is
-named rather than counted. Scoped honestly: this is the bridge for a repo
-with a real gate suite — not yet the factory that builds one from a blank
-directory.
+## The same thing again, with no jargon in it at all
+
+> You write down what you want built, in your own words. Before any work
+> starts, you see your list back in plain sentences — each thing you asked
+> for, and beside it, how it will be checked when someone claims it is done —
+> and nothing begins until you have said "yes, that is what I meant" to each.
+> The work then happens without you. When you come back there is one page:
+> every item marked done shows its check passing now *and* a record of the
+> same check failing before the work — so a tick means "this did not work
+> before and works now," not "nobody noticed a problem." Anything that could
+> not be proved says so plainly, and the handover waits for you instead of
+> going out anyway. And when something marked done is not what you meant, you
+> say so on that page: your correction becomes a new item with its own check,
+> shown failing today, so the next round of work cannot quietly undo it.
+
+That paragraph is the product. **Most of the machinery under it is built and
+has been driven end to end; the surface a non-technical person would touch is
+partly built and partly direction, and the table below says which is which
+rather than leaving you to find out.**
+
+## Where this actually is — the seven moments, labelled honestly
+
+| | the moment | what exists today |
+|---|---|---|
+| **1** | **You write it down.** Prose in — a PRD, a doc, a pasted brain-dump — and it comes back as a list of requirements, each with the check that will decide it, plus the questions it could not answer for you. | **Built**: `wring spec` drafts criteria, gates and the `proves:` bindings ([SPEC_INTENT_V0.md](SPEC_INTENT_V0.md)). **Direction**: today that list is a YAML file, and the conversation that resolves the questions is a hand edit. |
+| **2** | **Nothing runs until you approve it.** You read what will be built and how each piece will be proved, and you say yes. | **Built**, and it is an interlock rather than a setting: `approved: false` is flipped by a person, there is deliberately **no `--yes`**, and unanswered required questions block planning. **Direction**: the rendered plan and the button. |
+| **3** | **The work happens without you.** | **Built**: `wring run`, `wring fleet`, `wring graph` — the loop, bounded concurrency, resumable from a ledger after a `kill -9`. |
+| **4** | **One page tells you what is done, and shows the proof.** Every green shows the same check recorded failing before the work. | **Built, in two halves.** The record it renders is `acceptance.json` — every criterion carrying the evidence that proves it, or marked as the human judgement it always was ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)). The page itself is a separate layer — see [the board](#the-board--one-page-a-product-manager-can-read) — and is **not yet published**, so nobody outside this machine can open one. |
+| **5** | **You look at the thing itself.** A requirement about a screen shows you the screen. | **Direction.** A gate leaves logs and a closed nine-field record, with no slot for an artifact. That slot is the next cycle in the queue. |
+| **6** | **Your "no" becomes a new check.** You say "that is not what I meant"; the correction becomes a requirement with a check shown failing today, so the next round cannot quietly undo it. | **Built, engine half**: a criterion becomes a proposed gate that goes through a human diff and is recorded RED before any work begins ([SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)), and the repair loop stays open while such a check is red. **Direction**: the surface verb that turns a complaint into that criterion. |
+| **7** | **The handover waits rather than going out anyway.** | **Built**: `wring deliver` refuses on named conditions and there is no flag to wave one through. **Direction**: those refusals reaching you in plain language instead of as an exit code. |
+
+**And one gap that is not a moment, named because it is the biggest one
+left:** getting to moment 1 still means installing a CLI, shaping a config
+file and typing commands. A single verb that takes a prose file and drives
+the whole chain — with the setup generated rather than hand-written — is
+specified as the next cycle but one, and is direction, not a claim. The queue
+is in [ROADMAP.md](ROADMAP.md).
+
+## The part most projects would leave out
+
+**This programme made a claim, wrote down the numbers that would decide it in
+advance, tested it, lost, and withdrew the claim the same day.** In August 2026
+Wringer claimed that for *bug fixes* it could author a reproduction check from
+a written requirement and prove it red before the work. One pass over thirteen
+real upstream bug fixes, both arms, $53.34: the check was authored and proved
+red on 11 of 13, it refused one genuinely wrong change that upstream agrees was
+wrong — and it also passed two changes upstream's own tests reject, and refused
+two it accepts. Three of six pre-registered clauses missed. The claim came out
+of this README automatically, on a trigger set before the run, and no release
+rides on it.
+
+The numbers are in [`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md),
+including a postscript correcting something the capture itself got wrong. The
+retreat is further down this page, dated, in the place the claim used to be.
+**Read that before you believe anything else here** — it is the only evidence
+on offer that the rest of these claims are the kind that get withdrawn when
+they fail.
 
 Every cloud's harness locks you to its runtime, its identity system, its gateway. **Nobody owns the neutral layer.** That's the bet — Kubernetes-vs-managed-containers, replayed one layer up.
 
@@ -372,6 +422,37 @@ afterwards.
 **Both answers are bounded by the ceiling above.** Answering an objection never
 widens the claim: what is evidenced is the criterion *as it was written down*.
 
+## The board — one page a product manager can read
+
+Everything above this line is written for an engineer. The board is the same
+evidence rendered for the person who asked for the work: **one card per
+requirement, in the order the spec declares them, and every card that says
+DONE can show the moment the same check was red.**
+
+It **renders**; it never decides. Every state on it is a function of bytes the
+engine already wrote — no second copy of `accept.py`, no score, no ranking, no
+verdict of its own. Where the files cannot support a state it says UNKNOWN
+rather than something plausible, and a record whose format it does not
+recognise produces a banner naming the version and **no cards at all**. The
+page-level promise — *every green on this board was red first* — renders only
+when every card claiming to be evidenced can actually resolve its receipt; one
+that cannot vetoes the promise for the whole page. It cannot dismiss, snooze,
+soften or auto-resolve a refusal, and it carries the engine's own stated limits
+verbatim, because a translated limit is a weakened limit.
+
+**Its true status, so nobody has to guess.** It is a separate package,
+`wringer-board`, Apache-2.0 like the engine, with no server and no network. It
+renders, its tests are pinned against bundles a real run wrote — including the
+losing pass above — and **it has not been published anywhere**, so there is no
+link here to give you and `pip install wringer-board` would not work today. The
+contract it is built to is [SPEC_BOARD_V0.md](SPEC_BOARD_V0.md), which was
+independently reviewed before any of it was written.
+
+**Why it is a separate layer at all**: the engine stays headless and neutral at
+its nineteen commands, and a surface is not a subcommand. Nothing about that
+split licenses weakening a refusal — the board renders refusals, it never
+overrides one.
+
 ## Is your green still worth anything?
 
 `--prove` catches a check that proved nothing *at one moment*. `wring health`
@@ -586,13 +667,22 @@ The full five-layer architecture — protocol wires (ACP/MCP/A2A), swappable run
 
 ## Roadmap
 
-| When | What | Proof |
-|---|---|---|
-| **Days 1–30** | **v0.1.0 — the evidence compiler** ([spec](SPEC_VERIFY_V0.md)): `wring init` · `wring verify` · `wring explain`, evidence bundles, Python/pipx. Then the loop closes: `wring run` = verify-in-a-loop with your existing agent as worker | **Wringer verifies Wringer in CI + committed demo bundle** |
-| **Days 31–60** | Durable execution (SQLite event log, `wring resume`), anti-thrash (oscillation + plateau detection), cost ledger, OTel GenAI traces | crash-and-resume on camera |
-| **Days 61–90** | Graph of loops (scope → plan → repair → deliver), one `human` interrupt node, **Wringer ships a Wringer PR** | the dogfooded PR, public |
+The 90-day arc that built the engine is finished and is kept in
+[ROADMAP.md](ROADMAP.md) with the rail that probes it — every milestone on
+that picture is drawn from a check against this checkout, so it cannot go
+green by being edited. What is queued now is the surface, in this order:
 
-**Q3 2026 OKR:** a GitHub issue becomes a passing MR for Python repos under $2.00 LLM spend. **Q4 2026:** TypeScript targets + the Temporal adapter. Everything else in the plan — gateway plane, policy, context autogen, skills, self-evolution — is deferred behind the working loop, [with reasons](ROADMAP.md#rulings-that-changed-from-the-v10-plan).
+| next | what it closes |
+|---|---|
+| **The artifact slot** | moment 5 — a gate can leave a picture behind, digested and attested like everything else, so a requirement about a screen can show the screen |
+| **The drive cycle** | the operating gap — one verb from a prose file to a rendered board, with the environment class that kills a fresh repo in minute three fixed first |
+| **The launch cycle** | the assets, and the one launch moment, spent once |
+
+Nothing above is claimed as existing; [ROADMAP.md](ROADMAP.md) carries the
+whole queue with what is banked and why. Everything else in the original plan
+— gateway plane, policy, context autogen, skills, self-evolution — is
+deferred behind the working loop, [with
+reasons](ROADMAP.md#rulings-that-changed-from-the-v10-plan).
 
 ## Design principles (the short version)
 
