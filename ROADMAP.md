@@ -1,4 +1,4 @@
-# Roadmap — the 90-day compression
+# Roadmap — the engine is built; the queue is the surface
 
 *Adopted 2026-07-29 after external design review. This document governs
 execution order. The [full build plan](wringer-ai-dlc-harness-plan.md)
@@ -9,6 +9,41 @@ adapters, gateway planes, policy hooks) deferred until the loop exists
 and pulled by demand rather than pushed by plan.*
 
 **Hard deadline: `v0.1.0`, first installable release, September 30, 2026.**
+Met on July 31, two months early. The 90-day arc below is history and is
+kept because the rail probes it; **the live queue is the next section.**
+
+## The queue, 2026-08-16
+
+*Ordered by a standing rule with an expiry date: until the requirements board
+is finished, work on the surface a product manager touches outranks any new
+cycle that only sharpens an existing refusal. Truth corrections, security
+fixes and the first-run environment gate are the standing exceptions. The rule
+expires the day the board's own definition of done is met, because a permanent
+thumb on the scale is the same disease with the opposite sign.*
+
+**Nothing in this table is drawn green anywhere, and nothing in it is
+claimed as existing.** Each row is a cycle: a spec, one independent review
+that is instructed to refute it, then the build.
+
+| | cycle | what it closes | state |
+|---|---|---|---|
+| **1** | Truth corrections, the repository remap, the refusal-legibility core cycle, and board slices S2/S3 | the repository says what is being built; delivery's refusals get names, so a page can render them in plain language | **this window** |
+| **2** | **The artifact slot** ([SPEC_BOARD_V0.md](SPEC_BOARD_V0.md) §10) | a gate can leave a picture behind — digested and attested like every other file in a bundle — so a requirement about a screen can show the screen. One engine change, alone in the core repo | queued |
+| **3** | **The drive cycle** — `R-ENV`/F6 first ([SPEC_ENV_V0.md](SPEC_ENV_V0.md)), then `SPEC_DRIVE_V0` | the operating gap. Today reaching the first moment means installing a CLI, shaping a config and typing commands. One verb takes a prose file and drives the existing chain, with setup generated rather than hand-written. **Easy never means unguarded**: no auto-approval, no `--yes`, refusals still render. F6 goes first because a fresh repo dying on a missing dependency in minute three kills exactly this path | queued |
+| **4** | **The launch cycle** | Demo R filmed, both quickstart numbers measured, a one-page threat model, and the PR-check surface. The launch moment is spent once | queued |
+| **5** | The board's close-out | the cold read — a stranger opens the page and says what it means — and the remaining definition-of-done items | queued |
+
+**Banked, and named rather than forgotten:** multi-attempt evidence
+(independent attempts as independent evidence); criteria conflict detection,
+which is a required input to a future amendment of the interview spec and is
+deliberately built nowhere today; precedent search over prior gates for gate
+authoring; graph-ledger corruption tests; the flaky-witness limit; and F5,
+multi-repo — the goal says "repositories" and the code clones one.
+
+**What is NOT queued, and will not be:** a judge that gates, scores or appears
+in a claim; evidence-aware caching; mutation testing as a merge gate; a
+twentieth top-level command; any growth of the frozen attestation surface.
+Each was considered, and each is refused with its reasons recorded.
 
 ## Where this actually is
 
@@ -54,6 +89,25 @@ are Wringer getting better at REFUSING; the goal is a PM's spec becoming
 working software, and `~/Claude/WRINGER_FACTORY.md` is where the ordering
 between them is decided.
 
+**What happened after the rail, and it is not on the rail because most of it
+is not a milestone.** Between 2026-08-13 and 2026-08-16 the programme ran a
+trust arc to its end: the worker was put in a box it cannot open from the
+inside ([SPEC_CONTAIN_V0.md](SPEC_CONTAIN_V0.md)); the standard provenance
+format is emitted beside the bundle; and the widest claim this project ever
+made was pre-registered, tested against thirteen real upstream bug fixes,
+**lost**, and withdrawn automatically the same day
+([`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md),
+[`docs/witness-programme.md`](docs/witness-programme.md)). No release rides on
+it; tags stop at `v0.3.0`.
+
+That loss is why the queue above points where it does. All four of its misses
+were the same limit — a written requirement under-describing what someone
+actually meant — measured in a setting where **nobody who held the intent was
+present to ask.** The fix is not a better instrument derived from the same
+requirement; it is putting the person who owns the intent back in the loop and
+making their judgement cheap to record. That is the surface, and it is the
+queue.
+
 **That picture is generated, not drawn.** Every node carries a probe — the
 commands it claims must be registered in the parser, the files it claims must
 be committed, the tags it claims must exist — and `tests/test_docs.py` runs
@@ -72,7 +126,11 @@ itself on every run has a diff nobody can read.
 Show HN write-up of the eight-hour unsupervised-fleet incident that produced
 [SPEC_SUPERVISION_V0.md](SPEC_SUPERVISION_V0.md). Neither is blocked on code.
 
-## The 90-day arc
+## The 90-day arc — history, kept because the rail probes it
+
+*Everything in this section describes work that shipped. It is preserved
+rather than rewritten so the picture above has something to be checked
+against; the live queue is at the top of this file.*
 
 ### Days 1–30 — v0.1.0, the standalone evidence compiler
 
@@ -147,7 +205,11 @@ bounded concurrency, self-healing ladder, parked-work queue).
 ## OKRs
 
 **Q3 2026:** Wringer reliably turns a GitHub issue into a passing MR for
-**Python repos** under **$2.00** in LLM spend. (`v0.1.0` ships Sept 30.)
+**Python repos** under **$2.00** in LLM spend. *(`v0.1.0` shipped on July 31,
+two months inside its own deadline. The cost half of this objective has never
+been measured on real issues at that price — the one corpus pass that ran real
+agents came in far above it, and no claim is made here until something is
+filmed.)*
 
 **Q4 2026:** TypeScript target repos + the **Temporal** runtime adapter.
 
