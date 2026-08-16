@@ -1950,3 +1950,173 @@ def test_the_roadmap_tracks_the_goal_and_not_only_the_features():
         named = set(re.findall(r"\*\*(F\d)\b", plan.read_text(encoding="utf-8")))
         missing = sorted(named - set(factory))
         assert not missing, f"WRINGER_FACTORY.md names {missing}, the rail does not"
+
+
+# --- the two documents that must agree about the de-scope -----------------
+#
+# Third occurrence of one defect class. A claim is corrected; a sibling
+# document that says the same thing in different words is not; and the repo
+# ships two answers to one question. It cost SECURITY.md's signing row, then
+# `backend.LIMITS_V1`, and then — on 2026-08-16 — `docs/witness-programme.md`
+# said "the de-scope has NOT fired" while README.md carried the retreat box
+# that fired it, forty lines above a paragraph saying the re-test had not
+# happened. All three were caught by a person reading, which is the part that
+# does not scale.
+
+BUG_FIX_CLAIM = "reproduction witness"
+
+STALE_DE_SCOPE_STATUS = re.compile(
+    r"de-scope\s+(?:has\s+)?not\s+fired"
+    r"|not\s+(?:yet\s+)?happened\s+is\s+the\s+live\s+re-test"
+    r"|(?:live\s+)?re-test\s+(?:has\s+)?not\s+(?:yet\s+)?(?:happened|run|ran)"
+    r"|not\s+(?:yet\s+)?been\s+re-tested",
+    re.IGNORECASE,
+)
+
+
+def own_voice(text: str) -> str:
+    """A document's own claims, with quoted material removed.
+
+    The retreat box quotes the claim it withdraws; the programme document
+    keeps its superseded status paragraph under a `>` so a reader can see
+    what it used to say. Both are a document REPORTING a claim rather than
+    making one, and a guard that cannot tell the two apart would force these
+    documents to delete their own history in order to stay green — which is
+    the opposite of the discipline it is here to enforce. Same rule the
+    sender-count guard already applies to quoted counts.
+    """
+    return "\n".join(
+        line for line in text.splitlines() if not line.lstrip().startswith(">")
+    )
+
+
+def de_scope_fired(readme: str) -> bool:
+    """Whether the bug-fix de-scope has fired, read off the MECHANIC.
+
+    `WRINGER_RULING_2026-08-15` Q1 mechanic 3 defines the de-scope as exactly
+    one edit — R2's bug-fix sentence comes out of the README — so the question
+    is answerable from the README's own voice and needs no sentence that could
+    itself go stale. That is deliberate: every stale sentence this class has
+    produced was prose ABOUT the answer, so a guard reading prose about the
+    answer would have gone stale with them.
+    """
+    return BUG_FIX_CLAIM not in own_voice(readme)
+
+
+def de_scope_firing_commit() -> tuple[str, str] | None:
+    """`(sha, parent_sha)` where `de_scope_fired` first became true.
+
+    Derived from history rather than pinned to a commit somebody typed, and
+    the walk doubles as this guard's negative control: the parent classifies
+    as NOT fired on real committed bytes, so the classifier is watched saying
+    both things about the same repository rather than trusted to be able to.
+
+    None when this checkout cannot answer — no git, no history, a shallow
+    clone — and the caller skips rather than guessing, which is the rule
+    `commands_at_tag` follows one level up.
+    """
+    import subprocess
+
+    def readme_at(rev: str) -> str | None:
+        try:
+            done = subprocess.run(
+                ["git", "show", f"{rev}:README.md"],
+                cwd=repo_root(),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return done.stdout if done.returncode == 0 else None
+
+    try:
+        listed = subprocess.run(
+            ["git", "log", "--format=%H", "--", "README.md"],
+            cwd=repo_root(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if listed.returncode != 0 or not listed.stdout.strip():
+        return None
+
+    # Newest first, so the transition is found in a handful of reads.
+    for sha in listed.stdout.split():
+        here = readme_at(sha)
+        before = readme_at(f"{sha}^")
+        if here is None:
+            return None
+        if before is None:      # the root commit; nothing before it to compare
+            return None
+        if de_scope_fired(here) and not de_scope_fired(before):
+            return sha, f"{sha}^"
+    return None
+
+
+def test_the_readme_and_the_witness_programme_agree_about_the_de_scope():
+    """The sibling-status guard, and it is derived on the half that matters.
+
+    What it buys, stated honestly so nobody mistakes it for more: the fired /
+    not-fired FACT is derived from the mechanic and is not hand-copied from
+    anything. The sibling check is a family of negations rather than a proof —
+    it catches the shapes this failure has actually taken, and a sufficiently
+    inventive rewording would slip past it. That is the most a prose status
+    admits, and it is strictly more than the nothing that was guarding it
+    while two documents disagreed in print.
+    """
+    require_checkout("README.md", "docs/witness-programme.md")
+    root = repo_root()
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    programme = (root / "docs" / "witness-programme.md").read_text("utf-8")
+
+    fired = de_scope_fired(readme)
+
+    for name, text in (
+        ("README.md", readme),
+        ("docs/witness-programme.md", programme),
+    ):
+        stale = STALE_DE_SCOPE_STATUS.search(" ".join(own_voice(text).split()))
+        if fired:
+            assert stale is None, (
+                f"the de-scope HAS fired — R2's bug-fix sentence is out of "
+                f"README.md's own voice — and {name} still says it has not, "
+                f"in its own voice: {stale.group(0)!r}. This is the third time "
+                f"a correction has landed in one document and not its sibling."
+            )
+        else:
+            assert stale is not None, (
+                f"README.md still claims the bug-fix witness, so the de-scope "
+                f"has NOT fired, and {name} says nothing to that effect. A "
+                f"status document that goes silent is how the last one went "
+                f"stale."
+            )
+
+    if not fired:
+        return
+
+    found = de_scope_firing_commit()
+    if found is None:
+        pytest.skip("this checkout cannot resolve the firing commit from git")
+    sha, parent = found
+
+    # The negative control, on committed bytes rather than a fixture: the
+    # classifier must say NOT-fired about the parent of the commit it says
+    # fired it. A guard that can only ever return one answer is the shape
+    # this repository keeps catching in other people's tests.
+    assert not de_scope_fired(
+        __import__("subprocess").run(
+            ["git", "show", f"{parent}:README.md"],
+            cwd=root, capture_output=True, text=True,
+        ).stdout
+    ), f"{parent} classifies as fired too, so the classifier cannot fail"
+
+    assert sha[:7] in programme, (
+        f"the de-scope fired at {sha[:7]} and docs/witness-programme.md — the "
+        f"document whose whole purpose is that a future window can execute "
+        f"and audit the retreat without the ruling files — does not name that "
+        f"commit. The sha is derived from history here, not typed, so this "
+        f"fails when the retreat moves and the schedule does not follow it."
+    )

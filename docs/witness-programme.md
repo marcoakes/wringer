@@ -167,12 +167,15 @@ R2's README sentence back out; this records where the answer stands.*
 > witness lane as a second supplier unless Marc authorises another pass and it
 > wins. The evidence is [corpus-2026-08-16.md](corpus-2026-08-16.md).
 
-*Superseded, kept for the record:* **The de-scope has NOT fired, and it has NOT
-been earned off either.** Its trigger is a Phase 3 LOSS on §5 as written, and §5
-is defined over *one pass over the 13 tasks*. That pass was launched on
-2026-08-16 and had not finished when this window ended, so there is no §5
-verdict — not a win, not a loss. **Nothing in this window licenses R2's sentence
-any more widely than it already was, and nothing takes it away.**
+*Superseded, and quoted rather than restated — what follows is no longer this
+document speaking:*
+
+> The de-scope has NOT fired, and it has NOT been earned off either. Its
+> trigger is a Phase 3 LOSS on §5 as written, and §5 is defined over *one pass
+> over the 13 tasks*. That pass was launched on 2026-08-16 and had not finished
+> when this window ended, so there is no §5 verdict — not a win, not a loss.
+> Nothing in this window licenses R2's sentence any more widely than it already
+> was, and nothing takes it away.
 
 **Why the money waited, and it was not caution.** `WRINGER_RULING_2026-08-14`
 §5.3 requires a row where the repair loop ran ≥1 worker turn with a red witness

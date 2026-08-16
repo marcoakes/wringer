@@ -317,21 +317,26 @@ proves the stated criterion could fail and was made to pass; it does not
 certify agreement with an unstated intended fix, and where the criterion
 under-describes the intent, the witness inherits that gap.**
 
-*Status, 2026-08-15 — said here rather than left to be discovered, and
-corrected the same day the sentence it replaced became false. The net-new half
-ships: it is `--prove`, the generated gate and the pre-change red run, all
-above. **The bug-fix witness lane is now in this code and wired to delivery**:
-`wring spec --send --witness` authors it, `wring run` proves it red on a
-pre-change worktree and pins it before the first worker turn, and a red witness
-REFUSES delivery over a green vacuous gate — driven end to end, offline. It was
-calibrated first — 12/13 proved red for the right reason, 10/12 green on
-upstream's own fix, in
-[`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md).
-**What has NOT happened is the live re-test**: the claim above was measured
-against a 13-task corpus once and LOST, and it is re-measured on that same
-corpus under §5's pre-registered numbers.
-[`docs/witness-programme.md`](docs/witness-programme.md) says exactly what
-takes the sentence back out, and a loss takes it out automatically.*
+*Status, 2026-08-16. The net-new half ships and is what the claim above now
+covers: `--prove`, the generated gate, and the pre-change red run, all shown
+earlier on this page. The bug-fix half was tested and withdrawn — the box above
+is that retreat, and the numbers are in
+[`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md).*
+
+*What remains of it, stated at exactly its true size: the witness lane is still
+in this code, and it is a **measured capability whose wide claim was
+withdrawn**, not a supplier of anything this page promises.
+`wring spec --send --witness` authors a check from a criterion, `wring run`
+proves it red on a pre-change worktree and pins it before the first worker turn,
+and a red witness refuses a delivery over a green vacuous gate. It was
+calibrated at 12/13 proved red for the right reason and 10/12 green on
+upstream's own fix
+([`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md)),
+and it then covered 11 of 13 rows in the live pass it lost. Nothing here is
+built on it: red-first for net-new work is
+[SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)'s path and always was.
+[`docs/witness-programme.md`](docs/witness-programme.md) records the phases, the
+pre-commitment, and the commit that executed it.*
 
 ### Two objections, answered where the claims live
 
