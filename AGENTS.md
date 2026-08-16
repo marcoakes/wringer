@@ -145,6 +145,46 @@ harness that rewrote its index while recording would be editing the evidence.
 never conflated with a failed capture, which is an instrument malfunction and
 says so.
 
+**2026-08-15/16 — the trust arc ran to its end, and the claim it was testing
+LOST.** Read this before proposing anything in the witness area; more than one
+window has inherited a sentence from before the retreat.
+
+| what landed | where | what it means for you |
+|---|---|---|
+| **Containment** ([SPEC_CONTAIN_V0](SPEC_CONTAIN_V0.md), `f002bd0`) | the worker joins a network-namespace holder **without `NET_ADMIN`**, so it cannot disarm its own boundary | containment is worker-side. It is not `execution.backend`, and that shape was considered and refused (W9) |
+| **The witness lane wired to delivery** (`f310b7f`, `wringer.acceptance.v2`) | a red witness refuses a delivery over a green vacuous gate | the schema spend of `acceptance.v2` is **already made**. A cycle needing a new acceptance shape spends the NEXT version |
+| **The loop engages while a witness is red** (`ef07f97`) | the loop's continuation predicate is no longer gate-only | it ran live on exactly the three corpus rows whose witness stayed red |
+| **In-toto beside the bundle** (`f27681a`) | R3 discharged | `wringer.attestation.v1` is frozen and gains no dialect. The standard is emitted alongside, never inside |
+| **THE RE-TEST LOST** (`039bebc`) | one pass, 13 real upstream bug fixes, both arms, $53.34; three of six pre-registered clauses missed ([docs/corpus-2026-08-16.md](docs/corpus-2026-08-16.md)) | **the bug-fix claim came out of the README automatically**, on a trigger set before the run. **No 0.4.0** — R4 gates the release on a win. Tags stop at `v0.3.0` |
+
+**The one sentence a window in this area must not get wrong.** The witness lane
+is still in the tree and it is a **measured capability whose wide claim was
+withdrawn** — it covered 11 of 13 rows and refused one genuinely wrong change.
+It is **not** a supplier of the red-first seam and no document here may present
+it as one. That seam is served by gate authoring alone
+([SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)), and every sentence you write must
+read correctly under that. [docs/witness-programme.md](docs/witness-programme.md)
+carries the phases and the pre-commitment that executed;
+`tests/test_docs.py::test_the_readme_and_the_witness_programme_agree_about_the_de_scope`
+keeps the two documents from disagreeing about it again.
+
+**The surface layer exists and is not in this repository.** `wringer-board`
+renders `acceptance.json` and the bundles as one page per criterion, built to
+[SPEC_BOARD_V0.md](SPEC_BOARD_V0.md), which lives here because it also
+specifies the one engine change the cycle spends. The core stays headless at
+nineteen commands and **the surface is never a subcommand** — a proposal for a
+twentieth command is refused before it is read. As of 2026-08-16 the board is
+**not published anywhere**, so no document here may link to a page or tell
+anyone to install it.
+
+**What is queued** — [ROADMAP.md](ROADMAP.md) is authoritative, and the order
+is a ruling rather than a preference: the gate-artifact slot, then the drive
+cycle (the environment-error class first, then one verb from a prose file to a
+rendered board), then the launch cycle. Until the board's definition of done is
+met, surface work outranks any NEW cycle that only sharpens an existing
+refusal — truth corrections, security fixes and the first-run environment gate
+excepted.
+
 **Wringer verifies Wringer**: [`.wringer.yaml`](.wringer.yaml) declares this
 repo's own gates, CI runs `wring verify` and uploads the bundle, and a real
 one is committed at [`.wringer.example/`](.wringer.example/).
