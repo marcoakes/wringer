@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -58,16 +59,160 @@ class DeliverError(Exception):
     """The change could not be delivered (CLI exit code 2)."""
 
 
+# Every refusal this module can raise, under a name a machine can read.
+#
+# CLOSED and PUBLIC, in that order. Closed because a surface that renders
+# refusals must be able to enumerate what it might have to render — the
+# alternative is what the board does today, which is matching English against
+# the sentences below, so a reworded message silently re-labels a card. Public
+# because a test can only force totality from a symbol it can import.
+#
+# Both directions are guarded in `tests/test_refusal.py`: every site names one
+# of these (parsed with `ast`, never grepped — 21 of the 23 raises span lines),
+# and every name here is raised somewhere. A name nothing raises is dead text
+# that reads as coverage.
+#
+# **A name is not a negotiation.** Naming these changed no condition, no exit
+# code and no message; there is still no `--force`, no `--allow` and no config
+# that turns one off. SPEC_REFUSAL_V0.md §4 ruling 9.
+REFUSAL_REASONS = (
+    "unfinished_git_operation",
+    "no_git_identity",
+    "remote_unreachable",
+    "head_moved",
+    "tree_moved",
+    "tracked_contents_differ",
+    "untracked_record_unreadable",
+    "untracked_record_unknown_version",
+    "files_unreadable_at_verify",
+    "unsupported_file_type",
+    "untracked_file_moved",
+    "case_alias_collision",
+    "gates_vacuous",
+    "authority_moved",
+    "signature_required",
+    "acceptance_unevidenced",
+    "default_branch_unknown",
+    "gates_did_not_pass",
+    "nothing_to_deliver",
+    "branch_is_base",
+    "branch_is_default",
+    "branch_is_current",
+    "branch_exists",
+)
+
+# `.wringer/refusals/<id>/refusal.json`. A root of its own, and NEVER under
+# `.wringer/deliveries/`: `attest.latest_anchor` takes the newest entry there
+# as the attestation anchor, and an entry with no `manifest.json` makes
+# `wring attest` refuse with "is not a Wringer bundle". Writing the record
+# beside the delivery would therefore have disabled attestation after every
+# refused delivery — a refusal invented outside `deliver.py`, in a cycle whose
+# whole point is that it invents none.
+#
+# There is also no delivery directory to write beside: every `raise Refused(`
+# is inside `plan()`, and `Bundle.create` runs strictly after `plan()` returns.
+REFUSALS_DIRNAME = Path(".wringer") / "refusals"
+REFUSAL_SCHEMA_VERSION = "wringer.refusal.v1"
+REFUSAL_FILENAME = "refusal.json"
+
+
 class Refused(Exception):
     """A precondition said no — about the work, not the environment.
 
     Carries the exit code the CLI should use, because "there is nothing to
-    deliver" (1) and "this tree is unsafe" (3) are different answers.
+    deliver" (1) and "this tree is unsafe" (3) are different answers, and the
+    `reason` — one of `REFUSAL_REASONS` — because "which no" is a question
+    every surface downstream had to answer by reading English.
+
+    **`reason` is required, structurally.** A test can be forgotten; a
+    constructor cannot. It is not redundant with the `ast` guard in either
+    direction: a required argument catches an omission only on a path
+    something executes, and most of the 23 sites here are on no tested path,
+    while the guard cannot see a `raise` built at runtime.
     """
 
-    def __init__(self, message: str, exit_code: int) -> None:
+    def __init__(self, message: str, exit_code: int, *, reason: str) -> None:
         super().__init__(message)
         self.exit_code = exit_code
+        self.reason = reason
+
+
+def record_refusal(
+    root: Path,
+    refusal: Refused,
+    *,
+    run: str | None = None,
+    redactor: Redactor | None = None,
+) -> Path | None:
+    """Write one `wringer.refusal.v1` record for a refused attempt.
+
+    Called from the two `except Refused` choke points — `wring deliver`'s in
+    `cli.py` and the deliver node's in `graph.py` — and from nowhere else. One
+    write per entry path, never 23: the 23 sites raise, and the catch records.
+    It cannot live in `deliver.py`'s call flow at all, because the `Refused`
+    leaves `plan()` before anything knows about directories.
+
+    **This function may not change what a refusal does.** It returns the path
+    it wrote, or None if it could not write, and it raises nothing: the
+    caller's next statement is the same refusal with the same exit code and
+    the same message whichever it gets. A failure to write is PRINTED, because
+    a silently missing record is a record a reader would trust the absence of.
+    Nothing about this feature may convert a refusal into a success.
+
+    The message is scrubbed on the way out. `.wringer/` is swept by
+    `tests/test_no_secret_in_any_bundle.py`, which walks every file under it
+    without enumerating write paths precisely so a new one is covered the day
+    it is added; an unscrubbed write here would be opting out of the single
+    guarantee SECURITY.md makes. The console is untouched by this and prints
+    exactly what it printed before.
+    """
+    scrub = (redactor or Redactor()).scrub
+    started_at = datetime.now().astimezone()
+    record = {
+        "schema_version": REFUSAL_SCHEMA_VERSION,
+        "reason": refusal.reason,
+        "exit_code": refusal.exit_code,
+        "message": scrub(str(refusal)),
+        "at": evidence.timestamp(),
+        "run": run,
+    }
+    refusals_root = root / REFUSALS_DIRNAME
+    try:
+        refusals_root.mkdir(parents=True, exist_ok=True)
+        for _ in range(64):
+            directory = refusals_root / evidence.new_run_id(started_at)
+            try:
+                directory.mkdir(exist_ok=False)
+            except FileExistsError:
+                continue
+            path = directory / REFUSAL_FILENAME
+            path.write_text(
+                json.dumps(record, indent=2, ensure_ascii=False) + "\n",
+                encoding="utf-8",
+            )
+            return path
+        raise OSError(f"could not allocate a directory under {refusals_root}")
+    except OSError as exc:
+        # **The one branch that decides whether this feature is safe.** Every
+        # reason the write can fail — an unwritable `.wringer/`, a full disk, a
+        # name collision 64 times over — arrives here, and the answer is always
+        # the same: say so on stderr and hand the caller a None it is free to
+        # ignore. Re-raising would convert a refusal into a traceback, which is
+        # neither the refusal's exit code nor its message, and would make this
+        # cycle the one that changed what a refusal does — the thing §4 ruling
+        # 10 forbids outright.
+        #
+        # Printed rather than swallowed because absence is readable: a person
+        # who finds no record needs to know whether nothing refused or the
+        # record could not be written, and only one of those is a machine to
+        # fix. The line goes to stderr so it cannot be mistaken for the
+        # refusal's own message on stdout.
+        print(
+            f"warning: refused, and the refusal record could not be written "
+            f"({exc}). The refusal itself is unaffected.",
+            file=sys.stderr,
+        )
+        return None
 
 
 @dataclass(frozen=True)
@@ -121,6 +266,7 @@ def check_tree(root: Path) -> None:
             f"refusing to deliver in the middle of {unfinished} — HEAD and the "
             "working tree describe a state nobody chose",
             3,
+            reason="unfinished_git_operation",
         )
 
 
@@ -144,6 +290,7 @@ def check_identity(root: Path) -> None:
                 "invent one. Set it:\n"
                 f"  git config --global {key} \"...\"",
                 2,
+                reason="no_git_identity",
             )
 
 
@@ -191,6 +338,7 @@ def branch_exists(root: Path, name: str, remote: str | None = None) -> bool:
                 f"someone else's. Fix the remote (try 'git ls-remote {remote}') "
                 "and run this again",
                 3,
+                reason="remote_unreachable",
             )
         if out.strip():
             return True
@@ -232,6 +380,7 @@ def check_verified_tree(
             f"{state.head_sha[:12]}. The gates never ran against the tree you "
             "are delivering — run 'wring verify' again",
             1,
+            reason="head_moved",
         )
 
     # What the tree looked like when the gates ran, from the bundle's own
@@ -264,6 +413,7 @@ def check_verified_tree(
             f"({'; '.join(detail)}). Delivering now would attach that run's "
             "gate results to code it never saw — run 'wring verify' again",
             1,
+            reason="tree_moved",
         )
 
     # The same file list can hold different bytes, so compare the patch too.
@@ -286,6 +436,7 @@ def check_verified_tree(
                 "The file list matches but the contents do not, so that run's "
                 "gate results describe different code — run 'wring verify' again",
                 1,
+                reason="tracked_contents_differ",
             )
     # And the untracked bytes, which git cannot diff because it has never seen
     # the files. Without this the check compared untracked content by NAME
@@ -334,6 +485,7 @@ def _check_untracked_bytes(root: Path, run_dir: Path, state: git.RepoState) -> N
             f"{evidence.UNTRACKED_FILENAME} cannot be read ({exc}). That run "
             "cannot vouch for the tree — run 'wring verify' again",
             1,
+            reason="untracked_record_unreadable",
         ) from exc
 
     if version == evidence.UNTRACKED_SCHEMA_VERSION_V1:
@@ -352,6 +504,7 @@ def _check_untracked_bytes(root: Path, run_dir: Path, state: git.RepoState) -> N
             "unanswerable check refuses rather than passes — upgrade Wringer, "
             "or run 'wring verify' again with this one",
             1,
+            reason="untracked_record_unknown_version",
         )
 
     unreadable = sorted(p for p, d in stored.items() if d == evidence.UNREADABLE)
@@ -361,6 +514,7 @@ def _check_untracked_bytes(root: Path, run_dir: Path, state: git.RepoState) -> N
             "verified, so their contents were never checked. Delivering would "
             "claim they were — fix the permissions and run 'wring verify' again",
             1,
+            reason="files_unreadable_at_verify",
         )
     unsupported = sorted(p for p, d in stored.items() if d == evidence.UNSUPPORTED)
     if unsupported:
@@ -370,6 +524,7 @@ def _check_untracked_bytes(root: Path, run_dir: Path, state: git.RepoState) -> N
             f"{run_dir.name} could not record what it holds. Remove it and run "
             "'wring verify' again",
             1,
+            reason="unsupported_file_type",
         )
 
     live = evidence.hash_untracked(
@@ -387,6 +542,7 @@ def _check_untracked_bytes(root: Path, run_dir: Path, state: git.RepoState) -> N
             "never saw these files, so nothing else would have caught it — run "
             "'wring verify' again",
             1,
+            reason="untracked_file_moved",
         )
 
 
@@ -462,6 +618,7 @@ def _check_no_case_aliases(root: Path, carried: tuple[str, ...]) -> None:
         "staged. Commit the rename yourself with 'git commit', then run "
         "'wring verify' again",
         1,
+        reason="case_alias_collision",
     )
 
 
@@ -483,6 +640,7 @@ def _check_not_vacuous(run_dir: Path) -> None:
             f"{run_dir.name}/{vacuity.VACUITY_DIRNAME}",
         ),
         1,
+        reason="gates_vacuous",
     )
 
 
@@ -518,6 +676,7 @@ def _check_not_stale(root: Path, run_dir: Path) -> None:
     raise Refused(
         staleness.refusal_message(run_dir.name, loop_id, names, recorded, current),
         1,
+        reason="authority_moved",
     )
 
 
@@ -560,6 +719,7 @@ def _check_can_sign(cfg: config.Config) -> None:
         "refuse nothing. There is deliberately no flag to wave it through: "
         "deliver from CI, or stop requiring a signature.",
         1,
+        reason="signature_required",
     )
 
 
@@ -603,7 +763,7 @@ def _check_acceptance(run_dir: Path) -> None:
         "A criterion is evidenced when its gate passed AND the record shows "
         "that gate can fail. Make the evidence better, not the check weaker.",
     ]
-    raise Refused("\n".join(lines), 1)
+    raise Refused("\n".join(lines), 1, reason="acceptance_unevidenced")
 
 
 def resolve_base(root: Path, settings: config.Deliver) -> tuple[str, str | None]:
@@ -646,6 +806,7 @@ def resolve_base(root: Path, settings: config.Deliver) -> tuple[str, str | None]
             "because 'base' names the branch the merge request targets and "
             "has never meant 'skip the check'",
             3,
+            reason="default_branch_unknown",
         )
     if settings.base:
         return settings.base, default
@@ -681,6 +842,7 @@ def plan(
             + (f" (`{failed_gate}` failed)" if failed_gate else "")
             + ". An unverified change does not get a branch",
             1,
+            reason="gates_did_not_pass",
         )
     # Directly beside "its gates did not pass", because it is the same
     # statement: this bundle is not evidence that the change is mergeable.
@@ -740,7 +902,11 @@ def plan(
         )
     )
     if not carried:
-        raise Refused("there is nothing to deliver — the working tree is clean", 1)
+        raise Refused(
+            "there is nothing to deliver — the working tree is clean",
+            1,
+            reason="nothing_to_deliver",
+        )
 
     _check_no_case_aliases(root, carried)
 
@@ -752,6 +918,7 @@ def plan(
             f"the branch template resolved to '{branch}', which is the base "
             "branch. Wringer never commits to the branch it is merging into",
             3,
+            reason="branch_is_base",
         )
     if default and branch == default:
         # Condition 2, enforced even when `deliver.base` names something else.
@@ -760,12 +927,14 @@ def plan(
             f"remote's default branch. Wringer never writes to it, whatever "
             "'deliver.base' says",
             3,
+            reason="branch_is_default",
         )
     if state.branch == branch:
         raise Refused(
             f"you are standing on '{branch}'. Wringer commits to a branch it "
             "created, never the one you are on",
             3,
+            reason="branch_is_current",
         )
     if branch_exists(root, branch, settings.remote):
         raise Refused(
@@ -773,6 +942,7 @@ def plan(
             f"'{settings.remote}'). Wringer only ever commits to a branch it "
             "created itself, so it will not check this one out",
             3,
+            reason="branch_exists",
         )
 
     title = _title(run_dir, root, task)

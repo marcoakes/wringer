@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/refusal.schema.json",
+  "title": "Wringer delivery refusal",
+  "description": "`.wringer/refusals/<id>/refusal.json` — one record per refused delivery attempt, written from the two `except deliver.Refused` choke points (`wring deliver`'s and the graph deliver node's) and from nowhere else. A refusal that only a person can read is a refusal only a person can act on: before this file, every surface downstream had to match English against `deliver.py`'s prose to find out WHICH of the 23 refusals happened, so a reworded sentence would silently re-label whatever it rendered. This record names it instead. It is NOT written under `.wringer/deliveries/` and never may be: `attest.latest_anchor` takes the newest entry there as the attestation anchor, and an entry with no `manifest.json` would make `wring attest` refuse — so a refusal record beside a delivery would disable attestation after every refused delivery, inventing a refusal in a cycle that adds none. There is also no delivery directory to write beside, because every `raise Refused(` happens inside `plan()` and `Bundle.create` runs strictly after `plan()` returns. RETENTION: one file per refused attempt, forever. Nothing prunes them, nothing counts them, and no command enumerates this directory — it is not an anchor for `attest`, not an input to `health`, and not a source for any surface. The accumulating file is the whole feature; an aggregate, a counter or a trend is refused. Writing it can never change what a refusal does: if this file cannot be written, the refusal still happens with the same exit code and the same message and the failure to write is printed rather than swallowed.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "reason",
+    "exit_code",
+    "message",
+    "at",
+    "run"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.refusal.v1"
+    },
+    "reason": {
+      "description": "WHICH refusal this was, as a name a machine can switch on. The closed list of 23 lives in `deliver.REFUSAL_REASONS` and is deliberately NOT duplicated as an enum here. Two reasons, and the second is the load-bearing one. (1) A public tuple is a strictly better guard, because a derived test can read it: `tests/test_refusal.py` walks `ast.parse(deliver.py)` for every `raise Refused(` and asserts set equality with the tuple in BOTH directions, so a site with no name and a name no site raises are each red immediately — an enum copied into this file could go stale while the source moved, and the `ast` walk cannot. (2) This schema is frozen from the moment it is published, so an enum here would make ADDING A REFUSAL cost a schema version. That is the wrong price on the one action this repository most wants to stay cheap. Naming a refusal is not negotiating with it, and neither is recording one: no refusal changes, moves, gains a route around it or changes exit code because this file exists.",
+      "type": "string",
+      "minLength": 1
+    },
+    "exit_code": {
+      "description": "The code the entry path returned, recorded rather than inferred from the reason — `1` (nothing to deliver / the evidence does not cover this tree), `2` (the environment cannot do it, e.g. git has no identity) and `3` (this tree or this branch is unsafe) are different answers, and a reader that re-derived them from the name would be re-implementing a mapping that lives in `deliver.py`.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "message": {
+      "description": "The refusal's own prose, verbatim, scrubbed by the redactor on the way to disk. KEPT rather than replaced by the name: this repository's refusals carry their remedies inside them — `no_git_identity` prints the `git config` commands to run — and dropping the sentence in favour of an enum would be a downgrade wearing a schema. The name is for machines; this is what tells a person what to do. Scrubbed because `.wringer/` is swept by a test that walks every file under it without enumerating write paths, precisely so a new one is covered the day it is added; the console output is unaffected and prints exactly what it printed before this file existed.",
+      "type": "string"
+    },
+    "at": {
+      "description": "When the refusal was recorded — local ISO-8601 with offset, to the millisecond, as every other Wringer timestamp.",
+      "type": "string"
+    },
+    "run": {
+      "description": "The verification bundle the delivery was reading, where one is known; null otherwise. Null is a real answer and not a placeholder: some refusals fire before any bundle is in hand, and a reader must be able to tell 'no bundle was involved' from 'a bundle was involved and this is which'.",
+      "type": ["string", "null"]
+    }
+  }
+}

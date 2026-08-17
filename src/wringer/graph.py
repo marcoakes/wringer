@@ -1805,6 +1805,12 @@ def _run_deliver(
             root, cfg, run_dir, run_dir.name, redactor=bundle.redactor
         )
     except deliver_module.Refused as exc:
+        # The graph's own choke point. A deliver node refuses through here and
+        # never through `cli.py`'s, so a record written at only one of the two
+        # would record half the refusals this program makes.
+        deliver_module.record_refusal(
+            root, exc, run=run_dir.name, redactor=bundle.redactor
+        )
         raise NodeRefused(node.id, str(exc), exc.exit_code) from exc
     except deliver_module.DeliverError as exc:
         raise NodeFailed(node.id, str(exc)) from exc

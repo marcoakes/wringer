@@ -3277,6 +3277,11 @@ def cmd_deliver(args: argparse.Namespace) -> int:
             root, cfg, run_dir, run_dir.name, args.task, redactor=redactor
         )
     except deliver.Refused as exc:
+        # The choke point, and the only place `wring deliver` records one:
+        # 23 sites raise, one catch writes. Before `_fail`, so a crash in the
+        # printer cannot lose the record — and it cannot change the two lines
+        # below, which are exactly what they were before it existed.
+        deliver.record_refusal(root, exc, run=run_dir.name, redactor=redactor)
         _fail("deliver", exc)
         return exc.exit_code
     except deliver.DeliverError as exc:
