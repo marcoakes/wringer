@@ -544,15 +544,16 @@ make a demo look better.**
 
 - [x] The one-agent refute review has RUN, and every finding is folded or
       rebutted in writing. **19 findings, all folded, none rebutted**, 2026-08-17.
-- [ ] **THE TWO BOARD SLICES THAT MUST LAND FIRST**, because DRIVE's own
-      licence forbids it from fixing either and a build agent would hit both:
-      - `interview._scalar` folds newlines, so a multi-line answer does not
-        round-trip and nothing errors (finding 15). Block scalar, or refuse
-        multi-line by name.
-      - `wringer_board.refusals` maps three `delivery-refusal` values, none of
-        which is among the engine's 23 `REFUSAL_REASONS`, and nothing reads
-        `.wringer/refusals/` at all (finding 8). Until that lands, step 9 ends
-        in a raw token for every real refusal, which §2 row 9 does not promise.
+- [x] **THE TWO BOARD SLICES THAT MUST LAND FIRST** — both landed at the
+      board's `ccf117f`, 2026-08-17:
+      - `interview._scalar` folded newlines, so a PM's multi-line answer was
+        silently flattened (finding 15). Literal block scalar now, round-trip
+        checked against the ENGINE's loader over seven shapes.
+      - `wringer_board.refusals` mapped three `delivery-refusal` values, none
+        among the engine's 23, and nothing read `.wringer/refusals/` at all
+        (finding 8). All 23 mapped and DERIVED from `deliver.REFUSAL_REASONS`;
+        `read.latest_refusal` reaches them; verified against a real refused
+        delivery.
 - [ ] §5's four invariant tests, each derived rather than scenario-shaped.
 - [ ] §6's capture, filmed, naming what drove it.
 - [ ] `wring --help` still lists 19 commands.
@@ -581,14 +582,52 @@ make a demo look better.**
    else's config was out of date and rewrote it would be the vibe tooling this
    project answers. §3a's step-7 append is the only touch of an existing file
    and it needs a rendered diff and a yes.
-4. **The interview's transport — STILL OPEN, and it is now the only one.**
-   Step 4 asks questions one at a time and this spec still does not say
-   through what. P-1 says the operator opens "no terminal beyond the one
-   verb", which a terminal prompt satisfies only if the verb IS the terminal.
-   **This spec does not resolve it and will not pretend to**: it is the point
-   where "for dummies" either means a real surface or means a prompt in a
-   shell, and that is a product decision rather than a technical one. A
-   builder must not choose it silently.
+4. **The interview's transport — DECIDED 2026-08-17, by Marc, and the answer
+   changes what gets built.**
+
+   **The transport is the PM's OWN CODING AGENT.**
+
+   The reasoning starts from Marc's own directive, which this spec had not
+   read back to itself: *a non-technical PM installs Wringer by pasting one
+   prompt into their coding agent.* **The PM's interface therefore already
+   exists.** It is the chat they are in. They did not ask for a terminal, and
+   building them a new surface would be answering a question nobody asked.
+
+   The alternatives, and why each loses:
+
+   - **A local web page.** Forbidden outright: B1's test names `http.server`
+     among the banned dependencies, so not even a stdlib server is available.
+     Nor should it be — a server is a thing to run, secure and keep alive.
+   - **A raw terminal prompt as the primary.** It works, and it is what a
+     developer would build. But it makes the PM's experience a shell session,
+     which is the thing P-1 identifies as the operating-surface gap in the
+     first place.
+   - **A file the operator edits.** That is today, and it is what DRIVE exists
+     to remove.
+
+   **So DRIVE is built to be DRIVEN.** It emits the questions, the plan and
+   the refusals as structured, verbatim text on stdout; the agent relays them
+   and returns the operator's answers; DRIVE does the writing. Two things make
+   that safe rather than a hand-off of judgement:
+
+   - **The agent is a TRANSPORT, not a TRANSLATOR.** Every PM-facing sentence
+     is `refusals.say`'s or `interview.plan`'s, verbatim. An agent that
+     paraphrased would be a second surface deciding what the engine said,
+     which ruling 3 forbids. **Testable, and tested**: the text DRIVE emits is
+     byte-identical to the text it writes and renders.
+   - **The approval interlock does not move.** Ruling 2 stands whole: DRIVE
+     renders the plan and takes the answer, and an agent relaying a yes is the
+     operator's yes only because the operator saw the plan DRIVE rendered. No
+     flag, and no agent, can produce that yes without it.
+
+   **A plain terminal prompt is the FALLBACK**, used when nothing is driving —
+   same text, same order, same interlocks. It is not a second implementation:
+   both read the same emitted structure, which is why they cannot drift.
+
+   *Recorded as Marc's decision on 2026-08-17. The one thing it costs is
+   stated: a PM without a coding agent gets the terminal, and that is a worse
+   experience than the one this spec is optimising for. It is not a worse
+   PRODUCT — it is the same product with a plainer front door.*
 
 ---
 
@@ -615,19 +654,21 @@ the artifact this programme exists to refuse:
 | independently reviewed | **NO.** Not begun |
 | built | **NO.** No line of DRIVE exists in any repository |
 | findings folded | **19 of 19**, none rebutted, 2026-08-17 |
-| blocked on | **two board slices** (§8) that DRIVE may not fix itself, and §9's question 4 |
+| the two board slices it was blocked on | **BOTH LANDED**, board `ccf117f`, 2026-08-17 |
+| §9's question 4, the interview transport | **DECIDED** — the PM's own coding agent, with a terminal fallback |
+| blocked on | **nothing. The next act is the build.** |
 | F6, its precondition | **YES** — landed `e93a243`, 2026-08-17 |
 | S3, its precondition | **YES** — landed `d095463`, 2026-08-17 |
 | S4 | **YES**, engine half — landed `4704521` |
 
-**The next act is the two board slices in §8, then §9's question 4, then the
-build.** Not the build first: both slices are things DRIVE's own licence
-forbids it from touching, and a build agent would hit them and have no lawful
-move — which is the reviewer's own closing sentence.
+**The next act is the BUILD.** Both blocking board slices landed, every
+finding is folded, and the one open question is decided. There is nothing left
+that a builder would hit and have no lawful move for — which was the
+reviewer's closing worry.
 
-H-5(ii) still holds for what follows: review and build separated by a
-committed checkpoint, because a killed build leaves a tree that looks
-finished.
+H-5(ii) is satisfied: this document and the two board slices are the committed
+checkpoint between review and build. Build in small committed increments,
+because a killed build leaves a tree that looks finished.
 
 
 ---
