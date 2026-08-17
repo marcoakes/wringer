@@ -1,13 +1,13 @@
 # Install Wringer by asking your coding agent to do it
 
 **You do not need to be an engineer to follow this page.** You need a coding
-agent you already use — Claude Code, Codex, Gemini CLI, Cursor, or any other —
-and about two minutes.
+agent you already use: Claude Code, Codex, Gemini CLI, Cursor, any of them.
+It takes about two minutes.
 
 Copy the block below. Paste it into your agent. That is the whole instruction.
 
 *Every step of this prompt was **executed in a clean environment on
-2026-08-17** before this page shipped — the unedited transcript is at
+2026-08-17** before this page shipped. The unedited transcript is at
 [docs/install-2026-08-17.md](docs/install-2026-08-17.md). Running it found
 three defects that reading it had not, including one that would have told you
 to stop at step 1 for no reason. They are described in the capture.*
@@ -124,8 +124,8 @@ and the board is reading the evidence it left.
 > failed it is in this repository's evidence.*
 
 **"It was red first" is the whole product.** Anyone can show you a green tick.
-This one is on the record having *failed*, before anything made it pass — so
-you know the check can tell the difference. A tick that was never red proves
+This one is on the record having *failed*, before anything made it pass, so you
+know the check can tell the difference. A tick that was never red proves
 nothing, and most of them were never red.
 
 ### One thing this page deliberately does NOT ask your agent to do
@@ -139,7 +139,7 @@ Wringer's own gates are `ruff check …` and `pytest -q`. `uv tool install` puts
 Wringer on your PATH; it does not put a project's *development* tools there, so
 the gate resolves `ruff` through the shell, does not find it, and the first
 thing you would see is a check that could not run. Adding `--with ruff --with
-pytest` does not fix it either — that installs them into the tool's own
+pytest` does not fix it either: that installs them into the tool's own
 environment, not onto the PATH the gate's shell searches.
 
 Setting up another project's development environment is an engineer's job and
@@ -169,7 +169,7 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 
 | agent | `command` | exercised in this repository? |
 |---|---|---|
-| Claude Code | `claude-code-acp` | **yes** — sequence I, 2026-08-15 and 2026-08-16, including under containment |
+| Claude Code | `claude-code-acp` | **yes**: sequence I, 2026-08-15 and 2026-08-16, including under containment |
 | Gemini CLI | `gemini` | **not exercised in this repository** |
 | Goose | `goose` | **not exercised in this repository** |
 | Kimi CLI | `kimi` | **not exercised in this repository** |
@@ -177,7 +177,7 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 | Cursor CLI | `cursor-agent` | **not exercised in this repository** |
 | Copilot CLI | `copilot` | **not exercised in this repository** |
 
-**"Not exercised" means exactly that** — nobody has run Wringer against that
+**"Not exercised" means exactly that.** Nobody has run Wringer against that
 agent here and written down what happened. The rows are not a compatibility
 claim; a row loses that label only when a capture in this repository shows it
 running. The capability sentence is unchanged: Wringer is the ACP *client* and
@@ -188,7 +188,7 @@ never the agent, and it can drive anything that speaks the protocol.
 ## The token, in one masked step
 
 **Optional.** Wringer's core needs no credential to run gates, verify, or render
-a board. You need one only for the parts that call a model — drafting a spec,
+a board. You need one only for the parts that call a model: drafting a spec,
 judging a bundle, or driving an ACP worker.
 
 ### macOS
@@ -222,7 +222,7 @@ Stated precisely, because the loose version of this sentence would be false:
   output before anything is written to disk.
 - **Core Wringer reads environment variables, and that is all it reads.** A
   keychain read is a declared non-goal of the core (`SPEC_START_V0.md` §7).
-- **At the moment of use, the key IS transmitted** — in an `Authorization`
+- **At the moment of use, the key IS transmitted**, in an `Authorization`
   header to whatever endpoint your config names. It could not call a model
   otherwise. Anything claiming Wringer "never sees or transports" your
   credential would be false, and this project does not ship sentences like
@@ -238,6 +238,6 @@ Stated precisely, because the loose version of this sentence would be false:
   cloned repositories are ordinary folders you can delete.
 - **It does not install an agent for you**, and Wringer never will.
 - **It installs from source on purpose.** The published PyPI package is `0.3.0`
-  and pre-dates a great deal of what the README describes — see the dated note
+  and pre-dates a great deal of what the README describes; see the dated note
   at the README's install path. When a release is cut, this page's install step
   becomes `uv tool install wringer` and this paragraph goes away.
