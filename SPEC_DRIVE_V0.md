@@ -11,8 +11,8 @@ this file.*
 *Every "exists today" claim below was read out of the tree at **`44a61f2`**
 and carries its `file:line` or its symbol. Nothing here is recalled.*
 
-> **REVIEWED 2026-08-17. VERDICT: NOT SOUND — 19 findings (9 HIGH). NOT YET
-> BUILT, and NOT YET FOLDED.**
+> **REVIEWED 2026-08-17. VERDICT: NOT SOUND — 19 findings (9 HIGH). ALL 19
+> FOLDED, none rebutted. NOT YET BUILT.**
 >
 > The one-agent refute review ran the same day this was drafted and is
 > recorded in full at §12. **It found two LIVE DEFECTS in shipped code by
@@ -20,11 +20,24 @@ and carries its `file:line` or its symbol. Nothing here is recalled.*
 > fixed in `wringer-board` at `78eed09`, and it found that three of §2's ten
 > rows do not compose against the tree at all.
 >
-> **Nothing below §12 has been rewritten yet.** The rulings and the tables in
-> §0–§11 are as drafted, and several of them are now known to be wrong. §12
-> says which. **A window picking this up starts at §12, folds, and only then
-> builds** — and it must read finding 3, 4 and 9 before it writes a line,
-> because two of them cannot be fixed inside DRIVE's own licence at all.
+> **The fold is done and it changed the shape of the thing.** §12 records
+> every finding and where it landed. The three that mattered most:
+>
+> - **§1a and §9's open question 1 are DELETED.** The B1 "collision" this spec
+>   made its central question does not exist: B1's test is about web-server
+>   dependencies and one console entry point, says nothing about
+>   "long-running", and **is unbuilt**. It would have sent a builder to amend
+>   a test that is not there.
+> - **§2 grew a step 0 and lost its claim that it composes only shipped
+>   things**, because it does not: `wring init` writes no `judge:`, `run:` or
+>   `deliver:` section and three later steps hard-refuse without them.
+> - **Ruling 4's licence is WIDENED, explicitly and narrowly** (§3a), because
+>   the alternative was a spec whose own one-sentence test it fails three
+>   times.
+>
+> A window picking this up starts at §8's DONE box. **Read §3a first**: it is
+> the only place this spec permits itself something the drafted version
+> forbade, and the reasoning is what makes it not a loophole.
 
 ---
 
@@ -73,26 +86,34 @@ merger claims something about what the merged thing *is*, and every such claim
 is a sentence that can go stale. Where this spec has no strong reason, it
 takes the option that claims less.
 
-### 1a — The B1-row collision, NAMED and not resolved here
+### 1a — There is no B1 collision, and the drafted version invented one
 
-`SPEC_BOARD_V0.md` §1's **B1** row is Fable's, and it is untouchable by this
-document. What this spec may say is that **B1's TEST** — as it is currently
-written — and this verb's shape are in tension, and that the tension is real
-rather than a misreading:
+**DELETED 2026-08-17 by the review (finding 6).** The drafted §1a claimed a
+tension with B1's test, described that test as asserting "no long-running
+process and no port binding", and made resolving it §9's first open question.
 
-- B1 is *local, no server*. This verb is local and has no server: it is a CLI
-  process that exits. **On B1 itself there is no conflict at all.**
-- **The collision is with the TEST**, which asserts the surface layer contains
-  no long-running process and no port binding. A verb that drives a repair
-  loop runs for minutes and streams progress. Nothing about that binds a port
-  or serves a request — but a test that keys on "long-running" rather than on
-  "listening" would refuse it.
+Three things were wrong with that, and they compound:
 
-**This spec does not amend B1 and does not amend its test.** It names the
-collision so the review has to rule on it. §11's open question 1 is where that
-lands. **If the review upholds the separate package, the test's wording is
-what may be amended — with the review's reasoning recorded — and B1 itself is
-untouched.**
+1. **B1's test says nothing of the kind.**
+   `test_the_surface_ships_no_server` asserts (a) the package declares no
+   web-server dependency in its metadata or imports, and (b) it registers
+   exactly one console entry point that writes a file and exits. Neither
+   clause mentions duration.
+2. **It is unbuilt.** `grep -rn 'ships_no_server' wringer-board/tests/`
+   returns nothing.
+3. **Even its live clause would not bind**, because §1 puts DRIVE in a THIRD
+   package, and that clause is about `wringer-board`'s own packaging.
+
+So the drafted spec made its central open question out of a misreading of a
+test that does not exist, and would have sent a builder to amend it. **B1
+itself is untouched and there is nothing here to rule on.**
+
+What survives, as a plain constraint rather than a collision: **DRIVE binds no
+port, serves no request, and exits.** It is a CLI process that runs for
+minutes, which is what `wring run` already is.
+
+*That B1's test is unbuilt is a finding against `SPEC_BOARD_V0`, not against
+this document, and is recorded in §12 so it is not lost.*
 
 ---
 
@@ -100,22 +121,107 @@ untouched.**
 
 `wringer-drive run PRD.md`
 
-| step | what happens | the existing thing it composes |
-|---|---|---|
-| 1 | **Read the prose.** A file, any prose. No schema, no front matter. | — |
-| 2 | **Generate the workspace**, if the target repository has no `.wringer.yaml`: detect what the repo already declares and write a config. **The operator edits nothing.** | `wring init`, `detect.py` — which renders a *commented template* when it finds nothing rather than inventing a command nobody wrote |
-| 3 | **Draft the spec** from the prose: criteria, and the questions the drafter could not answer. | `wring spec` |
-| 4 | **Interview.** Every unanswered required question is asked, one at a time, in the operator's language. Answers are written as `answer:` lines. | `wringer-board answer` |
-| 5 | **Render the plan and STOP.** What will be built, and how each piece will be proved. | `wringer-board plan` |
-| 6 | **Approval.** The operator says yes. Nothing before this point wrote code. | `wringer-board approve` |
-| 7 | **Propose gates**, through the existing human-diff interlock, rendered by the S3 surface — a generated gate green at birth is self-refuting and must be RED first. | `wring plan`, SPEC_GATEGEN's interlock |
-| 8 | **Build.** The repair loop, with the operator's declared ACP worker. | `wring run` |
-| 9 | **Deliver, or refuse.** Every refusal renders as a card, never as an exit code. | `wring deliver` |
-| 10 | **Render the board.** | `wringer-board render` |
+**Preconditions, which the drafted version left unstated** (finding 16): the
+target must be a **git repository** (`wring spec` and `wring run` both refuse
+outside one), and the PRD must live **inside** it and under `MAX_PRD_BYTES`
+(`spec.read_prd`). A PM's obvious first move — pointing the verb at
+`~/Desktop/PRD.md` — is refused today. **Step 0 copies the PRD into the
+repository and says it did**, which is the smallest honest fix; it does not
+create the git repository, and refuses with that sentence if there is none.
 
-**Every row's right-hand column is a thing that already ships.** This verb
-invents no capability. If a row needs something new, that is a finding against
-this spec, not a licence to build it here.
+| step | what happens | what it composes | new? |
+|---|---|---|---|
+| 0 | **Bring the PRD inside.** Copy it to `.wringer/drive/prd.md` and say so. Refuse if the target is not a git repository. | — | **DRIVE** |
+| 1 | **Read the prose.** Any prose, no schema, no front matter — subject to step 0. | `spec.read_prd` | |
+| 2 | **Generate the workspace**, when there is no `.wringer.yaml`: `wring init`, **then add the `judge:`, `run:` and `deliver:` sections it does not write** (§3a). Refuse if detection found nothing runnable. | `wring init`, `detect.detect`, `detect.is_untouched_template` | **§3a** |
+| 3 | **Draft the spec** from the prose. Needs `--send`; see ruling 2a. | `wring spec --send` | |
+| 4 | **Interview** — each unanswered required question, one at a time. | `wringer_board.interview.answer` | |
+| 5 | **Render the plan and STOP.** | `wringer_board.interview.plan` | |
+| 6 | **Approval.** DRIVE renders and prompts ITSELF, then calls `interview.approve` in-process (ruling 2). | `wringer_board.interview.approve` | |
+| 7 | **Show the proposed gates as a diff against the config, and INSTALL them on the operator's yes** (§3a). Gates were *proposed* at step 3; `wring plan` prints the diff and stops, because *"Wringer never installs a gate itself"*. | `wring plan` | **§3a** |
+| 8 | **Build.** The repair loop, with the operator's declared ACP worker. | `wring run` | |
+| 9 | **Deliver, or refuse.** Needs `--send`; see ruling 2a. | `wring deliver --send` | |
+| 10 | **Render the board.** | `wringer-board render` | |
+
+**The drafted version claimed every right-hand column was a thing that already
+ships. That was false and the review proved it** (findings 3, 4, 12, 16): three
+steps needed something new, and saying otherwise made the spec sound cheaper
+than it is. The `new?` column is now part of the table so the cost is visible
+at a glance rather than discovered during the build.
+
+**Step 7's label was also wrong.** Gates are proposed at step **3** —
+`wring spec --send` writes `wringer.gates.yaml`, and it must, because step 5's
+plan reads that sidecar to say how each piece will be proved. `wring plan`
+prints a *diff* of an existing proposal. The drafted row put "Propose gates" on
+step 7 and claimed the diff is "rendered by the S3 surface", which it is not:
+`interview.plan()` renders `proves:` bindings and never `wring plan`'s diff.
+**That phrase came verbatim from Postscript P-2 and was restated without being
+checked** — the stale-sentence class, inside a spec whose §1 names that class
+as this programme's seven-time defect.
+
+---
+
+## §3a — The licence, WIDENED — and this is the only place it is
+
+**Findings 3 and 4. The review's closing sentence was that neither is fixable
+inside the licence this spec gave itself, and that the spec must either widen
+it explicitly or sequence a board-fix commit ahead of the build. This is the
+widening, and it is deliberately narrow.**
+
+### The problem, stated as facts
+
+`wring init` writes `version:` and `gates:` on a successful detection, plus
+`evidence:` and a **commented-out** `run:` on the blank template. It writes no
+`judge:`, no `run:` and no `deliver:`. And:
+
+| step | refuses without | where |
+|---|---|---|
+| 3 `wring spec` | `judge:` | `cli.py` |
+| 7 gates reaching `.wringer.yaml` | a human edit | `spec.py`: *"Wringer never installs a gate itself"* |
+| 8 `wring run` | `run:` | `cli.py` |
+| 9 `wring deliver` | `deliver:` | `cli.py` |
+
+Drafted ruling 4 let DRIVE write `.wringer.yaml` only at step 2 and only when
+absent. So the verb would stop four times, in an editor's absence, and §0's
+one-sentence test would fail four times over.
+
+### What is permitted, exactly
+
+**DRIVE may write `.wringer.yaml` at two moments and no others:**
+
+1. **Step 2, when the file is absent**: `wring init`'s output plus a `judge:`,
+   `run:` and `deliver:` section with declared defaults. Unchanged in spirit.
+2. **Step 7, on the operator's explicit yes to a rendered diff**: the gates
+   `wring plan` proposed, appended to `gates:` and **nothing else touched**.
+
+### The four conditions, which are what stop this being a loophole
+
+- **Step 7 writes only after a rendered diff and an answered yes.** The same
+  interlock as approval, for the same reason: the person saw what changed.
+  A no leaves the file byte-identical, and there is no flag that skips the
+  diff.
+- **It appends gates. It never edits or removes one**, and never touches any
+  other section. A gate a human wrote is a human's.
+- **It does not weaken the red-first rule and cannot.** `wring plan` produces
+  the proposal; SPEC_GATEGEN's interlock decides what may be proposed; a gate
+  green at birth is still self-refuting and still evidences nothing. DRIVE
+  moves bytes a person approved; it does not decide what they are.
+- **Byte-equality holds for both writes** (§5 test 4): what DRIVE writes is
+  what the hand edit writes.
+
+### What it does NOT permit
+
+Editing a `.wringer.yaml` a person already wrote, beyond appending approved
+gates. Writing a judgement — **never, in any of the three packages**. Writing
+source. Writing any file at the repository root except the two named. And
+`spec.py`'s sentence stays true in the sense that matters: **Wringer still
+never installs a gate itself; a person does, through a diff, and DRIVE is the
+hands.**
+
+*Recorded as this spec's own decision, per the window law that where nothing
+is pre-decided the option that claims less wins — and a spec that failed its
+own one-sentence test four times while claiming a narrow licence was claiming
+more, not less.*
 
 ---
 
@@ -129,16 +235,45 @@ format.** The moment this package computes something the engine also computes,
 the two can disagree, and a surface disagreeing with the engine is the defect
 `SPEC_BOARD_V0` ruling 1 forbids.
 
-Where a step needs a machine-readable answer, it uses the `--json` the command
-already has. Where one does not exist, that is a finding: this spec does not
-add flags to the core.
+**AMENDED 2026-08-17, finding 7 — the audit §10 deferred, done.** `wring init`
+has no arguments at all and no `--json`; neither do any of the four board
+verbs. `wring spec`, `plan`, `run`, `deliver` do.
+
+So "subprocess and read `--json`" cannot carry step 2, which needs to know
+which detection branch fired, and that is prose on stdout across three
+branches. Parsing that prose is the format re-implementation this ruling
+forbids; adding a `--json` to a core command is what it also forbids.
+
+**Ruled: DRIVE IMPORTS the two packages as LIBRARIES where a command has no
+machine-readable output, and shells out where one does.** The permitted
+symbols are named, so the seam is a list rather than a habit:
+
+- `wringer.detect.detect`, `wringer.detect.is_untouched_template` (step 2)
+- `wringer.spec.read_prd` (steps 0–1)
+- `wringer_board.interview.answer`, `.plan`, `.approve`, `.unanswered`,
+  `.questions` (steps 4–6)
+- `wringer_board.refusals.say`, `.MAPPING` (ruling 3)
+
+Everything else is a subprocess with `--json`. **Importing is not
+re-implementing** — it is calling the same code the command calls, which is
+the opposite of computing a second opinion. And `wring init` cannot be driven
+in-process anyway (finding 19): `cmd_init` reads `Path.cwd()` and takes no
+target, so a global `chdir` would be needed, which is unsafe in a verb that
+later runs gates. Step 2 therefore shells out to `wring init` and imports
+`detect` only to read the FACT of which branch fired.
 
 ### Ruling 2 — the verb NEVER auto-approves (P-3, B5)
 
 - No `--yes`, no `--auto`, no `--non-interactive` that skips step 6, and no
   environment variable that does.
-- **The plan is rendered before the approval prompt exists**, in the same
-  process, and the prompt is unreachable if rendering failed.
+- **DRIVE renders the plan and prompts ITSELF, in its own process, and then
+  calls `interview.approve` in-process.** It does NOT subprocess
+  `wringer-board approve`. Finding 9: that verb takes the CALLER's word that a
+  plan was shown — `read_the_plan` is an assertion, and the board's CLI sets it
+  by printing. A subprocess with a captured stdout prints the plan into a pipe
+  and nobody reads anything, so composition would launder the one interlock
+  SPEC_BOARD §5 ruling 20 exists to protect. The prompt is unreachable if
+  rendering failed.
 - **Approving and answering a question are never the same action**, so a
   single keystroke can never do both.
 - On any non-interactive stream, the verb **stops and says why** rather than
@@ -147,6 +282,26 @@ add flags to the core.
 `test_the_drive_verb_has_no_flag_that_skips_approval`, structural, over the
 real parser — the shape `test_no_flag_no_env_var_and_no_command_can_write_a_judgement`
 already uses for the judgement file.
+
+### Ruling 2a — `--send` is a SECOND authorisation, and the drafted spec never mentioned it
+
+**Finding 9's other half.** Steps 3 and 9 are no-ops without `--send`, which is
+the typed flag that lets Wringer contact a model endpoint or write git history;
+SPEC_GRAPH ruling 5's reason is that *"a file is not a typed flag"*. A
+`wringer-drive run PRD.md` that quietly passed `--send` to `wring deliver`
+would be a file-driven authorisation wearing a flag — precisely what that rule
+refuses.
+
+**Ruled: two separate authorisations, neither implying the other.**
+
+- **Step 3's `--send`** (drafting: money, a model endpoint) is authorised by
+  the operator having run the verb and been told the cost is about to be
+  incurred, before the call.
+- **Step 9's `--send`** (git history, a merge request) is authorised
+  SEPARATELY, at the end, against the rendered board. **Approving the plan at
+  step 6 does not authorise the delivery at step 9.** They are different acts
+  about different things and a single yes may not cover both.
+- **No flag, environment variable or config gives either in advance.**
 
 ### Ruling 3 — refusals RENDER, they never resolve (P-3, B6)
 
@@ -159,15 +314,40 @@ which is the ONE place a PM-facing sentence may come from.
 of them.** It may not translate one either: it renders `refusals.say(...)` and
 the engine's own words verbatim beside it, exactly as the board does.
 
-**An unmapped refusal renders UNTRANSLATED with the engine's words**, never
-generically. Ruling 17: a PM seeing an ugly string files a bug report; a PM
-seeing nothing has been lied to.
+**Three branches, not two** (finding 11). `refusals.say` needs a family AND a
+value, and the stops DRIVE meets FIRST have neither: `wring spec`'s "no
+`judge:` section", `wring plan`'s `approved: false`, every
+`interview.InterviewError` — all are stderr prose with an exit code and no
+named value at all. "Unmapped" presupposes a key.
+
+1. **Mapped** — render `refusals.say(family, value)`'s sentence and its
+   unblocking question.
+2. **A named value with no sentence** — UNTRANSLATED, with the engine's words
+   verbatim. Ruling 17: a PM seeing an ugly string files a bug report; a PM
+   seeing nothing has been lied to.
+3. **A CLI refusal with no named value** — the command's stderr verbatim,
+   under a heading that says these are the engine's own words. Not
+   paraphrased, not summarised, not swallowed.
+
+**And step 9 will use branch 2 for every real delivery refusal, which this
+spec states rather than discovers** (finding 8). The engine writes
+`.wringer/refusals/<id>/refusal.json` carrying one of **23** names in
+`deliver.REFUSAL_REASONS`. `wringer_board.refusals` has **three**
+`delivery-refusal` entries and **none of them is one of the 23** — that file
+says so itself — and nothing in the board reads `.wringer/refusals/` at all.
+
+So today the most likely PM-visible end of the whole chain is a raw token like
+`gates_did_not_pass`. That is honest under ruling 17 and it is **not** what
+§2 row 9 promises, and it defeats §0's *"without needing to know what a gate
+is"*. **Mapping the 23 is SPEC_REFUSAL's work and a board slice, not DRIVE's**,
+and §8's DONE box now depends on it rather than pretending otherwise.
 
 ### Ruling 4 — it edits no file of the operator's except the two it is for
 
-It writes `wringer.spec.yaml` (steps 4 and 6) and `.wringer.yaml` (step 2,
-**only when absent**). It writes its own output. It writes nothing else, and
-in particular:
+It writes `wringer.spec.yaml` (steps 4 and 6) and `.wringer.yaml` (step 2 when
+absent, and step 7 on an approved gate diff — **§3a, which is the whole of the
+widening and states its four conditions**). It writes its own output under
+`.wringer/drive/`. It writes nothing else, and in particular:
 
 - **never `wringer.judgements.yaml`.** A `human: true` criterion is answered
   by a person, and there is no flag, no verb and no code path in any of the
@@ -186,6 +366,17 @@ command nobody wrote would be a gate whose green means nothing.
 **If detection finds nothing runnable, the verb says so and stops.** It does
 not invent a gate so that the run has something to pass.
 
+**And the composed step already does the thing this forbids** (finding 13),
+which the drafted ruling never mentioned. `wring init` NEVER stops: on empty
+detection it writes a placeholder gate `run: "true"`, and `detect.py` states
+the motive in the ruling's own words — *"It passes, so `wring init && wring
+verify` exits 0 in a repo nobody has configured yet."*
+
+The mechanism that makes the ruling achievable is **`detect.is_untouched_template`**,
+which exists precisely to recognise that state. Step 2 calls it after
+`wring init` and refuses when it is true. Naming the mechanism is the
+difference between a ruling and a wish.
+
 ### Ruling 6 — F6 lands first, and it already has
 
 P-2 sequences R-ENV/F6 first inside this cycle, because the environment-error
@@ -199,7 +390,22 @@ it. The verb surfaces `environment` as a card like any other stop.
 
 The drive verb writes **one** new artifact: a session record, so a run is
 reconstructible. **It spends no version of any existing schema and adds no
-field to a frozen one.** Law 7: a new file is always allowed.
+field to a frozen one.**
+
+**AMENDED, finding 14.** Law 7 says a new *schema file* is always allowed; the
+drafted ruling widened that to "file" and never said where either lands.
+
+- The schema lives in **`wringer-drive`'s own `schema/`**, not the core's. The
+  core's `schema/` is under `frozen.json` and `tests/test_schema.py`, and
+  SPEC_BOARD's B2 — which this spec inherits — spent the one engine change on
+  S4's artifact slot. `wringer-drive` ships its own freeze test so the new
+  file is pinned rather than unguarded.
+- The record is written to **`.wringer/drive/`**, never the repository root,
+  so it cannot trip §5 test 1 on the verb's own artifact.
+- **The review's second question stands and is answered NO for now**: if a run
+  is reconstructible from the bundles the chain already writes, this file
+  earns nothing. §8 requires the builder to demonstrate what it adds before
+  writing it, and to delete this ruling if it cannot.
 
 ---
 
@@ -218,24 +424,76 @@ bundling an agent.
 
 These are the tests the ruling names. **Each is a property, not a scenario.**
 
-1. **no-file-edited.** Drive a full run against a fixture and assert that the
-   set of files changed under the operator's repository is exactly
-   `{wringer.spec.yaml, .wringer.yaml}` plus what the WORKER wrote plus
-   `.wringer/`. Derived by diffing the tree, never by an allow-list somebody
-   maintains.
-2. **approval-stop.** With no approval given, assert the run stops before any
-   worker is invoked and before any gate is proposed — and that **no flag, no
-   environment variable and no config makes it not stop.** Structural, over
-   the real parser and the module source.
-3. **refusal-surface.** For every value in `wringer_board.refusals`'
-   mapping, assert the verb renders that value's sentence and its unblocking
-   question rather than an exit code — and that an UNMAPPED value renders the
-   engine's own words under an UNTRANSLATED heading. Both directions, derived
-   from the mapping.
-4. **byte-equality.** The files this verb writes are byte-identical to what a
-   hand edit writes. Inherited from B5's shape and already proved for
-   `wringer-board answer` and `approve`; here it covers the generated config
-   too.
+1. **no-file-edited.** Drive a full run against a fixture and assert that no
+   file changes outside the set the chain is entitled to touch.
+
+   **CORRECTED, finding 5: the drafted set was wrong by five files and the
+   test would have failed against a CORRECT implementation.** The composed
+   chain also writes, at the repository root, `.gitignore` (`wring init`),
+   `wringer.gates.yaml` (`wring spec --send`), and `tasks.jsonl`,
+   `wringer.rubric.yaml` and one brief per task (`wring plan`). Ruling 4's
+   "it writes nothing else" is false of the CHAIN, as against the verb.
+
+   And the drafted test forbade an allow-list in the same sentence that
+   required one, since a tree diff cannot tell the verb from its own
+   subprocesses. **So the set is DERIVED from the commands' own filename
+   constants** — `spec.SPEC_FILENAME`, `spec.GATESPEC_FILENAME`,
+   `spec.TASKS_FILENAME`, `spec.RUBRIC_FILENAME`, `config.CONFIG_FILENAME` —
+   never typed out. A new file any of them starts writing joins the set
+   automatically; one DRIVE invents does not.
+
+2. **approval-stop.** With no approval given, the run stops before any worker
+   is invoked and **before any gate is INSTALLED** — and no flag, environment
+   variable or config makes it not stop. Structural, over the real parser and
+   the module source.
+
+   **CORRECTED, finding 12:** the drafted wording said "before any gate is
+   *proposed*", which is already false of the chain — gates are proposed at
+   step 3 by `wring spec --send`, four steps before approval, and they must be,
+   because step 5's plan reads that sidecar. As written the test would fail on
+   a correct build. Installation is the act approval gates, and installation is
+   what this now pins.
+
+   **Two authorisations, two assertions** (ruling 2a): no approval means no
+   gate installed and no worker; no SECOND yes at step 9 means no `--send`,
+   no branch, no merge request.
+
+3. **refusal-surface.** For every `(family, value)` pair in
+   `wringer_board.refusals.MAPPING` **that DRIVE's chain can actually
+   produce**, the verb renders that pair's sentence and its unblocking
+   question rather than an exit code; a named value with no sentence renders
+   UNTRANSLATED with the engine's words; and a CLI refusal with no named value
+   renders stderr verbatim (ruling 3's three branches).
+
+   **CORRECTED, finding 10, twice.** `MAPPING` is keyed on `(family, value)`
+   PAIRS, deliberately — *"one sentence for five facts is precisely the
+   collapse ruling 15 exists to prevent"* — so "every value" was the collapse
+   the board forbids by name. And **19 of its 45 pairs are unreachable by
+   construction**: signature, identity, integrity, health-verdict and
+   fleet-outcome come from `wring attest`/`audit`/`health`/`fleet`, none of
+   which appears in §2. The reachable FAMILY SET is derived from §2's command
+   list rather than typed, so a step added later widens the test by itself.
+
+   Note the first half is already proved and is not DRIVE's property:
+   `test_every_saying_has_a_sentence_and_exactly_one_question` exists in the
+   board.
+
+4. **byte-equality.** What this verb writes is byte-identical to what a hand
+   edit writes: `wringer.spec.yaml` at steps 4 and 6, and `.wringer.yaml`'s
+   appended gates at step 7.
+
+   **CORRECTED, finding 18:** the drafted clause said this "covers the
+   generated config too", and there is no hand edit of a generated config to
+   compare against. The honest property for step 2 is byte-identity against
+   `wring init`'s own output plus the three sections §3a permits — i.e.
+   against the command, not against a person.
+
+   **And the multi-line hole this exposes is the board's** (finding 15):
+   `interview._scalar` claims to round-trip exactly and folds newlines, so a
+   multi-line PM answer silently becomes one line. §5's byte-equality cannot
+   catch it, because both sides go through the same function. **Fixing it is a
+   board slice sequenced before this build**, with the answer emitted as a
+   block scalar or multi-line answers refused by name.
 
 ---
 
@@ -251,9 +509,19 @@ The capture **names what drove it**: the real drafting endpoint, and the
 contained ACP worker where the runtime allows. A capture that does not say
 which agent produced the work is a capture of nothing.
 
-**A `no_progress` ending on a missing module is F6's hint tier working, not a
-failure of this capture.** The capture shows the legible diagnosis and says
-so. Never widen the stop tier to make a demo look better.
+**One ending is pre-blessed and it must be the RIGHT one** (finding 17). The
+drafted sentence blessed "a `no_progress` ending on a missing module" as F6
+working, which is loose enough to hide a regression in F6's fact tier.
+
+Precisely: a gate whose PATH-resolved command does not exist (exit 127,
+pre-worker, unbound) stops as **`environment`** after one iteration having
+briefed nobody — that is F6's fact tier, and a capture ending `no_progress`
+there is a REGRESSION, not the hint tier. Only a missing *import behind a
+present command* (exit 1 or 2) reaches the worker and may honestly end
+`no_progress`, with the diagnosis legible in the record.
+
+The capture states which of the two it filmed. **Never widen the stop tier to
+make a demo look better.**
 
 ---
 
@@ -274,8 +542,17 @@ so. Never widen the stop tier to make a demo look better.
 
 ## §8 — Definition of DONE
 
-- [ ] The one-agent refute review has RUN, and every finding is folded or
-      rebutted in writing. **No code before this.**
+- [x] The one-agent refute review has RUN, and every finding is folded or
+      rebutted in writing. **19 findings, all folded, none rebutted**, 2026-08-17.
+- [ ] **THE TWO BOARD SLICES THAT MUST LAND FIRST**, because DRIVE's own
+      licence forbids it from fixing either and a build agent would hit both:
+      - `interview._scalar` folds newlines, so a multi-line answer does not
+        round-trip and nothing errors (finding 15). Block scalar, or refuse
+        multi-line by name.
+      - `wringer_board.refusals` maps three `delivery-refusal` values, none of
+        which is among the engine's 23 `REFUSAL_REASONS`, and nothing reads
+        `.wringer/refusals/` at all (finding 8). Until that lands, step 9 ends
+        in a raw token for every real refusal, which §2 row 9 does not promise.
 - [ ] §5's four invariant tests, each derived rather than scenario-shaped.
 - [ ] §6's capture, filmed, naming what drove it.
 - [ ] `wring --help` still lists 19 commands.
@@ -283,28 +560,35 @@ so. Never widen the stop tier to make a demo look better.
       file.
 - [ ] Nothing in any of the three packages writes `wringer.judgements.yaml`,
       re-checked across all three rather than in this one.
+- [ ] The session record earns its existence, demonstrated rather than
+      assumed — or ruling 7 is deleted (finding 14, and the review's own
+      second question).
 - [ ] The finish report states the PM-mode number **in one sentence a PM
       could read**, and says what drove it.
 
 ---
 
-## §9 — Open questions the review must answer
+## §9 — Open questions — ANSWERED, and the one that remains
 
-1. **The B1-row TEST** (§1a). Uphold the separate package and amend the test's
-   wording with reasoning recorded, or reject the separate package — in which
-   case the argued alternative must say where the verb lives and what claim
-   that makes.
-2. **The session record's shape**, and whether it is needed at all. A run that
-   is reconstructible from the bundles the chain already writes needs no new
-   file, and ruling 7 should then delete itself.
-3. **Whether step 2 may run at all in a repository that has a `.wringer.yaml`
-   it did not write.** The spec says "only when absent". The review should
-   check that absence is the right trigger rather than staleness.
-4. **The interview's transport.** Step 4 asks questions one at a time; the
-   spec does not say through what. A terminal prompt contradicts P-1's "opens
-   no terminal beyond the one verb" only if the verb is not itself the
-   terminal. The review should rule on whether that is a distinction or a
-   dodge.
+1. ~~**The B1-row TEST.**~~ **DEAD.** There is no collision: the test says
+   nothing about duration, does not bind a third package, and **is unbuilt**
+   (§1a). The question was made out of a misreading.
+2. **The session record.** Answered provisionally NO — §8 makes the builder
+   demonstrate what it adds before writing it, and delete ruling 7 if it
+   cannot.
+3. **Step 2's trigger.** Answered: **absence, not staleness.** A
+   `.wringer.yaml` a person wrote is theirs, and a verb that decided somebody
+   else's config was out of date and rewrote it would be the vibe tooling this
+   project answers. §3a's step-7 append is the only touch of an existing file
+   and it needs a rendered diff and a yes.
+4. **The interview's transport — STILL OPEN, and it is now the only one.**
+   Step 4 asks questions one at a time and this spec still does not say
+   through what. P-1 says the operator opens "no terminal beyond the one
+   verb", which a terminal prompt satisfies only if the verb IS the terminal.
+   **This spec does not resolve it and will not pretend to**: it is the point
+   where "for dummies" either means a real surface or means a prompt in a
+   shell, and that is a product decision rather than a technical one. A
+   builder must not choose it silently.
 
 ---
 
@@ -329,15 +613,21 @@ the artifact this programme exists to refuse:
 |---|---|
 | authored | **2026-08-17**, this window |
 | independently reviewed | **NO.** Not begun |
-| built | **NO.** No line of DRIVE exists in either repository |
+| built | **NO.** No line of DRIVE exists in any repository |
+| findings folded | **19 of 19**, none rebutted, 2026-08-17 |
+| blocked on | **two board slices** (§8) that DRIVE may not fix itself, and §9's question 4 |
 | F6, its precondition | **YES** — landed `e93a243`, 2026-08-17 |
 | S3, its precondition | **YES** — landed `d095463`, 2026-08-17 |
 | S4 | **YES**, engine half — landed `4704521` |
 
-**The next act is §9's review, by one refute-instructed agent, before any
-code.** H-5(ii): review and build of the same artifact are separated by a
-committed checkpoint, and a killed build is more dangerous than a killed
-review because a killed build leaves a tree that looks finished.
+**The next act is the two board slices in §8, then §9's question 4, then the
+build.** Not the build first: both slices are things DRIVE's own licence
+forbids it from touching, and a build agent would hit them and have no lawful
+move — which is the reviewer's own closing sentence.
+
+H-5(ii) still holds for what follows: review and build separated by a
+committed checkpoint, because a killed build leaves a tree that looks
+finished.
 
 
 ---
