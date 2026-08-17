@@ -652,7 +652,7 @@ the artifact this programme exists to refuse:
 |---|---|
 | authored | **2026-08-17**, this window |
 | independently reviewed | **NO.** Not begun |
-| built | **NO.** No line of DRIVE exists in any repository |
+| built | **STEPS 0–6**, `wringer-drive` `223132a`, 2026-08-17. Steps 7–10 not built |
 | findings folded | **19 of 19**, none rebutted, 2026-08-17 |
 | the two board slices it was blocked on | **BOTH LANDED**, board `ccf117f`, 2026-08-17 |
 | §9's question 4, the interview transport | **DECIDED** — the PM's own coding agent, with a terminal fallback |
@@ -661,10 +661,17 @@ the artifact this programme exists to refuse:
 | S3, its precondition | **YES** — landed `d095463`, 2026-08-17 |
 | S4 | **YES**, engine half — landed `4704521` |
 
-**The next act is the BUILD.** Both blocking board slices landed, every
-finding is folded, and the one open question is decided. There is nothing left
-that a builder would hit and have no lawful move for — which was the
-reviewer's closing worry.
+**Steps 0–6 are built and filmed** (`wringer-drive` `223132a`;
+`docs/drive-2026-08-17.md` in that repository, driven both ways with a
+byte-identical result). **The next act is steps 7–10** — install approved
+gates under §3a, run the loop, deliver under ruling 2a's second
+authorisation, render the board — and then §6's measurement, which has no
+number and may not be given one until it is measured.
+
+Building it found one more live defect in the board, which is the pattern
+this programme keeps confirming: `interview.plan` read only the PROPOSED
+gates sidecar, so a PM was told "NOTHING CHECKS THIS YET" about a criterion
+`.wringer.yaml` already bound. Fixed at the board's `9ddc7d6`.
 
 H-5(ii) is satisfied: this document and the two board slices are the committed
 checkpoint between review and build. Build in small committed increments,
