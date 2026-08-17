@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/judgements.schema.json",
+  "title": "wringer.judgement.v1",
+  "description": "`wringer.judgements.yaml` at the repository root — one entry per `human: true` criterion a PERSON has answered.\n\n**A file a person edits, exactly like `approved: true` in `wringer.spec.yaml`, and for exactly the same reason.** There is deliberately no flag, no `--judge`, no `--accept-human` and no environment variable that writes an entry. Nothing in Wringer gives any model, agent or command the ability to answer a criterion a human was asked to answer: a `human: true` criterion exists precisely because a model asked anyway would be guessing, and a machine that could fill in its own answer would be the vibe tooling this project exists to answer.\n\nA SIBLING file rather than a key on the criterion, because `wringer.spec.v1` is frozen and its criterion object is `additionalProperties: false` — an `answer:` key there would cost `wringer.spec.v2`, a version reaching the drafter, the approval interlock and `wring plan`, for a field none of them produce. The same shape `digests.json` and `briefed.json` already use.\n\n**What a judgement does NOT pin, stated because it is the weak part.** It is not pinned to a tree, a commit, a bundle or a build. A person judged a running product at a moment; later work can break what they approved, and nothing here detects that. Pinning to the tree would invalidate every judgement on every commit — a constant-no wearing a rigour costume, and a refusal that always fires teaches people to route around it. The honest mechanism for 'the thing I approved has regressed' is the ratchet: the person says so, and the correction becomes a criterion with a check demonstrated red today.",
+  "type": "object",
+  "required": ["schema_version", "judgements"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Always `wringer.judgement.v1` in this format.",
+      "const": "wringer.judgement.v1"
+    },
+    "judgements": {
+      "description": "One entry per criterion answered. A criterion with no entry is UNANSWERED, which is a state and not a judgement — absence is never read as 'met'.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["criterion", "verdict", "by", "at", "criterion_digest"],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "description": "The id of the criterion this answers. An id no approved spec declares is ignored rather than an error: a spec can be edited under a judgement file, and taking down a verification over a stale entry would be worse than skipping it.",
+            "type": "string",
+            "minLength": 1
+          },
+          "verdict": {
+            "description": "**Two values, closed.** `met` or `not_met`. There is no `partially`, no score, and no third value that means 'probably' — a judgement that can hedge is a judgement nothing downstream can act on.",
+            "enum": ["met", "not_met"]
+          },
+          "by": {
+            "description": "A free-text name. **Recorded, never verified.** This is not an identity system and nothing downstream may read it as one; `wring attest --sign` is where identity claims live, and this is not that.",
+            "type": "string",
+            "minLength": 1
+          },
+          "at": {
+            "description": "ISO-8601. The person's own claim about when they answered — not observed, not checked, and not compared against anything.",
+            "type": "string",
+            "minLength": 1
+          },
+          "criterion_digest": {
+            "description": "sha256 of the criterion this answers, over the PARSED object: `{\"id\", \"title\", \"guidance\"}`, JSON with sorted keys, no ASCII escaping, tight separators. Parsed rather than raw bytes, so a whitespace- or comment-only edit to `wringer.spec.yaml` does not stale every judgement in the repository, and so an absent `guidance` and an empty one are already the same value before the digest sees them. `required` and `human` are deliberately EXCLUDED: changing either changes the policy, not the question, and a criterion that stops being required has not been reworded.\n\nIf the requirement IS reworded, every judgement of it goes stale and the row refuses again under `human-judgement-stale` — somebody answered a different question.",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "note": {
+            "description": "Optional free text. Rendered verbatim wherever it is rendered at all; never parsed and never routed on.",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

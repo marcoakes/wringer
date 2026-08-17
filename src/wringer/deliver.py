@@ -758,11 +758,25 @@ def _check_acceptance(run_dir: Path) -> None:
         lines.append(f"  {row['criterion']} — {row['state'].upper()}")
         if row.get("reason"):
             lines.append(f"    {row['reason']}")
-    lines += [
-        "",
-        "A criterion is evidenced when its gate passed AND the record shows "
-        "that gate can fail. Make the evidence better, not the check weaker.",
-    ]
+    # **The trailer is CONDITIONAL — SPEC_REFUSAL §3 ruling 5.**
+    #
+    # It used to print unconditionally. For a `human` row that is false
+    # guidance: there is no gate, and no amount of evidence clears it — only a
+    # person editing `wringer.judgements.yaml` does. Printing a remedy that
+    # cannot clear the refusal it prints under is the exact defect this file
+    # already records fixing once ("sending a reader off to do work that
+    # changes nothing is worse than saying only 'no'"), and the review caught
+    # the drafted version doing it again.
+    #
+    # Keyed on whether any refusing row is BOUND, read from the record's own
+    # `gate` field rather than from the state word, so a future state that
+    # happens to be gateless needs no edit here.
+    if any(row.get("gate") for row in refusing):
+        lines += [
+            "",
+            "A criterion is evidenced when its gate passed AND the record shows "
+            "that gate can fail. Make the evidence better, not the check weaker.",
+        ]
     raise Refused("\n".join(lines), 1, reason="acceptance_unevidenced")
 
 

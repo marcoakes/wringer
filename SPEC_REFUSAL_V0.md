@@ -845,6 +845,27 @@ and it would be caused by the engine, which is worse, because the engine is
 the half that gets to choose when to spend a version. The gate is on the
 engine, not on the board: v3 waits.
 
+> ### R3's two decisions, MADE — 2026-08-17
+>
+> **1. `wringer.judgements.yaml` is COMMITTED, and that is a decision rather
+> than the default it would otherwise have been.** `deliver.plan`'s `carried`
+> set excludes only paths under `.wringer/`, so an untracked judgements file at
+> the repository root is swept into the delivery commit either way — which is
+> precisely why this had to be decided rather than discovered. The reasons to
+> keep it: a judgement is part of the project's record in the same sense
+> `wringer.spec.yaml` is, and both are files a person edits by hand and nothing
+> generates; a delivery whose acceptance record cites a human answer should
+> carry the answer it cites, or a reviewer cannot check the citation; and
+> gitignoring it would make the one file that stops a delivery invisible to
+> everyone but its author. **No line is added to any `.gitignore`.** The
+> failure mode this leaves — a judgement written in a scratch clone travelling
+> into somebody else's MR — is real, is the price of the above, and is named
+> here rather than left to be found.
+>
+> **2. The walkthroughs' `required:` values** are read before their rendered
+> rows are corrected, and the corrections ride the FLIP commit with the other
+> six sentences (H-1), not R3's dark commit.
+
 ### Two things R3 decides before it writes a line
 
 1. **Committed or gitignored** (§3 ruling 2): `deliver.plan` carries every

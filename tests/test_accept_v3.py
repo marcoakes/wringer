@@ -33,6 +33,36 @@ def row(**kwargs) -> accept.Row:
     return accept.Row(**{**base, **kwargs})
 
 
+def causes_the_code_emits() -> set[str]:
+    """Every `CAUSE_*` the module actually USES, found with `ast`.
+
+    Deliberately not "keyword arguments named `cause`": `_human_row` picks its
+    cause into a local and passes the local, so a keyword-only scan reported
+    `human-said-no` and `human-judgement-stale` as unreachable while both were
+    wired. That near-miss is why this counts every reference outside the
+    `CAUSES` tuple's own definition instead.
+    """
+    import ast
+
+    tree = ast.parse(Path(accept.__file__).read_text(encoding="utf-8"))
+    declaration = None
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "CAUSES" for t in node.targets
+        ):
+            declaration = node.value
+    declared_nodes = set(map(id, ast.walk(declaration))) if declaration else set()
+    found = set()
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Name)
+            and node.id.startswith("CAUSE_")
+            and id(node) not in declared_nodes
+        ):
+            found.add(getattr(accept, node.id))
+    return found
+
+
 # --- the gate ---------------------------------------------------------------
 
 
@@ -110,51 +140,29 @@ def test_every_cause_the_code_emits_is_in_the_tuple():
     """One direction, total NOW: no site may invent a cause the enum does not
     name. A ninth added without joining the tuple reddens rather than ageing
     quietly — the shape `test_sign.py` uses for its three state axes."""
-    import ast
-
-    source = Path(accept.__file__).read_text(encoding="utf-8")
-    emitted = set()
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.keyword) and node.arg == "cause":
-            for sub in ast.walk(node.value):
-                if isinstance(sub, ast.Name) and sub.id.startswith("CAUSE_"):
-                    emitted.add(getattr(accept, sub.id))
+    emitted = causes_the_code_emits()
     assert emitted, "no cause is set anywhere — the wiring is gone"
     assert emitted <= set(accept.CAUSES), sorted(emitted - set(accept.CAUSES))
 
 
-def test_the_three_human_causes_are_declared_and_not_yet_reachable():
-    """**The dark half, pinned so it cannot pass unnoticed.**
+def test_every_cause_is_reachable_from_a_fixture(tmp_path):
+    """**Both directions, forced, over all eight** — ruling 12.
 
-    R2 declares all eight because publishing the schema freezes it. R2's CODE
-    sets five. The three `human-*` causes need R3's judgement loader, and this
-    test says so out loud rather than letting a both-directions totality test
-    quietly assert something untrue.
+    REPLACES R2's `test_the_three_human_causes_are_declared_and_not_yet_
+    reachable`, which pinned the dark half so it could not pass unnoticed. R3
+    wires all three `human-*` causes, so the honest assertion is now the strong
+    one: every cause in the tuple is producible by the engine, and every cause
+    the engine produces is in the tuple. A ninth added without joining the
+    tuple reddens rather than ageing quietly.
 
-    **R3 reverses this**, and the reversal is what forces R3 to wire all three
-    rather than one.
+    The reversal of R2's pin IS the forcing function — it is what made R3 wire
+    all three rather than one.
     """
-    import ast
-
-    source = Path(accept.__file__).read_text(encoding="utf-8")
-    emitted = set()
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.keyword) and node.arg == "cause":
-            for sub in ast.walk(node.value):
-                if isinstance(sub, ast.Name) and sub.id.startswith("CAUSE_"):
-                    emitted.add(getattr(accept, sub.id))
-    human = {
-        accept.CAUSE_HUMAN_UNANSWERED,
-        accept.CAUSE_HUMAN_SAID_NO,
-        accept.CAUSE_HUMAN_JUDGEMENT_STALE,
+    emitted = causes_the_code_emits()
+    assert emitted == set(accept.CAUSES), {
+        "in the tuple, never emitted": sorted(set(accept.CAUSES) - emitted),
+        "emitted, not in the tuple": sorted(emitted - set(accept.CAUSES)),
     }
-    assert human <= set(accept.CAUSES), "declared in the frozen schema"
-    assert not (human & emitted), (
-        "a human cause is now emitted — that is R3, and this test is reversed "
-        "in R3's commit together with the three-way judgement wiring"
-    )
-    # The five R2 builds ARE all reachable.
-    assert emitted == set(accept.CAUSES) - human, sorted(emitted)
 
 
 def test_the_schema_enum_and_the_tuple_agree_in_both_directions():
@@ -301,3 +309,342 @@ def test_the_v3_fixtures_are_real_engine_output_and_validate(tmp_path):
     assert path.read_text(encoding="utf-8") == written, (
         "the committed fixture drifted from what the engine writes"
     )
+
+
+# --- R3: the human interlock ------------------------------------------------
+
+
+import textwrap
+
+from wringer import rubric
+
+
+def criterion(cid="c-h", title="The copy reads well", guidance="", human=True,
+              required=True):
+    return rubric.Criterion(
+        id=cid, title=title, guidance=guidance, required=required, human=human
+    )
+
+
+def judgements_file(root: Path, *entries) -> Path:
+    import yaml
+
+    path = root / accept.JUDGEMENTS_FILENAME
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema_version": accept.JUDGEMENT_SCHEMA_VERSION,
+                "judgements": list(entries),
+            },
+            sort_keys=False,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def entry(c, verdict="met", by="Marc", digest=None, **extra):
+    return {
+        "criterion": c.id,
+        "verdict": verdict,
+        "by": by,
+        "at": "2026-08-17T10:00:00Z",
+        "criterion_digest": digest or accept.criterion_digest(c),
+        **extra,
+    }
+
+
+def test_the_digest_is_over_the_parsed_criterion_and_excludes_policy():
+    """Ruling 3, all three consequences, each as its own assertion.
+
+    `required` and `human` are EXCLUDED on purpose: changing either changes the
+    policy, not the question. A criterion that stops being required has not
+    been reworded, and staling every judgement when somebody flips a flag would
+    be a refusal that always fires.
+    """
+    base = criterion()
+    assert accept.criterion_digest(base) == accept.criterion_digest(
+        criterion(required=False)
+    )
+    assert accept.criterion_digest(base) == accept.criterion_digest(
+        criterion(human=False)
+    )
+    # An absent and an empty `guidance` are already the same parsed value.
+    assert accept.criterion_digest(base) == accept.criterion_digest(
+        criterion(guidance="")
+    )
+    # Rewording the QUESTION does move it. That is the whole pin.
+    assert accept.criterion_digest(base) != accept.criterion_digest(
+        criterion(title="The copy reads the way our users speak")
+    )
+    assert accept.criterion_digest(base) != accept.criterion_digest(
+        criterion(guidance="Ask two users.")
+    )
+
+
+def test_a_whitespace_only_edit_to_the_spec_file_does_not_stale_a_judgement(
+    tmp_path,
+):
+    """The reason the digest is over the PARSED object rather than raw bytes.
+
+    Hashing file bytes — which is what `staleness.capture` does, and what the
+    drafted spec's "canonicalised" hid — would stale every judgement in the
+    repository on a comment change. The `briefed.json` precedent is cited for
+    its DISCIPLINE (nothing may move under an answer), not its mechanism.
+    """
+    before = criterion(title="It works", guidance="Look at it")
+    after = criterion(title="It works", guidance="Look at it")
+    assert accept.criterion_digest(before) == accept.criterion_digest(after)
+
+
+def test_no_flag_no_env_var_and_no_command_can_write_a_judgement():
+    """Ruling 2, and it is the load-bearing refusal of this whole slice.
+
+    A `human: true` criterion exists precisely because a model asked anyway
+    would be guessing. A machine that could fill in its own answer would be the
+    vibe tooling this project exists to answer — so there is deliberately no
+    flag, no `--judge`, no `--accept-human`, and no environment variable.
+
+    Checked structurally: nothing in `src/` WRITES the judgements file.
+    """
+    import ast
+
+    src = Path(accept.__file__).parent
+    writers = []
+    for path in sorted(src.glob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        if accept.JUDGEMENTS_FILENAME not in text and "JUDGEMENTS_FILENAME" not in text:
+            continue
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            # `<something>.write_text(...)` where the target mentions the file.
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                if node.func.attr in ("write_text", "write_bytes", "safe_dump", "dump"):
+                    seg = ast.get_source_segment(text, node) or ""
+                    if "JUDGEMENTS" in seg or accept.JUDGEMENTS_FILENAME in seg:
+                        writers.append(f"{path.name}:{node.lineno}")
+    assert writers == [], (
+        f"something in src/ writes the judgements file: {writers}. Nothing may."
+    )
+    # And no CLI surface offers one.
+    cli_src = (src / "cli.py").read_text(encoding="utf-8")
+    for forbidden in ("--judge", "--accept-human", "--judgement"):
+        assert forbidden not in cli_src, forbidden
+
+
+def test_an_unanswered_required_human_criterion_gets_the_unanswered_cause(tmp_path):
+    row_ = accept._human_row(
+        {"criterion": "c-h", "title": "T", "required": True},
+        criterion(),
+        {},
+    )
+    assert row_.state == accept.HUMAN
+    assert row_.cause == accept.CAUSE_HUMAN_UNANSWERED
+    assert row_.judgement is None
+    # Ruling 5's scoped exception: the reason names the file to edit, because
+    # "answered by people, not gates" under a refusal heading is a non-sequitur.
+    assert accept.JUDGEMENTS_FILENAME in row_.reason
+
+
+def test_a_met_judgement_clears_the_cause_and_the_state_stays_human(tmp_path):
+    """**It never becomes `evidenced`, and that is not a technicality.**
+
+    `evidenced` means a bound check passed now and the record shows the same
+    check recorded failing. A person saying yes has no receipt. Rendering it
+    under the same word would put a human judgement inside the sentence "every
+    green was red first" — which would be false, and is the overclaim
+    SPEC_BOARD's B3 exists to prevent.
+    """
+    c = criterion()
+    row_ = accept._human_row(
+        {"criterion": c.id, "title": c.title, "required": True},
+        c,
+        {c.id: entry(c)},
+    )
+    assert row_.state == accept.HUMAN
+    assert row_.state != accept.EVIDENCED
+    assert row_.cause is None
+    assert row_.judgement.verdict == "met"
+    assert row_.judgement.by == "Marc"
+    assert row_.judgement.stale is False
+
+
+def test_a_not_met_judgement_and_a_reworded_one_each_get_their_own_cause():
+    c = criterion()
+    said_no = accept._human_row(
+        {"criterion": c.id, "title": c.title, "required": True},
+        c, {c.id: entry(c, verdict="not_met")},
+    )
+    assert said_no.cause == accept.CAUSE_HUMAN_SAID_NO
+    assert said_no.judgement.stale is False
+
+    # The SAME answer, against a criterion whose wording has since moved.
+    reworded = criterion(title="The copy reads the way our users speak")
+    stale = accept._human_row(
+        {"criterion": c.id, "title": reworded.title, "required": True},
+        reworded, {c.id: entry(c)},
+    )
+    assert stale.cause == accept.CAUSE_HUMAN_JUDGEMENT_STALE
+    assert stale.judgement.stale is True
+    assert accept.JUDGEMENTS_FILENAME in stale.reason
+
+
+def test_stale_is_computed_never_trusted_from_the_file():
+    """A stale flag a person can write is a stale flag a person can forget.
+
+    The file has no `stale` key at all — the schema forbids it with
+    `additionalProperties: false` — and even a hand-added one is ignored,
+    because `stale` is derived from the digest comparison and nothing else.
+    """
+    c = criterion()
+    lying = entry(c)
+    lying["stale"] = False
+    reworded = criterion(title="Something else entirely")
+    row_ = accept._human_row(
+        {"criterion": c.id, "title": reworded.title, "required": True},
+        reworded, {c.id: lying},
+    )
+    assert row_.judgement.stale is True, "a written 'stale' was believed"
+
+
+def test_the_judgement_limit_rides_only_a_record_that_has_one():
+    """A repository with no human criteria should not read a caveat about a
+    mechanism it never used."""
+    c = criterion()
+    judged = accept.Result(
+        rows=(
+            accept.Row(
+                criterion=c.id, title=c.title, required=True, state=accept.HUMAN,
+                judgement=accept.Judgement(
+                    verdict="met", by="Marc", at="2026-08-17T10:00:00Z", stale=False
+                ),
+            ),
+        )
+    )
+    plain = accept.Result(rows=(row(cause=accept.CAUSE_UNBOUND),))
+    assert accept.JUDGEMENT_LIMIT in judged.as_json_v3()["limits"]
+    assert accept.JUDGEMENT_LIMIT not in plain.as_json_v3()["limits"]
+    # And it says the weak part out loud.
+    assert "later work can invalidate it" in accept.JUDGEMENT_LIMIT
+
+
+def test_the_refusal_policy_is_DARK_until_the_flip():
+    """OQ-1's reversal is gated on the SAME switch as emission.
+
+    A live policy over v2 bytes would falsify the frozen v1 schema's own
+    description of what can refuse; a dark policy under corrected prose would
+    ship eight false sentences. One switch, both — and the flip commit reverses
+    this test together with the gate test above.
+    """
+    c = criterion()
+    unanswered = accept._human_row(
+        {"criterion": c.id, "title": c.title, "required": True}, c, {}
+    )
+    assert unanswered.cause == accept.CAUSE_HUMAN_UNANSWERED
+    assert accept.EMIT_V3 is False
+    assert unanswered.refuses is False, (
+        "the human refusal went live while EMIT_V3 is False — the policy and "
+        "the emission flip together, in one commit, or the tree ships a lie"
+    )
+
+
+def test_a_malformed_judgements_file_is_treated_as_absent(tmp_path):
+    """Total by construction, like `read_spec`. This runs inside `wring
+    verify`, and a malformed sibling must not take down a verification."""
+    (tmp_path / accept.JUDGEMENTS_FILENAME).write_text(
+        "not: [valid", encoding="utf-8"
+    )
+    assert accept.read_judgements(tmp_path) == {}
+
+    (tmp_path / accept.JUDGEMENTS_FILENAME).write_text(
+        "schema_version: wringer.judgement.v99\njudgements: []\n", encoding="utf-8"
+    )
+    assert accept.read_judgements(tmp_path) == {}
+
+    # A third verdict is not a verdict.
+    c = criterion()
+    judgements_file(tmp_path, entry(c, verdict="partially"))
+    assert accept.read_judgements(tmp_path) == {}
+
+
+def test_absence_is_never_read_as_met(tmp_path):
+    assert accept.read_judgements(tmp_path) == {}
+    c = criterion()
+    row_ = accept._human_row(
+        {"criterion": c.id, "title": c.title, "required": True},
+        c, accept.read_judgements(tmp_path),
+    )
+    assert row_.cause == accept.CAUSE_HUMAN_UNANSWERED
+
+
+def test_the_judgements_file_round_trips_through_its_own_schema(tmp_path):
+    import yaml
+
+    jsonschema = pytest.importorskip("jsonschema")
+    c = criterion()
+    path = judgements_file(tmp_path, entry(c, note="Checked with two users."))
+    payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+    schema = json.loads(
+        (SCHEMA_DIR / "judgements.schema.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(payload, schema)
+    assert accept.read_judgements(tmp_path)[c.id]["verdict"] == "met"
+
+
+def test_the_v3_human_fixture_is_real_engine_output_and_validates():
+    """**The second set of real bytes the board learns from** — the human rows.
+
+    Same discipline as the causes fixture: produced by `as_json_v3`, re-checked
+    against it every run, committed. The board's tests read this file, so if the
+    engine's shape moves the fixture moves with it in the same commit.
+    """
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads(
+        (SCHEMA_DIR / "acceptance-v3.schema.json").read_text(encoding="utf-8")
+    )
+    c = criterion()
+    reworded = criterion(title="The copy reads the way our users speak")
+
+    rows = [
+        accept._human_row(
+            {"criterion": "unanswered", "title": "Nobody has answered this",
+             "required": True}, criterion(cid="unanswered"), {},
+        ),
+        accept._human_row(
+            {"criterion": "said-met", "title": "A person said yes",
+             "required": True},
+            criterion(cid="said-met"),
+            {"said-met": entry(criterion(cid="said-met"), note="Two users tried it.")},
+        ),
+        accept._human_row(
+            {"criterion": "said-no", "title": "A person said no",
+             "required": True},
+            criterion(cid="said-no"),
+            {"said-no": entry(criterion(cid="said-no"), verdict="not_met")},
+        ),
+        accept._human_row(
+            {"criterion": "reworded", "title": reworded.title, "required": True},
+            criterion(cid="reworded", title=reworded.title),
+            {"reworded": entry(criterion(cid="reworded"))},
+        ),
+    ]
+    payload = accept.Result(rows=tuple(rows)).as_json_v3()
+    jsonschema.validate(payload, schema)
+    assert payload["schema_version"] == accept.SCHEMA_VERSION_V3
+
+    seen = {r["cause"] for r in payload["criteria"] if r["cause"]}
+    assert seen == {
+        accept.CAUSE_HUMAN_UNANSWERED,
+        accept.CAUSE_HUMAN_SAID_NO,
+        accept.CAUSE_HUMAN_JUDGEMENT_STALE,
+    }, sorted(seen)
+    assert accept.JUDGEMENT_LIMIT in payload["limits"]
+    # Every human row stays HUMAN, including the one a person said yes to.
+    assert {r["state"] for r in payload["criteria"]} == {"human"}
+
+    FIXTURE_DIR.mkdir(exist_ok=True)
+    path = FIXTURE_DIR / "acceptance-v3-human.json"
+    written = json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    if not path.is_file() or path.read_text(encoding="utf-8") != written:
+        path.write_text(written, encoding="utf-8")
+    assert path.read_text(encoding="utf-8") == written

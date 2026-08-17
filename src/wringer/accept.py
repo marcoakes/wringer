@@ -180,6 +180,17 @@ LIMITS_V2 = LIMITS + (
 # **v3's limits.** Two additions, both about the two new fields, both stating
 # what the field does NOT say — which is the only kind of limit worth
 # publishing beside a new fact.
+# Added to a record's `limits[]` only when that record carries a judgement.
+# Not a standing limit of the format: a repository with no human criteria
+# should not read a caveat about a mechanism it never used.
+JUDGEMENT_LIMIT = (
+    "A human judgement records that a PERSON said this was met at a moment, "
+    "against the requirement as worded then. It is not re-checked by anything, "
+    "and later work can invalidate it without this record changing. It is "
+    "pinned to the WORDING of the criterion and to nothing else — not to a "
+    "tree, a commit, a bundle or a build."
+)
+
 LIMITS_V3 = LIMITS_V2 + (
     "`demonstrated_able_to_fail` is about the RECORD, never about the world. "
     "`false` means nothing on disk shows this check failing — NOT that it "
@@ -282,26 +293,33 @@ class Judgement:
     produces one and no model is asked anything: this module reads.
 
     `stale` is COMPUTED at acceptance time by comparing the current criterion
-    wording's digest against `criterion_sha256`, and is never trusted from the
-    file — a stale flag a person can write is a stale flag a person can forget.
-    That is the pin: reword the question and the answer stops applying, because
-    somebody answered a different question.
+    wording's digest against the judgement's `criterion_digest`, and is never
+    trusted from the file — a stale flag a person can write is a stale flag a
+    person can forget. That is the pin: reword the question and the answer
+    stops applying, because somebody answered a different question.
 
-    **R2 declares the shape; R3 builds the loader that fills it.** The shape is
-    here now because publishing `acceptance-v3.schema.json` freezes it, and R3
-    could not add a field afterwards without spending a v4.
+    **Never at READ time.** `refuses` is serialised into `acceptance.json` by
+    `Row.as_json` and delivery reads the STORED boolean out of the file, never
+    recomputing it — so a read-time `stale` could not reach the `refuses` value
+    baked into the record, and a reworded criterion would not refuse the
+    delivery. `stale` is written into the row and `refuses` is derived from it
+    in the same pass, so the record and every reader agree by construction.
+
+    **`by` is recorded and never verified**, and that sentence is in the schema
+    too so nothing downstream reads it as an identity claim. `wring attest
+    --sign` is where identity lives; this is not that.
     """
 
-    answer: str               # met | not_met
-    criterion_sha256: str
+    verdict: str              # met | not_met — two values, closed
+    by: str                   # recorded, NEVER verified
     at: str
     stale: bool
     note: str | None = None
 
     def as_json(self) -> dict[str, Any]:
         payload = {
-            "answer": self.answer,
-            "criterion_sha256": self.criterion_sha256,
+            "verdict": self.verdict,
+            "by": self.by,
             "at": self.at,
             "stale": self.stale,
         }
@@ -379,6 +397,20 @@ class Row:
         evidenced. A v1 reader meeting such a row would read `gate: null` and
         conclude it cannot refuse, which is why this could not be an added key.
         """
+        if EMIT_V3 and self.state == HUMAN:
+            # **OQ-1's policy reversal — SPEC_REFUSAL §3 ruling 1, DARK until
+            # the flip.** A required `human` criterion that nobody has
+            # answered, that a person answered NO to, or whose wording has
+            # moved under the answer, stops the delivery. Until then a `human`
+            # row is never `covered` and never refuses, exactly as v1 and v2
+            # describe themselves — which is why this is gated on the same
+            # switch as emission rather than on a second one. A live policy
+            # over v2 bytes would falsify the frozen v1 schema's own
+            # description of what can refuse.
+            #
+            # `met` and not stale is the ONLY answer that clears it. Absence is
+            # not an answer.
+            return self.required and self.cause is not None
         return self.required and self.covered and self.state != EVIDENCED
 
     def as_json(self) -> dict[str, Any]:
@@ -503,6 +535,10 @@ class Result:
             "limits": list(LIMITS_V2),
         }
 
+    @property
+    def has_judgement(self) -> bool:
+        return any(row.judgement is not None for row in self.rows)
+
     def as_json_v3(self) -> dict[str, Any]:
         """The v3 artifact. **Reachable today only through tests and captures.**
 
@@ -516,7 +552,14 @@ class Result:
             "schema_version": SCHEMA_VERSION_V3,
             "counts": self.counts(),
             "criteria": [row.as_json_v3() for row in self.rows],
-            "limits": list(LIMITS_V3),
+            # **The judgement limit rides the RECORD, in the engine's own
+            # voice, and only when a judgement is actually present** — ruling
+            # 3. `limits[]` already renders verbatim on the board, so this
+            # reaches a PM without a translation anybody has to maintain, and
+            # it says the weak part out loud rather than hiding it.
+            "limits": list(LIMITS_V3) + (
+                [JUDGEMENT_LIMIT] if self.has_judgement else []
+            ),
         }
 
 
@@ -582,6 +625,83 @@ def _arrived_with_the_change(command: str | None, created: Any) -> str | None:
     return None
 
 
+JUDGEMENTS_FILENAME = "wringer.judgements.yaml"
+JUDGEMENT_SCHEMA_VERSION = "wringer.judgement.v1"
+
+
+def criterion_digest(criterion) -> str:
+    """sha256 of the criterion this answers — ruling 3, preimage written out.
+
+    Over the **PARSED** object, not raw bytes, and the three consequences are
+    stated rather than hidden behind the word "canonicalised":
+
+    - An absent `guidance` and an empty one are already the same value in the
+      parsed object, so that ambiguity is closed before the digest sees it. It
+      also means a whitespace- or comment-only edit to `wringer.spec.yaml` does
+      not stale every judgement in the repository.
+    - **`required` and `human` are deliberately EXCLUDED.** Changing either
+      changes the policy, not the question. A criterion that stops being
+      required has not been reworded.
+    - The `briefed.json` precedent is cited for its DISCIPLINE — *nothing may
+      move under an answer* — not its mechanism. `staleness.capture` hashes
+      whole file bytes and there is no field-level canonical form anywhere else
+      in this package.
+    """
+    import hashlib
+
+    preimage = json.dumps(
+        {
+            "id": criterion.id,
+            "title": criterion.title,
+            "guidance": getattr(criterion, "guidance", "") or "",
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(preimage.encode("utf-8")).hexdigest()
+
+
+def read_judgements(root: Path) -> dict[str, dict[str, Any]]:
+    """Every answer a PERSON wrote, by criterion id. Total by construction.
+
+    An unreadable, unparseable or wrong-shaped file is treated as one that is
+    not there — the same rule `read_spec` follows, and for the same reason:
+    this runs inside `wring verify`, and a malformed sibling must not take down
+    a verification.
+
+    **Absence is never read as `met`.** A criterion with no entry is
+    UNANSWERED, which is a state and not a judgement.
+    """
+    path = root / JUDGEMENTS_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        import yaml
+
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    if not isinstance(raw, dict):
+        return {}
+    if raw.get("schema_version") != JUDGEMENT_SCHEMA_VERSION:
+        return {}
+    entries = raw.get("judgements")
+    if not isinstance(entries, list):
+        return {}
+    found: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get("criterion")
+        if not isinstance(name, str) or not name:
+            continue
+        if entry.get("verdict") not in ("met", "not_met"):
+            continue
+        found[name] = entry
+    return found
+
+
 def assess(
     root: Path,
     cfg: Any,
@@ -625,6 +745,8 @@ def assess(
     created = created_stems(state)
 
     by_criterion = dict(witnesses or {})
+    # What a PERSON wrote. Read once, like the record above.
+    judgements = read_judgements(root)
 
     rows = []
     for criterion in approved.criteria:
@@ -632,13 +754,15 @@ def assess(
             _assess_one(
                 criterion, bound, ran, discriminating, created, scrub,
                 by_criterion.get(criterion.id),
+                judgements=judgements,
             )
         )
     return Result(rows=tuple(rows))
 
 
 def _assess_one(
-    criterion, bound, ran, discriminating, created, scrub, witness=None
+    criterion, bound, ran, discriminating, created, scrub, witness=None,
+    judgements=None,
 ) -> Row:
     """One criterion's verdict, gate and witness together.
 
@@ -664,11 +788,7 @@ def _assess_one(
     }
 
     if criterion.human:
-        return Row(
-            **common,
-            state=HUMAN,
-            reason="answered by people, not gates",
-        )
+        return _human_row(common, criterion, judgements)
 
     gate = bound.get(criterion.id)
     if gate is None:
@@ -809,6 +929,79 @@ def _assess_one(
             f"`{gate.id}` passed, and the record shows it can fail"
             + (f". {receipt.environment}" if receipt.environment else "")
         ),
+    )
+
+
+def _human_row(common: dict, criterion, judgements) -> Row:
+    """A `human` criterion, and what a person has (or has not) said about it.
+
+    **Its `state` stays `human` in every branch, including `met`.** It never
+    becomes `evidenced`, and that is not a technicality: `evidenced` means a
+    bound check passed now and the record shows the same check recorded
+    failing. A person saying yes is a different kind of fact with no receipt,
+    and rendering it under the same word would put a human judgement inside the
+    sentence "every green was red first" — which would be false, and is exactly
+    the overclaim `SPEC_BOARD_V0.md`'s B3 exists to prevent. The five-value
+    `state` enum is UNCHANGED in v3.
+
+    **The refusal is DARK until `EMIT_V3`.** `refuses` is a policy, the policy
+    is OQ-1's reversal, and it flips in the same commit as emission — see
+    `EMIT_V3`. A live policy over v2 bytes would falsify the frozen v1 schema's
+    own description of what can refuse; a dark policy under corrected prose
+    would ship eight false sentences. One switch, both.
+    """
+    entry = (judgements or {}).get(criterion.id)
+    if entry is None:
+        return Row(
+            **common,
+            state=HUMAN,
+            cause=CAUSE_HUMAN_UNANSWERED,
+            # Ruling 5's scoped exception to ruling 13: under a refusal
+            # heading, "answered by people, not gates" is a non-sequitur. The
+            # reason names the file to edit, because a remedy that cannot clear
+            # the refusal it prints under is worse than saying only "no".
+            reason=(
+                "nobody has answered this — a person decides it, and records "
+                f"the decision in `{JUDGEMENTS_FILENAME}`"
+            ),
+        )
+
+    stale = entry.get("criterion_digest") != criterion_digest(criterion)
+    verdict = entry["verdict"]
+    judgement = Judgement(
+        verdict=verdict,
+        by=str(entry.get("by", "")),
+        at=str(entry.get("at", "")),
+        stale=stale,
+        note=entry.get("note"),
+    )
+    if stale:
+        cause = CAUSE_HUMAN_JUDGEMENT_STALE
+        reason = (
+            "this requirement has been REWORDED since it was answered, so the "
+            f"answer was given to a different question. Re-answer it in "
+            f"`{JUDGEMENTS_FILENAME}`"
+        )
+    elif verdict == "not_met":
+        cause = CAUSE_HUMAN_SAID_NO
+        reason = (
+            f"a person judged this NOT met"
+            + (f" ({judgement.by})" if judgement.by else "")
+            + ". The work is not done; nothing here can overrule that"
+        )
+    else:
+        cause = None
+        reason = (
+            f"a person judged this met"
+            + (f" ({judgement.by})" if judgement.by else "")
+            + ", against the requirement as worded then"
+        )
+    return Row(
+        **common,
+        state=HUMAN,
+        cause=cause,
+        judgement=judgement,
+        reason=reason,
     )
 
 

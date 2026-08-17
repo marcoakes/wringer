@@ -213,40 +213,40 @@
             ]
           },
           "judgement": {
-            "description": "A person's answer to a `human` criterion, or null. **Written by a person into `wringer.judgement.v1` and copied here verbatim; nothing in Wringer scores it, and no model is asked anything.** Pinned to the exact criterion wording that was answered: if the question is reworded the digest stops matching, the answer goes `stale`, and the row's cause becomes `human-judgement-stale` — somebody answered a different question. Present in this schema from v3's first publication even though the slice that populates it lands later, because publishing freezes the shape.",
+            "description": "A person's answer to a `human` criterion, or null — SPEC_REFUSAL_V0 ruling 4. **Written by a person into `wringer.judgements.yaml` and copied here; nothing in Wringer scores it, no model is asked anything, and there is no flag, no `--judge` and no environment variable that writes one.** The row's `state` stays `human`: it NEVER becomes `evidenced`, because `evidenced` means a bound check passed now and the record shows the same check recorded failing. A person saying yes is a different kind of fact with no receipt, and rendering it under the same word would put a human judgement inside the sentence 'every green was red first'. Present in this schema from v3's first publication even though the slice that populates it lands after, because publishing freezes the shape.",
             "type": [
               "object",
               "null"
             ],
             "additionalProperties": false,
             "required": [
-              "answer",
-              "criterion_sha256",
+              "verdict",
+              "by",
               "at",
               "stale"
             ],
             "properties": {
-              "answer": {
-                "description": "What the person said. `met` and `not_met` are the two answers; there is no third, and absence of a judgement is not an answer.",
+              "verdict": {
+                "description": "What the person said. **Two values, closed.** There is no `partially`, no score, and no third value meaning 'probably'. Absence of a judgement is not an answer.",
                 "enum": [
                   "met",
                   "not_met"
                 ]
               },
-              "criterion_sha256": {
-                "description": "The digest of the criterion wording this answer was given against. The pin, and the only thing that makes `stale` computable.",
+              "by": {
+                "description": "A free-text name. **Recorded, never verified** — this is not an identity system, and this sentence is here so nothing downstream reads it as one.",
                 "type": "string"
               },
               "at": {
-                "description": "When the person answered, ISO-8601.",
+                "description": "ISO-8601. The person's own claim about when they answered; not observed and not checked.",
                 "type": "string"
               },
               "stale": {
-                "description": "Whether the criterion has been reworded since the answer was given. Computed at acceptance time by comparing the current wording's digest against `criterion_sha256` — never trusted from the file, because a stale flag a person can write is a stale flag a person can forget.",
+                "description": "Whether the criterion has been REWORDED since the answer was given. Computed at ACCEPTANCE time by comparing the current criterion's digest against the judgement's `criterion_digest` — never trusted from the file, and never computed at read time: `refuses` is serialised into this record and delivery reads the stored boolean, so a read-time `stale` could not reach it and a reworded criterion would not refuse. **It does NOT pin a tree, a commit or a build.** A person judged a running product at a moment; later work can break what they approved and nothing here detects that — see this record's `limits`.",
                 "type": "boolean"
               },
               "note": {
-                "description": "Optional free text the person left. Never parsed, never routed on.",
+                "description": "Optional free text the person left. Rendered verbatim wherever it is rendered at all; never parsed, never routed on.",
                 "type": "string"
               }
             }
