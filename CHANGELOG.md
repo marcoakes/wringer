@@ -29,9 +29,37 @@ schema governs that body, and requests written before today keep their
 [`docs/temperature-2026-08-18.md`](docs/temperature-2026-08-18.md) carries the
 commands, the endpoint's own error text, and the token counts.
 
-Known and not fixed here: `judge.max_output_tokens` still defaults to 1024,
-which truncates the draft for any real PRD. Declare a larger value —
-`wringer-drive`'s generated config uses 8000.
+**`judge.max_output_tokens` now defaults to 8000, not 1024.** Named as known
+and unfixed in the entry above, and fixed the next day. A real PRD's draft does
+not fit in 1024 tokens, and a truncated draft is not a smaller draft: `wring
+spec` refuses the incomplete reply and writes nothing, so the surface's first
+step failed for anyone who had not already found the knob. 8000 is the value
+`wringer-drive`'s generated config has declared since it was written. The
+constant is shared with `wring judge`, whose replies are small and unaffected;
+no test pinned the old number, and no schema governs it.
+
+**The drafter is shown which files the repository contains, and may bind only
+to one of them.** Its rules have always said a `gate_bindings` command must
+name a file that already exists, and the request never said which files those
+were — so the rule was unsatisfiable. Measured on a real PRD: the drafter
+complied honestly by proposing no binding at all and raising an open question
+asking what the repository held, every criterion came back `unbound`, and the
+repair loop ran no worker turns. The request now carries the tracked paths
+(`git ls-files`, paths only, capped at 400 with the truncation announced). Where
+git cannot answer, the listing is absent and the drafter is back to proposing
+nothing — the behaviour that shipped before.
+
+**A drafted binding that repeats a command already running is refused, and the
+criterion is left unbound.** On 2026-08-17 the drafter proposed `run: pytest -q`
+to prove "no regression on the report page" — byte for byte the repository's own
+`test` gate, green before, during and after. The criterion came back
+`unevidenced` and the handover was held, five seconds after a person had
+approved the gate. The request forbade this in prose and the model did it
+anyway. Duplicates are now compared against both the reply's own `gates:` block
+and `.wringer.yaml`, on whitespace-normalised commands. A drafted duplicate is
+dropped with the reason printed; a duplicate in a hand-written
+`wringer.gates.yaml` is refused outright, because a line somebody typed
+deliberately should not be silently ignored.
 
 ## 0.3.0 — 2026-08-08
 

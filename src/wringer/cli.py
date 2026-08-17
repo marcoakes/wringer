@@ -2655,7 +2655,11 @@ def cmd_spec(args: argparse.Namespace) -> int:
         return EXIT_CONFIG
 
     request = spec.render_request(
-        prd, cfg.judge.model, cfg.judge.max_output_tokens, cfg.gates
+        prd,
+        cfg.judge.model,
+        cfg.judge.max_output_tokens,
+        cfg.gates,
+        spec.repository_files(root),
     )
     if args.print_request:
         print(json.dumps(request, indent=2))
@@ -2708,7 +2712,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
 
         bundle.write_response(body)
         try:
-            draft = spec.parse_response(body, prd)
+            draft = spec.parse_response(body, prd, cfg.gates)
             drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:
             bundle.write_summary(
@@ -2725,6 +2729,12 @@ def cmd_spec(args: argparse.Namespace) -> int:
         # parsers the file itself will face: a half-written spec is worse than
         # no spec, because a half-written one gets approved.
         target.write_text(spec.render(drafted), encoding="utf-8")
+        # A binding the parser refused is said out loud, here, and not left to
+        # be inferred from a criterion that quietly has no gate. The spec is
+        # still written: one unusable binding is not a reason to throw away
+        # everything else the reply got right.
+        for note in draft.notes:
+            print(f"wring spec: {note}.", file=sys.stderr)
         if proposed:
             # A sidecar with no entries is never written: absence is absence,
             # and an empty `gates:` list would assert that no criterion here
@@ -2971,13 +2981,30 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
         return EXIT_GATE_FAILED
 
+    # What already runs, so a sidecar binding repeating one of them is refused
+    # rather than installed as proof of something it cannot decide.
+    #
+    # **Absent or unreadable is `()`, not a stop.** `wring plan` has never
+    # needed a config — `gate_diff` below works against an empty string — and
+    # making it require one here would refuse a repo for a file this command
+    # does not otherwise read. The cost is stated rather than hidden: where
+    # the config cannot be parsed, this particular check does not run, and
+    # every other thing that reads the config will say so loudly first.
+    config_path = root / config.CONFIG_FILENAME
+    try:
+        declared_gates = (
+            config.load(config_path).gates if config_path.is_file() else ()
+        )
+    except config.ConfigError:
+        declared_gates = ()
+
     # The sidecar, read AFTER the interlock and before any write. After,
     # because a reader whose spec nobody approved must be told that and not
     # about a gate file; before, because a plan that half-ran leaves a tasks
     # file describing briefs that do not exist.
     try:
         proposed_gates = spec.proposals(
-            loaded, spec.load_gatespec(root, loaded.criteria)
+            loaded, spec.load_gatespec(root, loaded.criteria, declared_gates)
         )
     except spec.SpecError as exc:
         _fail("plan", exc)

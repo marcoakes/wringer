@@ -162,6 +162,12 @@ class Draft:
 
     spec: Spec
     gates: tuple[config.Gate, ...] = ()
+    # Bindings the reply proposed and this parser REFUSED, each with the
+    # reason, for the caller to put in front of whoever ran the command. Not
+    # an exception: one unusable binding is not a reason to throw away a whole
+    # drafted spec, and a criterion with no binding is already a legal state
+    # the plan renders in words ("NOTHING CHECKS THIS YET").
+    notes: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -553,11 +559,52 @@ def quote_intent(prd: str) -> str:
     )
 
 
+# How many repository paths the request may carry. A listing is context a
+# drafter pays for by the token, and an unbounded one would push a large
+# repository's PRD out of the window entirely. 400 is a number, not a
+# measurement: it fits every repository this programme has driven, and the
+# truncation is announced rather than silent, which is the part that matters.
+MAX_LISTED_FILES = 400
+
+
+def repository_files(root: Path) -> tuple[str, ...]:
+    """The repository's TRACKED files, as repo-relative paths.
+
+    **Tracked, from git, never a filesystem walk.** A walk offers the drafter
+    `.venv/lib/.../test_foo.py` and `node_modules/...`, and a binding naming
+    one of those is a check that exists on exactly one machine. What is
+    committed is what everybody has.
+
+    Where git cannot answer — no repository, no git, a repository with no
+    commits — this returns nothing. That is the honest failure: the request
+    goes out without a listing, rule 6 has nothing to point at, and the
+    drafter proposes no binding, which is precisely the behaviour that shipped
+    before this existed. A stop here would refuse a repo for a fact that is
+    merely unavailable.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "ls-files", "-z"],
+            cwd=root, capture_output=True, check=False, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ()
+    if done.returncode != 0:
+        return ()
+    from wringer import git
+
+    names = git.decode(done.stdout).split("\0")
+    return tuple(sorted(name for name in names if name))
+
+
 def render_request(
     prd: str,
     model: str,
     max_output_tokens: int,
     declared: tuple[config.Gate, ...] = (),
+    files: tuple[str, ...] = (),
 ) -> dict:
     """The exact chat-completions body.
 
@@ -566,8 +613,29 @@ def render_request(
     build system it cannot see. A drafter shown nothing invents; law 5 is why
     the proposals are a diff a human applies, and this is how to need that
     safety net less often.
+
+    **`files` is the repository's own tracked paths, and rule 6 is
+    unsatisfiable without it.** Rule 6 has always told the drafter that every
+    file a binding names must already exist; until 2026-08-19 the request
+    never said which files those were. Driven against a real PRD,
+    `claude-opus-5` did the correct thing with that — it proposed no binding at
+    all and raised an open question asking what the repository contains — so
+    every criterion came back `unbound`, no worker turn ran, and nothing was
+    proved. The rule was right and the input was missing.
+
+    Paths only. No contents: a file listing is cheap and says what EXISTS,
+    which is the fact rule 6 needs; shipping the sources would be a different
+    and much larger claim about what the drafter is being asked to do.
     """
     known = "\n".join(f"- {g.id}: {g.run}" for g in declared)
+    shown = tuple(files)[:MAX_LISTED_FILES]
+    listing = "\n".join(f"- {name}" for name in shown)
+    if len(files) > len(shown):
+        listing += (
+            f"\n[{len(files) - len(shown)} more paths are not listed — this is "
+            "not the whole repository, so a file you need may be missing from "
+            "it]"
+        )
     user = (
         "# Product requirements\n\n"
         f"{prd}\n\n"
@@ -577,6 +645,13 @@ def render_request(
             "Propose only gates that are missing, and phrase them the way "
             "these are.\n\n"
             if known
+            else ""
+        )
+        + (
+            f"## Files this repository contains\n{listing}\n\n"
+            "These are its tracked files. A `gate_bindings` command may name "
+            "ONLY a path from this list; anything else does not exist here.\n\n"
+            if listing
             else ""
         )
         + "## Your task\n"
@@ -600,12 +675,24 @@ def render_request(
         "so a command that is green now is not testing it. Omit any binding "
         "you cannot write that way rather than writing a weak one.\n"
         "6. **A binding must run a check that EXISTS TODAY.** Every file it "
-        "names must already be in the repository. Do not name a test file "
+        "names must already be in the repository"
+        + (
+            " — the listing above is what that means, so choose from it"
+            if listing
+            else ""
+        )
+        + ". Do not name a test file "
         "that would have to be written — it would fail because it is absent "
         "rather than because the criterion is unmet, and a check that arrives "
         "with the work cannot evidence the work. If no existing check can "
         "decide a criterion, propose no binding for it and say so in "
-        "`open_questions`.\n\n"
+        "`open_questions`.\n"
+        "7. **A binding may not repeat a command that already runs.** If its "
+        "`run` is one of the gates listed above, it is refused outright and "
+        "the criterion is left with nothing checking it — the check passes "
+        "today, so no amount of work can make it fail, and a check that "
+        "cannot fail proves nothing. Give it a command of its own or give it "
+        "none.\n\n"
         "## Reply format\n"
         "Return ONLY a JSON object, no prose and no code fence:\n"
         "{\n"
@@ -665,7 +752,7 @@ def render_request(
     }
 
 
-def parse_response(body: Any, prd: str) -> Draft:
+def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
     """Turn a model reply into a validated spec and its proposed gates, or
     refuse the whole reply.
 
@@ -752,15 +839,41 @@ def parse_response(body: Any, prd: str) -> Draft:
     # criteria from THIS reply: a sidecar validated later would mean a spec on
     # disk whose companion file was refused, and the pair only means anything
     # together.
-    proposed = parse_bindings(
-        drafted.get("gate_bindings"), drafted_spec.criteria, "the drafted gates"
+    #
+    # **Both sources of "already runs", and the reply's own block is the one
+    # that caught the measured case**: on 2026-08-17 the model listed `test:
+    # pytest -q` under `gates` and then proposed the identical command as a
+    # binding, in the same breath. `declared` is what `.wringer.yaml` has, which
+    # the reply cannot see for itself.
+    proposed, notes = parse_bindings(
+        drafted.get("gate_bindings"),
+        drafted_spec.criteria,
+        "the drafted gates",
+        (*drafted_spec.gates, *declared),
     )
-    return Draft(spec=drafted_spec, gates=proposed)
+    return Draft(spec=drafted_spec, gates=proposed, notes=notes)
 
 
-def parse_bindings(raw: Any, criteria: Any, where: str) -> tuple[config.Gate, ...]:
-    """The proposed gates, or a refusal — checked against the criteria beside
-    them before a byte of either document is written.
+def same_command(one: str, other: str) -> bool:
+    """Two `run:` strings that would execute the same thing.
+
+    Whitespace only. Nothing cleverer is attempted and nothing should be:
+    `pytest -q` and `python -m pytest -q` run the same suite and this says
+    they differ, which is the safe direction — a false NO here costs a
+    criterion its binding, a false YES would let a check that cannot
+    discriminate stand as proof.
+    """
+    return " ".join(one.split()) == " ".join(other.split())
+
+
+def parse_bindings(
+    raw: Any,
+    criteria: Any,
+    where: str,
+    declared: Any = (),
+) -> tuple[tuple[config.Gate, ...], tuple[str, ...]]:
+    """The proposed gates and the ones refused, checked against the criteria
+    beside them before a byte of either document is written.
 
     Every entry goes through `config.parse_gate` with `allow_proves=True`:
     the SAME parser `.wringer.yaml` will face, so Wringer can never propose a
@@ -768,13 +881,23 @@ def parse_bindings(raw: Any, criteria: Any, where: str) -> tuple[config.Gate, ..
     had since P2, extended to the channel that carries bindings.
 
     The join is then `config.check_bindings`, the shipped rules, not a copy.
+
+    **`declared` is every gate that already runs**, and a binding repeating one
+    of them is refused. Measured on 2026-08-17: for the criterion "no
+    regression on the report page" the drafter proposed `run: pytest -q` — byte
+    for byte the repository's own `test` gate, green before, during and after
+    the work. The criterion came back `unevidenced` and the handover was held.
+    The request's own rules already said not to (*"A binding that already
+    passes is worth nothing"*) and the model did it anyway; prompts are not
+    guards.
     """
     if raw is None:
-        return ()
+        return (), ()
     if not isinstance(raw, list):
         raise SpecError(f"{where}: 'gate_bindings' must be a list")
 
     gates: list[config.Gate] = []
+    notes: list[str] = []
     for index, entry in enumerate(raw):
         try:
             gate = config.parse_gate(entry, index, where, allow_proves=True)
@@ -789,30 +912,68 @@ def parse_bindings(raw: Any, criteria: Any, where: str) -> tuple[config.Gate, ..
             )
         gates.append(gate)
 
+    # **The criteria join runs on EVERY parsed binding, before any is
+    # dropped**, and the order was wrong the first time this was written: a
+    # binding that is both a duplicate and invalid — bound to a `human:`
+    # criterion, bound to a criterion nobody declared, the second gate for one
+    # criterion — was being dropped as a duplicate and never reaching the
+    # refusal that matters. Three existing tests caught it. A duplicate is a
+    # QUALITY objection; these are VALIDITY, and validity comes first.
     try:
         config.check_bindings(gates, {c.id: c for c in criteria}, where)
     except config.ConfigError as exc:
         raise SpecError(str(exc)) from exc
-    return tuple(gates)
+
+    kept: list[config.Gate] = []
+    for gate in gates:
+        twin = next(
+            (other for other in declared if same_command(other.run, gate.run)),
+            None,
+        )
+        if twin is None:
+            kept.append(gate)
+            continue
+        notes.append(
+            f"{where}: '{gate.id}' runs `{gate.run}`, which is already what "
+            f"'{twin.id}' runs. A check that already runs cannot be the thing "
+            f"that proves '{gate.proves}' — it passes today, so it cannot be "
+            "made to fail by the work. The binding was dropped and the "
+            "criterion is left unbound"
+        )
+    return tuple(kept), tuple(notes)
 
 
-def parse_gatespec(data: Any, where: str, criteria: Any) -> tuple[config.Gate, ...]:
-    """Read `wringer.gates.yaml` — hand-written or drafted, same parser."""
+def parse_gatespec(
+    data: Any, where: str, criteria: Any, declared: Any = ()
+) -> tuple[config.Gate, ...]:
+    """Read `wringer.gates.yaml` — hand-written or drafted, same parser.
+
+    **A duplicate here RAISES rather than being dropped with a note**, and the
+    asymmetry with the drafted path is deliberate. A drafted reply is one
+    model's proposal and dropping one unusable entry saves the rest; a sidecar
+    is a file somebody wrote on purpose, and silently ignoring a line they
+    typed is worse for them than refusing it to their face.
+    """
     if not isinstance(data, dict):
         raise SpecError(f"{where}: top level must be a mapping")
     unknown = sorted(set(data) - _GATESPEC_KEYS)
     if unknown:
         raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
-    declared = data.get("schema_version")
-    if declared != GATESPEC_SCHEMA_VERSION:
+    version = data.get("schema_version")
+    if version != GATESPEC_SCHEMA_VERSION:
         raise SpecError(
             f"{where}: 'schema_version: {GATESPEC_SCHEMA_VERSION}' is "
-            f"required (got {declared!r})"
+            f"required (got {version!r})"
         )
-    return parse_bindings(data.get("gates"), criteria, where)
+    gates, notes = parse_bindings(data.get("gates"), criteria, where, declared)
+    if notes:
+        raise SpecError(notes[0])
+    return gates
 
 
-def load_gatespec(root: Path, criteria: Any) -> tuple[config.Gate, ...]:
+def load_gatespec(
+    root: Path, criteria: Any, declared: Any = ()
+) -> tuple[config.Gate, ...]:
     """The sidecar's proposals, or none because there is no sidecar.
 
     Absent is not an error: the file is optional everywhere, and a repo that
@@ -825,7 +986,7 @@ def load_gatespec(root: Path, criteria: Any) -> tuple[config.Gate, ...]:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError, UnicodeDecodeError) as exc:
         raise SpecError(f"{GATESPEC_FILENAME} is not valid YAML: {exc}") from exc
-    return parse_gatespec(data, GATESPEC_FILENAME, criteria)
+    return parse_gatespec(data, GATESPEC_FILENAME, criteria, declared)
 
 
 def render_gatespec(gates: Any) -> str:

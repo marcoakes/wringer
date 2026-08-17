@@ -104,8 +104,17 @@ judge:
   rubric: rubric.yaml
   api_key_env: OPENAI_API_KEY   # optional — the NAME of a variable, never a key
   timeout: 120                  # optional, default 120, integer >= 1
-  max_output_tokens: 1024       # optional, default 1024, integer >= 1
+  max_output_tokens: 8000       # optional, default 8000, integer >= 1
 ```
+
+> **AMENDED 2026-08-19.** This default was `1024` when the spec was written
+> and is `8000` now. The change is recorded here rather than in a note beside
+> a stale number because a spec is a contract for what is built, not a
+> capture of a run: a reader has to be able to take its config block
+> literally. The reason is that `wring spec` reuses this section, and a real
+> PRD's draft does not fit in 1024 tokens — the whole reply is then refused
+> and nothing is written. `wring judge`'s own replies are small and are
+> unaffected. Nothing else in this section moved.
 
 **Rules (binding):**
 

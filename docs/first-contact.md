@@ -202,6 +202,12 @@ The drafting reply was **2049 output tokens**. Wringer's own
 the default this reply would have been truncated, and the truncation would
 have been recorded as a drafter failure.
 
+> **CORRECTED 2026-08-19.** That default is now **8000**. The paragraph above
+> is left as it was written because it is a measurement of a run, and the
+> measurement is why the default moved: this reply is one of the two that
+> proved 1024 could not hold a real draft. A reader taking `1024` as today's
+> behaviour would be reading a fact about 2026-08-11.
+
 ### The shim, and what it did
 
 `judge.send` speaks Bearer-auth chat-completions and reads

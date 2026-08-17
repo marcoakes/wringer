@@ -205,7 +205,19 @@ _JUDGE_KEYS = {
 # have no defaults and never will: Wringer contacts the endpoint you wrote
 # down, never one it guessed.
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 120
-DEFAULT_MAX_OUTPUT_TOKENS = 1024
+# **8000 since 2026-08-19, and 1024 was not a small default but a broken one.**
+# `wring spec` sends a whole PRD and asks for a whole specification back;
+# measured twice against a live endpoint, a real PRD's draft does not fit in
+# 1024 tokens. A truncated reply is not a shorter spec — `parse_response`
+# refuses the incomplete JSON and writes nothing at all, so the surface's first
+# step failed for anybody who had not already found this knob and turned it up.
+# `wringer-drive`'s generated config has declared 8000 since the day it was
+# written, for exactly this reason; this makes the engine agree with it.
+#
+# Shared with `wring judge`, deliberately: one ceiling, not a per-caller
+# thicket. It bounds a reply's LENGTH and nothing about a verdict's content,
+# and no test pinned the old number as a fact about the world.
+DEFAULT_MAX_OUTPUT_TOKENS = 8000
 
 # Hosts a cleartext endpoint may name. Anywhere else must be https, because
 # a rubric and a diff are not things to put on the wire in the clear.

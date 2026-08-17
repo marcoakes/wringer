@@ -3102,3 +3102,76 @@ def test_a_document_naming_the_released_version_names_the_newest_tag(document):
         + "\n\nA released version is derivable; a document claiming a "
         "different one is stale, not cautious."
     )
+
+
+# --- a default is a fact, and a document that states a stale one lies -------
+
+
+def every_markdown() -> list[Path]:
+    """Every document in the repository, wherever it lives."""
+    root = repo_root()
+    return sorted(
+        path
+        for path in list(root.glob("*.md")) + list((root / "docs").glob("*.md"))
+        if path.is_file()
+    )
+
+
+_CLAIMS_A_DEFAULT = re.compile(
+    r"max_output_tokens[^.\n]{0,80}?default[^.\n]{0,30}?(\d{3,6})"
+    r"|default[^.\n]{0,40}?max_output_tokens[^.\n]{0,40}?(\d{3,6})"
+    r"|max_output_tokens[^.\n]{0,40}?defaults? to[^.\n]{0,30}?\*{0,2}(\d{3,6})",
+)
+
+
+def test_no_document_states_a_max_output_tokens_default_that_is_no_longer_true():
+    """**Derived from the constant, not from a list kept beside it.**
+
+    `judge.max_output_tokens` was raised from 1024 to 8000 on 2026-08-19
+    because 1024 truncates the draft for any real PRD — `wring spec` then
+    refuses the whole reply and writes nothing. Four documents stated the old
+    number as current, and two of them were captures whose whole value is that
+    they are not edited.
+
+    So the rule is not "never say 1024". It is: a document may state an old
+    default only if it also names the one in force, which is what a dated
+    correction beside the original does. That keeps a capture readable as
+    evidence and stops a reader taking its number as current.
+    """
+    from wringer import config
+
+    current = str(config.DEFAULT_MAX_OUTPUT_TOKENS)
+    stale: list[str] = []
+    for path in every_markdown():
+        text = path.read_text(encoding="utf-8")
+        claimed = {
+            number
+            for match in _CLAIMS_A_DEFAULT.finditer(text)
+            for number in match.groups()
+            if number
+        }
+        if claimed - {current} and current not in text:
+            stale.append(
+                f"{path.name} states default(s) {sorted(claimed)} and never "
+                f"names the one in force ({current})"
+            )
+    assert not stale, "\n".join(stale)
+
+
+def test_the_default_guard_would_notice_a_number_that_went_stale():
+    """The guard on the guard. A pattern that matches nothing is worse than no
+    pattern, and two guards written on 2026-08-18 were green while matching
+    nothing — found by mutation, not by reading."""
+    for sentence in (
+        "`judge.max_output_tokens` still defaults to **1024**, which truncates",
+        "max_output_tokens: 1024       # optional, default 1024, integer >= 1",
+        "The `max_output_tokens` default is 1024. The run set it to 16000",
+    ):
+        assert _CLAIMS_A_DEFAULT.search(sentence), sentence
+        found = {
+            number
+            for match in _CLAIMS_A_DEFAULT.finditer(sentence)
+            for number in match.groups()
+            if number
+        }
+        assert "1024" in found, (sentence, found)

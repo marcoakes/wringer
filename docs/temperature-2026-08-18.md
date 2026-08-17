@@ -142,3 +142,9 @@ generated config does, which is why they drafted at all. That default is a
 shared constant the judge uses too, and one risky engine edit per window is
 the rule; the refusal message already names the fix. It is deferred, and it
 is the next thing a PM will hit.
+
+> **DONE 2026-08-19, the next window.** The default is now **8000** — the
+> value both scratch repositories above declared, which is why this paragraph
+> could name it before it existed. The paragraph is kept as written: it is the
+> record of a thing being deferred on purpose, and the deferral is the reason
+> the fix has this shape rather than a new configuration knob.

@@ -1006,3 +1006,179 @@ def test_offline_the_next_steps_name_the_hand_written_sidecar(
     out = flat(capsys.readouterr().out)
     assert spec.GATESPEC_FILENAME in out
     assert "by hand" in out
+
+
+# --- the drafter may not propose a check that cannot discriminate -----------
+#
+# **The reply below is not written here.** It is the one `claude-sonnet-4-6`
+# really returned on 2026-08-17, kept byte for byte at
+# `tests/replies/2026-08-17-pm-mode-drafter-reply.json`, and it is the reason
+# this rule exists: for the criterion "no regression on the report page" it
+# proposed `run: pytest -q` — byte for byte the repository's existing `test`
+# gate. That gate was green before, during and after. No agent, however good,
+# could have made it red, so the criterion came back `unevidenced` and the
+# handover was refused. The request already forbids this in prose ("**A
+# binding that already passes is worth nothing**") and the model did it
+# anyway, which is the whole lesson: prompts are not guards.
+
+REAL_REPLY = Path(__file__).parent / "replies" / "2026-08-17-pm-mode-drafter-reply.json"
+
+
+def real_reply() -> dict:
+    return json.loads(REAL_REPLY.read_text(encoding="utf-8"))
+
+
+def test_the_captured_reply_is_the_one_that_shipped_the_defect():
+    """The fixture is evidence, so its content is asserted rather than assumed.
+
+    A fixture that quietly stopped containing the duplicate would leave the
+    test below green while checking nothing — the guard-that-cannot-fail this
+    programme keeps finding.
+    """
+    drafted = json.loads(real_reply()["choices"][0]["message"]["content"])
+    binding = drafted["gate_bindings"][0]
+    declared = drafted["gates"][0]
+    assert binding["run"] == declared["run"] == "pytest -q"
+    assert binding["id"] != declared["id"]
+
+
+def test_a_binding_that_repeats_a_gate_in_the_same_reply_is_refused():
+    """Half of the rule: the reply's own `gates:` block."""
+    drafted = spec.parse_response(real_reply(), PRD)
+
+    assert drafted.gates == (), (
+        "the binding duplicating `test` was accepted; a check that already "
+        "runs cannot be the thing that proves a new criterion"
+    )
+    assert drafted.notes, "the binding was dropped without saying why"
+    said = " ".join(drafted.notes)
+    assert "bind-no-regression" in said and "test" in said
+    assert "pytest -q" in said
+
+
+def test_a_binding_that_repeats_a_gate_the_REPO_declares_is_refused():
+    """The other half: `.wringer.yaml`, which the reply cannot see itself."""
+    from wringer import config
+
+    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload["gates"] = []                       # nothing to clash with in-reply
+    declared = (config.Gate(id="suite", run="pytest  -q"),)   # whitespace differs
+
+    drafted = spec.parse_response(reply(payload), PRD, declared=declared)
+
+    assert drafted.gates == ()
+    said = " ".join(drafted.notes)
+    assert "suite" in said and "bind-no-regression" in said
+
+
+def test_a_binding_with_a_command_of_its_own_is_kept():
+    """The rule refuses duplicates and nothing else.
+
+    Watched in the other direction on purpose: a check that refused every
+    binding would pass all three assertions above while destroying the only
+    channel a criterion has.
+    """
+    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload["gate_bindings"][0]["run"] = "pytest -q acceptance/test_regression.py"
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert [g.id for g in drafted.gates] == ["bind-no-regression"]
+    assert drafted.notes == ()
+
+
+def test_a_HAND_WRITTEN_sidecar_duplicating_a_gate_is_an_ERROR_not_a_note():
+    """A person who wrote it deserves the error, not a silent drop.
+
+    The drafted path drops the binding and says so, because the alternative is
+    throwing away a whole spec over one bad entry. A sidecar is somebody's
+    deliberate file, and quietly ignoring a line they wrote is worse than
+    refusing it.
+    """
+    from wringer import config
+
+    sidecar = {
+        "schema_version": spec.GATESPEC_SCHEMA_VERSION,
+        "gates": [{"id": "bind-x", "run": "pytest -q", "proves": "c1"}],
+    }
+    criteria = (spec.Criterion(id="c1", title="t", guidance="g", required=True),)
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_gatespec(
+            sidecar, spec.GATESPEC_FILENAME, criteria,
+            declared=(config.Gate(id="test", run="pytest -q"),),
+        )
+    assert "bind-x" in str(caught.value) and "test" in str(caught.value)
+
+
+# --- the drafter cannot name a file it has never been shown ------------------
+#
+# **Measured on 2026-08-19, driving a real PRD through `wringer-drive`.** The
+# request tells the drafter (rule 6) that *"every file it names must already be
+# in the repository"* and gives it no way to know what is in the repository. On
+# that run `claude-opus-5` complied honestly and proposed ZERO bindings, saying
+# so in an open question of its own: *"Which existing modules, classes and test
+# files implement pipeline execution and the summary, so acceptance checks can
+# be bound to checks that already exist in the repository?"* Every one of the
+# nine machine criteria came back `unbound`, the loop ran no worker turns, and
+# nothing was proved.
+#
+# The rule was not the problem. The rule was unsatisfiable.
+
+
+def test_the_request_shows_the_drafter_what_the_repository_contains():
+    request = spec.render_request(
+        PRD, "m", 8000,
+        files=("src/report.py", "tests/test_report.py",
+               "acceptance/test_export.py"),
+    )
+    user = request["messages"][1]["content"]
+    assert "acceptance/test_export.py" in user
+    assert "src/report.py" in user
+
+
+def test_with_no_listing_the_request_claims_no_knowledge_of_the_tree():
+    """Absence is absence. An empty heading would tell the drafter the
+    repository contains nothing, which is a much stronger claim than silence
+    and would make rule 6 refuse every binding there is."""
+    user = spec.render_request(PRD, "m", 8000)["messages"][1]["content"]
+    assert "repository contains" not in user.lower()
+
+
+def test_the_listing_is_capped_and_says_when_it_was_cut():
+    """A cap that truncates silently is a listing that lies by omission: the
+    drafter would read it as exhaustive and rule 6 would forbid the file it
+    needed."""
+    many = tuple(f"src/module_{n:04d}.py" for n in range(spec.MAX_LISTED_FILES * 2))
+    user = spec.render_request(PRD, "m", 8000, files=many)["messages"][1]["content"]
+    assert user.count("src/module_") == spec.MAX_LISTED_FILES
+    assert "not the whole" in user.lower() or "truncat" in user.lower()
+
+
+def test_the_listing_is_the_repositorys_own_tracked_files(tmp_path):
+    """Read from git, never from a walk that would offer the drafter a path
+    inside `.venv` or `node_modules` — a binding naming one of those would be
+    a check nobody else can run."""
+    import subprocess
+
+    repo = tmp_path / "r"
+    (repo / "src").mkdir(parents=True)
+    (repo / "src" / "app.py").write_text("x = 1\n", encoding="utf-8")
+    (repo / "untracked.py").write_text("y = 2\n", encoding="utf-8")
+    for argv in (["init", "-q"], ["add", "src/app.py"],
+                 ["-c", "user.name=t", "-c", "user.email=t@e", "commit", "-qm", "c"]):
+        subprocess.run(["git", *argv], cwd=repo, check=True,
+                       capture_output=True, text=True)
+
+    listed = spec.repository_files(repo)
+
+    assert "src/app.py" in listed
+    assert "untracked.py" not in listed
+
+
+def test_a_repository_git_cannot_read_lists_nothing_rather_than_guessing(tmp_path):
+    """The failure path, because a guard that explodes where its fact is
+    missing teaches people to delete it. No git, no listing, no crash — and
+    the drafter is back to proposing nothing, which is the honest old
+    behaviour rather than a new one."""
+    assert spec.repository_files(tmp_path) == ()
