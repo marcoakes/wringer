@@ -149,6 +149,8 @@ shipped, and running it found three defects that reading it had not.
 > refusal records.
 > `0.3.0` registers seventeen commands.
 > HEAD registers nineteen commands.
+> The two it does not have are `bench` and `health`, derived from the tag
+> by `tests/test_docs.py` rather than kept by hand.
 > **Installing from PyPI today gets a build that cannot
 > do several things this README describes** — install from source to get HEAD
 > (see [INSTALL.md](INSTALL.md)). The gap closes when a release is cut; until

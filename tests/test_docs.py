@@ -2664,3 +2664,208 @@ def _registered_commands() -> list[str]:
         if getattr(action, "choices", None) and hasattr(action.choices, "keys"):
             return list(action.choices)
     raise AssertionError("no subparsers found on the real parser")
+
+
+def test_a_document_that_names_two_command_counts_explains_the_gap():
+    """**The drift a reader meets, which per-line truth does not prevent.**
+
+    `test_a_count_tied_to_a_release_says_which_release` checks each count
+    against its own referent, so QUICKSTART.md could say "0.3.0, all seventeen
+    commands" near the top and "## The nineteen commands" further down with
+    both lines TRUE and the page still misleading: somebody who follows the
+    install line and then reads the table finds two of them missing.
+
+    So a document carrying counts for BOTH the released package and this tree
+    must say so. Derived: the two numbers come from the tag and the parser, and
+    the required explanation is keyed on the words, not on a hard-coded pair.
+    """
+    import re
+
+    for name in ("README.md", "QUICKSTART.md", "AGENTS.md"):
+        path = repo_root() / name
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        counts = set()
+        for line in text.splitlines():
+            match = re.search(r"\b([A-Za-z]+) commands\b", line)
+            if not match:
+                continue
+            claimed = NUMBER_WORDS.get(match.group(1).lower())
+            if claimed is not None:
+                counts.add(claimed)
+        if len(counts) < 2:
+            continue
+        assert registered_command_count() in counts, (
+            f"{name} carries several command counts and none is this tree's"
+        )
+        # **DERIVED: it must NAME at least one command the release lacks.**
+        #
+        # The first version of this looked for a phrase ("behind this
+        # repository", "in the released") and a mutation walked straight
+        # through it, because one of the alternatives still appeared in a
+        # heading that said nothing useful. A guard keyed on prose is a guard
+        # keyed on whatever the prose happens to contain.
+        #
+        # The difference between the two counts IS a set of command names, and
+        # a document that has not named one of them has not told the reader
+        # what they will be missing.
+        missing = _commands_added_since_the_release()
+        if not missing:
+            continue
+        flat = " ".join(text.split())
+        named = [c for c in missing if f"`{c}`" in flat]
+        assert named, (
+            f"{name} states {sorted(counts)} commands in one document and "
+            f"never names which ones the released package lacks: "
+            f"{sorted(missing)}. A reader who installs the release and then "
+            f"reads the larger table finds commands missing and no "
+            f"explanation. Name at least one, in backticks, where the install "
+            f"line is."
+        )
+
+
+def _commands_added_since_the_release() -> set[str]:
+    """Commands this tree registers that the newest released tag did not.
+
+    Read from `cli.py` at the tag with `ast`, so it is the parser's own
+    structure rather than a hand-kept list or a grep over prose.
+    """
+    import ast
+    import subprocess
+
+    def names(source: str) -> set[str]:
+        found = set()
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_parser"
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+            ):
+                found.add(node.args[0].value)
+        return found
+
+    tags = subprocess.run(
+        ["git", "tag", "--list", "v*", "--sort=-v:refname"],
+        capture_output=True, text=True, cwd=repo_root(),
+    ).stdout.split()
+    if not tags:
+        return set()
+    released = subprocess.run(
+        ["git", "show", f"{tags[0]}:src/wringer/cli.py"],
+        capture_output=True, text=True, cwd=repo_root(),
+    )
+    if released.returncode != 0:
+        return set()
+    current = (repo_root() / "src" / "wringer" / "cli.py").read_text(encoding="utf-8")
+    return names(current) - names(released.stdout)
+
+
+def test_every_python_version_the_package_CLAIMS_can_parse_this_package():
+    """**A classifier is a published claim, and this one was false.**
+
+    `pyproject.toml` declares `Programming Language :: Python :: 3.11` and
+    `requires-python = ">=3.11"`, the README badge says 3.11+, and the CI
+    matrix tests it. And on 2026-08-17 `tests/test_witness_loop.py` held a
+    backslash inside an f-string expression — legal from 3.12 (PEP 701), a
+    **SyntaxError** on 3.11 — so the suite could not even be COLLECTED there.
+    CI had been red on that job, and `scripts/ci-repro.sh` never saw it because
+    it runs on whatever Python this machine has.
+
+    **This guard compiles with a REAL 3.11 interpreter, and the first version
+    of it did not.** That version used `ast.parse(..., feature_version=(3, 11))`,
+    which looks exactly right and does not work: `feature_version` gates a
+    short list of grammar changes and PEP 701's f-string handling is in the
+    TOKENIZER, so it accepted the defect happily. It was caught by watching it
+    fail on the genuine pre-fix line and seeing it pass — a guard that claimed
+    coverage it did not have, which is the defect class one level up.
+
+    If no such interpreter can be found the test SKIPS WITH A NAMED REASON
+    rather than passing, because a guard that goes quiet is how the last
+    several stale claims here survived.
+    """
+    import re
+    import shutil
+    import subprocess
+    import sys
+
+    text = (repo_root() / "pyproject.toml").read_text(encoding="utf-8")
+    claimed = sorted(
+        tuple(int(part) for part in version.split("."))
+        for version in re.findall(
+            r"Programming Language :: Python :: (\d+\.\d+)", text
+        )
+    )
+    assert claimed, "the package claims no specific Python version at all"
+    oldest = f"{claimed[0][0]}.{claimed[0][1]}"
+
+    if tuple(sys.version_info[:2]) == claimed[0]:
+        interpreter = sys.executable          # we ARE the oldest claim
+    else:
+        interpreter = shutil.which(f"python{oldest}")
+    if interpreter is None and shutil.which("uv"):
+        found = subprocess.run(
+            ["uv", "python", "find", oldest], capture_output=True, text=True
+        )
+        if found.returncode == 0 and found.stdout.strip():
+            interpreter = found.stdout.strip()
+    if interpreter is None:
+        pytest.skip(
+            f"no Python {oldest} interpreter on this machine, and this package "
+            f"CLAIMS {oldest} in its classifiers. The claim is therefore "
+            f"unchecked here — install it (`uv python install {oldest}`) or "
+            f"read the CI matrix, which does test it"
+        )
+
+    files = []
+    for path in sorted(repo_root().glob("**/*.py")):
+        rel = path.relative_to(repo_root()).as_posix()
+        if rel.startswith((".venv/", "build/", "dist/")):
+            continue
+        if subprocess.run(
+            ["git", "check-ignore", "-q", rel], cwd=repo_root()
+        ).returncode == 0:
+            continue
+        files.append(rel)
+    assert files, "no python files found to check"
+
+    # **`compile()` on the source, not `py_compile`.** The first attempt used
+    # `py_compile.compile(..., cfile='/dev/null')`, which raises
+    # `FileExistsError` — *"/dev/null is a non-regular file"* — before it ever
+    # looks at the syntax. That is not a `PyCompileError`, so the helper script
+    # died, produced no stdout, and this guard read the empty output as "no
+    # offenders" and went GREEN over the real defect. A guard that crashes and
+    # reads as passing is worse than no guard, and only the watch found it.
+    #
+    # It reports every file rather than stopping at the first, so one run names
+    # them all, and it prints nothing on success so an empty stdout genuinely
+    # means clean.
+    result = subprocess.run(
+        [interpreter, "-c",
+         "import sys\n"
+         "bad = []\n"
+         "for name in sys.argv[1:]:\n"
+         "    with open(name, encoding='utf-8') as handle:\n"
+         "        source = handle.read()\n"
+         "    try:\n"
+         "        compile(source, name, 'exec')\n"
+         "    except SyntaxError as exc:\n"
+         "        bad.append('%s:%s: %s' % (name, exc.lineno, exc.msg))\n"
+         "sys.stdout.write('\\n'.join(bad))\n",
+         *files],
+        capture_output=True, text=True, cwd=repo_root(),
+    )
+    # A helper that DIED is not a clean run, and must never read as one.
+    assert result.returncode == 0, (
+        f"the {oldest} syntax check itself failed to run, so this guard "
+        f"proved nothing:\n{result.stderr.strip()[:800]}"
+    )
+    offenders = [line for line in result.stdout.splitlines() if line.strip()]
+    assert not offenders, (
+        f"pyproject.toml claims Python {oldest} and these do not compile on "
+        f"it:\n  " + "\n  ".join(offenders)
+        + "\n\nA classifier is a published claim. Either fix the syntax or "
+        "stop claiming the version."
+    )

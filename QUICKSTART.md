@@ -22,6 +22,14 @@ That is **0.3.0**, all seventeen commands, and its only runtime dependency is
 PyYAML. `pipx` puts `wring` on your PATH globally and keeps it out of your
 system Python; `pip install wringer` into a venv works identically.
 
+> **`0.3.0` is behind this repository, and this page describes the
+> repository.** Two commands below — `bench` and `health` — do not exist in
+> the released package, so a reader who installs `0.3.0` and then reads
+> "the nineteen commands" further down would find seventeen. That gap is
+> dated and named at the README's install path; to follow this page exactly,
+> install from source instead ([INSTALL.md](INSTALL.md)). The gap closes when
+> a release is cut.
+
 Verify it:
 
 ```bash
@@ -96,6 +104,10 @@ a repository, records where it came from, and **stops** — a stranger's
 the one thing a guided launch must not do.
 
 ## The nineteen commands
+
+**Nineteen in this repository; seventeen in the released `0.3.0`** — `bench`
+and `health` came after it, and the note at the top of this page says so where
+a reader meets the install line rather than here, where it would be too late.
 
 This page walks five of them in order. The rest exist and are documented
 where they are used; nothing here is a preview.

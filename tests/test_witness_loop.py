@@ -473,8 +473,15 @@ def test_a_worker_that_tampers_with_the_witness_MID_LOOP_voids_by_name(
     delivery: **no run at all**, exit 3, naming the witness and both digests.
     """
     store = witness.store_dir(repo)
+    # The replacement body, built OUTSIDE the f-string. A backslash inside an
+    # f-string expression is legal from 3.12 (PEP 701) and a SyntaxError on
+    # 3.11 — which this project's `requires-python`, its badge and its CI
+    # matrix all still claim to support. The file could not even be COLLECTED
+    # there, so the whole suite was red on 3.11 and the local `ci-repro.sh`
+    # never saw it because it runs on this machine's 3.12.
+    body = json.dumps("def test_total_adds_up():\n    assert True\n")
     tamper = (
-        f"printf '%b' {json.dumps('def test_total_adds_up():\\n    assert True\\n')} "
+        f"printf '%b' {body} "
         f"> {store / 'test_witness_totals.py'}"
     )
     write_repo(repo, worker=tamper, max_iterations=3)
