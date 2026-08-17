@@ -745,6 +745,38 @@ blocked", which was true of a local clone and false of the repository. An
 understatement is a stale claim exactly as much as an overstatement is, and it
 cost this programme a cold-read it could have had three days earlier.
 
+## Sequence K — `action.yml`, and the CI logs nobody here can read
+
+**Added 2026-08-17, when the `uses: ./` job H-7 asked for went red and stayed
+red through two real fixes.**
+
+This repository's GitHub Actions logs are **403 unauthenticated**, and there is
+no `gh` on the maintainer's machine. So when the action fails, the only way to
+see what it did is `scripts/replay-action.sh`, which runs `action.yml`'s steps
+in order against a clean clone and models the workflow job's own setup first.
+
+| what | state |
+|---|---|
+| the action had ever been executed by anything before 2026-08-17 | **no** |
+| `uses: ./` job added | yes, `44a61f2` |
+| its first run | **RED** |
+| defect 1: installed PyPI 0.3.0, then invoked `wring health`, which 0.3.0 does not have | **FIXED** — `@main` installs `@main` via `$GITHUB_ACTION_PATH` (`63de64e`) |
+| defect 2: `wring verify` needs the TARGET repo's gate tools on PATH, which the action does not install | **FIXED in the job, STATED in the action** (`3f57377`) |
+| the whole chain replayed locally, with the job's steps modelled | **PASSES** — lint ✓, test ✓, health ✓, exit 0 |
+| the CI job at `63de64e` | **STILL RED, cause unknown** |
+| the `experimental` label in `action.yml`'s description | **STAYS**, per H-7, until the job is green |
+
+**What is NOT known, said plainly:** why the job is still red when the same
+steps pass locally. The difference is somewhere in the parts the replay does
+not cover — the two `actions/cache` steps, `$GITHUB_OUTPUT` plumbing between
+the composite steps, or the summary renderer — and diagnosing it needs the log,
+which needs auth this machine does not have.
+
+**What would change this row:** somebody with repository access opening the
+`action` job's log for the newest run, or `gh` existing here. Do not guess at a
+third fix from the outside; two were found by replaying and the third should be
+too.
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.
