@@ -242,7 +242,7 @@ nodes:
     routes:
       - when: "state.build-status in ['converged', 'max_iterations', \
 'no_progress', 'oscillating', 'budget_exhausted', 'flaky_gate', \
-'authority_moved', 'interrupted']"
+'authority_moved', 'environment', 'interrupted']"
         to: done
     default: fail
 """

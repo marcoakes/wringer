@@ -1150,30 +1150,31 @@ def _diagnose_failure(outcome: verify.Outcome) -> None:
     `command not found`; a gate of `python3 -m pytest` with no pytest is exit
     1 and `No module named pytest` — same cause, same fix, entirely different
     text. Both are named here.
+
+    **This function no longer knows how to recognise a face.** It asks
+    `diagnose.face_of`, which is the ONE detector in the codebase, and the
+    loop asks the same one. Until 2026-08-17 the knowledge lived here behind
+    exactly one door — `wring start` — and the loop, which needed it most,
+    re-guessed for itself. SPEC_ENV's F6 amendment is what closed that, and
+    `test_env.py` reddens if a second detector reappears.
     """
+    from wringer import diagnose as diagnose_mod
+
     failure = next(
         (r for r in outcome.results if r.gate.id == outcome.failed_gate), None
     )
     if failure is None:
         return
-    stderr = ""
-    try:
-        stderr = failure.stderr_path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        pass
-
-    if failure.exit_code == 127 or "command not found" in stderr:
-        missing = "ran a command that is not on PATH"
-    elif "No module named" in stderr:
-        missing = "needs a package that is not installed in the environment"
-    else:
+    face = diagnose_mod.face_of(failure)
+    if face is None:
         return
 
     print(
-        f"\n! `{failure.gate.id}` {missing}. That is Wringer working "
-        f"correctly:\n  it ran what {config.CONFIG_FILENAME} declares. Install "
-        "this project's own\n  dependencies into the environment you run wring "
-        f"from, or edit\n  {config.CONFIG_FILENAME}."
+        f"\n! `{failure.gate.id}` {diagnose_mod.DESCRIPTIONS[face]}. That is "
+        f"Wringer working correctly:\n  it ran what {config.CONFIG_FILENAME} "
+        "declares. Install this project's own\n  dependencies into the "
+        f"environment you run wring from, or edit\n  "
+        f"{config.CONFIG_FILENAME}."
     )
 
 
@@ -1841,8 +1842,56 @@ _LOOP_ENDINGS = {
     staleness.AUTHORITY_MOVED: "Stopped after {n} iteration{s} — the spec, the "
     "rubric or the gate config moved after the loop was briefed. The work that "
     "landed is untouched; nothing was reverted.",
+    loop.ENVIRONMENT: "Stopped after {n} iteration{s} — the first gate could "
+    "not run at all, so no worker was briefed.",
     "interrupted": "Interrupted after {n} iteration{s}.",
 }
+
+
+def _report_diagnosis(outcome: loop.Outcome, root: Path) -> None:
+    """The remedy, on any ending that carries a diagnosis — SPEC_ENV.
+
+    **Labelled a guess, and it names commands rather than running any.** The
+    harness running `run.prove_setup` is a binding non-goal: a worker or a
+    harness mutating the environment mid-loop turns gates green for a reason no
+    record carries. So this quotes it verbatim as the command a HUMAN may run.
+
+    Printed on `environment` (where it is the whole story) and on any other
+    ending whose final failure wore a face (where it is the difference between
+    "went in circles" and "was sent against a wall"). That second case is F6's
+    flagship: a fresh repo whose gate is `python3 -m pytest -q` still briefs a
+    worker once and still ends `no_progress` — ruling 5 priced a false stop
+    above a false continue — and what changes is that the record says why.
+    """
+    found = outcome.diagnosis
+    if found is None:
+        return
+    print(
+        "! "
+        + textwrap.fill(
+            f"`{found.gate}` {found.description}. That is a GUESS, read from "
+            f"the gate's own output: {found.evidence!r}",
+            width=76,
+            subsequent_indent="  ",
+        )
+    )
+    remedies = ["wring doctor"]
+    try:
+        cfg = config.load(root)
+    except Exception:
+        cfg = None
+    setup = getattr(getattr(cfg, "run", None), "prove_setup", None)
+    if setup:
+        remedies.append(setup)
+    print(
+        "  "
+        + textwrap.fill(
+            "Nothing in the tree explains it, so no edit fixes it. Commands a "
+            "person may run: " + ", ".join(f"`{c}`" for c in remedies) + ".",
+            width=76,
+            subsequent_indent="  ",
+        )
+    )
 
 
 def _report_loop(outcome: loop.Outcome, root: Path) -> None:
@@ -1886,6 +1935,7 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
                 subsequent_indent="  ",
             )
         )
+    _report_diagnosis(outcome, root)
     print(f"Loop evidence: {_relative(outcome.directory, root)}/")
     if not outcome.converged and outcome.final is not None:
         print(f"Last verification: {verify.bundle_path(outcome.final.bundle, root)}/")

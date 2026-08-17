@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/diagnosis.schema.json",
+  "title": "wringer.diagnosis.v1",
+  "description": "A ROUTING DIAGNOSIS, NEVER A VERDICT. Why a loop's final failing gate may have failed, as a guess read out of its output — and nothing that reads this file may let it reach a verdict: not acceptance's receipts, not vacuity, not health. `health.genuine_failure` keeps discounting exit 127 from the exit code it reads itself, never from this. SPEC_ENV_V0 ruling 1 is the boundary and this sentence is it, verbatim.\n\nA SIBLING file in the loop bundle, beside `manifest.json`, on the `usage.json` and `vacuity.json` precedent. It is not a field on the loop manifest's `result` because that object is `additionalProperties: false` in the published and frozen `wringer.loop.v2` manifest schema — SPEC_ENV's ruling 3 asked for exactly that field and could not have it. Law 7: a new file is always allowed, a field on a frozen shape never is.\n\nABSENT rather than null when the final failure matched no face. A reader that finds this file knows the environment was implicated; a reader that does not find one is not reading a null and wondering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "face", "gate", "evidence"],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.diagnosis.v1"
+    },
+    "face": {
+      "description": "Which shape the failure wore. A CLOSED enum, because a face with no name is a face no reader can route on, and `diagnose.FACES` is the single definition it is derived from. `command_not_found`: the shell could not find the command at all (exit 127, or the text). `missing_module`: an interpreter started and could not import something (`No module named`). `not_executable`: the file was found and could not be run (exit 126, or `Permission denied`).",
+      "enum": ["command_not_found", "missing_module", "not_executable"]
+    },
+    "gate": {
+      "description": "The id of the gate this diagnosis is about — the one the verification stopped on.",
+      "type": "string",
+      "minLength": 1
+    },
+    "evidence": {
+      "description": "The line the guess was read from, extracted by `gates.cite` — the single evidence-line extractor in the codebase, which a vacuity row about the same gate would quote identically. The LAST informative line of stderr then stdout, because the first is a traceback header or a row of `=`: true, and no use. Two records citing one gate differently would be worse than either.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

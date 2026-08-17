@@ -375,52 +375,18 @@ def _compare(
     )
 
 
-def _cite(result: gates.GateResult) -> str:
-    """One line saying why a gate failed, for a row whose meaning rests on it.
-
-    The **last** informative line of stderr, then of stdout. Measured against
-    the shapes that actually turn up rather than reasoned about:
-
-        ModuleNotFoundError: No module named 'yourproject'   <- last of stderr
-        cat: vendor/lib.py: No such file or directory        <- the only line
-        FAILED (failures=1)                                  <- last of stderr
-        sh: yourtool: command not found                      <- the only line
-
-    Taking the FIRST line instead gets `Traceback (most recent call last):`
-    from a Python failure and a row of `=` from unittest — both true and
-    neither any use, which was the first version of this function.
-
-    "Informative" excludes separator rules: a line of one punctuation
-    character repeated is the thing a test runner prints AROUND the message.
-
-    Deliberately NOT classified into "environment" or "regression". Making
-    the failure visible is the product; guessing at its meaning would be the
-    cleverness this spec exists to refuse.
-    """
-    if result.timed_out:
-        return f"timed out after {result.gate.timeout}s"
-    for path in (result.stderr_path, result.stdout_path):
-        lines = _lines(path)
-        if lines:
-            return lines[-1]
-    return f"exit {result.exit_code}, and it printed nothing"
-
-
-def _lines(path: Path) -> list[str]:
-    """Non-blank, non-separator lines. See `_cite`."""
-    try:
-        text = path.read_text(encoding="utf-8", errors="replace")
-    except OSError:
-        return []
-    kept = []
-    for raw in text.splitlines():
-        line = raw.strip()
-        if not line:
-            continue
-        if len(set(line)) == 1 and not line[0].isalnum():
-            continue  # ==========, ----------, ..........
-        kept.append(line)
-    return kept
+# **HOISTED 2026-08-17 to `gates.cite` (SPEC_ENV_V0, the F6 amendment).** The
+# body moved and the name stayed, so every call site here reads unchanged and
+# the convention now has exactly ONE definition. The environment diagnosis
+# needs the same "why did this gate fail" line, and writing a second extractor
+# beside this one is how two subtly different answers to one question ship —
+# the defect class this cycle exists to close, arrived at from the other side.
+#
+# It stays re-exported rather than being deleted because `_cite` is what this
+# module's own rows are documented in terms of, and a reader following
+# SPEC_VACUITY §4b to this file should land on the thing it names.
+_cite = gates.cite
+_lines = gates.informative_lines
 
 
 def write(bundle_dir: Path, result: Result) -> Path:

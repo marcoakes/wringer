@@ -37,6 +37,7 @@ from wringer import (
     attest,
     config,
     containment,
+    diagnose,
     evidence,
     fleet,
     gates,
@@ -100,6 +101,29 @@ PGID_FILENAME = "worker.pgid"
 # v2 exists for, and the one reason in the table that is about the CHECK rather
 # than about the worker or the budget.
 FLAKY_GATE = "flaky_gate"
+
+# The gate failed for a reason no tree edit can affect, and the shell itself is
+# the witness — SPEC_ENV_V0 (F6). The second reason in the table that is not
+# about the worker, and the only one that ends a loop having briefed NOBODY.
+#
+# **It costs no schema version.** `wringer.loop.v2`'s `reason` is an open
+# string on purpose, and the v2 manifest schema says so in its own description
+# while citing SPEC_ENV by name — a later cycle spending this spec's argument
+# before this spec did. `graph.LOOP_REASONS` is the drift guard.
+ENVIRONMENT = "environment"
+
+# `diagnosis.json` — a SIBLING file, and the `usage.json` reasoning above
+# applies unchanged: `result` is `additionalProperties: false` in the published
+# `wringer.loop.v2` manifest schema, and that schema is frozen, so a
+# `diagnosis` field on it would make every loop bundle written afterwards
+# invalid against the format its own manifest names. SPEC_ENV's ruling 3 asked
+# for exactly that field and could not have it. Law 7: a new file is always
+# allowed; a field on a frozen shape never is.
+#
+# ABSENT rather than null when nothing matched a face, like `usage.json` is
+# absent when the agent reported nothing.
+DIAGNOSIS_FILENAME = "diagnosis.json"
+DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
 
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
@@ -173,6 +197,15 @@ class Outcome:
     # corpus's shape and therefore the shape P4-1 exists for. Generalising the
     # sentence to "the checks" made it true; this is what stops it being vague.
     unconverted: tuple[str, ...] = ()
+    # The environment diagnosis, when the final failure wore a face — the same
+    # object `diagnosis.json` is written from, so the console and the record
+    # cannot disagree about which line they quote.
+    #
+    # **Carried on EVERY ending, not only `environment`.** That is the hint
+    # tier: a loop that ended `no_progress` against a missing module still gets
+    # a legible diagnosis, and F6's flagship case is exactly that one. None
+    # when nothing matched.
+    diagnosis: "diagnose.Diagnosis | None" = None
 
     @property
     def converged(self) -> bool:
@@ -887,6 +920,27 @@ def run(
             flaky_gate = flaky
             break
 
+        # **The environment stop — SPEC_ENV_V0 (F6).** Checked here, after
+        # flaky and before everything else, for the same reason flaky is
+        # checked first: every stop below is a statement about the WORKER, and
+        # this is a statement about the ENVIRONMENT. A worker briefed against a
+        # command that is not on PATH is asked to repair something no tree edit
+        # can affect, and F6 measured what happens next — the loop files
+        # `no_progress` and blames the worker.
+        #
+        # Four legs, all facts, all in `diagnose.stops_the_loop`, and NONE of
+        # them reads the failure's TEXT. `pre_worker` is computed here rather
+        # than there because only the loop knows its own life: `already` counts
+        # iterations inherited from a resumed bundle, and a resumed life
+        # re-observes a tree a worker may have touched.
+        failing = _failing_result(final)
+        pre_worker = already == 0 and iteration == 1 and before_worker is None
+        if failing is not None and diagnose.stops_the_loop(
+            failing, pre_worker=pre_worker
+        ):
+            status, reason = "stopped", ENVIRONMENT
+            break
+
         current = fingerprint(root)
         if before_worker is not None and current == before_worker:
             # An identical tree gives an identical result; verifying it again
@@ -1034,6 +1088,10 @@ def run(
         bundle, state, status, reason, iterations, final_run, flaky_gate
     )
     bundle.write_usage(usage_rows)  # absent when nothing was reported
+    # AFTER the summary and BEFORE the digests, so `write_digests`'s existing
+    # walker covers it without being taught a new filename. Absent — not null —
+    # when the final failure matched no face.
+    found = _write_diagnosis(bundle, final)
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
     return Outcome(
@@ -1050,7 +1108,53 @@ def run(
         unconverted=tuple(
             item.criterion for item in _unconverted(final, witnesses)
         ) if final is not None else (),
+        diagnosis=found,
     )
+
+
+def _failing_result(outcome: verify.Outcome | None) -> gates.GateResult | None:
+    """The `GateResult` for the gate this verification stopped on, or None."""
+    if outcome is None or outcome.failed_gate is None:
+        return None
+    return next(
+        (r for r in outcome.results if r.gate.id == outcome.failed_gate), None
+    )
+
+
+def _write_diagnosis(
+    bundle: Bundle, final: verify.Outcome | None
+) -> "diagnose.Diagnosis | None":
+    """Write `diagnosis.json`, or nothing at all when no face matched.
+
+    **A routing diagnosis, never a verdict** — SPEC_ENV ruling 1, kept verbatim
+    in the schema's own description. Nothing that reads this file may let it
+    reach acceptance, vacuity or health; `health.genuine_failure` keeps
+    discounting 127 from the exit code it reads itself.
+
+    It is a sibling rather than a field on `result` because that object is
+    `additionalProperties: false` in the frozen `wringer.loop.v2` manifest
+    schema. This is `usage.json`'s answer to the identical problem, and
+    `vacuity.json`'s before it.
+
+    Absence is meaningful and is the common case: a loop whose gates failed for
+    ordinary reasons writes no `diagnosis.json` at all, so a reader that finds
+    one knows the environment was implicated without having to read a null.
+    """
+    failing = _failing_result(final)
+    if failing is None:
+        return None
+    found = diagnose.diagnose(failing)
+    if found is None:
+        return None
+    path = bundle.directory / DIAGNOSIS_FILENAME
+    payload = {"schema_version": DIAGNOSIS_SCHEMA_VERSION, **found.as_json()}
+    path.write_text(
+        bundle.redactor.scrub(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        ),
+        encoding="utf-8",
+    )
+    return found
 
 
 def _flaky_failure(outcome: verify.Outcome) -> str | None:
@@ -1758,6 +1862,36 @@ def _repair_brief(outcome: verify.Outcome, root: Path) -> str:
             if tail:
                 lines += [f"### {label}", "", "```", tail, "```", ""]
 
+    # **The hint, labelled a guess — SPEC_ENV ruling 2's hint tier.**
+    #
+    # GATEGEN finding 8's discipline, applied at birth: this brief's reader is
+    # increasingly a machine, so the section states FACTS and permits exactly
+    # ONE imperative — stop changing files and say why. It must not instruct an
+    # install. A worker mutating the environment mid-loop turns gates green for
+    # a reason no record carries, which is worse than the failure it fixes.
+    #
+    # A worker that obeys hands the loop a clean `no_progress` on the next lap,
+    # which is the honest end and the one ruling 5 chose on purpose.
+    found = diagnose.diagnose(failing) if failing is not None else None
+    if found is not None:
+        lines += [
+            "## This may not be a code problem",
+            "",
+            f"**A guess, not a verdict.** `{found.gate}` {found.description}.",
+            "It was read from the gate's own output, on this line:",
+            "",
+            "```",
+            found.evidence,
+            "```",
+            "",
+            "Nothing in this tree may explain that, and no edit here would fix",
+            "it. **If you conclude the fix is outside this tree, stop changing",
+            "files and say why.** Do not install anything and do not change the",
+            "environment: a gate that turns green because the environment moved",
+            "under it proves nothing, and no record would carry the reason.",
+            "",
+        ]
+
     lines += [
         "## What to do",
         "",
@@ -1797,6 +1931,8 @@ _REASONS = {
     "budget_exhausted": "the wall-clock budget ran out",
     FLAKY_GATE: "the failing gate is nondeterministic, so there is nothing in "
     "the tree for a worker to fix",
+    ENVIRONMENT: "the first gate could not run at all — the command is not on "
+    "PATH — so nothing in the tree explains it and no worker was briefed",
     staleness.AUTHORITY_MOVED: "the spec, the rubric or the gate config moved "
     "after this loop was briefed, so the landed work answers a question that "
     "has changed. Nothing is reverted",

@@ -1020,6 +1020,36 @@ def _maybe_retry(
     if reason == loop.FLAKY_GATE:
         state.reason = f"{reason} (nondeterministic gate — a retry buys a coin flip)"
         return
+    if reason == loop.ENVIRONMENT:
+        # **SPEC_ENV ruling 4, as amended 2026-08-17.** Same shape as
+        # `flaky_gate` directly above, and for the same reason one step over:
+        # invariant 2 generalised from "the same signature twice" to
+        # "deterministic with respect to anything a retry can change". A retry
+        # re-runs the same command in the same environment. The command is
+        # still not on PATH. It buys nothing.
+        #
+        # **It stays FAILED rather than becoming PARKED**, which the spec asked
+        # for and could not have: `task.parked`'s `why` is a CLOSED enum in the
+        # frozen `wringer.fleet.v1` event schema — `deadline`,
+        # `worktree_failed`, `missing_dir`, `deterministic`, `exhausted` — and
+        # none of them is true here. Park would need `wringer.fleet.v2`, and
+        # spending a version bump to upgrade a WORD is worse than the word. The
+        # part that matters — the refusal to spend a retry — is unaffected, and
+        # `reason` is a free string in both the event and the manifest, so the
+        # diagnosis travels to the summary table either way.
+        #
+        # **No fleet-wide abort of unstarted siblings.** Children may have
+        # genuinely different environments (per-task `dir`, worktree mode), so
+        # one child's environment proves nothing about another's — invariant 6
+        # says never fail two hundred because three died. Detection costs one
+        # verify lap with ZERO worker spend, so per-child detection is both
+        # correct and cheap: the stampede F6 measured becomes every child
+        # stopping on its first lap with no worker ever invoked.
+        state.reason = (
+            f"{reason} (the gate's command is not on PATH — a retry re-runs "
+            "the same command in the same environment)"
+        )
+        return
     if signature is not None and signature in state.signatures:
         state.status = PARKED
         state.reason = f"{reason} (same failure twice — retrying would repeat it)"

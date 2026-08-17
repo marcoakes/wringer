@@ -49,6 +49,68 @@ _KILLED = -9
 COMMAND_NOT_FOUND = 127
 
 
+def cite(result: "GateResult") -> str:
+    """One line saying why a gate failed, for a row whose meaning rests on it.
+
+    **The single evidence-line extractor in this codebase.** It lived in
+    `vacuity.py` as `_cite` until 2026-08-17, when SPEC_ENV's F6 amendment
+    needed the same line for an environment diagnosis; it moved here rather
+    than being copied, because two extractors answering "why did this gate
+    fail" is how two subtly different answers to one question ship. `vacuity`
+    re-exports it under its old private name, so nothing there reads
+    differently. It lives in `gates` because `gates` owns `GateResult` and
+    imports nothing that could import it back.
+
+    The **last** informative line of stderr, then of stdout. Measured against
+    the shapes that actually turn up rather than reasoned about:
+
+        ModuleNotFoundError: No module named 'yourproject'   <- last of stderr
+        cat: vendor/lib.py: No such file or directory        <- the only line
+        FAILED (failures=1)                                  <- last of stderr
+        sh: yourtool: command not found                      <- the only line
+
+    Taking the FIRST line instead gets `Traceback (most recent call last):`
+    from a Python failure and a row of `=` from unittest — both true and
+    neither any use, which was the first version of this function. SPEC_ENV's
+    ruling 3 as drafted said "the first matching stderr line"; hoisting this
+    function is what supersedes that, and the measured convention wins over
+    the drafted one on purpose.
+
+    "Informative" excludes separator rules: a line of one punctuation
+    character repeated is the thing a test runner prints AROUND the message.
+
+    Deliberately NOT classified into "environment" or "regression". Making
+    the failure visible is the product; guessing at its meaning would be the
+    cleverness this spec exists to refuse. **The classification that F6 does
+    add lives in `diagnose.py` and never touches this line** — this returns
+    what the gate said, and nothing about what it means.
+    """
+    if result.timed_out:
+        return f"timed out after {result.gate.timeout}s"
+    for path in (result.stderr_path, result.stdout_path):
+        lines = informative_lines(path)
+        if lines:
+            return lines[-1]
+    return f"exit {result.exit_code}, and it printed nothing"
+
+
+def informative_lines(path: Path) -> list[str]:
+    """Non-blank, non-separator lines. See `cite`."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+    kept = []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if len(set(line)) == 1 and not line[0].isalnum():
+            continue  # ==========, ----------, ..........
+        kept.append(line)
+    return kept
+
+
 @dataclass(frozen=True)
 class GateResult:
     gate: Gate

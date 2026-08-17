@@ -341,7 +341,7 @@ the shared helper's faces, the grep-derived reader set — never against
 hand-counted lists, because a hand-named set is the narrowing bug this repo
 has shipped three times.
 
-- [ ] **The rail's own probe, honored by the fact tier:**
+- [x] **The rail's own probe, honored by the fact tier:**
       `test_a_loop_does_not_brief_a_worker_against_a_broken_environment` in
       `tests/test_run.py` — a scratch repo whose gate's PATH-resolved
       command does not exist: the loop stops with reason `environment`,
@@ -350,19 +350,19 @@ has shipped three times.
       evidence line. Beside it, the counterweight: the missing-module face
       (exit 1, `No module named`) still briefs a worker, hint present — the
       probe cannot go green by widening the stop.
-- [ ] **The err-direction boxes, one per leg of the stop predicate:** a 127
+- [x] **The err-direction boxes, one per leg of the stop predicate:** a 127
       appearing after a worker has acted (a scripted worker breaks a tracked
       script's interpreter) does not stop as environment; an armed-red gate
       invoking its deliverable by path (`./bin/tool`, absent at baseline)
       does not stop as environment and a worker is briefed — D1's case,
       pinned so the factory's arming pattern survives this spec.
-- [ ] **The fourth leg, added 2026-08-17:** a failing gate that carries a
+- [x] **The fourth leg, added 2026-08-17:** a failing gate that carries a
       `proves:` binding does **not** stop as environment even when the other
       three legs hold. A config fact, not a text guess. This is D1's residual:
       a born-red gate that invokes its own deliverable by a PATH-resolved name
       is the factory's arming pattern, and stopping it refuses the repair the
       loop exists for.
-- [ ] **One fact, one helper — HALF DISCHARGED ALREADY.**
+- [x] **One fact, one helper — HALF DISCHARGED ALREADY.**
       `COMMAND_NOT_FOUND` already has exactly one definition site
       (`gates.py:49`) and `health` already re-exports it; that half needs no
       code and its guard is written to say so rather than to pretend it was
@@ -371,7 +371,7 @@ has shipped three times.
       that reddens if a second detector appears, the 126 face keyed on the
       exit code, and `vacuity._cite` hoisted as the single evidence-line
       extractor so no second convention is minted.
-- [ ] **The record — NO VERSION IS SPENT.** `diagnosis.json` /
+- [x] **The record — NO VERSION IS SPENT.** `diagnosis.json` /
       `wringer.diagnosis.v1`, a new sibling file beside `manifest.json`,
       written after `_write_summary` and before `write_digests()` so the
       existing digest walker covers it without new enumeration. Both loop v2
@@ -380,34 +380,34 @@ has shipped three times.
       one line. A v1 manifest fixture fed through every reader that matches on
       the loop schema version — the set derived by grep, not named — behaves
       exactly as today, health's kind-map included.
-- [ ] **The vocabulary:** `graph.LOOP_REASONS` gains `environment` as a ninth
+- [x] **The vocabulary:** `graph.LOOP_REASONS` gains `environment` as a ninth
       routing fact, its existing agreement test is what forces it, and **every
       set-equality guard over those reasons is updated in the same commit**.
       A loop node ending `environment` reads `failed` — `parked` is
       unreachable for a loop node and the spec no longer claims otherwise.
-- [ ] **The fleet:** two or more tasks over a broken environment — every
+- [x] **The fleet:** two or more tasks over a broken environment — every
       child ends with `environment` in its free-string reason, **zero worker
       invocations fleet-wide, zero `task.retried` events**, the summary rows
       carry the diagnosis; after the environment is repaired, re-running the
       ids converges, and the counts stay honest at every step. The row is
       `failed`, not `parked`, and the reason string says why.
-- [ ] **The brief's hint, pinned by content:** labeled a guess; quotes the
+- [x] **The brief's hint, pinned by content:** labeled a guess; quotes the
       evidence line; its sole imperative is stop-and-say-why; no instruction
       a worker could satisfy by damaging the tree or mutating the
       environment (GATEGEN finding 8's discipline, applied at birth rather
       than folded later).
-- [ ] **The console on an environment stop names the remedy:** the evidence
+- [x] **The console on an environment stop names the remedy:** the evidence
       line, `wring doctor`, and — when the repo declares it —
       `run.prove_setup` quoted verbatim as the command a human may run.
       Named, never run.
-- [ ] **The capture, `docs/env.md`, filmed on the machine trap itself**
+- [x] **The capture, `docs/env.md`, filmed on the machine trap itself**
       (system `python3` with no pytest — the condition `~/Claude/f6-scout/`
       scripts depend on): one scenario per tier this spec defines — the
       fact tier stopping with zero worker calls, the hint tier briefing once
       and ending `no_progress` with the diagnosis legible in the record —
       then the repaired environment converging. The first capture in this
       corpus in which the chain meets a missing dependency.
-- [ ] **The finish report answers the factory question**, and names what
+- [x] **The finish report answers the factory question**, and names what
       stayed unfixed on purpose: the missing-module fresh-repo case still
       files `no_progress` — legible now, not different — because ruling 5
       priced a false stop above a false continue.

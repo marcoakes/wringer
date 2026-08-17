@@ -70,6 +70,15 @@ LOOP_REASONS = frozenset(
         # iteration boundary, so the landed turn stands and nothing is
         # reverted.
         "authority_moved",
+        # The first gate could not run at all — a PATH-resolved command that
+        # is not there, before any worker acted (SPEC_ENV_V0, F6). The NINTH
+        # routing fact, and the second that is about the CHECK rather than the
+        # worker. A loop node ending this way reads `failed`, not `parked`:
+        # `parked` is reachable only through the `Parked` exception, which ends
+        # the whole invocation, and a loop node's status is whatever the loop
+        # decided. SPEC_ENV's ruling 3 said `parked` and described a transition
+        # the graph cannot make.
+        "environment",
         "interrupted",
     }
 )
