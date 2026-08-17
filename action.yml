@@ -108,9 +108,13 @@ branding:
 inputs:
   version:
     description: >-
-      The Wringer version to install, e.g. "0.3.0". Empty installs the latest
-      release from PyPI. Pin it if you want the tool that reads your evidence
-      to be the same tool next month.
+      A PyPI release to pin, e.g. "0.3.0". EMPTY — the default — installs the
+      Wringer that ships with the ref you referenced, so `@main` gets main and
+      `@v1` gets v1, and the tool always matches the action. CAVEAT, measured
+      rather than guessed: this action invokes `wring health`, which does not
+      exist in 0.3.0, so pinning a release older than the command set below
+      will fail at that step. That is exactly how the default came to be wrong
+      and is why it changed.
     required: false
     default: ''
   history-key:
@@ -190,9 +194,28 @@ runs:
         # treat that path as untried rather than supported.
         bin="$RUNNER_TEMP/wringer-venv/bin"
         [ -d "$bin" ] || bin="$RUNNER_TEMP/wringer-venv/Scripts"
-        spec="wringer"
+        # **`@main` INSTALLS `@main`, and until 2026-08-17 it did not.**
+        #
+        # This said `spec="wringer"`, i.e. the newest release on PyPI — 0.3.0 —
+        # and then the vitality step below runs `wring health`, which is one of
+        # exactly two commands 0.3.0 DOES NOT HAVE. So
+        # `uses: marcoakes/wringer@main` was broken for every consumer from the
+        # day it was published, and the static check that "every flag exists
+        # against the real parser" had been run against the parser in the
+        # checkout rather than the one in the released package.
+        #
+        # `$GITHUB_ACTION_PATH` is this action's own checked-out ref, which is
+        # what `@main`, `@v1` or `@sha` actually selects. Installing from there
+        # makes the version of Wringer match the version of the action by
+        # construction, and it is what `uses: ./` needs in order to be
+        # self-evidencing at all.
+        #
+        # `version:` still pins a PyPI release for anyone who wants one — with
+        # the caveat now stated on that input.
         if [ -n "${WRINGER_VERSION}" ]; then
           spec="wringer==${WRINGER_VERSION}"
+        else
+          spec="${GITHUB_ACTION_PATH}"
         fi
         "$bin/python" -m pip install --disable-pip-version-check --quiet "$spec"
         echo "$bin" >> "$GITHUB_PATH"
