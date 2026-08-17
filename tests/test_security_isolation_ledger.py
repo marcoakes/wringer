@@ -77,7 +77,14 @@ NARRATIVE_HEADING = "### What the container path has been measured to do"
 # Documents that carry the isolation narrative to a reader. A claim about what
 # has been attacked belongs in exactly these, and each is checked in the
 # understatement direction.
-WATCHED = ("SECURITY.md", "README.md", "SETUP.md")
+#
+# **`docs/MANUAL_CHECKS.md` added 2026-08-18, and it is the document that
+# holds the ledger.** `:612` said *"The Linux arm is unrun and docker is
+# unrun"* — false since 2026-08-16, when the row four hundred lines ABOVE it
+# in the same file recorded exactly those runs. A document contradicting its
+# own table is the sharpest form of this defect, and it stood because the
+# running log was not watched at all.
+WATCHED = ("SECURITY.md", "README.md", "SETUP.md", "docs/MANUAL_CHECKS.md")
 
 # --- classifying the ledger's rows ------------------------------------------
 
@@ -195,8 +202,22 @@ def spawn_family(text: str) -> str:
     They are different boundaries in the sense that matters to a reader — a
     shell string handed to `gates.run` versus a stdio session carried across
     the boundary — and the second is the one the re-test uses.
+
+    **`both` added 2026-08-18, and the key is now read off the WHOLE row.**
+    The 2026-08-16 Linux/Docker run attacked both spawn shapes — the ledger's
+    result cell says *"Both spawn shapes (shell and ACP)"* — while its subject
+    cell does not spell either word, so this function saw `shell`; and
+    `SECURITY.md:187` labelled the row `shell worker`, which saw `shell` too.
+    Two understatements agreeing is not agreement, and the set comparison
+    below passed on it. Reading the whole row makes the ledger say `both` and
+    reddens any narrative row that still says one shape.
     """
-    return "acp" if "acp" in text.lower() else "shell"
+    lowered = text.lower()
+    acp = "acp" in lowered
+    shell = "shell" in lowered
+    if acp and shell:
+        return "both"
+    return "acp" if acp else "shell"
 
 
 def platform_family(text: str) -> str:
@@ -266,6 +287,18 @@ UNRUN_CLAIMS = (
     r"none\s+of\s+those\s+flags\s+has\s+been\s+adversarially\s+tested",
     r"docker\s+is\s+still\s+unmeasured",
     r"the\s+maintainer's\s+machine\s+has\s+no\s+container\s+runtime",
+    # **The shape that evaded every pattern above.** The first two require a
+    # sequence LETTER within 40 characters; `docs/MANUAL_CHECKS.md:612` named
+    # a PLATFORM and a RUNTIME instead — "The Linux arm is unrun and docker is
+    # unrun" — and stayed green for two days after both had run and been
+    # classified in that same file's own coverage record. An unrun-claim is a
+    # claim about an attack sequence whether or not it spells the letter.
+    r"\b(?:linux|docker|podman|nerdctl|macos)\b[^.]{0,40}?"
+    r"\b(?:is|are|remains?|stays?)\s+(?:still\s+)?unrun\b",
+    r"\b(?:is|are|remains?|stays?)\s+(?:still\s+)?unrun\b[^.]{0,40}?"
+    r"\b(?:linux|docker|podman|nerdctl|macos)\b",
+    r"\b(?:linux|docker|podman|nerdctl)\b[^.]{0,40}?"
+    r"\b(?:is|are|remains?)\s+(?:still\s+)?unmeasured\b",
 )
 
 # A claim is a MENTION — history, a quotation, a correction note — when one of
@@ -300,6 +333,51 @@ def _is_a_mention(text: str, start: int) -> bool:
                HISTORY_MARKERS)
 
 
+# How far either side of an unrun-claim to look for the combination it scopes
+# itself to. Wider than MENTION_WINDOW's backward reach is not needed; a scope
+# that is not in the same sentence is not a scope a reader will apply.
+SCOPE_WINDOW = 160
+
+
+def _scopes_itself_to_an_unmeasured_combination(text: str, start: int,
+                                                end: int) -> bool:
+    """Whether an unrun-claim names a combination the ledger really lacks.
+
+    **Added 2026-08-18, and ruling 5 forced it.** *"`unmeasured` is a
+    legitimate cell"* — but before this, no watched document could name a
+    genuine gap at all: `sequence I on Linux + podman is unrun` is TRUE, has
+    never run, and reddened this guard exactly as hard as the false
+    unscoped claim did. A guard that forbids the honest word pushes documents
+    towards vagueness, which is the failure it exists to prevent wearing a
+    different coat.
+
+    So the escape hatch is DERIVED rather than granted: the claim must name a
+    sequence, a platform AND a runtime, and that triple must be absent from
+    the ledger's classified runs. `sequence G on Linux with podman is unrun`
+    still reddens, because 2026-08-13 says otherwise. An unscoped
+    `sequence I is unrun` still reddens, because it claims more than any gap.
+    """
+    window = text[max(0, start - SCOPE_WINDOW):end + SCOPE_WINDOW]
+    named = re.search(r"sequence\s+([GI])\b", window, re.IGNORECASE)
+    if named is None:
+        return False
+    platform = platform_family(window)
+    runtime = runtime_family(window)
+    if platform == "?" or runtime in ("?", "none"):
+        return False
+    triple = (named.group(1).upper(), platform, runtime)
+    carried = {(sequence, host, engine)
+               for sequence, host, engine, _date, _worker in ledger_keys()}
+    return triple not in carried
+
+
+def _is_permitted(text: str, start: int, end: int) -> bool:
+    return (
+        _is_a_mention(text, start)
+        or _scopes_itself_to_an_unmeasured_combination(text, start, end)
+    )
+
+
 @pytest.mark.parametrize("document", WATCHED)
 def test_no_watched_document_calls_a_classified_sequence_unrun(document):
     """**The stale-claim class, in the understatement direction.**
@@ -318,7 +396,7 @@ def test_no_watched_document_calls_a_classified_sequence_unrun(document):
     text = (repo_root() / document).read_text(encoding="utf-8")
     for pattern in UNRUN_CLAIMS:
         for found in re.finditer(pattern, text, re.IGNORECASE):
-            assert _is_a_mention(text, found.start()), (
+            assert _is_permitted(text, found.start(), found.end()), (
                 f"{document} asserts {found.group(0)!r}, and "
                 f"{LEDGER}'s coverage record carries "
                 f"{len(classified)} classified attack run(s). Understatement "
@@ -384,7 +462,7 @@ def test_no_shipped_record_calls_a_classified_sequence_unrun(source):
     text = product_claims()[source]
     for pattern in UNRUN_CLAIMS:
         for found in re.finditer(pattern, text, re.IGNORECASE):
-            assert _is_a_mention(text, found.start()), (
+            assert _is_permitted(text, found.start(), found.end()), (
                 f"{source} ships {found.group(0)!r} into every record it "
                 f"writes, and {LEDGER} carries {len(classified)} classified "
                 "attack run(s). A stale sentence in a document misleads a "
@@ -464,7 +542,11 @@ def read_narrative_table() -> set[tuple[str, str, str, str, str]]:
                 platform_family(cells[1]),
                 runtime_family(cells[2]),
                 cells[3].strip(),
-                spawn_family(cells[4]),
+                # **The whole row, not just the worker cell.** Symmetric with
+                # the ledger side below: a row that says "Both spawn shapes"
+                # in its results and `shell worker` in its label is claiming
+                # two things, and the wider read is the honest one.
+                spawn_family(" ".join(cells)),
             )
         )
     assert started, f"{NARRATIVE} has no results table under {NARRATIVE_HEADING!r}"
@@ -486,7 +568,7 @@ def ledger_keys() -> set[tuple[str, str, str, str, str]]:
                 platform_family(f"{row.os_cell} {row.subject}"),
                 runtime_family(row.runtime_cell),
                 row.date,
-                spawn_family(row.subject),
+                spawn_family(f"{row.subject} {row.result}"),
             )
         )
     return keys

@@ -2872,3 +2872,140 @@ def test_every_python_version_the_package_CLAIMS_can_parse_this_package():
         + "\n\nA classifier is a published claim. Either fix the syntax or "
         "stop claiming the version."
     )
+
+
+# --- the blanket containment claim, either direction ------------------------
+#
+# **`own_voice()` cannot see a markdown ADMONITION, and the README's most
+# safety-critical sentence lives in one.** `README.md:192` is
+# `> ⚠️ **.wringer.yaml is code.** … Gates are not sandboxed in v0.1`, and
+# `own_voice` drops every line starting with `>`, so that callout — the
+# document speaking in its loudest voice — reads to every existing guard as
+# quoted material somebody else said. That is a live blind spot in a helper
+# seven guards share, found on 2026-08-18 while writing this one, and it is
+# recorded here rather than fixed in place: widening `own_voice` would change
+# what those seven guards see, which is a separate decision.
+
+_CALLOUT_OPENER = re.compile(r"^>\s*(?:\*\*|[⚠🚨❗ℹ✅❌🔴🟢])")
+
+
+def claimed_voice(text: str) -> str:
+    """`own_voice()`, plus admonition callouts, which ARE the document's voice.
+
+    A `>` block whose first line opens with an emoji or bold marker is a
+    markdown admonition — a warning box — and the document is making that
+    claim, not reporting somebody else's. A `>` block that opens with ordinary
+    prose is a quotation, and quoted is not claimed: the retreat box quotes the
+    claim it withdraws and the programme document keeps its superseded status
+    paragraph, and neither may be forced to delete its own history to stay
+    green.
+    """
+    kept: list[str] = []
+    in_quote = False
+    keeping = False
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        if stripped.startswith(">"):
+            if not in_quote:
+                in_quote = True
+                keeping = bool(_CALLOUT_OPENER.match(stripped))
+            if keeping:
+                kept.append(line)
+            continue
+        in_quote = False
+        keeping = False
+        kept.append(line)
+    return "\n".join(kept)
+
+
+# A containment claim is BLANKET when its subject is a whole class — gates,
+# workers, everything — rather than a named execution mode. Both directions
+# are forbidden: "not sandboxed" undersells work that was expensive to earn
+# and "fully sandboxed" oversells what eight scripted probes can show. The
+# honest form names the mode and links the measurement.
+#
+# **Deliberately absent, and this is the discrimination that matters:**
+# `SECURITY.md:123` — *"Local execution is `trusted_local`. It is not a
+# sandbox, and this document will not call it one"* — is SCOPED to a named
+# mode, is true, and is load-bearing. A guard that forbade it would delete the
+# most honest sentence on the page.
+_BLANKET_CONTAINMENT = (
+    # Undersell.
+    r"\bgates\s+are\s+not\s+sandboxed\b",
+    r"\bnot\s+sandboxed\s+in\s+v\d",
+    r"\bnothing\s+(?:here\s+)?is\s+sandboxed\b",
+    r"\bwringer\s+is\s+not\s+sandboxed\b",
+    r"\bno(?:ne)?\s+of\s+this\s+is\s+(?:sandboxed|contained)\b",
+    # Oversell.
+    r"\bfully\s+sandboxed\b",
+    r"\bproperly\s+sandboxed\b",
+    r"\bsandboxed\s+by\s+default\b",
+    r"\bcompletely\s+(?:sandboxed|contained|isolated)\b",
+    r"\bgates\s+are\s+sandboxed\b",
+    r"\bworkers?\s+are\s+sandboxed\b",
+    r"\b(?:everything|every\s+gate|every\s+worker)\s+(?:is|are)\s+"
+    r"(?:sandboxed|contained|isolated)\b",
+)
+
+# Same exemption shape the totality guard uses: keyed on a distinctive
+# substring, valued with a REASON somebody can argue with. Empty, and that is
+# the result rather than the starting point.
+_BLANKET_EXEMPTIONS: dict[str, str] = {}
+
+
+@pytest.mark.parametrize("document", _GUARDED_PROSE)
+def test_no_public_document_makes_a_blanket_containment_claim(document):
+    """**Ruling 5 — no unmeasured containment claim — as a check.**
+
+    `README.md:192` said *"Gates are not sandboxed in v0.1"* until
+    2026-08-18. By then the container path had been adversarially attacked
+    three ways and the contained worker twice more, with a `--privileged`
+    control; the blunt sentence UNDERSOLD it. The honest replacement is not a
+    better adjective — it is the mode named and the measurement linked, with
+    `unmeasured` where nothing was measured.
+
+    Both directions are checked, because the next window's temptation is the
+    opposite one: `SECURITY.md`'s own canaries already stop "proven secure",
+    and this stops the softer overclaim reaching a README first.
+    """
+    require_checkout(document)
+    text = claimed_voice((repo_root() / document).read_text(encoding="utf-8"))
+    flat = " ".join(text.replace("*", "").split())
+
+    offending = []
+    for pattern in _BLANKET_CONTAINMENT:
+        for found in re.finditer(pattern, flat, re.IGNORECASE):
+            window = flat[max(0, found.start() - 90): found.end() + 90]
+            if any(key in window for key in _BLANKET_EXEMPTIONS):
+                continue
+            offending.append(f"{pattern} :: …{window}…")
+
+    assert not offending, (
+        f"{document} makes a blanket containment claim. Name the execution "
+        f"mode and link the measurement — `SECURITY.md`'s tables, including "
+        f"the rows that say `unmeasured`:\n"
+        + "\n".join(f"  {hit}" for hit in offending)
+    )
+
+
+def test_the_blanket_guard_can_see_a_markdown_callout():
+    """**The reason `claimed_voice` exists, pinned so it cannot regress.**
+
+    Watched both ways on fixtures, because the real defect is fixed by the
+    same commit that adds this: a warning box is the document's own voice and
+    must be scanned; an ordinary quotation is somebody else's and must not.
+    """
+    callout = "> ⚠️ **Careful.** Gates are not sandboxed in v0.1; see SECURITY.md\n"
+    assert "not sandboxed" in claimed_voice(callout)
+    assert "not sandboxed" not in own_voice(callout)
+
+    quotation = "> The README used to say gates are not sandboxed in v0.1.\n"
+    assert "not sandboxed" not in claimed_voice(quotation)
+
+    # And the real callout on disk is reachable, so this is not a fixture
+    # proving something about a string nobody ships.
+    readme = (repo_root() / "README.md").read_text(encoding="utf-8")
+    assert ".wringer.yaml` is code" in claimed_voice(readme), (
+        "the README's ⚠️ callout is no longer visible to the blanket guard; "
+        "if the callout marker changed, re-derive `_CALLOUT_OPENER`"
+    )

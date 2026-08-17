@@ -609,7 +609,15 @@ are Sequence G's, unchanged and now joined by one more:
 - Eight scripted probes are not an escape suite. No kernel exploit, no
   capability abuse, no cgroup or `/proc/sys` write, no escape attempt.
 - One platform, one runtime, one image — and macOS, where a Linux VM is in the
-  path. The Linux arm is unrun and docker is unrun.
+  path. **Corrected 2026-08-18 — this bullet previously said:** *"The Linux arm
+  is unrun and docker is unrun."* False since **2026-08-16**, and false against
+  a row in this file's own Coverage record four hundred lines above it: `dc02dcd`
+  ran sequence I on GitHub Actions `ubuntu-latest` under Docker on a **shared
+  kernel**, both spawn shapes, with the `--privileged` control — 7 of the 8
+  attack probes flip. `SECURITY.md`'s results table carries that row. What is
+  still unrun for sequence I is **Linux + podman**, which is where the two
+  arms would be compared on one kernel with one runtime; that gap is in
+  `SECURITY.md`'s not-measured table under its own name.
 - **The egress allowlist is an ADDRESS allowlist**, so anything co-tenanted at
   those addresses is reachable and no probe here can see it. That limit travels
   in the bundle's own `limits` array.

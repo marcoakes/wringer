@@ -184,7 +184,7 @@ ledger, and this table may not disagree with it:
 | G | Linux | docker | 2026-08-14 | gates (shell) | 6 prevented, 1 out_of_scope |
 | I | macOS | podman | 2026-08-15 | shell worker | 8 worker probes, 6 flipping against a `--privileged` control |
 | I | macOS | podman | 2026-08-15 | ACP agent | 10 probes; **7 of the 8 attack probes flip** against the control, and the 8th is the model API, which must not flip |
-| I | Linux | docker | 2026-08-16 | shell worker | **The macOS VM caveat falls away for this row and for nothing else.** Both spawn shapes and a `--privileged` control, on a shared kernel: **7 of the 8 attack probes flip** — host credential by file and by env, github by name AND by raw address, DNS for an undeclared name, disarming the allowlist, and the process table (2 pids contained, 202 privileged). The model API stays reachable in both, which is the allowlist working. **I3 measured nothing here and says so**: a CI runner has no corpus mirror, so both arms are BLOCKED for the same reason |
+| I | Linux | docker | 2026-08-16 | shell worker **and ACP agent** | **The macOS VM caveat falls away for this row and for nothing else.** Both spawn shapes (shell and ACP) and a `--privileged` control, on a shared kernel: **7 of the 8 attack probes flip** — host credential by file and by env, github by name AND by raw address, DNS for an undeclared name, disarming the allowlist, and the process table (2 pids contained, 202 privileged). The model API stays reachable in both, which is the allowlist working. **I3 measured nothing here and says so**: a CI runner has no corpus mirror, so both arms are BLOCKED for the same reason |
 
 **What the prevented attacks cover**: no host SSH keys, no host gitconfig or
 `.git-credentials`, no Docker socket, no host credential in the environment
@@ -231,6 +231,30 @@ and no configuration in this repository makes it so. On macOS a Linux VM sits
 between the container and the host, so **every macOS row above is evidence about
 container ⇢ VM isolation and not about the Linux case** — which is why the
 shared-kernel Linux row was run separately rather than inferred.
+
+### What has NOT been measured, named rather than left as silence
+
+*Added 2026-08-18. The table above is the only place a RESULT is stated, and
+this one states none: every cell is `unmeasured`, with the document that says
+so. Two tables claiming results is the drift this page has already paid for
+twice, so this one is the negative space of that one — the surfaces a reader
+would reasonably assume were covered, and are not.*
+
+**`unmeasured` here means exactly one thing: no probe was run.** It is not a
+guess that the surface is safe, and it is not a guess that it is not.
+
+| surface | state | where that is recorded |
+|---|---|---|
+| local gates as an attack surface | **unmeasured** — described, never probed | this document, *"What is NOT bounded"* above |
+| worker `egress.policy: none` under attack probes | **unmeasured** — the argv is tested, the boundary is not | `tests/test_containment.py:517` |
+| a *declared* `env_passthrough` under attack | **unmeasured** | `docs/MANUAL_CHECKS.md` sequence G notes |
+| read-write mount corruption by a gate | **unmeasured** — stated as a limit, never probed | `src/wringer/backend.py` `LIMITS_V1` (c) |
+| sequence **G** with a `--privileged` control | **unmeasured** — so *"six were prevented"* stands and *"the flags are what prevented them"* does not | `docs/MANUAL_CHECKS.md`, and the paragraph above |
+| sequence **I** on Linux + podman | **unmeasured** | `docs/MANUAL_CHECKS.md`, sequence I's verdict section |
+| macOS + Docker, any sequence | **unmeasured** — this Mac's Docker is a stripped stub with no binary and no socket | `docs/MANUAL_CHECKS.md` Coverage record, *Docker stub (R2-02)* |
+| nerdctl, Apple `container` as an execution backend, Windows | **unmeasured** | no row in the Coverage record |
+| sequence **H** — live Sigstore signing | **unmeasured — never run by anyone.** Every exercise to date used a stub signer | `docs/MANUAL_CHECKS.md`, and the signing row of the authority table below |
+| the ACP worker in the 2026-08-17 PM capture | **not contained** — it ran `trusted_local`, and the capture says so | `wringer-drive/docs/pm-mode-2026-08-17.md` |
 
 ## Who may do what — the authority model
 
@@ -389,7 +413,20 @@ backported to an older one.
 | `0.3.0` (PyPI, current) | ✅ |
 | `0.2.0` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.1.0` (PyPI) | upgrade — `pip install -U wringer` |
-| `*.dev*` (git installs) | reinstall from `main` or PyPI |
+
+**`wring --version` cannot tell you which of these you have.** This row
+previously read *"`*.dev*` (git installs) — reinstall from `main` or PyPI"*,
+and **there is no such marker**: `src/wringer/__init__.py` carries `0.3.0` at
+HEAD, so a git install and the PyPI package print `wring 0.3.0` identically.
+Corrected 2026-08-18 rather than left standing, because a reader following
+that row would look for a string nothing writes.
+
+The distinguishing fact is the command count, and it is derived rather than
+kept by hand: **`0.3.0` registers seventeen commands and HEAD registers
+nineteen** (`README.md:144-156`, checked against the `v0.3.0` tag by
+`tests/test_docs.py`). `wring --help | grep -c` separates them. A real version
+marker is release machinery — it changes what an installed artifact reports
+about itself — and it belongs to the release cut, not to a documentation pass.
 
 Upgrading from 0.1.0 or 0.2.0 needs nothing: `wring verify` behaves as it did, its
 bundles stay readable, and every command added since is opt-in. See
