@@ -67,6 +67,27 @@ SCHEMA_VERSION_V2 = "wringer.acceptance.v2"
 # because a v1 row growing a key is a silent break for every existing reader.
 SCHEMA_VERSION_V3 = "wringer.acceptance.v3"
 
+# **THE SWITCH, FLIPPED 2026-08-17 — SPEC_REFUSAL §9's sequencing gate, as
+# amended the same day by Fable ruling H-1.**
+#
+# It was False for three commits while v3's schema, its writers and its
+# fixtures landed dark. `wringer-board` now names `wringer.acceptance.v3` in
+# `KNOWN_ACCEPTANCE` and reads the `cause` field in preference to prose, having
+# been taught from `schema/fixtures/acceptance-v3-*.json` — bytes THIS module
+# produced. The gate is discharged and the engine emits.
+#
+# **This is also the moment the v3 schema truly freezes.** While nothing
+# emitted it, no bundle anywhere was written against it and its shape could
+# still be corrected; from this commit that is over, and a change to
+# `acceptance-v3.schema.json` costs a v4.
+#
+# **The refusal policy flips WITH it, on this one constant.** They cannot be
+# separated: a live policy over v2 bytes would falsify the frozen v1 schema's
+# own description of what can refuse, and a dark policy under corrected prose
+# would ship eight false sentences. The original note follows.
+#
+# ---
+#
 # **THE DARK SWITCH — SPEC_REFUSAL §9's sequencing gate, as amended
 # 2026-08-17 by Fable ruling H-1.**
 #
@@ -87,7 +108,7 @@ SCHEMA_VERSION_V3 = "wringer.acceptance.v3"
 # It is not a feature flag and there is no config for it. Nothing a user can
 # type reaches it, and it exists for exactly as long as the two repositories
 # are out of step.
-EMIT_V3 = False
+EMIT_V3 = True    # flipped 2026-08-17; see the paragraph above
 
 # **The eight causes, ONE closed enum** (§6 ruling 12). Not two vocabularies:
 # the drafted spec declared a closed five-value enum for `unevidenced` and then
@@ -385,11 +406,26 @@ class Row:
     def refuses(self) -> bool:
         """Whether this row stops delivery (ruling 9).
 
-        Only a COVERED criterion can refuse, and only when it is required. An
-        uncovered one is a debt the author has not paid yet — loud, never
-        fatal — because every spec starts with all its criteria required and
-        nothing covering them, and refusing there would refuse the first
-        delivery in every repo that ever ran `wring spec`.
+        **AMENDED 2026-08-17 (OQ-1), and this was the EIGHTH sentence —
+        the one neither the independent review nor the author's own self-check
+        found.** It read: *"Only a COVERED criterion can refuse, and only when
+        it is required."* True of v1 and v2, and false in v3, where a required
+        `human` criterion refuses with no gate and no witness. The review named
+        seven; the folding window found this one by reading the code the
+        seven described.
+
+        Two rules now, and which applies is the row's own kind:
+
+        - A **non-human** row refuses when it is required, COVERED and not
+          `evidenced`. Unchanged. An uncovered one is a debt the author has not
+          paid yet — loud, never fatal — because every spec starts with all its
+          criteria required and nothing covering them, and refusing there would
+          refuse the first delivery in every repo that ever ran `wring spec`.
+        - A **`human`** row refuses when it is required and carries a cause:
+          nobody answered, a person said no, or the wording moved under the
+          answer. Coverage is not the question, because no check covers it and
+          none ever will — that is what `human: true` means. Treating "nobody
+          has looked" as "fine" was the quiet exemption OQ-1 removes.
 
         **v2 widens "covered" from "bound" to "bound or witnessed", and that is
         the whole reason the version moved.** A criterion no gate binds can now
@@ -660,6 +696,12 @@ def criterion_digest(criterion) -> str:
         separators=(",", ":"),
     )
     return hashlib.sha256(preimage.encode("utf-8")).hexdigest()
+
+
+def _iso(value: Any) -> str:
+    """A timestamp as the person wrote it, even after YAML parsed it."""
+    isoformat = getattr(value, "isoformat", None)
+    return isoformat() if callable(isoformat) else str(value)
 
 
 def read_judgements(root: Path) -> dict[str, dict[str, Any]]:
@@ -971,7 +1013,13 @@ def _human_row(common: dict, criterion, judgements) -> Row:
     judgement = Judgement(
         verdict=verdict,
         by=str(entry.get("by", "")),
-        at=str(entry.get("at", "")),
+        # `str()` on a value YAML already parsed into a `datetime` gives
+        # `2026-08-17 11:00:00+00:00` — a space where the person typed a `T`,
+        # so the record would not carry back what was written. YAML resolves
+        # unquoted ISO-8601 timestamps eagerly, which most people writing this
+        # file by hand will do, so the safe-guard belongs here rather than in
+        # advice nobody reads.
+        at=_iso(entry.get("at", "")),
         stale=stale,
         note=entry.get("note"),
     )

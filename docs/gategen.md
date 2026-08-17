@@ -200,6 +200,14 @@ counts: {evidenced: 0, unevidenced: 0, gate-failed: 1, gate-did-not-run: 2, huma
   copy   human              refuses=False
 ```
 
+> **STALE SINCE 2026-08-17 (OQ-1), and kept as captured.** `copy` is a
+> required `human` criterion nobody had answered, and on this tree that row
+> now reads `refuses=True` with cause `human-unanswered`. The transcript is
+> not edited, because a capture is evidence of a run and rewriting it would
+> make it evidence of nothing — SPEC_REFUSAL §8. Re-driving this walkthrough
+> against the current engine is owed; this note is what stops the old numbers
+> being read as current in the meantime.
+
 And if a bound gate ever *is* green on its first run, the run's `summary.md`
 says so beside it — `⚠ **`csv-hdr` should be RED.**` — because the artifact
 recording it as `unevidenced` is not the document somebody opens right after
@@ -372,6 +380,12 @@ The run id in the branch name is the run whose `acceptance.json` is quoted
 above. That is the join the whole chain exists for: **this branch ships
 because that record says the spec is satisfied**, and if any criterion had
 read `unevidenced` the same command would have refused.
+
+> **AMENDED 2026-08-17 (OQ-1).** `unevidenced` is no longer the only state
+> that refuses. A required `human` criterion that nobody has answered refuses
+> too, so on the current engine this delivery would NOT have shipped: `copy`
+> is unanswered. What the sentence describes — the record deciding, not the
+> command — is unchanged and is the point.
 
 ## What this does not claim
 

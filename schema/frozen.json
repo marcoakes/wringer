@@ -3,7 +3,7 @@
   "tag": "v0.2.0",
   "schemas": {
     "acceptance-v2.schema.json": "cf95031630698f8491499a6c6af2becd7edaea00a3e95e7c6186e17d710dc45f",
-    "acceptance-v3.schema.json": "bfea938a812ecb9859e2e5979eff5d53a030a382f8befaa0235172050534b4e6",
+    "acceptance-v3.schema.json": "2af9fc9430a16a8074b39422a364547e7b7cb9aa591890e345ba3aff3ec0a0ae",
     "acceptance.schema.json": "15001e92a979bf0f409a6563666fe3afcd1dc789b4b52cd89c8e3d9e8feeaad4",
     "acquired-manifest.schema.json": "4eeeedceead51da2f548f49666141a7011bd5e24f641e852f3eed02cd885bd1e",
     "attestation.schema.json": "ce37c4e1572bf75b20c55036aeaa235f41a2c743fe3f75a2295199bd7c3514dc",

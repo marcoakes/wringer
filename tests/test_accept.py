@@ -284,8 +284,21 @@ def test_an_edited_gate_command_resets_the_evidence(repo, monkeypatch, capsys):
 
 
 def test_a_human_criterion_is_answered_by_people(repo, monkeypatch, capsys):
-    """It counts toward neither evidenced nor unevidenced, and it never
-    refuses: a person's judgement is not a gate's to hold hostage."""
+    """It counts toward neither evidenced nor unevidenced, and a REQUIRED one
+    that nobody has answered now REFUSES.
+
+    **CORRECTED 2026-08-17, OQ-1** (SPEC_REFUSAL §3 ruling 1 and ruling 6's
+    first named sentence). This test used to assert `refuses is False` and its
+    docstring said *"it never refuses: a person's judgement is not a gate's to
+    hold hostage"*. The first half was the policy and it is reversed; the
+    second half was always a non-sequitur, because the refusal is not a gate
+    holding a judgement hostage — it is the record declining to call a
+    requirement satisfied that NOBODY has said is satisfied.
+
+    What is unchanged, and is the part worth keeping: nothing scores it, the
+    state stays `human` and never becomes `evidenced`, and the only thing that
+    clears it is a person writing `wringer.judgements.yaml` by hand.
+    """
     write_spec(repo, extra=HUMAN_CRITERION)
     write_config(repo, '  - id: t\n    run: "true"\n')
     monkeypatch.chdir(repo)
@@ -296,7 +309,8 @@ def test_a_human_criterion_is_answered_by_people(repo, monkeypatch, capsys):
     rows = {row["criterion"]: row for row in artifact(repo)["criteria"]}
     human = rows["copy-reads-well"]
     assert human["state"] == accept.HUMAN
-    assert human["refuses"] is False
+    assert human["refuses"] is True
+    assert human["cause"] == accept.CAUSE_HUMAN_UNANSWERED
     assert artifact(repo)["counts"]["human"] == 1
 
 

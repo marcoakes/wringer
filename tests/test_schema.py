@@ -1780,6 +1780,34 @@ def run_with_acceptance(repo: Path, monkeypatch, capsys) -> Path:
     return found
 
 
+# Every published acceptance version, and the file that describes it. Derived
+# from the engine's own constants so a fourth cannot be added without this map
+# noticing — the alternative is a test that names one version and silently
+# stops covering the one the engine actually writes.
+_ACCEPTANCE_SCHEMAS = {
+    "wringer.acceptance.v1": "acceptance.schema.json",
+    "wringer.acceptance.v2": "acceptance-v2.schema.json",
+    "wringer.acceptance.v3": "acceptance-v3.schema.json",
+}
+
+
+def test_every_published_acceptance_version_has_a_schema_in_the_map():
+    """Both directions, so the map above cannot go stale the way the test it
+    replaced did."""
+    from wringer import accept
+
+    engine = {
+        accept.SCHEMA_VERSION,
+        accept.SCHEMA_VERSION_V2,
+        accept.SCHEMA_VERSION_V3,
+    }
+    assert set(_ACCEPTANCE_SCHEMAS) == engine, sorted(
+        set(_ACCEPTANCE_SCHEMAS) ^ engine
+    )
+    for name in _ACCEPTANCE_SCHEMAS.values():
+        assert (SCHEMA_DIR / name).is_file(), name
+
+
 def test_a_real_acceptance_artifact_matches_its_schema(repo, monkeypatch, capsys):
     from wringer import accept
 
@@ -1787,9 +1815,20 @@ def test_a_real_acceptance_artifact_matches_its_schema(repo, monkeypatch, capsys
     recorded = json.loads(
         (run / accept.ACCEPTANCE_FILENAME).read_text(encoding="utf-8")
     )
-    schema = load("acceptance.schema.json")
+    # **The schema is chosen by the RECORD, not hard-coded** — corrected
+    # 2026-08-17 when v3 emission landed. This asserted v1 and would have kept
+    # asserting v1 for ever, so the day the engine legitimately moved, the
+    # failure read as "the artifact is wrong" rather than "this test names one
+    # version out of three". `wringer.acceptance.v3` is what this fixture now
+    # writes, and correctly: it has a bound gate with a real receipt, so its
+    # rows carry a non-null `demonstrated_able_to_fail`, which is exactly what
+    # the narrow selector fires on. SPEC_REFUSAL §2 priced this out loud —
+    # *"most real records will select v3"*.
+    schema = load(_ACCEPTANCE_SCHEMAS[recorded["schema_version"]])
     check(recorded, schema, "acceptance.json")
-    assert recorded["schema_version"] == "wringer.acceptance.v1"
+    assert recorded["schema_version"] in _ACCEPTANCE_SCHEMAS, recorded[
+        "schema_version"
+    ]
 
     row_schema = schema["properties"]["criteria"]["items"]
     for row in recorded["criteria"]:
@@ -1807,11 +1846,13 @@ def test_a_real_acceptance_artifact_validates_against_the_real_engine(
 
     built = validators()
     run = run_with_acceptance(repo, monkeypatch, capsys)
+    recorded = json.loads((run / accept.ACCEPTANCE_FILENAME).read_text("utf-8"))
+    # Against the schema the record NAMES — see the note above.
     errors = [
         f"{e.json_path} {e.message}"
-        for e in built["acceptance.schema.json"].iter_errors(
-            json.loads((run / accept.ACCEPTANCE_FILENAME).read_text("utf-8"))
-        )
+        for e in built[
+            _ACCEPTANCE_SCHEMAS[recorded["schema_version"]]
+        ].iter_errors(recorded)
     ]
     assert not errors, "\n".join(errors)
 

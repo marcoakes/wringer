@@ -66,8 +66,14 @@ def causes_the_code_emits() -> set[str]:
 # --- the gate ---------------------------------------------------------------
 
 
-def test_the_engine_does_not_emit_v3_until_the_board_reads_it():
-    """**THE SEQUENCING GATE, as a test** — SPEC_REFUSAL §9, amended H-1.
+def test_the_engine_emits_v3_because_the_board_reads_it():
+    """**THE SEQUENCING GATE, DISCHARGED** — SPEC_REFUSAL §9, amended H-1.
+
+    REVERSED 2026-08-17 from `test_the_engine_does_not_emit_v3_until_the_board_
+    reads_it`, in the commit that set `EMIT_V3 = True`. The board named v3 in
+    `KNOWN_ACCEPTANCE` first, taught from bytes this module produced. The
+    original text and its reasoning follow, because the reason the gate existed
+    is the reason it was safe to discharge.
 
     `wringer-board` refuses any version outside `KNOWN_ACCEPTANCE` and renders
     ZERO cards — its own ruling 6, and correct. So an engine that emitted v3
@@ -81,16 +87,20 @@ def test_the_engine_does_not_emit_v3_until_the_board_reads_it():
     because the two cannot be separated without shipping a falsehood in one
     direction or the other.
     """
-    assert accept.EMIT_V3 is False, (
-        "EMIT_V3 was turned on. That is only lawful in the commit where "
-        "wringer-board's KNOWN_ACCEPTANCE already names wringer.acceptance.v3 "
-        "— and this assertion is reversed in that same commit."
-    )
-    # And the public path really does still write v2 even with v3 facts on it.
+    assert accept.EMIT_V3 is True
+    # A row with a v3 fact now really does select v3 on the PUBLIC path.
     result = accept.Result(rows=(row(cause=accept.CAUSE_BORN_GREEN),))
     assert result.has_v3_facts is True
-    assert result.as_json()["schema_version"] == accept.SCHEMA_VERSION_V2 or (
-        result.as_json()["schema_version"] == accept.SCHEMA_VERSION
+    assert result.as_json()["schema_version"] == accept.SCHEMA_VERSION_V3
+
+    # **And the compatibility promise still holds**, which is the half that
+    # would be easy to lose here: a record with NOTHING new to say is still
+    # written at v1 or v2, byte-identical to what this repository wrote before
+    # v3 existed. That is what the narrow selector bought.
+    plain = accept.Result(rows=(row(state=accept.EVIDENCED),))
+    assert plain.has_v3_facts is False
+    assert plain.as_json()["schema_version"] in (
+        accept.SCHEMA_VERSION, accept.SCHEMA_VERSION_V2
     )
 
 
@@ -556,24 +566,45 @@ def test_the_judgement_limit_rides_only_a_record_that_has_one():
     assert "later work can invalidate it" in accept.JUDGEMENT_LIMIT
 
 
-def test_the_refusal_policy_is_DARK_until_the_flip():
-    """OQ-1's reversal is gated on the SAME switch as emission.
+def test_an_unanswered_required_human_criterion_now_REFUSES_delivery():
+    """**OQ-1, live** — REVERSED 2026-08-17 from
+    `test_the_refusal_policy_is_DARK_until_the_flip`, in the same commit as
+    emission and for the reason that test stated: a live policy over v2 bytes
+    would falsify the frozen v1 schema's own description of what can refuse.
 
-    A live policy over v2 bytes would falsify the frozen v1 schema's own
-    description of what can refuse; a dark policy under corrected prose would
-    ship eight false sentences. One switch, both — and the flip commit reverses
-    this test together with the gate test above.
+    This is the policy change the whole cycle is for. A requirement that only a
+    person can judge, which nobody has judged, now stops the delivery — instead
+    of being silently exempt from mattering.
     """
     c = criterion()
-    unanswered = accept._human_row(
-        {"criterion": c.id, "title": c.title, "required": True}, c, {}
-    )
+    fields = {"criterion": c.id, "title": c.title, "required": True}
+
+    unanswered = accept._human_row(fields, c, {})
     assert unanswered.cause == accept.CAUSE_HUMAN_UNANSWERED
-    assert accept.EMIT_V3 is False
-    assert unanswered.refuses is False, (
-        "the human refusal went live while EMIT_V3 is False — the policy and "
-        "the emission flip together, in one commit, or the tree ships a lie"
+    assert unanswered.refuses is True
+    assert unanswered.state == accept.HUMAN, "still not `evidenced`, ever"
+
+    said_no = accept._human_row(fields, c, {c.id: entry(c, verdict="not_met")})
+    assert said_no.refuses is True
+
+    reworded = criterion(title="Something else entirely")
+    stale = accept._human_row(
+        {**fields, "title": reworded.title}, reworded, {c.id: entry(c)}
     )
+    assert stale.refuses is True
+
+    # `met`, and not stale, is the ONLY thing that clears it.
+    met = accept._human_row(fields, c, {c.id: entry(c)})
+    assert met.refuses is False
+    assert met.state == accept.HUMAN
+
+    # An OPTIONAL human criterion still refuses nothing — `required` is the
+    # opt-in, and it always was.
+    optional = criterion(required=False)
+    assert accept._human_row(
+        {"criterion": optional.id, "title": optional.title, "required": False},
+        optional, {},
+    ).refuses is False
 
 
 def test_a_malformed_judgements_file_is_treated_as_absent(tmp_path):

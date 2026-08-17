@@ -215,6 +215,17 @@ corpus review referred back, answered:**
    until a human flips the flag SPEC_INTENT §3 already owns. Same repair
    SPEC_PROVENANCE §2a made for attest — the file is read, not merely seen.
 9. **Only bound criteria can refuse; unbound ones are loud, never fatal.**
+   > **AMENDED 2026-08-17 by SPEC_REFUSAL_V0 §3 ruling 1 (OQ-1).** This ruling
+   > is unchanged for every criterion a check could decide. It no longer holds
+   > for `human: true` criteria: a REQUIRED human criterion that nobody has
+   > answered, that a person answered `not_met`, or whose wording has moved
+   > under the answer, now refuses delivery. The reasoning below — that
+   > refusing on unbound criteria would refuse every first delivery in every
+   > spec repo — still applies to unbound NON-human criteria and is why they
+   > still refuse nothing. A `human` criterion is different in kind: it is not
+   > waiting for somebody to bind a gate, it is waiting for a person, and
+   > treating "nobody has looked" as "fine" was the quiet exemption OQ-1
+   > removes. Original text preserved:
    Criteria default `required: true` and nothing is bound the moment a spec
    is approved, so refusing on unbound criteria would refuse every first
    delivery in every spec repo — health ruling 6's wall of red. So:
@@ -235,9 +246,13 @@ writes no artifact and behaves exactly as today (ruling 8), and an approved
 spec whose criteria nobody has bound yet renders UNEVIDENCED and refuses
 nothing (ruling 9); there is no flag that loosens it and none that is
 needed to tighten it; and the refusal message names the criterion, its
-state, and the one-run remedy. A criterion that is `human: true` never
-refuses — a person's judgement is not a gate's to hold hostage — and
-`optional` (`required: false`) criteria render honestly and refuse nothing.
+state, and the one-run remedy. A criterion that is `human: true` **refuses when it is
+required and unanswered, answered `not_met`, or answered against wording that
+has since changed** (AMENDED 2026-08-17, OQ-1; this sentence previously read
+*"never refuses — a person's judgement is not a gate's to hold hostage"*), and
+`optional` (`required: false`) criteria render honestly and refuse nothing —
+which is unchanged, and is the opt-in that stops this from being a wall of
+red.
 Exit codes: unchanged everywhere. Verify stays an observer of acceptance
 (the artifact is a record, not a verdict — bench ruling 7's grammar);
 deliver's refusal exits 1, joining the two preconditions that already exit 1
@@ -385,10 +400,18 @@ percentages as exit codes or thresholds (a knob for making debts disappear)
       `acceptance.json` reads `evidenced` citing the red bundle; then
       delivery succeeds, and reverting the criterion's binding reddens
       delivery, not just a test
-- [ ] a required criterion with no binding renders UNEVIDENCED and refuses
-      delivery with the criterion named; marking it `human: true` (the
-      author's honest out) lifts the refusal and changes its rendering, and
-      a test pins both directions
+- [x] a required criterion with no binding renders UNEVIDENCED and refuses
+      delivery with the criterion named; marking it `human: true` **changes
+      WHO must answer, and does not lift the refusal** — a test pins both
+      directions
+      > **AMENDED 2026-08-17, OQ-1 — and this is a shipped acceptance
+      > criterion of this spec that a CORRECT tree now fails.** It read
+      > *"marking it `human: true` (the author's honest out) lifts the refusal
+      > and changes its rendering"*. That was the exemption: an author who
+      > could not bind a gate could mark a criterion human and it stopped
+      > mattering. It is the reason OQ-1 exists. Left as a criterion rather
+      > than deleted, because a criterion that the work changed is evidence
+      > about the work.
 - [ ] a born-green gate (no failure, no sensitive row in history) leaves its
       criterion unevidenced despite passing, the refusal prints the
       `--prove` remedy, and one recorded sensitive row flips it — pinned by

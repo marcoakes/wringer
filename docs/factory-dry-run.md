@@ -118,6 +118,11 @@ counts: {evidenced: 0, unevidenced: 3, gate-failed: 0, gate-did-not-run: 0, huma
   button-copy-reads-well   human         refuses=False
 ```
 
+> **STALE SINCE 2026-08-17 (OQ-1), and kept as captured.** That row now reads
+> `refuses=True` with cause `human-unanswered` — nobody has answered it. The
+> transcript is a record of a run that happened and is not edited; the note
+> is here so the numbers are not read as current.
+
 Correct per ruling 9 — unbound criteria are loud and never fatal. After the
 gates were hand-written and bound, with the unrelated `test` gate still
 failing on the missing dependency:
