@@ -106,7 +106,14 @@ jobs:
               code=$(python3 -c "import json,sys;print(json.load(open('$d/result.json'))['exit_code'])" 2>/dev/null || echo "?")
               echo "::notice::gate $name exit=$code"
               if [ "$code" != "0" ]; then
-                echo "::error::gate $name FAILED: $(tail -c 400 "$d/stderr.log" 2>/dev/null | tr '\n' ' ')"
+                # pytest writes failures to STDOUT, so stderr alone reported an
+                # empty string and said nothing. Both, and the summary lines
+                # that name the failing tests.
+                echo "::error::gate $name stderr: $(tail -c 300 "$d/stderr.log" 2>/dev/null | tr '\n' ' ')"
+                grep -E "^(FAILED|ERROR) " "$d/stdout.log" 2>/dev/null | head -8 | while read -r line; do
+                  echo "::error::gate $name :: $line"
+                done
+                echo "::error::gate $name tail: $(tail -c 500 "$d/stdout.log" 2>/dev/null | tr '\n' ' ')"
               fi
             done
           else
