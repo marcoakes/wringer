@@ -778,7 +778,28 @@ empty message, because pytest writes failures to stdout.
 
 **What this sequence is still for:** the replay script remains the way to see
 what the action does without a token, and the annotation probe remains in the
-job. If it goes red again, read the annotations first.
+job. If it goes red again, read the annotations first —
+`scripts/watch-job.sh <sha> action`.
+
+### And the thing that actually made this slow, measured
+
+Diagnosing the action took six push-and-look cycles, and each one waited for
+the whole RUN to reach `completed`. Measured on `5aa53ce`:
+
+| | done at |
+|---|---|
+| `action` — **the job that answers the question** | **+3.5m** |
+| `pytest (macos-latest, 3.12)` | +5.4m |
+| the whole run | +5.4m |
+
+So every cycle spent about **1.9 minutes waiting on a macOS job irrelevant to
+the question**, plus up to 45 seconds of polling granularity. Roughly fifteen
+minutes across the six, and **none of it was the annotations' fault** — they
+are readable the moment their own job finishes.
+
+`scripts/watch-job.sh` polls the JOB, not the run, and prints its annotations
+as soon as it completes. Against an already-finished run it returns in about
+two seconds. Watch the job you asked about.
 
 ## What is *not* here, and why
 
