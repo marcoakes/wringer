@@ -58,6 +58,29 @@ GIT_CONFIG_KEY_1=init.defaultBranch \
 GIT_CONFIG_VALUE_1=master \
     .venv/bin/pytest -q
 CODE=$?
+
+# **THE LINT GATE, and the reason it is here.**
+#
+# `.wringer.yaml` declares TWO gates — `ruff check src tests examples scripts`
+# and `pytest -q` — and until 2026-08-17 this script ran only the second. So a
+# script named "reproduce CI locally" was green through a `verify` job that had
+# been red for days, and a whole window of work was done on top of it reporting
+# "suite green" while half the repository's own gates failed.
+#
+# That is the same defect this project exists to name, aimed at its own
+# tooling: a check that covers less than its name claims. It runs both now, and
+# the summary line below says which of them failed rather than one number for
+# two answers.
+.venv/bin/ruff check src tests examples scripts
+LINT=$?
+
 echo "---"
-echo "pytest exit $CODE (clone of local HEAD $(git -C "$WORK/wringer" rev-parse --short HEAD), no ambient git identity)"
-exit $CODE
+echo "clone of local HEAD $(git -C "$WORK/wringer" rev-parse --short HEAD), no ambient git identity"
+echo "pytest exit $CODE"
+echo "ruff   exit $LINT"
+if [ "$CODE" -ne 0 ] || [ "$LINT" -ne 0 ]; then
+    echo "FAILED — .wringer.yaml declares both of these as gates"
+    exit 1
+fi
+echo "both declared gates passed"
+exit 0
