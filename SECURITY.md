@@ -255,6 +255,7 @@ guess that the surface is safe, and it is not a guess that it is not.
 | nerdctl, Apple `container` as an execution backend, Windows | **unmeasured** | no row in the Coverage record |
 | sequence **H** — live Sigstore signing | **unmeasured — never run by anyone.** Every exercise to date used a stub signer | `docs/MANUAL_CHECKS.md`, and the signing row of the authority table below |
 | the ACP worker in the 2026-08-17 PM capture | **not contained** — it ran `trusted_local`, and the capture says so | `wringer-drive/docs/pm-mode-2026-08-17.md` |
+| the ACP worker in the 2026-08-19 demo capture | **not contained** — and not by choice. `wringer-drive` generates `judge:`, `run:` and `deliver:` and has **no channel for declaring containment at all**, so anybody driving with the one verb runs their coding agent uncontained unless they open an editor. `podman` was running on that machine and was not used. The capture says so in those words | `wringer-drive/docs/demo-2026-08-19.md` §7 |
 
 ## Who may do what — the authority model
 
