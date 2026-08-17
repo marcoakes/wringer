@@ -126,6 +126,20 @@ green — and a bundle on disk to check the claim against. Regenerate it with
 **Proof beats orchestration.** `pip install wringer` — **0.3.0, seventeen commands, out now.**
 It began as one command, and that command is still the core of it:
 
+### Not an engineer? Ask your coding agent to install it
+
+**[INSTALL.md](INSTALL.md) is one prompt you paste into whatever coding agent
+you already use** — Claude Code, Codex, Gemini CLI, Cursor, any of them. It
+installs Wringer and the board, then has your agent build a three-file project
+on your machine and show you the same requirement twice: once refused, and once
+**proved, with the words "It was red first"** underneath it.
+
+No sudo, no system changes, and **it never asks you for a key** — the one
+credential step is optional, at the end, and your operating system prompts for
+it with the input masked. Every step of that prompt was
+[executed in a clean environment](docs/install-2026-08-17.md) before it
+shipped, and running it found three defects that reading it had not.
+
 > **What the package is not, as of 2026-08-17.** `0.3.0` is the released
 > version and it is **behind this repository**. It pre-dates worker
 > containment, the witness calibration, flaky-gate handling, the corpus

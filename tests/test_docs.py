@@ -2395,3 +2395,92 @@ def test_the_readme_and_the_witness_programme_agree_about_the_de_scope():
         f"commit. The sha is derived from history here, not typed, so this "
         f"fails when the retreat moves and the schedule does not follow it."
     )
+
+
+# --- INSTALL.md: the prompt a PM's own agent executes ----------------------
+
+INSTALL = "INSTALL.md"
+
+
+def install_prompt_lines() -> list[str]:
+    """Every command inside INSTALL.md's fenced prompt block.
+
+    The prompt is what a stranger pastes into an agent without reading it
+    closely, so a `wring` line that argparse would reject is a stranger's
+    install failing at the one step they cannot debug. Parsed with the REAL
+    parser, exactly as the shipped workflows are.
+    """
+    text = (repo_root() / INSTALL).read_text(encoding="utf-8")
+    inside = False
+    found = []
+    for line in text.splitlines():
+        if line.startswith("```"):
+            inside = line.strip() == "```text"
+            continue
+        if not inside:
+            continue
+        stripped = line.strip()
+        if stripped.startswith("wring ") or stripped.startswith("wringer-board "):
+            found.append(stripped.split("#")[0].strip())
+    return found
+
+
+def test_every_wring_line_in_the_install_prompt_parses():
+    """**The core's half of the recipe guard, split by dependency direction.**
+
+    This repository can parse its own `wring` lines and cannot import
+    `wringer_board`, so it checks the `wring` ones here and the board's suite
+    checks the `wringer-board` ones. Neither guard silently covers less than it
+    looks: this one asserts it found some, and skips the board's lines WITH A
+    NAMED REASON rather than passing over them quietly.
+    """
+    lines = [l for l in install_prompt_lines() if l.startswith("wring ")]
+    assert lines, f"{INSTALL}'s prompt invokes `wring` nowhere"
+    for line in lines:
+        try:
+            parsed_wring_line(line)
+        except SystemExit as stopped:
+            assert stopped.code == 0, f"{INSTALL} cannot run `{line}`"
+
+
+def test_the_board_lines_are_checked_by_the_BOARD_and_this_says_so():
+    """The other half is not missing; it is somewhere else, on purpose.
+
+    `wringer-board` is a separate package this repository does not depend on,
+    so a guard here would have to shell out or guess. `wringer-board`'s
+    `tests/test_install_prompt.py` reads this same file and parses them with
+    its own real parser. This test exists so the split is STATED rather than
+    looking like an omission.
+    """
+    board_lines = [
+        l for l in install_prompt_lines() if l.startswith("wringer-board ")
+    ]
+    assert board_lines, f"{INSTALL}'s prompt invokes `wringer-board` nowhere"
+    pytest.importorskip(
+        "wringer_board",
+        reason="wringer-board is a separate package and is not a dependency of "
+        "this one; its own suite parses these lines with its own parser. This "
+        "skip is the split being stated, not a gap",
+    )
+
+
+def test_the_install_prompt_never_asks_for_a_credential():
+    """**M-2's boundary, guarded.** The prompt tells an agent to install two
+    tools. It must never ask a person for a key, and must never put one on a
+    command line — the only credential act anywhere in the flow is the
+    OS-prompted masked step, which is outside the prompt block on purpose."""
+    text = (repo_root() / INSTALL).read_text(encoding="utf-8")
+    block = text.split("```text", 1)[1].split("```", 1)[0]
+    lowered = block.lower()
+    for forbidden in ("api_key", "api key=", "-w ", "export anthropic", "sk-"):
+        assert forbidden not in lowered, forbidden
+    # And the masked step, which IS shipped, never carries a value.
+    assert "add-generic-password -s anthropic -a wringer -w\n" in text
+    assert "-w sk-" not in text
+    assert "-w $" not in text
+
+
+def test_the_install_prompt_forbids_sudo_and_sending():
+    block = (repo_root() / INSTALL).read_text(encoding="utf-8")
+    assert "Do not use sudo" in block
+    assert "Do not run `wring deliver --send`" in block

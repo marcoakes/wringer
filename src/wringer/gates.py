@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wringer import artifacts as artifacts_module
 from wringer.config import Gate
 from wringer.redact import Redactor
 
@@ -180,6 +181,14 @@ def run(
     # construction, which is what removes any need for a naming scheme.
     workdir = stdout_path.parent
     spawn = engine.spawn(gate, cwd, workdir)
+    # **S4.** A directory only for a gate that OPTED IN, and an environment
+    # variable only when there is one — so a gate that never declared
+    # `artifacts:` runs in a byte-identical environment to before this feature
+    # existed. The `WRINGER_TASK_ID` precedent: the harness makes the place and
+    # tells the gate where it is, rather than the gate guessing a path or the
+    # harness scraping the tree afterwards.
+    artifacts_dir = artifacts_module.prepare(workdir, gate)
+    env = artifacts_module.environment(artifacts_dir) if artifacts_dir else None
     started = time.monotonic()
     try:
         proc = subprocess.Popen(
@@ -189,6 +198,7 @@ def run(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=_POSIX,
+            env=env,
         )
     except OSError as exc:
         # **The two backends must fail the same way, and without this they do
@@ -233,6 +243,12 @@ def run(
         raise
 
     out_cut, err_cut = _write_logs(stdout_path, stderr_path, out, err, redactor)
+
+    # AFTER the gate has exited and its logs are written. Nothing here can
+    # change the gate's verdict: `collect` returns a path or None and raises
+    # nothing the caller sees, and the exit code above is already decided.
+    if artifacts_dir is not None:
+        artifacts_module.collect(workdir, gate, redactor)
 
     return GateResult(
         gate=gate,

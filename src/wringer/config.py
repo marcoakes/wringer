@@ -124,7 +124,15 @@ _GATE_KEYS = {"id", "run", "timeout", "optional", "required"}
 # `spec.schema.json` is frozen with `additionalProperties: false`, so a
 # drafted gate carrying it would render a `wringer.spec.yaml` that fails its
 # own published schema.
-_CONFIG_GATE_KEYS = _GATE_KEYS | {"proves", "stability", "concurrent"}
+# `artifacts` is here and NOT in `_GATE_KEYS` for the same reason `stability`
+# is: `spec.schema.json` is frozen with `additionalProperties: false`, so a
+# DRAFTED gate carrying it would render a `wringer.spec.yaml` that fails its
+# own published schema. It is a run parameter a human declares in the config
+# file, not something a drafter proposes.
+_CONFIG_GATE_KEYS = _GATE_KEYS | {
+    "proves", "stability", "concurrent", "artifacts",
+}
+_ARTIFACTS_KEYS = {"max_bytes", "total_bytes"}
 _STABILITY_KEYS = {"attempts", "require_consistent"}
 
 # The most attempts one gate may declare. A ceiling rather than a taste:
@@ -306,6 +314,43 @@ class Gate:
     # Wringer cannot know whether they interfere. Only the repository knows,
     # so only the repository may say.
     concurrent: bool = False
+    # Whether this gate may leave files behind for a person to look at
+    # (SPEC_BOARD_V0 §10, S4). **None is every gate that shipped, and OFF is
+    # the default**: turning this on is a repository declaring that this gate's
+    # output is shareable, because — see `Artifacts` — nothing redacts a
+    # binary.
+    artifacts: "Artifacts | None" = None
+
+
+# Conservative on purpose. A screenshot is tens of kilobytes; these are room
+# for a handful of them and not room for a video.
+DEFAULT_ARTIFACT_MAX_BYTES = 2 * 1024 * 1024
+DEFAULT_ARTIFACT_TOTAL_BYTES = 8 * 1024 * 1024
+
+
+@dataclass(frozen=True)
+class Artifacts:
+    """`gates[].artifacts` — this gate may leave files for a person to see.
+
+    **Opt-in per gate, off by default, and the reason is redaction.**
+    `redact.py` erases the VALUES of environment variables whose NAMES match
+    `*TOKEN*`, `*SECRET*`, `*KEY*` and whatever the repo adds, by substring
+    replacement, before the write. **That is a text operation and it cannot
+    touch a binary.** A screenshot can carry a token rendered on a page, a
+    customer's name in a fixture, or an API key in a URL bar, and no pattern in
+    `.wringer.yaml` will remove any of it.
+
+    So turning this on is a repository DECLARING that this gate's output is
+    shareable. It is not a default anyone can drift into.
+
+    Both caps are declared and both have conservative defaults. An over-cap
+    artifact is OMITTED AND NAMED, never silently truncated: a truncated PNG is
+    a corrupt PNG that reads as evidence, and `stdout_truncated` works only
+    because text survives truncation.
+    """
+
+    max_bytes: int = DEFAULT_ARTIFACT_MAX_BYTES
+    total_bytes: int = DEFAULT_ARTIFACT_TOTAL_BYTES
 
 
 @dataclass(frozen=True)
@@ -2042,7 +2087,57 @@ def parse_gate(
         proves=proves,
         stability=stability,
         concurrent=concurrent,
+        artifacts=_parse_artifacts(raw.get("artifacts"), where, gate_id),
     )
+
+
+def _parse_artifacts(raw: Any, where: str, gate_id: str) -> Artifacts | None:
+    """`artifacts:` on a gate — absent, `true`, or a mapping of caps.
+
+    Absent is every gate that shipped and stays the default for ever, because
+    nothing redacts a binary and opting in is a repository saying this gate's
+    output is shareable.
+    """
+    if raw is None:
+        return None
+    if raw is True:
+        return Artifacts()
+    if raw is False:
+        # Explicit off. Recorded as absence, which is what off means here —
+        # there is no third state, and a gate with `artifacts: false` must
+        # behave exactly like one that never mentioned it.
+        return None
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'artifacts' must be true, false, or a "
+            "mapping of caps"
+        )
+    unknown = sorted(set(raw) - _ARTIFACTS_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): unknown keys under 'artifacts': "
+            f"{', '.join(unknown)}"
+        )
+    caps = {}
+    for key, default in (
+        ("max_bytes", DEFAULT_ARTIFACT_MAX_BYTES),
+        ("total_bytes", DEFAULT_ARTIFACT_TOTAL_BYTES),
+    ):
+        value = raw.get(key, default)
+        if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+            raise ConfigError(
+                f"{where} ('{gate_id}'): 'artifacts.{key}' must be a positive "
+                "integer number of bytes"
+            )
+        caps[key] = value
+    if caps["max_bytes"] > caps["total_bytes"]:
+        raise ConfigError(
+            f"{where} ('{gate_id}'): 'artifacts.max_bytes' "
+            f"({caps['max_bytes']}) exceeds 'artifacts.total_bytes' "
+            f"({caps['total_bytes']}), so the per-artifact cap could never "
+            "bind. One of the two is not what you meant"
+        )
+    return Artifacts(**caps)
 
 
 def _parse_stability(raw: Any, where: str, gate_id: str) -> Stability | None:

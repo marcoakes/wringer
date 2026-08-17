@@ -78,7 +78,13 @@ def test_command_not_found_has_one_definition_site():
                     # A re-export (`X = gates.X`) is not a definition.
                     if isinstance(node.value, ast.Constant):
                         assigners.append(f"{path.name}:{node.lineno}")
-    assert assigners == ["gates.py:49"], (
+    # **The FILE, not the line.** This pinned `gates.py:49` until 2026-08-17,
+    # when adding one import to `gates.py` moved the constant down two lines
+    # and reddened a guard about something else entirely. A line number in an
+    # assertion is a claim that goes stale on every edit above it — the same
+    # drift this window corrected in `SPEC_BOARD_V0.md`'s citations hours
+    # earlier, arrived at from the other side.
+    assert [name.split(":")[0] for name in assigners] == ["gates.py"], (
         f"127 must have exactly one literal definition site; found {assigners}"
     )
     assert health.COMMAND_NOT_FOUND is gates.COMMAND_NOT_FOUND

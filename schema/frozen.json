@@ -22,6 +22,7 @@
     "fleet-event.schema.json": "477527a1ffc141b9a0a2dfe47c43675b562b16d45bce21f35ab2667d971f1946",
     "fleet-manifest.schema.json": "594c5060c9fff05d05f5a23449e9008ec300eb5d70496bc165977baf9563ffe5",
     "fleetscope.schema.json": "31005bc4561fe6db4de567b525cb20d5fe522b0bdd17b15993343273e8c862d4",
+    "gate-artifacts.schema.json": "6089217cf8a72e3f93d4aa9fbf5b69b536a258734f2f23098a5233bac2fbdf4a",
     "gate-result.schema.json": "3e1a4af0742b4191170a4c605d7e07ee441fb7d44a34925271c621ccfd4326fd",
     "gatespec.schema.json": "03a78852a3f170440e06dd492219dc5e2cb7222b030f7d772c3ee9f508024e63",
     "graph-event.schema.json": "c736ccdacd4f4208305dc080af593c5412c066c6433ccec65ad26c0f685f941b",

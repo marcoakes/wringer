@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/gate-artifacts.schema.json",
+  "title": "wringer.gate-artifacts.v1",
+  "description": "`gates/NNN_<id>/artifacts.json` — what one gate left for a PERSON to look at. A SIBLING file, never a relabel: `gate-result.schema.json` is closed over nine fields with `additionalProperties: false`, `result.json` gains no field and changes no meaning, and law 7 always allows a new schema file. The same shape `digests.json` and `briefed.json` already use.\n\n**THE ABSENCE OF THIS FILE IS THE COMPATIBILITY BOUNDARY.** Every bundle written before it existed, and every gate that leaves no artifact, reads exactly as it did before.\n\n**NOTHING HERE IS REDACTED IF IT IS BINARY, AND THAT CANNOT BE FIXED.** `redact.py` erases the VALUES of environment variables whose NAMES match `*TOKEN*`, `*SECRET*`, `*KEY*` and whatever the repository adds, by substring replacement. That is a text operation. A screenshot can carry a token rendered on a page, a customer's name in a fixture, or an API key in a URL bar, and no pattern in `.wringer.yaml` will remove any of it. Every row says which kind it is. Artifacts are therefore OPT-IN PER GATE — turning them on is a repository declaring that this gate's output is shareable — and they never leave the machine by default: not in an MR body, not in an attestation payload, not in anything `wring deliver --send` transmits.\n\n**The harness records a name, a size, a digest and a media type. It does not caption, label or interpret.** Nothing in this file is a claim about what an artifact SHOWS.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gate",
+    "artifacts",
+    "omitted",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gate-artifacts.v1"
+    },
+    "gate": {
+      "description": "The id of the gate that left these.",
+      "type": "string",
+      "minLength": 1
+    },
+    "artifacts": {
+      "description": "Every file recorded, in sorted order so two runs over the same files produce byte-identical records. Empty when a gate opted in and left only omissions.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "bytes",
+          "sha256",
+          "media_type",
+          "redacted"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "description": "Path relative to the gate's `artifacts/` directory.",
+            "type": "string",
+            "minLength": 1
+          },
+          "bytes": {
+            "description": "Size AS RECORDED — after redaction for a text artifact, which can change it.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "sha256": {
+            "description": "Digest of the bytes on disk. `evidence.digest_directory` also covers this file and every artifact, and `wring audit` catches added, missing and altered ones, so no new verification path exists.",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "media_type": {
+            "description": "From a CLOSED allow-list keyed on the extension. Closed because 'whatever the extension says' is how an unexpected type reaches a renderer.",
+            "type": "string",
+            "minLength": 1
+          },
+          "redacted": {
+            "description": "Whether this artifact went through the same scrub as any other captured text. FALSE for every binary, always, and that is a statement about what is possible rather than about what was configured. A row claiming `true` for a file whose bytes are not decodable text would be the format lying, so the writer trusts the bytes over the extension.",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "omitted": {
+      "description": "What was left out, and why. OMITTED AND NAMED, NEVER TRUNCATED: a truncated image is a corrupt image that still reads as evidence, and `stdout_truncated` works only because text survives truncation. Absence is stated here rather than being invisible. Deliberately not called 'refused' — in this codebase a `Refused` is a hard stop with an exit code, and an omission is not one.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "description": "`too_large`: over the per-artifact cap. `total_exceeded`: it would have taken the run over its declared total. `unknown_type`: its extension is not on the allow-list. `unreadable`: it could not be read.",
+            "enum": [
+              "too_large",
+              "total_exceeded",
+              "unknown_type",
+              "unreadable"
+            ]
+          },
+          "bytes": {
+            "description": "Present when the size is known and is the reason.",
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this record does NOT say, travelling with it rather than living in a spec nobody opened — the `acceptance.json` precedent.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  }
+}
