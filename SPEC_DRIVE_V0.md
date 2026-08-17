@@ -666,7 +666,7 @@ the artifact this programme exists to refuse:
 | | |
 |---|---|
 | authored | **2026-08-17**, this window |
-| independently reviewed | **NO.** Not begun |
+| independently reviewed | **NO.** Not begun. **The refute pass at §12 is not this**, and the two must not be read as one: it ran the same day this was drafted, by one agent, and the window that commissioned it then built to the spec. *Independent* in this house means a separate, later reader with no stake in the build. `wringer-drive/README.md` said "independently reviewed" in public until 2026-08-18 and no longer does |
 | built | **STEPS 0–10, whole**, `wringer-drive` `fb45342`, 2026-08-17 |
 | §6's number | **MEASURED: 27s**, prose PRD to first honest green, ten answers, no editor. `docs/pm-mode-2026-08-17.md` |
 | findings folded | **19 of 19**, none rebutted, 2026-08-17 |

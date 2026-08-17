@@ -711,11 +711,23 @@ green by being edited. What is queued now is the surface, in this order:
 | next | what it closes |
 |---|---|
 | **The artifact slot** | moment 5 — a gate can leave a picture behind, digested and attested like everything else, so a requirement about a screen can show the screen |
-| **The drive cycle** | the operating gap — one verb from a prose file to a rendered board, with the environment class that kills a fresh repo in minute three fixed first |
 | **The launch cycle** | the assets, and the one launch moment, spent once |
 
 Nothing above is claimed as existing; [ROADMAP.md](ROADMAP.md) carries the
-whole queue with what is banked and why. Everything else in the original plan
+whole queue with what is banked and why.
+
+**The drive cycle came off that list on 2026-08-17**, which is why it is no
+longer in the table. One verb — `wringer-drive run PRD.md` — carries a prose
+file through the interview, the plan, the approval, the checks, the loop and
+the handover to a rendered board, and the wall clock was measured rather than
+estimated: **27.5 seconds**, in `wringer-drive/docs/pm-mode-2026-08-17.md`.
+That run ends non-zero because `wring deliver` refused work it could not
+evidence — the ending this engine is for. It is a fourth package, it has **no
+public remote yet**, and no stranger has read a board it produced, so it is
+named here rather than linked and no claim is made about how usable a product
+manager finds it.
+
+Everything else in the original plan
 — gateway plane, policy, context autogen, skills, self-evolution — is
 deferred behind the working loop, [with
 reasons](ROADMAP.md#rulings-that-changed-from-the-v10-plan).
