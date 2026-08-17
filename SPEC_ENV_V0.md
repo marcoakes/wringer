@@ -15,6 +15,80 @@ reason vocabulary grows here by the lawful post-release route),
 [SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md) ruling 4 and
 [SPEC_SCOPE_V0.md](SPEC_SCOPE_V0.md) bind and are unchanged.*
 
+> ## AMENDED 2026-08-17 — the independent review ran, and rulings 3 and 4 are DEAD
+>
+> *The independent pass this header chartered was run and is discharged:
+> **NOT SOUND, 16 findings (5 HIGH)**. Ratified as dated amendments by the
+> Fable rulings of 2026-08-17 (**H-2**), and folded here by the homecoming
+> window before any code was written. Every fact below was re-verified against
+> the tree at `2109a3d` by this window rather than inherited from the review.*
+>
+> **Rulings 3 and 4 are not judgement calls that went the other way. They are
+> unbuildable, and two of the three walls were built by a LATER cycle using
+> this spec's own argument.**
+>
+> 1. **`result.diagnosis` cannot exist.** `loop-manifest-v2.schema.json` is
+>    `additionalProperties: false` at the top **and** on `result` (whose
+>    properties are exactly `status`, `reason`, `iterations`, `final_run`), and
+>    the file is byte-frozen in `schema/frozen.json`. Adding the field would
+>    invalidate every bundle written against the format its own manifest names.
+> 2. **Ruling 3 orders minting two schema files that already exist.**
+>    `loop-manifest-v2.schema.json` and `loop-event-v2.schema.json` are both on
+>    disk and both in `frozen.json`, spent by the `flaky_gate` cycle — whose
+>    manifest `reason` description **cites this spec by name** while explaining
+>    that v2's `reason` is an open string *precisely so a new stop reason costs
+>    no version*. Half of ruling 3 is already discharged by a later cycle using
+>    this spec's own reasoning. `environment` therefore costs **no version at
+>    all**.
+> 3. **`task.parked` is illegal.** Its `why` is a CLOSED five-value enum in the
+>    frozen `wringer.fleet.v1` event schema — `deadline`, `worktree_failed`,
+>    `missing_dir`, `deterministic`, `exhausted` — and none is true of an
+>    environment stop. `fleet.py:1009-1017` hit this exact wall for `flaky_gate`
+>    and **cites this spec while refusing park**.
+> 4. **A graph loop node never reaches `parked`.** `parked` is reachable only
+>    through the `Parked` exception, which ends the whole invocation
+>    (`graph.py:1065-1072`); a loop node's status is whatever the loop decided.
+>
+> **What replaces them, ratified:**
+>
+> - **`diagnosis.json` / `wringer.diagnosis.v1`** — a sibling in the loop
+>   bundle beside `manifest.json`, on the `usage.json` precedent this file's
+>   own constants block already argues for (`loop.py:84-94`). Written **after
+>   `_write_summary` and before `bundle.write_digests()`** so the existing
+>   digest walker covers it with no new enumeration. **A new schema file is
+>   always allowed (law 7); a field on a frozen one never is.**
+> - **No fleet park.** Follow the `flaky_gate` shape exactly: return before the
+>   ladder, spend no retry, carry `environment` in the free-string
+>   `state.reason`. The refusal to retry — the part that could manufacture a
+>   green — is preserved in full. What is given up is the *word* `parked`, and
+>   spending `wringer.fleet.v2` to upgrade a word is worse than the word.
+> - **No graph park.** `environment` joins `graph.LOOP_REASONS` as a ninth
+>   routing fact like the other eight. **Every set-equality guard over those
+>   reasons is updated in the same commit** — that agreement test is the drift
+>   guard and it is what forces the change.
+> - **A fourth leg on the stop predicate:** the stop does **not** fire when the
+>   failing gate carries a `proves:` binding. A config fact, not a text guess.
+>   This closes D1's residual, where a born-red gate invoking its own
+>   deliverable by name was still being wrongly stopped.
+> - **E1 is half dead.** `COMMAND_NOT_FOUND` already has exactly one definition
+>   site (`gates.py:49`) and health already re-exports it, so that box is
+>   discharged. **What remains real:** one face-detector helper with two
+>   callers, the guard against a second detector, the 126 face keyed on the
+>   exit code, and hoisting `vacuity._cite` as the single evidence-line
+>   extractor so this cycle does not mint a second convention.
+>
+> **THE STOP TIER IS UNTOUCHED, and that is the part that was contentious.**
+> A 127 pre-worker on a PATH-resolved command still stops with **no worker
+> briefed**. The missing-module face (exit 1, `No module named`) still **briefs
+> once and still ends `no_progress`**, gaining only a labelled diagnosis. Every
+> sentence anywhere in this spec states that residue, and ruling 5's asymmetry
+> — a false stop costs more than a false continue — is why. Nothing here
+> widens the stop.
+>
+> Ruling 3's and ruling 4's original text is preserved below, struck through in
+> effect but not deleted, because a spec that quietly rewrites a dead ruling
+> hides the fact that events overtook it.
+
 ## Positioning
 
 > **When a gate fails because the environment is broken rather than because
@@ -141,55 +215,86 @@ build a classifier.
    diagnosis beside the true reason, so a fleet summary can finally tell
    "went in circles" from "was sent against a wall".
 
-3. **The record spends the version, and shows its working — DECIDED.**
-   `wringer.loop.v2`. **Finding D2 (MEDIUM), folded: the frozen wall is two
-   schemas thick, not one.** The dossier counted `loop-manifest`'s reason
-   enum; `loop-event.schema.json`'s `loop.finished` carries the same frozen
-   enum, so the lawful route is TWO new files —
-   `schema/loop-manifest-v2.schema.json` and `schema/loop-event-v2.schema.json`
-   (the `untracked` → `untracked-v2` precedent) — published and recorded in
-   `schema/frozen.json` in the same commit, existing schema files
-   byte-identical, which the existing derived guards already enforce.
+3. **DEAD — see the 2026-08-17 amendment at the head of this file.** The two
+   schema files this ruling orders minted already exist and are already frozen;
+   `result.diagnosis` cannot be added to either; and a loop node cannot reach
+   `parked`. Replaced by the `diagnosis.json` / `wringer.diagnosis.v1` sibling
+   and by `environment` joining `graph.LOOP_REASONS` as a ninth routing fact.
+   **`environment` costs no schema version**, because v2's `reason` is already
+   an open string on this spec's own argument. Original text, preserved:
 
-   v2 is v1 plus: `reason` gains `environment`; `result` gains `diagnosis`
-   — `{face, gate, evidence}`, the evidence being the first matching stderr
-   line, truncated — required when `reason` is `environment`, present on any
-   stop whose final failing run matched a face, absent otherwise. Its schema
-   description says what it is: *a routing diagnosis, never a verdict* —
-   §4b's "shows its working", applied to routing. The `status` enum is
-   unchanged; an environment stop is `stopped`.
+   > **The record spends the version, and shows its working — DECIDED.**
+   > `wringer.loop.v2`. **Finding D2 (MEDIUM), folded: the frozen wall is two
+   > schemas thick, not one.** The dossier counted `loop-manifest`'s reason
+   > enum; `loop-event.schema.json`'s `loop.finished` carries the same frozen
+   > enum, so the lawful route is TWO new files —
+   > `schema/loop-manifest-v2.schema.json` and `schema/loop-event-v2.schema.json`
+   > (the `untracked` → `untracked-v2` precedent) — published and recorded in
+   > `schema/frozen.json` in the same commit, existing schema files
+   > byte-identical, which the existing derived guards already enforce.
+   >
+   > v2 is v1 plus: `reason` gains `environment`; `result` gains `diagnosis`
+   > — `{face, gate, evidence}`, the evidence being the first matching stderr
+   > line, truncated — required when `reason` is `environment`, present on any
+   > stop whose final failing run matched a face, absent otherwise. Its schema
+   > description says what it is: *a routing diagnosis, never a verdict* —
+   > §4b's "shows its working", applied to routing. The `status` enum is
+   > unchanged; an environment stop is `stopped`.
+   >
+   > The writer emits v2 unconditionally — one writer, one format. Every
+   > reader accepts BOTH versions, and the reader set is DERIVED, not named:
+   > every match on `loop.SCHEMA_VERSION` or the version literal, found by
+   > grep. **Finding D3 (MEDIUM), folded: the naive bump silently orphans
+   > every existing bundle** — `health._KINDS` is keyed off
+   > `loop.SCHEMA_VERSION`, so changing the constant without widening the map
+   > makes health forget every v1 loop on disk, wordlessly. The DONE box feeds
+   > a v1 fixture through every derived reader and demands today's behavior.
 
-   The writer emits v2 unconditionally — one writer, one format. Every
-   reader accepts BOTH versions, and the reader set is DERIVED, not named:
-   every match on `loop.SCHEMA_VERSION` or the version literal, found by
-   grep. **Finding D3 (MEDIUM), folded: the naive bump silently orphans
-   every existing bundle** — `health._KINDS` is keyed off
-   `loop.SCHEMA_VERSION`, so changing the constant without widening the map
-   makes health forget every v1 loop on disk, wordlessly. The DONE box feeds
-   a v1 fixture through every derived reader and demands today's behavior.
+   **What is built instead.** `diagnosis.json` carries
+   `{schema_version, face, gate, evidence}` — the evidence being the first
+   matching output line, extracted by the hoisted `vacuity._cite`. It is
+   **present on any stop whose final failing run matched a face, and absent
+   otherwise**, which is a file that simply is not there rather than a null.
+   `wringer.loop.v2` is unchanged and unbumped, both v2 schema files stay
+   byte-identical, and `frozen.json` gains exactly one line for the new
+   sibling. The description in the new schema keeps ruling 1's boundary
+   verbatim: **a routing diagnosis, never a verdict.**
 
    `graph.LOOP_REASONS` gains `environment` — its existing agreement test is
-   the drift guard — and a loop node ending `environment` maps to node
-   status `parked`, which is already graph's own word for "neither success
-   nor failure: a person has to act". A loop that stopped `environment`
-   wrote `loop.finished` and is therefore not resumable, unchanged law; the
-   remedy is fix-then-rerun, and the console says so.
+   the drift guard, and it is what FORCES this change rather than merely
+   permitting it. **A loop node ending `environment` reads `failed`, not
+   `parked`:** `parked` is reachable only through the `Parked` exception,
+   which ends the whole invocation (`graph.py:1065-1072`), while a loop node's
+   status is whatever the loop decided. The original sentence — *"maps to node
+   status `parked`"* — described a transition the graph cannot make. A loop
+   that stopped `environment` wrote `loop.finished` and is therefore not
+   resumable, unchanged law; the remedy is fix-then-rerun, and the console
+   says so.
 
-4. **Under `wring fleet`, an environment stop parks, immediately, spending
-   nothing — DECIDED.** In `_maybe_retry`, reason `environment` parks
-   before the ladder: no retry is spent, because a retry re-runs the same
-   command in the same environment — SPEC_SUPERVISION invariant 2
-   generalized from "same signature observed twice" to "deterministic with
-   respect to anything a retry can change". `task.parked` with
-   `why: environment`; the task row's free-string `reason` carries the
-   diagnosis evidence, so the summary table is legible without opening a
-   child bundle (no frozen fleet schema is touched — measured: both the
-   fleet manifest's and fleet events' `reason` are plain strings).
+4. **DEAD as to the WORD, live as to the BEHAVIOUR — see the 2026-08-17
+   amendment.** `task.parked`'s `why` is a closed five-value enum in the
+   frozen `wringer.fleet.v1` event schema and `environment` is not among them;
+   `fleet.py:1009-1017` hit this exact wall for `flaky_gate` and cited **this
+   spec** while refusing park. What survives untouched is everything that
+   matters: **the environment stop returns before the ladder and spends no
+   retry**, and `environment` travels in the free-string `state.reason` so the
+   summary table stays legible. What is given up is the word `parked` in
+   favour of the weaker, honest one — because spending `wringer.fleet.v2` to
+   upgrade a word is worse than the word. Original text, preserved:
 
-   Parked, not failed, regardless of `on_exhausted`: park is the fleet's
-   word for "a person must act", it keeps the evidence, and the shipped
-   console guidance for parked ids — re-run them after acting — is exactly
-   the remedy. **No fleet-wide abort of unstarted siblings**: children may
+   > **Under `wring fleet`, an environment stop parks, immediately, spending
+   > nothing — DECIDED.** In `_maybe_retry`, reason `environment` parks
+   > before the ladder: no retry is spent, because a retry re-runs the same
+   > command in the same environment — SPEC_SUPERVISION invariant 2
+   > generalized from "same signature observed twice" to "deterministic with
+   > respect to anything a retry can change". `task.parked` with
+   > `why: environment`; the task row's free-string `reason` carries the
+   > diagnosis evidence, so the summary table is legible without opening a
+   > child bundle (no frozen fleet schema is touched — measured: both the
+   > fleet manifest's and fleet events' `reason` are plain strings).
+
+   Not parked, and not retried either. **No fleet-wide abort of unstarted
+   siblings**: children may
    have genuinely different environments (per-task `dir`, worktree mode),
    so one child's environment proves nothing about another's — invariant 6
    says never fail two hundred because three died — and detection costs one
@@ -251,26 +356,41 @@ has shipped three times.
       invoking its deliverable by path (`./bin/tool`, absent at baseline)
       does not stop as environment and a worker is briefed — D1's case,
       pinned so the factory's arming pattern survives this spec.
-- [ ] **One fact, one helper:** `COMMAND_NOT_FOUND` has one definition site
-      in `src/`, imported by both `health.genuine_failure` and the stop
-      tier, pinned by a guard test in the house shape that reddens on a
-      second definition; face detection has one definition with two callers
-      (`wring start`'s hint, the loop), and a second detector reddens the
-      guard.
-- [ ] **The record:** both v2 schema files published and recorded in
-      `schema/frozen.json` in the same commit, every existing schema file
-      byte-identical (the shipped derived guards enforce this); a v1
-      manifest fixture fed through every reader that matches on the loop
-      schema version — the set derived by grep, not named — behaves exactly
-      as today, health's kind-map included.
-- [ ] **The vocabulary:** `graph.LOOP_REASONS` gains `environment` and its
-      existing agreement test is what forces it; a loop node ending
-      `environment` reads node status `parked`.
+- [ ] **The fourth leg, added 2026-08-17:** a failing gate that carries a
+      `proves:` binding does **not** stop as environment even when the other
+      three legs hold. A config fact, not a text guess. This is D1's residual:
+      a born-red gate that invokes its own deliverable by a PATH-resolved name
+      is the factory's arming pattern, and stopping it refuses the repair the
+      loop exists for.
+- [ ] **One fact, one helper — HALF DISCHARGED ALREADY.**
+      `COMMAND_NOT_FOUND` already has exactly one definition site
+      (`gates.py:49`) and `health` already re-exports it; that half needs no
+      code and its guard is written to say so rather than to pretend it was
+      this cycle's work. **What this cycle builds:** face detection with one
+      definition and two callers (`wring start`'s hint, the loop), a guard
+      that reddens if a second detector appears, the 126 face keyed on the
+      exit code, and `vacuity._cite` hoisted as the single evidence-line
+      extractor so no second convention is minted.
+- [ ] **The record — NO VERSION IS SPENT.** `diagnosis.json` /
+      `wringer.diagnosis.v1`, a new sibling file beside `manifest.json`,
+      written after `_write_summary` and before `write_digests()` so the
+      existing digest walker covers it without new enumeration. Both loop v2
+      schema files stay **byte-identical** and `wringer.loop.v2` is unbumped
+      (the shipped derived guards enforce this); `frozen.json` gains exactly
+      one line. A v1 manifest fixture fed through every reader that matches on
+      the loop schema version — the set derived by grep, not named — behaves
+      exactly as today, health's kind-map included.
+- [ ] **The vocabulary:** `graph.LOOP_REASONS` gains `environment` as a ninth
+      routing fact, its existing agreement test is what forces it, and **every
+      set-equality guard over those reasons is updated in the same commit**.
+      A loop node ending `environment` reads `failed` — `parked` is
+      unreachable for a loop node and the spec no longer claims otherwise.
 - [ ] **The fleet:** two or more tasks over a broken environment — every
-      child parks with `why: environment`, zero worker invocations
-      fleet-wide, zero `task.retried` events, the summary rows carry the
-      diagnosis; after the environment is repaired, re-running the parked
-      ids converges, and the counts stay honest at every step.
+      child ends with `environment` in its free-string reason, **zero worker
+      invocations fleet-wide, zero `task.retried` events**, the summary rows
+      carry the diagnosis; after the environment is repaired, re-running the
+      ids converges, and the counts stay honest at every step. The row is
+      `failed`, not `parked`, and the reason string says why.
 - [ ] **The brief's hint, pinned by content:** labeled a guess; quotes the
       evidence line; its sole imperative is stop-and-say-why; no instruction
       a worker could satisfy by damaging the tree or mutating the
