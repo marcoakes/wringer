@@ -786,6 +786,39 @@ in this cycle, which is the opposite of why R1 is first.)
 
 ### The sequencing gate: the engine may not emit v3 until the board reads it
 
+> **AMENDED 2026-08-17 by Fable ruling H-1, and re-expressed as a gate on
+> EMISSION rather than on landing.** The gate below says "R2 does not LAND
+> until the board reads v3". Ruled (b), re-sequenced kill-safe: **R2 and R3
+> land DARK — schema frozen complete, writers built, tests and captures
+> writing REAL v3 bytes — while the PUBLIC emission path still writes v2, with
+> the gate itself enforced as a test.** The board then learns v3 from those
+> real committed bytes, and one small commit flips emission on and reverses
+> the gate test.
+>
+> **The re-expression is the point, not a loophole.** Under the original
+> wording, R2 could not land at all until a second repository moved, so the
+> board would have had to learn v3 from **hand-built fixtures written from the
+> same guess as the reader** — which is precisely the failure mode §5.3 of the
+> 2026-08-17 pack documented, where eleven mutations walked through a guard
+> whose fixtures and whose reader shared an author's assumption. Teaching the
+> board from bytes the engine actually wrote is strictly stronger than the
+> original sequencing, and the substantive promise is unchanged and enforced
+> more tightly: **no reader ever meets an emitted v3 record it cannot read.**
+>
+> **OQ-1's refusal-policy change is DARK with emission — one switch flips
+> both.** They cannot be separated without shipping a falsehood in one
+> direction or the other: a live policy over v2 bytes would falsify the frozen
+> v1 schema's own description and trip the gate test, while a dark policy under
+> corrected prose would ship eight false sentences. So **§3 ruling 6's eight
+> corrections and R3's three-part capture ride the FLIP commit**, recorded here
+> as a dated re-reading of ruling 6's "in the same commit": the same commit the
+> policy takes effect in. Three coherent landing points, and a kill between any
+> two leaves a tree whose prose is TRUE of it — before the flip, the
+> corrections are simply unlanded.
+>
+> Original text of the gate follows, unchanged, because the version that was
+> ruled on should stay legible beside the version that was built.
+
 **R2 does not land until a `wringer-board` slice adds `wringer.acceptance.v3`
 to `KNOWN_ACCEPTANCE` (`wringer-board/src/wringer_board/read.py:32`) and
 teaches `cards._unevidenced` (`wringer-board/src/wringer_board/cards.py:199`)
