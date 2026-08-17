@@ -579,8 +579,9 @@ make a demo look better.**
       could read**, and says what drove it.
 
 **Still owed, and none of it is this document's to close:** the independent
-review of this spec (never begun), `wringer-drive`'s remote, and the
-`temperature: 0` finding against the engine.
+review of this spec (never begun) and `wringer-drive`'s remote. *The
+`temperature: 0` finding against the engine was the third item here and was
+**closed 2026-08-18** — see `docs/temperature-2026-08-18.md`.*
 
 ---
 
@@ -705,11 +706,16 @@ Building it found three live defects, none by reading:
   and YAML's plain scalars are not decided by characters. Fixed at the
   board's `fe53027` by asking the loader instead of reasoning about the text
   — the same class as the newline folding fixed at `ccf117f`.
-- **`wring spec --send` cannot reach any current-generation Anthropic model.**
-  `spec.build_request` always sends `temperature: 0`; Opus 5, Opus 4.8, Opus
-  4.7, Sonnet 5 and Fable 5 all reject it with HTTP 400 before a token is
-  drafted. **OPEN — a core finding, and this window had no licence to change
-  core.**
+- **`wring spec --send` could not reach any current-generation Anthropic
+  model.** `spec.build_request` always sent `temperature: 0`; Opus 5, Opus
+  4.8, Opus 4.7, Sonnet 5 and Fable 5 all reject it with HTTP 400 before a
+  token is drafted — *"`temperature` is deprecated for this model"*, the
+  endpoint's own words. **FIXED 2026-08-18** in core: the key is removed and
+  no configuration knob replaces it. Proved live both directions —
+  `claude-opus-5` went 400 → exit 0, and `claude-sonnet-4-6`, which accepted
+  the old body, still drafts. `wring judge` is a different request, still
+  sends `temperature: 0`, and its frozen schema still requires it.
+  `docs/temperature-2026-08-18.md`.
 - **`judge.max_output_tokens` defaults to 1024, which truncates the reply for
   any real PRD**, and `wring spec` then refuses the whole draft and writes
   nothing. Measured twice against a live endpoint; DRIVE's generated config

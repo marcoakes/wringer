@@ -3045,7 +3045,10 @@ def newest_release_tag() -> str | None:
 # "0.3.0 is the released version"; "the current release is 0.3.0"; and the
 # pre-release framing that outlives its own release — "building toward v0.1.0".
 _RELEASED_VERSION_CLAIMS = (
-    re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s+is\s+the\s+(?:current\s+)?released\s+version", re.I),
+    re.compile(
+        r"`?v?(\d+\.\d+\.\d+)`?\s+is\s+the\s+(?:current\s+)?released\s+version",
+        re.I,
+    ),
     re.compile(r"the\s+(?:current\s+)?release\s+is\s+`?v?(\d+\.\d+\.\d+)`?", re.I),
     re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s*\(PyPI,\s*current\)", re.I),
     re.compile(r"building\s+toward\s+`?v?(\d+\.\d+\.\d+)`?", re.I),

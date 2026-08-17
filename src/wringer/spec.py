@@ -625,10 +625,31 @@ def render_request(
         "existing checks; `gate_bindings` are the per-criterion acceptance "
         "checks, and only these carry `proves`."
     )
+    # **No `temperature` key, and its absence is the fix rather than an
+    # omission.** Until 2026-08-18 this body carried `"temperature": 0`, and
+    # every current-generation Anthropic model — Opus 5, Opus 4.8, Opus 4.7,
+    # Sonnet 5, Fable 5 — refuses it outright: HTTP 400, *"`temperature` is
+    # deprecated for this model"*, before a token is drafted. So a product
+    # manager who named the model their team actually uses got an error
+    # instead of a spec, which is the whole surface failing at its first step.
+    #
+    # No config knob replaces it, deliberately. `temperature: 0` never bought
+    # determinism here — the drafter's correctness mechanism is
+    # parse-or-refuse (`parse_response` puts every proposed field through the
+    # same parser the file itself will face), not sampling temperature. A
+    # `judge.temperature` key would be surface nobody asked for, and if a real
+    # need arrives it can arrive with a use case.
+    #
+    # `wring judge` is a DIFFERENT request and keeps its `temperature: 0`:
+    # `schema/judge-request.schema.json` requires it with `"const": 0`, that
+    # schema is frozen (`schema/frozen.json`), and a judge that is not
+    # deterministic is not a gate. Nothing here changes it.
+    #
+    # Old `request.json` files keep their `temperature` and stay readable:
+    # nothing reads the key back out, and no schema governs this body.
     return {
         "model": model,
         "max_tokens": max_output_tokens,
-        "temperature": 0,
         "messages": [
             {
                 "role": "system",

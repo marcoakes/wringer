@@ -161,7 +161,17 @@ def test_print_request_writes_the_body_and_stops(repo, monkeypatch, capsys):
 
     body = json.loads(capsys.readouterr().out)
     assert body["model"] == "cheap-model"
-    assert body["temperature"] == 0
+    # **No `temperature`, and this assertion is the point rather than a
+    # leftover.** It read `body["temperature"] == 0` until 2026-08-18, which
+    # pinned a key every current-generation Anthropic model rejects with HTTP
+    # 400 before drafting a token. `wring judge`'s request still carries it
+    # and its frozen schema still requires it; this one must not.
+    assert "temperature" not in body, (
+        "`spec.build_request` is sending `temperature` again. Opus 5, Opus "
+        "4.8, Opus 4.7, Sonnet 5 and Fable 5 all answer `temperature` is "
+        "deprecated for this model, HTTP 400 — a PM naming their own model "
+        "gets an error instead of a spec"
+    )
     # the PRD really is what travels
     assert "pivot the numbers in a spreadsheet" in body["messages"][1]["content"]
     # an inspection leaves nothing behind

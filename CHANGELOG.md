@@ -4,6 +4,35 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## Unreleased
+
+**`wring spec --send` can reach a current-generation model again.**
+`spec.build_request` always sent `"temperature": 0`, and every
+current-generation Anthropic model rejects it with HTTP 400 — *"`temperature`
+is deprecated for this model"* — before a token is drafted. A product manager
+who named the model their team actually uses got an error instead of a
+specification, at the first step of the surface. The key is removed, with no
+configuration knob replacing it: `temperature: 0` never bought determinism
+here, because the drafter's correctness mechanism is parse-or-refuse rather
+than sampling temperature.
+
+**`wring judge` is unchanged and still sends `temperature: 0`** — a judge that
+is not deterministic is not a gate, and `schema/judge-request.schema.json`
+requires it with `"const": 0`. No frozen schema moved a byte.
+
+This changes what `.wringer/specs/<id>/request.json` contains, so the record
+is worth reading before you rely on it: nothing reads the key back out, no
+schema governs that body, and requests written before today keep their
+`temperature` and stay readable. Measured both directions live —
+`claude-opus-5` went from HTTP 400 to a complete draft, and
+`claude-sonnet-4-6`, which accepted the old body, still drafts.
+[`docs/temperature-2026-08-18.md`](docs/temperature-2026-08-18.md) carries the
+commands, the endpoint's own error text, and the token counts.
+
+Known and not fixed here: `judge.max_output_tokens` still defaults to 1024,
+which truncates the draft for any real PRD. Declare a larger value —
+`wringer-drive`'s generated config uses 8000.
+
 ## 0.3.0 — 2026-08-08
 
 **Four new commands, and the check that makes the rest of them mean
