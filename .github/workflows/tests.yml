@@ -39,6 +39,36 @@ jobs:
           name: wringer-evidence
           path: .wringer/runs/
 
+  # **The action, run against this repository — H-7 of the Fable rulings of
+  # 2026-08-17.** Until this job existed, `action.yml` was committed, pushed,
+  # publicly referenceable as `uses: marcoakes/wringer@main`, and had NEVER
+  # BEEN EXECUTED by anything. It was checked statically — the YAML parses,
+  # every flag exists against the real parser, `--send` is absent, the recipe
+  # guard covers it — and never once run.
+  #
+  # That made it a published claim with no execution evidence, in a repository
+  # whose entire argument is that those are the dangerous kind. This job is the
+  # answer, and it makes the action SELF-EVIDENCING: `uses: ./` is the same
+  # composite action a stranger references by name, resolved from the checkout.
+  #
+  # It also exercises the first-run-reads-thin story for real. A fresh checkout
+  # holds no bundles, so `wring health` has nothing to read and the vitality
+  # table says `untested` rather than "probably fine" — which is the behaviour
+  # the action's own header spends a paragraph explaining and which nobody had
+  # watched happen.
+  #
+  # **The `experimental` label in `action.yml`'s description leaves only in the
+  # commit where this job is green.**
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./
+      - name: Say what the job summary got
+        if: always()
+        run: |
+          echo "::notice::the action ran against this repository via 'uses: ./'"
+
   # SETUP.md's own commands, executed. Four of the 2026-08-05 field report's
   # findings (R2-01, R2-03, R2-04, R2-06) are guarded only by this script,
   # and until it ran here it bit only when a human remembered to run it —

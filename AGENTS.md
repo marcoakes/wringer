@@ -368,7 +368,7 @@ a fresh clone is untrusted input and running its gates in the same invocation
 would be the most dangerous command in the program aimed at the least
 technical user it has (SPEC_START_V0.md §3e).
 
-**Every socket lives in `judge.send` or `forge.request`**, and there are
+**Every socket lives in `judge.send` or `forge.request`** — derived and enforced by `tests/test_network_surface.py`, never by a grep count, which is unstable under documenting the string it greps for, and there are
 exactly two such calls in the program — a clone is `git` in a subprocess, not
 a socket this program opens. Enforced since 2026-08-15 by
 `tests/test_network_surface.py`, which parses every module, resolves each call

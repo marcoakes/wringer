@@ -2484,3 +2484,183 @@ def test_the_install_prompt_forbids_sudo_and_sending():
     block = (repo_root() / INSTALL).read_text(encoding="utf-8")
     assert "Do not use sudo" in block
     assert "Do not run `wring deliver --send`" in block
+
+
+# --- H-3: totality claims must be guarded, or exempted with a reason -------
+
+import re as _re
+
+# A totality word next to a backticked, enumerated list. SCOPED to that shape
+# on purpose (Fable ruling H-3): the grep needs something mechanical to key on,
+# and a list offered as a sample is not what goes stale — a list offered as
+# EXHAUSTIVE is.
+_TOTALITY = _re.compile(
+    r"\b(every|all|both|the (two|three|four|five|six|seven|eight|nine|ten))\b",
+    _re.I,
+)
+# Two or more backticked items separated by commas / "and" / "or" — an
+# enumeration, not a single name mentioned in passing.
+_ENUMERATION = _re.compile(r"`[^`]+`(\s*(,|and|or|·|/)\s*`[^`]+`)+")
+
+# Prose this repository ships to a reader. Not `tests/`: a test that enumerates
+# is a guard, which is the thing being asked for rather than the thing at risk.
+_GUARDED_PROSE = (
+    "README.md", "AGENTS.md", "SECURITY.md", "QUICKSTART.md", "SETUP.md",
+    "THREAT_MODEL.md", "CONTRIBUTING.md",
+)
+
+# **Per-item exemptions, each with a REASON STRING.** The house shape, and the
+# same one `test_sign.py` and the board's mapping use. An exemption with no
+# reason is a silenced guard; an exemption with one is a decision somebody can
+# argue with later.
+#
+# Keyed on a distinctive substring of the sentence.
+# **EMPTY, and that is the result rather than the starting point.** The ruling
+# expected this list to be needed and it was not: all three sentences the guard
+# found were real totality claims that could be, and now are, derived — two
+# name `tests/test_network_surface.py` and one names a test written for it.
+# An exemption is available and none is currently justified.
+_TOTALITY_EXEMPTIONS: dict[str, str] = {}
+
+
+# **ADJACENCY is what makes this mechanical rather than a vibe.** The ruling
+# scopes the guard to a totality word *adjacent to* a backticked enumeration,
+# and without a distance the grep matches any paragraph that happens to contain
+# both — twenty table cells and a sentence about sockets three clauses away.
+# Sixty characters is the window: "every loop outcome — `a`, `b`, `c`" fits,
+# and two unrelated clauses in one sentence do not.
+_ADJACENT_CHARS = 60
+
+
+def _totality_sentences(text: str) -> list[str]:
+    """Sentences carrying a totality word ADJACENT to a backticked list.
+
+    Markdown table rows are excluded, and that is a real limit rather than
+    convenience: a `|`-delimited row is several independent cells on one line,
+    so "adjacent" means nothing across it. Table claims are guarded the way
+    they always have been — by the derived checks their own cells name.
+    """
+    found = []
+    for raw in _re.split(r"(?<=[.!?])\s+|\n\n", text):
+        line = " ".join(raw.split())
+        if not line or line.startswith(("```", "|--", "$ ")) or " | " in line:
+            continue
+        for word in _TOTALITY.finditer(line):
+            for listed in _ENUMERATION.finditer(line):
+                gap = listed.start() - word.end()
+                if 0 <= gap <= _ADJACENT_CHARS:
+                    found.append(line)
+                    break
+            else:
+                continue
+            break
+    return found
+
+
+def test_every_totality_claim_over_a_backticked_list_is_guarded_or_exempt():
+    """**H-3 — the programme's own defect class, answered by its own method.**
+
+    Seven confirmed stale totality claims so far, and THREE of the seven were
+    found by an agent sent to look at something else. Every catch has been
+    luck-shaped. `docs/graphs.md` said "Every loop outcome —" and named six of
+    eight; `SPEC_BOARD_V0.md` said "the two integrity values are in no
+    collection" for three days after the collection landed.
+
+    So: a totality word ("every", "all", "both", "the four") sitting next to a
+    backticked ENUMERATION, in prose this repository ships, must either name a
+    derived check in the same breath or carry a per-value exemption with a
+    reason string. Noisy is acceptable — the ruling says so — and **weakening
+    the claim to dodge guarding it is refused permanently**: a list offered as
+    a sample ages honestly and says less, and the totality claims are the ones
+    a reader can act on.
+
+    What this deliberately does NOT cover, stated so the coverage is not
+    overread: prose without backticks, a backticked list with no totality word,
+    and anything under `tests/` (a test that enumerates IS a guard). This
+    catches the mechanical shape, not the idea.
+    """
+    unguarded = []
+    for name in _GUARDED_PROSE:
+        path = repo_root() / name
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        # **The PARAGRAPH, not the sentence**, for the naming check. SECURITY.md
+        # names `tests/test_network_surface.py` in the sentence AFTER the claim,
+        # which is perfectly good prose and was a false positive in the first
+        # draft of this guard. Detection stays sentence-level, because that is
+        # where adjacency means something.
+        paragraphs = text.split("\n\n")
+        for sentence in _totality_sentences(text):
+            if any(key in sentence for key in _TOTALITY_EXEMPTIONS):
+                continue
+            head = sentence[:60]
+            near = next(
+                (" ".join(p.split()) for p in paragraphs if head in " ".join(p.split())),
+                sentence,
+            )
+            # Prose that NAMES its own guard is guarded, and saying so is what
+            # makes the claim checkable by a reader too.
+            if _re.search(r"tests?/test_\w+\.py|`\w+\.[A-Z_]{3,}`", near):
+                continue
+            unguarded.append(f"{name}: {sentence[:140]}")
+
+    assert not unguarded, (
+        "these sentences claim to be exhaustive over a backticked list and "
+        "name neither a derived check nor an exemption:\n  "
+        + "\n  ".join(unguarded)
+        + "\n\nEither name the symbol or test the claim is derived from, or "
+        "add a per-item exemption to `_TOTALITY_EXEMPTIONS` WITH A REASON. "
+        "Do not reword the claim to be vaguer — H-3 refuses that permanently."
+    )
+
+
+def test_every_exemption_names_a_sentence_that_still_exists():
+    """The other direction. An exemption for a sentence nobody ships any more
+    is dead text that reads as coverage — which is the defect one level up."""
+    prose = "\n".join(
+        (repo_root() / name).read_text(encoding="utf-8")
+        for name in _GUARDED_PROSE
+        if (repo_root() / name).is_file()
+    )
+    dead = [key for key in _TOTALITY_EXEMPTIONS if key not in prose]
+    assert not dead, f"exemptions for sentences that no longer exist: {dead}"
+
+
+def test_every_exemption_carries_a_reason():
+    for key, reason in _TOTALITY_EXEMPTIONS.items():
+        assert reason and len(reason) > 20, key
+
+
+def test_every_command_the_readme_lists_as_shipping_is_registered():
+    """The derived half of H-3's README hit.
+
+    That sentence is a totality claim over a backticked list of command names,
+    and until this test existed it was guarded by nobody: a renamed or removed
+    subcommand would have left the README advertising it indefinitely. Now the
+    sentence names this test and this test reads the real parser.
+    """
+    import re
+
+    text = (repo_root() / "README.md").read_text(encoding="utf-8")
+    line = next(
+        l for l in text.splitlines() if "All of that ships today:" in l
+    )
+    claimed = set(re.findall(r"`([a-z-]+)`", line))
+    assert claimed, line
+    registered = set(_registered_commands())
+    missing = sorted(claimed - registered)
+    assert not missing, (
+        f"README.md says these ship and the parser does not register them: "
+        f"{missing}"
+    )
+
+
+def _registered_commands() -> list[str]:
+    from wringer import cli
+
+    parser = cli.build_parser()
+    for action in parser._actions:
+        if getattr(action, "choices", None) and hasattr(action.choices, "keys"):
+            return list(action.choices)
+    raise AssertionError("no subparsers found on the real parser")
