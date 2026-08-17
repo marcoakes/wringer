@@ -397,15 +397,39 @@ underscore-private and which law 7's schema freeze does not cover):
 | `unevidenced` causes | the four sites in ruling 15, by pinned fixture | 4 |
 | vacuity verdicts | `schema/vacuity.schema.json` `verdict` enum | 4 |
 | health verdicts | `schema/health-report.schema.json` `$defs/gate/verdict` enum | 4 |
-| signature / identity | `sign.SIGNATURE_STATES` (`sign.py:81`) and `sign.IDENTITY_STATES` (`sign.py:87`) | 7 |
-| **integrity** | **no collection and no schema enum exists** — `sign.py:54-55` only | 2 |
+| signature / identity | `sign.SIGNATURE_STATES` (`sign.py:92`) and `sign.IDENTITY_STATES` (`sign.py:98`) | 7 |
+| **integrity** | `sign.INTEGRITY_STATES` (`sign.py:90`) | 2 |
 | fleet task outcomes | `schema/fleet-manifest.schema.json` `status` enum | 3 |
 
-**The two integrity values carry an explicit per-value exemption with a reason
-string in the test**, the shape Q3 already ruled for SECURITY.md's unprobeable
-rows: they are hand-listed, the test says so out loud, and a *third* integrity
-value would ship unguarded — which is stated rather than hidden, and is why
-OQ-5 asks the core for an `INTEGRITY_STATES` tuple.
+> **AMENDED 2026-08-17 — the integrity row and the exemption below it were
+> both false, and had been since `ab884b5`.** OQ-5 was answered by that commit:
+> `sign.INTEGRITY_STATES` is a real tuple at `sign.py:90`, so the row's
+> "**no collection and no schema enum exists** — `sign.py:54-55` only" and the
+> paragraph granting an exemption on those grounds describe a tree that stopped
+> existing three days before this amendment. The two integrity values are now
+> enumerated from the engine exactly like their two siblings, and
+> **`wringer-board` already discharged the exemption in code** —
+> `src/wringer_board/refusals.py:44-47` says so in its module docstring and
+> `tests/test_refusals.py:150-155` deletes the per-value carve-out rather than
+> leaving it as a comment nobody re-reads. The surface corrected itself and
+> this spec did not follow; that lag is the defect, not the tuple.
+> The `sign.py:81,87` citations in the row above had also drifted (the symbols
+> are at `:92` and `:98`) and are corrected in the same edit, because leaving a
+> wrong line number beside a corrected claim is how the next reader learns to
+> distrust both. Original text preserved here:
+>
+> > | **integrity** | **no collection and no schema enum exists** — `sign.py:54-55` only | 2 |
+> >
+> > **The two integrity values carry an explicit per-value exemption with a reason
+> > string in the test**, the shape Q3 already ruled for SECURITY.md's unprobeable
+> > rows: they are hand-listed, the test says so out loud, and a *third* integrity
+> > value would ship unguarded — which is stated rather than hidden, and is why
+> > OQ-5 asks the core for an `INTEGRITY_STATES` tuple.
+
+**All four families above are enumerated from a public engine symbol or a
+schema enum, with no per-value exemption anywhere in the table.** A *third*
+integrity value now cannot ship unguarded: it would join the tuple, and the
+board's derived cross-check would redden until the mapping named it.
 
 **Set equality in both directions.** A mapping entry for a reason the engine
 cannot produce is dead text that reads as coverage, and that is exactly the
@@ -701,8 +725,15 @@ This spec is DONE when all four slices have landed with their captures, and:
    green without a resolved receipt chain is unreachable — both pinned by tests,
    and both receipt kinds covered.
 3. The refusal mapping is total against the engine's own **public** symbol
-   tables, the two integrity values carry a named exemption, and the test fails
+   tables, **with no per-value exemption anywhere in it**, and the test fails
    when a new reason is added to the engine without a mapping.
+   > **AMENDED 2026-08-17.** This criterion said "the two integrity values
+   > carry a named exemption". That was a criterion this spec could no longer
+   > pass *and should not*: `sign.INTEGRITY_STATES` landed at `ab884b5` and the
+   > surface removed the carve-out, so the acceptance test as written demanded
+   > an exemption the correct code has deleted. A shipped acceptance criterion
+   > that a correct tree fails is worse than a stale sentence — it pressures
+   > the next builder to re-introduce the defect. Strengthened, not dropped.
 4. The approve button and the hand edit produce byte-identical files.
 5. `wring --help` still lists 19 commands, and S4's diff adds exactly one
    schema file and no field on any frozen one.
@@ -734,10 +765,20 @@ them — review M11. Each now names its slice.)*
   three of the four are distinguishable only by parsing prose (ruling 15). This
   is OQ-2's defect one artifact over, and it is the one that made the board
   render the anti-circularity refusal backwards in this spec's first draft.
-- **OQ-5 — should `sign.py` expose an `INTEGRITY_STATES` tuple?**
-  `SIGNATURE_STATES` and `IDENTITY_STATES` exist (`sign.py:81,87`); the two
-  integrity values are in no collection and no schema enum, so a third would
-  ship unguarded past any derived check (ruling 16).
+- **OQ-5 — should `sign.py` expose an `INTEGRITY_STATES` tuple? — ANSWERED
+  YES, 2026-08-17, by a commit that pre-dated the answer.**
+  `sign.INTEGRITY_STATES` landed at `ab884b5` (`sign.py:90`), beside
+  `SIGNATURE_STATES` (`:92`) and `IDENTITY_STATES` (`:98`). A third integrity
+  value can no longer ship unguarded past a derived check: it joins the tuple,
+  and the board's cross-check reddens until the mapping names it.
+  > **AMENDED 2026-08-17 — this question was open in prose and closed in code
+  > for three days.** The original text ("the two integrity values are in no
+  > collection and no schema enum, so a third would ship unguarded past any
+  > derived check") was true when written and false when read. Recorded as an
+  > answered question rather than deleted, because the gap between the commit
+  > and this line is the evidence: `SPEC_REFUSAL_V0.md` §7 named these four
+  > sentences instead of inheriting them, and this is where that naming is
+  > discharged. The line citations `sign.py:81,87` had drifted as well.
 - **DECISION PENDING — the layer's name.** `wringer-board` is proposed (§2).
   Marc's call; nothing waits on it.
 

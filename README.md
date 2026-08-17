@@ -126,6 +126,22 @@ green — and a bundle on disk to check the claim against. Regenerate it with
 **Proof beats orchestration.** `pip install wringer` — **0.3.0, seventeen commands, out now.**
 It began as one command, and that command is still the core of it:
 
+> **What the package is not, as of 2026-08-17.** `0.3.0` is the released
+> version and it is **behind this repository**. It pre-dates worker
+> containment, the witness calibration, flaky-gate handling, the corpus
+> re-test and the de-scope that followed it losing,
+> [THREAT_MODEL.md](THREAT_MODEL.md), [`action.yml`](action.yml), and the
+> refusal records.
+> `0.3.0` registers seventeen commands.
+> HEAD registers nineteen commands.
+> **Installing from PyPI today gets a build that cannot
+> do several things this README describes** — install from source to get HEAD
+> (see [INSTALL.md](INSTALL.md)). The gap closes when a release is cut; until
+> then this sentence is the honest version of it, because the difference
+> between the package and the page is otherwise invisible to a reader, and an
+> invisible gap between a claim and an artifact is the exact thing this
+> project exists to make visible.
+
 > *One command that proves whether this change is mergeable, and leaves behind evidence a human or agent can inspect.*
 
 A real run, pasted unedited from a scratch Python repo (`ruff` and `pytest` as the two declared gates, with a bug planted in the code):
@@ -443,8 +459,11 @@ verbatim, because a translated limit is a weakened limit.
 **Its true status, so nobody has to guess.** It is a separate package,
 `wringer-board`, Apache-2.0 like the engine, with no server and no network. It
 renders, its tests are pinned against bundles a real run wrote — including the
-losing pass above — and **it has not been published anywhere**, so there is no
-link here to give you and `pip install wringer-board` would not work today. The
+losing pass above — and **the source and a live page are both public**:
+[github.com/marcoakes/wringer-board](https://github.com/marcoakes/wringer-board),
+rendered at **<https://marcoakes.github.io/wringer-board/>**. It is **not on
+PyPI**, so `pip install wringer-board` would not work today; install it from
+source. The
 contract it is built to is [SPEC_BOARD_V0.md](SPEC_BOARD_V0.md), which was
 independently reviewed before any of it was written.
 

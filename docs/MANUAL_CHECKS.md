@@ -717,6 +717,34 @@ the whole row — capture that output, and note that pytest keeps only the last 
 `pytest-of-*` tmp trees, so the loop bundle must be copied out of tmp before three
 more runs go by.
 
+## Sequence J — the README's claims about artifacts in OTHER repositories
+
+**Added 2026-08-17, after the README asserted for a day that the board "has not
+been published anywhere" while the page was live and serving.**
+
+No test in this repository can check a claim about an artifact that lives
+outside it. `tests/` runs offline by design, and the two claims below name a
+different repository and a public URL. That is a structural limit, not a gap
+somebody forgot — so it goes here rather than being quietly assumed, and rather
+than being answered with a network call in a test suite that must stay offline.
+
+Each row names the command that was actually run, and its actual output.
+
+| claim in `README.md` | the command run | last checked | result |
+|---|---|---|---|
+| the board's source is public at `github.com/marcoakes/wringer-board` | `curl -s -o /dev/null -w "%{http_code}" https://github.com/marcoakes/wringer-board` (unauthenticated) | 2026-08-17 | **200 — public** |
+| the board's page is live at `marcoakes.github.io/wringer-board/` | `curl -s -o /dev/null -w "%{http_code}" https://marcoakes.github.io/wringer-board/` | 2026-08-17 | **200** |
+| `wringer-board` is **not** on PyPI, so `pip install wringer-board` fails | `curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/wringer-board/json` | 2026-08-17 | **404 — absent, so the claim holds.** The same probe against `wringer` returns **200**, which is the control: the check can tell the two apart |
+
+**What would change these rows:** publishing `wringer-board` to PyPI (row 3
+flips and the README's install line must change with it), or the Pages build
+going unbuilt (row 2 flips). **The failure this sequence is written after is
+the opposite one** — the rows were *understated* for three windows: three
+consecutive handovers recorded "the board has no remote, publication is
+blocked", which was true of a local clone and false of the repository. An
+understatement is a stale claim exactly as much as an overstatement is, and it
+cost this programme a cold-read it could have had three days earlier.
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.
