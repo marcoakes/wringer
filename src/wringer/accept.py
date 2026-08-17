@@ -389,7 +389,7 @@ class Row:
     # authors the schema COMPLETE". R3 builds the loader, the digest pin and
     # the staleness computation that fill it. A row that is not `human` keeps
     # it None for ever.
-    judgement: "Judgement | None" = None
+    judgement: Judgement | None = None
 
     @property
     def covered(self) -> bool:
@@ -898,7 +898,9 @@ def _assess_one(
     # satisfied, whatever the declared gates said — and the declared gates
     # saying yes anyway is the measured baseline this lane exists to break.
     if witness is not None and witness.covers:
-        return _witness_verdict(detail, witness, gate=gate, discriminating=discriminating)
+        return _witness_verdict(
+            detail, witness, gate=gate, discriminating=discriminating
+        )
 
     receipt = discriminating.get((gate.id, command))
     if receipt is None:
@@ -1033,14 +1035,14 @@ def _human_row(common: dict, criterion, judgements) -> Row:
     elif verdict == "not_met":
         cause = CAUSE_HUMAN_SAID_NO
         reason = (
-            f"a person judged this NOT met"
+            "a person judged this NOT met"
             + (f" ({judgement.by})" if judgement.by else "")
             + ". The work is not done; nothing here can overrule that"
         )
     else:
         cause = None
         reason = (
-            f"a person judged this met"
+            "a person judged this met"
             + (f" ({judgement.by})" if judgement.by else "")
             + ", against the requirement as worded then"
         )

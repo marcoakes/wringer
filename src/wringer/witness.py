@@ -65,8 +65,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from wringer import evidence as evidence_module
-
 SCHEMA_VERSION = "wringer.witness.v1"
 
 # **Where the bytes of record live — OUTSIDE every repository root** (P4-3,

@@ -16,11 +16,12 @@ flip commit reverses it.
 from __future__ import annotations
 
 import json
+import textwrap  # noqa: F401  (kept beside the other stdlib imports)
 from pathlib import Path
 
 import pytest
 
-from wringer import accept
+from wringer import accept, rubric
 
 SCHEMA_DIR = Path(accept.__file__).parents[2] / "schema"
 FIXTURE_DIR = SCHEMA_DIR / "fixtures"
@@ -352,9 +353,6 @@ def test_the_v3_fixtures_are_real_engine_output_and_validate(tmp_path):
 # --- R3: the human interlock ------------------------------------------------
 
 
-import textwrap
-
-from wringer import rubric
 
 
 def criterion(cid="c-h", title="The copy reads well", guidance="", human=True,
@@ -661,7 +659,6 @@ def test_the_v3_human_fixture_is_real_engine_output_and_validates():
     schema = json.loads(
         (SCHEMA_DIR / "acceptance-v3.schema.json").read_text(encoding="utf-8")
     )
-    c = criterion()
     reworded = criterion(title="The copy reads the way our users speak")
 
     rows = [

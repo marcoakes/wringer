@@ -1092,5 +1092,5 @@ def test_the_contained_spawn_is_the_runtime_and_keeps_stdin(
     assert argv[0] == "podman" and argv[1] == "run"
     assert "--interactive" in argv
     assert "--tty" not in argv
-    assert f"--workdir" in argv and containment.WORKSPACE in argv
+    assert "--workdir" in argv and containment.WORKSPACE in argv
     assert argv[-2:] == [str(AGENT), "cwd"]

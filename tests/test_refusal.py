@@ -29,10 +29,8 @@ import ast
 import json
 from pathlib import Path
 
-import pytest
 from conftest import flat
 
-from wringer import attest, cli, deliver, evidence
 # The delivery fixture and the graph one, imported rather than copied: a
 # second copy of `delivery_repo` would drift from the first the day either
 # moves, and these tests are about what happens INSIDE a real refusal.
@@ -44,6 +42,8 @@ from test_graph_deliver import (  # noqa: F401
     only_graph,
     setup,
 )
+
+from wringer import cli, deliver, evidence
 
 SOURCE = Path(deliver.__file__)
 

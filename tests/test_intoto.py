@@ -12,9 +12,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
-from wringer import attest, cli, evidence, intoto
+from wringer import attest, cli, intoto
 
 CONFIG = """\
 version: 1

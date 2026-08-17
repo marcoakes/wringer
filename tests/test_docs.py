@@ -1738,7 +1738,6 @@ def commands_at_tag(version: str) -> int | None:
     modules, and exec'ing a historical file to count its parsers is a much
     larger thing to do than reading it.
     """
-    import re as _re
     import subprocess
 
     for tag in (f"v{version}", version):
@@ -1754,7 +1753,7 @@ def commands_at_tag(version: str) -> int | None:
             return None
         if done.returncode == 0 and done.stdout:
             return len(
-                _re.findall(r"\bsubparsers\.add_parser\(", done.stdout)
+                re.findall(r"\bsubparsers\.add_parser\(", done.stdout)
             )
     return None
 
@@ -2434,7 +2433,7 @@ def test_every_wring_line_in_the_install_prompt_parses():
     looks: this one asserts it found some, and skips the board's lines WITH A
     NAMED REASON rather than passing over them quietly.
     """
-    lines = [l for l in install_prompt_lines() if l.startswith("wring ")]
+    lines = [row for row in install_prompt_lines() if row.startswith("wring ")]
     assert lines, f"{INSTALL}'s prompt invokes `wring` nowhere"
     for line in lines:
         try:
@@ -2453,7 +2452,8 @@ def test_the_board_lines_are_checked_by_the_BOARD_and_this_says_so():
     looking like an omission.
     """
     board_lines = [
-        l for l in install_prompt_lines() if l.startswith("wringer-board ")
+        row for row in install_prompt_lines()
+        if row.startswith("wringer-board ")
     ]
     assert board_lines, f"{INSTALL}'s prompt invokes `wringer-board` nowhere"
     pytest.importorskip(
@@ -2488,19 +2488,18 @@ def test_the_install_prompt_forbids_sudo_and_sending():
 
 # --- H-3: totality claims must be guarded, or exempted with a reason -------
 
-import re as _re
 
 # A totality word next to a backticked, enumerated list. SCOPED to that shape
 # on purpose (Fable ruling H-3): the grep needs something mechanical to key on,
 # and a list offered as a sample is not what goes stale — a list offered as
 # EXHAUSTIVE is.
-_TOTALITY = _re.compile(
+_TOTALITY = re.compile(
     r"\b(every|all|both|the (two|three|four|five|six|seven|eight|nine|ten))\b",
-    _re.I,
+    re.I,
 )
 # Two or more backticked items separated by commas / "and" / "or" — an
 # enumeration, not a single name mentioned in passing.
-_ENUMERATION = _re.compile(r"`[^`]+`(\s*(,|and|or|·|/)\s*`[^`]+`)+")
+_ENUMERATION = re.compile(r"`[^`]+`(\s*(,|and|or|·|/)\s*`[^`]+`)+")
 
 # Prose this repository ships to a reader. Not `tests/`: a test that enumerates
 # is a guard, which is the thing being asked for rather than the thing at risk.
@@ -2541,7 +2540,7 @@ def _totality_sentences(text: str) -> list[str]:
     they always have been — by the derived checks their own cells name.
     """
     found = []
-    for raw in _re.split(r"(?<=[.!?])\s+|\n\n", text):
+    for raw in re.split(r"(?<=[.!?])\s+|\n\n", text):
         line = " ".join(raw.split())
         if not line or line.startswith(("```", "|--", "$ ")) or " | " in line:
             continue
@@ -2596,12 +2595,16 @@ def test_every_totality_claim_over_a_backticked_list_is_guarded_or_exempt():
                 continue
             head = sentence[:60]
             near = next(
-                (" ".join(p.split()) for p in paragraphs if head in " ".join(p.split())),
+                (
+                    " ".join(block.split())
+                    for block in paragraphs
+                    if head in " ".join(block.split())
+                ),
                 sentence,
             )
             # Prose that NAMES its own guard is guarded, and saying so is what
             # makes the claim checkable by a reader too.
-            if _re.search(r"tests?/test_\w+\.py|`\w+\.[A-Z_]{3,}`", near):
+            if re.search(r"tests?/test_\w+\.py|`\w+\.[A-Z_]{3,}`", near):
                 continue
             unguarded.append(f"{name}: {sentence[:140]}")
 
@@ -2644,7 +2647,7 @@ def test_every_command_the_readme_lists_as_shipping_is_registered():
 
     text = (repo_root() / "README.md").read_text(encoding="utf-8")
     line = next(
-        l for l in text.splitlines() if "All of that ships today:" in l
+        row for row in text.splitlines() if "All of that ships today:" in row
     )
     claimed = set(re.findall(r"`([a-z-]+)`", line))
     assert claimed, line

@@ -205,7 +205,7 @@ class Outcome:
     # tier: a loop that ended `no_progress` against a missing module still gets
     # a legible diagnosis, and F6's flagship case is exactly that one. None
     # when nothing matched.
-    diagnosis: "diagnose.Diagnosis | None" = None
+    diagnosis: diagnose.Diagnosis | None = None
 
     @property
     def converged(self) -> bool:
@@ -1123,7 +1123,7 @@ def _failing_result(outcome: verify.Outcome | None) -> gates.GateResult | None:
 
 def _write_diagnosis(
     bundle: Bundle, final: verify.Outcome | None
-) -> "diagnose.Diagnosis | None":
+) -> diagnose.Diagnosis | None:
     """Write `diagnosis.json`, or nothing at all when no face matched.
 
     **A routing diagnosis, never a verdict** — SPEC_ENV ruling 1, kept verbatim

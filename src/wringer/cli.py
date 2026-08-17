@@ -15,6 +15,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from typing import Any
 
 from wringer import (
     __version__,
@@ -2742,9 +2743,12 @@ def cmd_spec(args: argparse.Namespace) -> int:
                     spec.render_gatespec(proposed), encoding="utf-8"
                 )
 
-    authored: list[Any] = []
     if args.send and args.witness and drafted is not None:
-        authored = _author_witnesses(root, cfg, drafted, redactor)
+        # The return value is deliberately dropped: `_author_witnesses` stores
+        # each item through `witness.store`, and the list was assigned to a
+        # variable nothing read. Keeping the assignment implied a result that
+        # mattered here and none does.
+        _author_witnesses(root, cfg, drafted, redactor)
 
     bundle.write_summary(
         mode, args.prd, cfg.judge.endpoint, cfg.judge.model, drafted

@@ -496,17 +496,16 @@ criteria:
         encoding="utf-8",
     )
     (repo / ".wringer.yaml").write_text(
-        """\
+        f"""\
 version: 1
 gates:
   - id: unit
     run: "wringer-no-such-tool-gamma --selftest"
     proves: selfcheck
 run:
-  worker: %s
+  worker: {json.dumps(NOISY_WORKER)}
   max_iterations: 2
-"""
-        % json.dumps(NOISY_WORKER),
+""",
         encoding="utf-8",
     )
     cfg = config.load(repo / ".wringer.yaml")
@@ -564,17 +563,16 @@ def test_a_fleet_over_a_broken_environment_spends_no_retry_and_no_worker(
             subprocess.run(["git", "config", key, value], cwd=workdir, check=True)
         (workdir / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
         (workdir / ".wringer.yaml").write_text(
-            """\
+            f"""\
 version: 1
 gates:
   - id: test
     run: "wringer-no-such-tool-fleet --check"
 run:
-  worker: "printf 'RAN' >> %s/worker-ran.txt"
+  worker: "printf 'RAN' >> {repo.as_posix()}/worker-ran.txt"
   max_iterations: 3
   worker_timeout: 30
-"""
-            % repo.as_posix(),
+""",
             encoding="utf-8",
         )
         subprocess.run(["git", "add", "-A"], cwd=workdir, check=True)

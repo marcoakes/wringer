@@ -319,7 +319,7 @@ class Gate:
     # the default**: turning this on is a repository declaring that this gate's
     # output is shareable, because — see `Artifacts` — nothing redacts a
     # binary.
-    artifacts: "Artifacts | None" = None
+    artifacts: Artifacts | None = None
 
 
 # Conservative on purpose. A screenshot is tens of kilobytes; these are room

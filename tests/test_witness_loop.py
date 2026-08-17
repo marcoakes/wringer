@@ -39,8 +39,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from wringer import cli, loop, witness
 
 # A DECLARED gate that is green at base and stays green whatever the worker
@@ -508,7 +506,9 @@ def test_a_worker_that_tampers_with_the_witness_MID_LOOP_voids_by_name(
     assert "assert True" in on_disk, "the worker never managed to tamper"
 
 
-def test_the_pin_is_rechecked_on_EVERY_lap_not_only_the_first(repo, git_run, monkeypatch):
+def test_the_pin_is_rechecked_on_EVERY_lap_not_only_the_first(
+    repo, git_run, monkeypatch
+):
     """The tamper above happens after lap 1's execution, so a pin checked once
     before the first worker turn would never see it.
 

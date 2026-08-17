@@ -50,10 +50,10 @@ import os
 import re
 import stat
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Callable
 
 import pytest
 

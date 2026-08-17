@@ -890,7 +890,7 @@ def test_a_criterion_id_that_is_a_PATH_is_refused(criterion):
     between `witness.json` and `acceptance.json`, which is keyed on the id.
     """
     with pytest.raises(witness.WitnessError) as caught:
-        witness.Witness(criterion=criterion, source=ASSERTING).filename
+        _ = witness.Witness(criterion=criterion, source=ASSERTING).filename
     assert "cannot name a witness file" in str(caught.value)
 
 

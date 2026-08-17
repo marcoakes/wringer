@@ -50,7 +50,7 @@ _KILLED = -9
 COMMAND_NOT_FOUND = 127
 
 
-def cite(result: "GateResult") -> str:
+def cite(result: GateResult) -> str:
     """One line saying why a gate failed, for a row whose meaning rests on it.
 
     **The single evidence-line extractor in this codebase.** It lived in

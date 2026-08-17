@@ -50,7 +50,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from wringer.config import Containment, EGRESS_ALLOWLIST
+from wringer.config import EGRESS_ALLOWLIST, Containment
 
 # **No witness import, and R-6's rule is whole again.** R-6 forbids this module
 # knowing anything about the witness lane: containment is a boundary and the
@@ -573,7 +573,9 @@ for ip in $ADDRS; do echo "RESOLVED $ip"; done
     return resolved
 
 
-def env_names(settings: Containment, passthrough: tuple[str, ...] = ()) -> tuple[str, ...]:
+def env_names(
+    settings: Containment, passthrough: tuple[str, ...] = ()
+) -> tuple[str, ...]:
     """Which NAMES cross the boundary, when two allowlists both apply.
 
     A shell worker has one declared allowlist: `run.containment.env`. An ACP

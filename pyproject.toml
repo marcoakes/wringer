@@ -68,3 +68,17 @@ target-version = "py311"
 # pycodestyle, pyflakes, import order, pyupgrade, bugbear — the checks that
 # catch real mistakes. This is the gate Wringer's own .wringer.yaml declares.
 select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# **F811 on a pytest fixture is a false positive, and only here.**
+#
+# `tests/test_refusal.py` imports `delivery_repo` and friends from
+# `test_deliver` so the refusal tests run inside a REAL delivery rather than a
+# second copy of the fixture that would drift from the first. pytest then wants
+# the same NAME as a parameter, which ruff reads as redefining the import.
+#
+# Scoped to the one file rather than to `tests/*`, so a genuine redefinition
+# anywhere else still fails. The alternative — six `# noqa: F811` comments on
+# six function signatures — hides the reason at each site instead of stating it
+# once here.
+"tests/test_refusal.py" = ["F811"]
