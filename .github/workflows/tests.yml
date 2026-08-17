@@ -62,7 +62,19 @@ jobs:
   action:
     runs-on: ubuntu-latest
     steps:
+      # **`fetch-depth: 0`, for the same reason the `verify` job carries it.**
+      # `roadmap_render.py`'s `ship` milestone is probed on `v0.1.0` and
+      # `v0.2.0` being in `git tag`, and checkout's default fetches neither —
+      # so `test_every_milestone_the_roadmap_draws_green_is_really_shipped`
+      # reports `ship: probe=False drawn=True` and the whole `test` gate fails.
+      #
+      # That guard was written on 2026-08-08 after this exact disagreement
+      # between CI and a developer's machine, and it caught this job the first
+      # time it ran a full suite. It is doing its job; the shallow checkout was
+      # mine.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       # **The repository's OWN dev dependencies, before the action runs.**
       #
       # The first run of this job was RED, and it was red for a real reason:
