@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/acceptance-v3.schema.json",
+  "title": "Wringer acceptance evidence",
+  "description": "One `acceptance.json`. **v3, and v1 and v2 are still published and still frozen.** v3 is written only when a row carries something only v3 can express: a non-null `cause`, a non-null `demonstrated_able_to_fail`, or a `judgement`. A repository with none of those writes a byte-identical v1 or v2 and pays nothing — the same compatibility boundary v2 drew, for the same reason. Two facts per row are added, and one sibling object. (1) `cause` names WHICH of eight conditions put an unevidenced-or-human row where it is, so a surface no longer has to tell them apart by matching free text against the engine's prose — a reworded message used to be able to silently re-label a card. (2) `demonstrated_able_to_fail` says whether the record shows this row's bound check ever failing; it is three-valued because two values would have to lie. (3) `judgement` carries a person's answer to a `human` criterion, pinned to the exact wording they answered. **This schema describes the VERSION, not any one slice**: it is authored complete, including the `judgement` object, because publishing it freezes it and a later slice could not then add a field without spending a v4.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "counts",
+    "criteria",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Always `wringer.acceptance.v3` in this format.",
+      "const": "wringer.acceptance.v3"
+    },
+    "counts": {
+      "description": "One key per state, always all five. These are counts over an ENUMERATED population — the criteria the approved spec declares — so a zero here is a real zero rather than the invented one the absence law forbids elsewhere.",
+      "type": "object",
+      "required": [
+        "evidenced",
+        "unevidenced",
+        "gate-failed",
+        "gate-did-not-run",
+        "human"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "evidenced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unevidenced": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gate-failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "gate-did-not-run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "human": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "criteria": {
+      "description": "In the order the approved spec declares them. Nothing here is sorted by state: a ranking of criteria would be this artifact deciding which debts matter, which is the reader's call.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion",
+          "title",
+          "required",
+          "state",
+          "gate",
+          "command",
+          "receipt",
+          "reason",
+          "refuses",
+          "witness",
+          "cause",
+          "demonstrated_able_to_fail",
+          "judgement"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "description": "The criterion id, exactly as written in `wringer.spec.yaml`. The join key — never slugged or normalised, because a normalised join is a silent mis-bind.",
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "required": {
+            "description": "From the spec. Only a required criterion can refuse delivery, and only when it is also bound.",
+            "type": "boolean"
+          },
+          "state": {
+            "description": "`evidenced` — bound, passed this run, and the record shows the gate can fail. `unevidenced` — unbound, or bound but born green. `gate-failed` — the gate ran and failed, so the criterion is not met: the ordinary honest state of work in progress. `gate-did-not-run` — bound, but no result in this bundle (skipped, interrupted); absence is absence, never a pass-through to an older green. `human` — answered by people, and nothing here scored it.",
+            "enum": [
+              "evidenced",
+              "unevidenced",
+              "gate-failed",
+              "gate-did-not-run",
+              "human"
+            ]
+          },
+          "gate": {
+            "description": "The gate whose `proves:` names this criterion, or null when nothing binds it. **In v2 null is not the same as uncovered**: a criterion may be covered by a witness instead, in which case this stays null and `witness` is present. Null with no witness is a DEBT, not an error.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "command": {
+            "description": "The bound gate's command, after redaction. Null when unbound or human. Identity for the discrimination record is `(gate id, command)`: edit the command and the history resets, because editing is how checks narrow.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receipt": {
+            "description": "Where the record shows this gate can fail. Null for every state except `evidenced`, and null WITH a reason rather than an empty object — a receipt that names nothing would be the claim this artifact exists to refuse.",
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "kind",
+              "bundle"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "description": "`failure` — a recorded genuine failure of this exact pair (not a timeout, not exit 127). `sensitive` — a `--prove` pass recorded it failing on the pre-change tree while passing on the changed one. `witness` — a check WRINGER authored for this criterion, proved red for the right reason on the pre-change tree before any work began, pinned over its bytes, command and materialisation path, and passing on the changed tree.",
+                "enum": [
+                  "failure",
+                  "sensitive",
+                  "witness"
+                ]
+              },
+              "bundle": {
+                "description": "Repo-relative path to the bundle holding the receipt, so a reader can go and look.",
+                "type": "string"
+              },
+              "cites": {
+                "description": "PRESENT ONLY on a `sensitive` receipt: the line the sensitivity rests on, carried verbatim from `vacuity.json`. Load-bearing rather than decorative — a sensitivity receipt inherits vacuity's blind spot, so a gate whose own command arrived with the change reads sensitive for that reason alone, and this line is how a reader tells. Deliberately NOT classified here: SPEC_VACUITY §4b's law is to make the failure visible, never to auto-classify it.",
+                "type": "string"
+              }
+            }
+          },
+          "reason": {
+            "description": "Why this state, in words a person can act on — including the one-run remedy when a gate is born green.",
+            "type": "string"
+          },
+          "refuses": {
+            "description": "Whether this row stops delivery. **The v1-to-v2 change lives here**: in v1 only a required and BOUND criterion could refuse, so `gate: null` implied `refuses: false`. In v2 a required criterion covered by a witness refuses on the same terms, with `gate` null and `witness` present. A v1 reader meeting that row would draw the wrong conclusion, which is why the version moved rather than a key being added.",
+            "type": "boolean"
+          },
+          "witness": {
+            "description": "Wringer's own manufactured evidence for this criterion, or null when the run had none. Present independently of `receipt`: a witness that was DISCARDED, or that failed on the changed tree, is recorded here and earns no receipt — which is the case a reader most needs to be able to see, because it is the one where a green gate and an unsatisfied criterion coexist. **This says nothing about agreement with an intended fix**: a witness proves the stated criterion could fail and was made to pass, and where the criterion under-describes the intent the witness inherits that gap.",
+            "type": [
+              "object",
+              "null"
+            ],
+            "required": [
+              "pinned_sha256",
+              "proved_red",
+              "result"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pinned_sha256": {
+                "description": "The digest pinned before the first worker turn, covering the witness bytes. Re-read from disk and compared immediately before every execution; a mismatch VOIDs the run rather than failing a gate.",
+                "type": "string"
+              },
+              "proved_red": {
+                "description": "How the witness failed on the PRE-CHANGE tree, from the runner's own structure rather than from reading its message. `assertion` is the only proved red: the runner collected the check and the check then failed. `collection_error` covers an import failure, a syntax error, nothing collected, and a failure that could not find what it was written against — none of which says anything about the criterion, because such a check turns green the moment any file or binary of that name exists. `green` means it demonstrated nothing and was discarded.",
+                "enum": [
+                  "assertion",
+                  "collection_error",
+                  "green"
+                ]
+              },
+              "result": {
+                "description": "What the same pinned bytes did on the CHANGED tree. `not_run` when the witness was discarded before it could be consulted.",
+                "enum": [
+                  "passed",
+                  "failed",
+                  "not_run"
+                ]
+              },
+              "discarded": {
+                "description": "Why this witness may evidence nothing, or null. A discarded witness leaves its criterion UNCOVERED and routes to a human, which is an honest outcome and deliberately not a failure.",
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "cause": {
+            "description": "WHY this row is unevidenced or awaiting a person, as a closed enum derived from `accept.CAUSES`. Null on a row that needs no cause — an evidenced row is not anywhere that needs explaining from. **It is the machine's handle on the fact `reason` already states in prose, and it does not replace, shorten or regenerate that prose**, which carries the remedy and is what a human reads. Rendering `arrived-with-the-work` as `born-green` is false AND BACKWARDS — the record does show that gate can fail; the objection is that the gate is new — and that is exactly the confusion prose-matching produced.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "unbound",
+              "witness-evidenced-nothing",
+              "born-green",
+              "pre-existence-unestablished",
+              "arrived-with-the-work",
+              "human-unanswered",
+              "human-said-no",
+              "human-judgement-stale",
+              null
+            ]
+          },
+          "demonstrated_able_to_fail": {
+            "description": "Whether this row's `(gate, command)` pair appears in the record having genuinely failed. **Three-valued, because two values would have to lie.** `true`: it does. `false`: it does not — NOT 'cannot fail', only that nothing on disk shows it doing so. `null`: there was no bound `(gate, command)` to ask about — unbound, `human`, or covered by a witness with no gate, **and that last case can still be `evidenced`**, so a reader inferring 'null implies not evidenced' would be wrong on exactly the rows the witness lane produces. The name carries its own ceiling: *demonstrated*, about the RECORD. A field called `can_fail` would be a claim about the world, which nothing here can support.",
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "judgement": {
+            "description": "A person's answer to a `human` criterion, or null. **Written by a person into `wringer.judgement.v1` and copied here verbatim; nothing in Wringer scores it, and no model is asked anything.** Pinned to the exact criterion wording that was answered: if the question is reworded the digest stops matching, the answer goes `stale`, and the row's cause becomes `human-judgement-stale` — somebody answered a different question. Present in this schema from v3's first publication even though the slice that populates it lands later, because publishing freezes the shape.",
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": false,
+            "required": [
+              "answer",
+              "criterion_sha256",
+              "at",
+              "stale"
+            ],
+            "properties": {
+              "answer": {
+                "description": "What the person said. `met` and `not_met` are the two answers; there is no third, and absence of a judgement is not an answer.",
+                "enum": [
+                  "met",
+                  "not_met"
+                ]
+              },
+              "criterion_sha256": {
+                "description": "The digest of the criterion wording this answer was given against. The pin, and the only thing that makes `stale` computable.",
+                "type": "string"
+              },
+              "at": {
+                "description": "When the person answered, ISO-8601.",
+                "type": "string"
+              },
+              "stale": {
+                "description": "Whether the criterion has been reworded since the answer was given. Computed at acceptance time by comparing the current wording's digest against `criterion_sha256` — never trusted from the file, because a stale flag a person can write is a stale flag a person can forget.",
+                "type": "boolean"
+              },
+              "note": {
+                "description": "Optional free text the person left. Never parsed, never routed on.",
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this artifact does NOT say, travelling with the numbers rather than living in a spec nobody opened. Four entries at minimum, each pinned by content — including that a sensitivity receipt says the gate's result differed between two trees, not that the difference was the change.",
+      "type": "array",
+      "minItems": 4,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

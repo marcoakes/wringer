@@ -1,0 +1,134 @@
+{
+  "schema_version": "wringer.acceptance.v3",
+  "counts": {
+    "evidenced": 2,
+    "unevidenced": 5,
+    "gate-failed": 0,
+    "gate-did-not-run": 0,
+    "human": 0
+  },
+  "criteria": [
+    {
+      "criterion": "unbound-one",
+      "title": "Nothing binds this",
+      "required": true,
+      "state": "unevidenced",
+      "gate": null,
+      "command": null,
+      "receipt": null,
+      "reason": "",
+      "refuses": false,
+      "witness": null,
+      "cause": "unbound",
+      "demonstrated_able_to_fail": null,
+      "judgement": null
+    },
+    {
+      "criterion": "witness-nothing",
+      "title": "Its witness evidenced nothing",
+      "required": true,
+      "state": "unevidenced",
+      "gate": null,
+      "command": null,
+      "receipt": null,
+      "reason": "",
+      "refuses": false,
+      "witness": null,
+      "cause": "witness-evidenced-nothing",
+      "demonstrated_able_to_fail": null,
+      "judgement": null
+    },
+    {
+      "criterion": "born-green",
+      "title": "Its gate was born green",
+      "required": true,
+      "state": "unevidenced",
+      "gate": "unit",
+      "command": "pytest -q",
+      "receipt": null,
+      "reason": "",
+      "refuses": true,
+      "witness": null,
+      "cause": "born-green",
+      "demonstrated_able_to_fail": false,
+      "judgement": null
+    },
+    {
+      "criterion": "pre-existence",
+      "title": "Pre-existence could not be established",
+      "required": true,
+      "state": "unevidenced",
+      "gate": "unit2",
+      "command": "pytest -q tests/b.py",
+      "receipt": null,
+      "reason": "",
+      "refuses": true,
+      "witness": null,
+      "cause": "pre-existence-unestablished",
+      "demonstrated_able_to_fail": true,
+      "judgement": null
+    },
+    {
+      "criterion": "arrived-with",
+      "title": "The check arrived with the work",
+      "required": true,
+      "state": "unevidenced",
+      "gate": "unit3",
+      "command": "pytest -q tests/c.py",
+      "receipt": null,
+      "reason": "",
+      "refuses": true,
+      "witness": null,
+      "cause": "arrived-with-the-work",
+      "demonstrated_able_to_fail": true,
+      "judgement": null
+    },
+    {
+      "criterion": "evidenced-by-gate",
+      "title": "A gate proved it",
+      "required": true,
+      "state": "evidenced",
+      "gate": "unit4",
+      "command": "pytest -q tests/d.py",
+      "receipt": {
+        "kind": "failure",
+        "bundle": ".wringer/runs/x"
+      },
+      "reason": "",
+      "refuses": false,
+      "witness": null,
+      "cause": null,
+      "demonstrated_able_to_fail": true,
+      "judgement": null
+    },
+    {
+      "criterion": "evidenced-by-witness",
+      "title": "A witness proved it, and there is no gate to ask about",
+      "required": true,
+      "state": "evidenced",
+      "gate": null,
+      "command": null,
+      "receipt": {
+        "kind": "witness",
+        "bundle": ".wringer/runs/y"
+      },
+      "reason": "",
+      "refuses": false,
+      "witness": null,
+      "cause": null,
+      "demonstrated_able_to_fail": null,
+      "judgement": null
+    }
+  ],
+  "limits": [
+    "Evidenced means the bound gate passed and has demonstrably failed before. It does not mean the criterion is what the user needed, that the gate covers the criterion's whole meaning, or that coverage cannot narrow later — `wring health` watches that across time.",
+    "The gate-to-criterion binding is a human's declaration. Wringer checks the binding's consequences, never its wisdom.",
+    "Human criteria are answered by people. Nothing here scored them.",
+    "A sensitivity receipt says the gate's result differed between the two trees, not that the difference was the change. A gate whose own command arrived with the change reads sensitive for that reason alone — the citation beside it is how you tell.",
+    "A witness proves the stated criterion could fail and was made to pass. It does not certify agreement with an unstated intended fix, and where the criterion under-describes the intent the witness inherits that gap. Nothing here catches a change that satisfies the criterion and is still wrong.",
+    "A witness evidences ONE criterion. A manufactured fail-to-pass check is necessary and demonstrably not sufficient — it raises the floor and does not make a delivery safe.",
+    "The pin is tamper-EVIDENT, not tamper-proof: a worker on the host can read and rewrite what it finds there. It becomes a boundary only under run.containment.",
+    "`demonstrated_able_to_fail` is about the RECORD, never about the world. `false` means nothing on disk shows this check failing — NOT that it cannot fail. `null` means there was no bound (gate, command) to ask about, which includes a criterion covered by a witness with no gate, and such a row can still be evidenced.",
+    "`cause` names WHY a row is unevidenced or awaiting a person. It is the machine's handle on the fact the `reason` prose already states; it is not a diagnosis, not a remedy, and not a claim that the cause is the only one that applies."
+  ]
+}

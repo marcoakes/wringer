@@ -59,6 +59,65 @@ SCHEMA_VERSION = "wringer.acceptance.v1"
 # ignore, and `accept.py`'s own standing rule is that even an optional new key
 # is a silent break.
 SCHEMA_VERSION_V2 = "wringer.acceptance.v2"
+
+# **v3 — SPEC_REFUSAL_V0 §2, OQ-3 and OQ-4.** Two new facts per row: WHICH of
+# eight named causes put an unevidenced-or-human row where it is, and whether
+# the record shows this row's check ever failing. Both are v3-only, absent (not
+# null) from a v1 or v2 row — `tests/test_accept.py:650-653` pins exactly that,
+# because a v1 row growing a key is a silent break for every existing reader.
+SCHEMA_VERSION_V3 = "wringer.acceptance.v3"
+
+# **THE DARK SWITCH — SPEC_REFUSAL §9's sequencing gate, as amended
+# 2026-08-17 by Fable ruling H-1.**
+#
+# The gate is on EMISSION, not on landing: v3's schema is frozen complete, its
+# writers are built, and its tests and captures write REAL v3 bytes — while the
+# public path this constant guards still writes v2. `wringer-board` refuses any
+# version outside `KNOWN_ACCEPTANCE` and renders ZERO cards, by its own ruling
+# 6 and correctly; so an engine that emitted v3 first would make the surface
+# refuse to read the artifact it exists to render, caused by the half that gets
+# to choose when to spend a version.
+#
+# **The board learns v3 from the bytes R2 and R3 actually wrote**, not from
+# hand-built fixtures — a fixture written from the same guess as its reader is
+# the failure mode that let eleven mutations through the board's absence guard.
+# When the board reads v3, ONE commit sets this True and reverses
+# `test_the_engine_does_not_emit_v3_until_the_board_reads_it`.
+#
+# It is not a feature flag and there is no config for it. Nothing a user can
+# type reaches it, and it exists for exactly as long as the two repositories
+# are out of step.
+EMIT_V3 = False
+
+# **The eight causes, ONE closed enum** (§6 ruling 12). Not two vocabularies:
+# the drafted spec declared a closed five-value enum for `unevidenced` and then
+# named three more for `human` rows with nowhere to live. If the human causes
+# lived outside a public symbol the board could not render them, which would
+# re-create in OQ-1 the exact defect OQ-4 exists to remove.
+#
+# The board tells these apart TODAY by matching free text against this module's
+# wording, so a reworded message silently re-labels a card. After this, it does
+# not have to.
+CAUSE_UNBOUND = "unbound"
+CAUSE_WITNESS_EVIDENCED_NOTHING = "witness-evidenced-nothing"
+CAUSE_BORN_GREEN = "born-green"
+CAUSE_PRE_EXISTENCE_UNESTABLISHED = "pre-existence-unestablished"
+CAUSE_ARRIVED_WITH_THE_WORK = "arrived-with-the-work"
+CAUSE_HUMAN_UNANSWERED = "human-unanswered"
+CAUSE_HUMAN_SAID_NO = "human-said-no"
+CAUSE_HUMAN_JUDGEMENT_STALE = "human-judgement-stale"
+
+CAUSES = (
+    CAUSE_UNBOUND,
+    CAUSE_WITNESS_EVIDENCED_NOTHING,
+    CAUSE_BORN_GREEN,
+    CAUSE_PRE_EXISTENCE_UNESTABLISHED,
+    CAUSE_ARRIVED_WITH_THE_WORK,
+    CAUSE_HUMAN_UNANSWERED,
+    CAUSE_HUMAN_SAID_NO,
+    CAUSE_HUMAN_JUDGEMENT_STALE,
+)
+
 # Named in evidence.py with the bundle's other filenames and re-exported here:
 # this module writes it, and that one is the one that has to be able to REMOVE
 # it from a reused `--output` directory.
@@ -116,6 +175,21 @@ LIMITS_V2 = LIMITS + (
     "The pin is tamper-EVIDENT, not tamper-proof: a worker on the host can "
     "read and rewrite what it finds there. It becomes a boundary only under "
     "run.containment.",
+)
+
+# **v3's limits.** Two additions, both about the two new fields, both stating
+# what the field does NOT say — which is the only kind of limit worth
+# publishing beside a new fact.
+LIMITS_V3 = LIMITS_V2 + (
+    "`demonstrated_able_to_fail` is about the RECORD, never about the world. "
+    "`false` means nothing on disk shows this check failing — NOT that it "
+    "cannot fail. `null` means there was no bound (gate, command) to ask "
+    "about, which includes a criterion covered by a witness with no gate, and "
+    "such a row can still be evidenced.",
+    "`cause` names WHY a row is unevidenced or awaiting a person. It is the "
+    "machine's handle on the fact the `reason` prose already states; it is "
+    "not a diagnosis, not a remedy, and not a claim that the cause is the "
+    "only one that applies.",
 )
 
 _REMEDY = (
@@ -201,6 +275,42 @@ class WitnessEvidence:
 
 
 @dataclass(frozen=True)
+class Judgement:
+    """A person's answer to a `human` criterion — SPEC_REFUSAL §3 ruling 2.
+
+    **Written by a person, copied verbatim, never scored.** Nothing in Wringer
+    produces one and no model is asked anything: this module reads.
+
+    `stale` is COMPUTED at acceptance time by comparing the current criterion
+    wording's digest against `criterion_sha256`, and is never trusted from the
+    file — a stale flag a person can write is a stale flag a person can forget.
+    That is the pin: reword the question and the answer stops applying, because
+    somebody answered a different question.
+
+    **R2 declares the shape; R3 builds the loader that fills it.** The shape is
+    here now because publishing `acceptance-v3.schema.json` freezes it, and R3
+    could not add a field afterwards without spending a v4.
+    """
+
+    answer: str               # met | not_met
+    criterion_sha256: str
+    at: str
+    stale: bool
+    note: str | None = None
+
+    def as_json(self) -> dict[str, Any]:
+        payload = {
+            "answer": self.answer,
+            "criterion_sha256": self.criterion_sha256,
+            "at": self.at,
+            "stale": self.stale,
+        }
+        if self.note is not None:
+            payload["note"] = self.note
+        return payload
+
+
+@dataclass(frozen=True)
 class Row:
     """One criterion, and what this run can honestly say about it."""
 
@@ -213,6 +323,34 @@ class Row:
     receipt: Receipt | None = None
     reason: str = ""
     witness: WitnessEvidence | None = None
+    # **v3 only.** Which of `CAUSES` put this row where it is, or None for a
+    # row that needs no cause (an evidenced row, a gate-failed row). The
+    # machine's handle on the fact `reason` states in prose — ruling 13 keeps
+    # the prose unchanged BESIDE the name, never regenerated from it, because
+    # the prose carries the remedy and is what a human reads.
+    cause: str | None = None
+    # **v3 only, three-valued, because two values would have to lie**
+    # (ruling 10):
+    #   True  — this row's (gate, command) pair appears in the record having
+    #           genuinely failed;
+    #   False — it does not. NOT "cannot fail": only that nothing on disk shows
+    #           it doing so;
+    #   None  — there is no bound (gate, command) to ask about. Unbound,
+    #           `human`, or covered by a witness with no gate — which CAN be
+    #           evidenced. *Not asked* and *asked, answer no* are different
+    #           facts, and this module already makes the identical distinction
+    #           about `created`.
+    #
+    # The name carries its own ceiling: *demonstrated*, about the record. A
+    # field called `can_fail` would be a claim about the world.
+    demonstrated_able_to_fail: bool | None = None
+    # **v3 only, and R2 always leaves it None.** The field exists from v3's
+    # first publication because publishing the schema FREEZES it, and R3 could
+    # not add a key afterwards without spending a v4 — SPEC_REFUSAL §9, "R2
+    # authors the schema COMPLETE". R3 builds the loader, the digest pin and
+    # the staleness computation that fill it. A row that is not `human` keeps
+    # it None for ever.
+    judgement: "Judgement | None" = None
 
     @property
     def covered(self) -> bool:
@@ -257,6 +395,20 @@ class Row:
             "witness": self.witness.as_json() if self.witness else None,
         }
 
+    def as_json_v3(self) -> dict[str, Any]:
+        """The v3 row: v2's keys plus the two new facts.
+
+        Built by ADDING to `as_json` rather than by a second literal, so a key
+        can never exist in one shape and not the other — v1's own row is
+        already derived from this one by removing `witness`.
+        """
+        return {
+            **self.as_json(),
+            "cause": self.cause,
+            "demonstrated_able_to_fail": self.demonstrated_able_to_fail,
+            "judgement": self.judgement.as_json() if self.judgement else None,
+        }
+
 
 @dataclass(frozen=True)
 class Result:
@@ -291,6 +443,29 @@ class Result:
             tally[row.state] += 1
         return tally
 
+    @property
+    def has_v3_facts(self) -> bool:
+        """Whether any row carries something only v3 can express.
+
+        **The narrowed selector** (§2, the review's finding 1). The drafted
+        version fired on "a value a v2 row could not have carried", which every
+        value of a brand-new field satisfies — so v1 and v2 would never have
+        been emitted again while §2 still promised they would. This fires only
+        on a non-null `cause`, a non-null `demonstrated_able_to_fail`, or a
+        judgement.
+
+        **What the narrow selector buys is not that readers rarely meet v3.**
+        Through `assess`, most real records will select it: most repositories
+        have at least one unevidenced row or one bound gate with a
+        discriminating receipt. It buys that no reader ever meets a v3 record
+        carrying no new fact, and that the two pinned selector tests stay green
+        unmodified — both construct `Row`s with neither field set.
+        """
+        return any(
+            row.cause is not None or row.demonstrated_able_to_fail is not None
+            for row in self.rows
+        )
+
     def as_json(self) -> dict[str, Any]:
         """The artifact, at v1 unless this run carried a witness.
 
@@ -299,7 +474,14 @@ class Result:
         the bytes it wrote before this feature existed — which is the whole
         compatibility promise, and the reason the row's `witness` key is
         absent rather than null there.
+
+        **v3 is gated on `EMIT_V3`, which is False until the board reads it.**
+        See that constant: the gate is on emission, and the board learns the
+        version from the real bytes this method produces under test before the
+        public path ever writes one.
         """
+        if EMIT_V3 and self.has_v3_facts:
+            return self.as_json_v3()
         if not self.has_witness:
             return {
                 "schema_version": SCHEMA_VERSION,
@@ -319,6 +501,22 @@ class Result:
             "counts": self.counts(),
             "criteria": [row.as_json() for row in self.rows],
             "limits": list(LIMITS_V2),
+        }
+
+    def as_json_v3(self) -> dict[str, Any]:
+        """The v3 artifact. **Reachable today only through tests and captures.**
+
+        This is the method the board is taught from: R2's and R3's fixtures
+        call it directly and commit the bytes, so `wringer-board` learns v3
+        from what the engine really writes rather than from a fixture written
+        by whoever also wrote the reader. When `EMIT_V3` flips, `as_json`
+        starts returning this and nothing here changes.
+        """
+        return {
+            "schema_version": SCHEMA_VERSION_V3,
+            "counts": self.counts(),
+            "criteria": [row.as_json_v3() for row in self.rows],
+            "limits": list(LIMITS_V3),
         }
 
 
@@ -480,10 +678,25 @@ def _assess_one(
         # are exactly the ones the repository has no check for.
         if witness is not None and witness.covers:
             return _witness_verdict(common, witness, gate=None)
+        # **The partition at this site HOLDS, and R2 settled it by reading
+        # the construction path rather than assuming** (ruling 12's "one thing
+        # R2 settles"). `WitnessEvidence` is built in exactly two places, both
+        # `verify.py:792` and `:808`. The first always sets a non-empty
+        # `discarded` (`item.discarded or "the witness was never pinned"`); the
+        # second is reached only when `item.usable`, and `witness.usable`
+        # REQUIRES `proved_red.outcome == ASSERTION` with `discarded is None`
+        # (`witness.py:416-425`), which is exactly `covers`. So a witness
+        # arriving here with `covers == False` always has a discard reason, and
+        # there is no third case needing a name of its own.
         return Row(
             **common,
             state=UNEVIDENCED,
             witness=witness,
+            cause=(
+                CAUSE_WITNESS_EVIDENCED_NOTHING
+                if witness is not None and witness.discarded
+                else CAUSE_UNBOUND
+            ),
             reason=(
                 "no gate proves this criterion"
                 + (
@@ -523,7 +736,7 @@ def _assess_one(
     # satisfied, whatever the declared gates said — and the declared gates
     # saying yes anyway is the measured baseline this lane exists to break.
     if witness is not None and witness.covers:
-        return _witness_verdict(detail, witness, gate=gate)
+        return _witness_verdict(detail, witness, gate=gate, discriminating=discriminating)
 
     receipt = discriminating.get((gate.id, command))
     if receipt is None:
@@ -531,6 +744,8 @@ def _assess_one(
             **detail,
             state=UNEVIDENCED,
             witness=witness,
+            cause=CAUSE_BORN_GREEN,
+            demonstrated_able_to_fail=False,
             reason=(
                 f"`{gate.id}` passed, but nothing in the record shows it can "
                 f"fail — a gate born green evidences nothing. {_REMEDY}"
@@ -555,6 +770,8 @@ def _assess_one(
             return Row(
                 **detail,
                 state=UNEVIDENCED,
+                cause=CAUSE_PRE_EXISTENCE_UNESTABLISHED,
+                demonstrated_able_to_fail=True,
                 reason=(
                     f"`{gate.id}` passed and the record shows it can fail, but "
                     "this run could not establish that the gate existed before "
@@ -567,6 +784,12 @@ def _assess_one(
             return Row(
                 **detail,
                 state=UNEVIDENCED,
+                cause=CAUSE_ARRIVED_WITH_THE_WORK,
+                # TRUE, and the distinction is the whole point of ruling 13's
+                # "rendering the fourth cause as the second is false and
+                # BACKWARDS": the record DOES show this gate can fail. The
+                # objection is that the gate is new.
+                demonstrated_able_to_fail=True,
                 reason=(
                     f"`{gate.id}` exercises `{arrived}`, which this change "
                     "CREATED — so it failed beforehand only because it did not "
@@ -580,6 +803,8 @@ def _assess_one(
         state=EVIDENCED,
         receipt=receipt,
         witness=witness,
+        # No cause: an evidenced row is not anywhere it needs explaining from.
+        demonstrated_able_to_fail=True,
         reason=(
             f"`{gate.id}` passed, and the record shows it can fail"
             + (f". {receipt.environment}" if receipt.environment else "")
@@ -587,20 +812,31 @@ def _assess_one(
     )
 
 
-def _witness_verdict(fields: dict, witness, gate) -> Row:
+def _witness_verdict(fields: dict, witness, gate, discriminating=None) -> Row:
     """What a COVERING witness says, in the existing vocabulary.
 
     Red on the changed tree is `gate-failed` — the criterion is not met. Green
     is `evidenced`, with a receipt whose kind names where the evidence came
     from, so a reader is never left guessing whether a green came from the
     repository's own check or from one Wringer manufactured.
+
+    **`demonstrated_able_to_fail` is None when there is no gate**, and it is
+    the third null case ruling 10 spells out: a witness-covered row with no
+    bound `(gate, command)` has nothing to ask the record about, AND it can
+    still be `evidenced`. A reader who inferred "null implies not evidenced"
+    would be wrong on exactly the rows this lane produces. The field is about
+    the RECORD's gate history and says nothing about a witness-sourced green.
     """
     where = f"`{gate.id}` passed, but " if gate is not None else ""
+    demonstrated = None
+    if gate is not None and discriminating is not None:
+        demonstrated = (gate.id, fields.get("command")) in discriminating
     if witness.result != "passed":
         return Row(
             **fields,
             state=GATE_FAILED,
             witness=witness,
+            demonstrated_able_to_fail=demonstrated,
             reason=(
                 f"{where}the check Wringer authored for this criterion — "
                 "proved red before the work began — is still red. The "
@@ -612,6 +848,7 @@ def _witness_verdict(fields: dict, witness, gate) -> Row:
         state=EVIDENCED,
         receipt=Receipt(kind=WITNESS, bundle=witness.bundle),
         witness=witness,
+        demonstrated_able_to_fail=demonstrated,
         reason=(
             "a check Wringer authored for this criterion was proved red "
             "before the work began, pinned, and passes now"
