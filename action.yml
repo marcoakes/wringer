@@ -96,9 +96,8 @@
 
 name: 'Wringer'
 description: >-
-  EXPERIMENTAL — not yet green in CI. Run this repository's own gates, keep an
-  evidence bundle a stranger can audit, and report whether there is any
-  evidence each gate can still fail.
+  Run this repository's own gates, keep an evidence bundle a stranger can
+  audit, and report whether there is any evidence each gate can still fail.
 author: 'Marc Oakes'
 
 branding:

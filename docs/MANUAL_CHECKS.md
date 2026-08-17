@@ -763,19 +763,22 @@ in order against a clean clone and models the workflow job's own setup first.
 | defect 1: installed PyPI 0.3.0, then invoked `wring health`, which 0.3.0 does not have | **FIXED** — `@main` installs `@main` via `$GITHUB_ACTION_PATH` (`63de64e`) |
 | defect 2: `wring verify` needs the TARGET repo's gate tools on PATH, which the action does not install | **FIXED in the job, STATED in the action** (`3f57377`) |
 | the whole chain replayed locally, with the job's steps modelled | **PASSES** — lint ✓, test ✓, health ✓, exit 0 |
-| the CI job at `63de64e` | **STILL RED, cause unknown** |
-| the `experimental` label in `action.yml`'s description | **STAYS**, per H-7, until the job is green |
+| defect 3: the job's checkout was SHALLOW, so `git tag` was empty and the roadmap's `ship` probe read not-shipped while the SVG drew it green | **FIXED** — `fetch-depth: 0`, as the `verify` job has carried since 2026-08-08 (`c8cf2a5`) |
+| **the CI job** | **GREEN at `c8cf2a5`**, along with all eight others |
+| the `experimental` label in `action.yml`'s description | **REMOVED**, per H-7, in the commit after the job went green |
 
-**What is NOT known, said plainly:** why the job is still red when the same
-steps pass locally. The difference is somewhere in the parts the replay does
-not cover — the two `actions/cache` steps, `$GITHUB_OUTPUT` plumbing between
-the composite steps, or the summary renderer — and diagnosing it needs the log,
-which needs auth this machine does not have.
+**How the third one was found, since I got this wrong first:** I recorded the
+logs as unreadable and the cause as undiagnosable. The logs ARE 403
+unauthenticated — but **annotations are public**, and this repository already
+uses `::notice::` annotations for exactly this purpose in sequence G. The
+`action` job now emits the verify exit code, the bundle path, which of
+`wring`/`ruff`/`pytest` are on PATH, and per gate its exit code and the tail of
+BOTH streams. The first version of that probe read stderr only and reported an
+empty message, because pytest writes failures to stdout.
 
-**What would change this row:** somebody with repository access opening the
-`action` job's log for the newest run, or `gh` existing here. Do not guess at a
-third fix from the outside; two were found by replaying and the third should be
-too.
+**What this sequence is still for:** the replay script remains the way to see
+what the action does without a token, and the annotation probe remains in the
+job. If it goes red again, read the annotations first.
 
 ## What is *not* here, and why
 
