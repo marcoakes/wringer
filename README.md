@@ -65,9 +65,17 @@ developers, Wringer manufactures the evidence a delivery is refused without.
 > shown failing today, so the next round of work cannot quietly undo it.
 
 That paragraph is the product. **Most of the machinery under it is built and
-has been driven end to end; the surface a non-technical person would touch is
-partly built and partly direction, and the table below says which is which
-rather than leaving you to find out.**
+has been driven end to end, and since 2026-08-17 so is the surface a
+non-technical person would touch**: one verb — `wringer-drive run PRD.md` —
+carries a prose file through every step above to a rendered page, measured at
+**27.5 seconds** (`wringer-drive/docs/pm-mode-2026-08-17.md`). The table below
+still says which parts are built and which are direction rather than leaving
+you to find out.
+
+**What is not yet proved is the part that matters most here**: no stranger has
+read one of those pages and said what it means. Until that happens, "a product
+manager can use this" is a claim this repository has built towards and has not
+earned, and nothing in it says otherwise.
 
 ## Where this actually is: the seven moments, labelled honestly
 
@@ -146,7 +154,10 @@ shipped, and running it found three defects that reading it had not.
 > containment, the witness calibration, flaky-gate handling, the corpus
 > re-test and the de-scope that followed it losing,
 > [THREAT_MODEL.md](THREAT_MODEL.md), [`action.yml`](action.yml), and the
-> refusal records.
+> refusal records. **It also pre-dates the whole PM surface** — the
+> `wringer-board` page, the `wringer-drive` verb, and the one-verb path from a
+> prose file to a rendered board — none of which is in the released package,
+> and two of which are separate repositories.
 > `0.3.0` registers seventeen commands.
 > HEAD registers nineteen commands.
 > The two it does not have are `bench` and `health`, derived from the tag

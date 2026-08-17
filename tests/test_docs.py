@@ -3009,3 +3009,93 @@ def test_the_blanket_guard_can_see_a_markdown_callout():
         "the README's ⚠️ callout is no longer visible to the blanket guard; "
         "if the callout marker changed, re-derive `_CALLOUT_OPENER`"
     )
+
+
+# --- the released version, against the newest tag ---------------------------
+
+
+def newest_release_tag() -> str | None:
+    """The newest `vX.Y.Z` tag, or None when this checkout cannot answer.
+
+    Same rule `commands_at_tag` follows: no git, no tags, a shallow clone —
+    the caller skips rather than guessing, because a wrong answer is worse
+    than no answer. Tags only; **PyPI is deliberately not consulted.** These
+    tests send nothing over the network, and a guard that needed a network
+    call would be a guard that fails in the one environment (CI, offline)
+    where it matters most.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "tag", "--list", "v[0-9]*", "--sort=-v:refname"],
+            cwd=repo_root(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    tags = [line.strip() for line in done.stdout.splitlines() if line.strip()]
+    return tags[0].lstrip("v") if tags else None
+
+
+# "0.3.0 is the released version"; "the current release is 0.3.0"; and the
+# pre-release framing that outlives its own release — "building toward v0.1.0".
+_RELEASED_VERSION_CLAIMS = (
+    re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s+is\s+the\s+(?:current\s+)?released\s+version", re.I),
+    re.compile(r"the\s+(?:current\s+)?release\s+is\s+`?v?(\d+\.\d+\.\d+)`?", re.I),
+    re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s*\(PyPI,\s*current\)", re.I),
+    re.compile(r"building\s+toward\s+`?v?(\d+\.\d+\.\d+)`?", re.I),
+)
+
+_VERSION_PROSE = _GUARDED_PROSE + ("ROADMAP.md",)
+
+
+@pytest.mark.parametrize("document", _VERSION_PROSE)
+def test_a_document_naming_the_released_version_names_the_newest_tag(document):
+    """**Red on the real defect, 2026-08-18.**
+
+    `CONTRIBUTING.md:3-5` said Wringer was *"building toward `v0.1.0` on
+    September 30, 2026"* on a project with three tags, three PyPI releases,
+    and a `ROADMAP.md` line recording that `v0.1.0` shipped on July 31. A
+    pre-release document on a post-release project is the first thing a
+    contributor reads.
+
+    Derived from `git tag`, never from a constant, and never from PyPI —
+    these tests send nothing. Where the tags cannot be read the guard skips
+    with a reason rather than guessing.
+
+    **Deliberately narrow.** A sentence naming an OLD version as history —
+    "`0.1.0` shipped on July 31", "upgrade from `0.2.0`" — is true and is not
+    matched: only the four shapes that claim a version IS the current one.
+    The seventeen-vs-nineteen callout is untouched by any of them, and
+    `tests/test_docs.py`'s ruling on it stands.
+    """
+    require_checkout(document)
+    newest = newest_release_tag()
+    if newest is None:
+        pytest.skip(
+            "this checkout cannot read its own tags (no git, or a shallow "
+            "clone), so there is no released version to check the prose "
+            "against"
+        )
+
+    text = claimed_voice((repo_root() / document).read_text(encoding="utf-8"))
+    flat = " ".join(text.replace("*", "").split())
+
+    wrong = []
+    for pattern in _RELEASED_VERSION_CLAIMS:
+        for found in pattern.finditer(flat):
+            if found.group(1) != newest:
+                window = flat[max(0, found.start() - 80): found.end() + 80]
+                wrong.append(f"{found.group(0)!r} :: …{window}…")
+
+    assert not wrong, (
+        f"{document} names a released version that is not the newest tag "
+        f"(`v{newest}`):\n" + "\n".join(f"  {hit}" for hit in wrong)
+        + "\n\nA released version is derivable; a document claiming a "
+        "different one is stale, not cautious."
+    )

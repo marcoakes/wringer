@@ -227,3 +227,13 @@ The scenario is one repo, one task, four criteria, and a scripted worker.
 end to end, which is the half of F4 that remains outstanding. No agent wrote
 any of this code. And "the chain completed" means the record was consistent
 enough to ship, not that a person wanted what came out the other end.
+
+**Correction, added 2026-08-18.** The sentence above about `wring fleet` was
+true when this report was written on 2026-08-10 and **false from 2026-08-11**:
+`docs/fleet-scale.md` records one approved spec, two tasks, `fleet.scope`, one
+delivery, `2 succeeded, 0 failed, 0 parked`, and `wring deliver --send`
+branching, committing and pushing — with the unscoped control beside it. This
+report is dated evidence and is not rewritten; the correction is added here so
+a reader who reaches this paragraph first is not misinformed. The other three
+sentences in it still stand: no agent has written this code, the worker was
+scripted, and a consistent record is not a satisfied person.

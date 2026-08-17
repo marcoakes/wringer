@@ -1,10 +1,17 @@
 # Contributing to Wringer
 
-Thanks for landing here this early. Wringer is **building toward
-`v0.1.0` on September 30, 2026** — the ["One Loop" MVP](ROADMAP.md): a
-GitHub issue in, a verified merge request with evidence out. The
-[build plan](wringer-ai-dlc-harness-plan.md) is the architectural north
-star; [ROADMAP.md](ROADMAP.md) governs execution order.
+Thanks for landing here this early. **Three releases have shipped** —
+`v0.1.0` on July 31, 2026, then `v0.2.0` and `v0.3.0`, all three on PyPI, with
+`v0.3.0` the current one and `main` ahead of it ([README](README.md#install)
+says by how much). The ["One Loop" MVP](ROADMAP.md) it was building toward — a
+GitHub issue in, a verified merge request with evidence out — landed with
+`v0.1.0`, two months inside its own deadline ([ROADMAP.md](ROADMAP.md)).
+
+September 30, 2026 is still the date this project is working to, but it is no
+longer a first release: it is the date the whole path has to hold up, and
+what stands between here and it is in [ROADMAP.md](ROADMAP.md). The
+[build plan](wringer-ai-dlc-harness-plan.md) is the architectural north star;
+[ROADMAP.md](ROADMAP.md) governs execution order.
 
 ## What's valuable right now
 
@@ -30,9 +37,12 @@ star; [ROADMAP.md](ROADMAP.md) governs execution order.
 
 ## Now that code exists
 
-- **The gate is green tests.** Today that is `.venv/bin/pytest` (setup in
-  [AGENTS.md](AGENTS.md#build-test-run)); from Bolt 5 onward it is
-  `wring verify` on this repo, mirrored in CI. No PR merges red.
+- **The gate is green tests, and Wringer is what runs them.** `wring verify`
+  on this repository, in CI, on every push — the repository's own
+  `.wringer.yaml` declares two gates, `ruff check src tests examples scripts`
+  and `pytest -q`, and both must pass ([README](README.md), *Wringer verifies
+  Wringer*). Locally, `sh scripts/ci-repro.sh` runs both in a fresh clone and
+  prints an exit code for each; read BOTH. No PR merges red.
 - Small, reviewable PRs; conventional commits; evidence in the PR
   description.
 - Respect the package-boundary matrix (enforced by lint).
