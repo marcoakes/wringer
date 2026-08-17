@@ -554,18 +554,33 @@ make a demo look better.**
         (finding 8). All 23 mapped and DERIVED from `deliver.REFUSAL_REASONS`;
         `read.latest_refusal` reaches them; verified against a real refused
         delivery.
-- [ ] §5's four invariant tests, each derived rather than scenario-shaped.
-- [ ] §6's capture, filmed, naming what drove it.
-- [ ] `wring --help` still lists 19 commands.
-- [ ] No frozen schema changed a byte; the diff adds at most one new schema
-      file.
-- [ ] Nothing in any of the three packages writes `wringer.judgements.yaml`,
-      re-checked across all three rather than in this one.
-- [ ] The session record earns its existence, demonstrated rather than
+- [x] §5's four invariant tests, each derived rather than scenario-shaped.
+      **DONE**, and two of them were wrong in the way §5 warns about until a
+      mutation pass corrected them: the byte-equality guard compared added
+      lines by VALUE, which an append-to-the-end writer would have passed,
+      and `test_no_approval_means_no_gate_is_INSTALLED` was green while never
+      reaching step 7 at all.
+- [x] §6's capture, filmed, naming what drove it. **DONE — 27s.** It names a
+      real drafting endpoint and model, and an ACP worker that is **not a
+      vendor agent** and ran **uncontained**, both said in the capture.
+- [x] `wring --help` still lists 19 commands. **19.**
+- [x] No frozen schema changed a byte; the diff adds at most one new schema
+      file. **Core's tree was untouched by the build.**
+- [x] Nothing in any of the three packages writes `wringer.judgements.yaml`,
+      re-checked across all three rather than in this one. **Re-checked; the
+      one hit in core is `PKG-INFO` describing the rule.**
+- [x] The session record earns its existence, demonstrated rather than
       assumed — or ruling 7 is deleted (finding 14, and the review's own
-      second question).
-- [ ] The finish report states the PM-mode number **in one sentence a PM
+      second question). **NOT WRITTEN, and ruling 7 should be deleted.** The
+      run is reconstructible from what the chain already writes: the loop
+      bundle, the run bundles, the refusal record and the spec. Nothing in
+      steps 0–10 needed a record of DRIVE's own, and none was added.
+- [x] The finish report states the PM-mode number **in one sentence a PM
       could read**, and says what drove it.
+
+**Still owed, and none of it is this document's to close:** the independent
+review of this spec (never begun), `wringer-drive`'s remote, and the
+`temperature: 0` finding against the engine.
 
 ---
 
@@ -652,7 +667,8 @@ the artifact this programme exists to refuse:
 |---|---|
 | authored | **2026-08-17**, this window |
 | independently reviewed | **NO.** Not begun |
-| built | **STEPS 0–6**, `wringer-drive` `223132a`, 2026-08-17. Steps 7–10 not built |
+| built | **STEPS 0–10, whole**, `wringer-drive` `fb45342`, 2026-08-17 |
+| §6's number | **MEASURED: 27s**, prose PRD to first honest green, ten answers, no editor. `docs/pm-mode-2026-08-17.md` |
 | findings folded | **19 of 19**, none rebutted, 2026-08-17 |
 | the two board slices it was blocked on | **BOTH LANDED**, board `ccf117f`, 2026-08-17 |
 | §9's question 4, the interview transport | **DECIDED** — the PM's own coding agent, with a terminal fallback |
@@ -661,17 +677,47 @@ the artifact this programme exists to refuse:
 | S3, its precondition | **YES** — landed `d095463`, 2026-08-17 |
 | S4 | **YES**, engine half — landed `4704521` |
 
-**Steps 0–6 are built and filmed** (`wringer-drive` `223132a`;
-`docs/drive-2026-08-17.md` in that repository, driven both ways with a
-byte-identical result). **The next act is steps 7–10** — install approved
-gates under §3a, run the loop, deliver under ruling 2a's second
-authorisation, render the board — and then §6's measurement, which has no
-number and may not be given one until it is measured.
+**The whole chain is built and measured.** Steps 7–10 landed at
+`wringer-drive` `ec37499`, and steps 1–3 at `5e6311c`.
 
-Building it found one more live defect in the board, which is the pattern
-this programme keeps confirming: `interview.plan` read only the PROPOSED
-gates sidecar, so a PM was told "NOTHING CHECKS THIS YET" about a criterion
-`.wringer.yaml` already bound. Fixed at the board's `9ddc7d6`.
+**§11 previously said "STEPS 0–6 built" and that overstated by three rows.**
+DRIVE invoked no engine command at all: `run_command` was defined and unused,
+and the filmed capture began from a repository that already had a
+`.wringer.yaml` and a drafted `wringer.spec.yaml`. Steps 1, 2 and 3 were
+never in it. That mattered, because without them §6 cannot be measured — the
+operator has to run `wring init`, edit a config and run `wring spec`, which
+is an editor and a terminal, which is the whole thing this verb removes. The
+class §1 names as this programme's seven-time defect, in this document, about
+this document's own subject.
+
+**§6 is measured: 27 seconds**, prose PRD to the first honest green, ten
+answers, no file edited (`docs/pm-mode-2026-08-17.md` in `wringer-drive`).
+22.4 of those seconds are the drafting call. The green is red-first and the
+run bundles prove it rather than the prose asserting it. The run **exits
+non-zero**, because `wring deliver` refused work whose proof it could not
+show — which is the product working, and a number that ended in a merge
+request would have been the worse result.
+
+Building it found three live defects, none by reading:
+
+- **A PM answering "yes" silently wrote a boolean and broke their own spec.**
+  `interview._scalar` decided quoting from which characters were in the text,
+  and YAML's plain scalars are not decided by characters. Fixed at the
+  board's `fe53027` by asking the loader instead of reasoning about the text
+  — the same class as the newline folding fixed at `ccf117f`.
+- **`wring spec --send` cannot reach any current-generation Anthropic model.**
+  `spec.build_request` always sends `temperature: 0`; Opus 5, Opus 4.8, Opus
+  4.7, Sonnet 5 and Fable 5 all reject it with HTTP 400 before a token is
+  drafted. **OPEN — a core finding, and this window had no licence to change
+  core.**
+- **`judge.max_output_tokens` defaults to 1024, which truncates the reply for
+  any real PRD**, and `wring spec` then refuses the whole draft and writes
+  nothing. Measured twice against a live endpoint; DRIVE's generated config
+  declares 8000.
+
+Earlier, building steps 0–6 found the board's `interview.plan` reading only
+the PROPOSED gates sidecar, so a PM was told "NOTHING CHECKS THIS YET" about
+a criterion `.wringer.yaml` already bound. Fixed at the board's `9ddc7d6`.
 
 H-5(ii) is satisfied: this document and the two board slices are the committed
 checkpoint between review and build. Build in small committed increments,
