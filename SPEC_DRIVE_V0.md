@@ -11,11 +11,20 @@ this file.*
 *Every "exists today" claim below was read out of the tree at **`44a61f2`**
 and carries its `file:line` or its symbol. Nothing here is recalled.*
 
-> **NOT YET INDEPENDENTLY REVIEWED. NOT YET BUILT.**
-> §11 records the state precisely. The one-agent refute review that the house
-> requires before any code is written to a spec has **not** run against this
-> document. **No line of DRIVE exists in either repository.** A window
-> picking this up starts at §11.
+> **REVIEWED 2026-08-17. VERDICT: NOT SOUND — 19 findings (9 HIGH). NOT YET
+> BUILT, and NOT YET FOLDED.**
+>
+> The one-agent refute review ran the same day this was drafted and is
+> recorded in full at §12. **It found two LIVE DEFECTS in shipped code by
+> driving the engine's real output through the board's S3 surface**, both now
+> fixed in `wringer-board` at `78eed09`, and it found that three of §2's ten
+> rows do not compose against the tree at all.
+>
+> **Nothing below §12 has been rewritten yet.** The rulings and the tables in
+> §0–§11 are as drafted, and several of them are now known to be wrong. §12
+> says which. **A window picking this up starts at §12, folds, and only then
+> builds** — and it must read finding 3, 4 and 9 before it writes a line,
+> because two of them cannot be fixed inside DRIVE's own licence at all.
 
 ---
 
@@ -329,3 +338,99 @@ the artifact this programme exists to refuse:
 code.** H-5(ii): review and build of the same artifact are separated by a
 committed checkpoint, and a killed build is more dangerous than a killed
 review because a killed build leaves a tree that looks finished.
+
+
+---
+
+## §12 — The review record
+
+**Ran 2026-08-17, one refute-instructed agent, against the tree at `4b534bc`.
+Verdict: NOT SOUND. 19 findings — 9 HIGH, 7 MEDIUM, 3 LOW.** It checked the
+claims by EXECUTING the code rather than reading it, which is how the first
+two were found.
+
+### The two it found by execution, which were live defects in shipped code
+
+Both are fixed in `wringer-board` at `78eed09`; **neither was a DRIVE defect**,
+and a build agent hitting them would have gone looking in the wrong package.
+
+1. **`wringer-board approve` refused every spec `wring spec` drafts.** The
+   engine renders `approved: false        # <- the interlock. …` and the
+   board's pattern ended `\s*$`. §11 recorded S3 as a discharged precondition;
+   it was not.
+2. **`wringer-board answer` wrote a duplicate `answer:` key**, because
+   `wring spec` renders `answer: ''` unconditionally and the board appended.
+
+Cause in both: every fixture in the board's `test_interview.py` was hand-typed,
+i.e. written on the same side of the seam as the reader. **That is the third
+occurrence of that exact failure mode in this programme.**
+
+### The seven other HIGH findings, unfolded
+
+3. **`wring init` writes no `judge:`, `run:` or `deliver:` section**, and steps
+   3, 8 and 9 each hard-refuse without one (`cli.py:2620`, `:1715`, `:3292`).
+   Ruling 4 forbids the verb from adding them. §0's one-sentence test therefore
+   fails three times. **This needs a design decision, not an edit.**
+4. **Gate installation requires a hand edit that Ruling 4 forbids.**
+   `wring plan` prints a diff and stops; `spec.py:901` states *"Wringer never
+   installs a gate itself"*. And §2 row 7's *"rendered by the S3 surface"* is
+   false — `interview.plan()` renders `proves:` bindings, never `wring plan`'s
+   diff. **That phrase was inherited verbatim from Postscript P-2 and restated
+   without being checked**, which is the stale-sentence class §1 names.
+5. **§5 test 1's allow-set is wrong by five files** — the chain also writes
+   `.gitignore`, `wringer.gates.yaml`, `tasks.jsonl`, `wringer.rubric.yaml` and
+   a brief per task. The test fails against a *correct* implementation.
+6. **§1a mischaracterises B1's test, and that test does not exist.**
+   `test_the_surface_ships_no_server` is about web-server dependencies and one
+   console entry point, says nothing about "long-running", and is unbuilt.
+   **§9's open question 1 is a non-question** and would send a builder to amend
+   a test that is not there.
+7. **The `--json` audit §10 deferred: `wring init` and all four board verbs
+   have none.** Step 2 is fatal — Ruling 5 needs to know which detection branch
+   fired and that is prose on stdout. The spec must rule on whether DRIVE
+   imports the packages as libraries.
+8. **Step 9's rendering path does not exist.** The board never reads
+   `.wringer/refusals/`, and its three `delivery-refusal` values are not among
+   the engine's 23 `REFUSAL_REASONS`. So 100% of real delivery refusals would
+   reach a PM through the UNTRANSLATED escape hatch as a raw token.
+9. **Ruling 2's interlock is launderable by composition.** `interview.approve`
+   takes the caller's word that a plan was rendered; a subprocess with captured
+   stdout prints the plan into a pipe and nobody reads anything. **And the spec
+   never rules on `--send` at all**, which steps 3 and 9 both need.
+
+### MEDIUM and LOW, in one line each
+
+10. §5 test 3 is not derivable: `MAPPING` is keyed on `(family, value)` pairs,
+    and 19 of 45 are unreachable by DRIVE's chain.
+11. Ruling 3 has no branch for a CLI refusal that carries no named value, which
+    is most of the ones DRIVE meets first.
+12. §5 test 2's "before any gate is proposed" is already false — gates are
+    proposed at step 3, not step 7.
+13. Ruling 5 omits that `wring init` always writes a placeholder gate
+    `run: "true"`, the exact thing the ruling forbids. `is_untouched_template`
+    is the mechanism and the spec never names it.
+14. Ruling 7 widens law 7's "new schema file" to "new file", and never says
+    which repository it lands in or where the record is written.
+15. `interview._scalar` folds newlines: a multi-line answer does not round-trip
+    and nothing errors.
+16. §2 row 1 overclaims — the PRD must be inside the repository, under a byte
+    ceiling, and in a git repo.
+17. §6 pre-blesses `no_progress` in a way that would hide an F6 regression: the
+    "no pytest" case stops as `environment`, not `no_progress`.
+18. §5 test 4's third clause has no hand edit to compare against.
+19. `wring init` reads `Path.cwd()` and cannot be driven in-process safely.
+
+### What the reviewer could not check
+
+`wringer-drive` itself (there is none), `wring spec --send` and `wring run` end
+to end (both need a live endpoint and a credential), `wring deliver --send`,
+and §6's number (there is none, correctly).
+
+### The reviewer's own summary of what mattered
+
+> Findings 1 and 2 would have had a build agent hit exit 2 on step 6 with a
+> message that reads as a DRIVE bug and is not one. Finding 3 would have hit it
+> three more times. **None of these is fixable inside DRIVE's own licence: they
+> are core and board defects that DRIVE's rulings forbid it from touching. The
+> spec must either widen its licence explicitly or sequence a board-fix commit
+> ahead of the build.**
