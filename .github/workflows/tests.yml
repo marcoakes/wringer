@@ -81,11 +81,40 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -e '.[dev]'
-      - uses: ./
-      - name: Say what the job summary got
+      - id: wringer
+        uses: ./
+        continue-on-error: true
+      # **The diagnostic, as ANNOTATIONS.** This repository's Actions logs are
+      # 403 unauthenticated and there is no `gh` on the maintainer's machine,
+      # so a red job here is otherwise undiagnosable from outside. Annotations
+      # ARE public, and sequence G already uses exactly this route to make an
+      # attack run readable without a token.
+      #
+      # `continue-on-error` above lets this step run and THEN the job fails on
+      # the action's own exit code below, so the colour is still the gates'
+      # answer and nothing is swallowed.
+      - name: Say what the action actually did
         if: always()
         run: |
-          echo "::notice::the action ran against this repository via 'uses: ./'"
+          echo "::notice::verify-exit-code=${{ steps.wringer.outputs.verify-exit-code }}"
+          echo "::notice::evidence-dir=${{ steps.wringer.outputs.evidence-dir }}"
+          echo "::notice::wring=$(command -v wring || echo ABSENT) ruff=$(command -v ruff || echo ABSENT) pytest=$(command -v pytest || echo ABSENT)"
+          bundle="${{ steps.wringer.outputs.evidence-dir }}"
+          if [ -n "$bundle" ] && [ -d "$bundle/gates" ]; then
+            for d in "$bundle"/gates/*/; do
+              name=$(basename "$d")
+              code=$(python3 -c "import json,sys;print(json.load(open('$d/result.json'))['exit_code'])" 2>/dev/null || echo "?")
+              echo "::notice::gate $name exit=$code"
+              if [ "$code" != "0" ]; then
+                echo "::error::gate $name FAILED: $(tail -c 400 "$d/stderr.log" 2>/dev/null | tr '\n' ' ')"
+              fi
+            done
+          else
+            echo "::error::no evidence bundle at '$bundle' — wring verify wrote nothing"
+          fi
+      - name: The gates decide this job too
+        if: always()
+        run: exit "${{ steps.wringer.outputs.verify-exit-code || 1 }}"
 
   # SETUP.md's own commands, executed. Four of the 2026-08-05 field report's
   # findings (R2-01, R2-03, R2-04, R2-06) are guarded only by this script,
