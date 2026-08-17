@@ -63,6 +63,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # **The repository's OWN dev dependencies, before the action runs.**
+      #
+      # The first run of this job was RED, and it was red for a real reason:
+      # `.wringer.yaml` declares `ruff check …` and `pytest -q` as its gates,
+      # and the action installs WRINGER, not the tools a repository's gates
+      # happen to need. `wring verify` therefore died on
+      # `/bin/sh: ruff: command not found`.
+      #
+      # That is not a defect in the action and installing them here is not
+      # cheating the test: it is the real shape of a consumer's workflow, which
+      # sets up its own project and then hands the gate-running to Wringer.
+      # The limitation it revealed is now stated in `action.yml`'s own header,
+      # because a stranger whose gates need a linter will hit it on their first
+      # run and deserves to have been told.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
       - uses: ./
       - name: Say what the job summary got
         if: always()

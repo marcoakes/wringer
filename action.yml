@@ -25,6 +25,16 @@
 # parses every `wring` line below against the real argument parser and fails
 # on `--send`, on a URL, and on a command or flag that does not exist.
 #
+# IT RUNS YOUR GATES; IT DOES NOT INSTALL YOUR GATES' TOOLS. Wringer runs
+# whatever `.wringer.yaml` declares, in a shell, in your checkout. If a gate is
+# `ruff check .` or `pytest -q` or `npm test`, the thing it invokes has to be
+# on PATH already — this action installs Wringer and nothing else, on purpose,
+# because guessing at a project's toolchain is exactly the cleverness the rest
+# of this file refuses. So put your project's own setup steps BEFORE this one,
+# as you would for any other job. Measured rather than assumed: the first run
+# of the `uses: ./` job that exercises this action against this repository
+# failed on `/bin/sh: ruff: command not found`, which is this paragraph.
+#
 # THE FIRST RUN READS THIN. This is the part to know before you conclude the
 # vitality table is broken. `wring health` answers "is there any recorded
 # evidence this gate can still fail" from bundles, and a fresh checkout has
