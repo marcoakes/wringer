@@ -4,7 +4,7 @@
 
 # 🗜️ Wringer
 
-**The vendor-neutral AI-DLC harness — a control plane for AI-driven development,
+**The vendor-neutral AI-DLC harness: a control plane for AI-driven development,
 for product managers, designers and engineers.**
 
 *Put every change through the wringer.*
@@ -23,9 +23,9 @@ for product managers, designers and engineers.**
 ---
 
 > **In the agent era, code is cheap and green is suspect. The scarce resource
-> is warranted trust in a passing check — and that trust decays.** Wringer is
+> is warranted trust in a passing check, and that trust decays.** Wringer is
 > the evidence layer that keeps your green honest: it runs your repo's own
-> gates, writes receipts a stranger can audit, and trusts nothing — including
+> gates, writes receipts a stranger can audit, and trusts nothing, including
 > itself. Not the worker's exit code, not the agent's summary, not even the
 > tests the agent wrote. That stance came out of
 > [a real eight-hour burn](SPEC_SUPERVISION_V0.md) and is welded into
@@ -33,31 +33,31 @@ for product managers, designers and engineers.**
 > the one stance no vendor can copy, because Wringer is nobody's agent:
 > **the party holding the receipts has no stake in what they say.**
 
-Wringer (CLI: `wring`) compiles **intent** — tickets, PRDs, Slack messages — into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine — no runtime, no gateway, and no identity system to adopt first.
+Wringer (CLI: `wring`) compiles **intent** (tickets, PRDs, Slack messages) into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine, with no runtime, no gateway, and no identity system to adopt first.
 
 **What this is for:** a product manager writes an advanced spec, hands it to
 Wringer, it takes in the repositories, and hours later there is working
-software at enterprise quality. Wringer never writes the code — an agent
+software at enterprise quality. Wringer never writes the code; an agent
 does. Wringer is the part that refuses to believe it, so what comes out the
 far end is what the spec actually asked for rather than what an agent
 reported doing.
 
 **And three shelves it does not go on**, because they are where it gets
-mis-filed: **not a CI tool** — CI runs your checks, Wringer proves a check
-*could have failed* and, once you switch that on, refuses the delivery when it
-could not; **not an eval framework** — evals score models, Wringer gates
-deliveries; **not test generation** — generators write tests for developers,
-Wringer manufactures the evidence a delivery is refused without.
+mis-filed. **Not a CI tool:** CI runs your checks, while Wringer proves a
+check *could have failed* and, once you switch that on, refuses the delivery
+when it could not. **Not an eval framework:** evals score models, Wringer
+gates deliveries. **Not test generation:** generators write tests for
+developers, Wringer manufactures the evidence a delivery is refused without.
 
 ## The same thing again, with no jargon in it at all
 
 > You write down what you want built, in your own words. Before any work
-> starts, you see your list back in plain sentences — each thing you asked
-> for, and beside it, how it will be checked when someone claims it is done —
-> and nothing begins until you have said "yes, that is what I meant" to each.
+> starts, you see your list back in plain sentences: each thing you asked
+> for, and beside it, how it will be checked when someone claims it is done.
+> Nothing begins until you have said "yes, that is what I meant" to each.
 > The work then happens without you. When you come back there is one page:
 > every item marked done shows its check passing now *and* a record of the
-> same check failing before the work — so a tick means "this did not work
+> same check failing before the work, so a tick means "this did not work
 > before and works now," not "nobody noticed a problem." Anything that could
 > not be proved says so plainly, and the handover waits for you instead of
 > going out anyway. And when something marked done is not what you meant, you
@@ -69,23 +69,23 @@ has been driven end to end; the surface a non-technical person would touch is
 partly built and partly direction, and the table below says which is which
 rather than leaving you to find out.**
 
-## Where this actually is — the seven moments, labelled honestly
+## Where this actually is: the seven moments, labelled honestly
 
 | | the moment | what exists today |
 |---|---|---|
-| **1** | **You write it down.** Prose in — a PRD, a doc, a pasted brain-dump — and it comes back as a list of requirements, each with the check that will decide it, plus the questions it could not answer for you. | **Built**: `wring spec` drafts criteria, gates and the `proves:` bindings ([SPEC_INTENT_V0.md](SPEC_INTENT_V0.md)). **Direction**: today that list is a YAML file, and the conversation that resolves the questions is a hand edit. |
-| **2** | **Nothing runs until you approve it.** You read what will be built and how each piece will be proved, and you say yes. | **Built**, and it is an interlock rather than a setting: `approved: false` is flipped by a person, there is deliberately **no `--yes`**, and unanswered required questions block planning. **Built 2026-08-17**: `wringer-board plan` renders the plain-language plan and `wringer-board approve` writes `approved: true` after printing it — there is no path that approves without rendering. Byte-identical to the hand edit. |
-| **3** | **The work happens without you.** | **Built**: `wring run`, `wring fleet`, `wring graph` — the loop, bounded concurrency, resumable from a ledger after a `kill -9`. |
-| **4** | **One page tells you what is done, and shows the proof.** Every green shows the same check recorded failing before the work. | **Built, in two halves.** The record it renders is `acceptance.json` — every criterion carrying the evidence that proves it, or marked as the human judgement it always was ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)). The page itself is a separate layer — see [the board](#the-board--one-page-a-product-manager-can-read) — and it is **public and live** at <https://marcoakes.github.io/wringer-board/>. |
-| **5** | **You look at the thing itself.** A requirement about a screen shows you the screen. | **Built, engine half, 2026-08-17**: a gate can opt in to `artifacts:`, is handed a directory, and what it leaves is recorded in a `wringer.gate-artifacts.v1` sibling — name, size, digest, media type, and *no caption, no label, no meaning*. **Direction**: the board rendering them. And one limit stated rather than discovered: **a binary artifact is not redacted**, which is why it is opt-in per gate. |
-| **5a** | **A requirement only a person can judge waits for that person.** | **Built 2026-08-17**: a required `human: true` criterion that nobody has answered — or that was answered against wording since changed — REFUSES the delivery. A person writes `wringer.judgements.yaml` by hand; there is no flag, no `--judge`, and nothing in either repository writes it for them. |
+| **1** | **You write it down.** Prose in (a PRD, a doc, a pasted brain-dump), and it comes back as a list of requirements, each with the check that will decide it, plus the questions it could not answer for you. | **Built**: `wring spec` drafts criteria, gates and the `proves:` bindings ([SPEC_INTENT_V0.md](SPEC_INTENT_V0.md)). **Direction**: today that list is a YAML file, and the conversation that resolves the questions is a hand edit. |
+| **2** | **Nothing runs until you approve it.** You read what will be built and how each piece will be proved, and you say yes. | **Built**, and it is an interlock rather than a setting: `approved: false` is flipped by a person, there is deliberately **no `--yes`**, and unanswered required questions block planning. **Built 2026-08-17**: `wringer-board plan` renders the plain-language plan and `wringer-board approve` writes `approved: true` after printing it, so there is no path that approves without rendering. Byte-identical to the hand edit. |
+| **3** | **The work happens without you.** | **Built**: `wring run`, `wring fleet` and `wring graph`, giving the loop, bounded concurrency, and resumption from a ledger after a `kill -9`. |
+| **4** | **One page tells you what is done, and shows the proof.** Every green shows the same check recorded failing before the work. | **Built, in two halves.** The record it renders is `acceptance.json`, in which every criterion carries the evidence that proves it or is marked as the human judgement it always was ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)). The page itself is a separate layer (see [the board](#the-board--one-page-a-product-manager-can-read)) and it is **public and live** at <https://marcoakes.github.io/wringer-board/>. |
+| **5** | **You look at the thing itself.** A requirement about a screen shows you the screen. | **Built, engine half, 2026-08-17**: a gate can opt in to `artifacts:`, is handed a directory, and what it leaves is recorded in a `wringer.gate-artifacts.v1` sibling: name, size, digest, media type, and *no caption, no label, no meaning*. **Direction**: the board rendering them. And one limit stated rather than discovered: **a binary artifact is not redacted**, which is why it is opt-in per gate. |
+| **5a** | **A requirement only a person can judge waits for that person.** | **Built 2026-08-17**: a required `human: true` criterion that nobody has answered, or that was answered against wording since changed, REFUSES the delivery. A person writes `wringer.judgements.yaml` by hand; there is no flag, no `--judge`, and nothing in either repository writes it for them. |
 | **6** | **Your "no" becomes a new check.** You say "that is not what I meant"; the correction becomes a requirement with a check shown failing today, so the next round cannot quietly undo it. | **Built, engine half**: a criterion becomes a proposed gate that goes through a human diff and is recorded RED before any work begins ([SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)), and the repair loop stays open while such a check is red. **Direction**: the surface verb that turns a complaint into that criterion. |
 | **7** | **The handover waits rather than going out anyway.** | **Built**: `wring deliver` refuses on named conditions and there is no flag to wave one through. **Direction**: those refusals reaching you in plain language instead of as an exit code. |
 
 **And one gap that is not a moment, named because it is the biggest one
 left:** getting to moment 1 still means installing a CLI, shaping a config
 file and typing commands. A single verb that takes a prose file and drives
-the whole chain — with the setup generated rather than hand-written — is
+the whole chain, with the setup generated rather than hand-written, is
 specified as the next cycle but one, and is direction, not a claim. The queue
 is in [ROADMAP.md](ROADMAP.md).
 
