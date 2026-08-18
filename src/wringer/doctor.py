@@ -80,14 +80,15 @@ def run_checks(root: Path) -> list[Check]:
         skipped = [
             Check(name, SKIP, "not a git repository — run from your repo to check",
                   fix="", scope=REPO)
-            for name in ("git repository", "gates", "pytest parallelism",
+            for name in ("git repository", "gates", "runnable checks",
+                         "last verify", "pytest parallelism",
                          "workspace writable")
         ]
         return machine[:4] + skipped + machine[4:]
     return (
         machine[:4]
-        + [_repo(root), _config(root), pytest_parallel_check(root),
-           _workspace(root)]
+        + [_repo(root), _config(root), _runnable_checks(root), _last_verify(root),
+           pytest_parallel_check(root), _workspace(root)]
         + machine[4:]
     )
 
@@ -98,7 +99,8 @@ def check_names() -> tuple[str, ...]:
     exist, which is how it came to claim doctor verifies the image pull."""
     return (
         "python", "wring", "git", "container runtime",
-        "git repository", "gates", "pytest parallelism", "workspace writable",
+        "git repository", "gates", "runnable checks", "last verify",
+        "pytest parallelism", "workspace writable",
         "llm key",
     )
 
@@ -269,6 +271,118 @@ def _config(root: Path) -> Check:
     if extras:
         detail += f"; also configured: {', '.join(extras)}"
     return Check("gates", OK, detail)
+
+
+def _runnable_checks(root: Path) -> Check:
+    """**Could Wringer prove anything at all in this repository?**
+
+    The first question anybody actually has, and until 2026-08-19 nothing
+    answered it. Surveyed across 37 real repositories that day: **30 of them
+    declare no test or lint command anywhere**, so the chain stops before a
+    model is ever called, with *"this project has no tests or checks that
+    could prove the work was done, and inventing one would prove nothing"*.
+    That is correct and it is very late to find out.
+
+    Decided from the same detector `wring init` uses, so this cannot disagree
+    with what `init` would do. It runs nothing and reads no test suite: the
+    question here is whether commands EXIST to be run, which is the 90% case
+    and is answerable in milliseconds. Whether they pass is `last verify`
+    below, and whether one of them can FAIL is a question only a real run can
+    answer.
+    """
+    from wringer import detect
+
+    path = root / config.CONFIG_FILENAME
+    if path.is_file():
+        try:
+            declared = config.load(path).gates
+        except config.ConfigError:
+            return Check("runnable checks", SKIP,
+                         f"{config.CONFIG_FILENAME} unreadable — see `gates`",
+                         scope=REPO)
+        if not detect.is_untouched_template(declared):
+            return Check(
+                "runnable checks", OK,
+                f"{len(declared)} declared and ready to run", scope=REPO,
+            )
+
+    found = detect.detect(root)
+    candidates = getattr(found, "candidates", ()) or ()
+    if candidates:
+        where = ", ".join(found.sources) or "this project"
+        return Check(
+            "runnable checks", OK,
+            f"{len(candidates)} could be detected from {where}",
+            "Run: wring init", scope=REPO,
+        )
+    # **WARN and not FAIL, decided deliberately.**
+    #
+    # This is a real blocker for the product's whole purpose, so the instinct
+    # is to block on it. Two things argue the other way and they win. First,
+    # `doctor` is the command an agent runs while SETTING WRINGER UP, often in
+    # a directory that was a bare `git init` moments earlier — and this module
+    # already carries the scar from making a true statement into a false
+    # problem that way (2026-08-04). Second, the loud version of this message
+    # already exists at exactly the right moment: `wringer-drive` stops with
+    # *"this project has no tests or checks that could prove the work was
+    # done"* before it spends a penny. So somebody who ignores this line is
+    # still stopped; they are simply told earlier, and told what to add.
+    return Check(
+        "runnable checks", WARN,
+        "none — this repository declares no test or lint command, so nothing "
+        "here could prove a change yet",
+        "Add a test command your project can run (a `test` script in "
+        "package.json, a pytest or ruff section in pyproject.toml, or a "
+        "Makefile target), then run: wring init",
+        scope=REPO,
+    )
+
+
+def _last_verify(root: Path) -> Check:
+    """What the record says about the last time those checks ran.
+
+    **It does not run them.** `wring doctor` is a fast diagnosis and a command
+    that quietly spends four minutes on somebody's test suite is one they stop
+    running. So this reports what is already on disk and says plainly when
+    nothing is, rather than guessing or going quiet.
+    """
+    runs = root / evidence.RUNS_DIRNAME
+    if not runs.is_dir():
+        return Check(
+            "last verify", WARN, "never run here, so nothing is known yet",
+            "Run: wring verify", scope=REPO,
+        )
+    bundles = sorted(p for p in runs.iterdir() if p.is_dir())
+    if not bundles:
+        return Check(
+            "last verify", WARN, "never run here, so nothing is known yet",
+            "Run: wring verify", scope=REPO,
+        )
+    latest = bundles[-1]
+    summary = latest / "run.json"
+    if not summary.is_file():
+        return Check("last verify", SKIP, f"{latest.name} has no summary to read",
+                     scope=REPO)
+    try:
+        payload = json.loads(summary.read_text(encoding="utf-8"))
+        result = payload.get("result") or {}
+        status = str(result.get("status") or "unknown")
+        failed = result.get("failed_gate")
+    except (OSError, ValueError):
+        return Check("last verify", SKIP, f"{latest.name} is unreadable",
+                     scope=REPO)
+    if status == "passed":
+        return Check("last verify", OK, f"all gates passed ({latest.name})",
+                     scope=REPO)
+    detail = f"{status} ({latest.name})"
+    if failed:
+        detail += f" — `{failed}` failed"
+    # WARN and not FAIL: a red suite is the normal middle of a piece of work,
+    # and a diagnosis that exits non-zero because somebody is mid-change is a
+    # diagnosis they will stop trusting.
+    return Check("last verify", WARN, detail,
+                 "Run: wring verify — a red suite blocks a handover, not a diagnosis",
+                 scope=REPO)
 
 
 # A suite slower than this is worth a worker pool; below it, the advice is

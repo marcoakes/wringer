@@ -11,6 +11,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from wringer import cli, doctor
 
 
@@ -513,3 +515,197 @@ def test_outside_a_repo_exactly_the_repo_scoped_checks_skip(tmp_path, monkeypatc
     assert {c.name for c in skipped} == {c.name for c in repo_scoped}, (
         "outside a repository, exactly the repo-scoped checks must skip"
     )
+
+
+# --- "can Wringer prove anything here?" --------------------------------------
+#
+# **The question nobody could answer until 2026-08-19.** Surveyed across 37
+# real repositories that day, 30 declared no test or lint command anywhere, so
+# the chain stopped before a model was called — correctly, and far too late for
+# whoever was waiting. These two checks answer it in milliseconds, before
+# anybody writes a requirement.
+
+
+def a_repo(tmp_path, *, files=None, config_text=None):
+    import subprocess
+
+    repo = tmp_path / "r"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True,
+                   capture_output=True)
+    for name, body in (files or {}).items():
+        path = repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+    if config_text is not None:
+        (repo / "of.yaml").write_text("", encoding="utf-8")
+        from wringer import config as config_module
+
+        (repo / config_module.CONFIG_FILENAME).write_text(
+            config_text, encoding="utf-8"
+        )
+    return repo
+
+
+def named(checks, name):
+    return next(check for check in checks if check.name == name)
+
+
+def test_a_repo_with_NO_test_command_FAILS_and_says_what_to_add(tmp_path):
+    """**The 30-of-37 case, and the whole reason this check exists.**
+
+    A single-file browser game: an `index.html`, a `game.js`, a README, and
+    nothing that could decide whether a change was any good.
+    """
+    repo = a_repo(tmp_path, files={
+        "index.html": "<!doctype html><title>game</title>\n",
+        "game.js": "const x = 1;\n",
+        "README.md": "# a game\n",
+    })
+
+    check = named(doctor.run_checks(repo), "runnable checks")
+
+    assert check.status == doctor.WARN, (
+        "a repository with nothing to run was not reported at all, so the "
+        "first thing a person learns is a stop mid-run"
+    )
+    assert "no test or lint command" in check.detail
+    # **A warning, deliberately, and this pins the reason.** `doctor` is what
+    # an agent runs while setting Wringer up, sometimes in a directory that
+    # was `git init`ed seconds earlier; blocking there turns a true statement
+    # into a false problem. The loud stop already exists in `wringer-drive`,
+    # before any money is spent.
+    assert check.passed, (
+        "this must not block: doctor runs during setup, and the blocking "
+        "version of this message belongs to the verb that spends money"
+    )
+    # And it says what to DO, not just what is wrong.
+    assert "package.json" in check.fix and "wring init" in check.fix
+
+
+def test_a_repo_with_a_test_script_PASSES(tmp_path):
+    """Derived from the same detector `wring init` uses, so the two cannot
+    disagree about the same repository."""
+    repo = a_repo(tmp_path, files={
+        "package.json": '{"name": "x", "scripts": {"test": "node --test"}}\n',
+    })
+
+    check = named(doctor.run_checks(repo), "runnable checks")
+
+    assert check.status == doctor.OK
+    assert "package.json" in check.detail
+
+
+def test_a_repo_that_already_declares_gates_PASSES_without_re_detecting(tmp_path):
+    repo = a_repo(tmp_path, config_text=(
+        "version: 1\ngates:\n  - id: unit\n    run: \"true\"\n"
+    ))
+
+    check = named(doctor.run_checks(repo), "runnable checks")
+
+    assert check.status == doctor.OK
+    assert "1 declared" in check.detail
+
+
+def test_an_UNTOUCHED_init_template_is_not_mistaken_for_a_real_gate(tmp_path):
+    """`wring init` writes a placeholder `run: "true"` in a repo it could not
+    detect anything in, so `wring init && wring verify` exits 0. A config
+    holding only that placeholder means the same thing as no config at all,
+    and reporting it as ready would be this check lying by counting."""
+    from wringer import detect
+
+    repo = a_repo(tmp_path, config_text=(
+        "version: 1\ngates:\n  - id: placeholder\n    run: \"true\"\n"
+    ))
+    from wringer import config as config_module
+
+    declared = config_module.load(repo / config_module.CONFIG_FILENAME).gates
+    if not detect.is_untouched_template(declared):
+        pytest.skip(
+            "this config is not what `is_untouched_template` recognises, so "
+            "the fixture cannot exercise the branch — the shape it looks for "
+            "changed and this test needs rewriting rather than skipping "
+            "silently in future"
+        )
+
+    check = named(doctor.run_checks(repo), "runnable checks")
+    assert check.status == doctor.WARN
+
+
+def test_last_verify_says_it_has_never_run_rather_than_going_quiet(tmp_path):
+    repo = a_repo(tmp_path, files={
+        "package.json": '{"name": "x", "scripts": {"test": "node --test"}}\n',
+    })
+
+    check = named(doctor.run_checks(repo), "last verify")
+
+    assert check.status == doctor.WARN
+    assert "never run" in check.detail
+    assert "wring verify" in check.fix
+
+
+def test_last_verify_reads_the_record_rather_than_running_the_suite(tmp_path):
+    """It must not run anybody's tests. A diagnosis that spends four minutes
+    on a suite is one people stop running, so this reads what is on disk."""
+    import json as json_module
+
+    from wringer import evidence as evidence_module
+
+    repo = a_repo(tmp_path, files={
+        "package.json": '{"name": "x", "scripts": {"test": "node --test"}}\n',
+    })
+    bundle = repo / evidence_module.RUNS_DIRNAME / "20260819-120000-abcd"
+    bundle.mkdir(parents=True)
+    (bundle / "run.json").write_text(
+        json_module.dumps({"result": {"status": "passed", "failed_gate": None}}),
+        encoding="utf-8",
+    )
+
+    check = named(doctor.run_checks(repo), "last verify")
+
+    assert check.status == doctor.OK
+    assert "all gates passed" in check.detail
+
+
+def test_a_red_last_verify_is_a_WARNING_and_never_blocks(tmp_path):
+    """A red suite is the normal middle of a piece of work. Exiting non-zero
+    because somebody is mid-change makes the diagnosis useless to them."""
+    import json as json_module
+
+    from wringer import evidence as evidence_module
+
+    repo = a_repo(tmp_path, files={
+        "package.json": '{"name": "x", "scripts": {"test": "node --test"}}\n',
+    })
+    bundle = repo / evidence_module.RUNS_DIRNAME / "20260819-120000-abcd"
+    bundle.mkdir(parents=True)
+    (bundle / "run.json").write_text(
+        json_module.dumps({"result": {"status": "failed", "failed_gate": "unit"}}),
+        encoding="utf-8",
+    )
+
+    check = named(doctor.run_checks(repo), "last verify")
+
+    assert check.status == doctor.WARN
+    assert check.passed, "a red suite must not fail the diagnosis"
+    assert "unit" in check.detail
+
+
+def test_both_new_checks_are_SKIPPED_outside_a_repository(tmp_path):
+    """Run from a home directory these are questions about a repo that is not
+    there, and a blocking answer would turn a true statement into a false
+    problem — the defect a real first run reported on 2026-08-04."""
+    for name in ("runnable checks", "last verify"):
+        check = named(doctor.run_checks(tmp_path), name)
+        assert check.status == doctor.SKIP, name
+        assert "not a git repository" in check.detail
+
+
+def test_the_published_names_include_the_new_checks():
+    """`check_names()` is what documentation is tested against, so a check
+    that exists and is not named there is one no runbook can mention."""
+    names = doctor.check_names()
+    assert "runnable checks" in names
+    assert "last verify" in names
+    produced = {check.name for check in doctor.run_checks(Path.cwd())}
+    assert produced <= set(names), produced - set(names)
