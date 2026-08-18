@@ -49,6 +49,13 @@ when it could not. **Not an eval framework:** evals score models, Wringer
 gates deliveries. **Not test generation:** generators write tests for
 developers, Wringer manufactures the evidence a delivery is refused without.
 
+
+> ### 👉 Are you a product manager rather than an engineer?
+>
+> There is a five-step guide that starts from nothing and ends with a page
+> showing what was built and what proves it:
+> [**wringer-drive/START-HERE.md**](https://github.com/marcoakes/wringer-drive/blob/main/START-HERE.md)
+
 ## The same thing again, with no jargon in it at all
 
 > You write down what you want built, in your own words. Before any work
