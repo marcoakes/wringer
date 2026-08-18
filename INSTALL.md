@@ -160,7 +160,7 @@ You declare it in `.wringer.yaml` in whatever project you point Wringer at:
 run:
   worker:
     acp:
-      command: claude-code-acp
+      command: claude-agent-acp
       args: []
 ```
 
@@ -169,13 +169,29 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 
 | agent | `command` | exercised in this repository? |
 |---|---|---|
-| Claude Code | `claude-code-acp` | **yes**: sequence I, 2026-08-15 and 2026-08-16, including under containment |
+| Claude Code | `claude-agent-acp` | **yes, under an API key**: sequence I, 2026-08-15 and 2026-08-16, including under containment. **NOT exercised on a subscription login**, and a product manager's field run on 2026-08-18 could not authenticate that way — see the note below |
 | Gemini CLI | `gemini` | **not exercised in this repository** |
 | Goose | `goose` | **not exercised in this repository** |
 | Kimi CLI | `kimi` | **not exercised in this repository** |
 | Qwen Code | `qwen` | **not exercised in this repository** |
 | Cursor CLI | `cursor-agent` | **not exercised in this repository** |
 | Copilot CLI | `copilot` | **not exercised in this repository** |
+
+> **CORRECTED 2026-08-18.** This table named `claude-code-acp` until today.
+> That package was **deprecated and renamed** to
+> `@agentclientprotocol/claude-agent-acp` — `docs/MANUAL_CHECKS.md` recorded it
+> on **2026-08-11** and this table was not updated with it, so the name shipped
+> stale for a week and a field run installed the deprecated adapter on its
+> instruction. The deprecated one answers an unauthenticated turn with an empty
+> **result**, which a client cannot tell from a turn that did nothing; the
+> renamed one returns a proper error.
+>
+> **The authentication path is a live gap, not a solved one.** Driven by hand on
+> 2026-08-18 with the environment Wringer actually gives a worker — `PATH`,
+> `HOME`, `LANG` and whatever `env_passthrough` names — `initialize` and
+> `session/new` both succeed and `session/prompt` returns
+> `Authentication required`. Whether a normally-logged-in Claude Code on a
+> user's own machine clears that has **not** been established.
 
 **"Not exercised" means exactly that.** Nobody has run Wringer against that
 agent here and written down what happened. The rows are not a compatibility
