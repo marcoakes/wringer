@@ -657,9 +657,21 @@ def render_request(
         + "## Your task\n"
         "Turn the requirements above into a build specification.\n\n"
         "Rules, in order of importance:\n"
-        "1. **Never guess.** Anything you had to assume becomes an entry in "
-        "`open_questions` instead. A question is better than a wrong "
-        "criterion.\n"
+        "1. **AT MOST THREE QUESTIONS, and a person who has never seen this "
+        "code must be able to answer every one of them.** The reader is a "
+        "product manager. Ask only what you genuinely cannot determine and "
+        "only a person can decide.\n"
+        "   - **Never ask what you can look up.** If the answer is in a file "
+        "in this repository, you do not know it yet — say so in the "
+        "criterion, do not ask.\n"
+        "   - **Never ask about testing machinery**: which runner executes "
+        "what, whether a check is wired into a command, whether new test "
+        "files may be written. Those are not theirs to decide.\n"
+        "   - **Everything else you would have asked, DECIDE** — pick the "
+        "most obvious behaviour — and write your decision into the criterion "
+        "it affects, in plain words, so the person reads and approves it "
+        "rather than answering a question about it. A visible assumption they "
+        "approve is worth more than a question they cannot answer.\n"
         "2. **Every criterion must be checkable.** Prefer criteria a test or "
         "a lint can decide. Mark a criterion `\"human\": true` when only a "
         "person can judge it — taste, tone, or a trade-off.\n"
@@ -685,8 +697,8 @@ def render_request(
         "that would have to be written — it would fail because it is absent "
         "rather than because the criterion is unmet, and a check that arrives "
         "with the work cannot evidence the work. If no existing check can "
-        "decide a criterion, propose no binding for it and say so in "
-        "`open_questions`.\n"
+        "decide a criterion, propose no binding for it and say so in the "
+        "criterion's own guidance — not as a question.\n"
         "7. **A binding may not repeat a command that already runs.** If its "
         "`run` is one of the gates listed above, it is refused outright and "
         "the criterion is left with nothing checking it — the check passes "
@@ -698,7 +710,8 @@ def render_request(
         "{\n"
         '  "title": "<one line>",\n'
         '  "open_questions": [{"id": "<slug>", "question": "<one line>", '
-        '"required": true}],\n'
+        '"required": true}],   // AT MOST 3, and each answerable by a '
+        'non-technical person\n'
         '  "criteria": [{"id": "<slug>", "title": "<one line>", '
         '"guidance": "<how to check it>", "required": true, "human": false}],\n'
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'

@@ -1182,3 +1182,70 @@ def test_a_repository_git_cannot_read_lists_nothing_rather_than_guessing(tmp_pat
     the drafter is back to proposing nothing, which is the honest old
     behaviour rather than a new one."""
     assert spec.repository_files(tmp_path) == ()
+
+
+# --- a couple of easy questions, and that is all ----------------------------
+#
+# **Measured across the four real runs this programme has driven: 9, 9, 12 and
+# 10 questions, every one `required: true` and therefore blocking.** A product
+# manager who wants one feature was asked a dozen things before anything
+# happened. Of forty real questions, ten were LOOKUPS — *"is
+# `acceptance/recently-played.test.js` already executed by `npm test`?"* — which
+# is asking a person to read a file the tool has in front of it.
+#
+# The cause was a rule we wrote on purpose: "Never guess. Anything you had to
+# assume becomes an entry in `open_questions`." Correct about correctness, and
+# it maximises question count by construction.
+
+
+def test_the_request_caps_the_questions_and_says_who_is_reading():
+    user = spec.render_request(PRD, "m", 8000)["messages"][1]["content"]
+
+    assert "AT MOST THREE QUESTIONS" in user
+    assert "product manager" in user
+    # The cap is repeated where the model actually writes the field, because a
+    # rule stated once at the top of a long prompt is a rule that gets lost.
+    fmt = user[user.index("## Reply format"):]
+    assert "AT MOST 3" in fmt
+
+
+def test_the_request_forbids_asking_what_it_could_look_up():
+    """The ten lookups. The tool has the repository; asking a human to read it
+    is a defect whoever the human is."""
+    user = spec.render_request(PRD, "m", 8000)["messages"][1]["content"]
+
+    assert "Never ask what you can look up" in user
+    assert "Never ask about testing machinery" in user
+
+
+def test_the_request_tells_it_to_DECIDE_and_show_the_decision():
+    """The other half, and the half that makes the cap honest.
+
+    A cap alone would just lose the information. The instruction is to decide
+    the obvious thing and write it into the criterion, so the person approves a
+    visible assumption instead of answering trivia about it.
+    """
+    user = spec.render_request(PRD, "m", 8000)["messages"][1]["content"]
+
+    assert "DECIDE" in user
+    assert "visible assumption" in user
+
+
+def test_no_rule_still_routes_a_gap_into_a_QUESTION():
+    """**Rule 6 did, and it was the one that manufactured the volume.**
+
+    It ended "propose no binding for it and say so in `open_questions`" — so
+    every criterion the drafter could not bind became another blocking question
+    aimed at the person least able to answer it. Three of the four real runs
+    asked one, and they were the worst questions in the whole census.
+    """
+    user = spec.render_request(PRD, "m", 8000, files=("src/a.py",))[
+        "messages"][1]["content"]
+    rules = user[user.index("Rules, in order"):user.index("## Reply format")]
+
+    asks = [line for line in rules.splitlines()
+            if "open_questions" in line and "AT MOST" not in line]
+    assert not asks, (
+        "a rule still sends a gap to `open_questions`, which is how nine to "
+        f"twelve blocking questions got asked: {asks}"
+    )
