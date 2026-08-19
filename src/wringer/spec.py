@@ -41,6 +41,7 @@ import yaml
 from wringer import config, evidence
 from wringer.redact import Redactor
 from wringer.rubric import (
+    _CRITERION_KEYS,
     MAX_RUBRIC_BYTES,
     Criterion,
     RubricError,
@@ -765,6 +766,61 @@ def render_request(
     }
 
 
+def _drop_unknown_reply_keys(drafted: dict) -> tuple[dict, tuple[str, ...]]:
+    """R3 (2026-08-18): a DRAFTED reply's decorative key is dropped, with a
+    note naming the key, where it sat, and the first line of what it carried.
+
+    One drafting run in four died on 2026-08-18 with `tasks[0]: unknown
+    keys: objective_note` — a whole paid-for draft refused over four empty
+    strings. The asymmetry is the duplicate-bindings ruling again: a model's
+    proposal survives with its losses named in `Draft.notes`; a person's
+    `wringer.spec.yaml` keeps the strict error in `parse`/`load`, untouched
+    below, because a typo silently dropped is a person's content vanished.
+
+    **The interlock does not become droppable by moving down a level.** A
+    reply carrying `approved` on a task, question or criterion is refused
+    whole, exactly as at top level — and `answer` on an open question is a
+    KNOWN key, so the self-answer refusal above this has already run.
+    """
+    sections = (
+        ("open_questions", _QUESTION_KEYS),
+        ("criteria", _CRITERION_KEYS),
+        ("tasks", _TASK_KEYS),
+    )
+    notes: list[str] = []
+    cleaned = dict(drafted)
+    for section, known in sections:
+        entries = drafted.get(section)
+        if not isinstance(entries, list):
+            continue
+        rebuilt: list[Any] = []
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                rebuilt.append(entry)
+                continue
+            unknown = sorted(set(entry) - known)
+            if "approved" in unknown:
+                raise SpecError(
+                    f"the reply carried 'approved' on {section}[{index}] — "
+                    "the interlock is not the model's to work, wherever it "
+                    "is written. Nothing was written"
+                )
+            for key in unknown:
+                lines = str(entry[key]).strip().splitlines()
+                carried = lines[0][:100] if lines else "it carried nothing"
+                notes.append(
+                    f"dropped from the drafted reply: {section}[{index}] "
+                    f"('{entry.get('id', '?')}') carried unknown key "
+                    f"'{key}' — {carried}"
+                )
+            rebuilt.append(
+                {k: v for k, v in entry.items() if k in known}
+                if unknown else entry
+            )
+        cleaned[section] = rebuilt
+    return cleaned, tuple(notes)
+
+
 def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
     """Turn a model reply into a validated spec and its proposed gates, or
     refuse the whole reply.
@@ -828,6 +884,8 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
                 "Nothing was written"
             )
 
+    drafted, dropped = _drop_unknown_reply_keys(drafted)
+
     drafted_spec = parse(
         {
             "schema_version": SCHEMA_VERSION,
@@ -864,7 +922,7 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         "the drafted gates",
         (*drafted_spec.gates, *declared),
     )
-    return Draft(spec=drafted_spec, gates=proposed, notes=notes)
+    return Draft(spec=drafted_spec, gates=proposed, notes=(*dropped, *notes))
 
 
 def same_command(one: str, other: str) -> bool:

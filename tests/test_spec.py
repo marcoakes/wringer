@@ -1111,6 +1111,106 @@ def test_a_HAND_WRITTEN_sidecar_duplicating_a_gate_is_an_ERROR_not_a_note():
     assert "bind-x" in str(caught.value) and "test" in str(caught.value)
 
 
+# --- R3 (2026-08-18): a drafted reply's decorative key drops with a note -----
+#
+# **The reply below is not written here either.** It is the one a real drafting
+# run returned on 2026-08-18, kept byte for byte at
+# `tests/replies/2026-08-18-arcade-run2-drafter-reply.json`. Every one of its
+# four tasks carried `objective_note` — an unknown key whose value, in all
+# four cases, was an EMPTY STRING — and the whole paid-for draft was refused
+# over it: `tasks[0]: unknown keys: objective_note`. One drafting run in four
+# died that way that day. Strictness is right for the interlock keys; a
+# decorative key on a task is a different thing, and R3 rules the asymmetry:
+# a MODEL's proposal survives with its losses named in `Draft.notes`; a
+# PERSON's file keeps the strict error, because silently dropping a typo is
+# vanishing their content.
+
+UNKNOWN_KEY_REPLY = (
+    Path(__file__).parent / "replies" / "2026-08-18-arcade-run2-drafter-reply.json"
+)
+
+
+def unknown_key_reply() -> dict:
+    return json.loads(UNKNOWN_KEY_REPLY.read_text(encoding="utf-8"))
+
+
+def test_the_captured_reply_really_carries_the_decorative_keys():
+    """The fixture is evidence, so its content is asserted rather than
+    assumed — a fixture that quietly stopped carrying `objective_note` would
+    leave the tests below green while checking nothing."""
+    drafted = json.loads(unknown_key_reply()["choices"][0]["message"]["content"])
+    assert drafted["tasks"], "the fixture lost its tasks"
+    for task in drafted["tasks"]:
+        assert "objective_note" in task, (
+            "the fixture no longer carries the key the ruling is about"
+        )
+
+
+def test_a_drafted_replys_unknown_key_is_dropped_with_a_note_not_the_draft():
+    """**Red on the real defect: this reply was refused whole.**
+
+    The draft survives, the key is gone, and the notes name the key, where it
+    sat, and what it carried — nothing is silently lost, and nothing of value
+    is thrown away either.
+    """
+    drafted = spec.parse_response(unknown_key_reply(), PRD)
+
+    assert len(drafted.spec.tasks) == 4, "the draft did not survive"
+    assert drafted.spec.approved is False
+    said = " ".join(drafted.notes)
+    assert "objective_note" in said, "the dropped key is never named"
+    assert "tasks[0]" in said, "the notes never say where it sat"
+    assert "recent-plays-store" in said, (
+        "the notes never name the task it was dropped from"
+    )
+    # All four tasks carried it; all four drops are named, none silently.
+    assert said.count("objective_note") == 4
+    # What it carried — an empty string, said rather than elided.
+    assert "nothing" in said.lower() or "''" in said
+
+
+def test_a_reply_carrying_approved_on_a_task_is_refused_whole():
+    """**The interlock does not become droppable by moving down a level.**
+
+    Top-level `approved` refuses the reply; `approved` smuggled onto a task,
+    question or criterion is the same attempt and gets the same answer —
+    never a drop-note.
+    """
+    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload["tasks"][0]["approved"] = True
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+    said = str(caught.value)
+    assert "approved" in said
+    assert "interlock" in said, (
+        "the refusal does not say what was being worked"
+    )
+    assert "nothing was written" in said.lower()
+
+
+def test_a_hand_written_spec_with_an_unknown_task_key_keeps_the_strict_error():
+    """The other half of the asymmetry, pinned so a tidy-up cannot flatten it:
+    `parse` — the loader every on-disk `wringer.spec.yaml` faces — still
+    refuses the same key the drafted path drops. A person's typo silently
+    dropped is a person's content vanished."""
+    payload = json.loads(unknown_key_reply()["choices"][0]["message"]["content"])
+    on_disk = {
+        "schema_version": spec.SCHEMA_VERSION,
+        "approved": False,
+        "title": payload["title"],
+        "intent": "quoted",
+        "open_questions": [],
+        "criteria": payload["criteria"],
+        "gates": [],
+        "tasks": payload["tasks"],          # objective_note still aboard
+    }
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse(on_disk, "wringer.spec.yaml")
+    assert "unknown keys" in str(caught.value)
+    assert "objective_note" in str(caught.value)
+
+
 # --- the drafter cannot name a file it has never been shown ------------------
 #
 # **Measured on 2026-08-19, driving a real PRD through `wringer-drive`.** The
