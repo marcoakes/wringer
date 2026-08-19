@@ -11,15 +11,23 @@ This spec covers three things that look separate and are one: **what a product
 manager approves, and how they change their mind.** It is written before any
 code, and it is reviewed before any code.
 
-> **Status, 2026-08-19 — REVIEWED: NOT SOUND. 19 confirmed findings, THE FOLD
-> IS IN PROGRESS, AND NO CODE MAY BE WRITTEN AGAINST THIS SPEC YET.** The
+> **Status, 2026-08-19 — REVIEWED: NOT SOUND. All 19 confirmed findings are
+> now FOLDED; slice 1 is done and slice 2 may begin.** The
 > adversarial review ran 8 lanes over 57 agents: 97 raw findings, 54 after
 > dedupe, **19 confirmed** by two independent skeptics each, 5 killed, and **30
 > below the verification cap and therefore unexamined rather than clear.** The
 > full record is [docs/pmplan-review-2026-08-19.md](docs/pmplan-review-2026-08-19.md);
 > it is kept verbatim so the fold can be checked against what the review said
-> rather than against my summary of it. Slice 1 is DONE when every confirmed
-> finding is folded or explicitly rejected with a reason.
+> rather than against my summary of it.
+>
+> **One finding was resolved differently from the way the review proposed, and
+> the difference is recorded rather than quietly taken:** C8's suggested fix
+> had `revise` delete the promoted assumption from the sidecar, which would
+> make a board verb write `wringer.decisions.yaml` and reopen the very
+> invariant that dropping ruling 12 had just left untouched. It is resolved by
+> RENDERING the assumption as superseded instead. **The 30 unverified findings
+> remain unexamined, not cleared** — that is a known gap in this review, not a
+> clean bill.
 >
 > Two of the five killed findings were killed for the best possible reason —
 > the defect had already been fixed between the lanes reading the spec and the
@@ -141,12 +149,22 @@ so the reply parser knows the key: the reply shape is defined by
 
 Each entry carries four fields and no others:
 
-| field | meaning |
-|---|---|
-| `id` | a slug, unique within the reply |
-| `decision` | one plain sentence: what was decided |
-| `why` | one plain sentence: why it was decided that way |
-| `instead_of_asking` | the question the PM would otherwise have been asked |
+| field | meaning | rule |
+|---|---|---|
+| `id` | a slug, unique within the reply | **`^[A-Za-z0-9][A-Za-z0-9_-]*$`, maxLength 64** — byte-identical to the frozen question-id rule |
+| `decision` | one plain sentence: what was decided | non-empty |
+| `why` | one plain sentence: why it was decided that way | non-empty |
+| `instead_of_asking` | the question the PM would otherwise have been asked | **REQUIRED, minLength 1** |
+
+**Those two rules are load-bearing, not tidiness** (review C14). Ruling 11
+promotes an assumption into `open_questions`, so an assumption id that
+`_parse_questions` would reject — or an empty `instead_of_asking` — lets
+`wringer-board revise <assumption-id>` write a `wringer.spec.yaml` the engine's
+own loader then refuses, with the PM holding a broken file and an error about
+a document they never edited by hand. Enforced in **both**
+`decisions.schema.json` and at parse; and `revise` refuses before any write
+when the id or the displaced question could not survive `_parse_questions`,
+naming which rule it broke.
 
 `instead_of_asking` is the field that keeps this channel honest. An assumption
 is a question the drafter chose not to ask; carrying the displaced question
@@ -192,13 +210,27 @@ the second — an `outcome` is the drafter deciding, on the person's behalf, wha
 **The review's first target is this name.** If a better one exists, it costs
 nothing now and cannot be changed after publication.
 
+**That header is the narrow true claim, and the first draft's was false**
+(review C19). It said flatly *"NO AUTHORITY"* and named only two writers —
+while ruling 12 gave the same file the power to make `wring plan` refuse. A
+false sentence shipped inside the artifact it describes is the worst place to
+put one. The wording above is carried verbatim into the schema's `description`
+and its README row, so all three copies say the same thing. *(In this window
+the `consent` block has no writer at all — ruling 12 is OWED — so the header
+describes a power the file does not yet have; that is stated in ruling 12 and
+in §6 DONE rather than by softening the sentence, because the block is declared
+in the frozen schema and a later window will give it that writer.)*
+
 Frozen on publication like every sibling: `schema/decisions.schema.json`, hash
 in `schema/frozen.json`, enforced by `tests/test_schema.py`.
 
 ```yaml
 # wringer.decisions.v1 — the plain-language companion to wringer.spec.yaml.
-# Written by `wring spec` from the drafted reply, or by hand. NO AUTHORITY:
-# nothing under .wringer/ is written from it and no gate in it ever runs.
+# Written by `wring spec`, by `wringer-board approve`, or by hand.
+#
+# NO AUTHORITY OVER WHAT IS BUILT: no gate here runs, nothing under .wringer/
+# is written from it, and no builder is ever briefed from it. Its `consent`
+# block can make `wring plan` REFUSE, and refusing is the only thing it can do.
 schema_version: wringer.decisions.v1
 assumptions:
   - id: memory-scope
@@ -572,16 +604,34 @@ see when the plan is rendered. So an unbound criterion **can** acquire a
 refusal later that the plan could not foresee. The plan says what is true when
 it is read, and says that much about it.
 
-**The prediction sentence is not invented.** Where the block states the hold, it
-uses the board's own `(DELIVERY_REFUSAL, "acceptance_unevidenced")` saying from
-`refusals.py:451-455`, verbatim, confirmed byte-identical against the real run's
-console. Where it states what a class of criteria *does*, it is describing
-`accept.py`'s policy, and **that description is new prose about an engine fact
-— which board ruling 1 forbids.** The build therefore takes the sentences from
-the engine or does not write them: §7 open question 5 records that the engine
-has no saying for *"an unbound criterion cannot hold the handover"*, and one has
-to be added engine-side before the plan may say it. Until then the block renders
-the counts and the two hold causes only.
+**⚠ The specimen block above is NOT all engine words, and an earlier draft of
+this ruling claimed it was** (review C2). It said the prediction was *"reused
+verbatim from `refusals.py:451-455`, confirmed byte-identical against the real
+run's console"*. That claim was true of a sentence the block no longer
+contains, and false of the ones it does — **so it is struck.** Two separate
+problems, and C2 is right that the second was being papered over:
+
+1. **Most of the block is board-authored prose about engine behaviour**, which
+   board ruling 1 forbids and non-goal 6 restates.
+2. **The delivery saying does not actually fit here even if quoted exactly.**
+   Its second field is *"See the cards above — each one holding this up says
+   what it needs"*, and at approval time **there are no cards** — no run has
+   happened. Reusing it would point a PM at something that does not exist.
+
+**So slice 3 builds the COUNTS ONLY.** Counts are a rendering of data the
+board already reads — the `installed` flag and the `human` flag — and rendering
+data is this layer's whole licence. Every *sentence* in the specimen block that
+describes what the engine will do is **OWED**, pending a plan-context saying
+added engine-side (§7 open question 5), so that there is exactly one authored
+copy of each claim and it lives where the behaviour does.
+
+The block therefore ships as its three counted lines and the heading, and the
+consent sentence *"Approving this plan accepts that those 6 will not be
+proved"* — which is a statement about the approval act, not about engine
+behaviour, and is the board's to make. When the engine gains the saying, the
+plan renders it **by calling `refusals.say(...)` and printing what it returns**,
+never by re-typing it, and a test imports the `Saying` rather than asserting a
+string literal.
 
 The block renders **only when at least one criterion is unbound or human** — a
 plan where every criterion is installed-bound must not carry a warning about an
@@ -630,6 +680,34 @@ Mechanics, each ruled here so the build has nothing to decide:
   `_sibling_indent`, `_ends_block`, `_scalar`), new decision at the
   already-answered branch. Naming `_fill_existing` as reusable was wrong.
 
+  **What the replacement must do** (review C6). Either a new
+  `_replace_existing(lines, id, text)`, or an `overwrite: bool` on
+  `_fill_existing` with `answer()` still calling it `False` so its pinned
+  refusal (`test_interview.py:124-128`) is *provably* unchanged. Whichever, it
+  must: accept a non-empty answer; **delete the whole existing scalar including
+  every continuation line of a `|-` block**, since a PM's multi-line answer
+  spans lines and replacing only the first leaves orphaned prose mid-document;
+  and **refuse rather than fall through to `answer()`'s append branch** when it
+  cannot find exactly one `answer:` line — falling through is what recreates
+  the duplicate-key malformation `interview.py:145-153` exists to prevent.
+
+  Slice 4's watched-red guard: revise a `|-` multi-line answer, assert exactly
+  one `answer:` key remains in that block, round-trip through the **engine's**
+  `spec.load`, and compare bytes against the hand edit.
+
+- **A line the ENGINE also writes must use the ENGINE's scalar rule**
+  (review C15). Ruling 11 has the board write a `question:` line — and
+  `spec._scalar` and `interview._scalar` are *different functions with
+  different quoting rules*. The board's rendering of a question containing an
+  apostrophe, a colon or a `#` can therefore differ byte-for-byte from what
+  `render()` would produce, breaking B5 against the one file that is the
+  artifact of record. So `question:`, `required:` and the `- id:` line are
+  written with the engine's rule (ported or exposed); `answer:` may stay on the
+  board's rule **only because the engine never writes a non-empty one**. The
+  guard compares against `spec.render()` output for a `Spec` carrying the
+  promoted question — never a hand-typed literal — with an apostrophe, a colon
+  and a `#` in the text.
+
   **The interlock edit is now safe to reuse, and was not when this was
   written.** `approve`'s line edit was a live corruption bug — a hand-written
   `approved: False` came back as `approved: Falsetrue` — found by this same
@@ -656,6 +734,35 @@ This is what stops `assumptions` from becoming a place to hide decisions.
 
 `question` is the assumption's own `instead_of_asking`, verbatim. The answer is
 the PM's. And the same unconditional un-approve applies.
+
+**The promoted assumption stays in the sidecar, and the PLAN renders it as
+superseded** (review C8, resolved differently from the way the review
+proposed). C8 is right that the first draft left the assumption standing, so
+the next plan would re-present a decision the PM had just overruled as one that
+*"approving approves"*, with their own answer rendered nowhere. The review's
+cleanest fix was for `revise` to delete the sidecar row — but **that would make
+a board verb write `wringer.decisions.yaml`, which is exactly the thing ruling
+12's removal just bought back**: the three-teeth invariant at
+`test_interview.py:229-283` stands untouched only while the board writes
+`wringer.spec.yaml` and nothing else.
+
+So it is resolved by **rendering, not mutating** — which is what this layer is
+for:
+
+- the plan joins the sidecar's assumptions against the spec's `open_questions`
+  by id;
+- an assumption whose id now appears as an **answered** question renders under
+  the heading as **superseded**, showing the decision struck and the PM's own
+  answer beside it — never as *"you were not asked"*, which would then be a
+  false sentence;
+- **dispatch follows the same join**: an id present in `open_questions` always
+  takes the question path, so a second `revise` of the same id edits the
+  answer rather than promoting twice.
+
+No sidecar write, no duplicated decision, and the assumption's provenance
+survives — the PM can see what was decided for them and what they changed it
+to. Watched red: revise, re-render, assert the bare decision sentence is gone
+and the superseded rendering names the answer.
 
 **The append has TWO anchor-less cases, both predictable from `render()` and
 neither named in the first draft of this ruling** (verified by driving
@@ -829,6 +936,16 @@ spec.
   | id matches **and text is byte-equal** | the answer is restored |
   | id matches, **text differs** | the previous (question, answer) pair is carried forward **as its own entry**, so the answer stays under the words it answered; the new question stays unanswered and `required`, so `wring plan` refuses until the person answers it; a `Draft.notes` line names the id |
   | id absent from the new draft | carried forward with its answer intact, noted as from the previous draft |
+
+  **The "noted" channel is `Draft.notes`, printed to stderr by `cmd_spec`, and
+  the other two candidates are ruled OUT BY NAME** (review C18). It cannot be a
+  fifth key on the question — `_QUESTION_KEYS` and `spec.schema.json` are
+  frozen and closed. It must not be appended into the `question:` text, because
+  that rewrites the wording a person already answered, which is the
+  answer-eating this whole ruling exists to stop. `Draft.notes` is the channel
+  R3 already uses for exactly this class of message (`cli.py:2802-2803`), it
+  needs no new shape, and it reaches the operator at the moment the redraft
+  happens.
 
   **No answer is ever discarded and none is ever re-pointed.** Watched red on a
   reworded-same-id fixture, which the captures supply for free.
