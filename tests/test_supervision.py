@@ -1,6 +1,6 @@
 """Supervision invariants — bounded retries, breakers, deadlines.
 
-SPEC_SUPERVISION_V0.md, written from a real incident: 24 agents started, 4
+docs/specs/SPEC_SUPERVISION_V0.md, written from a real incident: 24 agents started, 4
 produced results, 20 were retries of a failure that was never transient, and
 the whole thing ran for eight hours. Every test here is one sentence of that
 post-mortem made impossible.

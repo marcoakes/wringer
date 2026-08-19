@@ -1,4 +1,4 @@
-"""`wring get`, `wring issue`, `wring deliver` (SPEC_GET_V0.md).
+"""`wring get`, `wring issue`, `wring deliver` (docs/specs/SPEC_GET_V0.md).
 
 **No test here opens a socket and none needs a token.** The forge transport is
 one function, and faking it is the difference between a suite that runs
@@ -6,7 +6,8 @@ anywhere and one that needs a GitHub account. Clones and pushes use `file://`
 remotes, which is a real git push to a real repository — just not a remote one.
 
 Most of this file is about what `wring deliver` refuses. It is the only code
-in Wringer that writes git history, and SPEC_GET_V0.md §1 buys that power with
+in Wringer that writes git history, and docs/specs/SPEC_GET_V0.md §1 buys that
+power with
 five conditions; each one has a test that fails without it.
 """
 
@@ -706,7 +707,7 @@ def test_no_git_identity_is_refused_before_the_branch_exists(
 # Found by probing the P3 slice after it shipped. Both are the same shape: a
 # string from `.wringer.yaml` arriving somewhere it is read as syntax rather
 # than as a name. `.wringer.yaml` is code by design (SECURITY.md), so neither
-# is a privilege escalation — but SPEC_GET_V0.md §1's third condition says no
+# is a privilege escalation — but docs/specs/SPEC_GET_V0.md §1's third condition says no
 # force push is assemblable ANYWHERE in the program, and a remote of
 # `--force` assembled one without the word appearing in the source.
 

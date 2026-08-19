@@ -1,4 +1,4 @@
-"""Parallel independent attempts — SPEC_ATTEMPTS_V0.md.
+"""Parallel independent attempts — docs/specs/SPEC_ATTEMPTS_V0.md.
 
 `bench.attempts` makes N independent attempts per contender; `bench.parallel`
 runs them concurrently. Every worker here is a real shell command in a real

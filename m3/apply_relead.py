@@ -27,8 +27,8 @@ OLD_LEAD = """\
 > Wringer is built on the opposite premise: trust nothing — including itself.**
 > Not the worker's exit code, not the agent's summary, not even the tests the
 > agent wrote — and soon, provably, not even its own ledgers. That stance came
-> out of [a real eight-hour burn](SPEC_SUPERVISION_V0.md), it is welded into
-> [eight invariants](SPEC_SUPERVISION_V0.md) a fleet already obeys, and it
+> out of [a real eight-hour burn](docs/specs/SPEC_SUPERVISION_V0.md), it is welded into
+> [eight invariants](docs/specs/SPEC_SUPERVISION_V0.md) a fleet already obeys, and it
 > gets more valuable with every step frontier models take — because autonomy
 > without receipts is exactly what everyone is about to be terrified of.
 """
@@ -40,8 +40,8 @@ NEW_LEAD = """\
 > gates, writes receipts a stranger can audit, and trusts nothing — including
 > itself. Not the worker's exit code, not the agent's summary, not even the
 > tests the agent wrote. That stance came out of
-> [a real eight-hour burn](SPEC_SUPERVISION_V0.md) and is welded into
-> [eight invariants](SPEC_SUPERVISION_V0.md) a fleet already obeys. And it is
+> [a real eight-hour burn](docs/specs/SPEC_SUPERVISION_V0.md) and is welded into
+> [eight invariants](docs/specs/SPEC_SUPERVISION_V0.md) a fleet already obeys. And it is
 > the one stance no vendor can copy, because Wringer is nobody's agent:
 > **the party holding the receipts has no stake in what they say.**
 """

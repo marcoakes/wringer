@@ -1,4 +1,4 @@
-"""Acceptance evidence — the bridge (SPEC_ACCEPT_V0.md).
+"""Acceptance evidence — the bridge (docs/specs/SPEC_ACCEPT_V0.md).
 
 **Every acceptance criterion carries the evidence that proves it — or is
 marked as the human judgement it always was.** Wringer proves a change is
@@ -985,7 +985,7 @@ def _human_row(common: dict, criterion, judgements) -> Row:
     failing. A person saying yes is a different kind of fact with no receipt,
     and rendering it under the same word would put a human judgement inside the
     sentence "every green was red first" — which would be false, and is exactly
-    the overclaim `SPEC_BOARD_V0.md`'s B3 exists to prevent. The five-value
+    the overclaim `docs/specs/SPEC_BOARD_V0.md`'s B3 exists to prevent. The five-value
     `state` enum is UNCHANGED in v3.
 
     **The refusal is DARK until `EMIT_V3`.** `refuses` is a policy, the policy

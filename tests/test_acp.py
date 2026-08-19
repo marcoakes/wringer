@@ -1,4 +1,4 @@
-"""The ACP worker seam (SPEC_ACP_V0.md).
+"""The ACP worker seam (docs/specs/SPEC_ACP_V0.md).
 
 Every test drives a real subprocess speaking real JSON-RPC over stdio —
 `tests/fake_acp_agent.py`, not a mock of Wringer's own client. Mocking the
@@ -761,7 +761,7 @@ def test_a_healthy_agent_is_not_slowed_by_the_write_ceiling(repo, monkeypatch,
 # with no scrub, unlike the shell path (`gates.py:167-180`, which captures
 # through a pipe precisely so redaction can happen BEFORE the write). Those
 # logs land in a bundle, so until this was fixed a key passed to an agent
-# could reach one — which made SPEC_START_V0.md §8's "no bundle" box
+# could reach one — which made docs/specs/SPEC_START_V0.md §8's "no bundle" box
 # unmeetable. Both tests plant a real secret in real agent output and grep.
 
 

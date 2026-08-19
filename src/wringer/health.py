@@ -1,4 +1,4 @@
-"""`wring health` — the reader (SPEC_HEALTH_V0.md §3).
+"""`wring health` — the reader (docs/specs/SPEC_HEALTH_V0.md §3).
 
 **A health tool that silently skips unreadable history is itself a narrowing
 check** — the exact defect class this command exists to catch, one level up.
@@ -490,7 +490,7 @@ __all__ = [
 ]
 
 
-# --- the verdicts (SPEC_HEALTH_V0.md §2) ------------------------------------
+# --- the verdicts (docs/specs/SPEC_HEALTH_V0.md §2) ------------------------
 #
 # Constants, not config keys. A tunable threshold is a knob whose only
 # realistic use is making zombies disappear before a release, and a window key
@@ -703,7 +703,7 @@ def assess(
     return tuple(assessments)
 
 
-# --- the report (SPEC_HEALTH_V0.md §4) --------------------------------------
+# --- the report (docs/specs/SPEC_HEALTH_V0.md §4) --------------------------
 
 REPORT_SCHEMA_VERSION = "wringer.health.v1"
 

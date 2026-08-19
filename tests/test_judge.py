@@ -1,4 +1,4 @@
-"""`wring judge` — the rubric judge, dry-run (SPEC_JUDGE_V0.md).
+"""`wring judge` — the rubric judge, dry-run (docs/specs/SPEC_JUDGE_V0.md).
 
 No test here opens a socket, and none needs an API key: the transport is a
 single stdlib call behind one function, and faking it is the difference
@@ -524,7 +524,7 @@ def test_verify_and_run_can_never_return_needs_human(repo, monkeypatch, capsys):
     capsys.readouterr()
 
 
-# --- criteria only a human can score (SPEC_INTENT_V0.md §1, defence 3) ---
+# --- criteria only a human can score (docs/specs/SPEC_INTENT_V0.md §1, defence 3) ---
 #
 # `human: true` is a wringer.rubric.v1 amendment made for `wring spec`, but it
 # has to mean something here or it is decoration. A criterion nobody could

@@ -1,4 +1,4 @@
-"""The benchmark harness — SPEC_BENCHMARK_V0.md.
+"""The benchmark harness — docs/specs/SPEC_BENCHMARK_V0.md.
 
 The harness lives outside `src/wringer/` and is not importable from the package,
 so it is loaded here by path. That asymmetry is the point: the package must not

@@ -10,7 +10,7 @@ GitHub issue in, a verified merge request with evidence out — landed with
 September 30, 2026 is still the date this project is working to, but it is no
 longer a first release: it is the date the whole path has to hold up, and
 what stands between here and it is in [ROADMAP.md](ROADMAP.md). The
-[build plan](wringer-ai-dlc-harness-plan.md) is the architectural north star;
+[build plan](docs/ARCHITECTURE-NORTHSTAR.md) is the architectural north star;
 [ROADMAP.md](ROADMAP.md) governs execution order.
 
 ## What's valuable right now

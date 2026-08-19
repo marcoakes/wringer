@@ -1,4 +1,4 @@
-"""`wring start` — the guided launch (SPEC_START_V0.md).
+"""`wring start` — the guided launch (docs/specs/SPEC_START_V0.md).
 
 Every test here runs the real command against a real scratch repository. The
 wizard's whole safety argument is about what it writes and what it refuses to
@@ -473,7 +473,7 @@ def test_the_acp_spec_no_longer_promises_a_consent_based_install():
     deferred feature is a contradiction, not a footnote. Two shipped error
     strings say Wringer never installs an agent, and Marc confirmed the ruling
     on 2026-08-06, so the parenthetical is what changes."""
-    text = (repo_root() / "SPEC_ACP_V0.md").read_text(encoding="utf-8")
+    text = (repo_root() / "docs/specs/SPEC_ACP_V0.md").read_text(encoding="utf-8")
     assert "Consent-based install belongs to" not in text
     assert "never installs" in text or "does not install" in text
 
@@ -978,7 +978,7 @@ def test_a_clone_stops_before_any_gate_runs(
     repo, tmp_path_factory, monkeypatch, capsys
 ):
     """Ruling 5, and it is the most important refusal in the command.
-    `SPEC_GET_V0.md` is binding for the machinery being reused: *runs nothing
+    `docs/specs/SPEC_GET_V0.md` is binding for the machinery being reused: *runs nothing
     it cloned*. A guided launch that cloned and then executed would be the
     most dangerous command in the program, aimed at the least technical user
     it has."""

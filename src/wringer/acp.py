@@ -1,4 +1,4 @@
-"""Speak the Agent Client Protocol to a worker (SPEC_ACP_V0.md).
+"""Speak the Agent Client Protocol to a worker (docs/specs/SPEC_ACP_V0.md).
 
 **Wringer is an ACP client. It is never the agent.** That distinction is the
 neutrality position in one sentence: Wringer supervises, somebody else's

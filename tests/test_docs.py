@@ -829,12 +829,12 @@ def test_no_document_still_claims_wringer_never_touches_a_credential():
 
 
 def test_the_network_enumerations_name_wring_start():
-    """§3e-i — `SPEC_GET_V0.md` and `AGENTS.md` both enumerate the network
+    """§3e-i — `docs/specs/SPEC_GET_V0.md` and `AGENTS.md` both enumerate the network
     surface EXACTLY: three SEND commands, two FETCH. Cloning makes
     `wring start` the third fetcher, and both enumerations become false the
     moment it ships. Restated in the same commit as the capability, rather
     than quietly kept."""
-    for name in ("SPEC_GET_V0.md", "AGENTS.md"):
+    for name in ("docs/specs/SPEC_GET_V0.md", "AGENTS.md"):
         path = repo_root() / name
         if not path.is_file():
             continue
@@ -865,7 +865,8 @@ def test_the_graphs_doc_enumerates_every_loop_outcome_there_is():
     SPEC_STABILITY_V0 and `authority_moved` with the 2026-08-14 rider, and the
     paragraph that claims to be exhaustive kept naming the six it was written
     with. Nothing guarded it — found by the independent review of
-    SPEC_ENV_V0.md on 2026-08-16, which is the sixth occurrence of this class.
+    docs/specs/SPEC_ENV_V0.md on 2026-08-16, which is the sixth occurrence of
+    this class.
 
     The word doing the damage is **"Every"**. A list that claimed to be a
     sample would have aged honestly; a list that claims to be total is a
@@ -897,14 +898,24 @@ def test_the_graphs_doc_enumerates_every_loop_outcome_there_is():
 def test_the_document_hierarchy_lists_every_spec_in_the_repo():
     """AGENTS.md's table listed four specs while the repo had nine, and
     nothing guarded it (operating rule 6). A hierarchy that omits half the
-    binding documents is one the next agent reads and trusts."""
+    binding documents is one the next agent reads and trusts.
+
+    **The specs moved to `docs/specs/` on 2026-08-19 and this guard went
+    VACUOUS**: it globbed `SPEC_*.md` in the repository root, found nothing,
+    computed an empty `missing`, and passed. A guard that keeps passing after
+    its subject moves is worse than no guard, because it reads as coverage.
+
+    So it now asserts it FOUND some — the shape this repository keeps having
+    to relearn, most recently four times in one day.
+    """
     require_checkout("AGENTS.md")
     text = (repo_root() / "AGENTS.md").read_text(encoding="utf-8")
-    missing = [
-        path.name
-        for path in sorted(repo_root().glob("SPEC_*.md"))
-        if path.name not in text
-    ]
+    specs = sorted((repo_root() / "docs" / "specs").glob("SPEC_*.md"))
+    assert len(specs) > 10, (
+        f"only {len(specs)} spec documents found under docs/specs/ — this "
+        "guard would pass while checking almost nothing. Did they move again?"
+    )
+    missing = [path.name for path in specs if path.name not in text]
     assert not missing, f"AGENTS.md's document hierarchy omits {missing}"
 
 
@@ -1440,7 +1451,7 @@ def test_no_document_still_says_two_commands_fetch():
 def network_surface_documents() -> list[Path]:
     """Every file that enumerates what reaches a network — discovered.
 
-    This guard USED to name README.md, AGENTS.md and SPEC_GET_V0.md. That is
+    This guard USED to name README.md, AGENTS.md and docs/specs/SPEC_GET_V0.md. That is
     the defect it exists to catch: SPEC_START_V0 §3e-i named two files,
     README was a third, and it stayed false for a week. SECURITY.md was a
     fourth and no guard could see it, because the guard had a list too.
@@ -2562,7 +2573,7 @@ def test_every_totality_claim_over_a_backticked_list_is_guarded_or_exempt():
     Seven confirmed stale totality claims so far, and THREE of the seven were
     found by an agent sent to look at something else. Every catch has been
     luck-shaped. `docs/graphs.md` said "Every loop outcome —" and named six of
-    eight; `SPEC_BOARD_V0.md` said "the two integrity values are in no
+    eight; `docs/specs/SPEC_BOARD_V0.md` said "the two integrity values are in no
     collection" for three days after the collection landed.
 
     So: a totality word ("every", "all", "both", "the four") sitting next to a
@@ -3205,7 +3216,7 @@ def test_the_readme_names_no_module_or_package_that_does_not_exist():
     text = (repo_root() / "README.md").read_text(encoding="utf-8")
     known = {"wringer", "wringer-board", "wringer-drive"}
     # A filename is not a component. `wringer-vs-langgraph.md` and
-    # `wringer-ai-dlc-harness-plan.md` are documents in this repository, and
+    # `docs/ARCHITECTURE-NORTHSTAR.md` are documents in this repository, and
     # the first version of this guard reported both as missing packages —
     # a guard whose own false positives would train a reader to ignore it.
     prose = re.sub(r"\bwringer-[a-z0-9-]+\.md\b", "", text)

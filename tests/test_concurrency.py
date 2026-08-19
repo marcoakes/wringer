@@ -1,4 +1,4 @@
-"""Safe gate parallelism — SPEC_PERF_V0.md.
+"""Safe gate parallelism — docs/specs/SPEC_PERF_V0.md.
 
 The gates here really run at once, and the proof is a file each writes: two gates
 that both see the other's marker were genuinely overlapping, which is a fact about

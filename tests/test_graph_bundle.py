@@ -1,4 +1,4 @@
-"""The graph run bundle (SPEC_GRAPH_V0.md §4).
+"""The graph run bundle (docs/specs/SPEC_GRAPH_V0.md §4).
 
 Every house rule the other bundles obey, and for the reasons this month
 supplied rather than out of symmetry:

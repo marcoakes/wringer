@@ -4,7 +4,7 @@
 nothing. `wring verify --prove` is the deterministic counter: **if the gates
 still pass without the change, they never tested it.***
 
-This is [SPEC_VACUITY_V0.md](../SPEC_VACUITY_V0.md) end to end. Every block
+This is [specs/SPEC_VACUITY_V0.md](../SPEC_VACUITY_V0.md) end to end. Every block
 below is **real captured output** from scratch repositories with `file://`
 remotes.
 

@@ -1,6 +1,6 @@
 """Render `summary.md` — the human's entry point into a bundle.
 
-Boring, stable, grep-friendly (SPEC_VERIFY_V0.md §The evidence
+Boring, stable, grep-friendly (docs/specs/SPEC_VERIFY_V0.md §The evidence
 bundle): one screen that says what ran, against which commit, what it
 cost, what failed, where the logs are, and the exact command that reruns
 the failure. Machines get `evidence.jsonl` and `manifest.json`; this file

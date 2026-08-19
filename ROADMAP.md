@@ -1,7 +1,7 @@
 # Roadmap — the engine is built; the queue is the surface
 
 *Adopted 2026-07-29 after external design review. This document governs
-execution order. The [full build plan](wringer-ai-dlc-harness-plan.md)
+execution order. The [full build plan](docs/ARCHITECTURE-NORTHSTAR.md)
 remains the architectural north star — we are shipping it inside-out:
 the differentiated core first (loop contracts, deterministic gates,
 worker/judge isolation), the undifferentiated plumbing (multi-cloud
@@ -28,8 +28,8 @@ that is instructed to refute it, then the build.
 | | cycle | what it closes | state |
 |---|---|---|---|
 | **1** | Truth corrections, the repository remap, the refusal-legibility core cycle, and board slices S2/S3 | the repository says what is being built; delivery's refusals get names, so a page can render them in plain language | **this window** |
-| **2** | **The artifact slot** ([SPEC_BOARD_V0.md](SPEC_BOARD_V0.md) §10) | a gate can leave a picture behind — digested and attested like every other file in a bundle — so a requirement about a screen can show the screen. One engine change, alone in the core repo | queued |
-| **3** | **The drive cycle** — `R-ENV`/F6 first ([SPEC_ENV_V0.md](SPEC_ENV_V0.md)), then `SPEC_DRIVE_V0` | the operating gap. Today reaching the first moment means installing a CLI, shaping a config and typing commands. One verb takes a prose file and drives the existing chain, with setup generated rather than hand-written. **Easy never means unguarded**: no auto-approval, no `--yes`, refusals still render. F6 goes first because a fresh repo dying on a missing dependency in minute three kills exactly this path | **BUILT 2026-08-17** — `wringer-drive`, steps 0–10, 27.5s measured (`wringer-drive/docs/pm-mode-2026-08-17.md`). **No public remote yet**, and no stranger has read a board it produced |
+| **2** | **The artifact slot** ([docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md) §10) | a gate can leave a picture behind — digested and attested like every other file in a bundle — so a requirement about a screen can show the screen. One engine change, alone in the core repo | queued |
+| **3** | **The drive cycle** — `R-ENV`/F6 first ([docs/specs/SPEC_ENV_V0.md](docs/specs/SPEC_ENV_V0.md)), then `SPEC_DRIVE_V0` | the operating gap. Today reaching the first moment means installing a CLI, shaping a config and typing commands. One verb takes a prose file and drives the existing chain, with setup generated rather than hand-written. **Easy never means unguarded**: no auto-approval, no `--yes`, refusals still render. F6 goes first because a fresh repo dying on a missing dependency in minute three kills exactly this path | **BUILT 2026-08-17** — `wringer-drive`, steps 0–10, 27.5s measured (`wringer-drive/docs/pm-mode-2026-08-17.md`). **No public remote yet**, and no stranger has read a board it produced |
 | **4** | **The launch cycle** | Demo R filmed, both quickstart numbers measured, a one-page threat model, and the PR-check surface. The launch moment is spent once | queued |
 | **5** | The board's close-out | the cold read — a stranger opens the page and says what it means — and the remaining definition-of-done items | queued |
 
@@ -92,7 +92,7 @@ between them is decided.
 **What happened after the rail, and it is not on the rail because most of it
 is not a milestone.** Between 2026-08-13 and 2026-08-16 the programme ran a
 trust arc to its end: the worker was put in a box it cannot open from the
-inside ([SPEC_CONTAIN_V0.md](SPEC_CONTAIN_V0.md)); the standard provenance
+inside ([docs/specs/SPEC_CONTAIN_V0.md](docs/specs/SPEC_CONTAIN_V0.md)); the standard provenance
 format is emitted beside the bundle; and the widest claim this project ever
 made was pre-registered, tested against thirteen real upstream bug fixes,
 **lost**, and withdrawn automatically the same day
@@ -124,7 +124,7 @@ itself on every run has a diff nobody can read.
 
 **Outside the rail, and Marc's own:** the launch assets — a demo GIF and the
 Show HN write-up of the eight-hour unsupervised-fleet incident that produced
-[SPEC_SUPERVISION_V0.md](SPEC_SUPERVISION_V0.md). Neither is blocked on code.
+[docs/specs/SPEC_SUPERVISION_V0.md](docs/specs/SPEC_SUPERVISION_V0.md). Neither is blocked on code.
 
 ## The 90-day arc — history, kept because the rail probes it
 
@@ -134,7 +134,7 @@ against; the live queue is at the top of this file.*
 
 ### Days 1–30 — v0.1.0, the standalone evidence compiler
 
-⚠️ **Superseded in detail by [SPEC_VERIFY_V0.md](SPEC_VERIFY_V0.md)**
+⚠️ **Superseded in detail by [docs/specs/SPEC_VERIFY_V0.md](docs/specs/SPEC_VERIFY_V0.md)**
 (third external review, 2026-07-30) — the binding implementation
 contract. The essence: **`wring verify` ships first as a standalone
 evidence compiler**, before `wring run`, before the graph IR, before
@@ -152,7 +152,7 @@ mergeable and leaves behind evidence a human or agent can inspect.
 
 **The release bar is one line from true** — everything except the PyPI
 publish is done and committed (see the spec's
-[Definition of PROVEN](SPEC_VERIFY_V0.md#definition-of-proven--the-repo-must-show-its-own-receipts)).
+[Definition of PROVEN](docs/specs/SPEC_VERIFY_V0.md#definition-of-proven--the-repo-must-show-its-own-receipts)).
 **v0.1.0 tags when that last line is true** — well before
 the Sept 30 outer deadline if the bolts land clean.
 
@@ -171,7 +171,7 @@ nodes, all cloud adapters, Cedar/OPA, AGENTS.md autogen, skills registry.
 
 ### Days 31–60 — durable execution & anti-thrash
 
-⚠️ **Governed by [SPEC_SUPERVISION_V0.md](SPEC_SUPERVISION_V0.md)**
+⚠️ **Governed by [docs/specs/SPEC_SUPERVISION_V0.md](docs/specs/SPEC_SUPERVISION_V0.md)**
 (adopted 2026-07-31 after a live incident during Wringer's own development
 proved the failure modes) — binding invariants for every execution
 primitive: bounded retries with escalation, failure-signature breakers,
@@ -225,7 +225,7 @@ filmed.)*
   all wait behind a working, dogfooded loop.
 - **v0 implementation is Python** (third review, 2026-07-30: ubiquitous,
   inspectable, `pipx`-installable, right audience — see
-  [SPEC_VERIFY_V0.md](SPEC_VERIFY_V0.md)). This supersedes the
+  [docs/specs/SPEC_VERIFY_V0.md](docs/specs/SPEC_VERIFY_V0.md)). This supersedes the
   earlier TypeScript-first ruling for v0.1; the TS monorepo remains the
   plan's shape for the later graph engine — revisit at v0.2. Python
   repos are also the first *target* ecosystem (Q3 OKR).

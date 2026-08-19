@@ -1,4 +1,4 @@
-"""Where the WORKER runs — SPEC_CONTAIN_V0.md, checked against the tree.
+"""Where the WORKER runs — docs/specs/SPEC_CONTAIN_V0.md, checked against the tree.
 
 Two halves, and the split matters as much here as it does in the module.
 

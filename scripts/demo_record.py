@@ -88,7 +88,7 @@ def _start_step(wring: str, scratch: Path) -> tuple[str, list[str]]:
     """The guided launch, non-interactively.
 
     **The recorded run is the non-interactive surface, and that is measured
-    rather than chosen** (SPEC_START_V0.md §3b-i). This recorder cannot film
+    rather than chosen** (docs/specs/SPEC_START_V0.md §3b-i). This recorder cannot film
     an interactive session: `getpass` reads `/dev/tty` rather than stdin and
     would block on the operator's real terminal; child stdin is DEVNULL; and
     capture is line-oriented, so a prompt printed without a trailing newline

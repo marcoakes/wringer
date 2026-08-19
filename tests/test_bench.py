@@ -1,4 +1,4 @@
-"""`wring bench` — the spine (SPEC_BENCH_V0.md §1, §3a, §3b).
+"""`wring bench` — the spine (docs/specs/SPEC_BENCH_V0.md §1, §3a, §3b).
 
 The command runs the same repair job through every declared worker, one at a
 time, under identical conditions, and writes one comparison bundle. Every

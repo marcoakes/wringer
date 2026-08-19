@@ -1,6 +1,6 @@
 """wring — command-line entry points.
 
-Exit codes are contract (SPEC_VERIFY_V0.md):
+Exit codes are contract (docs/specs/SPEC_VERIFY_V0.md):
 0 = all required gates passed · 1 = a required gate failed ·
 2 = config or environment error · 3 = unsafe dirty state / refused
 precondition · 4 = interrupted.
@@ -633,7 +633,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-# The steps of the guided launch, in SPEC_START_V0.md §1's order. Printed as
+# The steps of the guided launch, in docs/specs/SPEC_START_V0.md §1's order. Printed as
 # `[n/7]` so a reader can see how far in they are — a wizard that gives no
 # sense of length is one people abandon halfway.
 START_STEPS = 7
@@ -644,7 +644,7 @@ def _start_step(number: int, title: str) -> None:
 
 
 def cmd_start(args: argparse.Namespace) -> int:
-    """The guided launch (SPEC_START_V0.md).
+    """The guided launch (docs/specs/SPEC_START_V0.md).
 
     Calls the other commands' machinery and reimplements none of it: doctor's
     checks, detection's proposal, and — from S5 — verify, the loop and attest.
@@ -914,7 +914,7 @@ def _report_preflight(checks: list[doctor.Check]) -> None:
 def _start_clone(here: Path, url: str, workspace: str | None) -> int:
     """Clone, record where it came from, and **stop** (§3e, ruling 5).
 
-    This is the most important refusal in the command. `SPEC_GET_V0.md:85-87`
+    This is the most important refusal in the command. `docs/specs/SPEC_GET_V0.md:85-87`
     is binding for the machinery being reused — *"Runs nothing it cloned. No
     gate, no hook, no install step — a fresh clone is untrusted input, and
     SECURITY.md's `.wringer.yaml`-is-code warning is exactly why"* — and
@@ -1243,7 +1243,7 @@ def _report_start(emission: start.Emission, key_name: str | None) -> None:
 
 
 def cmd_graph_validate(args: argparse.Namespace) -> int:
-    """Check a graph file and run nothing (SPEC_GRAPH_V0.md §3)."""
+    """Check a graph file and run nothing (docs/specs/SPEC_GRAPH_V0.md §3)."""
     try:
         loaded = graph.load(Path(args.graph))
     except graph.GraphError as exc:
@@ -1299,7 +1299,7 @@ def _graph_loop_console() -> dict[str, object]:
 
 
 def cmd_graph_run(args: argparse.Namespace) -> int:
-    """Execute a graph from the beginning (SPEC_GRAPH_V0.md §1)."""
+    """Execute a graph from the beginning (docs/specs/SPEC_GRAPH_V0.md §1)."""
     root = git.find_root(Path.cwd())
     try:
         document = graph.load(Path(args.graph))
@@ -1705,7 +1705,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    """Loop until the evidence says stop (SPEC_RUN_V0.md)."""
+    """Loop until the evidence says stop (docs/specs/SPEC_RUN_V0.md)."""
     root = git.find_root(Path.cwd())
 
     refused = _refuse_unverifiable(root, "run")
@@ -2034,7 +2034,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_health(args: argparse.Namespace) -> int:
-    """Is there any evidence each check can still fail? (SPEC_HEALTH_V0.md)
+    """Is there any evidence each check can still fail? (docs/specs/SPEC_HEALTH_V0.md)
 
     **An observer: exit 0 whatever the report says.** Bench's ruling 7 applies
     verbatim — an instrument that exited non-zero after successfully measuring
@@ -2116,7 +2116,7 @@ def cmd_health(args: argparse.Namespace) -> int:
 
 
 def cmd_bench(args: argparse.Namespace) -> int:
-    """Compare workers on one job (SPEC_BENCH_V0.md).
+    """Compare workers on one job (docs/specs/SPEC_BENCH_V0.md).
 
     **Exit 0 means the comparison exists, not that anybody won.** `wring run`
     exits 1 when its loop does not converge, and this deliberately does not
@@ -2292,7 +2292,7 @@ def _report_bench(outcome, root: Path, cfg_bench=None) -> None:
 
 
 def cmd_fleet(args: argparse.Namespace) -> int:
-    """Run many loops under supervision (SPEC_SUPERVISION_V0.md §S3)."""
+    """Run many loops under supervision (docs/specs/SPEC_SUPERVISION_V0.md §S3)."""
     root = git.find_root(Path.cwd())
 
     refused = _refuse_unverifiable(root, "fleet")
@@ -2474,7 +2474,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
 
 
 def cmd_judge(args: argparse.Namespace) -> int:
-    """Judge a finished bundle against a rubric (SPEC_JUDGE_V0.md)."""
+    """Judge a finished bundle against a rubric (docs/specs/SPEC_JUDGE_V0.md)."""
     import time
 
     root = git.find_root(Path.cwd())
@@ -2665,7 +2665,7 @@ def _report_judge(
 
 
 def cmd_spec(args: argparse.Namespace) -> int:
-    """Draft a build spec from a PRD (SPEC_INTENT_V0.md).
+    """Draft a build spec from a PRD (docs/specs/SPEC_INTENT_V0.md).
 
     Dry run by default, like the judge and for the judge's reason: the exact
     bytes are on disk before any socket opens. Nothing here touches git and
@@ -3141,7 +3141,7 @@ def _report_spec(
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
-    """Compile an approved spec into work (SPEC_INTENT_V0.md §4).
+    """Compile an approved spec into work (docs/specs/SPEC_INTENT_V0.md §4).
 
     Runs nothing. Writes `tasks.jsonl`, the brief files and the rubric, prints
     the gate change it would like `.wringer.yaml` to have, and stops.
@@ -3390,7 +3390,7 @@ def _report_plan(
 
 
 def cmd_get(args: argparse.Namespace) -> int:
-    """Clone a repository into the workspace (SPEC_GET_V0.md §3)."""
+    """Clone a repository into the workspace (docs/specs/SPEC_GET_V0.md §3)."""
     root = git.find_root(Path.cwd())
 
     try:
@@ -3431,7 +3431,7 @@ def cmd_get(args: argparse.Namespace) -> int:
 
 
 def cmd_issue(args: argparse.Namespace) -> int:
-    """Write a forge issue to a local file (SPEC_GET_V0.md §4)."""
+    """Write a forge issue to a local file (docs/specs/SPEC_GET_V0.md §4)."""
     root = git.find_root(Path.cwd())
 
     try:
@@ -3505,7 +3505,7 @@ def cmd_issue(args: argparse.Namespace) -> int:
 
 
 def cmd_deliver(args: argparse.Namespace) -> int:
-    """A verified change becomes a branch and an MR (SPEC_GET_V0.md §5).
+    """A verified change becomes a branch and an MR (docs/specs/SPEC_GET_V0.md §5).
 
     It writes git history only when a human types `--send` — the amended law
     6, in one function. Since P7 it is not the only command that can: a

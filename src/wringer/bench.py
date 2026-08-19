@@ -1,6 +1,6 @@
 """`wring bench` — the same job, every declared worker, independently.
 
-**It measures. It does not crown.** (SPEC_BENCH_V0.md, ruling 6.) There is no
+**It measures. It does not crown.** (docs/specs/SPEC_BENCH_V0.md, ruling 6.) There is no
 winner here, no score, and no field in any schema that orders contenders — not
 as a hedge, but because the one fact that would justify a ranking is precisely
 the fact this machinery cannot establish. A contender that "fixes" a planted

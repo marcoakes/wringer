@@ -8,7 +8,7 @@ referenced.*
 
 The rulings behind it: `WRINGER_RULING_2026-08-14` (the witness ruling) and
 `WRINGER_RULING_2026-08-15` (the fork ruling). In the repository, the binding
-text is [SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) §6 (W1–W10) — the
+text is [specs/SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) §6 (W1–W10) — the
 contract — and this file is the schedule.
 
 ## Why there is a programme at all
@@ -32,7 +32,7 @@ on 13 of 13. The replacement thesis is one sentence:
 |---|---|---|
 | **P0** | Salvage the corpus patches | **DONE** 2026-08-13/14 — 52 trees, 51 patches verified, `wringer.benchmark.v4` |
 | **P1** | The witness author, calibrated offline | **CLOSED** 2026-08-15 on (a)+(b); see below |
-| **P2** | Contain the worker | **DONE** 2026-08-15 — [SPEC_CONTAIN_V0.md](../SPEC_CONTAIN_V0.md), built at `f002bd0`: the worker joins a netns holder WITHOUT `NET_ADMIN`, so it cannot disarm its own boundary. Sequence I ran against it with a `--privileged` control |
+| **P2** | Contain the worker | **DONE** 2026-08-15 — [specs/SPEC_CONTAIN_V0.md](../SPEC_CONTAIN_V0.md), built at `f002bd0`: the worker joins a netns holder WITHOUT `NET_ADMIN`, so it cannot disarm its own boundary. Sequence I ran against it with a `--privileged` control |
 | **P3** | Wire delivery, then re-test live | **DONE 2026-08-16, and the re-test LOST.** Wired at `f310b7f` (`wringer.acceptance.v2` — a red witness refuses a delivery); the pass ran the same day and missed three of §5's six clauses ([corpus-2026-08-16.md](corpus-2026-08-16.md)). The stop was 2026-09-30; it ran six weeks early |
 | **P4** | Standard emission (in-toto), then release 0.4.0 | **Half done, and the other half will not happen.** In-toto emits beside the bundle (`f27681a`, R3 discharged). **0.4.0 does not ship** — R4 gates the release on a re-test WIN and the re-test lost. Tags stop at `v0.3.0` |
 

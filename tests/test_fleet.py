@@ -1,6 +1,6 @@
 """`wring fleet` — hundreds of tasks, bounded blast radius.
 
-SPEC_SUPERVISION_V0.md §S3. Every worker here is a shell one-liner and every
+docs/specs/SPEC_SUPERVISION_V0.md §S3. Every worker here is a shell one-liner and every
 child is an ordinary `wring run`, so the fleet's own logic is what is under
 test rather than anybody's intelligence.
 """

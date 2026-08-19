@@ -2,7 +2,7 @@
 
 Split out of `cli.py` so something other than the console can ask for a
 verification and get the answer as data: `wring run` needs a full verify per
-iteration (SPEC_RUN_V0.md), and shelling out to itself to get one would mean
+iteration (docs/specs/SPEC_RUN_V0.md), and shelling out to itself to get one would mean
 parsing its own output.
 
 The split is deliberately narrow. This module owns the part that is the same

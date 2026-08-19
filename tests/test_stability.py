@@ -1,4 +1,4 @@
-"""Flaky gates — SPEC_STABILITY_V0.md.
+"""Flaky gates — docs/specs/SPEC_STABILITY_V0.md.
 
 Every gate here is a real shell command in a real subprocess, and the
 alternating one really alternates: it counts its own invocations in a file and

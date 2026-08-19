@@ -204,7 +204,7 @@ promise it exists to protect.
 
 *Note 2026-08-15: that refusal is about a **signing key**, and it stands.
 Ruling 1's separate conclusion that attestations are unsigned was superseded
-by [SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) — keyless signing holds no key, so
+by [specs/SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) — keyless signing holds no key, so
 the sentence above is not in tension with it. Sequence H below is the other
 half, and is also unrun.*
 
@@ -275,7 +275,7 @@ Per entry in `agents.AGENTS`, on a machine with a network:
       sibling is the same defect wearing a different hat.
 - [ ] `npm view <package> bin` → the key must match the entry's `command`.
       The two are not derivable from each other and they drift as a pair.
-- [ ] If anything moved: change `agents.py`, move `SPEC_ACP_V0.md`'s config
+- [ ] If anything moved: change `agents.py`, move `specs/SPEC_ACP_V0.md`'s config
       example and `tests/test_acp.py`'s fixtures with it, leave `id` alone
       (it is the vendor-neutral handle config speaks), and **do not edit the
       filmed captures** — they record what was filmed.
@@ -300,7 +300,7 @@ declines to say it is *demonstrated to*. This sequence is what would change
 that sentence.
 
 **It is now one command**, added with the `execution:` backend
-(SPEC_EXEC_V0.md §7):
+(specs/SPEC_EXEC_V0.md §7):
 
 ```
 sh scripts/sequence-g.sh [runtime] [image]
@@ -558,7 +558,7 @@ see the verdict above for exactly why, and for the two things that would.
 Nothing in this repository may say the container path is demonstrated to
 isolate** — and that includes the `execution:` backend,
 whose every property is a flag with a test behind it and not a measurement.
-SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
+specs/SPEC_EXEC_V0.md §7 states the split; `test_docs.py` keeps SECURITY.md's wording
 honest.
 
 ## Sequence I — the contained WORKER, attacked
@@ -683,7 +683,7 @@ What a run would need, in CI on a repository whose workflow has
 
 **Until this row is filled in, every document that mentions signing must carry
 "exercised only against a stub".** That wording is currently in `README.md`,
-`SECURITY.md`'s capability table, `SPEC_PROVENANCE_V0.md`'s header amendment
+`SECURITY.md`'s capability table, `specs/SPEC_PROVENANCE_V0.md`'s header amendment
 and `docs/attest-and-audit.md`'s postscript — and `SECURITY.md`'s row is
 probed by `tests/test_security_capabilities.py`.
 

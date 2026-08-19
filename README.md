@@ -4,11 +4,13 @@
 
 # 🗜️ Wringer
 
-**The vendor-neutral AI-DLC harness: a control plane for AI-driven development,
-for product managers, designers and engineers.**
+## Your tests passed. Prove they could have failed.
 
-*Put every change through the wringer.*
-*The harness runs the gates, keeps the receipts, and never writes the code itself.*
+**Offline. No LLM. It refuses the merge when they couldn't.**
+
+*A gate that passes on the code before your change proved nothing about your
+change. Wringer runs your own gates against both trees and tells you which
+ones could not tell them apart.*
 
 [![tests](https://github.com/marcoakes/wringer/actions/workflows/tests.yml/badge.svg)](https://github.com/marcoakes/wringer/actions/workflows/tests.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
@@ -16,7 +18,7 @@ for product managers, designers and engineers.**
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://pypi.org/project/wringer/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Quickstart](QUICKSTART.md) · [Changelog](CHANGELOG.md) · [v0 spec](SPEC_VERIFY_V0.md) · [90-day roadmap](ROADMAP.md) · [Security](SECURITY.md) · [vs LangGraph](docs/wringer-vs-langgraph.md) · [Build plan](wringer-ai-dlc-harness-plan.md) · [RFCs](https://github.com/marcoakes/wringer/issues?q=is%3Aissue+RFC)
+[Quickstart](QUICKSTART.md) · [Changelog](CHANGELOG.md) · [v0 spec](docs/specs/SPEC_VERIFY_V0.md) · [90-day roadmap](ROADMAP.md) · [Security](SECURITY.md) · [vs LangGraph](docs/wringer-vs-langgraph.md) · [Build plan](docs/ARCHITECTURE-NORTHSTAR.md) · [RFCs](https://github.com/marcoakes/wringer/issues?q=is%3Aissue+RFC)
 
 </div>
 
@@ -28,73 +30,51 @@ for product managers, designers and engineers.**
 > gates, writes receipts a stranger can audit, and trusts nothing, including
 > itself. Not the worker's exit code, not the agent's summary, not even the
 > tests the agent wrote. That stance came out of
-> [a real eight-hour burn](SPEC_SUPERVISION_V0.md) and is welded into
-> [eight invariants](SPEC_SUPERVISION_V0.md) a fleet already obeys. And it is
+> [a real eight-hour burn](docs/specs/SPEC_SUPERVISION_V0.md) and is welded into
+> [eight invariants](docs/specs/SPEC_SUPERVISION_V0.md) a fleet already obeys. And it is
 > the one stance no vendor can copy, because Wringer is nobody's agent:
 > **the party holding the receipts has no stake in what they say.**
 
-Wringer (CLI: `wring`) compiles **intent** (tickets, PRDs, Slack messages) into **verified outcomes**: reviewed merge requests with evidence. It treats *loops* and *graphs of loops* as first-class, portable primitives, and runs them entirely on your machine, with no runtime, no gateway, and no identity system to adopt first.
+**The larger goal this serves**, so that a window reading this file does not
+lose it: a product manager writes an advanced spec, points Wringer at the
+repositories, and hours later there is working software at enterprise quality
+— Wringer never writing the code, only refusing to believe it is done.
+That surface has its own front page: **[README-PM.md](README-PM.md)**.
 
-**What this is for:** a product manager writes an advanced spec, hands it to
-Wringer, it takes in the repositories, and hours later there is working
-software at enterprise quality. Wringer never writes the code; an agent
-does. Wringer is the part that refuses to believe it, so what comes out the
-far end is what the spec actually asked for rather than what an agent
-reported doing.
+**A gate that cannot fail is not a gate.** Wringer runs your repository's own
+checks against the tree *before* your change as well as the tree after it. A
+required gate that passes on both did not discriminate — it proved nothing
+about what you are merging, and Wringer says so by name.
 
-**And three shelves it does not go on**, because they are where it gets
-mis-filed. **Not a CI tool:** CI runs your checks, while Wringer proves a
-check *could have failed* and, once you switch that on, refuses the delivery
-when it could not. **Not an eval framework:** evals score models, Wringer
-gates deliveries. **Not test generation:** generators write tests for
-developers, Wringer manufactures the evidence a delivery is refused without.
+That is the whole idea, and it has a vocabulary already:
 
+- a **vacuous** gate passed on both trees, so it decided nothing here;
+- a gate's **vitality** is whether the record shows it can still fail at all;
+- a **zombie** is a check that has been green so long nobody has seen it red,
+  and nobody would notice if it stopped testing anything.
 
-> ### 👉 Are you a product manager rather than an engineer?
->
-> There is a five-step guide that starts from nothing and ends with a page
-> showing what was built and what proves it:
-> [**wringer-drive/START-HERE.md**](https://github.com/marcoakes/wringer-drive/blob/main/START-HERE.md)
+Everything else in this repository — the loop, the graph, the spec surface,
+the board — is built on that one measurement. **You do not need any of it to
+use the measurement.**
 
-## The same thing again, with no jargon in it at all
+**It is not a CI tool.** CI runs your checks; Wringer proves a check *could
+have failed*, and refuses the delivery when it could not.
 
-> You write down what you want built, in your own words. Before any work
-> starts, you see your list back in plain sentences: each thing you asked
-> for, and beside it, how it will be checked when someone claims it is done.
-> Nothing begins until you have said "yes, that is what I meant" to each.
-> The work then happens without you. When you come back there is one page:
-> every item marked done shows its check passing now *and* a record of the
-> same check failing before the work, so a tick means "this did not work
-> before and works now," not "nobody noticed a problem." Anything that could
-> not be proved says so plainly, and the handover waits for you instead of
-> going out anyway. And when something marked done is not what you meant, you
-> say so on that page: your correction becomes a new item with its own check,
-> shown failing today, so the next round of work cannot quietly undo it.
-
-That paragraph is the product. **Most of the machinery under it is built and
-has been driven end to end, and since 2026-08-17 so is the surface a
-non-technical person would touch**: one verb — `wringer-drive run PRD.md` —
-carries a prose file through every step above to a rendered page, measured at
-**27.5 seconds** (`wringer-drive/docs/pm-mode-2026-08-17.md`). The table below
-still says which parts are built and which are direction rather than leaving
-you to find out.
-
-**What is not yet proved is the part that matters most here**: no stranger has
-read one of those pages and said what it means. Until that happens, "a product
-manager can use this" is a claim this repository has built towards and has not
-earned, and nothing in it says otherwise.
+> **Not an engineer?** There is a separate front page for the surface a
+> product manager touches — prose in, a plan you approve, a page showing what
+> was built and what proves it: **[README-PM.md](README-PM.md)**.
 
 ## Where this actually is: the seven moments, labelled honestly
 
 | | the moment | what exists today |
 |---|---|---|
-| **1** | **You write it down.** Prose in (a PRD, a doc, a pasted brain-dump), and it comes back as a list of requirements, each with the check that will decide it, plus the questions it could not answer for you. | **Built**: `wring spec` drafts criteria, gates and the `proves:` bindings ([SPEC_INTENT_V0.md](SPEC_INTENT_V0.md)). **Direction**: today that list is a YAML file, and the conversation that resolves the questions is a hand edit. |
+| **1** | **You write it down.** Prose in (a PRD, a doc, a pasted brain-dump), and it comes back as a list of requirements, each with the check that will decide it, plus the questions it could not answer for you. | **Built**: `wring spec` drafts criteria, gates and the `proves:` bindings ([docs/specs/SPEC_INTENT_V0.md](docs/specs/SPEC_INTENT_V0.md)). **Direction**: today that list is a YAML file, and the conversation that resolves the questions is a hand edit. |
 | **2** | **Nothing runs until you approve it.** You read what will be built and how each piece will be proved, and you say yes. | **Built**, and it is an interlock rather than a setting: `approved: false` is flipped by a person, there is deliberately **no `--yes`**, and unanswered required questions block planning. **Built 2026-08-17**: `wringer-board plan` renders the plain-language plan and `wringer-board approve` writes `approved: true` after printing it, so there is no path that approves without rendering. Byte-identical to the hand edit. |
 | **3** | **The work happens without you.** | **Built**: `wring run`, `wring fleet` and `wring graph`, giving the loop, bounded concurrency, and resumption from a ledger after a `kill -9`. |
-| **4** | **One page tells you what is done, and shows the proof.** Every green shows the same check recorded failing before the work. | **Built, in two halves.** The record it renders is `acceptance.json`, in which every criterion carries the evidence that proves it or is marked as the human judgement it always was ([SPEC_ACCEPT_V0.md](SPEC_ACCEPT_V0.md)). The page itself is a separate layer (see [the board](#the-board--one-page-a-product-manager-can-read)) and it is **public and live** at <https://marcoakes.github.io/wringer-board/>. |
+| **4** | **One page tells you what is done, and shows the proof.** Every green shows the same check recorded failing before the work. | **Built, in two halves.** The record it renders is `acceptance.json`, in which every criterion carries the evidence that proves it or is marked as the human judgement it always was ([docs/specs/SPEC_ACCEPT_V0.md](docs/specs/SPEC_ACCEPT_V0.md)). The page itself is a separate layer (see [the board](#the-board--one-page-a-product-manager-can-read)) and it is **public and live** at <https://marcoakes.github.io/wringer-board/>. |
 | **5** | **You look at the thing itself.** A requirement about a screen shows you the screen. | **Built, engine half, 2026-08-17**: a gate can opt in to `artifacts:`, is handed a directory, and what it leaves is recorded in a `wringer.gate-artifacts.v1` sibling: name, size, digest, media type, and *no caption, no label, no meaning*. **Direction**: the board rendering them. And one limit stated rather than discovered: **a binary artifact is not redacted**, which is why it is opt-in per gate. |
 | **5a** | **A requirement only a person can judge waits for that person.** | **Built 2026-08-17**: a required `human: true` criterion that nobody has answered, or that was answered against wording since changed, REFUSES the delivery. A person writes `wringer.judgements.yaml` by hand; there is no flag, no `--judge`, and nothing in either repository writes it for them. |
-| **6** | **Your "no" becomes a new check.** You say "that is not what I meant"; the correction becomes a requirement with a check shown failing today, so the next round cannot quietly undo it. | **Built, engine half**: a criterion becomes a proposed gate that goes through a human diff and is recorded RED before any work begins ([SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)), and the repair loop stays open while such a check is red. **Direction**: the surface verb that turns a complaint into that criterion. |
+| **6** | **Your "no" becomes a new check.** You say "that is not what I meant"; the correction becomes a requirement with a check shown failing today, so the next round cannot quietly undo it. | **Built, engine half**: a criterion becomes a proposed gate that goes through a human diff and is recorded RED before any work begins ([docs/specs/SPEC_GATEGEN_V0.md](docs/specs/SPEC_GATEGEN_V0.md)), and the repair loop stays open while such a check is red. **Direction**: the surface verb that turns a complaint into that criterion. |
 | **7** | **The handover waits rather than going out anyway.** | **Built**: `wring deliver` refuses on named conditions and there is no flag to wave one through. **Direction**: those refusals reaching you in plain language instead of as an exit code. |
 
 **And one gap that is not a moment, named because it is the biggest one
@@ -205,7 +185,7 @@ Next:
 
 Exit code `1`, and a bundle on disk that a human or an agent can read: `summary.md` for the person reviewing, timestamped `evidence.jsonl` for the machine, `diff.patch` and `status.txt` for what was being verified, per-gate logs for what happened. `wring explain` replays the diagnosis without an LLM; `wring verify --json` emits one object for an agent to act on. The full transcript — and what is still unbuilt — is in the [quickstart](QUICKSTART.md).
 
-It runs your project's declared gates (build · test · lint) in order and writes a portable evidence bundle — `manifest.json`, `evidence.jsonl`, `summary.md`, `diff.patch`, `status.txt`, and per-gate stdout/stderr/`result.json` — around **any** session: Claude Code, Codex CLI, Gemini CLI, or a human. No LLM and no network in any command that **proves** anything — `verify`, `run`, `resume`, `fleet` and `plan` cannot reach one. Nothing leaves your machine without a flag you type: `wring judge --send`, `wring spec --send`, `wring deliver --send`, `wring graph run --send` and `wring attest --sign` are the five that send, each writes the exact bytes to disk first, and each needs a section your repo declared — the graph one only ever by calling the same `deliver.send`, with no socket and no merge request of its own. Three commands fetch, because fetching is what they are for: `wring get` clones, `wring issue` reads one issue, and `wring start --clone` clones one — then **stops**, because a fresh clone is untrusted input and running its gates in the same breath as downloading them is the one thing a guided launch must not do. Every socket in the program lives in two functions, and a test parses every module to keep it that way. After an AI coding session, `wring verify` leaves a cleaner, more reviewable truth trail than the agent's own summary. The binding implementation contract is **[SPEC_VERIFY_V0.md](SPEC_VERIFY_V0.md)** — including the release bar it had to clear before tagging: *Wringer verifies Wringer, in CI, with the demo bundle committed.* It did, and still does on every push.
+It runs your project's declared gates (build · test · lint) in order and writes a portable evidence bundle — `manifest.json`, `evidence.jsonl`, `summary.md`, `diff.patch`, `status.txt`, and per-gate stdout/stderr/`result.json` — around **any** session: Claude Code, Codex CLI, Gemini CLI, or a human. No LLM and no network in any command that **proves** anything — `verify`, `run`, `resume`, `fleet` and `plan` cannot reach one. Nothing leaves your machine without a flag you type: `wring judge --send`, `wring spec --send`, `wring deliver --send`, `wring graph run --send` and `wring attest --sign` are the five that send, each writes the exact bytes to disk first, and each needs a section your repo declared — the graph one only ever by calling the same `deliver.send`, with no socket and no merge request of its own. Three commands fetch, because fetching is what they are for: `wring get` clones, `wring issue` reads one issue, and `wring start --clone` clones one — then **stops**, because a fresh clone is untrusted input and running its gates in the same breath as downloading them is the one thing a guided launch must not do. Every socket in the program lives in two functions, and a test parses every module to keep it that way. After an AI coding session, `wring verify` leaves a cleaner, more reviewable truth trail than the agent's own summary. The binding implementation contract is **[docs/specs/SPEC_VERIFY_V0.md](docs/specs/SPEC_VERIFY_V0.md)** — including the release bar it had to clear before tagging: *Wringer verifies Wringer, in CI, with the demo bundle committed.* It did, and still does on every push.
 
 > ⚠️ **`.wringer.yaml` is code.** `wring verify` runs the commands a repository declares, through a shell, with your privileges — the same trust you extend to its `Makefile`. Read a stranger's `.wringer.yaml` before running `wring verify` in their repo. **What bounds that depends on the mode you chose, and the honest answer is a table rather than an adjective**: local execution is `trusted_local` and is not a sandbox; the opt-in container backend has been adversarially attacked in three platform/runtime combinations and the contained worker in three more, with a `--privileged` control for the worker path and none for the gate path; and several surfaces are `unmeasured` and say so. [SECURITY.md](SECURITY.md) carries both tables — what was measured, and what was not — and also explains why an evidence bundle should be read before you share it.
 
@@ -258,7 +238,7 @@ Loop evidence: .wringer/loops/20260730-234410-7c70/
 A worker's exit code never ends the loop — the evidence decides — and a worker
 that changes nothing stops it without re-running the gates to prove the
 obvious. `wring run` never touches git. Contract:
-**[SPEC_RUN_V0.md](SPEC_RUN_V0.md)**; walkthrough in the
+**[docs/specs/SPEC_RUN_V0.md](docs/specs/SPEC_RUN_V0.md)**; walkthrough in the
 [quickstart](QUICKSTART.md#the-loop--wring-run).
 
 ## Describe what you want built — `wring spec`
@@ -288,7 +268,7 @@ carried as `human: true` and are then **never sent to a judge at all**.
 
 The whole loop, captured end to end — PRD in, verified change out, receipts
 attached — is [`docs/pm-loop.md`](docs/pm-loop.md). Contract:
-**[SPEC_INTENT_V0.md](SPEC_INTENT_V0.md)**.
+**[docs/specs/SPEC_INTENT_V0.md](docs/specs/SPEC_INTENT_V0.md)**.
 
 ## An issue in, a reviewed branch out — `wring deliver`
 
@@ -327,7 +307,7 @@ it came from. `wring issue <url>` turns an issue into a *file* — which is
 how untrusted text from the internet should be handled, and why `wring spec`
 needed no changes to accept one. The captured loop is
 [`docs/issue-to-mr.md`](docs/issue-to-mr.md). Contract:
-**[SPEC_GET_V0.md](SPEC_GET_V0.md)**.
+**[docs/specs/SPEC_GET_V0.md](docs/specs/SPEC_GET_V0.md)**.
 
 ## Graphs of loops
 
@@ -351,7 +331,7 @@ the same Wringer commands by hand. State routes, but **only bundles gate** — a
 graph that lies about `build-status` in an approved decision file delivers
 nothing, because delivery re-reads the evidence. The walkthrough is
 [`docs/graphs.md`](docs/graphs.md). Contract:
-**[SPEC_GRAPH_V0.md](SPEC_GRAPH_V0.md)**.
+**[docs/specs/SPEC_GRAPH_V0.md](docs/specs/SPEC_GRAPH_V0.md)**.
 
 ## Prove the gates can fail
 
@@ -380,7 +360,7 @@ party does not get to choose whether the audit runs, and that invoker is
 increasingly the agent itself. `--prove` tightens for one run; there is no
 `--no-prove`. Captured both ways, with the limits stated, in
 [`docs/prove-the-gates-can-fail.md`](docs/prove-the-gates-can-fail.md).
-Contract: **[SPEC_VACUITY_V0.md](SPEC_VACUITY_V0.md)**.
+Contract: **[docs/specs/SPEC_VACUITY_V0.md](docs/specs/SPEC_VACUITY_V0.md)**.
 
 **Wringer delivers only on evidence that could have failed** — **for net-new
 work**, where a generated gate is red because the feature does not exist yet.
@@ -435,7 +415,7 @@ upstream's own fix
 ([`docs/witness-calibration-2026-08-15.md`](docs/witness-calibration-2026-08-15.md)),
 and it then covered 11 of 13 rows in the live pass it lost. Nothing here is
 built on it: red-first for net-new work is
-[SPEC_GATEGEN_V0.md](SPEC_GATEGEN_V0.md)'s path and always was.
+[docs/specs/SPEC_GATEGEN_V0.md](docs/specs/SPEC_GATEGEN_V0.md)'s path and always was.
 [`docs/witness-programme.md`](docs/witness-programme.md) records the phases, the
 pre-commitment, and the commit that executed it.*
 
@@ -499,7 +479,7 @@ losing pass above — and **the source and a live page are both public**:
 rendered at **<https://marcoakes.github.io/wringer-board/>**. It is **not on
 PyPI**, so `pip install wringer-board` would not work today; install it from
 source. The
-contract it is built to is [SPEC_BOARD_V0.md](SPEC_BOARD_V0.md), which was
+contract it is built to is [docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md), which was
 independently reviewed before any of it was written.
 
 **Why it is a separate layer at all**: the engine stays headless and neutral at
@@ -540,7 +520,7 @@ genuinely executed green runs, and the verdict. Regenerate it with
 Nothing else tells you that. The coverage statement leads every report, so a
 bundle that could not be read is named rather than dropped; `--strict` exits 1
 on a required zombie and is the only tooth. Contract:
-**[SPEC_HEALTH_V0.md](SPEC_HEALTH_V0.md)**.
+**[docs/specs/SPEC_HEALTH_V0.md](docs/specs/SPEC_HEALTH_V0.md)**.
 
 ## Which worker actually fixes your issues
 
@@ -558,7 +538,7 @@ benchmark that ranked those rows would have crowned the liar, because
 rewriting a failing assertion is cheaper than fixing code — so the rows come
 out in declared order, the limits print underneath them, and you rank with the
 patches in front of you. Contract:
-**[SPEC_BENCH_V0.md](SPEC_BENCH_V0.md)**.
+**[docs/specs/SPEC_BENCH_V0.md](docs/specs/SPEC_BENCH_V0.md)**.
 
 ## Set this up and start your first build
 
@@ -580,7 +560,7 @@ names the one you chose and prints the command for you to run. And
 **stops**: a fresh clone is untrusted input, its `.wringer.yaml` is code, and
 running a stranger's gates in the same breath as downloading them is the one
 thing a guided launch must not do. Read the file, then run `wring start`
-inside it. Contract: **[SPEC_START_V0.md](SPEC_START_V0.md)**.
+inside it. Contract: **[docs/specs/SPEC_START_V0.md](docs/specs/SPEC_START_V0.md)**.
 
 ## And a claim you can check without trusting anyone
 
@@ -605,8 +585,8 @@ present, the console says so and qualifies the half of that sentence the
 signature changed, rather than suppressing the whole. The captured transcript,
 including the tamper detection, is
 [`docs/attest-and-audit.md`](docs/attest-and-audit.md). Contracts:
-**[SPEC_PROVENANCE_V0.md](SPEC_PROVENANCE_V0.md)** and
-**[SPEC_SIGN_V0.md](SPEC_SIGN_V0.md)**.
+**[docs/specs/SPEC_PROVENANCE_V0.md](docs/specs/SPEC_PROVENANCE_V0.md)** and
+**[docs/specs/SPEC_SIGN_V0.md](docs/specs/SPEC_SIGN_V0.md)**.
 
 ## The format is targetable, not just readable
 
@@ -677,7 +657,7 @@ reasons](ROADMAP.md#rulings-that-changed-from-the-v10-plan).
 7. Cost per task is a first-class metric.
 8. Build to delete.
 
-The full eleven, with rationale, are in [the plan](wringer-ai-dlc-harness-plan.md#3-design-principles).
+The full eleven, with rationale, are in [the plan](docs/ARCHITECTURE-NORTHSTAR.md#3-design-principles).
 
 ## Contributing
 

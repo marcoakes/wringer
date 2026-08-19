@@ -1,4 +1,4 @@
-"""Which gates ran beside which — SPEC_PERF_V0.md.
+"""Which gates ran beside which — docs/specs/SPEC_PERF_V0.md.
 
 **This file exists because `duration_ms` is not private to a run.** `wring health`
 compares it across a window and flags drift past 2× (oldest-five median against

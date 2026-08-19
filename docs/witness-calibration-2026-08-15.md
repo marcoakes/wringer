@@ -381,7 +381,7 @@ remains.
 
 The fork ruling also decided the question §"The one catch, read honestly" left
 hanging: **may a witness pick where a fix lives? No.** That is now
-[SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) §6 **W10** — a witness must observe
+[specs/SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) §6 **W10** — a witness must observe
 the criterion's stated symptom at the interface the criterion names, and where
 the criterion states no location it must not pin an implementation locus.
 

@@ -1,4 +1,4 @@
-"""`wring verify --prove` — SPEC_VACUITY_V0.md.
+"""`wring verify --prove` — docs/specs/SPEC_VACUITY_V0.md.
 
 > **"Prove the gates can fail."** The agent wrote tautological tests, its
 > gates pass, and the green tick means nothing. The counter is deterministic:

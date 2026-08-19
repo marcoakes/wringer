@@ -367,7 +367,7 @@ A UI builder; a model marketplace; long-horizon consumer memory; replacing CI sy
 
 Paste at the start of every build session:
 
-> You are building **Wringer** per `wringer-ai-dlc-harness-plan.md`. Current phase: {N}. Rules: (1) Using AI-DLC — plan first, wait for approval, execute in bolts. (2) Never merge red: `make verify` must pass. (3) Respect the package-boundary matrix; interfaces only across packages. (4) Small reviewable PRs, conventional commits, evidence in the PR description. (5) Any vendor string, protocol attribute, or external API goes behind the designated mapping layer. (6) Update AGENTS.md when build/test/lint behavior changes. Confirm the phase's exit criteria before proposing the plan.
+> You are building **Wringer** per `ARCHITECTURE-NORTHSTAR.md`. Current phase: {N}. Rules: (1) Using AI-DLC — plan first, wait for approval, execute in bolts. (2) Never merge red: `make verify` must pass. (3) Respect the package-boundary matrix; interfaces only across packages. (4) Small reviewable PRs, conventional commits, evidence in the PR description. (5) Any vendor string, protocol attribute, or external API goes behind the designated mapping layer. (6) Update AGENTS.md when build/test/lint behavior changes. Confirm the phase's exit criteria before proposing the plan.
 
 ## Appendix B — Key references
 

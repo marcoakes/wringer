@@ -4,7 +4,7 @@
 loop can use any coding agent. Each transition is explicit. Each stop is
 explainable. Each delivery requires evidence. Each graph resumes from disk.*
 
-This is [SPEC_GRAPH_V0.md](../SPEC_GRAPH_V0.md), built. It is deliberately
+This is [specs/SPEC_GRAPH_V0.md](../SPEC_GRAPH_V0.md), built. It is deliberately
 small: a local, resumable, evidence-driven workflow file that composes the
 primitives Wringer already has. It is **not** an agent framework, not a
 scheduler, and not a second implementation of anything — a graph node *names a

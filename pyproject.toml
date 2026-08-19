@@ -13,8 +13,13 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Marc Oakes" }]
 keywords = [
-  "ai-dlc", "verification", "evidence", "gates", "ci",
-  "ai-agents", "acceptance-criteria", "agent-harness", "provenance",
+  # `ai-dlc` is dropped deliberately: almost no search volume, and among the
+  # few who know the term it maps to Harness and AWS. `agent-harness` goes for
+  # the same reason — it files this under a category with funded incumbents
+  # and undersells what it does.
+  "mutation-testing", "test-quality", "gate-sensitivity",
+  "verification", "evidence", "gates", "ci",
+  "acceptance-criteria", "provenance", "ai-agents",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",

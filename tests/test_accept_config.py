@@ -1,6 +1,6 @@
 """`proves:` — the link between a criterion and the gate that evidences it.
 
-SPEC_ACCEPT_V0.md §1 and §3, slice A1. The whole feature in one key: nothing
+docs/specs/SPEC_ACCEPT_V0.md §1 and §3, slice A1. The whole feature in one key: nothing
 in this program has ever said "criterion `csv-export-downloads` is proven by
 gate `test-csv-export`", and everything the acceptance bridge claims rests on
 that join existing and being validated.
@@ -21,7 +21,7 @@ import pytest
 
 from wringer import config
 
-SPEC = Path(__file__).resolve().parent.parent / "SPEC_ACCEPT_V0.md"
+SPEC = Path(__file__).resolve().parent.parent / "docs/specs/SPEC_ACCEPT_V0.md"
 
 SPEC_YAML = """\
 schema_version: wringer.spec.v1

@@ -1,4 +1,4 @@
-"""Where a gate runs — SPEC_EXEC_V0.md.
+"""Where a gate runs — docs/specs/SPEC_EXEC_V0.md.
 
 **Read the split in this file before adding to it.** Nothing here observes a
 container. What it does observe is the ARGV Wringer builds, exhaustively —

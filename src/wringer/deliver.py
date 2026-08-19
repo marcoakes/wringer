@@ -74,7 +74,7 @@ class DeliverError(Exception):
 #
 # **A name is not a negotiation.** Naming these changed no condition, no exit
 # code and no message; there is still no `--force`, no `--allow` and no config
-# that turns one off. SPEC_REFUSAL_V0.md §4 ruling 9.
+# that turns one off. docs/specs/SPEC_REFUSAL_V0.md §4 ruling 9.
 REFUSAL_REASONS = (
     "unfinished_git_operation",
     "no_git_identity",

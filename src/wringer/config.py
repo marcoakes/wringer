@@ -1,6 +1,6 @@
 """Load and validate `.wringer.yaml`.
 
-The config surface is deliberately tiny (SPEC_VERIFY_V0.md §Config
+The config surface is deliberately tiny (docs/specs/SPEC_VERIFY_V0.md §Config
 design). Validation is strict: unknown keys are errors, because a typo
 in a gate definition must not silently change what "verified" means.
 """
@@ -18,7 +18,7 @@ import yaml
 CONFIG_FILENAME = ".wringer.yaml"
 DEFAULT_TIMEOUT_SECONDS = 120
 
-# `wring run` defaults (SPEC_RUN_V0.md §Config). Three laps is enough to show
+# `wring run` defaults (docs/specs/SPEC_RUN_V0.md §Config). Three laps is enough to show
 # whether a worker is converging without spending an afternoon proving it is
 # not; fifteen minutes is a generous single turn for a coding agent.
 DEFAULT_MAX_ITERATIONS = 3
@@ -77,7 +77,7 @@ _CONTENDER_CEILINGS = ("wall_clock", "max_iterations", "worker_timeout", "prove"
 _FORGE_KEYS = {"kind", "endpoint", "repo", "token_env", "timeout"}
 _DELIVER_KEYS = {"branch", "base", "remote", "issues_dir"}
 
-# What a branch template may ask Wringer to substitute (SPEC_GET_V0.md §6).
+# What a branch template may ask Wringer to substitute (docs/specs/SPEC_GET_V0.md §6).
 BRANCH_PLACEHOLDERS = ("task", "run")
 
 # The forges `forge.py` maps. A vendor string never appears outside that
@@ -104,7 +104,7 @@ REPO_PATTERN = re.compile(
 # `deliver.remote` and `deliver.base` are passed to git as POSITIONAL
 # arguments, so a value beginning with '-' is read as an option. A remote of
 # `--force` would make a force push assemblable at runtime with the word
-# appearing nowhere in the source — which is SPEC_GET_V0.md §1's third
+# appearing nowhere in the source — which is docs/specs/SPEC_GET_V0.md §1's third
 # condition, broken without breaking the grep that checks it. A remote of
 # `--receive-pack=...` is worse. They are slugs, checked here, before the
 # value can reach an argv.
@@ -201,7 +201,7 @@ _JUDGE_KEYS = {
     "max_output_tokens",
 }
 
-# `wring judge` defaults (SPEC_JUDGE_V0.md §3). endpoint, model and rubric
+# `wring judge` defaults (docs/specs/SPEC_JUDGE_V0.md §3). endpoint, model and rubric
 # have no defaults and never will: Wringer contacts the endpoint you wrote
 # down, never one it guessed.
 DEFAULT_JUDGE_TIMEOUT_SECONDS = 120
@@ -230,7 +230,7 @@ class ConfigError(Exception):
 
 @dataclass(frozen=True)
 class Stability:
-    """A gate's `stability:` policy — SPEC_STABILITY_V0.md §2.
+    """A gate's `stability:` policy — docs/specs/SPEC_STABILITY_V0.md §2.
 
     `attempts` is how many times the gate runs in one verification. Every
     attempt is recorded; the classification comes from the observations and
@@ -249,7 +249,7 @@ class Stability:
 
 @dataclass(frozen=True)
 class Provenance:
-    """The `provenance:` section — SPEC_SIGN_V0.md §5.
+    """The `provenance:` section — docs/specs/SPEC_SIGN_V0.md §5.
 
     Absent means every attestation this repo writes is unsigned, which is what
     every attestation written before this section existed already was, and which
@@ -428,7 +428,7 @@ class Containment:
 
 @dataclass(frozen=True)
 class Run:
-    """The `run:` section — what `wring run` drives (SPEC_RUN_V0.md).
+    """The `run:` section — what `wring run` drives (docs/specs/SPEC_RUN_V0.md).
 
     `worker` has no default and never will. Wringer runs the command a repo
     wrote down; inventing one would be the same sin as inventing a gate.
@@ -472,7 +472,7 @@ class AcpWorker:
     The second worker form. A shell string says "run this and see what
     changed"; this says "hold a session with an agent that speaks a
     standard". Wringer is the ACP *client* and never the agent — that
-    distinction is the whole neutrality position (SPEC_ACP_V0.md).
+    distinction is the whole neutrality position (docs/specs/SPEC_ACP_V0.md).
     """
 
     command: str
@@ -516,7 +516,7 @@ class ScopeEntry:
 
 @dataclass(frozen=True)
 class Fleet:
-    """The `fleet:` section (SPEC_SUPERVISION_V0.md §S3).
+    """The `fleet:` section (docs/specs/SPEC_SUPERVISION_V0.md §S3).
 
     `deadline` is required and has no default: an unbounded fleet is the
     thing this whole slice exists to make impossible.
@@ -597,7 +597,7 @@ class Contender:
 
 @dataclass(frozen=True)
 class Bench:
-    """The `bench:` section (SPEC_BENCH_V0.md §3).
+    """The `bench:` section (docs/specs/SPEC_BENCH_V0.md §3).
 
     `contender_wall_clock` is required and has no default: it is the SAME
     ceiling handed to every contender's loop, and a bench whose contenders
@@ -645,19 +645,19 @@ class Config:
     # `wring issue` and the MR half of `wring deliver` unreachable.
     forge: Forge | None = None
     # None when the repo has not opted into delivery. Its absence is what
-    # makes writing git history unreachable (SPEC_GET_V0.md §1).
+    # makes writing git history unreachable (docs/specs/SPEC_GET_V0.md §1).
     deliver: Deliver | None = None
     # Where `wring get` clones. No default: Wringer does not choose where to
     # put someone's code.
     workspace: str | None = None
     # None when the repo has not opted into benching. Its absence is what
-    # makes `wring bench` unreachable (SPEC_BENCH_V0.md §3).
+    # makes `wring bench` unreachable (docs/specs/SPEC_BENCH_V0.md §3).
     bench: Bench | None = None
-    # Where gates run (SPEC_EXEC_V0.md). None means `local`, which is what
+    # Where gates run (docs/specs/SPEC_EXEC_V0.md). None means `local`, which is what
     # every run did before this section existed — and the bundle still says so
     # out loud, because a reader who is not told assumes the safer answer.
     execution: Execution | None = None
-    # Signing policy (SPEC_SIGN_V0.md). None means unsigned, which every
+    # Signing policy (docs/specs/SPEC_SIGN_V0.md). None means unsigned, which every
     # attestation written before this section was — and which `wring audit`
     # reports as `signature_missing`, the ordinary case rather than a failure.
     provenance: Provenance | None = None

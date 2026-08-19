@@ -1,4 +1,4 @@
-"""The repair loop — verify, brief the worker, verify again (SPEC_RUN_V0.md).
+"""The repair loop — verify, brief the worker, verify again (docs/specs/SPEC_RUN_V0.md).
 
 `wring verify` proves a change. This closes the loop around it: while the
 gates fail, write what failed into a brief and hand it to the worker the repo
@@ -1679,7 +1679,7 @@ def _objective(
     """What is being built — or nothing at all, which is most repos.
 
     The opt-in boundary is **approval**, exactly as acceptance's is
-    (SPEC_ACCEPT_V0.md ruling 8), and it is read through acceptance's own
+    (docs/specs/SPEC_ACCEPT_V0.md ruling 8), and it is read through acceptance's own
     reader so the two cannot drift apart. Triggering on the file existing
     would put a model's unread draft into the instructions a worker acts on,
     which is the interlock SPEC_INTENT §3 owns. Without an approved spec this

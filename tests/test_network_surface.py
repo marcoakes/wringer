@@ -232,7 +232,7 @@ def test_no_document_promises_a_grep_count_for_the_socket_claim():
     promises = re.compile(r"grep[^\n]{0,60}build_opener")
     offenders = []
     for path in searched:
-        if path.name == "SPEC_GATEGEN_V0.md":
+        if path.name == "docs/specs/SPEC_GATEGEN_V0.md":
             continue  # §6 carries the finding; correcting it is the point
         flat = " ".join(path.read_text(encoding="utf-8").split())
         if path.suffix == ".py":

@@ -1,4 +1,4 @@
-"""Where a gate's command actually runs — SPEC_EXEC_V0.md.
+"""Where a gate's command actually runs — docs/specs/SPEC_EXEC_V0.md.
 
 `.wringer.yaml` is code. `wring verify` runs the commands a repository declared,
 through a shell, with the invoking user's privileges, and SECURITY.md has always

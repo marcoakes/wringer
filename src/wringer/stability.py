@@ -1,6 +1,6 @@
 """Flaky gates — run a gate more than once and classify what came back.
 
-SPEC_STABILITY_V0.md. The whole feature is one refusal and one routing rule:
+docs/specs/SPEC_STABILITY_V0.md. The whole feature is one refusal and one routing rule:
 
 **Classification comes from the observations and from nothing else.** Three
 passes is `stable_pass`, three failures is `stable_fail`, a mixture is `flaky`,

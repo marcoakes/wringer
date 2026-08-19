@@ -1,4 +1,4 @@
-"""F4 at scale — the scoped loop and the scoped fleet (SPEC_SCOPE_V0.md).
+"""F4 at scale — the scoped loop and the scoped fleet (docs/specs/SPEC_SCOPE_V0.md).
 
 Scripted workers throughout, like `test_run.py`: the contract under test is
 what the harness SAYS and what it records, never what an agent is clever

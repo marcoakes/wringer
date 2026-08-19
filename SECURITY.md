@@ -288,7 +288,7 @@ leave the machine the worker runs on — and Wringer does not do that for you.
 added 2026-08-15 with the signing row's correction, in the same commit as it.
 The signing row had been wrong on three counts at once — it said the
 capability was not offered, that it was unsigned *by ruling* (that ruling was
-reopened by [SPEC_SIGN_V0.md](SPEC_SIGN_V0.md)), and that
+reopened by [docs/specs/SPEC_SIGN_V0.md](docs/specs/SPEC_SIGN_V0.md)), and that
 `attestation.json.sig` was reserved and unused while `sign.py` had been
 writing it since 2026-08-12 — and it stayed wrong because a hand-kept table
 had no relationship to the program that a test could check. Now a row

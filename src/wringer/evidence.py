@@ -1,6 +1,6 @@
 """Write the evidence bundle — the product.
 
-Boring, stable, grep-friendly (SPEC_VERIFY_V0.md §The evidence
+Boring, stable, grep-friendly (docs/specs/SPEC_VERIFY_V0.md §The evidence
 bundle). `evidence.jsonl` is append-only, one JSON object per line;
 `manifest.json` is the run's index and carries `schema_version` so future
 readers can tell what they are holding. Day 1 writes those two files;
@@ -100,7 +100,7 @@ STABILITY_FILENAME = "stability.json"
 # alone, which is every bundle written before concurrency existed.
 CONCURRENCY_FILENAME = "concurrency.json"
 # The one sibling written on EVERY run, opt-in or not, and the only place a
-# bundle says where its gates actually ran (SPEC_EXEC_V0.md §3). Every other
+# bundle says where its gates actually ran (docs/specs/SPEC_EXEC_V0.md §3). Every other
 # sibling is conditional because a reader who does not find it learns nothing
 # either way; this one is unconditional because a reader who is not told where
 # a command ran will assume the safer answer, and the safer answer is wrong.

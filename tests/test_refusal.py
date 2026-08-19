@@ -1,4 +1,4 @@
-"""The delivery refusals get names — SPEC_REFUSAL_V0.md §4, slice R1.
+"""The delivery refusals get names — docs/specs/SPEC_REFUSAL_V0.md §4, slice R1.
 
 `deliver.py` refuses in 23 places and every one of them was prose plus an exit
 code. A surface downstream that wanted to know *which* refusal happened had to
@@ -100,7 +100,7 @@ def test_every_refusal_site_names_a_reason():
     assert len(sites) == 23, (
         f"expected 23 `raise Refused(` sites in {SOURCE.name}, found "
         f"{len(sites)} at lines {[n.lineno for n in sites]} — if a refusal was "
-        "added or removed, SPEC_REFUSAL_V0.md §4's table and "
+        "added or removed, docs/specs/SPEC_REFUSAL_V0.md §4's table and "
         "deliver.REFUSAL_REASONS both move with it"
     )
 

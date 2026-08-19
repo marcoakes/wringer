@@ -6,7 +6,7 @@ the receipt for that claim: real captured output from two repos with no
 Python in them.
 
 The implementation is Python for the reasons in
-[SPEC_VERIFY_V0.md](../SPEC_VERIFY_V0.md#implementation-stack) — ubiquitous,
+[specs/SPEC_VERIFY_V0.md](../SPEC_VERIFY_V0.md#implementation-stack) — ubiquitous,
 inspectable, `pipx`-installable. What it verifies is your business.
 
 ## A Make project

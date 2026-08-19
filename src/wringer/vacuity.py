@@ -1,4 +1,4 @@
-"""`wring verify --prove` — prove the gates can fail (SPEC_VACUITY_V0.md).
+"""`wring verify --prove` — prove the gates can fail (docs/specs/SPEC_VACUITY_V0.md).
 
 > The agent wrote tautological tests, its gates pass, and the green tick means
 > nothing — reward-hacking by another name, and the failure mode everyone in

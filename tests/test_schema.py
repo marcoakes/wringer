@@ -332,7 +332,7 @@ run:
     assert not errors, "\n".join(errors)
 
 
-# --- the spec and the rubric (SPEC_INTENT_V0.md) ---
+# --- the spec and the rubric (docs/specs/SPEC_INTENT_V0.md) ---
 #
 # These two are not evidence — they are source, committed and hand-edited —
 # but the same rule applies: a published schema that stops describing what the
@@ -552,7 +552,7 @@ def test_the_two_schemas_describe_one_criterion(monkeypatch):
     assert in_rubric == in_spec
 
 
-# --- delivery and acquisition (SPEC_GET_V0.md) ---
+# --- delivery and acquisition (docs/specs/SPEC_GET_V0.md) ---
 #
 # The delivery manifest is the only bundle in Wringer that describes writes to
 # git. It exists because the amended law 6 buys that power with receipts, so a
@@ -1952,7 +1952,7 @@ def test_what_the_sidecar_renderer_writes_round_trips_through_its_reader():
     assert [g.proves for g in back] == ["c-one", "c-two"]
 
 
-# --- wringer.stability.v1 (SPEC_STABILITY_V0.md) -----------------------------
+# --- wringer.stability.v1 (docs/specs/SPEC_STABILITY_V0.md) -----------------
 
 
 def _flaked(repo: Path, monkeypatch, capsys, tmp_path: Path) -> dict:

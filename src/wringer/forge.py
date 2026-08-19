@@ -7,7 +7,7 @@ header carries the token. Adding a forge is adding a row.
 
 `request()` is **the second and last function in Wringer that opens a
 socket** — `judge.send` is the other. Until this slice that sentence said
-"only", and SPEC_GET_V0.md §7 restates it rather than quietly keeping the old
+"only", and docs/specs/SPEC_GET_V0.md §7 restates it rather than quietly keeping the old
 claim. It used to name a grep that would prove it; the grep counted this
 docstring, so `tests/test_network_surface.py` parses the modules instead.
 

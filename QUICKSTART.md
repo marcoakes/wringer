@@ -512,7 +512,7 @@ wring verify --changed-only  # gate only what changed
 It is deliberately unbuilt: the spec names the flag but never defines what
 "changed" should mean, and a flag that half-works is worse than a missing
 one when agents consume the CLI. The release bar is the spec's
-[Definition of PROVEN](SPEC_VERIFY_V0.md#definition-of-proven--the-repo-must-show-its-own-receipts),
+[Definition of PROVEN](docs/specs/SPEC_VERIFY_V0.md#definition-of-proven--the-repo-must-show-its-own-receipts),
 and every line of it is ticked — including the PyPI publish, which landed
 with 0.2.0 on 2026-08-03.
 

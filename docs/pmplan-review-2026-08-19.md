@@ -1,6 +1,6 @@
 # The SPEC_PMPLAN_V0 review (2026-08-19) — NOT SOUND, 19 findings
 
-An adversarial multi-lane review of `SPEC_PMPLAN_V0.md`, run before any code
+An adversarial multi-lane review of `specs/SPEC_PMPLAN_V0.md`, run before any code
 was written against it. **Verdict: NOT SOUND.**
 
 | | |
@@ -63,7 +63,7 @@ merges wringer.gates.yaml (installed=False) with .wringer.yaml
 acceptance from `cfg.gates` — .wringer.yaml only. The board's own fixture
 (test_interview.py:50-63) is proposed-only, so slice 3's capture would be
 taken against the one shape that hides the defect. Third leg:
-SPEC_PMPLAN_V0.md:79-82 still reads "because the other criteria have nothing
+specs/SPEC_PMPLAN_V0.md:79-82 still reads "because the other criteria have nothing
 checking them", which ruling 9 itself (:396-400) calls false.
 
 **Proposed fix.** Re-ground ruling 9's classes on accept.Row.refuses, not on boundness: (a)
@@ -98,7 +98,7 @@ cannot show its proof." / "See the cards above — each one holding this up says
 what it needs." The spec keeps field one, DROPS field two, and substitutes
 "That is this tool working, not failing: it will not hand over work it cannot
 prove." Grepped /Users/marc/Claude/wringer, wringer-board and wringer-drive:
-the only hit is SPEC_PMPLAN_V0.md:388 itself. tests/test_refusals.py:376-389
+the only hit is specs/SPEC_PMPLAN_V0.md:388 itself. tests/test_refusals.py:376-389
 pins that a Saying is a sentence AND exactly one question, so dropping half is
 not "verbatim" either. The block also renders at APPROVAL time in the present
 tense about an event that has not happened, and "working, not failing" softens
@@ -453,7 +453,7 @@ decisions.schema.json is authored complete at publication, so every build path
 from here violates law 2 or the suite's own "declared shape with no producer"
 standard.
 
-**Evidence.** SPEC_PMPLAN_V0.md:146 freezes it on publication; §4:603-605 puts assumptions
+**Evidence.** specs/SPEC_PMPLAN_V0.md:146 freezes it on publication; §4:603-605 puts assumptions
 in slice 2, outcome in slice 3, revise+fingerprint in slice 4; :551-553 lets
 the fingerprint ship OWED; :613 says slices 1–2 alone are a successful window.
 tests/test_schema.py:1037 asserts frozen.json == the set of
@@ -636,7 +636,7 @@ never be corrected. Ruling 12 also leaves the sidecar write's shape
 unconstrained by B5, so a builder will reach for a YAML round-trip and reflow
 a person's hand-authored file.
 
-**Evidence.** SPEC_PMPLAN_V0.md:149-151 vs :501-506 ("wring plan recomputes it and refuses
+**Evidence.** specs/SPEC_PMPLAN_V0.md:149-151 vs :501-506 ("wring plan recomputes it and refuses
 when it differs"). Every sibling schema puts exactly this kind of ceiling
 sentence in its description (see briefed.schema.json, and schema/README.md's
 diagnosis / worker-diagnosis rows), and law 2 makes that description unfixable

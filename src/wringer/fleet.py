@@ -1,6 +1,6 @@
 """Run many repair loops under supervision — `wringer.fleet.v1`.
 
-SPEC_SUPERVISION_V0.md §S3. Hundreds of tasks may be queued; a bounded pool
+docs/specs/SPEC_SUPERVISION_V0.md §S3. Hundreds of tasks may be queued; a bounded pool
 runs at a time; what can heal is retried once on a *new* failure shape; what
 cannot is parked with its evidence; and the whole thing survives its own
 death because every fact is on an append-only ledger before it is acted on.

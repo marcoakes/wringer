@@ -4,7 +4,7 @@
 purpose and is pruned from the distribution: nothing here is importable from the
 package, and the package does not need it.
 
-Contract: [SPEC_BENCHMARK_V0.md](../SPEC_BENCHMARK_V0.md). Design legwork:
+Contract: [docs/specs/SPEC_BENCHMARK_V0.md](../SPEC_BENCHMARK_V0.md). Design legwork:
 `~/Claude/WRINGER_BENCHMARK_DOSSIER.md`.
 
 ## The claim, stated so it can lose

@@ -1,4 +1,4 @@
-"""The `bench:` section (SPEC_BENCH_V0.md §3).
+"""The `bench:` section (docs/specs/SPEC_BENCH_V0.md §3).
 
 Two rules decide every check in this file, and both are refusals rather than
 validation taste:

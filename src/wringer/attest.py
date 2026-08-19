@@ -1,4 +1,4 @@
-"""`wring attest` and `wring audit` — SPEC_PROVENANCE_V0.md.
+"""`wring attest` and `wring audit` — docs/specs/SPEC_PROVENANCE_V0.md.
 
 > "Who wrote this code, under whose authority, verified how?" — answered by a
 > file, checkable offline, by someone who trusts none of us.

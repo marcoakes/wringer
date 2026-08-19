@@ -31,7 +31,7 @@ program scores one ([`accept.py:30-32`](src/wringer/accept.py)). Delivery
 refuses a bundle whose gates passed while a required bound criterion is not
 evidenced ([`deliver.py:585-606`](src/wringer/deliver.py)). For net-new work a
 criterion becomes a proposed gate, a human installs it, and it must be caught
-red before anyone builds ([SPEC_GATEGEN_V0.md §Positioning](SPEC_GATEGEN_V0.md)).
+red before anyone builds ([docs/specs/SPEC_GATEGEN_V0.md §Positioning](docs/specs/SPEC_GATEGEN_V0.md)).
 
 **Classification: OUT OF SCOPE.** A change that satisfies every declared check
 and still is not what was wanted is not distinguishable *from the criterion* —
@@ -49,12 +49,12 @@ and it is the only part of this adversary the machinery reaches.
 
 **Machinery.** `wring verify --prove` re-runs the declared gates on a scratch
 worktree at HEAD; every required gate passing on **both** trees is the verdict
-`gates_vacuous` ([SPEC_VACUITY_V0.md §1](SPEC_VACUITY_V0.md)). It is switched on
+`gates_vacuous` ([docs/specs/SPEC_VACUITY_V0.md §1](docs/specs/SPEC_VACUITY_V0.md)). It is switched on
 by `.wringer.yaml` (`run.prove: true`) and a flag may only tighten it — there is
 deliberately no `--no-prove`, because *the audited party does not get to choose
 whether the audit runs*, and that invoker is increasingly the agent itself
-([§3a](SPEC_VACUITY_V0.md)). Delivery refuses a `gates_vacuous` bundle and there
-is no `--allow-vacuous` ([§3b](SPEC_VACUITY_V0.md);
+([§3a](docs/specs/SPEC_VACUITY_V0.md)). Delivery refuses a `gates_vacuous` bundle and there
+is no `--allow-vacuous` ([§3b](docs/specs/SPEC_VACUITY_V0.md);
 [`deliver.py:468-487`](src/wringer/deliver.py)). The **born-green gate**: a
 criterion whose bound gate passed while nothing in the record shows it can fail
 reads UNEVIDENCED — *a gate born green evidences nothing*
@@ -64,34 +64,34 @@ refuses to rank at all — no winner, no score, no ordering field in any schema 
 that slice — because an agent that "fixes" a planted failure by rewriting the
 failing test into a tautology produces green gates *faster* than an honest fix,
 so an auto-ranked bench would systematically reward reward-hacking
-([SPEC_BENCH_V0.md §5 ruling 6](SPEC_BENCH_V0.md)).
+([docs/specs/SPEC_BENCH_V0.md §5 ruling 6](docs/specs/SPEC_BENCH_V0.md)).
 
 **Classification: DETECTED.**
 
 **What it does not do.** `--prove` cannot see a test that was **neutered** —
 delete a failing assertion and the gate genuinely does fail at HEAD, so the
 verdict is `proven` for the wrong reason; catching it needs reverse-patching,
-which §1 rules out by name ([SPEC_VACUITY_V0.md §5a](SPEC_VACUITY_V0.md), pinned
+which §1 rules out by name ([docs/specs/SPEC_VACUITY_V0.md §5a](docs/specs/SPEC_VACUITY_V0.md), pinned
 by `test_prove_cannot_see_a_neutered_failing_test`). A worker is free to run
 `git commit`, after which the pre-change tree is one the agent moved
-([SPEC_BENCH_V0.md §5 ruling 6](SPEC_BENCH_V0.md)). And `gates_vacuous` is a
+([docs/specs/SPEC_BENCH_V0.md §5 ruling 6](docs/specs/SPEC_BENCH_V0.md)). And `gates_vacuous` is a
 **whole-set** verdict: one insensitive gate beside a sensitive one reads
-`proven` and delivers ([SPEC_HEALTH_V0.md §2](SPEC_HEALTH_V0.md)).
+`proven` and delivers ([docs/specs/SPEC_HEALTH_V0.md §2](docs/specs/SPEC_HEALTH_V0.md)).
 
 ## 3. The narrowing check — a gate that silently stops being able to fail
 
 **Machinery.** `wring health` reads the bundles your runs already wrote and
 answers, per gate, whether there is any evidence this check can still fail
-([SPEC_HEALTH_V0.md §Positioning](SPEC_HEALTH_V0.md)). Four verdicts — `alive`,
+([docs/specs/SPEC_HEALTH_V0.md §Positioning](docs/specs/SPEC_HEALTH_V0.md)). Four verdicts — `alive`,
 `zombie`, `untested`, `retired` — computed over the newest `WINDOW` qualifying
 runs, so one ancient failure cannot keep a gate alive forever
-([§2](SPEC_HEALTH_V0.md); [`health.py:502-505`](src/wringer/health.py)).
+([§2](docs/specs/SPEC_HEALTH_V0.md); [`health.py:502-505`](src/wringer/health.py)).
 `MIN_HISTORY` is 10 and `WINDOW` is 25 and both are **constants, not config
 keys**: a tunable threshold is a knob whose only realistic use is making zombies
 disappear before a release ([`health.py:495-500`](src/wringer/health.py)).
 `--strict` exits 1 for a required zombie and nothing else
 ([`health.py:924-941`](src/wringer/health.py)). Bench-sourced bundles are read
-and shown and decide nothing ([SPEC_HEALTH_V0.md §2](SPEC_HEALTH_V0.md)).
+and shown and decide nothing ([docs/specs/SPEC_HEALTH_V0.md §2](docs/specs/SPEC_HEALTH_V0.md)).
 
 **Classification: DETECTED.**
 
@@ -101,7 +101,7 @@ record shows, names the bundles it read, and counts the ones it could not.
 green for months, and the claim is only that nothing recent shows it
 discriminating. Thin history renders as `untested`, never as health. It inherits
 vacuity §5a's blind spot whole and says so in its own `limits`
-([SPEC_HEALTH_V0.md §2 and header](SPEC_HEALTH_V0.md)).
+([docs/specs/SPEC_HEALTH_V0.md §2 and header](docs/specs/SPEC_HEALTH_V0.md)).
 
 ## 4. The malicious repository or graph author — their commands, your privileges
 
@@ -114,11 +114,11 @@ explicit mount, `--network none` and a name-only environment allowlist, and
 `execution.json` records which backend ran (same section). A **graph adds no
 execution surface**: graphs name capabilities, never commands, no `command:` key
 exists in the format, and the only file that may put a command into Wringer's
-mouth remains `.wringer.yaml` ([SPEC_GRAPH_V0.md §5 ruling 1](SPEC_GRAPH_V0.md));
+mouth remains `.wringer.yaml` ([docs/specs/SPEC_GRAPH_V0.md §5 ruling 1](docs/specs/SPEC_GRAPH_V0.md));
 graph state is routing data and only bundles gate, so a graph that lied in state
-delivers nothing ([ruling 2](SPEC_GRAPH_V0.md)); a graph file may not declare
+delivers nothing ([ruling 2](docs/specs/SPEC_GRAPH_V0.md)); a graph file may not declare
 `--send` and a decision file may not carry it, because a file is not a typed
-flag ([ruling 5](SPEC_GRAPH_V0.md)). Gate ids are validated as slugs so a config
+flag ([ruling 5](docs/specs/SPEC_GRAPH_V0.md)). Gate ids are validated as slugs so a config
 cannot write outside the run directory, and verify refuses outside a git
 repository (exit `2`) and mid-merge/rebase (exit `3`) ([SECURITY.md](SECURITY.md)).
 
@@ -172,7 +172,7 @@ container is started with `--cap-add NET_ADMIN`, the declared hosts are resolved
 inside it, and the worker container joins that network namespace **without
 `NET_ADMIN`** — the boundary is not inside the thing being bounded, which is why
 the holder is a separate container at all
-([SPEC_CONTAIN_V0.md §4](SPEC_CONTAIN_V0.md)). Sequence I measured it and
+([docs/specs/SPEC_CONTAIN_V0.md §4](docs/specs/SPEC_CONTAIN_V0.md)). Sequence I measured it and
 carries the `--privileged` control run sequence G lacks, the first in this
 repository. On the macOS/podman ACP row and on the Linux/docker row, **7 of the
 8 attack probes flip** against that control; the eighth is the model API, which
@@ -197,14 +197,14 @@ is the same model cut one way: what the **worker** — the agent writing the cod
 | approve a specification | a human, by editing the file | `draft()` writes `approved: false` unconditionally; no reply, flag or environment variable can set it true, and there is no `--yes`. A reply carrying `approved` is refused whole ([`spec.py:12-15`, `:675-685`](src/wringer/spec.py)) | no |
 | install a gate or a criterion binding | a human, by applying a diff | `wring plan` prints the diff and stops; nothing in the program applies it ([SECURITY.md](SECURITY.md)) | no |
 | call a criterion `evidenced` | nobody — it is derived | the bound gate passed now, the record shows it can fail, and the gate pre-dates the change it judges ([`accept.py:528-545`](src/wringer/accept.py)) | no |
-| authorise delivery | a human, per invocation | `--send` is typed on the command line; no file may carry it ([SPEC_GRAPH_V0.md §5 ruling 5](SPEC_GRAPH_V0.md)) | no |
+| authorise delivery | a human, per invocation | `--send` is typed on the command line; no file may carry it ([docs/specs/SPEC_GRAPH_V0.md §5 ruling 5](docs/specs/SPEC_GRAPH_V0.md)) | no |
 | write git history | `deliver.py`, and only there | five refusals, each with a test that fails without it: only on `--send`, only onto a branch it created, never the default branch, never a force push, a ledger event before each git write ([`deliver.py:1-20`](src/wringer/deliver.py)) | no |
 | sign an attestation | a person typing `--sign` in CI | keyless Sigstore through a signer the user already has; Wringer holds no key, and `can_sign_here` refuses off-CI where no OIDC identity is ambient ([`sign.py:1-36`](src/wringer/sign.py)). **The signer path has been exercised only against a stub signer and has never run against live Sigstore** ([SECURITY.md](SECURITY.md)) | no |
 | **rewrite evidence already on disk** | **a worker can** | nothing stops it. `digests.json`, the `prev_hash` ledger chain and `wring audit` make it **findable** ([SECURITY.md](SECURITY.md)) | **yes — the one row** |
 
 **What the worker is handed is a path**: work given to a child is a brief file
 or a bundle directory, never an inline payload
-([SPEC_SUPERVISION_V0.md invariant 5](SPEC_SUPERVISION_V0.md);
+([docs/specs/SPEC_SUPERVISION_V0.md invariant 5](docs/specs/SPEC_SUPERVISION_V0.md);
 [`loop.py:1-5`](src/wringer/loop.py)). `loop.py` does not import `deliver` and
 never calls it; its only mentions of delivery are comments explaining why not.
 

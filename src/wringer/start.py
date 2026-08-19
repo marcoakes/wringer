@@ -1,4 +1,4 @@
-"""`wring start` — the guided launch (SPEC_START_V0.md).
+"""`wring start` — the guided launch (docs/specs/SPEC_START_V0.md).
 
 The program's first interactive surface, and the machinery that makes it
 testable: everything here is a pure function of the answers it was given, so
@@ -331,7 +331,8 @@ def _parse(text: str, source: str) -> config.Config:
 
 # --- the credential ---------------------------------------------------------
 #
-# SPEC_START_V0.md §3a: prompted, held in memory for the process this launches,
+# docs/specs/SPEC_START_V0.md §3a: prompted, held in memory for the process
+# this launches,
 # written nowhere. Not to config, not to disk, not to the ledger, not to a
 # bundle, not to a process listing.
 

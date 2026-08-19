@@ -86,14 +86,14 @@ MILESTONES: tuple[Milestone, ...] = (
     ),
     Milestone(
         "P1", "ACP",
-        files=("src/wringer/acp.py", "SPEC_ACP_V0.md"),
+        files=("src/wringer/acp.py", "docs/specs/SPEC_ACP_V0.md"),
     ),
     Milestone("P2", "spec/plan", commands=("spec", "plan")),
     Milestone("P3", "issue→MR", commands=("get", "issue", "deliver")),
     Milestone(
         "P4", "PM UX",
         commands=("start",),
-        files=("SPEC_START_V0.md", "docs/start.cast.json"),
+        files=("docs/specs/SPEC_START_V0.md", "docs/start.cast.json"),
     ),
     Milestone(
         "P5", "attest",
@@ -110,7 +110,7 @@ MILESTONES: tuple[Milestone, ...] = (
     Milestone(
         "P6", "bench",
         commands=("bench",),
-        files=("docs/bench.md", "SPEC_BENCH_V0.md"),
+        files=("docs/bench.md", "docs/specs/SPEC_BENCH_V0.md"),
     ),
     # Probed on the DOCS, not on the command: `wring graph validate`
     # and `render` ship in the first slice while four verbs do not, so
@@ -119,7 +119,7 @@ MILESTONES: tuple[Milestone, ...] = (
     Milestone(
         "P7", "graphs",
         commands=("graph",),
-        files=("docs/graphs.md", "SPEC_GRAPH_V0.md"),
+        files=("docs/graphs.md", "docs/specs/SPEC_GRAPH_V0.md"),
     ),
     # Probed on the DOCS for the same reason as P6 and P7, and the reason is
     # sharper here: `health` registers with its reader, its verdicts and its
@@ -132,7 +132,7 @@ MILESTONES: tuple[Milestone, ...] = (
     Milestone(
         "P8", "health",
         commands=("health",),
-        files=("docs/health.md", "SPEC_HEALTH_V0.md"),
+        files=("docs/health.md", "docs/specs/SPEC_HEALTH_V0.md"),
     ),
     # --- the factory, which the rail did not measure ----------------------
     #
@@ -164,7 +164,7 @@ MILESTONES: tuple[Milestone, ...] = (
         # Probed on the DOCS like P6/P7/P8: the spec now exists, and a node
         # green on the spec would claim a finished feature an arc early.
         "F2", "gate authoring",
-        files=("SPEC_GATEGEN_V0.md", "docs/gategen.md"),
+        files=("docs/specs/SPEC_GATEGEN_V0.md", "docs/gategen.md"),
     ),
     Milestone(
         # Whether the brief a worker receives is good enough to build from.
@@ -197,7 +197,7 @@ MILESTONES: tuple[Milestone, ...] = (
         # at scale" off a page that might prove the opposite. It is born
         # meaning something, and it was red until the capture existed.
         "F4b", "at scale",
-        files=("SPEC_SCOPE_V0.md", "docs/fleet-scale.md"),
+        files=("docs/specs/SPEC_SCOPE_V0.md", "docs/fleet-scale.md"),
         contains=(("docs/fleet-scale.md", "reached `wring deliver`"),),
     ),
     Milestone(
@@ -215,7 +215,7 @@ MILESTONES: tuple[Milestone, ...] = (
     Milestone(
         # "repositories", plural.
         "F5", "multi-repo",
-        files=("SPEC_MULTIREPO_V0.md",),
+        files=("docs/specs/SPEC_MULTIREPO_V0.md",),
     ),
 )
 

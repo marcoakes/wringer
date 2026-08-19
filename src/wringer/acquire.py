@@ -1,4 +1,4 @@
-"""Bring work in — `wring get` and `wring issue` (SPEC_GET_V0.md §§3-4).
+"""Bring work in — `wring get` and `wring issue` (docs/specs/SPEC_GET_V0.md §§3-4).
 
 Two commands that turn a URL into something on disk. Neither runs anything it
 fetched: a fresh clone is untrusted input, and `.wringer.yaml` is code
@@ -142,7 +142,7 @@ def clone(url: str, target: Path) -> Acquired:
 def default_branch(root: Path, remote: str = "origin") -> str | None:
     """The remote's default branch, or None if it cannot be determined.
 
-    None is a refusal upstream, never a guess: SPEC_GET_V0.md §1 forbids
+    None is a refusal upstream, never a guess: docs/specs/SPEC_GET_V0.md §1 forbids
     touching the default branch, and a branch you could not name is not one
     you can be sure you avoided.
     """

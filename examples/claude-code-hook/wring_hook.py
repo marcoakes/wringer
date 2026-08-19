@@ -11,7 +11,7 @@ both of them argue from. Nothing here calls an LLM or uploads anything; the
 hook only reads what `wring` already wrote to disk.
 
 Control flow follows Wringer's exit codes, which are contract
-(SPEC_VERIFY_V0.md): 0 passed - 1 a required gate failed - 2 config or
+(docs/specs/SPEC_VERIFY_V0.md): 0 passed - 1 a required gate failed - 2 config or
 environment error - 3 refused (unsafe tree) - 4 interrupted.
 
 Feedback follows Claude Code's hook contract: a PostToolUse hook **cannot

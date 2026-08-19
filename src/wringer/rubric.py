@@ -1,4 +1,4 @@
-"""Load and validate a rubric — `wringer.rubric.v1` (SPEC_JUDGE_V0.md §4).
+"""Load and validate a rubric — `wringer.rubric.v1` (docs/specs/SPEC_JUDGE_V0.md §4).
 
 A rubric is its own file rather than a section of `.wringer.yaml`, for one
 reason: **its bytes get sent over a wire.** That earns it its own size and
@@ -44,7 +44,7 @@ class Criterion:
     # A criterion no judge can decide — "the copy reads well", "this is the
     # right trade-off". It is never sent, and it comes back unscored, because
     # a model guessing at it would be exactly the confident-wrong-answer the
-    # rubric exists to prevent (SPEC_INTENT_V0.md §1, defence 3).
+    # rubric exists to prevent (docs/specs/SPEC_INTENT_V0.md §1, defence 3).
     human: bool = False
 
 
@@ -118,7 +118,7 @@ def parse_document(data: Any, where: str) -> tuple[str, tuple[Criterion, ...]]:
     Public because `wring spec` builds a rubric in memory and must prove it is
     one *before* writing it. Running the real parser is what makes
     "the criteria block is a `wringer.rubric.v1` document by construction"
-    (SPEC_INTENT_V0.md §3) structural rather than aspirational.
+    (docs/specs/SPEC_INTENT_V0.md §3) structural rather than aspirational.
     """
     if not isinstance(data, dict):
         raise RubricError(f"rubric {where}: top level must be a mapping")

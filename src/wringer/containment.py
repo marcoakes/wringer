@@ -1,4 +1,4 @@
-"""Where the WORKER runs — SPEC_CONTAIN_V0.md.
+"""Where the WORKER runs — docs/specs/SPEC_CONTAIN_V0.md.
 
 `backend.py` is the seam that lets a repository say a gate runs somewhere
 else. This is the other half, and SPEC_EXEC_V0 §5 is the reason it needed

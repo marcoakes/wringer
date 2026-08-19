@@ -1,4 +1,4 @@
-"""Signed provenance, CI-only — SPEC_SIGN_V0.md.
+"""Signed provenance, CI-only — docs/specs/SPEC_SIGN_V0.md.
 
 **What is real here and what is argv-only.** Unlike the container backend, the
 LOGIC in this slice is exercised end to end: a stub signer — a real shell script

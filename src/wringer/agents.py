@@ -8,7 +8,8 @@ name. Swapping which agents Wringer offers is then a table edit rather than a
 grep, and `tests/test_start.py` fails if a name escapes.
 
 **Nothing here runs.** The install command is *data the human is shown*, never
-an argv — SPEC_START_V0.md §3c-i, confirmed by Marc on 2026-08-06, against two
+an argv — docs/specs/SPEC_START_V0.md §3c-i, confirmed by Marc on 2026-08-06,
+against two
 documents that said `wring start` would install with consent. Three reasons,
 the first decisive: the program already promises the opposite in shipped
 strings a user can read (`config.py`'s "Wringer never bundles or installs one",
@@ -21,7 +22,7 @@ rather than a promise not to; a test asserts that.
 `PATH`; `package` is what installs it; `key_env` is the variable that agent
 expects its credential in. They are pinned, in one table, for the reason rule 5
 exists: an agent that changes its invocation makes this a one-line diff. The
-`claude-code` entry's binary is the one `SPEC_ACP_V0.md`'s own config example
+`claude-code` entry's binary is the one `docs/specs/SPEC_ACP_V0.md`'s own config example
 already names.
 
 `args` is empty for both entries and that is a deliberate refusal, not an

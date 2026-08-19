@@ -1,7 +1,7 @@
 """Run a gate's command: timed, timeout-enforced, streams captured.
 
 Every command gets stdout, stderr, an exit code, a duration and a timeout
-status (SPEC_VERIFY_V0.md §Config design, rule 4). The streams go to
+status (docs/specs/SPEC_VERIFY_V0.md §Config design, rule 4). The streams go to
 files, not the console: the bundle is the product, and `wring verify` exists
 to replace scrollback rather than reproduce it.
 """

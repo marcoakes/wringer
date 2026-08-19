@@ -1,4 +1,4 @@
-"""The rubric judge — `wringer.judge.v1` (SPEC_JUDGE_V0.md).
+"""The rubric judge — `wringer.judge.v1` (docs/specs/SPEC_JUDGE_V0.md).
 
 Reads a *finished* evidence bundle plus a rubric and produces a structured
 verdict. It is a standalone command over a completed artifact, the way
@@ -16,7 +16,7 @@ loop, a brief, or a worker log.
 is ever consulted, so what leaves the machine is auditable rather than
 asserted, and `--send` is the same code path continuing one step further.
 `send()` below is one of the two functions in Wringer that open a
-socket; `forge.request` is the other (SPEC_GET_V0.md §7).
+socket; `forge.request` is the other (docs/specs/SPEC_GET_V0.md §7).
 """
 
 from __future__ import annotations
@@ -298,7 +298,8 @@ def send(request: dict, endpoint: str, timeout: int, api_key: str | None) -> dic
     """Post the request and return the parsed reply.
 
     **One of the two functions in Wringer that open a socket** — this and
-    `forge.request`, added in P3 and named in SPEC_GET_V0.md §7. It is reached
+    `forge.request`, added in P3 and named in docs/specs/SPEC_GET_V0.md §7. It
+    is reached
     only from `wring judge --send`, only when a repo declared an endpoint, and
     only after `request.json` is already on disk. This docstring used to name
     a grep as the proof and was one of the grep's own hits;

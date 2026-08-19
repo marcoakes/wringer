@@ -5,7 +5,7 @@ A bundle captures whatever a gate printed, so a tool that echoes
 and `.wringer/` is one `git add -f` away from being public.
 
 Redaction happens **before** the write, never as a cleanup pass: the raw
-value must not reach the file at all (SPEC_VERIFY_V0.md §Config design,
+value must not reach the file at all (docs/specs/SPEC_VERIFY_V0.md §Config design,
 rule 5). That is why gate output is captured through a pipe rather than
 handed straight to a file descriptor.
 

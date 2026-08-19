@@ -175,7 +175,7 @@ Do not edit anything under `.wringer/`: that is the evidence, not the code.
   pins it in both states (no spec at all, and a spec awaiting approval), and
   it was watched failing against a build that ignored approval.
 - **The opt-in boundary is approval**, exactly as acceptance's is
-  (`SPEC_ACCEPT_V0.md` ruling 8) — and it is acceptance's own reader,
+  (`specs/SPEC_ACCEPT_V0.md` ruling 8) — and it is acceptance's own reader,
   `accept.read_spec`, so the two cannot drift apart. A drafted spec nobody has
   read yet has no force over what a worker is told, for the same reason it has
   none over delivery.

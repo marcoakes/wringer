@@ -1,4 +1,4 @@
-"""`wring plan` — the approved spec becomes work (SPEC_INTENT_V0.md §4).
+"""`wring plan` — the approved spec becomes work (docs/specs/SPEC_INTENT_V0.md §4).
 
 `wring plan` runs nothing. It reads a file a human approved, writes the task
 file, the briefs and the rubric, prints the gate change it would like someone

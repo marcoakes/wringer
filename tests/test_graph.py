@@ -1,4 +1,4 @@
-"""The graph file and its validator (SPEC_GRAPH_V0.md §3).
+"""The graph file and its validator (docs/specs/SPEC_GRAPH_V0.md §3).
 
 A graph is a document before it is an execution, and every defect this
 validator catches is one a person would otherwise meet halfway through a run

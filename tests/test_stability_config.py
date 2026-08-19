@@ -1,4 +1,4 @@
-"""The `stability:` block on a gate — SPEC_STABILITY_V0.md §2.
+"""The `stability:` block on a gate — docs/specs/SPEC_STABILITY_V0.md §2.
 
 Strict like every other config section: a typo must not silently change what
 "verified" means. Two of these are rulings rather than validation —

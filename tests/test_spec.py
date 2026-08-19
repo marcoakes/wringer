@@ -1,4 +1,4 @@
-"""`wring spec` — prose in, a spec file a human approves (SPEC_INTENT_V0.md).
+"""`wring spec` — prose in, a spec file a human approves (docs/specs/SPEC_INTENT_V0.md).
 
 No test here opens a socket. Drafting reuses `judge.send`, the one function
 in Wringer that does, so faking that one function is enough to exercise the

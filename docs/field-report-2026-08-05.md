@@ -239,7 +239,7 @@ local-with-offset for human reading. `timezone` needs adding to the existing
 
 **Breaking change to id format** — ids shift by the host's offset. 0.2.0 is
 current and run directories are local artefacts, so now is the cheap moment.
-Fallback if unacceptable: document the caveat in `SPEC_RUN_V0.md` and have
+Fallback if unacceptable: document the caveat in `specs/SPEC_RUN_V0.md` and have
 run-listing code sort on `started_at`.
 
 **Acceptance test.**

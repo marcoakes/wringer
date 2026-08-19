@@ -1,4 +1,4 @@
-"""The loop node and the router (SPEC_GRAPH_V0.md §3c, §3d).
+"""The loop node and the router (docs/specs/SPEC_GRAPH_V0.md §3c, §3d).
 
 The loop node **wraps** `loop.run` in process. It is not a subprocess and it
 is not a second repair loop: `verify.py`'s founding rule is that shelling out

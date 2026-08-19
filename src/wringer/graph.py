@@ -1,4 +1,4 @@
-"""The graph of loops — the document and its validator (SPEC_GRAPH_V0.md).
+"""The graph of loops — the document and its validator (docs/specs/SPEC_GRAPH_V0.md).
 
 A graph composes primitives Wringer already has. It adds **sequencing and
 stopping, never power**: a node names a capability, and the capability does

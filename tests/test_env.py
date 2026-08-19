@@ -82,7 +82,7 @@ def test_command_not_found_has_one_definition_site():
     # when adding one import to `gates.py` moved the constant down two lines
     # and reddened a guard about something else entirely. A line number in an
     # assertion is a claim that goes stale on every edit above it — the same
-    # drift this window corrected in `SPEC_BOARD_V0.md`'s citations hours
+    # drift this window corrected in `docs/specs/SPEC_BOARD_V0.md`'s citations hours
     # earlier, arrived at from the other side.
     assert [name.split(":")[0] for name in assigners] == ["gates.py"], (
         f"127 must have exactly one literal definition site; found {assigners}"

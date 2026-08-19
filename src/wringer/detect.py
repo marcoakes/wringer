@@ -32,7 +32,7 @@ CONFIG_FILENAME = ".wringer.yaml"
 #
 # But a gate that always passes proves nothing, and a bundle whose status is
 # `passed` because of it is exactly the vacuous evidence this project exists
-# to make impossible (SPEC_VACUITY_V0.md). So the green exit is bought back
+# to make impossible (docs/specs/SPEC_VACUITY_V0.md). So the green exit is bought back
 # with a sentence: `wring verify` says so on the terminal and in `summary.md`
 # for as long as the placeholder is all there is. Detecting that by comparing
 # against these constants — rather than by a flag written into the bundle —

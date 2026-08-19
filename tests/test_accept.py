@@ -1,6 +1,6 @@
 """`acceptance.json` — the bridge from "gates pass" to "the spec is satisfied".
 
-SPEC_ACCEPT_V0.md §3 and §4, slice A2. A criterion is **evidenced** only when
+docs/specs/SPEC_ACCEPT_V0.md §3 and §4, slice A2. A criterion is **evidenced** only when
 its bound gate passed in this run AND the record shows that gate can fail.
 The second half is the anti-fraud core: a worker that writes both the
 acceptance gate and the code it must pass is the vacuity problem in a new

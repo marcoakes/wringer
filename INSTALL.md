@@ -253,7 +253,7 @@ Stated precisely, because the loose version of this sentence would be false:
   variable matching `*TOKEN*`, `*SECRET*`, `*KEY*` is erased from captured
   output before anything is written to disk.
 - **Core Wringer reads environment variables, and that is all it reads.** A
-  keychain read is a declared non-goal of the core (`SPEC_START_V0.md` §7).
+  keychain read is a declared non-goal of the core (`docs/specs/SPEC_START_V0.md` §7).
 - **At the moment of use, the key IS transmitted**, in an `Authorization`
   header to whatever endpoint your config names. It could not call a model
   otherwise. Anything claiming Wringer "never sees or transports" your

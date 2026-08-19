@@ -1,4 +1,4 @@
-"""Signed provenance, CI-only — SPEC_SIGN_V0.md.
+"""Signed provenance, CI-only — docs/specs/SPEC_SIGN_V0.md.
 
 **Read this paragraph before the code.** A signature binds *the identity of the
 runner, never the correctness of the work*. It says who produced a document. It

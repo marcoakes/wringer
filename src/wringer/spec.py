@@ -1,4 +1,4 @@
-"""Prose in, testable criteria out — `wringer.spec.v1` (SPEC_INTENT_V0.md).
+"""Prose in, testable criteria out — `wringer.spec.v1` (docs/specs/SPEC_INTENT_V0.md).
 
 The front door. A product manager writes what they want in plain language;
 `wring spec` drafts acceptance criteria, gates and a build plan **as a file on
@@ -25,7 +25,7 @@ here rather than in the prompt:
 **This module opens no socket.** `wring spec --send` reuses `judge.send` — the
 one function in Wringer that does — with the `judge:` section's endpoint,
 model and key rules verbatim. One network config, one set of safety rules, one
-auditable path (SPEC_INTENT_V0.md §2).
+auditable path (docs/specs/SPEC_INTENT_V0.md §2).
 """
 
 from __future__ import annotations

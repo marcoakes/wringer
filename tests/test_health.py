@@ -1,4 +1,4 @@
-"""`wring health` — the reader (SPEC_HEALTH_V0.md §3, slice H1).
+"""`wring health` — the reader (docs/specs/SPEC_HEALTH_V0.md §3, slice H1).
 
 The command's whole thesis is that a check can narrow while still passing. So
 the first thing tested here is not a verdict — it is whether this tool can
@@ -440,7 +440,7 @@ def test_discovery_is_stable_across_repeated_reads(tmp_path):
     assert first == sorted(first), first
 
 
-# --- the verdicts (SPEC_HEALTH_V0.md §2, slice H2) --------------------------
+# --- the verdicts (docs/specs/SPEC_HEALTH_V0.md §2, slice H2) ---------------
 
 
 def plant(root: Path, count: int, *, gate="test", command="pytest -q",
@@ -695,7 +695,7 @@ def test_the_report_path_reads_no_clock_and_no_environment():
     )
 
 
-# --- the report and the tooth (SPEC_HEALTH_V0.md §4/§5, slice H3) ----------
+# --- the report and the tooth (docs/specs/SPEC_HEALTH_V0.md §4/§5, slice H3) ----------
 
 import subprocess  # noqa: E402
 
@@ -1011,7 +1011,7 @@ def test_a_gate_that_only_ever_died_of_a_missing_binary_is_not_alive(tmp_path):
     assert assessed[0].verdict == health.ZOMBIE, assessed[0].verdict
 
 
-# --- observed stability (SPEC_STABILITY_V0.md §7) ---------------------------
+# --- observed stability (docs/specs/SPEC_STABILITY_V0.md §7) ----------------
 
 
 def test_a_flaky_failure_does_not_make_a_gate_read_alive(tmp_path):

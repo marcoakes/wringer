@@ -7,7 +7,7 @@ could check. It drifted, and it drifted in the direction nobody watches for:
 the `sign an attestation` row said the capability was **not offered**, that
 attestations were unsigned **by ruling**, and that `attestation.json.sig` was
 **reserved and unused** — while `sign.py` had been writing that file since
-2026-08-12, `SPEC_SIGN_V0.md` had reopened the ruling, and SECURITY.md's own
+2026-08-12, `docs/specs/SPEC_SIGN_V0.md` had reopened the ruling, and SECURITY.md's own
 *"What Wringer never does"* section, ninety lines below, correctly listed
 `wring attest --sign` among the five commands that send. One document,
 contradicting itself, for three days.
@@ -841,7 +841,7 @@ def test_the_signing_row_carries_its_own_caveat():
         "signing is offered in CI only, and the class cell must say which"
     )
     assert "unsigned by ruling" not in row.enforcement, (
-        "that ruling was reopened by SPEC_SIGN_V0.md"
+        "that ruling was reopened by docs/specs/SPEC_SIGN_V0.md"
     )
     assert "reserved and unused" not in row.enforcement, (
         "`sign.py` has written attestation.json.sig since 2026-08-12"
