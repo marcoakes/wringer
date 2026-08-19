@@ -1826,3 +1826,148 @@ def test_the_sidecar_carries_both_registers_and_the_request_asks_for_both():
     asked = spec.render_request(PRD, "m", 100)["messages"][1]["content"]
     assert '"outcome"' in asked
     assert "what the person who asked for this will be able to DO" in asked
+
+
+# --- SPEC_PMPLAN_V0 P3: `--redraft`, and an id is not a question ------------
+
+
+def redraft_setup(repo, monkeypatch, first_answer="After thirty seconds."):
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    first = json.loads(json.dumps(DRAFT))
+    first["open_questions"] = [{
+        "id": "what-counts", "required": True,
+        "question": "Does it count the moment they open it, or only after "
+                    "they have played for a while (and if so, how long)?",
+    }]
+    fake_transport(monkeypatch, reply=reply(first))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    text = (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
+    (repo / spec.SPEC_FILENAME).write_text(
+        text.replace("answer: ''", f"answer: {first_answer}", 1), encoding="utf-8"
+    )
+    return first
+
+
+def test_drafting_over_an_existing_spec_points_at_redraft_not_at_deletion(
+    repo, monkeypatch, capsys
+):
+    """**The refusal was right and its advice was the defect.** It read "Move
+    or delete it if you want a fresh draft" — which is exactly how a person
+    loses every answer they have given."""
+    redraft_setup(repo, monkeypatch)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    err = capsys.readouterr().err
+    assert "--redraft" in err
+    assert "KEEPS every answer" in err
+    assert "Move or delete it" not in err
+
+
+def test_a_redraft_keeps_an_answer_when_the_question_is_UNCHANGED(
+    repo, monkeypatch
+):
+    first = redraft_setup(repo, monkeypatch)
+    again = json.loads(json.dumps(first))
+    fake_transport(monkeypatch, reply=reply(again))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert {q.id: q.answer for q in loaded.questions}["what-counts"] == (
+        "After thirty seconds."
+    )
+
+
+def test_a_REWORDED_question_never_inherits_the_previous_answer(
+    repo, monkeypatch, capsys
+):
+    """**The sharpest finding of the review, and this repository's own
+    captures prove it.** The id `what-counts-as-played` carries four
+    materially different questions across four rolls of one unchanged PRD.
+    Someone who answered "after thirty seconds" to a question about DURATION
+    would have it filed as their answer to a question about PRESSING START —
+    a consent nobody gave, forged by the feature meant to protect answers."""
+    first = redraft_setup(repo, monkeypatch)
+    reworded = json.loads(json.dumps(first))
+    reworded["open_questions"][0]["question"] = (
+        "Does it count the moment they open it, or only after they actually "
+        "start a round (e.g. press start)?"
+    )
+    fake_transport(monkeypatch, reply=reply(reworded))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    by_id = {q.id: q for q in loaded.questions}
+    # The re-worded question is left for the person to answer...
+    assert by_id["what-counts"].answer == ""
+    assert "press start" in by_id["what-counts"].question
+    # ...and their answer is still here, under the words they answered.
+    kept = [q for q in loaded.questions if q.answer == "After thirty seconds."]
+    assert len(kept) == 1
+    assert "for a while" in kept[0].question
+    assert "an id is not a question" in capsys.readouterr().err
+
+
+def test_a_question_dropped_by_the_new_draft_keeps_its_answer(
+    repo, monkeypatch, capsys
+):
+    redraft_setup(repo, monkeypatch)
+    without = json.loads(json.dumps(DRAFT))
+    without["open_questions"] = []
+    fake_transport(monkeypatch, reply=reply(without))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert [q.answer for q in loaded.questions] == ["After thirty seconds."]
+    assert "carried forward" in capsys.readouterr().err
+
+
+def test_a_redraft_keeps_the_documents_it_replaces(repo, monkeypatch):
+    """Recovery, not consent: what is being replaced is kept beside the
+    request that replaced it."""
+    redraft_setup(repo, monkeypatch)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    bundles = sorted((repo / spec.SPECS_DIRNAME).iterdir())
+    kept = bundles[-1] / f"previous-{spec.SPEC_FILENAME}"
+    assert kept.is_file()
+    assert "After thirty seconds." in kept.read_text(encoding="utf-8")
+
+
+def test_a_merge_that_would_break_the_spec_refuses_and_changes_NOTHING(
+    repo, monkeypatch, capsys
+):
+    """The merged document is re-parsed before a byte is written. Every limit
+    protecting this file lives inside `parse`, which had already run on the
+    REPLY — nothing re-validated the merged result."""
+    redraft_setup(repo, monkeypatch)
+    before = (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
+    crowded = json.loads(json.dumps(DRAFT))
+    crowded["open_questions"] = [
+        {"id": f"q{n}", "question": f"Q{n}?", "required": False}
+        for n in range(spec.MAX_OPEN_QUESTIONS)
+    ]
+    fake_transport(monkeypatch, reply=reply(crowded))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+
+    assert (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8") == before
+    assert "your answers are still in it" in capsys.readouterr().err
+
+
+def test_redraft_without_an_existing_spec_says_to_drop_the_flag(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    assert "Drop the flag" in capsys.readouterr().err

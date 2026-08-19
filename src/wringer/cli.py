@@ -453,6 +453,15 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser_spec.add_argument(
+        "--redraft",
+        action="store_true",
+        help=(
+            "draft again over an existing wringer.spec.yaml, KEEPING every "
+            "answer you have already given. Without this, drafting refuses "
+            "rather than overwrite them."
+        ),
+    )
+    parser_spec.add_argument(
         "--witness",
         action="store_true",
         help=(
@@ -2711,14 +2720,40 @@ def cmd_spec(args: argparse.Namespace) -> int:
         return EXIT_CONFIG
 
     target = root / spec.SPEC_FILENAME
-    if args.send and target.exists():
+    previous: spec.Spec | None = None
+    if args.send and target.exists() and not args.redraft:
+        # **The remedy used to be the answer-eating path, said to the reader.**
+        # It read "Move or delete it if you want a fresh draft" — which is
+        # exactly how a person loses every answer they have given. The refusal
+        # was right; its advice was the defect.
         print(
             f"wring spec: refusing to overwrite {spec.SPEC_FILENAME} — it may "
-            "already carry your approval and your answers. Move or delete it "
-            "if you want a fresh draft.",
+            "already carry your approval and your answers.\n\n"
+            "  wring spec --send --redraft PRD.md\n\n"
+            "drafts again and KEEPS every answer you have given, carrying each "
+            "one under the question you actually answered. Deleting the file "
+            "loses them.",
             file=sys.stderr,
         )
         return EXIT_CONFIG
+    if args.send and args.redraft:
+        if not target.exists():
+            print(
+                f"wring spec: --redraft is for drafting again over an existing "
+                f"{spec.SPEC_FILENAME}, and there is none here. Drop the flag.",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+        try:
+            previous = spec.load(target)
+        except spec.SpecError as exc:
+            print(
+                f"wring spec: --redraft must read your answers out of "
+                f"{spec.SPEC_FILENAME} before replacing it, and it could not: "
+                f"{exc}. Nothing was changed.",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
 
     request = spec.render_request(
         prd,
@@ -2791,10 +2826,46 @@ def cmd_spec(args: argparse.Namespace) -> int:
             )
             return EXIT_CONFIG
 
+        carried: tuple[str, ...] = ()
+        if previous is not None:
+            drafted, carried = spec.carry_answers_forward(drafted, previous)
+            # **Re-parsed before a byte is written.** The limits that protect
+            # this document — MAX_OPEN_QUESTIONS, duplicate ids, the answer
+            # type — all live inside `parse`, which has already run on the
+            # REPLY. Nothing re-validated the merged result, so a merge that
+            # broke one of them would have been written out and refused later
+            # by the person's own `wring plan`.
+            import yaml as _yaml
+
+            try:
+                spec.parse(
+                    _yaml.safe_load(spec.render(drafted)), "the re-drafted spec"
+                )
+            except spec.SpecError as exc:
+                print(
+                    f"wring spec: keeping your answers would produce a spec "
+                    f"this tool refuses ({exc}). {spec.SPEC_FILENAME} was NOT "
+                    "changed and your answers are still in it.",
+                    file=sys.stderr,
+                )
+                return EXIT_CONFIG
+            # Recovery, not consent: the documents being replaced are kept
+            # beside the request that replaced them.
+            for name in (
+                spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME
+            ):
+                source = root / name
+                if source.is_file():
+                    (bundle.directory / f"previous-{name}").write_text(
+                        source.read_text(encoding="utf-8"), encoding="utf-8"
+                    )
+
         # Written only now, once the whole document has been through the same
         # parsers the file itself will face: a half-written spec is worse than
         # no spec, because a half-written one gets approved.
         target.write_text(spec.render(drafted), encoding="utf-8")
+        for note in carried:
+            print(f"wring spec: {note}.", file=sys.stderr)
         # A binding the parser refused is said out loud, here, and not left to
         # be inferred from a criterion that quietly has no gate. The spec is
         # still written: one unusable binding is not a reason to throw away

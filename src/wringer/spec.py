@@ -675,6 +675,104 @@ def missing_outcome_notes(tasks: Any, outcomes: dict[str, str]) -> tuple[str, ..
     )
 
 
+def carry_answers_forward(
+    drafted: Spec, previous: Spec
+) -> tuple[Spec, tuple[str, ...]]:
+    """Re-draft: keep every answer the person already gave. **An id is not a
+    question.**
+
+    Restoring an answer on id match alone attaches a person's answer to words
+    they never read. Measured on this repository's own captures: the id
+    `what-counts-as-played` carries FOUR materially different questions across
+    four rolls of one unchanged PRD —
+
+        run 2: "...or only after they have actually played for a while
+                (and if so, how long)?"
+        run 3: "...or only after they actually start a round
+                (e.g. press start / the game begins)?"
+
+    Someone who answered run 2's with *"after about thirty seconds"* would
+    have that filed as their answer to run 3's question about pressing start.
+    **That manufactures a consent nobody gave**, which is the defect this whole
+    surface exists to prevent — and the feature meant to PROTECT answers would
+    have been the thing that forged one.
+
+    So the join is on TEXT, and the three outcomes are:
+
+    - same id, byte-equal question -> the answer is restored;
+    - same id, different wording   -> the previous pair is carried forward as
+      its OWN entry, so the answer stays under the words it answered, and the
+      newly worded question stays required and unanswered so `wring plan`
+      refuses until the person answers it;
+    - id absent from the new draft -> carried forward with its answer intact.
+
+    Nothing is discarded and nothing is re-pointed.
+    """
+    answered = {q.id: q for q in previous.questions if q.answered}
+    if not answered:
+        return drafted, ()
+
+    notes: list[str] = []
+    merged: list[Question] = []
+    carried: list[Question] = []
+    for question in drafted.questions:
+        was = answered.get(question.id)
+        if was is None:
+            merged.append(question)
+            continue
+        if was.question == question.question:
+            merged.append(
+                Question(
+                    id=question.id,
+                    question=question.question,
+                    required=question.required,
+                    answer=was.answer,
+                )
+            )
+            continue
+        # Same id, different words. The answer keeps its own question.
+        notes.append(
+            f"'{question.id}' was re-worded by this draft, so your previous "
+            "answer was NOT moved onto it — an id is not a question. The "
+            "answer is kept under the wording you answered, and the new "
+            "wording is left for you to answer"
+        )
+        merged.append(question)
+        carried.append(was)
+
+    for identifier, question in answered.items():
+        if identifier in {q.id for q in drafted.questions}:
+            continue
+        notes.append(
+            f"'{identifier}' is not in the new draft, so it was carried "
+            "forward with your answer rather than dropped"
+        )
+        carried.append(question)
+
+    if carried:
+        # A carried pair keeps its id only when nothing else claims it.
+        taken = {q.id for q in merged}
+        renamed = []
+        for question in carried:
+            identifier = question.id
+            while identifier in taken:
+                identifier = f"{identifier}-as-answered"
+            taken.add(identifier)
+            renamed.append(
+                Question(
+                    id=identifier,
+                    question=question.question,
+                    required=question.required,
+                    answer=question.answer,
+                )
+            )
+        merged.extend(renamed)
+
+    from dataclasses import replace as _replace
+
+    return _replace(drafted, questions=tuple(merged)), tuple(notes)
+
+
 def buried_decision_notes(criteria: Any) -> tuple[str, ...]:
     """Criteria whose `guidance` looks like it carries a DECISION.
 
