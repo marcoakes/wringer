@@ -11,17 +11,33 @@ This spec covers three things that look separate and are one: **what a product
 manager approves, and how they change their mind.** It is written before any
 code, and it is reviewed before any code.
 
-> **Status, 2026-08-19 — THE INDEPENDENT REVIEW IS OWED.** This document is
-> authored and self-corrected; it has **not** yet been through an independent
-> review. Three HIGH defects in the first draft were found by EXECUTION against
-> the measurement run's real artifacts — not by re-reading it — and are folded
-> in below: ruling 4's detector found 4 of 10 real cases, ruling 9 miscounted
-> `human` criteria against what a real run was actually held by, and ruling
-> 12's amendment turned out to have three teeth rather than one. **No code may
-> be written against this spec until the review has landed and its findings are
-> folded** (slice 1 is not done). The pattern those three share is this
-> programme's own recurring one: reading the spec found nothing, running its
-> evidence found all three.
+> **Status, 2026-08-19 — REVIEWED: NOT SOUND. 19 confirmed findings, THE FOLD
+> IS IN PROGRESS, AND NO CODE MAY BE WRITTEN AGAINST THIS SPEC YET.** The
+> adversarial review ran 8 lanes over 57 agents: 97 raw findings, 54 after
+> dedupe, **19 confirmed** by two independent skeptics each, 5 killed, and **30
+> below the verification cap and therefore unexamined rather than clear.** The
+> full record is [docs/pmplan-review-2026-08-19.md](docs/pmplan-review-2026-08-19.md);
+> it is kept verbatim so the fold can be checked against what the review said
+> rather than against my summary of it. Slice 1 is DONE when every confirmed
+> finding is folded or explicitly rejected with a reason.
+>
+> Two of the five killed findings were killed for the best possible reason —
+> the defect had already been fixed between the lanes reading the spec and the
+> skeptics re-reading it. The review also found **two live bugs in shipped
+> board code** it was not looking for, both now fixed (board `99b9f25`,
+> `2653d25`).
+>
+> *Earlier status, kept because it dates the work:* before the review ran,
+> three HIGH defects in the first draft had already been found by EXECUTION
+> against the measurement run's real artifacts — not by re-reading the spec.
+> Ruling 4's detector found 4 of the real cases (the review later showed the
+> true denominator was 14, not 10, and that the correction was also wrong);
+> ruling 9 miscounted `human` criteria against what a real run was actually
+> held by (the review then showed it was inverted in a second, worse way);
+> and ruling 12's amendment turned out to have three teeth rather than one.
+> The pattern those three share is this programme's recurring one, and the
+> review is the same pattern at larger scale: **reading the spec found
+> nothing; running its evidence found all of it.**
 >
 > *(Scoping note: an earlier draft of this line said the review must be a
 > single agent, citing the 2026-08-09 no-fleet rule. Marc corrected that the
@@ -434,20 +450,48 @@ warning: those requirements are not a blocker, they are a silence. Approving
 the plan accepts that they will not be proved — which is the consent this whole
 document exists to obtain, and which no draft of the plan has ever asked for.
 
+**A PROPOSED gate is not a bound one, and the count must not say it is**
+(review C1, second leg). `_bindings()` merges two files and returns an
+`installed` flag with each entry: `wringer.gates.yaml` holds gates a drafter
+PROPOSED (`installed=False`), `.wringer.yaml` holds ones a human INSTALLED
+(`installed=True`). **Acceptance joins on the installed ones only** —
+`accept.assess` builds its `bound` map from `cfg.gates`, which is
+`.wringer.yaml` and nothing else (`accept.py:775-777`). So a criterion whose
+only gate is proposed is `unbound` at acceptance time.
+
+The first draft of this ruling said the counts *"come from the same
+`_bindings()` read the criteria block already uses"* and never mentioned the
+flag — which would have counted a proposed gate as *"has a check bound to
+it"*, a stronger claim than the criteria block makes **eight lines above on the
+same page**, where it already says *"(proposed, not installed yet — somebody
+has to accept it before it runs)"*. **The count therefore reads `installed`,
+and a proposed-only criterion counts as having nothing checking it yet.**
+
+Note for slice 3: the board's own `repo` fixture writes `wringer.gates.yaml`
+and no `.wringer.yaml` (`test_interview.py:57-63`) — it is **proposed-only**,
+the one shape in which this defect is invisible. The capture must be taken
+against a repository that has both, or it will photograph the bug as correct.
+
+**One honest limit the plan must carry:** `covered` is *installed-bound OR
+witnessed*, and a witness is written at run time from bytes the board cannot
+see when the plan is rendered. So an unbound criterion **can** acquire a
+refusal later that the plan could not foresee. The plan says what is true when
+it is read, and says that much about it.
+
 **The prediction sentence is not invented.** Where the block states the hold, it
 uses the board's own `(DELIVERY_REFUSAL, "acceptance_unevidenced")` saying from
 `refusals.py:451-455`, verbatim, confirmed byte-identical against the real run's
 console. Where it states what a class of criteria *does*, it is describing
 `accept.py`'s policy, and **that description is new prose about an engine fact
 — which board ruling 1 forbids.** The build therefore takes the sentences from
-the engine or does not write them: §7 open question 6 records that the engine
+the engine or does not write them: §7 open question 5 records that the engine
 has no saying for *"an unbound criterion cannot hold the handover"*, and one has
 to be added engine-side before the plan may say it. Until then the block renders
 the counts and the two hold causes only.
 
 The block renders **only when at least one criterion is unbound or human** — a
-plan where every criterion is bound must not carry a warning about an ending
-that will not happen.
+plan where every criterion is installed-bound must not carry a warning about an
+ending that will not happen.
 
 ---
 
