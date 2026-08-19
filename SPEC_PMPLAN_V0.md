@@ -154,6 +154,26 @@ means the PM is always **one action away from asking it after all** (§3,
 ruling 8). Without it, `assumptions` would be a place to hide decisions, which
 is precisely the defect §0.2 names.
 
+**`assumptions` is a FOURTH id-keyed reply section, and the interlock must
+cover it** (review C17). `_drop_unknown_reply_keys` walks exactly three —
+`open_questions`, `criteria`, `tasks` — and its stated law is that *"the
+interlock does not become droppable by moving down a level"*
+(`spec.py:780-783`). A new section it does not walk is a new place to smuggle
+`approved`, in the one parser whose whole design is that there is no such
+place. So, **in the same slice that adds the section**:
+
+- `_ASSUMPTION_KEYS = {"id", "decision", "why", "instead_of_asking"}`, and
+  `("assumptions", _ASSUMPTION_KEYS)` joins the sections tuple;
+- an unknown key drops with a named note (R3, unchanged);
+- **`approved` on an assumption refuses the whole reply**, exactly as on a
+  task;
+- a *missing required field* drops that one assumption with a note rather than
+  refusing the draft — the `objective_note` lesson: a model's proposal survives
+  with its losses named;
+- the docstring says four sections, not three, and
+  `test_a_reply_carrying_approved_on_a_task_is_refused_whole` is parametrised
+  over all four.
+
 ### Ruling 2 — they land in a NEW SIDECAR, not in a v2 of the spec
 
 `wringer.spec.v1` is frozen and `spec.schema.json` is
@@ -196,8 +216,41 @@ outcomes:
 ```
 
 `assumptions`, `outcomes` and `consent` are each **optional**; a sidecar
-carrying only one of the three is valid. (A consent-only sidecar is the normal
-case for a repository whose spec was written by hand — §3, ruling 10.)
+carrying only one of the three is valid.
+
+**The schema is AUTHORED COMPLETE in slice 2 — all three blocks declared —
+even though two of them get no producer until later** (review C13). Law 2
+freezes this file on publication, so declaring only `assumptions` now would
+force a version spend the moment `outcomes` arrives; later slices must add
+producers and **never a byte**. The consequence is stated out loud rather than
+left for a reader to discover: **the frozen schema declares a `consent` block
+that, after the review, NOTHING WRITES** — the fingerprint is OWED (ruling 12)
+— and §6 DONE says so instead of letting the schema imply it landed. The
+`acceptance-v3` precedent covers this: a shape may be declared before its
+producer exists, provided the gap is named where a reader will meet it, so the
+justification is quoted in the schema's own `description` and its README row.
+
+**It needs the hand-written protection its sibling has ten lines away**
+(review C12). `wringer.gates.yaml` carries `GATESPEC_MARKER` and a
+`gatespec_is_generated` twin precisely because an offline repo writes that file
+BY HAND; the first draft of this ruling gave its new sibling neither, so an
+ordinary `wring spec --send` would have silently clobbered a person's
+hand-written sidecar. So: a `DECISIONS_MARKER` first line, a
+`decisions_is_generated` twin, and the same three-way outcome on **both** the
+`--send` and `--redraft` paths:
+
+| sidecar on disk | what happens |
+|---|---|
+| carries the marker (generated) | overwritten |
+| no marker (a person wrote it) | **left alone**, with a console line saying where the drafted assumptions went instead |
+| absent | written |
+
+Two rules the core must additionally obey: **it never writes or overwrites a
+`consent` block** — that key belongs to `wringer-board approve` alone, in the
+window that builds it — and **a redraft never carries `consent` forward**,
+because a redrafted spec was never approved. Ruling 13's "copy the previous
+documents into the bundle" is *recovery*, not consent, and does not substitute
+for any of this.
 
 ### Ruling 3 — the parse-time cap, with four binding conditions
 
@@ -608,12 +661,51 @@ Today a hand-edited answer leaves `approved: true` standing. No board verb can
 see that, and no frozen shape can carry an approval fingerprint —
 `spec.schema.json` is `additionalProperties: false`.
 
-**The fix:** `wringer-board approve` records, into the sidecar's `consent`
-block, a fingerprint over the canonical serialisation of every question id with
-its answer and every assumption id with its decision. `wring plan` recomputes
-it and refuses when it differs, saying that the spec was edited after it was
-approved and that the answers are no longer the ones approved. That is a core
-**behaviour** on an existing command — lawful, and not a 20th command.
+> ### ⛔ RULED OUT OF THIS WINDOW — the fingerprint ships as OWED
+>
+> This ruling shipped with its own escape hatch: *"it is BUILT only if the spec
+> review finds it as small as it looks; otherwise it ships as an OWED ruling
+> with the design attached."* **The review found it is not.** Two independent
+> HIGH findings, C3 and C4, and neither is a wording problem:
+>
+> - **C3 — it must exist twice.** `wringer-board` does not depend on
+>   `wringer`; the engine is `importorskip`-optional in its tests and cloned
+>   separately in its CI, because the board is a separate layer consuming
+>   bundles and the CLI as its API. So the fingerprint would have two
+>   implementations in two packages with no shared code and no dependency
+>   edge, over a "canonical serialisation" this spec never defined. **Any
+>   normalisation difference makes `wring plan` accuse an honest PM of editing
+>   their spec after approving it** — a refusal that renders and never
+>   resolves, whose only escape is deleting the sidecar.
+> - **C4 — nothing can refresh a stale one.** The check dead-ends the exact
+>   hand-edit remedy that both the engine and the board print to the PM, and
+>   it is silently off for the flow SPEC_INTENT blesses.
+>
+> Fixing C3 means either making the engine a hard dependency of the board or
+> adding a core entry point that prints the fingerprint — an architectural
+> change to the layer boundary, which is not this window's to make. **So the
+> hand-edit hole stays open and named, and the design below is the record of
+> what would close it.** The reviewers' own conditions are attached: name the
+> canonical form byte-exactly (a version tag, `id\x1fvalue\x1e` pairs sorted
+> by id, questions then assumptions, UTF-8), make ONE implementation the
+> source, and guard it with a cross-package test computing it through both
+> entry points on a `spec.render()` fixture carrying a multi-line answer and a
+> unicode answer, watched red by mutating one side.
+>
+> **Two consequences, both good.** The SPEC_BOARD §8 non-goal 9 amendment is
+> no longer needed — nothing in this window writes the sidecar from the board,
+> so the three-teeth invariant at `test_interview.py:229-283` stands
+> **untouched**. And §6 DONE drops the fingerprint rather than claiming it.
+
+**The design, for the window that builds it.** `wringer-board approve` records,
+into the sidecar's `consent` block, a fingerprint over the canonical
+serialisation of every question id with its answer and every assumption id with
+its decision. `wring plan` recomputes it and refuses when it differs, saying
+that the spec was edited after it was approved. `approve` must also be the
+REFRESH path (C4): when the fingerprint is stale it re-renders the plan and
+rewrites `consent` rather than raising already-approved, because re-approving
+after reading the plan *is* the consent act — and the mismatch refusal must
+name that command as its remedy.
 
 ```yaml
 consent:
@@ -655,8 +747,12 @@ explicitly, the way (2) already names judgements, rather than inferring them
 from a one-file rule. A surface that could answer a `human` criterion is still
 the thing this programme exists to answer, and a consent record is not one.
 
-Judgement: still BUILD. The change is mechanical and the invariant ends up
-stronger than it started. The escape hatch below stands if the review disagrees.
+**Judgement, after the review: NOT NEEDED IN THIS WINDOW, and the table above
+is now a record rather than a plan.** With the fingerprint OWED, no board verb
+writes the sidecar, so all three teeth stand untouched and
+`test_interview.py:229-283` needs no amendment at all. The analysis is kept
+because the window that builds the fingerprint will need it — and because it is
+the reason that window is not this one.
 
 If the review finds the fingerprint bigger than it looks here, it **ships as an
 OWED ruling with this design attached**, and the plan does not claim "no
@@ -771,8 +867,12 @@ proves each detector can fail** — restored from file copies, never
   as three separate classes, and saying that the unbound ones cannot hold it
   and will simply go unproved. Verified against `accept.py`'s `refuses`, not
   against the carrier's description of it, which was inverted.
-- Every board-verb revision flips `approved: false`, watched red. The hand-edit
-  fingerprint lands, or ships as an OWED ruling with its design attached.
+- Every board-verb revision flips `approved: false`, watched red.
+- **The hand-edit fingerprint does NOT land. It ships OWED** (ruling 12, after
+  review C3/C4), so: the hand-edit hole stays open, `wringer.decisions.yaml`'s
+  frozen schema declares a `consent` block **nothing writes**, and SPEC_BOARD
+  §8 non-goal 9 is left untouched. DONE means those three sentences are true
+  and said, not that a fingerprint exists.
 - `--redraft` preserves every answer, and the old refusal's remedy stops
   pointing at the answer-eating path.
 - Live board at phase boundaries; cost line, facts only; the harness says when
