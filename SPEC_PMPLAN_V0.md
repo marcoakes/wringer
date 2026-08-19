@@ -278,10 +278,26 @@ stand. There are three, in order:
 3. `approved` smuggled onto a task, question or criterion, raised inside
    `_drop_unknown_reply_keys` (`spec.py:802-807`).
 
-So the cap is checked **after the `_drop_unknown_reply_keys` call at
-`spec.py:887` and before `parse(...)` at `spec.py:889`.** A reply that both
-works the interlock and asks nine questions gets the interlock refusal, which
-is the more serious of the two.
+So the cap is checked **immediately after `drafted_spec = parse(...)`
+(`spec.py:889-904`), and before `validate_rubric_text` and `parse_bindings`** —
+counting `sum(1 for q in drafted_spec.questions if q.required)`. A reply that
+both works the interlock and asks nine questions gets the interlock refusal,
+which is the more serious of the two.
+
+**Placing it after `parse` rather than before is review C5, and it removes a
+whole class of problem the first draft created.** Pre-parse, the spec had to
+invent a counting rule over raw dicts — and an entry that is not a mapping, or
+whose `required` is a string, would either crash the cap or make it **steal the
+precise error** `_parse_questions` exists to give (*"'required' must be a
+boolean"*, *"must be a mapping"*, the duplicate-id and slug messages). After
+`parse`, `Question.required` is already a validated bool, every one of those
+messages fires first and intact, there is no counting rule to get wrong, and
+the cap cannot crash. The cost is parsing a reply that is about to be refused,
+which is microseconds.
+
+`MAX_OPEN_QUESTIONS` (20) still fires first for a reply with more than twenty
+questions of any kind, and keeps its own message. The cap is the *required*
+subset and is strictly narrower.
 
 **(iii) The two archived captures stay BYTE-INTACT.** Verified:
 `tests/replies/2026-08-17-pm-mode-drafter-reply.json` carries 8 questions, **5
@@ -430,15 +446,40 @@ absent. Refusing a whole paid draft over an absent sentence is exactly the
 and the plan says plainly *"no plain-language outcome was written for this
 task"* and shows the objective. Honest, cheap, visible.
 
+**With one scoping rule, because otherwise it turns a green test red** (review
+C16). `test_a_binding_with_a_command_of_its_own_is_kept` asserts
+`drafted.notes == ()` — a total assertion, and its job is to watch that the
+duplicate-binding rule refuses duplicates *and nothing else*. Its fixture is
+one of the archived captures, which predate `outcome` and therefore have none,
+so a per-task missing-outcome note would fill `notes` and redden it.
+
+**The note is emitted only when the reply uses the outcomes channel at all** —
+i.e. at least one task carries `outcome`. A reply from before the channel
+existed produces no notes about it, which is also the honest reading: that
+drafter was never asked. The alternative — loosening the assertion to
+`assert not [n for n in notes if "binding" in n]` — is **forbidden**, because
+it would destroy exactly the watch that test exists to keep. Slice 3's guard
+list names this test.
+
 **Dangling** — an `outcomes` row naming a task id the spec does not have. That
 is content pointing at nothing, on both the drafted and the hand-written path,
 and it is the gates-sidecar precedent exactly (`config.check_bindings` refusing
 a binding whose `proves` names no criterion). **Refused whole**, naming the id
 and listing the task ids that do exist.
 
-An assumption `id` that collides with an `open_questions` id is likewise
-**refused whole**: one draft claiming both to have decided a thing and to be
-asking about it is a contradiction the PM should never be shown.
+**An assumption id colliding with a question id is NOT always a contradiction,
+and refusing whole was too broad** (review C11). The first draft refused any
+collision — on measured drafter behaviour that would kill whole paid drafts,
+which is the `objective_note` mistake R3 exists to stop. Three cases:
+
+| the colliding question is | what happens |
+|---|---|
+| **required and unanswered** | **refused whole** — the draft claims both to have decided a thing and to be still asking it, which is the real contradiction and the one a PM must never be shown |
+| answered, or not required | a `Draft.notes` line, and the plan renders a **cross-reference**: *"this was decided provisionally; you were also asked about it"* |
+| answered, on the `--redraft` path | the assumption is **dropped from the sidecar with a note** saying the person already decided it — post-merge, because before the merge the answer is not yet in the document |
+
+Ruling 11's parenthetical claiming this is "unreachable for a drafted spec" is
+struck: it is reachable on the redraft path and on a hand-written sidecar.
 
 ### Ruling 8 — the plan leads with outcomes, and labels the objectives beneath
 
@@ -764,20 +805,49 @@ exceptions" until it lands.
 — a flag is not a command) is the supported way to draft again over an existing
 spec.
 
-- **Every previously answered question is preserved.** Matching ids in the new
-  draft get their answer restored. An answered question whose id is **absent**
-  from the new draft is appended to the new spec's `open_questions` with its
-  answer intact and a note saying it came from the previous draft. **No answer
-  is ever discarded**, which is the ruling; what a re-draft may *overwrite* is
-  everything else.
+- **Every previously answered question is preserved — but AN ID IS NOT A
+  QUESTION** (review C9, and the captures settle it). Restoring an answer on id
+  match alone attaches a person's answer to words they never read. Measured on
+  this repository's own four captures, the id `what-counts-as-played` carries
+  **four materially different questions**:
+
+  > run 2 — *"…or only after they have actually played for a while (and if so,
+  > how long)?"*
+  > run 3 — *"…or only after they actually start a round (e.g. press start /
+  > the game begins)?"*
+
+  A PM who answered run 2's with *"after about thirty seconds"* would have that
+  filed as their answer to run 3's question about pressing start. **That
+  manufactures a consent nobody gave, which is the precise defect this whole
+  document exists to prevent** — and `--redraft`, the feature meant to protect
+  answers, would be the thing that forged one.
+
+  So the rule is text equality, not id equality:
+
+  | previous question vs new | what happens |
+  |---|---|
+  | id matches **and text is byte-equal** | the answer is restored |
+  | id matches, **text differs** | the previous (question, answer) pair is carried forward **as its own entry**, so the answer stays under the words it answered; the new question stays unanswered and `required`, so `wring plan` refuses until the person answers it; a `Draft.notes` line names the id |
+  | id absent from the new draft | carried forward with its answer intact, noted as from the previous draft |
+
+  **No answer is ever discarded and none is ever re-pointed.** Watched red on a
+  reworded-same-id fixture, which the captures supply for free.
 - **The previous documents are kept.** `wringer.spec.yaml`,
   `wringer.decisions.yaml` and `wringer.gates.yaml` are copied into the
   drafting bundle (`.wringer/specs/<id>/`) before anything is overwritten, so
   nothing a person had is unrecoverable.
 - **No interaction with the cap.** Carried-over questions are already answered;
-  ruling 3 counts *required* questions in the reply, before this merge. The
-  merge can still trip `MAX_OPEN_QUESTIONS`, which refuses with its existing
-  message.
+  ruling 3 counts *required* questions in the reply, before this merge.
+- **The merged document is re-run through `spec.parse` before anything is
+  rendered or written, and a failure there refuses with the file untouched**
+  (review C10). The first draft said the merge "can still trip
+  `MAX_OPEN_QUESTIONS`, which refuses with its existing message" — **it cannot,
+  as written.** That limit lives only inside `_parse_questions`, reachable only
+  through `parse()`, which has already run on the *reply* before the merge
+  happens; nothing re-validates the merged result. Re-parsing is what makes the
+  sentence true, and it buys the duplicate-id check and the answer-type check
+  on the same pass — all three firing against the bytes that would actually be
+  written. Watched red on a merge that would exceed the limit.
 - **`approved` needs no special handling**: `parse_response` writes
   `approved: false` unconditionally (`spec.py:894`), and a fresh draft is
   exactly the case where that is right.
