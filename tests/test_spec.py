@@ -1935,10 +1935,18 @@ def test_a_redraft_keeps_the_documents_it_replaces(repo, monkeypatch):
 
     assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
 
-    bundles = sorted((repo / spec.SPECS_DIRNAME).iterdir())
-    kept = bundles[-1] / f"previous-{spec.SPEC_FILENAME}"
-    assert kept.is_file()
-    assert "After thirty seconds." in kept.read_text(encoding="utf-8")
+    # **Not `sorted(...)[-1]`, and the first version of this test was flaky
+    # for exactly that reason.** A bundle directory is `<timestamp>-<random>`
+    # with SECOND granularity, so two drafting runs inside one second sort by
+    # the random suffix — an arbitrary order. It passed on this laptop and
+    # failed in the fresh clone the gate builds. Find the file instead.
+    kept = [
+        path / f"previous-{spec.SPEC_FILENAME}"
+        for path in (repo / spec.SPECS_DIRNAME).iterdir()
+        if (path / f"previous-{spec.SPEC_FILENAME}").is_file()
+    ]
+    assert len(kept) == 1, kept
+    assert "After thirty seconds." in kept[0].read_text(encoding="utf-8")
 
 
 def test_a_merge_that_would_break_the_spec_refuses_and_changes_NOTHING(
