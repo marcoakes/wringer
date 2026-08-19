@@ -1,0 +1,120 @@
+# SPEC — the loopback worker (v0, DRAFT)
+
+*The driving agent connects to the engine, instead of the engine spawning a
+worker.*
+
+> **THIS DOCUMENT DECIDES NOTHING AND BUILDS NOTHING.** It is a design sketch
+> and a decision tree, authored 2026-08-19 under SPEC_PMPLAN_V0's ruling that
+> the auth endgame is spec-only in that window. Nothing here is binding, no
+> slice is queued against it, and the fork it describes is **keyed on a
+> measurement that has not been taken** (§4). Do not build from it. If it is
+> ever ruled, the ruling will say so in its own header.
+
+---
+
+## §1 — The problem, stated narrowly
+
+A product manager who wants to use Wringer today needs an **API key**. Not the
+Claude subscription they already pay for and are already signed into — a
+separate credential, created in a console, stored in a keychain, and billed
+separately.
+
+That is a real barrier and it is worth being precise about where it sits:
+
+- **`wring spec --send` needs a key** to draft the plan. It reuses the judge's
+  transport, which posts to a chat-completions endpoint.
+- **The worker needs its own auth.** `claude-agent-acp` runs as a subprocess
+  and authenticates however that adapter authenticates.
+- **The person driving is already authenticated.** They are talking to a
+  coding agent — Claude Code, or another — inside a session that already has
+  whatever credential that agent uses.
+
+So the machine has a working authentication a metre away from the thing that
+cannot authenticate, and the reason it cannot be used is architectural: the
+engine SPAWNS its worker, so the worker is a child process with no access to
+the parent's session.
+
+## §2 — The shape being sketched
+
+**Invert the direction.** Rather than the engine spawning a worker, the
+driving agent connects to the engine as one:
+
+```
+  today      wring run ──spawns──> claude-agent-acp ──needs its own auth
+  loopback   the agent ──connects──> wring run --worker loopback
+```
+
+The engine would open a local endpoint, announce it in a step the runbook
+already knows how to relay, and wait. The agent — which is already running,
+already authenticated, and already reading DRIVE's steps — attaches and
+services turns.
+
+**What this would NOT change**, and the list matters more than the sketch:
+
+- The engine still decides what a turn is, when the loop stops, and what
+  counts as progress. A worker that reports its own success is the thing this
+  programme exists to refuse, and a worker that is also the driving agent is
+  MORE exposed to that, not less.
+- Containment (`run.containment`) still applies. The 2026-08-15 refusal —
+  *an ACP worker cannot be contained in v0* — became a capability at Phase 3,
+  and any loopback worker inherits that requirement rather than escaping it.
+- Evidence is unchanged. The loop still writes turns, still runs gates, still
+  refuses what it cannot evidence.
+- **The drafting call still needs a key.** Loopback addresses the WORKER, not
+  `wring spec --send`. Anyone reading this as "no key needed" has read it
+  wrong, and §4's decision tree turns on exactly that distinction.
+
+## §3 — What is genuinely hard about it, listed rather than solved
+
+1. **The engine would open a socket.** Today `spec.py`'s docstring can say
+   *"this module opens no socket"* and `judge.send` is the single audited
+   network path. A listening endpoint is a different security posture and
+   would need SECURITY.md to say so — including what binds it, what
+   authenticates a connection, and what happens when something else connects.
+2. **A worker that is the driving agent can see the whole conversation.** The
+   isolation between "the thing being supervised" and "the thing doing the
+   supervising" gets thinner. That is a claim-ceiling problem before it is a
+   security one: the evidence still says what it says, but the independence a
+   reader might assume is reduced, so the docs would have to state it.
+3. **Two agents could attach.** Or none, or one that disappears mid-turn. The
+   engine currently owns its worker's lifecycle and would stop doing so.
+4. **It is a new transport, and this programme has one.** Every network path
+   goes through `judge.send` on purpose. A second one is a second set of
+   safety rules to keep true.
+
+## §4 — The decision tree, keyed on a measurement NOT YET TAKEN
+
+The fork turns on one question that can only be answered by trying it:
+
+> **Does a Claude subscription credential work against the drafting endpoint
+> that `wring spec --send` posts to?**
+
+That is measurable in an afternoon on a fresh machine, and the fresh-install
+retest is the natural place to measure it, because it is the only run that
+starts from a person who has nothing set up yet.
+
+| if the retest shows | then loopback is | and the next step is |
+|---|---|---|
+| a subscription credential **can** draft | **a convenience cycle** — the key barrier is already gone for the drafting call, and loopback only saves the worker's separate auth | queue it behind anything with evidence value; it is ergonomics |
+| a subscription credential **cannot** draft | **the audience fix** — the product's first step is unreachable for the people it is for, and no amount of worker cleverness helps | take it to Fable as a ruling, with the retest capture attached as the evidence |
+
+**Neither branch is chosen here.** The measurement has not been taken, and
+choosing before it is taken is the thing this document exists to avoid.
+
+## §5 — What would falsify this sketch
+
+- If the drafting endpoint accepts a subscription credential, §1's framing is
+  half wrong and this document should be rewritten around the worker alone.
+- If `claude-agent-acp` gains subscription auth of its own, the worker half
+  dissolves and nothing here is needed.
+- If a measurement shows PMs do not in fact stall at the key — that they stall
+  somewhere earlier, or later — then this is solving a step nobody reached.
+  **Nobody has measured where they stall.** That is the largest unexamined
+  assumption in this document and it is named here rather than buried.
+
+## §6 — Status
+
+Authored 2026-08-19. **Not reviewed. Not ruled. Not built. No slice queued.**
+It exists so that the retest on a fresh machine collects the one fact the
+decision needs, instead of that machine being set up, working, and the
+question going unasked for another cycle.

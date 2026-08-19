@@ -6,6 +6,57 @@ package version and are listed per release.
 
 ## Unreleased
 
+### The PM consent surface (SPEC_PMPLAN_V0)
+
+**What a product manager approves, and how they change their mind.**
+
+Measured first: four `wring spec --send` calls on ONE unchanged PRD
+(`docs/variance-2026-08-19.md`, captures in `tests/replies/`). `prompt_tokens`
+is 2206 on all four, so every difference between them is sampling variance.
+They disagree about how many criteria to write, which questions to ask, and —
+the finding this work exists to answer — **which decisions to take without
+asking at all**. Fourteen criteria across all four runs carry a decision
+buried in a criterion's test `guidance`, where the person approving the plan
+never reads it as a decision. The drafter was told to prefer visible
+assumptions and given no field to put one in.
+
+**Assumptions get a channel.** A drafted reply may carry `assumptions`, each
+with the decision, why it was taken, and **the question it displaced** — which
+is what stops the channel becoming a tidier hiding place than `guidance` was.
+They land in a new `wringer.decisions.yaml` (`wringer.decisions.v1`; the spec
+schema is frozen and closed) and render on the plan under DECIDED WITHOUT
+ASKING YOU, above the sentence saying that approving the plan approves them.
+
+**The question cap is a guard, not a sentence.** "At most three questions" has
+been in the drafting request's prose since PM mode shipped; it is now checked
+at parse, after `parse()` so that every message `_parse_questions` exists to
+give still fires first and intact.
+
+**The plan has two registers.** Each task carries a plain-language `outcome` —
+what the person will be able to do — beside the machine `objective`, and the
+plan leads with the first and labels the second. It also says at approval how
+many requirements have a check bound to them, how many are the person's own to
+decide, and how many have nothing checking them — with the honest consequence:
+approving the plan accepts that those will not be proved.
+
+**There is a way back.** `wringer-board revise` changes an answer, or overrules
+a decision taken for you (promoting it into `open_questions` with your answer,
+which is the channel the briefs are written from). **Every revision withdraws
+your approval**, so the plan is rendered again before it can be re-approved —
+and answering a question after approval withdraws it too.
+
+**`wring spec --send --redraft`** drafts again over an existing spec and keeps
+every answer you have given. It joins on the question's TEXT, not its id: the
+same id carried four materially different questions across the four captured
+runs, so restoring by id would file your answer to a question you never read.
+
+Two live defects in `wringer-board` were found and fixed on the way: a
+hand-written `approved: False` was rewritten as `approved: Falsetrue`, and a
+spec saying `approved: no` — valid YAML the engine accepts — could not be
+approved at all.
+
+### Also
+
 **`wring spec --send` can reach a current-generation model again.**
 `spec.build_request` always sent `"temperature": 0`, and every
 current-generation Anthropic model rejects it with HTTP 400 — *"`temperature`
