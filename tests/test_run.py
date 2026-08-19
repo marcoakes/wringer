@@ -314,7 +314,15 @@ def test_json_keys_are_stable(
     cli.main(["run", "--json"])
 
     payload = json.loads(capfd.readouterr().out)
-    assert set(payload) == {"status", "reason", "iterations", "loop_dir", "final"}
+    assert set(payload) == {
+        "status", "reason", "iterations", "loop_dir", "final",
+        # R1 (2026-08-18): null on every ending where the worker did
+        # something, and the object of `wringer.workerdiagnosis.v1` where it
+        # finished having done nothing. A shell worker is never diagnosed —
+        # these two cases are both shell workers, so both are null.
+        "worker_diagnosis",
+    }
+    assert payload["worker_diagnosis"] is None
     assert payload["status"] == expected_status
     assert payload["reason"] == expected_reason
     assert set(payload["final"]) == {

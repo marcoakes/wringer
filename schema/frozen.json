@@ -44,6 +44,7 @@
     "untracked.schema.json": "53cfc3897a4a79f9037a87d8540bbf318ded1fe2e3b444004c72ab8971a16a98",
     "usage.schema.json": "3d49893b487df866e511d7c97549990f1240fa55fdda90798cbd781769f9f72e",
     "vacuity.schema.json": "7bbfd0fc3b64705583084e6ea47c41605192cd7357a5da98e7eb8e8b8852ee79",
-    "witness.schema.json": "2e3ea26f7629a26c3745e0eafdf327e4bb13cdc5d1c20f028fb831f1b490a017"
+    "witness.schema.json": "2e3ea26f7629a26c3745e0eafdf327e4bb13cdc5d1c20f028fb831f1b490a017",
+    "worker-diagnosis.schema.json": "87ad2f64049c71f144b81a8bb7f61a1fb5c13b0feb11365aee7dd4fe7f5ec0a5"
   }
 }

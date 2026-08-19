@@ -125,6 +125,21 @@ ENVIRONMENT = "environment"
 DIAGNOSIS_FILENAME = "diagnosis.json"
 DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
 
+# `worker-diagnosis.json` — R1 (2026-08-18), and a THIRD sibling for the same
+# reason the second one exists.
+#
+# It is not a fourth `face` on `diagnosis.json`: that file's `face` is a
+# closed enum in a published, frozen schema, and its required `gate` and
+# `evidence` fields are read off a failing gate's log by `gates.cite`. This
+# fact came from the worker's own ledger and names no gate, so writing it
+# there would mean inventing values for two required fields. Law 7 again: a
+# new file is always allowed, a field on a frozen shape never is.
+#
+# ABSENT unless a worker turn really ended clean and empty, so a reader that
+# finds one knows the worker never engaged without having to read a null.
+WORKER_DIAGNOSIS_FILENAME = "worker-diagnosis.json"
+WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v1"
+
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
 # scrub-then-cap log writing rather than reimplementing them worse.
@@ -206,6 +221,11 @@ class Outcome:
     # a legible diagnosis, and F6's flagship case is exactly that one. None
     # when nothing matched.
     diagnosis: diagnose.Diagnosis | None = None
+    # The LAST worker turn, when it ended cleanly having changed nothing (R1).
+    # A separate tier from `diagnosis` above because it is about the worker
+    # rather than about a gate, and it is the difference between "it tried and
+    # failed" and "it never engaged" — which `no_progress` alone cannot say.
+    worker_diagnosis: diagnose.WorkerDiagnosis | None = None
 
     @property
     def converged(self) -> bool:
@@ -831,6 +851,11 @@ def run(
     # One row per session that reported. Stays empty for every shell worker
     # and every agent that says nothing, and an empty list writes no file.
     usage_rows: list[dict[str, Any]] = []
+    # The LAST worker turn's emptiness, not every turn's: a loop whose first
+    # lap did real work and whose second produced nothing is not a worker that
+    # never engaged. Overwritten each lap, so what survives is how the loop
+    # actually ended. None whenever the last turn did something.
+    empty_turn: diagnose.WorkerDiagnosis | None = None
     # The tree as it was when the previous worker was handed control. Equal
     # again now means that worker changed nothing.
     before_worker: str | None = None
@@ -1034,6 +1059,7 @@ def run(
         reported = getattr(result, "acp_usage", None)
         if reported is not None:
             usage_rows.append({"iteration": iteration, **reported.as_json()})
+        empty_turn = getattr(result, "acp_empty_turn", None)
         if on_worker is not None:
             on_worker(result)
 
@@ -1092,6 +1118,7 @@ def run(
     # walker covers it without being taught a new filename. Absent — not null —
     # when the final failure matched no face.
     found = _write_diagnosis(bundle, final)
+    _write_worker_diagnosis(bundle, empty_turn)
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
     return Outcome(
@@ -1109,6 +1136,32 @@ def run(
             item.criterion for item in _unconverted(final, witnesses)
         ) if final is not None else (),
         diagnosis=found,
+        worker_diagnosis=empty_turn,
+    )
+
+
+def _write_worker_diagnosis(
+    bundle: Bundle, empty: diagnose.WorkerDiagnosis | None
+) -> None:
+    """Write `worker-diagnosis.json`, or nothing at all (R1).
+
+    Same contract as `_write_diagnosis` beside it: a hint that reaches the
+    RECORD rather than only the console, absent rather than null when there is
+    nothing to say, and never a verdict — nothing that reads this file may let
+    it reach acceptance, vacuity or health.
+    """
+    if empty is None:
+        return
+    path = bundle.directory / WORKER_DIAGNOSIS_FILENAME
+    payload = {
+        "schema_version": WORKER_DIAGNOSIS_SCHEMA_VERSION,
+        **empty.as_json(),
+    }
+    path.write_text(
+        bundle.redactor.scrub(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        ),
+        encoding="utf-8",
     )
 
 
@@ -1383,6 +1436,17 @@ def _run_acp_worker(
     # attribute and lands in the `usage.json` sibling instead (law 7).
     if turn.usage is not None:
         object.__setattr__(result, "acp_usage", turn.usage)
+    # R1: the turn ended, and the LEDGER says whether anything happened in it.
+    # Beside `acp_extras` for the same frozen-schema reason as usage.
+    empty = diagnose.diagnose_turn(
+        stop_reason=turn.stop_reason,
+        files_written=len(turn.files_written),
+        refusals=len(turn.refusals),
+        errored=False,
+        engine_words=(turn.updates[-1].strip() if turn.updates else ""),
+    )
+    if empty is not None:
+        object.__setattr__(result, "acp_empty_turn", empty)
     return result
 
 

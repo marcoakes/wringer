@@ -33,6 +33,7 @@ while the loop re-guessed for itself is the shape F6 was written after.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from wringer import config, gates
 
@@ -68,6 +69,116 @@ DESCRIPTIONS = {
     ),
     FACE_NOT_EXECUTABLE: "found the command but could not execute it",
 }
+
+
+# --- the worker's own turn, which is a different subject entirely -----------
+#
+# **R1 (2026-08-18), and it is deliberately NOT a fourth `face` above.** The
+# faces are read off a failing GATE's output and land in `diagnosis.json`,
+# whose `face` is a closed enum in a published, frozen schema — and whose
+# `gate` and `evidence` fields have no honest value for a fact that came from
+# the worker's ledger rather than from any gate's log. So this is its own
+# shape in its own sibling file, on the `usage.json` / `vacuity.json` /
+# `diagnosis.json` precedent: law 7, a new file is always allowed.
+FACE_TURN_CHANGED_NOTHING = "turn_changed_nothing"
+
+WORKER_FACES = (FACE_TURN_CHANGED_NOTHING,)
+
+WORKER_DESCRIPTIONS = {
+    FACE_TURN_CHANGED_NOTHING: (
+        "the agent finished its turn without changing a file or reporting an "
+        "error; this usually means it could not authenticate, or could not "
+        "see the work"
+    ),
+}
+
+# **A POINTER, never a list.** `env_passthrough` exists so that a secret
+# crossing into a worker is a declared act by the person who owns it — R1
+# refuses naming credential variables by default for exactly that reason, and
+# a remedy that named one would be Wringer choosing which of somebody's
+# secrets cross a boundary it built on purpose. It also would not have fixed
+# the measured failure. So the operator is pointed at their channel and left
+# to decide what goes through it.
+WORKER_REMEDIES = {
+    FACE_TURN_CHANGED_NOTHING: (
+        "what a worker is given is declared by the operator, in "
+        "`run.worker.acp.env_passthrough`; nothing else crosses that boundary"
+    ),
+}
+
+
+@dataclass(frozen=True)
+class WorkerDiagnosis:
+    """Why a worker's turn may have produced nothing, from the turn's FACTS.
+
+    **Never from message text** (F6's law: route on facts, hint on text, claim
+    on neither). The deprecated ACP adapter answers an unauthenticated prompt
+    with a bare `result` and no content — a turn that, read as text, succeeded
+    and said nothing. The ledger is the only honest witness: no files written,
+    no refusals raised, a clean stop reason.
+
+    Hint tier. It changes no routing — the loop stops on `no_progress` either
+    way (R2) — and nothing that reads this may reach a verdict.
+    """
+
+    face: str
+    stop_reason: str
+    files_written: int = 0
+    refusals: int = 0
+    # What the agent said for itself, if anything, carried BESIDE the
+    # description rather than parsed into one.
+    engine_words: str = ""
+
+    @property
+    def description(self) -> str:
+        return WORKER_DESCRIPTIONS[self.face]
+
+    @property
+    def remedy(self) -> str:
+        return WORKER_REMEDIES[self.face]
+
+    def as_json(self) -> dict[str, Any]:
+        recorded: dict[str, Any] = {
+            "face": self.face,
+            "description": self.description,
+            "remedy": self.remedy,
+            "stop_reason": self.stop_reason,
+            "files_written": self.files_written,
+            "refusals": self.refusals,
+        }
+        if self.engine_words:
+            recorded["engine_words"] = self.engine_words
+        return recorded
+
+
+def diagnose_turn(
+    *,
+    stop_reason: str,
+    files_written: int,
+    refusals: int,
+    errored: bool,
+    engine_words: str = "",
+) -> WorkerDiagnosis | None:
+    """A turn that ended cleanly having done nothing, or None.
+
+    Every argument is a FACT from the `acp.Turn` ledger. `errored` covers the
+    turn that never completed at all — a crash, a timeout, a refused session —
+    which is a different ending with its own evidence and is not this.
+    """
+    if errored or files_written or refusals:
+        return None
+    if not stop_reason or stop_reason == "unknown":
+        # An unreported stop reason is not a clean finish; it is a turn
+        # nobody can say ended properly, and guessing is what this tier is
+        # forbidden to do.
+        return None
+    return WorkerDiagnosis(
+        face=FACE_TURN_CHANGED_NOTHING,
+        stop_reason=stop_reason,
+        files_written=files_written,
+        refusals=refusals,
+        engine_words=engine_words,
+    )
 
 
 @dataclass(frozen=True)

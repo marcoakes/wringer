@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/worker-diagnosis.schema.json",
+  "title": "wringer.workerdiagnosis.v1",
+  "description": "A ROUTING DIAGNOSIS ABOUT THE WORKER'S TURN, NEVER A VERDICT. Why the last worker turn may have produced nothing, read out of the turn's own ledger — and nothing that reads this file may let it reach a verdict: not acceptance's receipts, not vacuity, not health. The same boundary `diagnosis.schema.json` carries, for the same reason.\n\nA SIBLING file in the loop bundle, beside `manifest.json`, on the `usage.json`, `vacuity.json` and `diagnosis.json` precedent. It is NOT a fourth `face` on `wringer.diagnosis.v1`: that schema's `face` is a closed enum in a published and frozen file, and its required `gate` and `evidence` fields are read off a failing gate's log by `gates.cite`. This fact comes from the worker's ledger and names no gate, so writing it there would mean inventing values for two required fields. Law 7: a new file is always allowed, a field on a frozen shape never is.\n\nSPEC context: R1 (2026-08-18), after a product manager's field run sat silent for minutes while a coding agent that could not authenticate answered every prompt with an empty success. The loop stopped on `no_progress` — which stands, and does not move (R2) — and nothing anywhere could tell 'the worker tried and failed' from 'the worker never engaged'.\n\nABSENT rather than null when the last turn did something. A reader that finds this file knows the worker finished without touching the tree; a reader that does not find one is not reading a null and wondering.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "face",
+    "description",
+    "remedy",
+    "stop_reason",
+    "files_written",
+    "refusals"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.workerdiagnosis.v1"
+    },
+    "face": {
+      "description": "Which shape the turn wore. A CLOSED enum, derived from `diagnose.WORKER_FACES` — a face with no name is a face no reader can route on. `turn_changed_nothing`: the turn ended cleanly, wrote no file and raised no refusal.",
+      "enum": ["turn_changed_nothing"]
+    },
+    "description": {
+      "description": "The hint, addressed to a person, phrased as the possibility it is. From `diagnose.WORKER_DESCRIPTIONS`, so the record and the console cannot disagree about which sentence they carry.",
+      "type": "string",
+      "minLength": 1
+    },
+    "remedy": {
+      "description": "A POINTER, never a list. It names `run.worker.acp.env_passthrough` as the operator's channel and NEVER which variables belong in it: that field exists so a secret crossing into a worker is a declared act by the person who owns it, and a default list is a declaration nobody made. R1 refuses naming credential variables for exactly this reason — and because a default that leaks would not have fixed the measured failure.",
+      "type": "string",
+      "minLength": 1
+    },
+    "stop_reason": {
+      "description": "The ACP `stopReason` the agent reported for the turn — a FACT from the ledger, recorded and never obeyed. This is what makes the record legible: a turn claiming `end_turn` having written nothing is the shape a deprecated adapter's unauthenticated reply has.",
+      "type": "string",
+      "minLength": 1
+    },
+    "files_written": {
+      "description": "How many files the turn wrote through the file seam. Zero is what makes this diagnosis apply; the number is recorded rather than the fact, so a reader sees what was counted.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "refusals": {
+      "description": "How many writes the file seam refused during the turn. Zero, likewise: a turn that was refused a write DID try to do something, and is a different ending with its own evidence.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "engine_words": {
+      "description": "The agent's own last account of itself, if it gave one, carried verbatim BESIDE the description rather than parsed into it. Detection never reads this — F6's law: route on facts, hint on text, claim on neither — and the deprecated adapter's empty success is precisely why text cannot be trusted here.",
+      "type": "string"
+    }
+  }
+}

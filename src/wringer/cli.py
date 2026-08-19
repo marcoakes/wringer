@@ -1778,6 +1778,17 @@ def cmd_run(args: argparse.Namespace) -> int:
                         if outcome.final is not None
                         else None
                     ),
+                    # R1: the hint has to reach whoever is DRIVING, not only
+                    # the terminal — a hint that only scrolled past is a hint
+                    # that did not happen, and the JSON front door is the one
+                    # a PM's agent reads. Null, not absent, because this key
+                    # is part of a stable object a driver destructures; the
+                    # SIBLING FILE is where absence carries the meaning.
+                    "worker_diagnosis": (
+                        outcome.worker_diagnosis.as_json()
+                        if outcome.worker_diagnosis is not None
+                        else None
+                    ),
                 }
             )
         )
@@ -1925,6 +1936,30 @@ def _report_diagnosis(outcome: loop.Outcome, root: Path) -> None:
     )
 
 
+def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
+    """The worker turn that ended having done nothing — R1.
+
+    A separate tier from the gate diagnosis above, and the distinction it
+    carries is the one `no_progress` alone cannot make: the worker tried and
+    failed, or the worker never engaged. Hint-tier, phrased as the
+    possibility it is, and its remedy is a POINTER — the channel, never the
+    variables, because Wringer does not know which of a person's secrets a
+    worker needs and must not guess.
+    """
+    found = outcome.worker_diagnosis
+    if found is None:
+        return
+    print(
+        "! "
+        + textwrap.fill(
+            f"{found.description} (it reported `{found.stop_reason}` and "
+            f"wrote no file). {found.remedy}.",
+            width=76,
+            subsequent_indent="  ",
+        )
+    )
+
+
 def _report_loop(outcome: loop.Outcome, root: Path) -> None:
     ending = _LOOP_ENDINGS.get(outcome.reason, "Stopped after {n} iteration{s}.")
     print(
@@ -1967,6 +2002,7 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
             )
         )
     _report_diagnosis(outcome, root)
+    _report_worker_diagnosis(outcome)
     print(f"Loop evidence: {_relative(outcome.directory, root)}/")
     if not outcome.converged and outcome.final is not None:
         print(f"Last verification: {verify.bundle_path(outcome.final.bundle, root)}/")

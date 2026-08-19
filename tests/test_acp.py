@@ -18,7 +18,7 @@ from pathlib import Path
 import fake_acp_agent
 import pytest
 
-from wringer import acp, agents, cli, config, containment, loop
+from wringer import acp, agents, cli, config, containment, diagnose, loop
 
 AGENT = Path(__file__).resolve().parent / "fake_acp_agent.py"
 
@@ -107,6 +107,81 @@ def test_the_loop_cannot_tell_which_worker_form_ran(repo, monkeypatch, capsys):
     capsys.readouterr()
 
     assert result(repo)["reason"] == "no_progress"
+
+
+def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
+    repo, monkeypatch, capsys
+):
+    """**R1 (2026-08-18): the field run's fifteen silent minutes.**
+
+    A PM's Claude Code could not authenticate. The deprecated adapter answered
+    the prompt with a bare `result` and no content — to a client, a turn that
+    succeeded and changed nothing — so the loop recorded an empty success,
+    stopped on `no_progress`, and blamed a worker for a condition no worker
+    could affect. Nothing anywhere said "it never engaged".
+
+    The facts were all in the ledger the whole time: no `files_written`, no
+    `refusals`, a clean `stop_reason`. Detection keys on those and NEVER on
+    message text — F6's law, and the deprecated adapter's empty success is
+    precisely why text cannot be trusted here.
+
+    `no_progress` still stands (R2: no new reason value, the frozen enums do
+    not move). Only legibility changes, and it reaches the RECORD.
+    """
+    setup(repo, "idle")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    assert result(repo)["reason"] == "no_progress", "the reason enum moved"
+
+    written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    assert written.is_file(), (
+        "a worker that finished having changed nothing left no diagnosis — "
+        "the operator gets `no_progress` and no way to tell 'it tried and "
+        "failed' from 'it never engaged'"
+    )
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == loop.WORKER_DIAGNOSIS_SCHEMA_VERSION
+    assert payload["face"] == diagnose.FACE_TURN_CHANGED_NOTHING
+    assert payload["stop_reason"] == "end_turn"      # it claimed success
+    assert payload["files_written"] == 0
+    assert payload["refusals"] == 0
+
+    said = payload["description"] + " " + payload["remedy"]
+    assert "authenticate" in said, "the likeliest cause is never named"
+    assert "env_passthrough" in said, (
+        "the remedy never points at the operator's channel"
+    )
+    # **The remedy is a POINTER, not a list.** Wringer does not know which of
+    # a person's secrets a worker needs and must not guess: naming one here
+    # would push a credential across a boundary that exists to be crossed
+    # deliberately (R1 refuses option (a) for exactly this).
+    for variable in ("ANTHROPIC_API_KEY", "CLAUDE_", "OPENAI_", "_TOKEN"):
+        assert variable not in said, (
+            f"the remedy names {variable!r} — Wringer would be choosing which "
+            "of a person's secrets cross into a worker"
+        )
+
+
+def test_a_worker_that_DID_change_a_file_is_not_diagnosed_as_absent(
+    repo, monkeypatch, capsys
+):
+    """The other direction, and the reason the pair exists: a detector that
+    fired on every ending would satisfy the test above while describing every
+    run in the world. This agent writes the file and the loop converges —
+    there is nothing to diagnose and no file may appear."""
+    setup(repo, "fix")
+    monkeypatch.chdir(repo)
+
+    cli.main(["run"])
+    capsys.readouterr()
+
+    assert not (only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME).exists(), (
+        "a worker that really did the work was reported as never having "
+        "engaged"
+    )
 
 
 def test_a_stop_reason_changes_no_decision(repo, monkeypatch, capsys):
