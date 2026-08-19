@@ -1740,7 +1740,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"wring run: {absent}", file=sys.stderr)
         return EXIT_CONFIG
 
-    quiet = args.json
+    on_iteration, on_gate, on_worker = _loop_reporters(args.json)
     try:
         outcome = loop.run(
             root,
@@ -1748,9 +1748,9 @@ def cmd_run(args: argparse.Namespace) -> int:
             max_iterations=args.max_iterations,
             worker_timeout=args.worker_timeout,
             wall_clock=args.wall_clock,
-            on_iteration=None if quiet else _report_iteration,
-            on_gate=None if quiet else _report_gate,
-            on_worker=None if quiet else _report_worker,
+            on_iteration=on_iteration,
+            on_gate=on_gate,
+            on_worker=on_worker,
             gates=args.gate,
             prove=args.prove,
         )
@@ -1789,17 +1789,47 @@ def cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK if outcome.converged else EXIT_GATE_FAILED
 
 
-def _report_iteration(iteration: int, budget: int) -> None:
-    print(f"\niteration {iteration}/{budget}", flush=True)
+def _report_iteration(iteration: int, budget: int, stream=None) -> None:
+    print(f"\niteration {iteration}/{budget}", file=stream or sys.stdout, flush=True)
 
 
-def _report_worker(result: gates.GateResult) -> None:
+def _report_worker(result: gates.GateResult, stream=None) -> None:
     """One line for the worker's turn, shaped like a gate's so the two read
     as one transcript."""
     note = "timed out" if result.timed_out else f"exit {result.exit_code}"
     label = "→ worker"
     padding = " " * max(1, 21 - len(label))
-    print(f"{label}{padding}{_duration(result.duration_ms)}  ({note})", flush=True)
+    print(
+        f"{label}{padding}{_duration(result.duration_ms)}  ({note})",
+        file=stream or sys.stdout,
+        flush=True,
+    )
+
+
+def _report_iteration_stderr(iteration: int, budget: int) -> None:
+    _report_iteration(iteration, budget, stream=sys.stderr)
+
+
+def _report_gate_stderr(result: gates.GateResult) -> None:
+    _report_gate(result, stream=sys.stderr)
+
+
+def _report_worker_stderr(result: gates.GateResult) -> None:
+    _report_worker(result, stream=sys.stderr)
+
+
+def _loop_reporters(json_mode: bool):
+    """The loop's heartbeat, and the channel it goes to.
+
+    `--json` reserves stdout for the one JSON object — and until R4
+    (2026-08-18) that suppressed the heartbeat entirely, so a driver saw
+    nothing between "Building now" and the outcome. Fifteen silent minutes is
+    indistinguishable from a hang. Same lines, verbatim, on STDERR instead:
+    stdout keeps its contract and the loop stays visibly alive.
+    """
+    if json_mode:
+        return _report_iteration_stderr, _report_gate_stderr, _report_worker_stderr
+    return _report_iteration, _report_gate, _report_worker
 
 
 def _duration(duration_ms: int) -> str:
@@ -2352,21 +2382,21 @@ def cmd_resume(args: argparse.Namespace) -> int:
         )
         return EXIT_CONFIG
 
-    quiet = args.json
-    if not quiet:
+    if not args.json:
         print(
             f"Resuming {_relative(loop_dir, root)} — "
             f"{resumable.iterations_done} iteration"
             f"{'' if resumable.iterations_done == 1 else 's'} already done."
         )
 
+    on_iteration, on_gate, on_worker = _loop_reporters(args.json)
     try:
         outcome = loop.run(
             root,
             cfg,
-            on_iteration=None if quiet else _report_iteration,
-            on_gate=None if quiet else _report_gate,
-            on_worker=None if quiet else _report_worker,
+            on_iteration=on_iteration,
+            on_gate=on_gate,
+            on_worker=on_worker,
             resuming=resumable,
         )
     except (evidence.EvidenceError, backend.BackendError) as exc:
@@ -4044,7 +4074,7 @@ def _gate_line(
     return f"{mark} {label}{padding}{duration_ms / 1000:.1f}s{note}"
 
 
-def _report_gate(result: gates.GateResult) -> None:
+def _report_gate(result: gates.GateResult, stream=None) -> None:
     """One line per gate, printed as it finishes."""
     print(
         _gate_line(
@@ -4054,6 +4084,7 @@ def _report_gate(result: gates.GateResult) -> None:
             result.duration_ms,
             result.gate.optional,
         ),
+        file=stream or sys.stdout,
         flush=True,
     )
 

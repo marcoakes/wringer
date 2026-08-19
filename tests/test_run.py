@@ -325,6 +325,25 @@ def test_json_keys_are_stable(
     }
 
 
+def test_json_mode_progress_goes_to_stderr_not_nowhere(repo, monkeypatch, capfd):
+    """**R4 (2026-08-18): `--json` used to suppress the loop's heartbeat
+    entirely**, because stdout is reserved for the one JSON object. A build
+    silent for fifteen minutes is indistinguishable from a hung one, and the
+    field run proved nobody waits to find out which. Same lines, verbatim,
+    on STDERR; stdout stays exactly the contract it was."""
+    broken(repo)
+    write_loop_config(repo, "true")
+    monkeypatch.chdir(repo)
+
+    cli.main(["run", "--json"])
+
+    out, err = capfd.readouterr()
+    payload = json.loads(out)  # the whole of stdout is still the one object
+    assert payload["status"] == "stopped"
+    assert "iteration 1/" in err, "the heartbeat never reached stderr"
+    assert "→ worker" in err
+
+
 def test_max_iterations_can_be_overridden(repo, monkeypatch, capsys):
     broken(repo)
     write_loop_config(repo, "date +%s%N >> calc.py", max_iterations=9)
