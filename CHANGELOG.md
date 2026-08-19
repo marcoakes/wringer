@@ -4,7 +4,7 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## Unreleased
+## 0.4.0 — 2026-08-19
 
 ### The PM consent surface (SPEC_PMPLAN_V0)
 
