@@ -2856,8 +2856,14 @@ def cmd_spec(args: argparse.Namespace) -> int:
             ):
                 source = root / name
                 if source.is_file():
+                    # **Through the redactor, like every other write into a
+                    # bundle.** These documents carry ANSWERS A PERSON TYPED,
+                    # which is the likeliest place in the whole surface for a
+                    # credential to appear — and a raw copy would have put it
+                    # in an evidence bundle that travels.
                     (bundle.directory / f"previous-{name}").write_text(
-                        source.read_text(encoding="utf-8"), encoding="utf-8"
+                        redactor.scrub(source.read_text(encoding="utf-8")),
+                        encoding="utf-8",
                     )
 
         # Written only now, once the whole document has been through the same

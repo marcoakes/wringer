@@ -154,6 +154,11 @@ DECISIONS_MARKER = (
 # wrote. This one bounds what a MODEL may make blocking, and it is strictly
 # narrower.
 MAX_REQUIRED_QUESTIONS = 3
+# Every other id-keyed container the reply carries has a ceiling —
+# MAX_OPEN_QUESTIONS 20, MAX_TASKS 50 — and this one had none. A reply
+# proposing hundreds of decisions is not a reply a person can consent to, and
+# the number is the point at which reading them stops being possible.
+MAX_ASSUMPTIONS = 20
 
 # **A decision the drafter buried in a criterion's `guidance` — a LOWER BOUND
 # with no known ceiling, and the comment says so because the code cannot.**
@@ -532,11 +537,31 @@ def parse_assumptions(
         return (), ()
     if not isinstance(raw, list):
         raise SpecError(f"{where}: 'assumptions' must be a list")
+    if len(raw) > MAX_ASSUMPTIONS:
+        raise SpecError(
+            f"{where}: {len(raw)} assumptions, over the limit of "
+            f"{MAX_ASSUMPTIONS} — approving a plan approves every one of them, "
+            "and a list nobody can read is not consent"
+        )
 
     blocking = {
         q.id for q in questions
         if getattr(q, "required", True) and not getattr(q, "answered", False)
     }
+    # **Every OTHER collision drops with a note, and narrowing this to the
+    # blocking case alone was a real defect.** An assumption sharing an id with
+    # an optional or already-answered question was accepted silently — and both
+    # readers of this file then join assumption to question BY ID, which is the
+    # fallacy `carry_answers_forward` exists to refuse, reintroduced inside the
+    # consent surface itself. The plan printed "you answered this" quoting an
+    # unrelated answer, and `revise` overwrote that answer instead of promoting
+    # the assumption.
+    #
+    # The request already gives the drafter the TOTAL rule ("an `assumptions`
+    # id must not be the id of a question you are also asking"). This is that
+    # rule as a guard, and the file's own comment says why: prompts are not
+    # guards.
+    every_question = {getattr(q, "id", None) for q in questions}
     kept: list[Assumption] = []
     notes: list[str] = []
     seen: set[str] = set()
@@ -559,7 +584,8 @@ def parse_assumptions(
                 ),
             )
         except SpecError as exc:
-            notes.append(f"dropped {exc}")
+            # `exc` already begins with `at`; prefixing again said it twice.
+            notes.append(f"dropped assumption: {exc}")
             continue
         if identifier in seen:
             notes.append(f"dropped {at}: duplicate assumption id '{identifier}'")
@@ -571,6 +597,14 @@ def parse_assumptions(
                 "that it still needs to ask about it. One draft cannot do both, "
                 "and a person must never be shown that pair. Nothing was written"
             )
+        if identifier in every_question:
+            notes.append(
+                f"dropped {at}: '{identifier}' is also an open question's id, "
+                "and an id is not a question. Kept as the question, because a "
+                "decision and a question sharing an id is a pair two readers "
+                "would join wrongly"
+            )
+            continue
         seen.add(identifier)
         kept.append(assumption)
     return tuple(kept), tuple(notes)
@@ -785,6 +819,26 @@ def carry_answers_forward(
             "forward with your answer rather than dropped"
         )
         carried.append(question)
+
+    # **The merge may not grow past the loader's own ceiling, and the first
+    # version could.** Carried answers accumulate across redrafts; once the
+    # total passed `MAX_OPEN_QUESTIONS` the re-parse refused, nothing was
+    # written, and — because nothing was written — every later redraft
+    # produced the identical refusal forever. That is the same permanent wedge
+    # as the id-length one, on a different limit.
+    #
+    # So the oldest carried answers are dropped, LOUDLY, rather than the
+    # document becoming unwritable. Losing the oldest answer with a sentence
+    # naming it is bad; losing the ability to draft ever again is worse.
+    room = MAX_OPEN_QUESTIONS - len(merged)
+    if len(carried) > max(room, 0):
+        for question in carried[: len(carried) - max(room, 0)]:
+            notes.append(
+                f"'{question.id}' could NOT be carried forward — this spec is "
+                f"at the limit of {MAX_OPEN_QUESTIONS} questions. Your answer "
+                f"to it was: {question.answer.strip()[:120]}"
+            )
+        carried = carried[len(carried) - max(room, 0):]
 
     if carried:
         # A carried pair keeps its id only when nothing else claims it.

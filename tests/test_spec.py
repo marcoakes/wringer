@@ -1600,9 +1600,19 @@ def test_an_assumption_that_is_ALSO_a_required_open_question_is_refused():
     assert "date-format" in str(caught.value)
 
 
-def test_an_assumption_colliding_with_an_OPTIONAL_question_is_only_a_note():
-    """Narrowed after review: refusing every collision would kill whole paid
-    drafts on measured drafter behaviour."""
+def test_an_assumption_colliding_with_ANY_question_id_is_dropped_with_a_note():
+    """**Accepting this silently was a real defect, reproduced end to end.**
+    An assumption sharing an id with an optional or already-answered question
+    was kept — and both readers of the sidecar then joined assumption to
+    question BY ID, so the plan claimed the person had answered something they
+    had never been asked, and `revise` overwrote their real answer.
+
+    The drafter is already given the total rule in the request ("an
+    `assumptions` id must not be the id of a question you are also asking").
+    This is that rule as a guard, because prompts are not guards.
+
+    It DROPS rather than refusing: a required-and-unanswered collision is the
+    contradiction worth refusing a paid draft over, and this is not that."""
     payload = json.loads(json.dumps(DRAFT))
     payload["assumptions"] = [{
         "id": "row-cap", "decision": "No cap.", "why": "Nothing said one.",
@@ -1611,7 +1621,9 @@ def test_an_assumption_colliding_with_an_OPTIONAL_question_is_only_a_note():
 
     drafted = spec.parse_response(reply(payload), PRD)
 
-    assert [a.id for a in drafted.assumptions] == ["row-cap"]
+    assert drafted.assumptions == ()
+    said = " ".join(drafted.notes)
+    assert "row-cap" in said and "an id is not a question" in said
 
 
 def test_the_decisions_sidecar_round_trips_and_declares_what_it_cannot_do():
@@ -1949,14 +1961,21 @@ def test_a_redraft_keeps_the_documents_it_replaces(repo, monkeypatch):
     assert "After thirty seconds." in kept[0].read_text(encoding="utf-8")
 
 
-def test_a_merge_that_would_break_the_spec_refuses_and_changes_NOTHING(
+def test_a_full_spec_drops_the_oldest_carried_answer_LOUDLY_and_never_wedges(
     repo, monkeypatch, capsys
 ):
-    """The merged document is re-parsed before a byte is written. Every limit
-    protecting this file lives inside `parse`, which had already run on the
-    REPLY — nothing re-validated the merged result."""
+    """**The second permanent wedge, and the fix is not a refusal.**
+
+    Carried answers accumulate across redrafts. Once the merged total passed
+    `MAX_OPEN_QUESTIONS` the re-parse refused, nothing was written — and
+    because nothing was written the on-disk state never advanced, so every
+    LATER redraft produced the identical refusal forever. Same shape as the
+    id-length wedge: a repository that can never be drafted in again.
+
+    So the oldest carried answer is dropped with a sentence naming it AND
+    quoting it, and the draft proceeds. Losing one old answer visibly is bad;
+    losing the ability to draft at all is worse."""
     redraft_setup(repo, monkeypatch)
-    before = (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
     crowded = json.loads(json.dumps(DRAFT))
     crowded["open_questions"] = [
         {"id": f"q{n}", "question": f"Q{n}?", "required": False}
@@ -1964,10 +1983,14 @@ def test_a_merge_that_would_break_the_spec_refuses_and_changes_NOTHING(
     ]
     fake_transport(monkeypatch, reply=reply(crowded))
 
-    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
 
-    assert (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8") == before
-    assert "your answers are still in it" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "could NOT be carried forward" in err
+    # The answer itself is quoted, so it is recoverable from the console alone.
+    assert "After thirty seconds." in err
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert len(loaded.questions) <= spec.MAX_OPEN_QUESTIONS
 
 
 def test_redraft_without_an_existing_spec_says_to_drop_the_flag(
@@ -2125,3 +2148,52 @@ def test_an_unusable_outcome_is_NAMED_rather_than_silently_dropped(repo):
     said = " ".join(drafted.notes)
     assert "unusable 'outcome'" in said, drafted.notes
     assert "csv-export" in said
+
+
+def test_more_assumptions_than_a_person_can_read_is_refused():
+    """Every other id-keyed container the reply carries has a ceiling and this
+    one had none. Approving a plan approves every assumption on it, so a list
+    nobody can read is not consent."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [
+        {"id": f"a{n}", "decision": "d", "why": "w", "instead_of_asking": "q?"}
+        for n in range(spec.MAX_ASSUMPTIONS + 1)
+    ]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    assert "not consent" in str(caught.value)
+
+
+def test_the_redraft_backup_goes_through_the_REDACTOR(repo, monkeypatch):
+    """**These documents carry answers a person TYPED**, which is the likeliest
+    place in this whole surface for a credential to appear — and the bundle
+    they are copied into is evidence that travels. Every other write into a
+    bundle is scrubbed; this one was a raw `read_text`."""
+    setup_repo(
+        repo,
+        config_text=CONFIG.rstrip()
+        + "\nevidence:\n  redact:\n    env:\n      - '*SECRET*'\n",
+    )
+    monkeypatch.chdir(repo)
+    monkeypatch.setenv("MY_SECRET_TOKEN", "hunter2")
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    text = (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
+    (repo / spec.SPEC_FILENAME).write_text(
+        text.replace("answer: ''", "answer: the password is hunter2", 1),
+        encoding="utf-8",
+    )
+
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    kept = [
+        path for path in (repo / spec.SPECS_DIRNAME).rglob(
+            f"previous-{spec.SPEC_FILENAME}"
+        )
+    ]
+    assert len(kept) == 1, kept
+    body = kept[0].read_text(encoding="utf-8")
+    assert "hunter2" not in body, body
