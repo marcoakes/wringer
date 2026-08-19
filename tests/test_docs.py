@@ -3175,3 +3175,84 @@ def test_the_default_guard_would_notice_a_number_that_went_stale():
             if number
         }
         assert "1024" in found, (sentence, found)
+
+
+# --- the README may not name a component that does not exist ----------------
+
+
+def test_the_readme_names_no_module_or_package_that_does_not_exist():
+    """**The front page carried five false claims about the product, and the
+    product's whole pitch is that it refuses what it cannot evidence.**
+
+    Found 2026-08-19. `README.md` drew a five-layer architecture whose L2
+    HARNESS layer — the layer that IS this tool — named four components:
+    `wringer-ir`, `wringer-engine`, `wringer-loops`, `wringer-verify`. None of
+    them existed as a repository, a package, or a module. Beside them the same
+    section claimed "OpenTelemetry GenAI traces", a "per-loop cost ledger",
+    a "Graph IR", and "a conformance suite proves each mapping". Grepping
+    `src/` found none of the four.
+
+    Aspiration belongs in the build plan, which exists and is five thousand
+    words long. A description of the product belongs in the README only when
+    it is true of the product.
+
+    This checks the narrow, mechanical half: a `wringer-<name>` token in the
+    README must correspond to something on disk. It cannot catch a false
+    claim written in prose — `test_the_readme_claims_no_capability_the_code_
+    lacks` below covers the named features — and neither guard replaces
+    reading. Both exist because nothing was checking this at all.
+    """
+    text = (repo_root() / "README.md").read_text(encoding="utf-8")
+    known = {"wringer", "wringer-board", "wringer-drive"}
+    # A filename is not a component. `wringer-vs-langgraph.md` and
+    # `wringer-ai-dlc-harness-plan.md` are documents in this repository, and
+    # the first version of this guard reported both as missing packages —
+    # a guard whose own false positives would train a reader to ignore it.
+    prose = re.sub(r"\bwringer-[a-z0-9-]+\.md\b", "", text)
+    named = set(re.findall(r"\bwringer-([a-z][a-z0-9-]*)\b", prose))
+    missing = []
+    for name in sorted(named):
+        full = f"wringer-{name}"
+        if full in known:
+            continue
+        # A sibling repository, an extra, or a module — any of those is real.
+        if (repo_root().parent / full).is_dir():
+            continue
+        if (repo_root() / "src" / full.replace("-", "_")).is_dir():
+            continue
+        missing.append(full)
+    assert not missing, (
+        f"README names components that do not exist: {missing}. The front "
+        "page of a tool that refuses what it cannot evidence may not describe "
+        "parts of itself that are not there"
+    )
+
+
+def test_the_readme_claims_no_capability_the_code_lacks():
+    """The prose half, for the named features that were false.
+
+    Each entry is a phrase the README used and the token that would have to
+    appear in `src/` for it to be true. Derived per-run rather than pinned, so
+    a capability that genuinely arrives makes the claim permissible instead of
+    needing this guard edited.
+    """
+    text = (repo_root() / "README.md").read_text(encoding="utf-8")
+    sources = " ".join(
+        path.read_text(encoding="utf-8", errors="ignore")
+        for path in (repo_root() / "src" / "wringer").glob("*.py")
+    )
+    claims = {
+        "OpenTelemetry": "opentelemetry",
+        "cost ledger": "cost_ledger",
+        "Graph IR": "graph_ir",
+        "conformance suite": "conformance",
+    }
+    broken = [
+        phrase
+        for phrase, token in claims.items()
+        if phrase.lower() in text.lower() and token not in sources.lower()
+    ]
+    assert not broken, (
+        f"README claims capabilities the code does not have: {broken}. Either "
+        "build them, or say them in the build plan where aspiration belongs"
+    )
