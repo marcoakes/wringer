@@ -2818,6 +2818,34 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 sidecar.write_text(
                     spec.render_gatespec(proposed), encoding="utf-8"
                 )
+        if draft.assumptions:
+            # The same three-way outcome as the gate sidecar, and for the same
+            # reason: this file can be written by hand, so `--send` must never
+            # replace a person's own decisions with a model's. Never written
+            # empty — an empty `assumptions:` list would ASSERT that nothing
+            # was decided for the reader, which is a much stronger claim than
+            # having nothing to say, and it is the claim this whole channel
+            # exists because nobody could make.
+            decisions = root / spec.DECISIONS_FILENAME
+            if decisions.is_file() and not spec.decisions_is_generated(decisions):
+                print(
+                    f"wring spec: {spec.DECISIONS_FILENAME} was written by "
+                    "hand, so it was left alone — the drafted assumptions are "
+                    f"in {_relative(bundle.directory, root)}/"
+                    f"{spec.RESPONSE_FILENAME} if you want them.",
+                    file=sys.stderr,
+                )
+            else:
+                decisions.write_text(
+                    spec.render_decisions(draft.assumptions), encoding="utf-8"
+                )
+                print(
+                    f"wring spec: {len(draft.assumptions)} decision(s) were "
+                    f"taken for you rather than asked. They are in "
+                    f"{spec.DECISIONS_FILENAME}, each with the question it "
+                    "replaced. Approving the plan approves them.",
+                    file=sys.stderr,
+                )
 
     if args.send and args.witness and drafted is not None:
         # The return value is deliberately dropped: `_author_witnesses` stores

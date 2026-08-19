@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/decisions.schema.json",
+  "title": "Wringer decisions — the plain-language companion to a spec",
+  "description": "A `wringer.decisions.v1` document (SPEC_PMPLAN_V0). Source, not evidence: it lives in the repository beside `wringer.spec.yaml`. It exists because `wringer.spec.v1` is frozen and `additionalProperties: false`, so none of this has a home in it — and because a version spend on the spec ripples through every reader of every archived bundle, where a new file touches only what opts in (law 7). NO AUTHORITY OVER WHAT IS BUILT: no gate here runs, nothing under `.wringer/` is written from it, and no builder is ever briefed from it. Its `consent` block can make `wring plan` REFUSE, and refusing is the only thing it can do. ALL THREE BLOCKS ARE DECLARED HERE AND ALL THREE ARE OPTIONAL, deliberately: this file freezes on publication, so declaring only what has a producer today would force a version spend the moment the next one arrives — later work adds producers and never a byte. The `wringer.acceptance.v3` precedent covers the gap, provided it is named where a reader meets it, so: AT PUBLICATION, `assumptions` is written by `wring spec` and `outcomes` and `consent` HAVE NO WRITER. `consent` in particular describes a hand-edit check that was ruled OWED after review — the shape is reserved, the behaviour is not built, and no reader should infer from this file that a spec's answers have been fingerprinted.",
+  "type": "object",
+  "required": [
+    "schema_version"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.decisions.v1"
+    },
+    "assumptions": {
+      "description": "Decisions the drafter took INSTEAD of asking. Measured 2026-08-19: told to prefer visible assumptions and given no field to put one in, a drafter writes them into a criterion's test `guidance`, where the person approving the plan never reads them as decisions — 14 criteria across four replies to one unchanged PRD. This is the field that was missing. Approving the plan approves these.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "decision",
+          "why",
+          "instead_of_asking"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "A slug, obeying the frozen open-question id rule BYTE FOR BYTE: `wringer-board revise` promotes an assumption into `open_questions`, so an id this file accepted and the spec loader would not is a spec the engine then refuses, leaving a person a broken file and an error about a document they never hand-edited.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "decision": {
+            "description": "One plain sentence: what was decided.",
+            "type": "string",
+            "minLength": 1
+          },
+          "why": {
+            "description": "One plain sentence: why it was decided that way.",
+            "type": "string",
+            "minLength": 1
+          },
+          "instead_of_asking": {
+            "description": "The question the person would otherwise have been asked. REQUIRED, and it is what stops this channel becoming a tidier place to hide a decision than `guidance` was: carrying the displaced question means the person is always one action away from asking it after all.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "outcomes": {
+      "description": "One plain-language sentence per task: what the person will be able to DO when that task is done, beside the machine `objective` the engineer works from. NO WRITER AT PUBLICATION — the producer arrives with the plan's two registers.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "outcome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "task": {
+            "description": "The id of a task in `wringer.spec.yaml`. A row naming a task the spec does not have is refused whole — content pointing at nothing, the same rule the gate sidecar applies to a `proves` naming no criterion.",
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+            "maxLength": 64
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "consent": {
+      "description": "What the approver approved, recorded at the moment they approved it, so that a spec edited afterwards can be told from one that was not. NO WRITER AT PUBLICATION: the check was ruled OWED after review, because it would need one implementation in the engine and another in the board — two packages with no shared code and no dependency edge — over a canonical form that any normalisation difference would turn into `wring plan` accusing an honest person of editing their spec after approving it. The shape is reserved; the behaviour is not built. Absence of this block is NOT evidence of tampering and never becomes so: a spec approved by hand never claimed a fingerprint.",
+      "type": "object",
+      "required": [
+        "fingerprint"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "fingerprint": {
+          "description": "Digest over the canonical serialisation of every question id with its answer and every assumption id with its decision. Prefixed with its algorithm, so a later one can arrive without a version spend.",
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "questions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "assumptions": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}

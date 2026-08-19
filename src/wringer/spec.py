@@ -120,6 +120,64 @@ _TOP_LEVEL_KEYS = {
 }
 _QUESTION_KEYS = {"id", "question", "required", "answer"}
 _TASK_KEYS = {"id", "brief", "dir", "objective"}
+_ASSUMPTION_KEYS = {"id", "decision", "why", "instead_of_asking"}
+
+# The plain-language companion to `wringer.spec.yaml` (SPEC_PMPLAN_V0 ruling 2).
+# A SEPARATE FILE for the same reason the gate sidecar is one: `wringer.spec.v1`
+# is frozen and `spec.schema.json` is `additionalProperties: false`, so an
+# assumption has no home in it — and a version spend ripples through every
+# reader of every archived bundle, where a new file touches only what opts in.
+DECISIONS_FILENAME = "wringer.decisions.yaml"
+DECISIONS_SCHEMA_VERSION = "wringer.decisions.v1"
+# The same hand-written protection `wringer.gates.yaml` has, and for the same
+# reason: this file can be written by hand, so `--send` must never silently
+# replace a person's own decisions with a model's.
+DECISIONS_MARKER = (
+    "# written by `wring spec` from the drafted reply — a record of what was "
+    "decided FOR you, which approving the plan approves"
+)
+
+# **AT MOST THREE REQUIRED QUESTIONS, as a guard rather than a sentence.**
+# The rule has lived in `render_request`'s prose since PM mode shipped, and
+# prompts are not guards: measured 2026-08-17, the drafter proposed a binding
+# duplicating a declared gate in the same breath the request forbade it.
+#
+# Counted AFTER `parse`, over validated `Question` objects, so every message in
+# `_parse_questions` — the mapping check, the boolean check, the slug and
+# duplicate-id rules — fires first and intact. Counting raw dicts before it
+# would mean this cap stealing those errors, or crashing on a shape they exist
+# to refuse.
+#
+# `MAX_OPEN_QUESTIONS` (20) is a different limit and keeps its own message:
+# that one bounds questions of any kind in any document, including one a person
+# wrote. This one bounds what a MODEL may make blocking, and it is strictly
+# narrower.
+MAX_REQUIRED_QUESTIONS = 3
+
+# **A decision the drafter buried in a criterion's `guidance` — a LOWER BOUND
+# with no known ceiling, and the comment says so because the code cannot.**
+#
+# Told to prefer visible assumptions and given no field to put one in, the
+# drafter writes them into test guidance, where the person approving the plan
+# never reads them as decisions. Measured across four replies captured on
+# 2026-08-19 (`tests/replies/2026-08-19-arcade-run{1..4}`): 14 criteria in all
+# four runs, under FOUR different self-labellings.
+#
+# This list has been wrong twice. `decision taken without asking` — run 1's own
+# sentence — finds 4 of the 14. `decision taken` finds 10 and reports run 2, which
+# says `Decision to approve:`, as entirely clean; that second version was
+# published as measured fact before the review caught it.
+#
+# **So: its silence is NOT evidence.** A draft this reports clean has not been
+# shown to be clean, only to avoid four phrasings. There is no true-negative
+# case in the corpus and no structural check can replace the matching, because
+# nothing distinguishes decision prose from check prose except its meaning.
+# Widening the list is not convergence — it is a bigger net with unknown holes.
+# Every member names the capture it came from so a fifth can be added honestly.
+_BURIED_DECISION_MARKERS = (
+    "decision taken",          # runs 1, 3, 4
+    "decision to approve",     # run 2
+)
 
 
 class SpecError(Exception):
@@ -152,6 +210,30 @@ class Task:
 
 
 @dataclass(frozen=True)
+class Assumption:
+    """A decision the drafter took INSTEAD of asking, and the question it
+    displaced (SPEC_PMPLAN_V0 ruling 1).
+
+    `instead_of_asking` is what keeps this channel from becoming the thing it
+    replaces. An assumption is a question somebody chose not to ask; carrying
+    that question means the person is always ONE ACTION away from asking it
+    after all. Without it, `assumptions:` would be a tidier place to hide a
+    decision than `guidance` was.
+
+    Its `id` obeys the frozen question-id rule byte for byte, because
+    `wringer-board revise` promotes an assumption INTO `open_questions` — an id
+    this parser accepted and `_parse_questions` would not is a spec the
+    engine's own loader then refuses, leaving a person a broken file and an
+    error about a document they never hand-edited.
+    """
+
+    id: str
+    decision: str
+    why: str
+    instead_of_asking: str
+
+
+@dataclass(frozen=True)
 class Draft:
     """What one drafting reply yielded: the spec, and the gates it proposed.
 
@@ -163,6 +245,10 @@ class Draft:
 
     spec: Spec
     gates: tuple[config.Gate, ...] = ()
+    # Decisions taken instead of asking — the third document, and the same
+    # reasoning as `gates`: no home in the frozen spec, and meaningless apart
+    # from the criteria it was drafted beside.
+    assumptions: tuple[Assumption, ...] = ()
     # Bindings the reply proposed and this parser REFUSED, each with the
     # reason, for the caller to put in front of whoever ran the command. Not
     # an exception: one unusable binding is not a reason to throw away a whole
@@ -418,6 +504,106 @@ def _parse_tasks(raw: Any, where: str) -> tuple[Task, ...]:
     return tuple(tasks)
 
 
+def parse_assumptions(
+    raw: Any, where: str, questions: Any = ()
+) -> tuple[tuple[Assumption, ...], tuple[str, ...]]:
+    """Decisions taken instead of asking — the drafted or hand-written list.
+
+    **A malformed entry DROPS with a note; it never refuses the draft.** Same
+    asymmetry R3 ruled for a decorative key: a model's proposal survives with
+    its losses named, because refusing a whole paid draft over one unusable
+    row is the `objective_note` mistake. `approved` smuggled onto a row has
+    already refused the reply in `_drop_unknown_reply_keys`, above.
+
+    **The collision rule is narrow, and it was too broad in the first draft.**
+    An assumption whose id matches an open question is only a CONTRADICTION —
+    a draft claiming both to have decided a thing and to be still asking it —
+    when that question is REQUIRED AND UNANSWERED. Refusing every collision
+    would kill whole paid drafts on measured drafter behaviour; anything else
+    is a note, and the plan renders the cross-reference.
+    """
+    if raw is None:
+        return (), ()
+    if not isinstance(raw, list):
+        raise SpecError(f"{where}: 'assumptions' must be a list")
+
+    blocking = {
+        q.id for q in questions
+        if getattr(q, "required", True) and not getattr(q, "answered", False)
+    }
+    kept: list[Assumption] = []
+    notes: list[str] = []
+    seen: set[str] = set()
+    for index, entry in enumerate(raw):
+        at = f"{where}: assumptions[{index}]"
+        if not isinstance(entry, dict):
+            notes.append(f"dropped {at}: not a mapping")
+            continue
+        try:
+            identifier = _slug(entry.get("id"), f"{at}: 'id'")
+            assumption = Assumption(
+                id=identifier,
+                decision=_nonempty(entry.get("decision"), f"{at}: 'decision'"),
+                why=_nonempty(entry.get("why"), f"{at}: 'why'"),
+                # REQUIRED, and non-empty: `wringer-board revise` turns this
+                # into an open question's `question:`, and an empty one would
+                # write a spec the engine's own loader refuses.
+                instead_of_asking=_nonempty(
+                    entry.get("instead_of_asking"), f"{at}: 'instead_of_asking'"
+                ),
+            )
+        except SpecError as exc:
+            notes.append(f"dropped {at}: {exc}")
+            continue
+        if identifier in seen:
+            notes.append(f"dropped {at}: duplicate assumption id '{identifier}'")
+            continue
+        if identifier in blocking:
+            raise SpecError(
+                f"{at}: '{identifier}' is both an assumption and a required, "
+                "unanswered open question — the reply says it decided this and "
+                "that it still needs to ask about it. One draft cannot do both, "
+                "and a person must never be shown that pair. Nothing was written"
+            )
+        seen.add(identifier)
+        kept.append(assumption)
+    return tuple(kept), tuple(notes)
+
+
+def buried_decision_notes(criteria: Any) -> tuple[str, ...]:
+    """Criteria whose `guidance` looks like it carries a DECISION.
+
+    **A lower bound, and every caller must treat it as one.** See
+    `_BURIED_DECISION_MARKERS`: the list has been wrong twice, there is no
+    true-negative case in the corpus, and no structural check can replace it.
+    A criterion this does not name has NOT been shown to be free of buried
+    decisions — only to avoid the phrasings measured so far.
+
+    It notes and never rewrites. Moving the prose into `assumptions` would be
+    this parser inventing a decision, which is the self-answered-question
+    refusal wearing a different coat.
+    """
+    found: list[str] = []
+    for criterion in criteria or ():
+        guidance = str(getattr(criterion, "guidance", "") or "")
+        lowered = guidance.lower()
+        if not any(marker in lowered for marker in _BURIED_DECISION_MARKERS):
+            continue
+        cid = getattr(criterion, "id", "?")
+        found.append(
+            f"criterion '{cid}' appears to state a DECISION inside its "
+            "guidance, where the person approving the plan will not read it "
+            f"as one: {guidance.strip().splitlines()[0][:120]}"
+        )
+    if found:
+        found.append(
+            f"{len(found)} criteria named — AT LEAST that many, never a total. "
+            "This check matches measured phrasings and its silence is not "
+            "evidence that the rest are free of decisions"
+        )
+    return tuple(found)
+
+
 def _check_contained(candidate: str, at: str) -> None:
     """Refuse any path that could leave the repository.
 
@@ -669,10 +855,14 @@ def render_request(
         "what, whether a check is wired into a command, whether new test "
         "files may be written. Those are not theirs to decide.\n"
         "   - **Everything else you would have asked, DECIDE** — pick the "
-        "most obvious behaviour — and write your decision into the criterion "
-        "it affects, in plain words, so the person reads and approves it "
-        "rather than answering a question about it. A visible assumption they "
-        "approve is worth more than a question they cannot answer.\n"
+        "most obvious behaviour — and put the decision in the `assumptions` "
+        "list below, NOT in a criterion's guidance. A visible assumption they "
+        "approve is worth more than a question they cannot answer, but only "
+        "if it is somewhere they will read it as a decision. Guidance is "
+        "instructions for checking the work; a person approving a plan does "
+        "not read it, so a decision written there is a decision hidden. Every "
+        "assumption carries the question it displaced, so they can ask it "
+        "after all.\n"
         "2. **Every criterion must be checkable.** Prefer criteria a test or "
         "a lint can decide. Mark a criterion `\"human\": true` when only a "
         "person can judge it — taste, tone, or a trade-off.\n"
@@ -713,6 +903,9 @@ def render_request(
         '  "open_questions": [{"id": "<slug>", "question": "<one line>", '
         '"required": true}],   // AT MOST 3, and each answerable by a '
         'non-technical person\n'
+        '  "assumptions": [{"id": "<slug>", "decision": "<one sentence: what '
+        'you decided>", "why": "<one sentence: why>", "instead_of_asking": '
+        '"<the question you would have asked>"}],\n'
         '  "criteria": [{"id": "<slug>", "title": "<one line>", '
         '"guidance": "<how to check it>", "required": true, "human": false}],\n'
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'
@@ -724,7 +917,9 @@ def render_request(
         "Slugs are letters, digits, '-' and '_'. At least one criterion must "
         "be `required`. At least one task. `gates` are the repository's "
         "existing checks; `gate_bindings` are the per-criterion acceptance "
-        "checks, and only these carry `proves`."
+        "checks, and only these carry `proves`. An `assumptions` id must not "
+        "be the id of a question you are also asking — decide it or ask it, "
+        "never both."
     )
     # **No `temperature` key, and its absence is the fix rather than an
     # omission.** Until 2026-08-18 this body carried `"temperature": 0`, and
@@ -778,14 +973,20 @@ def _drop_unknown_reply_keys(drafted: dict) -> tuple[dict, tuple[str, ...]]:
     below, because a typo silently dropped is a person's content vanished.
 
     **The interlock does not become droppable by moving down a level.** A
-    reply carrying `approved` on a task, question or criterion is refused
-    whole, exactly as at top level — and `answer` on an open question is a
-    KNOWN key, so the self-answer refusal above this has already run.
+    reply carrying `approved` on a task, question, criterion OR ASSUMPTION is
+    refused whole, exactly as at top level — and `answer` on an open question
+    is a KNOWN key, so the self-answer refusal above this has already run.
     """
     sections = (
         ("open_questions", _QUESTION_KEYS),
         ("criteria", _CRITERION_KEYS),
         ("tasks", _TASK_KEYS),
+        # **FOUR sections, and the fourth is why this tuple is a list rather
+        # than three hand-written blocks.** `assumptions` is a new id-keyed
+        # container, so a section this walk did not cover would be a new place
+        # to smuggle `approved` — in the one parser whose whole design is that
+        # no such place exists.
+        ("assumptions", _ASSUMPTION_KEYS),
     )
     notes: list[str] = []
     cleaned = dict(drafted)
@@ -856,7 +1057,7 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
     unknown = sorted(
         set(drafted)
         - {"title", "open_questions", "criteria", "gates", "tasks",
-           "gate_bindings"}
+           "gate_bindings", "assumptions"}
     )
     if unknown:
         raise SpecError(
@@ -902,6 +1103,24 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         },
         "the drafted spec",
     )
+    # **The question cap, checked HERE and deliberately not earlier.**
+    # `drafted_spec.questions` are validated `Question` objects, so `required`
+    # is a real bool and every message `_parse_questions` exists to give has
+    # already fired. Counting raw dicts before `parse` would have this cap
+    # stealing those errors — or crashing on exactly the shapes they refuse.
+    #
+    # A refused draft is a sub-cent re-roll. A product manager facing nine
+    # blocking questions is this surface failing at the thing it is for.
+    blocking = sum(1 for question in drafted_spec.questions if question.required)
+    if blocking > MAX_REQUIRED_QUESTIONS:
+        raise SpecError(
+            f"the reply asks {blocking} questions a person must answer before "
+            f"anything can be built, and the limit is {MAX_REQUIRED_QUESTIONS}. "
+            "The request says so in as many words; a rule the drafter agreed to "
+            "and did not keep is why this is a check and not a sentence. "
+            "Nothing was written — drafting again costs a fraction of a penny"
+        )
+
     # Checked at draft time, not left for `wring plan`: a spec that reads fine,
     # gets approved, and only then turns out to be unplannable spends the
     # human's attention for nothing.
@@ -922,7 +1141,20 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         "the drafted gates",
         (*drafted_spec.gates, *declared),
     )
-    return Draft(spec=drafted_spec, gates=proposed, notes=(*dropped, *notes))
+    assumptions, assumption_notes = parse_assumptions(
+        drafted.get("assumptions"), "the drafted assumptions", drafted_spec.questions
+    )
+    return Draft(
+        spec=drafted_spec,
+        gates=proposed,
+        assumptions=assumptions,
+        notes=(
+            *dropped,
+            *notes,
+            *assumption_notes,
+            *buried_decision_notes(drafted_spec.criteria),
+        ),
+    )
 
 
 def same_command(one: str, other: str) -> bool:
@@ -1078,6 +1310,68 @@ def render_gatespec(gates: Any) -> str:
 
 def gatespec_is_generated(path: Path) -> bool:
     return _carries(path, GATESPEC_MARKER)
+
+
+def render_decisions(assumptions: Any) -> str:
+    """`wringer.decisions.yaml` — what was decided FOR the person.
+
+    The header is the NARROW TRUE CLAIM, and getting it narrow took a review.
+    An earlier draft said flatly "NO AUTHORITY" while the same document gave
+    this file the power to make `wring plan` refuse. A false sentence shipped
+    inside the artifact it describes is the worst available place to put one.
+    """
+    lines = [
+        DECISIONS_MARKER,
+        "#",
+        "# NO AUTHORITY OVER WHAT IS BUILT: no gate here runs, nothing under",
+        "# .wringer/ is written from it, and no builder is ever briefed from it.",
+        "# Its `consent` block can make `wring plan` REFUSE, and refusing is the",
+        "# only thing it can do.",
+        f"schema_version: {DECISIONS_SCHEMA_VERSION}",
+        "",
+        "# Decided without asking you. Approving the plan approves these — and",
+        "# each one carries the question it displaced, so you can ask it after",
+        "# all.",
+        "assumptions:",
+    ]
+    for assumption in assumptions:
+        lines += [
+            f"  - id: {assumption.id}",
+            f"    decision: {_scalar(assumption.decision)}",
+            f"    why: {_scalar(assumption.why)}",
+            f"    instead_of_asking: {_scalar(assumption.instead_of_asking)}",
+        ]
+    return "\n".join(lines) + "\n"
+
+
+def parse_decisions(data: Any, where: str, questions: Any = ()) -> tuple[
+    tuple[Assumption, ...], tuple[str, ...]
+]:
+    """Read `wringer.decisions.yaml` — drafted or hand-written, same parser."""
+    if not isinstance(data, dict):
+        raise SpecError(f"{where}: top level must be a mapping")
+    unknown = sorted(set(data) - {"schema_version", "assumptions", "outcomes",
+                                  "consent"})
+    if unknown:
+        raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
+    version = data.get("schema_version")
+    if version != DECISIONS_SCHEMA_VERSION:
+        raise SpecError(
+            f"{where}: 'schema_version: {DECISIONS_SCHEMA_VERSION}' is "
+            f"required (got {version!r})"
+        )
+    return parse_assumptions(data.get("assumptions"), where, questions)
+
+
+def decisions_is_generated(path: Path) -> bool:
+    """Whether `wring spec` wrote this, or a person did.
+
+    The sibling protection `wringer.gates.yaml` has carried since GATEGEN, and
+    the first draft of the PM-plan spec gave this file neither marker nor
+    twin — so an ordinary `wring spec --send` would have silently replaced a
+    person's own decisions with a model's.
+    """
+    return _carries(path, DECISIONS_MARKER)
 
 
 def _strip_fences(text: str) -> str:

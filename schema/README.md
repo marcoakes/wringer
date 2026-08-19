@@ -17,6 +17,7 @@ rather than reverse-engineer it — the point of
 | [`rubric.schema.json`](rubric.schema.json) | `wringer.rubric.v1` — the acceptance criteria `wring judge` weighs a bundle against |
 | [`spec.schema.json`](spec.schema.json) | `wringer.spec.v1` — `wringer.spec.yaml`, what `wring spec` drafts and a human approves |
 | [`gatespec.schema.json`](gatespec.schema.json) | `wringer.gatespec.v1` — `wringer.gates.yaml`, proposed gates and the criterion each would prove. Read by nothing that runs |
+| [`decisions.schema.json`](decisions.schema.json) | `wringer.decisions.v1` — `wringer.decisions.yaml`, the plain-language companion to a spec: what was decided FOR the approver instead of asking them, the plain outcome of each task, and what they consented to. NO AUTHORITY OVER WHAT IS BUILT; its `consent` block can only make `wring plan` refuse. All three blocks are declared and optional so later producers add no bytes — at publication only `assumptions` has a writer |
 | [`delivery-manifest.schema.json`](delivery-manifest.schema.json) | `wringer.delivery.v1` — what a verified change became: branch, commit, push, MR |
 | [`acquired-manifest.schema.json`](acquired-manifest.schema.json) | `wringer.acquired.v1` — where a working copy came from |
 | [`digests.schema.json`](digests.schema.json) | `wringer.digests.v1` — `digests.json`, a sha256 per file in a bundle |

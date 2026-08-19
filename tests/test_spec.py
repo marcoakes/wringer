@@ -1028,6 +1028,35 @@ def real_reply() -> dict:
     return json.loads(REAL_REPLY.read_text(encoding="utf-8"))
 
 
+def within_question_cap(payload: dict) -> dict:
+    """The captured payload with its required questions trimmed to the cap.
+
+    **The CAPTURES ARE NOT EDITED, and that is the whole point of this
+    helper.** Both archived replies predate `MAX_REQUIRED_QUESTIONS` and are
+    over it — the 2026-08-17 one asks 5 required questions, the 2026-08-18 one
+    asks 10 — so feeding either straight through `parse_response` now hits the
+    cap instead of the rule each test is actually watching.
+
+    A capture is evidence. This programme corrects one by dated note and never
+    by rewriting it, so the trimming happens HERE, in memory, on a copy: keep
+    the first `MAX_REQUIRED_QUESTIONS` required questions, keep every optional
+    one, leave every other byte of the reply exactly as the model sent it.
+
+    The two tests that assert what the fixtures CONTAIN do not use this — they
+    read the raw files, which is what makes them evidence.
+    """
+    trimmed = json.loads(json.dumps(payload))       # deep copy, no aliasing
+    kept, required_seen = [], 0
+    for question in trimmed.get("open_questions") or []:
+        if question.get("required", True):
+            required_seen += 1
+            if required_seen > spec.MAX_REQUIRED_QUESTIONS:
+                continue
+        kept.append(question)
+    trimmed["open_questions"] = kept
+    return trimmed
+
+
 def test_the_captured_reply_is_the_one_that_shipped_the_defect():
     """The fixture is evidence, so its content is asserted rather than assumed.
 
@@ -1044,7 +1073,9 @@ def test_the_captured_reply_is_the_one_that_shipped_the_defect():
 
 def test_a_binding_that_repeats_a_gate_in_the_same_reply_is_refused():
     """Half of the rule: the reply's own `gates:` block."""
-    drafted = spec.parse_response(real_reply(), PRD)
+    drafted = spec.parse_response(reply(within_question_cap(
+        json.loads(real_reply()["choices"][0]["message"]["content"])
+    )), PRD)
 
     assert drafted.gates == (), (
         "the binding duplicating `test` was accepted; a check that already "
@@ -1060,7 +1091,9 @@ def test_a_binding_that_repeats_a_gate_the_REPO_declares_is_refused():
     """The other half: `.wringer.yaml`, which the reply cannot see itself."""
     from wringer import config
 
-    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload = within_question_cap(
+        json.loads(real_reply()["choices"][0]["message"]["content"])
+    )
     payload["gates"] = []                       # nothing to clash with in-reply
     declared = (config.Gate(id="suite", run="pytest  -q"),)   # whitespace differs
 
@@ -1078,7 +1111,9 @@ def test_a_binding_with_a_command_of_its_own_is_kept():
     binding would pass all three assertions above while destroying the only
     channel a criterion has.
     """
-    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload = within_question_cap(
+        json.loads(real_reply()["choices"][0]["message"]["content"])
+    )
     payload["gate_bindings"][0]["run"] = "pytest -q acceptance/test_regression.py"
 
     drafted = spec.parse_response(reply(payload), PRD)
@@ -1153,7 +1188,9 @@ def test_a_drafted_replys_unknown_key_is_dropped_with_a_note_not_the_draft():
     sat, and what it carried — nothing is silently lost, and nothing of value
     is thrown away either.
     """
-    drafted = spec.parse_response(unknown_key_reply(), PRD)
+    drafted = spec.parse_response(reply(within_question_cap(
+        json.loads(unknown_key_reply()["choices"][0]["message"]["content"])
+    )), PRD)
 
     assert len(drafted.spec.tasks) == 4, "the draft did not survive"
     assert drafted.spec.approved is False
@@ -1176,7 +1213,9 @@ def test_a_reply_carrying_approved_on_a_task_is_refused_whole():
     question or criterion is the same attempt and gets the same answer —
     never a drop-note.
     """
-    payload = json.loads(real_reply()["choices"][0]["message"]["content"])
+    payload = within_question_cap(
+        json.loads(real_reply()["choices"][0]["message"]["content"])
+    )
     payload["tasks"][0]["approved"] = True
 
     with pytest.raises(spec.SpecError) as caught:
@@ -1194,7 +1233,9 @@ def test_a_hand_written_spec_with_an_unknown_task_key_keeps_the_strict_error():
     `parse` — the loader every on-disk `wringer.spec.yaml` faces — still
     refuses the same key the drafted path drops. A person's typo silently
     dropped is a person's content vanished."""
-    payload = json.loads(unknown_key_reply()["choices"][0]["message"]["content"])
+    payload = within_question_cap(
+        json.loads(unknown_key_reply()["choices"][0]["message"]["content"])
+    )
     on_disk = {
         "schema_version": spec.SCHEMA_VERSION,
         "approved": False,
@@ -1349,3 +1390,340 @@ def test_no_rule_still_routes_a_gap_into_a_QUESTION():
         "a rule still sends a gap to `open_questions`, which is how nine to "
         f"twelve blocking questions got asked: {asks}"
     )
+
+
+# --- SPEC_PMPLAN_V0 P1: the cap, the channel, and the lower bound -----------
+#
+# Grounded on four replies captured on 2026-08-19 from ONE unchanged PRD
+# (`docs/variance-2026-08-19.md`). `prompt_tokens` is 2206 on all four, so the
+# differences between them are sampling variance rather than four different
+# questions — which is what makes them evidence about what a product manager
+# is actually consenting to.
+
+VARIANCE_REPLIES = tuple(
+    Path(__file__).parent / "replies" / f"2026-08-19-arcade-run{n}-drafter-reply.json"
+    for n in (1, 2, 3, 4)
+)
+
+
+def variance_reply(n: int) -> dict:
+    return json.loads(VARIANCE_REPLIES[n - 1].read_text(encoding="utf-8"))
+
+
+def drafted_of(payload: dict) -> dict:
+    return json.loads(payload["choices"][0]["message"]["content"])
+
+
+def test_the_four_captures_are_the_ones_the_ruling_is_about():
+    """The fixtures are evidence, so their content is asserted, not assumed."""
+    seen = []
+    for n in (1, 2, 3, 4):
+        drafted = drafted_of(variance_reply(n))
+        buried = [
+            c["id"] for c in drafted["criteria"]
+            if any(m in str(c.get("guidance", "")).lower()
+                   for m in spec._BURIED_DECISION_MARKERS)
+        ]
+        seen.append(len(buried))
+    # 4, 4, 3, 3 — every run, not three of four. An earlier version of this
+    # programme published "ten across three runs, run 2 is a clean control".
+    assert seen == [4, 4, 3, 3], seen
+
+
+def test_run_2_is_found_only_because_a_SECOND_phrasing_was_learned():
+    """**Red on the real defect.** Run 2 labels its four decisions
+    `Decision to approve:`. The marker list said only `decision taken`, which
+    finds runs 1, 3 and 4 and reports run 2 — four buried decisions — as
+    entirely clean. That claim was published before a review caught it."""
+    from wringer.rubric import Criterion
+
+    criteria = tuple(
+        Criterion(id=c["id"], title=c["title"], guidance=c.get("guidance", ""),
+                  required=True)
+        for c in drafted_of(variance_reply(2))["criteria"]
+    )
+    notes = spec.buried_decision_notes(criteria)
+
+    named = [n for n in notes if "criterion" in n]
+    assert len(named) == 4, notes
+    assert any("recent-section-above-grid" in n for n in named), named
+
+
+def test_the_buried_decision_note_claims_a_LOWER_BOUND_and_never_a_total():
+    """The claim ceiling, in the output rather than only in a comment. This
+    check has been wrong twice and has no true-negative case in the corpus, so
+    a reader must never take its silence — or its count — as complete."""
+    from wringer.rubric import Criterion
+
+    criteria = (
+        Criterion(id="c1", title="t",
+                  guidance="Decision taken without asking: per-browser only.",
+                  required=True),
+    )
+    said = " ".join(spec.buried_decision_notes(criteria)).lower()
+
+    assert "at least" in said
+    assert "silence is not evidence" in said
+
+
+def test_a_reply_asking_FOUR_required_questions_is_refused_at_parse():
+    """The cap, and the reason it is a guard: the rule has been in the
+    request's prose the whole time."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": f"q{n}", "question": f"Question {n}?", "required": True}
+        for n in range(4)
+    ]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    said = str(caught.value)
+    assert "4" in said and "3" in said
+    assert "nothing was written" in said.lower()
+
+
+def test_three_required_questions_and_any_number_of_optional_ones_are_fine():
+    """Watched in the other direction: a cap that refused everything would
+    pass the test above while destroying the channel it bounds."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": f"q{n}", "question": f"Question {n}?", "required": True}
+        for n in range(3)
+    ] + [
+        {"id": f"o{n}", "question": f"Optional {n}?", "required": False}
+        for n in range(6)
+    ]
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert sum(1 for q in drafted.spec.questions if q.required) == 3
+    assert len(drafted.spec.questions) == 9
+
+
+def test_the_interlock_refusals_still_fire_BEFORE_the_cap():
+    """Ordering, pinned. A reply that both works the interlock and asks nine
+    questions gets the interlock refusal — the more serious of the two — and
+    its message is the one that was written for that attempt."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": f"q{n}", "question": f"Q{n}?", "required": True} for n in range(9)
+    ]
+    payload["tasks"][0]["approved"] = True
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    assert "interlock" in str(caught.value)
+
+
+def test_the_cap_does_not_steal_the_question_parsers_own_errors():
+    """The reason the cap sits AFTER `parse`. A non-boolean `required` is a
+    shape `_parse_questions` has a precise message for; counting raw dicts
+    before it would answer with a question-quota error instead — or crash."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "q1", "question": "Q?", "required": "yes please"},
+    ]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    assert "'required' must be a boolean" in str(caught.value)
+
+
+def test_assumptions_land_in_the_draft_with_the_question_each_displaced():
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [
+        {
+            "id": "memory-scope",
+            "decision": "The list is remembered per browser only.",
+            "why": "The requirements describe no accounts.",
+            "instead_of_asking": "Should the list follow a person to another device?",
+        }
+    ]
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert [a.id for a in drafted.assumptions] == ["memory-scope"]
+    assert drafted.assumptions[0].instead_of_asking.startswith("Should the list")
+
+
+def test_approved_smuggled_onto_an_ASSUMPTION_is_refused_whole():
+    """**The interlock does not become droppable by adding a section.**
+    `assumptions` is a fourth id-keyed container; a section the drop-walk did
+    not cover would be a new place to hide the one key that may never arrive
+    from a model."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "a1", "decision": "d", "why": "w", "instead_of_asking": "q?",
+        "approved": True,
+    }]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    said = str(caught.value)
+    assert "approved" in said and "interlock" in said
+
+
+def test_an_unusable_assumption_drops_with_a_note_and_the_draft_survives():
+    """The R3 asymmetry, applied to the new section: a model's proposal
+    survives with its losses named. Refusing a paid draft over one malformed
+    row is the `objective_note` mistake."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [
+        {"id": "good", "decision": "d", "why": "w", "instead_of_asking": "q?"},
+        {"id": "no-question", "decision": "d", "why": "w"},
+    ]
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert [a.id for a in drafted.assumptions] == ["good"]
+    said = " ".join(drafted.notes)
+    assert "instead_of_asking" in said
+
+
+def test_an_assumption_that_is_ALSO_a_required_open_question_is_refused():
+    """The one collision that is a real contradiction: the draft says it
+    decided this AND that it still needs to ask. A person must never be shown
+    that pair."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "date-format", "decision": "ISO 8601.", "why": "Unambiguous.",
+        "instead_of_asking": "Which date format?",
+    }]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    assert "date-format" in str(caught.value)
+
+
+def test_an_assumption_colliding_with_an_OPTIONAL_question_is_only_a_note():
+    """Narrowed after review: refusing every collision would kill whole paid
+    drafts on measured drafter behaviour."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "row-cap", "decision": "No cap.", "why": "Nothing said one.",
+        "instead_of_asking": "Is there a maximum row count?",
+    }]
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert [a.id for a in drafted.assumptions] == ["row-cap"]
+
+
+def test_the_decisions_sidecar_round_trips_and_declares_what_it_cannot_do():
+    assumptions = (
+        spec.Assumption(id="memory-scope", decision="Per browser only.",
+                        why="No accounts: it cannot follow a person.",
+                        instead_of_asking="Follow a person to another device?"),
+    )
+    text = spec.render_decisions(assumptions)
+
+    assert "NO AUTHORITY OVER WHAT IS BUILT" in text
+    assert "no gate here runs" in text
+    back, notes = spec.parse_decisions(yaml.safe_load(text), "sidecar")
+    assert back == assumptions and notes == ()
+
+
+def test_a_hand_written_decisions_file_is_told_apart_from_a_generated_one(
+    tmp_path,
+):
+    """The protection its sibling has carried since GATEGEN. Without it,
+    `wring spec --send` silently replaces a person's own decisions."""
+    generated = tmp_path / "generated.yaml"
+    generated.write_text(spec.render_decisions(()), encoding="utf-8")
+    by_hand = tmp_path / "hand.yaml"
+    by_hand.write_text(
+        f"schema_version: {spec.DECISIONS_SCHEMA_VERSION}\nassumptions: []\n",
+        encoding="utf-8",
+    )
+
+    assert spec.decisions_is_generated(generated)
+    assert not spec.decisions_is_generated(by_hand)
+
+
+def test_spec_send_writes_the_decisions_sidecar_and_says_what_it_is(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "memory-scope", "decision": "Per browser only.",
+        "why": "The requirements describe no accounts.",
+        "instead_of_asking": "Should it follow a person to another device?",
+    }]
+    fake_transport(monkeypatch, reply=reply(payload))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = (repo / spec.DECISIONS_FILENAME).read_text(encoding="utf-8")
+    assert "memory-scope" in written
+    assert "Should it follow a person" in written
+    err = capsys.readouterr().err
+    assert "rather than asked" in err
+    assert "Approving the plan approves them" in err
+
+
+def test_a_reply_with_no_assumptions_writes_NO_sidecar(repo, monkeypatch):
+    """Absence is absence. An empty `assumptions:` list would ASSERT that
+    nothing was decided for the reader — a much stronger claim than having
+    nothing to say, and precisely the claim nobody could previously make."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert not (repo / spec.DECISIONS_FILENAME).exists()
+
+
+def test_a_HAND_WRITTEN_decisions_file_is_never_clobbered_by_a_draft(
+    repo, monkeypatch, capsys
+):
+    """The protection its sibling has carried since GATEGEN. Without it an
+    ordinary `wring spec --send` silently replaces a person's own decisions
+    with a model's — and this file is the record of what they consented to."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    mine = (
+        f"schema_version: {spec.DECISIONS_SCHEMA_VERSION}\n"
+        "assumptions:\n"
+        "  - id: mine\n"
+        "    decision: I decided this myself.\n"
+        "    why: Because I am the one who knows.\n"
+        "    instead_of_asking: Would anyone have asked me?\n"
+    )
+    (repo / spec.DECISIONS_FILENAME).write_text(mine, encoding="utf-8")
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "theirs", "decision": "A model decided this.",
+        "why": "It was not asked.", "instead_of_asking": "Anything?",
+    }]
+    fake_transport(monkeypatch, reply=reply(payload))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert (repo / spec.DECISIONS_FILENAME).read_text(encoding="utf-8") == mine
+    assert "written by hand, so it was left alone" in capsys.readouterr().err
+
+
+def test_the_request_ASKS_for_assumptions_and_says_where_they_do_not_go(
+    repo, monkeypatch, capsys
+):
+    """The transport lesson, again: a channel the request never names is a
+    channel that stays empty. `gate_bindings` shipped complete and unreachable
+    for exactly this reason."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--print-request"]) == cli.EXIT_OK
+
+    asked = json.loads(capsys.readouterr().out)["messages"][1]["content"]
+    assert "assumptions" in asked
+    assert "instead_of_asking" in asked
+    # And the misfiling this whole channel exists to stop, named in the ask.
+    assert "NOT in a criterion's guidance" in asked
