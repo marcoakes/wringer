@@ -2197,3 +2197,34 @@ def test_the_redraft_backup_goes_through_the_REDACTOR(repo, monkeypatch):
     assert len(kept) == 1, kept
     body = kept[0].read_text(encoding="utf-8")
     assert "hunter2" not in body, body
+
+
+def test_the_engine_can_LOAD_every_spec_it_can_RENDER():
+    """**It could not, and that is as bad as it sounds.**
+
+    `render()` wrote every id bare — `- id: no` — and `_slug` accepts `no`,
+    `yes`, `on`, `off`, `true`, `false`, `null`, `123`. PyYAML resolves all of
+    them as bools, ints or None, so the loader refused a file this module had
+    just written, with a message blaming the id for not being a string.
+
+    Fourteen of twenty slug-legal ids reproduced it. Bare digits are included,
+    so a drafter numbering its assumptions 1, 2, 3 triggers it.
+
+    The sidecar renderer was fixed for exactly this class earlier the same day
+    and the spec renderer was left alone — the comment there even names the
+    class. This is that fix, finished."""
+    for identifier in ("no", "yes", "on", "off", "true", "false", "null",
+                       "123", "1_000", "ordinary-id"):
+        rendered = spec.render(spec.Spec(
+            approved=False, title="T", intent="i",
+            questions=(spec.Question(id=identifier, question="Q?", required=True),),
+            criteria=(spec.Criterion(id=identifier, title="t", guidance="g",
+                                     required=True),),
+            gates=(),
+            tasks=(spec.Task(id=identifier, brief="b.md", objective="o", dir="."),),
+            path=spec.SPEC_FILENAME,
+        ))
+        loaded = spec.parse(yaml.safe_load(rendered), "round trip")
+        assert loaded.questions[0].id == identifier, (identifier, rendered)
+        assert loaded.criteria[0].id == identifier
+        assert loaded.tasks[0].id == identifier

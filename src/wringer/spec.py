@@ -1618,7 +1618,7 @@ def render_gatespec(gates: Any) -> str:
         "gates:",
     ]
     for gate in gates:
-        lines += [f"  - id: {gate.id}", f"    run: {_scalar(gate.run)}"]
+        lines += [f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"]
         if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
             lines.append(f"    timeout: {gate.timeout}")
         lines.append(f"    proves: {gate.proves}")
@@ -1642,8 +1642,13 @@ def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
         "#",
         "# NO AUTHORITY OVER WHAT IS BUILT: no gate here runs, nothing under",
         "# .wringer/ is written from it, and no builder is ever briefed from it.",
-        "# Its `consent` block can make `wring plan` REFUSE, and refusing is the",
-        "# only thing it can do.",
+        "#",
+        "# It has no authority over anything else either, TODAY. The `consent`",
+        "# block is declared in the schema and NOTHING READS IT: the check it",
+        "# describes was ruled owed, not built. An earlier version of this",
+        "# header said the block `can make wring plan REFUSE` — that was false",
+        "# when it was written, in the one file whose subject is what you were",
+        "# told.",
         f"schema_version: {DECISIONS_SCHEMA_VERSION}",
     ]
     # **The header is only written when there is something under it.** An
@@ -1767,7 +1772,7 @@ def render(spec: Spec) -> str:
         lines[-1] = "open_questions: []"
     for question in spec.questions:
         lines += [
-            f"  - id: {question.id}",
+            f"  - id: {_scalar(question.id)}",
             f"    question: {_scalar(question.question)}",
             f"    required: {str(question.required).lower()}",
             f"    answer: {_scalar(question.answer)}",
@@ -1782,7 +1787,7 @@ def render(spec: Spec) -> str:
     ]
     for criterion in spec.criteria:
         lines += [
-            f"  - id: {criterion.id}",
+            f"  - id: {_scalar(criterion.id)}",
             f"    title: {_scalar(criterion.title)}",
         ]
         if criterion.guidance:
@@ -1799,7 +1804,7 @@ def render(spec: Spec) -> str:
         "gates:" if spec.gates else "gates: []",
     ]
     for gate in spec.gates:
-        lines += [f"  - id: {gate.id}", f"    run: {_scalar(gate.run)}"]
+        lines += [f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"]
         if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
             lines.append(f"    timeout: {gate.timeout}")
         if gate.optional:
@@ -1813,7 +1818,7 @@ def render(spec: Spec) -> str:
     ]
     for task in spec.tasks:
         lines += [
-            f"  - id: {task.id}",
+            f"  - id: {_scalar(task.id)}",
             f"    brief: {_scalar(task.brief)}",
             f"    dir: {_scalar(task.dir)}",
             f"    objective: {_scalar(task.objective)}",
@@ -2032,7 +2037,7 @@ def gate_diff(existing: str, proposed: Any) -> tuple[str, tuple[str, ...],
     for gate in proposed:
         if gate.id not in fresh:
             continue
-        addition += [f"  - id: {gate.id}", f"    run: {_scalar(gate.run)}"]
+        addition += [f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"]
         if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
             addition.append(f"    timeout: {gate.timeout}")
         if gate.optional:
