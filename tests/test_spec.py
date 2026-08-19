@@ -1979,3 +1979,149 @@ def test_redraft_without_an_existing_spec_says_to_drop_the_flag(
 
     assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
     assert "Drop the flag" in capsys.readouterr().err
+
+
+# --- Found by the adversarial review of this build, 2026-08-19 --------------
+
+
+def test_redraft_can_be_run_many_times_without_wedging_the_repository(
+    repo, monkeypatch
+):
+    """**A permanent wedge, reproduced by the review.** The carried id grew by
+    `-as-answered` (12 chars) on every redraft that re-worded a question, and
+    `_slug` caps an id at 64 — so a realistic question id made the merged
+    document unparseable on the second or third redraft. The re-parse then
+    refused, nothing was written, and because nothing was written every LATER
+    redraft produced the byte-identical refusal forever. The only escape was
+    deleting the spec: exactly the answer-losing move the refusal steers
+    people away from.
+
+    Wording variance is the norm here, not the exception — four rolls of one
+    PRD produced four wordings of one id."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    long_id = "should-the-recent-list-follow-you-across-browsers"   # 48 chars
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": long_id, "question": "Wording zero?", "required": True}
+    ]
+    fake_transport(monkeypatch, reply=reply(payload))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    for round_number in range(1, 6):
+        text = (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
+        (repo / spec.SPEC_FILENAME).write_text(
+            text.replace("answer: ''", f"answer: Answer {round_number}.", 1),
+            encoding="utf-8",
+        )
+        payload["open_questions"][0]["question"] = f"Wording {round_number}?"
+        fake_transport(monkeypatch, reply=reply(payload))
+
+        assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK, (
+            f"redraft {round_number} refused — the repository is wedged"
+        )
+        loaded = spec.load(repo / spec.SPEC_FILENAME)
+        for question in loaded.questions:
+            assert len(question.id) <= 64, question.id
+
+
+def test_a_redraft_that_decides_nothing_removes_the_stale_sidecar(
+    repo, monkeypatch, capsys
+):
+    """**Reproduced by the review.** A generated sidecar outliving the spec it
+    describes is rendered by the board as LIVE CONSENT — in the sharpest case
+    a stale outcome becomes the plan's lead line and contradicts the objective
+    printed underneath it, silently, with a zero exit code."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    first = json.loads(json.dumps(DRAFT))
+    first["assumptions"] = [{
+        "id": "storage", "decision": "It follows you to any browser.",
+        "why": "Nothing said otherwise.", "instead_of_asking": "Which browsers?",
+    }]
+    fake_transport(monkeypatch, reply=reply(first))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    assert (repo / spec.DECISIONS_FILENAME).is_file()
+
+    fake_transport(monkeypatch, reply=reply(DRAFT))       # decides nothing
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    assert not (repo / spec.DECISIONS_FILENAME).exists(), (
+        "the previous draft's decisions survived the spec they described"
+    )
+    assert "removed rather than left describing" in capsys.readouterr().err
+
+
+def test_a_HAND_WRITTEN_sidecar_survives_a_redraft_that_decides_nothing(
+    repo, monkeypatch
+):
+    """The other direction: only a GENERATED sidecar is removed. A person's
+    own file is theirs."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    mine = f"schema_version: {spec.DECISIONS_SCHEMA_VERSION}\nassumptions: []\n"
+    (repo / spec.DECISIONS_FILENAME).write_text(mine, encoding="utf-8")
+
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    assert (repo / spec.DECISIONS_FILENAME).read_text(encoding="utf-8") == mine
+
+
+def test_no_empty_assumptions_block_is_ever_written(repo, monkeypatch, capsys):
+    """**The code comment claimed this and the code did not do it.** The
+    sidecar is written for outcomes alone, and it emitted an empty
+    `assumptions:` under the sentence "Approving the plan approves these" —
+    asserting something about zero things. The guard that was supposed to
+    cover this could not reach the branch: its fixture had no outcomes."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    payload = json.loads(json.dumps(DRAFT))
+    payload["tasks"][0]["outcome"] = "You can export the rows you see."
+    fake_transport(monkeypatch, reply=reply(payload))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = (repo / spec.DECISIONS_FILENAME).read_text(encoding="utf-8")
+    assert "assumptions:" not in written, written
+    assert "outcomes:" in written
+    # ...and it does not announce zero decisions as though that were news.
+    assert "0 decision(s)" not in capsys.readouterr().err
+
+
+def test_an_id_yaml_would_read_as_a_boolean_still_round_trips(repo):
+    """**The same class as the `approved: False` corruption fixed this
+    morning.** `_slug` accepts `on`, `no`, `yes`, `off`, `true`, `123`; written
+    bare, PyYAML reads them back as bools and ints, and `parse_assumptions`
+    then DROPS the row — a consent record vanishing between the write and the
+    read."""
+    for identifier in ("on", "no", "yes", "off", "true", "123"):
+        assumptions = (
+            spec.Assumption(id=identifier, decision="d", why="w",
+                            instead_of_asking="q?"),
+        )
+        text = spec.render_decisions(assumptions)
+        back, notes = spec.parse_decisions(yaml.safe_load(text), "sidecar")
+        assert [a.id for a in back] == [identifier], (identifier, notes)
+
+
+def test_an_unusable_outcome_is_NAMED_rather_than_silently_dropped(repo):
+    """`lift_outcomes` runs before the drop-walk and removes the key, so the
+    drop-walk can never report it — which made this the one place in the
+    parser where a model's content disappeared without a word. Worse, a
+    sibling task's valid outcome then made the missing-outcome note say this
+    task 'has no plain-language outcome' about a reply that carried one."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["tasks"][0]["outcome"] = {"not": "a sentence"}
+    payload["tasks"].append({
+        "id": "second", "brief": "briefs/second.md", "dir": ".",
+        "objective": "Something.", "outcome": "You can do the second thing.",
+    })
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    said = " ".join(drafted.notes)
+    assert "unusable 'outcome'" in said, drafted.notes
+    assert "csv-export" in said

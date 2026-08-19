@@ -31,6 +31,7 @@ auditable path (SPEC_INTENT_V0.md §2).
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -558,7 +559,7 @@ def parse_assumptions(
                 ),
             )
         except SpecError as exc:
-            notes.append(f"dropped {at}: {exc}")
+            notes.append(f"dropped {exc}")
             continue
         if identifier in seen:
             notes.append(f"dropped {at}: duplicate assumption id '{identifier}'")
@@ -594,12 +595,13 @@ def lift_outcomes(drafted: dict) -> tuple[dict, dict[str, str]]:
     untouched.
     """
     lifted: dict[str, str] = {}
+    notes: list[str] = []
     cleaned = dict(drafted)
     tasks = drafted.get("tasks")
     if not isinstance(tasks, list):
-        return cleaned, lifted
+        return cleaned, lifted, ()
     rebuilt: list[Any] = []
-    for entry in tasks:
+    for index, entry in enumerate(tasks):
         if not isinstance(entry, dict) or "outcome" not in entry:
             rebuilt.append(entry)
             continue
@@ -607,9 +609,23 @@ def lift_outcomes(drafted: dict) -> tuple[dict, dict[str, str]]:
         identifier = str(entry.get("id", ""))
         if isinstance(outcome, str) and outcome.strip() and identifier:
             lifted[identifier] = outcome.strip()
+        else:
+            # **Named, never silent.** This runs BEFORE the drop-walk and
+            # removes the key, so the drop-walk can never report it — which
+            # made this the one place in the parser where a model's content
+            # disappeared without a word, against the rule R3 exists to state.
+            # Worse, when a sibling task supplied a valid outcome, the missing-
+            # outcome note below then said this task "has no plain-language
+            # outcome" about a reply that carried one.
+            carried = str(outcome).strip().splitlines()
+            notes.append(
+                f"dropped from the drafted reply: tasks[{index}] "
+                f"('{identifier or '?'}') carried an unusable 'outcome' — "
+                + (carried[0][:100] if carried else "it carried nothing")
+            )
         rebuilt.append({k: v for k, v in entry.items() if k != "outcome"})
     cleaned["tasks"] = rebuilt
-    return cleaned, lifted
+    return cleaned, lifted, tuple(notes)
 
 
 def parse_outcomes(
@@ -673,6 +689,27 @@ def missing_outcome_notes(tasks: Any, outcomes: dict[str, str]) -> tuple[str, ..
         for task in tasks
         if task.id not in outcomes
     )
+
+
+def _carried_id(identifier: str, taken: set[str]) -> str:
+    """An id for a carried answer that always fits, however many redrafts run.
+
+    Suffixes are REPLACED rather than accumulated, and the stem is truncated so
+    the result always satisfies `_slug` — letters, digits, '-' and '_', at most
+    `config.MAX_GATE_ID_LENGTH`. A previous version appended `-as-answered`
+    each time and eventually produced an id the spec's own loader refused,
+    which wedged `--redraft` permanently.
+    """
+    limit = config.MAX_GATE_ID_LENGTH
+    stem = re.sub(r"-answered(-\d+)?$", "", identifier)
+    for attempt in range(2, 1000):
+        suffix = f"-answered-{attempt}" if attempt > 2 else "-answered"
+        candidate = stem[: max(1, limit - len(suffix))] + suffix
+        if candidate not in taken:
+            return candidate
+    # 998 carried copies of one question is not a document anybody has; falling
+    # back to the stem keeps this total rather than raising from bookkeeping.
+    return stem[:limit]
 
 
 def carry_answers_forward(
@@ -751,12 +788,23 @@ def carry_answers_forward(
 
     if carried:
         # A carried pair keeps its id only when nothing else claims it.
+        #
+        # **BOUNDED AND IDEMPOTENT, and the first version was neither.** It
+        # appended `-as-answered` in a loop, so each redraft that re-worded a
+        # question grew the carried id by twelve characters. `_slug` caps an id
+        # at 64, so a realistic question id wedged the repository on the second
+        # or third redraft: the merged document no longer parsed, the re-parse
+        # refused, nothing was written — and because nothing was written, every
+        # later redraft produced the byte-identical refusal forever. The only
+        # way out was deleting `wringer.spec.yaml`, which is exactly the
+        # answer-losing move the refusal above steers people away from.
+        #
+        # A carried pair's id is BOOKKEEPING, not content. It must never be
+        # able to make the person's document unloadable.
         taken = {q.id for q in merged}
         renamed = []
         for question in carried:
-            identifier = question.id
-            while identifier in taken:
-                identifier = f"{identifier}-as-answered"
+            identifier = _carried_id(question.id, taken)
             taken.add(identifier)
             renamed.append(
                 Question(
@@ -1295,7 +1343,7 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
 
     # BEFORE the drop-walk: `outcome` is not in `_TASK_KEYS` and must not be,
     # so the walk below would eat it with a note.
-    drafted, outcomes = lift_outcomes(drafted)
+    drafted, outcomes, outcome_notes = lift_outcomes(drafted)
 
     drafted, dropped = _drop_unknown_reply_keys(drafted)
 
@@ -1364,6 +1412,7 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         notes=(
             *dropped,
             *notes,
+            *outcome_notes,
             *assumption_notes,
             *missing_outcome_notes(drafted_spec.tasks, outcomes),
             *buried_decision_notes(drafted_spec.criteria),
@@ -1542,15 +1591,30 @@ def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
         "# Its `consent` block can make `wring plan` REFUSE, and refusing is the",
         "# only thing it can do.",
         f"schema_version: {DECISIONS_SCHEMA_VERSION}",
-        "",
-        "# Decided without asking you. Approving the plan approves these — and",
-        "# each one carries the question it displaced, so you can ask it after",
-        "# all.",
-        "assumptions:",
     ]
+    # **The header is only written when there is something under it.** An
+    # `assumptions:` block with no entries, under the sentence "Approving the
+    # plan approves these", asserts something about zero things — and the
+    # claim this whole channel exists to make is that decisions taken for a
+    # person are VISIBLE, never that none were taken.
+    if assumptions:
+        lines += [
+            "",
+            "# Decided without asking you. Approving the plan approves these — and",
+            "# each one carries the question it displaced, so you can ask it after",
+            "# all.",
+            "assumptions:",
+        ]
     for assumption in assumptions:
         lines += [
-            f"  - id: {assumption.id}",
+            # **Through `_scalar`, like every other field.** Written bare, an
+            # id that YAML 1.1 resolves as a non-string — `on`, `no`, `yes`,
+            # `off`, `true`, `123` — reads back as a bool or an int, and
+            # `parse_assumptions` then DROPS the row: a consent record
+            # vanishing between the write and the read. `_slug` accepts all of
+            # them, so nothing upstream refuses one. Same class as the
+            # `approved: False` corruption fixed in the board this morning.
+            f"  - id: {_scalar(assumption.id)}",
             f"    decision: {_scalar(assumption.decision)}",
             f"    why: {_scalar(assumption.why)}",
             f"    instead_of_asking: {_scalar(assumption.instead_of_asking)}",
@@ -1565,7 +1629,11 @@ def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
         ]
         for task_id, outcome in outcomes.items():
             lines += [
-                f"  - task: {task_id}",
+                # Same reason as the assumption id above: a task id of `on` or
+                # `no` written bare comes back as a bool, and `parse_outcomes`
+                # then refuses the whole sidecar for naming a task that "does
+                # not exist" — about a task that does.
+                f"  - task: {_scalar(task_id)}",
                 f"    outcome: {_scalar(outcome)}",
             ]
     return "\n".join(lines) + "\n"

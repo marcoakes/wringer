@@ -2889,6 +2889,31 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 sidecar.write_text(
                     spec.render_gatespec(proposed), encoding="utf-8"
                 )
+        # **A generated sidecar may never OUTLIVE the spec it describes.**
+        # A redraft whose new reply carries no assumptions and no outcomes used
+        # to leave the previous one on disk, silently, beside a wholly replaced
+        # `wringer.spec.yaml` — and the board renders that dead file as live
+        # consent. In the sharpest case a stale `outcome` becomes the plan's
+        # LEAD LINE and contradicts the objective printed underneath it, with
+        # nothing said on stderr and a zero exit code.
+        #
+        # Only a GENERATED one is removed: a hand-written sidecar is a person's
+        # own file and is left alone here exactly as it is below.
+        stale = root / spec.DECISIONS_FILENAME
+        if (
+            previous is not None
+            and not (draft.assumptions or draft.outcomes)
+            and stale.is_file()
+            and spec.decisions_is_generated(stale)
+        ):
+            stale.unlink()
+            print(
+                f"wring spec: this draft decided nothing for you and named no "
+                f"outcomes, so the previous {spec.DECISIONS_FILENAME} was "
+                "removed rather than left describing a spec that no longer "
+                "exists.",
+                file=sys.stderr,
+            )
         if draft.assumptions or draft.outcomes:
             # The same three-way outcome as the gate sidecar, and for the same
             # reason: this file can be written by hand, so `--send` must never
@@ -2911,13 +2936,18 @@ def cmd_spec(args: argparse.Namespace) -> int:
                     spec.render_decisions(draft.assumptions, draft.outcomes),
                     encoding="utf-8",
                 )
-                print(
-                    f"wring spec: {len(draft.assumptions)} decision(s) were "
-                    f"taken for you rather than asked. They are in "
-                    f"{spec.DECISIONS_FILENAME}, each with the question it "
-                    "replaced. Approving the plan approves them.",
-                    file=sys.stderr,
-                )
+                # Said only when there is something to say. The sidecar is
+                # also written for outcomes alone, and announcing "0 decisions
+                # were taken for you" is a claim about zero things dressed as
+                # a warning.
+                if draft.assumptions:
+                    print(
+                        f"wring spec: {len(draft.assumptions)} decision(s) were "
+                        f"taken for you rather than asked. They are in "
+                        f"{spec.DECISIONS_FILENAME}, each with the question it "
+                        "replaced. Approving the plan approves them.",
+                        file=sys.stderr,
+                    )
 
     if args.send and args.witness and drafted is not None:
         # The return value is deliberately dropped: `_author_witnesses` stores
