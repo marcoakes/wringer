@@ -18,6 +18,38 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(scratch_dir "${1:-}" ci-repro) || exit 2
 UV="$HOME/.local/bin/uv"
 
+# **REFUSE rather than corrupt when another run is already using this tree.**
+#
+# `scratch_dir` returns a FIXED name on purpose — that is what makes the blast
+# radius of the `rm -rf` below knowable — so two concurrent runs share one
+# directory and the second one deletes the first one's venv mid-suite. The
+# first run then fails with something that looks like a real defect and is
+# not: `ruff exit 127`, "No such file or directory", a pytest that died
+# halfway. That cost three false reds in one day, and each one was diagnosed
+# from scratch because nothing said what had happened.
+#
+# A lock is the honest answer, and refusing is what this repository does
+# everywhere else rather than guessing. The stale-lock case is handled by
+# checking whether the recorded pid is alive, so a killed run does not wedge
+# the next one.
+LOCK="$WORK.lock"
+if [ -e "$LOCK" ]; then
+    OWNER=$(cat "$LOCK" 2>/dev/null || echo "?")
+    if [ "$OWNER" != "?" ] && kill -0 "$OWNER" 2>/dev/null; then
+        echo "ci-repro: another run (pid $OWNER) is already using $WORK." >&2
+        echo "  This script rm -rf's that directory, so two at once corrupt" >&2
+        echo "  each other and produce a red that is not about your code." >&2
+        echo "  Wait for it, or pass a different scratch base:" >&2
+        echo "    sh scripts/ci-repro.sh /tmp/mine" >&2
+        exit 2
+    fi
+    echo "ci-repro: clearing a stale lock from pid $OWNER (not running)" >&2
+    rm -f "$LOCK"
+fi
+mkdir -p "$(dirname "$LOCK")" 2>/dev/null || true
+echo $$ > "$LOCK"
+trap 'rm -f "$LOCK"' EXIT INT TERM
+
 rm -rf "$WORK"
 mkdir -p "$WORK"
 git clone -q "$ROOT" "$WORK/wringer" || exit 2
