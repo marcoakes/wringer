@@ -64,11 +64,11 @@ guidance, where the person approving the plan will never read it as a decision.
 
 **It is systematic, not anecdotal, and the carrier understated it.** Measured
 across all four raw replies (`.wringer/specs/*/response.json`, the surface the
-parser actually sees), decisions labelled with some form of *"Decision
-taken …"* appear in **10 criteria across 3 of the 4 runs** — 4 of 9 in run 1,
-3 of 12 in run 3, 3 of 11 in run 4. Run 2 has none, and that is not noise: run
-2 is the run that **asked** the memory-scope question instead of deciding it.
-The misfiling tracks the silent deciding exactly.
+parser actually sees), a labelled decision buried in `guidance` appears in **14
+criteria across ALL FOUR runs** — 4 of 9, 4 of 10, 3 of 12, 3 of 11. Every
+drafting call did it. See [docs/variance-2026-08-19.md](docs/variance-2026-08-19.md),
+including its dated correction: an earlier version of this paragraph said ten
+across three runs, with run 2 as a clean control, and that was wrong.
 
 **0.3 — The silent decisions differ per roll.** Criteria per run: **9, 10, 12,
 11**. Run 1 decided per-browser-only *without asking* (its questions were
@@ -237,38 +237,42 @@ least visible somewhere), and it does **not** move the text into `assumptions`
 (that is ruling 3(iv)). It says, to the operator, that this draft put a
 decision where the PM will not read it as one.
 
-**The marker is `decision taken`, case-insensitive, and the phrasing is why.**
-The obvious choice — run 1's own sentence, `decision taken without asking` —
-was measured against all four replies and **finds 4 of the 10 buried decisions
-that exist, reporting runs 3 and 4 as entirely clean.** The drafter's
-*self-labelling varies per roll*, which is §0.3's variance finding reaching one
-level deeper than anyone had looked:
+**⚠ THE MARKER HAS NOW BEEN GOT WRONG TWICE, AND THE SECOND TIME WAS
+PUBLISHED.** Both attempts were written against the same four captured
+replies, hours apart, and both were believed sufficient:
 
-| run | phrasing | buried | `…without asking` finds | `decision taken` finds |
-|---|---|---|---|---|
-| 1 | `Decision taken without asking:` | 4 | 4 | 4 |
-| 2 | *(none — it asked instead)* | 0 | 0 | 0 |
-| 3 | `Decision taken unless overruled:` | 3 | 0 | 3 |
-| 4 | `Decision taken unless the memory-scope question says otherwise:` | 3 | 0 | 3 |
+| detector | finds | misses |
+|---|---|---|
+| `decision taken without asking` — run 1's own sentence, this spec's first draft | 4 of 14 | runs 2, 3, 4 entirely |
+| `decision taken` — the "correction", committed in `6ccdfaf` as measured fact | 10 of 14 | **run 2 entirely** |
 
-**The claim ceiling on this detector, which the code must carry as a comment
-where a maintainer would look:** it is a MEASURED-PHRASING HEURISTIC, not a
-guard. A drafter phrasing it a fourth way walks straight past it, and no
-structural check can replace it — nothing distinguishes decision prose from
-check prose except its meaning. **Its silence is not evidence that a draft took
-no silent decisions.** §6 DONE therefore does not claim buried decisions are
-caught; they are sometimes noticed.
+Run 2 labels its four decisions `Decision to approve:`. It was declared a
+"negative control" — the run that asked instead of deciding — and it is
+nothing of the kind. **Four rolls produced four phrasings, and there is no
+reason to expect a fifth roll to reuse any of them.**
 
-**Run 2 is the negative control, and it comes free.** It is the one run that
-raised the memory-scope question instead of deciding it, and it carries zero
-markers. So the detector fires on exactly the runs that decided silently and
-stays quiet on the one that asked — a red-and-green pair from real captured
-bytes rather than a mutation.
+**So the ruling is this: the detector is a LOWER BOUND with no known ceiling,
+and the spec will not pretend otherwise.**
 
-All four replies are captured to `tests/replies/2026-08-19-arcade-run{1..4}-
-drafter-reply.json`, each with a dated note saying what it is evidence of. The
-guard is watched against **every phrasing measured**, not just the one that was
-easiest to find.
+- The marker is a small set of measured phrasings, not one substring, and the
+  set is named in the code with the capture each member came from.
+- The note it produces says *at least N* — never a total.
+- **Its silence is not evidence.** A run it reports clean has not been shown to
+  be clean, and the code carries that sentence as a comment where a maintainer
+  would look, next to the two counts above.
+- §6 DONE does not claim buried decisions are caught. They are sometimes
+  noticed.
+
+**No negative control exists in this corpus**, so the guard is watched red on
+the four captures and cannot be watched green on a known-clean draft. That is a
+real gap in the evidence and it is recorded rather than papered over: a
+detector with no true-negative case has not been shown to discriminate, only to
+fire. §7 carries the open question of whether it should exist at all.
+
+All four replies are captured at
+`tests/replies/2026-08-19-arcade-run{1..4}-drafter-reply.json`. The guard is
+watched against **every phrasing measured** — which, on today's evidence, is
+not the same as every phrasing.
 
 ### Ruling 5 — the board renders the sidecar verbatim, under board scaffolding
 
@@ -685,6 +689,16 @@ proves each detector can fail** — restored from file copies, never
    un-approves, and a fleet mid-run does not read the spec again. The honest
    answer may be that revision after handover is a different act with a
    different name.
+5. **Should ruling 4's detector exist at all?** It has been got wrong twice,
+   it has no true-negative case in this corpus, and its output is a lower
+   bound that no reader can turn into a total. The case FOR keeping it: the
+   operator sees *something* rather than nothing, and every phrasing it learns
+   is one the next drafter cannot hide behind. The case AGAINST: a note that
+   fires on 10 of 14 and is silent on a whole run trains its reader to believe
+   silence, which is the exact failure this programme names — and unlike a
+   gate, nothing here can ever be shown to have caught everything. A ruling
+   either way is Fable's; the spec builds it as a lower bound in the meantime
+   because the alternative is that the misfiling stays completely invisible.
 
 ---
 
