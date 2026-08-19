@@ -2818,7 +2818,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 sidecar.write_text(
                     spec.render_gatespec(proposed), encoding="utf-8"
                 )
-        if draft.assumptions:
+        if draft.assumptions or draft.outcomes:
             # The same three-way outcome as the gate sidecar, and for the same
             # reason: this file can be written by hand, so `--send` must never
             # replace a person's own decisions with a model's. Never written
@@ -2837,7 +2837,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 )
             else:
                 decisions.write_text(
-                    spec.render_decisions(draft.assumptions), encoding="utf-8"
+                    spec.render_decisions(draft.assumptions, draft.outcomes),
+                    encoding="utf-8",
                 )
                 print(
                     f"wring spec: {len(draft.assumptions)} decision(s) were "

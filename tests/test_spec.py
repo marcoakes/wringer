@@ -1727,3 +1727,102 @@ def test_the_request_ASKS_for_assumptions_and_says_where_they_do_not_go(
     assert "instead_of_asking" in asked
     # And the misfiling this whole channel exists to stop, named in the ask.
     assert "NOT in a criterion's guidance" in asked
+
+
+# --- SPEC_PMPLAN_V0 P2: the second register ---------------------------------
+
+
+def test_a_tasks_outcome_is_lifted_off_the_reply_and_the_task_is_untouched():
+    """Ruling 6's mechanism, and both halves matter. `outcome` is lifted
+    BEFORE the drop-walk (which would eat it with a note), and `_TASK_KEYS`
+    does not gain it — that set is what the on-disk loader accepts, and
+    `spec.schema.json`'s task items are frozen and closed, so adding it there
+    would make `parse` accept a key the published schema refuses."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["tasks"][0]["outcome"] = "You can download the rows you are looking at."
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert drafted.outcomes == {
+        "csv-export": "You can download the rows you are looking at."
+    }
+    # nothing was dropped, and the task the engineer works from is unchanged
+    assert not [n for n in drafted.notes if "outcome" in n]
+    assert drafted.spec.tasks[0].objective.startswith("Add the export endpoint")
+
+
+def test_outcome_never_joins_TASK_KEYS_or_the_frozen_schema_would_disagree():
+    """Pinned as a property, not a hope: a later tidy-up that 'simplifies' the
+    lift by adding the key to `_TASK_KEYS` breaks the on-disk contract."""
+    assert "outcome" not in spec._TASK_KEYS
+    schema = json.loads(
+        (Path(__file__).parent.parent / "schema" / "spec.schema.json")
+        .read_text(encoding="utf-8")
+    )
+    task = schema["properties"]["tasks"]["items"]
+    assert task["additionalProperties"] is False
+    assert "outcome" not in task["properties"]
+
+
+def test_a_missing_outcome_is_a_note_only_once_the_channel_IS_used():
+    """The scoping rule from review C16. A reply that carries outcomes for
+    some tasks and not others gets a note; a reply from before the channel
+    existed gets silence, because that drafter was never asked."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["tasks"].append({
+        "id": "second", "brief": "briefs/second.md", "dir": ".",
+        "objective": "Something else.",
+    })
+    payload["tasks"][0]["outcome"] = "You can export."
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    said = " ".join(drafted.notes)
+    assert "'second' has no plain-language outcome" in said
+
+    # ...and with the channel unused, nothing is said at all.
+    bare = json.loads(json.dumps(DRAFT))
+    bare["tasks"].append({
+        "id": "second", "brief": "briefs/second.md", "dir": ".",
+        "objective": "Something else.",
+    })
+    assert spec.parse_response(reply(bare), PRD).notes == ()
+
+
+def test_the_archived_capture_still_produces_NO_notes_at_all():
+    """**The exact test review C16 said this would redden.** It asserts
+    `notes == ()` totally, and that totality is the watch: the duplicate-
+    binding rule must refuse duplicates AND NOTHING ELSE. Loosening it to
+    ignore outcome notes was refused; the note is scoped instead."""
+    payload = within_question_cap(
+        json.loads(real_reply()["choices"][0]["message"]["content"])
+    )
+    payload["gate_bindings"][0]["run"] = "pytest -q acceptance/test_regression.py"
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert drafted.notes == (), drafted.notes
+
+
+def test_an_outcome_naming_a_task_the_spec_lacks_is_refused_whole():
+    """Content pointing at nothing — the rule the gate sidecar already applies
+    to a `proves` naming no criterion."""
+    tasks = (spec.Task(id="real", brief="briefs/real.md", objective="o"),)
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_outcomes(
+            [{"task": "ghost", "outcome": "Something."}], tasks, "sidecar"
+        )
+
+    said = str(caught.value)
+    assert "ghost" in said and "real" in said
+
+
+def test_the_sidecar_carries_both_registers_and_the_request_asks_for_both():
+    text = spec.render_decisions((), {"csv-export": "You can export the rows."})
+    assert "outcomes:" in text
+    assert "You can export the rows." in text
+
+    asked = spec.render_request(PRD, "m", 100)["messages"][1]["content"]
+    assert '"outcome"' in asked
+    assert "what the person who asked for this will be able to DO" in asked

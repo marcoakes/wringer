@@ -31,7 +31,7 @@ auditable path (SPEC_INTENT_V0.md §2).
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -249,6 +249,11 @@ class Draft:
     # reasoning as `gates`: no home in the frozen spec, and meaningless apart
     # from the criteria it was drafted beside.
     assumptions: tuple[Assumption, ...] = ()
+    # One plain sentence per task id: what the PERSON will be able to do when
+    # it is done, beside the machine `objective` the engineer works from. Same
+    # sidecar, same reason — `spec.schema.json`'s task items are frozen and
+    # closed, so this cannot be a fourth key on a task.
+    outcomes: dict[str, str] = field(default_factory=dict)
     # Bindings the reply proposed and this parser REFUSED, each with the
     # reason, for the caller to put in front of whoever ran the command. Not
     # an exception: one unusable binding is not a reason to throw away a whole
@@ -570,6 +575,106 @@ def parse_assumptions(
     return tuple(kept), tuple(notes)
 
 
+def lift_outcomes(drafted: dict) -> tuple[dict, dict[str, str]]:
+    """Take each task's plain-language `outcome` off the reply, keyed by task id.
+
+    **Called BEFORE `_drop_unknown_reply_keys`, and that ordering is the whole
+    mechanism.** `outcome` is not in `_TASK_KEYS`, so the drop-walk would eat
+    it with a note — correct behaviour for a decorative key, wrong for this
+    one.
+
+    **And `_TASK_KEYS` does NOT gain it.** That set is what `parse` — the
+    loader every on-disk `wringer.spec.yaml` faces — accepts, and
+    `spec.schema.json`'s task items are `additionalProperties: false` and
+    frozen. Adding it there would make the loader accept a key the schema
+    refuses: a spec that loads and fails its own published shape.
+
+    So the sentence travels in the reply, is lifted here, and lands in the
+    sidecar beside the assumptions. The task the engineer works from is
+    untouched.
+    """
+    lifted: dict[str, str] = {}
+    cleaned = dict(drafted)
+    tasks = drafted.get("tasks")
+    if not isinstance(tasks, list):
+        return cleaned, lifted
+    rebuilt: list[Any] = []
+    for entry in tasks:
+        if not isinstance(entry, dict) or "outcome" not in entry:
+            rebuilt.append(entry)
+            continue
+        outcome = entry.get("outcome")
+        identifier = str(entry.get("id", ""))
+        if isinstance(outcome, str) and outcome.strip() and identifier:
+            lifted[identifier] = outcome.strip()
+        rebuilt.append({k: v for k, v in entry.items() if k != "outcome"})
+    cleaned["tasks"] = rebuilt
+    return cleaned, lifted
+
+
+def parse_outcomes(
+    raw: Any, tasks: Any, where: str
+) -> tuple[dict[str, str], tuple[str, ...]]:
+    """Outcomes from a sidecar on disk, checked against the tasks beside them.
+
+    **A row naming a task the spec does not have is refused whole** — content
+    pointing at nothing, which is the rule `config.check_bindings` already
+    applies to a `proves` naming no criterion. A MISSING outcome is the
+    opposite case and is not an error at all: nothing was lost, something is
+    absent, and refusing a paid draft over an absent sentence is the
+    `objective_note` mistake.
+    """
+    if raw is None:
+        return {}, ()
+    if not isinstance(raw, list):
+        raise SpecError(f"{where}: 'outcomes' must be a list")
+    known = {getattr(task, "id", None) or (task or {}).get("id") for task in tasks}
+    found: dict[str, str] = {}
+    notes: list[str] = []
+    for index, entry in enumerate(raw):
+        at = f"{where}: outcomes[{index}]"
+        if not isinstance(entry, dict):
+            notes.append(f"dropped {at}: not a mapping")
+            continue
+        task_id = str(entry.get("task", ""))
+        if task_id not in known:
+            raise SpecError(
+                f"{at}: names task '{task_id}', which this spec does not have. "
+                f"Its tasks are: {', '.join(sorted(str(k) for k in known if k))}. "
+                "Nothing was written"
+            )
+        text = entry.get("outcome")
+        if not isinstance(text, str) or not text.strip():
+            notes.append(f"dropped {at} ('{task_id}'): 'outcome' must be a sentence")
+            continue
+        found[task_id] = text.strip()
+    return found, tuple(notes)
+
+
+def missing_outcome_notes(tasks: Any, outcomes: dict[str, str]) -> tuple[str, ...]:
+    """Tasks with no plain-language outcome — but ONLY once the reply uses the
+    channel at all.
+
+    **The scoping rule is not tidiness; without it this reddens a green test.**
+    `test_a_binding_with_a_command_of_its_own_is_kept` asserts `notes == ()`
+    totally, and its fixture is an archived capture that predates `outcome`.
+    A per-task note there would fill `notes` and break the watch that the
+    duplicate-binding rule refuses duplicates AND NOTHING ELSE.
+
+    Loosening that assertion instead was considered and refused: it would
+    destroy exactly the property the test exists for. A drafter that was never
+    asked for outcomes is not a drafter that omitted them.
+    """
+    if not outcomes:
+        return ()
+    return tuple(
+        f"task '{task.id}' has no plain-language outcome — the plan will show "
+        "the engineer's objective for it and say that no outcome was written"
+        for task in tasks
+        if task.id not in outcomes
+    )
+
+
 def buried_decision_notes(criteria: Any) -> tuple[str, ...]:
     """Criteria whose `guidance` looks like it carries a DECISION.
 
@@ -868,8 +973,12 @@ def render_request(
         "person can judge it — taste, tone, or a trade-off.\n"
         "3. **Propose gates the repository could actually run** — its own "
         "test and lint commands. Propose none rather than inventing one.\n"
-        "4. Split the work into tasks a single agent can finish. Give each an "
-        "`objective`: one paragraph saying what done looks like.\n"
+        "4. Split the work into tasks a single agent can finish. Give each "
+        "TWO things: an `objective` — one paragraph of instructions for the "
+        "engineer — and an `outcome`, ONE PLAIN SENTENCE saying what the "
+        "person who asked for this will be able to DO once it is done. The "
+        "outcome is what they read on the plan they approve; write it in "
+        "their words, not in yours.\n"
         "5. **For each criterion a machine can decide, propose a "
         "`gate_bindings` entry**: a command that FAILS today and passes only "
         "once that criterion is met, and the criterion id it proves. One "
@@ -912,7 +1021,8 @@ def render_request(
         '  "gate_bindings": [{"id": "<slug>", "run": "<shell command>", '
         '"proves": "<criterion id from above>"}],\n'
         '  "tasks": [{"id": "<slug>", "brief": "briefs/<slug>.md", '
-        '"dir": ".", "objective": "<one paragraph>"}]\n'
+        '"dir": ".", "objective": "<one paragraph, for the engineer>", '
+        '"outcome": "<one sentence, for the person who asked>"}]\n'
         "}\n"
         "Slugs are letters, digits, '-' and '_'. At least one criterion must "
         "be `required`. At least one task. `gates` are the repository's "
@@ -1085,6 +1195,10 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
                 "Nothing was written"
             )
 
+    # BEFORE the drop-walk: `outcome` is not in `_TASK_KEYS` and must not be,
+    # so the walk below would eat it with a note.
+    drafted, outcomes = lift_outcomes(drafted)
+
     drafted, dropped = _drop_unknown_reply_keys(drafted)
 
     drafted_spec = parse(
@@ -1148,10 +1262,12 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         spec=drafted_spec,
         gates=proposed,
         assumptions=assumptions,
+        outcomes=outcomes,
         notes=(
             *dropped,
             *notes,
             *assumption_notes,
+            *missing_outcome_notes(drafted_spec.tasks, outcomes),
             *buried_decision_notes(drafted_spec.criteria),
         ),
     )
@@ -1312,7 +1428,7 @@ def gatespec_is_generated(path: Path) -> bool:
     return _carries(path, GATESPEC_MARKER)
 
 
-def render_decisions(assumptions: Any) -> str:
+def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
     """`wringer.decisions.yaml` — what was decided FOR the person.
 
     The header is the NARROW TRUE CLAIM, and getting it narrow took a review.
@@ -1341,6 +1457,19 @@ def render_decisions(assumptions: Any) -> str:
             f"    why: {_scalar(assumption.why)}",
             f"    instead_of_asking: {_scalar(assumption.instead_of_asking)}",
         ]
+    if outcomes:
+        lines += [
+            "",
+            "# What each task means for the person who asked for it, beside the",
+            "# `objective` the engineer works from. Two registers, and this is",
+            "# the one the plan leads with.",
+            "outcomes:",
+        ]
+        for task_id, outcome in outcomes.items():
+            lines += [
+                f"  - task: {task_id}",
+                f"    outcome: {_scalar(outcome)}",
+            ]
     return "\n".join(lines) + "\n"
 
 
