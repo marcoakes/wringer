@@ -84,11 +84,16 @@ FACE_TURN_CHANGED_NOTHING = "turn_changed_nothing"
 
 WORKER_FACES = (FACE_TURN_CHANGED_NOTHING,)
 
+# The third clause was added by ruling on 2026-08-19, the day the hint first
+# fired on a real turn: the agent had authenticated, thought for 1m49s, and
+# returned nothing it could write — a cause the first wording did not name.
+# A hint that names two causes and omits the measured third is a guess
+# presented as a survey.
 WORKER_DESCRIPTIONS = {
     FACE_TURN_CHANGED_NOTHING: (
         "the agent finished its turn without changing a file or reporting an "
-        "error; this usually means it could not authenticate, or could not "
-        "see the work"
+        "error; this usually means it could not authenticate, could not see "
+        "the work, or produced nothing it could use"
     ),
 }
 

@@ -151,6 +151,15 @@ def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
 
     said = payload["description"] + " " + payload["remedy"]
     assert "authenticate" in said, "the likeliest cause is never named"
+    # Ruled 2026-08-19, after the verification drive fired this hint on a
+    # turn whose cause was NEITHER of the two it named: the agent
+    # authenticated, thought for 1m49s, and returned nothing it could write.
+    # A hint that names two causes and omits the measured third is a guess
+    # presented as a survey.
+    assert "produced nothing" in said, (
+        "the third measured cause — the agent engaged and produced nothing "
+        "usable — is never named"
+    )
     assert "env_passthrough" in said, (
         "the remedy never points at the operator's channel"
     )
