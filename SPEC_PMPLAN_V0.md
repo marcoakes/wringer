@@ -478,10 +478,25 @@ Mechanics, each ruled here so the build has nothing to decide:
   no intermediate state on disk, and in particular no window in which the file
   says `approved: true` beside text nobody approved. If the write fails,
   nothing changed.
-- **B5's byte-equality doctrine constrains both edits to line edits**, reusing
-  `_fill_existing`/`_scalar` for the answer and `APPROVED_LINE` for the
-  interlock. The result must be byte-identical to what a person would have
-  typed.
+- **B5's byte-equality doctrine constrains both edits to line edits.** The
+  result must be byte-identical to what a person would have typed.
+
+  **⚠ The mechanism this ruling first named does the OPPOSITE of what `revise`
+  needs, and the review caught it.** `_fill_existing` fills an *empty*
+  `answer:` and **returns `None` the moment it finds a non-empty one**
+  (`interview.py:203-206`) — which is precisely and only the case `revise`
+  exists for. Nor can `revise` fall through to `answer`'s append path: that
+  appends a *second* `answer:` key, producing the duplicate-key malformation
+  the comment at `interview.py:145-153` was written to stop. So `revise` needs
+  a REPLACE-in-place sibling — same anchoring helpers (`_within_open_questions`,
+  `_sibling_indent`, `_ends_block`, `_scalar`), new decision at the
+  already-answered branch. Naming `_fill_existing` as reusable was wrong.
+
+  **The interlock edit is now safe to reuse, and was not when this was
+  written.** `approve`'s line edit was a live corruption bug — a hand-written
+  `approved: False` came back as `approved: Falsetrue` — found by this same
+  review and fixed at board `99b9f25`, splicing on `APPROVED_LINE`'s own
+  `span("value")`. `revise` reuses the fixed version.
 - **`answer`'s refusal to overwrite STAYS** (`interview.py:135-140`, pinned at
   `test_interview.py:124`). Revise is a separate verb with separate consent
   semantics, and **this window may not unify them.** `answer` is for a question
@@ -503,6 +518,24 @@ This is what stops `assumptions` from becoming a place to hide decisions.
 
 `question` is the assumption's own `instead_of_asking`, verbatim. The answer is
 the PM's. And the same unconditional un-approve applies.
+
+**The append has TWO anchor-less cases, both predictable from `render()` and
+neither named in the first draft of this ruling** (verified by driving
+`spec.render` directly):
+
+1. **`open_questions: []`** — what the engine emits when a draft asked nothing
+   (flow style, one line). There is no sibling entry, so `_sibling_indent` has
+   nothing to measure, and the edit is not an append at all: the `[]` must be
+   replaced by a block sequence. Byte-equality still holds, because a person
+   adding their first question by hand would delete the `[]` too. The indent is
+   `render()`'s own — two spaces, then `- id:`.
+2. **the key absent entirely** — possible in a hand-written spec, since
+   `open_questions` is not in `spec.schema.json`'s `required` list. `revise`
+   **refuses** here rather than inventing the key: `approve`'s own precedent is
+   *"this surface edits what is there; it does not invent structure"*
+   (`interview.py:474-477`).
+
+A drafted spec always has the key, so case 1 is the one a PM actually meets.
 
 It lands in `open_questions` and nowhere else because that is **the channel
 `wring plan` already reads into the briefs**. An override recorded only in the
