@@ -192,6 +192,22 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 > `session/new` both succeed and `session/prompt` returns
 > `Authentication required`. Whether a normally-logged-in Claude Code on a
 > user's own machine clears that has **not** been established.
+>
+> **What changed on 2026-08-19.** A turn that ends cleanly having written no
+> file and raised no refusal is now diagnosed as such — in the loop's record
+> (`worker-diagnosis.json`), on the console, and in `wring run --json` — with
+> the remedy pointing at `run.worker.acp.env_passthrough` as the operator's
+> channel. It names no variable, deliberately: that field exists so a secret
+> crossing into a worker is a declared act by the person who owns it. The gap
+> above is unchanged; what changed is that it can no longer present as silence.
+
+> **Driving Wringer for somebody else?** `wringer-drive`'s
+> [`AGENTS.md`](https://github.com/marcoakes/wringer-drive/blob/main/AGENTS.md)
+> is the runbook for a coding agent doing exactly that — the same install
+> gated by `wring doctor`, then how to drive `--emit json` and the three laws
+> that keep an agent a transport rather than a second opinion: relay every
+> step's text verbatim, never answer a `confirm` on the person's behalf, and
+> never see or ask for their key. The block above installs; that page drives.
 
 **"Not exercised" means exactly that.** Nobody has run Wringer against that
 agent here and written down what happened. The rows are not a compatibility
