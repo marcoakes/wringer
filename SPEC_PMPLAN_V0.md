@@ -78,11 +78,25 @@ consents to depends on the roll of a die they cannot see.
 
 **0.4 — Even the perfect run ends in a refusal the PM must interpret.** The
 full drive converged — acceptance red on iteration 1, a real worker turn, green
-on iteration 2 — and the ending was `stopped:acceptance_unevidenced`, because
-the other criteria have nothing checking them. Honest, correct, rendered in the
-board's own words. But **the best possible outcome of today's pipeline is a
-"held" the PM has to decode**, and nothing set that expectation at the moment
-they approved.
+on iteration 2 — and the ending was `stopped:acceptance_unevidenced`. Honest,
+correct, rendered in the board's own words. But **the best possible outcome of
+today's pipeline is a "held" the PM has to decode**, and nothing set that
+expectation at the moment they approved.
+
+> **⚠ The carrier gives a CAUSE for that ending, and it is wrong.** It says the
+> run was held *"because the other criteria have nothing checking them"*. The
+> console says otherwise: `wring deliver` listed **exactly one** criterion —
+> `heading-reads-as-yours — HUMAN`, *"nobody has answered this"* — out of nine,
+> most of which were unbound (`verify-drive2/console.txt:153-158`).
+>
+> The engine agrees with the console, explicitly. `accept.py:406-450`: a
+> non-human row refuses only when it is required, **COVERED** and not
+> evidenced, and *"an uncovered one is a debt the author has not paid yet —
+> loud, never fatal … refusing there would refuse the first delivery in every
+> repo that ever ran `wring spec`"*. **An unbound criterion CANNOT hold the
+> handover.** The first draft of ruling 9 was built on the carrier's sentence
+> and had the policy exactly inverted; §2 ruling 9 is rewritten against
+> `accept.py` instead.
 
 **0.5 — The oops path is narrower than first measured, and still missing.**
 `wring spec --send` **already refuses** over an existing spec
@@ -388,33 +402,48 @@ WHAT WILL HAPPEN AT THE END
   1 is yours to decide — no check can, and you record the answer yourself.
   6 have nothing checking them yet.
 
-  The handover is being held because at least one requirement cannot show its
-  proof. That is this tool working, not failing: it will not hand over work
-  it cannot prove.
+  The handover will be held if a bound check cannot show its proof, or if the
+  requirement that is yours is left unanswered.
+
+  The 6 with nothing checking them CANNOT hold it. They will be reported and
+  not enforced: nothing checks them, so nothing can show they failed either.
+  Approving this plan accepts that those 6 will not be proved.
 ```
 
-**Three classes, not two, and a real run is why.** The full drive of §0.4 ended
-`stopped:acceptance_unevidenced`, and the criterion that held it was
-`heading-reads-as-yours — HUMAN` — *"nobody has answered this — a person
-decides it"* (`verify-drive2/console.txt:150-158`). A `human: true` criterion
-is **unbound by design**: nothing ever will check it. Folding it into "nothing
-checking them yet" would be false, and would contradict the board's own correct
-sentence eight lines above it on the same page — *"A PERSON decides this. No
-check can, and none will be written for it"* (`interview.py:329-332`). Two
-surfaces describing one fact, inside one surface.
+**The first draft of this ruling had the policy inverted, and two independent
+review lanes caught it.** It said the run would "HOLD the handover" for the
+unbound criteria. `accept.py:406-450` says the opposite, in terms:
 
-So the block counts **bound / yours to decide / nothing checks it yet**, and
-its prediction covers **both** causes that can hold the handover — an unbound
-criterion and an unanswered human one. The measured run was held by the second,
-which the first draft of this ruling omitted entirely.
+- a **non-human** row refuses when it is required, **`covered`** and not
+  `evidenced` — where v2 widens `covered` to *bound or witnessed*;
+- an **uncovered** row is *"a debt the author has not paid yet — loud, never
+  fatal"*, because *"every spec starts with all its criteria required and
+  nothing covering them, and refusing there would refuse the first delivery in
+  every repo that ever ran `wring spec`"*;
+- a **`human`** row refuses when it is required and carries a cause —
+  unanswered, said-no, or wording moved — and *"coverage is not the question"*.
 
-**The prediction sentence is not new.** It is the board's own
-`(DELIVERY_REFUSAL, "acceptance_unevidenced")` saying, reused verbatim from
-`refusals.py:451-455`, and confirmed byte-identical against the real run's
-console. Two surfaces describing one fact drift apart; that is the failure this
-product exists to catch, and it must not arrive by way of the plan. The counts
-come from the same `_bindings()` read the criteria block already uses, plus the
-`human` flag it already reads.
+The measured run confirms it from the other end: nine criteria, most unbound,
+and `wring deliver` named **exactly one** as holding the handover — the human
+one (`console.txt:153-158`).
+
+So the block counts **bound / yours to decide / nothing checks it yet**, and it
+must say which of those can actually stop the handover. **The unbound line is
+the most important sentence on the page for a PM**, and it is the opposite of a
+warning: those requirements are not a blocker, they are a silence. Approving
+the plan accepts that they will not be proved — which is the consent this whole
+document exists to obtain, and which no draft of the plan has ever asked for.
+
+**The prediction sentence is not invented.** Where the block states the hold, it
+uses the board's own `(DELIVERY_REFUSAL, "acceptance_unevidenced")` saying from
+`refusals.py:451-455`, verbatim, confirmed byte-identical against the real run's
+console. Where it states what a class of criteria *does*, it is describing
+`accept.py`'s policy, and **that description is new prose about an engine fact
+— which board ruling 1 forbids.** The build therefore takes the sentences from
+the engine or does not write them: §7 open question 6 records that the engine
+has no saying for *"an unbound criterion cannot hold the handover"*, and one has
+to be added engine-side before the plan may say it. Until then the block renders
+the counts and the two hold causes only.
 
 The block renders **only when at least one criterion is unbound or human** — a
 plan where every criterion is bound must not carry a warning about an ending
@@ -661,8 +690,10 @@ proves each detector can fail** — restored from file copies, never
   including run 2 as the negative control, and its silence proves nothing.
   (It is not claimed that buried decisions are caught. They are not.)
 - The plan leads with outcomes, labels objectives beneath, and says at approval
-  which criteria will hold the handover — counting bound, human and unbound as
-  three separate classes, because the measured run was held by a human one.
+  which criteria **can** hold the handover — counting bound, human and unbound
+  as three separate classes, and saying that the unbound ones cannot hold it
+  and will simply go unproved. Verified against `accept.py`'s `refuses`, not
+  against the carrier's description of it, which was inverted.
 - Every board-verb revision flips `approved: false`, watched red. The hand-edit
   fingerprint lands, or ships as an OWED ruling with its design attached.
 - `--redraft` preserves every answer, and the old refusal's remedy stops
@@ -689,7 +720,14 @@ proves each detector can fail** — restored from file copies, never
    un-approves, and a fleet mid-run does not read the spec again. The honest
    answer may be that revision after handover is a different act with a
    different name.
-5. **Should ruling 4's detector exist at all?** It has been got wrong twice,
+5. **The engine has no saying for "an unbound criterion cannot hold the
+   handover".** `refusals.py` maps refusals that HAPPENED; this is a statement
+   about one that will not. Ruling 9 needs it and board ruling 1 forbids the
+   board from writing it. Either the engine gains the sentence (a new saying,
+   engine-side, which the board then renders) or the plan cannot say it and
+   the PM is left to infer the most consequential fact on the page. The spec
+   builds the counts now and holds this sentence until the saying exists.
+6. **Should ruling 4's detector exist at all?** It has been got wrong twice,
    it has no true-negative case in this corpus, and its output is a lower
    bound that no reader can turn into a total. The case FOR keeping it: the
    operator sees *something* rather than nothing, and every phrasing it learns
