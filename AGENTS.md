@@ -534,6 +534,38 @@ is an error.
    mapping module. Pin versions.
 6. **Update this file** whenever build/test/run behavior, the module map,
    or the bolt state changes. It is the first thing the next agent reads.
+7. **HUNT BUGS WITH SCRIPTS, NOT WITH FLEETS** (ruled 2026-08-19, from
+   measurement). Two adversarial review fleets ran that day. The second
+   checked 26 findings and reproduced 26 — but the thing that produced those
+   findings was not the parallelism. **Every defect found that day, more than
+   thirty of them, came from EXECUTING something. Not one came from reading.**
+   A fleet is parallel execution with a 3.4M-token bill and no artifact left
+   behind.
+
+   So the practice is: **write a probe script, run it, and keep it.**
+
+   - Put probes in `scratch/` or a scratchpad, drive the REAL functions and
+     the REAL CLIs, and round-trip anything written through the loader that
+     will actually read it. `spec.render()` wrote files `spec.load()` refused
+     for months; nothing but a round-trip could have found it.
+   - **A probe that finds something becomes a test in the same commit.** That
+     is the whole advantage over a fleet: the finding arrives with its
+     reproduction already written.
+   - Feed a probe the values a person really types, not the ones a fixture
+     contains. `no`, `yes`, `on`, `123`, `False`, a colon, a `#`, a blank line
+     inside a multi-line answer, CRLF. Four separate defects that day were
+     YAML resolving a bare scalar as a non-string, and every one of them was
+     invisible to a fixture written on the same side of the seam as its
+     reader.
+   - **Revert each fix INDIVIDUALLY and watch its own guard go red.** Four
+     guards written that day passed with their fix reverted — all four
+     asserting a property of a whole file when the claim was about one line
+     in it. Mutation proves a guard CAN fail; it says nothing about whether it
+     fails for the reason you think.
+
+   A fleet is still the right instrument for something a script cannot do —
+   reading a page as a stranger, or judging whether prose claims too much. It
+   is the wrong instrument for finding bugs in code you can simply run.
 
 ## Repo-specific gotchas
 
