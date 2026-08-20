@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, evidence, gates
 

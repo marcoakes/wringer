@@ -16,7 +16,7 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import flat
+from core_helpers import flat
 from test_interrupt import needs_sigint
 
 from wringer import cli, evidence, graph, loop

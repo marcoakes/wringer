@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Remember recently played games and surface them above the cabinet grid</title><style>
+:root{--ink:#16181d;--dim:#5c6370;--line:#e2e5ea;--bg:#fbfcfd;--card:#fff;
+--done:#1a7f4b;--doneb:#e6f4ec;--red:#b3261e;--redb:#fdeceb;
+--amber:#8a5a00;--amberb:#fdf3e2;--grey:#565d68;--greyb:#f1f3f5;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:40px 24px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+.intent{color:var(--dim);margin:0 0 28px;max-width:60ch}
+.promise{border:1px solid var(--line);border-left:4px solid var(--done);
+background:var(--doneb);padding:14px 18px;border-radius:6px;margin:0 0 10px;font-weight:600}
+.promise.withheld{border-left-color:var(--grey);background:var(--greyb);font-weight:400;color:var(--dim)}
+.counts{color:var(--dim);font-size:14px;margin:0 0 28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+padding:18px 20px;margin:0 0 14px}
+.card h2{font-size:17px;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
+.state{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+text-transform:uppercase;padding:3px 8px;border-radius:4px;margin:0 8px 0 0;vertical-align:2px}
+.done .state{background:var(--doneb);color:var(--done)}
+.notyet .state{background:var(--amberb);color:var(--amber)}
+.notreached .state,.unknown .state,.untranslated .state{background:var(--greyb);color:var(--grey)}
+.needsyou .state{background:var(--amberb);color:var(--amber)}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--redb);color:var(--red)}
+.ask{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);
+font-weight:600;color:var(--ink)}
+.needsyou .ask{color:var(--amber)}
+.done .ask,.notreached .ask{font-weight:400;color:var(--dim)}
+.said{margin:12px 0 0;padding:10px 14px;background:#f7f8fa;border:1px solid var(--line);
+border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+white-space:pre-wrap;overflow-x:auto}
+.said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
+margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
+border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
+.wasred b{color:var(--red)}
+p{margin:0 0 6px}
+details{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;font-size:14px;color:var(--dim)}
+summary{cursor:pointer;color:var(--ink)}
+details li{margin-bottom:8px}
+.refusal{border:1px solid var(--red);border-left:4px solid var(--red);background:var(--redb);
+padding:18px 20px;border-radius:6px}
+.round{margin:0 0 28px;padding:2px 0 0;border-top:1px solid var(--line)}
+.round h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:18px 0 12px}
+.round p{margin:0 0 10px;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.round .untranslated{padding:0 0 0 14px;border-left:2px solid var(--grey);margin:0 0 10px}
+.round .said{margin-top:6px}
+</style></head><body><div class="wrap"><h1>Remember recently played games and surface them above the cabinet grid</h1><div class="promise">The one requirement marked done below was demonstrated able to FAIL before being made to pass. <strong>This says nothing about the rest of the page.</strong></div><p class="counts">1 of 10 proved · 1 still needs you · 8 will not be proved — nothing checks them</p><section class="round"><h2>What happened in this round</h2>
+<p>The work finished: the checks it was asked to satisfy are passing.</p>
+<p>The handover is being held because at least one requirement cannot show its proof.</p>
+</section><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>A recently-played section renders above the full game grid</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card done">
+<h2><span class="state">DONE — AND PROVED</span>Recently played games are listed most recent first</h2>
+<p>This check has been recorded failing — the run that failed it is in this repository's evidence.</p>
+<div class="wasred"><b>It was red first.</b> This check has been recorded failing — the run that failed it is in this repository's evidence.</div>
+<div class="said"><span class="who">What the check itself printed</span>✖ the cabinet remembers a game it launched (0.819416ms)
+✖ the most recently played comes first (0.546292ms)
+✖ playing something again moves it, and does not list it twice (0.554666ms)
+✖ at most three are shown, and they are the three most recent (0.330958ms)
+✖ it survives closing the page — the same store gives the same answer (0.136667ms)
+✖ a game that is no longer in the cabinet is quietly dropped (0.098084ms)
+✖ an empty cabinet history is an empty list, never an error (0.074834ms)
+✖ rubbish in the store does not take the cabinet down (0.073ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancel</div>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>Replaying a game moves it to the front instead of listing it twice</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>At most three games ever show in the recently-played section</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>The list survives closing the tab and returning later</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>The full set of games still appears underneath, unchanged</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>A remembered game that no longer exists is skipped silently</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>Unreadable or unexpected stored state never breaks the page</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>A first-time visitor sees no empty shortcut section</h2>
+<p>Nothing checks this yet, so nobody can prove it either way.</p>
+<p class="ask">Which check should decide this requirement?</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>The heading makes clear these are the visitor's own games, not recommendations</h2>
+<p><span class="badge">Refused</span> This one is holding up the handover.</p>
+<p>No check can decide this one — it needs a person to look and say. Nobody has yet.</p>
+<p class="ask">Is this requirement met? Only you can answer it.</p>
+</div><details><summary>What this page does not claim — Wringer's own words, unedited</summary><ul><li>Evidenced means the bound gate passed and has demonstrably failed before. It does not mean the criterion is what the user needed, that the gate covers the criterion's whole meaning, or that coverage cannot narrow later — `wring health` watches that across time.</li><li>The gate-to-criterion binding is a human's declaration. Wringer checks the binding's consequences, never its wisdom.</li><li>Human criteria are answered by people. Nothing here scored them.</li><li>A sensitivity receipt says the gate's result differed between the two trees, not that the difference was the change. A gate whose own command arrived with the change reads sensitive for that reason alone — the citation beside it is how you tell.</li><li>A witness proves the stated criterion could fail and was made to pass. It does not certify agreement with an unstated intended fix, and where the criterion under-describes the intent the witness inherits that gap. Nothing here catches a change that satisfies the criterion and is still wrong.</li><li>A witness evidences ONE criterion. A manufactured fail-to-pass check is necessary and demonstrably not sufficient — it raises the floor and does not make a delivery safe.</li><li>The pin is tamper-EVIDENT, not tamper-proof: a worker on the host can read and rewrite what it finds there. It becomes a boundary only under run.containment.</li><li>`demonstrated_able_to_fail` is about the RECORD, never about the world. `false` means nothing on disk shows this check failing — NOT that it cannot fail. `null` means there was no bound (gate, command) to ask about, which includes a criterion covered by a witness with no gate, and such a row can still be evidenced.</li><li>`cause` names WHY a row is unevidenced or awaiting a person. It is the machine's handle on the fact the `reason` prose already states; it is not a diagnosis, not a remedy, and not a claim that the cause is the only one that applies.</li></ul></details><p class="spend">What this run recorded using — completion tokens: 5,056, prompt tokens: 2,196, total tokens: 7,252. These are the counts the model and the worker reported; Wringer does not price them.</p><details class="intent-block"><summary>What was asked for, in the words it was asked in</summary><div class="intent"><p>People lose their place in the cabinet</p><p>We put four games behind one page so people could wander between them, and that part works. What doesn't work is coming back.</p><p>Every visit starts from the same cold grid of four tiles in the same order. If you played two rounds of pinball last night, the cabinet has no idea. You have to remember which one you were in the middle of and go and find it again, and at four games that's mildly annoying — at twenty it will be the reason people stop opening it at all. Two of the folk who tried it said the same thing unprompted: it doesn't feel like <em>mine</em>.</p><p>What we want is for the cabinet to remember what you have been playing and put it in front of you. When you come back, the games you actually played recently should be right at the top, most recent first, under a heading that makes it obvious they're yours rather than a recommendation. The full set of games should still be there underneath, exactly as it is now — this is about adding a shortcut, not hiding anything.</p><p>A few things we've already decided, because we got them wrong on paper first. Playing something again should move it back to the front rather than listing it twice. Only the last handful should show — three feels right; a long list is just the grid again. And it has to survive closing the tab, because the whole point is what happens when you come back tomorrow.</p><p>The one thing I really don't want is for this to be able to break the cabinet. If whatever remembers all this gets into a state we didn't anticipate, or we retire a game that somebody has played, the page must still open and every game must still start. A shortcut that can take the arcade down is worse than no shortcut.</p></div></details><details><summary>For engineers</summary><ul><li>acceptance record: <code>wringer.acceptance.v3</code></li><li>verifications in this loop: 2</li></ul></details></div></body></html>

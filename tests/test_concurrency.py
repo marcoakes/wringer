@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, concurrency, evidence, health, verify
 

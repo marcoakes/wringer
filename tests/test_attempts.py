@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from conftest import flat
+from core_helpers import flat
 from test_bench import events, manifest, only_bench, setup
 
 from wringer import bench, cli, config, loop

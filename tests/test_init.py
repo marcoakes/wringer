@@ -1,6 +1,6 @@
 """`wring init` behavior."""
 
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, config, detect
 

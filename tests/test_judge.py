@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 import pytest
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, config, judge, loop, rubric
 

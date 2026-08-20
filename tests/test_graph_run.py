@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta
 
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, graph
 

@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from conftest import flat
+from core_helpers import flat
 
 from wringer import cli, evidence, gates
 

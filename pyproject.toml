@@ -41,9 +41,21 @@ dependencies = ["PyYAML>=6.0"]
 # real bundles in CI. The runtime dependency list stays PyYAML and
 # nothing else — that is a promise about what users install.
 dev = ["pytest>=8.0", "pytest-xdist>=3.0", "ruff>=0.6", "jsonschema>=4.0"]
+# **The board ships in this package now, not as a second one.** Four packages
+# with two unpublished read as sprawl, and `pip install wringer-drive` was
+# unresolvable for months because `wringer-board` was never on the index.
+#
+# The extra carries no dependencies — the board declared none — so this is a
+# packaging decision and not a weight one. What it does NOT dissolve is the
+# ARCHITECTURAL seam: `wringer_board` consumes bundles and the CLI as its API
+# and may not import engine internals. That is enforced by
+# `tests/test_layer_seam.py`, because a package boundary was never what held
+# it up.
+board = []
 
 [project.scripts]
 wring = "wringer.cli:main"
+wringer-board = "wringer_board.__main__:main"
 wringer = "wringer.cli:main"
 
 [project.urls]
@@ -87,3 +99,24 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # six function signatures — hides the reason at each site instead of stating it
 # once here.
 "tests/test_refusal.py" = ["F811"]
+
+# **E501 on the merged board source is DATED DEBT, stated rather than hidden.**
+#
+# `wringer_board` arrived on 2026-08-20 from a repository that had NO ruff
+# gate at all — its CI ran pytest only — so ~500 lines of never-linted code
+# met this repo's gate at once: 45 violations. All the ones that could bite
+# were fixed (unused imports and locals, ambiguous names, import order,
+# percent-format) and `ruff format` was run over it. What is left is
+# seventeen long lines, most of them inside a CSS string literal.
+#
+# They are excluded HERE, by path, so that:
+#   - every other rule applies to board code, which none did before;
+#   - E501 still applies to every NEW file and to all engine code;
+#   - the exclusion is visible with its reason and its date, rather than the
+#     line length being raised for the whole project to make a number go away.
+#
+# Two attempts to wrap them mechanically broke a file each time — an f-string
+# and a test — which is the argument for doing it deliberately later rather
+# than hastily now.
+"src/wringer_board/*.py" = ["E501"]
+"tests/board/*.py" = ["E501"]

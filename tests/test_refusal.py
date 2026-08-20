@@ -29,7 +29,7 @@ import ast
 import json
 from pathlib import Path
 
-from conftest import flat
+from core_helpers import flat
 
 # The delivery fixture and the graph one, imported rather than copied: a
 # second copy of `delivery_repo` would drift from the first the day either
