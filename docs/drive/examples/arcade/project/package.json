@@ -1,0 +1,11 @@
+{
+  "name": "arcade-cabinet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "One cabinet, four games, and somewhere to pick up where you left off.",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "lint": "node scripts/lint.mjs"
+  }
+}

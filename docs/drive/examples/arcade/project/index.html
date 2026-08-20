@@ -1,0 +1,78 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Arcade Cabinet</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 2.5rem 1.5rem; background: #0b0d16; color: #e8ecff;
+    font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+  header { max-width: 60rem; margin: 0 auto 2rem; }
+  h1 { margin: 0 0 .25rem; font-size: 2rem; letter-spacing: -.02em; }
+  .count { color: #8b94c4; }
+  main { max-width: 60rem; margin: 0 auto; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .12em;
+       color: #8b94c4; margin: 2rem 0 .75rem; }
+  .grid { display: grid; gap: 1rem;
+          grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+  a.tile {
+    display: block; padding: 1.25rem; border-radius: .75rem; text-decoration: none;
+    background: #151a2e; border: 1px solid #232a47; color: inherit;
+  }
+  a.tile:hover { border-color: #4d5cff; background: #1a2039; }
+  a.tile strong { display: block; font-size: 1.1rem; margin-bottom: .35rem; }
+  a.tile span { color: #8b94c4; font-size: .9rem; }
+  #recent:empty { display: none; }
+</style>
+
+<header>
+  <h1>Arcade Cabinet</h1>
+  <p class="count" id="count"></p>
+</header>
+
+<main>
+  <div id="continue"></div>
+  <h2>All games</h2>
+  <div class="grid" id="all"></div>
+</main>
+
+<script type="module">
+  import * as cabinet from "./src/cabinet.js";
+
+  const all = cabinet.tiles();
+  document.getElementById("count").textContent = cabinet.summary();
+
+  function draw(into, list) {
+    into.innerHTML = "";
+    for (const tile of list) {
+      const link = document.createElement("a");
+      link.className = "tile";
+      link.href = tile.page;
+      link.innerHTML = `<strong></strong><span></span>`;
+      link.querySelector("strong").textContent = tile.title;
+      link.querySelector("span").textContent = tile.blurb;
+      link.addEventListener("click", () => {
+        // Recorded only if the cabinet knows how to. Until "pick up where you
+        // left off" is built, this is simply not called.
+        if (typeof cabinet.recordLaunch === "function") {
+          cabinet.recordLaunch(localStorage, tile.id, Date.now());
+        }
+      });
+      into.appendChild(link);
+    }
+  }
+
+  draw(document.getElementById("all"), all);
+
+  // The Continue row appears once the cabinet can remember anything.
+  if (typeof cabinet.recentlyPlayed === "function") {
+    const recent = cabinet.recentlyPlayed(localStorage)
+      .map((id) => all.find((tile) => tile.id === id))
+      .filter(Boolean);
+    if (recent.length) {
+      const wrap = document.getElementById("continue");
+      wrap.innerHTML = `<h2>Continue</h2><div class="grid" id="recent"></div>`;
+      draw(document.getElementById("recent"), recent);
+    }
+  }
+</script>

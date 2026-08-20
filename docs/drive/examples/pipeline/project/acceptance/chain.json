@@ -1,0 +1,6 @@
+{
+  "build": {"command": "false"},
+  "test": {"needs": ["build"], "command": "echo SHOULD-NOT-RUN"},
+  "package": {"needs": ["test"], "command": "echo SHOULD-NOT-RUN"},
+  "docs": {"command": "echo docs-built"}
+}

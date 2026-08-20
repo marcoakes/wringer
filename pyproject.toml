@@ -52,10 +52,17 @@ dev = ["pytest>=8.0", "pytest-xdist>=3.0", "ruff>=0.6", "jsonschema>=4.0"]
 # `tests/test_layer_seam.py`, because a package boundary was never what held
 # it up.
 board = []
+# The drive joins on 2026-08-20 for the same reason as the board, and it is the
+# package that PROVED the point: it declared `wringer` and `wringer-board` as
+# dependencies, one of which was never published, so `pip install
+# wringer-drive` could not resolve for months. Inside one distribution the
+# dependency it could not satisfy is simply the package it is part of.
+drive = []
 
 [project.scripts]
 wring = "wringer.cli:main"
 wringer-board = "wringer_board.__main__:main"
+wringer-drive = "wringer_drive.__main__:main"
 wringer = "wringer.cli:main"
 
 [project.urls]
@@ -120,3 +127,6 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # than hastily now.
 "src/wringer_board/*.py" = ["E501"]
 "tests/board/*.py" = ["E501"]
+"src/wringer_drive/*.py" = ["E501"]
+"tests/drive/*.py" = ["E501"]
+"tools/*.py" = ["E501"]
