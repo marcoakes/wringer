@@ -989,6 +989,230 @@ def test_the_unbound_half_of_the_note_is_not_claimed_when_the_config_binds_it(
     )
 
 
+def test_OVERRULING_AN_ASSUMPTION_MARKS_THE_CRITERIA_IT_SHAPED_STALE():
+    """**Field report 2026-08-21 finding 4 — the deepest one in the report.**
+
+    The evaluator overruled the assumption `limit-of-three` with *"make it
+    five, three feels tight now"*. `wringer-board revise` did everything it
+    claims: the answer was recorded, the approval was withdrawn, `wring plan`
+    refused. And the criterion that assumption had SHAPED was left untouched
+    in both `wringer.spec.yaml` and `wringer.rubric.yaml`:
+
+        - id: capped-at-three
+          title: At most three games are ever shown
+
+    So the repository recorded "make it five" as the person's answer AND "at
+    most three" as the thing the work would be judged against. Nothing warned.
+
+    *"The plan's own disclaimer — that a green check against a wrongly-worded
+    requirement proves the wrong thing perfectly — describes this exactly,
+    except here Wringer created the inconsistency itself, and a PM has no way
+    to notice it."*
+    """
+    drafted = spec.Spec(
+        approved=False,
+        title="Arcade",
+        intent="Players pick up where they left off.",
+        questions=(
+            # The promoted assumption: its id is now an ANSWERED question
+            # whose text is the question the assumption displaced.
+            spec.Question(
+                id="limit-of-three",
+                question="How many recent games should be shown?",
+                required=True,
+                answer="make it five, three feels tight now",
+            ),
+        ),
+        criteria=(
+            spec.Criterion(id="capped-at-three", title="At most three games are shown"),
+            spec.Criterion(id="unrelated", title="The heading reads as mine"),
+        ),
+        gates=(),
+        tasks=(spec.Task(id="build", brief="briefs/b.md", objective="Build it."),),
+        path="wringer.spec.yaml",
+    )
+    assumptions = (
+        spec.Assumption(
+            id="limit-of-three",
+            decision="The cap is exactly three entries.",
+            why="Three fits the shelf without scrolling.",
+            instead_of_asking="How many recent games should be shown?",
+            criteria=("capped-at-three",),
+        ),
+    )
+
+    stale, guesses = spec.stale_criteria(drafted, assumptions)
+
+    assert [row.criterion for row in stale] == ["capped-at-three"], (
+        "the criterion derived from an overruled decision was not flagged — "
+        "it stands in the spec as the thing the work is judged against"
+    )
+    assert stale[0].stated is True, "a stated back-reference is not a guess"
+    assert stale[0].answer == "make it five, three feels tight now"
+    assert stale[0].decision == "The cap is exactly three entries."
+    assert guesses == (), "a stated back-reference must not also produce a guess"
+    # And it does not sweep up criteria the decision never touched.
+    assert "unrelated" not in [row.criterion for row in stale]
+
+
+def test_an_assumption_still_standing_marks_NOTHING_stale():
+    """The other direction. An assumption nobody overruled is the ordinary
+    case — it is a decision the person accepted by approving the plan, and
+    every criterion it shaped is correctly worded. A detector that fired here
+    would refuse every plan in the world."""
+    drafted = spec.Spec(
+        approved=False,
+        title="Arcade",
+        intent="Players pick up where they left off.",
+        questions=(),
+        criteria=(spec.Criterion(id="capped-at-three", title="At most three"),),
+        gates=(),
+        tasks=(spec.Task(id="build", brief="briefs/b.md", objective="Build it."),),
+        path="wringer.spec.yaml",
+    )
+    assumptions = (
+        spec.Assumption(
+            id="limit-of-three",
+            decision="The cap is exactly three entries.",
+            why="Three fits the shelf.",
+            instead_of_asking="How many recent games should be shown?",
+            criteria=("capped-at-three",),
+        ),
+    )
+    stale, guesses = spec.stale_criteria(drafted, assumptions)
+    assert stale == () and guesses == ()
+
+
+def test_an_overruled_assumption_with_NO_back_reference_says_it_cannot_list_them():
+    """**The honest fallback, and it is a LOWER BOUND with no known ceiling.**
+
+    An older sidecar carries no `criteria`, and a drafter may simply not emit
+    them. The temptation is to guess by matching words between the decision
+    and a criterion's title. This repository has already learned what that
+    costs: the buried-decision detector was corrected once and the correction
+    was ALSO wrong, so it is now ruled a lower bound with no true-negative
+    case in the corpus.
+
+    So no list is invented. The note says a decision was overruled, that the
+    draft did not record what it shaped, and — explicitly — that silence here
+    is not evidence that nothing is affected.
+    """
+    drafted = spec.Spec(
+        approved=False,
+        title="Arcade",
+        intent="Players pick up where they left off.",
+        questions=(
+            spec.Question(
+                id="limit-of-three",
+                question="How many recent games should be shown?",
+                required=True,
+                answer="make it five",
+            ),
+        ),
+        criteria=(spec.Criterion(id="capped-at-three", title="At most three"),),
+        gates=(),
+        tasks=(spec.Task(id="build", brief="briefs/b.md", objective="Build it."),),
+        path="wringer.spec.yaml",
+    )
+    assumptions = (
+        spec.Assumption(
+            id="limit-of-three",
+            decision="The cap is exactly three entries.",
+            why="Three fits the shelf.",
+            instead_of_asking="How many recent games should be shown?",
+        ),
+    )
+    stale, guesses = spec.stale_criteria(drafted, assumptions)
+
+    assert stale == (), "a guess must never reach the channel that REFUSES"
+    assert len(guesses) == 1
+    assert "not evidence that none of them do" in guesses[0], (
+        "the note does not say that its silence proves nothing — which is the "
+        "one thing a lower-bound detector must always say"
+    )
+
+
+def test_A_PROMOTED_ASSUMPTION_SURVIVES_THE_COLLISION_RULE():
+    """**Found by EXECUTING the field report's scenario, not by reading it.**
+
+    The collision rule drops any assumption whose id is also an open
+    question's, so that two readers cannot join an unrelated decision to an
+    unrelated answer. Correct for a COINCIDENCE — and a promotion is not one.
+
+    `wringer-board revise` turns an assumption into an answered open question
+    and deliberately leaves the sidecar row in place, so after any override
+    the id is legitimately in BOTH files. The drop therefore deleted exactly
+    the rows the stale-criteria check exists to read, silently, and the whole
+    of S4a did nothing at all. `wring plan` was driven against the real
+    scenario, exited 0, and that is how this was found — no amount of reading
+    the diff would have shown it.
+
+    Told apart by the WORDS, not the id: the same join `revise` and the plan
+    already use.
+    """
+    displaced = "How many recent games should be shown?"
+    promoted = spec.Question(
+        id="limit-of-three", question=displaced, required=True, answer="make it five"
+    )
+    entry = {
+        "id": "limit-of-three",
+        "decision": "The cap is exactly three entries.",
+        "why": "Three fits the shelf.",
+        "instead_of_asking": displaced,
+        "criteria": ["capped-at-three"],
+    }
+
+    kept, _notes = spec.parse_assumptions(
+        [entry], "the sidecar", (promoted,),
+        (spec.Criterion(id="capped-at-three", title="At most three"),),
+    )
+    assert len(kept) == 1, (
+        "the assumption a person overruled was dropped, so nothing downstream "
+        "can tell that the criteria it shaped are now stale"
+    )
+    assert kept[0].criteria == ("capped-at-three",)
+
+    # And the coincidence still drops — the rule it was protecting is intact.
+    coincidence = spec.Question(
+        id="limit-of-three",
+        question="Something else entirely?",
+        required=False,
+        answer="yes",
+    )
+    kept, notes = spec.parse_assumptions(
+        [entry], "the sidecar", (coincidence,), ()
+    )
+    assert kept == (), (
+        "a genuine id collision was accepted — two readers would then join a "
+        "decision to an unrelated answer"
+    )
+    assert any("is also an open question's id" in note for note in notes)
+
+
+def test_a_criteria_back_reference_naming_nothing_is_dropped_with_a_note():
+    """Content pointing at nothing — the gate sidecar's rule for a `proves`
+    naming no criterion, applied here. The rest of the assumption is still
+    consent-bearing and is kept; a dangling reference cannot be, because it
+    would make `wring plan` refuse over a criterion nobody can review."""
+    kept, notes = spec.parse_assumptions(
+        [
+            {
+                "id": "limit-of-three",
+                "decision": "The cap is three.",
+                "why": "It fits.",
+                "instead_of_asking": "How many?",
+                "criteria": ["capped-at-three", "no-such-criterion"],
+            }
+        ],
+        "the drafted assumptions",
+        (),
+        (spec.Criterion(id="capped-at-three", title="At most three"),),
+    )
+    assert len(kept) == 1
+    assert kept[0].criteria == ("capped-at-three",)
+    assert any("no-such-criterion" in note for note in notes)
+
+
 def test_a_binding_on_a_human_criterion_is_refused_and_nothing_is_written(
     repo, monkeypatch, capsys
 ):

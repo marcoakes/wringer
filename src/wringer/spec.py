@@ -121,7 +121,10 @@ _TOP_LEVEL_KEYS = {
 }
 _QUESTION_KEYS = {"id", "question", "required", "answer"}
 _TASK_KEYS = {"id", "brief", "dir", "objective"}
-_ASSUMPTION_KEYS = {"id", "decision", "why", "instead_of_asking"}
+_ASSUMPTION_KEYS = {"id", "decision", "why", "instead_of_asking",
+                    # `wringer.decisions.v2`: which criteria this
+                    # decision shaped, so overruling it can flag them.
+                    "criteria"}
 
 # The plain-language companion to `wringer.spec.yaml` (SPEC_PMPLAN_V0 ruling 2).
 # A SEPARATE FILE for the same reason the gate sidecar is one: `wringer.spec.v1`
@@ -129,7 +132,13 @@ _ASSUMPTION_KEYS = {"id", "decision", "why", "instead_of_asking"}
 # assumption has no home in it — and a version spend ripples through every
 # reader of every archived bundle, where a new file touches only what opts in.
 DECISIONS_FILENAME = "wringer.decisions.yaml"
-DECISIONS_SCHEMA_VERSION = "wringer.decisions.v1"
+# **v2 is what is WRITTEN; both are READ, and will be forever.** v2 adds one
+# optional key — the criteria an assumption shaped — so every v1 document on
+# disk is already a valid v2 document. v1's assumption items are
+# `additionalProperties: false` and the file is frozen, which is why this is a
+# new schema rather than a field (law 7).
+DECISIONS_SCHEMA_VERSION = "wringer.decisions.v2"
+DECISIONS_SCHEMA_VERSIONS = ("wringer.decisions.v1", "wringer.decisions.v2")
 # The same hand-written protection `wringer.gates.yaml` has, and for the same
 # reason: this file can be written by hand, so `--send` must never silently
 # replace a person's own decisions with a model's.
@@ -237,6 +246,16 @@ class Assumption:
     decision: str
     why: str
     instead_of_asking: str
+    # **The criteria this decision SHAPED** — `wringer.decisions.v2`, added
+    # 2026-08-21. Only the drafter can know these: it took the decision and
+    # then wrote the criteria in the same reply. Without them, overruling an
+    # assumption leaves every criterion derived from it standing against the
+    # person, which is the inconsistency Wringer manufactured on a real run.
+    #
+    # Empty is NOT evidence that none exist — an older sidecar has none and a
+    # drafter may simply not emit them. The heuristic note downstream says so
+    # in those words.
+    criteria: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -515,8 +534,79 @@ def _parse_tasks(raw: Any, where: str) -> tuple[Task, ...]:
     return tuple(tasks)
 
 
+def _is_promotion(identifier: str, entry: dict, questions: Any) -> bool:
+    """Whether this id is in both documents because somebody OVERRULED it.
+
+    **Found by executing, 2026-08-21, not by reading.** The collision rule
+    above drops any assumption whose id is also a question's, to stop two
+    readers joining an unrelated decision to an unrelated answer. Correct for
+    a COINCIDENCE — and a promotion is not one. `wringer-board revise` turns
+    an assumption into an answered open question and deliberately leaves the
+    sidecar row in place, so after any override the id is legitimately in both
+    files. The drop then deleted exactly the rows the stale-criteria check
+    exists to read, and it did so silently.
+
+    Told apart the way `revise` and the plan already tell it apart: **by the
+    words, not by the id.** A promotion's question text IS the question the
+    assumption recorded displacing. A coincidence's is something else, and
+    still drops.
+    """
+    displaced = str(entry.get("instead_of_asking") or "").strip()
+    if not displaced:
+        return False
+    for question in questions:
+        if getattr(question, "id", None) != identifier:
+            continue
+        # **Answered, AND the same words.** Matching words alone is not
+        # enough: a single DRAFT can both ask a question and record deciding
+        # it, phrased identically, and that is a contradiction to drop rather
+        # than an override to keep — there was never a person in the loop.
+        # `revise` always writes an answer, so a promotion always has one, and
+        # requiring it is what separates "somebody overruled this" from "one
+        # reply said both things at once".
+        if not str(getattr(question, "answer", "") or "").strip():
+            return False
+        return str(getattr(question, "question", "")).strip() == displaced
+    return False
+
+
+def _criteria_refs(
+    entry: dict, at: str, criteria: Any, notes: list[str]
+) -> tuple[str, ...]:
+    """The criteria an assumption says it shaped, minus any that do not exist.
+
+    **A reference to a criterion nobody declared is DROPPED with a note, never
+    a refusal.** The rest of the assumption is still consent-bearing and still
+    worth showing a person; killing a paid draft over one stale id would be
+    the `objective_note` mistake again. But a dangling reference cannot be
+    kept either — it would make `wring plan` refuse on a criterion that does
+    not exist, with no way for anyone to review it.
+    """
+    raw = entry.get("criteria")
+    if raw is None:
+        return ()
+    if not isinstance(raw, list):
+        notes.append(f"dropped {at}: 'criteria' must be a list of criterion ids")
+        return ()
+    declared = {getattr(c, "id", None) for c in criteria}
+    kept: list[str] = []
+    for value in raw:
+        name = str(value).strip()
+        if not name:
+            continue
+        if declared and name not in declared:
+            notes.append(
+                f"{at}: names criterion '{name}', which this spec does not "
+                "declare. The reference was dropped; the decision was kept"
+            )
+            continue
+        if name not in kept:
+            kept.append(name)
+    return tuple(kept)
+
+
 def parse_assumptions(
-    raw: Any, where: str, questions: Any = ()
+    raw: Any, where: str, questions: Any = (), criteria: Any = ()
 ) -> tuple[tuple[Assumption, ...], tuple[str, ...]]:
     """Decisions taken instead of asking — the drafted or hand-written list.
 
@@ -582,6 +672,7 @@ def parse_assumptions(
                 instead_of_asking=_nonempty(
                     entry.get("instead_of_asking"), f"{at}: 'instead_of_asking'"
                 ),
+                criteria=_criteria_refs(entry, at, criteria, notes),
             )
         except SpecError as exc:
             # `exc` already begins with `at`; prefixing again said it twice.
@@ -597,7 +688,9 @@ def parse_assumptions(
                 "that it still needs to ask about it. One draft cannot do both, "
                 "and a person must never be shown that pair. Nothing was written"
             )
-        if identifier in every_question:
+        if identifier in every_question and not _is_promotion(
+            identifier, entry, questions
+        ):
             notes.append(
                 f"dropped {at}: '{identifier}' is also an open question's id, "
                 "and an id is not a question. Kept as the question, because a "
@@ -1214,7 +1307,8 @@ def render_request(
         'non-technical person\n'
         '  "assumptions": [{"id": "<slug>", "decision": "<one sentence: what '
         'you decided>", "why": "<one sentence: why>", "instead_of_asking": '
-        '"<the question you would have asked>"}],\n'
+        '"<the question you would have asked>", "criteria": ["<ids of the '
+        'criteria below whose WORDING this decision shaped>"]}],\n'
         '  "criteria": [{"id": "<slug>", "title": "<one line>", '
         '"guidance": "<how to check it>", "required": true, "human": false}],\n'
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'
@@ -1229,7 +1323,15 @@ def render_request(
         "existing checks; `gate_bindings` are the per-criterion acceptance "
         "checks, and only these carry `proves`. An `assumptions` id must not "
         "be the id of a question you are also asking — decide it or ask it, "
-        "never both."
+        "never both.\n\n"
+        "An assumption's `criteria` names every criterion below whose "
+        "WORDING depends on that decision. You are the only party that "
+        "can know this: you took the decision and then wrote the "
+        "criteria. If the person later overrules the decision, those "
+        "criteria are worded against something they have rejected, and "
+        "a check that passes against wrong wording proves the wrong "
+        "thing perfectly. Omit the key only when a decision shaped no "
+        "criterion at all."
     )
     # **No `temperature` key, and its absence is the fix rather than an
     # omission.** Until 2026-08-18 this body carried `"temperature": 0`, and
@@ -1456,7 +1558,10 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         (*drafted_spec.gates, *declared),
     )
     assumptions, assumption_notes = parse_assumptions(
-        drafted.get("assumptions"), "the drafted assumptions", drafted_spec.questions
+        drafted.get("assumptions"),
+        "the drafted assumptions",
+        drafted_spec.questions,
+        drafted_spec.criteria,
     )
     return Draft(
         spec=drafted_spec,
@@ -1734,6 +1839,13 @@ def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
             f"    why: {_scalar(assumption.why)}",
             f"    instead_of_asking: {_scalar(assumption.instead_of_asking)}",
         ]
+        # Written only when the drafter gave them. An empty `criteria: []`
+        # would assert that this decision shaped no criterion, which is a
+        # claim nothing here can make — absence means "not stated", and the
+        # heuristic downstream says exactly that.
+        if assumption.criteria:
+            lines.append("    criteria:")
+            lines += [f"      - {_scalar(name)}" for name in assumption.criteria]
     if outcomes:
         lines += [
             "",
@@ -1754,10 +1866,17 @@ def render_decisions(assumptions: Any, outcomes: Any = None) -> str:
     return "\n".join(lines) + "\n"
 
 
-def parse_decisions(data: Any, where: str, questions: Any = ()) -> tuple[
-    tuple[Assumption, ...], tuple[str, ...]
-]:
-    """Read `wringer.decisions.yaml` — drafted or hand-written, same parser."""
+def parse_decisions(
+    data: Any, where: str, questions: Any = (), criteria: Any = ()
+) -> tuple[tuple[Assumption, ...], tuple[str, ...]]:
+    """Read `wringer.decisions.yaml` — drafted or hand-written, same parser.
+
+    **Both versions are read, and will be forever.** `wring spec` writes v2;
+    every v1 document already on disk stays readable, and a v1 document IS a
+    valid v2 document — v2 only adds an optional `criteria` back-reference.
+    A reader that accepted only the newest version would turn law 7's "new
+    file, never a changed one" into a break by a different route.
+    """
     if not isinstance(data, dict):
         raise SpecError(f"{where}: top level must be a mapping")
     unknown = sorted(set(data) - {"schema_version", "assumptions", "outcomes",
@@ -1765,12 +1884,135 @@ def parse_decisions(data: Any, where: str, questions: Any = ()) -> tuple[
     if unknown:
         raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
     version = data.get("schema_version")
-    if version != DECISIONS_SCHEMA_VERSION:
+    if version not in DECISIONS_SCHEMA_VERSIONS:
         raise SpecError(
             f"{where}: 'schema_version: {DECISIONS_SCHEMA_VERSION}' is "
             f"required (got {version!r})"
         )
-    return parse_assumptions(data.get("assumptions"), where, questions)
+    return parse_assumptions(data.get("assumptions"), where, questions, criteria)
+
+
+def load_decisions(
+    root: Path, questions: Any = (), criteria: Any = ()
+) -> tuple[Assumption, ...]:
+    """The decisions sidecar's assumptions, or none because there is none.
+
+    Absent is not an error, on `load_gatespec`'s precedent: the file is
+    optional everywhere, an offline repository may never have one, and a
+    command that refused without it would make itself depend on a channel only
+    `--send` fills.
+
+    **Unreadable IS an error**, and the asymmetry matters — the board learned
+    it the hard way. Swallowing a broken sidecar rendered "no decisions were
+    taken for you", a false and REASSURING sentence about the one thing this
+    file exists to say.
+    """
+    import yaml
+
+    path = root / DECISIONS_FILENAME
+    if not path.is_file():
+        return ()
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:  # noqa: BLE001
+        raise SpecError(
+            f"{DECISIONS_FILENAME} could not be read: {exc}. It records what "
+            "was decided for you, so nothing will run while it is unreadable"
+        ) from exc
+    assumptions, _notes = parse_decisions(
+        data, DECISIONS_FILENAME, questions, criteria
+    )
+    return assumptions
+
+
+@dataclass(frozen=True)
+class StaleCriterion:
+    """A criterion worded under an assumption the person has since overruled.
+
+    Field report 2026-08-21 finding 4, and it is the deepest one in the
+    report: overruling `limit-of-three` with *"make it five"* left
+    `capped-at-three` — *"At most three games are ever shown"* — untouched in
+    both the spec and the rubric. The repository then recorded the person's
+    correction AND the thing it contradicts, as the standard the work would be
+    judged against, with nothing warning about either.
+
+    The plan's own disclaimer says a green check against a wrongly-worded
+    requirement proves the wrong thing perfectly. Here **Wringer manufactured
+    that state itself**, which is worse than failing to warn about somebody
+    else's.
+    """
+
+    criterion: str
+    assumption: str
+    decision: str
+    answer: str
+    # False when the pairing came from the heuristic rather than from a
+    # back-reference the drafter wrote. A reader must be able to tell a fact
+    # from a guess, and the guess is a LOWER BOUND with no known ceiling.
+    stated: bool = True
+
+
+def stale_criteria(
+    spec: Any, assumptions: Any
+) -> tuple[tuple[StaleCriterion, ...], tuple[str, ...]]:
+    """Criteria standing against a decision their author has overruled.
+
+    An assumption is OVERRULED when `wringer-board revise` promoted it: its id
+    is now an ANSWERED open question whose text is the question the assumption
+    displaced. That is the same words-not-ids join `revise` itself uses, and
+    for the same reason — after a promotion the id is legitimately in both
+    documents, so an id-only test cannot tell a promotion from a collision.
+
+    Returns the stale criteria and, separately, HEURISTIC notes for
+    assumptions that named no criteria at all. The two are never mixed: a
+    back-reference is a fact the drafter stated, and the heuristic is a guess
+    that may under-report without limit. Only the FACTS refuse; the guess is
+    rendered and decides nothing.
+    """
+    answered = {
+        q.id: q for q in getattr(spec, "questions", ())
+        if str(getattr(q, "answer", "") or "").strip()
+    }
+    declared = {c.id for c in getattr(spec, "criteria", ())}
+    stale: list[StaleCriterion] = []
+    guesses: list[str] = []
+    for assumption in assumptions or ():
+        question = answered.get(assumption.id)
+        if question is None:
+            continue
+        if str(question.question).strip() != assumption.instead_of_asking.strip():
+            # Same id, different words — a collision, not a promotion. `revise`
+            # refuses to guess between those two and so does this.
+            continue
+        answer = str(question.answer or "").strip()
+        if assumption.criteria:
+            stale += [
+                StaleCriterion(
+                    criterion=name,
+                    assumption=assumption.id,
+                    decision=assumption.decision,
+                    answer=answer,
+                    stated=True,
+                )
+                for name in assumption.criteria
+                if name in declared
+            ]
+            continue
+        # **No back-reference, so no claim.** The heuristic that would go here
+        # — matching distinctive words between the decision and a criterion's
+        # title — is a LOWER BOUND with no known ceiling, which this repository
+        # has already learned the hard way: the buried-decision detector was
+        # corrected once and the correction was ALSO wrong. So the note says
+        # what it is rather than pretending to a list.
+        guesses.append(
+            f"'{assumption.id}' was decided for you and you have since "
+            f"overruled it ({answer!r}). This draft did not record which "
+            "requirements that decision shaped, so they cannot be listed — "
+            "check the requirements yourself for wording that still assumes "
+            f"{assumption.decision!r}. Silence here is not evidence that none "
+            "of them do"
+        )
+    return tuple(stale), tuple(guesses)
 
 
 def decisions_is_generated(path: Path) -> bool:

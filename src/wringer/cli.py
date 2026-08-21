@@ -3183,6 +3183,51 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
         return EXIT_GATE_FAILED
 
+    # **A requirement worded under a decision you have since overruled.**
+    #
+    # Field report 2026-08-21 finding 4. Overruling the assumption
+    # `limit-of-three` with "make it five" left the criterion `capped-at-three`
+    # — "At most three games are ever shown" — untouched in the spec AND the
+    # rubric. The repository recorded the correction and the thing it
+    # contradicts, side by side, as the standard the work would be judged
+    # against. Nothing warned.
+    #
+    # Rendered, never resolved: Wringer does not re-word a criterion. Wording
+    # a requirement is the person's act, and a tool that rewrote one to match
+    # an answer would be deciding what they meant. So this REFUSES, in the
+    # same shape as the unanswered-question refusal above, and the way out is
+    # the person's edit.
+    try:
+        decided = spec.load_decisions(root, loaded.questions, loaded.criteria)
+    except spec.SpecError as exc:
+        print(f"wring plan: {exc}", file=sys.stderr)
+        return EXIT_GATE_FAILED
+    stale, guesses = spec.stale_criteria(loaded, decided)
+    for note in guesses:
+        print(f"wring plan: {note}", file=sys.stderr)
+    if stale:
+        print(
+            f"wring plan: {len(stale)} requirement"
+            f"{'' if len(stale) == 1 else 's'} in {spec.SPEC_FILENAME} "
+            f"{'was' if len(stale) == 1 else 'were'} worded before you "
+            "corrected the decision behind "
+            f"{'it' if len(stale) == 1 else 'them'}:",
+            file=sys.stderr,
+        )
+        for row in stale:
+            print(f"  - {row.criterion}", file=sys.stderr)
+            print(f"      decided for you: {row.decision}", file=sys.stderr)
+            print(f"      you said:        {row.answer}", file=sys.stderr)
+        print(
+            "\nRe-word each of those requirements to match what you said, or "
+            "delete any that no longer apply. Wringer will not re-word them "
+            "for you: a green check against a wrongly-worded requirement "
+            "proves the wrong thing perfectly, and choosing the words is the "
+            "one part of this that is yours.",
+            file=sys.stderr,
+        )
+        return EXIT_GATE_FAILED
+
     # What already runs, so a sidecar binding repeating one of them is refused
     # rather than installed as proof of something it cannot decide.
     #

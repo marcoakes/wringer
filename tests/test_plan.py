@@ -100,6 +100,72 @@ def test_unanswered_required_questions_are_refused_and_listed(
     assert not (repo / spec.TASKS_FILENAME).exists()
 
 
+DECISIONS_V2 = """\
+schema_version: wringer.decisions.v2
+assumptions:
+  - id: date-format
+    decision: Dates are written ISO-8601.
+    why: It sorts correctly in a spreadsheet.
+    instead_of_asking: Which date format should the export use?
+    criteria:
+      - export-button-exists
+"""
+
+
+def test_PLAN_REFUSES_while_a_criterion_worded_under_an_overruled_decision_stands(
+    repo, monkeypatch, capsys
+):
+    """**Field report 2026-08-21 finding 4, at the level the operator meets it.**
+
+    The evaluator overruled an assumption, `revise` recorded it and withdrew
+    the approval — and the criterion that assumption had shaped stayed in the
+    spec and the rubric as the thing the work would be judged against. The
+    repository held the correction and its contradiction side by side and
+    warned about neither.
+
+    `wring plan` now refuses, in the same shape as the unanswered-question
+    refusal, and writes nothing.
+    """
+    setup_repo(repo)
+    (repo / "wringer.decisions.yaml").write_text(DECISIONS_V2, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_GATE_FAILED
+
+    err = flat(capsys.readouterr().err)
+    assert "export-button-exists" in err
+    assert "decided for you: Dates are written ISO-8601." in err
+    assert "you said:" in err and "ISO-8601." in err
+    # **Rendered, never resolved.** Wringer does not re-word a requirement:
+    # choosing the words is the person's act, and a tool that rewrote one to
+    # match an answer would be deciding what they meant.
+    assert "will not re-word them for you" in err
+    assert not (repo / spec.TASKS_FILENAME).exists(), (
+        "a plan was written past a requirement that contradicts the person"
+    )
+
+
+def test_a_decision_nobody_overruled_does_not_hold_the_plan(
+    repo, monkeypatch, capsys
+):
+    """The other direction, and it is the common case by far.
+
+    An assumption still standing is one the person accepts by approving the
+    plan. Every criterion it shaped is correctly worded, and a check that
+    fired here would refuse every plan this product ever produces.
+    """
+    setup_repo(repo, SPEC.replace(
+        "    question: Which date format should the export use?\n",
+        "    question: Something nobody decided?\n",
+    ))
+    (repo / "wringer.decisions.yaml").write_text(DECISIONS_V2, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert (repo / spec.TASKS_FILENAME).exists()
+
+
 def test_a_deleted_question_counts_as_answered(repo, monkeypatch, capsys):
     trimmed = SPEC.split("open_questions:")[0] + "open_questions: []\n" + (
         "criteria:" + SPEC.split("criteria:", 1)[1]

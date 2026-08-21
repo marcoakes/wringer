@@ -858,12 +858,34 @@ def test_an_unreadable_decisions_file_is_SAID_not_rendered_as_no_decisions(
 
 
 def test_an_unknown_decisions_schema_version_is_refused(repo):
+    """**`v2` used to be this test's example of "unknown", and now it is not.**
+
+    v2 shipped on 2026-08-21 (the criteria back-reference), so the example
+    moved to a version that genuinely does not exist. The property under test
+    is unchanged and is the one that matters: a version this reader predates
+    must be refused rather than half-rendered.
+    """
     (repo / "wringer.decisions.yaml").write_text(
-        "schema_version: wringer.decisions.v2\nassumptions: []\n", encoding="utf-8"
+        "schema_version: wringer.decisions.v99\nassumptions: []\n", encoding="utf-8"
     )
 
     with pytest.raises(interview.InterviewError, match="will not guess"):
         interview.plan(repo)
+
+
+def test_BOTH_published_decisions_versions_are_read(repo):
+    """v1 sidecars already exist on disk and must never stop being readable.
+
+    A reader that accepted only the newest version would turn law 7's "a new
+    file, never a changed one" into a break by a different route — the file
+    would be untouched and every document written before today would be
+    unreadable anyway.
+    """
+    for version in interview.DECISIONS_VERSIONS:
+        (repo / "wringer.decisions.yaml").write_text(
+            f"schema_version: {version}\nassumptions: []\n", encoding="utf-8"
+        )
+        interview.plan(repo)  # must not raise
 
 
 def test_the_plan_leads_with_the_OUTCOME_and_labels_the_objective(repo):

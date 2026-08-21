@@ -528,6 +528,11 @@ def plan(repo: Path) -> str:
 
 
 DECISIONS_FILENAME = "wringer.decisions.yaml"
+# **Both, forever.** v2 adds one optional key — the criteria an assumption
+# shaped — so every v1 sidecar on disk is a valid v2 sidecar. A reader that
+# accepted only the newest would turn "a new file, never a changed one" into a
+# break by a different route.
+DECISIONS_VERSIONS = ("wringer.decisions.v1", "wringer.decisions.v2")
 
 
 def _decisions(repo: Path) -> tuple[list[dict], dict[str, str]]:
@@ -558,13 +563,13 @@ def _decisions(repo: Path) -> tuple[list[dict], dict[str, str]]:
     if not isinstance(data, dict):
         raise InterviewError(f"{DECISIONS_FILENAME} is not a mapping")
     version = data.get("schema_version")
-    if version != "wringer.decisions.v1":
+    if version not in DECISIONS_VERSIONS:
         # The board refuses an unknown version everywhere else it reads engine
-        # bytes; this file is no different, and a future v2 must not be
-        # half-rendered by a reader that predates it.
+        # bytes; this file is no different, and a version this reader predates
+        # must not be half-rendered.
         raise InterviewError(
             f"{DECISIONS_FILENAME} says 'schema_version: {version!r}', and this "
-            "surface reads wringer.decisions.v1. It will not guess"
+            f"surface reads {' or '.join(DECISIONS_VERSIONS)}. It will not guess"
         )
     assumptions = [
         entry for entry in (data.get("assumptions") or []) if isinstance(entry, dict)
@@ -766,8 +771,13 @@ def revise(repo: Path, target_id: str, text: str) -> Path:
     assumptions, _ = _decisions(repo)
     found = next((a for a in assumptions if str(a.get("id", "")) == target_id), None)
     if found is None:
+        # **De-duplicated** — field report 2026-08-21 finding 5. After a
+        # promotion an id is legitimately in BOTH documents (a decision in the
+        # sidecar and the open question it became), so this listed it twice.
+        # Harmless, and it reads as corruption to anyone who notices — which
+        # on a page whose whole job is being trustworthy is not harmless.
         names = ", ".join(
-            sorted([*known, *(str(a.get("id", "")) for a in assumptions)])
+            sorted({*known, *(str(a.get("id", "")) for a in assumptions)})
         )
         raise InterviewError(
             f"no open question or assumption {target_id!r} in this repository. "
