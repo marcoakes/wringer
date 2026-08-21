@@ -290,6 +290,279 @@ def test_the_drive_and_the_engine_share_ONE_agent_preflight():
     )
 
 
+@pytest.fixture
+def two_questions(tmp_path: Path) -> Path:
+    """A project asking TWO questions — the shape the scatter needs.
+
+    The one-question fixture cannot show this defect: an answer's second line
+    has to have somewhere wrong to land, and that somewhere is the NEXT
+    question. The field run's line 2 was recorded against question 7, which
+    was about dependency cycles and had nothing to do with what was typed.
+    """
+    spec = pytest.importorskip("wringer.spec")
+    repo = tmp_path / "twoq"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+    for key, value in (
+        ("user.email", "pm@e.invalid"),
+        ("user.name", "PM"),
+        ("commit.gpgsign", "false"),
+    ):
+        subprocess.run(["git", "config", key, value], cwd=repo, check=True)
+    drafted = spec.Spec(
+        approved=False,
+        title="Weekly report export",
+        intent="A manager can export the weekly report as a CSV.",
+        questions=(
+            spec.Question(
+                id="which-columns", question="Which columns?", required=True
+            ),
+            spec.Question(
+                id="cycle-policy",
+                question="What should happen when two steps depend on each other?",
+                required=True,
+            ),
+        ),
+        criteria=(
+            spec.Criterion(id="exports-csv", title="It exports a CSV", required=True),
+        ),
+        gates=(),
+        tasks=(
+            spec.Task(id="build", brief="briefs/build.md", objective="It exports."),
+        ),
+        path="wringer.spec.yaml",
+    )
+    (repo / "wringer.spec.yaml").write_text(spec.render(drafted), encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: unit\n    run: \"true\"\n\n"
+        "judge:\n  endpoint: http://127.0.0.1:1/v1/chat/completions\n"
+        "  model: none\n  rubric: wringer.rubric.yaml\n\n"
+        "run:\n  worker: \"true\"\n  max_iterations: 1\n\n"
+        "deliver:\n  branch: \"wringer/{run}\"\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True)
+    return repo
+
+
+def test_A_PASTED_MULTILINE_ANSWER_CANNOT_ANSWER_THE_NEXT_QUESTION(
+    two_questions, tmp_path
+):
+    """**Field report finding 3 — the worst defect in the first run.**
+
+    A product manager pasted a multi-line answer. What happened:
+
+    - question 6 recorded only the FIRST line, truncated;
+    - question 7 — a different question, about dependency cycles — recorded
+      LINE 2 of the answer to question 6;
+    - the remaining lines ran past the interview into the approval prompt,
+      where the first stray line counted as "not yes" and DECLINED the run;
+    - the rest fell through to the shell, which tried to execute them.
+
+    *"At no point did anything echo back what it had recorded."*
+
+    Driven over real pipes against a real subprocess, and the paste is written
+    AFTER the question renders — which is the actual scenario. Pre-filling the
+    pipe would test the stale-input drain instead, which is a different guard
+    that already exists.
+    """
+    import sys
+    import threading
+
+    proc = subprocess.Popen(
+        [sys.executable, "-m", "wringer_drive", "run", str(prd(tmp_path)),
+         "--repo", str(two_questions)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    # The shape of the real paste: an answer whose author used line breaks.
+    PASTE = "The ones on screen\nand also the totals row\nand the date column\n"
+    seen: list[str] = []
+    wrote = {"paste": False, "second": False, "rest": 0}
+
+    watchdog = threading.Timer(120, proc.kill)
+    watchdog.start()
+    try:
+        for line in proc.stdout:
+            seen.append(line)
+            if not wrote["paste"] and "Which columns?" in line:
+                proc.stdin.write(PASTE)
+                proc.stdin.flush()
+                wrote["paste"] = True
+            elif wrote["paste"] and not wrote["second"] and "depend on each other" in line:
+                proc.stdin.write("They should be reported as an error.\n")
+                proc.stdin.flush()
+                wrote["second"] = True
+            elif wrote["second"] and wrote["rest"] < 4 and (
+                "Type yes or no" in line
+            ):
+                proc.stdin.write("yes\n")
+                proc.stdin.flush()
+                wrote["rest"] += 1
+        proc.wait(timeout=60)
+    finally:
+        watchdog.cancel()
+        proc.kill()
+
+    printed = "".join(seen)
+    spec_text = (two_questions / "wringer.spec.yaml").read_text(encoding="utf-8")
+
+    # **The defect itself**: a line of the FIRST answer became the SECOND
+    # answer. This is the one that made a plan out of answers to other
+    # questions and presented it as what would be built.
+    assert "and also the totals row" not in spec_text, (
+        "line 2 of a pasted answer was recorded as the answer to a different "
+        "question — the exact scatter the field report measured:\n" + spec_text
+    )
+    assert "and the date column" not in spec_text
+
+    # It is DECLARED that only one line is taken, so a truncated answer is
+    # now a thing the person was warned about rather than one they discover.
+    assert "ONE line" in printed, (
+        "the interview never says it reads one line per answer"
+    )
+    # And what was thrown away is SHOWN, rather than vanishing silently.
+    assert "were NOT recorded" in printed, (
+        "the discarded lines were dropped in silence — the fix for overflow "
+        "reaching the approval must not trade one invisible loss for another"
+    )
+    assert "and also the totals row" in printed, (
+        "the person is not shown WHICH lines were discarded"
+    )
+
+
+def test_GARBAGE_AT_A_CONFIRM_RE_ASKS_INSTEAD_OF_DECIDING(project, tmp_path, capsys):
+    """**A stray line must never be able to spend a person's decision.**
+
+    Field report finding 3's last clause: overflow reached the approval, was
+    not the word `yes`, and so counted as a refusal — declining a build
+    nobody declined. Fail-closed is right and stays; silently TAKING a
+    decision from unreadable input is not the same thing as fail-closed.
+    """
+    import io
+    import sys
+
+    original = sys.stdin
+    # answer · garbage at the echo-back · then a real yes · then approve
+    sys.stdin = io.StringIO("The ones on screen.\n~~~\nyes\nyes\n")
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    finally:
+        sys.stdin = original
+
+    printed = capsys.readouterr()
+    said = printed.out + printed.err
+    assert "did not understand" in said, (
+        "unreadable input was silently taken as a decision"
+    )
+    assert "'~~~'" in said, "the person is not shown what was received"
+    # The garbage did NOT decide: the run went on to approve the plan.
+    assert "approved: true" in (
+        project / "wringer.spec.yaml"
+    ).read_text(encoding="utf-8"), (
+        "a stray line declined a run the person then approved"
+    )
+
+
+def test_a_confirm_that_can_never_be_read_STOPS_rather_than_deciding(
+    project, tmp_path, capsys
+):
+    """The bound, and why it exists. Re-asking forever against a stream that
+    keeps producing text would never terminate. After a fixed number of tries
+    the verb stops having decided NOTHING — which is different from deciding
+    no."""
+    import io
+    import sys
+
+    original = sys.stdin
+    sys.stdin = io.StringIO("The ones on screen.\n" + "~~~\n" * 10)
+    try:
+        code = main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    finally:
+        sys.stdin = original
+
+    assert code == 2
+    said = capsys.readouterr()
+    assert "could not read one" in (said.out + said.err)
+    assert "approved: true" not in (
+        project / "wringer.spec.yaml"
+    ).read_text(encoding="utf-8")
+
+
+def test_EVERY_ask_says_it_takes_one_line(project, tmp_path, capsys):
+    """Totality, and it is checked by RUNNING rather than by reading.
+
+    **This test was written as a source-substring check first, and the revert
+    probe caught it passing vacuously**: commenting the line out left the
+    string `answering=ONE_LINE` sitting in the comment, so the guard was
+    satisfied by the very edit that removed the behaviour. Structural checks
+    over source text answer "is this string present", which is not the
+    question. Both assertions below are about what a person is shown.
+    """
+    import io
+    import sys
+
+    from wringer_drive import __main__ as drive_main
+
+    original = sys.stdin
+    sys.stdin = io.StringIO("")  # EOF at the first question
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    finally:
+        sys.stdin = original
+
+    said = capsys.readouterr()
+    printed = said.out + said.err
+    assert "Which columns?" in printed, "the run never reached an ask"
+    assert drive_main.ONE_LINE in printed, (
+        "an `ask` was put in front of a person without saying it takes one "
+        "line — which is the condition that scattered a pasted answer across "
+        "three questions"
+    )
+    assert "ONE line" in drive_main.ONE_LINE
+
+
+def test_the_answers_are_read_back_BEFORE_the_plan_is_built_from_them(
+    project, tmp_path, capsys
+):
+    """*"At no point did anything echo back what it had recorded."*
+
+    That sentence is the field report's own summary of the interview, and it
+    is why a scattered answer survived into a plan that was then presented as
+    what would be built. The answers are read back beside the questions they
+    belong to, and it happens BEFORE the plan — the cheapest moment to catch
+    a mismatch, and before anything is decided.
+
+    It is NOT an approval (ruling 2: answering and approving are different
+    acts). The step says so in as many words, and the plan approval still
+    happens separately afterwards.
+    """
+    import io
+    import sys
+
+    original = sys.stdin
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    finally:
+        sys.stdin = original
+
+    printed = capsys.readouterr()
+    said = printed.out + printed.err
+    echo = said.index("exactly as they are recorded")
+    assert "you were asked: Which columns?" in said
+    assert "you answered:   The ones on screen." in said
+    # BEFORE the plan and its approval — the ordering is the whole point.
+    assert echo < said.index("Is that what you meant?"), (
+        "the answers are read back after the plan was already built from them"
+    )
+    # And it does not pretend to be the approval.
+    assert "nothing has been decided yet" in said.lower()
+
+
 def test_every_confirm_prompt_says_the_accepted_inputs():
     """Field-run finding 11: the approval prompt never said what to type, and
     the evaluator's guess became a decline. Every `confirm` DRIVE constructs
@@ -339,6 +612,10 @@ def test_an_answer_written_after_the_question_renders_is_never_drained(
     )
     answers = [
         ("Which columns?", "The ones on screen.\n"),
+        # Step 4a, added 2026-08-21: the answers are read back before the plan
+        # is drafted from them. A separate act from approving the plan, and it
+        # is answered here separately.
+        ("Are those your answers", "yes\n"),
         ("Is that what you meant?", "yes\n"),
     ]
     # A drain that eats a live answer leaves both sides blocked on a read; the
@@ -373,7 +650,7 @@ def test_a_no_at_the_plan_builds_nothing_and_changes_nothing(project, tmp_path, 
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nno\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nno\n")
     try:
         code = main(["run", str(document), "--repo", str(project)])
     finally:
@@ -392,7 +669,7 @@ def test_a_yes_approves_only_after_the_plan_was_rendered(project, tmp_path, caps
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         main(["run", str(document), "--repo", str(project)])
     finally:
@@ -419,7 +696,7 @@ def test_the_run_ends_at_a_refusal_rendered_in_the_boards_words(
     from wringer_board import refusals
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         code = main(["run", str(document), "--repo", str(project)])
     finally:
@@ -465,7 +742,7 @@ def test_it_writes_only_what_the_chain_is_entitled_to_write(project, tmp_path):
 
     before = {p.name for p in project.iterdir()}
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         main(["run", str(document), "--repo", str(project)])
     finally:
@@ -691,7 +968,7 @@ def test_no_approval_means_no_gate_is_INSTALLED_and_no_worker_runs(
     # passed having never reached step 7 at all — green while asserting
     # nothing. Watched to fail before being trusted.
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("yes\nno\n")
+    sys.stdin = io.StringIO("yes\nyes\nno\n")
     try:
         main(["run", str(document), "--repo", str(proposing)])
     finally:
@@ -726,7 +1003,7 @@ def test_the_build_is_never_silent_in_either_emit_mode(project, tmp_path, capsys
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         main(["run", str(document), "--repo", str(project), "--emit", emit])
     finally:
@@ -761,7 +1038,7 @@ def test_in_json_mode_the_ENDING_arrives_on_STDOUT_like_every_other_step(
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         code = main(["run", str(document), "--repo", str(project), "--emit", "json"])
     finally:
@@ -786,7 +1063,7 @@ def test_in_text_mode_a_non_zero_ending_still_goes_to_stderr(project, tmp_path, 
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         code = main(["run", str(document), "--repo", str(project)])
     finally:
@@ -1032,7 +1309,7 @@ def test_BOTH_TRANSPORTS_INSTALL_BYTE_IDENTICAL_GATES(proposing, tmp_path, capsy
         # the proposed checks (step 7a), install. The trial is declined so
         # this test keeps measuring exactly one thing — the bytes the two
         # transports write.
-        sys.stdin = io.StringIO("yes\nno\nyes\n")
+        sys.stdin = io.StringIO("yes\nyes\nno\nyes\n")
         try:
             main(["run", str(prd(tmp_path)), "--repo", str(clone), "--emit", transport])
         finally:
@@ -1075,7 +1352,7 @@ def test_the_json_mode_is_one_object_per_line(project, tmp_path, capsys):
     import sys
 
     document = prd(tmp_path)
-    sys.stdin = io.StringIO("The ones on screen.\nyes\n")
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nyes\n")
     try:
         main(["run", str(document), "--repo", str(project), "--emit", "json"])
     finally:
@@ -1219,8 +1496,10 @@ def test_the_trial_RUNS_NOTHING_until_a_person_says_yes(project, tmp_path, capsy
 
     document = prd(tmp_path)
     for answers, should_have_run in (
-        ("yes\nno\nno\n", False),  # approve · decline trial · decline install
-        ("yes\nyes\nno\n", True),  # approve · TRY · decline install
+        # answers-ok · approve · decline trial · decline install
+        ("yes\nyes\nno\nno\n", False),
+        # answers-ok · approve · TRY · decline install
+        ("yes\nyes\nyes\nno\n", True),
     ):
         clone = tmp_path / f"clone-{int(should_have_run)}"
         shutil.copytree(project, clone)

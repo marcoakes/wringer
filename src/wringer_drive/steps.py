@@ -72,6 +72,20 @@ class Step:
     engine_words: str | None = None
     # Only on CONFIRM: what a `no` means, said before they answer.
     refusing_means: str | None = None
+    # **How to answer — about the TRANSPORT, never about the question.**
+    #
+    # The interview reads ONE LINE per answer and said so nowhere. A product
+    # manager pasted a multi-line answer and it scattered: question 6 kept
+    # line 1 truncated, question 7 — a different question entirely — recorded
+    # line 2, and the remainder ran past the interview into the approval
+    # prompt, where a stray line counted as "not yes" and declined the whole
+    # run (field report 2026-08-21, finding 3).
+    #
+    # A separate field rather than a suffix on `text`, because an ASK's text
+    # is the drafter's question VERBATIM and this package may not rewrite one:
+    # softening a question is how a person ends up answering a different one.
+    # This says how to type, which is DRIVE's own business as the transport.
+    answering: str | None = None
     detail: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -85,7 +99,7 @@ class Step:
             "id": self.id,
             "text": self.text,
         }
-        for name in ("question", "engine_words", "refusing_means"):
+        for name in ("question", "engine_words", "refusing_means", "answering"):
             value = getattr(self, name)
             if value is not None:
                 payload[name] = value
@@ -106,6 +120,8 @@ class Step:
             lines += ["", self.question]
         if self.refusing_means:
             lines += ["", f"If you say no: {self.refusing_means}"]
+        if self.answering:
+            lines += ["", self.answering]
         return "\n".join(lines)
 
 

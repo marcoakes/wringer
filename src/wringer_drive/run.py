@@ -478,6 +478,70 @@ def record_answer(repo: Path, question_id: str, text: str) -> None:
         raise Stop(stop_for("", "", engine_words=str(exc)), exc.exit_code) from exc
 
 
+# --- step 4a: read the answers back -----------------------------------------
+
+
+def answers_recorded_step(repo: Path) -> Step | None:
+    """Every recorded answer, beside the question it answers, or None.
+
+    **The field report's own summary of the interview was that nothing echoed
+    anything back at any point** — which is how one pasted block put line 1
+    under question 6 truncated, line 2 under question 7, and the remainder
+    into the approval prompt, where it declined the run. A plan was then built
+    partly from answers belonging to other questions and presented as what
+    would be built.
+
+    Reading it back costs nothing and is checked against the FILE rather than
+    against what this process believes it wrote: the whole failure was a
+    divergence between the two, so a summary built from an in-memory copy of
+    the answers would agree with itself and still be wrong.
+
+    None when there is nothing to read back — no questions, or a spec that
+    cannot be read. A step saying "here are your zero answers" is noise.
+    """
+    from wringer_board import interview
+
+    try:
+        questions = interview.questions(repo)
+    except interview.InterviewError:
+        return None
+    answered = [q for q in questions if (q.answer or "").strip()]
+    if not answered:
+        return None
+    lines = []
+    for question in answered:
+        lines.append(f"  {question.id}")
+        lines.append(f"    you were asked: {question.question}")
+        lines.append(f"    you answered:   {question.answer.strip()}")
+    return Step(
+        kind=SHOW,
+        id="answers-recorded",
+        text="These are your answers, exactly as they are recorded:\n\n"
+        + "\n".join(lines),
+        detail={"answers": {q.id: q.answer for q in answered}},
+    )
+
+
+def answers_confirm_step() -> Step:
+    """**Not an approval, and it must never be mistaken for one** (ruling 2).
+
+    This asks whether the RECORD is right. Step 6 asks whether the PLAN is
+    right, against a plan that does not exist yet. Answering and approving are
+    different acts and one keystroke may never do both — so this deliberately
+    does not mention building, and a yes here authorises nothing but reading
+    on.
+    """
+    return Step(
+        kind=CONFIRM,
+        id="answers-ok",
+        text="Nothing has been built and nothing has been decided yet.",
+        question="Are those your answers, against the right questions? "
+        "Type yes or no.",
+        refusing_means="nothing is built and nothing changes. Your answers "
+        "stay recorded and you can change any of them before trying again.",
+    )
+
+
 # --- steps 5 and 6: the plan, then the approval -----------------------------
 
 

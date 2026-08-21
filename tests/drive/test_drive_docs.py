@@ -443,7 +443,7 @@ def test_a_refused_run_still_emits_the_board_AND_SAYS_THE_REFUSAL_LAST(
     - the refusal is the LAST thing said, because the refusal is the news. A
       run that ends on "your page is at board.html" reads as a success.
     """
-    code, steps = drive(project, tmp_path, "The ones on screen.\nyes\n", monkeypatch)
+    code, steps = drive(project, tmp_path, "The ones on screen.\nyes\nyes\n", monkeypatch)
     capsys.readouterr()
 
     assert code != 0, "a refused handover is not a success"
@@ -478,7 +478,7 @@ def test_a_converged_run_emits_the_board_TOO_and_ends_on_the_page(
     )
 
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\n", monkeypatch
+        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch
     )
     capsys.readouterr()
 

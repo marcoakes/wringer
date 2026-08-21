@@ -24,6 +24,7 @@ import io
 import os
 import select
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 try:
@@ -32,7 +33,7 @@ except ImportError:  # pragma: no cover — non-POSIX; the drain degrades below
     termios = None
 
 from wringer_drive import run as run_module
-from wringer_drive.steps import emit_json
+from wringer_drive.steps import ASK, SHOW, emit_json
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -114,8 +115,19 @@ def _render(steps, mode: str, stream=None) -> None:
     stream.flush()
 
 
-def _drain_stale_stdin() -> None:
+def _drain_stale_stdin() -> str:
     """Discard whatever is already waiting on stdin, BEFORE a question renders.
+
+    **Returns what it discarded, so the caller can SAY so.** Dropping a
+    person's typing silently is how the field run lost half an answer without
+    anyone noticing: the fix for the overflow reaching the approval was to
+    drain it, and a silent drain trades one invisible loss for another. What
+    is thrown away is shown.
+
+    A terminal's typed-ahead lines live in the driver's own buffer and
+    `tcflush` discards them without handing them over, so the tty branch
+    returns nothing and cannot report. That is a real limit and it is stated
+    rather than papered over.
 
     Text that arrived before a question existed cannot be that question's
     answer: it is a pasted answer's overflow, or a script's pre-supplied text.
@@ -130,19 +142,25 @@ def _drain_stale_stdin() -> None:
     try:
         fd = sys.stdin.fileno()
     except (OSError, ValueError, io.UnsupportedOperation):
-        return
+        return ""
+    discarded = bytearray()
     try:
         if os.isatty(fd):
             # Typed-ahead lines live in the terminal driver, not the pipe.
             if termios is not None:
                 termios.tcflush(fd, termios.TCIFLUSH)
-            return
+            return ""
         while True:
             ready, _, _ = select.select([fd], [], [], 0)
-            if not ready or os.read(fd, 4096) == b"":
-                return
+            if not ready:
+                break
+            chunk = os.read(fd, 4096)
+            if chunk == b"":
+                break
+            discarded += chunk
     except OSError:  # pragma: no cover — an unselectable stdin drains nothing
-        return
+        return discarded.decode("utf-8", "replace")
+    return discarded.decode("utf-8", "replace")
 
 
 def _read_line() -> str:
@@ -177,6 +195,16 @@ def _read_line() -> str:
     return taken.decode("utf-8", "replace").rstrip("\r")
 
 
+# Said on every `ask`, in DRIVE's own voice, because it is about the transport
+# and not about the question. Field report 2026-08-21 finding 3: the interview
+# reads one line and told nobody, so a pasted answer scattered across three
+# different questions and then declined the run.
+ONE_LINE = (
+    "Answer on ONE line and press Enter. Only the first line is recorded — "
+    "if your answer has line breaks in it, put it on a single line."
+)
+
+
 def _ask(step, mode: str) -> str:
     """Put one step in front of whoever is there, and take their answer.
 
@@ -185,9 +213,31 @@ def _ask(step, mode: str) -> str:
     text**; only the transport differs. Anything on stdin from BEFORE the step
     rendered is stale and is drained unread — leftover text must never answer
     a question, least of all a `confirm`.
+
+    **Two things are added here rather than at each construction site**, so no
+    step can be added later that quietly misses them: every `ask` says that it
+    takes one line, and anything drained is shown rather than dropped in
+    silence.
     """
-    _drain_stale_stdin()
+    stale = _drain_stale_stdin()
+    if step.kind == ASK and not step.answering:
+        # A CONFIRM already says "Type yes or no" on its own question line.
+        step = replace(step, answering=ONE_LINE)
     _render([step], mode)
+    if stale.strip():
+        _render(
+            [
+                run_module.Step(
+                    kind=SHOW,
+                    id="stale-input-discarded",
+                    text="These lines were already waiting when this question "
+                    "was asked, so they are not an answer to it and were NOT "
+                    "recorded:",
+                    engine_words=stale.strip(),
+                )
+            ],
+            mode,
+        )
     try:
         return _read_line().strip()
     except EOFError:
@@ -204,6 +254,67 @@ def _ask(step, mode: str) -> str:
             ),
             exit_code=2,
         ) from None
+
+
+# What counts as each answer, and NOTHING ELSE does. Fail-closed is absolute:
+# only these words proceed, and the re-prompt below never widens the set — it
+# gives a person another go at hitting it.
+YES = ("y", "yes")
+NO = ("n", "no")
+
+# How many times a `confirm` will re-ask before giving up. Bounded on purpose:
+# an unbounded loop against a stream that keeps producing text would spin
+# forever, and this verb must terminate on any input.
+CONFIRM_ATTEMPTS = 3
+
+
+def _confirm(step, mode: str) -> bool:
+    """A yes/no, with a THIRD outcome that is neither: ask again.
+
+    **A stray line must never be able to spend a person's decision** — field
+    report 2026-08-21 finding 3. The first field run lost a whole build to
+    exactly this: overflow from a pasted answer reached the approval prompt,
+    counted as "not yes", and declined the run. The person was never told
+    their decision had been taken, because from the code's point of view one
+    had been.
+
+    Fail-closed is untouched and is the reason this is safe: nothing proceeds
+    without the literal word, an unreadable answer proceeds with nothing, and
+    a stream with nobody behind it still STOPS rather than defaulting. What
+    changes is that garbage no longer silently means `no`. Refusing is a
+    decision, and a decision needs somebody to have made it.
+    """
+    for attempt in range(CONFIRM_ATTEMPTS):
+        said = _ask(step, mode).strip().lower()
+        if said in YES:
+            return True
+        if said in NO:
+            return False
+        step = replace(
+            step,
+            id=f"{step.id}:reask",
+            text=f"I did not understand that. I received: {said!r}."
+            if said
+            else "I did not get an answer.",
+            question=step.question,
+            answering="Please answer yes or no."
+            + (
+                ""
+                if attempt < CONFIRM_ATTEMPTS - 2
+                else " This is the last time I will ask; if I still cannot "
+                "read an answer, nothing will be done."
+            ),
+        )
+    raise run_module.Stop(
+        run_module.Step(
+            kind="stopped",
+            id="stopped:unreadable-answer",
+            text="Nothing was built and nothing was changed. This needed a "
+            "yes or a no and I could not read one, so I have not taken a "
+            "decision on your behalf.",
+        ),
+        exit_code=2,
+    )
 
 
 def _run(session: run_module.Session, args) -> int:
@@ -266,15 +377,44 @@ def _run(session: run_module.Session, args) -> int:
             )
         run_module.record_answer(repo, step.detail["question_id"], answer)
 
+    # Step 4a — READ THE ANSWERS BACK, before anything is built from them.
+    #
+    # **Nothing echoed anything back at any point** was the field report's own
+    # summary of the interview, and it is why a scattered answer survived all
+    # the way into a plan. This is the cheapest place to catch it: the answers
+    # are on disk, the plan has not been drafted from them yet, and a person
+    # reading their own words next to the question they belong to will see a
+    # mismatch instantly.
+    #
+    # It is NOT an approval and must never be treated as one — ruling 2:
+    # answering and approving are different acts and one keystroke may never
+    # do both. This asks whether the RECORD is right; step 6 asks whether the
+    # PLAN is right, against a plan this has not produced yet.
+    recorded = run_module.answers_recorded_step(repo)
+    if recorded is not None:
+        session.emit(recorded)
+        _render([recorded], mode)
+        if not _confirm(run_module.answers_confirm_step(), mode):
+            raise run_module.Stop(
+                run_module.Step(
+                    kind="stopped",
+                    id="stopped:answers-wrong",
+                    text="Nothing was built, and nothing in the project "
+                    "changed. Your answers are recorded and you can change "
+                    "any of them, then run this again.",
+                    engine_words="wringer-board revise --id <the question> "
+                    "--text \"<what you meant>\"",
+                ),
+                exit_code=0,
+            )
+
     # Step 5 — the plan, verbatim. Step 6 — the approval, asked by this
     # process, after this process rendered the plan.
     plan = run_module.plan_step(repo)
     session.emit(plan)
     _render([plan], mode)
 
-    confirm = run_module.approval_step()
-    said = _ask(confirm, mode).lower()
-    run_module.approve(repo, answered_yes=said in ("y", "yes"))
+    run_module.approve(repo, answered_yes=_confirm(run_module.approval_step(), mode))
 
     remaining = interview.unanswered(repo)
     if remaining:
@@ -314,16 +454,18 @@ def _run(session: run_module.Session, args) -> int:
         # Step 7a — a check that already passes today is named HERE, before the
         # yes, because at the handover it is five seconds too late. Running a
         # model-authored command needs its own permission: see `trial_step`.
-        said = _ask(run_module.trial_step(proposal), mode).lower()
-        if said in ("y", "yes"):
+        if _confirm(run_module.trial_step(proposal), mode):
             tried = run_module.proposed_gates(repo, proposal)
             found = run_module.trial_result_step(
                 tried, run_module.already_passing(repo, tried)
             )
             session.emit(found)
             _render([found], mode)
-        said = _ask(run_module.gate_approval_step(proposal), mode).lower()
-        run_module.install_gates(repo, proposal, answered_yes=said in ("y", "yes"))
+        run_module.install_gates(
+            repo,
+            proposal,
+            answered_yes=_confirm(run_module.gate_approval_step(proposal), mode),
+        )
     else:
         # No diff, and the THREE reasons for that are not the same news. Said
         # out loud rather than skipped: a step that vanishes looks like one
@@ -356,8 +498,9 @@ def _run(session: run_module.Session, args) -> int:
     session.emit(board)
     _render([board], mode)
 
-    said = _ask(run_module.delivery_step(), mode).lower()
-    run_module.deliver(repo, answered_yes=said in ("y", "yes"))
+    run_module.deliver(
+        repo, answered_yes=_confirm(run_module.delivery_step(), mode)
+    )
 
     final = run_module.final_step(repo, run_module.render_board(repo))
     session.emit(final)
