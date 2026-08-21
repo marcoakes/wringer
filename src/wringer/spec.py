@@ -534,6 +534,71 @@ def _parse_tasks(raw: Any, where: str) -> tuple[Task, ...]:
     return tuple(tasks)
 
 
+def unanswerable_questions(questions: Any, files: Any = ()) -> tuple[Any, ...]:
+    """Required questions that name a file in this repository.
+
+    **Field report 2026-08-21, finding 5.** A required, blocking question on a
+    real run was:
+
+        Which of the listed criteria does `acceptance/test_skip_downstream.py`
+        (with `acceptance/chain.json`) actually assert, so the remaining
+        criteria can be given checks of their own?
+
+    Answering that means reading a 145-line pytest file and mapping ten test
+    functions onto nine acceptance criteria. **That is a question for an
+    engineer**, asked of a product manager, as the thing blocking their build
+    — and it contradicts the product's stated audience on the one screen where
+    the audience matters.
+
+    The drafter is not guessing when it does this: the request HANDS it the
+    repository's tracked file list, precisely so rule 6 is satisfiable. So a
+    question naming one of those files is a question about something the
+    drafter could have looked at, and the request already says *"never ask
+    what you can look up"*. Prompts are not guards; this is the guard.
+
+    **The parser REFUSES the whole reply. It never rewrites a question and
+    never demotes one to optional** — standing law. Rewriting would mean this
+    package deciding what the drafter meant to ask, and demoting would leave a
+    question nobody can answer sitting in the spec looking optional.
+
+    Only REQUIRED questions count. An optional question mentioning a file
+    blocks nothing, and refusing a paid draft over it would cost more than it
+    saves.
+    """
+    tracked = {str(name) for name in (files or ()) if str(name).strip()}
+    if not tracked:
+        # Nothing to check against. **Not a pass** — an unchecked condition,
+        # and saying so matters: an offline draft with no listing gets no
+        # protection here, rather than a clean bill.
+        return ()
+    # Match on the BASENAME too, because a drafter naming
+    # `acceptance/test_skip_downstream.py` and one naming
+    # `test_skip_downstream.py` are asking the identical unanswerable
+    # question. Directories are excluded: a question mentioning `src` or
+    # `tests` in passing is ordinary English, not a lookup.
+    # **A tracked path that is a bare word is not evidence of a lookup.**
+    # `LICENSE` and `Makefile` are real tracked files AND ordinary English
+    # words, so matching them would refuse a draft for asking "should this be
+    # covered by the same LICENSE?" — a guard that sometimes lies, which
+    # SPEC_GATEGEN ruling 4 already refused by name. A path only counts when
+    # it carries a directory separator or an extension, which is what makes it
+    # unmistakably a path rather than a word. Caught by the test that asserts
+    # it, not by writing this carefully the first time.
+    names = {path for path in tracked if "/" in path or "." in path}
+    for path in tracked:
+        base = path.rsplit("/", 1)[-1]
+        if "." in base:
+            names.add(base)
+    found = []
+    for question in questions or ():
+        if not getattr(question, "required", True):
+            continue
+        text = str(getattr(question, "question", ""))
+        if any(name in text for name in names):
+            found.append(question)
+    return tuple(found)
+
+
 def _is_promotion(identifier: str, entry: dict, questions: Any) -> bool:
     """Whether this id is in both documents because somebody OVERRULED it.
 
@@ -1434,7 +1499,9 @@ def _drop_unknown_reply_keys(drafted: dict) -> tuple[dict, tuple[str, ...]]:
     return cleaned, tuple(notes)
 
 
-def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
+def parse_response(
+    body: Any, prd: str, declared: Any = (), files: Any = ()
+) -> Draft:
     """Turn a model reply into a validated spec and its proposed gates, or
     refuse the whole reply.
 
@@ -1535,6 +1602,21 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
             "The request says so in as many words; a rule the drafter agreed to "
             "and did not keep is why this is a check and not a sentence. "
             "Nothing was written — drafting again costs a fraction of a penny"
+        )
+
+    # **A blocking question a PM cannot answer is the product failing at the
+    # thing it is for**, and the request already forbids it in as many words.
+    unanswerable = unanswerable_questions(drafted_spec.questions, files)
+    if unanswerable:
+        first = unanswerable[0]
+        raise SpecError(
+            f"the reply asks a question only somebody who can read the "
+            f"repository could answer: {first.question!r} — it names a file "
+            "in this project, and every required question must be answerable "
+            "by the person who wrote the document. The request says 'never "
+            "ask what you can look up', and the file listing it was given is "
+            "how it looks it up. Nothing was written — drafting again costs a "
+            "fraction of a penny"
         )
 
     # Checked at draft time, not left for `wring plan`: a spec that reads fine,

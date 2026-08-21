@@ -2755,12 +2755,19 @@ def cmd_spec(args: argparse.Namespace) -> int:
             )
             return EXIT_CONFIG
 
+    # **Held, because the PARSER needs the same listing the request carried.**
+    # A required question naming one of these files is a question about
+    # something the drafter was handed and could have read for itself, and
+    # `parse_response` refuses the reply over it (field report finding 5).
+    # Computed once so the request and the guard cannot disagree about what
+    # this repository contains.
+    tracked = spec.repository_files(root)
     request = spec.render_request(
         prd,
         cfg.judge.model,
         cfg.judge.max_output_tokens,
         cfg.gates,
-        spec.repository_files(root),
+        tracked,
     )
     if args.print_request:
         print(json.dumps(request, indent=2))
@@ -2813,7 +2820,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
 
         bundle.write_response(body)
         try:
-            draft = spec.parse_response(body, prd, cfg.gates)
+            draft = spec.parse_response(body, prd, cfg.gates, tracked)
             drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:
             bundle.write_summary(

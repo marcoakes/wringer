@@ -1132,6 +1132,124 @@ def test_an_overruled_assumption_with_NO_back_reference_says_it_cannot_list_them
     )
 
 
+# The question a real product manager was asked, on a real run, as the thing
+# blocking their build. Copied verbatim from docs/field-report-2026-08-21.md
+# finding 5 — a fixture written here would be a fixture written on the same
+# side of the seam as its reader.
+THE_UNANSWERABLE_QUESTION = (
+    "Which of the listed criteria does `acceptance/test_skip_downstream.py` "
+    "(with `acceptance/chain.json`) actually assert, so the remaining "
+    "criteria can be given checks of their own?"
+)
+
+
+def test_A_BLOCKING_QUESTION_NAMING_A_TRACKED_FILE_IS_REFUSED_AT_PARSE(repo):
+    """**Field report 2026-08-21 finding 5.**
+
+    Answering that question means reading a 145-line pytest file and mapping
+    ten test functions onto nine acceptance criteria. It is a question for an
+    engineer, asked of a product manager, as the thing blocking their build —
+    contradicting the product's stated audience on the one screen where the
+    audience matters.
+
+    The drafter was not guessing: the request HANDS it the tracked file list,
+    so rule 6 is satisfiable, and the request already says "never ask what you
+    can look up". Prompts are not guards — this repository has measured that
+    twice — so this is the guard.
+
+    A refused draft is a sub-cent re-roll. A blocking question that requires
+    reading pytest source is the product failing at the thing it is for.
+    """
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "which-asserts", "question": THE_UNANSWERABLE_QUESTION,
+         "required": True}
+    ]
+    tracked = ("acceptance/test_skip_downstream.py", "acceptance/chain.json")
+
+    with pytest.raises(spec.SpecError, match="only somebody who can read"):
+        spec.parse_response(reply(payload), PRD, (), tracked)
+
+
+def test_the_parser_REFUSES_and_never_rewrites_or_demotes_the_question():
+    """Standing law, and both halves matter.
+
+    Rewriting would be this package deciding what the drafter meant to ask.
+    Demoting to optional would leave a question nobody can answer sitting in
+    the spec looking harmless. The whole reply is refused and re-drafted.
+    """
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "which-asserts", "question": THE_UNANSWERABLE_QUESTION,
+         "required": True}
+    ]
+    try:
+        spec.parse_response(
+            reply(payload), PRD, (), ("acceptance/test_skip_downstream.py",)
+        )
+    except spec.SpecError as exc:
+        assert "Nothing was written" in str(exc)
+    else:  # pragma: no cover - the assertion above is the point
+        raise AssertionError("the unanswerable question was accepted")
+
+
+def test_an_OPTIONAL_question_naming_a_file_blocks_nothing_and_is_kept():
+    """Only a REQUIRED question is refused. An optional one blocks no build,
+    and refusing a paid draft over it would cost more than it saves."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "which-asserts", "question": THE_UNANSWERABLE_QUESTION,
+         "required": False}
+    ]
+    drafted = spec.parse_response(
+        reply(payload), PRD, (), ("acceptance/test_skip_downstream.py",)
+    )
+    assert [q.id for q in drafted.spec.questions] == ["which-asserts"]
+
+
+def test_a_question_a_PERSON_can_answer_is_untouched():
+    """The other direction, and it is most of the world. A guard that fired on
+    ordinary questions would refuse every draft this product makes."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "date-format",
+         "question": "Which date format should the export use?",
+         "required": True}
+    ]
+    drafted = spec.parse_response(
+        reply(payload), PRD, (), ("acceptance/test_skip_downstream.py", "src/app.py")
+    )
+    assert [q.id for q in drafted.spec.questions] == ["date-format"]
+
+
+def test_a_bare_word_that_happens_to_be_a_tracked_path_does_not_condemn():
+    """`LICENSE` and `Makefile` are tracked files AND ordinary English words.
+
+    Matching on a bare name with no extension would refuse a draft for asking
+    "should this be under a permissive licence?" — a guard that sometimes lies,
+    which SPEC_GATEGEN ruling 4 already refused by name.
+    """
+    payload = json.loads(json.dumps(DRAFT))
+    payload["open_questions"] = [
+        {"id": "licence",
+         "question": "Should the export note be covered by the same LICENSE?",
+         "required": True}
+    ]
+    drafted = spec.parse_response(reply(payload), PRD, (), ("LICENSE", "Makefile"))
+    assert [q.id for q in drafted.spec.questions] == ["licence"]
+
+
+def test_with_NO_file_listing_the_check_does_not_pretend_to_have_run():
+    """An offline draft with no listing gets no protection here, and that is
+    an UNCHECKED condition rather than a clean bill. Stated because the
+    difference between "checked and fine" and "not checked" is the whole
+    subject of this repository."""
+    assert spec.unanswerable_questions(
+        [spec.Question(id="q", question=THE_UNANSWERABLE_QUESTION, required=True)],
+        (),
+    ) == ()
+
+
 def test_A_PROMOTED_ASSUMPTION_SURVIVES_THE_COLLISION_RULE():
     """**Found by EXECUTING the field report's scenario, not by reading it.**
 
