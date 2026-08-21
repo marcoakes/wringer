@@ -191,6 +191,50 @@ met, surface work outranks any NEW cycle that only sharpens an existing
 refusal — truth corrections, security fixes and the first-run environment gate
 excepted.
 
+**2026-08-21 — THE PM FRICTION PURGE. The first operator who is not the author
+drove it, and every finding is dispositioned.** Read
+[docs/field-report-2026-08-21.md](docs/field-report-2026-08-21.md) before
+proposing anything on the PM surface; it outranks every proxy cold read here,
+because a cold read asks a model to imagine being a stranger and this is a
+stranger. The carrier is `~/Claude/WRINGER_PM_FRICTION_PLAN_2026-08-20.md`.
+
+| what changed | why it existed |
+|---|---|
+| **Nothing is paid for before the agent is checked.** `wringer-drive` resolves the worker through the engine's OWN `loop.missing_agent` (never a second `shutil.which`) before the first `--send` | a PM spent two paid calls, three approvals and a gate install, then learned the coding agent was not on their machine |
+| **A refused turn names authentication**, with the agent's own words and the log path — `diagnose.FACE_TURN_REFUSED`, `wringer.workerdiagnosis.v2` | `loop.py`'s `except acp.AcpError` returned early with NO diagnosis, so the loop's most common real failure was the ending nothing could describe. The word "authentication" appeared nowhere |
+| **Re-running is a safe act.** A proposal matching an installed gate by id, command AND binding is already applied, not a conflict | run 2 compared a gate to ITSELF, asserted "it passes today" about a command that exits 1, said the criterion was unbound while `.wringer.yaml` carried its `proves:` — then stopped the build |
+| **The interview cannot lose an answer.** Every ask says it takes one line, answers are read back before the plan, a confirm re-asks on garbage, drained overflow is shown | a pasted answer put line 1 under question 6 truncated, line 2 under question 7, and the overflow declined the run at the approval prompt |
+| **Overruling a decision flags the requirements it worded** STALE, and `wring plan` refuses past them — `wringer.decisions.v2` | overruling `limit-of-three` with "make it five" left `capped-at-three` standing in the spec AND the rubric. **Wringer manufactured the inconsistency itself** |
+| **`wringer-board judge`** — the person's pen, disciplined like `approve` | the one `human:` criterion required hand-writing YAML including a sha256, on the critical path of a delivery. That friction never stopped an agent; it stopped only the human |
+| **One arithmetic** across badges, bodies and the summary — `cards.BLOCKED_ON_*` | nine badges said NEEDS YOU, eight bodies said "nothing is needed from you", the summary said two |
+| **A blocking question naming a tracked file is refused at parse** | a required question asked a PM which criteria a 145-line pytest file asserts |
+| **The keychain command carries `-U`**, and `wring doctor` reports all four executables and their directories | without `-U` a second run discards the key just typed and keeps the old one — measured, exit 45 |
+
+**The one law that moved, and the one that did not.** `wringer-board judge`
+writes `wringer.judgements.yaml`. The ENGINE still writes no judgement and
+neither does `wringer-drive` —
+`test_no_flag_no_env_var_and_no_command_can_write_a_judgement` is byte-untouched
+and still passes. What moved is whose hand holds the pen. The three teeth were
+AMENDED rather than deleted: at most that one file may appear, the file PATH
+may be named only inside `judge.py`, and every write still goes through one
+writer.
+
+**Read this before trusting a guard here.** Three guards written in this window
+passed for a reason unrelated to the thing they named, and all three were found
+by reverting the fix and watching, never by reading: a setup-script guard that
+went red because a stripped PATH broke `dirname`; a totality check satisfied by
+its own string sitting in a comment; and a board invariant that compared two
+counts which — after the fix — read the same field and agreed trivially.
+Operating rule 7's discipline is not optional and it is not finished at "the
+test passes".
+
+**What this window did NOT do**, each with its reason: the wheel still ships no
+docs or examples (**measured: 56 files, none of them `START-HERE.md`**), so
+`pip install wringer` leaves a person with no way to find the guide; the
+populated-board cold read is unrun, so whether a PM can tell "done" from
+"nearly done" is still open; and the board's limits block is still nine dense
+paragraphs.
+
 **Wringer verifies Wringer**: [`.wringer.yaml`](.wringer.yaml) declares this
 repo's own gates, CI runs `wring verify` and uploads the bundle, and a real
 one is committed at [`.wringer.example/`](.wringer.example/).
