@@ -106,13 +106,35 @@ CODE=$?
 .venv/bin/ruff check src tests examples scripts
 LINT=$?
 
+# **THE WHEEL SMOKE, and the reason it is here.**
+#
+# On 2026-08-19 a `pyproject.toml` that PARSED but would not BUILD reached a
+# commit. Every test passed, ruff was clean, and `wring verify` was green —
+# because the suite imports `src/` directly and never once asks whether the
+# thing a user actually installs can be produced. The defect was found by a
+# person running `uv build` by hand, which is not a gate.
+#
+# That is this repository's own defect class: a check that covers less than
+# its name claims. "Reproduce CI locally" cannot honestly mean the suite alone
+# when the deliverable is a wheel on PyPI. A packaging error is invisible to
+# every other gate here and fatal to the only artifact a PM ever touches.
+#
+# Build only — publishing is `scripts/ship.sh` and stays a human act.
+"$UV" build --wheel --out-dir "$WORK/dist" >"$WORK/build.log" 2>&1
+BUILD=$?
+if [ "$BUILD" -ne 0 ]; then
+    echo "--- wheel build output (tail) ---" >&2
+    tail -20 "$WORK/build.log" >&2
+fi
+
 echo "---"
 echo "clone of local HEAD $(git -C "$WORK/wringer" rev-parse --short HEAD), no ambient git identity"
 echo "pytest exit $CODE"
 echo "ruff   exit $LINT"
-if [ "$CODE" -ne 0 ] || [ "$LINT" -ne 0 ]; then
-    echo "FAILED — .wringer.yaml declares both of these as gates"
+echo "wheel  exit $BUILD"
+if [ "$CODE" -ne 0 ] || [ "$LINT" -ne 0 ] || [ "$BUILD" -ne 0 ]; then
+    echo "FAILED — the two declared gates, plus the wheel this repo ships"
     exit 1
 fi
-echo "both declared gates passed"
+echo "both declared gates passed, and the wheel builds"
 exit 0
