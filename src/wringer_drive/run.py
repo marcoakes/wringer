@@ -359,6 +359,56 @@ def generate_workspace(session: Session, repo: Path, answers: dict) -> None:
     )
 
 
+def require_worker(repo: Path) -> None:
+    """**The coding agent must EXIST before anything is paid for.**
+
+    Field report 2026-08-21, finding 6, and it is the whole shape of the
+    defect rather than one bad message: a product manager answered the
+    interview, spent TWO paid API calls, gave THREE approvals and installed a
+    gate — and only then learned that the agent named in the example was not
+    on their machine. The error they finally got is good. It arrived after
+    everything it could have saved.
+
+    Nothing here is new capability. `loop.missing_agent` is the preflight
+    `wring run` already does, imported rather than re-implemented so the two
+    front doors cannot disagree about whether an agent is present — the same
+    argument SPEC_DRIVE_V0 ruling 1 makes for every other import, and a second
+    copy of a PATH check is exactly the drift that ruling exists to stop. It
+    is called EARLIER here, which is the entire fix.
+
+    **A missing or unreadable config is not this function's refusal.** It says
+    nothing and lets the engine speak in its own words at the first call: a
+    surface that invented a config error would be guessing at a file it is not
+    the authority on.
+    """
+    from wringer import config, loop
+
+    path = repo / config.CONFIG_FILENAME
+    if not path.is_file():
+        return
+    try:
+        settings = config.load(path)
+    except config.ConfigError:
+        return
+    if settings.run is None:
+        return
+    message = loop.missing_agent(settings.run)
+    if message is None:
+        return
+    raise Stop(
+        Step(
+            kind=STOPPED,
+            id="stopped:no-worker",
+            text="Nothing was built and nothing has been spent. The coding "
+            "agent this project is set up to use is not installed on this "
+            "machine, and it is the thing that would do the building — so "
+            "this stops here, before the step that costs money.",
+            engine_words=message,
+        ),
+        exit_code=2,
+    )
+
+
 def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:
     """`wring spec --send`, and the cost is said BEFORE the call.
 

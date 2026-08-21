@@ -174,6 +174,101 @@ def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
         )
 
 
+def test_a_REFUSED_turn_names_authentication_to_the_operator(
+    repo, monkeypatch, capsys
+):
+    """**The ending that had no shape at all** — field report 2026-08-21 #11.
+
+    A coding agent that has never been logged in answers `session/prompt` with
+    an error. Before this, `loop.py`'s `except acp.AcpError` branch returned
+    early and wrote no diagnosis of any kind — `diagnose_turn` returns None
+    when `errored`, and its own docstring named "a refused session" as a
+    distinct ending while covering none of it. So the operator got
+    `no_progress` and the sentence "an engineer has to look at why it is
+    stuck", and the one actionable fact — `Authentication required` — was in a
+    log file under a timestamped directory nobody told them about. The word
+    "authentication" appeared nowhere a person would look.
+
+    The silence was STRUCTURAL, not a missing sentence: there was no shape for
+    this ending, so there was nothing for the console, the record or the drive
+    to carry.
+
+    The loop's own reason does not move — `no_progress` stands, R2 — because
+    this is legibility, not routing.
+    """
+    setup(repo, "unauth")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    assert written.is_file(), (
+        "an agent that REFUSED the turn left no diagnosis — the operator is "
+        "told an attempt changed nothing, which is not what happened"
+    )
+    payload = json.loads(written.read_text(encoding="utf-8"))
+    assert payload["face"] == diagnose.FACE_TURN_REFUSED
+    assert payload["schema_version"] == loop.WORKER_DIAGNOSIS_SCHEMA_VERSION
+
+    said = payload["description"] + " " + payload["remedy"]
+    assert "logged in" in said or "authenticat" in said, (
+        "the PM-facing sentence never names authentication — the exact "
+        "complaint the field report made about this ending"
+    )
+    # The agent's OWN words, carried rather than summarised. This is the line
+    # that told a real operator what had happened, and it was reachable only
+    # by knowing which log to open.
+    assert "Authentication required" in payload.get("engine_words", ""), (
+        "the agent's own account of the refusal is not carried"
+    )
+
+    # **Absent, not invented.** A refused turn never reached `stopReason`, and
+    # writing "unknown" there would be a fact made up about a conversation
+    # that did not happen. v2 exists to allow this absence.
+    assert "stop_reason" not in payload, (
+        "a stop reason was recorded for a turn that never reported one"
+    )
+    # The ledger DID survive this failure, so the counts are read rather than
+    # guessed — the agent was refused before it touched anything.
+    assert payload["files_written"] == 0
+    assert payload["refusals"] == 0
+
+    # The remedy points at the agent's own login and the log, and still never
+    # names a credential variable — `turn_changed_nothing`'s rule, unchanged.
+    for variable in ("ANTHROPIC_API_KEY", "WRINGER_API_KEY", "CLAUDE_", "_TOKEN"):
+        assert variable not in said, (
+            f"the remedy names {variable!r} — and setting one would not even "
+            "have fixed the measured failure: the stock adapter reports "
+            "apiType=native and reads no key at all"
+        )
+
+
+def test_a_refused_turn_is_not_confused_with_a_turn_that_finished(
+    repo, monkeypatch, capsys
+):
+    """The other direction, and the reason the pair exists.
+
+    Two faces that both fire on "nothing happened" would be one face with two
+    names. `idle` finishes cleanly having done nothing; `unauth` never
+    finishes. They must land on different faces, or the distinction the whole
+    slice exists to draw is decorative.
+    """
+    setup(repo, "idle")
+    monkeypatch.chdir(repo)
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    payload = json.loads(
+        (only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME).read_text("utf-8")
+    )
+    assert payload["face"] == diagnose.FACE_TURN_CHANGED_NOTHING, (
+        "a turn that finished cleanly was reported as refused"
+    )
+    # It finished, so it HAS a stop reason — the field the refused face omits.
+    assert payload["stop_reason"] == "end_turn"
+
+
 def test_a_worker_that_DID_change_a_file_is_not_diagnosed_as_absent(
     repo, monkeypatch, capsys
 ):

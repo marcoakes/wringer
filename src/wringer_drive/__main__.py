@@ -239,6 +239,12 @@ def _run(session: run_module.Session, args) -> int:
         run_module.generate_workspace(session, repo, answers)
         _render(session.steps[-1:], mode)
 
+    # Step 2a — THE PREFLIGHT, and its position on this page is the fix.
+    # Everything below this line can cost money or take an approval; the
+    # coding agent is the one precondition that used to be checked after all
+    # of it. A run that cannot possibly finish should not be able to start.
+    run_module.require_worker(repo)
+
     # Step 3 — draft the spec from the prose, saying what it costs first.
     run_module.draft_the_spec(session, repo, inside)
     if session.steps[-1].id == "drafting":

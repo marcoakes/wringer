@@ -138,7 +138,7 @@ DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
 # ABSENT unless a worker turn really ended clean and empty, so a reader that
 # finds one knows the worker never engaged without having to read a null.
 WORKER_DIAGNOSIS_FILENAME = "worker-diagnosis.json"
-WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v1"
+WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v2"
 
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
@@ -519,7 +519,20 @@ def missing_agent(settings: config.Run) -> str | None:
     from wringer import agents
 
     known = agents.by_command(worker.command)
-    hint = f"\n\nInstall it with: {known.install}" if known is not None else ""
+    # **The second sentence is here because the first one was not enough.**
+    # Field report 2026-08-21, finding 9: an operator ran this exact install
+    # line, it SUCCEEDED, and the agent was still not on PATH — npm's global
+    # bin directory was not on theirs. The message named the package to
+    # install and left the reader to conclude that installing it would be
+    # sufficient, which on that machine it was not. Naming the failure mode
+    # costs one line and is the difference between a message that ends the
+    # problem and one that starts a second search.
+    hint = (
+        f"\n\nInstall it with: {known.install}"
+        "\nIf you have just installed it and this still says the same thing, "
+        "the installer's directory may not be on PATH — `npm bin -g` prints "
+        "where it put the command."
+    ) if known is not None else ""
     return (
         f"the ACP agent {worker.command!r} is not on PATH, so there is nothing "
         f"to hand the brief to.{hint}\n\nWringer never installs an agent. "
@@ -1389,6 +1402,26 @@ def _run_acp_worker(
             stderr_path=stderr_path,
         )
         object.__setattr__(result, "acp_extras", {**extras, "acp_error": str(exc)})
+        # **The ending that used to have no shape.** This branch returned here
+        # with no diagnosis of any kind, so a refused turn — an agent that has
+        # never been logged in answers `session/prompt` with exactly this —
+        # reached the operator as `no_progress` and the sentence "an engineer
+        # has to look at why it is stuck". A product manager hit it on
+        # 2026-08-21, and the one fact that would have unstuck them was in a
+        # log file nobody told them about.
+        #
+        # The ledger comes off the exception, so the counts are READ rather
+        # than assumed; when the failure predates the turn they are None and
+        # the record says nothing about them rather than claiming zero.
+        partial = getattr(exc, "turn", None)
+        refused = diagnose.diagnose_failed_turn(
+            timed_out=timed_out,
+            files_written=len(partial.files_written) if partial else None,
+            refusals=len(partial.refusals) if partial else None,
+            engine_words=str(exc),
+        )
+        if refused is not None:
+            object.__setattr__(result, "acp_empty_turn", refused)
         return result
     finally:
         if containment_settings is not None:

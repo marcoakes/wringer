@@ -671,6 +671,115 @@ def test_every_example_ships_a_setup_script_that_refuses_a_broken_copy(name):
     assert not (EXAMPLES / name / "project" / ".git").exists()
 
 
+@pytest.mark.parametrize("name", [name for name, _, _ in ALL_EXAMPLES])
+def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
+    name, tmp_path
+):
+    """**Field report 2026-08-21 finding 6, EXECUTED rather than read.**
+
+    `setup.sh` preflighted `git` and `node`, validated the whole starting
+    state, printed "Ready", and told the reader to answer
+    `acp: claude-agent-acp` — having never checked that agent existed. On the
+    evaluator's Mac it did not, and the run reached the build step only after
+    the interview, two paid API calls, three approvals and a gate install.
+
+    Run with a PATH holding everything the script needs EXCEPT the agent, so
+    the check under test is the one that fires. Reading the script for a
+    string would pass on a script where the check sits after the banner —
+    which is the exact defect, one position over.
+    """
+    import os
+    import shutil
+    import subprocess
+
+    script = EXAMPLES / name / "setup.sh"
+    # Everything the script legitimately needs, and nothing else, so a missing
+    # agent is the ONLY reason it can fail here.
+    #
+    # **This list is longer than it looks like it needs to be, and the reason
+    # is a defect this test had while being written.** With only `git` and
+    # `node` linked, removing the agent check made the script die on
+    # `dirname: command not found` — so it still exited non-zero and still
+    # never printed "Ready", and the first two assertions below passed while
+    # the behaviour under test was absent. A guard that goes red for the wrong
+    # reason is a guard that will go green for the wrong reason later. The
+    # script must be able to run PAST the agent check for this to measure
+    # anything.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    needed = (
+        "git", "node", "npm", "uv", "sh", "env",
+        "dirname", "basename", "cp", "mkdir", "rm", "cat", "sed", "tr", "pwd",
+    )
+    for tool in needed:
+        found = shutil.which(tool)
+        if found:
+            (bin_dir / tool).symlink_to(found)
+    if shutil.which("git") is None:
+        pytest.skip("git is absent, so this example cannot be set up at all")
+    assert shutil.which("dirname", path=str(bin_dir)) is not None, (
+        "the sandbox PATH cannot run the script at all, so this test would "
+        "pass on a script with no agent check in it"
+    )
+    # The agent must be genuinely unreachable, which is the condition under
+    # test — assert it rather than assuming the stripped PATH did it.
+    assert shutil.which("claude-agent-acp", path=str(bin_dir)) is None
+
+    done = subprocess.run(
+        ["sh", str(script), str(tmp_path / "target")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "PATH": str(bin_dir)},
+    )
+    printed = done.stdout + done.stderr
+
+    assert done.returncode != 0, (
+        f"{name}'s setup.sh succeeded with no coding agent installed — the "
+        "operator is sent to spend money on a run that cannot finish"
+    )
+    assert "Ready" not in done.stdout, (
+        f"{name}'s setup.sh printed 'Ready' while the agent it goes on to "
+        "recommend is missing. That is the finding: not a wrong message, a "
+        "correct one in the wrong order"
+    )
+    assert "claude-agent-acp" in printed
+    assert "npm install -g" in printed, "the reader is not told how to fix it"
+    # Finding 9: installing it is not always sufficient, and the message that
+    # stops at the install line starts a second search on a machine like the
+    # evaluator's, where npm's global bin was not on PATH.
+    assert "npm bin -g" in printed, (
+        "the message does not name the case where the install succeeds and "
+        "the command is still not found"
+    )
+
+
+@pytest.mark.parametrize("name", [name for name, _, _ in ALL_EXAMPLES])
+def test_no_setup_script_claims_wringers_key_reaches_the_coding_agent(name):
+    """**Field report 2026-08-21 finding 11.** The scripts said:
+
+        Put your key in the environment. Wringer reads it from there and
+        nowhere else
+
+    True of Wringer. False of the coding agent Wringer launches, which is the
+    thing that does the actual work — it authenticates on its own account,
+    reads no key Wringer sets, and measurably ignores both `WRINGER_API_KEY`
+    and `ANTHROPIC_API_KEY`. A PM sets one key, every visible signal looks
+    correct, two paid calls succeed, and the build fails for a reason named
+    nowhere in the interview, the plan or the example.
+
+    A half-true sentence about credentials is worse than no sentence: it
+    answers the reader's question wrongly and stops them asking again.
+    """
+    script = (EXAMPLES / name / "setup.sh").read_text(encoding="utf-8")
+    assert "NOT FOR THE CODING AGENT" in script, (
+        f"{name}'s setup.sh does not say the key it asks for is not the "
+        "agent's credential"
+    )
+    assert "signs in on its own account" in script
+    assert "never reaches it" in script
+
+
 @pytest.mark.parametrize("name,green,red", ALL_EXAMPLES)
 def test_every_example_is_GREEN_where_it_claims_and_RED_where_it_claims(
     name, green, red, tmp_path

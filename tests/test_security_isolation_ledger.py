@@ -115,6 +115,13 @@ LEDGER_SUBJECTS = {
     "sequence g — **docker on linux, read at last**": ATTACK,
     "sequence g — docker on linux": ATTACK,
     "sequence g — this mac": ATTACK,
+    # OTHER, and the distinction is worth stating because the word "auth" in a
+    # subject line invites the wrong guess. This probes a CAPABILITY question —
+    # can a client read an agent's authentication state before paying for a
+    # turn — and attacks nothing. It crosses no boundary, tries to defeat no
+    # containment, and its finding ("no, it cannot") constrains what Wringer
+    # may promise a product manager rather than what SECURITY.md may claim.
+    "sequence l — is agent auth readable before the paid turn?": OTHER,
     "docker on linux": OTHER,
 }
 

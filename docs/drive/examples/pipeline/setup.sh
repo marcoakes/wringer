@@ -34,6 +34,33 @@ for tool in git uv; do
     }
 done
 
+# The agent this example tells you to answer with, checked before "Ready" is
+# printed. Same defect, same fix, same reason as the arcade example's — see
+# docs/field-report-2026-08-21.md finding 6. Two copies of a shell script is
+# two places to fix; both are fixed, and `test_docs.py` holds them together.
+AGENT=claude-agent-acp
+if ! command -v "$AGENT" >/dev/null 2>&1; then
+    echo "setup: '$AGENT' is not on your PATH." >&2
+    echo "" >&2
+    echo "  This example tells you to answer 'acp: $AGENT' when Wringer asks" >&2
+    echo "  which coding agent should do the building. That agent is what" >&2
+    echo "  actually writes the code, so without it the run stops at the" >&2
+    echo "  build step having already spent money on drafting." >&2
+    echo "" >&2
+    echo "  Install it with:" >&2
+    echo "    npm install -g @agentclientprotocol/claude-agent-acp" >&2
+    echo "" >&2
+    echo "  If that succeeds and this still says the same thing, npm's global" >&2
+    echo "  bin directory is not on your PATH — 'npm bin -g' prints where it" >&2
+    echo "  put the command." >&2
+    echo "" >&2
+    echo "  If you already use a DIFFERENT agent that speaks ACP, that is" >&2
+    echo "  fine: install nothing, and answer with its command instead of" >&2
+    echo "  the one above. Wringer runs the agent you name and never one it" >&2
+    echo "  guessed." >&2
+    exit 2
+fi
+
 mkdir -p "$TARGET"
 TARGET=$(cd "$TARGET" && pwd)
 
@@ -87,6 +114,13 @@ Two things to do, both in THIS terminal window:
      the masked prompt:
 
        security add-generic-password -s anthropic -a wringer -w
+
+     THIS KEY IS FOR WRINGER, NOT FOR THE CODING AGENT. It pays for
+     reading your document and drafting the plan, and nothing else. The
+     coding agent that writes the code signs in on its own account, and
+     this key never reaches it — setting it does not log the agent in,
+     and no other variable does either. Check that half by running
+     '$AGENT' once by hand and completing whatever it asks for.
 
   2. Drive it:
 

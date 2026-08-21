@@ -82,7 +82,21 @@ DESCRIPTIONS = {
 # `diagnosis.json` precedent: law 7, a new file is always allowed.
 FACE_TURN_CHANGED_NOTHING = "turn_changed_nothing"
 
-WORKER_FACES = (FACE_TURN_CHANGED_NOTHING,)
+# **The second worker face, added 2026-08-21 after the field run that needed
+# it.** A turn REFUSED — the agent answered `session/prompt` with an error
+# instead of a turn — used to produce no diagnosis at all: `diagnose_turn`
+# returns None when `errored`, so the loop stopped on `no_progress` and the
+# operator was told "an attempt changed nothing at all… an engineer has to
+# look at why it is stuck". The one actionable fact, `Authentication
+# required`, was in a log file under a timestamped directory, and the word
+# "authentication" appeared nowhere a person would look.
+#
+# The silence was STRUCTURAL, not a missing sentence: there was no shape for
+# this ending, so there was nothing for the console, the record or the drive
+# to carry. `docs/field-report-2026-08-21.md` finding 11.
+FACE_TURN_REFUSED = "turn_refused"
+
+WORKER_FACES = (FACE_TURN_CHANGED_NOTHING, FACE_TURN_REFUSED)
 
 # The third clause was added by ruling on 2026-08-19, the day the hint first
 # fired on a real turn: the agent had authenticated, thought for 1m49s, and
@@ -94,6 +108,20 @@ WORKER_DESCRIPTIONS = {
         "the agent finished its turn without changing a file or reporting an "
         "error; this usually means it could not authenticate, could not see "
         "the work, or produced nothing it could use"
+    ),
+    # **It names AUTHENTICATION, and it names it as a possibility.** The hint
+    # tier may read text but may not claim, so this does not say the agent was
+    # unauthenticated — the agent's own words ride along in `engine_words` and
+    # a reader can see them. What it must not do is what the old ending did,
+    # which is leave the most likely cause unsaid because saying it would be a
+    # guess. A hint that omits the measured cause is not caution, it is a
+    # survey with the answer removed.
+    FACE_TURN_REFUSED: (
+        "the agent refused the turn or its session failed, so nothing was "
+        "built; the most common cause is that the coding agent is not "
+        "logged in — it authenticates on its own account, separately from "
+        "Wringer, and Wringer's API key is not its credential and never "
+        "reaches it"
     ),
 }
 
@@ -108,6 +136,17 @@ WORKER_REMEDIES = {
     FACE_TURN_CHANGED_NOTHING: (
         "what a worker is given is declared by the operator, in "
         "`run.worker.acp.env_passthrough`; nothing else crosses that boundary"
+    ),
+    # Names the agent's OWN login and the log, because those are the two
+    # things the operator can act on. It does not name a credential variable,
+    # for `FACE_TURN_CHANGED_NOTHING`'s reason one entry up — and because
+    # setting one would not have fixed the measured failure: the stock adapter
+    # reports `apiType=native` and reads no key at all.
+    FACE_TURN_REFUSED: (
+        "run the coding agent once by hand in a terminal and complete "
+        "whatever it asks for, then run this again; the agent's own last "
+        "words are in `worker.stderr.log`, under this loop's `iterations/` "
+        "directory"
     ),
 }
 
@@ -127,9 +166,15 @@ class WorkerDiagnosis:
     """
 
     face: str
-    stop_reason: str
-    files_written: int = 0
-    refusals: int = 0
+    # **Absent, not invented, when the turn never reported one.** A refused
+    # turn never reached `stopReason`, and writing `"none"` or `"unknown"`
+    # there would be a fact this module made up about a conversation that did
+    # not happen. `wringer.workerdiagnosis.v2` makes the three ledger fields
+    # optional for exactly this ending; v1 required them because the only face
+    # it knew was one that always had them.
+    stop_reason: str = ""
+    files_written: int | None = None
+    refusals: int | None = None
     # What the agent said for itself, if anything, carried BESIDE the
     # description rather than parsed into one.
     engine_words: str = ""
@@ -147,10 +192,17 @@ class WorkerDiagnosis:
             "face": self.face,
             "description": self.description,
             "remedy": self.remedy,
-            "stop_reason": self.stop_reason,
-            "files_written": self.files_written,
-            "refusals": self.refusals,
         }
+        # Each present only when it was READ, never defaulted into the record.
+        # A reader that finds no `files_written` knows nobody counted; a
+        # reader that finds `0` knows somebody counted and the answer was
+        # none, and those are different states.
+        if self.stop_reason:
+            recorded["stop_reason"] = self.stop_reason
+        if self.files_written is not None:
+            recorded["files_written"] = self.files_written
+        if self.refusals is not None:
+            recorded["refusals"] = self.refusals
         if self.engine_words:
             recorded["engine_words"] = self.engine_words
         return recorded
@@ -180,6 +232,48 @@ def diagnose_turn(
     return WorkerDiagnosis(
         face=FACE_TURN_CHANGED_NOTHING,
         stop_reason=stop_reason,
+        files_written=files_written,
+        refusals=refusals,
+        engine_words=engine_words,
+    )
+
+
+def diagnose_failed_turn(
+    *,
+    timed_out: bool,
+    files_written: int | None = None,
+    refusals: int | None = None,
+    engine_words: str = "",
+) -> WorkerDiagnosis | None:
+    """A turn that ended in an ERROR instead of ending at all, or None.
+
+    The sibling of `diagnose_turn`, and the two are exclusive by construction:
+    that one describes a turn that finished cleanly having done nothing, this
+    one a turn that never finished. Together they close the hole R1 left open —
+    its own docstring named "a refused session" as a distinct ending and then
+    returned None for it, so the loop's most common real failure was the one
+    ending with no shape at all.
+
+    **Routed on facts.** Two of them, and neither is text:
+
+    1. NOT a timeout. A deadline is its own ending with its own evidence, and
+       `wringer.loop.v2` already carries it; calling it a refusal would be this
+       module relabelling somebody else's finding.
+    2. Nothing landed. A turn that wrote a file or was refused a write DID
+       something before it fell over, and blaming its ending on the agent's
+       credentials would be a guess about a turn that demonstrably ran. When
+       the ledger did not survive the failure both are None — unknown, and
+       recorded as absent rather than assumed to be zero.
+
+    `engine_words` is the agent's own message and is the HINT tier: it is
+    carried, shown and never read. Nothing above branches on it.
+    """
+    if timed_out:
+        return None
+    if files_written or refusals:
+        return None
+    return WorkerDiagnosis(
+        face=FACE_TURN_REFUSED,
         files_written=files_written,
         refusals=refusals,
         engine_words=engine_words,

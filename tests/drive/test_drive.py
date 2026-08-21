@@ -206,6 +206,90 @@ def test_a_pasted_answers_overflow_never_reaches_the_approval(
     assert "nobody on the other end" in capsys.readouterr().err
 
 
+def test_the_worker_is_resolved_BEFORE_ANY_PAID_CALL(
+    project, tmp_path, capsys, monkeypatch
+):
+    """**Field report 2026-08-21 finding 6, and the defect is the ORDER.**
+
+    A product manager answered the interview, spent TWO paid API calls, gave
+    THREE approvals and installed a gate — and only then learned the coding
+    agent named in the worked example was not on their machine. The error they
+    finally got is a good error: it names the package, says plainly that
+    Wringer installs nothing, and confirms nothing was created. It arrived
+    after everything it could have saved.
+
+    So this asserts the thing that actually matters, which is not the wording:
+    **no engine command carrying `--send` may run before the refusal.** Every
+    subprocess the chain launches is recorded, and `--send` is the typed flag
+    that lets Wringer spend money or write history — SPEC_GRAPH ruling 5's
+    own test for whether something irreversible happened.
+    """
+    # No spec on disk, so step 3 would REALLY draft — the paid call is
+    # genuinely reachable here rather than short-circuited by a fixture.
+    (project / "wringer.spec.yaml").unlink()
+    config_path = project / ".wringer.yaml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            '  worker: "true"\n',
+            "  worker:\n"
+            "    acp:\n"
+            '      command: "wringer-no-such-agent-anywhere"\n',
+        ),
+        encoding="utf-8",
+    )
+
+    launched: list[list[str]] = []
+    real = run_module.run_command
+
+    def recording(repo, argv, env=None):
+        launched.append(list(argv))
+        return real(repo, argv, env)
+
+    monkeypatch.setattr(run_module, "run_command", recording)
+
+    code = main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    said = capsys.readouterr()
+
+    assert code == 2, "a run that cannot possibly finish was allowed to start"
+    spent = [argv for argv in launched if "--send" in argv]
+    assert spent == [], (
+        f"money moved before the agent was checked for: {spent}. The whole "
+        "finding is that the refusal arrives too late, so a correct message "
+        "at the wrong moment fixes nothing"
+    )
+    assert not (project / "wringer.spec.yaml").exists(), (
+        "a spec was drafted for a run that had no agent to build it"
+    )
+
+    # The ENGINE's own words reach the operator — this is the message run 2 of
+    # the field report praised, moved earlier rather than rewritten.
+    printed = said.out + said.err
+    assert "wringer-no-such-agent-anywhere" in printed
+    assert "never installs an agent" in printed
+    assert "nothing has been spent" in printed.lower(), (
+        "the operator is not told the one thing that makes this recoverable"
+    )
+
+
+def test_the_drive_and_the_engine_share_ONE_agent_preflight():
+    """A second PATH check would be a second opinion, and SPEC_DRIVE_V0 ruling
+    1 exists to stop exactly that: *importing is not re-implementing*.
+
+    If the drive grew its own `shutil.which`, the two front doors could
+    disagree about whether an agent is present — and the operator would get a
+    different answer depending on which one they used.
+    """
+    import inspect
+
+    source = inspect.getsource(run_module.require_worker)
+    assert "loop.missing_agent" in source, (
+        "the drive no longer calls the engine's own preflight"
+    )
+    assert "shutil.which" not in source, (
+        "the drive grew a second PATH check beside the engine's"
+    )
+
+
 def test_every_confirm_prompt_says_the_accepted_inputs():
     """Field-run finding 11: the approval prompt never said what to type, and
     the evaluator's guess became a decline. Every `confirm` DRIVE constructs

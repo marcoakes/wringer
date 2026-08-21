@@ -35,6 +35,7 @@ is a check nobody ran — this file is subject to law 1 like everything else.
 | Sequence G — **DOCKER on Linux, READ AT LAST** | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled), image `python:3-slim` | 2026-08-14 | `fe21b6e` | **RAN AND CLASSIFIED — 6 prevented, 1 out_of_scope.** Readable without a token because the job now emits each attack as a public `::notice::` annotation. `--network none` holds on Docker (DNS blocked AND `OSError: [Errno 101] Network is unreachable` on a raw IP); no docker socket; 3 pids. **`/etc/shadow` WAS readable** — see below |
 | Sequence G — Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (preinstalled) | 2026-08-13 | `f0b44bc` | **EXECUTED for the first time** — [run 31692802687](https://github.com/marcoakes/wringer/actions/runs/31692802687), job `attack` succeeded, 16 KB of output in the `sequence-g` artifact. **UNCLASSIFIED: nobody has read it.** The artifact and the logs both need GitHub auth (401 unauthenticated), so the seven attempts have not been sorted into prevented / detected / mitigated / out_of_scope by anybody. Until they are, this row records that the sequence RAN and nothing about what it found |
 | Sequence G — this Mac | Apple silicon, MacBookAir | macOS 26.5.2 | **none installed** | 2026-08-13 | `87de283` | **REFUSED, exit 2** — no runtime, so it recorded nothing. That is the script working: a checklist reporting no failures because it ran no attacks is the advert it exists to refuse |
+| Sequence L — is agent AUTH readable before the paid turn? | Apple silicon, this machine | macOS 26.5.2 `Darwin arm64` | `@agentclientprotocol/claude-agent-acp` 0.70.0, node 24 | 2026-08-21 | this commit | **RAN, AND THE ANSWER IS NO.** Authenticated and unauthenticated are indistinguishable across the whole handshake: `authMethods: []` in BOTH, `session/new` opens a session in BOTH, no error in either. The refusal exists only at `session/prompt` — the call that costs money. So no preflight can catch an unauthenticated agent, and `diagnose.FACE_TURN_REFUSED` carries the load instead. Script: `scripts/acp-auth-probe.py` |
 | Docker on Linux | GitHub Actions `ubuntu-latest` | — | Docker (CI) | every push | `main` | Automated; see `.github/workflows/tests.yml` |
 
 ### About the 2026-08-05 Apple row
@@ -285,6 +286,57 @@ Per entry in `agents.AGENTS`, on a machine with a network:
 |---|---|---|---|---|
 | `claude-code` | `@zed-industries/claude-code-acp` | **Deprecated and renamed** → `@agentclientprotocol/claude-agent-acp`, binary `claude-agent-acp`; table corrected | 2026-08-11 | this commit |
 | `gemini` | `@google/gemini-cli` | **never checked** | — | — |
+
+## Sequence L — is an ACP agent's AUTHENTICATION readable before the paid turn?
+
+**Status: RUN 2026-08-21, and the answer is NO — which is why the fix shipped
+is the one it is.**
+
+The question is not idle curiosity. `wringer-drive` now refuses before the
+first paid call when the coding agent is not on PATH
+(`docs/field-report-2026-08-21.md` finding 6). The obvious next move is to
+preflight that the agent is LOGGED IN too, because finding 11 is an operator
+who reached the build step with an agent that was installed and
+unauthenticated, and lost the run there having already paid twice.
+
+If auth were visible in the handshake, that check would be free and the whole
+class would be closed at the door. So it was measured rather than assumed.
+
+    python3 scripts/acp-auth-probe.py claude-agent-acp
+    HOME=$(mktemp -d) python3 scripts/acp-auth-probe.py claude-agent-acp
+
+The probe sends `initialize` and `session/new` and **stops** — never
+`session/prompt`, which is the turn that costs money. The unauthenticated case
+is made by pointing `HOME` at an empty directory, which is non-destructive:
+it logs nothing out and touches no credential store. **Do not use the agent's
+own logout for this** — that ends a real session somebody has to restore.
+
+| Field | Authenticated | `HOME` empty |
+|---|---|---|
+| `authMethods` present | yes | yes |
+| `authMethods` | `[]` | `[]` |
+| `session/new` opened a session | yes | yes |
+| `session/new` returned an error | no | no |
+
+**Identical on every field that could route a decision.** The two runs differ
+only in incidental teardown noise on stderr. The refusal appears at
+`session/prompt` and nowhere earlier.
+
+What follows from it, and what does not:
+
+- The drive's preflight covers **binary-on-PATH only**, and honestly says so.
+  There is no auth preflight because there is nothing to read.
+- The legibility fix carries the rest: `diagnose.FACE_TURN_REFUSED` names
+  authentication in the PM-facing sentence, points at the agent's own login
+  and the worker log, and carries the agent's own words verbatim.
+- `authMethods: []` is **not** evidence of "already authenticated". It was
+  empty for an agent that could not authenticate at all, so nothing may read
+  it as a positive signal.
+- One agent, one version, one host. `gemini` has never been probed this way.
+
+- [ ] Re-run when `agents.AGENTS` gains an entry, or when a version bump
+      changes the handshake. If a future agent DOES distinguish, the drive can
+      preflight auth for that agent and this row is what says it changed.
 
 ## Sequence G — the container path, attacked
 

@@ -65,7 +65,18 @@ DRAIN_TIMEOUT_SECONDS = 5
 
 class AcpError(Exception):
     """The agent could not be spoken to. Recorded as a failed worker turn —
-    never as a verdict about the code."""
+    never as a verdict about the code.
+
+    **Carries the LEDGER as far as it got** (`turn`), and None when the failure
+    happened before there was one. A turn that died at `session/prompt` has
+    still written down whether it touched a file, and `diagnose.py` needs that
+    FACT to tell "the agent was refused before it did anything" from "the agent
+    worked and then fell over" — F6's law: route on facts, hint on text. Before
+    this the exception carried its message and nothing else, so the caller had
+    to guess, and guessing is what the hint tier is forbidden to do.
+    """
+
+    turn: Turn | None = None
 
 
 @dataclass(frozen=True)
@@ -522,6 +533,16 @@ def run_turn(
         # Recorded, never acted on — exactly as a shell worker's exit code is.
         turn.stop_reason = str(result.get("stopReason", "unknown"))
         connection.drain()
+    except AcpError as exc:
+        # **The ledger travels with the failure.** A refused `session/prompt`
+        # — the shape a coding agent that has never been logged in has, and
+        # the one a product manager hit on 2026-08-21 — leaves a turn that
+        # wrote no file and raised no refusal. Without this the caller sees a
+        # message and no facts, so it cannot tell that ending from an agent
+        # that worked for a minute and then crashed, and `diagnose.py` may
+        # only route on facts.
+        exc.turn = turn
+        raise
     finally:
         _stop(proc, timeout)
         # Bounded, for `gates._drain`'s reason: the agent is dead by now, but

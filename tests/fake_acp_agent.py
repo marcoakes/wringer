@@ -12,6 +12,12 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
     escape     try to write outside the repo (must be refused)
     permission ask for permission, then fix
     idle       do nothing and stop cleanly
+    unauth     answer the handshake, open a session, then REFUSE the prompt
+               with `Authentication required` — the shape a coding agent that
+               has never been logged in really has, captured verbatim from a
+               product manager's machine on 2026-08-21. The handshake
+               succeeding is the whole point: it is what makes this
+               undetectable before the turn
     crash      exit mid-turn, before answering the prompt
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
@@ -249,6 +255,21 @@ def main() -> int:
                 time.sleep(3600)
                 return 0
         elif method == "session/prompt":
+            if BEHAVIOUR == "unauth":
+                # **The handshake already succeeded.** `initialize` and
+                # `session/new` both answered normally, which is not this
+                # double being lenient — it is measured behaviour: on
+                # 2026-08-21 both an authenticated and an unauthenticated
+                # `claude-agent-acp` answered them identically, `authMethods`
+                # empty in both. The refusal only exists at the turn, which is
+                # the call that costs money, and that is why no preflight can
+                # catch this one.
+                send({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32000, "message": "Authentication required"},
+                })
+                return 0
             if BEHAVIOUR == "hang":
                 # accept, then never answer: the client's request timeout and
                 # the loop's worker_timeout are what must save us
