@@ -15,7 +15,7 @@ import pytest
 import yaml
 from core_helpers import flat
 
-from wringer import cli, spec
+from wringer import cli, config, spec
 
 PRD = """\
 # CSV export
@@ -877,6 +877,116 @@ def test_the_drafter_proposes_a_gate_for_every_machine_criterion(
     # the human criterion is bound by nothing
     assert "reads-well" not in yaml.safe_dump(written)
     capsys.readouterr()
+
+
+def test_A_GATE_INSTALLED_BY_AN_EARLIER_RUN_IS_NOT_A_CONFLICT(repo):
+    """**Field report 2026-08-21 finding 10 — re-running was not a safe act.**
+
+    The first run installed `recently-played-acceptance` into `.wringer.yaml`
+    and left its proposal in `wringer.gates.yaml`, which is exactly what a
+    successful run leaves behind. The second run then compared the gate to
+    ITSELF, called it a pre-existing conflict, and refused:
+
+        'recently-played-acceptance' runs `node --test …`, which is already
+        what 'recently-played-acceptance' runs … it passes today, so it
+        cannot be made to fail by the work. The binding was dropped and the
+        criterion is left unbound
+
+    Three things wrong, all verified by the evaluator: the same id on both
+    sides of the sentence; "it passes today" asserted about a command that
+    exits 1, which Wringer itself had reported as "None of them passes today"
+    one run earlier; and "left unbound" contradicted by `.wringer.yaml`, which
+    still carried its `proves:` line.
+
+    Then it STOPPED THE BUILD, and recovery meant moving the already-applied
+    proposal aside by hand. A product manager is dead there.
+    """
+    installed = config.Gate(
+        id="acc-export-button",
+        run="pytest -q acceptance/test_button.py",
+        proves="export-button-exists",
+    )
+    criteria = [
+        spec.Criterion(id="export-button-exists", title="There is a button"),
+    ]
+    kept, notes, already = spec.parse_bindings(
+        [dict(BINDINGS[0])], criteria, "the sidecar", (installed,)
+    )
+
+    assert notes == (), (
+        f"an already-installed gate was reported as a conflict: {notes}. This "
+        "is the previous run's success, still where the previous run left it"
+    )
+    assert kept == (), "it is already on disk; there is nothing to install"
+    assert len(already) == 1
+    assert "already installed" in already[0]
+    # The three false claims, each named so none can come back quietly.
+    said = " ".join(already)
+    assert "passes today" not in said, (
+        "a gate result is being asserted that nothing measured"
+    )
+    assert "left unbound" not in said, (
+        "the criterion is bound on disk; saying otherwise contradicts the file"
+    )
+
+
+def test_the_same_command_under_a_DIFFERENT_id_is_still_a_real_conflict(repo):
+    """The other direction, and the reason the pair exists.
+
+    The fix above must not turn every duplicate into a shrug. A DIFFERENT gate
+    running the identical command is the case the check was built for — it was
+    measured on 2026-08-17, when a drafter proposed `pytest -q` as a binding
+    for a criterion the repository's own `test` gate already ran, green before
+    and after the work.
+    """
+    installed = config.Gate(id="test", run="pytest -q acceptance/test_button.py")
+    criteria = [
+        spec.Criterion(id="export-button-exists", title="There is a button"),
+    ]
+    kept, notes, already = spec.parse_bindings(
+        [dict(BINDINGS[0])], criteria, "the sidecar", (installed,)
+    )
+
+    assert already == (), "a genuine conflict was waved through as already applied"
+    assert len(notes) == 1 and kept == ()
+    assert "'test' runs" in notes[0]
+    # **The claim ceiling.** The old sentence ended "it passes today, so it
+    # cannot be made to fail by the work" — a statement about a gate result
+    # nothing had run, and false on the measured case. The ARGUMENT survives
+    # in the drafting request's prose, where it always lived.
+    assert "passes today" not in notes[0], (
+        "the note asserts a gate result nobody measured"
+    )
+    # Nothing else declares `proves: export-button-exists` here, so saying so
+    # is true — and it is DERIVED from the declared gates rather than assumed.
+    assert "nothing else in the project's settings proves" in notes[0]
+
+
+def test_the_unbound_half_of_the_note_is_not_claimed_when_the_config_binds_it(
+    repo,
+):
+    """The half of finding 10 that was false on disk.
+
+    A conflicting proposal is dropped — but whether that leaves the criterion
+    unbound depends on the rest of `.wringer.yaml`, which this function can
+    read. When something already proves it, claiming otherwise is the same
+    class of false sentence as "it passes today".
+    """
+    installed = (
+        config.Gate(id="test", run="pytest -q acceptance/test_button.py"),
+        config.Gate(id="other", run="pytest -q other.py",
+                    proves="export-button-exists"),
+    )
+    criteria = [
+        spec.Criterion(id="export-button-exists", title="There is a button"),
+    ]
+    _kept, notes, _already = spec.parse_bindings(
+        [dict(BINDINGS[0])], criteria, "the sidecar", installed
+    )
+    assert len(notes) == 1
+    assert "nothing else in the project's settings proves" not in notes[0], (
+        "the note claims the criterion is unbound while a declared gate proves it"
+    )
 
 
 def test_a_binding_on_a_human_criterion_is_refused_and_nothing_is_written(

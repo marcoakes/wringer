@@ -1449,7 +1449,7 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
     # pytest -q` under `gates` and then proposed the identical command as a
     # binding, in the same breath. `declared` is what `.wringer.yaml` has, which
     # the reply cannot see for itself.
-    proposed, notes = parse_bindings(
+    proposed, notes, already = parse_bindings(
         drafted.get("gate_bindings"),
         drafted_spec.criteria,
         "the drafted gates",
@@ -1466,6 +1466,9 @@ def parse_response(body: Any, prd: str, declared: Any = ()) -> Draft:
         notes=(
             *dropped,
             *notes,
+            # Informational, and last: a gate already installed by an earlier
+            # run is news the operator may want and is never a problem.
+            *already,
             *outcome_notes,
             *assumption_notes,
             *missing_outcome_notes(drafted_spec.tasks, outcomes),
@@ -1491,7 +1494,7 @@ def parse_bindings(
     criteria: Any,
     where: str,
     declared: Any = (),
-) -> tuple[tuple[config.Gate, ...], tuple[str, ...]]:
+) -> tuple[tuple[config.Gate, ...], tuple[str, ...], tuple[str, ...]]:
     """The proposed gates and the ones refused, checked against the criteria
     beside them before a byte of either document is written.
 
@@ -1512,7 +1515,7 @@ def parse_bindings(
     guards.
     """
     if raw is None:
-        return (), ()
+        return (), (), ()
     if not isinstance(raw, list):
         raise SpecError(f"{where}: 'gate_bindings' must be a list")
 
@@ -1545,6 +1548,12 @@ def parse_bindings(
         raise SpecError(str(exc)) from exc
 
     kept: list[config.Gate] = []
+    applied: list[str] = []
+    # What the CONFIG already proves, so the note below can stop claiming a
+    # criterion is unbound when the file on disk says otherwise.
+    bound_already = {
+        other.proves for other in declared if getattr(other, "proves", None)
+    }
     for gate in gates:
         twin = next(
             (other for other in declared if same_command(other.run, gate.run)),
@@ -1553,14 +1562,50 @@ def parse_bindings(
         if twin is None:
             kept.append(gate)
             continue
+        if twin.id == gate.id and twin.proves == gate.proves:
+            # **ALREADY APPLIED, and this is not a conflict** — field report
+            # 2026-08-21 finding 10. A previous run installed this exact gate
+            # and left the proposal in the sidecar, so the next run compared
+            # the gate to ITSELF, found "a twin", and refused. The message it
+            # produced was wrong three ways: it named the same id on both
+            # sides of the sentence, it asserted the gate "passes today" about
+            # a gate that exits 1, and it said the criterion was left unbound
+            # while `.wringer.yaml` carried its `proves:` line.
+            #
+            # Then it stopped the build, and recovery meant moving the
+            # already-applied proposal aside by hand. Re-running a verb must
+            # be a safe act; a second run that refuses because the first one
+            # succeeded is a trap with no way out for the person who set it.
+            #
+            # The id AND the command AND the binding must all match. Same
+            # command under a different id is a real conflict and falls
+            # through; same id proving something else is a real change and
+            # falls through too.
+            applied.append(
+                f"{where}: '{gate.id}' is already installed and runs the same "
+                "command, so there is nothing to add for it. It was installed "
+                "on an earlier run"
+            )
+            continue
+        # **No claim about whether it passes.** The sentence here used to end
+        # "it passes today, so it cannot be made to fail by the work" — a
+        # statement about a gate result that nothing had run. On the measured
+        # case it was simply false: the command exits 1, and Wringer itself
+        # had reported "None of them passes today" one run earlier. The
+        # ARGUMENT survives where it always lived, in the drafting request's
+        # prose; what cannot survive is asserting a result nobody measured.
+        unbound = "" if gate.proves in bound_already else (
+            f", and nothing else in the project's settings proves "
+            f"'{gate.proves}'"
+        )
         notes.append(
             f"{where}: '{gate.id}' runs `{gate.run}`, which is already what "
             f"'{twin.id}' runs. A check that already runs cannot be the thing "
-            f"that proves '{gate.proves}' — it passes today, so it cannot be "
-            "made to fail by the work. The binding was dropped and the "
-            "criterion is left unbound"
+            f"that proves '{gate.proves}': proving it needs a check that can "
+            f"tell the difference this work makes. The binding was dropped"
+            f"{unbound}"
         )
-    return tuple(kept), tuple(notes)
+    return tuple(kept), tuple(notes), tuple(applied)
 
 
 def parse_gatespec(
@@ -1585,7 +1630,18 @@ def parse_gatespec(
             f"{where}: 'schema_version: {GATESPEC_SCHEMA_VERSION}' is "
             f"required (got {version!r})"
         )
-    gates, notes = parse_bindings(data.get("gates"), criteria, where, declared)
+    # **`already` is deliberately not raised on** — field report 2026-08-21
+    # finding 10. This function refuses a sidecar entry it cannot use, because
+    # a sidecar is a file somebody wrote on purpose and silently ignoring a
+    # line they typed is worse than refusing it to their face. But a proposal
+    # this repository ALREADY INSTALLED is not an entry it cannot use: it is
+    # the previous run's success, still sitting where the previous run left
+    # it. Refusing it made a second `wringer-drive run` impossible without a
+    # hand edit, and there is no version of "re-running is dangerous" that
+    # this product can afford.
+    gates, notes, _already = parse_bindings(
+        data.get("gates"), criteria, where, declared
+    )
     if notes:
         raise SpecError(notes[0])
     return gates

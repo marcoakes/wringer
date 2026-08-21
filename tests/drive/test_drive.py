@@ -603,6 +603,57 @@ def test_installing_the_gates_adds_the_diffs_lines_AND_TOUCHES_NOTHING_ELSE(
     assert "acc-exports-csv" in [gate.id for gate in loaded.gates]
 
 
+def test_RUNNING_IT_A_SECOND_TIME_IS_A_SAFE_ACT(proposing):
+    """**Field report 2026-08-21 finding 10, end to end.**
+
+    The first run installs the gate and leaves the proposal in
+    `wringer.gates.yaml` — which is what a run that SUCCEEDED leaves behind,
+    not a mess. The second run then read both, compared the installed gate to
+    itself, called it a pre-existing conflict, and stopped the build. The
+    evaluator recovered by moving the proposal file aside by hand; a product
+    manager has no way to know that is the fix.
+
+    This drives the real chain twice, through the real `wring plan --json`
+    subprocess, because the refusal lived in the engine and reached the
+    operator through the drive. A parser unit test alone would not have caught
+    the stop.
+    """
+    config = pytest.importorskip("wringer.config")
+
+    first = run_module.gate_proposal(proposing)
+    assert first["gates_proposed"] == ["acc-exports-csv"]
+    assert run_module.install_gates(proposing, first, answered_yes=True) is True
+    after_install = (proposing / config.CONFIG_FILENAME).read_text("utf-8")
+    assert "acc-exports-csv" in after_install
+    # The proposal stays where the successful run left it — nothing tidies it
+    # away, and nothing should have to.
+    assert (proposing / "wringer.gates.yaml").is_file()
+
+    # THE SECOND RUN. Before the fix this raised `Stop` out of `_json_or_stop`,
+    # because `wring plan` exited non-zero refusing its own installed gate.
+    second = run_module.gate_proposal(proposing)
+
+    assert second.get("gates_proposed") in ([], None), (
+        "the already-installed gate was proposed again for installation"
+    )
+    assert not (second.get("gate_diff") or "").strip(), (
+        "a diff was rendered for a change that is already on disk — applying "
+        "it would add the gate twice"
+    )
+    # And the binding is still there. "the criterion is left unbound" was the
+    # third false claim in that message, and the file is what refutes it.
+    assert "proves: exports-csv" in (
+        proposing / config.CONFIG_FILENAME
+    ).read_text("utf-8"), "the second run dropped a binding the first installed"
+
+    # The step the operator actually sees says the calm true thing, and none
+    # of the three false ones.
+    step = run_module.nothing_to_install_step(second)
+    assert step.kind == "show", "a settled re-run is not an error state"
+    assert "passes today" not in step.text
+    assert "left unbound" not in step.text
+
+
 def test_a_no_to_the_gate_diff_leaves_the_config_BYTE_IDENTICAL(proposing):
     """§3a condition 1: a no leaves the file byte-identical, and there is no
     flag that skips the diff."""
