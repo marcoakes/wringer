@@ -352,11 +352,22 @@ def test_the_cli_approve_path_prints_the_plan_before_it_writes(repo, capsys):
     assert "approved: true" in (repo / "wringer.spec.yaml").read_text()
 
 
-def test_no_verb_writes_anything_but_the_spec_file(repo):
-    """**The surface writes `wringer.spec.yaml` and nothing else** — §8
-    non-goal 9. In particular it never writes a judgement: a surface that could
-    answer a `human` criterion would be the thing this programme exists to
-    answer."""
+def test_no_verb_IN_THIS_MODULE_writes_anything_but_the_spec_file(repo):
+    """**These verbs write `wringer.spec.yaml` and nothing else** — §8
+    non-goal 9.
+
+    **Scope narrowed 2026-08-21, and the narrowing is the honest part.** This
+    once said "the surface" writes only the spec. That stopped being true of
+    the SURFACE when `wringer-board judge` shipped, and a docstring claiming
+    a property the package no longer has is the stale-sentence class this
+    repository hunts. It remains exactly true of THIS MODULE, which is what
+    the test has always actually checked, and `judge.py`'s own guards carry
+    the amended invariant for the one file that may now appear.
+
+    What did NOT move: no automation answers a `human:` criterion. The engine
+    writes no judgement, `wringer-drive` writes none, and `judge` records only
+    what a person typed after being shown the requirement.
+    """
     import ast
 
     before = {p.name for p in repo.iterdir()}

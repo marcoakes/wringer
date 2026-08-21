@@ -184,13 +184,22 @@ MAPPING: dict[tuple[str, str], Saying] = {
         # instruction for how I answer the question it is asking. A page that
         # stops on my answer should tell me where to put my answer."
         #
-        # The mechanism exists and the page was simply not naming it. It is a
-        # file a PERSON writes, deliberately — nothing in either repository
-        # writes a judgement, because a surface that could answer a `human`
-        # criterion would be the thing this project exists to answer.
-        "Is this requirement met? Only you can answer it — write your answer "
-        "into `wringer.judgements.yaml` in the project. Nothing else can put "
-        "it there, and until it is there the handover waits.",
+        # The mechanism exists and the page was simply not naming it.
+        #
+        # **Names the VERB now, not the file** — field report 2026-08-21
+        # finding 13. Naming the file was accurate and useless: a product
+        # manager had to create it, guess its schema, and hand-write YAML
+        # including a sha256 digest, on the critical path of a delivery. That
+        # friction never stopped an agent — writing YAML and hashing a string
+        # are the two easiest things a machine does — so it stopped only the
+        # person whose judgement the file exists to record.
+        #
+        # No automation answers this. `wringer-board judge` prints the
+        # requirement and takes the person's own words; it is their pen, in a
+        # place they can reach.
+        "Is this requirement met? Only you can answer it — no check and no "
+        "agent can. Run `wringer-board judge` to see it and record what you "
+        "found, and until you do, the handover waits.",
     ),
     (UNEVIDENCED_CAUSE, "human-said-no"): Saying(
         "A person looked at this and said it is not met. Nothing here can "

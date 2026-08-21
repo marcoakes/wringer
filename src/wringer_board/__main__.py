@@ -11,6 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from wringer_board import judge as judge_module
 from wringer_board import read as read_module
 from wringer_board import render as render_module
 
@@ -92,6 +93,39 @@ def build_parser() -> argparse.ArgumentParser:
     )
     approved.add_argument("repo", nargs="?", default=".")
 
+    # **The person's pen, for the requirements only a person can judge.**
+    # Until 2026-08-21 the only way to answer one was to create
+    # `wringer.judgements.yaml` by hand, guess its schema, and compute a
+    # sha256 — friction that never stopped an agent and stopped only the
+    # human whose judgement the file records. Same discipline as `approve`:
+    # the requirement is PRINTED before anything is written, one criterion per
+    # invocation, and the verdict is typed out rather than switched on.
+    judged = sub.add_parser(
+        "judge",
+        help="answer one requirement only a person can judge, after printing "
+        "it. One at a time, and the verdict is typed out",
+    )
+    judged.add_argument("repo", nargs="?", default=".")
+    judged.add_argument(
+        "--id",
+        help="the criterion's id. Omit to list the ones still waiting",
+    )
+    judged.add_argument(
+        "--verdict",
+        choices=judge_module.VERDICTS,
+        help="`met` or `not_met`, typed out. There is deliberately no --met "
+        "flag: a switch is something you can hit by accident",
+    )
+    judged.add_argument(
+        "--note", default="", help="why, in your own words. Recorded verbatim"
+    )
+    judged.add_argument(
+        "--by",
+        default="",
+        help="a name for the record. Defaults to your git user.name. "
+        "Recorded, never verified — this is not an identity system",
+    )
+
     return parser
 
 
@@ -99,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    if args.command in ("plan", "answer", "revise", "approve"):
+    if args.command in ("plan", "answer", "revise", "approve", "judge"):
         return _interview(args)
 
     repo = Path(args.repo).resolve()
@@ -149,6 +183,8 @@ def _interview(args) -> int:
                 names = ", ".join(q.id for q in still)
                 print(f"wringer-board: still unanswered: {names}")
             return 0
+        if args.command == "judge":
+            return _judge(args, repo)
         # approve. **The plan is PRINTED, and that is what earns the write.**
         print(interview.plan(repo), end="")
         print("-" * 60)
@@ -162,6 +198,68 @@ def _interview(args) -> int:
     except interview.InterviewError as exc:
         print(f"wringer-board: {exc}", file=sys.stderr)
         return exc.exit_code
+
+
+def _judge(args, repo: Path) -> int:
+    """One requirement, printed, then answered. Never the other order.
+
+    With no `--id` this LISTS what is waiting and writes nothing — a person
+    who does not know the ids should not have to read a YAML file to find
+    them, which is the whole complaint this verb answers.
+    """
+    if not args.id:
+        waiting = judge_module.unanswered(repo)
+        if not waiting:
+            print(
+                "wringer-board: nothing is waiting on your judgement in this "
+                "repository."
+            )
+            return 0
+        print("These requirements are waiting for a person to judge them:\n")
+        for criterion in waiting:
+            print(judge_module.wording(criterion))
+            print()
+        print(
+            "Answer one with:\n"
+            "  wringer-board judge --id <the id> --verdict met|not_met "
+            '--note "why"'
+        )
+        return 0
+
+    criterion = judge_module.find(repo, args.id)
+    # **PRINTED FIRST, and there is no flag that skips this.** `approve`'s
+    # rule, for `approve`'s reason: the whole value of a human judgement is
+    # that a person read the thing they are answering.
+    print("You are answering this requirement:\n")
+    print(judge_module.wording(criterion))
+    print()
+
+    if not args.verdict:
+        print(
+            "Nothing was written. Say what you found, in your own words:\n"
+            f'  wringer-board judge --id {args.id} --verdict met --note "…"\n'
+            f'  wringer-board judge --id {args.id} --verdict not_met '
+            '--note "…"',
+            file=sys.stderr,
+        )
+        return 2
+
+    path = judge_module.record(
+        repo,
+        args.id,
+        args.verdict,
+        by=args.by,
+        note=args.note,
+        read_the_criterion=True,
+    )
+    print("-" * 60)
+    print(f"wringer-board: recorded {args.verdict!r} for {args.id!r} in {path.name}")
+    print(
+        "wringer-board: this is your answer, recorded against the wording "
+        "above. If that wording later changes, the answer goes stale and you "
+        "will be asked again."
+    )
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover - the entry point

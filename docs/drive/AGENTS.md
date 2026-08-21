@@ -77,6 +77,40 @@ agent that answers a `confirm`, wearing a different coat.
 
 ---
 
+## Requirements only a person can judge
+
+Some requirements have `human: true`: nobody can write a check for "the
+heading reads as mine", because it is a judgement about taste, tone or fit.
+Until one is answered, the handover waits — that is the product working, not a
+fault.
+
+To see what is waiting, and then to record what they found:
+
+```bash
+wringer-board judge                                  # what is waiting
+wringer-board judge --id <the id> --verdict met --note "<their words>"
+```
+
+The verb prints the requirement's exact wording before it writes anything, one
+requirement per invocation. The answer is pinned to that wording: if the
+requirement is later reworded, the answer goes stale and is asked again,
+because somebody answered a different question.
+
+**Law 2 governs this hardest of all.** A `human:` requirement exists precisely
+because a machine asked anyway would be guessing, and you are a machine. Relay
+the requirement's text verbatim, ask the person, and write back what they
+said. You never volunteer a verdict, never infer one from the diff or the
+tests or the screenshots, never answer `met` because the work looks finished
+to you, and never judge one to clear a refusal. If they have not looked, it is
+not answered.
+
+That the command is easy to run does not make the answer yours to give. The
+hand-edit that came before it was not a security boundary — you could always
+write that YAML — it was friction, and it fell only on the person whose
+judgement the file records.
+
+---
+
 ## Install — gate each step with `wring doctor`
 
 Work in a folder the person chooses. No `sudo`; no system settings; if a step
