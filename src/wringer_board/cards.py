@@ -26,10 +26,49 @@ DONE = "DONE — AND PROVED"
 NOT_YET = "NOT YET"
 NOT_REACHED = "NOT REACHED"
 NEEDS_YOU = "NEEDS YOU"
+# **Added 2026-08-21, and the word "you" is deliberately absent from both.**
+#
+# Field report finding 12, measured on a populated board: EIGHT rows badged
+# `NEEDS YOU` whose own body text read *"Nothing is needed from you — an
+# engineer has to bind a check to this before it can be proved"*, while the
+# summary counted those same eight under *"8 will not be proved"* and said
+# *"2 still needs you"*. A product manager scanning badges saw nine things
+# demanding their attention; the bodies said eight of them needed nothing; the
+# summary said two. **Three different answers to "what do I have to do?" on
+# one page**, and the badge — the thing a person scans first — was the one
+# that was wrong.
+#
+# `NEEDS YOU` is now reserved for rows where a PERSON is genuinely the
+# blocker, which is the `human:` states and nothing else. A criterion nothing
+# checks, or one whose check exists but cannot yet evidence anything, is an
+# engineer's debt: real, loud, and not the reader's to discharge.
+NOT_PROVABLE = "NOTHING CHECKS THIS"
+NEEDS_AN_ENGINEER = "NEEDS AN ENGINEER"
 UNKNOWN = "UNKNOWN"
 UNTRANSLATED = "UNTRANSLATED"
 
-STATES = (DONE, NOT_YET, NOT_REACHED, NEEDS_YOU, UNKNOWN, UNTRANSLATED)
+STATES = (
+    DONE,
+    NOT_YET,
+    NOT_REACHED,
+    NEEDS_YOU,
+    NOT_PROVABLE,
+    NEEDS_AN_ENGINEER,
+    UNKNOWN,
+    UNTRANSLATED,
+)
+
+# **Who is blocked, per state — the ONE partition this page has.**
+#
+# The badge, the body sentence and the summary count all read this, so the
+# three cannot give different answers again. A state absent from here is a
+# state nobody classified, and `test_every_state_is_classified_by_who_is
+# _blocked` fails rather than letting it default into somebody's column.
+BLOCKED_ON_PERSON = (NEEDS_YOU,)
+BLOCKED_ON_ENGINEER = (NOT_PROVABLE, NEEDS_AN_ENGINEER, UNTRANSLATED)
+BLOCKED_ON_THE_WORK = (NOT_YET, NOT_REACHED)
+SETTLED = (DONE,)
+INDETERMINATE = (UNKNOWN,)
 
 # Ruling 15's causes of `unevidenced`, discriminated. **There are FIVE, not the
 # four the ruling enumerated**, and the fifth is here because S1 met it on real
@@ -440,7 +479,15 @@ def card_for(board: Board, criterion: Criterion) -> Card:
         return Card(
             id=criterion.id,
             title=criterion.title,
-            state=NEEDS_YOU,
+            # **Never `NEEDS YOU`** — finding 12. Every cause of `unevidenced`
+            # is an engineer's debt: either nothing is bound to this criterion
+            # (`unbound`) or something is bound and cannot yet evidence it
+            # (born green, arrived with the work, pre-existence unestablished,
+            # a witness that evidences nothing). None of them is discharged by
+            # the person reading the page, and badging them as if they were is
+            # what produced nine demands for attention where the summary
+            # counted two.
+            state=NOT_PROVABLE if cause == UNBOUND else NEEDS_AN_ENGINEER,
             sentence=sentence,
             refused=refused,
             cause=cause,

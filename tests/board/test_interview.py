@@ -472,11 +472,19 @@ def criterion(**kwargs) -> Criterion:
     return Criterion(**{**base, **kwargs})
 
 
-def test_every_needs_you_card_carries_its_unblocking_question():
+def test_every_unevidenced_card_carries_its_unblocking_question():
     """**H-4.** Ruling 16 has given every value a question since S2 and nothing
     rendered one — half the mapping was guarded, pinned against the engine, and
     read by nobody. A card that states a problem without saying what is needed
-    is a report; the question is what makes it a conversation."""
+    is a report; the question is what makes it a conversation.
+
+    **The STATE moved on 2026-08-21 and the question did not.** These rows are
+    no longer badged `NEEDS YOU` — field report finding 12: none of these
+    causes is discharged by the person reading the page, and badging them as
+    if they were put nine demands for attention on a page whose summary
+    counted two. They still carry their question, because the question is what
+    tells an engineer what would unblock it.
+    """
     board = object()
     for cause in (
         "unbound",
@@ -486,7 +494,11 @@ def test_every_needs_you_card_carries_its_unblocking_question():
         "arrived-with-the-work",
     ):
         card = cards.card_for(board, criterion(cause=cause, gate_id="unit"))
-        assert card.state == cards.NEEDS_YOU
+        assert card.state in cards.BLOCKED_ON_ENGINEER, cause
+        assert card.state != cards.NEEDS_YOU, (
+            f"{cause} is badged as needing the reader, and its own body says "
+            "an engineer has to do it"
+        )
         assert card.question, cause
         assert card.question == refusals.say(refusals.UNEVIDENCED_CAUSE, cause).question
 

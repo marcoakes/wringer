@@ -358,3 +358,196 @@ def test_a_verdict_outside_the_closed_pair_is_refused(repo):
             repo, "heading-reads-as-mine", "probably", read_the_criterion=True
         )
     assert not (repo / judge_module.JUDGEMENTS_FILENAME).exists()
+
+
+# --- S4c: ONE arithmetic across badges, bodies and the summary --------------
+
+
+def test_EVERY_CARD_STATE_IS_CLASSIFIED_BY_WHO_IS_BLOCKED():
+    """**The partition, and the reason the page had three answers.**
+
+    Field report 2026-08-21 finding 12, measured on a populated board: eight
+    rows badged `NEEDS YOU`, each with a body reading *"Nothing is needed from
+    you — an engineer has to bind a check to this"*, all eight counted in the
+    summary's *"8 will not be proved"* while the summary also said *"2 still
+    needs you"*. Badges said nine, bodies said one, the summary said two.
+
+    It happened because the badge and the summary were reading DIFFERENT
+    partitions: the badge read `state`, the summary counted `refused`. There
+    is one partition now and both read it — so a state nobody classified is a
+    state that would silently default into somebody's column, and that fails
+    here instead.
+    """
+    from wringer_board import cards
+
+    classified = (
+        set(cards.BLOCKED_ON_PERSON)
+        | set(cards.BLOCKED_ON_ENGINEER)
+        | set(cards.BLOCKED_ON_THE_WORK)
+        | set(cards.SETTLED)
+        | set(cards.INDETERMINATE)
+    )
+    assert classified == set(cards.STATES), (
+        "these states are not classified by who is blocked: "
+        f"{set(cards.STATES) ^ classified}"
+    )
+    # Mutually exclusive, or a row would be counted twice in one line.
+    groups = [
+        cards.BLOCKED_ON_PERSON,
+        cards.BLOCKED_ON_ENGINEER,
+        cards.BLOCKED_ON_THE_WORK,
+        cards.SETTLED,
+        cards.INDETERMINATE,
+    ]
+    assert sum(len(g) for g in groups) == len(classified), "a state is in two groups"
+
+
+def test_NO_STATE_BLAMING_THE_READER_EXCEPT_THE_ONE_THAT_MEANS_IT():
+    """`NEEDS YOU` is reserved for rows a person actually unblocks.
+
+    The word "you" in a badge is a demand for attention, and the measured
+    failure was making that demand eight times over rows whose own text said
+    nothing was needed. Only the states in `BLOCKED_ON_PERSON` may say it.
+    """
+    from wringer_board import cards
+
+    for state in cards.STATES:
+        if state in cards.BLOCKED_ON_PERSON:
+            continue
+        assert "you" not in state.lower(), (
+            f"{state!r} tells the reader they are the blocker, and the "
+            "summary does not count it that way"
+        )
+
+
+def test_the_summary_and_the_badges_partition_the_SAME_criteria(tmp_path):
+    """The arithmetic, on a populated page rather than on the constants.
+
+    One page, one partition: every card carries exactly one state, every state
+    lands in exactly one summary bucket, and the buckets sum to the number of
+    criteria. This is the property a reader is entitled to — that the three
+    places the page answers "what do I have to do?" agree.
+    """
+    import re
+
+    from wringer_board import cards
+    from wringer_board import read as read_module
+    from wringer_board import render as render_module
+
+    def row(cid, state, cause, *, refuses=True, gate=None):
+        return read_module.Criterion(
+            id=cid,
+            title=f"Requirement {cid}",
+            required=True,
+            state=state,
+            refuses=refuses,
+            gate_id=gate,
+            command="pytest -q" if gate else None,
+            reason="",
+            receipt=None,
+            witness=None,
+            cause=cause,
+        )
+
+    # **The field report's own shape**: one criterion a person must judge, and
+    # a pile of criteria nothing checks. That combination is what produced
+    # nine badges, one body sentence and two summary counts.
+    board = read_module.Board(
+        repo=tmp_path,
+        criteria=[
+            row("human-one", "human", "human-unanswered"),
+            *[
+                row(f"unbound-{n}", "unevidenced", "unbound")
+                for n in range(8)
+            ],
+            row("engineer-one", "unevidenced", "born-green", gate="suite"),
+        ],
+    )
+    made = [cards.card_for(board, c) for c in board.criteria]
+    page = render_module.render(board)
+
+    counts = re.search(r'<p class="counts">(.*?)</p>', page, re.S)
+    assert counts, "the page has no summary line at all"
+    line = counts.group(1)
+
+    total = int(re.search(r"of (\d+) proved", line).group(1))
+    assert total == len(made), "the summary counts a different number of rows"
+
+    person = sum(1 for c in made if c.state in cards.BLOCKED_ON_PERSON)
+    found = re.search(r"(\d+) needs you", line)
+    assert (int(found.group(1)) if found else 0) == person, (
+        f"the summary and the badges disagree about who needs the reader: "
+        f"{line!r} over {[c.state for c in made]}"
+    )
+    # The measured page: ONE row needs the reader, not nine.
+    assert person == 1, [c.state for c in made]
+    assert "8 needs you" not in line and "9 needs you" not in line
+
+
+def test_A_BADGE_AND_ITS_OWN_BODY_NEVER_CONTRADICT_EACH_OTHER():
+    """**The third leg, and the one that actually catches finding 12.**
+
+    A first version of this guard compared the summary count with the badge
+    count — and it passed with the defect fully restored, because after the
+    fix both read the same field and agreed trivially. A tautology reads
+    exactly like a guard until you revert the thing it is supposed to be
+    guarding, which is why every fix in this window is watched red.
+
+    The real contradiction was never summary-vs-badge. It was **badge versus
+    the card's own body**: eight rows badged `NEEDS YOU` whose bodies read
+    *"Nothing is needed from you — an engineer has to bind a check to this."*
+    A reader scanning badges and a reader reading bodies got opposite answers
+    from the same card.
+
+    So this checks the two against each other, over every cause the board can
+    render.
+    """
+    from wringer_board import cards
+
+    def texts(card):
+        return f"{card.sentence} {card.question or ''}".lower()
+
+    for state_name, causes in (
+        ("unevidenced", (
+            "unbound",
+            "born-green",
+            "witness-evidenced-nothing",
+            "pre-existence-unestablished",
+            "arrived-with-the-work",
+        )),
+        ("human", ("human-unanswered", "human-said-no", "human-judgement-stale")),
+    ):
+        for cause in causes:
+            card = cards.card_for(
+                object(),
+                _criterion(state=state_name, cause=cause, gate_id="unit"),
+            )
+            said = texts(card)
+            if card.state in cards.BLOCKED_ON_PERSON:
+                assert "nothing is needed from you" not in said, (
+                    f"{cause}: badged {card.state!r} while its own body says "
+                    "nothing is needed from the reader"
+                )
+            else:
+                assert "only you can answer" not in said, (
+                    f"{cause}: badged {card.state!r} while its own body says "
+                    "only the reader can answer it"
+                )
+
+
+def _criterion(*, state, cause, gate_id=None):
+    from wringer_board import read as read_module
+
+    return read_module.Criterion(
+        id="c",
+        title="T",
+        required=True,
+        state=state,
+        refuses=True,
+        gate_id=gate_id,
+        command="pytest -q" if gate_id else None,
+        reason="",
+        receipt=None,
+        witness=None,
+        cause=cause,
+    )

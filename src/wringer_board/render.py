@@ -24,10 +24,17 @@ from pathlib import Path
 
 from wringer_board import refusals
 from wringer_board.cards import (
+    BLOCKED_ON_ENGINEER,
+    BLOCKED_ON_PERSON,
+    BLOCKED_ON_THE_WORK,
     DONE,
+    INDETERMINATE,
+    NEEDS_AN_ENGINEER,
     NEEDS_YOU,
+    NOT_PROVABLE,
     NOT_REACHED,
     NOT_YET,
+    SETTLED,
     UNKNOWN,
     UNTRANSLATED,
     Card,
@@ -36,11 +43,17 @@ from wringer_board.cards import (
 )
 from wringer_board.read import Board, UnknownVersion
 
+# **Derived over `cards.STATES`, so a new state cannot render unstyled.**
+# `notprovable` and `needsengineer` deliberately share the neutral debt
+# styling rather than the alarm colour `needsyou` carries: they are real debts
+# and they are not the reader's to discharge.
 _STATE_CLASS = {
     DONE: "done",
     NOT_YET: "notyet",
     NOT_REACHED: "notreached",
     NEEDS_YOU: "needsyou",
+    NOT_PROVABLE: "notprovable",
+    NEEDS_AN_ENGINEER: "needsengineer",
     UNKNOWN: "unknown",
     UNTRANSLATED: "untranslated",
 }
@@ -68,6 +81,10 @@ text-transform:uppercase;padding:3px 8px;border-radius:4px;margin:0 8px 0 0;vert
 .notyet .state{background:var(--amberb);color:var(--amber)}
 .notreached .state,.unknown .state,.untranslated .state{background:var(--greyb);color:var(--grey)}
 .needsyou .state{background:var(--amberb);color:var(--amber)}
+/* Neutral, not amber. These are real debts and they are NOT the reader's to
+   discharge — badging them like the rows that need a person is what put nine
+   demands for attention on a page whose summary counted two. */
+.notprovable .state,.needsengineer .state{background:var(--greyb);color:var(--grey)}
 .badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
 text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--redb);color:var(--red)}
 .ask{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);
@@ -297,21 +314,41 @@ def render(board: Board) -> str:
             "followed from the evidence in this repository.</div>"
         )
 
-    done = sum(1 for c in cards if c.state == DONE)
-    refused = sum(1 for c in cards if c.refused)
     # **Every requirement is accounted for, not just the interesting ones.**
     # The old line read "1 requirement · 1 done and proved · 1 holding up the
     # handover" over TEN criteria, and a reader who read only that line —
     # which is what a count line is for — concluded eight of ten were fine.
     # The remainder is the largest group on most pages and it was the one
     # group the summary omitted.
-    rest = len(cards) - done - refused
+    #
+    # **Counted from the CARD STATES, not from `refused`** — field report
+    # 2026-08-21 finding 12. `refused` is a true engine fact about the
+    # DELIVERY, and it is not the same partition as the badges: eight rows
+    # were badged `NEEDS YOU` while being counted here under "will not be
+    # proved", and their own bodies said nothing was needed from the reader.
+    # Three answers to one question, because two different partitions were
+    # being read on one page. There is one now, `cards.BLOCKED_ON_*`, and this
+    # line and the badges are both functions of it.
+    done = sum(1 for c in cards if c.state in SETTLED)
+    person = sum(1 for c in cards if c.state in BLOCKED_ON_PERSON)
+    engineer = sum(1 for c in cards if c.state in BLOCKED_ON_ENGINEER)
+    working = sum(1 for c in cards if c.state in BLOCKED_ON_THE_WORK)
+    unknown = sum(1 for c in cards if c.state in INDETERMINATE)
+
     parts = [f"{done} of {len(cards)} proved"]
-    if refused:
-        parts.append(f"{refused} still needs you")
-    if rest > 0:
+    if person:
+        parts.append(f"{person} needs you")
+    if working:
+        parts.append(f"{working} not done yet")
+    if engineer:
         parts.append(
-            f"{rest} will not be proved — nothing checks {'it' if rest == 1 else 'them'}"
+            f"{engineer} cannot be proved yet — "
+            f"{'it has' if engineer == 1 else 'they have'} no working check"
+        )
+    if unknown:
+        parts.append(
+            f"{unknown} cannot be read from the evidence "
+            f"{'here' if unknown == 1 else 'here'}"
         )
     body.append(f'<p class="counts">{" · ".join(parts)}</p>')
 

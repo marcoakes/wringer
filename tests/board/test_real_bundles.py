@@ -115,7 +115,13 @@ def test_the_witness_lanes_own_unevidenced_cause_is_NAMED(tmp_path):
     board = read_module.read(_repo(tmp_path))
     card = cards.card_for(board, board.criteria[0])
 
-    assert card.state == cards.NEEDS_YOU
+    # **Flipped again on 2026-08-21, and again in the commit that does it.**
+    # This row was NEEDS YOU; a witness that evidenced nothing is an
+    # engineer's debt and not the reader's, so it is now NEEDS AN ENGINEER
+    # (field report finding 12). The cause and the sentence are untouched —
+    # only who the page says is blocked has changed.
+    assert card.state == cards.NEEDS_AN_ENGINEER
+    assert card.state in cards.BLOCKED_ON_ENGINEER
     assert card.cause == "witness-evidenced-nothing"
     assert "turned out to prove nothing" in card.sentence
 
