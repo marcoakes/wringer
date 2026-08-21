@@ -709,3 +709,82 @@ def test_the_published_names_include_the_new_checks():
     assert "last verify" in names
     produced = {check.name for check in doctor.run_checks(Path.cwd())}
     assert produced <= set(names), produced - set(names)
+
+
+# --- the wringer FAMILY on PATH (field report 2026-08-21) -------------------
+
+
+def _which(monkeypatch, mapping: dict[str, str | None]):
+    """Pretend PATH resolves exactly this way, and nothing else."""
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: mapping.get(name, "/usr/bin/" + name)
+    )
+
+
+def test_ALL_FOUR_commands_are_reported_with_where_they_resolve(monkeypatch):
+    """**The note on a misleading diagnostic**, field report 2026-08-21.
+
+    An operator auditing an old install ran `uv tool list | grep -i wringer`,
+    which HIDES `wring` — the line reads `- wring` and does not contain the
+    string "wringer" — so a shadowing binary is invisible to anyone checking
+    that way. That defect was the test prompt's rather than the product's, and
+    it is worth fixing anyway: a person should not need a correct grep to find
+    out which Wringer they are running.
+
+    This repository has already shipped the failure that makes it matter — an
+    agent verified its own work with a stale `wring 0.2.0` on PATH, writing
+    bundles with no `execution.json` into a 0.3.0 repo.
+    """
+    _which(monkeypatch, {
+        "wring": "/opt/w/bin/wring",
+        "wringer": "/opt/w/bin/wringer",
+        "wringer-board": "/opt/w/bin/wringer-board",
+        "wringer-drive": "/opt/w/bin/wringer-drive",
+    })
+    check = doctor._wring()
+    assert check.status == doctor.OK
+    assert "/opt/w/bin" in check.detail
+    for name in doctor.WRINGER_EXECUTABLES:
+        assert name in check.detail or check.status == doctor.OK
+
+
+def test_A_SPLIT_INSTALL_IS_REPORTED_LOUDLY_AND_NAMES_BOTH_PLACES(monkeypatch):
+    """One distribution installs all four, so two directories means an older
+    install is shadowing part of a newer one and the person is running a
+    mixture. Exactly the state the field report's run 1 was in: `wring` and
+    `wringer` from wringer 0.3.0, the other two from separate 0.1.0 tools."""
+    _which(monkeypatch, {
+        "wring": "/old/bin/wring",
+        "wringer": "/old/bin/wringer",
+        "wringer-board": "/new/bin/wringer-board",
+        "wringer-drive": "/new/bin/wringer-drive",
+    })
+    check = doctor._wring()
+    assert check.status == doctor.WARN
+    assert "DIFFERENT directories" in check.detail
+    assert "/old/bin/wring" in check.detail and "/new/bin/wringer-board" in check.detail
+    assert "uninstall" in check.fix.lower()
+
+
+def test_a_MISSING_command_is_named_rather_than_passed_over(monkeypatch):
+    """A list derived from what IS on PATH could never notice an absence,
+    which is why the four are named in the source rather than discovered."""
+    _which(monkeypatch, {
+        "wring": "/opt/w/bin/wring",
+        "wringer": "/opt/w/bin/wringer",
+        "wringer-board": None,
+        "wringer-drive": "/opt/w/bin/wringer-drive",
+    })
+    check = doctor._wring()
+    assert check.status == doctor.WARN
+    assert "wringer-board" in check.detail
+    assert "NOT ON PATH" in check.detail
+
+
+def test_no_wringer_command_at_all_still_warns_rather_than_failing(monkeypatch):
+    """Running `python -m wringer doctor` from a source tree is a real thing
+    to do and is not an error."""
+    _which(monkeypatch, dict.fromkeys(doctor.WRINGER_EXECUTABLES, None))
+    check = doctor._wring()
+    assert check.status == doctor.WARN
+    assert check.passed, "an uninstalled source checkout is not a blocking fault"

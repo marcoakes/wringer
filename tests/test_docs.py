@@ -2486,7 +2486,12 @@ def test_the_install_prompt_never_asks_for_a_credential():
     for forbidden in ("api_key", "api key=", "-w ", "export anthropic", "sk-"):
         assert forbidden not in lowered, forbidden
     # And the masked step, which IS shipped, never carries a value.
-    assert "add-generic-password -s anthropic -a wringer -w\n" in text
+    assert "add-generic-password -U -s anthropic -a wringer -w\n" in text, (
+        "the documented command lost its -U — without it a second run "
+        "discards the key the person just typed and keeps the old one "
+        "(field report 2026-08-21, finding 2, reproduced in an isolated "
+        "keychain: exit 45, old value retained)"
+    )
     assert "-w sk-" not in text
     assert "-w $" not in text
 

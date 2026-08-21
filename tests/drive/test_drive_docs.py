@@ -961,13 +961,26 @@ def test_the_front_door_never_tells_a_pm_to_paste_a_key_into_an_agent():
     body = (ROOT / "START-HERE.md").read_text(encoding="utf-8")
     assert "not in your agent" in body
     assert "sk-ant" in body, "it never says which secret is actually wanted"
-    # Field-run finding 2, ruled onto this page 2026-08-19: on a machine that
-    # stored the key once, the command says the item already exists — and a
-    # reader not told to expect that reads it as failure and retypes, or
-    # gives up. The evaluator's Mac is exactly that machine now.
-    assert "already exists" in body, (
-        "the page never says what the command prints on a machine that "
-        "already stored the key"
+    # Field-run finding 2, and the fix CHANGED what this page has to say.
+    #
+    # Until 2026-08-21 the documented command had no `-U`, so on a machine
+    # that had stored the key once it failed with "already exists" — and the
+    # page's job was to warn the reader not to read that as failure. That
+    # advice was wrong in a way nobody had measured: the newly typed key is
+    # DISCARDED and the old one silently stays in use, so a reader who
+    # followed it believed they had set a key and had not.
+    #
+    # Reproduced in an isolated keychain on 2026-08-21: second add without
+    # `-U` exits 45 and the original value is still there; with `-U` it
+    # updates, and it creates when nothing is there. So the command now
+    # carries `-U`, and the page must explain WHY rather than tell a person
+    # to shrug at an error.
+    assert "-U` is not optional" in body, (
+        "the page does not say why -U is required, so a reader who drops it "
+        "loses the key they just typed and is told nothing"
+    )
+    assert "already exists" in body and "throws away" in body, (
+        "the page never says what happens without -U"
     )
 
 

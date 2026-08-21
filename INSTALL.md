@@ -229,12 +229,18 @@ Run this yourself, in your own terminal. **Do not paste your key into your
 coding agent, and do not put it on the command line:**
 
 ```bash
-security add-generic-password -s anthropic -a wringer -w
+security add-generic-password -U -s anthropic -a wringer -w
 ```
 
 Note there is **no value after `-w`**. That is deliberate: the operating system
 prompts you for the secret with the input masked, and the key never appears in
 your shell history, your scrollback, or anything your agent can read.
+
+`-U` means "replace the one already stored", and it is not optional. Without
+it, a second run fails with *"The specified item already exists in the
+keychain"* and **discards the key you just typed**, leaving the old one in use
+— so you believe you have set a key and you have not. Measured on a real
+machine, 2026-08-21 (`docs/field-report-2026-08-21.md`, finding 2).
 
 ### Other platforms
 

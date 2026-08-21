@@ -101,6 +101,39 @@ starts from a person who has nothing set up yet.
 **Neither branch is chosen here.** The measurement has not been taken, and
 choosing before it is taken is the thing this document exists to avoid.
 
+### §4a — A dated sub-finding, 2026-08-21. **NOT the fork's own measurement.**
+
+A product manager's second field run, and a probe run on the maintainer's Mac
+in the same window, measured facts ADJACENT to the fork. Recorded here because
+they strengthen §1's premise and because leaving them in a field report would
+mean this page's reader never sees them — not because they answer anything.
+
+**What was measured, on `@agentclientprotocol/claude-agent-acp` 0.70.0:**
+
+- The stock ACP adapter reports `apiType=native baseUrl=native` and
+  authenticates **entirely on its own account**. It ignored `WRINGER_API_KEY`
+  and it ignored `ANTHROPIC_API_KEY`; both were set, and the turn was still
+  refused with `Authentication required`. It wants an interactive login.
+- **Auth state is not readable before the paid turn.** An authenticated and an
+  unauthenticated agent are byte-for-byte indistinguishable across the whole
+  handshake — `authMethods: []` in both, `session/new` opens a session in
+  both, no error in either. The refusal appears only at `session/prompt`,
+  which is the call that costs money. `scripts/acp-auth-probe.py`,
+  `docs/MANUAL_CHECKS.md` sequence L.
+
+**What that means, and what it does not.** The spawned-worker path can neither
+reuse the person's existing session NOR be fed a credential non-interactively,
+which is a stronger version of the premise §1 already states. It says nothing
+about the fork: the fork is about the DRAFTING endpoint and a subscription
+credential, and nobody has posted one at `wring spec --send` yet. **Loopback
+stays unruled**, and the two rows above are unchanged.
+
+The near-term fix shipped instead is honest failure rather than a workaround:
+`wringer-drive` refuses before the first paid call when the agent is not on
+PATH, and a refused turn now names authentication to the operator with the
+agent's own words and the log path (`diagnose.FACE_TURN_REFUSED`). That is
+correct under either branch of the fork and does not prejudge it.
+
 ## §5 — What would falsify this sketch
 
 - If the drafting endpoint accepts a subscription credential, §1's framing is
@@ -115,6 +148,8 @@ choosing before it is taken is the thing this document exists to avoid.
 ## §6 — Status
 
 Authored 2026-08-19. **Not reviewed. Not ruled. Not built. No slice queued.**
+Amended 2026-08-21 with §4a, a dated sub-finding that measured the WORKER half
+and left the fork exactly where it was.
 It exists so that the retest on a fresh machine collects the one fact the
 decision needs, instead of that machine being set up, working, and the
 question going unasked for another cycle.

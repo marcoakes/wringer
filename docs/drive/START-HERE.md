@@ -30,14 +30,14 @@ per token, pennies per run). Give it to your Mac's Keychain in **Terminal**,
 not in your agent:
 
 ```bash
-security add-generic-password -s anthropic -a wringer -w
+security add-generic-password -U -s anthropic -a wringer -w
 ```
 
-There is deliberately no value after `-w`: your Mac prompts you and hides what
-you type, so the key never reaches your screen, your history, or anything your
-agent can read. The run command reads it from the Keychain directly, and the
-setup questions say where it will be sent. If it answers that the item
-**already exists**, you stored it before and it is still there — you are done.
+No value after `-w`, deliberately: your Mac prompts you with the input masked,
+so the key never reaches your screen, your history, or anything your agent can
+read. **`-U` is not optional.** Without it a second run says *"already exists"*
+and **throws away the key you just typed**, keeping the old one — so you
+believe you have set a key and have not. With `-U` it works either way.
 
 ## What to expect
 

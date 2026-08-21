@@ -113,7 +113,7 @@ Two things to do, both in THIS terminal window:
      If you have not stored one yet, run this first and paste the key at
      the masked prompt:
 
-       security add-generic-password -s anthropic -a wringer -w
+       security add-generic-password -U -s anthropic -a wringer -w
 
      THIS KEY IS FOR WRINGER, NOT FOR THE CODING AGENT. It pays for
      reading your document and drafting the plan, and nothing else. The

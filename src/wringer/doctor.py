@@ -116,17 +116,77 @@ def _python() -> Check:
     return Check("python", OK, f"Python {version}")
 
 
+# The four executables one `wringer` distribution installs. Named here rather
+# than discovered, because the question this check answers is "are the ones
+# that should be here, here" — and a list derived from what IS on PATH could
+# never notice an absence.
+WRINGER_EXECUTABLES = ("wring", "wringer", "wringer-board", "wringer-drive")
+
+
 def _wring() -> Check:
-    found = shutil.which("wring")
-    if found is None:
+    """Where every wringer-family command resolves, and whether they agree.
+
+    **Field report 2026-08-21, the note on a misleading diagnostic.** An
+    operator auditing an old install ran `uv tool list | grep -i wringer` —
+    which HIDES `wring`, because the line reads `- wring` and does not contain
+    the string "wringer". Anyone checking that way misses a shadowing binary
+    entirely. Separately, `pip` does not exist on that Mac at all, so any
+    `pip list | grep` check returns empty for a reason that has nothing to do
+    with what is installed.
+
+    The defect there was the test PROMPT's, not the product's, and it is worth
+    fixing anyway: a person should not need a correct grep to find out which
+    Wringer they are running. This repository has already shipped the failure
+    that makes it matter — an agent verified its own work with a stale `wring
+    0.2.0` on PATH, writing bundles with no `execution.json` into a 0.3.0 repo
+    (`docs/benchmark-first-run.md`).
+
+    So: every one of the four, resolved, with a LOUD line when they come from
+    different places. WARN rather than FAIL — a split install is usable and
+    the person may have arranged it on purpose — but never silent.
+    """
+    located = {name: shutil.which(name) for name in WRINGER_EXECUTABLES}
+    absent = [name for name, path in located.items() if path is None]
+    if len(absent) == len(WRINGER_EXECUTABLES):
         # Reachable when someone runs `python -m wringer doctor` from a
         # source tree without installing — worth flagging, not fatal.
         return Check(
-            "wring", WARN, f"wringer {__version__} is importable but `wring` "
-            "is not on PATH",
+            "wring", WARN, f"wringer {__version__} is importable but none of "
+            f"{', '.join(WRINGER_EXECUTABLES)} is on PATH",
             "pip install wringer, or add the venv's bin directory to PATH",
         )
-    return Check("wring", OK, f"wring {__version__} at {found}")
+
+    lines = [
+        f"{name} → {path}" if path else f"{name} → NOT ON PATH"
+        for name, path in located.items()
+    ]
+    # One distribution, so one directory. Two means an older install is
+    # shadowing part of a newer one, and the person is running a mixture.
+    homes = {str(Path(path).parent) for path in located.values() if path}
+    if len(homes) > 1:
+        return Check(
+            "wring", WARN,
+            f"wringer {__version__} — the four commands resolve into "
+            f"{len(homes)} DIFFERENT directories, so you are running a "
+            "mixture of installs:\n  " + "\n  ".join(lines),
+            "Uninstall every wringer distribution and install once: "
+            "`uv tool uninstall wringer wringer-board wringer-drive` then "
+            "`uv tool install wringer`",
+        )
+    if absent:
+        return Check(
+            "wring", WARN,
+            f"wringer {__version__} — {', '.join(absent)} "
+            f"{'is' if len(absent) == 1 else 'are'} missing from an otherwise "
+            "complete install:\n  " + "\n  ".join(lines),
+            "Reinstall so the whole distribution is present: "
+            "`uv tool install --force wringer`",
+        )
+    return Check(
+        "wring", OK,
+        f"wring {__version__}, and all four commands resolve into "
+        f"{homes.pop()}",
+    )
 
 
 def _git() -> Check:
