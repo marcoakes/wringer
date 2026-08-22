@@ -37,6 +37,12 @@ border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
 white-space:pre-wrap;overflow-x:auto}
 .said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
 margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+/* F14: the card's check output is a <details>, so it inherits none of the
+   page-level details chrome below — no 36px gap, no rule above it. Shut, it
+   is one line; open, it is exactly the block it always was. */
+.card details.said{margin:12px 0 0;border-top:none;padding-top:10px;font-size:13px}
+.card details.said summary.who{margin:0;color:var(--dim);list-style:revert}
+.card details.said[open] summary.who{margin:0 0 6px}
 .wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
 border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
 .wasred b{color:var(--red)}

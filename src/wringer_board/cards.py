@@ -70,6 +70,51 @@ BLOCKED_ON_THE_WORK = (NOT_YET, NOT_REACHED)
 SETTLED = (DONE,)
 INDETERMINATE = (UNKNOWN,)
 
+# **The refused chip reads that same partition — field report 2026-08-22
+# finding 13, reproduced 2026-08-22 before it was fixed.**
+#
+# `refuses` is an engine fact about the DELIVERY, and ruling 4a is right that
+# it is not a sixth state: a NOT YET row and a NEEDS YOU row can both be
+# holding up the handover, and collapsing their badges would re-break finding
+# 12. But the chip that announces the refusal printed ONE sentence — *"Refused
+# — This one is holding up the handover"* — over both, so a reader met two
+# rows saying the identical thing under two different badges and had no way to
+# tell whether the badge or the chip was the one that mattered.
+#
+# The badge, the body sentence and the summary count were already three
+# readers of one partition. The chip was a FOURTH thing on the card, reading
+# nothing. It reads the partition now, so the rule is one rule: **a refused
+# row's badge and its chip are both functions of who is blocked, and cannot
+# disagree.**
+#
+# The wording tracks the summary line's vocabulary on purpose — "needs you",
+# "not done yet", "no working check" — so the count line and the chip are the
+# same words for the same fact.
+WAITING_ON: dict[str, str] = {
+    **{s: "it is waiting on you" for s in BLOCKED_ON_PERSON},
+    **{s: "it is waiting on an engineer" for s in BLOCKED_ON_ENGINEER},
+    **{s: "it is waiting on the work" for s in BLOCKED_ON_THE_WORK},
+    **{s: "it is waiting on nothing this board can name" for s in SETTLED},
+    **{s: "what it is waiting on cannot be read from the evidence here" for s in INDETERMINATE},
+}
+
+
+def waiting_on(state: str) -> str:
+    """Who a refused row is waiting on — the ONE partition, never a guess.
+
+    Total over `STATES` by construction and pinned by
+    `test_the_refused_chip_and_the_badge_read_one_partition`. An unclassified
+    state raises rather than printing a sentence nothing decided.
+    """
+    try:
+        return WAITING_ON[state]
+    except KeyError:  # pragma: no cover - the totality test is the guard
+        raise KeyError(
+            f"{state!r} has no who-is-blocked classification, so no refused "
+            "chip can be written for it"
+        ) from None
+
+
 # Ruling 15's causes of `unevidenced`, discriminated. **There are FIVE, not the
 # four the ruling enumerated**, and the fifth is here because S1 met it on real
 # data and refused to render it as one of the others — see

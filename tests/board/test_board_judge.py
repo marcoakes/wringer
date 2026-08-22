@@ -535,6 +535,96 @@ def test_A_BADGE_AND_ITS_OWN_BODY_NEVER_CONTRADICT_EACH_OTHER():
                 )
 
 
+def test_TWO_REFUSED_ROWS_DO_NOT_SAY_THE_IDENTICAL_THING(tmp_path):
+    """Field report 2026-08-22 finding 13, on a rendered page.
+
+    Reproduced before it was fixed: a `gate-failed` row and an unanswered
+    `human:` row both refuse, both printed *"Refused — This one is holding up
+    the handover"* verbatim, and they were badged `NOT YET` and `NEEDS YOU`.
+    A reader met two rows saying the same thing under two different badges,
+    with nothing on the page reconciling them.
+
+    Ruling 4a is not touched — refusal is still not a state and the two badges
+    still differ, because the two rows really are blocked on different people.
+    What lands is one RULE: the chip is a function of the same who-is-blocked
+    partition the badge is, so the chip and the badge cannot disagree.
+
+    The assertions here are literal strings read out of the page, never
+    `WAITING_ON` fed back to itself — the finding-12 lesson is that a guard
+    derived from the thing it guards passes with the defect fully restored.
+    """
+    import re
+
+    from wringer_board import read as read_module
+    from wringer_board import render as render_module
+
+    def row(cid, state, cause, *, gate=None):
+        return read_module.Criterion(
+            id=cid,
+            title=f"Requirement {cid}",
+            required=True,
+            state=state,
+            refuses=True,
+            gate_id=gate,
+            command="npm test" if gate else None,
+            reason="",
+            receipt=None,
+            witness=None,
+            cause=cause,
+        )
+
+    board = read_module.Board(
+        repo=tmp_path,
+        criteria=[
+            row("the-work", "gate-failed", None, gate="suite"),
+            row("the-person", "human", "human-unanswered"),
+        ],
+    )
+    page = render_module.render(board)
+
+    chips = re.findall(r'<span class="badge">Refused</span>([^<]*)', page)
+    assert len(chips) == 2, f"expected two refused chips, got {chips!r}"
+    assert chips[0] != chips[1], (
+        "both refused rows print the identical chip while carrying different "
+        f"badges — finding 13, restored: {chips[0]!r}"
+    )
+
+    work_chip, person_chip = chips
+    assert "waiting on you" in person_chip, (
+        f"the row a PERSON unblocks does not say so: {person_chip!r}"
+    )
+    assert "waiting on you" not in work_chip, (
+        "a row nobody is asking the reader to do says it is waiting on them: "
+        f"{work_chip!r}"
+    )
+    assert "waiting on the work" in work_chip, work_chip
+
+
+def test_the_refused_chip_and_the_badge_read_ONE_partition():
+    """Totality, so a new state cannot arrive without a chip clause.
+
+    `waiting_on` raises on an unclassified state rather than printing a
+    sentence nothing decided, and the same law the badges live under —
+    only `BLOCKED_ON_PERSON` says "you" — applies to the chip.
+    """
+    from wringer_board import cards
+
+    for state in cards.STATES:
+        clause = cards.waiting_on(state)
+        assert clause, f"{state!r} has an empty chip clause"
+        if state not in cards.BLOCKED_ON_PERSON:
+            assert "you" not in clause.lower(), (
+                f"{state!r}'s refused chip tells the reader they are the "
+                f"blocker while its badge does not: {clause!r}"
+            )
+    assert set(cards.WAITING_ON) == set(cards.STATES), (
+        "these states have no refused-chip clause: "
+        f"{set(cards.STATES) ^ set(cards.WAITING_ON)}"
+    )
+    with pytest.raises(KeyError):
+        cards.waiting_on("A STATE NOBODY CLASSIFIED")
+
+
 def _criterion(*, state, cause, gate_id=None):
     from wringer_board import read as read_module
 

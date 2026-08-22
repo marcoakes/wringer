@@ -157,6 +157,28 @@ exclusive states with no precedence rule would be a lie about the data. It is
 also the honest model: **it is the delivery that was refused, not the
 criterion.**
 
+> **Dated note, 2026-08-22 — the table above is superseded in two cells and
+> ruling 4a itself is not.** Recorded rather than rewritten, so the shipped
+> reasoning stays readable beside what field measurement changed.
+>
+> 1. **The NEEDS YOU row.** Field report 2026-08-21 finding 12 measured eight
+>    rows badged `NEEDS YOU` whose own bodies read *"Nothing is needed from
+>    you"*. `NEEDS YOU` is now reserved for `state == "human"`; the
+>    `unevidenced` causes render `NOTHING CHECKS THIS` (unbound) or `NEEDS AN
+>    ENGINEER` (everything else), with `UNTRANSLATED` for a cause the board has
+>    no wording for. `cards.STATES` is the enumeration; this table's row is
+>    the pre-finding-12 one.
+> 2. **The REFUSED row's sentence.** Field report 2026-08-22 finding 13
+>    measured two refused rows printing *"This one is holding up the
+>    handover"* identically under two different badges. Ruling 4a is upheld —
+>    the badges genuinely differ because the rows are blocked on different
+>    people — and what changed is that the chip now names which, from the same
+>    who-is-blocked partition the badge and the summary count read
+>    (`cards.WAITING_ON`). The sentence a PM reads is *"This one is holding up
+>    the handover, and it is waiting on you / an engineer / the work."*
+>    Reproduced before the fix and red-watched after it
+>    (`test_TWO_REFUSED_ROWS_DO_NOT_SAY_THE_IDENTICAL_THING`).
+
 **Ruling 4b — NOT REACHED asserts no cause it cannot support** (review H3, HIGH).
 The card's sentence is `accept.py:333-336`'s own: *nothing here says anything
 about it.* The board may add *"«criterion X» failed first and the run stopped

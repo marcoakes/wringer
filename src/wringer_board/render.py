@@ -40,6 +40,7 @@ from wringer_board.cards import (
     Card,
     card_for,
     promise_earned,
+    waiting_on,
 )
 from wringer_board.read import Board, UnknownVersion
 
@@ -96,6 +97,12 @@ border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
 white-space:pre-wrap;overflow-x:auto}
 .said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
 margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+/* F14: the card's check output is a <details>, so it inherits none of the
+   page-level details chrome below — no 36px gap, no rule above it. Shut, it
+   is one line; open, it is exactly the block it always was. */
+.card details.said{margin:12px 0 0;border-top:none;padding-top:10px;font-size:13px}
+.card details.said summary.who{margin:0;color:var(--dim);list-style:revert}
+.card details.said[open] summary.who{margin:0 0 6px}
 .wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
 border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
 .wasred b{color:var(--red)}
@@ -175,9 +182,15 @@ def _card_html(card: Card) -> str:
         f'<h2><span class="state">{_esc(card.state)}</span>{_esc(card.title or card.id)}</h2>'
     )
     if card.refused:
+        # **The chip names who it waits on — finding 13.** Two refused rows
+        # printed this identical sentence under two different badges, and
+        # nothing on the page said why they differed. The clause comes from
+        # `cards.WAITING_ON`, the same partition the badge and the count line
+        # read, so the three cannot contradict each other.
         parts.append(
             '<p><span class="badge">Refused</span> '
-            "This one is holding up the handover.</p>"
+            "This one is holding up the handover, and "
+            f"{_esc(waiting_on(card.state))}.</p>"
         )
     if card.sentence:
         parts.append(f"<p>{_esc(card.sentence)}</p>")
@@ -221,16 +234,36 @@ def _card_html(card: Card) -> str:
             if card.state == DONE
             else ""
         )
+        # **Collapsed by default, and that is the WHOLE change — F14.**
+        #
+        # Field report 2026-08-22 finding 14, Medium: this block prints a
+        # check's raw output, and that output names assertions matching six
+        # requirement cards below which read "nothing checks this". The
+        # paragraph at the bottom explains why both are true, and the report's
+        # verdict on it was *"technically correct and it will read as nonsense
+        # to anyone not fluent in the binding model. The tests are visibly
+        # right there on the page."*
+        #
+        # **The only permitted answer was structural.** The board's own cold
+        # reads measured it: structural changes took the page from 85 to 68,
+        # and ADDED EXPLANATORY PROSE made it worse, 68 → 82. So not one word
+        # moves here. What moves is the shape: the raw output goes behind the
+        # summary line it already had, so a reader scanning the page never
+        # meets the apparently-contradicting test names at all, and a reader
+        # who opens it deliberately meets the scope sentence in the same act.
+        #
+        # `wasred` stays outside and visible — that is the hero, and it is a
+        # receipt rather than a log.
         parts.append(
-            '<div class="said"><span class="who">What the check for '
+            '<details class="said"><summary class="who">What the check for '
             "<b>this</b> requirement printed"
             + (" <b>BEFORE the work</b>" if card.state == DONE else "")
-            + f"</span>{_esc(card.check_said)}"
+            + f"</summary>{_esc(card.check_said)}"
             + now_passes
             + '<p class="scope">These lines are what this one requirement\'s '
             "check said. It may test more than this requirement does — but it "
             "only <b>proves</b> this one, so a requirement below saying "
-            "nothing checks it is not contradicted by anything here.</p></div>"
+            "nothing checks it is not contradicted by anything here.</p></details>"
         )
     if card.question:
         # **The unblocking question, rendered — H-4.** Ruling 16 has given

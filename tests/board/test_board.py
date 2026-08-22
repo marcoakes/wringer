@@ -533,3 +533,66 @@ def test_a_run_that_recorded_no_usage_says_NOTHING_rather_than_zero():
 
     assert "What this run recorded using" not in html
     assert "0 tokens" not in html
+
+
+def test_the_CHECK_OUTPUT_is_COLLAPSED_and_no_prose_was_added(repo):
+    """Field report 2026-08-22 finding 14, answered structurally and only so.
+
+    The block prints a check's raw output, and that output names assertions
+    matching requirement cards below which read "nothing checks this". The
+    reader's verdict on the paragraph explaining why both are true: *"it will
+    read as nonsense to anyone not fluent in the binding model. The tests are
+    visibly right there on the page."*
+
+    **Prose was the forbidden move.** The board's own cold reads measured a
+    structural pass taking the page 85 → 68 and an explanatory-prose pass
+    making it worse, 68 → 82. So this guard has two halves: the raw output is
+    behind a shut `<details>`, and the explaining sentence did not multiply —
+    it is inside that same block, where a reader meets it in the act of
+    opening the log rather than as standing prose on a page they are scanning.
+    """
+    write_run(
+        repo,
+        "20260816-090000-aaaa",
+        [criterion("a", "Recent games appear first", "gate-failed", refuses=True)],
+        gates={
+            "suite": (
+                "stderr",
+                "the most recently played comes first (0.07ms)\n"
+                "at most three are shown (0.06ms)\n"
+                "it survives closing the page (0.05ms)\n",
+            )
+        },
+    )
+    page = html_of(repo)
+
+    assert "the most recently played comes first" in page, "the log vanished"
+
+    # Shut by default. `<details open>` would put the log back on the page.
+    assert '<details class="said"' in page, (
+        "the check output is not behind a collapsible block at all, so it "
+        "renders in full beside cards saying nothing checks them — finding "
+        "14, restored"
+    )
+    block = page.split('<details class="said"')[1]
+    assert not block.startswith(" open"), (
+        "the check output renders expanded, so a reader scanning the page "
+        "still meets test names matching requirements the page says nothing "
+        "checks — finding 14, restored"
+    )
+    assert "<summary" in block.split("</summary>")[0] + "</summary>", block[:200]
+
+    # Everything the reader could misread is INSIDE the collapsed block.
+    before_details, after_summary = page.split("</summary>", 1)
+    for inside_only in (
+        "the most recently played comes first",
+        "It may test more than this requirement does",
+    ):
+        assert inside_only not in before_details, (
+            f"{inside_only!r} renders above the fold of the collapsed block"
+        )
+        assert inside_only in after_summary
+
+    # And the sentence did not become two. One explaining paragraph, as before.
+    assert page.count("It may test more than this requirement does") == 1
+    assert page.count('<p class="scope">') == 1

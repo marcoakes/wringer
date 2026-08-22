@@ -146,6 +146,60 @@ narrow honest refusal now on the page and treat loopback as the answer? The
 first is a small change to a handshake. The second is a cycle. Nothing here
 chooses, and the measurement above is why the choice is finally informed.
 
+### §4b-note — Dated correction, 2026-08-22. **Point 2 above is MEASURED FALSE, and the ruling has since landed.**
+
+*Added the same day §4b was written, after the measurement §4b did not have.
+The paragraphs above are left byte-intact: they are the reasoning that was
+shipped, and reading them beside what falsified them is the point of a dated
+note. This section still decides nothing.*
+
+**§4b was written from a source READ. `docs/auth-probe-2026-08-22.md` is the
+turn nobody had SENT.** `scripts/acp-auth-probe.py --prompt`, three runs, same
+adapter version (0.70.0):
+
+| run | environment | `session/new` | `session/prompt` |
+|---|---|---|---|
+| 1 | uncontained, as the user | opened | refused `-32000 Authentication required` |
+| 2 | `HOME` = empty dir | opened | refused `-32000 Authentication required` |
+| 3 | **`ANTHROPIC_API_KEY` in the child env** | opened | **ANSWERED, `stopReason: end_turn`** |
+
+1. **"The adapter never reads `ANTHROPIC_API_KEY` as a credential" is false.**
+   `createEnvForProvider` opens `if (!config) { return {}; }`
+   (`dist/acp-agent.js:5323`). Wringer configures no provider, so the branch
+   that blanks the variable is the branch Wringer never takes; the variable
+   reaches the CLI untouched and the CLI reads it. A conditional had been
+   written down as an absolute.
+2. **"the field falsified it, degrading `Authentication required` to
+   `Internal error`" is NOT REPRODUCED.** Run 3 is exactly that configuration
+   and `session/new` opened cleanly. Recorded as not reproduced, not as
+   fixed — the evaluator saw something and this run does not explain what.
+3. **What §4b got right and keeps.** Point 3 stands: `authMethods: []` is a
+   handshake fact, and sequence L stands — no probe below `session/prompt`
+   can see auth, which is why the free surface that CAN is a different
+   surface entirely (`claude-agent-acp --cli auth status`, machine-readable,
+   costs nothing, and is what `worker_auth.py` preflights on).
+4. **The honest limit, unchanged.** This machine's coding-agent CLI is not
+   subscription-signed-in, so nothing here measures the subscription
+   credential. Run 1's premise ("as the signed-in user") was false.
+
+**The route table, ruled.** `~/Claude/WRINGER_4B_RULING_2026-08-22.md` (Fable,
+2026-08-22) settles the branch space this section was holding open. The
+decision belongs to that ruling; it is cited here so the table stops being
+wrong:
+
+| route | ruling |
+|---|---|
+| 1. Native login | **PRIMARY** — and measured working via `ANTHROPIC_API_KEY` through the boundary (run 3 above) |
+| 2. The gateway route (`x-api-key` via the adapter's LLM-gateway mapping) | second route, unmeasured |
+| 3. `codex exec --json` as a shell worker | **ADOPTED**, two roles: capstone fallback, and a standing roster/bench seat |
+| 4. The app-server supervised worker | **BANKED** — its own cycle, its own spec and review; not licensed |
+| 5. Loopback proper | **REFUSED for now** — three cheaper measured routes exist before any protocol inversion is justified |
+
+The ruling's own limit applies to route 3 and is repeated here because it is
+the one a roster slice could quietly loosen: *a codex worker is a WORKER — the
+same untrusted thing every worker is; nothing about vendor choice relaxes a
+gate, a refusal, or the record.*
+
 ### §4a — A dated sub-finding, 2026-08-21. **NOT the fork's own measurement.**
 
 A product manager's second field run, and a probe run on the maintainer's Mac
