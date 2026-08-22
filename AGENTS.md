@@ -91,8 +91,8 @@ Where they disagree about v0.1, the spec wins.
 
 ## Current state — v0.3.0 shipped; unreleased work on `main`
 
-**`v0.1.0`, `v0.2.0` and `v0.3.0` are tagged and on PyPI**
-(`pip install wringer`). `wring init`, `wring verify` and `wring explain` were
+**`v0.1.0` through `v0.4.2` are tagged and on PyPI**
+(`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
 the first of those: `verify` runs a repo's whole declared gate set and writes
 a real bundle, `--json` feeds agents, and secrets never reach the disk.
 
@@ -161,7 +161,7 @@ window has inherited a sentence from before the retreat.
 | **The witness lane wired to delivery** (`f310b7f`, `wringer.acceptance.v2`) | a red witness refuses a delivery over a green vacuous gate | the schema spend of `acceptance.v2` is **already made**. A cycle needing a new acceptance shape spends the NEXT version |
 | **The loop engages while a witness is red** (`ef07f97`) | the loop's continuation predicate is no longer gate-only | it ran live on exactly the three corpus rows whose witness stayed red |
 | **In-toto beside the bundle** (`f27681a`) | R3 discharged | `wringer.attestation.v1` is frozen and gains no dialect. The standard is emitted alongside, never inside |
-| **THE RE-TEST LOST** (`039bebc`) | one pass, 13 real upstream bug fixes, both arms, $53.34; three of six pre-registered clauses missed ([docs/corpus-2026-08-16.md](docs/corpus-2026-08-16.md)) | **the bug-fix claim came out of the README automatically**, on a trigger set before the run. **No 0.4.0** — R4 gates the release on a win. Tags stop at `v0.3.0` |
+| **THE RE-TEST LOST** (`039bebc`) | one pass, 13 real upstream bug fixes, both arms, $53.34; three of six pre-registered clauses missed ([docs/corpus-2026-08-16.md](docs/corpus-2026-08-16.md)) | **the bug-fix claim came out of the README automatically**, on a trigger set before the run. **No 0.4.0 on R4's terms** — R4 gated that release on a win, and tags stopped at `v0.3.0`. *Dated note, 2026-08-22: `0.4.0` shipped later for a different reason — the packages merging into one — with `0.4.1` and `0.4.2` after it. R4's bar was never met and was never what released it.* |
 
 **The one sentence a window in this area must not get wrong.** The witness lane
 is still in the tree and it is a **measured capability whose wide claim was

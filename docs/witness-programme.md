@@ -34,7 +34,11 @@ on 13 of 13. The replacement thesis is one sentence:
 | **P1** | The witness author, calibrated offline | **CLOSED** 2026-08-15 on (a)+(b); see below |
 | **P2** | Contain the worker | **DONE** 2026-08-15 — [specs/SPEC_CONTAIN_V0.md](specs/SPEC_CONTAIN_V0.md), built at `f002bd0`: the worker joins a netns holder WITHOUT `NET_ADMIN`, so it cannot disarm its own boundary. Sequence I ran against it with a `--privileged` control |
 | **P3** | Wire delivery, then re-test live | **DONE 2026-08-16, and the re-test LOST.** Wired at `f310b7f` (`wringer.acceptance.v2` — a red witness refuses a delivery); the pass ran the same day and missed three of §5's six clauses ([corpus-2026-08-16.md](corpus-2026-08-16.md)). The stop was 2026-09-30; it ran six weeks early |
-| **P4** | Standard emission (in-toto), then release 0.4.0 | **Half done, and the other half will not happen.** In-toto emits beside the bundle (`f27681a`, R3 discharged). **0.4.0 does not ship** — R4 gates the release on a re-test WIN and the re-test lost. Tags stop at `v0.3.0` |
+| **P4** | Standard emission (in-toto), then release 0.4.0 | **Half done, and the other half will not happen.** In-toto emits beside the bundle (`f27681a`, R3 discharged). **0.4.0 did not ship on this programme's terms** — and it is left standing
+because it was the ruling at the time. *Dated note, 2026-08-22: `0.4.0`
+shipped later anyway, for a different reason — the four packages merging into
+one — and `0.4.1` and `0.4.2` after it. The bar below was not met and was not
+what released it.* The original sentence, as it stood at the time: R4 gates the release on a re-test WIN and the re-test lost. Tags stop at `v0.3.0` (dated note: they no longer do) |
 
 ### P1 — closed, and how
 
@@ -98,7 +102,7 @@ Pre-registered here so it cannot be lawyered after the run: **a loss driven by
 criterion-satisfying-but-upstream-divergent deliveries still fires it.** If the
 identifiability limit makes the Phase 3 stop unwinnable, then the wide claim is
 unlicensable, which is the same fact wearing its honest name. R4's
-no-release-until-a-win stands in addition: 0.4.0 does not ship on a loss.
+no-release-until-a-win stands in addition: 0.4.0 does not ship on a loss. *Dated note, 2026-08-22: at the time that was the ruling; 0.4.0 shipped later on different grounds — the packages merging — and never on this bar.*
 
 ## The Phase 3 stop, transcribed in full
 

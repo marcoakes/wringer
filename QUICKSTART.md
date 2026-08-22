@@ -15,25 +15,29 @@ python3 --version        # must be 3.11+
 ```
 
 ```bash
-pipx install wringer     # or: pip install wringer
+uv tool install wringer
 ```
 
-That is **0.3.0**, all seventeen commands, and its only runtime dependency is
-PyYAML. `pipx` puts `wring` on your PATH globally and keeps it out of your
-system Python; `pip install wringer` into a venv works identically.
+That is **0.4.2**, all nineteen commands, and its only runtime dependency is
+PyYAML. It installs four executables — `wring`, `wringer`, `wringer-board`
+and `wringer-drive` — as one distribution, and puts them on your PATH without
+touching your system Python. `pipx install wringer` and `pip install wringer`
+into a venv both work identically.
 
-> **`0.3.0` is behind this repository, and this page describes the
-> repository.** Two commands below — `bench` and `health` — do not exist in
-> the released package, so a reader who installs `0.3.0` and then reads
-> "the nineteen commands" further down would find seventeen. That gap is
-> dated and named at the README's install path; to follow this page exactly,
-> install from source instead ([INSTALL.md](INSTALL.md)). The gap closes when
-> a release is cut.
+> **This page describes the released package.** It used to say the opposite —
+> that `0.3.0` was behind the repository, that `bench` and `health` were
+> missing from the release, and that a reader should **install from source
+> instead**. Every one of those sentences was true when it was written and
+> false from `0.4.0` onward, and they sat on the Quickstart until 2026-08-22
+> because the release guard checked `README.md` and `SECURITY.md` by name and
+> this page was not on the list. It is derived now, so a page that names a
+> released version is held to the newest tag whether or not anybody
+> remembered to add it.
 
 Verify it:
 
 ```bash
-wring --version          # wring 0.3.0
+wring --version          # wring 0.4.2
 ```
 
 > **Installing from git** — `pip install "git+https://github.com/marcoakes/wringer"`
@@ -105,9 +109,10 @@ the one thing a guided launch must not do.
 
 ## The nineteen commands
 
-**Nineteen in this repository; seventeen in the released `0.3.0`** — `bench`
-and `health` came after it, and the note at the top of this page says so where
-a reader meets the install line rather than here, where it would be too late.
+**Nineteen, in the repository and in the released package alike** — that has
+been true since `0.4.0`, and this line used to say seventeen because `bench`
+and `health` came after `0.3.0`. There is no longer a gap between what you
+install and what this page walks.
 
 This page walks five of them in order. The rest exist and are documented
 where they are used; nothing here is a preview.

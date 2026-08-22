@@ -3685,3 +3685,87 @@ def test_EVERY_RELATIVE_LINK_IN_EVERY_PAGE_RESOLVES():
         "clicks a link in a document they wrote, which is why this is a test "
         "and not a habit: " + "; ".join(broken[:12])
     )
+
+
+# --- a CEILING claim below the newest tag ------------------------------------
+#
+# `test_a_document_naming_the_released_version_names_the_newest_tag` is
+# parameterised over a HARDCODED list of documents, and its own docstring says
+# it deliberately leaves the seventeen-vs-nineteen callout alone. Both
+# decisions were right when made and both went wrong the moment 0.4.0 shipped:
+# QUICKSTART.md told readers the release was `0.3.0` with seventeen commands
+# and that they should **install from source instead**, and it said so for
+# weeks because it was not on the list.
+#
+# This is the derived half. Not "does this page name the newest version" — a
+# page need not name any — but the narrower, checkable thing: **no page may
+# assert a CEILING or a CURRENCY below the newest tag.** Scope is every
+# reader-facing page, discovered rather than listed.
+
+_CEILING_CLAIMS = (
+    re.compile(r"tags?\s+stops?\s+at\s+`?v?(\d+\.\d+\.\d+)`?", re.I),
+    re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s+the\s+current\s+one", re.I),
+    re.compile(r"installs?\s+`?v?(\d+\.\d+\.\d+)`?\s+from\s+PyPI", re.I),
+    re.compile(
+        r"that\s+is\s+\*{0,2}`?v?(\d+\.\d+\.\d+)`?\*{0,2},\s+all\s+\w+\s+commands",
+        re.I,
+    ),
+    re.compile(r"`?v?(\d+\.\d+\.\d+)`?\s+does\s+not\s+ship", re.I),
+)
+
+#: A sentence that dates itself is history, and history is allowed to name an
+#: old ceiling — that is what a record IS.
+_DATED = re.compile(
+    r"dated note|used to|at the time|no longer|was the ruling|"
+    r"shipped later|originally|superseded|before |until ",
+    re.I,
+)
+
+
+def test_NO_PAGE_ASSERTS_A_RELEASE_CEILING_BELOW_THE_NEWEST_TAG():
+    """Derived scope, so a new page inherits the guard rather than needing one.
+
+    A ceiling claim is objectively checkable against `git tag`: "tags stop at
+    `v0.3.0`" is either true or it is not. A page may still RECORD an old
+    ceiling — the programme notes that ruled 0.4.0 out do exactly that — as
+    long as the sentence dates itself.
+    """
+    newest = newest_release_tag()
+    if newest is None:
+        pytest.skip("this checkout cannot read its own tags")
+    newest_parts = tuple(int(n) for n in newest.lstrip("v").split("."))
+
+    root = repo_root()
+    skip = {".wringer", ".wringer.example", "node_modules", ".venv", "build",
+            "dist", "coldread", ".git", ".pytest_cache", "benchmark"}
+    capture = re.compile(r"field-re(port|sponse)|install-2026|-2026-\d\d-\d\d\.md")
+
+    stale = []
+    for page in sorted(root.rglob("*.md")):
+        rel = page.relative_to(root)
+        if any(part in skip for part in rel.parts) or capture.search(str(rel)):
+            continue
+        body = re.sub(r"```.*?```", "", page.read_text(encoding="utf-8"), flags=re.S)
+        for pattern in _CEILING_CLAIMS:
+            for match in pattern.finditer(body):
+                claimed = tuple(int(n) for n in match.group(1).split("."))
+                if claimed >= newest_parts:
+                    continue
+                # **A WINDOW, not a sentence.** Splitting on "." is wrong
+                # here for the obvious reason nobody sees until it bites: a
+                # version number contains periods, so the "sentence" around
+                # `0.4.0` truncated mid-number and the dated note beside it
+                # was never in scope. The guard reported a doc as stale that
+                # had already been annotated — its own defect, not the page's.
+                lo = max(0, match.start() - 240)
+                hi = min(len(body), match.end() + 240)
+                sentence = " ".join(body[lo:hi].split())
+                if _DATED.search(sentence):
+                    continue
+                line = body[: match.start()].count("\n") + 1
+                stale.append(f"{rel}:{line} → {sentence[:100]}")
+    assert not stale, (
+        f"the newest tag is {newest}, and these pages assert a release ceiling "
+        "below it. A reader acts on a ceiling — by installing the wrong thing, "
+        "or by not installing at all: " + "; ".join(stale)
+    )

@@ -97,8 +97,9 @@ format is emitted beside the bundle; and the widest claim this project ever
 made was pre-registered, tested against thirteen real upstream bug fixes,
 **lost**, and withdrawn automatically the same day
 ([`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md),
-[`docs/witness-programme.md`](docs/witness-programme.md)). No release rides on
-it; tags stop at `v0.3.0`.
+[`docs/witness-programme.md`](docs/witness-programme.md)). No release rode on
+it at the time, and tags stopped at `v0.3.0`. **They no longer do** — `v0.4.0`,
+`v0.4.1` and `v0.4.2` shipped afterwards for other reasons; see the CHANGELOG.
 
 That loss is why the queue above points where it does. All four of its misses
 were the same limit — a written requirement under-describing what someone
