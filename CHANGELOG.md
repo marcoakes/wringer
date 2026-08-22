@@ -4,6 +4,51 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.1 — unreleased
+
+**STAGED, NOT PUBLISHED.** `src/wringer/__init__.py` still reads `0.4.0` on
+purpose: a bumped-but-unpublished version would force README's derived guard
+to claim a release that does not exist, which is the same false claim in the
+other direction. `release.yml` publishes on any `v*` tag push, so the tag IS
+the publish button and it waits for a person. The order is: push `main` green,
+then bump the literal, then tag.
+
+### The third field test
+
+`docs/field-report-2026-08-22.md` lands verbatim;
+`docs/field-response-2026-08-22.md` is the finding-by-finding disposition.
+
+**The report's first finding is about this repository's release habits and it
+is the one that mattered.** The run installed `origin/main`, which was `v0.4.0`;
+eleven commits and the previous run's own report existed only on the author's
+machine. A field test cannot be gated on unpushed code. The version half of
+that class is now derived from the tags rather than remembered.
+
+- **Install is one command on one page.** `uv tool install wringer`.
+  `INSTALL.md`'s two `--editable` installs errored on the second — both
+  packages had come to declare `wringer-board` — and `docs/drive/AGENTS.md`'s
+  three-repository variant would have collided the same way. Both gone.
+- **README's version and packaging claims are derived**, and fail in both
+  directions: a page naming an older version than the latest tag is stale, one
+  naming a newer version claims a release that does not exist, and a page
+  calling a command this distribution ships a separate unpublished package is
+  refused by its own `[project.scripts]`.
+- **The documented remedy for an unauthenticated builder was a guess, and is
+  gone.** `env_passthrough` with `ANTHROPIC_API_KEY` cannot work: the adapter
+  never reads that variable as a credential, and blanks it when a provider is
+  configured. The page now says the plain thing instead.
+- **An assumption can no longer displace a human judgement.** A drafted reply
+  whose assumption shapes a criterion the same reply marked `human: true` is
+  refused whole, naming the criterion.
+- **An answered question cannot reach the builder as a conditional.**
+- **Bare `wring` names a way in** before the usage error. No new command.
+- **The stdin bullet no longer promises more than the drain does.** The
+  interlock is real and was measured in both directions; what was wrong was a
+  sentence that read as total protection.
+- Board: usage counts moved out from under the disclaimer heading.
+- CI installs `uv`, without which a setup-script guard went red for the wrong
+  reason on every ubuntu run.
+
 ## 0.4.0 — 2026-08-19
 
 ### The PM consent surface (SPEC_PMPLAN_V0)

@@ -203,19 +203,19 @@ page renders. Recorded here rather than "fixed", because claiming a fix for
 something that is not broken is the same class of false claim as the ones this
 report is about.
 
-**F15 — the token counts.** They are rendered as a sibling *after* the
-`</details>`, not inside it, so they are not filed under the disclaimer in the
-DOM. But with the section collapsed they sit directly beneath its summary line
-with no intervening heading, which is exactly how they read. The finding is
-real as a matter of layout even though the markup is not what it looked like.
-OWED — see below.
+**F15 — the token counts.** They were rendered as a sibling *after* the
+`</details>`, never inside it, so they were not filed under the disclaimer in
+the DOM. But with that section collapsed they sat directly beneath its summary
+line with no heading in between, which is exactly how they read. The finding is
+real as a matter of layout even though the markup was not what it looked like,
+so the fix removes the adjacency rather than arguing with the reader about what
+the DOM says: the spend paragraph now renders ABOVE the limits block. Usage is
+not a disclaimer. FIXED THIS WINDOW.
 
 ---
 
 ## Owed
 
-- **F15's layout.** Give the spend paragraph its own heading, or move it above
-  the collapsed disclaimer. Not done in this window.
 - **F13** — two identical blocking states carrying different badges. One badge
   rule for refused states. Not done in this window.
 - **F14** — the failing-test output reading as a contradiction. The board's own

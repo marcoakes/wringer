@@ -363,17 +363,14 @@ def render(board: Board) -> str:
     # deciding which debts matter.
     body.extend(_card_html(card) for card in cards)
 
-    # Ruling 9: the honest limits render VERBATIM, in the engine's own voice.
-    # Translating a limit weakens it unless the translation is guarded, and
-    # that guard is a cycle. §8's sixth non-goal refuses it.
-    if board.limits:
-        body.append(
-            "<details><summary>What this page does not claim — "
-            "Wringer's own words, unedited</summary><ul>"
-        )
-        body.extend(f"<li>{_esc(limit)}</li>" for limit in board.limits)
-        body.append("</ul></details>")
-
+    # **Above the limits block, not below it** — field report 2026-08-22
+    # finding 15. This paragraph is a sibling of the collapsed
+    # "What this page does not claim" section, never a child of it, but
+    # with that section shut it sat directly under its summary line with
+    # no heading in between — so it read as filed under the disclaimer.
+    # Usage is not a disclaimer. Moving it above removes the adjacency
+    # rather than arguing with the reader about what the DOM says.
+    #
     # **What this run recorded spending. Facts only, and never a price** —
     # Wringer keeps no price table, because a number it cannot check is a
     # number it must not print. Rendered only when something recorded a
@@ -389,6 +386,17 @@ def render(board: Board) -> str:
             f"{_esc(counted)}. These are the counts the model and the worker "
             "reported; Wringer does not price them.</p>"
         )
+
+    # Ruling 9: the honest limits render VERBATIM, in the engine's own voice.
+    # Translating a limit weakens it unless the translation is guarded, and
+    # that guard is a cycle. §8's sixth non-goal refuses it.
+    if board.limits:
+        body.append(
+            "<details><summary>What this page does not claim — "
+            "Wringer's own words, unedited</summary><ul>"
+        )
+        body.extend(f"<li>{_esc(limit)}</li>" for limit in board.limits)
+        body.append("</ul></details>")
 
     # **The requirements document, LAST and collapsed.** It is the input, not
     # the answer, and it was the first thing on the page. Its markdown was
