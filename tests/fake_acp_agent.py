@@ -10,6 +10,10 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
 
     fix        write the file that makes the gate pass, via fs/write_text_file
     escape     try to write outside the repo (must be refused)
+    ownhands   fix the file with its OWN filesystem access, never through
+               `fs/write_text_file` — what a real coding agent does, and
+               the shape that converges a loop while Wringer's own ledger
+               reads `files_written: 0`
     permission ask for permission, then fix
     idle       do nothing and stop cleanly
     unauth     answer the handshake, open a session, then REFUSE the prompt
@@ -46,12 +50,18 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
     usageleak  report usage AND put a credential in the same notification,
                so the sibling file's own scrubbing is exercised rather than
                assumed.
+    usageidle  report usage and then change NOTHING — a turn that really did
+               spend money and really did produce no file. The only shape in
+               which a `turn_changed_nothing` diagnosis carries telemetry in
+               `engine_words`, which is what decides whether that field or
+               the stop reason is the one quoted to a person.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import pathlib
 import sys
 import time
 
@@ -319,7 +329,7 @@ def main() -> int:
                         notify(session_id, f"update says {name}={value}")
 
 
-            if BEHAVIOUR in ("usage", "usageleak"):
+            if BEHAVIOUR in ("usage", "usageleak", "usageidle"):
                 # A credential inside the SAME notification for `usageleak`,
                 # so the sibling file's scrubbing is exercised rather than
                 # assumed — the numbers cannot carry a secret, but an agent
@@ -368,6 +378,16 @@ def main() -> int:
                     "path": "calc.py",
                     "content": "FIXED\n",
                 })
+            elif BEHAVIOUR == "ownhands":
+                # **Writes the file ITSELF, never through the client.** This
+                # is what a real coding agent does — it holds the filesystem
+                # and has no reason to ask Wringer for it — and until
+                # 2026-08-22 nothing in this suite covered it. The shape
+                # matters because Wringer's ledger can only count what crosses
+                # its own `fs/` channel, so this turn converges the loop with
+                # `files_written: 0`, and every inference drawn from that
+                # counter is wrong about it.
+                pathlib.Path("calc.py").write_text("FIXED\n", encoding="utf-8")
             elif BEHAVIOUR == "escape":
                 outbound += 1
                 answer = request(outbound, "fs/write_text_file", {

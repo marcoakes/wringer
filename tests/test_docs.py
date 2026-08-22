@@ -2926,7 +2926,22 @@ def claimed_voice(text: str) -> str:
                 in_quote = True
                 keeping = bool(_CALLOUT_OPENER.match(stripped))
             if keeping:
-                kept.append(line)
+                # **The `>` comes OFF, and leaving it on made a guard inert.**
+                #
+                # Found 2026-08-22 by simulating a release. Every callout wraps
+                # its sentences, so a kept line carried its marker into the
+                # flattened text and README's own version claim reached the
+                # patterns as:
+                #
+                #     `0.4.0` is the released > version
+                #
+                # No pattern can match across that, so
+                # `test_a_document_naming_the_released_version_names_the_newest_tag`
+                # matched NOTHING on the one document it was written for. It
+                # passed in both directions of a deliberately wrong version,
+                # which is worse than not existing — the CHANGELOG announced
+                # README's version claims as derived on the strength of it.
+                kept.append(stripped.lstrip(">").lstrip())
             continue
         in_quote = False
         keeping = False
@@ -3396,3 +3411,99 @@ def test_no_page_calls_a_SHIPPED_COMMAND_a_separate_unpublished_package():
                 f"{', '.join(named)} ship in this distribution's own "
                 f"[project.scripts], so installing it is exactly what works"
             )
+
+
+def test_the_release_recipe_NAMES_every_document_the_version_guard_checks():
+    """**The deadlock, and the list that has to move with the tag.**
+
+    Simulated in a clone on 2026-08-22. The recipe said *"push `main` green,
+    then bump the literal, then tag"*, and there is no ordering of those three
+    that is green throughout: prose ahead of the tag claims a release that
+    does not exist, and a tag ahead of the prose leaves the page stale. The
+    only green path is one commit carrying both, tagged locally, gated with
+    the tag present, then pushed as one act.
+
+    The simulation also found a second document — `SECURITY.md` names the
+    released version too, and a recipe that says "bump README" leaves `main`
+    red on the release commit itself.
+
+    So this is DERIVED, not a list kept beside one. It asks which documents
+    actually carry a released-version claim right now, and fails if the recipe
+    does not name each of them. A document that starts naming the version, or
+    stops, takes this with it.
+    """
+    require_checkout("CHANGELOG.md")
+    # **Scoped to the recipe, not to the file.** Searching the whole CHANGELOG
+    # made this pass with `README.md` deleted from the ordering, because every
+    # past release mentions it somewhere — a guard reading a document instead
+    # of the paragraph it is about. Caught by mutating the recipe and watching
+    # nothing go red.
+    changelog = (repo_root() / "CHANGELOG.md").read_text(encoding="utf-8")
+    start = changelog.index("## 0.4.1")
+    end = changelog.index("\n## ", start + 1)
+    recipe = changelog[start:end]
+
+    naming = []
+    for document in _VERSION_PROSE:
+        path = repo_root() / document
+        if not path.is_file():
+            continue
+        flat = " ".join(claimed_voice(path.read_text(encoding="utf-8"))
+                        .replace("*", "").split())
+        if any(pattern.search(flat) for pattern in _RELEASED_VERSION_CLAIMS):
+            naming.append(document)
+
+    assert naming, (
+        "no document claims a released version, so either the patterns have "
+        "stopped matching — which is exactly the defect found on 2026-08-22, "
+        "when a `>` marker inside a callout broke every one of them — or the "
+        "claims are genuinely gone and this guard should be retired"
+    )
+    missing = [document for document in naming if document not in recipe]
+    assert not missing, (
+        f"CHANGELOG's release recipe does not name {missing}, and those "
+        "documents name the released version. A release commit that leaves "
+        "them behind is red on itself"
+    )
+
+
+@pytest.mark.parametrize("document", _VERSION_PROSE)
+def test_claimed_voice_leaves_NO_quote_MARKER_inside_a_sentence(document):
+    """The defect class behind the inert guard, caught at its own level.
+
+    Every callout in this repository wraps its sentences, so a `>` kept on a
+    line becomes a token in the middle of the flattened text:
+
+        `0.4.0` is the released > version
+
+    No pattern written for English can match across that, and the pattern that
+    could not match was the one deriving README's released version. It passed
+    in both directions of a deliberately wrong version for as long as it
+    existed.
+
+    The version guard alone cannot catch this on itself — blind it to README
+    and `SECURITY.md` still matches, so it stays green while checking half of
+    what it claims. This asks the question one level down instead: after
+    flattening, no standalone `>` may survive, because a marker inside a
+    sentence silently narrows every guard downstream of this helper, not just
+    that one.
+    """
+    require_checkout(document)
+    path = repo_root() / document
+    # Fenced blocks are dropped first: a shell redirect (`… > calc.py`) is a
+    # standalone `>` and is not a markdown marker. `SETUP.md`'s one-line setup
+    # command is exactly that, and it is correct.
+    prose, fenced = [], False
+    for line in claimed_voice(path.read_text(encoding="utf-8")).splitlines():
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if not fenced:
+            prose.append(line)
+    flat = " ".join("\n".join(prose).replace("*", "").split())
+
+    assert " > " not in flat, (
+        f"{document}: a markdown quote marker survives into the text the "
+        "prose guards match against, so any claim wrapping across that line "
+        "is unmatchable and every pattern reading it is silently narrowed"
+    )

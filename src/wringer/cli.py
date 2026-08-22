@@ -1966,19 +1966,43 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
     found = outcome.worker_diagnosis
     if found is None:
         return
-    # **The quote is whichever of the two the turn actually produced.**
+    # **A CONVERGED loop says nothing about a turn that "changed nothing".**
     #
-    # Found by running a refused turn on 2026-08-22: a refused turn has NO
-    # stop reason — it errored before one existed — so this printed the
-    # literal `it reported `` and wrote no file`, an empty pair of backticks
-    # where the agent's own words were promised. Those words were on the
-    # diagnosis the whole time, in `engine_words`, which is the field that
-    # exists to carry them.
+    # Measured on the first real build this product ever drove to completion,
+    # 2026-08-22: the loop converged, a red acceptance check went green, five
+    # files were written — and this printed *"the agent finished its turn
+    # without changing a file or reporting an error; this usually means it
+    # could not authenticate"*. The product succeeded and then told the
+    # operator it had failed.
+    #
+    # The cause is a real measurement limit, not a counting bug:
+    # `files_written` counts writes that came through Wringer's own
+    # `fs/write_text_file` channel, and an agent holding the filesystem
+    # directly writes without ever using it. Wringer cannot see those, so the
+    # ledger is honestly zero and the INFERENCE from it is what is wrong.
+    #
+    # Convergence is the one fact that settles it: the gates went green, so
+    # something was built, whoever wrote it and however. A hint contradicted
+    # by the loop's own verdict is not a hint.
+    if outcome.status == "converged":
+        return
+    # **The quote is the turn's own stop reason, and its words only if there
+    # is no stop reason.**
+    #
+    # Found by running a refused turn: a refused turn has NO stop reason — it
+    # errored before one existed — so this printed the literal
+    # `it reported `` and wrote no file`, an empty pair of backticks where the
+    # agent's words were promised. `engine_words` had them all along.
+    #
+    # The precedence is this way round and not the other, which the same
+    # converged run settled: for a turn that finished, `engine_words` held the
+    # adapter's `usage_update` telemetry, so preferring it would have quoted a
+    # raw JSON blob at a person instead of `end_turn`.
     #
     # And when there is genuinely nothing to quote, the clause is dropped
     # rather than emptied. A sentence that quotes silence reads as a bug in
     # Wringer, which is the opposite of what a diagnosis is for.
-    said = found.engine_words or found.stop_reason
+    said = found.stop_reason or found.engine_words
     reported = f" (it reported `{said}` and wrote no file)" if said else (
         " (it wrote no file and reported nothing)"
     )

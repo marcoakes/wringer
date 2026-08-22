@@ -311,6 +311,90 @@ def test_the_remedy_points_at_a_log_that_actually_HAS_the_words(
     )
 
 
+def test_a_CONVERGED_loop_never_says_the_agent_changed_nothing(
+    repo, monkeypatch, capsys
+):
+    """**Measured on the first real build this product drove to completion.**
+
+    2026-08-22, the arcade example on the author's Mac: the loop converged, a
+    red acceptance check went green, the agent wrote five files — and the
+    ending printed *"the agent finished its turn without changing a file or
+    reporting an error; this usually means it could not authenticate"*. The
+    product succeeded and then told the operator it had failed.
+
+    The counter was not lying. `files_written` counts writes that crossed
+    Wringer's own `fs/write_text_file` channel, and a real coding agent holds
+    the filesystem itself and never asks. `ownhands` is that agent: it fixes
+    the file directly, so the ledger honestly reads zero while the disk
+    changes underneath.
+
+    What was wrong is the INFERENCE. Convergence settles it — the gates went
+    green, so something was built, whoever wrote it and however — and a hint
+    contradicted by the loop's own verdict is not a hint.
+    """
+    setup(repo, "ownhands")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    printed = capsys.readouterr().out
+
+    assert "Converged" in printed, (
+        "the fixture no longer converges, so this guard is checking nothing"
+    )
+    written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    if written.is_file():
+        # The record may still carry the face — it is a true statement about
+        # Wringer's own channel. The CONSOLE is what may not contradict the
+        # ending printed two lines above it.
+        assert json.loads(written.read_text(encoding="utf-8"))["files_written"] == 0
+    assert "without changing a file" not in printed, (
+        "the loop converged and the console still told the operator the agent "
+        "changed nothing"
+    )
+    assert "could not authenticate" not in printed, (
+        "a converged run offers authentication as an explanation for its own "
+        "success"
+    )
+
+
+def test_the_quote_prefers_the_STOP_REASON_over_carried_telemetry(
+    repo, monkeypatch, capsys
+):
+    """Which of the two fields is quoted, settled by the same real run.
+
+    A refused turn has no stop reason and its words are in `engine_words`, so
+    that field has to be reachable. But on a turn that FINISHED, `engine_words`
+    held the adapter's `usage_update` notification — a raw JSON blob of token
+    counts and cost — and quoting it would print that at a person instead of
+    `end_turn`.
+
+    So the precedence is stop reason first. `usageidle` is the shape that can
+    show it: a turn that really did spend and really did produce nothing, so
+    the diagnosis IS emitted and its `engine_words` carry telemetry. (`usage`
+    cannot — it writes a file, so no diagnosis is produced at all and a guard
+    written against it asserts about a line nobody printed.)
+    """
+    setup(repo, "usageidle")
+    monkeypatch.chdir(repo)
+
+    cli.main(["run"])
+    printed = capsys.readouterr().out
+
+    written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    assert written.is_file(), "no diagnosis, so this guard would check nothing"
+    carried = json.loads(written.read_text(encoding="utf-8"))["engine_words"]
+    assert "usage_update" in carried, (
+        "the fixture no longer puts telemetry in engine_words, so the choice "
+        "between the two fields is not being exercised"
+    )
+
+    assert "without changing a file" in printed, "the diagnosis did not print"
+    assert "sessionUpdate" not in printed and "usage_update" not in printed, (
+        "a raw telemetry notification was quoted back at the operator"
+    )
+    assert "`end_turn`" in printed, "the turn's own stop reason was not quoted"
+
+
 def test_a_refused_turn_is_not_confused_with_a_turn_that_finished(
     repo, monkeypatch, capsys
 ):

@@ -789,22 +789,47 @@ def test_no_setup_script_claims_wringers_key_reaches_the_coding_agent(name):
         nowhere else
 
     True of Wringer. False of the coding agent Wringer launches, which is the
-    thing that does the actual work — it authenticates on its own account,
-    reads no key Wringer sets, and measurably ignores both `WRINGER_API_KEY`
-    and `ANTHROPIC_API_KEY`. A PM sets one key, every visible signal looks
+    thing that does the actual work: it needs a credential of its own, and
+    `WRINGER_API_KEY` is not it. A PM sets one key, every visible signal looks
     correct, two paid calls succeed, and the build fails for a reason named
     nowhere in the interview, the plan or the example.
 
     A half-true sentence about credentials is worse than no sentence: it
     answers the reader's question wrongly and stops them asking again.
+
+    **Re-derived 2026-08-22, because the correction over-corrected.** These
+    scripts went on to say the agent *"signs in on its own account, and this
+    key never reaches it — setting it does not log the agent in, and no other
+    variable does either"*. The last clause is false: `ANTHROPIC_API_KEY`
+    declared under `run.worker.acp.env_passthrough` authenticates the builder,
+    measured (`round3b-artifacts/S0-FINDING.md`). So what is pinned now is not
+    a denial. It is that the script separates the two credentials, and then
+    tells the reader how to give the agent one and how to check for free
+    whether they need to — because a reader who is told only what does NOT
+    work is still stuck.
     """
     script = (EXAMPLES / name / "setup.sh").read_text(encoding="utf-8")
     assert "NOT FOR THE CODING AGENT" in script, (
         f"{name}'s setup.sh does not say the key it asks for is not the "
         "agent's credential"
     )
-    assert "signs in on its own account" in script
-    assert "never reaches it" in script
+    assert "credential of its own" in script, (
+        f"{name}'s setup.sh no longer says the builder needs its own "
+        "credential, which is the whole distinction this guard exists for"
+    )
+    assert "auth login" in script and "env_passthrough" in script, (
+        f"{name}'s setup.sh names the problem without naming either route out "
+        "of it"
+    )
+    assert "auth status" in script, (
+        f"{name}'s setup.sh does not give the reader the free check that says "
+        "which route they need before they spend anything"
+    )
+    for killed in ("never reaches it", "no other variable does either"):
+        assert killed not in script, (
+            f"{name}'s setup.sh asserts {killed!r} — measured false on "
+            "2026-08-22"
+        )
 
 
 @pytest.mark.parametrize("name,green,red", ALL_EXAMPLES)

@@ -7,11 +7,29 @@ package version and are listed per release.
 ## 0.4.1 — unreleased
 
 **STAGED, NOT PUBLISHED.** `src/wringer/__init__.py` still reads `0.4.0` on
-purpose: a bumped-but-unpublished version would force README's derived guard
-to claim a release that does not exist, which is the same false claim in the
+purpose: a bumped-but-unpublished version would force the derived guard to
+claim a release that does not exist, which is the same false claim in the
 other direction. `release.yml` publishes on any `v*` tag push, so the tag IS
-the publish button and it waits for a person. The order is: push `main` green,
-then bump the literal, then tag.
+the publish button and it waits for a person.
+
+**The order, and it is not the obvious one.** `README.md` and `SECURITY.md`
+both name the released version, and the guard derives that name from
+`git tag` in both directions. So no ordering leaves `main` green at every
+step unless the tag and the prose move in the same commit:
+
+1. **One commit**, carrying the version literal, every document that names the
+   released version — `README.md` and `SECURITY.md` — and this file's date.
+2. `git tag -a v0.4.1 -m 0.4.1`, **locally**. A tag that has not been pushed
+   has published nothing, and `git tag -d` undoes it.
+3. `sh scripts/ci-repro.sh`. Green *here*, with the tag present, is the
+   release bar. Red: delete the tag, fix, repeat.
+4. `git push origin main v0.4.1` — one act, both refs. CI re-checks that same
+   commit with its tag visible, because every job carries `fetch-depth: 0`.
+
+Bumping the literal and pushing before the tag turns `main` red; tagging
+before the prose moves turns it red the other way. Both were measured on
+2026-08-22 by simulating the release in a clone, which is also how the guard
+was found to have been matching nothing at all.
 
 ### The third field test
 
