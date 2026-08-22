@@ -4,32 +4,27 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 0.4.1 — unreleased
+## 0.4.1 — 2026-08-22
 
-**STAGED, NOT PUBLISHED.** `src/wringer/__init__.py` still reads `0.4.0` on
-purpose: a bumped-but-unpublished version would force the derived guard to
-claim a release that does not exist, which is the same false claim in the
-other direction. `release.yml` publishes on any `v*` tag push, so the tag IS
-the publish button and it waits for a person.
+**Published.** `uv tool install wringer` gets it.
 
-**The order, and it is not the obvious one.** `README.md` and `SECURITY.md`
-both name the released version, and the guard derives that name from
-`git tag` in both directions. So no ordering leaves `main` green at every
-step unless the tag and the prose move in the same commit:
+**The release ordering, measured rather than assumed.** `README.md` and
+`SECURITY.md` both name the released version, and a guard derives that name
+from `git tag` in both directions — so no ordering leaves `main` green at
+every step unless the tag and the prose move in one commit:
 
-1. **One commit**, carrying the version literal, every document that names the
-   released version — `README.md` and `SECURITY.md` — and this file's date.
-2. `git tag -a v0.4.1 -m 0.4.1`, **locally**. A tag that has not been pushed
+1. **One commit**: the version literal, every document that names the released
+   version, and this file's date.
+2. `git tag -a vX.Y.Z -m X.Y.Z`, **locally**. A tag that has not been pushed
    has published nothing, and `git tag -d` undoes it.
-3. `sh scripts/ci-repro.sh`. Green *here*, with the tag present, is the
-   release bar. Red: delete the tag, fix, repeat.
-4. `git push origin main v0.4.1` — one act, both refs. CI re-checks that same
-   commit with its tag visible, because every job carries `fetch-depth: 0`.
+3. `sh scripts/ci-repro.sh`. Green *there*, with the tag present, is the bar.
+4. `git push origin main vX.Y.Z` — one act, both refs. `release.yml` publishes
+   on the tag, with no stored credential.
 
 Bumping the literal and pushing before the tag turns `main` red; tagging
 before the prose moves turns it red the other way. Both were measured on
-2026-08-22 by simulating the release in a clone, which is also how the guard
-was found to have been matching nothing at all.
+2026-08-22 by simulating the release in a clone — which is also how the
+version guard was found to have been matching nothing at all.
 
 ### The wall was a missing credential, and the arcade example got built
 
@@ -85,10 +80,12 @@ that class is now derived from the tags rather than remembered.
   naming a newer version claims a release that does not exist, and a page
   calling a command this distribution ships a separate unpublished package is
   refused by its own `[project.scripts]`.
-- **The documented remedy for an unauthenticated builder was a guess, and is
-  gone.** `env_passthrough` with `ANTHROPIC_API_KEY` cannot work: the adapter
-  never reads that variable as a credential, and blanks it when a provider is
-  configured. The page now says the plain thing instead.
+- **The documented remedy for an unauthenticated builder was retracted here,
+  and the retraction was itself wrong** — see the section above, which was
+  written later the same day after the turn was finally run.
+  `env_passthrough` with `ANTHROPIC_API_KEY` DOES authenticate the builder.
+  The bullet that stood here said it could not, reasoning from a branch of
+  `createEnvForProvider` that Wringer never reaches.
 - **An assumption can no longer displace a human judgement.** A drafted reply
   whose assumption shapes a criterion the same reply marked `human: true` is
   refused whole, naming the criterion.
