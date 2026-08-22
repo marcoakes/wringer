@@ -1740,6 +1740,49 @@ def same_command(one: str, other: str) -> bool:
     they differ, which is the safe direction — a false NO here costs a
     criterion its binding, a false YES would let a check that cannot
     discriminate stand as proof.
+
+    **AMENDED 2026-08-22, and the amendment is that the ruling above stands —
+    now with a measurement behind it rather than a judgement.**
+
+    Codex ships `command_canonicalization.rs`, which parses argv and collapses
+    wrapper differences, and it was banked as a steal
+    (`~/Claude/WRINGER_CODEX_DOSSIER_2026-08-22.md` §5.6). The bar this window
+    set for taking it was proof, not plausibility: a pair may collapse only
+    when the identical interpreter can be shown to run the identical payload.
+
+    Any such canonicalizer in Python is built on `shlex`. Gates run through
+    `subprocess(shell=True)` — `/bin/sh -c` (`gates.py`). So the question is
+    whether `shlex` agrees with the shell that will actually run the command.
+    Fifteen pairs were put through both and the argv compared byte for byte
+    (`scripts/canonicalization-probe.py`).
+
+    **Four disagree in the direction that does the damage, and the cause is
+    one thing: `shlex` strips both quote characters identically, and the shell
+    does not.** Single quotes suppress expansion; double quotes do not.
+
+        pytest --cov="$PKG"  vs  pytest --cov='$PKG'
+            shlex:  ['pytest', '--cov=$PKG']  ==  ['pytest', '--cov=$PKG']
+            sh:     ['--cov=wringer']         !=  ['--cov=$PKG']
+
+    Same for `"\\$HOME"` vs `'\\$HOME'`, for `"$(echo hi)"` vs its
+    single-quoted literal, and for the backtick form. A canonicalizer trusting
+    `shlex` would call such a pair of gates twins, treat the drafted one as
+    already installed, and leave the criterion bound to a check the person
+    never approved — the exact consent damage the original ruling names, from
+    an input a config could plausibly carry.
+
+    The five pairs `shlex` and the shell agree on are not worth taking alone:
+    quoting a flag is not something real configs do, and each sits one
+    character from a case that is wrong.
+
+    So: **nothing ships, and the seam is recorded rather than papered over.**
+    `test_spec.py::test_canonicalization_is_REFUSED_on_a_measured_false_yes`
+    pins a real false-YES so a later window rebuilding this has to meet it
+    first. What would change the answer is not a better `shlex`: it is
+    comparing the argv the shell ACTUALLY produced, recorded at execution
+    time, which is a design and is OWED rather than improvised. Full capture,
+    including a defect in the probe's own first version, is
+    `docs/canonicalization-2026-08-22.md`.
     """
     return " ".join(one.split()) == " ".join(other.split())
 

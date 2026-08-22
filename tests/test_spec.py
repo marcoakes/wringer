@@ -2873,3 +2873,60 @@ def test_prose_that_merely_MENTIONS_uncertainty_is_not_a_hedge():
             path="wringer.spec.yaml",
         )
     ) == ()
+
+
+def test_canonicalization_is_REFUSED_on_a_measured_false_yes():
+    """**The seam, pinned — S4.2, 2026-08-22.**
+
+    Codex's `command_canonicalization.rs` was banked as a steal, and the bar
+    for taking it was proof rather than plausibility. Any Python canonicalizer
+    is built on `shlex`; gates run through `subprocess(shell=True)` —
+    `/bin/sh -c`. Fifteen pairs were run through both and the argv compared.
+    Four disagree in the direction that does damage, and they share one cause:
+    **`shlex` strips both quote characters identically and the shell does
+    not.** Single quotes suppress expansion; double quotes do not. So
+
+        pytest --cov="$PKG"      and      pytest --cov='$PKG'
+
+    are one string to `shlex` and two different checks to the shell. A
+    canonicalizer trusting `shlex` would call those gates twins, treat the
+    drafted one as already installed, and leave a criterion bound to a check
+    the person never approved — silent consent damage, from a config a real
+    repository could carry.
+
+    So `same_command` stays whitespace-only, and this test is the toll a later
+    window has to pay: **make it pass with a real fix, do not delete it.**
+
+    The platform claim is RE-TAKEN here rather than trusted. The first version
+    of this guard pinned a different pair, on a measurement that turned out to
+    be an artefact of a broken probe — and it was this style of assertion that
+    caught it. Full capture: `docs/canonicalization-2026-08-22.md`.
+    """
+    import subprocess
+
+    from wringer import spec as spec_module
+
+    expanded = 'pytest --cov="$WRINGER_PROBE_PKG"'
+    literal = "pytest --cov='$WRINGER_PROBE_PKG'"
+    assert not spec_module.same_command(expanded, literal), (
+        "same_command now calls these two the same command. The measurement "
+        "says the shell does not: double quotes expand and single quotes do "
+        "not, so these run different checks. If canonicalization has genuinely "
+        "been made safe, argue it in docs/canonicalization-2026-08-22.md and "
+        "measure it against a real shell — do not assert it here"
+    )
+
+    # The property the refusal rests on, measured on THIS machine rather than
+    # quoted from a document.
+    env = {"WRINGER_PROBE_PKG": "wringer", "PATH": "/usr/bin:/bin"}
+    got = [
+        subprocess.run(
+            f"printf %s {form}", shell=True, capture_output=True, text=True, env=env
+        ).stdout
+        for form in ('"$WRINGER_PROBE_PKG"', "'$WRINGER_PROBE_PKG'")
+    ]
+    assert got == ["wringer", "$WRINGER_PROBE_PKG"], (
+        "on this platform the shell does NOT distinguish the two quote "
+        f"classes the way the refusal assumes: {got}. Re-take the measurement "
+        "in scripts/canonicalization-probe.py before concluding anything here"
+    )
