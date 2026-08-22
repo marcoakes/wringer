@@ -639,7 +639,26 @@ def _workspace(root: Path) -> Check:
 # The names to look for when the repository has not declared one — or when
 # there is no repository to ask. Used ONLY as a fallback: a config that names
 # its own variable is the authority on what this machine needs.
-WELL_KNOWN_KEY_ENVS = ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")
+#
+# **Alphabetical, and derived-guarded against `docs/vendors.md`.** This tuple
+# was two names long and vendor-locked while the vendor page told people about
+# five vendors, so somebody who followed the page and stored a Kimi key got
+# "no LLM API key set" with their key correctly set — doctor had looked for
+# two names, said which, and neither was theirs.
+# `test_vendors.py::test_DOCTOR_LOOKS_FOR_THE_KEY_NAMES_THIS_PAGE_TELLS_PEOPLE_TO_USE`
+# reads the page and fails if a variable it teaches is missing here. The page
+# is the source; this list may never fall behind it.
+#
+# `WRINGER_API_KEY` is here because it is the BRAIN lane's convention and is
+# vendor-free: it is the name `wringer-drive` writes into every generated
+# config, whichever endpoint the person chose.
+WELL_KNOWN_KEY_ENVS = (
+    "ANTHROPIC_API_KEY",
+    "CODEX_API_KEY",
+    "KIMI_API_KEY",
+    "OPENAI_API_KEY",
+    "WRINGER_API_KEY",
+)
 
 
 def _declared_key_names(root: Path) -> tuple[str, ...]:

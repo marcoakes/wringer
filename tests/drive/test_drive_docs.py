@@ -1012,7 +1012,27 @@ def test_the_front_door_says_out_loud_that_the_agent_is_uncontained():
 def test_the_front_door_never_tells_a_pm_to_paste_a_key_into_an_agent():
     body = (ROOT / "START-HERE.md").read_text(encoding="utf-8")
     assert "not in your agent" in body
-    assert "sk-ant" in body, "it never says which secret is actually wanted"
+    # **Was `assert "sk-ant" in body` until 2026-08-22, and the guard itself
+    # was the vendor lock.** Its intent is right — a page that says "store
+    # your key" without saying WHICH secret leaves a person guessing — but it
+    # enforced that intent by pinning one company's key prefix, so the only
+    # way to satisfy it was to tell every reader to go and get an Anthropic
+    # key. The author's test convenience had become the user's constraint,
+    # which is the charter's own failure mode.
+    #
+    # The intent, stated without a vendor: the page must say the secret is an
+    # API key, say it belongs to a provider the reader CHOOSES, and point at
+    # the matrix that lists them.
+    flat = " ".join(body.split()).lower()
+    assert "api key" in flat, "it never says which secret is actually wanted"
+    assert "provider you choose" in flat, (
+        "the page names a secret without saying it is the reader's choice of "
+        "provider — which is how a front door acquires a default vendor"
+    )
+    assert "vendors.md" in body, (
+        "the page asks for a provider's key and never points at the list of "
+        "providers that have been measured"
+    )
     # Field-run finding 2, and the fix CHANGED what this page has to say.
     #
     # Until 2026-08-21 the documented command had no `-U`, so on a machine
@@ -1152,14 +1172,55 @@ def test_the_agent_runbook_and_the_questions_offer_the_same_documented_values():
     for question in run_module.SETUP_QUESTIONS:
         suggested = question.detail.get("suggested")
         assert suggested, f"{question.id} offers no documented value in its detail"
-        assert suggested in question.text, (
-            f"{question.id} does not offer its documented value in the "
-            f"question text itself: {question.text!r}"
+        # **A LIST, always — extended 2026-08-22 when the worker question grew
+        # a second and third measured form.** One shape, so an agent reading
+        # `detail` never has to tell a string from a list; and EVERY value is
+        # held to both documents, not just the first, because a value the
+        # runbook does not carry is a value the person cannot check.
+        assert isinstance(suggested, list), (
+            f"{question.id}'s `suggested` is {type(suggested).__name__}, not a "
+            "list — the two shapes are how one of these questions quietly "
+            "stops being held to the runbook"
         )
-        assert suggested in runbook, (
-            f"{question.id}'s documented value {suggested!r} is not the one "
-            f"AGENTS.md documents"
-        )
+        for value in suggested:
+            assert value in question.text, (
+                f"{question.id} does not offer its documented value {value!r} "
+                f"in the question text itself: {question.text!r}"
+            )
+            assert value in runbook, (
+                f"{question.id}'s documented value {value!r} is not one "
+                f"AGENTS.md documents"
+            )
+
+
+def test_the_worker_question_offers_MORE_THAN_ONE_VENDORS_AGENT():
+    """**The charter, at the one question where it is decided.**
+
+    A person meets exactly one moment where the tool could imply which
+    company's agent it is for, and this is it. One offered command reads as
+    THE command. The guard is deliberately about COUNT and about DISTINCT
+    vendors rather than about particular strings, so it keeps holding as the
+    roster changes.
+    """
+    worker = next(
+        q for q in run_module.SETUP_QUESTIONS if q.detail["key"] == "worker"
+    )
+    offered = worker.detail["suggested"]
+    assert len(offered) >= 2, (
+        f"the worker question offers one command, {offered!r} — which reads "
+        "as the command a person is supposed to use"
+    )
+    # Distinct first words: three spellings of one vendor's binary would
+    # satisfy a count and satisfy nothing else.
+    binaries = {value.replace("acp:", "").strip().split()[0] for value in offered}
+    assert len(binaries) >= 2, (
+        f"every offered worker command starts the same binary: {binaries}"
+    )
+    text = " ".join(worker.text.split())
+    assert "any agent you can start from a terminal" in text.lower(), (
+        "the question never states the structural fact that makes the offers "
+        f"examples rather than a menu: {worker.text!r}"
+    )
 
 
 def test_the_endpoint_question_says_where_the_key_goes():

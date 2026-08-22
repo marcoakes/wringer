@@ -7,7 +7,7 @@ name = "wringer"
 # Single-sourced from src/wringer/__init__.py. Two hand-synced copies is
 # one copy too many when a release step has to edit both.
 dynamic = ["version"]
-description = "The vendor-neutral AI-DLC harness: runs your repo's own gates, keeps evidence a stranger can audit, and refuses what it cannot evidence"
+description = "Works with any coding agent you can start from a terminal and any model behind an OpenAI-compatible endpoint: runs your repo's own gates, records the check red before the work, and refuses what it cannot evidence"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }

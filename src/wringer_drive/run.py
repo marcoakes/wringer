@@ -216,36 +216,76 @@ DECLARED_DEFAULTS = {
 
 # Each question OFFERS its documented example value in the question text —
 # asking with no suggestion was field-run finding 8 — and the person still
-# answers: an empty answer stops the run, never falls back to the suggestion.
+# answers: an empty answer stops the run, never falls back to a suggestion.
 # The values are the ones AGENTS.md documents, and a guard holds the two
 # to the same strings.
+#
+# **`suggested` is a LIST, and it became one to keep the charter true.** It
+# held exactly one value per question, which was fine while one vendor's agent
+# was the only one anybody had measured and quietly wrong the moment three
+# were: a single offered command reads as THE command, and a tool whose whole
+# claim is that it works with anything must not present one vendor's binary as
+# the shape of the answer. The list is uniform — one entry where there is one
+# documented value — so an agent reading `detail` never meets two shapes.
+#
+# **Offers, never fallbacks.** Nothing in this module reads `suggested` at
+# run time; it exists so the question text and the runbook can be held to the
+# same strings by a guard, and so nobody has to invent a value. An unanswered
+# question stops the run. `test_drive_docs.py` pins both halves, and
+# `test_no_vendor_is_ever_a_default` pins that no vendor string reaches a
+# generated config the person did not type.
+#
+# The endpoint and the model carry ONE offer each on purpose: they must MATCH
+# — `glm-5.3` at Anthropic's URL is a 404, not a choice — so the question
+# points at the matrix rather than inviting a mix-and-match. The worker
+# question carries three, because a worker command stands on its own.
+VENDORS_PAGE = "docs/vendors.md"
+
 SETUP_QUESTIONS = (
     Step(
         kind=ASK,
         id="setup:endpoint",
         text="Which model endpoint should read your document and draft the "
-        "plan? Paste the URL your team uses — for the worked example "
-        "it is https://api.anthropic.com/v1/chat/completions. Your "
+        "plan? Any endpoint that speaks the OpenAI chat-completions shape "
+        "works. Paste the URL your team uses — for the worked example "
+        "it is https://api.anthropic.com/v1/chat/completions, and the "
+        "measured alternatives are listed in docs/vendors.md. Your "
         "API key will be sent to whatever URL you enter here.",
         detail={
             "key": "endpoint",
-            "suggested": "https://api.anthropic.com/v1/chat/completions",
+            "suggested": ["https://api.anthropic.com/v1/chat/completions"],
+            "more": VENDORS_PAGE,
         },
     ),
     Step(
         kind=ASK,
         id="setup:model",
         text="Which model should it use? (a name, like the one on your "
-        "team's API page — the worked example uses claude-opus-5)",
-        detail={"key": "model", "suggested": "claude-opus-5"},
+        "team's API page — the worked example uses claude-opus-5. It has "
+        "to be a model the endpoint above serves; docs/vendors.md lists "
+        "the pairs that were measured.)",
+        detail={
+            "key": "model",
+            "suggested": ["claude-opus-5"],
+            "more": VENDORS_PAGE,
+        },
     ),
     Step(
         kind=ASK,
         id="setup:worker",
         text="Which coding agent should do the building? Give the command "
-        "that starts it — the worked example uses "
-        "acp: claude-agent-acp.",
-        detail={"key": "worker", "suggested": "acp: claude-agent-acp"},
+        "that starts it — any agent you can start from a terminal will "
+        "do. Three that were measured on 2026-08-22: "
+        "acp: claude-agent-acp, acp: kimi acp, and codex exec --json -.",
+        detail={
+            "key": "worker",
+            "suggested": [
+                "acp: claude-agent-acp",
+                "acp: kimi acp",
+                "codex exec --json -",
+            ],
+            "more": VENDORS_PAGE,
+        },
     ),
 )
 

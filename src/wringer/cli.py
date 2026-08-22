@@ -1147,6 +1147,39 @@ def _start_repair(
     return loop_outcome.final if loop_outcome.final is not None else failed
 
 
+def _missing_key(verb: str, judge_config: config.Judge) -> str:
+    """The no-key refusal, in the words of the vendor the OPERATOR chose.
+
+    **The mechanism is vendor-free and the message is not, and that is the
+    whole point.** The old sentence named the variable and stopped, so a
+    person who had followed `docs/vendors.md`, chosen DeepSeek and stored a
+    key was told a variable name and left to work out which of the five
+    conventions applied to them. Nothing here has a vendor list: the host
+    comes from the endpoint THEY wrote in their own config, so the sentence
+    is specific without the engine ever preferring anybody.
+
+    Wringer still never guesses a Keychain service — it names the convention
+    and points at the page that lists them, because a guessed service name
+    that does not exist is a worse answer than no answer.
+    """
+    endpoint = judge_config.endpoint or ""
+    host = ""
+    if endpoint:
+        from urllib.parse import urlsplit
+
+        host = urlsplit(endpoint).hostname or ""
+    where = f" — the key for {host}" if host else ""
+    return (
+        f"wring {verb}: 'judge.api_key_env' names {judge_config.api_key_env}, "
+        f"which is not set in this environment{where}.\n"
+        "  Store it once and read it inline, never pasting it to an agent:\n"
+        "    security add-generic-password -U -s <vendor>-api-key -a wringer -w\n"
+        f"    {judge_config.api_key_env}=\"$(security find-generic-password "
+        "-s <vendor>-api-key -a wringer -w)\" wring " + verb + " …\n"
+        "  The service name to use for each vendor is in docs/vendors.md."
+    )
+
+
 def _diagnose_failure(outcome: verify.Outcome) -> None:
     """Name the failure shape a new user hits first.
 
@@ -2582,11 +2615,7 @@ def cmd_judge(args: argparse.Namespace) -> int:
         return EXIT_REFUSED
 
     if cfg.judge.api_key_env and os.environ.get(cfg.judge.api_key_env) is None:
-        print(
-            f"wring judge: 'judge.api_key_env' names {cfg.judge.api_key_env}, "
-            "which is not set in this environment",
-            file=sys.stderr,
-        )
+        print(_missing_key("judge", cfg.judge), file=sys.stderr)
         return EXIT_CONFIG
 
     try:
@@ -2832,11 +2861,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
         and cfg.judge.api_key_env
         and os.environ.get(cfg.judge.api_key_env) is None
     ):
-        print(
-            f"wring spec: 'judge.api_key_env' names {cfg.judge.api_key_env}, "
-            "which is not set in this environment",
-            file=sys.stderr,
-        )
+        print(_missing_key("spec", cfg.judge), file=sys.stderr)
         return EXIT_CONFIG
 
     try:

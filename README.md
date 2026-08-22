@@ -12,6 +12,11 @@
 change. Wringer runs your own gates against both trees and tells you which
 ones could not tell them apart.*
 
+**Works with what you already run — any coding agent you can start from a terminal,
+any model behind an OpenAI-compatible endpoint** ([measured, per vendor](docs/vendors.md)).
+**Enforced, not instructed:** other harnesses tell a model to audit its own completion;
+Wringer records the check red before the work, green after, and refuses without both.
+
 [![tests](https://github.com/marcoakes/wringer/actions/workflows/tests.yml/badge.svg)](https://github.com/marcoakes/wringer/actions/workflows/tests.yml)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/wringer.svg)](https://pypi.org/project/wringer/)

@@ -18,6 +18,10 @@ empty directory so the agent cannot find its credentials — and compare.
     python3 scripts/acp-auth-probe.py claude-agent-acp
     HOME=$(mktemp -d) python3 scripts/acp-auth-probe.py claude-agent-acp
 
+An agent whose ACP mode is a subcommand or a flag is quoted as one argument:
+
+    python3 scripts/acp-auth-probe.py "kimi-code acp"
+
 If the two differ, auth is checkable for free and the drive should check it.
 If they are identical, it is not, and the honest fix is the one shipped:
 refuse LATER, but say the right thing when you do (`diagnose.FACE_TURN_REFUSED`).
@@ -45,6 +49,7 @@ inherits them like any other subprocess.
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 import threading
@@ -63,8 +68,14 @@ PROMPT_TIMEOUT = 180.0
 
 
 def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dict:
+    # **Split, so an agent whose ACP mode is a SUBCOMMAND can be measured.**
+    # `claude-agent-acp` is its own binary; Kimi's ACP server is `kimi acp`,
+    # and Zed's convention is a flag. A bare `[command]` could only ever probe
+    # the first shape, and the roster needs all of them. `shlex.split` leaves
+    # every single-word invocation byte-identical to what it always was, so
+    # the captures already in `docs/` reproduce unchanged.
     proc = subprocess.Popen(
-        [command],
+        shlex.split(command),
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

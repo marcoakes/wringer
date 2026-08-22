@@ -33,15 +33,24 @@ waits or stops; both are correct. There is deliberately no flag that answers
 an approval, and an agent that answers one is the same defect wearing a
 different coat.
 
-**Law 3 — you never see, print, or ask for the key.** Wringer needs an
-Anthropic API key to draft the plan. The person stores it in their Keychain
-themselves (`START-HERE.md` gives them the command). You never read it, echo
-it, or pass it as an argument you have seen: the run command reads it
-**inline**, straight from the Keychain into the child process's environment —
+**Law 3 — you never see, print, or ask for the key.** Wringer needs an API key
+for **whichever model provider the person chose** to draft the plan — it has
+no preferred one, and `../vendors.md` lists what has been measured with the
+Keychain name for each. The person stores it in their Keychain themselves
+(`START-HERE.md` gives them the command). You never read it, echo it, or pass
+it as an argument you have seen: the run command reads it **inline**, straight
+from the Keychain into the child process's environment —
 
 ```bash
 WRINGER_API_KEY="$(security find-generic-password -s anthropic -a wringer -w)" wringer-drive run PRD.md --repo . --emit json
 ```
+
+`-s anthropic` is the service name from the worked example. **Use the one the
+person actually stored** — `deepseek`, `glm`, `moonshot`, `openai` — matching
+the endpoint they gave at setup. `WRINGER_API_KEY` on the left does NOT
+change: it is the variable the generated config declares in `judge.api_key_env`
+and it is deliberately vendor-free, so the same command line serves every
+provider.
 
 If that lookup fails, tell the person to run the storing command from
 `START-HERE.md` in their own Terminal — do not offer to take the key from
@@ -233,19 +242,33 @@ and the person types nothing. Then:
   refusal on your own initiative.
 
 - **The first run in a fresh project asks three setup questions**, and each
-  offers its documented example value in the question text. For the record,
+  offers its documented example values in the question text. For the record,
   those values are:
 
-  | it asks for | the documented example value |
+  | it asks for | the documented example values |
   |---|---|
   | model endpoint | `https://api.anthropic.com/v1/chat/completions` |
   | model | `claude-opus-5` |
-  | coding agent (worker) | `acp: claude-agent-acp` |
+  | coding agent (worker) | `acp: claude-agent-acp`, `acp: kimi acp`, `codex exec --json -` |
+
+  `detail.suggested` is a LIST on every one of the three, even where it holds
+  a single value, and `detail.more` points at `docs/vendors.md` — the measured
+  matrix of endpoints, models and agents, which is where a person goes if none
+  of the examples is theirs.
+
+  **These are offers and never defaults.** Nothing falls back to them: an
+  empty answer stops the run. Wringer has no preferred vendor and the engine
+  contains no vendor's name as a default — the worker is whatever the person
+  types.
 
   Relay the questions verbatim like any other `ask` — the person answers, and
   their answer stands even when it differs from the table. The endpoint
   question says out loud that the key is sent to whatever URL is entered;
   make sure they saw that sentence before they answer.
+
+  The endpoint and the model must MATCH each other: a model name is only
+  valid at the endpoint that serves it. `docs/vendors.md` lists the pairs
+  that were measured, with a status per row.
 
 At the end, open or point them at **`board.html`** in the project — the page
 that shows what is done and what is proved. What each ending means:
