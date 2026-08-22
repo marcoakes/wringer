@@ -24,6 +24,7 @@ from typing import Any
 from wringer import (
     __version__,
     accept,
+    checks,
     concurrency,
     config,
     detect,
@@ -451,6 +452,13 @@ def run(
     # claim about this moment rather than about an hour ago. It also means every
     # lap's `acceptance.json` is a true statement about that lap, instead of one
     # lap's artifact being retro-fitted after the loop.
+    # **What every declared gate's CHECK was, at this moment** — before the
+    # digests, like every other sibling, so the record of the checker is as
+    # tamper-evident as the record of what it said. Before acceptance too,
+    # because `assess` compares this run's identities against the ones in the
+    # bundle each receipt cites. `src/wringer/checks.py` carries the reasoning
+    # and the v0 limit: a changed check is a NOTE, never a refusal.
+    checks.write(bundle.directory, root, list(cfg.gates))
     witness_evidence = _run_witnesses(
         root, witnesses, bundle, cfg
     )

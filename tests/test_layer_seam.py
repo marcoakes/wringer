@@ -26,10 +26,24 @@ SRC = Path(__file__).resolve().parent.parent / "src"
 BOARD = SRC / "wringer_board"
 
 # The board may read what the engine PUBLISHES — its schemas, its bundles, its
-# CLI — and exactly two things from its code: `spec`, whose loader defines the
-# file both surfaces edit, and `accept`, whose symbols the refusal mapping is
-# cross-checked against. Everything else is an internal.
-PERMITTED = {"wringer.spec", "wringer.accept", "wringer"}
+# CLI — and exactly three things from its code, each admitted for the same
+# reason: it is the definition of something the board must render VERBATIM
+# rather than re-derive.
+#
+#   `spec`    — its loader defines the file both surfaces edit.
+#   `accept`  — its symbols are what the refusal mapping is cross-checked
+#               against.
+#   `checks`  — added 2026-08-22 with the changed-since-bound note. The board
+#               must show the engine's sentence word for word (SPEC_BOARD
+#               ruling 1) and must not own a second implementation of the
+#               comparison behind it. A board that re-derived "did this check
+#               change?" for itself is precisely the drift this seam exists to
+#               stop: two surfaces answering one question differently.
+#
+# Everything else is an internal. The test for admitting a fourth is the same
+# one that admitted these: is the board rendering the engine's own words, or
+# reaching for a mechanism it should be asking the engine for?
+PERMITTED = {"wringer.spec", "wringer.accept", "wringer.checks", "wringer"}
 
 
 def _engine_imports(path: Path) -> set[str]:
@@ -101,10 +115,25 @@ def test_the_board_still_runs_without_the_engine_IMPORTED():
 
 def test_the_permitted_list_is_not_silently_widened():
     """A guard whose allowlist anyone can extend is a guard that documents a
-    violation rather than refusing one. Two entries, both with a reason in the
-    comment above them; a third needs a person to argue for it here.
+    violation rather than refusing one. Three entries, each with a reason in
+    the comment above them; a fourth needs a person to argue for it here.
+
+    **Widened once, 2026-08-22, and the argument is this.** `wringer.checks`
+    joined for the same reason `accept` is on the list: it DEFINES words the
+    board must render verbatim. The changed-since-bound note is the engine's
+    sentence, and the comparison behind it — "is this the check that went
+    red?" — must have exactly one implementation. A board that answered that
+    question for itself could disagree with `wring verify` about it, which is
+    the two-surfaces-one-fact drift the seam exists to prevent. The import is
+    guarded so the board still loads with no engine present, which is the
+    property `test_the_board_imports_without_the_engine` holds.
     """
-    assert PERMITTED == {"wringer.spec", "wringer.accept", "wringer"}, (
+    assert PERMITTED == {
+        "wringer.spec",
+        "wringer.accept",
+        "wringer.checks",
+        "wringer",
+    }, (
         "the permitted-import set changed. That is allowed, but it is the "
         "seam widening and it should be argued for in the comment above, not "
         "slipped in beside a feature"

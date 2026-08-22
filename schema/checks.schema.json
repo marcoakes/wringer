@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/checks.schema.json",
+  "title": "Wringer check-identity record",
+  "description": "`checks.json` — what each declared gate's CHECK was, at the moment this bundle was written. A SIBLING of manifest.json like digests.json, execution.json and acceptance.json, and for the same law-7 reason: `wringer.acceptance.v3` is frozen, so this arrives as its own file and a reader that does not know it ignores it. **The question it exists to answer:** acceptance calls a criterion `evidenced` because its bound gate was recorded RED before the work and is GREEN now — and nothing checked that the check which went red is the check that is green. Edit the test file between the two runs and the transition is still on the record, still resolvable, and no longer about the same assertions. Comparing this file against the copy in the bundle a receipt CITES answers it, with no new persistent state and nothing that can go stale, because the receipt and the identity travel together. **Written on EVERY run that has gates**, like `execution.json` and unlike the conditional siblings: the anchor has to exist before anybody knows they will need it, since the bundle a receipt cites is a run in which a gate FAILED, and gates fail long before somebody adds `proves:` to them. **What it claims and does not:** a change here is a NOTE and never a refusal in v0 — whether a changed check should join the delivery interlock's refusals is a named future ruling that wants field evidence first. It also never says a change was WRONG, only that there was one. Bundles written before this file existed do not have it, and a reader must treat its absence as *nobody recorded this*, never as *nothing changed*.",
+  "type": "object",
+  "required": ["schema_version", "checks", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.checks.v1"
+    },
+    "checks": {
+      "description": "One row per declared gate that has a command, in declared order.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["gate_id", "run", "run_sha256", "files", "coverage"],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "description": "The gate this identity belongs to, as declared in `.wringer.yaml`.",
+            "type": "string"
+          },
+          "run": {
+            "description": "The command verbatim, as the repository wrote it. Kept alongside its hash because a reader comparing two bundles wants to SEE what changed, and a hash alone can only say that something did.",
+            "type": "string"
+          },
+          "run_sha256": {
+            "description": "sha256 of the command's UTF-8 bytes. The one part of a check's identity that always exists — a gate whose command names no file still has a command, and changing it changes what the check is.",
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "files": {
+            "description": "Repo-relative path → sha256, for every file the command NAMES and that exists inside the tree. Deliberately conservative: a token is resolved only when it already looks like a path or carries a check-ish suffix, because hashing a file the command does not run would make the note fire for a change that cannot affect the check. Paths that escape the repository are dropped — a check file outside the tree is not something this bundle can honestly speak for.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "coverage": {
+            "description": "Which of the two cases this row is, said out loud rather than left to be inferred from an empty `files`. `command-and-files` means the command named at least one file in this tree and those files are hashed. `command-only` means it named none — `pytest -q` is the ordinary example — so a change INSIDE whatever it runs is invisible here, and the note says so when it fires. A row reporting `command-and-files` with no files, or the reverse, would be a check that covers less than its name claims.",
+            "enum": ["command-only", "command-and-files"]
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it rather than living in a spec nobody opened — the pattern `wringer.execution.v1` and `wringer.acceptance.v1` set. Pinned by CONTENT in the tests, not by non-emptiness.",
+      "type": "array",
+      "items": {"type": "string"},
+      "minItems": 1
+    }
+  }
+}

@@ -9,7 +9,7 @@ chain walk (ruling 5) and the discrimination of `unevidenced`'s four causes
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -196,6 +196,11 @@ class Card:
     # improve a check's words, and this is the one place a machine's words earn
     # their seat on a PM's screen.
     check_said: str | None = None
+    # The changed-since-bound note, verbatim from `wringer.checks`. Hint tier
+    # in v0: it never changes the card's STATE and never refuses anything —
+    # whether a changed check should block delivery is a named future ruling
+    # that wants this v0's field evidence first.
+    check_note: str | None = None
     receipt: str | None = None
     engine_words: str | None = None
     cause: str | None = None
@@ -402,6 +407,18 @@ def card_for(board: Board, criterion: Criterion) -> Card:
     """One criterion, rendered — and never scored."""
     refused = criterion.refuses
     state = criterion.state
+    card = _card_for(board, criterion, refused, state)
+    # **Hint tier, and attached AFTER the state is decided.** A changed check
+    # never moves a card between states and never refuses anything in v0 —
+    # whether it should is a named future ruling. Attaching it here rather
+    # than inside each branch is what makes that structural: there is no path
+    # on which this note could have altered a verdict, and
+    # `test_the_note_never_changes_a_CARD` reverts exactly this line to check.
+    note = getattr(board, "check_notes", {}).get(criterion.id)
+    return card if note is None else replace(card, check_note=note)
+
+
+def _card_for(board: Board, criterion: Criterion, refused: bool, state: str) -> Card:
 
     if state == "evidenced":
         resolved, sentence, said = _chain(board, criterion)

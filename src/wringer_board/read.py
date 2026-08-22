@@ -193,6 +193,14 @@ class Board:
     # put the field, and a value read from the wrong place is worse than a
     # silence. Named in the engineers' block so the silence is not total.
     unreadable: list[str] = field(default_factory=list)
+    # **A bound check that is not the check that went red** — keyed by
+    # criterion id, the engine's own sentence verbatim. DERIVED by
+    # `wringer.checks.notes_for` and never recomputed here: SPEC_BOARD ruling
+    # 1 is that the board renders the engine's words, and a second
+    # implementation of the comparison is how one surface comes to disagree
+    # with the other about whether a check changed. Empty for every bundle
+    # written before `checks.json` shipped — absence is not a change.
+    check_notes: dict[str, str] = field(default_factory=dict)
 
 
 def _load(path: Path) -> Any:
@@ -595,6 +603,22 @@ def read(
             "repository, so there is nothing this board can honestly show."
         )
         return board
+
+    # **The engine computes it; the board renders it.** One import, one call,
+    # no second implementation of the comparison — the same argument that puts
+    # `wringer.accept` on the permitted list in `test_layer_seam.py`. It is
+    # best-effort: an engine too old to have the module, or a bundle written
+    # before `checks.json` existed, yields nothing, and nothing is exactly what
+    # the board should then say.
+    try:
+        from wringer import checks as checks_module
+
+        board.check_notes = {
+            note.criterion: note.sentence
+            for note in checks_module.notes_for(repo, board.run_dir)
+        }
+    except Exception:  # pragma: no cover - the board never fails on a hint
+        board.check_notes = {}
 
     accepted = _load(board.run_dir / ACCEPTANCE_FILENAME)
     if accepted is None:

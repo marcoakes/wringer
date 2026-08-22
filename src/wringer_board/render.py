@@ -106,6 +106,10 @@ margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
 .wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
 border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
 .wasred b{color:var(--red)}
+.checknote{margin:12px 0 0;padding:10px 14px;border:1px solid var(--line);
+border-left:4px solid var(--amber);background:var(--amberb);border-radius:5px;font-size:14px}
+.checknote b{color:var(--amber);text-transform:uppercase;font-size:11px;letter-spacing:.06em;
+margin-right:6px}
 p{margin:0 0 6px}
 details{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;font-size:14px;color:var(--dim)}
 summary{cursor:pointer;color:var(--ink)}
@@ -265,6 +269,14 @@ def _card_html(card: Card) -> str:
             "only <b>proves</b> this one, so a requirement below saying "
             "nothing checks it is not contradicted by anything here.</p></details>"
         )
+    if card.check_note:
+        # **Hint tier, and it looks like one.** The engine's sentence
+        # verbatim (SPEC_BOARD ruling 1), in its own neutral block — not a
+        # badge, not a refusal chip, and it does not touch the state above it.
+        # A changed check is a thing worth knowing before you trust a green;
+        # in v0 it is not a thing that stops a handover, and the page must not
+        # imply it is.
+        parts.append(f'<p class="checknote"><b>Note</b> {_esc(card.check_note)}</p>')
     if card.question:
         # **The unblocking question, rendered — H-4.** Ruling 16 has given
         # every value a question since S2 and nothing on this surface showed

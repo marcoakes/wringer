@@ -77,12 +77,28 @@ def test_a_repo_with_no_stability_key_writes_the_bundle_it_wrote_yesterday(
     SET of files in the bundle rather than as "no stability.json", so an
     `attempts/` directory or a stray sibling appearing later fails here too.
 
-    **`execution.json` joined this set deliberately, and it is the one addition
-    that is allowed to.** SPEC_EXEC_V0 §3: every other sibling is conditional,
-    because a reader who does not find one learns nothing either way, and this
-    one is unconditional because a reader who is not told where a command ran
-    supplies the flattering answer. Anything else appearing here should fail
-    this test until somebody argues for it in a spec.
+    **`execution.json` joined this set deliberately.** SPEC_EXEC_V0 §3: every
+    other sibling is conditional, because a reader who does not find one learns
+    nothing either way, and this one is unconditional because a reader who is
+    not told where a command ran supplies the flattering answer. Anything else
+    appearing here should fail this test until somebody argues for it.
+
+    **`checks.json` joined it on 2026-08-22, and here is the argument.** It
+    records what each declared gate's check WAS — the command, and any file the
+    command names — so that a later run can tell whether the check that went
+    RED is the check that is now green. The obvious cheaper design is to write
+    it only where a criterion is bound, and it does not work: **the anchor has
+    to exist before anybody knows they will need it.** The bundle a receipt
+    cites is a run in which a gate FAILED, and gates fail long before somebody
+    adds `proves:` to them. A conditional record would therefore be absent from
+    exactly the bundles the comparison needs, and the surface would report "no
+    change" — which is the same shape as `execution.json`'s argument, one step
+    further along: a reader not told what the checker was supplies the
+    flattering answer about whether it changed.
+
+    It costs one small file per run and it is covered by `digests.json` like
+    everything else here, so the record of the checker is exactly as
+    tamper-evident as the record of what it said.
     """
     write_config(repo, "version: 1\ngates:\n  - id: unit\n    run: 'true'\n")
     monkeypatch.chdir(repo)
@@ -97,6 +113,7 @@ def test_a_repo_with_no_stability_key_writes_the_bundle_it_wrote_yesterday(
         if path.is_file()
     )
     assert written == [
+        "checks.json",
         "diff.patch",
         "digests.json",
         "evidence.jsonl",

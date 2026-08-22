@@ -1740,10 +1740,37 @@ def cmd_verify(args: argparse.Namespace) -> int:
             vacuity_result=outcome.vacuity,
             execution=backend.for_config(cfg.execution),
         )
+        _report_check_notes(root, outcome.bundle.directory)
 
     if outcome.interrupted is not None:
         return EXIT_INTERRUPTED
     return EXIT_GATE_FAILED if outcome.failed_gate is not None else EXIT_OK
+
+
+def _report_check_notes(root: Path, bundle_dir: Path) -> None:
+    """A bound check that is not the check that went red — HINT tier.
+
+    Printed after the run's own report and never instead of it: this changes
+    no verdict and no exit code in v0. It is the thing worth knowing before
+    you trust a green, and the ruling on whether it should ever REFUSE a
+    delivery is named in `checks.py` and deliberately not taken here.
+
+    `--json` gets nothing added: the bundle already carries `checks.json`, and
+    a machine reader that wants this computes it from the record rather than
+    from a line of console text somebody might reformat.
+    """
+    from wringer import checks
+
+    try:
+        notes = checks.notes_for(root, bundle_dir)
+    except OSError:
+        return
+    if not notes:
+        return
+    print()
+    for note in notes:
+        # The engine's wording, verbatim — the same string the board renders.
+        print(f"! {note.criterion}: {note.sentence}")
 
 
 def cmd_run(args: argparse.Namespace) -> int:
