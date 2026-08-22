@@ -746,6 +746,46 @@ def parse_assumptions(
         if identifier in seen:
             notes.append(f"dropped {at}: duplicate assumption id '{identifier}'")
             continue
+        # **An assumption may never displace a judgement only a person can
+        # make** — field report 2026-08-22 finding 9, and a REFUSAL rather than
+        # a note on purpose.
+        #
+        # Run 4 of that day moved the heading wording into `DECIDED WITHOUT
+        # ASKING YOU` — the same criterion the board describes to the reader as
+        # *"No check can decide this one — it needs a person to look and say."*
+        # Run 3, same PRD and same model, had asked. So the one decision the
+        # document itself says no check can make is the one the drafter chose
+        # to take, and a person approving the plan would have shipped wording
+        # they never picked.
+        #
+        # Everything else in this parser drops a bad row and keeps the paid
+        # draft, and that asymmetry is deliberate and stays. This is the case
+        # it does not cover: `human: true` is the spec's own statement that
+        # nothing but a person settles this, so an assumption over it is not a
+        # row to salvage — it is the consent surface answering on the person's
+        # behalf in the one place it has no standing. Salvaging the rest would
+        # leave the criterion in the plan with the decision already taken.
+        #
+        # Narrow by construction: it fires only on criteria the drafter ITSELF
+        # marked `human: true` and ITSELF named in `criteria:`. A drafter that
+        # asks the question instead is untouched, which is what run 3 did.
+        judged_by_a_person = sorted(
+            name
+            for name in assumption.criteria
+            if any(
+                getattr(c, "id", None) == name and getattr(c, "human", False)
+                for c in criteria
+            )
+        )
+        if judged_by_a_person:
+            raise SpecError(
+                f"{at}: '{identifier}' decides something that shapes "
+                f"{', '.join(repr(n) for n in judged_by_a_person)}, which this "
+                "same reply marks 'human: true' — only a person can settle it. "
+                "A decision taken without asking cannot stand in for the one "
+                "judgement no check is allowed to make. Ask the question "
+                "instead. Nothing was written"
+            )
         if identifier in blocking:
             raise SpecError(
                 f"{at}: '{identifier}' is both an assumption and a required, "
@@ -1972,6 +2012,54 @@ def parse_decisions(
             f"required (got {version!r})"
         )
     return parse_assumptions(data.get("assumptions"), where, questions, criteria)
+
+
+# **A hedge against a question that has been answered** — field report
+# 2026-08-22 finding 10. Matched on the phrase a drafter actually produced
+# rather than on a grammar: this is a stale-fallback detector, not a parser of
+# English, and a pattern that tried to be one would fire on prose that merely
+# discusses uncertainty.
+_HEDGE = re.compile(
+    r"\(\s*if\s+(?:it\s+is\s+|this\s+is\s+)?unanswered\b[^)]*\)"
+    r"|\bif\s+unanswered\s*,",
+    re.I,
+)
+
+
+def conditionals_on_answered_questions(loaded: Any) -> tuple[tuple[str, str], ...]:
+    """Places the spec still hedges against an answer it already has.
+
+    **Only meaningful once `unanswered` is empty**, and the caller is what
+    guarantees that. `wring plan` refuses on unanswered required questions
+    before it reaches this, so a surviving "if unanswered" there is stale by
+    construction. Called against a spec that still has open questions, this
+    would be a guess about which question the hedge meant, and it does not
+    guess — it just reports what it found and lets the caller own the premise.
+
+    Returns `(where, sentence)` pairs so the refusal can quote the person's
+    own document back at them rather than describing it.
+    """
+    found: list[tuple[str, str]] = []
+
+    def scan(where: str, text: Any) -> None:
+        if not isinstance(text, str) or not text.strip():
+            return
+        for match in _HEDGE.finditer(text):
+            snippet = " ".join(text[max(0, match.start() - 80):match.end()].split())
+            found.append((where, ("..." if match.start() > 80 else "") + snippet))
+
+    for task in getattr(loaded, "tasks", ()) or ():
+        scan(f"task '{getattr(task, 'id', '?')}' objective",
+             getattr(task, "objective", ""))
+        scan(f"task '{getattr(task, 'id', '?')}' guidance",
+             getattr(task, "guidance", ""))
+    for criterion in getattr(loaded, "criteria", ()) or ():
+        scan(f"criterion '{getattr(criterion, 'id', '?')}' guidance",
+             getattr(criterion, "guidance", ""))
+        scan(f"criterion '{getattr(criterion, 'id', '?')}' title",
+             getattr(criterion, "title", ""))
+    scan("intent", getattr(loaded, "intent", ""))
+    return tuple(found)
 
 
 def load_decisions(

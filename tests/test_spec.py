@@ -2680,3 +2680,146 @@ def test_the_engine_can_LOAD_every_spec_it_can_RENDER():
         assert loaded.questions[0].id == identifier, (identifier, rendered)
         assert loaded.criteria[0].id == identifier
         assert loaded.tasks[0].id == identifier
+
+
+def test_an_assumption_may_not_displace_a_HUMAN_JUDGED_criterion():
+    """**Field report 2026-08-22 finding 9, reconstructed.**
+
+    Run 4 of that day drafted the same PRD as run 3 with the same model and
+    moved the heading wording into `DECIDED WITHOUT ASKING YOU`. Run 3 had
+    ASKED. The criterion that wording shapes is the one the board prints to
+    the reader as *"No check can decide this one — it needs a person to look
+    and say."* So the single decision the document itself says no check may
+    make is the one the drafter took, and a person approving that plan would
+    have shipped wording they never chose.
+
+    The shape is reconstructed rather than the words: an assumption naming a
+    criterion the SAME reply marked `human: true`. `reads-well` is this
+    fixture's human criterion, and the assumption below shapes it exactly the
+    way the heading assumption shaped the heading.
+
+    **A refusal, not a note**, which is the opposite of everything else in
+    this parser. `human: true` is the spec's own statement that nothing but a
+    person settles this; an assumption over it is the consent surface
+    answering on the person's behalf in the one place it has no standing.
+    Salvaging the row would leave the criterion in the plan with the decision
+    already taken, which is the defect.
+    """
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [
+        {
+            "id": "heading-wording",
+            "decision": 'The heading reads "Recently played".',
+            "why": "It matches the wording used elsewhere in the product.",
+            "instead_of_asking": "What should the heading say?",
+            "criteria": ["reads-well"],
+        }
+    ]
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_response(reply(payload), PRD)
+
+    said = str(caught.value)
+    assert "reads-well" in said, "the refusal does not name the criterion"
+    assert "human" in said
+    assert "Ask the question instead" in said, (
+        "the refusal does not tell the drafter what to do instead, which is "
+        "the only thing that turns it from a wall into a route"
+    )
+
+
+def test_an_assumption_over_a_NON_human_criterion_is_untouched():
+    """The other half — the rule is narrow or it is a blockade.
+
+    Deciding something that shapes a machine-checkable criterion is exactly
+    what the assumptions channel is FOR: it is a decision taken visibly, with
+    the question it displaced carried beside it so the person is one action
+    from asking it after all. Only the `human: true` case is different, and a
+    guard that could not tell them apart would have killed the channel.
+    """
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [
+        {
+            "id": "memory-scope",
+            "decision": "The list is remembered per browser only.",
+            "why": "The requirements describe no accounts.",
+            "instead_of_asking": "Should the list follow a person to another device?",
+            "criteria": ["respects-filters"],
+        }
+    ]
+
+    drafted = spec.parse_response(reply(payload), PRD)
+
+    assert [a.id for a in drafted.assumptions] == ["memory-scope"]
+    assert drafted.assumptions[0].criteria == ("respects-filters",)
+
+
+def test_a_hedge_against_an_ANSWERED_question_is_found():
+    """**Field report 2026-08-22 finding 10.**
+
+    The tester answered "what counts as played". The plan carried the answer
+    forward hedged against its own absence:
+
+        using whichever moment the product has confirmed counts as 'played'
+        in the open question (if unanswered, record on launch from the cabinet)
+
+    A builder reading that has two instructions and no way to tell which is
+    live, and the person who answered is never told their answer is being
+    second-guessed.
+    """
+    found = spec.conditionals_on_answered_questions(
+        spec.Spec(
+            approved=True,
+            title="t",
+            intent="i",
+            questions=(),
+            criteria=(),
+            gates=(),
+            tasks=(
+                spec.Task(
+                    id="build",
+                    brief="briefs/build.md",
+                    objective=(
+                        "Record whichever moment the product has confirmed "
+                        "counts as 'played' in the open question (if "
+                        "unanswered, record on launch from the cabinet)."
+                    ),
+                ),
+            ),
+            path="wringer.spec.yaml",
+        )
+    )
+
+    assert len(found) == 1, f"expected one hedge, got {found}"
+    where, sentence = found[0]
+    assert where == "task 'build' objective"
+    assert "if unanswered" in sentence.lower(), (
+        "the refusal would not be able to quote the document back"
+    )
+
+
+def test_prose_that_merely_MENTIONS_uncertainty_is_not_a_hedge():
+    """The narrowness half. This is a stale-fallback detector, not a parser of
+    English — a pattern reaching for the second would fire on any spec that
+    discussed open questions at all, and specs are supposed to do that."""
+    assert spec.conditionals_on_answered_questions(
+        spec.Spec(
+            approved=True,
+            title="t",
+            intent=(
+                "Some questions here were left unanswered on purpose and the "
+                "team decided that was fine."
+            ),
+            questions=(),
+            criteria=(),
+            gates=(),
+            tasks=(
+                spec.Task(
+                    id="build",
+                    brief="briefs/build.md",
+                    objective="Export the filtered rows as CSV.",
+                ),
+            ),
+            path="wringer.spec.yaml",
+        )
+    ) == ()

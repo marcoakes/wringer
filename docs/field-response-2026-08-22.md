@@ -162,6 +162,28 @@ release by two days — is gone, and the paragraph that replaced it says why.
 `docs/drive/AGENTS.md`'s three-repository variant, F3's second head, is gone
 the same way.
 
+**F9 — an assumption may never displace a human judgement.** A drafted reply
+whose assumption names a criterion the same reply marked `human: true` is now
+refused whole at parse, naming the criterion and saying to ask the question
+instead. This is a REFUSAL where everything else in that parser drops a bad row
+and keeps the paid draft, and the asymmetry is the point: `human: true` is the
+spec's own statement that nothing but a person settles this, so an assumption
+over it is the consent surface answering on the person's behalf in the one
+place it has no standing. Salvaging the row would leave the criterion in the
+plan with the decision already taken. Narrow by construction — it fires only on
+criteria the drafter itself marked human and itself named — and a second guard
+proves an assumption over an ordinary criterion is untouched, because a rule
+that could not tell them apart would have killed the channel.
+
+**F10 — an answered question may not reach the builder as a conditional.**
+`wring plan` now refuses a spec that hedges against a question it has already
+answered. Checked at that point and nowhere earlier, because that is the one
+place the premise is guaranteed: `plan` has just proved no required question is
+unanswered, so a surviving "if unanswered" is stale by construction rather than
+by guessing which question it meant. Rendered, never resolved — Wringer does not
+rewrite the sentence, because deciding what somebody meant is what it exists not
+to do.
+
 **F4 — bare `wring` gave a wall and no way in.** It now prints
 `wring start is the guided launch; wring doctor checks this machine.` before
 argparse's usage error. Argv-empty only, no twentieth command, no change to any
@@ -200,10 +222,6 @@ OWED — see below.
   cold-read measurements say structural changes helped (85→68) and explanatory
   prose made it worse (→82), so this is owed a *structural* answer or none.
   Nobody adds a paragraph to fix a confusion here.
-- **F9** — an assumption may never displace a human-judged criterion. Ruled;
-  not built in this window.
-- **F10** — an answered question may not render as an "if unanswered"
-  conditional. Ruled; not built in this window.
 - **A `session/prompt`-level preflight.** Sequence L proves presence cannot
   vouch for auth, so the existing PATH preflight cannot stop the wall. A probe
   that reaches `session/prompt` before any drafting money is spent is designed

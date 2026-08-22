@@ -3190,6 +3190,47 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
         return EXIT_GATE_FAILED
 
+    # **An ANSWERED question may not reach the builder as a conditional** —
+    # field report 2026-08-22 finding 10.
+    #
+    # The tester answered "what counts as played". The plan then carried the
+    # answer forward like this:
+    #
+    #   using whichever moment the product has confirmed counts as 'played'
+    #   in the open question (if unanswered, record on launch from the cabinet)
+    #
+    # The parenthesis is a fallback for a state that no longer exists. A
+    # builder reading it has two instructions and no way to tell which is
+    # live, and the person who answered has no idea their answer is being
+    # hedged against.
+    #
+    # Checked HERE and nowhere earlier, because here is the one place the
+    # premise is guaranteed: `loaded.unanswered` was just proved empty, so a
+    # surviving "if unanswered" is stale BY CONSTRUCTION rather than by
+    # guessing which question it meant. That is why this cannot false-positive
+    # on a spec that really does still have an open optional question.
+    #
+    # Rendered, never resolved — the same rule as the overruled-assumption
+    # refusal below. Wringer does not rewrite the sentence, because deciding
+    # what somebody meant is the thing it exists not to do.
+    hedged = spec.conditionals_on_answered_questions(loaded)
+    if hedged:
+        print(
+            f"wring plan: {spec.SPEC_FILENAME} hedges against a question that "
+            f"has been answered:",
+            file=sys.stderr,
+        )
+        for where, sentence in hedged:
+            print(f"  - {where}: {sentence}", file=sys.stderr)
+        print(
+            "\nEvery question in this spec is answered, so a fallback for an "
+            "unanswered one is a second instruction the builder cannot tell "
+            "from the first. Delete the conditional and keep the answer. "
+            "Nothing was written.",
+            file=sys.stderr,
+        )
+        return EXIT_GATE_FAILED
+
     # **A requirement worded under a decision you have since overruled.**
     #
     # Field report 2026-08-21 finding 4. Overruling the assumption
