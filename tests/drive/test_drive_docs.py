@@ -1351,23 +1351,31 @@ def drive_agents_md() -> str:
     return (REPO / "AGENTS.md").read_text(encoding="utf-8")
 
 
-def test_the_page_does_not_offer_env_passthrough_as_an_AUTH_REMEDY():
-    """**Field report 2026-08-22 finding 6 — a remedy that was a guess.**
+def test_the_page_states_what_the_AUTH_REMEDY_COST_AND_LIMIT_are():
+    """**Field report 2026-08-22 finding 6, RE-DERIVED 2026-08-22 after the
+    turn was finally run.**
 
-    This page pointed at `run.worker.acp.env_passthrough` as the answer to a
-    builder that could not authenticate. The evaluator applied it exactly as
-    written, with a key their own drafting call had just proved valid, and
-    measured it DEGRADING the failure: `session/prompt was refused:
-    Authentication required` became `session/new was refused: Internal
-    error`, with `apiType=native` unchanged in the log.
+    The shape of this guard has now been wrong twice, in opposite directions,
+    and both times because prose ran ahead of a measurement.
 
-    The adapter's source says why, and the page now carries it:
-    `ANTHROPIC_API_KEY` is never read as a credential there — it appears in a
-    cache-key list and in `createEnvForProvider`, which sets it to the empty
-    string. So this guard is not "do not mention the setting" (the setting is
-    real and this page still describes what it does); it is that the page must
-    never again pair that variable with the adapter as a way to log in without
-    the sentence saying it does not work.
+    First the page offered `run.worker.acp.env_passthrough` as the answer to a
+    builder that could not authenticate, with nothing said about what it
+    spends. Then — correcting that — it went further than the evidence and
+    said in bold that passing `ANTHROPIC_API_KEY` *does not work*, reasoning
+    from `createEnvForProvider` blanking the variable without noticing that
+    the function returns `{}` before it blanks anything when no provider is
+    configured, which is Wringer's case every time.
+
+    `scripts/acp-auth-probe.py --prompt` settled it by execution: with the key
+    passed through, `session/prompt` returns `stopReason: end_turn`; with
+    nothing passed through, `-32000 Authentication required`.
+
+    So what this guard pins is neither "offer it" nor "forbid it". It is the
+    two things a person needs before they act on it — that it SPENDS, and
+    that a free check exists — plus the refusal to re-assert, in the page's
+    own voice, the sentence execution killed. The verbatim old claim lives on
+    in a `>` block, which `own_voice` strips, so quoting history stays legal
+    and repeating it as advice does not.
     """
     body = flattened(own_voice(drive_agents_md()))
 
@@ -1376,18 +1384,35 @@ def test_the_page_does_not_offer_env_passthrough_as_an_AUTH_REMEDY():
         "checking nothing. If the section was rewritten, re-derive it against "
         "whatever it says now — do not delete it"
     )
-    assert "does not work" in body or "cannot authenticate" in body, (
-        "the page names ANTHROPIC_API_KEY near the adapter without anywhere "
-        "saying it does not authenticate it. That pairing is what sent a "
-        "product manager down a measured dead end"
+    assert "spends against that key" in body, (
+        "the page offers ANTHROPIC_API_KEY as the way to authenticate the "
+        "builder without saying that every worker turn then bills to it. A "
+        "remedy whose cost is unstated is how the last two versions of this "
+        "section went wrong"
     )
-    # The specific shape that was wrong: the variable offered as the thing to
-    # pass through, with no correction anywhere near it.
-    for claim in (
-        "pass ANTHROPIC_API_KEY through",
-        "passing ANTHROPIC_API_KEY through will",
+    assert "auth status" in body, (
+        "the page names the remedy but not the free check that says whether "
+        "it is needed. `claude-agent-acp --cli auth status` costs nothing and "
+        "answers in machine form; a page that omits it sends people to spend "
+        "drafting money to discover an unauthenticated builder"
+    )
+    assert "Presence is not validity" in body, (
+        "the free check is offered without its limit. A revoked key and a "
+        "lapsed subscription both report loggedIn true and both die at the "
+        "turn — a check sold as proof is worse than no check"
+    )
+    # The claim execution killed. Quoting it under `>` is history and is
+    # stripped by `own_voice`; asserting it again in the page's own voice is
+    # the regression.
+    for killed in (
+        "It does not work",
+        "cannot authenticate anything",
+        "never reads ANTHROPIC_API_KEY",
     ):
-        assert claim not in body, f"the page still offers {claim!r} as a remedy"
+        assert killed not in body, (
+            f"the page asserts {killed!r} in its own voice again. That was "
+            "measured false on 2026-08-22 — see round3b-artifacts/S0-FINDING.md"
+        )
 
 
 def test_the_stdin_bullet_does_not_promise_more_than_the_drain_does():

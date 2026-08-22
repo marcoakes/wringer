@@ -254,45 +254,70 @@ that shows what is done and what is proved. What each ending means:
 ## If the build finishes having changed nothing
 
 A worker turn that ends cleanly with no file changed and no error usually
-means the builder could not authenticate or could not see the work. What
-crosses into a worker's environment is the operator's declaration —
-`run.worker.acp.env_passthrough` in `.wringer.yaml` — and it is deliberately
-empty by default. Show the person the ending's own words; the decision about
-what crosses that boundary is theirs, not yours.
+means the builder could not authenticate or could not see the work.
 
-**Do not tell anyone to pass `ANTHROPIC_API_KEY` through to
-`claude-agent-acp`. It does not work, and this page used to say it did.**
+**The builder needs a credential of its own.** It does not inherit the one
+Wringer drafts with. On 2026-08-22 a product manager reached the build step
+with a coding agent that was installed and had never been logged in, and lost
+the run there — and no page in this repository had told them to log it in.
 
-An earlier version of this section pointed at `env_passthrough` as the remedy
-for an unauthenticated builder. A product manager applied it exactly as
-written on 2026-08-22 and measured it making things worse: the failure moved
-from `session/prompt was refused: Authentication required` to `session/new
-was refused: Internal error`, and the log still read `apiType=native`. The
-remedy was a guess. Guessing in this file is what produced it, and the facts
-below come from the adapter's own source (`@agentclientprotocol/claude-agent-acp`
-0.70.0, `dist/acp-agent.js`) rather than from reasoning about the symptom:
+Two routes work. Both are the person's decision, not yours:
 
-- **`apiType=native` is not a choice of subscription auth.** It is the string
-  printed when NO provider config resolved — the log interpolates
-  `resolvedProvider?.apiType ?? "native"`. A provider resolves only from a
-  `providers/set` call or from a gateway `authenticate` request. Wringer sends
-  neither, so the adapter falls through to the Claude Code CLI's own on-disk
-  credential store.
-- **The adapter never reads `ANTHROPIC_API_KEY` as a credential.** The name
-  appears exactly twice: once in a list used to build a context-window cache
-  key, and once in `createEnvForProvider`, which sets it to the empty string.
-  When a provider IS configured the adapter deliberately BLANKS it. Passing it
-  through cannot authenticate anything.
-- **Authentication is a protocol act, not an environment act.** `initialize`
-  advertises `authMethods`, and a client authenticates by calling
-  `authenticate` with one of their ids. The adapter only offers methods the
-  CLIENT declared it can service; Wringer declares none, so the handshake comes
-  back with `authMethods: []` and there is no route on offer at all.
+- **Log the agent's own CLI in, once.** `claude-agent-acp --cli auth login
+  --claudeai` for a Claude subscription, `--console` for Console billing.
+  This is the adapter's own advertised login. It opens a browser and it is an
+  interactive act — relay it, never attempt it.
+- **Declare a key into the worker's environment.** `ANTHROPIC_API_KEY` under
+  `run.worker.acp.env_passthrough` in `.wringer.yaml` authenticates the
+  builder. Measured on macOS 2026-08-22 against `claude-agent-acp` 0.70.0:
+  with the key passed through, `session/prompt` returned `stopReason:
+  end_turn`; with nothing passed through, `-32000 Authentication required`.
+  What crosses into a worker's environment is the operator's declaration and
+  the list is deliberately empty by default. Say out loud that every worker
+  turn then spends against that key.
 
-So the honest sentence, until that changes: **a machine whose Claude Code is
-signed in by subscription cannot currently be driven through this adapter by
-Wringer.** What works is the drafting call, which uses Wringer's own key and
-never goes near the adapter. Say that plainly rather than offering a setting.
+**Check before anyone spends.** The agent's own CLI answers for free, in
+machine form, without a turn:
+
+    claude-agent-acp --cli auth status
+
+`{"loggedIn": false, …}` means the build step will fail, and the drafting
+money spent before it would be wasted. `wring doctor` reads this and the
+drive preflights it. Presence is not validity: a revoked key and a lapsed
+subscription both still report `loggedIn: true`, and both die at the turn.
+
+### Correction, 2026-08-22
+
+Between those two states this page said the opposite, in bold:
+
+> **Do not tell anyone to pass `ANTHROPIC_API_KEY` through to
+> `claude-agent-acp`. It does not work, and this page used to say it did.**
+
+It does work. That sentence was written from the adapter's source without
+ever running the turn it described, and the reading error is worth keeping
+because it is exactly the kind this page exists to prevent:
+
+- `createEnvForProvider` does set `ANTHROPIC_API_KEY: ""` — and its first
+  line is `if (!config) { return {}; }`. It blanks the variable only when a
+  provider IS configured. Wringer configures none, so that is the branch
+  Wringer never takes, and the variable reaches the CLI untouched. A
+  conditional was written down as an absolute.
+- `apiType=native` really does mean "no provider resolved"; that part was
+  right. What was wrong was concluding that native therefore means
+  subscription-only. Native is the CLI's own credential resolution, and a key
+  in the environment is one of the things it resolves — `auth status` reports
+  it as `authMethod: api_key, apiKeySource: ANTHROPIC_API_KEY`.
+- This page also relayed a measured degradation: `session/new was refused:
+  Internal error` under `env_passthrough`. Re-run 2026-08-22 in that exact
+  configuration, `session/new` opened cleanly and the turn was answered. NOT
+  REPRODUCED — recorded as that, not as fixed. The evaluator saw something,
+  and this run does not explain what.
+
+Still unmeasured: whether a subscription login specifically serves a turn
+through this adapter, because no machine here has one. Do not claim it does,
+and do not claim it does not. What was measured is narrower and is the whole
+of what may be said: a credential in the environment drives the builder, and
+an agent that was never logged in cannot be driven by anything.
 
 ---
 

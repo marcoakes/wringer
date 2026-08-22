@@ -93,6 +93,10 @@ It failed safe that day only because the queued words were not "yes".
 
 ## F5 root and F6: the auth wall, answered from the adapter's source
 
+> **CORRECTED the same day — see [the correction below](#correction-2026-08-22-the-wall-was-opened).
+> This section reasoned from source and got the conclusion wrong. It is kept as
+> written because the reasoning error is the finding.**
+
 The remedy this repository documented — `run.worker.acp.env_passthrough` with
 `ANTHROPIC_API_KEY` — was a guess, it was mine, and the field falsified it:
 applying it moved `session/prompt was refused: Authentication required` to
@@ -138,6 +142,57 @@ in by subscription cannot currently be driven through this adapter by Wringer.
 What works is drafting, which uses Wringer's own key and never touches the
 adapter. Guard:
 `test_the_page_does_not_offer_env_passthrough_as_an_AUTH_REMEDY`.
+
+### Correction 2026-08-22: the wall was opened
+
+Everything above was reasoned from the adapter's source. Later the same day
+the turn itself was finally run, and the conclusion was wrong.
+
+`scripts/acp-auth-probe.py` grew an opt-in `--prompt` mode — one minimal
+`session/prompt` after the handshake — and was run three ways on the author's
+Mac. Verbatim captures and the full write-up:
+`round3b-artifacts/S0-FINDING.md`.
+
+| run | environment | `session/prompt` |
+|---|---|---|
+| 1 | uncontained, as the user | refused, `-32000 Authentication required` |
+| 2 | `HOME` = empty directory | refused, `-32000 Authentication required` |
+| 3 | `ANTHROPIC_API_KEY` in the child env | **answered**, `stopReason: end_turn` |
+
+**Point 2 above is false and the remedy it retracted was correct.**
+`createEnvForProvider` does blank `ANTHROPIC_API_KEY` — after
+`if (!config) { return {}; }`. It blanks it only when a provider IS
+configured, and Wringer configures none, so that is the branch Wringer never
+reaches. The variable passes through to the CLI, which reads it: `auth
+status` reports `authMethod: api_key, apiKeySource: ANTHROPIC_API_KEY`. A
+conditional was read as an absolute, and "could never have worked" was
+written about a configuration nobody had run.
+
+**The degraded error did not reproduce.** Run 3 IS the `env_passthrough`
+configuration and `session/new` opened cleanly before the turn was answered.
+Recorded as NOT REPRODUCED — not as fixed. The evaluator measured something
+and this window does not explain what.
+
+**Point 1 stands, and point 3 stands.** `apiType=native` does mean "no
+provider resolved", and the handshake really does hide auth. What did not
+follow is that native means *subscription only*: native is the CLI's own
+credential resolution, and an environment key is one of the things it
+resolves.
+
+**The wall's true name.** `claude-agent-acp --cli` is the Claude Code CLI,
+and it answers for free:
+`{"loggedIn": false, "authMethod": "none", "apiProvider": "firstParty"}`.
+The coding agent on this machine had never been logged in — and no page here
+had ever said to log it in. Three field runs hit a missing credential and
+this repository spent a day naming it a missing route.
+
+**What is still unmeasured**, and may not be claimed either way: whether a
+subscription login specifically serves a turn through this adapter. No
+machine here has one. Run 1's refusal does not settle it, because run 1's
+premise — "as the signed-in user" — was false; `auth status` says so.
+
+Guard, re-derived against the new wording:
+`test_the_page_states_what_the_AUTH_REMEDY_COST_AND_LIMIT_are`.
 
 ---
 
