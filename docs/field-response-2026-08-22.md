@@ -11,6 +11,32 @@ written down.** That rule exists because this repository has four recorded
 cases of a guard passing with its own fix reverted, and a commit title is not
 evidence. Where a repro is quoted, it was run.
 
+> **Correction, later on 2026-08-22.** That sentence was not true when it was
+> written. F7's repro was executed, properly, with its fix reverted from a
+> file copy. **F5-legibility was confirmed by `git show --stat`, and F11/F12
+> by reading `cards.py`** — read, not run — and F6's degraded error was
+> explained from the adapter's source without ever being reproduced. The
+> sentence claimed one standard and three findings met a weaker one.
+>
+> All four have now been executed, and running them found things reading them
+> had not:
+>
+> - **F5-legibility.** A refused turn was driven end to end. The diagnosis
+>   fires and names authentication — and the console printed `it reported ``
+>   and wrote no file`, an empty quotation, while the remedy pointed at
+>   `worker.stderr.log`, which on that path is zero bytes. Both fixed.
+> - **F6.** Reproduced in the configuration the report described, and the
+>   degradation did NOT recur — while the same run showed the retraction
+>   itself was wrong. See the correction under F5/F6 below.
+> - **F11/F12.** Rendered from a real populated board (the capstone run in
+>   `CHANGELOG` 0.4.1): exactly one `NEEDS YOU`, on the human criterion; seven
+>   unbound rows read `NOTHING CHECKS THIS`; the headline `1 of 9 proved · 1
+>   needs you · 7 cannot be proved yet` agrees with the rows. Confirmed by
+>   execution, not by reading.
+> - **F13 is still owed and is NOT claimed fixed.** Two attempts to render a
+>   board carrying two refused rows did not produce that shape, so nothing
+>   here has looked at the state the report described.
+
 ---
 
 ## The finding the evaluator could not have made, and it is ours

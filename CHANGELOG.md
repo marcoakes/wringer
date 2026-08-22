@@ -31,6 +31,40 @@ before the prose moves turns it red the other way. Both were measured on
 2026-08-22 by simulating the release in a clone, which is also how the guard
 was found to have been matching nothing at all.
 
+### The wall was a missing credential, and the arcade example got built
+
+**A coding agent drove the `arcade/` example to convergence on a real
+machine, and it is the first time this repository can say that.** Three field
+runs had died at the build step with `Authentication required`, and this one
+had answered it from the adapter's source rather than by sending a turn.
+Sending the turn settled it: `scripts/acp-auth-probe.py --prompt` was refused
+signed-out, refused with `HOME` emptied, and **answered** with
+`ANTHROPIC_API_KEY` in the worker's environment — `stopReason: end_turn`, over
+`apiType=native`. The remedy this repository retracted the day before was
+correct, and the retraction reasoned from a branch the code never takes.
+
+The wall's real name came from a surface nobody had looked at:
+`claude-agent-acp --cli` is the Claude Code CLI, and `auth status` answers
+`{"loggedIn": false, …}` for free. The agent had never been logged in, and no
+page here had ever said to log it in.
+
+- **`wring run`, `wring resume` and the drive now refuse a signed-out agent
+  before anything is spent**, and `wring doctor` warns about it where a person
+  looks first. Only a definite "no" refuses — an unmeasured agent, an
+  unparsable answer, a containment are all unknown and none of them stop a
+  run. `acp.worker_env` is shared with the real turn so the check cannot bless
+  an environment the worker never gets.
+- **The capstone run**: 9 criteria, a red acceptance check, one 7m48s worker
+  turn, converged in 2 iterations, `wring deliver` then **refused** — one
+  `human:` criterion is unjudged and no check may answer it. That refusal is
+  the feature.
+- **A converged loop no longer tells the operator the agent changed nothing.**
+  Measured on that run: five files written, gate red to green, and the ending
+  printed *"finished its turn without changing a file … could not
+  authenticate"*. `files_written` counts only writes through Wringer's own
+  `fs/` channel, and a real agent holds the filesystem itself. The counter is
+  honest; the inference from it was not.
+
 ### The third field test
 
 `docs/field-report-2026-08-22.md` lands verbatim;
