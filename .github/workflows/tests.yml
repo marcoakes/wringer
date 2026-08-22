@@ -203,6 +203,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e '.[dev]'
+      # **`uv` is a test fixture here, not a convenience.**
+      # `test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT` builds
+      # a stripped PATH holding everything `setup.sh` legitimately needs except
+      # the coding agent, so that the agent check is the only thing that can
+      # fire. `docs/drive/examples/pipeline/setup.sh` preflights `uv`, which is
+      # not on a stock ubuntu runner — so the script stopped on its own
+      # prerequisite line and main went red on 2026-08-22 for a defect that was
+      # not there. The guard now says so and skips rather than failing; without
+      # this step it would say so on every CI run and measure nothing.
+      - uses: astral-sh/setup-uv@v5
       # Logs on this repo are not readable without auth (403 on the API, a
       # login wall on the web), and a failure annotation carries only "exit
       # code 1". So a red build cannot be READ, only reproduced — which cost

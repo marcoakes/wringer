@@ -711,10 +711,13 @@ def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
         "git", "node", "npm", "uv", "sh", "env",
         "dirname", "basename", "cp", "mkdir", "rm", "cat", "sed", "tr", "pwd",
     )
+    missing = []
     for tool in needed:
         found = shutil.which(tool)
         if found:
             (bin_dir / tool).symlink_to(found)
+        else:
+            missing.append(tool)
     if shutil.which("git") is None:
         pytest.skip("git is absent, so this example cannot be set up at all")
     assert shutil.which("dirname", path=str(bin_dir)) is not None, (
@@ -733,6 +736,30 @@ def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
         env={**os.environ, "PATH": str(bin_dir)},
     )
     printed = done.stdout + done.stderr
+
+    # **Why this can skip after the script has already run — the CI red of
+    # 2026-08-22.** The symlink loop above drops a tool it cannot find. On this
+    # maintainer's Mac every name in `needed` resolves, the sandbox reaches the
+    # agent check, and the guard measures what it says it measures. On GitHub's
+    # ubuntu runner `uv` is not installed; `pipeline`'s own prerequisite loop
+    # demands it and exited on "'uv' is not on your PATH, and this needs it."
+    # — before the agent check ever ran. `assert "claude-agent-acp" in printed`
+    # then failed for a reason with nothing to do with the behaviour under test,
+    # and main went red on a defect that was not there.
+    #
+    # A guard that goes red for the wrong reason is the same defect as one that
+    # goes green for the wrong reason: in both cases the tick is not evidence.
+    # So say plainly that the sandbox could not be built and name what is
+    # missing. This is deliberately checked from the script's OWN prerequisite
+    # message rather than from `missing` — a machine without `uv` can still
+    # measure `arcade`, which does not need it, and a blanket skip would throw
+    # that coverage away. `tests.yml` installs `uv` so this does not fire in CI.
+    if "and this needs it." in printed:
+        pytest.skip(
+            f"{name}'s setup.sh stopped on its own prerequisite check "
+            f"({', '.join(missing) or 'unknown tool'} absent from this "
+            f"machine), so it never reached the agent check under test"
+        )
 
     assert done.returncode != 0, (
         f"{name}'s setup.sh succeeded with no coding agent installed — the "
