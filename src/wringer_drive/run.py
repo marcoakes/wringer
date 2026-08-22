@@ -393,20 +393,42 @@ def require_worker(repo: Path) -> None:
     if settings.run is None:
         return
     message = loop.missing_agent(settings.run)
-    if message is None:
-        return
-    raise Stop(
-        Step(
-            kind=STOPPED,
-            id="stopped:no-worker",
-            text="Nothing was built and nothing has been spent. The coding "
-            "agent this project is set up to use is not installed on this "
-            "machine, and it is the thing that would do the building — so "
-            "this stops here, before the step that costs money.",
-            engine_words=message,
-        ),
-        exit_code=2,
-    )
+    if message is not None:
+        raise Stop(
+            Step(
+                kind=STOPPED,
+                id="stopped:no-worker",
+                text="Nothing was built and nothing has been spent. The coding "
+                "agent this project is set up to use is not installed on this "
+                "machine, and it is the thing that would do the building — so "
+                "this stops here, before the step that costs money.",
+                engine_words=message,
+            ),
+            exit_code=2,
+        )
+    # **And the next question along, which cost two field runs.**
+    #
+    # An agent can be installed and never logged in, and on 2026-08-21 and
+    # 2026-08-22 that is exactly what happened: both product managers got
+    # through the interview, paid for drafting, and met `Authentication
+    # required` at the build step. The PATH check above was green for both of
+    # them. Imported from the engine for `require_worker`'s own reason — two
+    # front doors may not disagree about whether a run can start.
+    message = loop.unauthenticated_agent(settings.run)
+    if message is not None:
+        raise Stop(
+            Step(
+                kind=STOPPED,
+                id="stopped:worker-signed-out",
+                text="Nothing was built and nothing has been spent. The coding "
+                "agent is installed, but it says it is not logged in — and it "
+                "is the thing that would do the building. Giving it a "
+                "credential is your decision, so this stops here and shows "
+                "you both ways, before the step that costs money.",
+                engine_words=message,
+            ),
+            exit_code=2,
+        )
 
 
 def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:

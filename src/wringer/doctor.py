@@ -82,13 +82,13 @@ def run_checks(root: Path) -> list[Check]:
                   fix="", scope=REPO)
             for name in ("git repository", "gates", "runnable checks",
                          "last verify", "pytest parallelism",
-                         "workspace writable")
+                         "workspace writable", "worker auth")
         ]
         return machine[:4] + skipped + machine[4:]
     return (
         machine[:4]
         + [_repo(root), _config(root), _runnable_checks(root), _last_verify(root),
-           pytest_parallel_check(root), _workspace(root)]
+           pytest_parallel_check(root), _workspace(root), _worker_auth(root)]
         + machine[4:]
     )
 
@@ -100,7 +100,7 @@ def check_names() -> tuple[str, ...]:
     return (
         "python", "wring", "git", "container runtime",
         "git repository", "gates", "runnable checks", "last verify",
-        "pytest parallelism", "workspace writable",
+        "pytest parallelism", "workspace writable", "worker auth",
         "llm key",
     )
 
@@ -267,6 +267,52 @@ def _runtime(demanded: object = None) -> Check:
         "container runtime", WARN, "no container runtime found",
         "Install Docker, or run wring directly on this machine",
     )
+
+
+def _worker_auth(root: Path) -> Check:
+    """Will the coding agent be able to authenticate when the loop reaches it?
+
+    The question two field runs answered the expensive way. `wring doctor` is
+    where a person looks BEFORE they start, so it is the cheapest place this
+    can possibly be asked — and the agent's own command line answers it
+    without a turn.
+
+    `warn`, never `fail`. Doctor's exit code gates setup scripts, and a signed
+    out agent is a true problem for `wring run` and not for `wring verify`,
+    `wring accept`, or anything else in this tool. The refusal that stops a
+    run lives on the run (`loop.unauthenticated_agent`); this one's whole job
+    is to say it earlier, to somebody who can still act on it for free.
+    """
+    from wringer import worker_auth
+
+    path = root / config.CONFIG_FILENAME
+    if not path.is_file():
+        return Check("worker auth", SKIP, f"no {config.CONFIG_FILENAME}",
+                     scope=REPO)
+    try:
+        cfg = config.load(path)
+    except config.ConfigError:
+        # `_config` owns this file's problems and reports them once.
+        return Check("worker auth", SKIP,
+                     f"{config.CONFIG_FILENAME} is invalid", scope=REPO)
+    if cfg.run is None:
+        return Check("worker auth", SKIP, "no 'run:' section, so no worker",
+                     scope=REPO)
+
+    contained = cfg.run.containment
+    found = worker_auth.read(cfg.run.worker, contained)
+    if found.state == worker_auth.LOGGED_IN:
+        how = f" ({found.method})" if found.method else ""
+        return Check("worker auth", OK, f"{found.detail}{how}", scope=REPO)
+    if found.state == worker_auth.LOGGED_OUT:
+        return Check(
+            "worker auth", WARN, found.detail,
+            "Log the agent in, or declare its key under "
+            "'run.worker.acp.env_passthrough' — 'wring run' will refuse until "
+            "one of those is true. Neither proves the credential still works",
+            scope=REPO,
+        )
+    return Check("worker auth", SKIP, found.detail, scope=REPO)
 
 
 def _declared_execution(root: Path) -> object | None:

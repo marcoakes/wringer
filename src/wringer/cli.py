@@ -1749,6 +1749,14 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"wring run: {absent}", file=sys.stderr)
         return EXIT_CONFIG
 
+    # And the same again for an agent that is present and signed out, which is
+    # what two field runs actually hit. Same place, same exit code: both are
+    # "this loop cannot start", and both must leave no bundle behind.
+    signed_out = loop.unauthenticated_agent(cfg.run)
+    if signed_out is not None:
+        print(f"wring run: {signed_out}", file=sys.stderr)
+        return EXIT_CONFIG
+
     on_iteration, on_gate, on_worker = _loop_reporters(args.json)
     try:
         outcome = loop.run(
@@ -2394,6 +2402,11 @@ def cmd_resume(args: argparse.Namespace) -> int:
     absent = loop.missing_agent(cfg.run)
     if absent is not None:
         print(f"wring resume: {absent}", file=sys.stderr)
+        return EXIT_CONFIG
+
+    signed_out = loop.unauthenticated_agent(cfg.run)
+    if signed_out is not None:
+        print(f"wring resume: {signed_out}", file=sys.stderr)
         return EXIT_CONFIG
 
     if args.loop is not None:

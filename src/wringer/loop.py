@@ -540,6 +540,37 @@ def missing_agent(settings: config.Run) -> str | None:
     )
 
 
+def unauthenticated_agent(settings: config.Run) -> str | None:
+    """Why this loop's worker cannot authenticate, or None.
+
+    `missing_agent` above refuses an agent that is not installed. This refuses
+    the next thing along, which two field runs hit and nothing checked: an
+    agent that IS installed and has never been logged in. Both runs paid for
+    drafting first and met the wall afterwards.
+
+    It is deliberately the SECOND of the two, and only speaks when the first
+    is silent: an absent binary has one good message and it is the other
+    function's.
+
+    Only a definite "no" refuses. `worker_auth` returns `UNKNOWN` for every
+    agent whose auth surface nobody here has measured, for a containment, and
+    for an answer it cannot parse — and none of those may stop a run, because
+    a stop on Wringer's ignorance of a vendor would be this repository
+    charging a person for its own gap.
+    """
+    worker = settings.worker
+    if not isinstance(worker, config.AcpWorker):
+        return None
+    if settings.containment is not None:
+        return None
+    from wringer import worker_auth
+
+    found = worker_auth.read(worker)
+    if not found.will_fail:
+        return None
+    return worker_auth.refusal(worker, found)
+
+
 def _worker_text(worker: Any) -> str:
     """How a worker is written down in the manifest, whichever form it is."""
     if isinstance(worker, config.AcpWorker):

@@ -50,6 +50,17 @@ class Agent:
     package: str
     key_env: str
     args: tuple[str, ...] = ()
+    #: The argv suffix that asks THIS agent whether it is logged in, or `()`
+    #: when nobody has verified that it has such a surface. Data, like every
+    #: other field here — `worker_auth.py` is what runs it, and this module
+    #: still starts no process.
+    #:
+    #: Empty is the honest default and must stay the default. An agent whose
+    #: auth surface has not been measured reports "unknown", which costs a
+    #: reader one sentence; a guessed argv run against someone's agent could
+    #: do anything, and a guess that happened to exit 0 would report a green
+    #: nobody checked.
+    auth_probe: tuple[str, ...] = ()
 
     @property
     def install(self) -> str:
@@ -87,6 +98,13 @@ AGENTS: tuple[Agent, ...] = (
         command="claude-agent-acp",
         package="@agentclientprotocol/claude-agent-acp",
         key_env="ANTHROPIC_API_KEY",
+        # `--cli` forwards every remaining argument to the Claude Code CLI the
+        # adapter wraps (`dist/index.js` spawns `claudeCliPath()` with them),
+        # and that CLI answers `auth status` as JSON without a network call or
+        # a turn. Verified on macOS against 0.70.0 / CLI 2.1.232 on
+        # 2026-08-22, in all three states: signed out, `HOME` emptied, and
+        # `ANTHROPIC_API_KEY` present.
+        auth_probe=("--cli", "auth", "status"),
     ),
     Agent(
         id="gemini",
@@ -94,6 +112,9 @@ AGENTS: tuple[Agent, ...] = (
         package="@google/gemini-cli",
         key_env="GEMINI_API_KEY",
         args=("--experimental-acp",),
+        # Deliberately empty: nobody here has run this agent's auth surface,
+        # and inventing one is how the last auth sentence in this repository
+        # came to be false.
     ),
 )
 

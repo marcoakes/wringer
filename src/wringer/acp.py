@@ -352,6 +352,41 @@ def _inside(root: Path, candidate: str, contained: bool = False) -> Path | None:
         return None
 
 
+def worker_env(
+    env_passthrough: tuple[str, ...], containment_settings: Any = None
+) -> dict[str, str]:
+    """Exactly the environment a worker turn is handed.
+
+    Extracted from `run_turn` on 2026-08-22 so that a PREFLIGHT can *predict*
+    the worker's environment rather than reconstruct it. A check that asks
+    "will the agent be able to authenticate?" is only worth running if it asks
+    in the environment the agent will actually get; a second copy of these
+    three names and this loop would answer about an environment nothing runs
+    in, and would drift the first time either changed.
+
+    Three names and no more, plus whatever the operator declared crosses. The
+    smallness is the point: a worker inherits nothing it was not given.
+    """
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "HOME": os.environ.get("HOME", ""),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+    }
+    crossing = env_passthrough
+    if containment_settings is not None:
+        # Both declared allowlists apply, and the union is ruled rather than
+        # assumed (SPEC_CONTAIN_V0 §11 A-6). Wringer's own environment is what
+        # the runtime CLIENT reads `--env NAME` values out of, so a name the
+        # boundary declares has to be present here too or it would pass
+        # nothing — an intersection arrived at by accident, which is exactly
+        # the silently-inert key refusal 11 exists to prevent.
+        crossing = containment.env_names(containment_settings, env_passthrough)
+    for name in crossing:
+        if name in os.environ:
+            env[name] = os.environ[name]
+    return env
+
+
 def run_turn(
     command: str,
     args: tuple[str, ...],
@@ -394,23 +429,7 @@ def run_turn(
     has to happen before the bytes land, never as a cleanup pass.
     """
     redactor = redactor or Redactor()
-    env = {
-        "PATH": os.environ.get("PATH", ""),
-        "HOME": os.environ.get("HOME", ""),
-        "LANG": os.environ.get("LANG", "C.UTF-8"),
-    }
-    crossing = env_passthrough
-    if containment_settings is not None:
-        # Both declared allowlists apply, and the union is ruled rather than
-        # assumed (SPEC_CONTAIN_V0 §11 A-6). Wringer's own environment is what
-        # the runtime CLIENT reads `--env NAME` values out of, so a name the
-        # boundary declares has to be present here too or it would pass
-        # nothing — an intersection arrived at by accident, which is exactly
-        # the silently-inert key refusal 11 exists to prevent.
-        crossing = containment.env_names(containment_settings, env_passthrough)
-    for name in crossing:
-        if name in os.environ:
-            env[name] = os.environ[name]
+    env = worker_env(env_passthrough, containment_settings)
 
     contained = containment_settings is not None and established is not None
     if contained:
