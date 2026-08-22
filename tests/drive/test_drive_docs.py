@@ -802,7 +802,7 @@ def test_no_setup_script_claims_wringers_key_reaches_the_coding_agent(name):
     key never reaches it — setting it does not log the agent in, and no other
     variable does either"*. The last clause is false: `ANTHROPIC_API_KEY`
     declared under `run.worker.acp.env_passthrough` authenticates the builder,
-    measured (`round3b-artifacts/S0-FINDING.md`). So what is pinned now is not
+    measured (`docs/auth-probe-2026-08-22.md`). So what is pinned now is not
     a denial. It is that the script separates the two credentials, and then
     tells the reader how to give the agent one and how to check for free
     whether they need to — because a reader who is told only what does NOT
@@ -1436,7 +1436,7 @@ def test_the_page_states_what_the_AUTH_REMEDY_COST_AND_LIMIT_are():
     ):
         assert killed not in body, (
             f"the page asserts {killed!r} in its own voice again. That was "
-            "measured false on 2026-08-22 — see round3b-artifacts/S0-FINDING.md"
+            "measured false on 2026-08-22 — see docs/auth-probe-2026-08-22.md"
         )
 
 

@@ -148,7 +148,7 @@ WORKER_REMEDIES = {
     # And the comment that stood here said setting a credential variable
     # "would not have fixed the measured failure: the stock adapter reports
     # `apiType=native` and reads no key at all". That was reasoned from source
-    # and is false — `round3b-artifacts/S0-FINDING.md` has the turn that
+    # and is false — `docs/auth-probe-2026-08-22.md` has the turn that
     # succeeded on exactly that. It still does not NAME a variable, for
     # `FACE_TURN_CHANGED_NOTHING`'s reason one entry up, but it no longer
     # tells the reader the route does not exist.

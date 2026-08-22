@@ -177,7 +177,7 @@ the turn itself was finally run, and the conclusion was wrong.
 `scripts/acp-auth-probe.py` grew an opt-in `--prompt` mode — one minimal
 `session/prompt` after the handshake — and was run three ways on the author's
 Mac. Verbatim captures and the full write-up:
-`round3b-artifacts/S0-FINDING.md`.
+`docs/auth-probe-2026-08-22.md`.
 
 | run | environment | `session/prompt` |
 |---|---|---|
