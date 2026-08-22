@@ -1338,3 +1338,91 @@ def test_the_capture_harness_never_reports_emptiness_SILENTLY():
         f"these return an empty list with nothing said: {bare}. Downstream "
         "that is indistinguishable from 'the worker found nothing to change'"
     )
+
+
+# --- what this page may not promise about authentication or about stdin -----
+#
+# Both guards below exist because this page told a product manager something
+# that was not true, and they went and did it. Prose is the product here: an
+# agent reads these words and relays them to a person as instructions.
+
+
+def drive_agents_md() -> str:
+    return (REPO / "AGENTS.md").read_text(encoding="utf-8")
+
+
+def test_the_page_does_not_offer_env_passthrough_as_an_AUTH_REMEDY():
+    """**Field report 2026-08-22 finding 6 — a remedy that was a guess.**
+
+    This page pointed at `run.worker.acp.env_passthrough` as the answer to a
+    builder that could not authenticate. The evaluator applied it exactly as
+    written, with a key their own drafting call had just proved valid, and
+    measured it DEGRADING the failure: `session/prompt was refused:
+    Authentication required` became `session/new was refused: Internal
+    error`, with `apiType=native` unchanged in the log.
+
+    The adapter's source says why, and the page now carries it:
+    `ANTHROPIC_API_KEY` is never read as a credential there — it appears in a
+    cache-key list and in `createEnvForProvider`, which sets it to the empty
+    string. So this guard is not "do not mention the setting" (the setting is
+    real and this page still describes what it does); it is that the page must
+    never again pair that variable with the adapter as a way to log in without
+    the sentence saying it does not work.
+    """
+    body = flattened(own_voice(drive_agents_md()))
+
+    assert "ANTHROPIC_API_KEY" in body, (
+        "the page no longer mentions the variable at all, so this guard is "
+        "checking nothing. If the section was rewritten, re-derive it against "
+        "whatever it says now — do not delete it"
+    )
+    assert "does not work" in body or "cannot authenticate" in body, (
+        "the page names ANTHROPIC_API_KEY near the adapter without anywhere "
+        "saying it does not authenticate it. That pairing is what sent a "
+        "product manager down a measured dead end"
+    )
+    # The specific shape that was wrong: the variable offered as the thing to
+    # pass through, with no correction anywhere near it.
+    for claim in (
+        "pass ANTHROPIC_API_KEY through",
+        "passing ANTHROPIC_API_KEY through will",
+    ):
+        assert claim not in body, f"the page still offers {claim!r} as a remedy"
+
+
+def test_the_stdin_bullet_does_not_promise_more_than_the_drain_does():
+    """**Field report 2026-08-22 finding 8 — the half that was UNEXPLAINED.**
+
+    The bullet read: *"Anything written before a question was asked is stale
+    by design and is discarded unread — that is the interlock protecting the
+    person from leftover text answering an approval."* A careful evaluator
+    read that as a guarantee, watched a queued line reach an `approve`
+    confirm, and reported the protection as documented but not implemented.
+
+    It IS implemented. Measured both directions against a real subprocess
+    pipe: text queued before the confirm rendered is drained and reported in a
+    `stale-input-discarded` step; text written after it rendered is read as
+    the answer, because no transport can distinguish that from a person
+    typing. `test_an_answer_written_after_the_question_renders_is_never_drained`
+    pins the second half deliberately — it is a property, not a gap.
+
+    What was wrong was the promise. The bullet had to gain the answer window,
+    because a reader who believes the drain is a safety net has no reason to
+    obey the rule that actually protects them.
+    """
+    body = flattened(own_voice(drive_agents_md()))
+
+    assert "Never queue answers ahead" in body, (
+        "law 2's rule for this transport is gone from the page, and it is the "
+        "only thing that actually protects the person"
+    )
+    assert "answer window" in body, (
+        "the stdin bullet does not name the window in which text IS taken as "
+        "an answer. Without it the drain reads as total protection, which is "
+        "the reading that produced finding 8"
+    )
+    assert "cannot prove intent" in body or "cannot tell it apart" in body, (
+        "the page does not say that the machine cannot tell a queued line "
+        "from a typed one. That is the whole reason the burden is the "
+        "agent's, and it is why this is a law and not a feature"
+    )

@@ -205,9 +205,25 @@ and the person types nothing. Then:
   writing.
 
 - **Write to stdin only in answer to an `ask` or `confirm` you have just
-  received.** Anything written before a question was asked is stale by design
-  and is discarded unread — that is the interlock protecting the person from
-  leftover text answering an approval. Never queue answers ahead.
+  received.** Never queue answers ahead. Text already waiting when a question
+  renders is drained unread, and what was discarded is shown back to the
+  person in a `stale-input-discarded` step rather than dropped in silence.
+
+  **That drain is not a safety net, and the difference matters enough to
+  spell out.** It fires at one instant — immediately before a question is
+  emitted. Text that arrives after that instant IS that question's answer, and
+  nothing in any transport can tell it apart from a person typing. On
+  2026-08-22 an assistant wrote an answer for an interview question that was
+  never going to be asked; it landed inside the approval's answer window and
+  the `approve` confirm read it as not-yes, and the run stopped un-approved.
+  The evaluator reasonably concluded the interlock was documented but not
+  implemented. It is implemented — measured in both directions — but it only
+  covers the stale case, and this bullet used to read as though it covered
+  every case.
+
+  It failed safe that day only because the queued words were not "yes". This
+  is exactly why law 2 is YOUR burden and not the transport's: the machine
+  cannot prove intent, so the rule against queueing is the whole protection.
 
 - **stderr is the engine's heartbeat** — `iteration 1/3`, gate lines, worker
   turns, as they happen. Relay it to the person as it arrives (it is how they
@@ -246,6 +262,40 @@ crosses into a worker's environment is the operator's declaration —
 `run.worker.acp.env_passthrough` in `.wringer.yaml` — and it is deliberately
 empty by default. Show the person the ending's own words; the decision about
 what crosses that boundary is theirs, not yours.
+
+**Do not tell anyone to pass `ANTHROPIC_API_KEY` through to
+`claude-agent-acp`. It does not work, and this page used to say it did.**
+
+An earlier version of this section pointed at `env_passthrough` as the remedy
+for an unauthenticated builder. A product manager applied it exactly as
+written on 2026-08-22 and measured it making things worse: the failure moved
+from `session/prompt was refused: Authentication required` to `session/new
+was refused: Internal error`, and the log still read `apiType=native`. The
+remedy was a guess. Guessing in this file is what produced it, and the facts
+below come from the adapter's own source (`@agentclientprotocol/claude-agent-acp`
+0.70.0, `dist/acp-agent.js`) rather than from reasoning about the symptom:
+
+- **`apiType=native` is not a choice of subscription auth.** It is the string
+  printed when NO provider config resolved — the log interpolates
+  `resolvedProvider?.apiType ?? "native"`. A provider resolves only from a
+  `providers/set` call or from a gateway `authenticate` request. Wringer sends
+  neither, so the adapter falls through to the Claude Code CLI's own on-disk
+  credential store.
+- **The adapter never reads `ANTHROPIC_API_KEY` as a credential.** The name
+  appears exactly twice: once in a list used to build a context-window cache
+  key, and once in `createEnvForProvider`, which sets it to the empty string.
+  When a provider IS configured the adapter deliberately BLANKS it. Passing it
+  through cannot authenticate anything.
+- **Authentication is a protocol act, not an environment act.** `initialize`
+  advertises `authMethods`, and a client authenticates by calling
+  `authenticate` with one of their ids. The adapter only offers methods the
+  CLIENT declared it can service; Wringer declares none, so the handshake comes
+  back with `authMethods: []` and there is no route on offer at all.
+
+So the honest sentence, until that changes: **a machine whose Claude Code is
+signed in by subscription cannot currently be driven through this adapter by
+Wringer.** What works is the drafting call, which uses Wringer's own key and
+never goes near the adapter. Say that plainly rather than offering a setting.
 
 ---
 
