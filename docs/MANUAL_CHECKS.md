@@ -861,6 +861,33 @@ are readable the moment their own job finishes.
 as soon as it completes. Against an already-finished run it returns in about
 two seconds. Watch the job you asked about.
 
+## Sequence M — the paste block fetches THIS repository's current runbook
+
+**Why it is manual.** The suite opens no sockets by construction, and the
+defect this catches is invisible offline: the URL returns HTTP 200 either way.
+
+**The defect, found 2026-08-22 by running it.** `START-HERE.md`'s paste block
+— the one thing a product manager hands their agent — pointed at
+`raw.githubusercontent.com/marcoakes/wringer-drive/main/AGENTS.md`, the
+PRE-MERGE repository. It answers 200 and serves a runbook 7KB behind this
+one, missing the auth remedy, the vendor worker forms and every key-wording
+change of the last three windows. Nothing looks wrong; the person is simply
+driven by a stale document. `tests/drive/test_drive_docs.py` now derives the
+expected path from where `AGENTS.md` actually sits, which catches a MOVE. It
+cannot catch the repository being wrong while the path is right, and it cannot
+compare bytes. This does.
+
+```bash
+grep -o 'https://raw.githubusercontent.com[^ ]*' docs/drive/START-HERE.md
+curl -sS -o /tmp/fetched.md -w '%{http_code} %{size_download}\n' "<that url>"
+diff /tmp/fetched.md docs/drive/AGENTS.md && echo "the paste block serves THIS file"
+```
+
+**Expected:** `200`, and `diff` silent against the committed file — after the
+commit that changed it has been PUSHED. A diff here on unpushed work is the
+round-3 lesson, not a defect: check `git log origin/main..main` is empty
+first.
+
 ## What is *not* here, and why
 
 These are covered by automated tests and do not belong on a manual list.

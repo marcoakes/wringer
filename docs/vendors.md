@@ -114,6 +114,14 @@ Nothing here is a default. These are the commands an operator writes down;
 
 ## Measure it yourself
 
+**These two live in the source tree, not in the installed package.** `uv tool
+install wringer` ships the four commands and no scripts, so re-taking the
+measurement means cloning first:
+
+```bash
+git clone https://github.com/marcoakes/wringer && cd wringer
+```
+
 ```bash
 python3 scripts/vendor-brain-probe.py
 ```
@@ -127,6 +135,10 @@ python3 scripts/acp-auth-probe.py "kimi acp"
 ```
 
 The handshake only — it never sends the paid call unless you add `--prompt`.
+
+Nothing else on this page needs a clone: the four statuses, the Keychain
+conventions and the endpoints are the answers, and the scripts are only how
+they were obtained.
 
 ## What this page does not claim
 

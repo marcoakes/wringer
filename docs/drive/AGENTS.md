@@ -35,8 +35,8 @@ different coat.
 
 **Law 3 — you never see, print, or ask for the key.** Wringer needs an API key
 for **whichever model provider the person chose** to draft the plan — it has
-no preferred one, and `../vendors.md` lists what has been measured with the
-Keychain name for each. The person stores it in their Keychain themselves
+no preferred one. What has been measured, with the Keychain name for each, is
+at https://github.com/marcoakes/wringer/blob/main/docs/vendors.md. The person stores it in their Keychain themselves
 (`START-HERE.md` gives them the command). You never read it, echo it, or pass
 it as an argument you have seen: the run command reads it **inline**, straight
 from the Keychain into the child process's environment —
@@ -252,7 +252,7 @@ and the person types nothing. Then:
   | coding agent (worker) | `acp: claude-agent-acp`, `acp: kimi acp`, `codex exec --json -` |
 
   `detail.suggested` is a LIST on every one of the three, even where it holds
-  a single value, and `detail.more` points at `docs/vendors.md` — the measured
+  a single value, and `detail.more` points at https://github.com/marcoakes/wringer/blob/main/docs/vendors.md — the measured
   matrix of endpoints, models and agents, which is where a person goes if none
   of the examples is theirs.
 
@@ -267,7 +267,7 @@ and the person types nothing. Then:
   make sure they saw that sentence before they answer.
 
   The endpoint and the model must MATCH each other: a model name is only
-  valid at the endpoint that serves it. `docs/vendors.md` lists the pairs
+  valid at the endpoint that serves it. That page lists the pairs
   that were measured, with a status per row.
 
 At the end, open or point them at **`board.html`** in the project — the page

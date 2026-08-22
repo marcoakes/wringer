@@ -1537,3 +1537,76 @@ def test_the_stdin_bullet_does_not_promise_more_than_the_drain_does():
         "from a typed one. That is the whole reason the burden is the "
         "agent's, and it is why this is a law and not a feature"
     )
+
+
+def test_the_PASTE_BLOCK_points_at_THIS_repositorys_current_runbook():
+    """**Found by the bug hunt, 2026-08-22, and it would have broken run 5.**
+
+    The paste block is the single thing a product manager hands their agent.
+    It pointed at
+
+        raw.githubusercontent.com/marcoakes/wringer-drive/main/AGENTS.md
+
+    which is the PRE-MERGE repository. That URL still returns HTTP 200 — so
+    nothing looked broken — and it serves a runbook 7KB behind this one,
+    missing the auth remedy, the vendor worker forms, the multi-value
+    suggestions and every key-wording change of the last three windows. A PM
+    following the front door would have been driven by a stale runbook while
+    every page here said otherwise.
+
+    It is the round-3 lesson in a new place: *what the evaluator installs is
+    not what the author is looking at.* There it was unpushed commits; here it
+    is a URL nobody re-derived after the packages merged.
+
+    **Derived, not pinned.** The URL must name the path AGENTS.md actually
+    occupies in this tree, so moving the file again fails here instead of
+    silently serving the old copy. Checked offline — the live fetch is
+    `docs/MANUAL_CHECKS.md`, because this suite opens no sockets.
+    """
+    body = (ROOT / "START-HERE.md").read_text(encoding="utf-8")
+    here = (ROOT / "AGENTS.md").resolve()
+    repo_root = ROOT.parents[1]
+    relative = here.relative_to(repo_root).as_posix()
+
+    urls = [
+        word.strip().rstrip(".,)")
+        for word in body.split()
+        if "raw.githubusercontent.com" in word
+    ]
+    assert urls, "the paste block fetches nothing at all"
+    for url in urls:
+        assert url.endswith(relative), (
+            f"the paste block fetches {url}, and this repository's runbook "
+            f"lives at {relative}. A URL that 200s from somewhere else is "
+            "worse than one that 404s: nothing looks wrong and the person is "
+            "driven by a stale runbook"
+        )
+        assert "/marcoakes/wringer/" in url, (
+            f"the paste block fetches from another repository: {url}. The "
+            "packages merged into this one — wringer-drive is not published "
+            "or pushed to any more"
+        )
+
+
+def test_the_runbook_links_NOTHING_a_reader_fetching_it_RAW_cannot_resolve():
+    """AGENTS.md is FETCHED, not browsed.
+
+    The agent reads it from `raw.githubusercontent.com`, where a relative
+    markdown link resolves against that host and 404s. Every location this
+    document hands an agent has to be absolute — the same defect class as the
+    paste block above, one level down.
+    """
+    import re
+
+    body = agents_md()
+    relative = re.findall(r"\]\((?!https?://|#)([^)]+)\)", body)
+    # Sibling files the agent is TOLD to open locally after cloning nothing —
+    # `docs/ENDINGS.md` and friends live beside this file in the same fetch
+    # tree and are named as paths on purpose. What may not appear is a link
+    # climbing OUT of that directory, which is what `../` does.
+    climbing = [link for link in relative if link.startswith("..")]
+    assert not climbing, (
+        f"the runbook links {climbing}, which resolve against "
+        "raw.githubusercontent.com when an agent fetches this file and 404 "
+        "there. Use the full https:// URL"
+    )

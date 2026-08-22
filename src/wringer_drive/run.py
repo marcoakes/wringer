@@ -239,7 +239,16 @@ DECLARED_DEFAULTS = {
 # — `glm-5.3` at Anthropic's URL is a 404, not a choice — so the question
 # points at the matrix rather than inviting a mix-and-match. The worker
 # question carries three, because a worker command stands on its own.
-VENDORS_PAGE = "docs/vendors.md"
+# **A URL, and NOT a repo-relative path — found by the bug hunt, 2026-08-22.**
+#
+# These questions are answered by a person standing in THEIR OWN repository,
+# which is the whole point of the tool. `docs/vendors.md` exists in Wringer's
+# source tree and nowhere on their machine — the `uv tool install` front door
+# ships no docs at all. So the first question a product manager ever answers
+# was pointing at a file they do not have, which is precisely the defect class
+# `test_the_runbook_names_the_example_PRD_where_the_example_puts_it` exists
+# for, on the one surface where the reader is least able to work it out.
+VENDORS_PAGE = "https://github.com/marcoakes/wringer/blob/main/docs/vendors.md"
 
 SETUP_QUESTIONS = (
     Step(
@@ -249,7 +258,8 @@ SETUP_QUESTIONS = (
         "plan? Any endpoint that speaks the OpenAI chat-completions shape "
         "works. Paste the URL your team uses — for the worked example "
         "it is https://api.anthropic.com/v1/chat/completions, and the "
-        "measured alternatives are listed in docs/vendors.md. Your "
+        "measured alternatives are listed at "
+        f"{VENDORS_PAGE}. Your "
         "API key will be sent to whatever URL you enter here.",
         detail={
             "key": "endpoint",
@@ -262,8 +272,8 @@ SETUP_QUESTIONS = (
         id="setup:model",
         text="Which model should it use? (a name, like the one on your "
         "team's API page — the worked example uses claude-opus-5. It has "
-        "to be a model the endpoint above serves; docs/vendors.md lists "
-        "the pairs that were measured.)",
+        "to be a model the endpoint above serves; the pairs that were "
+        f"measured are at {VENDORS_PAGE})",
         detail={
             "key": "model",
             "suggested": ["claude-opus-5"],

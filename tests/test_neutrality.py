@@ -257,3 +257,79 @@ def test_the_README_TOP_FOLD_leads_with_the_structural_fact_not_a_vendor():
         "the top fold makes the work-with-anything claim and does not link "
         "the matrix that backs it"
     )
+
+
+# --- what a person standing in THEIR OWN repo can actually reach -------------
+#
+# Found by the bug hunt of 2026-08-22, by running the surfaces rather than
+# reading them. Three user-facing strings pointed at `docs/vendors.md`: the
+# drive's first two questions and the engine's no-key refusal. **That file
+# exists in Wringer's source tree and nowhere on the reader's machine** — the
+# `uv tool install` front door ships the four commands and no docs at all — so
+# the first question a product manager ever answers named a path they did not
+# have. It is the same defect class as a runbook command that 404s on the
+# layout the reader has, on the surface where the reader is least equipped to
+# work it out.
+
+
+def _user_facing_pointers() -> list[tuple[str, str]]:
+    """Every (where, text) this window added that hands the reader a location."""
+    from wringer import cli
+    from wringer.config import Judge
+    from wringer_drive import run as run_module
+
+    found = [
+        ("drive:VENDORS_PAGE", run_module.VENDORS_PAGE),
+        (
+            "cli:_missing_key",
+            cli._missing_key(
+                "spec",
+                Judge(
+                    endpoint="https://api.example.invalid/v1/chat/completions",
+                    model="m",
+                    rubric="r.yaml",
+                    api_key_env="WRINGER_API_KEY",
+                ),
+            ),
+        ),
+    ]
+    for question in run_module.SETUP_QUESTIONS:
+        found.append((f"drive:{question.id}", question.text))
+        more = question.detail.get("more")
+        if more:
+            found.append((f"drive:{question.id}.more", more))
+    return found
+
+
+@pytest.mark.parametrize(
+    "where,text", _user_facing_pointers(), ids=lambda v: str(v)[:40]
+)
+def test_no_user_facing_string_points_at_a_file_only_THIS_repo_has(where, text):
+    """A location handed to the reader must be reachable FROM WHERE THEY ARE.
+
+    Their own repository, or a URL. Never a path relative to Wringer's source
+    tree, because they are not standing in it and the installed package does
+    not contain it.
+    """
+    if "vendors.md" not in text:
+        return
+    for line in text.splitlines():
+        if "vendors.md" not in line:
+            continue
+        assert "https://" in line, (
+            f"{where} points the reader at a path only this repository has: "
+            f"{line.strip()!r}. They are standing in their own project, and "
+            "`uv tool install wringer` ships no docs — give them a URL"
+        )
+
+
+def test_the_drives_own_pointer_is_a_URL():
+    """The one constant every question reads, checked directly so a new
+    question inherits the property rather than needing its own test."""
+    from wringer_drive import run as run_module
+
+    assert run_module.VENDORS_PAGE.startswith("https://"), (
+        f"the drive points at {run_module.VENDORS_PAGE!r}, which is a path in "
+        "Wringer's source tree and not a place the person answering the "
+        "question can reach"
+    )

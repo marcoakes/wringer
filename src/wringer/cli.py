@@ -1185,7 +1185,8 @@ def _missing_key(verb: str, judge_config: config.Judge) -> str:
         "    security add-generic-password -U -s <vendor>-api-key -a wringer -w\n"
         f"    {judge_config.api_key_env}=\"$(security find-generic-password "
         "-s <vendor>-api-key -a wringer -w)\" wring " + verb + " …\n"
-        "  The service name to use for each vendor is in docs/vendors.md."
+        "  The service name for each vendor is at\n"
+        "    https://github.com/marcoakes/wringer/blob/main/docs/vendors.md"
     )
 
 

@@ -8,7 +8,7 @@ nothing to sign up for — and you need a terminal for exactly one command.
 ## 1. Paste this into your coding agent (Claude Code, Kimi, Codex, …)
 
 ```text
-Fetch https://raw.githubusercontent.com/marcoakes/wringer-drive/main/AGENTS.md
+Fetch https://raw.githubusercontent.com/marcoakes/wringer/main/docs/drive/AGENTS.md
 and follow it exactly — it is the runbook for setting up and driving Wringer
 for me. I am a product manager, not an engineer: tell me what you are about to
 do before you do it, and what happened afterwards, in plain language. Do not
@@ -27,7 +27,7 @@ can read it too.
 
 Drafting the plan calls a model, which costs money and needs **an API key for whichever
 provider you choose** — billed per token, pennies per run. The providers measured so far,
-and the one Keychain name for each, are in [docs/vendors.md](../vendors.md). Give the key
+and the one Keychain name for each, are in [the measured vendor list](https://github.com/marcoakes/wringer/blob/main/docs/vendors.md). Give the key
 to your Mac's Keychain in **Terminal**, not in your agent — swap `anthropic` for yours:
 
 ```bash
