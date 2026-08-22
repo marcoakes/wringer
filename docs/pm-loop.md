@@ -4,7 +4,7 @@
 runs.*
 
 This is the whole of `wring spec` and `wring plan`
-([specs/SPEC_INTENT_V0.md](../SPEC_INTENT_V0.md)), end to end, in seven commands —
+([specs/SPEC_INTENT_V0.md](specs/SPEC_INTENT_V0.md)), end to end, in seven commands —
 one of which is reading.
 
 Every block below is **real captured output**, not an illustration. The one

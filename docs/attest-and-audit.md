@@ -5,7 +5,7 @@ offline, with no config, by someone who trusts nobody involved. Neither calls
 an LLM. Neither opens a socket. There is no `--send` here and there never will
 be.*
 
-This is [specs/SPEC_PROVENANCE_V0.md](../SPEC_PROVENANCE_V0.md) end to end. Every
+This is [specs/SPEC_PROVENANCE_V0.md](specs/SPEC_PROVENANCE_V0.md) end to end. Every
 block below is **real captured output** from a scratch repository with a
 `file://` remote — reproducible, and nothing left the machine.
 
@@ -206,7 +206,7 @@ saying *no* is the demo.
 ## What it is not
 
 Unsigned, by decision rather than omission
-([SPEC_PROVENANCE_V0 §5](../SPEC_PROVENANCE_V0.md) ruling 1). Signing in v0
+([SPEC_PROVENANCE_V0 §5](specs/SPEC_PROVENANCE_V0.md) ruling 1). Signing in v0
 would force four answers nobody asked for, and the last of them is a signing
 key in CI — which contradicts the product's most distinctive promise, that it
 never touches a credential.
@@ -226,7 +226,7 @@ stays exactly as captured; what follows is what changed after the capture was
 taken, dated so a reader can see which is which.*
 
 The section above says "if one ever arrives". **It arrived.**
-[specs/SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) was built on **2026-08-12** and reopened
+[specs/SPEC_SIGN_V0.md](specs/SPEC_SIGN_V0.md) was built on **2026-08-12** and reopened
 the 2026-08-05 unsigned ruling — not by reversing its reasoning, but because
 its premise had changed. That ruling refused a **signing key in CI secrets**;
 keyless Sigstore signing holds no long-lived key, so the objection does not

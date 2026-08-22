@@ -4,7 +4,7 @@
 loop can use any coding agent. Each transition is explicit. Each stop is
 explainable. Each delivery requires evidence. Each graph resumes from disk.*
 
-This is [specs/SPEC_GRAPH_V0.md](../SPEC_GRAPH_V0.md), built. It is deliberately
+This is [specs/SPEC_GRAPH_V0.md](specs/SPEC_GRAPH_V0.md), built. It is deliberately
 small: a local, resumable, evidence-driven workflow file that composes the
 primitives Wringer already has. It is **not** an agent framework, not a
 scheduler, and not a second implementation of anything — a graph node *names a
@@ -326,7 +326,7 @@ nodes/<id>/          brief.md · prompt.md · decision.yaml
 
 ## Parking, and resuming
 
-The `human` node is [SPEC_INTENT](../SPEC_INTENT_V0.md) §3's interlock, again
+The `human` node is [SPEC_INTENT](specs/SPEC_INTENT_V0.md) §3's interlock, again
 and on purpose. Its first execution writes `prompt.md` and `decision.yaml`
 into the node's directory and parks the graph at exit 5:
 

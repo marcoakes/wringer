@@ -84,7 +84,7 @@ the loop's evidence honest rather than a conversation that drifts.
 
      **AMENDED 2026-08-11 — what that bound does NOT claim.** It bounds the
      path Wringer *serves*. It does not confine the agent. Measured on the
-     first real run ([docs/first-contact.md](docs/first-contact.md)): the
+     first real run ([docs/first-contact.md](../first-contact.md)): the
      agent edited the repository through **its own filesystem access** and
      never called `fs/write_text_file` once, so Wringer served zero writes
      and the check above never executed. It cannot execute against any agent

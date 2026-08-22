@@ -57,7 +57,7 @@ If yes, the design is wrong.
 
 *Ruled after the first real agent run measured this spec's central assumption
 and found it does not hold for agents that work in one pass
-([docs/first-contact.md](docs/first-contact.md)).*
+([docs/first-contact.md](../first-contact.md)).*
 
 The sentence above describes a gate going red **on the clock**, in a run
 somebody watched. That is how a person learns what a gate is for, and it is
@@ -446,7 +446,7 @@ today's `src/` rather than against the review that wrote them.
 
 *Ruled in `~/Claude/WRINGER_RULING_2026-08-14.md` ("the witness ruling"), R1,
 after the first corpus run measured this program's operating assumption and
-disproved it ([docs/corpus-2026-08-13.md](docs/corpus-2026-08-13.md)). The
+disproved it ([docs/corpus-2026-08-13.md](../corpus-2026-08-13.md)). The
 ruling delegates two choices to the implementation — which existing command
 hosts the author, and how the witness is packaged — and both are DECIDED here,
 against the tree rather than in the abstract.*
@@ -475,8 +475,8 @@ prevention-style catch turned out to be location-luck. W1–W9 are untouched.
 was retired as an invalid measurement and the prevention question moved to
 Phase 3, where a loss now fires the bug-fix de-scope automatically. The
 schedule, the trigger and the Phase 3 stop are recorded in the repository at
-[docs/witness-programme.md](docs/witness-programme.md); the measurement is
-[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md).*
+[docs/witness-programme.md](../witness-programme.md); the measurement is
+[docs/witness-calibration-2026-08-15.md](../witness-calibration-2026-08-15.md).*
 
 ### What the measurement disproved
 
@@ -837,7 +837,7 @@ question the Phase 1 capture's §"The one catch, read honestly" left hanging.*
 > location-guessing is not creditable prevention.**
 
 The measured case, from
-[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md)
+[docs/witness-calibration-2026-08-15.md](../witness-calibration-2026-08-15.md)
 Postscript 1. Issue #2703 describes a symptom **at the shell**: a completion
 value containing a colon is mangled. It never says where the escaping belongs.
 Upstream escapes in `format_completion` (Python); the salvaged agent change

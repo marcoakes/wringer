@@ -1,0 +1,154 @@
+[   0.0s] show     prd-copied
+          I copied your document into the project, at .wringer/drive/prd.md, because the tool only reads files inside it. Your original is untouched.
+[   0.4s] ask      setup:endpoint
+          Which model endpoint should read your document and draft the plan? Paste the URL your team uses.
+   --> https://api.anthropic.com/v1/chat/completions
+[   0.4s] ask      setup:model
+          Which model should it use? (a name, like the one on your team's API page)
+   --> claude-opus-5
+[   0.4s] ask      setup:worker
+          Which coding agent should do the building? Give the command that starts it.
+   --> acp: …/toolvenv/bin/python …/harness/acp_model_agent.py https://api.anthropic.com/v1/chat/completions claude-opus-5 …/harness/.key
+[   0.8s] show     workspace
+          I set the project up to run its own checks: lint, test. Nothing was invented — these come from pyproject.toml, which already declares them.
+          
+          Reading your document costs money, so the model endpoint needs a key. The project will look for it in WRINGER_API_KEY, which has to be set in the environment before the next step. Wringer never stores a key and this tool never reads one.
+[  50.7s] show     drafting
+          Reading your document and drafting a plan from it. This sends the document to the model endpoint the project declares, which usually costs a small amount.
+[  50.7s] ask      question:skip-status-name
+          What exact status value/label should a not-attempted step carry in the run result and summary (e.g. "skipped", "blocked", "not attempted")?
+   --> "skipped". It is the word everybody already uses for this and nobody has to be taught it.
+[  50.7s] ask      question:attribution-rule-multi-parent
+          When a skipped step transitively depends on more than one failed step, which failure should it name — the nearest failed ancestor, all of them, or some other rule?
+   --> The nearest failed ancestor — the failure it was actually waiting on. Naming all of them, or naming whichever failed first, is the wall of noise we are trying to get rid of.
+[  50.7s] ask      question:summary-format
+          Is the summary a machine-readable structure (JSON keys), human text, or both, and what is the exact field/line format for the skipped steps and their causes?
+   --> Human text, in the same block it prints today. Nothing machine-readable — people read this, not programs.
+[  50.7s] ask      question:overall-failure-signal
+          How must the run signal that it did not succeed — process exit code from src/pipeline/cli.py, a status field on the result object, or both, and with what values?
+   --> The exit code, 1 when the run did not succeed. That is what people and our CI already key off, and it has to keep being true.
+[  50.7s] ask      question:in-flight-steps
+          If steps can run concurrently, should already-started steps that depend on nothing failed be allowed to finish, and are in-flight dependents cancelled or left to complete?
+   --> Nothing runs concurrently today, so it does not arise. If it ever does, let anything already started finish.
+[  50.8s] ask      question:counts-in-summary
+          Should skipped steps be counted separately from failures in any totals the summary reports, and do they change existing counters?
+   --> Count them separately. A step that was never attempted is not a failure, and rolling them together would overstate how much is actually broken — which is the same complaint we started with.
+[  50.8s] ask      question:skipped-step-events
+          Should a skipped step still emit its normal start/finish log or report entry (marked skipped), or be omitted from per-step output entirely?
+   --> Keep a line for every step, marked as skipped. A step that vanishes from the summary looks like one that passed.
+[  50.8s] ask      question:acceptance-fixture-contract
+          Does acceptance/chain.json plus acceptance/test_skip_downstream.py already encode the intended skip and attribution contract, or must that fixture change as part of this work?
+   --> Yes, that is exactly what it encodes, and it must NOT change as part of this work. The team wrote it before building on purpose. A check edited by the same change it is judging proves nothing.
+[  50.8s] ask      question:missing-checks-for-criteria
+          Criteria for independent-step continuation, summary attribution wording, and the overall failure signal have no existing check that fails today (tests/test_runner.py, tests/test_report.py and tests/test_cli.py are green) — may new test files be added and treated as their acceptance checks?
+   --> No. If a requirement has nothing that can fail today, I would rather be told it is unchecked than be shown a test written alongside the change it is supposed to judge — that check would pass because it was written to, not because the work is right. Leave them unchecked and tell me which ones they are.
+[  50.8s] show     plan
+          Skip downstream steps after a failure and attribute each skip to its blocking failure in the run summary
+          
+          # Pipeline runs keep wasting everyone's time after something breaks
+          
+          When one step of a pipeline fails, everything that was waiting on it runs
+          anyway. Support keeps forwarding us runs where a step fell over two minutes in
+          and the run carried on for another twenty, producing a wall of errors that all
+          trace back to the same thing. Somebody then has to sit down and work out by
+          hand which failures were real and which were just knock-on from the first one.
+          Two teams have told us they now ignore the summary entirely and go straight to
+          the logs, which rather defeats the point of having a summary.
+          
+          What we want is for a run to stop pouring effort into work that cannot possibly
+          succeed. If a step fails, anything waiting on it — directly, or further down the
+          chain — should not be attempted at all. Steps that were not waiting on it should
+          carry on exactly as they do now; people rely on getting the rest of the results.
+          
+          The summary is the other half of this. It should say plainly which steps were
+          not attempted, and for each one it should name the failure that caused it, so
+          that a person reading it can tell at a glance which single thing to go and fix.
+          When there is more than one failure in a run, each skipped step should point at
+          the one it was actually waiting on rather than at whichever failure happened
+          first.
+          
+          The run itself should still finish tidily rather than fall over, and it should
+          still be obvious overall that the run did not succeed.
+          
+          WHAT I WILL BUILD
+          
+            - Extend src/pipeline/graph.py so the runner can ask, for any step, which steps are blocked by it — including transitively down the chain — and, for a blocked step, which failed ancestor it was waiting on. The traversal must be deterministic, must not mutate the graph, and must handle steps with several dependencies and diamond shapes without visiting a step twice. Cover the new helpers in tests/test_graph.py. Done when the graph module exposes the lookups the runner and report need and existing graph tests still pass.
+            - Change src/pipeline/runner.py so that when a step fails, every step that depends on it directly or transitively is marked not-attempted and its work is never invoked, while steps with no dependency path to any failure execute and report exactly as they do today. Each not-attempted step must carry a record of the failure that blocked it, following the rule settled in the open questions. The run must finish without an exception escaping and still report overall failure. Done when acceptance/test_skip_downstream.py passes and tests/test_runner.py covers skipping at depth, independent branches, and multiple independent failures.
+            - Update src/pipeline/report.py so the run summary lists the not-attempted steps as their own clearly labelled category, separate from successes and failures, and prints for each one the failure it was waiting on so a reader sees which single thing to fix. With more than one failure in a run, each skipped step must point at its own blocking failure. Done when tests/test_report.py asserts the skipped section, the per-step cause, and the multi-failure attribution against the summary format settled in the open questions.
+            - Ensure src/pipeline/cli.py and src/pipeline/__main__.py surface the new outcome correctly: a run containing a failure and skipped steps exits with the agreed failure signal, prints the full summary including the skipped section, and never propagates a traceback. Done when tests/test_cli.py covers the failing-run invocation end to end and the lint gate stays green.
+          
+          HOW EACH PIECE WILL BE PROVED
+          
+            A step whose dependency failed is never executed, directly or transitively
+              must — the check `acceptance-skip-downstream` — and it must be seen to FAIL first (proposed, not installed yet — somebody has to accept it before it runs)
+          
+            Steps not depending on the failure run exactly as before
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The summary states plainly which steps were not attempted
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Each skipped step names the failure it was actually waiting on
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The run completes without raising and still reports overall failure
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            A reader can tell from the summary which single thing to fix
+              must — A PERSON decides this. No check can, and none will be written for it — you record the answer yourself
+          
+          WHAT THIS PLAN DOES NOT SAY
+          
+            That the criteria are the right ones. Wringer checks a binding's
+            consequences, never its wisdom — if a requirement is worded wrongly,
+            a green check against it proves the wrong thing perfectly.
+[  50.8s] confirm  approve
+          That is what will be built, and how each piece will be proved.
+          Is that what you meant? Nothing is built until you say yes.
+          If you say no: nothing is built, nothing is changed, and the plan stays where you can edit the requirements and try again.
+   --> yes
+[  50.8s] show     approved
+          Approved. The plan is recorded and the build can start.
+[  51.0s] show     gate-diff
+          Before anything is built, this adds the checks that will prove the work. This is the exact change to the project's settings:
+          --- a/.wringer.yaml
+          +++ b/.wringer.yaml
+          @@ -22,6 +22,9 @@
+             - id: test
+               run: pytest -q
+               timeout: 300
+          +  - id: acceptance-skip-downstream
+          +    run: pytest -q acceptance/test_skip_downstream.py
+          +    proves: downstream-not-attempted
+           
+           judge:
+             endpoint: https://api.anthropic.com/v1/chat/completions
+[  51.0s] confirm  try-gates
+          Those checks have not been run yet: acceptance-skip-downstream.
+          Shall I try them against the project as it stands, before you decide? A check that already passes cannot show the difference this work makes.
+          If you say no: they are not run, and you decide whether to add them without knowing whether any of them already passes.
+   --> yes
+[  51.3s] show     gates-tried
+          I ran them against the project as it stands: acceptance-skip-downstream. None of them passes today.
+[  51.3s] confirm  install-gates
+          That change adds: acceptance-skip-downstream.
+          Shall I add those checks to the project?
+          If you say no: the project's settings are left exactly as they are, and nothing is built.
+   --> yes
+[ 142.3s] show     building
+          Building now. This runs your project's own checks, hands each failure to your coding agent, and runs them again — for as many attempts as the project allows.
+[ 142.3s] show     build:converged
+          The work finished: the checks it was asked to satisfy are passing.
+          Nothing is needed from you on this one.
+[ 142.8s] show     board
+          The page showing what is done, what is proved, and what still needs you is at board.html.
+[ 142.8s] stopped  stopped:acceptance_unevidenced
+          The handover is being held because at least one requirement cannot show its proof.
+          See the cards above — each one holding this up says what it needs.
+          wring deliver: refusing to deliver 20260817-223555-98bb — its gates passed,
+          but the spec is not satisfied by the record:
+          
+            summary-readable-at-a-glance — HUMAN
+              nobody has answered this — a person decides it, and records the decision in `wringer.judgements.yaml`
+
+=== exit 1 · 15 answers from the operator · 142.8s of machine time · 262s total including the operator's thinking ===

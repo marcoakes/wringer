@@ -3507,3 +3507,181 @@ def test_claimed_voice_leaves_NO_quote_MARKER_inside_a_sentence(document):
         "prose guards match against, so any claim wrapping across that line "
         "is unmatchable and every pattern reading it is silently narrowed"
     )
+
+
+# --- the packages merged, and the prose has to know it ----------------------
+#
+# Found 2026-08-22 by a reader, not by a test, which is the part worth fixing.
+# `README.md` carried a paragraph headed *"Its true status, so nobody has to
+# guess"* that opened **"It is a separate package, `wringer-board`"** and said
+# four lines later that there is no separate package to fetch. Both sentences
+# shipped together from 0.4.0. Meanwhile three front doors — README-PM.md
+# twice, INSTALL.md once — sent readers to `github.com/marcoakes/wringer-drive`
+# and `.../wringer-board` for the pages a product manager starts from.
+#
+# **Those repositories still answer 200.** They are tombstones: their own
+# descriptions say the code moved. So a reader following those links does not
+# get an error, they get a copy of the page that stopped being updated in
+# August — the same failure as the stale paste-block URL, which is worse than a
+# 404 because nothing looks wrong.
+
+#: The distributions that merged into `wringer` in 0.4.0. A GitHub link to one
+#: of these is a link to a tombstone.
+MERGED_AWAY = ("wringer-board", "wringer-drive")
+
+#: Captures. A transcript records what a command DID on a date; rewriting one
+#: to match today destroys the evidence it exists to be. These carry dated
+#: notes instead, and `test_a_superseded_capture_says_so` holds them to it.
+CAPTURES_EXEMPT = ("docs/install-2026-08-17.md", "docs/MANUAL_CHECKS.md")
+
+
+def _pages_a_reader_follows() -> list[Path]:
+    root = repo_root()
+    return [
+        path
+        for path in root.rglob("*.md")
+        if ".wringer" not in path.parts
+        and "coldread" not in path.parts
+        and "node_modules" not in path.parts
+        and path.relative_to(root).as_posix() not in CAPTURES_EXEMPT
+    ]
+
+
+def test_NO_PAGE_SENDS_A_READER_TO_A_MERGED_AWAY_REPOSITORY():
+    """A link to a tombstone is worse than a broken link.
+
+    `github.com/marcoakes/wringer-drive` answers **200** and serves the page
+    it had in August. A reader following it is not told anything is wrong;
+    they simply read a stale document. Every page a reader follows must point
+    into THIS repository, where the file actually lives now.
+    """
+    import re
+
+    offenders = []
+    for path in _pages_a_reader_follows():
+        body = path.read_text(encoding="utf-8")
+        for gone in MERGED_AWAY:
+            for match in re.finditer(rf"github\.com/marcoakes/{gone}[/\w.-]*", body):
+                line = body[: match.start()].count("\n") + 1
+                offenders.append(
+                    f"{path.relative_to(repo_root())}:{line} → {match.group(0)}"
+                )
+    assert not offenders, (
+        "these pages link a repository whose code moved into this one. It "
+        "answers 200 and serves a stale copy, so the reader is never told: "
+        + "; ".join(offenders)
+    )
+
+
+def test_NO_PAGE_CALLS_A_MERGED_PACKAGE_SEPARATE_IN_THE_PRESENT_TENSE():
+    """The self-contradiction, as a property.
+
+    `wringer-board` and `wringer-drive` are commands of one distribution since
+    0.4.0. A page may describe the LAYER as separate — that is the seam
+    `test_layer_seam.py` enforces and it is true — but it may not call the
+    PACKAGE separate, because a reader acts on that by trying to install it.
+    """
+    import re
+
+    offenders = []
+    # "a separate package" / "separate packages" / "its own package", present
+    # tense, within a sentence that also names one of the merged commands.
+    pattern = re.compile(
+        r"[^.\n]*\b(?:is|are|ships? as)\s+(?:a\s+)?separate\s+packages?\b[^.\n]*\.",
+        re.I,
+    )
+    for path in _pages_a_reader_follows():
+        body = path.read_text(encoding="utf-8")
+        for match in pattern.finditer(body):
+            sentence = " ".join(match.group(0).split())
+            if not any(gone in sentence for gone in MERGED_AWAY):
+                continue
+            # A sentence explicitly dated to the past is history, not a claim.
+            past = r"used to|until|before 0\.4\.0|shipped as|was\b"
+            if re.search(past, sentence, re.I):
+                continue
+            line = body[: match.start()].count("\n") + 1
+            offenders.append(f"{path.relative_to(repo_root())}:{line} → {sentence}")
+    assert not offenders, (
+        "these sentences call a merged distribution a separate package, and a "
+        "reader acts on that by trying to install something that is not on the "
+        "index: " + "; ".join(offenders)
+    )
+
+
+def test_a_superseded_capture_SAYS_SO_rather_than_being_rewritten():
+    """The two exemptions above are exemptions, not blind spots.
+
+    A capture keeps its bytes — that is what makes it evidence — so the rule
+    for one whose layout is superseded is a DATED NOTE saying not to follow it.
+    A capture that is exempt from the link guard and carries no such note is a
+    page quietly instructing a reader to clone a tombstone.
+    """
+    for name in CAPTURES_EXEMPT:
+        body = (repo_root() / name).read_text(encoding="utf-8")
+        if not any(gone in body for gone in MERGED_AWAY):
+            continue
+        flat = " ".join(body.split()).lower()
+        assert "superseded" in flat, (
+            f"{name} still names a merged-away repository and never says the "
+            "layout is superseded, so a reader may follow it"
+        )
+
+
+# --- every link a reader can click ------------------------------------------
+#
+# Found 2026-08-22 by resolving them all: **62 relative links in this
+# repository pointed at nothing.** Forty-four were the package merge — specs
+# moved into `docs/specs/` and every `../SPEC_X.md` beside them kept pointing
+# at the root. Six were captures the merge simply lost, recovered from the
+# tombstone repository that still had them.
+#
+# Nobody clicks a link in a document they wrote, so nothing noticed. It is the
+# same failure as the stale paste-block URL and the tombstone front doors: a
+# page confidently sending a reader somewhere that is not there.
+
+
+def _link_targets(body: str):
+    """Relative markdown links, with FENCED BLOCKS REMOVED.
+
+    A fence is a transcript or a rendering, not the page's own links. This
+    repository's `QUICKSTART.md` quotes the `summary.md` Wringer generates,
+    whose `[diff.patch](diff.patch)` is correct relative to a BUNDLE and
+    nonsense relative to the page. A first version of this guard called those
+    six broken and would have had them "fixed" into wrongness.
+    """
+    import re
+
+    outside = re.sub(r"```.*?```", "", body, flags=re.S)
+    outside = re.sub(r"^ {4,}\S.*$", "", outside, flags=re.M)
+    for match in re.finditer(
+        r"\[[^\]]*\]\((?!https?://|mailto:|#)([^)#]+)(?:#[^)]*)?\)", outside
+    ):
+        yield match.group(1).strip(), outside[: match.start()].count("\n") + 1
+
+
+def test_EVERY_RELATIVE_LINK_IN_EVERY_PAGE_RESOLVES():
+    """A link that goes nowhere is a claim the repository cannot keep.
+
+    Committed evidence is exempt — `.wringer.example/` and the cold-read
+    captures are bundles and transcripts, and their internal paths are
+    relative to where they were WRITTEN, not to this tree.
+    """
+    root = repo_root()
+    skip = {".wringer", ".wringer.example", "node_modules", ".venv", "build",
+            "dist", "coldread", ".git", ".pytest_cache"}
+    broken = []
+    checked = 0
+    for page in sorted(root.rglob("*.md")):
+        if any(part in skip for part in page.relative_to(root).parts):
+            continue
+        for target, line in _link_targets(page.read_text(encoding="utf-8")):
+            checked += 1
+            if not (page.parent / target).resolve().exists():
+                broken.append(f"{page.relative_to(root)}:{line} → {target}")
+    assert checked > 300, f"the scanner found only {checked} links — it broke"
+    assert not broken, (
+        f"{len(broken)} of {checked} relative links point at nothing. Nobody "
+        "clicks a link in a document they wrote, which is why this is a test "
+        "and not a habit: " + "; ".join(broken[:12])
+    )

@@ -4,7 +4,7 @@
 push and a merge request carrying the receipts — and every step a person had
 to authorise, they authorised by typing something.*
 
-This is [specs/SPEC_GET_V0.md](../SPEC_GET_V0.md) end to end, joined to the
+This is [specs/SPEC_GET_V0.md](specs/SPEC_GET_V0.md) end to end, joined to the
 [PM loop](pm-loop.md) that precedes it. Every block below is **real captured
 output**. The two stand-ins are a loopback stub answering as the forge and as
 the drafting model, and a `file://` remote instead of a hosted one — so the

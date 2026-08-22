@@ -5,7 +5,7 @@ model went through `benchmark/harness.py`, including the parts that went wrong
 and the part that makes the result undecidable. It is not rewritten; corrections
 arrive as postscripts.
 
-Contract: [specs/SPEC_BENCHMARK_V0.md](../SPEC_BENCHMARK_V0.md). The task was
+Contract: [specs/SPEC_BENCHMARK_V0.md](specs/SPEC_BENCHMARK_V0.md). The task was
 `benchmark/tasks/smoke-real-agent.yaml`, which `benchmark/CORPUS.md` §5
 deliberately keeps out of the corpus.
 

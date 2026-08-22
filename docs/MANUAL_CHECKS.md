@@ -205,7 +205,7 @@ promise it exists to protect.
 
 *Note 2026-08-15: that refusal is about a **signing key**, and it stands.
 Ruling 1's separate conclusion that attestations are unsigned was superseded
-by [specs/SPEC_SIGN_V0.md](../SPEC_SIGN_V0.md) — keyless signing holds no key, so
+by [specs/SPEC_SIGN_V0.md](specs/SPEC_SIGN_V0.md) — keyless signing holds no key, so
 the sentence above is not in tension with it. Sequence H below is the other
 half, and is also unrun.*
 
@@ -792,7 +792,7 @@ Each row names the command that was actually run, and its actual output.
 
 | claim in `README.md` | the command run | last checked | result |
 |---|---|---|---|
-| the board's source is public at `github.com/marcoakes/wringer-board` | `curl -s -o /dev/null -w "%{http_code}" https://github.com/marcoakes/wringer-board` (unauthenticated) | 2026-08-17 | **200 — public** |
+| ~~the board's source is public at `github.com/marcoakes/wringer-board`~~ **README no longer claims this — superseded 2026-08-22** | `curl -s -o /dev/null -w "%{http_code}" https://github.com/marcoakes/wringer-board` (unauthenticated) | 2026-08-17 | **200 — public.** Still 200 on 2026-08-22, as a TOMBSTONE: its description says the code moved into `wringer`. The board's source is now `src/wringer_board/` in this repository, so there is no cross-repo claim left to check |
 | the board's page is live at `marcoakes.github.io/wringer-board/` | `curl -s -o /dev/null -w "%{http_code}" https://marcoakes.github.io/wringer-board/` | 2026-08-17 | **200** |
 | `wringer-board` is **not** on PyPI, so `pip install wringer-board` fails | `curl -s -o /dev/null -w "%{http_code}" https://pypi.org/pypi/wringer-board/json` | 2026-08-17 | **404 — absent, so the claim holds.** The same probe against `wringer` returns **200**, which is the control: the check can tell the two apart |
 

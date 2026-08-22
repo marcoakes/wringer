@@ -1,0 +1,138 @@
+[   0.0s] show     prd-copied
+          I copied your document into the project, at .wringer/drive/prd.md, because the tool only reads files inside it. Your original is untouched.
+[   0.1s] ask      setup:endpoint
+          Which model endpoint should read your document and draft the plan? Paste the URL your team uses.
+   --> https://api.anthropic.com/v1/chat/completions
+[   0.1s] ask      setup:model
+          Which model should it use? (a name, like the one on your team's API page)
+   --> claude-opus-5
+[   0.1s] ask      setup:worker
+          Which coding agent should do the building? Give the command that starts it.
+   --> acp: …/toolvenv/bin/python …/harness/acp_model_agent.py https://api.anthropic.com/v1/chat/completions claude-opus-5 …/harness/.key
+[   0.2s] show     workspace
+          I set the project up to run its own checks: lint, test. Nothing was invented — these come from pyproject.toml, which already declares them.
+[  47.0s] show     drafting
+          Reading your document and drafting a plan from it. This sends the document to the model endpoint the project declares, which usually costs a small amount.
+[  47.0s] ask      question:repo-surface-unknown
+          Which existing modules, classes and test files implement pipeline execution and the summary, so acceptance checks can be bound to checks that already exist in the repository?
+   --> I'm the PM, so I can't name modules — that's the engineering side. What I do know is that this team writes the check for a requirement before building it, and those live in the acceptance folder; the README explains the convention. The one for this requirement is already written and is failing today, which is rather the point.
+[  47.0s] ask      question:summary-artifact
+          What exactly is 'the summary' — a returned object, a printed report, a JSON/text file — and what is its current schema or layout?
+   --> It's the block of text the tool prints at the end of a run: one line per step, then a verdict line. Nothing machine-readable today — people read it.
+[  47.0s] ask      question:dependency-declaration
+          How does a step declare what it is waiting on today (explicit dependency list, ordering, data handles), and is that graph available before execution starts?
+   --> Each step says what it is waiting on in the pipeline file, and the whole graph is known before anything runs. That is already how the order is decided.
+[  47.1s] ask      question:failure-definition
+          What counts as a step failure (raised exception, non-zero exit, returned status), and do retries or timeouts happen before a step is considered failed?
+   --> A step has failed when the thing it runs comes back non-zero. There are no retries and no timeouts today.
+[  47.1s] ask      question:multiple-blocking-failures
+          When one skipped step waits on more than one failed step, which failure should be named — all of them, the nearest, or the first in the chain?
+   --> The nearest one — the failure it was actually waiting on. Pointing everybody at whichever failure happened first is the thing we are trying to stop.
+[  47.1s] ask      question:skip-state-representation
+          Should a skipped step be recorded as a distinct state (e.g. 'skipped') separate from 'failed' in per-step results and in any counts the summary shows?
+   --> Yes, its own state. A step that was never attempted is not a step that failed, and a reader must not have to work out which is which.
+[  47.1s] ask      question:in-flight-steps
+          If steps run concurrently, should steps already in flight when a failure occurs be cancelled, or allowed to complete?
+   --> Nothing runs concurrently today, so it does not arise. If it ever does, let anything already started finish.
+[  47.1s] ask      question:overall-status-signal
+          How is 'the run did not succeed' currently expressed (return value, exception, process exit code), and which of these must reflect the new outcome?
+   --> The exit code. It is 1 when the run did not succeed, and that has to stay true.
+[  47.2s] ask      question:attribution-naming
+          What identifier should name the causing failure in the summary (step id, step display name, error message, or a combination)?
+   --> The step's name — the same one that appears on its own line in the summary.
+[  47.2s] show     plan
+          Skip downstream work after a step fails and attribute each skip to its blocking failure in the run summary
+          
+          # Pipeline runs keep wasting everyone's time after something breaks
+          
+          When one step of a pipeline fails, everything that was waiting on it runs
+          anyway. Support keeps forwarding us runs where a step fell over two minutes in
+          and the run carried on for another twenty, producing a wall of errors that all
+          trace back to the same thing. Somebody then has to sit down and work out by
+          hand which failures were real and which were just knock-on from the first one.
+          Two teams have told us they now ignore the summary entirely and go straight to
+          the logs, which rather defeats the point of having a summary.
+          
+          What we want is for a run to stop pouring effort into work that cannot possibly
+          succeed. If a step fails, anything waiting on it — directly, or further down the
+          chain — should not be attempted at all. Steps that were not waiting on it should
+          carry on exactly as they do now; people rely on getting the rest of the results.
+          
+          The summary is the other half of this. It should say plainly which steps were
+          not attempted, and for each one it should name the failure that caused it, so
+          that a person reading it can tell at a glance which single thing to go and fix.
+          When there is more than one failure in a run, each skipped step should point at
+          the one it was actually waiting on rather than at whichever failure happened
+          first.
+          
+          The run itself should still finish tidily rather than fall over, and it should
+          still be obvious overall that the run did not succeed.
+          
+          WHAT I WILL BUILD
+          
+            - Make the executor stop attempting work that cannot succeed. When a step fails, compute the set of steps that depend on it directly or transitively from the existing dependency information and mark them as not attempted without invoking their work. Steps with no dependency path to the failure must be scheduled and executed exactly as they are today, with unchanged results. Record, for each not-attempted step, the identity of the specific failed step it was waiting on, so that in a run with several failures every skipped step carries its own blocking failure rather than the earliest one. Done looks like: an executor that, given a graph with one or more failing steps, invokes only the reachable-from-nothing-failed steps and produces per-step records distinguishing ran-ok, failed and not-attempted, each not-attempted record naming its cause.
+            - Extend the run summary so it plainly reports the steps that were not attempted and, for each, names the failure that blocked it, using the cause recorded by the executor. Entries for steps that ran keep their current shape so existing consumers are unaffected. The summary must remain correct when a run contains multiple independent failures, with each skipped step attributed to the failure it was waiting on. Done looks like: a summary of a mixed run that a reader can scan to identify each root failure and the work it prevented, with skipped steps clearly separated from steps that ran and failed.
+            - Ensure the run itself terminates tidily and reports the right overall outcome. A step failure must not escape as an exception from the run entry point; the run should complete its normal finalisation and return its result. The overall outcome must still signal that the run did not succeed whenever any step failed or was skipped because of a failure. Done looks like: invoking a run containing a failure returns without raising, all end-of-run bookkeeping happens, and the overall status the caller observes is unambiguously unsuccessful.
+          
+          HOW EACH PIECE WILL BE PROVED
+          
+            Steps waiting directly on a failed step are not executed
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Steps further down the chain from a failed step are not executed
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Steps not waiting on the failure run and report exactly as before
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The summary states which steps were not attempted
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Each not-attempted step names the failure that caused it
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            With several failures, each skipped step points at the failure it was actually waiting on
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The run completes normally instead of propagating the step failure
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The overall run outcome shows the run did not succeed
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            A reader can tell from the summary which single thing to go and fix
+              must — A PERSON decides this. No check can, and none will be written for it — you record the answer yourself
+          
+            New and changed code passes the repository lint
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+          WHAT THIS PLAN DOES NOT SAY
+          
+            That the criteria are the right ones. Wringer checks a binding's
+            consequences, never its wisdom — if a requirement is worded wrongly,
+            a green check against it proves the wrong thing perfectly.
+[  47.2s] confirm  approve
+          That is what will be built, and how each piece will be proved.
+          Is that what you meant? Nothing is built until you say yes.
+          If you say no: nothing is built, nothing is changed, and the plan stays where you can edit the requirements and try again.
+   --> yes
+[  47.3s] show     approved
+          Approved. The plan is recorded and the build can start.
+[  47.5s] show     gates-already-installed
+          The checks that will prove this work are already part of the project, so there is nothing to add.
+[  48.0s] show     building
+          Building now. This runs your project's own checks, hands each failure to your coding agent, and runs them again — for as many attempts as the project allows.
+[  48.0s] show     build:converged
+          The work finished: the checks it was asked to satisfy are passing.
+          Nothing is needed from you on this one.
+[  48.5s] show     board
+          The page showing what is done, what is proved, and what still needs you is at board.html.
+[  48.5s] stopped  stopped:no_git_identity
+          The handover is being held because the machine doing the work has no name or email recorded, so nothing can be attributed to anybody.
+          Nothing is needed from you; the machine has to be set up first.
+          wring deliver: git has no user.name here, so a commit would have no author.
+          Wringer commits as you, using your git identity — it does not invent one. Set
+          it:
+            git config --global user.name "..."
+
+=== exit 2 · 13 answers from the operator · 48.5s of machine time · 195s total including the operator's thinking ===

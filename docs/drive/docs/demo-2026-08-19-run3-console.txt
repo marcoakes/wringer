@@ -1,0 +1,100 @@
+[   0.0s] show     prd-copied
+          I copied your document into the project, at .wringer/drive/prd.md, because the tool only reads files inside it. Your original is untouched.
+[   0.1s] show     plan
+          Skip downstream steps after a failure and attribute each skip to its blocking failure in the run summary
+          
+          # Pipeline runs keep wasting everyone's time after something breaks
+          
+          When one step of a pipeline fails, everything that was waiting on it runs
+          anyway. Support keeps forwarding us runs where a step fell over two minutes in
+          and the run carried on for another twenty, producing a wall of errors that all
+          trace back to the same thing. Somebody then has to sit down and work out by
+          hand which failures were real and which were just knock-on from the first one.
+          Two teams have told us they now ignore the summary entirely and go straight to
+          the logs, which rather defeats the point of having a summary.
+          
+          What we want is for a run to stop pouring effort into work that cannot possibly
+          succeed. If a step fails, anything waiting on it — directly, or further down the
+          chain — should not be attempted at all. Steps that were not waiting on it should
+          carry on exactly as they do now; people rely on getting the rest of the results.
+          
+          The summary is the other half of this. It should say plainly which steps were
+          not attempted, and for each one it should name the failure that caused it, so
+          that a person reading it can tell at a glance which single thing to go and fix.
+          When there is more than one failure in a run, each skipped step should point at
+          the one it was actually waiting on rather than at whichever failure happened
+          first.
+          
+          The run itself should still finish tidily rather than fall over, and it should
+          still be obvious overall that the run did not succeed.
+          
+          WHAT I WILL BUILD
+          
+            - Extend src/pipeline/graph.py so the runner can ask, for any step, which steps are blocked by it — including transitively down the chain — and, for a blocked step, which failed ancestor it was waiting on. The traversal must be deterministic, must not mutate the graph, and must handle steps with several dependencies and diamond shapes without visiting a step twice. Cover the new helpers in tests/test_graph.py. Done when the graph module exposes the lookups the runner and report need and existing graph tests still pass.
+            - Change src/pipeline/runner.py so that when a step fails, every step that depends on it directly or transitively is marked not-attempted and its work is never invoked, while steps with no dependency path to any failure execute and report exactly as they do today. Each not-attempted step must carry a record of the failure that blocked it, following the rule settled in the open questions. The run must finish without an exception escaping and still report overall failure. Done when acceptance/test_skip_downstream.py passes and tests/test_runner.py covers skipping at depth, independent branches, and multiple independent failures.
+            - Update src/pipeline/report.py so the run summary lists the not-attempted steps as their own clearly labelled category, separate from successes and failures, and prints for each one the failure it was waiting on so a reader sees which single thing to fix. With more than one failure in a run, each skipped step must point at its own blocking failure. Done when tests/test_report.py asserts the skipped section, the per-step cause, and the multi-failure attribution against the summary format settled in the open questions.
+            - Ensure src/pipeline/cli.py and src/pipeline/__main__.py surface the new outcome correctly: a run containing a failure and skipped steps exits with the agreed failure signal, prints the full summary including the skipped section, and never propagates a traceback. Done when tests/test_cli.py covers the failing-run invocation end to end and the lint gate stays green.
+          
+          HOW EACH PIECE WILL BE PROVED
+          
+            A step whose dependency failed is never executed, directly or transitively
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Steps not depending on the failure run exactly as before
+              must — the check `bind-independent-steps` — and it must be seen to FAIL first (proposed, not installed yet — somebody has to accept it before it runs)
+          
+            The summary states plainly which steps were not attempted
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Each skipped step names the failure it was actually waiting on
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The run completes without raising and still reports overall failure
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            A reader can tell from the summary which single thing to fix
+              must — A PERSON decides this. No check can, and none will be written for it — you record the answer yourself
+          
+          WHAT THIS PLAN DOES NOT SAY
+          
+            That the criteria are the right ones. Wringer checks a binding's
+            consequences, never its wisdom — if a requirement is worded wrongly,
+            a green check against it proves the wrong thing perfectly.
+[   0.1s] confirm  approve
+          That is what will be built, and how each piece will be proved.
+          Is that what you meant? Nothing is built until you say yes.
+          If you say no: nothing is built, nothing is changed, and the plan stays where you can edit the requirements and try again.
+   --> yes
+[   0.1s] show     approved
+          Approved. The plan is recorded and the build can start.
+[   0.3s] show     gate-diff
+          Before anything is built, this adds the checks that will prove the work. This is the exact change to the project's settings:
+          --- a/.wringer.yaml
+          +++ b/.wringer.yaml
+          @@ -22,6 +22,9 @@
+             - id: test
+               run: pytest -q
+               timeout: 300
+          +  - id: bind-independent-steps
+          +    run: pytest -q tests
+          +    proves: independent-steps-still-run
+           
+           judge:
+             endpoint: https://api.anthropic.com/v1/chat/completions
+[   0.3s] confirm  try-gates
+          Those checks have not been run yet: bind-independent-steps.
+          Shall I try them against the project as it stands, before you decide? A check that already passes cannot show the difference this work makes.
+          If you say no: they are not run, and you decide whether to add them without knowing whether any of them already passes.
+   --> yes
+[   0.5s] show     gates-tried
+          I ran them against the project as it stands: bind-independent-steps. bind-independent-steps — This check already passes against the project as it stands, so nothing the work does can make it fail — which means either the requirement is already met, or this check cannot tell the difference.
+          Is this requirement already met, or does it need a different check?
+[   0.5s] confirm  install-gates
+          That change adds: bind-independent-steps.
+          Shall I add those checks to the project?
+          If you say no: the project's settings are left exactly as they are, and nothing is built.
+   --> no
+[   0.5s] stopped  stopped:gates-declined
+          Nothing was built, because the checks that would prove the work were not added. Nothing in the project changed.
+
+=== exit 0 · 3 answers from the operator · 0.6s of machine time · 21s total including the operator's thinking ===

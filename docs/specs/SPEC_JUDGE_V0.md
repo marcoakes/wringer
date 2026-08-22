@@ -241,7 +241,7 @@ creation · any git write · OpenTelemetry.
 
 ## 9. The network promise — DECIDED 2026-07-31
 
-Wringer currently advertises, in [README.md](README.md) line 57 and without
+Wringer currently advertises, in [README.md](../../README.md) line 57 and without
 qualification: **"No LLM, no cloud, no uploads."**
 
 The scoped promises survive this slice untouched — SECURITY.md's "No network"
@@ -264,7 +264,7 @@ publishing it while `--send` is still stubbed would make the README describe
 behaviour the program does not have — the same sin in the other direction.
 J1 ships dry-run-only against the *existing* wording, which stays true
 because nothing has opened a socket yet; J2 flips the transport on and edits
-[README.md](README.md) line 57 and [SECURITY.md](SECURITY.md)'s "What Wringer
+[README.md](../../README.md) line 57 and [SECURITY.md](../../SECURITY.md)'s "What Wringer
 never does" in the same commit.
 
 ## 10. Definition of DONE

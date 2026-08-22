@@ -199,7 +199,7 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 > above is unchanged; what changed is that it can no longer present as silence.
 
 > **Driving Wringer for somebody else?** `wringer-drive`'s
-> [`AGENTS.md`](https://github.com/marcoakes/wringer-drive/blob/main/AGENTS.md)
+> [`AGENTS.md`](https://github.com/marcoakes/wringer/blob/main/docs/drive/AGENTS.md)
 > is the runbook for a coding agent doing exactly that — the same install
 > gated by `wring doctor`, then how to drive `--emit json` and the three laws
 > that keep an agent a transport rather than a second opinion: relay every

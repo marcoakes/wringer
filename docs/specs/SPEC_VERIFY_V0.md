@@ -2,7 +2,7 @@
 
 *Adopted 2026-07-30 (third external review). This is the **binding
 implementation contract** for v0.1.0. It supersedes the Days 1–30 detail
-in [ROADMAP.md](ROADMAP.md) where they differ. The implementing agent
+in [ROADMAP.md](../../ROADMAP.md) where they differ. The implementing agent
 builds THIS, in the build order below, and nothing in [Non-goals](#non-goals-for-v010-binding).*
 
 ## Positioning
@@ -302,9 +302,9 @@ wringer/
 - [x] failed gates produce useful logs
 - [x] evidence bundle format is stable and documented
 - [x] **CI runs `wring verify` on this repo** and uploads the bundle
-- [x] **Wringer itself uses `wring verify`** — [`.wringer.yaml`](.wringer.yaml)
+- [x] **Wringer itself uses `wring verify`** — [`.wringer.yaml`](../../.wringer.yaml)
       declares its gates and a real bundle is committed to
-      [`.wringer.example/`](.wringer.example/)
+      [`.wringer.example/`](../../.wringer.example/)
 - [x] README shows a **real transcript**, not aspirational syntax
 
 The README demo at that point:

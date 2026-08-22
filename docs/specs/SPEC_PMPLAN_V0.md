@@ -16,7 +16,7 @@ code, and it is reviewed before any code.
 > adversarial review ran 8 lanes over 57 agents: 97 raw findings, 54 after
 > dedupe, **19 confirmed** by two independent skeptics each, 5 killed, and **30
 > below the verification cap and therefore unexamined rather than clear.** The
-> full record is [docs/pmplan-review-2026-08-19.md](docs/pmplan-review-2026-08-19.md);
+> full record is [docs/pmplan-review-2026-08-19.md](../pmplan-review-2026-08-19.md);
 > it is kept verbatim so the fold can be checked against what the review said
 > rather than against my summary of it.
 >
@@ -90,7 +90,7 @@ guidance, where the person approving the plan will never read it as a decision.
 across all four raw replies (`.wringer/specs/*/response.json`, the surface the
 parser actually sees), a labelled decision buried in `guidance` appears in **14
 criteria across ALL FOUR runs** — 4 of 9, 4 of 10, 3 of 12, 3 of 11. Every
-drafting call did it. See [docs/variance-2026-08-19.md](docs/variance-2026-08-19.md),
+drafting call did it. See [docs/variance-2026-08-19.md](../variance-2026-08-19.md),
 including its dated correction: an earlier version of this paragraph said ten
 across three runs, with run 2 as a clean control, and that was wrong.
 

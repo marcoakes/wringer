@@ -470,16 +470,22 @@ that cannot vetoes the promise for the whole page. It cannot dismiss, snooze,
 soften or auto-resolve a refusal, and it carries the engine's own stated limits
 verbatim, because a translated limit is a weakened limit.
 
-**Its true status, so nobody has to guess.** It is a separate package,
-`wringer-board`, Apache-2.0 like the engine, with no server and no network. It
-renders, its tests are pinned against bundles a real run wrote — including the
-losing pass above — and **the source and a live page are both public**:
-[github.com/marcoakes/wringer-board](https://github.com/marcoakes/wringer-board),
-rendered at **<https://marcoakes.github.io/wringer-board/>**. Since `0.4.0`
-it **ships inside the `wringer` distribution** — `uv tool install wringer`
-installs the `wringer-board` command with everything else, and there is no
-separate package to fetch. The
-contract it is built to is [docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md), which was
+**Its true status, so nobody has to guess.** It **ships inside the `wringer`
+distribution** — `uv tool install wringer` installs the `wringer-board` command
+with everything else, and there is nothing else to fetch. Apache-2.0 like the
+engine, with no server and no network. It renders, its tests are pinned against
+bundles a real run wrote — including the losing pass above — and **the source
+and a live page are both public**: the source is
+[in this repository](src/wringer_board), and the page is rendered at
+**<https://marcoakes.github.io/wringer-board/>**.
+
+> This paragraph used to open *"It is a separate package, `wringer-board`"* and
+> then say four lines later that there is no separate package to fetch. Both
+> sentences shipped together from 0.4.0 until 2026-08-22, under a heading that
+> reads *so nobody has to guess*. The packages merged in 0.4.0 and the opening
+> sentence never moved.
+
+The contract it is built to is [docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md), which was
 independently reviewed before any of it was written.
 
 **Why it is a separate layer at all**: the engine stays headless and neutral at

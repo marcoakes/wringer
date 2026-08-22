@@ -5,9 +5,9 @@ worker somewhere other than the machine you typed on, and what eight scripted
 attacks found when they tried to get out. It is not rewritten; corrections
 arrive as postscripts.
 
-Contract: [specs/SPEC_CONTAIN_V0.md](../SPEC_CONTAIN_V0.md). The gap it closes was
+Contract: [specs/SPEC_CONTAIN_V0.md](specs/SPEC_CONTAIN_V0.md). The gap it closes was
 recorded, at full volume and deliberately unclosed, in
-[specs/SPEC_EXEC_V0.md](../SPEC_EXEC_V0.md) §5: *"`run.worker` runs on the host.
+[specs/SPEC_EXEC_V0.md](specs/SPEC_EXEC_V0.md) §5: *"`run.worker` runs on the host.
 Always. The container backend contains gates."* What it cost is in
 [docs/corpus-2026-08-13.md](corpus-2026-08-13.md) §4 — three arm-B rows of a
 $77 run fetched a `.patch`, a PR diff and a post-fix copy of the very source
@@ -224,7 +224,7 @@ Three defects, all in this cycle's own work, all surfaced by execution.
 
 ## 4. What this does NOT license
 
-[SPEC_CONTAIN_V0 §7](../SPEC_CONTAIN_V0.md) is the ceiling and it is not
+[SPEC_CONTAIN_V0 §7](specs/SPEC_CONTAIN_V0.md) is the ceiling and it is not
 repeated here. The four that matter most for a reader of this page:
 
 - **A result is a fact about one platform, one runtime, one image.** macOS via

@@ -6,7 +6,7 @@ anything it cannot prove.**
 
 You do not need to install anything or read any of the engineering
 documentation to follow this. The five-step guide starts from nothing:
-**[wringer-drive/START-HERE.md](https://github.com/marcoakes/wringer-drive/blob/main/START-HERE.md)**
+**[START-HERE.md](https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md)**
 
 > **What is NOT yet proved, and it is the part that matters most here.** On
 > 2026-08-19 six readers were handed one of these pages cold. Three said the
@@ -14,13 +14,13 @@ documentation to follow this. The five-step guide starts from nothing:
 > finished.** Every one produced a list of words they had to guess at. So
 > "a product manager can use this" is a claim this project has built towards
 > and has **not earned**. The evidence is kept rather than omitted:
-> [wringer-board/docs/coldread/](https://github.com/marcoakes/wringer-board/tree/main/docs/coldread).
+> [docs/coldread/](https://github.com/marcoakes/wringer/tree/main/docs/coldread).
 
 ---
 
 > There is a five-step guide that starts from nothing and ends with a page
 > showing what was built and what proves it:
-> [**wringer-drive/START-HERE.md**](https://github.com/marcoakes/wringer-drive/blob/main/START-HERE.md)
+> [**docs/drive/START-HERE.md**](https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md)
 
 ## The same thing again, with no jargon in it at all
 

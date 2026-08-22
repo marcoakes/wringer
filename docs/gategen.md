@@ -5,7 +5,7 @@ that can be run, somebody has to install that check, and the check has to be
 caught RED before anyone builds — because a gate written for a feature that
 does not exist yet has exactly one honest colour, and it is not green.*
 
-This is [specs/SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md), built. It closes the gap
+This is [specs/SPEC_GATEGEN_V0.md](specs/SPEC_GATEGEN_V0.md), built. It closes the gap
 [`docs/factory-dry-run.md`](factory-dry-run.md) measured: on that run
 `wring plan` proposed **zero** gates, so every acceptance gate and every
 `proves:` line had to be hand-written, and the chain never reached delivery.

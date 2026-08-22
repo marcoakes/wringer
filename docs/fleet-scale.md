@@ -3,7 +3,7 @@
 *A fleet of repair loops has worked for months by a mechanism nobody wrote
 down, and reported that mechanism's normal operation as failure. This is the
 mechanism, measured; the flag that removes the waste
-([specs/SPEC_SCOPE_V0.md](../SPEC_SCOPE_V0.md)); the chain driven end to end at
+([specs/SPEC_SCOPE_V0.md](specs/SPEC_SCOPE_V0.md)); the chain driven end to end at
 scale; and — stated at the same volume — the four places where a scoped fleet
 still cannot do what a reader might assume it can.*
 

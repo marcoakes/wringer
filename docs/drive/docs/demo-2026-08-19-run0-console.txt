@@ -1,0 +1,14 @@
+[   0.0s] show     prd-copied
+          I copied your document into the project, at .wringer/drive/prd.md, because the tool only reads files inside it. Your original is untouched.
+[   0.1s] ask      setup:endpoint
+          Which model endpoint should read your document and draft the plan? Paste the URL your team uses.
+   --> https://api.anthropic.com/v1/chat/completions
+[   0.1s] ask      setup:model
+          Which model should it use? (a name, like the one on your team's API page)
+   --> claude-opus-5
+[   0.1s] ask      setup:worker
+          Which coding agent should do the building? Give the command that starts it.
+   --> acp: …/project/.venv/bin/python …/harness/acp_model_agent.py https://api.anthropic.com/v1/chat/completions claude-opus-5 …/harness/.key
+[   0.2s] show     workspace
+          I set the project up to run its own checks: lint, test. Nothing was invented — these come from pyproject.toml, which already declares them.
+[   0.3s] stopped  stopped

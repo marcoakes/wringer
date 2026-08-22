@@ -162,7 +162,7 @@ wider than exit 127**, which the loop still treats as a repair job.
 of where the chain stopped, and a document that quietly improved its own
 history would be worthless for exactly the thing it is for. This is what
 happened when the scenario was re-driven after
-[specs/SPEC_GATEGEN_V0.md](../SPEC_GATEGEN_V0.md) shipped.*
+[specs/SPEC_GATEGEN_V0.md](specs/SPEC_GATEGEN_V0.md) shipped.*
 
 **The chain completed. It reached `wring deliver`, and delivery succeeded.**
 Captured end to end in [`docs/gategen.md`](gategen.md); regenerate it with

@@ -1,0 +1,158 @@
+[   0.0s] show     prd-copied
+          I copied your document into the project, at .wringer/drive/prd.md, because the tool only reads files inside it. Your original is untouched.
+[   0.1s] ask      setup:endpoint
+          Which model endpoint should read your document and draft the plan? Paste the URL your team uses — for the worked example it is https://api.anthropic.com/v1/chat/completions. Your API key will be sent to whatever URL you enter here.
+   --> https://api.anthropic.com/v1/chat/completions
+[   0.1s] ask      setup:model
+          Which model should it use? (a name, like the one on your team's API page — the worked example uses claude-opus-5)
+   --> claude-opus-5
+[   0.1s] ask      setup:worker
+          Which coding agent should do the building? Give the command that starts it — the worked example uses acp: claude-agent-acp.
+   --> acp: /Users/marc/Claude/wringer-drive/.venv/bin/python <scratch>/acp_model_agent.py https://api.anthropic.com/v1/chat/completions claude-opus-5 <scratch>/.key
+[   0.2s] show     workspace
+          I set the project up to run its own checks: lint, test. Nothing was invented — these come from package.json, which already declares them.
+          
+          Reading your document costs money, so the model endpoint needs a key. The project will look for it in WRINGER_API_KEY, which has to be set in the environment before the next step. Wringer never stores a key and this tool never reads one.
+[  78.3s] show     drafting
+          Reading your document and drafting a plan from it. This sends the document to the model endpoint the project declares, which usually costs a small amount.
+[  78.3s] ask      question:what-counts-as-played
+          Does a game count as 'played' the moment someone opens it from the cabinet, or only after they have actually played for some minimum time or finished a round?
+   --> Clicking a game's tile. That is the moment someone chose it.
+[  78.4s] ask      question:clearing-the-list
+          Should a person be able to clear their recently played list from the page (e.g. a small 'clear' control), or is it fine that it only changes by playing games?
+   --> Clicking a game's tile. That is the moment someone chose it.
+[  78.4s] show     plan
+          Recently played shortcut on the cabinet home page
+          
+          # People lose their place in the cabinet
+          
+          We put four games behind one page so people could wander between them, and
+          that part works. What doesn't work is coming back.
+          
+          Every visit starts from the same cold grid of four tiles in the same order. If
+          you played two rounds of pinball last night, the cabinet has no idea. You have
+          to remember which one you were in the middle of and go and find it again, and
+          at four games that's mildly annoying — at twenty it will be the reason people
+          stop opening it at all. Two of the folk who tried it said the same thing
+          unprompted: it doesn't feel like *mine*.
+          
+          What we want is for the cabinet to remember what you have been playing and put
+          it in front of you. When you come back, the games you actually played recently
+          should be right at the top, most recent first, under a heading that makes it
+          obvious they're yours rather than a recommendation. The full set of games
+          should still be there underneath, exactly as it is now — this is about adding a
+          shortcut, not hiding anything.
+          
+          A few things we've already decided, because we got them wrong on paper first.
+          Playing something again should move it back to the front rather than listing it
+          twice. Only the last handful should show — three feels right; a long list is
+          just the grid again. And it has to survive closing the tab, because the whole
+          point is what happens when you come back tomorrow.
+          
+          The one thing I really don't want is for this to be able to break the cabinet.
+          If whatever remembers all this gets into a state we didn't anticipate, or we
+          retire a game that somebody has played, the page must still open and every game
+          must still start. A shortcut that can take the arcade down is worse than no
+          shortcut.
+          
+          WHAT I WILL BUILD
+          
+            - Build the small module that remembers what has been played: a record kept in the browser's persistent storage on the current device, exposing a way to read the ordered list of recent game identifiers and a way to record a play. Recording moves an already-present game to the front instead of duplicating it, keeps at most three entries, and keeps most-recent-first order. Reading is total: absent, empty, non-JSON, wrong-shaped or over-long stored state yields a sensible list (usually empty) rather than an error, and any storage read or write failure is swallowed so callers are never broken. Done looks like: the module is covered by tests in the repository's own suite for order, de-duplication, the cap of three, persistence across a simulated tab close, and every malformed-state case, and npm run lint and npm test pass.
+            - Wire the store into the cabinet page. Render a 'Recently played' section between the page header and the existing grid, listing up to three remembered games most recent first, each launchable exactly like a grid tile; omit the section entirely when there is nothing remembered. Launching a game from the cabinet records the play, and a storage failure must not stop the game starting. The full catalogue grid underneath keeps its existing contents, order and launch targets, with recent games appearing in both places. Done looks like: acceptance/recently-played.test.js passes via node --test acceptance/recently-played.test.js, new tests cover the empty state, ordering and the unchanged grid, and npm run lint and npm test pass.
+            - Make the shortcut incapable of taking the arcade down. Resolve remembered identifiers against the catalogue and silently drop any that no longer exist, so a retired game leaves the remaining recent entries and the full grid intact. Ensure the whole render path degrades to 'grid only' rather than throwing for any unanticipated stored state, and that every game still starts in each of those states. Done looks like: tests in the repository's own suite drive the page with an unknown identifier and with each malformed-state case and assert the page renders and every catalogue game remains launchable, plus a short note in README.md describing the stored data and its fallback behaviour, with npm run lint, npm test and node --test acceptance/ all passing.
+          
+          HOW EACH PIECE WILL BE PROVED
+          
+            A recently played section appears above the full grid
+              must — the check `recently-played-acceptance` — and it must be seen to FAIL first (proposed, not installed yet — somebody has to accept it before it runs)
+          
+            Order is most recently played first
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Replaying a game moves it to the front instead of duplicating it
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            At most three games are shown
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The list survives closing the tab
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            A first-time visitor sees no empty section
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The full set of games is still listed underneath, unchanged
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Unanticipated stored state never stops the page opening
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            A remembered game that no longer exists is skipped silently
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            Launching a game from the cabinet records it
+              must — NOTHING CHECKS THIS YET. It will be reported as unevidenced and it will not be claimed as done
+          
+            The section reads as the visitor's own history, not a recommendation
+              must — A PERSON decides this. No check can, and none will be written for it — you record the answer yourself
+          
+          WHAT THIS PLAN DOES NOT SAY
+          
+            That the criteria are the right ones. Wringer checks a binding's
+            consequences, never its wisdom — if a requirement is worded wrongly,
+            a green check against it proves the wrong thing perfectly.
+[  78.4s] confirm  approve
+          That is what will be built, and how each piece will be proved.
+          Is that what you meant? Nothing is built until you say yes. Type yes or no.
+          If you say no: nothing is built, nothing is changed, and the plan stays where you can edit the requirements and try again.
+   --> yes
+[  78.4s] show     approved
+          Approved. The plan is recorded and the build can start.
+[  78.6s] show     gate-diff
+          Before anything is built, this adds the checks that will prove the work. This is the exact change to the project's settings:
+          --- a/.wringer.yaml
+          +++ b/.wringer.yaml
+          @@ -22,6 +22,11 @@
+             - id: test
+               run: npm test
+               timeout: 300
+          +  - id: acceptance
+          +    run: node --test acceptance/
+          +  - id: recently-played-acceptance
+          +    run: node --test acceptance/recently-played.test.js
+          +    proves: recent-section-above-grid
+           
+           judge:
+             endpoint: https://api.anthropic.com/v1/chat/completions
+[  78.6s] confirm  try-gates
+          Those checks have not been run yet: acceptance, recently-played-acceptance.
+          Shall I try them against the project as it stands, before you decide? A check that already passes cannot show the difference this work makes. Type yes or no.
+          If you say no: they are not run, and you decide whether to add them without knowing whether any of them already passes.
+   --> yes
+[  79.0s] show     gates-tried
+          I ran them against the project as it stands: acceptance, recently-played-acceptance. None of them passes today.
+[  79.0s] confirm  install-gates
+          That change adds: acceptance, recently-played-acceptance.
+          Shall I add those checks to the project? Type yes or no.
+          If you say no: the project's settings are left exactly as they are, and nothing is built.
+   --> yes
+[  79.2s]   ⋯ iteration 1/2
+[  79.8s]   ⋯ ✓ lint passed        0.5s
+[  80.1s]   ⋯ ✓ test passed        0.3s
+[  80.2s]   ⋯ ✗ acceptance failed  0.1s
+[ 189.5s]   ⋯ → worker             1m 49s  (exit 0)
+[ 189.5s]   ⋯ iteration 2/2
+[ 190.2s]   ⋯ ✓ lint passed        0.6s
+[ 190.4s]   ⋯ ✓ test passed        0.2s
+[ 190.5s]   ⋯ ✗ acceptance failed  0.1s
+[ 190.6s] show     building
+          Building now. This runs your project's own checks, hands each failure to your coding agent, and runs them again — for as many attempts as the project allows.
+[ 190.6s] stopped  build:no_progress
+          The work stopped because an attempt changed nothing at all. Running it again unchanged would not help.
+          Nothing is needed from you; an engineer has to look at why it is stuck.
+          the agent finished its turn without changing a file or reporting an error; this usually means it could not authenticate, or could not see the work. what a worker is given is declared by the operator, in `run.worker.acp.env_passthrough`; nothing else crosses that boundary
+[ 190.8s] show     board
+[ 190.8s]   ⋯ {"schema_version": "wringer.drive.v1", "kind": "stopped", "id": "stopped:gates_did_not_pass", "text": "The handover is being held because the project's own checks did not pass on this work.", "question": "Nothing is needed from you; the work is not finished yet.", "engine_words": "wring deliver: refusing to deliver 20260819-083842-b68f — its gates did not\npass (`acceptance` failed). An unverified change does not get a branch"}
+          The page showing what is done, what is proved, and what still needs you is at board.html.
+
+=== exit 1 · 2 interview questions · 3 consent gates · 191s ===

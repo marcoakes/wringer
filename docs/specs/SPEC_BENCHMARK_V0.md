@@ -80,7 +80,7 @@ covered `false_confidence` changes satisfy their stated criterion while
 check to reproduce an upstream-agreement oracle, which no criterion-derived
 instrument can do in principle. (c) was **retired as invalid-as-specified**;
 the measurement is
-[docs/witness-calibration-2026-08-15.md](docs/witness-calibration-2026-08-15.md)
+[docs/witness-calibration-2026-08-15.md](../witness-calibration-2026-08-15.md)
 Postscripts 2 and 3.
 
 **What this amendment changes in this spec: nothing.** §3's design stands, the

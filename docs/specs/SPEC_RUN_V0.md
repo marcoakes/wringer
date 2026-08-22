@@ -1,7 +1,7 @@
 # SPEC — `wring run` v0.2, slice 1: the repair loop
 
 *Adopted 2026-07-30. This is the **binding implementation contract** for the
-first executable slice of v0.2. Where it and [ROADMAP.md](ROADMAP.md)
+first executable slice of v0.2. Where it and [ROADMAP.md](../../ROADMAP.md)
 disagree about this slice, this document wins;
 [SPEC_VERIFY_V0.md](SPEC_VERIFY_V0.md) remains binding and unchanged for
 everything `wring verify` does.*
@@ -64,7 +64,7 @@ run:
    through untouched to the shell.
 4. **The worker command is code**, exactly as a gate is: it runs through a
    shell, in the repo root, with the user's privileges and inherited `PATH`.
-   Everything [SECURITY.md](SECURITY.md) says about `.wringer.yaml` applies
+   Everything [SECURITY.md](../../SECURITY.md) says about `.wringer.yaml` applies
    to it with no exceptions.
 5. A config carrying `run:` requires Wringer ≥ 0.2 — v0.1's strict loader
    rejects unknown top-level keys. Verify-only configs remain valid forever.
