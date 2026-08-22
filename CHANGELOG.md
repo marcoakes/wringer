@@ -4,6 +4,115 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.2 — 2026-08-22
+
+**Published.** `uv tool install wringer` gets it. Same release ordering as
+0.4.1 — one commit for the literal, the two documents that name the released
+version and this date; then the tag locally; then `ci-repro` green with the
+tag present; then `git push origin main vX.Y.Z`.
+
+### Works with what you already run, and it is measured rather than claimed
+
+**`docs/vendors.md` is new and it is the point of this release.** One row per
+vendor per lane — the model that drafts and judges, and the coding agent that
+builds — with exactly four statuses and nothing else: `MEASURED-WORKING`,
+`BLOCKED-ON-CREDENTIAL`, `BLOCKED-ON-AUTH-ROUTE`, `NO-AGENT-CLI`. A row may
+claim `MEASURED-WORKING` only if the capture it links exists in the
+repository, the order is alphabetical so no vendor can be promoted, and a
+guard reads the table AND the filesystem.
+
+Five vendors' documented OpenAI-compatible endpoints answered Wringer's own
+socket — one function, no adapter, and no branch on a vendor's name anywhere
+in the engine. Two coding agents were installed and probed. Two findings came
+out of running rather than reading:
+
+- `OPENAI_API_KEY` does not authenticate `codex exec`, measured without
+  holding a key: with no credential and with that variable set the server
+  says *"Missing bearer"* byte-identically, so it is never sent, while
+  `CODEX_API_KEY` produces *"Incorrect API key provided"*.
+- Kimi's ACP agent advertises a non-empty `authMethods` and refuses at
+  `session/new`. `SPEC_LOOPBACK_V0`'s *"no probe below `session/prompt` can
+  see auth"* is true of the adapter it was measured on and **false as a
+  general statement about ACP agents**.
+
+**The engine never defaults to a vendor, and that is now a property rather
+than an intention.** `judge.endpoint` and `judge.model` have no default at
+all; a generated config built from answers naming nobody comes out naming
+nobody; nothing reads a question's `suggested` value at run time; and no
+vendor string is an `or` fallback. The worker question offers three measured
+commands instead of one, because a single offered command reads as *the*
+command.
+
+The key surfaces stop assuming one vendor: the front door asks for "the key
+for whichever provider you choose", and the no-key refusal is built from the
+endpoint the operator wrote in their own config — vendor-specific output from
+vendor-free machinery.
+
+### `wring audit` verifies a bare bundle, so a failed run can be checked
+
+`attest.build` refuses a run whose gates failed — *"No attestation dresses up
+a failure"* — and that refusal stands. Its unnoticed consequence was that the
+bundles most likely to be disputed were the ones no verb could digest-check.
+Point `wring audit` at a bundle directory and it verifies that bundle's
+digests and ledger chain with no attestation, same offline contract, and it
+prints what it is NOT claiming: with no attestation nothing binds that bundle
+to a commit, to its siblings, or to any claim that its gates passed.
+
+### A check that changed since it was bound stops being silently believed
+
+New bundle sibling `checks.json` (`wringer.checks.v1`, published and frozen):
+each declared gate's command, its hash, and the hash of any file the command
+names. Comparing it against the bundle a receipt cites answers *is this the
+check that went red?* — as a **note** on `wring verify` and on the board, never
+a refusal in v0. Whether it should ever refuse is a named future ruling.
+
+Its limits ship inside the record: a command naming no file records
+`command-only` and says so, and a gate that edits its own check, runs the
+edit and copies the original back leaves the record byte-identical.
+
+### Two board findings from the field report, and a third found here
+
+- **F13.** Two refused rows printed the identical chip under two different
+  badges. The chip now names who the row waits on, from the same
+  who-is-blocked partition the badge and the count line already read.
+- **F14.** The raw check output moved behind the summary line it already had.
+  Structural only: the board's own cold reads measured prose making the page
+  worse.
+- The sentence F14's answer leans on had **no CSS rule at all** and rendered
+  in the check's own monospace, reading as one more line the check printed.
+
+### Drift dies by derivation
+
+A round-trip guard derives each writer's field set from its own source and
+holds the published schema to it in both directions — catching a writer that
+GROWS a field the schema never learned, which validates fine and quietly
+narrows every tool targeting the format. Ten writers covered; every other
+schema excluded with a stated reason, and a new schema in neither list fails.
+
+**Command canonicalization was measured and REFUSED.** Fifteen pairs through
+`shlex` and through `/bin/sh`; four disagree in the direction that does
+damage, all from one cause — `shlex` strips both quote characters identically
+and the shell does not, so `pytest --cov="$PKG"` and `pytest --cov='$PKG'` are
+one string to a canonicalizer and two different checks to the shell. Nothing
+shipped. `docs/canonicalization-2026-08-22.md` records it, including a defect
+in the probe's own first version.
+
+### The front door was fetching a stale runbook
+
+`START-HERE.md`'s paste block pointed at the pre-merge repository. It answers
+HTTP 200 and serves a runbook 7KB behind this one — no auth remedy, no vendor
+worker forms, none of the key wording of the last three windows. Found by
+fetching it. The guard derives the expected path from where `AGENTS.md`
+actually sits.
+
+Three surfaces also pointed a reader at `docs/vendors.md`, which exists in
+this source tree and nowhere on their machine, since `uv tool install`
+ships four commands and no docs. All three are URLs now.
+
+### Schemas
+
+`wringer.checks.v1` is new. Nothing else moved a byte.
+
 ## 0.4.1 — 2026-08-22
 
 **Published.** `uv tool install wringer` gets it.
