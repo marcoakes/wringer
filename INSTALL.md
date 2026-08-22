@@ -41,15 +41,12 @@ Here is what to do.
    You do NOT need to check my system Python or upgrade it: `uv` fetches and
    manages its own, and the tools below run on that.
 
-2. Make a folder for this and clone both repositories into it:
-     git clone https://github.com/marcoakes/wringer.git
-     git clone https://github.com/marcoakes/wringer-board.git
-
-3. Install both from source, so I get the current code:
-     uv tool install --editable ./wringer
-     uv tool install --editable ./wringer-board
-   If the commands `wring` and `wringer-board` are not on my PATH afterwards,
-   run `uv tool update-shell` and tell me to open a new terminal.
+2. Install it. One command, one package:
+     uv tool install wringer
+   That installs `wring`, `wringer-board` and `wringer-drive` together — they
+   are one distribution as of 0.4.0, not three.
+   If those commands are not on my PATH afterwards, run `uv tool update-shell`
+   and tell me to open a new terminal.
 
 4. Now show me what this is for, by building a tiny real project. In a NEW
    folder beside the two clones — call it `first-board` — make a git
@@ -275,7 +272,12 @@ Stated precisely, because the loose version of this sentence would be false:
   agent is a model. If it goes wrong, the errors are real errors and the
   cloned repositories are ordinary folders you can delete.
 - **It does not install an agent for you**, and Wringer never will.
-- **It installs from source on purpose.** The published PyPI package is `0.3.0`
-  and pre-dates a great deal of what the README describes; see the dated note
-  at the README's install path. When a release is cut, this page's install step
-  becomes `uv tool install wringer` and this paragraph goes away.
+- **It installs from PyPI**, which is where the current release lives. This
+  page used to install from source, and to carry a paragraph promising that
+  "when a release is cut, this page's install step becomes `uv tool install
+  wringer` and this paragraph goes away". The release was cut on 2026-08-20.
+  The paragraph did not go away, because nothing made it. A product manager
+  followed the source path on 2026-08-22 and step 3's second command failed
+  outright — `error: Executable already exists: wringer-board` — because by
+  then both packages declared the same executable. One command cannot collide
+  with itself, which is the other reason this page now has only one.

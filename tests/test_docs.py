@@ -3272,3 +3272,127 @@ def test_the_readme_claims_no_capability_the_code_lacks():
         f"README claims capabilities the code does not have: {broken}. Either "
         "build them, or say them in the build plan where aspiration belongs"
     )
+
+
+# --- what this page says about the RELEASE, derived from the release --------
+#
+# **The truth-travels guard.** Field report 2026-08-22 findings 1 and 2 are one
+# defect wearing three hats: eleven commits that never left the author's
+# machine, run 2's report that never left with them, and a front page still
+# advertising `0.3.0` two days after `0.4.0` was published. In every case the
+# truth existed on exactly one machine and nothing made it travel.
+#
+# The version half cannot be fixed by remembering to edit the README, because
+# that is precisely what was not done. It is derived from the tags instead.
+
+
+def published_versions() -> list[str]:
+    """Every `vX.Y.Z` tag this checkout can see, oldest first."""
+    import subprocess
+
+    done = subprocess.run(
+        ["git", "tag", "--list", "v[0-9]*"],
+        cwd=repo_root(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if done.returncode != 0:
+        return []
+    found = []
+    for line in done.stdout.split():
+        stripped = line.lstrip("v")
+        parts = stripped.split(".")
+        if len(parts) == 3 and all(p.isdigit() for p in parts):
+            found.append((tuple(int(p) for p in parts), stripped))
+    return [version for _, version in sorted(found)]
+
+
+def test_the_front_page_advertises_the_version_that_IS_PUBLISHED():
+    """**Field report 2026-08-22 finding 2.**
+
+    `README.md` opened with *"`pip install wringer` — 0.3.0, seventeen
+    commands, out now"* and carried a dated caveat insisting the release was
+    behind the repository and a reader should install from source. `0.4.0` had
+    been on PyPI for two days. A product manager read the page, followed it,
+    and the source install then errored (finding 3).
+
+    Nothing tied that sentence to the tag, so nothing could notice. This is
+    that tie. It fails in BOTH directions on purpose: a page naming a version
+    older than the latest tag is stale, and a page naming a version NEWER than
+    any tag is claiming a release that does not exist — which is the failure a
+    release checklist causes when it bumps the page before pushing the tag,
+    and the reason `0.4.1` is staged in this repository without touching the
+    version literal.
+    """
+    versions = published_versions()
+    if not versions:
+        pytest.skip(
+            "this checkout has no version tags — CI fetches them with "
+            "fetch-depth: 0, and without them this guard would pass while "
+            "checking nothing"
+        )
+    latest = versions[-1]
+
+    readme = (repo_root() / "README.md").read_text(encoding="utf-8")
+    line = next(
+        (
+            row
+            for row in readme.splitlines()
+            if "out now" in row and "install wringer" in row
+        ),
+        None,
+    )
+    assert line is not None, (
+        "README no longer carries the '... install wringer — <version>, "
+        "<n> commands, out now' headline this guard reads. If it moved, "
+        "re-derive the guard against wherever the page now states its "
+        "version — do not delete it"
+    )
+    assert latest in line, (
+        f"README's headline says {line.strip()!r}, but the latest published "
+        f"tag is v{latest}. Either the release was cut and this page was not "
+        f"updated, or this page names a version that has not shipped"
+    )
+
+
+def test_no_page_calls_a_SHIPPED_COMMAND_a_separate_unpublished_package():
+    """**Field report 2026-08-22 finding 2, second half — and the reason the
+    version clause alone is not enough.**
+
+    `README.md:478` said `wringer-board` was *"not on PyPI, so `pip install
+    wringer-board` would not work today; install it from source"*. Since
+    `0.4.0` the board ships INSIDE the `wringer` distribution: the wheel
+    installs a `wringer-board` executable. The sentence was false about the
+    packaging, not about the version, so a guard reading only the version
+    number would have sailed straight past it — as one did.
+
+    Derived from `pyproject.toml`'s own `[project.scripts]`, so a command that
+    is genuinely split back out into its own package stops being covered here
+    automatically rather than needing this test remembered.
+    """
+    import tomllib
+
+    pyproject = tomllib.loads(
+        (repo_root() / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    shipped = set(pyproject.get("project", {}).get("scripts", {}))
+    assert shipped, (
+        "pyproject declares no console scripts, so this guard is checking "
+        "nothing — the packaging moved and this needs re-deriving"
+    )
+
+    for name in ("README.md", "INSTALL.md", "AGENTS.md"):
+        path = repo_root() / name
+        if not path.is_file():
+            continue
+        flat = " ".join(own_voice(path.read_text(encoding="utf-8")).split())
+        for sentence in re.split(r"(?<=[.!?])\s+", flat):
+            if "not on PyPI" not in sentence and "would not work" not in sentence:
+                continue
+            named = sorted(c for c in shipped if c in sentence)
+            assert not named, (
+                f"{name} says {sentence.strip()[:180]!r} — but "
+                f"{', '.join(named)} ship in this distribution's own "
+                f"[project.scripts], so installing it is exactly what works"
+            )

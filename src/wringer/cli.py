@@ -4524,6 +4524,24 @@ def _print_tail(path: Path, label: str) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
+    # **Bare `wring` names a way in before the usage error** — field report
+    # 2026-08-22 finding 4. A person who has just installed this types `wring`,
+    # and got a wall of nineteen verbs alphabetised by argparse, headed by an
+    # error about a missing argument. `wring --help` did better, because its
+    # description names `wring start` — but nothing after the install pointed
+    # anybody at `--help` either.
+    #
+    # **argv-empty ONLY, and no twentieth command.** This is not a new verb, a
+    # new flag, or a change to any existing invocation: with one or more
+    # arguments the parser behaves exactly as it did, wrong flags included. It
+    # is one line printed on the path where the alternative was a wall, and it
+    # goes to stderr because the usage error it precedes does too.
+    if not (sys.argv[1:] if argv is None else argv):
+        print(
+            "wring start is the guided launch; wring doctor checks this "
+            "machine.\n",
+            file=sys.stderr,
+        )
     args = parser.parse_args(argv)
     try:
         return args.func(args)

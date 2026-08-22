@@ -119,7 +119,7 @@ green — and a bundle on disk to check the claim against. Regenerate it with
 
 ## What ships first
 
-**Proof beats orchestration.** `pip install wringer` — **0.3.0, seventeen commands, out now.**
+**Proof beats orchestration.** `uv tool install wringer` — **0.4.0, nineteen commands, out now.**
 It began as one command, and that command is still the core of it:
 
 ### Not an engineer? Ask your coding agent to install it
@@ -136,26 +136,20 @@ it with the input masked. Every step of that prompt was
 [executed in a clean environment](docs/install-2026-08-17.md) before it
 shipped, and running it found three defects that reading it had not.
 
-> **What the package is not, as of 2026-08-17.** `0.3.0` is the released
-> version and it is **behind this repository**. It pre-dates worker
-> containment, the witness calibration, flaky-gate handling, the corpus
-> re-test and the de-scope that followed it losing,
-> [THREAT_MODEL.md](THREAT_MODEL.md), [`action.yml`](action.yml), and the
-> refusal records. **It also pre-dates the whole PM surface** — the
-> `wringer-board` page, the `wringer-drive` verb, and the one-verb path from a
-> prose file to a rendered board — none of which is in the released package,
-> and two of which are separate repositories.
-> `0.3.0` registers seventeen commands.
-> HEAD registers nineteen commands.
-> The two it does not have are `bench` and `health`, derived from the tag
-> by `tests/test_docs.py` rather than kept by hand.
-> **Installing from PyPI today gets a build that cannot
-> do several things this README describes** — install from source to get HEAD
-> (see [INSTALL.md](INSTALL.md)). The gap closes when a release is cut; until
-> then this sentence is the honest version of it, because the difference
-> between the package and the page is otherwise invisible to a reader, and an
-> invisible gap between a claim and an artifact is the exact thing this
-> project exists to make visible.
+> **What the package is, as of 2026-08-20.** `0.4.0` is the released
+> version, and unlike every version before it, it is **one package**: the
+> engine, the requirements board and the drive verb all ship inside the
+> `wringer` distribution. `uv tool install wringer` gets all three.
+> `0.4.0` registers nineteen commands, derived from the tag by
+> `tests/test_docs.py` rather than kept by hand.
+>
+> This paragraph used to say the opposite — that the release was behind
+> the repository and a reader should install from source instead. It said
+> so for two days after the release was cut, because nothing tied the
+> sentence to the tag. A product manager hit it on 2026-08-22 and was
+> sent down a source install that then errored. The guard in
+> `tests/test_docs.py` now reads the latest PUBLISHED tag and fails when
+> this page disagrees with it, in either direction.
 
 > *One command that proves whether this change is mergeable, and leaves behind evidence a human or agent can inspect.*
 
@@ -476,9 +470,10 @@ verbatim, because a translated limit is a weakened limit.
 renders, its tests are pinned against bundles a real run wrote — including the
 losing pass above — and **the source and a live page are both public**:
 [github.com/marcoakes/wringer-board](https://github.com/marcoakes/wringer-board),
-rendered at **<https://marcoakes.github.io/wringer-board/>**. It is **not on
-PyPI**, so `pip install wringer-board` would not work today; install it from
-source. The
+rendered at **<https://marcoakes.github.io/wringer-board/>**. Since `0.4.0`
+it **ships inside the `wringer` distribution** — `uv tool install wringer`
+installs the `wringer-board` command with everything else, and there is no
+separate package to fetch. The
 contract it is built to is [docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md), which was
 independently reviewed before any of it was written.
 

@@ -121,24 +121,21 @@ fails, stop and show them the real error before doing anything else.
    <https://docs.astral.sh/uv/>. Node is required: the worker adapter below is
    an npm package, and one worked example is JavaScript.
 
-2. **Clone the three repositories** (public, no login):
+2. **Install it.** One command, one package:
 
    ```bash
-   git clone https://github.com/marcoakes/wringer.git
-   git clone https://github.com/marcoakes/wringer-board.git
-   git clone https://github.com/marcoakes/wringer-drive.git
+   uv tool install wringer
    ```
 
-3. **Install them together** — the third command matters most:
+   `wring`, `wringer-board` and `wringer-drive` are three executables of ONE
+   distribution as of 0.4.0. This step used to clone three repositories and
+   run three `--editable` installs; on 2026-08-22 that path errored on its
+   second command — `error: Executable already exists: wringer-board` —
+   because two of those packages had come to declare the same executable.
+   There is nothing to clone and nothing to chain.
 
-   ```bash
-   uv tool install --editable ./wringer
-   uv tool install --editable ./wringer-board
-   uv tool install --editable ./wringer-drive --with-editable ./wringer --with-editable ./wringer-board
-   ```
-
-   If `wring`, `wringer-board` and `wringer-drive` are not on PATH afterwards,
-   run `uv tool update-shell` and have the person open a new terminal.
+   If those commands are not on PATH afterwards, run `uv tool update-shell`
+   and have the person open a new terminal.
 
 4. **Gate: run `wring doctor` and read every line.** One line per check. Do
    not continue past a red line — fix what it names, or stop and show the
