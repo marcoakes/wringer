@@ -748,6 +748,97 @@ def root_for(attestation_path: Path) -> Path:
     return resolved.parent
 
 
+#: What a BARE bundle audit does not claim. It is deliberately shorter than
+#: `LIMITS` and deliberately says the missing half out loud: with no
+#: attestation there is nothing binding this bundle to a commit, a set of
+#: sibling bundles, or a claim that its gates passed.
+BARE_LIMITS = (
+    "this checks one bundle against its OWN record. No attestation says what "
+    "commit it belongs to, what other bundles it was written beside, or "
+    "whether its gates passed — nothing here is a claim about the work.",
+    "digests.json cannot cover itself, so whoever owns the disk can rewrite "
+    "everything consistently. This is tamper-evidence: a silent edit becomes "
+    "a detectable one, and nothing more.",
+)
+
+#: The ledgers a bundle may carry, walked wherever one exists. One list, so
+#: the bare path and the attested path cannot come to check different files.
+LEDGERS = (
+    evidence.EVIDENCE_FILENAME,
+    "delivery.jsonl",
+    "loop.jsonl",
+    "fleet.jsonl",
+)
+
+
+def is_bundle(path: Path) -> bool:
+    """Whether `path` is a bundle this command can check on its own.
+
+    A directory carrying a `digests.json` is one. That is the whole test, and
+    it is deliberately structural rather than a name match: bundles live under
+    several directories (`runs/`, `benches/`, `verdicts/`) and a check keyed on
+    the parent's name would silently stop covering a family somebody added
+    later.
+    """
+    return path.is_dir() and (path / evidence.DIGESTS_FILENAME).is_file()
+
+
+def audit_bundle(bundle: Path) -> AuditReport:
+    """Verify ONE bundle against its own digests and chains — no attestation.
+
+    **The gap this closes, found by review on 2026-08-22.** `wring audit`
+    reached a bundle only THROUGH an attestation, and `attest.build` refuses to
+    build one for a run whose gates failed — *"No attestation dresses up a
+    failure"* (`attest.py:385-391`), which is right and stays. The consequence
+    nobody had noticed is that **the bundles most likely to be argued over were
+    the ones no verb could digest-check**: a failing run's evidence is exactly
+    what somebody disputes, and until now the answer to "has this been edited?"
+    was that Wringer had no way to look.
+
+    Same offline contract as `audit`: reads files, opens no socket, needs no
+    config, and names the broken file and the broken link when it finds one.
+    Nothing here is rebuilt — `check_digests` and `check_chain` are the
+    functions the attested path already used, called with no attestation in
+    front of them.
+
+    It claims strictly less than an attested audit, and `BARE_LIMITS` says so
+    rather than leaving the reader to infer it.
+    """
+    if not bundle.is_dir():
+        return AuditReport(
+            ok=False,
+            integrity=sign.INTEGRITY_INVALID,
+            attestation=str(bundle),
+            limits=list(BARE_LIMITS),
+            problem=f"{bundle} is not a directory, so there is no bundle here",
+        )
+    try:
+        _digest, count = check_digests(bundle, "bare")
+        for ledger in LEDGERS:
+            check_chain(bundle / ledger, "bare")
+    except Refused as exc:
+        return AuditReport(
+            ok=False,
+            integrity=sign.INTEGRITY_INVALID,
+            attestation=str(bundle),
+            limits=list(BARE_LIMITS),
+            problem=str(exc),
+        )
+    return AuditReport(
+        ok=True,
+        integrity=sign.INTEGRITY_VALID,
+        attestation=str(bundle),
+        checked=[{"role": "bare", "path": bundle.name, "files": count}],
+        limits=list(BARE_LIMITS),
+        # **No signature axis, and that is not an omission.** A signature signs
+        # an attestation, and there is no attestation here. Reporting
+        # `signature_missing` would invite a reader to think one could be
+        # present; `signature=None` is what `AuditReport` already means by
+        # "this question was not asked".
+        signature=None,
+    )
+
+
 def audit(
     attestation_path: Path,
     signer: str = sign.DEFAULT_SIGNER,
@@ -825,10 +916,7 @@ def audit(
             )
         try:
             digest, count = check_digests(bundle, role)
-            for ledger in (
-                evidence.EVIDENCE_FILENAME, "delivery.jsonl", "loop.jsonl",
-                "fleet.jsonl",
-            ):
+            for ledger in LEDGERS:
                 check_chain(bundle / ledger, role)
         except Refused as exc:
             return AuditReport(

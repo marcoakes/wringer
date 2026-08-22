@@ -582,7 +582,13 @@ sentence in its own `limits` array whether or not a signature exists — delete
 that sentence and `audit` refuses it, because a green artifact stripped of its
 own caveats reads as a stronger claim than it is; when a signature *is*
 present, the console says so and qualifies the half of that sentence the
-signature changed, rather than suppressing the whole. The captured transcript,
+signature changed, rather than suppressing the whole. **Point `wring audit` at
+a bundle directory instead and it checks that one on its own — digests and
+ledger chain, no attestation required — which is how a FAILED run's evidence
+gets audited at all, since no attestation will ever name one.** In this
+repository's own recorded words the property is tamper-**evident**: an edit is
+DETECTED, not prevented, and nothing before the seal is covered
+([SECURITY.md](SECURITY.md)). The captured transcript,
 including the tamper detection, is
 [`docs/attest-and-audit.md`](docs/attest-and-audit.md). Contracts:
 **[docs/specs/SPEC_PROVENANCE_V0.md](docs/specs/SPEC_PROVENANCE_V0.md)** and

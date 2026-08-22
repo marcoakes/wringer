@@ -283,6 +283,21 @@ because the digests and the ledger chain are checked by a reader who was not
 there. If you need prevention rather than detection, the evidence has to
 leave the machine the worker runs on — and Wringer does not do that for you.
 
+**Widened 2026-08-22, and the gap it closes was a real one.** `wring audit`
+reached a bundle only through an attestation, and `attest.build` refuses to
+build one for a run whose gates failed — *"No attestation dresses up a
+failure"*. That refusal is right and stays; its unnoticed consequence was that
+**the bundles most likely to be disputed — the failing ones — were the bundles
+no verb could digest-check.** `wring audit` now also takes a bundle
+directory, checks its digests and its ledger chain with no attestation
+required, and names the changed file and the broken link exactly as it always
+has. It is the same offline contract and it claims strictly less: with no
+attestation there is nothing binding that bundle to a commit, to the bundles
+it was written beside, or to any claim that its gates passed, and the command
+prints that on success rather than leaving it to be inferred. Nothing above
+changed — the sentence is still detected, not prevented, and nothing before
+the seal is covered.
+
 **Every row above is parsed and probed by
 [`tests/test_security_capabilities.py`](tests/test_security_capabilities.py)**,
 added 2026-08-15 with the signing row's correction, in the same commit as it.

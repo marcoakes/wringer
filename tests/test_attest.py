@@ -872,3 +872,137 @@ def test_no_commit_means_no_signature_claim(tmp_path):
     assert recorded == {
         "commit": None, "status": None, "signer": None, "means": None
     }
+
+
+# --- the bundles no attestation will ever name ------------------------------
+#
+# `attest.build` refuses a run whose gates failed — *"No attestation dresses
+# up a failure"* — and that refusal is right and stays. Its consequence was
+# not noticed until a review on 2026-08-22: `wring audit` reached a bundle
+# only THROUGH an attestation, so **the bundles most likely to be argued over
+# were the ones no verb could digest-check.** A failing run's evidence is
+# exactly what somebody disputes.
+
+
+def _failing_project(repo: Path) -> Path:
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: always-fails\n"
+        "    run: \"sh -c 'echo the gate says no >&2; exit 1'\"\n",
+        encoding="utf-8",
+    )
+    return repo
+
+
+def test_a_FAILED_run_is_reachable_by_NO_attestation(repo, monkeypatch, capsys):
+    """The gap, stated as a test rather than as a paragraph."""
+    monkeypatch.chdir(_failing_project(repo))
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    bundle = only(repo, ".wringer", "runs")
+    assert cli.main(["attest", str(bundle)]) != cli.EXIT_OK
+    said = flat(capsys.readouterr().err + capsys.readouterr().out)
+    assert "did not pass" in said or "dresses up a failure" in said, said
+
+
+def test_audit_verifies_a_BARE_bundle_with_no_attestation(repo, monkeypatch, capsys):
+    monkeypatch.chdir(_failing_project(repo))
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    bundle = only(repo, ".wringer", "runs")
+    assert cli.main(["audit", str(bundle)]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "verifies" in out
+    # It says what it is NOT claiming, on success, where it can still be read.
+    assert "No attestation says what commit it belongs to" in flat(out), out
+    assert "whether its gates passed" in flat(out), out
+
+
+def test_flipping_a_byte_in_a_FAILED_bundle_names_that_file(
+    repo, monkeypatch, capsys
+):
+    """**The money test for this slice**, and the shape the whole slice is
+    for: the run failed, so no attestation exists, and the question "has this
+    evidence been edited since it was written?" now has an answer.
+
+    Restored from a byte-for-byte copy afterwards and re-audited, so the guard
+    proves the detection rather than proving the bundle stays broken.
+    """
+    import shutil
+
+    monkeypatch.chdir(_failing_project(repo))
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    bundle = only(repo, ".wringer", "runs")
+    backup = repo / "backup-bundle"
+    shutil.copytree(bundle, backup)
+
+    log = next((bundle / "gates").rglob("*.log"))
+    raw = bytearray(log.read_bytes() or b"x")
+    raw[0] = raw[0] ^ 0x01  # one bit, in one byte
+    log.write_bytes(bytes(raw))
+
+    assert cli.main(["audit", str(bundle)]) == cli.EXIT_GATE_FAILED
+    err = flat(capsys.readouterr().err)
+    assert log.name in err, err
+    assert "does not match" in err, err
+
+    shutil.rmtree(bundle)
+    shutil.copytree(backup, bundle)
+    assert cli.main(["audit", str(bundle)]) == cli.EXIT_OK
+
+
+def test_a_broken_CHAIN_in_a_failed_bundle_names_the_line(repo, monkeypatch, capsys):
+    """Digests are half the seal; the ledger's `prev_hash` chain is the other,
+    and a bare audit walks it too. Removing a line leaves every remaining file
+    self-consistent — only the chain notices."""
+    monkeypatch.chdir(_failing_project(repo))
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    bundle = only(repo, ".wringer", "runs")
+    ledger = bundle / evidence.EVIDENCE_FILENAME
+    lines = ledger.read_bytes().split(b"\n")
+    kept = [line for line in lines if line.strip()]
+    assert len(kept) > 2, "this bundle has too few events to break a chain in"
+    ledger.write_bytes(b"\n".join(kept[:1] + kept[2:]) + b"\n")
+    # Re-seal the digests so ONLY the chain is broken — otherwise the digest
+    # check fires first and this test proves nothing about the chain.
+    digests = json.loads((bundle / evidence.DIGESTS_FILENAME).read_text("utf-8"))
+    digests["files"][evidence.EVIDENCE_FILENAME] = hashlib.sha256(
+        ledger.read_bytes()
+    ).hexdigest()
+    (bundle / evidence.DIGESTS_FILENAME).write_text(
+        json.dumps(digests, indent=2), encoding="utf-8"
+    )
+
+    assert cli.main(["audit", str(bundle)]) == cli.EXIT_GATE_FAILED
+    err = flat(capsys.readouterr().err)
+    assert "hash chain" in err, err
+
+
+def test_pointing_audit_at_a_directory_that_is_NOT_a_bundle_still_says_so(
+    repo, monkeypatch, capsys
+):
+    """The old behaviour for a non-bundle directory is untouched: it looks for
+    an attestation inside it and reports honestly that there is none."""
+    monkeypatch.chdir(repo)
+    (repo / "not-a-bundle").mkdir()
+    assert cli.main(["audit", str(repo / "not-a-bundle")]) == cli.EXIT_CONFIG
+    assert "no such file" in capsys.readouterr().err
+
+
+def test_the_bare_path_and_the_attested_path_check_the_SAME_ledgers():
+    """One list, so the two paths cannot drift into checking different files.
+
+    They were two literal tuples for one commit, which is the shape that ends
+    with a ledger family covered on one path and not the other.
+    """
+    source = Path(attest.__file__).read_text(encoding="utf-8")
+    assert source.count('"delivery.jsonl"') == 1, (
+        "a second literal list of ledgers has appeared in attest.py — the two "
+        "audit paths can now check different files"
+    )
+    assert "loop.jsonl" in attest.LEDGERS and "fleet.jsonl" in attest.LEDGERS

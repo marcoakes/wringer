@@ -583,12 +583,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser_audit = subparsers.add_parser(
         "audit",
-        help="check an attestation offline — no config, no network, no LLM",
+        help="check an attestation — or one bare bundle — offline: no config, "
+             "no network, no LLM",
     )
     parser_audit.add_argument(
         "attestation",
-        metavar="ATTESTATION_FILE",
-        help="the attestation.json to check",
+        metavar="ATTESTATION_OR_BUNDLE",
+        # **An argument SHAPE, not a twentieth command.** Point it at an
+        # attestation and it checks every bundle that attestation names;
+        # point it at a bundle directory and it checks that one against its
+        # own digests and chains. The second exists because `attest.build`
+        # refuses failed runs — so until 2026-08-22 the bundles most likely
+        # to be disputed were the ones no verb could digest-check.
+        help="the attestation.json to check, or a bundle directory (one "
+             "carrying digests.json) to check on its own — including a "
+             "FAILED run's, which no attestation will ever name",
     )
     parser_audit.add_argument(
         "--json",
@@ -4068,18 +4077,28 @@ def cmd_audit(args: argparse.Namespace) -> int:
     from wringer import attest
 
     path = Path(args.attestation)
-    if path.is_dir():  # a directory is an easy mistake; point at the file
-        path = path / attest.ATTESTATION_FILENAME
-    if not path.is_file():
-        print(f"wring audit: no such file: {path}", file=sys.stderr)
-        return EXIT_CONFIG
+    # **A bundle is checked as a bundle, before anything looks for an
+    # attestation in it.** Order matters: a bundle directory used to become
+    # `<bundle>/attestation.json` and then "no such file", which is a true
+    # sentence that answers the wrong question.
+    bare = attest.is_bundle(path)
+    if not bare:
+        if path.is_dir():  # a directory is an easy mistake; point at the file
+            path = path / attest.ATTESTATION_FILENAME
+        if not path.is_file():
+            print(f"wring audit: no such file: {path}", file=sys.stderr)
+            return EXIT_CONFIG
 
     try:
-        report = attest.audit(
-            path,
-            signer=args.signer,
-            expect_identity=args.expect_identity,
-            verify_signature=args.verify_signature,
+        report = (
+            attest.audit_bundle(path)
+            if bare
+            else attest.audit(
+                path,
+                signer=args.signer,
+                expect_identity=args.expect_identity,
+                verify_signature=args.verify_signature,
+            )
         )
     except attest.AttestError as exc:
         _fail("audit", exc)
@@ -4114,6 +4133,14 @@ def cmd_audit(args: argparse.Namespace) -> int:
         print(f"  {entry['role']:<9} {entry['path']}  ({entry['files']} files)")
     print(f"\n  {len(report.checked)} bundle(s), {files} file(s) — every digest "
           "matches and every ledger chain is intact.")
+    if bare:
+        # **The bare path's limits, printed on SUCCESS.** There is no
+        # attestation, so there is no signature question to report and no
+        # cross-check that ran. Saying "verifies" and stopping would let a
+        # one-bundle check read as the whole-delivery one.
+        for limit in report.limits:
+            print(f"\n! {limit}")
+        return EXIT_OK if report.ok else EXIT_GATE_FAILED
     _report_signature(report)
     # Repeated on SUCCESS, deliberately: a passing audit must not read as a
     # stronger claim than it is.
