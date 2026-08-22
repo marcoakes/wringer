@@ -120,10 +120,19 @@ Two things to do, both in THIS terminal window:
 
      THIS KEY IS FOR WRINGER, NOT FOR THE CODING AGENT. It pays for
      reading your document and drafting the plan, and nothing else. The
-     coding agent that writes the code signs in on its own account, and
-     this key never reaches it — setting it does not log the agent in,
-     and no other variable does either. Check that half by running
-     '$AGENT' once by hand and completing whatever it asks for.
+     coding agent that writes the code needs a credential of its own, and
+     WRINGER_API_KEY is not it. Give it one of these two, whichever you
+     prefer:
+
+       '$AGENT' --cli auth login
+
+     or declare ANTHROPIC_API_KEY under 'run.worker.acp.env_passthrough'
+     in .wringer.yaml, which then spends against that key on every turn
+     the builder takes.
+
+     Either way, check it before you start — this answers for free:
+
+       '$AGENT' --cli auth status
 
   2. Drive it:
 

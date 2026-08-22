@@ -954,3 +954,84 @@ def test_nothing_that_runs_a_gate_ever_reads_the_sidecar(repo):
         "parses it) and `cli.py` (whose `plan` renders it) may: a gate that "
         "runs must come from .wringer.yaml, which a person edited."
     )
+
+
+# --- the hedge refusal's PREMISE (field report 2026-08-22 finding 10) -------
+#
+# `wring plan` refuses a spec that hedges "(if unanswered, …)" against a
+# question that has been answered. The refusal is right and it is narrow. What
+# was wrong until 2026-08-22 was the premise it rests on, stated in `cli.py`
+# as *"this cannot false-positive on a spec that really does still have an
+# open optional question"* — because `Spec.unanswered` counts REQUIRED
+# questions only, so an open optional one leaves it empty and the refusal
+# fires anyway.
+
+
+HEDGED_OBJECTIVE = (
+    "Add the export endpoint and the button that calls it, capping rows at "
+    "whatever the product confirmed in the open question (if unanswered, do "
+    "not cap)."
+)
+
+
+def test_a_hedge_against_a_still_OPEN_optional_question_is_LEGITIMATE(
+    repo, monkeypatch, capsys
+):
+    """The false positive, and it is a live one.
+
+    `row-cap` is optional and unanswered in this fixture — a real state, and
+    the state `wring plan` is designed to proceed from. A task that says what
+    to do if nobody ever answers it is not a stale fallback; it is the correct
+    way to write work against a question that may never be settled.
+
+    Refusing it would leave the person no move at all: the refusal says
+    "delete the conditional and keep the answer", and there is no answer.
+    """
+    setup_repo(
+        repo,
+        SPEC.replace(
+            "objective: Add the export endpoint and the button that calls it.",
+            f"objective: {HEDGED_OBJECTIVE}",
+        ),
+    )
+    monkeypatch.chdir(repo)
+
+    code = cli.main(["plan"])
+
+    err = flat(capsys.readouterr().err)
+    assert code == cli.EXIT_OK, (
+        "a hedge against a genuinely open optional question was refused. The "
+        f"premise the refusal rests on counts required questions only: {err}"
+    )
+    assert (repo / spec.TASKS_FILENAME).exists()
+
+
+def test_a_hedge_is_still_refused_when_EVERY_question_is_answered(
+    repo, monkeypatch, capsys
+):
+    """The other direction, so the fix above cannot be a way to switch the
+    refusal off. With the optional question answered too, nothing in the spec
+    is open and the fallback is stale by construction — which is the whole
+    reason this check is at this point in `wring plan` and nowhere earlier."""
+    setup_repo(
+        repo,
+        SPEC.replace(
+            "objective: Add the export endpoint and the button that calls it.",
+            f"objective: {HEDGED_OBJECTIVE}",
+        ).replace(
+            "    question: Is there a maximum row count?\n"
+            "    required: false\n"
+            "    answer: ''\n",
+            "    question: Is there a maximum row count?\n"
+            "    required: false\n"
+            "    answer: No cap.\n",
+        ),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_GATE_FAILED
+
+    err = flat(capsys.readouterr().err)
+    assert "hedges against a question that has been answered" in err
+    assert "if unanswered" in err, "the refusal does not quote the document back"
+    assert not (repo / spec.TASKS_FILENAME).exists()

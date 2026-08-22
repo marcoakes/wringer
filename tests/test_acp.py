@@ -238,10 +238,77 @@ def test_a_REFUSED_turn_names_authentication_to_the_operator(
     # names a credential variable — `turn_changed_nothing`'s rule, unchanged.
     for variable in ("ANTHROPIC_API_KEY", "WRINGER_API_KEY", "CLAUDE_", "_TOKEN"):
         assert variable not in said, (
-            f"the remedy names {variable!r} — and setting one would not even "
-            "have fixed the measured failure: the stock adapter reports "
-            "apiType=native and reads no key at all"
+            f"the remedy names {variable!r} — Wringer would be choosing which "
+            "of a person's secrets cross into a worker"
         )
+
+
+def test_the_printed_ending_QUOTES_the_agent_not_an_EMPTY_pair(
+    repo, monkeypatch, capsys
+):
+    """**Found by running a refused turn, 2026-08-22.**
+
+    The console printed, literally:
+
+        (it reported `` and wrote no file)
+
+    Empty backticks, in this repository's single commonest failure. The
+    printer read `stop_reason`, and the test directly above this one asserts
+    that a refused turn has NO stop reason — it errored before one existed.
+    The agent's words were on the diagnosis the whole time, in `engine_words`,
+    which is the field that exists to carry them.
+
+    A promise of a quotation, delivered as silence, reads as a bug in Wringer
+    at the moment the operator most needs to believe what it says.
+    """
+    setup(repo, "unauth")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+
+    assert "``" not in printed, (
+        "the ending quotes an empty string back at the operator"
+    )
+    assert "Authentication required" in printed, (
+        "the agent's own words are on the diagnosis and never reach the "
+        "console, so the one actionable fact still needs a log file"
+    )
+
+
+def test_the_remedy_points_at_a_log_that_actually_HAS_the_words(
+    repo, monkeypatch, capsys
+):
+    """The remedy sent people to a file that is EMPTY on this path.
+
+    It said *"the agent's own last words are in `worker.stderr.log`"*. Run a
+    real refused turn and that file is zero bytes: the message Wringer writes
+    — `[wringer: ACP turn failed] session/prompt was refused: …` — goes to the
+    STDOUT log. So the remedy for the commonest failure in this repository
+    named the one log guaranteed not to contain the answer.
+
+    Derived from the files the loop actually wrote, not from the string, so a
+    remedy naming a log that stops existing fails here too.
+    """
+    setup(repo, "unauth")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    remedy = json.loads(written.read_text(encoding="utf-8"))["remedy"]
+
+    carrying = [
+        log.name
+        for log in sorted((only_loop(repo)).rglob("worker.std*.log"))
+        if "Authentication required" in log.read_text(encoding="utf-8")
+    ]
+    assert carrying, "no worker log carried the refusal at all"
+    assert any(name in remedy for name in carrying), (
+        f"the remedy names no log that contains the words it promises. The "
+        f"refusal is in {carrying}, and the remedy says: {remedy}"
+    )
 
 
 def test_a_refused_turn_is_not_confused_with_a_turn_that_finished(

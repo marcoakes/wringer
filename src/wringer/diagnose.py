@@ -137,16 +137,28 @@ WORKER_REMEDIES = {
         "what a worker is given is declared by the operator, in "
         "`run.worker.acp.env_passthrough`; nothing else crosses that boundary"
     ),
-    # Names the agent's OWN login and the log, because those are the two
-    # things the operator can act on. It does not name a credential variable,
-    # for `FACE_TURN_CHANGED_NOTHING`'s reason one entry up — and because
-    # setting one would not have fixed the measured failure: the stock adapter
-    # reports `apiType=native` and reads no key at all.
+    # **Corrected 2026-08-22 by running it.** Two things here were wrong.
+    #
+    # It sent the reader to `worker.stderr.log` for "the agent's own last
+    # words". In a real refused turn that file is EMPTY: the message —
+    # `[wringer: ACP turn failed] session/prompt was refused: Authentication
+    # required` — is written to the STDOUT log. The remedy for this
+    # repository's commonest failure pointed at a zero-byte file.
+    #
+    # And the comment that stood here said setting a credential variable
+    # "would not have fixed the measured failure: the stock adapter reports
+    # `apiType=native` and reads no key at all". That was reasoned from source
+    # and is false — `round3b-artifacts/S0-FINDING.md` has the turn that
+    # succeeded on exactly that. It still does not NAME a variable, for
+    # `FACE_TURN_CHANGED_NOTHING`'s reason one entry up, but it no longer
+    # tells the reader the route does not exist.
     FACE_TURN_REFUSED: (
-        "run the coding agent once by hand in a terminal and complete "
-        "whatever it asks for, then run this again; the agent's own last "
-        "words are in `worker.stderr.log`, under this loop's `iterations/` "
-        "directory"
+        "check whether the agent is logged in — `wring doctor` answers that "
+        "for free and `wring run` now refuses before it spends anything, so "
+        "reaching this means the credential was accepted and then failed, or "
+        "the agent is one whose login this cannot read; the agent's own last "
+        "words are in `worker.stdout.log` and `worker.stderr.log`, under this "
+        "loop's `iterations/` directory"
     ),
 }
 

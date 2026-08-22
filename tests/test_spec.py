@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -2722,9 +2723,58 @@ def test_an_assumption_may_not_displace_a_HUMAN_JUDGED_criterion():
     said = str(caught.value)
     assert "reads-well" in said, "the refusal does not name the criterion"
     assert "human" in said
-    assert "Ask the question instead" in said, (
-        "the refusal does not tell the drafter what to do instead, which is "
-        "the only thing that turns it from a wall into a route"
+    # **Re-derived 2026-08-22, after a real drafting call hit this.** The
+    # sentence used to be "Ask the question instead", and this guard pinned
+    # it as "what to do instead". It is not: the reader of this message is the
+    # person who just paid for the call, and they cannot make a model ask
+    # anything. What turns a wall into a route is a move the READER can make.
+    assert "Draft again" in said and "in the document yourself" in said, (
+        "the refusal names no move the person reading it can actually take. "
+        "It is addressed to the drafter, and the drafter is not who reads it"
+    )
+
+
+def test_the_SIDECAR_reader_is_not_told_that_nothing_was_written():
+    """**The same refusal, one layer up, reaching a different person.**
+
+    `parse_assumptions` is shared: the drafted reply goes through it, and so
+    does `wringer.decisions.yaml` on every load. So a repository written
+    before this rule existed — one whose sidecar already holds an assumption
+    with a `criteria` back-reference — hit the drafter's message on a file
+    sitting on its own disk. It was told to ask a question, with nothing to
+    ask it of, and told that nothing was written, about a file that exists.
+
+    That is this repository's own trap shape: a refusal whose only named way
+    out belongs to somebody who is not in the room.
+    """
+    criteria = [SimpleNamespace(id="reads-well", human=True)]
+    sidecar = {
+        "schema_version": spec.DECISIONS_SCHEMA_VERSION,
+        "assumptions": [
+            {
+                "id": "heading-wording",
+                "decision": 'The heading reads "Recently played".',
+                "why": "It matches the wording used elsewhere.",
+                "instead_of_asking": "What should the heading say?",
+                "criteria": ["reads-well"],
+            }
+        ],
+    }
+
+    with pytest.raises(spec.SpecError) as caught:
+        spec.parse_decisions(sidecar, spec.DECISIONS_FILENAME, (), criteria)
+
+    said = str(caught.value)
+    assert "Nothing was written" not in said, (
+        "the sidecar reader is told nothing was written about a file that is "
+        "already on their disk"
+    )
+    assert spec.DECISIONS_FILENAME in said, (
+        "the refusal does not name the file the person would have to edit"
+    )
+    assert "revise" in said, (
+        "the refusal offers no way to turn the decision back into the "
+        "question it displaced"
     )
 
 

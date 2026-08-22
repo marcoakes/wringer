@@ -1966,11 +1966,26 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
     found = outcome.worker_diagnosis
     if found is None:
         return
+    # **The quote is whichever of the two the turn actually produced.**
+    #
+    # Found by running a refused turn on 2026-08-22: a refused turn has NO
+    # stop reason — it errored before one existed — so this printed the
+    # literal `it reported `` and wrote no file`, an empty pair of backticks
+    # where the agent's own words were promised. Those words were on the
+    # diagnosis the whole time, in `engine_words`, which is the field that
+    # exists to carry them.
+    #
+    # And when there is genuinely nothing to quote, the clause is dropped
+    # rather than emptied. A sentence that quotes silence reads as a bug in
+    # Wringer, which is the opposite of what a diagnosis is for.
+    said = found.engine_words or found.stop_reason
+    reported = f" (it reported `{said}` and wrote no file)" if said else (
+        " (it wrote no file and reported nothing)"
+    )
     print(
         "! "
         + textwrap.fill(
-            f"{found.description} (it reported `{found.stop_reason}` and "
-            f"wrote no file). {found.remedy}.",
+            f"{found.description}{reported}. {found.remedy}.",
             width=76,
             subsequent_indent="  ",
         )
@@ -3218,15 +3233,24 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # hedged against.
     #
     # Checked HERE and nowhere earlier, because here is the one place the
-    # premise is guaranteed: `loaded.unanswered` was just proved empty, so a
-    # surviving "if unanswered" is stale BY CONSTRUCTION rather than by
-    # guessing which question it meant. That is why this cannot false-positive
-    # on a spec that really does still have an open optional question.
+    # premise can be guaranteed: a surviving "if unanswered" is stale BY
+    # CONSTRUCTION only when there is no unanswered question for it to be
+    # about, and anything less is a guess about which question it meant.
+    #
+    # **That premise was WRONG until 2026-08-22, and this comment asserted the
+    # opposite.** It read "this cannot false-positive on a spec that really
+    # does still have an open optional question", and rested on
+    # `loaded.unanswered` — which counts REQUIRED questions only. An open
+    # OPTIONAL question left it empty, so a task saying what to do if nobody
+    # ever answers that question was refused as stale, and the refusal told
+    # the person to "keep the answer" when there was no answer to keep. A
+    # fixture in `tests/test_plan.py` runs it both ways.
     #
     # Rendered, never resolved — the same rule as the overruled-assumption
     # refusal below. Wringer does not rewrite the sentence, because deciding
     # what somebody meant is the thing it exists not to do.
-    hedged = spec.conditionals_on_answered_questions(loaded)
+    nothing_is_open = all(question.answered for question in loaded.questions)
+    hedged = spec.conditionals_on_answered_questions(loaded) if nothing_is_open else ()
     if hedged:
         print(
             f"wring plan: {spec.SPEC_FILENAME} hedges against a question that "

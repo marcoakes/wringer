@@ -670,6 +670,35 @@ def _criteria_refs(
     return tuple(kept)
 
 
+def _way_out(where: str) -> str:
+    """The PERSON's next move, which depends on which reader hit this.
+
+    **Found by running it, 2026-08-22.** A real drafting call against a real
+    endpoint refused here, and the sentence it printed was *"Ask the question
+    instead. Nothing was written."* Both halves are addressed to the drafter.
+    The person reading it had just paid for that call, cannot make a model ask
+    anything, and was given no move at all — the same shape as the trap this
+    repository already has a name for, one layer up.
+
+    And on the sidecar path the second half is simply false: `parse_assumptions`
+    is shared, so a repository whose `wringer.decisions.yaml` already contains
+    such a row — every project written before this rule existed — was told
+    "nothing was written" about a file sitting on its own disk, and told to ask
+    a question with nothing to ask it of.
+    """
+    if where == DECISIONS_FILENAME:
+        return (
+            f"This is a file you own: edit {DECISIONS_FILENAME} to drop the "
+            "'criteria' back-reference, or turn the decision back into a "
+            "question with `wringer-board revise`. Nothing else was read"
+        )
+    return (
+        "Draft again — the drafter is free to ask instead of deciding, and "
+        "usually does — or settle it in the document yourself, so there is "
+        "nothing left to assume. Nothing was written"
+    )
+
+
 def parse_assumptions(
     raw: Any, where: str, questions: Any = (), criteria: Any = ()
 ) -> tuple[tuple[Assumption, ...], tuple[str, ...]]:
@@ -780,11 +809,10 @@ def parse_assumptions(
         if judged_by_a_person:
             raise SpecError(
                 f"{at}: '{identifier}' decides something that shapes "
-                f"{', '.join(repr(n) for n in judged_by_a_person)}, which this "
-                "same reply marks 'human: true' — only a person can settle it. "
-                "A decision taken without asking cannot stand in for the one "
-                "judgement no check is allowed to make. Ask the question "
-                "instead. Nothing was written"
+                f"{', '.join(repr(n) for n in judged_by_a_person)}, which is "
+                "marked 'human: true' — only a person can settle it. A "
+                "decision taken without asking cannot stand in for the one "
+                f"judgement no check is allowed to make. {_way_out(where)}"
             )
         if identifier in blocking:
             raise SpecError(
@@ -2029,12 +2057,17 @@ _HEDGE = re.compile(
 def conditionals_on_answered_questions(loaded: Any) -> tuple[tuple[str, str], ...]:
     """Places the spec still hedges against an answer it already has.
 
-    **Only meaningful once `unanswered` is empty**, and the caller is what
-    guarantees that. `wring plan` refuses on unanswered required questions
-    before it reaches this, so a surviving "if unanswered" there is stale by
-    construction. Called against a spec that still has open questions, this
-    would be a guess about which question the hedge meant, and it does not
-    guess — it just reports what it found and lets the caller own the premise.
+    **Only meaningful once EVERY question is answered** — optional ones
+    included — and the caller is what guarantees that. A hedge does not name
+    the question it hedges against, so while any question is still open this
+    would be a guess about which one it meant. It does not guess: it reports
+    what it found and lets the caller own the premise.
+
+    "Every question" and not "every required question", which is the
+    correction of 2026-08-22. `Spec.unanswered` counts required ones only, so
+    a caller resting on it refused specs whose optional questions were
+    genuinely still open, and told those people to keep an answer that did not
+    exist.
 
     Returns `(where, sentence)` pairs so the refusal can quote the person's
     own document back at them rather than describing it.
