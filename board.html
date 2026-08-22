@@ -37,12 +37,24 @@ border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
 white-space:pre-wrap;overflow-x:auto}
 .said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
 margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
-/* F14: the card's check output is a <details>, so it inherits none of the
-   page-level details chrome below — no 36px gap, no rule above it. Shut, it
-   is one line; open, it is exactly the block it always was. */
+/* F14: the card's check output is collapsible, so it must inherit none of
+   the page-level disclosure chrome below — no 36px gap, no rule above it.
+   Shut it is one line; open it is exactly the block it always was.
+   No tag names in angle brackets here: a literal one inside a stylesheet
+   comment makes every tag-counting reader of this page see an unclosed
+   element, which is how the well-formedness guard first went red. */
 .card details.said{margin:12px 0 0;border-top:none;padding-top:10px;font-size:13px}
 .card details.said summary.who{margin:0;color:var(--dim);list-style:revert}
 .card details.said[open] summary.who{margin:0 0 6px}
+/* **The scope sentence had NO rule at all** — found 2026-08-22 by a guard
+   over every class the page emits. It sits INSIDE the monospace log block,
+   so with no styling it rendered in the check's own typeface and read as one
+   more line the check had printed. That is the opposite of what it is for:
+   it is the board speaking ABOUT the log, and F14's structural answer leans
+   on the reader meeting it as such at the moment they open the block. */
+.said .scope{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+font-size:13px;color:var(--dim);margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line);
+white-space:normal}
 .wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
 border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
 .wasred b{color:var(--red)}

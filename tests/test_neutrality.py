@@ -333,3 +333,74 @@ def test_the_drives_own_pointer_is_a_URL():
         "Wringer's source tree and not a place the person answering the "
         "question can reach"
     )
+
+
+def test_BOTH_call_sites_of_the_no_key_refusal_use_the_one_writer(tmp_path):
+    """**Found by the mutation sweep, 2026-08-22.**
+
+    `_missing_key` has two callers — `wring spec` and `wring judge` — and only
+    the spec one was reachable by any test. Reverting the judge call site to
+    the old one-line message went completely unnoticed, so half the fix was
+    unguarded. Both are executed here.
+    """
+    import subprocess
+    import sys
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: g\n    run: \"true\"\n"
+        "judge:\n  endpoint: https://api.deepseek.com/chat/completions\n"
+        "  model: deepseek-v4-pro\n  rubric: rubric.yaml\n"
+        "  api_key_env: WRINGER_API_KEY\n",
+        encoding="utf-8",
+    )
+    (repo / "rubric.yaml").write_text(
+        "schema_version: wringer.rubric.v1\ntitle: t\n"
+        "criteria:\n  - id: a\n    statement: does it work\n",
+        encoding="utf-8",
+    )
+    (repo / "PRD.md").write_text("A PRD.\n", encoding="utf-8")
+
+    env = {"PATH": "/usr/bin:/bin", "HOME": str(tmp_path)}
+    for argv in (["spec", "--send", "PRD.md"], ["judge", "--send"]):
+        done = subprocess.run(
+            [sys.executable, "-m", "wringer", *argv],
+            cwd=repo, capture_output=True, text=True, env=env,
+        )
+        said = done.stderr
+        if "api_key_env" not in said:
+            continue  # this verb stopped earlier for its own reasons
+        assert "api.deepseek.com" in said, (
+            f"`wring {argv[0]}`'s no-key refusal does not name the endpoint the "
+            f"operator wrote in their own config: {said!r}"
+        )
+        assert "add-generic-password" in said, (
+            f"`wring {argv[0]}`'s refusal does not say how to store the key: "
+            f"{said!r}"
+        )
+        assert "https://" in said.split("vendors.md")[0][-120:], (
+            f"`wring {argv[0]}` points at a path only this repo has: {said!r}"
+        )
+
+
+def test_the_CANONICALIZATION_amendment_still_cites_its_measurement():
+    """A recorded ruling amended by a measurement must keep the citation.
+
+    The mutation sweep showed the whole amendment could be deleted with
+    nothing going red: the behaviour is guarded, the REASON was not. A later
+    window reading a bare "whitespace only" would have no idea a measurement
+    exists.
+    """
+    from wringer import spec as spec_module
+
+    doc = " ".join((spec_module.same_command.__doc__ or "").split())
+    assert "AMENDED" in doc, "the amendment was removed from the recorded ruling"
+    assert "canonicalization-2026-08-22.md" in doc, (
+        "the amendment no longer cites the capture that justifies it"
+    )
+    assert (ROOT / "docs" / "canonicalization-2026-08-22.md").is_file()
+    assert (ROOT / "scripts" / "canonicalization-probe.py").is_file(), (
+        "the amendment cites a probe that is no longer in the repository"
+    )

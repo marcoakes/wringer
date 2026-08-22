@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 from wringer_board import cards, interview, refusals
+from wringer_board import read as read_module
 from wringer_board.__main__ import main
 from wringer_board.read import Criterion
 
@@ -485,7 +486,10 @@ def test_every_unevidenced_card_carries_its_unblocking_question():
     counted two. They still carry their question, because the question is what
     tells an engineer what would unblock it.
     """
-    board = object()
+    # A real `Board`, not `object()` — the mutation sweep of 2026-08-22
+    # showed a stub board let `Board.check_notes` be deleted with nobody
+    # noticing, because `card_for` had to reach for it defensively.
+    board = read_module.Board(repo=Path('.'))
     for cause in (
         "unbound",
         "witness-evidenced-nothing",
@@ -506,7 +510,10 @@ def test_every_unevidenced_card_carries_its_unblocking_question():
 def test_the_three_human_states_each_get_their_own_question():
     """The NEEDS YOU card's question is the PM product's whole point, and
     before v3 this card said one thing for all three human states."""
-    board = object()
+    # A real `Board`, not `object()` — the mutation sweep of 2026-08-22
+    # showed a stub board let `Board.check_notes` be deleted with nobody
+    # noticing, because `card_for` had to reach for it defensively.
+    board = read_module.Board(repo=Path('.'))
     asked = {}
     for cause in ("human-unanswered", "human-said-no", "human-judgement-stale"):
         card = cards.card_for(board, criterion(state="human", cause=cause))
@@ -521,7 +528,7 @@ def test_a_human_row_a_person_answered_met_asks_the_honest_question():
     """Not "is this met?" — they said so. The honest question is the one the
     record's own limit raises: nothing re-checks it."""
     card = cards.card_for(
-        object(),
+        read_module.Board(repo=Path('.')),
         criterion(
             state="human",
             refuses=False,

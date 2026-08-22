@@ -414,7 +414,11 @@ def card_for(board: Board, criterion: Criterion) -> Card:
     # than inside each branch is what makes that structural: there is no path
     # on which this note could have altered a verdict, and
     # `test_the_note_never_changes_a_CARD` reverts exactly this line to check.
-    note = getattr(board, "check_notes", {}).get(criterion.id)
+    # `board.check_notes`, NOT `getattr(board, ..., {})` — the mutation sweep
+    # of 2026-08-22 showed the defensive default made the whole field
+    # deletable with nobody noticing. A board that has lost the field should
+    # be a loud AttributeError, not a page quietly missing its notes.
+    note = board.check_notes.get(criterion.id)
     return card if note is None else replace(card, check_note=note)
 
 

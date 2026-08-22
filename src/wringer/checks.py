@@ -76,11 +76,26 @@ COMMAND_ONLY_LIMIT = (
     "a change inside whatever it runs is invisible here"
 )
 
+#: **Measured 2026-08-22 by pointing the thesis at this module.** The record is
+#: written AFTER the gates have run, so it says what the checker was at that
+#: moment — not what executed. A gate that rewrites its own check file, runs
+#: the rewritten version and copies the original back leaves this record
+#: byte-identical, and no note fires. It is the same class as SECURITY.md's
+#: bold row — a worker that can write files can write files — and it is stated
+#: rather than left to be discovered, because "the checker under trust" reads
+#: much stronger than it is if this sentence is missing.
+MUTATE_AND_RESTORE_LIMIT = (
+    "this records what the check WAS when the bundle was written, which is "
+    "after the gates ran. A gate that edits its own check, runs the edited "
+    "version and puts the original back leaves this record unchanged."
+)
+
 LIMITS = (
     "this compares a check against the record of the same check in the run "
     "its receipt cites. It says a check changed; it never says the change "
     "was wrong, and it is a note rather than a refusal in v0.",
     COMMAND_ONLY_LIMIT,
+    MUTATE_AND_RESTORE_LIMIT,
 )
 
 #: Extensions that make a token worth resolving as a file. Deliberately a
@@ -138,7 +153,15 @@ def derivable_files(run: str, root: Path) -> list[Path]:
     tree is not something this bundle can honestly speak for.
     """
     try:
-        tokens = shlex.split(run)
+        # **`comments=True` — found by pointing the thesis at this module,
+        # 2026-08-22.** `sh -c "true" # decoy.py` recorded
+        # `coverage: command-and-files` and hashed `decoy.py`, a filename the
+        # shell never reads. That is a row claiming to have compared a check
+        # when it compared something the check cannot touch — the exact defect
+        # class this repository exists to catch, in the module written to
+        # catch it. A comment is not part of the command, and `shlex` already
+        # knows where one starts.
+        tokens = shlex.split(run, comments=True)
     except ValueError:
         # An unparseable command still has an identity: its own text.
         return []

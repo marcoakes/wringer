@@ -503,6 +503,7 @@ def test_A_BADGE_AND_ITS_OWN_BODY_NEVER_CONTRADICT_EACH_OTHER():
     render.
     """
     from wringer_board import cards
+    from wringer_board import read as read_module
 
     def texts(card):
         return f"{card.sentence} {card.question or ''}".lower()
@@ -519,7 +520,7 @@ def test_A_BADGE_AND_ITS_OWN_BODY_NEVER_CONTRADICT_EACH_OTHER():
     ):
         for cause in causes:
             card = cards.card_for(
-                object(),
+                read_module.Board(repo=Path('.')),
                 _criterion(state=state_name, cause=cause, gate_id="unit"),
             )
             said = texts(card)

@@ -331,3 +331,144 @@ def test_the_ESCALATION_PATH_is_named_rather_than_improvised():
         "the module never says WHAT the escalation would be, so nobody can "
         "take the ruling it defers"
     )
+
+
+# --- THE REPOSITORY IS THE ATTACKER -----------------------------------------
+#
+# Wringer's thesis is that it trusts nothing — not the worker's exit code, not
+# the agent's summary, not the tests the agent wrote. This module is new
+# evidence, so the thesis gets pointed at it. Everything below was RUN as a
+# hostile `.wringer.yaml` before it was written down.
+
+
+def test_a_gate_CANNOT_forge_its_own_checks_record(bound, monkeypatch):
+    """A gate that overwrites `checks.json` mid-run loses.
+
+    Measured: a gate whose command writes a fabricated `checks.json` into the
+    newest bundle finds the engine has written the real one over it, because
+    `checks.write` runs after the gates and before the digests. The record is
+    the engine's, which is the only version of this that is worth anything.
+    """
+    (bound / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: g\n    run: >-\n"
+        "      sh -c 'd=$(ls -dt .wringer/runs/* 2>/dev/null | head -1);"
+        ' printf "{}" > "$d/checks.json" 2>/dev/null; true\'\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(bound)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+
+    record = json.loads((_runs(bound)[-1] / "checks.json").read_text("utf-8"))
+    assert record.get("schema_version") == checks.SCHEMA_VERSION, record
+    assert record["checks"], "the gate's forgery survived; the engine's did not"
+    assert record["checks"][0]["gate_id"] == "g"
+
+
+def test_a_file_a_gate_PLANTS_is_inside_the_seal_and_audit_says_VERIFIES(
+    bound, monkeypatch, capsys
+):
+    """**An honest limit, pinned so nobody later claims otherwise.**
+
+    `digests.json` is sealed after the gates run, so anything a gate writes
+    into its own bundle during the run is sealed WITH it and audits clean.
+    SECURITY.md says this — *nothing before the seal is covered* — and this is
+    the executable form of that sentence, because a page saying it is worth
+    less than a test that would go red if it stopped being true.
+    """
+    (bound / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: g\n    run: >-\n"
+        "      sh -c 'd=$(ls -dt .wringer/runs/* 2>/dev/null | head -1);"
+        ' echo PLANTED > "$d/planted.txt" 2>/dev/null; true\'\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(bound)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    bundle = _runs(bound)[-1]
+    assert (bundle / "planted.txt").is_file(), "the attack did not land"
+    digests = json.loads((bundle / "digests.json").read_text("utf-8"))
+    assert "planted.txt" in digests["files"], (
+        "the planted file is OUTSIDE the seal, which would make the audit "
+        "below a real detection — if that is now true, this test should be "
+        "rewritten to assert the detection"
+    )
+    assert cli.main(["audit", str(bundle)]) == cli.EXIT_OK, (
+        "audit refused a planted file. That would be an improvement, and it "
+        "would mean SECURITY.md's 'nothing before the seal is covered' is no "
+        "longer the right sentence"
+    )
+
+
+def test_a_COMMENT_is_not_part_of_the_check(bound):
+    """**Found by attacking this module, 2026-08-22.**
+
+    `sh -c "true" # decoy.py` recorded `coverage: command-and-files` and
+    hashed `decoy.py` — a filename the shell never reads. A row claiming to
+    have compared a check when it compared something the check cannot touch
+    is the defect class this repository exists to catch, appearing inside the
+    module written to catch it.
+    """
+    (bound / "decoy.py").write_text("print(1)\n", encoding="utf-8")
+    identity = checks.identity_of("g", 'sh -c "true" # decoy.py', bound)
+    assert identity.files == {}, (
+        f"a filename in a COMMENT was hashed as if it were the check: "
+        f"{identity.files}"
+    )
+    assert identity.coverage == checks.COVERAGE_COMMAND_ONLY
+    # And the real thing still resolves, so the fix did not just switch it off.
+    real = checks.identity_of("g", "python3 acceptance/recent.py", bound)
+    assert list(real.files) == ["acceptance/recent.py"]
+
+
+def test_the_MUTATE_AND_RESTORE_limit_is_stated_where_the_record_travels():
+    """A gate can edit its check, run the edit, and put the original back.
+
+    This module cannot see that — it records what the checker was when the
+    bundle was written, which is after the gates ran. The limit ships INSIDE
+    the record rather than in a spec nobody opens, because "the checker under
+    trust" reads far stronger than it is without it.
+    """
+    assert checks.MUTATE_AND_RESTORE_LIMIT in checks.LIMITS
+    said = " ".join(checks.MUTATE_AND_RESTORE_LIMIT.split())
+    assert "after the gates ran" in said
+    assert "puts the original back" in said
+
+
+def test_no_string_from_the_REPOSITORY_reaches_the_board_as_markup(
+    bound, monkeypatch
+):
+    """The spec, the criteria and the check's own output are all attacker
+    input — a repository writes every one of them.
+
+    The `<details>` block F14 introduced makes this sharper than it was: a
+    check that prints `</details><script>` would break out of the collapsed
+    block if the output were not escaped. Measured, both ways.
+    """
+    from wringer_board import read as board_read
+    from wringer_board import render as board_render
+
+    (bound / "wringer.spec.yaml").write_text(
+        SPEC.replace(
+            "The most recently played comes first",
+            "<script>alert(3)</script> and <b>bold</b>",
+        ).replace("The cabinet remembers", "</h1><script>alert(1)</script>"),
+        encoding="utf-8",
+    )
+    (bound / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: recent\n    run: >-\n"
+        "      sh -c 'printf \"</details><script>alert(9)</script>\\n\" >&2; exit 1'\n"
+        "    proves: recent-first\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(bound)
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+
+    page = board_render.render(board_read.read(bound))
+    for payload in (
+        "<script>alert(1)",
+        "<script>alert(3)",
+        "</details><script>",
+    ):
+        assert payload not in page, f"{payload!r} reached the board as markup"
+    assert "&lt;script&gt;" in page, "nothing was escaped at all — check the probe"

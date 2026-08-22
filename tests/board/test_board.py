@@ -596,3 +596,49 @@ def test_the_CHECK_OUTPUT_is_COLLAPSED_and_no_prose_was_added(repo):
     # And the sentence did not become two. One explaining paragraph, as before.
     assert page.count("It may test more than this requirement does") == 1
     assert page.count('<p class="scope">') == 1
+
+
+def test_the_page_is_WELL_FORMED_and_nothing_it_emits_is_UNSTYLED(repo):
+    """**Two properties the mutation sweep showed nobody was checking.**
+
+    F14 turned the check-output block into a `<details>`, and a stray edit to
+    the string that closes it produced HTML no test looked at. And two CSS
+    blocks — the collapsed block's, and the check-note's — could be deleted
+    entirely with the suite still green, which means a card could render
+    unstyled exactly the way `_STATE_CLASS` exists to prevent for states.
+
+    So: every tag the card opens is closed, and every class it emits has a
+    rule. Derived from the page, not from a list written here.
+    """
+    import re
+
+    write_run(
+        repo,
+        "20260816-090000-aaaa",
+        [criterion("a", "Something", "gate-failed", refuses=True)],
+        gates={"suite": ("stderr", "AssertionError: nope")},
+    )
+    page = html_of(repo)
+    # The stylesheet is CSS, not markup. Counting tags inside it measures the
+    # wrong thing — and a comment there naming an element in angle brackets is
+    # exactly what made this guard's first run red for a reason that was not a
+    # rendering defect.
+    markup = re.sub(r"<style>.*?</style>", "", page, flags=re.S)
+
+    for tag in ("details", "div", "p", "section"):
+        opened = len(re.findall(rf"<{tag}[\s>]", markup))
+        closed = len(re.findall(rf"</{tag}>", markup))
+        assert opened == closed, (
+            f"the page opens {opened} <{tag}> and closes {closed} — a browser "
+            "will guess where the missing one ends, and the guess is not ours"
+        )
+
+    emitted = set(re.findall(r'class="([a-z ]+)"', markup))
+    names = {name for value in emitted for name in value.split()}
+    styled = set(re.findall(r"[.#]([a-z]+)[{ ,:\[]", render_module.CSS))
+    unstyled = sorted(name for name in names if name not in styled)
+    assert not unstyled, (
+        f"the page emits these classes and the stylesheet has no rule for "
+        f"them: {unstyled}. A block that renders unstyled is a block a reader "
+        "cannot tell from body text"
+    )
