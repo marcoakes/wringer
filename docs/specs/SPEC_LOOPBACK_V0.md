@@ -101,6 +101,51 @@ starts from a person who has nothing set up yet.
 **Neither branch is chosen here.** The measurement has not been taken, and
 choosing before it is taken is the thing this document exists to avoid.
 
+### §4b — The measurement, TAKEN 2026-08-22. **The fork is still not resolved, and the reason changed.**
+
+Run 3 (`docs/field-report-2026-08-22.md`) answered §4's question, and the
+answer is the FIRST row: **an API key drafts.** `wring spec --send` succeeded
+twice on the evaluator's Keychain value. What died was the WORKER, every time.
+
+By §4's own table that makes loopback "a convenience cycle". **It does not,
+and the table is what is now wrong** — it assumed the worker's auth was a
+separate barrier of the same kind. It is not the same kind, and the evidence is
+in the adapter's source (`@agentclientprotocol/claude-agent-acp` 0.70.0,
+`dist/acp-agent.js`), read on 2026-08-22:
+
+1. **`apiType=native` is not a choice of subscription auth.** The log line
+   interpolates `resolvedProvider?.apiType ?? "native"` — it is what prints when
+   NO provider config resolved. A provider resolves only from a `providers/set`
+   call or a gateway `authenticate` request.
+2. **The adapter never reads `ANTHROPIC_API_KEY` as a credential.** It appears in
+   a context-window cache-key list, and in `createEnvForProvider`, which sets it
+   to `""`. The documented `env_passthrough` remedy was a guess and the field
+   falsified it, degrading `Authentication required` to `Internal error`.
+3. **Authentication is a protocol act.** `initialize` advertises `authMethods`
+   and the client calls `authenticate`. The adapter offers only methods the
+   CLIENT declared it can service — and **Wringer declares none, so the
+   handshake returns `authMethods: []`.** Measured twice on the author's
+   machine.
+
+**So there IS a route and Wringer does not ask for it.** `claude-ai-login`,
+`console-login` and `gateway`/`gateway-bedrock` exist; Wringer's handshake is
+why none is on offer. That is a third branch §4's table does not have, and it is
+cheaper than loopback by a wide margin.
+
+Also settled, and it closes a question this document leaves open: **sequence L
+is confirmed structurally, not just empirically.** `authMethods` is gated on a
+CLI flag (`--hide-claude-auth`) and on client capabilities, never on login
+state, so `initialize` and `session/new` are byte-identical authenticated and
+unauthenticated. **No probe below `session/prompt` can see auth.** Any preflight
+that intends to stop a run before it spends must reach `session/prompt`.
+
+**The ruling this document now needs from Fable** is not the one §4 frames. It
+is: does Wringer declare the client-side auth capability and call `authenticate`
+— making the worker's login the operator's ordinary act — or does it keep the
+narrow honest refusal now on the page and treat loopback as the answer? The
+first is a small change to a handshake. The second is a cycle. Nothing here
+chooses, and the measurement above is why the choice is finally informed.
+
 ### §4a — A dated sub-finding, 2026-08-21. **NOT the fork's own measurement.**
 
 A product manager's second field run, and a probe run on the maintainer's Mac
