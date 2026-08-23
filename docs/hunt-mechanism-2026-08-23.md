@@ -87,6 +87,79 @@ directions, which "every hunk except one" is not.
    count line reading *"N of M parts of this change"* must not quietly drop
    the parts it cannot reverse.
 
+---
+
+## Second measurement, same day — **the copy does not carry the environment**
+
+*Round 2 of the review returned NOT SOUND on the rewritten mechanism, for a
+reason the first round did not reach. Reproduced here by hand before anything
+was decided on it. **This is the finding that stopped the window building the
+sweep.***
+
+The rewrite's load-bearing sentence was *"A copy of the candidate carries the
+environment with it"*, and that is how `run.prove_setup` was removed from the
+path. It is false for an editable install, which is how this repository — and
+most Python projects — are developed.
+
+    $ cat .venv/lib/python3.12/site-packages/__editable__.wringer-0.4.1.pth
+    /Users/marc/Claude/wringer/src
+
+An **absolute path into the operator's tree**. Copying the tree copies that
+file verbatim, so the copy's own interpreter resolves the package to the
+original:
+
+    $ rsync -a --exclude '.wringer/' --exclude '.git/' ./ $S/cand/
+    $ cd $S/cand && ./.venv/bin/python -c "import wringer; print(wringer.__file__)"
+    /Users/marc/Claude/wringer/src/wringer/__init__.py
+
+End to end, with redaction turned off **in the copy only** —
+`MIN_SECRET_LENGTH = 6` → `600`, a mutation eight tests are written to catch:
+
+    $ ./.venv/bin/python -m pytest -q tests/test_redact.py     # the lap as specified
+    8 passed in 7.75s                       -> the unit reads UNNOTICED, falsely
+
+    $ PYTHONPATH=$S/cand/src ./.venv/bin/python -m pytest -q tests/test_redact.py
+    7 failed, 1 passed in 0.10s             -> the unit reads EVIDENCED, truly
+
+### Why this is worse than the trap it replaced, and why the baseline lap cannot see it
+
+The trap `--prove` guards is the **inverted** one: a broken scratch tree turns
+every check red, and a red pre-change gate reads as proof. The baseline lap in
+§4 Ruling 7 was written to close it, and it does.
+
+This is the **forward** trap and the baseline lap is blind to it by
+construction: the baseline is green because the ORIGINAL is green. Every unit
+then reads `unnoticed`, and the sweep reports that nothing in the change is
+covered — which is note-tier, so nothing refuses, and is indistinguishable
+from a true and alarming result.
+
+**It is not even uniform, which is what makes it unreadable.** Path-based
+checks do read the copy: `ruff check src tests` walks the copy's files, and
+`tests/core_helpers.py`'s `repo_root()` resolves to the copy, so the document
+guards read the copy. Import-based checks read the original. On this
+repository the sweep would report documentation and lint units `evidenced` and
+every `src/` unit `unnoticed` — a page no reader could tell from a real
+measurement.
+
+The class is general: editable installs, `.pth` files, `tox`/`conda`
+prefixes, absolute build caches. `node_modules` largely survives a copy
+because its shebangs and internal links are relative — so the failure is
+**silent and language-dependent** rather than loud, which is the worst
+available shape.
+
+### What it does not settle
+
+That the approach is wrong. Restoring `run.prove_setup` — once per sweep now,
+not once per unit — would re-point the environment at the copy, and one setup
+against one copy is affordable in a way the first draft's per-unit setup never
+was. What it does settle is that **no version of this may ship without a
+POSITIVE check that the checks read the copy**, because a repository that
+declares no setup gets a green baseline, a fully bypassed sweep, and a
+confident page. Choosing that check is a ruling, not an implementation detail,
+and the window stopped rather than improvise it.
+
+---
+
 ## What this capture does NOT show
 
 It was run on one machine, on a scratch repository, with `git` 2.x on macOS. It

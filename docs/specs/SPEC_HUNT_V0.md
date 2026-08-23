@@ -5,6 +5,68 @@
 document makes them precise, names the schema, and finds what they break.**
 Grounded at `main` `ea5ace1`.*
 
+> ## STATUS — **BLOCKED. Do not build to this document.**
+>
+> **Reviewed twice, NOT SOUND twice**, and the second verdict is not folded:
+> the window used the two rounds its run prompt allowed and stopped rather
+> than improvise a third mechanism.
+>
+> §1 Ruling 2's copy **does not carry the environment**, which is the sentence
+> the whole rewrite rests on. An editable install's `.pth` holds an absolute
+> path into the operator's tree, so the copy's own interpreter imports the
+> ORIGINAL source. Measured, with redaction disabled in the copy only:
+> `8 passed` — every `src/` unit would read `unnoticed`, falsely — against
+> `7 failed` when the copy's `src` is genuinely on the path
+> ([docs/hunt-mechanism-2026-08-23.md](../hunt-mechanism-2026-08-23.md),
+> second measurement).
+>
+> **Ruling 7's baseline lap cannot catch it.** The lap closes the INVERTED
+> trap (a broken copy reddens everything). This is the FORWARD trap: the
+> baseline is green because the original is green, every unit reads
+> `unnoticed`, nothing refuses because §5 is note-tier, and the page is
+> indistinguishable from a true result. On this repository the outcome is a
+> MIXTURE — lint and doc units `evidenced`, every `src/` unit `unnoticed` —
+> which no reader could tell from a measurement.
+>
+> **What is owed before a line is written**, and each is ruling-sized, so each
+> goes to Fable rather than to the next window's judgement:
+>
+> 1. **A POSITIVE check that the checks read the copy.** Requiring
+>    `run.prove_setup` and refusing `inconclusive` without it is the obvious
+>    candidate — once per sweep is affordable where once per unit never was —
+>    but a repository that declares none still gets a green baseline and a
+>    fully bypassed sweep. A candidate rule in this repository's idiom: *a
+>    sweep in which NO unit is evidenced reports `inconclusive`, because
+>    "nothing is covered" and "the copy was bypassed" are indistinguishable
+>    from inside.* Neither is ruled here.
+> 2. **Whether the copy keeps `.git`.** Without it the checks in this very
+>    repository fail (`git show`, `git tag`, `git check-ignore` at
+>    `tests/test_docs.py`), so the baseline lap is red for ever. With it, and
+>    where the candidate is itself a `git worktree`, the copy's `.git` file
+>    still points at the OPERATOR's gitdir — so a check running `git checkout`
+>    or `git branch` writes into the operator's repository, and §1's "the
+>    operator's tree is never touched" is false.
+> 3. **What "restoration matches" means** (Ruling 8). A whole-tree comparison
+>    fires on the first unit of any Python repository, because checks leave
+>    `.pyc` and coverage files. A `git diff HEAD` comparison is blind to a
+>    check that edits a tracked file and needs (2) settled first.
+> 4. **The untracked lane has no procedure at all.** Ruling 1 declares the
+>    kind and counts it in the denominator; Ruling 2's only per-unit procedure
+>    is a `git apply -R` of a hunk, and an untracked file has neither header
+>    nor hunk.
+> 5. **The arithmetic still does not close.** Measured on this repository the
+>    evidence set is ≈432s per lap, so `hunt_budget_seconds: 900` buys the
+>    baseline plus ONE unit against a cap of forty. The first draft ran a 900s
+>    setup per unit against a 900s budget; this one runs a 432s lap per unit
+>    against the same budget. **Same arithmetic shape, smaller constant** —
+>    and neither draft did the sum.
+> 6. **Whether M in "N of M parts" is the true or the reached unit count**
+>    under a cap. Ruling 12 argues there is "no flattering answer to fall back
+>    to"; that is only true once this is decided, and it is not.
+>
+> Everything below is preserved as written, because it is the reasoning that
+> was reviewed. **Rulings 1–16 are NOT binding and nothing implements them.**
+
 ### REVIEW ROUND 1 — verdict NOT SOUND, and the mechanism changed because of it
 
 *The first draft built each tree as a detached worktree at the base with "every
