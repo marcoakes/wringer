@@ -551,3 +551,127 @@ def test_reusing_an_output_directory_removes_the_conditional_siblings(
         "about a run that never happened, and one of them can evidence an "
         "acceptance criterion"
     )
+
+
+def bundle_filename_constants() -> dict[str, str]:
+    """Every `*_FILENAME` the evidence module names, DISCOVERED not typed.
+
+    The scope of the two tests above is hand-picked — `digests.json` in one,
+    `vacuity.json` and `acceptance.json` in the other — and so is the tuple
+    they guard: `_clear_previous` clears twelve filenames written out by hand.
+    Nothing coupled the two, so a thirteenth bundle file could be added, its
+    writer shipped, and the clearing forgotten, with this file green the whole
+    way. That is the QUICKSTART class (`docs/hunt-2026-08-23.md`): a hand-kept
+    list nobody notices going stale.
+    """
+    return {
+        name: value
+        for name in dir(evidence)
+        if name.endswith("_FILENAME")
+        and isinstance(value := getattr(evidence, name), str)
+    }
+
+
+def test_every_bundle_filename_the_module_names_is_cleared_from_a_reused_output(
+    tmp_path: Path,
+):
+    """No bundle file may survive into a run that did not write it.
+
+    DERIVED from the module's own constants, so a new bundle file is in this
+    test's scope the moment it is named — which is the property the twelve-name
+    tuple in `_clear_previous` does not have.
+
+    Every name is planted AT THE ROOT and required to be gone, and the survivor
+    set is asserted to be exactly `{result.json}` rather than merely empty.
+    Both halves of that equality do work:
+
+    - a new bundle file whose author forgets the tuple joins the survivors and
+      the set stops matching — the defect this guard exists for;
+    - `result.json` is the one legitimate survivor, because it is only ever
+      written under `gates/NNN_<id>/`, which `_clear_previous` removes wholesale
+      as a directory. Pinning it rather than skipping it means that if it is
+      ever added to the tuple, or ever starts being written at the root, this
+      test goes red and asks the author to say which.
+
+    **The first version of this test was VACUOUS and the red-watch caught it.**
+    It planted each name at the root AND inside `gates/`, and passed a name if
+    either copy was cleared. `gates/` is removed as a whole directory on every
+    run, so the second branch was true for every name always — dropping
+    `EXECUTION_FILENAME` from the tuple left the suite green. That is the
+    "passed for the wrong reason" class this repository reverts each fix to
+    check for, and it is recorded here because the shape is easy to rebuild.
+    """
+    names = bundle_filename_constants()
+    survivors = {}
+    for attribute, filename in sorted(names.items()):
+        directory = tmp_path / attribute
+        directory.mkdir()
+        root_copy = directory / filename
+        root_copy.write_text("last run's bytes\n", encoding="utf-8")
+
+        evidence.Bundle.at(directory, now=NOW)
+
+        if root_copy.exists():
+            survivors[attribute] = filename
+
+    assert survivors == {"RESULT_FILENAME": evidence.RESULT_FILENAME}, (
+        "the bundle files surviving a reused --output directory are no longer "
+        f"exactly the one expected: {survivors}\n"
+        "A file here that is not `result.json` survives into a run that never "
+        "wrote it, so the previous run's copy sits beside a bundle that never "
+        "made it — add it to `_clear_previous` in evidence.py. If "
+        "`result.json` has stopped surviving, this guard's reason is stale: "
+        "it is absent from the tuple only because it is written under "
+        f"`{evidence.GATES_DIRNAME}/`, which is cleared as a directory."
+    )
+
+    # The reason above, asserted rather than trusted: a `result.json` written
+    # where it really lives IS cleared, so the survivor above is an artefact of
+    # planting it somewhere nothing writes it.
+    nested = tmp_path / "nested" / evidence.GATES_DIRNAME / "001_gone"
+    nested.mkdir(parents=True)
+    real = nested / evidence.RESULT_FILENAME
+    real.write_text("last run's gate result\n", encoding="utf-8")
+    evidence.Bundle.at(tmp_path / "nested", now=NOW)
+    assert not real.exists(), (
+        "a previous run's gate `result.json` survived, so the reason "
+        "`RESULT_FILENAME` is absent from `_clear_previous` no longer holds"
+    )
+
+
+def test_the_cleared_scope_is_wider_than_the_names_the_two_tests_above_pick(
+    tmp_path: Path,
+):
+    """The derivation is USED, and this is the guard that says so.
+
+    Standing law from the self-hunt: nine scopes were derived and only four
+    had a test asserting the derived scope is wider than the hand list it
+    replaced — and reverting the other five to their tuples reddened nothing
+    at all. So a derivation ships with a guard that it is used, or it is
+    decoration that a later window can quietly narrow with the suite green.
+
+    Here the hand list is the three filenames the two tests above name between
+    them. If `bundle_filename_constants()` ever collapses to those — a rename
+    of the `*_FILENAME` convention, a refactor that moves the constants — this
+    goes red instead of silently guarding three files and claiming to guard
+    every one.
+    """
+    derived = set(bundle_filename_constants().values())
+    picked_by_hand = {
+        evidence.DIGESTS_FILENAME,
+        evidence.VACUITY_FILENAME,
+        evidence.ACCEPTANCE_FILENAME,
+    }
+
+    assert picked_by_hand < derived, (
+        "the derived bundle-filename scope no longer covers more than the "
+        "three names the hand-picked tests above check, so it has stopped "
+        f"deriving anything: derived={sorted(derived)}"
+    )
+    assert len(derived) >= len(picked_by_hand) + 9, (
+        "the derived scope shrank — it found "
+        f"{len(derived)} bundle filenames and the module defined thirteen "
+        "when this guard was written. A constant renamed out of the "
+        "`*_FILENAME` convention leaves its file unguarded and this test is "
+        f"the only thing that says so: {sorted(derived)}"
+    )

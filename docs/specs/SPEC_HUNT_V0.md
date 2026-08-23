@@ -6,28 +6,58 @@ ceiling amendment and the endorsements of
 `~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md` (BINDING). Grounded at `main`
 `b2485ce`.*
 
-> ## STATUS — **BLOCKED for build. Revised against H1–H6; awaiting the THIRD review.**
+> ## STATUS — **BLOCKED. Reviewed THREE times, NOT SOUND three times. Four rulings are owed to Fable.**
 >
-> Reviewed twice, NOT SOUND twice. Both verdicts were reached by EXECUTION, and
-> both killed a mechanism:
+> Every verdict was reached by EXECUTION, and each killed something:
 >
 > | round | mechanism | how it died |
 > |---|---|---|
 > | 1 | worktree at base + apply every hunk but this one | one binary file and **no tree can be built at all**; three change kinds emit no `@@` header |
 > | 2 | copy the candidate, "a copy carries the environment" | an editable install's `.pth` is **absolute**, so the copy's interpreter imports the ORIGINAL source |
+> | 3 | clone + overlay, per H1–H6 | **the mechanism holds; the LIFECYCLE BETWEEN LAPS does not** |
 >
-> Round 2's six blocks went to Fable and came back as H1–H6. **Rulings are
-> constraints, not proof** — this revision makes them precise and the third
-> review executes against it. A third NOT SOUND stops the window.
+> **Round 3 is a different kind of failure from rounds 1 and 2, and that is the
+> useful part.** Clone-plus-overlay is right, H4's file-level revert is right,
+> Appendix A reproduced exactly under an independent rebuild, Appendix B's unit
+> arithmetic verified, and the mechanism probe's 36 of 36 is real. What is not
+> sound is everything that happens *between* laps — the one region neither the
+> probe nor the appendices exercise.
 >
-> **This revision does not rest on reading.** The mechanism H1–H6 constrain was
-> executed before it was written down, on a candidate carrying every change kind
-> and a staged/unstaged mixture, in both environment shapes:
-> `scripts/hunt-mechanism-probe.py`, captured in
-> [docs/hunt-mechanism-2026-08-23.md](../hunt-mechanism-2026-08-23.md) (third
-> measurement), 36 of 36. The two measurements the rulings demanded are
-> **Appendix A** (H1's failure-direction duty) and **Appendix B** (H5's sum).
-> Three findings changed a ruling's shape and are marked ⚑ where they land.
+> **The finding that stops it:** Ruling 11's rebuild-on-contamination restores
+> the working copy from the pristine clone of §2 step 1, and the probe's own R1
+> measured that **a clone carries no environment**. So every unit after the first
+> contamination runs checks that import the OPERATOR's tree — round 2's exact
+> killer, re-entering through a path this document names itself. H1's eligibility
+> cannot catch it: eligibility is computed once, at step 4, before any rebuild can
+> happen. The result is a page of `unnoticed` rows with intact `evidenced` counts
+> and **no state that says anything is wrong** — a clean, confident, wrong page,
+> which is the one outcome §5 exists to make impossible.
+>
+> It is not foldable by an edit. The two available fixes contradict a ruling
+> each: re-running `prove_setup` per rebuild contradicts H1's "ONCE per sweep"
+> and breaks H5's sum; making the pristine artifact a post-setup snapshot
+> contradicts Ruling 11a's "never run in".
+>
+> **Owed to Fable, and nothing is built until they are ruled** — the four are
+> stated in `~/Claude/HUNT_REVIEW_ROUND3_2026-08-23.md` and carried in this
+> window's finish report:
+>
+> 1. the rebuild's environment (above);
+> 2. **lap independence** — nothing in this document says a lap is independent of
+>    the lap before it, and gitignored caches are deliberately spared by both
+>    Ruling 7a and Ruling 11;
+> 3. **the sum's missing terms** — clone, `prove_setup` and rebuilds are outside
+>    it, and it compares against the whole budget rather than what remains, while
+>    `SETUP_TIMEOUT_SECONDS` is 900 against a 900 s default;
+> 4. **partially-staged (`MM`) files** — the overlay cannot reproduce them, so the
+>    faithfulness precondition reports `inconclusive`; the direction is safe and
+>    the case is unnamed.
+>
+> **What HAS been corrected in place** (factual, mechanism untouched): citation
+> drift, a `flaky` mischaracterisation, H2's "structurally unreachable" claim
+> which is measurably false, the capture's misattributed output, and §12's
+> derivation table — which was itself incomplete, in the defect class the window
+> exists to remove.
 >
 > **The BLOCKED header is lifted only by a passing review, in the same commit
 > that starts the build.**
@@ -135,16 +165,38 @@ before the copy exists. (Derivation D4.)
 2. **Overlay the candidate onto the clone**, by FILE COPY driven by
    `git diff HEAD --name-status -M` plus the untracked subject list. **No
    `git apply` anywhere** — that is what killed round 1 on the first binary file,
-   and `git.diff` omits `--binary` by decision (`git.py:176-179`).
+   and `git.diff` omits `--binary` by decision (`git.py:175-178`).
 3. ⚑ **Replay the candidate's STAGED set** (`git diff --cached --name-status -M
    HEAD`) into the copy's index.
 
-**Why the clone, and what it buys** (H2): the copy's gitdir is SELF-CONTAINED, so
-a check running any git command touches only the copy's own history and the
-operator's gitdir is structurally unreachable. **The worktree case dies here** —
-a clone from a worktree yields a real gitdir. The repository's own git-using
-checks (`git show`, `git tag`, `git check-ignore`) work. And §7's "the operator's
-tree is never touched" becomes structural rather than aspirational.
+**Why the clone, and what it buys** (H2): the copy's gitdir is SELF-CONTAINED —
+a real directory, not a `.git` file pointing into someone else's `worktrees/`.
+**The worktree case dies here**: a clone from a worktree yields a real gitdir.
+The repository's own git-using checks (`git show`, `git tag`, `git check-ignore`)
+work, reading only the copy's own history.
+
+⚑ **But "the operator's gitdir is structurally unreachable" is FALSE as H2
+states it, and this spec must not repeat it.** Measured: `git clone --local`
+leaves a live `origin` remote pointing at the candidate — **fetch and push** —
+and `git ls-remote --heads origin` from the copy succeeds:
+
+    origin  /tmp/f6check/cand (fetch)
+    origin  /tmp/f6check/cand (push)
+    f3343ddc…  refs/heads/main        <- ls-remote exit 0
+
+So a check running `git push origin` or `git fetch` in the copy reaches the
+operator's repository. The clone makes the operator's gitdir unreachable **by
+path**, which is what kills the worktree case; it does not make it unreachable
+**by remote**. Closing that gap is a build-time requirement — the sweep drops
+the remote after cloning — and it is recorded here rather than assumed, because
+§2c's "the operator's tree is never touched" is a safety claim and a safety
+claim that is merely aspirational is the kind of sentence this repository
+corrects by dated note.
+
+⚑ **A clone also takes git's stock `.git/info/exclude`, not the operator's.** A
+repository using local excludes therefore has a different untracked set in the
+copy. That is caught rather than silent: Ruling 2a's faithfulness precondition
+compares `git status --porcelain` and reports `inconclusive` when they differ.
 
 **A candidate with no commits at all is `inconclusive`, honestly.**
 
@@ -207,7 +259,7 @@ different costs and answer different questions.
 The full evidence set is: **the gates that ran in this verify** — `planned` in
 `verify.run` — **minus optional gates**.
 
-- Scoped-out, skipped and `flaky` gates are **not** in the set. A gate that did
+- Scoped-out and skipped gates are **not** in the set. A gate that did
   not run on the operator's tree cannot be asked whether it notices something,
   and asking it would redden the baseline lap on a healthy run.
 - **Optional gates are excluded by ruling**, following `vacuity.py:241-245`:
@@ -280,7 +332,7 @@ the feature itself. (Derivation D1.)
 | `evidenced` | at least one check in `bound ∩ eligible` went RED without this unit |
 | `unnoticed` | every check in `bound ∩ eligible` stayed GREEN without this unit |
 | `unsweepable` | the candidate-minus-this-unit tree could not be built, or the lap contaminated the copy |
-| ⚑ `unswept` | the unit was never reached — cap, budget, or the sum in §5.4 |
+| ⚑ `unswept` | the unit was never reached — cap, budget, or the sum in §5 Ruling 9 |
 
 `unsweepable` is an **honest state, not an error**, and it has two recorded
 causes: the lone revert failed (entangled hunks — the row carries git's own
@@ -326,7 +378,7 @@ named.
 4. **The CONTROL lap** — the whole candidate reverted in the copy, the full
    evidence set run again, each check's red/green recorded as its eligibility
    (3b). Then the overlay is restored and §6 verifies it.
-5. **The SUM** (5.4), computed before the first unit runs.
+5. **The SUM** (Ruling 9), computed before the first unit runs.
 6. **The unit laps** — `bound ∩ eligible` per unit, restoration verified after
    each (§6).
 
@@ -457,7 +509,7 @@ would be a ruling, not an implementation detail.)
 `wring verify --hunt`. **There are nineteen commands and a twentieth is
 forbidden**; the ceiling is stated at `AGENTS.md:177-183`. (The command ceiling
 is unnumbered — "law 7" is the frozen-schema law: `schema/frozen.json`,
-`verify.py:753`, `checks.py:27`.)
+`verify.py:751`, `checks.py:27`.)
 
 Opt-in in v0; delivery-candidate time is its moment.
 
@@ -513,7 +565,7 @@ genuinely last) so the record is digest-covered and `audit`/`attest` compose wit
 no new clause.
 
 **Through the `Bundle`, with the redactor, and that is not a detail.**
-`AGENTS.md:545-548`: *"If you add a file to the bundle, add it through the
+`AGENTS.md:548-550`: *"If you add a file to the bundle, add it through the
 `Bundle`, or you have quietly opted out of the one guarantee SECURITY.md
 makes."* `vacuity.py:152-157` records this repository having already shipped that
 defect. The whole payload is scrubbed, on `accept.write`'s pattern
@@ -601,8 +653,31 @@ derivations, each owed a guard in the build:
 | D3 | the overlay replays the staged set; faithfulness is `git status --porcelain` equality (§2a) | the two unfaithful overlays must be red-watched, `git ls-files` included |
 | D4 | units come from the candidate, never the copy (§1) | re-deriving in the copy must change the count and be caught |
 | D5 | control lap is `read-tree --reset -u` + `clean -fd`, never `-fdx` (§7a) | an ignored environment directory must survive the control lap |
+| ⚑ D6 | the BOUND CHECK SET is derived from `proves:` bindings (§3a) | adding a `proves:` binding must widen the per-unit set; a hand-kept copy of it must be impossible |
 | D7 | rebuild time is unbudgeted and lands in `partial` (§9) | a contaminating check must produce `unsweepable-dirty` + rebuild, and the budget must still bind |
-| D8 | large untracked trees are capped, not sampled (§12a) | the cap must render `unswept`, never a shrunken M |
+| D8 | large untracked trees are capped, not sampled (§7 Ruling 12a) | the cap must render `unswept`, never a shrunken M |
+| ⚑ D9 | the FULL EVIDENCE SET is derived from `planned`, minus optional (§3) | `verify.py:477-480` already carries this exact lesson — *"a hand-kept second copy of 'what was left out'"* — and the sweep must not make a second copy |
+| ⚑ D10 | the untracked unit set is derived through `evidence.untracked_subject` (§1) | a bundle directory must never become a unit of the change |
+| ⚑ D11 | `hunt.json` and `hunt/` join `Bundle._clear_previous` (§9 Ruling 16) | see below — the list this joins is itself hand-kept |
+
+⚑ **D6 was ABSENT from this table in the revision that went to review, and it is
+the most load-bearing derivation in the document.** D9, D10 and D11 were absent
+too. That is the self-hunt's own finding — *nine scopes derived, only four
+guarded* — reproduced inside the spec written to fix it, one revision after the
+window recorded the lesson as standing law. It is recorded here rather than
+quietly corrected, because the pattern is the point: **a derivation table needs a
+guard that the table is complete, or it is one more hand-kept list.**
+
+⚑ **D11 exposes a live defect in the tree, and it is not the hunt's.**
+`Bundle._clear_previous` (`evidence.py:436-455`) clears a **hand-kept tuple of
+twelve filenames**. `evidence.py` defines thirteen `*_FILENAME` constants;
+`RESULT_FILENAME` is correctly absent because `gates/` is cleared as a directory.
+**No test derives that list.** A future bundle file whose author forgets the
+tuple leaves a survivor from a previous run — precisely the failure the
+function's own docstring exists to prevent (*"kept the first run's verdict beside
+a bundle that never made it"*). This spec would add the thirteenth name and owed
+no guard for it. Fixed in this window, independently of the hunt, because guard
+hygiene does not wait.
 
 ---
 

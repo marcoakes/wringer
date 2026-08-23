@@ -252,19 +252,32 @@ equals the candidate's.*
 
 ### Every unit kind reverts and restores
 
-Nine units on the round-1 candidate — 4 hunk (including a file deletion),
-3 no-hunk (binary, mode-only, rename) and 2 untracked — each reverted alone
-and restored, with the copy byte-identical to the candidate after every lap:
+Ten units — 5 hunk (including a file deletion and a STAGED edit), 3 no-hunk
+(binary, mode-only, rename) and 2 untracked — each reverted alone and restored,
+with the copy byte-identical to the candidate after every lap:
 
-    Q4 hunk revert+restore gone.txt @@ -1 +0,0 @@                    PASS
-    Q4 hunk revert+restore many.txt @@ -1,6 +1,6 @@                  PASS
-    Q4 hunk revert+restore many.txt @@ -33,7 +33,7 @@ line            PASS
-    Q4 hunk revert+restore src/pkg/core.py @@ -1,2 +1,2 @@           PASS
-    Q4 no-hunk file-level revert+restore blob.bin                    PASS
-    Q4 no-hunk file-level revert+restore mode.sh                     PASS
-    Q4 no-hunk file-level revert+restore renamed_to.txt              PASS
-    Q4 untracked delete+re-place dead_untracked.txt                  PASS
-    Q4 untracked delete+re-place new_module.py                       PASS
+    units: 5 hunk, 3 no-hunk, 2 untracked = M 10
+    PASS  R4 hunk revert+restore gone.txt @@ -1 +0,0 @@
+    PASS  R4 hunk revert+restore many.txt @@ -1,6 +1,6 @@
+    PASS  R4 hunk revert+restore many.txt @@ -33,7 +33,7 @@ line
+    PASS  R4 hunk revert+restore src/pkg/core.py @@ -1,2 +1,2 @@
+    PASS  R4 hunk revert+restore staged_edit.txt @@ -1 +1 @@
+    PASS  R4 no-hunk file-level revert+restore blob.bin
+    PASS  R4 no-hunk file-level revert+restore mode.sh
+    PASS  R4 no-hunk file-level revert+restore renamed_to.txt
+    PASS  R4 untracked delete+re-place dead_untracked.txt
+    PASS  R4 untracked delete+re-place new_module.py
+
+> **Correction, 2026-08-23, same day, found by the third review.** The block
+> above first read *"Nine units… 4 hunk"* with rows prefixed `Q4`. That was the
+> output of an EARLIER probe, quoted under a page whose opening sentence is
+> *"The output below is what the commands printed"* and which cites
+> `scripts/hunt-mechanism-probe.py`. The landed script prints ten rows prefixed
+> `R4`; the missing row is the **staged-edit hunk**, which is the shape
+> `SPEC_HUNT_V0` §2 Ruling 2a exists for. Corrected to the landed script's
+> actual output rather than left standing with a note, because the defect was a
+> misattribution made the same day and not a capture overtaken by a later tree —
+> Law 8 protects the second, and this was the first.
 
 **H4 upgrades the no-hunk kinds out of `unsweepable`.** Round 1 could only
 record them as unsweepable because the mechanism was `git apply`; the copy's
