@@ -1,95 +1,36 @@
 # SPEC — the hunt: which parts of a change the evidence would notice (v0)
 
 *Drafted 2026-08-23 by the implementing window, from rulings Fable decided in
-`WRINGER_HUNT_RUN_PROMPT_2026-08-22.md` §2. **The rulings are DECIDED; this
-document makes them precise, names the schema, and finds what they break.**
-Grounded at `main` `ea5ace1`.*
+`WRINGER_HUNT_RUN_PROMPT_2026-08-22.md` §2. **Revision 3**, folding H1–H6, the
+ceiling amendment and the endorsements of
+`~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md` (BINDING). Grounded at `main`
+`b2485ce`.*
 
-> ## STATUS — **BLOCKED. Do not build to this document.**
+> ## STATUS — **BLOCKED for build. Revised against H1–H6; awaiting the THIRD review.**
 >
-> **Reviewed twice, NOT SOUND twice**, and the second verdict is not folded:
-> the window used the two rounds its run prompt allowed and stopped rather
-> than improvise a third mechanism.
+> Reviewed twice, NOT SOUND twice. Both verdicts were reached by EXECUTION, and
+> both killed a mechanism:
 >
-> §1 Ruling 2's copy **does not carry the environment**, which is the sentence
-> the whole rewrite rests on. An editable install's `.pth` holds an absolute
-> path into the operator's tree, so the copy's own interpreter imports the
-> ORIGINAL source. Measured, with redaction disabled in the copy only:
-> `8 passed` — every `src/` unit would read `unnoticed`, falsely — against
-> `7 failed` when the copy's `src` is genuinely on the path
-> ([docs/hunt-mechanism-2026-08-23.md](../hunt-mechanism-2026-08-23.md),
-> second measurement).
+> | round | mechanism | how it died |
+> |---|---|---|
+> | 1 | worktree at base + apply every hunk but this one | one binary file and **no tree can be built at all**; three change kinds emit no `@@` header |
+> | 2 | copy the candidate, "a copy carries the environment" | an editable install's `.pth` is **absolute**, so the copy's interpreter imports the ORIGINAL source |
 >
-> **Ruling 7's baseline lap cannot catch it.** The lap closes the INVERTED
-> trap (a broken copy reddens everything). This is the FORWARD trap: the
-> baseline is green because the original is green, every unit reads
-> `unnoticed`, nothing refuses because §5 is note-tier, and the page is
-> indistinguishable from a true result. On this repository the outcome is a
-> MIXTURE — lint and doc units `evidenced`, every `src/` unit `unnoticed` —
-> which no reader could tell from a measurement.
+> Round 2's six blocks went to Fable and came back as H1–H6. **Rulings are
+> constraints, not proof** — this revision makes them precise and the third
+> review executes against it. A third NOT SOUND stops the window.
 >
-> **What is owed before a line is written**, and each is ruling-sized, so each
-> goes to Fable rather than to the next window's judgement:
+> **This revision does not rest on reading.** The mechanism H1–H6 constrain was
+> executed before it was written down, on a candidate carrying every change kind
+> and a staged/unstaged mixture, in both environment shapes:
+> `scripts/hunt-mechanism-probe.py`, captured in
+> [docs/hunt-mechanism-2026-08-23.md](../hunt-mechanism-2026-08-23.md) (third
+> measurement), 36 of 36. The two measurements the rulings demanded are
+> **Appendix A** (H1's failure-direction duty) and **Appendix B** (H5's sum).
+> Three findings changed a ruling's shape and are marked ⚑ where they land.
 >
-> 1. **A POSITIVE check that the checks read the copy.** Requiring
->    `run.prove_setup` and refusing `inconclusive` without it is the obvious
->    candidate — once per sweep is affordable where once per unit never was —
->    but a repository that declares none still gets a green baseline and a
->    fully bypassed sweep. A candidate rule in this repository's idiom: *a
->    sweep in which NO unit is evidenced reports `inconclusive`, because
->    "nothing is covered" and "the copy was bypassed" are indistinguishable
->    from inside.* Neither is ruled here.
-> 2. **Whether the copy keeps `.git`.** Without it the checks in this very
->    repository fail (`git show`, `git tag`, `git check-ignore` at
->    `tests/test_docs.py`), so the baseline lap is red for ever. With it, and
->    where the candidate is itself a `git worktree`, the copy's `.git` file
->    still points at the OPERATOR's gitdir — so a check running `git checkout`
->    or `git branch` writes into the operator's repository, and §1's "the
->    operator's tree is never touched" is false.
-> 3. **What "restoration matches" means** (Ruling 8). A whole-tree comparison
->    fires on the first unit of any Python repository, because checks leave
->    `.pyc` and coverage files. A `git diff HEAD` comparison is blind to a
->    check that edits a tracked file and needs (2) settled first.
-> 4. **The untracked lane has no procedure at all.** Ruling 1 declares the
->    kind and counts it in the denominator; Ruling 2's only per-unit procedure
->    is a `git apply -R` of a hunk, and an untracked file has neither header
->    nor hunk.
-> 5. **The arithmetic still does not close.** Measured on this repository the
->    evidence set is ≈432s per lap, so `hunt_budget_seconds: 900` buys the
->    baseline plus ONE unit against a cap of forty. The first draft ran a 900s
->    setup per unit against a 900s budget; this one runs a 432s lap per unit
->    against the same budget. **Same arithmetic shape, smaller constant** —
->    and neither draft did the sum.
-> 6. **Whether M in "N of M parts" is the true or the reached unit count**
->    under a cap. Ruling 12 argues there is "no flattering answer to fall back
->    to"; that is only true once this is decided, and it is not.
->
-> Everything below is preserved as written, because it is the reasoning that
-> was reviewed. **Rulings 1–16 are NOT binding and nothing implements them.**
-
-### REVIEW ROUND 1 — verdict NOT SOUND, and the mechanism changed because of it
-
-*The first draft built each tree as a detached worktree at the base with "every
-hunk except this unit's" applied. **That does not work**, and the review found
-it by executing rather than by reading. Reproduced independently before folding
-(`docs/hunt-mechanism-2026-08-23.md`):*
-
-```
-error: cannot apply binary patch to 'src/blob.bin' without full index line
-error: src/blob.bin: patch does not apply
-```
-
-*`git.diff` omits `--binary` on purpose (`git.py:176-179` — "An evidence file
-should not be able to grow a megabyte of image"), and `git apply` is
-all-or-nothing. **One binary file anywhere in a candidate meant no tree could
-be built at all**, so the first draft's own baseline lap would have declared
-`inconclusive` on every such repository, for ever.*
-
-*The same probe showed three change kinds — binary, rename, mode-only — produce
-**no `@@` header at all**, so the first draft's units-of-nothing were invisible
-to a denominator whose count line says "N of M parts of this change". §1 and §2
-are rewritten. Twenty-eight findings folded; the ones that changed a ruling are
-marked ⚑ where they land.*
+> **The BLOCKED header is lifted only by a passing review, in the same commit
+> that starts the build.**
 
 ---
 
@@ -101,16 +42,19 @@ units, one of which the acceptance gate exercises and nineteen of which nothing
 in the evidence set would notice if they vanished.
 
 The hunt measures that. For each unit, build the candidate **without that
-unit**, run the evidence set, record whether anything went red.
+unit**, run the checks, record whether anything went red.
+
+**The question v0 answers, in the words it must be said in** (H5): *would the
+CITED PROOF notice this part missing?* Not "is this part tested" and not "is
+this change covered" — the cited proof, meaning the checks bound to criteria
+that the board renders and the delivery cites. Those words go in the record, the
+docs and the board line, and no page may widen them.
 
 **The differentiator, and the only claim any page may make.** What is not
-demonstrated elsewhere *in this programme* is the SCOPE: per delivery
-candidate, bound to that delivery's own evidence set, sealed into the
-tamper-evident bundle beside the proof it qualifies. ⚑ *The first draft said
-"not available anywhere else", which is an unfalsifiable market claim in a
-repository whose charter is that support is MEASURED, never recalled. No page
-may say "mutation testing", claim novelty for the technique, or imply the
-sweep is exhaustive.*
+demonstrated elsewhere *in this programme* is the SCOPE: per delivery candidate,
+bound to that delivery's own cited proof, sealed into the tamper-evident bundle
+beside the proof it qualifies. No page may say "mutation testing", claim novelty
+for the technique, or imply the sweep is exhaustive.
 
 **This completes the vacuity family; it does not duplicate it.**
 
@@ -118,15 +62,15 @@ sweep is exhaustive.*
 |---|---|---|
 | can the gates fail at all? | `--prove`, pre-change tree | `vacuity.json` |
 | is this criterion evidenced? | acceptance, receipt chain | `acceptance.json` |
-| **which parts of the change does the evidence notice?** | **`--hunt`, candidate-minus-one-unit** | **`hunt.json`** |
+| **would the cited proof notice this part missing?** | **`--hunt`, candidate-minus-one-unit** | **`hunt.json`** |
 
 ### The witness programme's stop list, cited rather than skirted
 
 `docs/witness-programme.md:147`: *"mutation testing as a merge gate is dead."*
 
 **Note-tier is lawful under that line and this spec claims nothing more.** The
-sentence forbids a MERGE GATE. §6 rules the hunt note-tier: `wring deliver`
-does not refuse on an unnoticed unit, and no exit code moves because of one.
+sentence forbids a MERGE GATE. §8 rules the hunt note-tier: `wring deliver` does
+not refuse on an unnoticed unit, and no exit code moves because of one.
 
 **Binding on any future window:** an escalation from note to refusal amends
 `docs/witness-programme.md` **by dated note FIRST**, and is Fable's on field
@@ -139,209 +83,385 @@ document has done it in the wrong order.
 
 The basis is the delivery candidate against the tree verify recorded.
 
-⚑ **Correction the review forced.** The first draft said the diff is taken
-"against `state.head_sha`". It is not. `git.py:180` reads
-`against = ["HEAD"] if head_sha else []` — the sha is a **presence flag** and
-the command is `git diff HEAD`. The distinction is invisible until a worker
-commits mid-loop, and `loop.py` never commits but the coding agent it drives
-is arbitrary and may. §5's fingerprint is what catches that; the spec no
-longer claims a base it does not use.
+**The diff is `git diff HEAD`, not a diff against a recorded sha.** `git.py:180`
+reads `against = ["HEAD"] if head_sha else []` — the sha is a **presence flag**.
+The distinction is invisible until a worker commits mid-loop; `loop.py` never
+commits, but the coding agent it drives is arbitrary and may. §7's fingerprint is
+what catches that.
 
-### Ruling 1 — three unit kinds, and the third exists so the denominator is honest
+### Ruling 1 — three unit kinds, and the denominator counts all of them
 
 - **A tracked hunk unit** — one contiguous `@@` block of
   `git.diff(root, state.head_sha)`, with its file header.
 - **An untracked file unit** — one whole file from the candidate's untracked
-  set, ⚑ **filtered through `evidence.untracked_subject`
-  (`evidence.py:215-229`)**. The first draft named the raw `state.untracked`,
-  which includes `.wringer/` — that module exists precisely because *"hashing
-  it would mean every run digesting every previous run's bundle… describing
-  this tool's output rather than the user's change."* Unfiltered, the sweep
-  would have enumerated prior run bundles as units of the change.
-- ⚑ **A whole-file unit with no hunk** — a binary change, a pure rename, a
-  mode-only change. **Measured: these produce zero `@@` headers**, so the
-  first draft could not represent them at all. They are units, they count in
-  the denominator, and their state is always `unsweepable` with the kind
-  named. A change that is entirely a renamed icon must not report "0 of 0".
+  set, filtered through `evidence.untracked_subject` (`evidence.py:215-229`).
+  The raw `state.untracked` includes `.wringer/`, and that module exists
+  precisely because *"hashing it would mean every run digesting every previous
+  run's bundle… describing this tool's output rather than the user's change."*
+  Unfiltered, the sweep would enumerate prior run bundles as units of the change.
+- **A no-hunk tracked unit** — a binary change, a pure rename, a mode-only
+  change. **Measured: these produce zero `@@` headers**, so round 1's mechanism
+  could not represent them at all.
 
-A unit is never split further (§8).
+⚑ **H4 upgrades the no-hunk kinds out of `unsweepable`.** Round 1 could only
+count them because its per-unit procedure was `git apply`. §2's copy has its own
+history, so a file-level revert from the copy's own HEAD is exact — measured on
+all three kinds. They are **swept**, not merely counted.
 
-⚑ **The denominator is a function of `diff.context`, and the record says so.**
-Two edits six lines apart collapse into one hunk; a repository that raises
-`diff.context` shrinks M in "N of M parts". `git.diff` passes no `-U`
-(`git.py:181-185`). `hunt.json` records the context git actually used, so a
-reader comparing two sweeps is never comparing different rulers.
+A unit is never split further (§10).
 
-### Ruling 2 — ONE copy of the candidate, reverse-applied per unit
+**The denominator is a function of `diff.context`, and the record says so.** Two
+edits six lines apart collapse into one hunk; a repository that raises
+`diff.context` shrinks M. `git.diff` passes no `-U` (`git.py:181-185`).
+`hunt.json` records the context git actually used, so a reader comparing two
+sweeps is never comparing different rulers.
 
-⚑ *Rewritten wholesale. The measured mechanism:*
-
-1. **Copy the candidate working tree once**, excluding `.wringer/`.
-2. **Baseline lap** (§5) on the untouched copy.
-3. Per unit: **reverse-apply** that unit alone (`git apply -R` of its file
-   header plus its single `@@` block), run the evidence set, then
-   **forward-apply to restore**, then **verify the restoration**.
-
-Measured on an adversarial candidate — two distant hunks in one file, a
-deletion, a rename, a mode change, a binary file, an untracked file: every
-text hunk reversed and restored, and the copy finished **byte-identical** to
-the candidate.
-
-**Why a copy and not a worktree, which is the deeper change.** A worktree
-carries tracked files and nothing else — no `.venv`, no `node_modules` — which
-is the entire reason `vacuity.py:22-43` needs `run.prove_setup`. A copy of the
-candidate carries the environment with it. ⚑ **So `run.prove_setup` is not
-used by the hunt at all**, and the review's H8 dies with it: the first draft
-ran a 900-second setup *per unit* against a 900-second sweep budget, which no
-repository with a real `prove_setup` could ever have completed.
-
-**One copy, N laps** — not N copies. Restoration between laps is what makes
-that safe, and §5 is what makes restoration checkable.
-
-**The operator's tree is never touched.** Not reverted, not stashed, not
-checked out. ⚑ The copy lives under the scratch root `vacuity` already uses
-and is **named for the RUN**, because `vacuity.py:202-207` records what
-happens otherwise: a fleet whose children share a root has every child
-sweeping into the same path, *"and the collision would be silent."*
+⚑ **Units are enumerated from the CANDIDATE and never re-derived in the copy.**
+Measured: an overlay changes the copy's own `git diff HEAD` — under one
+construction the untracked candidate files appear in it as added files, which
+would double-count them. The unit list is computed once, on the operator's tree,
+before the copy exists. (Derivation D4.)
 
 ---
 
-## §2 — The EVIDENCE SET
+## §2 — The COPY: a local clone plus overlay (H2)
 
-### Ruling 3 — the gates that ran and can decide, and that is the whole rule
+### Ruling 2 — `git clone --local`, then an overlay that replays the index
 
-⚑ *The first draft said two incompatible things two paragraphs apart — that
-`proves:`-bound gates join the set, and that scoped-out gates do not. A
-`proves:`-bound gate CAN be scoped out (`--gate`, fleet scope), so two
-implementers would have built different products.*
+1. **`git clone --local` the candidate repository** into the scratch root
+   `vacuity` already uses, **named for the RUN** — `vacuity.py:202-207` records
+   what happens otherwise: a fleet whose children share a root has every child
+   sweeping into the same path, *"and the collision would be silent."*
+2. **Overlay the candidate onto the clone**, by FILE COPY driven by
+   `git diff HEAD --name-status -M` plus the untracked subject list. **No
+   `git apply` anywhere** — that is what killed round 1 on the first binary file,
+   and `git.diff` omits `--binary` by decision (`git.py:176-179`).
+3. ⚑ **Replay the candidate's STAGED set** (`git diff --cached --name-status -M
+   HEAD`) into the copy's index.
 
-The evidence set is exactly: **the gates that ran in this verify** — `planned`
-in `verify.run` — **minus optional gates**.
+**Why the clone, and what it buys** (H2): the copy's gitdir is SELF-CONTAINED, so
+a check running any git command touches only the copy's own history and the
+operator's gitdir is structurally unreachable. **The worktree case dies here** —
+a clone from a worktree yields a real gitdir. The repository's own git-using
+checks (`git show`, `git tag`, `git check-ignore`) work. And §7's "the operator's
+tree is never touched" becomes structural rather than aspirational.
 
-- Scoped-out, skipped and `flaky` gates are **not** in the set. A gate that
-  did not run on the operator's tree cannot be asked whether it notices
-  something, and asking it would redden the baseline lap on a healthy run.
-- ⚑ **Optional gates are excluded by ruling**, following
-  `vacuity.py:241-245`: *"Proving an OPTIONAL gate is out of scope by ruling:
-  it does not decide the outcome."* A unit certified `evidenced` by a gate
-  that cannot fail the run is not evidenced in any sense a reader cares about.
-- A `proves:`-bound gate that was scoped out is **recorded as absent**, with
-  its criterion id, so a reader sees that the sweep could not ask the question
-  that mattered most rather than inferring a clean answer.
+**A candidate with no commits at all is `inconclusive`, honestly.**
 
-It is **not the whole suite**, and that choice is recorded so the ruling after
-field use has something to overturn. Widening is a spec-level change, never a
-knob somebody adds.
+### ⚑ Ruling 2a — why step 3 is not a detail, and the precondition it buys
 
-`hunt.json` records the gate ids the sweep ran, so nothing is inferred.
+Three overlays were measured against the candidate's own git view. Two are
+unfaithful, **in opposite directions**:
+
+| overlay | `git status --porcelain` | `git ls-files` (check SCOPE) |
+|---|---|---|
+| index left at HEAD | staged rename reads as `D` + `??` | **misses** the renamed-to path |
+| `git add -A` | untracked files read as `A` | **gains** the untracked files |
+| **replay the staged set** | **matches** | **matches** |
+
+The `git ls-files` column decides it. Several checks in this repository take
+their SCOPE from `git ls-files`. Under either unfaithful overlay a check would
+examine a different set of files in the copy than it examined on the operator's
+tree — **so a unit could read `unnoticed` because the check never looked at it.**
+That is the false-`unnoticed` class this whole feature exists to kill, re-entering
+through the overlay.
+
+**The faithfulness precondition, and it is one command:**
+
+> the copy's `git status --porcelain` **equals** the candidate's.
+
+If it does not, the copy is not the candidate and the sweep is `inconclusive`
+before any check runs. (Derivation D3.)
+
+### Ruling 2b — `run.prove_setup`, restored, once per sweep
+
+⚑ **Revision 2's load-bearing sentence — "a copy of the candidate carries the
+environment with it" — is RETRACTED.** It is false for an editable install, and a
+clone carries even less than a copy did. Measured: the clone has no `.venv` at
+all, and a bare gate lap in it **passes** while importing the operator's source.
+
+So `run.prove_setup` returns, and H1 places it: **once per sweep, in the copy,
+before the control lap.** Measured to close the bypass — after setup the copy's
+own `.pth` points at the copy, and the control lap discriminates. One setup per
+sweep is what §5's arithmetic can afford; round 1's one-per-unit
+(`SETUP_TIMEOUT_SECONDS = 900` against a 900s budget) never was.
+
+**A repository declaring no setup is not left unguarded** — that is the whole
+point of ruling eligibility the way §3 rules it.
+
+### Ruling 2c — ONE copy, N laps
+
+Restoration between laps is what makes that safe, and §6 is what makes
+restoration checkable. **The operator's tree is never touched**: not reverted,
+not stashed, not checked out.
 
 ---
 
-## §3 — The unit states, never guessed
+## §3 — The two check sets, and ELIGIBILITY (H1, H5)
 
-### Ruling 4 — EVIDENCED, UNNOTICED, UNSWEEPABLE
+Round 2 had one "evidence set". H1 and H5 split it, because the two roles have
+different costs and answer different questions.
+
+### Ruling 3 — the FULL EVIDENCE SET, and it runs exactly twice
+
+The full evidence set is: **the gates that ran in this verify** — `planned` in
+`verify.run` — **minus optional gates**.
+
+- Scoped-out, skipped and `flaky` gates are **not** in the set. A gate that did
+  not run on the operator's tree cannot be asked whether it notices something,
+  and asking it would redden the baseline lap on a healthy run.
+- **Optional gates are excluded by ruling**, following `vacuity.py:241-245`:
+  *"Proving an OPTIONAL gate is out of scope by ruling: it does not decide the
+  outcome."*
+- A `proves:`-bound gate that was scoped out is **recorded as absent**, with its
+  criterion id, so a reader sees that the sweep could not ask the question that
+  mattered most rather than inferring a clean answer.
+
+It runs **exactly twice**: the baseline lap and the control lap (§5).
+Declared-but-unbound gates participate there — they decide eligibility and the
+honest ending — and are **not run per unit**.
+
+### Ruling 3a — the BOUND CHECK SET is the per-unit scope (H5)
+
+Per-unit laps run **the checks bound to criteria** — the gates carrying
+`proves:`, the proof the board renders and the delivery cites. That is the
+question v0 answers, in §Positioning's words, claim ceiling enforced.
+
+Per-unit laps of the full suite are economically impossible: measured ~432s ×
+40 units on this repository. Widening per-unit scope beyond bound checks is a
+future ruling with field data, named in the module like every escalation.
+
+### Ruling 3b — ELIGIBILITY, per check, per sweep (H1)
+
+The all-unnoticed rule round 2 offered is necessary but cannot catch the
+measured MIXTURE — path-based checks reading the copy while `src/` checks read
+the original would show some units evidenced and pass it. The stronger form:
+
+- **A check that stays GREEN under the whole-change-revert control lap is
+  NON-DISCRIMINATING for this candidate.** Vacuous for this change, or
+  environment-bypassed — indistinguishable from inside, and the consequence is
+  identical: **its green can evidence nothing.**
+- Only checks that **reddened** under the control lap participate as evidencers.
+- **The record names each check's eligibility**, so the board can render
+  "these checks could not vote" structurally.
+
+⚑ **The per-unit set is `bound ∩ eligible`.** H5 scopes per-unit laps to bound
+checks; H1 rules that ineligible checks evidence nothing. A bound check that
+stayed green under whole-revert is in neither role, and running it per unit would
+manufacture `unnoticed` rows from a check that could never have gone red.
+(Derivation D2.)
+
+### ⚑ Ruling 3c — an empty per-unit set is `inconclusive`, never a page of `unnoticed`
+
+If `bound ∩ eligible` is empty, **the sweep reports `inconclusive`** and names
+which of the two causes emptied it:
+
+- **no gate carries `proves:`** — the repository binds no check to any criterion,
+  so there is no cited proof to ask the question of. **This is not hypothetical:
+  this repository's own `.wringer.yaml` declares no `proves:` gate.** Without
+  this rule, the flagship demo of a coverage feature would report every part of
+  every change `unnoticed`, and be right in a way that means nothing.
+- **no bound check reddened under whole-revert** — H1's case, which is also the
+  environment bypass.
+
+Silence here would be the exact defect this feature exists to name, produced by
+the feature itself. (Derivation D1.)
+
+`hunt.json` records both sets by gate id, so nothing is inferred.
+
+---
+
+## §4 — The unit states, never guessed
+
+### Ruling 4 — EVIDENCED, UNNOTICED, UNSWEEPABLE, UNSWEPT
 
 | state | means |
 |---|---|
-| `evidenced` | at least one check in the evidence set went RED without this unit |
-| `unnoticed` | every check stayed GREEN without this unit |
-| `unsweepable` | the candidate-minus-this-unit tree could not be built |
+| `evidenced` | at least one check in `bound ∩ eligible` went RED without this unit |
+| `unnoticed` | every check in `bound ∩ eligible` stayed GREEN without this unit |
+| `unsweepable` | the candidate-minus-this-unit tree could not be built, or the lap contaminated the copy |
+| ⚑ `unswept` | the unit was never reached — cap, budget, or the sum in §5.4 |
 
-`unsweepable` is an **honest state, not an error**, and it now has two
-distinct causes, both recorded: the unit has no hunk to reverse (binary,
-rename, mode), or the reverse-apply failed (entangled hunks). The row carries
-git's own message.
+`unsweepable` is an **honest state, not an error**, and it has two recorded
+causes: the lone revert failed (entangled hunks — the row carries git's own
+message), or H6's `unsweepable-dirty` (§6).
+
+⚑ **`unswept` is a first-class state, not an absence** (H6). A unit nobody
+reached must be visible as such; the alternative is a denominator that quietly
+shrinks, which is arithmetic's version of the silent truncation this repository
+refuses.
 
 Every unit records which check reddened it, so a reader can tell a unit
 evidenced by an acceptance gate from one evidenced by a linter.
 
-### Ruling 5 — PARTIAL is said out loud
+### Ruling 5 — the count line, with M as the TRUE count (H6)
 
-A sweep that hits its unit cap or wall-clock budget records
-`"completeness": "partial"` and the number of units it never reached. Silent
-truncation is the defect class this repository refuses; a partial sweep that
-reads as complete is worse than none.
+> **swept N of M parts — K evidenced, the rest by state**
+
+M is **always the true unit count**, never the reached count. A capped or
+budget-limited sweep records `"completeness": "partial"` and renders M−N as
+`unswept`. **A partial page must be unmistakable as partial at a glance.**
 
 ---
 
-## §4 — What the sweep refuses to conclude
+## §5 — The sweep, in order, with the sum as a precondition
 
 ### Ruling 6 — the hunt runs only on a verify that PASSED
 
-⚑ *Missing from the first draft.* `verify.py:352-358` gates `--prove` the same
-way — a failed run gets `not_applicable`, *"there is nothing to prove about a
-failure"*. On a red run the baseline lap is red by construction, and the
-first draft would have reported `inconclusive` with a reason that misdescribed
-the cause. `not_applicable`, with the failing gate named.
+`verify.py:352-358` gates `--prove` the same way — a failed run gets
+`not_applicable`, *"there is nothing to prove about a failure"*. On a red run the
+baseline lap is red by construction. `not_applicable`, with the failing gate
+named.
 
-### Ruling 7 — THE BASELINE LAP, and it is not optional
+### Ruling 7 — the order of operations, and none of it is optional
 
-**Before any unit is reversed, the evidence set runs on the untouched copy.**
-That tree is byte-equivalent to the tree verify just ran green, so the
-evidence set must be green there too.
+1. **Build the copy** (§2) and check the faithfulness precondition (2a).
+2. **`run.prove_setup` once**, in the copy, where declared (2b). Failure →
+   `inconclusive`, on `vacuity.py:221-234`'s wording.
+3. **The BASELINE lap** — the full evidence set on the untouched copy. That tree
+   is the tree verify just ran green, so it must be green here too. If it is
+   not, the copy is not faithful and **nothing can be concluded from any unit**:
+   `inconclusive`, keeping the baseline's own failing output, exactly as
+   vacuity's `sensitive` rows cite the failure they rest on.
+4. **The CONTROL lap** — the whole candidate reverted in the copy, the full
+   evidence set run again, each check's red/green recorded as its eligibility
+   (3b). Then the overlay is restored and §6 verifies it.
+5. **The SUM** (5.4), computed before the first unit runs.
+6. **The unit laps** — `bound ∩ eligible` per unit, restoration verified after
+   each (§6).
 
-If it is not, the copy is not faithful and **nothing can be concluded from any
-unit**. The sweep records `inconclusive` and the baseline's own failing output
-is kept, exactly as vacuity's `sensitive` rows cite the failure they rest on.
+The baseline lap closes the **inverted** trap: a broken copy turns every check
+red, every unit would read `evidenced`, and the sweep would report total
+coverage — the analogue of the false proved-red Phase 4 ruled worse than an
+uncovered criterion. The control lap closes the **forward** trap, which is the
+one that killed round 2 and which no baseline can see.
 
-**This is the mechanism `--prove` does not have.** Vacuity compares two trees
-and can be fooled by one being broken. The hunt has a tree it knows the answer
-for, so it checks its instrument before taking a measurement. It is also what
-keeps the **inverted** environment trap closed: a broken copy turns every
-check red, every unit reads `evidenced`, and the sweep would report total
-coverage of the whole change — the analogue of the false proved-red that
-Phase 4 ruled worse than an uncovered criterion.
+### ⚑ Ruling 7a — the control lap uses the copy's own git, and spares the environment
 
-### Ruling 8 — restoration is verified, and a failure stops the sweep
+The whole-change revert is `git read-tree --reset -u HEAD` followed by
+`git clean -fd` — **never `-fdx`**. Measured: this restores HEAD's content
+exactly, leaves the copy clean under its own git, and **spares gitignored files,
+so the environment `prove_setup` just built survives into every unit lap.** It
+needs no patch machinery, so it is exact for binary, rename and mode-only changes
+alike. (Derivation D5.)
 
-After each unit's forward-apply, the sweep confirms the copy matches the
-candidate again. If it does not, every later lap would measure a tree nobody
-described. The sweep stops, keeps the results it already has, and records
-`partial` with the reason. It does not continue and it does not discard.
+### Ruling 8 — the per-unit revert, by kind (H4)
 
-### Ruling 9 — the container refusal, and where the shared predicate goes
+| unit kind | revert | restore |
+|---|---|---|
+| tracked hunk | `git apply -R` of its file header + single `@@` block | forward-apply |
+| no-hunk tracked | file-level, from the copy's own HEAD | re-overlay that path |
+| **untracked** | **delete the file** (H4) | **re-place it from the manifest** |
+
+**No hunk machinery touches the untracked lane.** Round 2 had no procedure for it
+at all: it declared the kind, counted it in the denominator, and offered only a
+`git apply -R` that an untracked file has neither header nor hunk for.
+
+### ⚑ Ruling 9 — THE SUM, computed BEFORE the first unit runs (H5)
+
+The spec gains the arithmetic as a **precondition**, because neither earlier
+draft did the sum:
+
+> baseline + control + N × bound-set-lap ≤ budget
+
+computed **from the lap times the baseline and control laps just measured**, not
+from an estimate. If it does not fit, **PARTIAL is declared UP FRONT** with H6's
+counting: the sweep runs the units it can afford, M stays the true count, and the
+remainder are `unswept`. **Never discovered at the cap mid-sweep.**
+
+Measured on the capstone (Appendix B): 2254 + 2254 + 8 × 169 ms = **5.9 s against
+a 900 s budget**. It fits with two orders of magnitude to spare — and the same
+arithmetic on this repository under round 1's design gives 432 + 432 + 40 × 432 ≈
+**18 144 s**, which is the shape H5 removes.
+
+⚑ **A rebuild after contamination (§6) is not in the sum.** It cannot be — the
+sum is computed before any check has had the chance to contaminate. Rebuild time
+counts against the wall-clock budget like everything else, so a repository whose
+checks contaminate repeatedly gets a `partial` sweep with the reason recorded,
+never a silently longer one. (Derivation D7.)
+
+### Ruling 10 — the container refusal, and where the shared predicate goes
 
 Where `execution.backend` is `container`, the sweep returns `inconclusive`.
 
-⚑ *The first draft said the reason is "inherited verbatim" from
-`vacuity.py:162-187`. There is nothing there to inherit — it is an inline `if`
-returning a hardcoded string inside `prove()`, so an implementer could only
-copy the string, which the same sentence forbade.* This spec licenses **one
-shared predicate and reason string, extracted into `vacuity` and called by
-both**. That is a change to `vacuity.py`, it is named here, and it is the only
-one this spec licenses.
+There is nothing to "inherit verbatim" from `vacuity.py:162-187` — it is an
+inline `if` returning a hardcoded string inside `prove()`, so an implementer
+could only copy the string. This spec licenses **one shared predicate and reason
+string, extracted into `vacuity` and called by both**. That is a change to
+`vacuity.py`, it is named here, and it is the only one this spec licenses.
 
-### Ruling 10 — hygiene: fingerprint before and after
+---
+
+## §6 — Restoration: clean under the COPY's own git, modulo ignored (H3)
+
+### Ruling 11 — what "restoration matches" means, at last
+
+After each unit lap the copy must show **no tracked modification and no new
+unignored untracked file, measured against the post-overlay snapshot** — using
+`git status --porcelain` in the copy, which H2 makes meaningful and which
+already excludes ignored files.
+
+- Files the copy's own `.gitignore` covers (`.pyc`, coverage, caches) are
+  **exempt**. A check writing IGNORED noise is normal.
+- A check writing a **tracked** or **unignored** file is a real contamination:
+  that unit reports **`unsweepable-dirty`** by name, and **the copy is REBUILT
+  from the pristine clone before the next unit.**
+- **Never a whole-tree byte comparison** — it fires on the first unit of any
+  Python repository. **Never `git diff` alone** — it is blind to a new file.
+
+Measured, all three directions: gitignored noise does not fire it, a tracked-file
+write does, an unignored new file does.
+
+### Ruling 11a — the sweep holds a pristine clone
+
+The rebuild in Ruling 11 needs something to rebuild from, so the clone of §2
+step 1 is kept pristine and never run in; the working copy is made from it and
+re-made from it on contamination.
+
+---
+
+## §7 — Hygiene, and what the sweep refuses to conclude
+
+### Ruling 12 — fingerprint before and after
 
 The sweep fingerprints the candidate before it starts and before it writes:
 `git diff HEAD`'s sha256 and the sorted **subject** untracked list. If they
 differ, the results describe a tree that no longer exists and the record says
 `inconclusive`.
 
-⚑ **Through `evidence.untracked_subject`, or the check fires on the sweep's
-own writes.** `evidence.py:218-222`: a repo that never ran `wring init` has no
+**Through `evidence.untracked_subject`, or the check fires on the sweep's own
+writes.** `evidence.py:218-222`: a repo that never ran `wring init` has no
 gitignore for `.wringer`, *"so it shows up untracked"* — and the bundle is
-created after the snapshot. Fingerprinting the raw list would have declared
+created after the snapshot. Fingerprinting the raw list would declare
 `inconclusive` on every run in that population, blaming an operator who did
 nothing.
 
-**A copy whose checks cannot be trusted reports `inconclusive` or `partial`.
-It never reports `evidenced`.**
+**A copy whose checks cannot be trusted reports `inconclusive` or `partial`. It
+never reports `evidenced`.**
+
+### ⚑ Ruling 12a — an unignored dependency directory is counted, not special-cased
+
+A repository whose `node_modules` (or equivalent) is untracked and **not**
+gitignored contributes one unit per file. That is not a new defect — the bundle
+already hashes those paths — and v0 does not special-case it: the unit cap and
+`unswept` make the outcome honest and visible rather than silently sampled. The
+sweep says how many parts it never reached. (Derivation D8; a heuristic here
+would be a ruling, not an implementation detail.)
 
 ---
 
-## §5 — Where it lives, and what it may do
+## §8 — Where it lives, and what it may do
 
-### Ruling 11 — a flag on `wring verify`. Never a twentieth command
+### Ruling 13 — a flag on `wring verify`. Never a twentieth command
 
 `wring verify --hunt`. **There are nineteen commands and a twentieth is
-forbidden**; the ceiling is stated at `AGENTS.md:177-183`. ⚑ *The first draft
-cited "law 7" for it — law 7 is the frozen-schema law (`schema/frozen.json`,
-`verify.py:753`, `checks.py:27`). The command ceiling is unnumbered.*
+forbidden**; the ceiling is stated at `AGENTS.md:177-183`. (The command ceiling
+is unnumbered — "law 7" is the frozen-schema law: `schema/frozen.json`,
+`verify.py:753`, `checks.py:27`.)
 
 Opt-in in v0; delivery-candidate time is its moment.
 
-### Ruling 12 — the config keys, and the ruling they must answer to
+### Ruling 14 — the config keys, and the ruling they answer to
 
 | key | default | what it does |
 |---|---|---|
@@ -349,132 +469,231 @@ Opt-in in v0; delivery-candidate time is its moment.
 | `run.hunt_max_units` | `40` | cap; hitting it makes the sweep `partial` |
 | `run.hunt_budget_seconds` | `900` | wall clock; hitting it makes it `partial` |
 
-⚑ **`--hunt-max N` is REMOVED.** `cli.py:219-225` states the
-flags-may-tighten-never-loosen rule and `cli.py:284-288` states why there is
-no `--no-prove`: *"the audited party does not get to choose whether the audit
+**`--hunt-max N` is REMOVED.** `cli.py:219-225` states the
+flags-may-tighten-never-loosen rule and `cli.py:284-288` states why there is no
+`--no-prove`: *"the audited party does not get to choose whether the audit
 runs"* — and the invoker *"is increasingly the agent itself."* An "override"
 flag is bidirectional and hands the audited party the dial. `--hunt` follows
 `wants_prove`'s `declared or flag` shape exactly.
 
-⚑ **`config.py:166-172` carries a standing in-code ruling that there is
-deliberately NO ceiling key under `run:`** — *"skipping re-introduces the
-vacuity the feature exists to catch, refusing is a worse-timed block, warning
-does nothing."* This spec engages it rather than walking past it, because the
-first draft did walk past it.
-
-**Why a ceiling is right here and wrong for `prove`.** That ruling is about a
-check whose *skipping re-introduces the vacuity it exists to catch* — a
-partial `--prove` is a false negative wearing a green tick. A partial hunt is
-different in kind: it reports `partial`, names the count it did not reach, and
-**every unit it did reach keeps its measured state**. There is no flattering
-answer to fall back to. The cost profile also differs by an order: `--prove`
-is one extra tree, the hunt is one tree and N gate laps.
-
-**If a reviewer or Fable disagrees, the keys go and the sweep runs uncapped or
-not at all — this is the one ruling in this document most likely to be
-overturned, and it is flagged rather than buried.**
+**The ceiling question — Ruling 12 of revision 2 is UPHELD, with the amendment
+duty discharged.** `config.py:161-165` carries a standing in-code ruling that
+there is deliberately NO ceiling key under `run:`. The disanalogy holds: that
+ruling protects against a partial measurement **wearing a green tick** — a
+partial `--prove` is a false negative. A partial hunt is not a verdict at all: it
+reports `partial`, keeps every measured state, and H6 makes M's honesty
+structural. **A standing in-code ruling is not overridden silently**, so
+`config.py` gains a dated note citing this ruling — the same discipline the
+witness programme's stop list gets.
 
 `run.hunt` exists because a brief is built per iteration and can only quote a
 record that exists by then. Absence of every key is today's behaviour byte for
-byte. ⚑ The budget nests under `run.wall_clock` — `fleet.py:823`, *"Invariant
-8: budgets nest"* — and never extends it.
+byte. The budget nests under `run.wall_clock` — `fleet.py:823`, *"Invariant 8:
+budgets nest"* — and never extends it.
 
-### Ruling 13 — NOTE-TIER, and the escalation is named not improvised
+### Ruling 15 — NOTE-TIER, and the escalation is named not improvised
 
 `wring deliver` does not refuse. No exit code moves. The board renders and
-decides nothing. The module names the escalation path in a comment and a
-window may not take it: it is Fable's, on field evidence, and it amends the
-witness programme by dated note first.
+decides nothing. The module names the escalation path in a comment and a window
+may not take it: it is Fable's, on field evidence, and it amends the witness
+programme by dated note first.
 
 ---
 
-## §6 — The record, and who reads it
+## §9 — The record, and who reads it
 
-### Ruling 14 — a new sibling file, written THROUGH the Bundle
+### Ruling 16 — a new sibling file, written THROUGH the Bundle
 
 `hunt.json`, `wringer.hunt.v1`, `schema/hunt.schema.json`, listed in
 `schema/frozen.json` on publication. Adding a new schema file is lawful;
 `frozen.json`'s own `_comment` says so. **No frozen schema moves.**
 
-Written inside `verify.run` before `bundle.write_digests()` — which is genuinely
-last — so the record is digest-covered and `audit`/`attest` compose with no
-new clause.
+Written inside `verify.run` before `bundle.write_digests()` (`verify.py:501` —
+genuinely last) so the record is digest-covered and `audit`/`attest` compose with
+no new clause.
 
-⚑ **Through the `Bundle`, with the redactor, and that is not a detail.**
+**Through the `Bundle`, with the redactor, and that is not a detail.**
 `AGENTS.md:545-548`: *"If you add a file to the bundle, add it through the
 `Bundle`, or you have quietly opted out of the one guarantee SECURITY.md
-makes."* `vacuity.py:152-157` records this repository having already shipped
-that defect — *"the pre-change half of a `--prove` run was the one set of
-bundle files written with no scrubbing at all."* The first draft repeated it
-verbatim by quoting failing gate output into JSON with no redactor named. The
-whole payload is scrubbed, on `accept.write`'s pattern
+makes."* `vacuity.py:152-157` records this repository having already shipped that
+defect. The whole payload is scrubbed, on `accept.write`'s pattern
 (`accept.py:1184-1191`).
 
-⚑ **`hunt.json` and the log directory join `Bundle._clear_previous`'s list**
-(`evidence.py:404`, `436-455`). They are written conditionally, and that
-module's own docstring records the survivor bug: a reused directory *"kept the
-first run's verdict beside a bundle that never made it."*
+**`hunt.json` and the log directory join `Bundle._clear_previous`'s list**
+(`evidence.py:404`, `436-455`). They are written conditionally, and that module's
+docstring records the survivor bug: a reused directory *"kept the first run's
+verdict beside a bundle that never made it."*
 
-⚑ **A log directory, because otherwise the Positioning promise is false.** The
-first draft's payload was a state and a check name per unit, while claiming *"a
-reader of the bundle can check the sweep."* There was nothing to check.
-`vacuity.py:63-65` writes a whole `vacuity/` directory for exactly this
-reason. `hunt/` carries the baseline lap's output and each reddening check's
-output.
+**A log directory**, because otherwise the Positioning promise is false: a
+payload of one state per unit gives a reader nothing to check. `hunt/` carries
+the baseline lap's output, the control lap's output — **which is now evidence,
+because eligibility rests on it** — and each reddening check's output.
 
-⚑ **Which bytes are "the candidate patch" is now stated:** re-computed by
-`git.diff`, never read from `diff.patch` in the bundle. `evidence.py:624-634`
-scrubs and truncates that file at `gates.MAX_LOG_BYTES` (1 MiB), so a large
-candidate is unappliable and a candidate containing a token-shaped string
-would have `***` applied into its source.
+**Which bytes are "the candidate patch" is stated:** re-computed by `git.diff`,
+never read from `diff.patch` in the bundle. `evidence.py:624-634` scrubs and
+truncates that file at `gates.MAX_LOG_BYTES` (1 MiB), so a large candidate is
+unappliable and a candidate containing a token-shaped string would have `***`
+applied into its source.
 
-⚑ **Untracked bytes are read from the operator's tree**, the only place they
-exist — `write_untracked` records `mode:sha256`, not contents, and
-`diff_untracked` renders *"Binary files differ"* for a binary one. Reads
-follow `hash_untracked`'s documented hazards (`evidence.py:241-255`: symlinks,
-dangling links, a FIFO that *"blocked forever"*).
+**Untracked bytes are read from the operator's tree**, the only place they exist
+— `write_untracked` records `mode:sha256`, not contents. Reads follow
+`hash_untracked`'s documented hazards (`evidence.py:241-255`: symlinks, dangling
+links, a FIFO that *"blocked forever"*).
 
-### Ruling 15 — the board renders structurally, in the engine's words
+### Ruling 17 — the board renders structurally, in the engine's words
 
-- A count line: *"N of M parts of this change are evidenced."*
+- The count line of §4 Ruling 5, verbatim.
 - Unnoticed units as `file:line` rows behind the existing summary machinery.
+- **Ineligible checks rendered as "these checks could not vote"** (H1), because a
+  reader who cannot see that a check was non-discriminating cannot read the page.
 - Sentences from the record verbatim. **No prose explaining the number** — the
   cold reads measured that explanation makes a page worse (68 → 82).
 - Board ruling 1 and the transport rule byte-intact.
 
-⚑ *The first draft said "the disclosure shape F14 already ruled". F14 is
-listed under **Owed** in `docs/field-response-2026-08-22.md:302-305`; there is
-no ruled shape to conform to. The existing summary disclosure is the
-precedent.*
+(The disclosure shape F14 is still listed under **Owed** in
+`docs/field-response-2026-08-22.md:302-305`; the existing summary disclosure is
+the precedent.)
 
-### Ruling 16 — the brief hook is hint-tier
+### Ruling 18 — the brief hook is hint-tier
 
 Unnoticed rows contribute as **hint-tier** content, the tier the brief's gate
 logs already occupy, in the engine's words.
 
 **Pre-decided fork, binding:** if this needs a `loop-manifest` reason, a change
-to any frozen enum, or new loop routing — **STOP, record it OWED, ship the
-sweep without it.**
+to any frozen enum, or new loop routing — **STOP, record it OWED, ship the sweep
+without it.**
 
 ---
 
-## §7 — Non-goals (binding)
+## §10 — Non-goals (binding)
 
 1. No sub-hunk splitting. Entangled hunks report `unsweepable`.
-2. No whole-suite sweep. §2 states the route to change it.
+2. No whole-suite sweep, and no per-unit widening beyond bound checks. §3 states
+   the route to change it.
 3. No refusal, no exit-code change, no merge gate.
 4. No new command. Nineteen.
 5. No claim of exhaustiveness, and no coverage metric.
-6. No auto-classification of a red. §4 is why the baseline lap exists rather
-   than a classifier.
-7. ⚑ No parallel unit laps in v0. One copy is the safety property; N copies is
-   a different cost model and a different spec.
+6. No auto-classification of a red. §5 is why the baseline and control laps exist
+   rather than a classifier.
+7. No parallel unit laps in v0. One copy is the safety property; N copies is a
+   different cost model and a different spec.
+8. ⚑ No heuristic for large untracked trees (§7 Ruling 12a).
+
+## §11 — What this spec does not license
+
+Deciding that unnoticed units should block; a twentieth command; widening the
+evidence set or the per-unit set; moving a frozen schema; parallelising the laps;
+special-casing any directory; or any sentence claiming the sweep proves a change
+is covered. Each is a ruling, and rulings are Fable's.
+
+## §12 — The derivations this spec makes, and the guards they owe
+
+Standing law from the self-hunt (`docs/hunt-2026-08-23.md`): **nine scopes were
+derived and only four guarded**, and the five unguarded ones could have been
+silently narrowed with the suite green. So **every derivation ships with a guard
+that the derivation is USED**, or a docstring saying why not. This spec's
+derivations, each owed a guard in the build:
+
+| id | derivation | the guard it owes |
+|---|---|---|
+| D1 | empty `bound ∩ eligible` → `inconclusive` (§3c) | a repo with no `proves:` gate must not produce a page of `unnoticed` |
+| D2 | the per-unit set is `bound ∩ eligible` (§3b) | a bound-but-ineligible check must not be run per unit |
+| D3 | the overlay replays the staged set; faithfulness is `git status --porcelain` equality (§2a) | the two unfaithful overlays must be red-watched, `git ls-files` included |
+| D4 | units come from the candidate, never the copy (§1) | re-deriving in the copy must change the count and be caught |
+| D5 | control lap is `read-tree --reset -u` + `clean -fd`, never `-fdx` (§7a) | an ignored environment directory must survive the control lap |
+| D7 | rebuild time is unbudgeted and lands in `partial` (§9) | a contaminating check must produce `unsweepable-dirty` + rebuild, and the budget must still bind |
+| D8 | large untracked trees are capped, not sampled (§12a) | the cap must render `unswept`, never a shrunken M |
 
 ---
 
-## §8 — What this spec does not license
+## Appendix A — H1's duty: the SHIPPED vacuity lap's failure direction under the `.pth` bypass
 
-Deciding that unnoticed units should block; a twentieth command; widening the
-evidence set; moving a frozen schema; parallelising the laps; or any sentence
-claiming the sweep proves a change is covered. Each is a ruling, and rulings
-are Fable's.
+*H1: "my reading is that it fails safe … but two windows just died to reading —
+measure it, one capture, in the spec's own appendix."*
+
+Two fixtures, **identical but for one committed line**, same candidate, same gate
+string, same interpreter. HEAD is committed RED (`f()` returns 1, the committed
+test asserts 2); the candidate makes it return 2, so a faithful pre-change tree
+must FAIL.
+
+    bypassed:  no `pythonpath` setting -> `import pkg` resolves through
+               site-packages' __editable__ .pth, an ABSOLUTE path into the
+               operator's tree
+    genuine:   pythonpath = ["src"]    -> pytest prepends the tree's own src
+
+| fixture | vacuity verdict | `wring deliver` |
+|---|---|---|
+| **bypassed** | **`gates_vacuous`** | **REFUSES, exit 1** |
+| genuine | `proven` | passes the vacuity check |
+
+The refusal, verbatim:
+
+    wring deliver: refusing to deliver 20260823-112238-cf53 — it recorded
+    `gates_vacuous`. `test` passed on the pre-change tree too, so they proved
+    nothing about this change. … There is no flag for this — make the evidence
+    better, not the check weaker
+
+**The direction is SAFE, and H1's reading is confirmed by measurement.** A
+bypassed environment yields a false `gates_vacuous`, which HOLDS a delivery
+rather than flattering one. There is no live product defect here, so §3's fork —
+*"the shipped lap fails UNSAFE → that outranks the hunt"* — does not fire.
+
+**The same measurement is positive evidence for §3b.** Vacuity's
+insensitive-everything under bypass IS the control lap's ineligible-everything:
+the pre-change tree's checks stop discriminating, in exactly the direction H1's
+eligibility rule reads as "this check can evidence nothing". The tree
+construction differs — vacuity builds a worktree, the hunt a clone plus overlay
+— but the bypass lives in the interpreter's `.pth`, not in the tree, and the
+answer was the same in both directions when the hunt's own mechanism was measured
+(`docs/hunt-mechanism-2026-08-23.md`, third measurement, R6).
+
+**What this does not settle:** it is one repository shape (Python, editable
+install, `uv`-built venv) on one machine. It does not show that every bypass in
+every language fails safe.
+
+---
+
+## Appendix B — H5's sum, on the capstone repository
+
+*H5: "the SUM as a precondition … computed from measured lap times BEFORE the
+first unit runs."*
+
+The capstone at `~/Claude/round3b-artifacts/capstone-repo/project`, candidate
+uncommitted, loop `20260822-135739-9fcf`, `repo.head_sha: 14fdf0b`.
+
+**The units:** `git diff HEAD` gives **4 tracked hunks** across 2 files; the
+untracked subject list gives **4 files** (`board.html`, `src/history.js`,
+`tests/history.test.js`, `tests/recent-row.test.js`); no binary, rename or
+mode-only change. **M = 8.**
+
+**The check sets**, measured by `wring verify --serial` (the engine's own
+`duration_ms`, not shell timing):
+
+| gate | ms | in the full set | `proves:` |
+|---|---|---|---|
+| `lint` | 1270 | yes | — |
+| `test` | 815 | yes | — |
+| `acceptance-recently-played` | 169 | yes | `recent-row-order-and-cap` |
+| **full evidence set lap** | **2254** | | |
+| **bound check set lap** | **169** | | |
+
+**The sum:**
+
+    baseline + control + N × bound-set-lap
+      = 2254 + 2254 + 8 × 169
+      = 5860 ms   against a 900 000 ms budget   (0.65%)
+
+**It fits**, by a factor of about 154, so §3's fork — *"the sum does not fit even
+the capstone → PARTIAL-up-front is the demo"* — does not fire.
+
+**The caveat this capture must carry, and it is the carrier's own:** the capstone
+**has no dependencies**. Its gates are pure `node`, so it **cannot exercise the
+environment trap**, and it must never be cited as evidence that the trap is
+closed. The trap's fixture is this repository and the probe's editable-install
+fixtures, not this one.
+
+**The contrast that shows what H5 bought.** The same sum under round 1's design —
+the full evidence set per unit, on this repository's measured 432 s lap and 40-unit
+cap — is 432 + 432 + 40 × 432 ≈ **18 144 s against 900 s**. Both earlier drafts had
+the same arithmetic shape and a smaller constant; **neither did the sum**, which is
+why it is now a precondition rather than a hope.

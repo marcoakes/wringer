@@ -170,3 +170,123 @@ what make an unswept unit visible rather than absent.
 
 The probe script that produced this is reproduced by the suite's own fixtures
 (`SPEC_HUNT_V0` §2), so the finding cannot rot silently.
+
+---
+
+## THIRD measurement, 2026-08-23 — the mechanism H1–H6 constrains
+
+*Fable's rulings arrived and constrained a third mechanism: local clone plus
+overlay, per-check eligibility from a whole-revert control lap, `prove_setup`
+once per sweep, restoration measured under the copy's own git. **Two
+mechanisms have already died to measurement in this window, so this one was
+executed before a line of the spec was rewritten.** `scripts/hunt-mechanism-probe.py`
+is what produced everything below; it takes no arguments and builds its own
+fixtures.*
+
+The candidate is deliberately harder than round 1's: it adds a **staged/unstaged
+mixture** — a staged rename and a staged edit alongside unstaged hunks, an
+unstaged deletion, an unstaged mode change and an unstaged binary change, plus
+two untracked files.
+
+### The clone does NOT carry the environment either — `prove_setup` is load-bearing
+
+The round-2 finding was that a *copy* does not carry the environment. A
+**clone carries even less**, and this had to be measured rather than assumed:
+
+    the clone does NOT carry .venv          -> .venv absent from the clone
+    the clone DOES carry a self-contained gitdir
+    bare `pytest -q` in the clone: exit 0
+    `import pkg` resolves to: …/h2-mech2/cand/src/pkg/core.py     <- the OPERATOR's tree
+
+**Exit 0 there is the forward trap firing.** The gate is green in the copy
+because it never read the copy. So H1's restoration of `run.prove_setup` is not
+belt-and-braces; without it this mechanism reproduces round 2's failure exactly.
+
+Running the repository's own declared setup inside the copy closes it:
+
+    the copy's own .pth -> …/h2-mech2/r1/src                       <- the COPY
+    `import pkg` now resolves to: …/h2-mech2/r1/src/pkg/core.py
+    baseline lap: GREEN   control lap: RED
+    `git clean -fd` SPARES the ignored .venv it just built
+
+The last line matters: the control lap is `git clean -fd`, never `-fdx`, so the
+environment the setup just built survives into every unit lap. One setup per
+sweep is what H5's arithmetic can afford; one per unit never was.
+
+### H1's eligibility rule reads the bypass correctly, in both directions
+
+The same fixture in two environment shapes, one committed line apart:
+
+| shape | baseline lap | **control lap** | H1 verdict |
+|---|---|---|---|
+| bypassed (absolute `.pth`) | GREEN | **GREEN** | **INCONCLUSIVE** — no check discriminates |
+| genuine (`pythonpath = ["src"]`) | GREEN | **RED** | the check is ELIGIBLE |
+
+This is the positive check round 2 said no version may ship without. A
+bypassed copy cannot reach a clean page: every check stays green under
+whole-revert, so no check is eligible to evidence anything, and the sweep
+reports `inconclusive` rather than a confident page of `unnoticed`.
+
+### The overlay must reproduce the candidate's INDEX, not just its files
+
+Three overlay constructions were measured against the candidate's own git view.
+Both obvious ones fail, **in opposite directions**, and the failure is not
+cosmetic:
+
+| overlay | `git status --porcelain` == candidate's | `git ls-files` == candidate's | files on disk == candidate's |
+|---|---|---|---|
+| **A** index left at HEAD | no — staged rename renders as `D` + `??` | **no** — misses `renamed_to.txt` | yes |
+| **B** `git add -A` | no — untracked files render as `A` | **no** — GAINS the untracked files | yes |
+| **C** replay the candidate's staged set | **yes** | **yes** | yes |
+
+The `git ls-files` column is the one that decides it. Several checks in this
+repository take their SCOPE from `git ls-files`, so under A or B a check would
+examine a different set of files in the copy than it examined on the operator's
+tree — and a unit could read `unnoticed` because **the check never looked at
+it**. That is the false-`unnoticed` class this whole window exists to kill,
+re-entering through the overlay.
+
+Option C is a clean sweep, 7 of 7, and it hands the spec a faithfulness
+precondition that is a single command: *the copy's `git status --porcelain`
+equals the candidate's.*
+
+### Every unit kind reverts and restores
+
+Nine units on the round-1 candidate — 4 hunk (including a file deletion),
+3 no-hunk (binary, mode-only, rename) and 2 untracked — each reverted alone
+and restored, with the copy byte-identical to the candidate after every lap:
+
+    Q4 hunk revert+restore gone.txt @@ -1 +0,0 @@                    PASS
+    Q4 hunk revert+restore many.txt @@ -1,6 +1,6 @@                  PASS
+    Q4 hunk revert+restore many.txt @@ -33,7 +33,7 @@ line            PASS
+    Q4 hunk revert+restore src/pkg/core.py @@ -1,2 +1,2 @@           PASS
+    Q4 no-hunk file-level revert+restore blob.bin                    PASS
+    Q4 no-hunk file-level revert+restore mode.sh                     PASS
+    Q4 no-hunk file-level revert+restore renamed_to.txt              PASS
+    Q4 untracked delete+re-place dead_untracked.txt                  PASS
+    Q4 untracked delete+re-place new_module.py                       PASS
+
+**H4 upgrades the no-hunk kinds out of `unsweepable`.** Round 1 could only
+record them as unsweepable because the mechanism was `git apply`; the copy's
+own history makes a file-level revert exact, so binary, rename and mode-only
+changes are now measured units rather than counted-but-unanswerable ones.
+
+### H3's restoration check fires on contamination and ignores noise
+
+    gitignored noise does NOT fire the restoration check    PASS  (.pyc, coverage.out)
+    a tracked-file write FIRES the restoration check        PASS
+    an unignored new file FIRES the restoration check       PASS
+
+Measured under the copy's own git, against the post-overlay snapshot — never a
+whole-tree byte comparison, which is what H3 forbids and what would fire on the
+first unit of any Python repository.
+
+### What this third measurement does NOT show
+
+One machine, `git` 2.x on macOS, `uv`-built Python 3.12 environments. Submodules,
+symlinks, `core.autocrlf` and non-Python environment shapes are still
+unexercised — and `node_modules` was reasoned about, not measured, so the spec
+claims nothing about it. The measurements above establish the mechanism is
+workable on these shapes and that two alternatives to it are not; they are not
+a claim that the sweep is correct, which is what the spec's own guards and the
+review are for.

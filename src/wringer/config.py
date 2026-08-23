@@ -163,6 +163,18 @@ _RUN_KEYS = {
     # re-introduces the vacuity the feature exists to catch, refusing is a
     # worse-timed block, warning does nothing. `vacuity.json` records
     # `worktree_ms` and `prove_ms` so a repo decides with numbers instead.
+    #
+    # 2026-08-23 — this ruling is UPHELD and NARROWED to `prove`, by Fable's
+    # HUNT rulings ("The ceiling-keys question — Ruling 12 UPHELD, with the
+    # amendment duty"). SPEC_HUNT_V0 §8 gives the hunt two budget keys, and
+    # the disanalogy is why the sentence above does not reach them: this
+    # ruling protects against a partial measurement WEARING A GREEN TICK,
+    # because a partial `--prove` is a false negative. A partial hunt is not
+    # a verdict at all — it reports `partial`, keeps every measured state,
+    # and counts the units it never reached as `unswept` against the TRUE
+    # denominator. A standing in-code ruling is not overridden silently, so
+    # the amendment is recorded here rather than only in the spec — the same
+    # discipline the witness programme's stop list gets.
 }
 _FLEET_KEYS = {
     "concurrency",
