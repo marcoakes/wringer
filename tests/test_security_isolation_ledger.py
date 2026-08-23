@@ -667,3 +667,27 @@ def test_the_narrative_never_upgrades_itself_past_the_canaries():
             "`--privileged` control run, so nothing shows the flags are what "
             "stopped the attacks"
         )
+
+
+def test_the_watched_scope_is_wider_than_the_four_names_it_replaced():
+    """**Found by sweeping this window's own change, 2026-08-23.**
+
+    `watched_documents()` replaced a tuple of four filenames, and reverting it
+    to that tuple reddened nothing — the derivation was unevidenced, so a
+    later window could narrow it back with the suite green throughout.
+
+    That matters more here than almost anywhere: this file exists because two
+    hand-kept prose surfaces with no derived relationship went stale in
+    opposite directions for two days, and an unguarded derivation is the same
+    hole one level up.
+    """
+    scope = set(watched_documents())
+    assert {"SECURITY.md", "README.md", "SETUP.md", LEDGER} <= scope
+    assert "AGENTS.md" in scope, (
+        "AGENTS.md is outside the isolation guard again — it is the page that "
+        "told every window sequence G was unrun ten days after it ran"
+    )
+    assert len(scope) > 20, (
+        f"only {len(scope)} pages watched; the tuple this replaced had four"
+    )
+    assert not any(name.startswith("docs/specs/") for name in scope)

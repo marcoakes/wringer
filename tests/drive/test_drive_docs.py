@@ -1622,3 +1622,24 @@ def test_the_runbook_links_NOTHING_a_reader_fetching_it_RAW_cannot_resolve():
         "raw.githubusercontent.com when an agent fetches this file and 404 "
         "there. Use the full https:// URL"
     )
+
+
+def test_the_pm_page_scope_is_wider_than_the_five_names_it_replaced():
+    """**Found by sweeping this window's own change, 2026-08-23.**
+
+    `pm_pages()` replaced five hand-written names and reverting it to them
+    reddened nothing, so the derivation was itself unevidenced.
+
+    `README.md` is named because it is the specific page the tuple missed —
+    the package's own front page, outside both guards below until the day
+    this scope was derived.
+    """
+    scope = set(pm_pages())
+    assert {"START-HERE.md", "AGENTS.md", "examples/README.md"} <= scope
+    assert "README.md" in scope, (
+        "docs/drive/README.md is outside the PM guards again — it is the "
+        "package's front page and the tuple never listed it"
+    )
+    assert len(scope) > 8, (
+        f"only {len(scope)} PM pages discovered; the tuple had five"
+    )

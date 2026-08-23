@@ -107,6 +107,101 @@ def test_the_discovered_scope_is_wider_than_the_list_it_replaced():
     )
 
 
+def test_the_prose_scope_is_wider_than_the_seven_names_it_replaced():
+    """**Found by sweeping this window's own change, 2026-08-23.**
+
+    `guarded_prose()` replaced a tuple of seven filenames. Reverting it to
+    that tuple — the exact defect this window exists to remove — reddened
+    NOTHING: the derivation was itself unevidenced, and a later window could
+    have narrowed it back with the suite green the whole way.
+
+    Nine scopes were derived in this window and only four had a guard like
+    this one. That ratio is the finding, and it is why the four missing ones
+    were written before it shipped.
+    """
+    require_checkout("README.md", "docs/graphs.md")
+    scope = set(guarded_prose())
+    assert {"README.md", "AGENTS.md", "SECURITY.md"} <= scope
+    assert "docs/graphs.md" in scope, (
+        "the prose guards have stopped reading docs/, which is where most of "
+        "this project's prose lives — and where four unguarded totality "
+        "claims were found the day this scope was derived"
+    )
+    assert len(scope) > 20, (
+        f"the prose scope discovered only {len(scope)} pages; the tuple it "
+        "replaced had seven, and a derivation that narrow is that tuple with "
+        "extra steps"
+    )
+    # The records rule still bites, or the exclusion has quietly stopped
+    # excluding and every spec is about to be held to today's facts.
+    assert not any(name.startswith("docs/specs/") for name in scope)
+    assert "CHANGELOG.md" not in scope
+
+
+def test_the_runbook_warning_escape_hatch_cannot_open_to_anything():
+    """The discrimination that lets a page SPELL the broken command.
+
+    Sweeping this window's change showed the escape hatch was unpinned:
+    replacing the whole predicate with `True` reddened nothing, so a later
+    window could widen it to "any mention anywhere" and the guard would keep
+    reporting green while permitting exactly what it forbids.
+
+    Asked of the predicate directly, because a page-level test can only show
+    that today's pages pass.
+    """
+    warns = (
+        "SETUP.md said `container images pull`, which does not exist (AC-01)",
+        "`container images list` was measured to fail on Apple container 1.2.0",
+        "the subcommand is `image`, singular",
+    )
+    for sentence in warns:
+        assert _NAMES_IT_TO_WARN.search(sentence), sentence
+
+    bare = (
+        "Run `container images pull ghcr.io/marcoakes/wringer:main` to begin.",
+        "Then check the image is present.",
+        "This step needs a container runtime on the machine.",
+    )
+    for sentence in bare:
+        assert not _NAMES_IT_TO_WARN.search(sentence), (
+            f"{sentence!r} would license spelling a command measured to fail, "
+            "with nothing around it telling the reader so"
+        )
+
+
+def test_a_correction_far_from_the_stale_claim_does_not_license_it():
+    """The credential guard's window, pinned at the predicate.
+
+    The sweep showed that widening the 400-character window to the whole file
+    reddened nothing — so the guard could quietly become "this page mentions
+    the new wording somewhere", which any page discussing the change would
+    satisfy while still asserting the old claim in its own voice.
+    """
+    near = (
+        "the promise that it never touches a credential. "
+        "Dated correction: it never stores a credential."
+    )
+    far = (
+        "it never touches a credential." + (" filler." * 200)
+        + " elsewhere the page says it never stores a credential."
+    )
+    stale = re.compile(r"never\s+touches\s+a\s+credential", re.I)
+
+    def permitted(text: str) -> bool:
+        found = stale.search(text)
+        window = " ".join(
+            text[max(0, found.start() - 400): found.end() + 400].split()
+        ).lower()
+        return _CORRECTED_PROMISE in window
+
+    assert permitted(near)
+    assert not permitted(far), (
+        "a correction 2000 characters away licensed the stale claim beside "
+        "it; the window is what makes this a correction rather than a page "
+        "that happens to contain both sentences"
+    )
+
+
 def test_the_preserved_banner_exempts_a_draft_and_NOT_the_front_door():
     """**The guard on the most dangerous rule this audit added.**
 

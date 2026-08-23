@@ -415,3 +415,35 @@ def test_the_CANONICALIZATION_amendment_still_cites_its_measurement():
     assert (ROOT / "scripts" / "canonicalization-probe.py").is_file(), (
         "the amendment cites a probe that is no longer in the repository"
     )
+
+
+def test_the_neutrality_scope_covers_EVERY_shipped_module():
+    """**Found by sweeping this window's own change, 2026-08-23.**
+
+    `every_shipped_module()` replaced five hand-named files, and reverting it
+    to those five reddened nothing. A neutrality guard reading an eighth of
+    the source would have gone on reporting green, and the charter it stands
+    for — "if it's an Anthropic tool we are fucked" — is not a claim about
+    five files.
+    """
+    scope = set(every_shipped_module())
+    assert {
+        "src/wringer/config.py",
+        "src/wringer/gates.py",
+        "src/wringer/loop.py",
+        "src/wringer/acp.py",
+        "src/wringer_drive/run.py",
+    } <= scope
+    on_disk = {
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "src").rglob("*.py")
+        if "__pycache__" not in path.parts
+    }
+    assert scope == on_disk, (
+        f"the neutrality guard reads {len(scope)} of {len(on_disk)} shipped "
+        "modules; every one of them is a place a vendor default could live"
+    )
+    assert len(scope) > 20, (
+        f"only {len(scope)} modules discovered — the list this replaced had "
+        "five, and a derivation that narrow is that list with extra steps"
+    )
