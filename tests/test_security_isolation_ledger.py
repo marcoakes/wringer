@@ -63,6 +63,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
+from core_helpers import reader_facing_pages
 
 
 def repo_root() -> Path:
@@ -84,7 +85,47 @@ NARRATIVE_HEADING = "### What the container path has been measured to do"
 # in the same file recorded exactly those runs. A document contradicting its
 # own table is the sharpest form of this defect, and it stood because the
 # running log was not watched at all.
-WATCHED = ("SECURITY.md", "README.md", "SETUP.md", "docs/MANUAL_CHECKS.md")
+#
+# **DISCOVERED since 2026-08-23.** The tuple was four documents, and the
+# comment above already stated the rule it was standing in for: pages that
+# carry the isolation narrative to a reader. A page acquires that narrative by
+# writing a sentence about what has and has not been attacked — not by being
+# added to a list — and this repository has more pages than it had when the
+# four were typed.
+#
+# The whole point of this file is that two hand-kept prose surfaces with no
+# derived relationship went stale in opposite directions for two days. Keeping
+# the SCOPE hand-kept while deriving the CLAIM leaves the same shape of hole
+# one level up.
+#: Contracts and dated history, excluded by the same rule the prose guards
+#: use: a spec's "what this window did not measure" section is a statement
+#: about the day it was written, and correcting it in place would destroy the
+#: record. `SPEC_EXEC_V0.md` §7 carries a dated note instead.
+#:
+#: **`docs/MANUAL_CHECKS.md` is deliberately NOT excluded**, though it is the
+#: most record-like page here. It holds the ledger, and the sharpest instance
+#: of this defect was that file contradicting its own table four hundred lines
+#: away. A running log is exactly the page that must be held to it.
+_RECORDS = ("docs/specs/", "CHANGELOG.md")
+
+
+def watched_documents() -> list[str]:
+    """Every page whose isolation sentences are held to the ledger.
+
+    Captures excluded: a field report saying a sequence was unrun on its date
+    is accurate, and rewriting it would destroy the record the ledger's own
+    rows are read against.
+    """
+    root = repo_root()
+    return [
+        name
+        for name in (
+            path.relative_to(root).as_posix()
+            for path in reader_facing_pages(captures=False)
+        )
+        if not name.startswith(_RECORDS)
+    ]
+
 
 # --- classifying the ledger's rows ------------------------------------------
 
@@ -385,7 +426,7 @@ def _is_permitted(text: str, start: int, end: int) -> bool:
     )
 
 
-@pytest.mark.parametrize("document", WATCHED)
+@pytest.mark.parametrize("document", watched_documents())
 def test_no_watched_document_calls_a_classified_sequence_unrun(document):
     """**The stale-claim class, in the understatement direction.**
 

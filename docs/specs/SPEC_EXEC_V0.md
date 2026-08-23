@@ -207,6 +207,15 @@ So:
 
 - `docs/MANUAL_CHECKS.md` **sequence G remains unrun**, and its coverage row
   still says so.
+
+  > **Dated note, 2026-08-23 — this bullet is history now.** Sequence G was
+  > RUN and classified three times after this spec was written: macOS/podman
+  > and a shared-kernel Linux guest on 2026-08-13, Docker on 2026-08-14. The
+  > coverage record in `docs/MANUAL_CHECKS.md` carries all three. The bullet
+  > above is left byte-intact because it states what this window did not do,
+  > which is the point of writing it down; what it must not do is read as a
+  > claim about today. Understatement is a stale claim too, and it was found
+  > by deriving this guard's scope rather than by anybody re-reading the page.
 - **SECURITY.md's "designed to isolate" is unchanged.** An argv is not a
   measurement. Upgrading that sentence on the strength of a flag would be
   precisely the defect this repository exists to catch, committed by the tool

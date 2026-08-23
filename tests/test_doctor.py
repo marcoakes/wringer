@@ -9,9 +9,11 @@ exit code a setup script can branch on without parsing prose.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
+from core_helpers import reader_facing_pages
 
 from wringer import cli, doctor
 
@@ -181,7 +183,34 @@ def test_doctor_repairs_nothing(repo, monkeypatch, capsys):
 # but doctor cannot see the image pull, and exits 0 with no runtime at all.
 # These tests make the documentation testable so the class cannot recur.
 
-DOCS_WITH_DOCTOR_OUTPUT = ("SETUP.md", "QUICKSTART.md", "README.md")
+# --- which pages show doctor output: DISCOVERED, and the list was wrong ------
+#
+# `("SETUP.md", "QUICKSTART.md", "README.md")` until 2026-08-23, and the audit
+# that replaced it found the list wrong in BOTH directions: QUICKSTART.md and
+# README.md show no `wring doctor` transcript at all — theirs are `wring
+# verify` and `wring run` — while `docs/attest-and-audit.md`, which does show
+# one, was outside the guard entirely.
+#
+# A hand list can be wrong that way for years and nothing says so, because a
+# name on it that illustrates nothing simply contributes nothing.
+
+#: **The structural tell, and it is derived from the two output formats rather
+#: than from a list of pages.** `wring verify` prints its gates in the same
+#: shape as a doctor check — mark, name, padding, detail — but a verify name
+#: always ENDS in `passed` or `failed`, and no doctor check name ever does.
+#:
+#: That distinction is what the old qualification could not make. It admitted
+#: any block containing a line like `✓ git status captured`, which is how
+#: `docs/specs/SPEC_VERIFY_V0.md` came to be read as a doctor transcript
+#: citing checks named `lint passed` and `test failed`.
+#:
+#: Deliberately NOT keyed on the real check names: a document illustrating a
+#: check that does not exist is the whole defect this guard was written for
+#: (`SETUP.md` once showed an image check and a platform check, neither of
+#: which doctor has), so qualification must not assume the names are valid.
+_GATE_RESULT_NAME = re.compile(r"\b(?:passed|failed)$")
+
+_STATUS_LINE = re.compile(r"^([✓!✗-])\s+([a-z][a-z ]{1,28}?)\s{2,}\S")
 
 
 def repo_root() -> Path:
@@ -189,36 +218,40 @@ def repo_root() -> Path:
 
 
 def cited_check_names(text: str) -> set[str]:
-    """Every check name a document illustrates in a doctor transcript.
-
-    Scoped to fenced blocks that actually show a `wring doctor` run, because
-    a prose bullet starting with "- " has the same shape as a skipped check
-    and markdown is full of them.
-    """
-    import re
-
+    """Every check name a document illustrates in a doctor transcript."""
     names: set[str] = set()
     for block in re.findall(r"```[^\n]*\n(.*?)```", text, re.DOTALL):
-        if "wring doctor" not in block and "doctor" not in block.split("\n")[0]:
-            # a transcript of some other command
-            if not re.search(r"^[✓!]\s+(python|git|wring|container runtime)\b",
-                             block, re.MULTILINE):
-                continue
         for line in block.splitlines():
-            m = re.match(r"^([✓!✗-])\s+([a-z][a-z ]{1,28}?)\s{2,}\S", line)
-            if m:
-                names.add(m.group(2).strip())
+            found = _STATUS_LINE.match(line)
+            if found is None:
+                continue
+            name = found.group(2).strip()
+            if _GATE_RESULT_NAME.search(name):
+                continue  # a gate result from verify or run, not a check
+            names.add(name)
     return names
+
+
+def docs_with_doctor_output() -> list[Path]:
+    """Every page showing a doctor transcript.
+
+    Captures excluded. A capture records what doctor printed on its date, and
+    a check renamed since would make the page red for being accurate — law 8
+    keeps its bytes and corrects it with a dated note instead.
+    """
+    return [
+        path
+        for path in reader_facing_pages(captures=False)
+        if cited_check_names(path.read_text(encoding="utf-8"))
+    ]
 
 
 def test_every_doctor_check_a_doc_illustrates_actually_exists():
     """The guard. If a document shows a check, `wring doctor` must have it."""
     real = set(doctor.check_names())
     offenders: list[str] = []
-    for name in DOCS_WITH_DOCTOR_OUTPUT:
-        path = repo_root() / name
-        if not path.is_file():
-            continue
+    for path in docs_with_doctor_output():
+        name = path.relative_to(repo_root()).as_posix()
         for cited in cited_check_names(path.read_text(encoding="utf-8")):
             if cited not in real:
                 offenders.append(f"{name} illustrates '{cited}'")
@@ -226,6 +259,31 @@ def test_every_doctor_check_a_doc_illustrates_actually_exists():
         "documentation shows doctor checks that do not exist: "
         + "; ".join(sorted(offenders))
         + f"\nreal checks: {sorted(real)}"
+    )
+
+
+def test_the_doctor_transcript_scope_finds_the_pages_that_have_one():
+    """**The guard on the discovery, 2026-08-23.**
+
+    A rule that quietly matched nothing would leave the guard above iterating
+    an empty list and passing for ever — the failure mode this whole audit is
+    about, reproduced one level up. So the discovery is held to finding the
+    two pages that really do carry a transcript, including the one no list
+    ever named.
+    """
+    found = {
+        path.relative_to(repo_root()).as_posix()
+        for path in docs_with_doctor_output()
+    }
+    assert "SETUP.md" in found
+    assert "docs/attest-and-audit.md" in found, (
+        "the page that shows a doctor transcript and was outside the old "
+        "hand-kept list is outside the derived scope too"
+    )
+    # And the pages whose transcripts are `wring verify`, not `wring doctor`.
+    assert "docs/specs/SPEC_VERIFY_V0.md" not in found, (
+        "a verify transcript is being read as doctor output again; its gate "
+        "lines end in 'passed'/'failed' and no check name does"
     )
 
 
@@ -352,27 +410,36 @@ def test_doctor_names_the_variable_it_looked_for(repo, write_config, monkeypatch
 # longer printed. Captured transcripts are evidence (law 8): change the line
 # and the documents showing it are recaptured in the same commit.
 
-DOCS_WITH_KEY_TRANSCRIPT = ("SETUP.md", "docs/attest-and-audit.md")
-
-
 def test_the_key_line_a_doc_shows_is_the_line_doctor_prints(tmp_path, monkeypatch):
+    """**Scope discovered, 2026-08-23.**
+
+    This ran over two named documents. A page that starts showing the key line
+    tomorrow is inside the guard now without anybody remembering it, which is
+    the point: the sentence doctor prints has already changed once and left
+    three documents quoting words the program no longer said.
+    """
     for name in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
     real = by_name(doctor.run_checks(tmp_path))["llm key"].detail
 
     offenders = []
-    for doc in DOCS_WITH_KEY_TRANSCRIPT:
-        path = repo_root() / doc
-        if not path.is_file():
-            continue
+    showing = 0
+    for path in reader_facing_pages(captures=False):
+        doc = path.relative_to(repo_root()).as_posix()
         for number, line in enumerate(path.read_text("utf-8").splitlines(), 1):
             if line.startswith("! llm key"):
+                showing += 1
                 shown = line.split("llm key", 1)[1].strip()
                 if shown != real:
                     offenders.append(f"{doc}:{number} shows {shown!r}")
     assert not offenders, (
         f"a doctor transcript no longer matches what doctor prints ({real!r}): "
         + "; ".join(offenders)
+    )
+    assert showing, (
+        "no page shows the `! llm key` line any more, so this guard is "
+        "checking nothing. Either the transcripts moved and it needs "
+        "re-deriving, or the line is gone and it should be retired"
     )
 
 
