@@ -106,8 +106,9 @@ Next:
 Draft evidence: .wringer/specs/20260731-231430-4af4/
 ```
 
-Both halves of the exchange — `request.json` and `response.json` — stay in
-the draft directory. The one function in Wringer that opens a socket is still
+Both halves of the exchange — `spec.REQUEST_FILENAME` and
+`spec.RESPONSE_FILENAME`, which are `request.json` and `response.json` — stay
+in the draft directory. The one function in Wringer that opens a socket is still
 `judge.send`; `wring spec` did not add a second.
 
 ## 3. Read it

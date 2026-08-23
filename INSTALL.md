@@ -253,8 +253,9 @@ Stated precisely, because the loose version of this sentence would be false:
 - **Wringer never persists your credential.** It does not write it to any file,
   any bundle, or any config. Config files carry variable *names*, never values.
 - **It is never printed and never placed on a command line.** Every value of a
-  variable matching `*TOKEN*`, `*SECRET*`, `*KEY*` is erased from captured
-  output before anything is written to disk.
+  variable matching `*TOKEN*`, `*SECRET*`, `*KEY*` — the patterns are
+  `redact.DEFAULT_ENV_PATTERNS` — is erased from captured output before
+  anything is written to disk.
 - **Core Wringer reads environment variables, and that is all it reads.** A
   keychain read is a declared non-goal of the core (`docs/specs/SPEC_START_V0.md` §7).
 - **At the moment of use, the key IS transmitted**, in an `Authorization`

@@ -2646,10 +2646,67 @@ _ENUMERATION = re.compile(r"`[^`]+`(\s*(,|and|or|·|/)\s*`[^`]+`)+")
 
 # Prose this repository ships to a reader. Not `tests/`: a test that enumerates
 # is a guard, which is the thing being asked for rather than the thing at risk.
-_GUARDED_PROSE = (
-    "README.md", "AGENTS.md", "SECURITY.md", "QUICKSTART.md", "SETUP.md",
-    "THREAT_MODEL.md", "CONTRIBUTING.md",
+#
+# **DISCOVERED since 2026-08-23.** This was a tuple of seven files, and the
+# comment above it already described a RULE — "prose this repository ships to
+# a reader", "not `tests/`" — which is a rule a directory walk can apply. The
+# seven were simply the pages somebody remembered. `docs/` was outside all of
+# it, and `docs/` is where most of this project's prose lives.
+#: **RECORDS, which enumerate by their nature.** A page whose job is to record
+#: is not restated when the code changes — it is amended by dated note, and
+#: this repository has ruled that twice. `docs/specs/` holds binding contracts
+#: (`SPEC_EXEC_V0` enumerating the conditional siblings is the contract, not a
+#: product claim); `CHANGELOG.md` is dated history, where every entry is true
+#: of its own release for ever.
+#:
+#: Stated as a rule and applied by path convention, so a spec written next
+#: month inherits the exclusion without anybody adding it to a list. That is
+#: the same reasoning as the derivation itself, pointed the other way.
+#:
+#: The two named pages are the same kind of thing without the path to prove
+#: it, so each carries its reason here rather than being quietly absent:
+#:
+#:   docs/MANUAL_CHECKS.md         a running log of runs on real machines.
+#:                                 "Both probes now use tools the image has"
+#:                                 is a note about one measurement on one day,
+#:                                 not a promise about the product.
+#:   docs/ARCHITECTURE-NORTHSTAR.md  a design a future version aims at.
+#:                                 "Every `loop` and `agent_step` declares:"
+#:                                 describes a shape nothing ships yet, so
+#:                                 there is no symbol for it to cite.
+_RECORDS = (
+    "docs/specs/",
+    "CHANGELOG.md",
+    "docs/MANUAL_CHECKS.md",
+    "docs/ARCHITECTURE-NORTHSTAR.md",
 )
+
+#: A sentence that dates ITSELF is history, and history may enumerate a list
+#: that has since changed. Deliberately narrower than the release-ceiling
+#: guard's `_DATED`: no bare "before" or "until", because those are ordinary
+#: prose outside a sentence about versions.
+_HISTORY_SENTENCE = re.compile(
+    r"dated note|used to|no longer|superseded|was the ruling|at the time|"
+    r"originally|shipped later",
+    re.I,
+)
+
+
+def guarded_prose() -> list[str]:
+    """Every page whose claims are held to what is true today.
+
+    Captures excluded: a capture asserts what was true on its date, which is
+    the one kind of stale sentence this repository keeps on purpose.
+    """
+    root = repo_root()
+    return [
+        name
+        for name in (
+            path.relative_to(root).as_posix()
+            for path in reader_facing_pages(captures=False)
+        )
+        if not name.startswith(_RECORDS)
+    ]
 
 # **Per-item exemptions, each with a REASON STRING.** The house shape, and the
 # same one `test_sign.py` and the board's mapping use. An exemption with no
@@ -2722,7 +2779,7 @@ def test_every_totality_claim_over_a_backticked_list_is_guarded_or_exempt():
     catches the mechanical shape, not the idea.
     """
     unguarded = []
-    for name in _GUARDED_PROSE:
+    for name in guarded_prose():
         path = repo_root() / name
         if not path.is_file():
             continue
@@ -2747,7 +2804,30 @@ def test_every_totality_claim_over_a_backticked_list_is_guarded_or_exempt():
             )
             # Prose that NAMES its own guard is guarded, and saying so is what
             # makes the claim checkable by a reader too.
-            if re.search(r"tests?/test_\w+\.py|`\w+\.[A-Z_]{3,}`", near):
+            #
+            # **A BARE TEST NAME COUNTS — 2026-08-23.** The scope widened to
+            # the corpus and the first thing it reported was
+            # `docs/brief-quality.md`, which names its two guards as
+            # `test_a_subdirectory_of_the_specs_repo_still_sees_the_spec` and
+            # a sibling. That is a more useful citation than a filename and
+            # the pattern could not see it, so the guard was about to demand a
+            # citation the page already carried.
+            if re.search(r"tests?/test_\w+\.py|`\w+\.[A-Z_]{3,}`|`test_\w+`", near):
+                continue
+            # A sentence that dates itself is history, and history is allowed
+            # to enumerate a list that has since changed — the same rule the
+            # release-ceiling guard applies, and for the same reason.
+            #
+            # **NOT `_DATED`, and the reason is worth keeping.** Reusing the
+            # release-ceiling guard's history pattern here looked like reuse
+            # and was a hole: it matches the bare words "before" and "until",
+            # so `INSTALL.md`'s *"…is erased from captured output BEFORE
+            # anything is written to disk"* read as a dated note and the
+            # claim went unguarded. The words that carry a date in a version
+            # sentence are ordinary prose in every other sentence, and an
+            # exemption that wide is a silently narrowed guard — which is the
+            # defect this whole audit is about.
+            if _HISTORY_SENTENCE.search(sentence):
                 continue
             unguarded.append(f"{name}: {sentence[:140]}")
 
@@ -2766,7 +2846,7 @@ def test_every_exemption_names_a_sentence_that_still_exists():
     is dead text that reads as coverage — which is the defect one level up."""
     prose = "\n".join(
         (repo_root() / name).read_text(encoding="utf-8")
-        for name in _GUARDED_PROSE
+        for name in guarded_prose()
         if (repo_root() / name).is_file()
     )
     dead = [key for key in _TOTALITY_EXEMPTIONS if key not in prose]
@@ -3068,7 +3148,25 @@ def claimed_voice(text: str) -> str:
                 # passed in both directions of a deliberately wrong version,
                 # which is worse than not existing — the CHANGELOG announced
                 # README's version claims as derived on the strength of it.
-                kept.append(stripped.lstrip(">").lstrip())
+                inner = stripped.lstrip(">").lstrip()
+                # **A QUOTATION NESTED INSIDE AN ADMONITION IS STILL A
+                # QUOTATION — found 2026-08-23 by widening the scope.**
+                #
+                # `lstrip(">")` takes one marker off, so `> > text` arrived as
+                # `> text`: a marker survived into the claimed voice, which is
+                # the very defect the comment above records, one level down.
+                # `docs/specs/SPEC_BOARD_V0.md:443` was the page that showed
+                # it, and it was never on the eight-document list.
+                #
+                # Dropping is right rather than stripping harder. The nested
+                # block there is an amendment QUOTING the false sentence it
+                # exists to withdraw ("no collection and no schema enum
+                # exists"). Stripping the marker would have promoted that
+                # sentence into the document's own voice and handed every
+                # prose guard a claim the page is explicitly disavowing.
+                if inner.startswith(">"):
+                    continue
+                kept.append(inner)
             continue
         in_quote = False
         keeping = False
@@ -3111,7 +3209,7 @@ _BLANKET_CONTAINMENT = (
 _BLANKET_EXEMPTIONS: dict[str, str] = {}
 
 
-@pytest.mark.parametrize("document", _GUARDED_PROSE)
+@pytest.mark.parametrize("document", guarded_prose())
 def test_no_public_document_makes_a_blanket_containment_claim(document):
     """**Ruling 5 — no unmeasured containment claim — as a check.**
 
@@ -3212,7 +3310,7 @@ _RELEASED_VERSION_CLAIMS = (
     re.compile(r"building\s+toward\s+`?v?(\d+\.\d+\.\d+)`?", re.I),
 )
 
-_VERSION_PROSE = _GUARDED_PROSE + ("ROADMAP.md",)
+_VERSION_PROSE = guarded_prose()
 
 
 @pytest.mark.parametrize("document", _VERSION_PROSE)
@@ -3498,6 +3596,57 @@ def test_the_front_page_advertises_the_version_that_IS_PUBLISHED():
     )
 
 
+#: A sentence counting the executables this distribution installs. "Both entry
+#: points" was true of two and became false the day two more shipped.
+_COUNTS_ENTRY_POINTS = re.compile(
+    r"\b(both|all\s+\w+|two|three|four|five)\s+entry\s+points?\b", re.I
+)
+
+
+def test_a_page_counting_the_entry_points_counts_them_ALL():
+    """**Found 2026-08-23 by widening the totality guard's scope.**
+
+    `docs/deployment.md` said *"Both entry points are installed: `wring` and
+    `wringer`"*. Two was right until 0.4.0 merged the board and the drive into
+    this distribution, and `[project.scripts]` has declared four ever since. A
+    reader who installs and is told there are two goes looking for the other
+    two somewhere else — which is the same failure as the QUICKSTART page
+    telling people to install from source.
+
+    Derived from packaging, so the next entry point that ships reddens this
+    rather than waiting for somebody to re-read the page.
+    """
+    import tomllib
+
+    require_checkout("pyproject.toml")
+    shipped = set(
+        tomllib.loads((repo_root() / "pyproject.toml").read_text(encoding="utf-8"))
+        .get("project", {})
+        .get("scripts", {})
+    )
+    assert shipped, (
+        "pyproject declares no console scripts, so this guard is checking "
+        "nothing — the packaging moved and this needs re-deriving"
+    )
+
+    wrong = []
+    for path in reader_facing_pages(captures=False):
+        text = path.read_text(encoding="utf-8")
+        for found in _COUNTS_ENTRY_POINTS.finditer(text):
+            window = text[found.start(): found.end() + 240]
+            named = {name for name in shipped if f"`{name}`" in window}
+            if named and named != shipped:
+                line = text[: found.start()].count("\n") + 1
+                wrong.append(
+                    f"{path.relative_to(repo_root()).as_posix()}:{line} says "
+                    f"{found.group(0)!r} and names {sorted(named)}"
+                )
+    assert not wrong, (
+        f"this distribution installs {sorted(shipped)}; these pages count the "
+        "entry points and enumerate a different set: " + "; ".join(wrong)
+    )
+
+
 def test_no_page_calls_a_SHIPPED_COMMAND_a_separate_unpublished_package():
     """**Field report 2026-08-22 finding 2, second half — and the reason the
     version clause alone is not enough.**
@@ -3594,7 +3743,24 @@ def test_the_release_recipe_NAMES_every_document_the_version_guard_checks():
     )
 
 
-@pytest.mark.parametrize("document", _VERSION_PROSE)
+def every_page_claimed_voice_runs_on() -> list[str]:
+    """The WIDEST corpus, because this is a property of the HELPER.
+
+    **Its own scope, and that is the correction — 2026-08-23.** This guard
+    borrowed `_VERSION_PROSE`, so when the prose guards stopped covering
+    `docs/specs/` — rightly, a contract is a record — this one silently
+    stopped covering the only page that had ever caught it. Reverting the
+    nested-quote fix produced no red at all.
+
+    `claimed_voice` is a helper any guard may point at any page, so what it
+    does to real bytes is checked over every page there is: specs and dated
+    captures included, since a leaking marker narrows whatever reads them.
+    """
+    root = repo_root()
+    return [path.relative_to(root).as_posix() for path in reader_facing_pages()]
+
+
+@pytest.mark.parametrize("document", every_page_claimed_voice_runs_on())
 def test_claimed_voice_leaves_NO_quote_MARKER_inside_a_sentence(document):
     """The defect class behind the inert guard, caught at its own level.
 
@@ -3614,25 +3780,40 @@ def test_claimed_voice_leaves_NO_quote_MARKER_inside_a_sentence(document):
     flattening, no standalone `>` may survive, because a marker inside a
     sentence silently narrows every guard downstream of this helper, not just
     that one.
+
+    **Asked at the LINE, not at the flattened string — 2026-08-23.** This
+    searched the flattened text for `" > "`, which is the SHAPE the defect
+    takes and not the defect. Widening the scope from eight pages to the
+    corpus made the difference matter immediately: `docs/witness-programme.md`
+    says *"but > 4 uncovered is a coverage loss"*, and a greater-than sign in
+    a sentence about arithmetic is not a markdown marker. Three more pages
+    said the same kind of thing.
+
+    A quote marker is a `>` that OPENED A LINE, so that is what is checked.
+    The property is strictly stronger than the old one — it also catches a
+    marker that flattening would not have surrounded with spaces — and it
+    cannot mistake prose about numbers for broken markdown.
     """
     require_checkout(document)
     path = repo_root() / document
-    # Fenced blocks are dropped first: a shell redirect (`… > calc.py`) is a
-    # standalone `>` and is not a markdown marker. `SETUP.md`'s one-line setup
-    # command is exactly that, and it is correct.
-    prose, fenced = [], False
-    for line in claimed_voice(path.read_text(encoding="utf-8")).splitlines():
+    # Fenced blocks are dropped first: a shell redirect (`… > calc.py`) opens
+    # no quote. `SETUP.md`'s one-line setup command is exactly that, and it is
+    # correct.
+    surviving, fenced = [], False
+    for number, line in enumerate(
+        claimed_voice(path.read_text(encoding="utf-8")).splitlines(), 1
+    ):
         if line.lstrip().startswith("```"):
             fenced = not fenced
             continue
-        if not fenced:
-            prose.append(line)
-    flat = " ".join("\n".join(prose).replace("*", "").split())
+        if not fenced and line.lstrip().startswith(">"):
+            surviving.append(f"line {number}: {line.strip()[:80]}")
 
-    assert " > " not in flat, (
+    assert not surviving, (
         f"{document}: a markdown quote marker survives into the text the "
         "prose guards match against, so any claim wrapping across that line "
-        "is unmatchable and every pattern reading it is silently narrowed"
+        "is unmatchable and every pattern reading it is silently narrowed:\n  "
+        + "\n  ".join(surviving)
     )
 
 

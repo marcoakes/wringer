@@ -79,8 +79,10 @@ Three things to know about what is inside:
   (`FROM ghcr.io/marcoakes/wringer:main`, add your toolchain) or make the
   first gate the one that installs it. `git` must be present in whatever
   image you end up with — `wring verify` shells out to it.
-- Both entry points are installed: `wring` and `wringer`. The rest of this
-  page uses `wring`.
+- All four entry points are installed: `wring`, `wringer`, `wringer-board` and
+  `wringer-drive`, enumerated from `pyproject.toml`'s `[project.scripts]` and
+  held to it by `test_a_page_counting_the_entry_points_counts_them_ALL`. The
+  rest of this page uses `wring`.
 
 ## The workspace, and why git history has to come with it
 
