@@ -227,6 +227,16 @@ failure output names the first clause that broke and stops.
    and the last means a signing key in CI secrets, which contradicts the
    product's most distinctive promise that it never touches a credential.
 
+   **Dated correction, 2026-08-23 — the promise is worded "never STORES a
+   credential" now.** The sentence above is left byte-intact, because it is
+   the reasoning ruling 1 was decided on. What changed is not the reasoning
+   but the claim it cites: `wring start` prompts for an API key, holds it in
+   memory for the session and writes it nowhere, so *"never touches a
+   credential"* stopped being true when that shipped. The narrower claim is
+   the one this project makes everywhere else, and ruling 1 reads the same
+   under it: a signing key in CI secrets is STORAGE, which is exactly what
+   is still refused.
+
    The claim unsigned makes is the one most readers actually need: an
    attestation is usually read by someone who already trusts its source and
    is asking "did the gates really run, and has anything changed since",

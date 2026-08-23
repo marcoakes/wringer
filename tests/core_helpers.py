@@ -12,6 +12,7 @@ both sides, so there is no shared name left to collide.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -109,3 +110,78 @@ def flat(text: str) -> str:
     its own tests.
     """
     return " ".join(text.split())
+
+
+# --- the scope a document guard runs over, DISCOVERED ------------------------
+#
+# **The QUICKSTART defect, and why this exists.**
+#
+# `test_a_document_naming_the_released_version_names_the_newest_tag` was
+# parameterised over a hardcoded list of two documents. Both were the right two
+# when the list was written. Neither survived `0.4.0`, so `QUICKSTART.md` told
+# readers for weeks that the release was `0.3.0`, that it shipped seventeen
+# commands, and that they should install from source instead — and no test
+# could see it, because the page was not on the list. A person found it.
+#
+# Every guard in this suite that takes a hand-kept list of documents carries
+# that defect latently: the list is a snapshot of the repository on the day
+# somebody typed it, and the repository grows. So the rule for a guard over
+# what this project SAYS is that its scope is discovered here, and a guard that
+# keeps a hand list instead says in its own docstring why a list is right
+# there. None silently — that is the whole point of the audit that produced
+# this function.
+
+#: Directories holding nothing a reader ever follows: evidence stores, build
+#: output, vendored dependencies, and the cold-read corpus.
+NOT_READER_FACING = frozenset(
+    {
+        ".git",
+        ".pytest_cache",
+        ".venv",
+        ".wringer",
+        ".wringer.example",
+        "benchmark",
+        "build",
+        "coldread",
+        "dist",
+        "m3",
+        "node_modules",
+    }
+)
+
+#: A CAPTURE records what a command did on a date. Rewriting one to match today
+#: destroys the evidence it exists to be (law 8), so a capture is exempt from
+#: the guards that hold live prose to today's facts — and only from those.
+_CAPTURE_NAME = re.compile(r"field-re(port|sponse)|install-2026|-2026-\d\d-\d\d\.md")
+
+
+def repo_root() -> Path:
+    """The checkout this suite is running inside."""
+    return Path(__file__).resolve().parent.parent
+
+
+def is_capture(path: Path) -> bool:
+    """Is this page a dated capture rather than live prose?"""
+    return bool(_CAPTURE_NAME.search(path.as_posix()))
+
+
+def reader_facing_pages(*, captures: bool = True, root: Path | None = None):
+    """Every markdown page this repository ships to a reader, discovered.
+
+    `captures=False` drops the dated records, for guards that hold prose to
+    what is true TODAY — a capture is allowed, and required, to say what was
+    true when it was taken.
+
+    Returned sorted and relative-path-stable so a failure message names the
+    same page in the same place on every machine.
+    """
+    base = root or repo_root()
+    found = []
+    for path in sorted(base.rglob("*.md")):
+        relative = path.relative_to(base)
+        if any(part in NOT_READER_FACING for part in relative.parts):
+            continue
+        if not captures and is_capture(relative):
+            continue
+        found.append(path)
+    return found

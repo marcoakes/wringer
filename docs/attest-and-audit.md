@@ -209,7 +209,7 @@ Unsigned, by decision rather than omission
 ([SPEC_PROVENANCE_V0 §5](specs/SPEC_PROVENANCE_V0.md) ruling 1). Signing in v0
 would force four answers nobody asked for, and the last of them is a signing
 key in CI — which contradicts the product's most distinctive promise, that it
-never touches a credential.
+never stores a credential.
 
 A signature, if one ever arrives, is the **sibling file**
 `attestation.json.sig`, never a field inside the payload. That keeps v1 purely

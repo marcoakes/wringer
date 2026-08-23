@@ -26,6 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
+from core_helpers import is_capture, reader_facing_pages
 
 
 def repo_root() -> Path:
@@ -779,6 +780,18 @@ PROMISE = (
     "environment variable, never a key. Nothing else in Wringer ever asks."
 )
 
+# **A HAND LIST ON PURPOSE, and the reason is the direction of the check.**
+#
+# Which documents must CARRY the promise verbatim is an editorial decision — a
+# repository cannot discover that a page it has never seen was supposed to
+# recite a paragraph. Discovery answers the opposite question (which pages
+# state something false), and that half IS derived, in
+# `test_no_document_still_claims_wringer_never_touches_a_credential`.
+#
+# What the audit DID change here: the guard below filtered each name through
+# `is_file()`, so a renamed page dropped out of its own check without a word.
+# It now says so — `require_checkout` skips with a reason instead, which is the
+# difference between a list that is deliberate and a list that is stale.
 DOCS_CARRYING_THE_PROMISE = ("README.md", "SECURITY.md", "SETUP.md")
 
 
@@ -800,28 +813,59 @@ def test_every_public_document_carries_the_promise_wording():
     STORES a credential". The narrower claim is the true one now that a
     command prompts for a key, and it is still the strongest claim in this
     category any comparable tool makes."""
+    require_checkout(*DOCS_CARRYING_THE_PROMISE)
     missing = [
         name
         for name in DOCS_CARRYING_THE_PROMISE
-        if (repo_root() / name).is_file()
-        and normalised(PROMISE) not in normalised(
-            (repo_root() / name).read_text(encoding="utf-8")
-        )
+        if normalised(PROMISE)
+        not in normalised((repo_root() / name).read_text(encoding="utf-8"))
     ]
     assert not missing, f"the approved promise wording is missing from {missing}"
 
 
+#: The corrected wording. A page that names BOTH forms is recording the change
+#: — `SPEC_START_V0.md` §6.1 does exactly that, and the record is the reason
+#: anybody can check the claim narrowed honestly rather than quietly.
+_CORRECTED_PROMISE = "never stores a credential"
+
+
 def test_no_document_still_claims_wringer_never_touches_a_credential():
-    """The claim that stopped being true. `wring start` handles one."""
-    offenders = [
-        name
-        for name in DOCS_CARRYING_THE_PROMISE + ("QUICKSTART.md", "AGENTS.md")
-        if (repo_root() / name).is_file()
-        and "never touches a credential" in (repo_root() / name).read_text("utf-8")
-    ]
+    """The claim that stopped being true. `wring start` handles one.
+
+    **Scope DISCOVERED, not listed — and the widening found two live pages.**
+    This guard ran over five hand-named documents until 2026-08-23. Pointed at
+    the whole corpus it immediately found `docs/attest-and-audit.md` and
+    `SPEC_PROVENANCE_V0.md` ruling 1 still citing *"never touches a
+    credential"* as the product's most distinctive promise — the first
+    corrected in place, the second by dated note, because a spec preserves the
+    reasoning it was decided on.
+
+    A page may still QUOTE the old wording when it names the new one in the
+    same breath: that is a record of the correction, and deleting it would
+    hide that the claim ever narrowed.
+    """
+    # **Whitespace-tolerant in BOTH directions, and both halves cost a red.**
+    # This prose is hard-wrapped, so neither the stale claim nor the correction
+    # beside it is a contiguous string in the file: the dated note added to
+    # `SPEC_PROVENANCE_V0.md` breaks across a line between "STORES a" and
+    # "credential". A guard matching literals would have demanded a correction
+    # and then been unable to see it.
+    stale = re.compile(r"never\s+touches\s+a\s+credential", re.I)
+    offenders = []
+    for path in reader_facing_pages():
+        text = path.read_text(encoding="utf-8")
+        for found in stale.finditer(text):
+            window = " ".join(
+                text[max(0, found.start() - 400): found.end() + 400].split()
+            ).lower()
+            if _CORRECTED_PROMISE in window:
+                continue
+            line = text[: found.start()].count("\n") + 1
+            offenders.append(f"{path.relative_to(repo_root()).as_posix()}:{line}")
     assert not offenders, (
         f"{offenders} still claim Wringer never touches a credential. It "
-        "prompts for one now; the true claim is that it never STORES one"
+        "prompts for one now; the true claim is that it never STORES one. "
+        "A page recording the correction must name both forms together"
     )
 
 
