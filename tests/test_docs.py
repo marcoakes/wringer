@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
-from core_helpers import reader_facing_pages
+from core_helpers import declares_itself_preserved, reader_facing_pages
 
 
 def repo_root() -> Path:
@@ -105,6 +105,40 @@ def test_the_discovered_scope_is_wider_than_the_list_it_replaced():
         "the field report is a capture — its transcripts of the two broken "
         "commands are the evidence these guards were written from"
     )
+
+
+def test_the_preserved_banner_exempts_a_draft_and_NOT_the_front_door():
+    """**The guard on the most dangerous rule this audit added.**
+
+    A page whose opening says it is kept stale on purpose is a record, and
+    `docs/show-hn-draft.md` is one: it states that editing its numbers to say
+    `0.3.0` would assert a check nobody had run. That is the correct reason
+    and the exemption is right.
+
+    The danger is the same sentence appearing somewhere else. `AGENTS.md:83`
+    and `docs/factory-dry-run.md:236` both contain the words while describing
+    some OTHER page's staleness, and a rule keyed on them appearing anywhere
+    would have quietly exempted the front door from every guard in this file
+    — turning one audit fix into a much larger hole than the one it closed.
+
+    So the words must be in the OPENING, and that is what this pins.
+    """
+    require_checkout("AGENTS.md", "docs/show-hn-draft.md", "docs/factory-dry-run.md")
+    root = repo_root()
+
+    assert declares_itself_preserved(root / "docs/show-hn-draft.md")
+    for live in ("AGENTS.md", "docs/factory-dry-run.md", "README.md"):
+        assert not declares_itself_preserved(root / live), (
+            f"{live} is being read as a preserved record, which would take it "
+            "out of every guard here. The banner must be in the OPENING"
+        )
+
+    covered = {
+        path.relative_to(root).as_posix()
+        for path in reader_facing_pages(captures=False)
+    }
+    assert "AGENTS.md" in covered and "README.md" in covered
+    assert "docs/show-hn-draft.md" not in covered
 
 
 def code_blocks(text: str) -> list[str]:
@@ -824,7 +858,16 @@ def test_every_line_of_every_committed_cast_fits_the_renderers_canvas():
 
 def test_the_docs_say_the_key_step_is_not_in_the_recording():
     """§8 — the docs state IN WORDS that the one step a film cannot honestly
-    show is the one where a human types a secret, and why."""
+    show is the one where a human types a secret, and why.
+
+    **A hand list, and it is the right shape here (audit, 2026-08-23).** This
+    asks whether SOMEBODY says it, not whether every page does — `assert
+    found`, not `assert not offenders`. Discovery cannot help: widening the
+    search only makes a positive easier to satisfy, so it would weaken the
+    guard rather than strengthen it. The two names are where the sentence is
+    expected to live, and if one is renamed this goes red asking about it,
+    which is the safe direction.
+    """
     require_checkout("docs/start.cast.json")
     found = [
         name
@@ -842,7 +885,11 @@ def test_the_docs_say_the_key_step_is_not_in_the_recording():
 def test_the_docs_say_the_recorded_agent_was_a_stub():
     """§3c — identity is self-reported and Wringer never verifies it, so a
     recording that let a reader assume a real vendor agent ran would be a
-    claim the artifact cannot support."""
+    claim the artifact cannot support.
+
+    Hand list for the same reason as the guard above: this is an existence
+    check, and a wider scope makes an existence check easier to pass.
+    """
     require_checkout("docs/start.cast.json")
     found = [
         name
@@ -960,7 +1007,16 @@ def test_the_network_enumerations_name_wring_start():
     surface EXACTLY: three SEND commands, two FETCH. Cloning makes
     `wring start` the third fetcher, and both enumerations become false the
     moment it ships. Restated in the same commit as the capability, rather
-    than quietly kept."""
+    than quietly kept.
+
+    **A hand list, named on purpose (audit, 2026-08-23).** These two documents
+    enumerate the network surface EXACTLY, and this guard asserts the CONTENT
+    of that enumeration in each — it cannot be pointed at a page that does not
+    make the claim, because the assertion would then demand a sentence the
+    page never intended to carry. The general half is elsewhere and IS
+    derived: `tests/test_network_surface.py` reads the real senders, so a
+    third fetcher cannot ship unnoticed even if a third page enumerates them.
+    """
     for name in ("docs/specs/SPEC_GET_V0.md", "AGENTS.md"):
         path = repo_root() / name
         if not path.is_file():
@@ -1933,7 +1989,7 @@ def test_a_count_tied_to_a_release_says_which_release():
     """
     import re
 
-    for name in ("README.md", "QUICKSTART.md", "AGENTS.md"):
+    for name in guarded_prose():
         path = repo_root() / name
         if not path.is_file():
             continue
@@ -2287,6 +2343,12 @@ def test_the_goal_is_stated_where_every_window_actually_looks():
     so the goal now lives in the two files a window reads first, and this test
     is what keeps it there. A refusal is not the product; it is the reason the
     product's output can be trusted.
+
+    **The two names are the CLAIM, not a scope (audit, 2026-08-23).** "Where
+    every window actually looks" means these two files and nothing else;
+    discovering more pages and requiring the goal in all of them would be a
+    different, sillier guard. `require_checkout` makes a rename a stated skip
+    rather than a silent pass.
     """
     import re
 
@@ -2478,6 +2540,11 @@ def test_the_readme_and_the_witness_programme_agree_about_the_de_scope():
     inventive rewording would slip past it. That is the most a prose status
     admits, and it is strictly more than the nothing that was guarding it
     while two documents disagreed in print.
+
+    **Two documents by name, and that IS the subject (audit, 2026-08-23).**
+    This guard is a relationship between one page's status sentence and
+    another's, not a rule applied to a scope. Discovering a third page would
+    not give it a third thing to compare — it would give it nothing.
     """
     require_checkout("README.md", "docs/witness-programme.md")
     root = repo_root()
@@ -2907,7 +2974,7 @@ def test_a_document_that_names_two_command_counts_explains_the_gap():
     """
     import re
 
-    for name in ("README.md", "QUICKSTART.md", "AGENTS.md"):
+    for name in guarded_prose():
         path = repo_root() / name
         if not path.is_file():
             continue
@@ -3673,7 +3740,7 @@ def test_no_page_calls_a_SHIPPED_COMMAND_a_separate_unpublished_package():
         "nothing — the packaging moved and this needs re-deriving"
     )
 
-    for name in ("README.md", "INSTALL.md", "AGENTS.md"):
+    for name in guarded_prose():
         path = repo_root() / name
         if not path.is_file():
             continue
@@ -3840,7 +3907,42 @@ MERGED_AWAY = ("wringer-board", "wringer-drive")
 #: Captures. A transcript records what a command DID on a date; rewriting one
 #: to match today destroys the evidence it exists to be. These carry dated
 #: notes instead, and `test_a_superseded_capture_says_so` holds them to it.
-CAPTURES_EXEMPT = ("docs/install-2026-08-17.md", "docs/MANUAL_CHECKS.md")
+#
+# **A HAND LIST ON PURPOSE, and now carrying its reasons — 2026-08-23.**
+#
+# The audit that derived the scope of every other document guard in this file
+# leaves this one listed, because an EXEMPTION is not a scope: it is a
+# decision about a particular page that somebody has to argue for. Discovery
+# cannot produce it, and a rule that generated exemptions automatically would
+# be a rule that silences guards automatically.
+#
+# What the audit did change is that it was a bare tuple. The house shape
+# everywhere else — `_TOTALITY_EXEMPTIONS`, `_BLANKET_EXEMPTIONS`,
+# `test_sign.py`'s map — is a REASON STRING per item, because an exemption
+# with no reason is a silenced guard and an exemption with one is a decision
+# somebody can argue with later. Two names in a tuple were neither.
+CAPTURES_EXEMPT: dict[str, str] = {
+    "docs/install-2026-08-17.md": (
+        "a transcript of an install performed on 2026-08-17, when the board "
+        "and the drive were separate distributions. Its links point where "
+        "they pointed that day, which is what makes it evidence"
+    ),
+    "docs/MANUAL_CHECKS.md": (
+        "the running ledger of checks executed on real machines. Its rows "
+        "cite the repositories those runs were performed against, and "
+        "repointing them would rewrite what was measured"
+    ),
+}
+
+
+def test_every_capture_exemption_names_a_page_that_exists_and_a_reason():
+    """An exemption for a page nobody ships is dead text that reads as a
+    decision, and a reason nobody wrote is an exemption nobody can argue
+    with. Both are how a silenced guard looks from the outside."""
+    for name, reason in CAPTURES_EXEMPT.items():
+        require_checkout(name)
+        assert (repo_root() / name).is_file(), name
+        assert len(reason) > 40, f"{name}'s exemption has no argued reason"
 
 
 def _pages_a_reader_follows() -> list[Path]:

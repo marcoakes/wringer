@@ -111,8 +111,12 @@ and the rate at which running it finds problems has not yet flattened.
   about the gate.
 - **`wringer.judgements.yaml` has no writer anywhere**, on purpose. A `human`
   criterion is answered by a person or it is not answered.
-- **Four packages, two unpublished** at the time of writing. `pip install
-  wringer-drive` does not resolve, because `wringer-board` is not on PyPI.
+- **One package, four executables.** This was *"four packages, two
+  unpublished"* until `0.4.0` merged them, and the sentence outlived the
+  merge. `pip install wringer` installs `wring`, `wringer`, `wringer-board`
+  and `wringer-drive` together; there is no separate `wringer-board` or
+  `wringer-drive` distribution to install, and a GitHub link to one reaches a
+  tombstone that still answers 200.
 
 ---
 

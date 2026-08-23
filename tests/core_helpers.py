@@ -154,15 +154,51 @@ NOT_READER_FACING = frozenset(
 #: the guards that hold live prose to today's facts — and only from those.
 _CAPTURE_NAME = re.compile(r"field-re(port|sponse)|install-2026|-2026-\d\d-\d\d\.md")
 
+#: **The same thing said in prose rather than in a filename.** This repository
+#: already has a convention for a page kept as a record of a moment: a banner
+#: in its opening saying so. `docs/show-hn-draft.md` carries *"STALE AS OF
+#: 2026-08-07, and deliberately not rewritten"*, and its numbers are wrong on
+#: purpose — editing them would assert a check nobody has run, which is the
+#: page's own stated reason for leaving them alone.
+#:
+#: **In the OPENING, and that limit is what makes it safe.** The same words
+#: appear at `AGENTS.md:83`, `docs/factory-dry-run.md:236` and inside two
+#: specs, where they describe some OTHER page's staleness. A page-level rule
+#: keyed on the words appearing anywhere would have exempted the front door
+#: from every guard in this suite.
+_PRESERVED_BANNER = re.compile(
+    r"deliberately not rewritten|stale as of|not rewritten", re.I
+)
+_BANNER_LINES = 30
+
 
 def repo_root() -> Path:
     """The checkout this suite is running inside."""
     return Path(__file__).resolve().parent.parent
 
 
-def is_capture(path: Path) -> bool:
-    """Is this page a dated capture rather than live prose?"""
-    return bool(_CAPTURE_NAME.search(path.as_posix()))
+def declares_itself_preserved(path: Path) -> bool:
+    """Does this page's opening say it is kept stale on purpose?"""
+    try:
+        head = path.read_text(encoding="utf-8").splitlines()[:_BANNER_LINES]
+    except OSError:  # pragma: no cover - unreadable file
+        return False
+    return any(_PRESERVED_BANNER.search(line) for line in head)
+
+
+def is_capture(relative: Path, full: Path | None = None) -> bool:
+    """Is this page a record of a moment rather than live prose?
+
+    Two ways to be one, and the repository already used both before this
+    function existed: a dated name, or a banner declaring it preserved.
+
+    The NAME is matched against the repository-relative path only. Matching
+    the absolute one would make every page a capture on a machine that
+    happened to keep its checkout under a directory called `install-2026`.
+    """
+    if _CAPTURE_NAME.search(relative.as_posix()):
+        return True
+    return full is not None and full.is_file() and declares_itself_preserved(full)
 
 
 def reader_facing_pages(*, captures: bool = True, root: Path | None = None):
@@ -181,7 +217,7 @@ def reader_facing_pages(*, captures: bool = True, root: Path | None = None):
         relative = path.relative_to(base)
         if any(part in NOT_READER_FACING for part in relative.parts):
             continue
-        if not captures and is_capture(relative):
+        if not captures and is_capture(relative, path):
             continue
         found.append(path)
     return found

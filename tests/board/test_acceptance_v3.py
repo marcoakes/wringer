@@ -40,6 +40,26 @@ def fixtures_dir() -> Path:
     return directory
 
 
+def v3_fixtures() -> list[str]:
+    """Every `wringer.acceptance.v3` payload the engine keeps, discovered.
+
+    **Was two filenames until 2026-08-23.** The docstring below already says
+    the principle — *not "every cause in a list this repository keeps", every
+    cause that appears in bytes the engine actually produced* — and a
+    hand-kept list of the FIXTURES is the same defect one level out: a third
+    payload added tomorrow carries causes nobody's mapping is held to.
+
+    Returns names, not paths, so the parametrize id stays the filename. An
+    empty list would collect ZERO tests and report nothing at all, which is
+    why `test_the_v3_fixture_glob_finds_the_engines_payloads` exists.
+    """
+    try:
+        directory = fixtures_dir()
+    except BaseException:  # pragma: no cover - importorskip / skip
+        return []
+    return sorted(path.name for path in directory.glob("acceptance-v3-*.json"))
+
+
 def load(name: str) -> dict:
     return json.loads((fixtures_dir() / name).read_text(encoding="utf-8"))
 
@@ -86,9 +106,25 @@ def test_the_engine_is_still_dark_and_this_board_is_why_it_can_stop_being():
     assert isinstance(accept.EMIT_V3, bool)
 
 
-@pytest.mark.parametrize(
-    "fixture", ["acceptance-v3-causes.json", "acceptance-v3-human.json"]
-)
+def test_the_v3_fixture_glob_finds_the_engines_payloads():
+    """A parametrize over an empty list collects nothing and reports nothing.
+
+    That is worse than a red: the suite says "all passed" while the mapping
+    guard below never ran once. The glob is held to finding the payloads that
+    exist, so a rename in the engine's fixture directory is a failure here
+    rather than a silence.
+    """
+    found = v3_fixtures()
+    assert found, (
+        "no `acceptance-v3-*.json` payloads found, so the cause-mapping guard "
+        "collected zero cases. Either the engine's fixtures moved and this "
+        "glob needs re-deriving, or v3 fixtures are gone and it should retire"
+    )
+    for name in found:
+        assert load(name)["schema_version"] == "wringer.acceptance.v3"
+
+
+@pytest.mark.parametrize("fixture", v3_fixtures())
 def test_every_cause_in_the_engines_own_bytes_has_a_sentence(fixture):
     """**The mapping, against real output.**
 

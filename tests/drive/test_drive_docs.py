@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from core_helpers import reader_facing_pages
 
 from wringer_drive import run as run_module
 
@@ -957,16 +958,27 @@ def test_the_example_readme_does_not_promise_a_delivered_handover():
 # --- the PM front door, and the pages it sends people to --------------------
 
 ROOT = Path(__file__).resolve().parent.parent.parent / "docs" / "drive"
-PM_PAGES = (
-    "START-HERE.md",
-    "AGENTS.md",
-    "docs/ENDINGS.md",
-    "docs/WRITING-A-REQUIREMENT.md",
-    "examples/README.md",
-)
 
 
-@pytest.mark.parametrize("page", PM_PAGES)
+# **DISCOVERED since 2026-08-23**, in the hand-kept-list audit. This was five
+# page names, and `docs/drive/README.md` — the package's own front page — was
+# not one of them, nor was `docs/the-whole-arc.md`, nor either example's PRD.
+# Ten pages a product manager can reach were outside both guards below.
+#
+# The examples' `project/` trees are IN scope on purpose. They are pages
+# shipped in this repository that a reader opens while following the example,
+# so a dead link in one costs exactly what a dead link in the front door
+# costs. Captures are out, by the same rule as everywhere else: a dated
+# transcript records what was true on its date.
+def pm_pages() -> list[str]:
+    """Every page the PM front door can send somebody to."""
+    return [
+        path.relative_to(ROOT).as_posix()
+        for path in reader_facing_pages(captures=False, root=ROOT)
+    ]
+
+
+@pytest.mark.parametrize("page", pm_pages())
 def test_every_pm_page_links_only_to_pages_that_exist(page):
     """A dead link on the first page somebody reads is the cheapest possible
     way to lose them."""
@@ -981,7 +993,7 @@ def test_every_pm_page_links_only_to_pages_that_exist(page):
         assert (path.parent / target).exists(), f"{page} links to {target}"
 
 
-@pytest.mark.parametrize("page", PM_PAGES)
+@pytest.mark.parametrize("page", pm_pages())
 def test_no_pm_page_promises_containment_it_does_not_have(page):
     """**Q1's ceiling on the pages a stranger reads FIRST.**
 

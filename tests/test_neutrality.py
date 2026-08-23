@@ -200,16 +200,27 @@ def test_NO_SETUP_QUESTION_FALLS_BACK_TO_ITS_OWN_SUGGESTION():
     )
 
 
-@pytest.mark.parametrize(
-    "path",
-    [
-        "src/wringer/config.py",
-        "src/wringer/gates.py",
-        "src/wringer/loop.py",
-        "src/wringer/acp.py",
-        "src/wringer_drive/run.py",
-    ],
-)
+def every_shipped_module() -> list[str]:
+    """Every Python file this distribution installs.
+
+    **Was five filenames until 2026-08-23.** The five were the modules most
+    likely to reach for a vendor when the guard was written, and the engine
+    ships forty-odd. A neutrality guard that reads an eighth of the source is
+    a neutrality claim about an eighth of the source, and the charter — "if
+    it's an Anthropic tool we are fucked" — is not a claim about five files.
+
+    Cheap enough to be uninteresting: parsing the whole package takes less
+    time than the assertion message would take to read.
+    """
+    root = ROOT / "src"
+    return sorted(
+        path.relative_to(ROOT).as_posix()
+        for path in root.rglob("*.py")
+        if "__pycache__" not in path.parts
+    )
+
+
+@pytest.mark.parametrize("path", every_shipped_module())
 def test_no_vendor_string_is_ever_an_OR_FALLBACK(path: str):
     """`x or "claude-agent-acp"` is the whole defect, in one line of Python.
 
