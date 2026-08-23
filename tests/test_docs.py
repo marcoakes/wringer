@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 import pytest
-from core_helpers import is_capture, reader_facing_pages
+from core_helpers import reader_facing_pages
 
 
 def repo_root() -> Path:
@@ -46,12 +46,65 @@ def require_checkout(*needed: str) -> None:
             pytest.skip(f"{relative} is not part of the distribution")
 
 
-RUNBOOKS = ("SETUP.md", "QUICKSTART.md", "README.md")
+# --- the runbooks, DISCOVERED rather than listed -----------------------------
+#
+# This was `("SETUP.md", "QUICKSTART.md", "README.md")` until 2026-08-23 — the
+# three pages that were runbooks on the day somebody typed the tuple. The
+# repository has grown `INSTALL.md`, `START-HERE.md`, `docs/drive/START-HERE.md`
+# and a dozen `docs/*.md` pages with shell blocks in them since, and every one
+# of them was outside four guards whose names begin "no runbook".
+#
+# That is the QUICKSTART defect exactly: a guard covering less than its name
+# claims, passing green, for as long as nobody thinks to re-read the list.
+# Scope is discovered now, so a page added tomorrow inherits these guards
+# instead of needing somebody to remember it.
+#
+# **Captures excluded, and they are the reason these guards exist.**
+# `docs/field-report-2026-08-05.md` is the run that MEASURED both broken
+# commands. Its transcripts of them are primary evidence and are preserved
+# verbatim; holding it to today's rules would delete the finding.
+def runbooks() -> list[Path]:
+    """Every page a reader follows instructions from."""
+    return reader_facing_pages(captures=False)
+
+
+def runbook_names() -> list[str]:
+    return [path.relative_to(repo_root()).as_posix() for path in runbooks()]
 
 
 def runbook_text(name: str) -> str | None:
     path = repo_root() / name
     return path.read_text(encoding="utf-8") if path.is_file() else None
+
+
+def test_the_discovered_scope_is_wider_than_the_list_it_replaced():
+    """**The guard on the audit itself, 2026-08-23.**
+
+    A derivation that quietly returns three pages is the hand list with extra
+    steps, and it would pass every guard downstream of it while covering
+    exactly what the tuple did. So the discovery is checked for the property
+    that made it worth doing: it finds runbooks nobody listed.
+
+    `INSTALL.md` is named because it is the specific page the old tuple
+    missed — planting `container images pull` in it reddens all four runbook
+    guards now and reddened none of them before.
+
+    The capture exclusion is asserted in the same breath, because a
+    derivation that swallowed `docs/field-report-2026-08-05.md` would demand
+    the deletion of the measurement these guards exist to preserve.
+    """
+    require_checkout("INSTALL.md", "QUICKSTART.md", "SETUP.md")
+    found = set(runbook_names())
+
+    assert {"INSTALL.md", "QUICKSTART.md", "README.md", "SETUP.md"} <= found
+    assert len(found) > 4, (
+        f"the runbook scope discovered only {sorted(found)}; a derivation "
+        "this narrow is a hand-kept list that costs more to read"
+    )
+    assert "docs/field-report-2026-08-05.md" not in found, (
+        "the field report is a capture — its transcripts of the two broken "
+        "commands are the evidence these guards were written from"
+    )
 
 
 def code_blocks(text: str) -> list[str]:
@@ -90,7 +143,7 @@ def bash_blocks(text: str) -> list[str]:
 # stop condition ("stop if output does not match") never fires.
 
 
-@pytest.mark.parametrize("name", RUNBOOKS)
+@pytest.mark.parametrize("name", runbook_names())
 def test_no_runbook_tells_you_to_run_container_images(name: str):
     """The plural, in a block a reader is meant to type. Prose may still
     *name* it — the corrected runbook warns about it on purpose, and a
@@ -111,19 +164,49 @@ def test_no_runbook_tells_you_to_run_container_images(name: str):
     )
 
 
-@pytest.mark.parametrize("name", RUNBOOKS)
+#: A page NAMING the broken command in order to warn about it is doing the
+#: right thing — "a warning that cannot spell the wrong command is not a
+#: warning", which is the sibling guard's own ruling. The discrimination is
+#: what the sentence DOES, not which file it is in: routing on facts rather
+#: than on a name is how the rest of this repository decides these.
+_NAMES_IT_TO_WARN = re.compile(
+    r"does not exist|is not a subcommand|not a subcommand|measured to fail|"
+    r"never appearing|which is wrong|the broken form|failed \(AC-|"
+    r"corrected the command|singular",
+    re.I,
+)
+
+
+@pytest.mark.parametrize("name", runbook_names())
 def test_no_runbook_spells_the_two_measured_failures_anywhere(name: str):
     """The two exact forms a field run watched fail, in prose or in code.
-    There is no context in which either is the right thing to write down."""
+
+    **The scope widened on 2026-08-23 and the rule had to get sharper.**
+    "There is no context in which either is the right thing to write down"
+    was true of the three pages this guard used to run over, and false of the
+    corpus: `docs/MANUAL_CHECKS.md:56` spells `container images pull` in order
+    to record that `SETUP.md` once said it and that it does not exist. That is
+    the sentence doing its job.
+
+    So the check is no longer "does this string appear" but "does it appear
+    with nothing around it saying it is wrong" — which is the rule the
+    original was reaching for, enforced by keeping pages off a list.
+    """
     text = runbook_text(name)
     if text is None:
         pytest.skip(f"{name} is not in this repo")
     for wrong in ("container images pull", "container images list"):
-        assert wrong not in text, (
-            f"{name} contains `{wrong}`, measured to fail on Apple "
-            "`container` 1.2.0 (field report 2026-08-05, AC-01). The "
-            "subcommand is `image`, singular."
-        )
+        for found in re.finditer(re.escape(wrong), text):
+            window = " ".join(
+                text[max(0, found.start() - 300): found.end() + 300].split()
+            )
+            assert _NAMES_IT_TO_WARN.search(window), (
+                f"{name} contains `{wrong}` with nothing around it saying so, "
+                "and it was measured to fail on Apple `container` 1.2.0 "
+                "(field report 2026-08-05, AC-01). The subcommand is `image`, "
+                "singular. To NAME the broken form, say in the same breath "
+                "that it does not exist."
+            )
 
 
 # --- R2-02: `ls -la` cannot show the thing it was sent to look at ---------
@@ -140,7 +223,7 @@ def test_no_runbook_spells_the_two_measured_failures_anywhere(name: str):
 # rather than reading the answer, which is right there under -d.
 
 
-@pytest.mark.parametrize("name", RUNBOOKS)
+@pytest.mark.parametrize("name", runbook_names())
 def test_no_runbook_inspects_docker_app_with_ls_la(name: str):
     text = runbook_text(name)
     if text is None:
@@ -166,7 +249,7 @@ def test_no_runbook_inspects_docker_app_with_ls_la(name: str):
     )
 
 
-@pytest.mark.parametrize("name", RUNBOOKS)
+@pytest.mark.parametrize("name", runbook_names())
 def test_a_runbook_that_mentions_the_docker_stub_shows_how_to_see_it(name: str):
     """The positive half. Forbidding `ls -la` is only half a fix if the
     replacement quietly disappears in a later edit."""
