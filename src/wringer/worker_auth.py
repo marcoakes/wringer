@@ -13,6 +13,33 @@ below `session/prompt` returns the same bytes signed in or signed out. That
 finding stands and it is about ACP. It says nothing about the agent's OWN
 command line, which is not ACP — and that is the surface this reads.
 
+**The preflight ladder, and its third measured rung (2026-08-23).** Agents do
+not all hide their credential state in the same place, and the census now has
+three shapes, each measured on a real binary rather than reasoned from a
+protocol:
+
+- **startup-refusal** — `docs/dcode-capture-2026-08-23.md`. Free and instant:
+  the process exits 1 before any protocol exchange, naming on stderr the
+  variables it would have taken.
+- **`session/new`-refusal** — `docs/bench-vendors-2026-08-22.md`. Free: the
+  handshake opens, and the session request is the refusal.
+- **prompt-only** — `docs/auth-probe-2026-08-22.md`. The paid turn and
+  nothing below it: every step under `session/prompt` returns the same bytes
+  signed in or signed out, which is what sequence L measured.
+
+**No agent is named here, deliberately** — AGENTS.md rule 5 keeps every
+coding-agent string in `agents.py`, and the captures above carry the names.
+
+**The ladder is a fact about the census, not a mechanism this module has.**
+What runs below is the agent's OWN command line (`agents.Agent.auth_probe`),
+a fourth surface again and the only one wired. An agent on the roster with no
+`auth_probe` reports `UNKNOWN` and refuses nothing — the honest default.
+Turning the startup rung into a check would mean spawning the agent and
+reading an exit code and a sentence, which is a different mechanism from
+parsing `loggedIn`, and inventing it here from one binary's behaviour is how
+the last false auth sentence in this repository got written. It is named, not
+built.
+
 **What it is not.** Presence is not validity. A revoked key and a lapsed
 subscription both answer `loggedIn: true` and both die at the turn. This
 module can turn a wasted run into a refusal; it cannot promise a turn will

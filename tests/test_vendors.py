@@ -16,6 +16,14 @@ Three properties, each of which was a real way to lie:
    top of the page — and the key table, the endpoint table and `wring
    doctor`'s own key-name list are all held to the SAME vendor set, so a
    vendor cannot be half-added.
+
+**Extended 2026-08-23, when a worker arrived that the matrix's own shape could
+not carry.** `dcode` is LangChain's agent and LangChain ships no model, so the
+vendor×lane matrix has no honest cell for it: a brain row would have to invent
+a fifth status for a lane that vendor does not have. It gets a second table,
+and the second table is guarded harder than the first — because a roster row
+about somebody else's binary is the easiest row on this page to grow past its
+capture. Every claim in it is checked against the capture file it links.
 """
 
 from __future__ import annotations
@@ -130,6 +138,146 @@ def test_EVERY_VENDOR_HAS_BOTH_LANES_AND_ONE_ROW_EACH():
         assert not missing, f"{vendor} has no row for: {sorted(missing)}"
 
 
+AGENT_TABLE = "## The agents whose vendor is not a model vendor"
+
+
+def agent_rows() -> list[dict[str, str]]:
+    """The second table, as dicts, because it has seven columns and a reader
+    counting commas is how a guard ends up asserting about the wrong cell."""
+    rows = _rows(AGENT_TABLE)
+    assert rows, "docs/vendors.md has no agent table at all"
+    columns = ("agent", "ships", "lane", "status", "measured", "credential", "capture")
+    for row in rows:
+        assert len(row) == len(columns), (
+            f"an agent row has {len(row)} cells, not {len(columns)}: {row}"
+        )
+    return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+def _capture_of(row: dict[str, str]) -> Path:
+    link = re.search(r"\(([^)]+)\)", row["capture"])
+    assert link, f"{row['agent']} links no capture at all"
+    return (VENDORS_MD.parent / link.group(1)).resolve()
+
+
+def test_the_AGENT_TABLE_uses_the_SAME_FOUR_STATUSES_as_the_matrix():
+    """**Derived from the matrix's own closed set, never a second copy.**
+
+    A second table with its own vocabulary is how "supported" gets back onto
+    this page through a side door: nobody edits the matrix, they just write a
+    fresh word in the new table. The set is the same object.
+    """
+    for row in agent_rows():
+        assert row["lane"] in LANES, f"{row['agent']}: {row['lane']!r} is not a lane"
+        assert row["status"] in STATUSES, (
+            f"{row['agent']} claims {row['status']!r}, which is not one of the "
+            f"four statuses this page is allowed to say: {sorted(STATUSES)}"
+        )
+
+
+def test_a_MEASURED_WORKING_agent_LINKS_A_CAPTURE_THAT_EXISTS():
+    for row in agent_rows():
+        target = _capture_of(row)
+        assert target.is_file(), (
+            f"{row['agent']} links {row['capture']}, which is not in this "
+            "repository"
+        )
+
+
+def test_NO_AGENT_IS_LISTED_ABOVE_ANY_OTHER():
+    """**Vacuous today and said so on purpose**: one row is in order however
+    it is written, so this guard cannot fail until a second agent arrives —
+    which is exactly the edit it is here to meet. Red-watched 2026-08-23 by
+    adding a second row out of order."""
+    seen = [row["agent"] for row in agent_rows()]
+    assert seen == sorted(seen), f"the agent table is not alphabetical: {seen}"
+
+
+def test_AN_AGENT_ROW_MAY_NAME_ONLY_A_CREDENTIAL_ITS_CAPTURE_DECLARED():
+    """**The one way this row grows past its receipt, closed by derivation.**
+
+    `dcode`'s own startup refusal names three vendors' variables and only one
+    of them was ever run. The tempting edit is to list all three — the binary
+    accepts them, after all — and the row would then claim two routes nobody
+    measured.
+
+    **The first version of this guard was VACUOUS and the red-watch caught
+    it.** It asked whether the variable appeared anywhere in the capture, and
+    all three appear there — inside the quoted refusal that names what the
+    agent WOULD have taken. Adding `OPENAI_API_KEY` to the row left the whole
+    file green. So the derivation moved to the only line in a capture that
+    records a credential actually crossing the boundary: the
+    `env_passthrough` the measured run declared. A variable that never rode a
+    real run cannot be in the row, and adding one means taking the
+    measurement first.
+    """
+    for row in agent_rows():
+        capture = _capture_of(row).read_text(encoding="utf-8")
+        declared = set()
+        for line in capture.splitlines():
+            if "env_passthrough" in line:
+                declared.update(re.findall(r"[A-Z][A-Z0-9_]{3,}", line))
+        assert declared, (
+            f"{_capture_of(row).name} shows no `env_passthrough` at all, so "
+            f"nothing in it backs {row['agent']}'s credential cell"
+        )
+        named = re.findall(r"`([A-Z][A-Z0-9_]{3,})`", row["credential"])
+        assert named, f"{row['agent']}'s credential cell names no variable"
+        for variable in named:
+            assert variable in declared, (
+                f"{row['agent']}'s row names {variable}; the run captured in "
+                f"{_capture_of(row).name} declared {sorted(declared)} and "
+                "nothing else. The binary accepting a variable is not the "
+                "same fact as somebody having run it"
+            )
+
+
+def test_AN_AGENT_ROWS_CAVEATS_ARE_THE_CAPTURES_CAVEATS():
+    """**Derived from the capture, because the flattering edit is a deletion.**
+
+    Nothing in a table cell can carry "it auto-approves its own tool calls" or
+    "it was twice as slow" — those live in the prose beneath, and prose is
+    what gets tidied. If the capture raised a caveat, the page repeats it.
+    """
+    for row in agent_rows():
+        capture = _capture_of(row).read_text(encoding="utf-8").lower()
+        page = body().lower()
+        for caveat in ("auto-approve", "unmeasured"):
+            if caveat in capture:
+                assert caveat in page, (
+                    f"{_capture_of(row).name} raises {caveat!r} about "
+                    f"{row['agent']} and docs/vendors.md does not repeat it"
+                )
+
+
+def test_EVERY_AGENTS_CREDENTIAL_IS_ONE_WRING_DOCTOR_LOOKS_FOR():
+    """The same derivation the key table gets: a page that tells somebody to
+    set a variable `wring doctor` has never heard of sends them to a green
+    they cannot get."""
+    from wringer import doctor
+
+    for row in agent_rows():
+        for variable in re.findall(r"`([A-Z][A-Z0-9_]{3,})`", row["credential"]):
+            assert variable in doctor.WELL_KNOWN_KEY_ENVS, (
+                f"the agent table tells people to set {variable} and `wring "
+                "doctor` does not look for it"
+            )
+
+
+def test_EVERY_LISTED_AGENT_HAS_A_WORKER_COMMAND_A_PERSON_CAN_COPY():
+    """A roster row naming a binary with no `run.worker` beside it is a name,
+    not a route. The two tables are held together in the one direction that
+    matters: listed means copyable."""
+    commands = " ".join(
+        " ".join(row) for row in _rows("## The worker commands")
+    )
+    for row in agent_rows():
+        assert row["agent"] in commands, (
+            f"{row['agent']} is in the roster and the worker-commands table "
+            "never says what to write in .wringer.yaml for it"
+        )
+
+
 def _vendors_in(heading: str) -> list[str]:
     return [r[0] for r in _rows(heading)]
 
@@ -215,6 +363,7 @@ def test_no_TABLE_CELL_makes_a_claim_this_page_cannot_back(forbidden: str):
     """
     for heading in (
         "## The matrix",
+        AGENT_TABLE,
         "## Your key, whichever vendor",
         "## The endpoints and models",
         "## The worker commands",

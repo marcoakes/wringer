@@ -364,3 +364,72 @@ def test_the_environment_carries_nothing_it_was_not_given(monkeypatch):
     assert set(env) == {"PATH", "HOME", "LANG", "DECLARED"}
     assert "A_SECRET" not in env
     assert os.environ["A_SECRET"] == "value", "the real environment was mutated"
+
+
+# ---------------------------------------------------------------------------
+# The preflight ladder's own instrument.
+#
+# `scripts/acp-auth-probe.py` is how a NEW agent's auth surface gets measured
+# — it is what produced the kimi and dcode rungs — so it is the one script in
+# this repository whose robustness is a property of the roster rather than of
+# a convenience. It is not shipped in the wheel and cannot be imported by
+# name, so it is loaded from the source tree the same way `test_docs.py`
+# loads `roadmap_render`.
+# ---------------------------------------------------------------------------
+
+
+def _auth_probe_module():
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "scripts" / "acp-auth-probe.py"
+    spec = importlib.util.spec_from_file_location("acp_auth_probe", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_THE_PROBE_REPORTS_AN_AGENT_THAT_DIED_INSTEAD_OF_CRASHING():
+    """**Measured 2026-08-23, against `dcode --acp` with no credential.**
+
+    The agent exits 1 before any protocol exchange, so `initialize` went into
+    a pipe with no reader and the probe raised `BrokenPipeError` out of
+    `probe()` — a traceback where the measurement should have been. The
+    instrument crashed on the most interesting case it has: an agent that
+    refuses at startup is a FREE preflight rung, and the reason it refused is
+    on its stderr.
+
+    The fixture is a command that exits immediately, which is what a
+    credential-less agent looks like from here. Reverting the fix makes this
+    an ERROR rather than a failure, which is the point — an exception is not
+    a verdict.
+    """
+    probe = _auth_probe_module()
+
+    found = probe.probe(
+        "sh -c 'echo Error: No credentials configured >&2; exit 1'",
+        timeout=5.0,
+    )
+
+    assert found["agent_died_at"] in ("initialize", "session/new"), (
+        f"the probe did not record where the agent went: {found!r}"
+    )
+    assert found["agent_exit_code"] == 1, (
+        "the exit code is half the finding and the report drops it: "
+        f"{found.get('agent_exit_code')!r}"
+    )
+    assert "No credentials configured" in found["stderr_tail"], (
+        "the agent's OWN sentence names the fix, and this run threw it away "
+        f"— stderr_tail was {found['stderr_tail']!r}. The drain thread is not "
+        "joined before the tail is read"
+    )
+
+
+def test_A_HEALTHY_AGENTS_REPORT_DOES_NOT_GROW_THE_DEATH_LINES():
+    """Every capture in `docs/` was printed by this script, and Law 8 keeps
+    them. The death keys are appended only when there is a death, so an agent
+    that answers prints exactly the bytes it printed before."""
+    probe = _auth_probe_module()
+
+    assert "agent_died_at" not in probe.HANDSHAKE_KEYS
+    assert "agent_died_at" not in probe.PROMPT_KEYS
+    assert probe.DEATH_KEYS == ("agent_died_at", "agent_exit_code")

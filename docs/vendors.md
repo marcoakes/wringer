@@ -52,6 +52,50 @@ far as proving which environment variable the CLI actually reads, and glm's
 brain got as far as a well-formed authentication refusal from the documented
 endpoint. Neither is a guess and neither is a working row.
 
+## The agents whose vendor is not a model vendor
+
+The matrix above is keyed on VENDOR, and that shape carries an assumption this
+page held silently until 2026-08-23: **that a coding agent belongs to the
+company whose model it runs.** `dcode` breaks it. LangChain ships the agent,
+ships no model, and the credential the agent wants is somebody else's. There
+is no honest cell for it in the matrix — LangChain has no brain lane at all,
+and inventing a status for a lane a vendor does not have is the inflation this
+page exists to refuse.
+
+So it gets its own table, held to the same four statuses and the same rule:
+**a row says only what somebody ran.**
+
+| agent | ships it | lane | status | measured | credential | capture |
+|---|---|---|---|---|---|---|
+| dcode | langchain | worker | MEASURED-WORKING | 2026-08-23 | `ANTHROPIC_API_KEY` | [dcode-capture-2026-08-23.md](dcode-capture-2026-08-23.md) |
+
+**Exactly as far as the capture, and no further.** That row stands on one arm
+of one binary:
+
+- **The Anthropic arm is measured.** `dcode --acp`, with `ANTHROPIC_API_KEY`
+  declared in `run.worker.acp.env_passthrough`, handshook without an auth
+  dance, answered a prompt, and then drove a full `wring run` to `converged`
+  on the arcade example — the same example, judge, gates and boundary
+  `claude-agent-acp` converged on the day before.
+- **The OpenAI and Google arms are wired and UNMEASURED.** The binary's own
+  startup refusal names two more variables beside the one that was measured.
+  Nobody here holds those keys, so neither variable is in the row.
+- **It force-enables its own internal auto-approve.** Said here because a
+  reader deserves to know what they are starting: `dcode --acp` waves through
+  its own tool calls. It does not change what Wringer proves — every worker is
+  an untrusted builder and the consent surface is Wringer's gates, never the
+  agent's — but a row that left it out would be describing a different program.
+- **It was slower on the one example both agents ran.** One worker turn of
+  15m01s, which hit the 900s ceiling having already written the feature,
+  against `claude-agent-acp`'s 7m48s. The loop absorbed it and the next verify
+  converged.
+
+Installing it is not npm: `uv tool install deepagents-code`, measured at
+`deepagents-code 0.1.59`.
+
+**What this row banks.** Two different vendors' agents have now converged the
+same example under the same judge, the same gates and the same boundary.
+
 ## Your key, whichever vendor you chose
 
 **One convention, and it is the same shape for every vendor.** Store the key
@@ -109,6 +153,7 @@ Nothing here is a default. These are the commands an operator writes down;
 | anthropic | ACP | `acp: claude-agent-acp` |
 | kimi | ACP | `acp: kimi acp` |
 | kimi | shell | `kimi --print --output-format stream-json` |
+| langchain | ACP | `acp: dcode --acp` |
 | openai | shell | `codex exec --json -` |
 | openai | shell, zero-auth | `codex exec --json --oss --local-provider ollama -` |
 

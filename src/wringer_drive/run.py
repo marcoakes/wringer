@@ -285,12 +285,13 @@ SETUP_QUESTIONS = (
         id="setup:worker",
         text="Which coding agent should do the building? Give the command "
         "that starts it — any agent you can start from a terminal will "
-        "do. Three that were measured on 2026-08-22: "
-        "acp: claude-agent-acp, acp: kimi acp, and codex exec --json -.",
+        "do. Four that were measured: acp: claude-agent-acp, "
+        "acp: dcode --acp, acp: kimi acp, and codex exec --json -.",
         detail={
             "key": "worker",
             "suggested": [
                 "acp: claude-agent-acp",
+                "acp: dcode --acp",
                 "acp: kimi acp",
                 "codex exec --json -",
             ],

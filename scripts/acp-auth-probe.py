@@ -83,26 +83,46 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
         bufsize=1,
     )
     errs: list[str] = []
-    threading.Thread(target=lambda: errs.extend(proc.stderr), daemon=True).start()
+    drain = threading.Thread(target=lambda: errs.extend(proc.stderr), daemon=True)
+    drain.start()
 
     found: dict = {"agent": command}
     counter = [0]
 
+    def send(payload: dict) -> bool:
+        """Write one JSON-RPC line, or report that there is nobody to write to.
+
+        **The probe's own defect, found 2026-08-23 by pointing it at a new
+        agent.** `dcode --acp` with no credential exits 1 *before* the
+        handshake, so `initialize` went into a pipe with no reader and
+        `session/new` raised `BrokenPipeError` out of `probe()` — a traceback
+        where the answer should have been. An instrument that crashes when the
+        thing it measures is broken reports nothing about the most interesting
+        case it has: an agent that refuses at startup is exactly the free
+        preflight rung worth knowing about.
+        """
+        try:
+            proc.stdin.write(json.dumps(payload) + "\n")
+            proc.stdin.flush()
+        except (BrokenPipeError, OSError, ValueError):
+            return False
+        return True
+
     def request(method: str, params: dict, wait: float | None = None) -> dict:
         counter[0] += 1
         rid = counter[0]
-        proc.stdin.write(
-            json.dumps(
-                {"jsonrpc": "2.0", "id": rid, "method": method, "params": params}
-            )
-            + "\n"
-        )
-        proc.stdin.flush()
+        if not send({"jsonrpc": "2.0", "id": rid, "method": method, "params": params}):
+            return {"_died": method}
         limit = timeout if wait is None else wait
         deadline = time.monotonic() + limit
         while time.monotonic() < deadline:
             line = proc.stdout.readline()
             if not line:
+                # A closed stdout means either "this agent went away" or "it
+                # is still there and said nothing". Only `poll()` can tell
+                # them apart, and they are different findings.
+                if proc.poll() is not None:
+                    return {"_died": method}
                 return {"_transport": "the agent stopped listening"}
             try:
                 message = json.loads(line)
@@ -123,9 +143,23 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
                         "message": "the auth probe implements no client methods",
                     },
                 }
-                proc.stdin.write(json.dumps(declined) + "\n")
-                proc.stdin.flush()
+                if not send(declined):
+                    return {"_died": method}
         return {"_transport": f"no reply to {method} within {limit}s"}
+
+    def died(answer: dict) -> bool:
+        """Record an agent that is no longer there, once, with its own words.
+
+        The exit code and the sentence on stderr ARE the measurement in this
+        case — `dcode`'s refusal names the three variables it would have
+        accepted — so the report says which step it died at and stops rather
+        than asking three more questions of a dead process.
+        """
+        if "_died" not in answer:
+            return False
+        found["agent_died_at"] = answer["_died"]
+        found["agent_exit_code"] = proc.poll()
+        return True
 
     try:
         info = request(
@@ -141,7 +175,10 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
         found["authMethods"] = result.get("authMethods")
         found["agentInfo"] = result.get("agentInfo")
 
-        session = request("session/new", {"cwd": "/tmp", "mcpServers": []})
+        session = {} if died(info) else request(
+            "session/new", {"cwd": "/tmp", "mcpServers": []}
+        )
+        died(session)
         found["session_new_is_error"] = "error" in session
         found["session_new_error"] = session.get("error")
         found["session_new_opened"] = "sessionId" in (session.get("result") or {})
@@ -181,6 +218,12 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
             proc.wait(timeout=5)
         except subprocess.TimeoutExpired:  # pragma: no cover
             proc.kill()
+        # **Join the drain before reading it.** An agent that dies at startup
+        # writes its whole reason and exits in a few milliseconds, and the
+        # reader thread had not necessarily appended it yet — so the one run
+        # where `stderr_tail` matters most was the one where it could come
+        # back empty.
+        drain.join(timeout=5)
     stderr = "".join(errs)
     found["stderr_tail"] = stderr[-500:]
     # The adapter announces the route it actually took on stderr. Under
@@ -201,6 +244,11 @@ HANDSHAKE_KEYS = (
     "session_new_error",
     "stderr_tail",
 )
+
+#: Printed only when the agent is no longer there. The pair IS the finding:
+#: which step it died at, and what exit code it left. Its own sentence arrives
+#: in `stderr_tail`, which is already printed.
+DEATH_KEYS = ("agent_died_at", "agent_exit_code")
 
 #: Printed only under `--prompt`, so that the default output stays exactly the
 #: bytes every earlier capture of this script recorded.
@@ -225,6 +273,11 @@ def main(argv: list[str]) -> int:
         found = probe(agent, send_prompt=send_prompt)
         print("=" * 70)
         keys = HANDSHAKE_KEYS + (PROMPT_KEYS if send_prompt else ())
+        # Appended, never interleaved, and only when there is a death to
+        # report — so a healthy agent's output is byte-identical to what every
+        # capture already in `docs/` recorded.
+        if found.get("agent_died_at"):
+            keys = keys + DEATH_KEYS
         for key in keys:
             print(f"{key:22} {json.dumps(found.get(key))}")
     return 0
