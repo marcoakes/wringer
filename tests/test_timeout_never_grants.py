@@ -166,8 +166,14 @@ def test_A_JUDGE_THAT_NEVER_ANSWERS_RAISES_RATHER_THAN_RETURNING_A_VERDICT(
 
     class NeverAnswers:
         def open(self, *args, **kwargs):
+            # **Sleeps, then raises something `exchange()` CATCHES.** The first
+            # version raised `AssertionError` to mark the line unreachable, and
+            # it is reachable — thirty seconds after the test returned, on the
+            # daemon thread `judge.send` left running. pytest reported it as an
+            # unhandled thread exception and the gate grew a warning, which is
+            # this test dirtying the console it was written to keep honest.
             time.sleep(30)
-            raise AssertionError("unreachable")
+            raise OSError("the probe's endpoint never answered")
 
     monkeypatch.setattr(
         urllib.request, "build_opener", lambda *a, **k: NeverAnswers()
