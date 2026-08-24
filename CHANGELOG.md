@@ -4,6 +4,57 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.4 — 2026-08-24
+
+**Published.** `uv tool install wringer` gets it. A crash-fix release, cut the
+same day as 0.4.3 because one of the three crashes was a regression 0.4.3
+introduced.
+
+### Three tracebacks where a sentence belonged
+
+All found by hunting — four probe scripts, about twenty-five shapes executed
+against surfaces nothing had attacked. All three are the same class, in the
+two places whose entire job is that a product manager never sees a traceback.
+
+- **`wringer-drive` could be killed by its own resume record. New in 0.4.3.**
+  `checkpoint` writes `.wringer/drive/resume.json` before every question, and
+  the write was unguarded — so a drive directory the process cannot write
+  turned *every question in the run* into a `PermissionError`. Two shapes a
+  real machine produces: a stray file where the directory goes, and a
+  directory the operator cannot write (a wrong-owner checkout, or a full
+  disk). **The record now fails quietly**, because the whole effect of failing
+  is "the next run will not know where this one stopped" — which is exactly
+  what 0.4.2 did.
+- **`wringer-drive` crashed the same way one step earlier, and had since the
+  verb shipped.** Copying your document into the project failed with a
+  traceback instead of a refusal. **The fix here is deliberately the
+  opposite**: that copy is load-bearing, so the run STOPS with a sentence and
+  exit 2, carrying the operating system's own words so you can tell a full
+  disk from a permissions problem.
+- **`scripts/acp-auth-probe.py` crashed on a binary that is not there** — the
+  single most likely thing to happen to a script whose job is measuring agents
+  nobody has measured. It reports `agent_died_at: spawn` now, and invents no
+  exit code for a process that never existed.
+
+Every probe became a test, and every fix was reverted individually to watch
+its own guard go red.
+
+### What the hunt did not find
+
+Recorded because it is also information. The Stop hook shipped in 0.4.3 held
+against eight adversarial shapes — a repository path with a space, `--repo`
+pointed at a file and at nothing, the harness's working directory as the
+default, a closed stdin, a gate printing five megabytes, an unparseable
+config, and a repository declaring zero gates. That last one BLOCKS, which is
+the answer that matters. The resume digest is stable across newlines, unicode,
+JSON-shaped answers and five kilobytes of text, and a record truncated to
+half, to three bytes short, and to nothing never half-reads.
+
+### No schema moved
+
+Nothing in `schema/frozen.json` changed a byte, and there is no twentieth
+command.
+
 ## 0.4.3 — 2026-08-24
 
 **Published.** `uv tool install wringer` gets it. Same release ordering as
