@@ -303,3 +303,90 @@ claims nothing about it. The measurements above establish the mechanism is
 workable on these shapes and that two alternatives to it are not; they are not
 a claim that the sweep is correct, which is what the spec's own guards and the
 review are for.
+
+---
+
+## FOURTH MEASUREMENT — 2026-08-23, the lifecycle between laps (round 4)
+
+*Added below rather than folded in, per Law 8. The three measurements above
+stand as what was printed then; this is what the SAME script prints now that
+R7, R8 and R9 exist. The region they cover is the one round 3's review returned
+NOT SOUND on, and it is the one nothing above exercised.*
+
+**Two of the three changed a ruling's shape**, which is the reason the
+mechanism is executed before it is written down:
+
+- **R7** — `R-H1`'s snapshot rebuild does NOT close the trap on its own. A
+  snapshot restored to a different path still imports the path it was prepared
+  at, because an editable install's `.pth` is absolute. Three arms, one
+  fixture: bare clone → the operator's tree; snapshot elsewhere → the old path;
+  snapshot IN PLACE → the copy. Ruling 11b carries the same-path constraint
+  because of this row.
+- **R8** — the closing-baseline canary fires on coupling that moves the
+  baseline's colour, and is BLIND to a cache that never re-reads. Both are
+  measured, in one run, and the ceiling is in Ruling 11c.
+- **R9** — a partially staged (`MM`) file cannot be reproduced by the overlay,
+  and the faithfulness precondition fires before any check runs.
+
+**And R6 changed too, for a reason nobody chose.** It became intermittently red
+while this was being written, and the cause is R-H2 itself: `git clean -fd`
+spares the baseline lap's `__pycache__` by design, and a fast control lap ran
+the baseline's compiled module. R6 now runs the control lap warm AND cold and
+prints both. On the run below they disagree, in the genuine fixture, on camera.
+
+The output below is what the command printed.
+
+```
+R6 -- H1's eligibility rule under the environment bypass
+========================================================================
+  [bypassed] baseline lap: GREEN   control lap (cold): GREEN   control lap (warm): GREEN
+  [bypassed] caches `git clean -fd` spared: ['tests/__pycache__']
+  [bypassed] H1 verdict: INCONCLUSIVE (no check discriminates)
+  PASS  R6 bypassed copy -> control GREEN -> INCONCLUSIVE, never a clean page
+  [genuine] baseline lap: GREEN   control lap (cold): RED   control lap (warm): GREEN
+  [genuine] caches `git clean -fd` spared: ['src/pkg/__pycache__', 'tests/__pycache__']
+  [genuine] *** R-H2: the warm control lap disagreed with the cold one — the lap took its colour from the lap before it
+  [genuine] H1 verdict: usable (>=1 check eligible)
+  PASS  R6 genuine copy -> control RED -> the check is ELIGIBLE
+========================================================================
+R7 -- R-H1: contaminate, rebuild, and see WHICH TREE the next lap imports
+========================================================================
+  after prove_setup, the copy imports: /private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-work/src/pkg/core.py
+  PASS  R7 the prepared copy imports the COPY
+  PASS  R7 the snapshot carries the environment the clone did not
+  PASS  R7 the contamination is visible to the restoration check
+  rebuilt from the SNAPSHOT, at a DIFFERENT path:
+      .venv present: True
+      imports:       /private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-work/src/pkg/core.py
+  PASS  R7 a snapshot restored ELSEWHERE still imports the path it was prepared at -- the .pth is absolute, so R-H1 needs the same-path constraint  -- imports=/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-work/src/pkg/core.py
+  rebuilt from the SNAPSHOT, IN PLACE at the copy's own path:
+      .venv present: True
+      imports:       /private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-work/src/pkg/core.py
+      the contaminated file matches the candidate again: True
+  PASS  R7 rebuilt from the SNAPSHOT IN PLACE: the next lap imports the COPY, and the contamination is gone  -- imports=/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-work/src/pkg/core.py restored=True
+  rebuilt from the BARE CLONE (Ruling 11, un-amended):
+      .venv present: False
+      imports:       /private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-cand/src/pkg/core.py
+  PASS  R7 rebuilt from the BARE CLONE: the next lap imports the OPERATOR's tree -- the round-3 killer, caught  -- venv=False imports=/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/hunt-mechanism-tni6bu_1/r7-cand/src/pkg/core.py
+========================================================================
+R8 -- R-H2: the closing baseline lap, and what it does NOT catch
+========================================================================
+  opening baseline: GREEN   closing baseline: RED
+  the cache `git clean -fd` spared: 4 laps counted
+  PASS  R8 the closing baseline DISAGREES, so the canary fires (inconclusive-lap-coupling)  -- opening=0 closing=1
+  [ceiling] opening 0 unit 0 closing 0
+  PASS  R8 CEILING: a cache that never re-reads gives a false green in the unit lap AND agreeing baselines -- the canary cannot see it  -- opening=0 unit=0 closing=0
+========================================================================
+R9 -- R-H4: a partially staged file, and the precondition that catches it
+========================================================================
+  the candidate's own view: 'MM a.txt'
+  PASS  R9 the fixture really is partially staged
+  the copy's view:          'M  a.txt'
+  candidate staged blob: 'one STAGED\ntwo\nthree\n'
+  copy staged blob:      'one STAGED\ntwo\nthree WORKTREE\n'
+  PASS  R9 the overlay CANNOT reproduce MM -- the staged blobs differ
+  PASS  R9 the faithfulness precondition FIRES before any check runs (inconclusive-staging)  -- candidate='MM a.txt' copy='M  a.txt'
+
+========================================================================
+RESULT: 47/47 measurements passed
+```

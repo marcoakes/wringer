@@ -1,12 +1,12 @@
 # SPEC — the hunt: which parts of a change the evidence would notice (v0)
 
 *Drafted 2026-08-23 by the implementing window, from rulings Fable decided in
-`WRINGER_HUNT_RUN_PROMPT_2026-08-22.md` §2. **Revision 3**, folding H1–H6, the
-ceiling amendment and the endorsements of
-`~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md` (BINDING). Grounded at `main`
-`b2485ce`.*
+`WRINGER_HUNT_RUN_PROMPT_2026-08-22.md` §2. **Revision 4**, folding R-H1–R-H4
+(`~/Claude/WRINGER_ALLIN_RUN_PROMPT_2026-08-23.md` §2, BINDING) on top of
+H1–H6, the ceiling amendment and the endorsements of
+`~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md`. Grounded at `main` `746afb2`.*
 
-> ## STATUS — **BLOCKED. Reviewed THREE times, NOT SOUND three times. Four rulings are owed to Fable.**
+> ## STATUS — **BLOCKED until a fourth review passes. Reviewed three times, NOT SOUND three times.**
 >
 > Every verdict was reached by EXECUTION, and each killed something:
 >
@@ -14,53 +14,60 @@ ceiling amendment and the endorsements of
 > |---|---|---|
 > | 1 | worktree at base + apply every hunk but this one | one binary file and **no tree can be built at all**; three change kinds emit no `@@` header |
 > | 2 | copy the candidate, "a copy carries the environment" | an editable install's `.pth` is **absolute**, so the copy's interpreter imports the ORIGINAL source |
-> | 3 | clone + overlay, per H1–H6 | **the mechanism holds; the LIFECYCLE BETWEEN LAPS does not** |
+> | 3 | clone + overlay, per H1–H6 | the mechanism holds; **the LIFECYCLE BETWEEN LAPS does not** |
+> | 4 | the same, plus R-H1–R-H4 | **under review** |
 >
-> **Round 3 is a different kind of failure from rounds 1 and 2, and that is the
-> useful part.** Clone-plus-overlay is right, H4's file-level revert is right,
-> Appendix A reproduced exactly under an independent rebuild, Appendix B's unit
-> arithmetic verified, and the mechanism probe's 36 of 36 is real. What is not
-> sound is everything that happens *between* laps — the one region neither the
-> probe nor the appendices exercise.
+> **What round 3 established, and revision 4 does not re-open.** Clone-plus-overlay
+> is right, H4's file-level revert is right, Appendix A reproduced exactly under an
+> independent rebuild, Appendix B's unit arithmetic verified, and the mechanism
+> probe is real and re-runnable. What was not sound is everything that happens
+> *between* laps — the one region neither the probe nor the appendices exercised.
+> **They exercise it now**: `scripts/hunt-mechanism-probe.py` gained R7, R8 and R9,
+> and it is 47 of 47.
 >
-> **The finding that stops it:** Ruling 11's rebuild-on-contamination restores
-> the working copy from the pristine clone of §2 step 1, and the probe's own R1
-> measured that **a clone carries no environment**. So every unit after the first
-> contamination runs checks that import the OPERATOR's tree — round 2's exact
-> killer, re-entering through a path this document names itself. H1's eligibility
-> cannot catch it: eligibility is computed once, at step 4, before any rebuild can
-> happen. The result is a page of `unnoticed` rows with intact `evidenced` counts
-> and **no state that says anything is wrong** — a clean, confident, wrong page,
-> which is the one outcome §5 exists to make impossible.
+> ### What the round-4 probe measured, and both findings changed a ruling's shape
 >
-> It is not foldable by an edit. The two available fixes contradict a ruling
-> each: re-running `prove_setup` per rebuild contradicts H1's "ONCE per sweep"
-> and breaks H5's sum; making the pristine artifact a post-setup snapshot
-> contradicts Ruling 11a's "never run in".
+> **R-H1 as written does not close the trap, and the probe says why.** The ruling
+> makes the rebuild source a post-`prove_setup` SNAPSHOT. Measured, three arms on
+> one fixture in one run:
 >
-> **Owed to Fable, and nothing is built until they are ruled** — the four are
-> stated in `~/Claude/HUNT_REVIEW_ROUND3_2026-08-23.md` and carried in this
-> window's finish report:
+> | rebuild source | `.venv` | the next lap imports |
+> |---|---|---|
+> | the bare clone (Ruling 11, un-amended) | absent | **the OPERATOR's tree** — round 3's killer |
+> | the snapshot, restored to a DIFFERENT path | present | **the path the snapshot was prepared at** |
+> | the snapshot, restored IN PLACE | present | **the copy** ✓ |
 >
-> 1. the rebuild's environment (above);
-> 2. **lap independence** — nothing in this document says a lap is independent of
->    the lap before it, and gitignored caches are deliberately spared by both
->    Ruling 7a and Ruling 11;
-> 3. **the sum's missing terms** — clone, `prove_setup` and rebuilds are outside
->    it, and it compares against the whole budget rather than what remains, while
->    `SETUP_TIMEOUT_SECONDS` is 900 against a 900 s default;
-> 4. **partially-staged (`MM`) files** — the overlay cannot reproduce them, so the
->    faithfulness precondition reports `inconclusive`; the direction is safe and
->    the case is unnamed.
+> The middle row is round 2's killer one level up: an editable install's `.pth`
+> is absolute, so *"a snapshot carries the environment"* is the same shape of
+> sentence as *"a copy carries the environment"*, and it is false in the same
+> way. **R-H1 therefore carries a constraint it did not state — the rebuild
+> restores to the working copy's OWN path — and Ruling 11b is that constraint,
+> with the measurement beside it.**
 >
-> **What HAS been corrected in place** (factual, mechanism untouched): citation
-> drift, a `flaky` mischaracterisation, H2's "structurally unreachable" claim
-> which is measurably false, the capture's misattributed output, and §12's
-> derivation table — which was itself incomplete, in the defect class the window
-> exists to remove.
+> **R-H2's canary has a ceiling, and it is measured rather than hoped.** The
+> closing baseline catches coupling that moves the baseline's colour; it is blind
+> to a cache that never re-reads, which gives a false green in a unit lap while
+> both baselines agree. Ruling 11c states the ceiling in the spec, because a
+> canary whose limits are unstated reads as a guarantee.
+>
+> **R-H2 is not hypothetical, and this probe proved it on itself.** R6 became
+> flaky while round 4 was being written: `git clean -fd` spares gitignored files
+> by design, CPython invalidates a `.pyc` on `(mtime, size)` at one-second
+> resolution, and a fast control lap executed the BASELINE lap's compiled test
+> module and reported the baseline's colour. The probe now runs the control lap
+> warm and cold and prints both, so the coupling is a measurement rather than an
+> intermittent failure.
+>
+> **A third thing the round-4 work found, which no ruling covers and §2d now
+> does:** `prove_setup` succeeding does not put the copy's tools on the lap's
+> PATH. Measured while building Appendix B2 — a fresh clone, `uv pip install -e
+> .[dev]` exit 0, and the very next `wring verify` reported `ruff: command not
+> found`, because a gate spawns with `shell=True` and inherits the operator's
+> PATH. The environment is not only files in the tree.
 >
 > **The BLOCKED header is lifted only by a passing review, in the same commit
-> that starts the build.**
+> that starts the build.** A fourth NOT SOUND stops the hunt entirely and returns
+> it to Fable — no round 5 in a window.
 
 ---
 
@@ -225,6 +232,34 @@ through the overlay.
 If it does not, the copy is not the candidate and the sweep is `inconclusive`
 before any check runs. (Derivation D3.)
 
+### ⚑ Ruling 2a-i — a partially staged (`MM`) file is `inconclusive-staging`, by name (R-H4)
+
+*Folded 2026-08-23 from R-H4. Measured by the round-3 review (§2.6) and again
+by this spec's own probe, R9.*
+
+`git add` stages WORKTREE content, so a candidate built with `git add -p` —
+stage this hunk, keep working — **cannot** be reproduced by step 3's replay:
+
+    the candidate's own view:  MM a.txt
+    the copy's view:           M  a.txt
+    candidate staged blob:     'one STAGED\ntwo\nthree\n'
+    copy staged blob:          'one STAGED\ntwo\nthree WORKTREE\n'
+
+The precondition above already catches it and the direction is SAFE. What was
+missing is the NAME: §2a presents the precondition as a net for the two
+*rejected* overlays, and a reader meeting `inconclusive` on an ordinary
+`git add -p` habit has no way to know why. So v0 refuses with a cause of its
+own and a one-line remedy:
+
+> `inconclusive-staging` — this candidate has a file that is partly staged and
+> partly not, and the sweep cannot reproduce that faithfully. Stage it or stash
+> it, then sweep again.
+
+**Faithful index replay is a NAMED v1 item, not an improvisation.**
+`git update-index --cacheinfo` from the candidate's staged blobs would
+reproduce `MM` exactly; it is more machinery than a v0 refusal, and inventing
+it here is the kind of unasked-for mechanism rounds 1 and 2 died to.
+
 ### Ruling 2b — `run.prove_setup`, restored, once per sweep
 
 ⚑ **Revision 2's load-bearing sentence — "a copy of the candidate carries the
@@ -240,6 +275,43 @@ sweep is what §5's arithmetic can afford; round 1's one-per-unit
 
 **A repository declaring no setup is not left unguarded** — that is the whole
 point of ruling eligibility the way §3 rules it.
+
+⚑ **And the copy is SNAPSHOT immediately after setup** — see Ruling 11b. The
+snapshot is what a rebuild restores from, and taking it here rather than in §6
+is deliberate: it is a fact about how the copy is PREPARED, and a reader
+following §2 should not have to reach §6 to learn that the prepared state is
+kept.
+
+### ⚑ Ruling 2d — the lap's PATH, which is not a file in the tree
+
+*Added 2026-08-23. Found by measurement while building Appendix B2, not by
+reading, and it is the third distinct thing this feature has learned about the
+word "environment".*
+
+A gate runs through `gates.run`, which spawns with `shell=True` and **passes no
+`env=`** (`gates.py:196-202`), so it inherits the operator's `PATH`. Therefore:
+
+> `run.prove_setup` exiting 0 does NOT mean the lap that follows can find what
+> it installed.
+
+Measured on this repository: a fresh clone, `uv venv` and `uv pip install -e
+'.[dev]'` both exit 0, and the very next `wring verify` reports
+
+    /bin/sh: ruff: command not found
+
+— a `lint` gate that never ran, in a copy whose environment had just been built
+successfully. That is F6's own failure class arriving through the hunt's front
+door, and on a bypassed lap it is worse than a red: `health.genuine_failure`
+already discounts 127 because *nothing ran, so nothing discriminated*.
+
+**So the unit lap's environment carries the copy's own tool directory ahead of
+the operator's.** The probe has always done this (`copy_env` in R2 and R7); the
+spec never said it, which is how it would have been left out of the build.
+
+⚑ **This does not weaken §2b and it is not the same fact.** §2b is about which
+SOURCE the interpreter imports (the `.pth`); this is about which BINARIES the
+shell finds. The bypass in §2b survives a correct PATH, and a missing PATH
+survives a correct `.pth`. Two mechanisms, two measurements, both required.
 
 ### Ruling 2c — ONE copy, N laps
 
@@ -381,6 +453,14 @@ named.
 5. **The SUM** (Ruling 9), computed before the first unit runs.
 6. **The unit laps** — `bound ∩ eligible` per unit, restoration verified after
    each (§6).
+7. ⚑ **The CLOSING BASELINE lap** (Ruling 11c) — the full evidence set once
+   more, on the restored copy. Disagreement with step 3 is
+   `inconclusive-lap-coupling`, and no unit state survives it.
+
+⚑ **Inside step 2: SNAPSHOT the prepared copy** (Ruling 11b), after setup and
+before the baseline lap. It belongs to preparing the copy rather than being a
+step of its own, and a rebuild that restores anything but the post-setup state
+is the defect R-H1 exists to close.
 
 The baseline lap closes the **inverted** trap: a broken copy turns every check
 red, every unit would read `evidenced`, and the sweep would report total
@@ -409,28 +489,59 @@ alike. (Derivation D5.)
 at all: it declared the kind, counted it in the denominator, and offered only a
 `git apply -R` that an untracked file has neither header nor hunk for.
 
-### ⚑ Ruling 9 — THE SUM, computed BEFORE the first unit runs (H5)
+### ⚑ Ruling 9 — THE SUM, computed BEFORE the first unit runs (H5, AMENDED by R-H3)
 
 The spec gains the arithmetic as a **precondition**, because neither earlier
-draft did the sum:
+draft did the sum.
 
-> baseline + control + N × bound-set-lap ≤ budget
+> **AMENDED 2026-08-23 by R-H3, and the amendment is the whole term list.**
+> H5's form was `baseline + control + N × bound-set-lap ≤ budget`. Ruling 7's
+> own order puts the clone (1), `prove_setup` (2), the baseline (3) and the
+> control (4) all BEFORE the sum is evaluated (5), so four terms had already
+> been spent when the comparison was made — and the comparison was against the
+> WHOLE budget rather than what remained. `vacuity.SETUP_TIMEOUT_SECONDS` is
+> 900 and `run.hunt_budget_seconds` defaults to 900, so a setup running to its
+> own ceiling consumes the entire budget and the sum could still read "it
+> fits". **Appendix B cannot detect this** — the capstone declares no
+> `prove_setup`, so every omitted term is zero there, and a zero-term blindness
+> is how the last gap hid.
 
-computed **from the lap times the baseline and control laps just measured**, not
-from an estimate. If it does not fit, **PARTIAL is declared UP FRONT** with H6's
-counting: the sweep runs the units it can afford, M stays the true count, and the
-remainder are `unswept`. **Never discovered at the cap mid-sweep.**
+**The sum, in full, and every term counted:**
 
-Measured on the capstone (Appendix B): 2254 + 2254 + 8 × 169 ms = **5.9 s against
-a 900 s budget**. It fits with two orders of magnitude to spare — and the same
-arithmetic on this repository under round 1's design gives 432 + 432 + 40 × 432 ≈
-**18 144 s**, which is the shape H5 removes.
+> clone + `prove_setup` + snapshot + opening baseline + control + N × bound-set-lap
+> + closing baseline + one pessimistic rebuild  ≤  budget × 0.9
 
-⚑ **A rebuild after contamination (§6) is not in the sum.** It cannot be — the
-sum is computed before any check has had the chance to contaminate. Rebuild time
-counts against the wall-clock budget like everything else, so a repository whose
-checks contaminate repeatedly gets a `partial` sweep with the reason recorded,
-never a silently longer one. (Derivation D7.)
+Four things about that line, each of which was a way to be wrong:
+
+1. **`prove_setup`'s term exists even when the repository declares none** — at
+   zero. A term that disappears when it is zero is a term nobody notices when
+   it stops being zero.
+2. **The snapshot's copy cost is in** (Ruling 11b). It is a whole-tree copy
+   including the environment, and on a repository with a large `.venv` it is
+   not small.
+3. **The closing baseline is in** (Ruling 11c) — one extra full-evidence-set
+   lap, which on a slow suite is the largest single addition R-H2 makes.
+4. **The 10% reserve.** Comparing against the whole budget leaves nothing for
+   the rebuild path, and a sweep that runs out of wall clock mid-unit has to
+   discard a measurement it already paid for.
+
+Computed **from the lap times the baseline and control laps just measured**,
+not from an estimate. If it does not fit, **PARTIAL is declared UP FRONT** with
+H6's counting: the sweep runs the units it can afford, M stays the true count,
+and the remainder are `unswept`. **Never discovered at the cap mid-sweep.**
+
+Measured on the capstone (Appendix B) it fits with two orders of magnitude to
+spare. **Measured on this repository (Appendix B2) it does not fit at all** —
+847.7 s of already-spent terms against an 810 s ceiling, before a single unit
+— which is the answer the amended sum exists to produce and the old one could
+not.
+
+⚑ **A rebuild after contamination (§6) is inside the sum as ONE pessimistic
+term, and no further.** The sum is computed before any check has had the
+chance to contaminate, so the true number is unknowable; reserving one is the
+difference between a budget that binds and one that is decoration. A repository
+whose checks contaminate repeatedly gets a `partial` sweep with the reason
+recorded, never a silently longer one. (Derivation D7.)
 
 ### Ruling 10 — the container refusal, and where the shared predicate goes
 
@@ -469,6 +580,93 @@ write does, an unignored new file does.
 The rebuild in Ruling 11 needs something to rebuild from, so the clone of §2
 step 1 is kept pristine and never run in; the working copy is made from it and
 re-made from it on contamination.
+
+> **AMENDED 2026-08-23 by R-H1, in its own words, and this amendment is what
+> round 3's NOT SOUND bought.** *"The rebuild source is the PREPARED SNAPSHOT,
+> never the bare clone."* The clone stays, and it is no longer what a rebuild
+> restores from: R1 measured that a clone carries no environment, so every unit
+> after the first contamination ran checks importing the OPERATOR's tree, with
+> nothing in the record saying so. Ruling 11's *"REBUILT from the pristine
+> clone"* is superseded by Ruling 11b.
+
+### ⚑ Ruling 11b — the snapshot, and the constraint the ruling did not state
+
+*R-H1, folded — and folded with a constraint R-H1 does not contain, because the
+probe measured that the ruling as written does not close the trap.*
+
+**After `prove_setup` runs once in the copy (§2b), the whole prepared copy is
+SNAPSHOT** — tree and environment together. That snapshot, never the bare
+clone, is what every contamination rebuild restores from, so one act restores
+both.
+
+⚑ **And the rebuild restores it to the working copy's OWN absolute path.**
+Measured, three arms, one fixture, one run (`scripts/hunt-mechanism-probe.py`
+R7):
+
+| rebuild source | `.venv` | the next lap imports |
+|---|---|---|
+| the bare clone | absent | **the OPERATOR's tree** |
+| the snapshot, at a DIFFERENT path | present | **the path the snapshot was prepared at** |
+| the snapshot, IN PLACE | present | **the copy** ✓ |
+
+The middle row is round 2's killer wearing a new hat. An editable install's
+`.pth` is ABSOLUTE, so a snapshot of a prepared copy carries a pointer to where
+it was prepared; restore it anywhere else and the interpreter still imports the
+old location. *"A snapshot carries the environment"* is the same sentence as
+*"a copy carries the environment"*, and it is false in the same way — which is
+precisely why it was measured rather than reasoned about.
+
+**So the rebuild is: delete the contaminated working copy, restore the snapshot
+to that same path.** Not "make a fresh copy from the snapshot somewhere
+convenient". The path is load-bearing and the spec says so in one line rather
+than leaving an implementer to find it.
+
+**The snapshot's copy cost is in the sum** (Ruling 9). It is a whole-tree copy
+including `.venv`, and on a repository with a large environment it is the
+largest single term the rebuild path adds.
+
+### ⚑ Ruling 11c — lap independence is an ASSUMPTION, so it is MEASURED (R-H2)
+
+*R-H2, folded — with its ceiling stated, because the probe measured that too.*
+
+Nothing in earlier revisions said a lap is independent of the lap before it,
+and Rulings 7a and 11 deliberately spare gitignored files — 7a so the
+environment survives, 11 so noise does not fire restoration. Together they
+GUARANTEE that every incremental build and test cache carries state from one
+lap into the next, and those caches are what decide what a lap executes.
+
+**Gitignored caches stay spared. The protection is a second baseline:**
+
+> The BASELINE lap re-runs at the sweep's END. If the closing baseline
+> disagrees with the opening baseline, the sweep reports
+> **`inconclusive-lap-coupling`** — and never unit states from a coupled
+> sequence.
+
+One extra full-evidence-set lap, and it is in the sum.
+
+⚑ **This is not hypothetical and the probe demonstrated it on ITSELF.** While
+revision 4 was being written, R6 became intermittently red: `git clean -fd`
+spared the baseline lap's `tests/__pycache__`, CPython invalidates a `.pyc` on
+`(mtime, size)` at ONE-SECOND resolution, and a fast control lap executed the
+BASELINE's compiled test module and reported the baseline's colour. R6 now runs
+the control lap warm and cold and prints both, so the coupling is a measurement
+rather than a flake — and on a run where they disagree it prints
+*"the lap took its colour from the lap before it"*.
+
+⚑ **THE CEILING, and it is stated because a canary whose limits are unsaid
+reads as a guarantee.** Measured in R8, second fixture: a check that caches its
+verdict and never re-reads gives a false green in the UNIT lap **while both
+baselines agree**. The canary compares baselines; it cannot see a coupling that
+never moves one.
+
+    opening 0   unit 0 (a false `unnoticed`)   closing 0   -> canary silent
+
+So `inconclusive-lap-coupling` firing means *this sequence was coupled*; it NOT
+firing does not mean the sequence was independent. **v0 claims exactly the
+first.** Anything stronger — clearing derived caches between laps, requiring
+hash-based invalidation, declaring caches part of restoration — is a ruling
+with a cost against Ruling 7a's reason for sparing ignored files, and it is
+Fable's, on field evidence.
 
 ---
 
@@ -659,6 +857,10 @@ derivations, each owed a guard in the build:
 | ⚑ D9 | the FULL EVIDENCE SET is derived from `planned`, minus optional (§3) | `verify.py:477-480` already carries this exact lesson — *"a hand-kept second copy of 'what was left out'"* — and the sweep must not make a second copy |
 | ⚑ D10 | the untracked unit set is derived through `evidence.untracked_subject` (§1) | a bundle directory must never become a unit of the change |
 | ⚑ D11 | `hunt.json` and `hunt/` join `Bundle._clear_previous` (§9 Ruling 16) | see below — the list this joins is itself hand-kept |
+| ⚑ D12 | the rebuild restores the SNAPSHOT to the copy's own path (§6 Ruling 11b) | a rebuild pointed at the bare clone, and one pointed at a different path, must both be caught — the probe's R7 is the shape, and the build owes the same three arms as a fixture |
+| ⚑ D13 | the closing baseline is the SAME lap as the opening one (§6 Ruling 11c) | a second implementation of "the full evidence set" would let the two baselines differ for a reason that is not coupling, which is a canary that fires on itself |
+| ⚑ D14 | the unit lap's PATH puts the copy's tool directory first (§2 Ruling 2d) | a lap whose tools resolve to the OPERATOR's install must be caught; `ruff: command not found` in a copy whose setup exited 0 is the measured shape |
+| ⚑ D15 | the sum's term list is derived from Ruling 7's ORDER, not hand-kept (§5 Ruling 9) | adding a step to the order must change the sum, or the sum silently stops counting it — which is exactly how R-H3's four missing terms got there |
 
 ⚑ **D6 was ABSENT from this table in the revision that went to review, and it is
 the most load-bearing derivation in the document.** D9, D10 and D11 were absent
@@ -772,3 +974,74 @@ the full evidence set per unit, on this repository's measured 432 s lap and 40-u
 cap — is 432 + 432 + 40 × 432 ≈ **18 144 s against 900 s**. Both earlier drafts had
 the same arithmetic shape and a smaller constant; **neither did the sum**, which is
 why it is now a precondition rather than a hope.
+
+---
+
+## ⚑ Appendix B2 — R-H3's sum on a repository where NO term is zero
+
+*Measured 2026-08-23 on the author's Mac, against this repository at `746afb2`.
+Demanded by R-H3 in its own words: **"Appendix B gains a second worked example
+with NONZERO prove_setup — this repository itself — because the capstone's
+zero-term blindness is how the last gap hid."***
+
+The capstone declares no dependencies and no `prove_setup`, so every term R-H3
+says the sum omitted is **zero** there, and Appendix B fits by a factor of 154
+whether or not the amendment lands. That is what makes it useless as a test of
+the amendment.
+
+**The terms, each timed on the real command:**
+
+| term | ms | how |
+|---|---|---|
+| clone (`git clone --local`) | 2 397 | a full local clone of this repository |
+| `prove_setup` | 623 | `uv venv --python 3.12 && uv pip install -e '.[dev]'` |
+| full evidence set lap | 422 351 | the engine's own `duration_ms`: `lint` 66 + `test` 422 285 |
+| bound check set lap | — | **this repository declares no `proves:` gate** |
+
+**The sum, both ways:**
+
+    H5 as ruled          422 351 + 422 351 + N x bound-lap   <=  900 000
+                         -> "it fits", with N unbounded, because the two
+                            laps are the only terms it counts and it
+                            compares against the whole budget
+
+    R-H3 as amended      2 397 + 623 + 422 351 + 422 351  =  847 722 ms
+                         already spent before the first unit
+                         ceiling with the 10% reserve      =  810 000 ms
+                         -> IT DOES NOT FIT. Not "N is small" — there is no
+                            room for a single unit, and the closing baseline
+                            (Ruling 11c) has not been added yet.
+
+**That difference is the amendment, on one repository, in one table.** The old
+sum reads "it fits" on a repository where the sweep cannot afford to run at
+all.
+
+**Two caveats this capture must carry, both of which make it CONSERVATIVE:**
+
+1. **`prove_setup` at 623 ms is a WARM `uv` cache**, on a machine that has
+   built this environment many times. A cold cache is minutes, not
+   milliseconds — so the real gap between the two sums is wider than the table
+   shows, never narrower. `SETUP_TIMEOUT_SECONDS` is 900 and the default budget
+   is 900 s: a setup running to its own ceiling spends **100%** of the budget,
+   which is R-H3's own example and is reachable on a first run.
+2. **The closing baseline is not in the 847 722.** Adding Ruling 11c's lap
+   takes it to 1 270 073 ms — 141% of the whole budget — which is the honest
+   cost of the protection R-H2 buys and is stated here rather than discovered
+   by an operator.
+
+**What actually happens on this repository, and it fires first.** §3c already
+rules the sweep `inconclusive` here, because `.wringer.yaml` declares no
+`proves:` gate and `bound ∩ eligible` is empty. So this repository never
+reaches the sum — and that is the point of measuring it anyway: **a
+precondition that is unreachable on the one repository whose numbers we know is
+a precondition nobody has run.** The arithmetic above is what the sum WOULD say,
+computed from real lap times, and it is the second worked example R-H3 asked
+for.
+
+**And one thing this appendix found that no ruling covers** — see §2 Ruling 2d.
+The first attempt at this measurement reported `lint` FAILING in the fresh
+clone. The cause was not the code: `prove_setup` had exited 0, and the very
+next gate got `/bin/sh: ruff: command not found`, because a gate spawns with
+`shell=True` and inherits the operator's `PATH` rather than the copy's. The
+term above is 66 ms only because the second attempt put `<copy>/.venv/bin`
+first.
