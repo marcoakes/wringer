@@ -109,6 +109,13 @@ retreat is further down this page, dated, in the place the claim used to be.
 on offer that the rest of these claims are the kind that get withdrawn when
 they fail.
 
+The positioning is a triple and each leg was measured against a different
+competitor's tree: **enforced not instructed** (OpenAI's Codex grades itself
+against a prompt), **executed not judged** (LangChain's deepagents ships a
+grader with read-only tools that cannot run a check), and **a refusal rather
+than exit 0** (both exit 0 either way) — [the measurements, and what happens
+to this claim when they close the gap](docs/enforced-vs-instructed.md).
+
 Every cloud's harness locks you to its runtime, its identity system, its gateway. **Nobody owns the neutral layer.** That's the bet — Kubernetes-vs-managed-containers, replayed one layer up.
 
 <div align="center">
