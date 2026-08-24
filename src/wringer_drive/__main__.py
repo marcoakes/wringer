@@ -205,7 +205,7 @@ ONE_LINE = (
 )
 
 
-def _ask(step, mode: str) -> str:
+def _ask(step, mode: str, repo=None) -> str:
     """Put one step in front of whoever is there, and take their answer.
 
     In `json` mode the driver — an agent — has already been handed the step and
@@ -214,11 +214,16 @@ def _ask(step, mode: str) -> str:
     rendered is stale and is drained unread — leftover text must never answer
     a question, least of all a `confirm`.
 
-    **Two things are added here rather than at each construction site**, so no
-    step can be added later that quietly misses them: every `ask` says that it
-    takes one line, and anything drained is shown rather than dropped in
-    silence.
+    **Three things are added here rather than at each construction site**, so
+    no step can be added later that quietly misses them: every `ask` says that
+    it takes one line, anything drained is shown rather than dropped in
+    silence, and the question is CHECKPOINTED before it renders. The third is
+    LangChain's `interrupt()` ordering, and it is here rather than at the call
+    sites for the same reason as the other two — a step added later inherits
+    it instead of having to remember it.
     """
+    if repo is not None:
+        run_module.checkpoint(repo, step.id)
     stale = _drain_stale_stdin()
     if step.kind == ASK and not step.answering:
         # A CONFIRM already says "Type yes or no" on its own question line.
@@ -268,7 +273,7 @@ NO = ("n", "no")
 CONFIRM_ATTEMPTS = 3
 
 
-def _confirm(step, mode: str) -> bool:
+def _confirm(step, mode: str, repo=None) -> bool:
     """A yes/no, with a THIRD outcome that is neither: ask again.
 
     **A stray line must never be able to spend a person's decision** — field
@@ -285,7 +290,7 @@ def _confirm(step, mode: str) -> bool:
     decision, and a decision needs somebody to have made it.
     """
     for attempt in range(CONFIRM_ATTEMPTS):
-        said = _ask(step, mode).strip().lower()
+        said = _ask(step, mode, repo).strip().lower()
         if said in YES:
             return True
         if said in NO:
@@ -327,6 +332,16 @@ def _run(session: run_module.Session, args) -> int:
     inside = run_module.bring_prd_inside(session, Path(args.prd).resolve())
     _render(session.steps[-1:], mode)
 
+    # Step 0a — say where the last run stopped, if there was one. Rendered
+    # before anything else happens, because a person coming back to a killed
+    # run needs to know they are not starting again — and because an agent
+    # driving this reads one object per line and would otherwise have to infer
+    # a resume from which questions failed to appear.
+    resumed = run_module.resumed_step(repo)
+    if resumed is not None:
+        session.emit(resumed)
+        _render([resumed], mode)
+
     # Step 2 — the workspace, only when there is none. The three things DRIVE
     # may not invent are ASKED for: an endpoint is a network address, a model
     # is a bill, and a worker is a command. Ruling 5 forbids guessing any of
@@ -334,7 +349,7 @@ def _run(session: run_module.Session, args) -> int:
     if run_module.needs_workspace(repo):
         answers = {}
         for question in run_module.SETUP_QUESTIONS:
-            said = _ask(question, mode)
+            said = _ask(question, mode, repo)
             if not said:
                 raise run_module.Stop(
                     run_module.Step(
@@ -363,7 +378,7 @@ def _run(session: run_module.Session, args) -> int:
 
     # Step 4 — the interview. One question at a time, in the drafter's words.
     for step in run_module.questions_to_ask(repo):
-        answer = _ask(step, mode)
+        answer = _ask(step, mode, repo)
         if not answer:
             raise run_module.Stop(
                 run_module.Step(
@@ -394,7 +409,20 @@ def _run(session: run_module.Session, args) -> int:
     if recorded is not None:
         session.emit(recorded)
         _render([recorded], mode)
-        if not _confirm(run_module.answers_confirm_step(), mode):
+        # **The one question a resume does not re-ask, and the reason it is
+        # the only one.** Ruling 2 says in this file's own words that this
+        # confirm is NOT an approval — it asks whether the RECORD is right and
+        # authorises nothing. The approval below is asked live on every run
+        # whatever the resume record says, because a recorded yes answering a
+        # later run's approval would be the file-driven authorisation ruling
+        # 2a forbids. The skip is invalidated by the answers themselves: the
+        # digest is over what the read-back rendered, so changing any answer
+        # brings the question straight back.
+        if run_module.answers_already_confirmed(repo):
+            unchanged = run_module.answers_unchanged_step()
+            session.emit(unchanged)
+            _render([unchanged], mode)
+        elif not _confirm(run_module.answers_confirm_step(), mode, repo):
             raise run_module.Stop(
                 run_module.Step(
                     kind="stopped",
@@ -407,6 +435,8 @@ def _run(session: run_module.Session, args) -> int:
                 ),
                 exit_code=0,
             )
+        else:
+            run_module.record_answers_confirmed(repo)
 
     # Step 5 — the plan, verbatim. Step 6 — the approval, asked by this
     # process, after this process rendered the plan.
@@ -414,7 +444,9 @@ def _run(session: run_module.Session, args) -> int:
     session.emit(plan)
     _render([plan], mode)
 
-    run_module.approve(repo, answered_yes=_confirm(run_module.approval_step(), mode))
+    run_module.approve(
+        repo, answered_yes=_confirm(run_module.approval_step(), mode, repo)
+    )
 
     remaining = interview.unanswered(repo)
     if remaining:
@@ -454,7 +486,7 @@ def _run(session: run_module.Session, args) -> int:
         # Step 7a — a check that already passes today is named HERE, before the
         # yes, because at the handover it is five seconds too late. Running a
         # model-authored command needs its own permission: see `trial_step`.
-        if _confirm(run_module.trial_step(proposal), mode):
+        if _confirm(run_module.trial_step(proposal), mode, repo):
             tried = run_module.proposed_gates(repo, proposal)
             found = run_module.trial_result_step(
                 tried, run_module.already_passing(repo, tried)
@@ -464,7 +496,7 @@ def _run(session: run_module.Session, args) -> int:
         run_module.install_gates(
             repo,
             proposal,
-            answered_yes=_confirm(run_module.gate_approval_step(proposal), mode),
+            answered_yes=_confirm(run_module.gate_approval_step(proposal), mode, repo),
         )
     else:
         # No diff, and the THREE reasons for that are not the same news. Said
@@ -499,8 +531,14 @@ def _run(session: run_module.Session, args) -> int:
     _render([board], mode)
 
     run_module.deliver(
-        repo, answered_yes=_confirm(run_module.delivery_step(), mode)
+        repo, answered_yes=_confirm(run_module.delivery_step(), mode, repo)
     )
+
+    # **Cleared only here.** A run that STOPPED keeps its record, because a
+    # stop is exactly when somebody comes back — and the next run's first
+    # sentence should say where they had got to. A finished run has nothing to
+    # resume to.
+    run_module.clear_resume(repo)
 
     final = run_module.final_step(repo, run_module.render_board(repo))
     session.emit(final)

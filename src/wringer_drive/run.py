@@ -33,6 +33,44 @@ from wringer_drive.steps import ASK, CONFIRM, DONE, SHOW, STOPPED, Step
 DRIVE_DIRNAME = Path(".wringer") / "drive"
 PRD_FILENAME = "prd.md"
 
+# --- the resume record (SPEC_DRIVE_V0 ruling 7, §8's condition discharged) --
+#
+# **§8 answered "the session record earns nothing" in 2026-08-17, and this is
+# the demonstration it asked for.** The condition was written as the builder's
+# to answer — *"demonstrated rather than assumed, or ruling 7 is deleted"* —
+# and the demonstration is a MEASUREMENT, not an argument. Two real runs of
+# this verb, the first killed at the approval:
+#
+#     run 1  prd-copied . question:which-columns . answers-recorded .
+#            answers-ok . plan . approve . stopped:nobody-there
+#     run 2  prd-copied . answers-recorded . answers-ok . stopped
+#
+# The resumed run does not land on the approval. It lands one step EARLIER,
+# on the read-back the person already confirmed, and nothing anywhere says
+# where they had got to. Re-asking a question somebody has answered is how a
+# person learns to type `yes` without reading it, and the question after this
+# one is the approval — so the training happens directly in front of the
+# interlock. Nothing the chain already writes records this: the loop bundle
+# and the spec know what was APPROVED, and neither knows what was CONFIRMED
+# or where a run stopped.
+#
+# LangChain's `interrupt()` is the shape (`~/Claude/WRINGER_DEEPAGENTS_
+# DOSSIER_2026-08-23.md` section 3.2): checkpoint the state BEFORE asking, so
+# the process may die and the resume replays to the same question.
+#
+# **It resumes TO a question and never PAST one.** The approval is asked live
+# on every run, whatever this file says — a recorded yes answering a later
+# run's approval would be the file-driven authorisation ruling 2a forbids.
+# What the record removes is the re-asking of `answers-ok`, which ruling 2
+# states in the code is NOT an approval and authorises nothing, and it is
+# removed only while the answers are byte-identical to the ones that were
+# confirmed. Change any answer and the question comes back.
+RESUME_FILENAME = "resume.json"
+
+#: `wringer-drive`'s own, in its own directory. It spends no version of any
+#: engine schema and adds no field to a frozen one (ruling 7).
+RESUME_SCHEMA = "wringer.driveresume.v1"
+
 # The engine verbs this package drives, and the refusal FAMILIES each can put
 # in front of an operator. Declared here and checked against the source by
 # `test_the_reachable_refusal_families_are_derived_from_what_DRIVE_DRIVES`, so
@@ -592,6 +630,118 @@ def answers_recorded_step(repo: Path) -> Step | None:
         text="These are your answers, exactly as they are recorded:\n\n"
         + "\n".join(lines),
         detail={"answers": {q.id: q.answer for q in answered}},
+    )
+
+
+def resume_path(repo: Path) -> Path:
+    return repo / DRIVE_DIRNAME / RESUME_FILENAME
+
+
+def read_resume(repo: Path) -> dict:
+    """What the last run left behind, or `{}`.
+
+    Unreadable is the same as absent, deliberately. This file makes a resumed
+    run gentler; it can never make one proceed, so a corrupted one must cost
+    a person nothing more than the question they were going to be asked
+    anyway.
+    """
+    try:
+        found = json.loads(resume_path(repo).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(found, dict) or found.get("schema") != RESUME_SCHEMA:
+        return {}
+    return found
+
+
+def _write_resume(repo: Path, **fields: object) -> None:
+    record = read_resume(repo)
+    record["schema"] = RESUME_SCHEMA
+    record.update(fields)
+    path = resume_path(repo)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+
+
+def checkpoint(repo: Path, step_id: str) -> None:
+    """Record the question about to be put in front of the person.
+
+    **Before it renders, not after it is answered** — that ordering is the
+    whole mechanism. A record written after the answer knows about questions
+    that were answered and nothing about the one the process died on, which
+    is the only one a resume needs.
+    """
+    _write_resume(repo, last_question=str(step_id))
+
+
+def clear_resume(repo: Path) -> None:
+    """Only on a finished run. A stop LEAVES it, because a stop is exactly
+    when somebody will come back."""
+    try:
+        resume_path(repo).unlink()
+    except OSError:
+        pass
+
+
+def answers_digest(repo: Path) -> str | None:
+    """A digest of every recorded answer, or None when there are none.
+
+    Over the answers the READ-BACK renders, so what is digested is what the
+    person was shown. Digesting the spec file instead would invalidate a
+    confirmation whenever anything else in it moved, and digesting an
+    in-memory copy would agree with itself — which is the divergence the
+    read-back exists to catch.
+    """
+    import hashlib
+
+    step = answers_recorded_step(repo)
+    if step is None:
+        return None
+    answers = step.detail.get("answers") or {}
+    canonical = json.dumps(answers, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def answers_already_confirmed(repo: Path) -> bool:
+    """Whether THESE answers, unchanged, were confirmed by an earlier run."""
+    digest = answers_digest(repo)
+    if digest is None:
+        return False
+    return read_resume(repo).get("answers_confirmed_sha256") == digest
+
+
+def record_answers_confirmed(repo: Path) -> None:
+    _write_resume(repo, answers_confirmed_sha256=answers_digest(repo))
+
+
+def resumed_step(repo: Path) -> Step | None:
+    """Where the last run stopped, said out loud, or None on a first run."""
+    last = read_resume(repo).get("last_question")
+    if not last:
+        return None
+    return Step(
+        kind=SHOW,
+        id="resuming",
+        text="This project has been driven before. The last run stopped at "
+        f"'{last}', and nothing before that is being done again — your "
+        "answers and the plan are already recorded. Anything that needs your "
+        "permission is still asked, every time.",
+        detail={"last_question": last},
+    )
+
+
+def answers_unchanged_step() -> Step:
+    """Said instead of re-asking, so the skip is never silent.
+
+    A question that quietly stops being asked is indistinguishable from one
+    that was answered for you.
+    """
+    return Step(
+        kind=SHOW,
+        id="answers-already-confirmed",
+        text="You confirmed these answers on an earlier run and none of them "
+        "has changed, so they are not being read back for a second yes. "
+        "Change any answer and this question comes back.",
     )
 
 
