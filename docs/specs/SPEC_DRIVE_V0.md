@@ -575,6 +575,37 @@ make a demo look better.**
       run is reconstructible from what the chain already writes: the loop
       bundle, the run bundles, the refusal record and the spec. Nothing in
       steps 0–10 needed a record of DRIVE's own, and none was added.
+
+      > **AMENDED 2026-08-23 — the condition is discharged the other way, and
+      > the tick above stands as what was true then.** This item made the
+      > demonstration the builder's to produce, and one was produced: two real
+      > runs of this verb, the first killed at the approval. The resumed run
+      > lands on `answers-ok` — the read-back the person already confirmed,
+      > one step BEFORE the approval — and nothing says where they had got to.
+      >
+      >     run 1  prd-copied · question · answers-recorded · answers-ok ·
+      >            plan · approve · stopped:nobody-there
+      >     run 2  prd-copied · answers-recorded · answers-ok · stopped
+      >
+      > The 2026-08-17 answer is right about RECONSTRUCTION and that is not
+      > the gap. The loop bundle and the spec know what was APPROVED; neither
+      > knows what was CONFIRMED, or which question a run died on. Re-asking a
+      > question somebody answered is how a person learns to type `yes`
+      > without reading it, and the question immediately after this one is the
+      > approval.
+      >
+      > So `.wringer/drive/resume.json` is written — `wringer.driveresume.v1`,
+      > in this package's own directory, spending no engine schema version and
+      > adding no field to a frozen one. **Ruling 7 stands.**
+      >
+      > **The line, because it is the part worth overturning if it is wrong:**
+      > the record resumes TO a question and never PAST one. It may skip
+      > `answers-ok`, which ruling 2 states in the source is not an approval;
+      > it may never answer `approve`, the trial, the gate approval or
+      > `deliver`, each of which is asked live on every run whatever is on
+      > disk. `tests/drive/test_drive_resume.py` holds that structurally and
+      > by execution, and the mutation that crosses it — the record answering
+      > the approval — was watched going red.
 - [x] The finish report states the PM-mode number **in one sentence a PM
       could read**, and says what drove it.
 
