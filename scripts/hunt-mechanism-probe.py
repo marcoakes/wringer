@@ -31,7 +31,7 @@ What it answers:
       noise?
   R6  Does H1's eligibility rule read the environment bypass, both directions?
 
-**Extended 2026-08-23, round 4, for the region that returned NOT SOUND.** R1–R6
+**Extended 2026-08-24, round 4, for the region that returned NOT SOUND.** R1–R6
 measure the mechanism and the round-3 review agreed the mechanism holds. What
 it killed was the LIFECYCLE BETWEEN LAPS — the one region nothing here
 exercised, which is exactly why it survived to a third round. R7–R9 measure

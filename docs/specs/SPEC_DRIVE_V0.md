@@ -576,7 +576,7 @@ make a demo look better.**
       bundle, the run bundles, the refusal record and the spec. Nothing in
       steps 0–10 needed a record of DRIVE's own, and none was added.
 
-      > **AMENDED 2026-08-23 — the condition is discharged the other way, and
+      > **AMENDED 2026-08-24 — the condition is discharged the other way, and
       > the tick above stands as what was true then.** This item made the
       > demonstration the builder's to produce, and one was produced: two real
       > runs of this verb, the first killed at the approval. The resumed run

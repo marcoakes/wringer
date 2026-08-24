@@ -55,7 +55,7 @@ endpoint. Neither is a guess and neither is a working row.
 ## The agents whose vendor is not a model vendor
 
 The matrix above is keyed on VENDOR, and that shape carries an assumption this
-page held silently until 2026-08-23: **that a coding agent belongs to the
+page held silently until 2026-08-24: **that a coding agent belongs to the
 company whose model it runs.** `dcode` breaks it. LangChain ships the agent,
 ships no model, and the credential the agent wants is somebody else's. There
 is no honest cell for it in the matrix — LangChain has no brain lane at all,

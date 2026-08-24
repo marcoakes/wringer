@@ -108,7 +108,7 @@ more.
 
 *Correction below the capture, not an edit to it (Law 8).*
 
-**2026-08-23, same day — the OWED in RUNS 1/2 is PAID.** The probe's
+**2026-08-24, the next day — the OWED in RUNS 1/2 is PAID.** The probe's
 `BrokenPipeError` on a credential-less agent is fixed: `scripts/acp-auth-probe.py`
 now reports `agent_died_at` and `agent_exit_code` and prints the agent's own
 sentence from `stderr_tail`, instead of raising out of `probe()`. The crash was

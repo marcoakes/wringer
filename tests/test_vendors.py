@@ -17,7 +17,7 @@ Three properties, each of which was a real way to lie:
    doctor`'s own key-name list are all held to the SAME vendor set, so a
    vendor cannot be half-added.
 
-**Extended 2026-08-23, when a worker arrived that the matrix's own shape could
+**Extended 2026-08-24, when a worker arrived that the matrix's own shape could
 not carry.** `dcode` is LangChain's agent and LangChain ships no model, so the
 vendor×lane matrix has no honest cell for it: a brain row would have to invent
 a fifth status for a lane that vendor does not have. It gets a second table,
@@ -187,7 +187,7 @@ def test_a_MEASURED_WORKING_agent_LINKS_A_CAPTURE_THAT_EXISTS():
 def test_NO_AGENT_IS_LISTED_ABOVE_ANY_OTHER():
     """**Vacuous today and said so on purpose**: one row is in order however
     it is written, so this guard cannot fail until a second agent arrives —
-    which is exactly the edit it is here to meet. Red-watched 2026-08-23 by
+    which is exactly the edit it is here to meet. Red-watched 2026-08-24 by
     adding a second row out of order."""
     seen = [row["agent"] for row in agent_rows()]
     assert seen == sorted(seen), f"the agent table is not alphabetical: {seen}"

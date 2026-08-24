@@ -35,6 +35,8 @@ PRD_FILENAME = "prd.md"
 
 # --- the resume record (SPEC_DRIVE_V0 ruling 7, §8's condition discharged) --
 #
+# Built 2026-08-24.
+#
 # **§8 answered "the session record earns nothing" in 2026-08-17, and this is
 # the demonstration it asked for.** The condition was written as the builder's
 # to answer — *"demonstrated rather than assumed, or ruling 7 is deleted"* —

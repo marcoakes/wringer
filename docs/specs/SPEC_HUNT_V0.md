@@ -4,7 +4,8 @@
 `WRINGER_HUNT_RUN_PROMPT_2026-08-22.md` §2. **Revision 4**, folding R-H1–R-H4
 (`~/Claude/WRINGER_ALLIN_RUN_PROMPT_2026-08-23.md` §2, BINDING) on top of
 H1–H6, the ceiling amendment and the endorsements of
-`~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md`. Grounded at `main` `746afb2`.*
+`~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md`. **Revision 4 folded 2026-08-24**;
+grounded at `main` `746afb2`.*
 
 > ## STATUS — **BLOCKED until a fourth review passes. Reviewed three times, NOT SOUND three times.**
 >
@@ -234,7 +235,7 @@ before any check runs. (Derivation D3.)
 
 ### ⚑ Ruling 2a-i — a partially staged (`MM`) file is `inconclusive-staging`, by name (R-H4)
 
-*Folded 2026-08-23 from R-H4. Measured by the round-3 review (§2.6) and again
+*Folded 2026-08-24 from R-H4. Measured by the round-3 review (§2.6) and again
 by this spec's own probe, R9.*
 
 `git add` stages WORKTREE content, so a candidate built with `git add -p` —
@@ -284,7 +285,7 @@ kept.
 
 ### ⚑ Ruling 2d — the lap's PATH, which is not a file in the tree
 
-*Added 2026-08-23. Found by measurement while building Appendix B2, not by
+*Added 2026-08-24. Found by measurement while building Appendix B2, not by
 reading, and it is the third distinct thing this feature has learned about the
 word "environment".*
 
@@ -494,7 +495,7 @@ at all: it declared the kind, counted it in the denominator, and offered only a
 The spec gains the arithmetic as a **precondition**, because neither earlier
 draft did the sum.
 
-> **AMENDED 2026-08-23 by R-H3, and the amendment is the whole term list.**
+> **AMENDED 2026-08-24 by R-H3, and the amendment is the whole term list.**
 > H5's form was `baseline + control + N × bound-set-lap ≤ budget`. Ruling 7's
 > own order puts the clone (1), `prove_setup` (2), the baseline (3) and the
 > control (4) all BEFORE the sum is evaluated (5), so four terms had already
@@ -581,7 +582,7 @@ The rebuild in Ruling 11 needs something to rebuild from, so the clone of §2
 step 1 is kept pristine and never run in; the working copy is made from it and
 re-made from it on contamination.
 
-> **AMENDED 2026-08-23 by R-H1, in its own words, and this amendment is what
+> **AMENDED 2026-08-24 by R-H1, in its own words, and this amendment is what
 > round 3's NOT SOUND bought.** *"The rebuild source is the PREPARED SNAPSHOT,
 > never the bare clone."* The clone stays, and it is no longer what a rebuild
 > restores from: R1 measured that a clone carries no environment, so every unit
@@ -979,7 +980,7 @@ why it is now a precondition rather than a hope.
 
 ## ⚑ Appendix B2 — R-H3's sum on a repository where NO term is zero
 
-*Measured 2026-08-23 on the author's Mac, against this repository at `746afb2`.
+*Measured 2026-08-24 on the author's Mac, against this repository at `746afb2`.
 Demanded by R-H3 in its own words: **"Appendix B gains a second worked example
 with NONZERO prove_setup — this repository itself — because the capstone's
 zero-term blindness is how the last gap hid."***

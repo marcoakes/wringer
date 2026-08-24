@@ -389,7 +389,8 @@ def _auth_probe_module():
 
 
 def test_THE_PROBE_REPORTS_AN_AGENT_THAT_DIED_INSTEAD_OF_CRASHING():
-    """**Measured 2026-08-23, against `dcode --acp` with no credential.**
+    """**Measured 2026-08-23 against `dcode --acp` with no credential; fixed
+    2026-08-24.**
 
     The agent exits 1 before any protocol exchange, so `initialize` went into
     a pipe with no reader and the probe raised `BrokenPipeError` out of

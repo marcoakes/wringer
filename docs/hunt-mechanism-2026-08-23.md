@@ -306,7 +306,7 @@ review are for.
 
 ---
 
-## FOURTH MEASUREMENT — 2026-08-23, the lifecycle between laps (round 4)
+## FOURTH MEASUREMENT — 2026-08-24, the lifecycle between laps (round 4)
 
 *Added below rather than folded in, per Law 8. The three measurements above
 stand as what was printed then; this is what the SAME script prints now that

@@ -13,7 +13,7 @@ below `session/prompt` returns the same bytes signed in or signed out. That
 finding stands and it is about ACP. It says nothing about the agent's OWN
 command line, which is not ACP — and that is the surface this reads.
 
-**The preflight ladder, and its third measured rung (2026-08-23).** Agents do
+**The preflight ladder, and its third measured rung (recorded 2026-08-24).** Agents do
 not all hide their credential state in the same place, and the census now has
 three shapes, each measured on a real binary rather than reasoned from a
 protocol:

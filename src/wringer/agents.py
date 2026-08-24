@@ -14,7 +14,7 @@ documents that said `wring start` would install with consent. Three reasons,
 the first decisive: the program already promises the opposite in shipped
 strings a user can read — `cli.py`, `loop.py` and `bench.py` all say "Wringer
 never installs an agent" in a message an operator sees. (**Corrected
-2026-08-23**, by `tests/test_spec_citations.py` rather than by a reader: this
+2026-08-24**, by `tests/test_spec_citations.py` rather than by a reader: this
 paragraph used to cite `config.py`'s "Wringer never bundles or installs one"
 and `acp.py`'s promise, and **neither string is in the tree any more**. The
 promise is live at the three sites named; the pointer had rotted, and a

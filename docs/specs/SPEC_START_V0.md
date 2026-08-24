@@ -243,7 +243,7 @@ It never installs anything, and it never assumes.**
    wrong trade, and law 8's spirit is that we correct claims rather than
    quietly contradict them.
 
-   > **CORRECTED 2026-08-23, by the citation guard rather than by a reader.**
+   > **CORRECTED 2026-08-24, by the citation guard rather than by a reader.**
    > This reason originally cited `config.py` lines 773-775 — "Wringer never
    > bundles or installs one" — and `acp.py` lines 276-277 — "Wringer never
    > installs an agent — install the one you declared". **Neither string is

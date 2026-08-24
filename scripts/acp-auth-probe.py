@@ -92,8 +92,9 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
     def send(payload: dict) -> bool:
         """Write one JSON-RPC line, or report that there is nobody to write to.
 
-        **The probe's own defect, found 2026-08-23 by pointing it at a new
-        agent.** `dcode --acp` with no credential exits 1 *before* the
+        **The probe's own defect, found 2026-08-23 and fixed 2026-08-24, by
+        pointing it at a new agent.** `dcode --acp` with no credential exits 1
+        *before* the
         handshake, so `initialize` went into a pipe with no reader and
         `session/new` raised `BrokenPipeError` out of `probe()` — a traceback
         where the answer should have been. An instrument that crashes when the

@@ -2,7 +2,7 @@
 
 *The longer form of the sentence in the README's top fold. Written 2026-08-22,
 after a teardown of OpenAI's Codex found Wringer's own thesis already written
-down — as a prompt. **Extended 2026-08-23**, after a teardown of LangChain's
+down — as a prompt. **Extended 2026-08-24**, after a teardown of LangChain's
 deepagents found the same thesis SHIPPED — as a judge.*
 
 ## The claim, in one line
@@ -91,7 +91,7 @@ argument.
 
 ### What was measured, in the other direction
 
-The same week this page was extended, `wring verify` was installed as a Stop
+The day this page was extended, `wring verify` was installed as a Stop
 hook inside `dcode` — LangChain's own harness — and **blocked its agent from
 finishing on an unproven change**, then let it finish when the check passed.
 Same agent, same prompt, one variable. That capture is

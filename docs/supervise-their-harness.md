@@ -1,7 +1,7 @@
 # Supervise their harness — `wring verify` as a Stop hook
 
-*Measured 2026-08-23 on the author's Mac against `deepagents-code 0.1.59`.
-The capture below is what the commands printed. Law 8: this page is not
+*Measured 2026-08-24 on the author's Mac against `deepagents-code 0.1.59`
+(installed 2026-08-23). The capture below is what the commands printed. Law 8: this page is not
 edited to match a later tree; a correction goes below it with a date.*
 
 Claude Code and LangChain's `dcode` speak the same hook wire, closely enough
