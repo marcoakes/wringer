@@ -4,6 +4,110 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.3 — 2026-08-24
+
+**Published.** `uv tool install wringer` gets it. Same release ordering as
+0.4.2 — one commit for the literal, the two documents that name the released
+version and this date; then the tag locally; then `ci-repro` green with the
+tag present; then `git push origin main vX.Y.Z`.
+
+### A killed drive run comes back to the question it died on
+
+`wringer-drive` writes `.wringer/drive/resume.json` (`wringer.driveresume.v1`,
+its own schema, in its own directory — no engine schema version spent, no
+field added to a frozen one). A run interrupted at the approval now resumes AT
+the approval, against the same rendered plan, and says where the last run
+stopped.
+
+**The gap was measured before anything was built**, because `SPEC_DRIVE_V0` §8
+had already answered "the session record earns nothing" and reversing that on
+an argument would have been the wrong kind of confidence. Two real runs, the
+first killed at the approval: the resumed run landed one step BEFORE it, on
+the read-back the person had already confirmed, and nothing said where they
+had got to. Re-asking a question somebody answered is how a person learns to
+type `yes` without reading it — and the question immediately after that one is
+the approval.
+
+**It resumes TO a question and never PAST one.** The read-back is the only
+question the record may skip, and only because ruling 2 states in the source
+that it is not an approval. The approval, the trial, the gate approval and the
+delivery are asked live on every run whatever is on disk; a structural guard
+fails if that ever widens. The skip dies with the answers it confirmed — a
+`wringer-board revise` brings the question straight back — and both the skip
+and the resume are spoken, because a question that quietly stops being asked
+is indistinguishable from one that was answered for you.
+
+### Supervise somebody else's harness with `wring verify`
+
+`scripts/wring-verify-stop-hook.py` plus `docs/supervise-their-harness.md`: a
+Stop hook that blocks an agent from finishing on an unproven change, with the
+failing check named. Measured against LangChain's `dcode`, as a
+single-variable control — same agent, same hook, same prompt, told to do
+nothing. Check RED: it was blocked and went and built the feature. Check
+GREEN: it said `ok` and stopped. It fails CLOSED, and the page states what it
+cannot promise: the harness caps Stop continuations, so a hook makes an agent
+try and cannot make it impossible to stop.
+
+### `docs/vendors.md` carries a second measured worker
+
+`dcode` (LangChain) is `MEASURED-WORKING` on the worker lane. The matrix could
+not carry it — it is keyed on vendor and LangChain ships no model — so the
+page gained a second table with the reason written down, guarded harder than
+the first: a row's credential may name only a variable the linked capture
+shows a real run declaring.
+
+**Two different vendors' agents have now converged the same example under the
+same judge, gates and boundary.**
+
+### Guards, and three of them were wrong first
+
+- **A timeout never grants.** Six surfaces driven into their own ceilings: a
+  gate that traps its termination and exits 0 is still not passed; a judge
+  that never answers raises rather than returning a body; an auth probe that
+  hangs is never `logged_in`; a closed stream is never a yes; a mute agent's
+  turn never completes; a `prove_setup` that runs out of time is not `ok`. The
+  SET of wait ceilings is derived from `src/`, so a new one fails until
+  somebody says which kind it is.
+- **Fail-closed.** An unimplemented ACP method is refused rather than answered
+  `{}`; a write escaping the repository is refused AND recorded; an undeclared
+  config key is a `ConfigError`; an unreadable judge reply is `needs_human`; a
+  criterion the model skipped stays unscored. Wringer's one auto-approve —
+  `session/request_permission` — is asserted to leave a ledger line naming
+  what was approved.
+- **The forward path.** A worker's environment read out of the CHILD; the
+  judge's whole outbound request captured, so "only in the Authorization
+  header" is measured against the URL and body too; `--env NAME` and never
+  `NAME=VALUE`. Every module that starts a process is classified as building
+  its child's environment or inheriting with a stated reason.
+- **Spec citations.** Every `file:line` in `docs/specs/` is checked against the
+  tree. It found eight defects on its first run, including a binding spec whose
+  decisive reason cited two shipped strings that are no longer anywhere in
+  `src/`.
+
+`scripts/acp-auth-probe.py` no longer raises `BrokenPipeError` when the agent
+it is measuring exits at startup — it reports which step it died at, its exit
+code, and the agent's own sentence.
+
+### The hunt is STOPPED, and nothing about it shipped
+
+`docs/specs/SPEC_HUNT_V0.md` was revised a fourth time, reviewed a fourth
+time, and returned **NOT SOUND** a fourth time. **No sweep was built**, no
+command was added, and no behaviour in this release comes from it. The spec's
+own header says so, and four decisions are recorded as owed.
+
+It is in this changelog because the release carries the revision and the
+verdict, and because the finding is worth a reader's minute: a check that
+writes OUTSIDE the sweep's working copy would produce false `evidenced` rows
+that every net in the design misses at once — a false proved-red, which this
+project ruled worse than an uncovered criterion, manufactured by the feature
+built to kill that class. Four rounds, four mechanisms measured, nothing
+shipped on a maybe.
+
+### No schema moved
+
+`wringer.driveresume.v1` is new and belongs to `wringer-drive`. Nothing in
+`schema/frozen.json` changed a byte, and there is no twentieth command.
+
 ## 0.4.2 — 2026-08-22
 
 **Published.** `uv tool install wringer` gets it. Same release ordering as
