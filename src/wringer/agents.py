@@ -12,8 +12,13 @@ an argv — docs/specs/SPEC_START_V0.md §3c-i, confirmed by Marc on 2026-08-06,
 against two
 documents that said `wring start` would install with consent. Three reasons,
 the first decisive: the program already promises the opposite in shipped
-strings a user can read (`config.py`'s "Wringer never bundles or installs one",
-`acp.py`'s "Wringer never installs an agent"). Falsifying two live error
+strings a user can read — `cli.py`, `loop.py` and `bench.py` all say "Wringer
+never installs an agent" in a message an operator sees. (**Corrected
+2026-08-23**, by `tests/test_spec_citations.py` rather than by a reader: this
+paragraph used to cite `config.py`'s "Wringer never bundles or installs one"
+and `acp.py`'s promise, and **neither string is in the tree any more**. The
+promise is live at the three sites named; the pointer had rotted, and a
+second-hand quote is how a claim outlives its evidence.) Falsifying live error
 messages to save one paste is the wrong trade. This module deliberately
 imports nothing that can start a process, so the guarantee is structural
 rather than a promise not to; a test asserts that.

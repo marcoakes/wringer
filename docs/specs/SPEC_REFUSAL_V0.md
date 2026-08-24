@@ -603,7 +603,7 @@ it.
 `accept.py` at `d23d7ca`. The witness lane added a fifth, and it was found on
 real data rather than by reading: the board's own tests recorded it and wrote
 *"Naming it a fifth cause with its own sentence is S2's job, not S1's"*
-(`wringer-board/tests/test_real_bundles.py:79-96`). OQ-1 adds three more, for
+(`tests/board/test_real_bundles.py:79-96`). OQ-1 adds three more, for
 `human` rows.
 
 **`cause` is ONE closed enum of eight values**, not two vocabularies. The
@@ -690,9 +690,9 @@ false when its sibling is corrected. Named, so they age in the open:
 | `SPEC_BOARD_V0.md:739` | OQ-5's own text: *"the two integrity values are in no collection and no schema enum"* |
 
 And the code half the drafted §7 prescribed as future board work **has already
-landed**: `wringer-board/src/wringer_board/refusals.py:45-48` states that the
+landed**: `src/wringer_board/refusals.py:45-48` states that the
 exemption "is discharged … enumerated like their two siblings and the exemption
-is gone", and `wringer-board/tests/test_refusals.py:155` reads
+is gone", and `tests/board/test_refusals.py:155` reads
 `frozenset(sign.INTEGRITY_STATES)`. So what is owed is four documentary
 corrections in `SPEC_BOARD_V0.md`, which this cycle **names and does not do** —
 board-spec work, listed here so the next board window inherits a list rather
@@ -820,8 +820,8 @@ in this cycle, which is the opposite of why R1 is first.)
 > ruled on should stay legible beside the version that was built.
 
 **R2 does not land until a `wringer-board` slice adds `wringer.acceptance.v3`
-to `KNOWN_ACCEPTANCE` (`wringer-board/src/wringer_board/read.py:32`) and
-teaches `cards._unevidenced` (`wringer-board/src/wringer_board/cards.py:199`)
+to `KNOWN_ACCEPTANCE` (`src/wringer_board/read.py:32`) and
+teaches `cards._unevidenced` (`src/wringer_board/cards.py:199`)
 to prefer the engine's `cause` field over prose matching.** Today `read.py:32`
 is `("wringer.acceptance.v1", "wringer.acceptance.v2")` and
 `read.py:486-487` raises `UnknownVersion` on anything else — deliberately: the

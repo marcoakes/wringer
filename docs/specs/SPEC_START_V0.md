@@ -236,11 +236,32 @@ It never installs anything, and it never assumes.**
 **This spec does not install.** Three reasons, the first decisive:
 
 1. **The program already promises the opposite, in shipped strings a user can
-   read.** `config.py:773-775` — *"Wringer never bundles or installs one"*;
-   `acp.py:276-277` — *"Wringer never installs an agent — install the one you
-   declared"*. Falsifying two live error messages to save one paste is the
+   read.** `cli.py:855` — *"Wringer never installs an agent. Running your
+   package manager is a larger power than launching a build, and this command
+   was not granted it."* — and the same promise at `loop.py:538` and
+   `bench.py:415`. Falsifying live error messages to save one paste is the
    wrong trade, and law 8's spirit is that we correct claims rather than
    quietly contradict them.
+
+   > **CORRECTED 2026-08-23, by the citation guard rather than by a reader.**
+   > This reason originally cited `config.py` lines 773-775 — "Wringer never
+   > bundles or installs one" — and `acp.py` lines 276-277 — "Wringer never
+   > installs an agent — install the one you declared". **Neither string is
+   > in the tree.** `config.py` line 773 is now an unknown-key refusal and
+   > `acp.py` line 276 is inside the response loop; the "bundles or installs"
+   > phrasing survives nowhere in `src/` except second-hand, in
+   > `agents.py:15`, which quotes it as if a user could still read it.
+   >
+   > **The reason is unharmed and the evidence for it moved.** The promise is
+   > live at the three sites above, in a user-facing message, and `wring
+   > start` still does not install — that behaviour is guarded structurally by
+   > `tests/test_start.py`'s `test_the_agent_table_cannot_run_anything`, which
+   > is a stronger thing than a sentence. What was false was the pointer, and
+   > this is a decisive reason in a binding spec, so it is corrected by dated
+   > note rather than silently repaired.
+   >
+   > Found by `tests/test_spec_citations.py`, on the day that guard was
+   > written, in the first document it was pointed at.
 2. **`SETUP.md:83-88` makes installing a runtime a stop condition** for the
    agent doing setup. It would be strange for the tool to take a power its
    own runbook denies the agent.
@@ -361,9 +382,10 @@ condition under which it opens a socket: the user asked it to clone.
 
 2. **§3c-i stands — `wring start` does NOT install an agent.** Marc confirmed
    2026-08-06. It names the agent and prints the exact install command; the
-   human runs it. The two shipped error strings promising Wringer never
-   installs one (`config.py:773-775`, `acp.py:276-277`) therefore stay true
-   and must not be rewritten. `SPEC_ACP_V0.md:47-48`'s parenthetical is
+   human runs it. The shipped error strings promising Wringer never installs
+   one (`cli.py:855`, `loop.py:538`, `bench.py:415` — see the dated note in
+   §3 for the two citations these replaced and why) therefore stay
+   true and must not be rewritten. `SPEC_ACP_V0.md:47-48`'s parenthetical is
    struck instead, per §8.
 
 ## 7. Non-goals (binding)

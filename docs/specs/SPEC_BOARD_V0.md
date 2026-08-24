@@ -432,7 +432,7 @@ underscore-private and which law 7's schema freeze does not cover):
 > enumerated from the engine exactly like their two siblings, and
 > **`wringer-board` already discharged the exemption in code** —
 > `src/wringer_board/refusals.py:44-47` says so in its module docstring and
-> `tests/test_refusals.py:150-155` deletes the per-value carve-out rather than
+> `tests/board/test_refusals.py:150-155` deletes the per-value carve-out rather than
 > leaving it as a comment nobody re-reads. The surface corrected itself and
 > this spec did not follow; that lag is the defect, not the tuple.
 > The `sign.py:81,87` citations in the row above had also drifted (the symbols

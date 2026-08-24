@@ -30,6 +30,23 @@ What it answers:
   R5  Does H3's restoration check fire on contamination and ignore gitignored
       noise?
   R6  Does H1's eligibility rule read the environment bypass, both directions?
+
+**Extended 2026-08-23, round 4, for the region that returned NOT SOUND.** R1–R6
+measure the mechanism and the round-3 review agreed the mechanism holds. What
+it killed was the LIFECYCLE BETWEEN LAPS — the one region nothing here
+exercised, which is exactly why it survived to a third round. R7–R9 measure
+Fable's four rulings:
+
+  R7  R-H1: after a contaminating check, does a rebuild FROM THE PREPARED
+      SNAPSHOT restore the tree AND the environment — so the next unit's
+      checks import the COPY? **And the red-watch that makes the question
+      worth asking: point the rebuild at the bare clone instead, which is what
+      Ruling 11 said, and watch this probe catch it.**
+  R8  R-H2: does a closing baseline lap catch a check whose verdict is coupled
+      to the laps before it — and, measured rather than assumed, **which
+      couplings does it NOT catch?** A canary's ceiling is part of the canary.
+  R9  R-H4: a partially staged (`MM`) file cannot be reproduced by the
+      overlay. Does the faithfulness precondition fire before any check runs?
 """
 
 from __future__ import annotations
@@ -447,12 +464,46 @@ def measure_r6(scratch: pathlib.Path) -> None:
         env = dict(os.environ, PATH=f"{cand / '.venv' / 'bin'}:{os.environ['PATH']}")
         baseline = sh("pytest -q", cwd=copy, env=env)
         control_lap(copy)
+
+        # **The control lap is run TWICE, warm and cold, and the difference is
+        # R-H2 measured in this probe's own fixture.**
+        #
+        # `git clean -fd` spares gitignored files by design (Ruling 7a), so the
+        # baseline lap's `__pycache__` survives into the control lap. CPython
+        # invalidates a `.pyc` on `(mtime, size)` at ONE-SECOND resolution, so
+        # when a lap is fast enough the control lap executes the BASELINE's
+        # compiled test module and reports the baseline's colour. That made
+        # this probe itself flaky before the two laps were separated — a
+        # measurement instrument taking its answer from the measurement before
+        # it, which for a measurement tool is the worse property, not the
+        # lesser one.
+        #
+        # The assertion is on the COLD lap, because that is the answer H1's
+        # eligibility rule is about. The warm one is reported, because it is
+        # the evidence R-H2 rests on.
+        warm = sh("pytest -q", cwd=copy, env=env)
+        survivors = sorted(
+            str(p.relative_to(copy))
+            for p in copy.rglob("__pycache__")
+            if ".venv" not in p.parts
+        )
+        for cache in copy.rglob("__pycache__"):
+            if ".venv" not in cache.parts:
+                shutil.rmtree(cache, ignore_errors=True)
+        shutil.rmtree(copy / ".pytest_cache", ignore_errors=True)
         control = sh("pytest -q", cwd=copy, env=env)
         eligible = control.returncode != 0
         base_colour = "GREEN" if baseline.returncode == 0 else "RED"
         ctrl_colour = "GREEN" if control.returncode == 0 else "RED"
+        warm_colour = "GREEN" if warm.returncode == 0 else "RED"
         print(f"  [{shape}] baseline lap: {base_colour}"
-              f"   control lap: {ctrl_colour}")
+              f"   control lap (cold): {ctrl_colour}"
+              f"   control lap (warm): {warm_colour}")
+        print(f"  [{shape}] caches `git clean -fd` spared: {survivors}")
+        if warm.returncode != control.returncode:
+            print(f"  [{shape}] *** R-H2: the warm control lap disagreed with "
+                  "the cold one — the lap took its colour from the lap before "
+                  "it")
         print(f"  [{shape}] H1 verdict: "
               + ("usable (>=1 check eligible)" if eligible
                  else "INCONCLUSIVE (no check discriminates)"))
@@ -462,6 +513,277 @@ def measure_r6(scratch: pathlib.Path) -> None:
         else:
             record("R6 genuine copy -> control RED -> the check is ELIGIBLE",
                    baseline.returncode == 0 and eligible)
+
+
+def imports_from(copy: pathlib.Path, env: dict) -> str:
+    """Where this tree's interpreter resolves `pkg` to. The whole lifecycle
+    question is one string comparison, and round 3 died on nobody making it."""
+    return sh('python -c "import pkg.core;print(pkg.core.__file__)"',
+              cwd=copy, env=env).stdout.strip()
+
+
+def prepare_copy(cand: pathlib.Path, copy: pathlib.Path, manifest_rows) -> dict:
+    """Clone, overlay, and run `prove_setup` once. Returns the copy's env."""
+    rows, staged, untracked = manifest_rows
+    sh(f"git clone --local -q {cand} {copy}", check=True)
+    apply_overlay(cand, copy, rows, staged, untracked, replay_index=True)
+    sh("uv venv --python 3.12 .venv && uv pip install -q -e . pytest",
+       cwd=copy, env=dict(os.environ, VIRTUAL_ENV=str(copy / ".venv")))
+    return dict(os.environ, PATH=f"{copy / '.venv' / 'bin'}:{os.environ['PATH']}",
+                VIRTUAL_ENV=str(copy / ".venv"))
+
+
+def measure_r7(scratch: pathlib.Path) -> None:
+    """R-H1 — the rebuild source is the PREPARED SNAPSHOT, never the bare clone.
+
+    **This is the exact shape that returned NOT SOUND in round 3.** Ruling 11
+    rebuilt the working copy from the pristine clone of §2 step 1; R1 above
+    measured that a clone carries no environment; so every unit after the first
+    contamination ran checks that imported the OPERATOR's tree, with no state
+    anywhere saying so. A page of `unnoticed` rows, an intact `evidenced`
+    count, and nothing wrong on the face of it.
+
+    Both rebuild sources are measured here, in one run, on one fixture. The
+    second is not a control for form's sake: a probe that only measures the
+    fixed behaviour cannot tell "the fix works" from "this probe cannot see the
+    defect", and that distinction is the whole reason this file exists.
+    """
+    print("=" * 72)
+    print("R7 -- R-H1: contaminate, rebuild, and see WHICH TREE the next lap "
+          "imports")
+    print("=" * 72)
+    cand = build_candidate(scratch / "r7-cand")
+    rows_all = manifest(cand)
+    copy = scratch / "r7-work"
+    env = prepare_copy(cand, copy, rows_all)
+
+    print(f"  after prove_setup, the copy imports: {imports_from(copy, env)}")
+    record("R7 the prepared copy imports the COPY",
+           str(copy) in imports_from(copy, env))
+
+    # THE SNAPSHOT (R-H1). Taken after prove_setup, of the whole prepared
+    # copy — tree AND environment — so a rebuild restores both in one act.
+    snapshot = scratch / "r7-snapshot"
+    shutil.copytree(copy, snapshot, symlinks=True)
+    record("R7 the snapshot carries the environment the clone did not",
+           (snapshot / ".venv" / "bin").is_dir())
+
+    # A check contaminates the copy: it rewrites a TRACKED file, which is
+    # Ruling 11's own trigger.
+    (copy / "many.txt").write_text("a check rewrote this\n")
+    dirty = sh("git status --porcelain", cwd=copy).stdout
+    record("R7 the contamination is visible to the restoration check",
+           "many.txt" in dirty)
+
+    # ---- arm 1: the snapshot restored to a DIFFERENT path ----
+    #
+    # **This is what a plain reading of R-H1 gives, and it does not work.**
+    # An editable install's `.pth` is ABSOLUTE — the fact that killed round 2 —
+    # so a snapshot of a prepared copy carries a pointer to the path it was
+    # prepared AT. Restore it anywhere else and its interpreter still imports
+    # the old location. Measured rather than reasoned, because "a snapshot
+    # carries the environment" is the same shape of sentence as round 2's "a
+    # copy carries the environment", and that one was false.
+    elsewhere = scratch / "r7-rebuilt-elsewhere"
+    shutil.copytree(snapshot, elsewhere, symlinks=True)
+    elsewhere_env = dict(
+        os.environ,
+        PATH=f"{elsewhere / '.venv' / 'bin'}:{cand / '.venv' / 'bin'}:"
+             f"{os.environ['PATH']}",
+    )
+    resolved = imports_from(elsewhere, elsewhere_env)
+    print("  rebuilt from the SNAPSHOT, at a DIFFERENT path:")
+    print(f"      .venv present: {(elsewhere / '.venv' / 'bin').is_dir()}")
+    print(f"      imports:       {resolved}")
+    record("R7 a snapshot restored ELSEWHERE still imports the path it was "
+           "prepared at -- the .pth is absolute, so R-H1 needs the same-path "
+           "constraint", str(elsewhere) not in resolved, f"imports={resolved}")
+
+    # ---- arm 2: the snapshot restored IN PLACE, at the working copy's path --
+    #
+    # The rebuild the sweep actually performs: delete the contaminated working
+    # copy and put the snapshot back where it was. Same absolute path, so the
+    # `.pth` written by `prove_setup` is still correct.
+    shutil.rmtree(copy)
+    shutil.copytree(snapshot, copy, symlinks=True)
+    resolved = imports_from(copy, env)
+    # The contamination was a rewrite of `many.txt`, which the OVERLAY also
+    # modifies — so its presence in `git status` proves nothing either way.
+    # What proves it is the bytes.
+    restored = (copy / "many.txt").read_text() == (cand / "many.txt").read_text()
+    print("  rebuilt from the SNAPSHOT, IN PLACE at the copy's own path:")
+    print(f"      .venv present: {(copy / '.venv' / 'bin').is_dir()}")
+    print(f"      imports:       {resolved}")
+    print(f"      the contaminated file matches the candidate again: {restored}")
+    record("R7 rebuilt from the SNAPSHOT IN PLACE: the next lap imports the "
+           "COPY, and the contamination is gone",
+           (copy / ".venv" / "bin").is_dir() and str(copy) in resolved
+           and restored,
+           f"imports={resolved} restored={restored}")
+
+    # ---- arm 3: the bare clone, which is what Ruling 11 said ----
+    #
+    # **The red-watch, inside the probe.** Ruling 11's rebuild source has to be
+    # observably wrong here, or R-H1 amended nothing and this measurement is
+    # decoration.
+    bare = scratch / "r7-bare"
+    sh(f"git clone --local -q {cand} {bare}", check=True)
+    bare_env = dict(
+        os.environ,
+        PATH=f"{bare / '.venv' / 'bin'}:{cand / '.venv' / 'bin'}:"
+             f"{os.environ['PATH']}",
+    )
+    has_venv = (bare / ".venv" / "bin").is_dir()
+    resolved = imports_from(bare, bare_env)
+    print("  rebuilt from the BARE CLONE (Ruling 11, un-amended):")
+    print(f"      .venv present: {has_venv}")
+    print(f"      imports:       {resolved}")
+    record("R7 rebuilt from the BARE CLONE: the next lap imports the "
+           "OPERATOR's tree -- the round-3 killer, caught",
+           not has_venv and str(cand) in resolved,
+           f"venv={has_venv} imports={resolved}")
+
+
+def _counting_check(where: pathlib.Path) -> None:
+    """A check that CACHES ITS VERDICT across laps, in a gitignored file.
+
+    R-H2's fixture. Rulings 7a and 11 spare gitignored files on purpose — 7a so
+    the environment survives, 11 so noise does not fire restoration — and
+    together they guarantee that anything a check writes to an ignored path
+    carries into the next lap. This is the smallest honest instance: a check
+    that remembers how many times it has run.
+    """
+    (where / "check.sh").write_text(
+        "#!/bin/sh\n"
+        "# A check whose answer depends on the laps before it.\n"
+        'n=$(cat .lapcount 2>/dev/null || echo 0)\n'
+        'n=$((n + 1))\n'
+        'echo "$n" > .lapcount\n'
+        '[ "$n" -lt 2 ] || exit 1\n'
+    )
+    os.chmod(where / "check.sh", 0o755)
+
+
+def measure_r8(scratch: pathlib.Path) -> None:
+    """R-H2 — lap independence is an assumption, so the sweep MEASURES it.
+
+    The protection Fable ruled: re-run the BASELINE lap at the sweep's end, and
+    if the closing baseline disagrees with the opening one, report
+    `inconclusive-lap-coupling` rather than any unit state.
+
+    **And its ceiling, measured in the same run.** A canary that fires on the
+    coupling you thought of, while a page of `unnoticed` rows survives the
+    coupling you did not, is worse than no canary — it is a clean page with a
+    tick on it. So the second fixture couples a UNIT lap without moving the
+    baseline's colour, and this probe records that the canary stays silent.
+    That number goes in the spec as what R-H2 buys, and nothing more.
+    """
+    print("=" * 72)
+    print("R8 -- R-H2: the closing baseline lap, and what it does NOT catch")
+    print("=" * 72)
+
+    coupled = scratch / "r8-coupled"
+    coupled.mkdir(parents=True)
+    sh("git init -q", cwd=coupled, check=True)
+    (coupled / ".gitignore").write_text(".lapcount\n")
+    _counting_check(coupled)
+    sh("git add -A", cwd=coupled, check=True)
+    sh("git -c user.email=p@l -c user.name=p commit -q -m HEAD", cwd=coupled,
+       check=True)
+
+    opening = sh("./check.sh", cwd=coupled).returncode
+    # Two unit laps, each with the whole-change revert between them — Ruling
+    # 7a's `clean -fd`, which spares the ignored cache by design.
+    for _ in range(2):
+        control_lap(coupled)
+        sh("./check.sh", cwd=coupled)
+    control_lap(coupled)
+    closing = sh("./check.sh", cwd=coupled).returncode
+    print(f"  opening baseline: {'GREEN' if opening == 0 else 'RED'}"
+          f"   closing baseline: {'GREEN' if closing == 0 else 'RED'}")
+    print(f"  the cache `git clean -fd` spared: "
+          f"{(coupled / '.lapcount').read_text().strip()} laps counted")
+    record("R8 the closing baseline DISAGREES, so the canary fires "
+           "(inconclusive-lap-coupling)", opening != closing,
+           f"opening={opening} closing={closing}")
+
+    # ---- the ceiling: coupling that never moves the baseline's colour ----
+    silent = scratch / "r8-silent"
+    silent.mkdir(parents=True)
+    sh("git init -q", cwd=silent, check=True)
+    (silent / ".gitignore").write_text(".seen\n")
+    (silent / "subject.txt").write_text("original\n")
+    # A check that answers from a cache once it has one. On an untouched tree
+    # it is GREEN every time — so both baselines agree — and on a REVERTED
+    # tree it is still green, because it never looks again. That is a false
+    # `unnoticed`, and the canary has nothing to compare.
+    (silent / "check.sh").write_text(
+        "#!/bin/sh\n"
+        'if [ -f .seen ]; then exit 0; fi\n'
+        'grep -q original subject.txt || exit 1\n'
+        'echo cached > .seen\n'
+    )
+    os.chmod(silent / "check.sh", 0o755)
+    sh("git add -A", cwd=silent, check=True)
+    sh("git -c user.email=p@l -c user.name=p commit -q -m HEAD", cwd=silent,
+       check=True)
+
+    opening = sh("./check.sh", cwd=silent).returncode
+    (silent / "subject.txt").write_text("the unit reverted this\n")
+    unit = sh("./check.sh", cwd=silent).returncode
+    control_lap(silent)
+    closing = sh("./check.sh", cwd=silent).returncode
+    print(f"  [ceiling] opening {opening} unit {unit} closing {closing}")
+    record("R8 CEILING: a cache that never re-reads gives a false green in the "
+           "unit lap AND agreeing baselines -- the canary cannot see it",
+           opening == 0 and unit == 0 and closing == 0,
+           f"opening={opening} unit={unit} closing={closing}")
+
+
+def measure_r9(scratch: pathlib.Path) -> None:
+    """R-H4 — a partially staged (`MM`) file makes the sweep inconclusive.
+
+    `git add` stages WORKTREE content, so a candidate built with `git add -p` —
+    stage this hunk, keep working — cannot be reproduced by an overlay that
+    replays the staged set: the copy's staged blob holds the worktree bytes.
+    The direction is safe and the round-3 review measured it; what was missing
+    is the shape in this fixture, which is why the probe never saw it.
+    """
+    print("=" * 72)
+    print("R9 -- R-H4: a partially staged file, and the precondition that "
+          "catches it")
+    print("=" * 72)
+    cand = scratch / "r9-cand"
+    cand.mkdir(parents=True)
+    sh("git init -q", cwd=cand, check=True)
+    (cand / "a.txt").write_text("one\ntwo\nthree\n")
+    sh("git add -A", cwd=cand, check=True)
+    sh("git -c user.email=p@l -c user.name=p commit -q -m HEAD", cwd=cand,
+       check=True)
+    (cand / "a.txt").write_text("one STAGED\ntwo\nthree\n")
+    sh("git add a.txt", cwd=cand, check=True)
+    (cand / "a.txt").write_text("one STAGED\ntwo\nthree WORKTREE\n")
+
+    want = sh("git status --porcelain", cwd=cand).stdout
+    print(f"  the candidate's own view: {want.strip()!r}")
+    record("R9 the fixture really is partially staged", want.strip().startswith("MM"))
+
+    copy = scratch / "r9-copy"
+    rows, staged, untracked = manifest(cand)
+    sh(f"git clone --local -q {cand} {copy}", check=True)
+    apply_overlay(cand, copy, rows, staged, untracked, replay_index=True)
+    got = sh("git status --porcelain", cwd=copy).stdout
+    print(f"  the copy's view:          {got.strip()!r}")
+    print(f"  candidate staged blob: "
+          f"{sh('git show :a.txt', cwd=cand).stdout!r}")
+    print(f"  copy staged blob:      "
+          f"{sh('git show :a.txt', cwd=copy).stdout!r}")
+    record("R9 the overlay CANNOT reproduce MM -- the staged blobs differ",
+           sh("git show :a.txt", cwd=cand).stdout
+           != sh("git show :a.txt", cwd=copy).stdout)
+    record("R9 the faithfulness precondition FIRES before any check runs "
+           "(inconclusive-staging)", want != got,
+           f"candidate={want.strip()!r} copy={got.strip()!r}")
 
 
 def main() -> int:
@@ -475,6 +797,9 @@ def main() -> int:
         measure_r3(root)
         measure_r4_r5(root)
         measure_r6(root)
+        measure_r7(root)
+        measure_r8(root)
+        measure_r9(root)
     finally:
         shutil.rmtree(root, ignore_errors=True)
 
