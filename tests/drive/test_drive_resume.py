@@ -361,3 +361,83 @@ def test_A_RECORD_FROM_A_SCHEMA_THIS_VERSION_DOES_NOT_KNOW_IS_IGNORED(
     assert "answers-ok" in [step["id"] for step in again], (
         "an unreadable record did not fall back to asking"
     )
+
+
+# ---------------------------------------------------------------------------
+# THE BUG HUNT, 2026-08-24 — the write path nothing had attacked.
+#
+# `read_resume` and `clear_resume` were written to catch `OSError` from the
+# start. `_write_resume` was not, and `checkpoint` calls it before EVERY ask —
+# so a `.wringer/drive` the process cannot write turned every question in the
+# run into a traceback in front of a product manager. Two shapes a real
+# machine produces, both measured, both crashing:
+#
+#     a stray FILE where the directory goes   -> FileExistsError
+#     a directory the operator cannot write   -> PermissionError
+#
+# The same probe found the SAME class one step earlier and PRE-EXISTING:
+# `bring_prd_inside` crashed identically, and had done since the verb shipped.
+#
+# **The two fixes are deliberately different, and the difference is the
+# lesson.** The resume record is a convenience: it fails quietly, because the
+# whole effect of failing is "the next run will not know where this one
+# stopped", which is what shipped before it existed. The PRD copy is
+# load-bearing — step 1 reads the file it makes — so it STOPS, with a sentence.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(params=["a file where the directory goes", "unwritable"])
+def hostile_drive_dir(request, project):
+    """`.wringer/drive` in the two states a real machine produces."""
+    drive_dir = project / ".wringer" / "drive"
+    drive_dir.parent.mkdir(parents=True, exist_ok=True)
+    if request.param == "unwritable":
+        drive_dir.mkdir(parents=True, exist_ok=True)
+        drive_dir.chmod(0o500)
+        yield project
+        drive_dir.chmod(0o700)
+    else:
+        drive_dir.write_text("a stray file\n", encoding="utf-8")
+        yield project
+
+
+def test_A_RESUME_RECORD_THAT_CANNOT_BE_WRITTEN_COSTS_NOTHING(hostile_drive_dir):
+    """**The regression this window introduced, and the property that fixes
+    it.** `checkpoint` runs before every ask. It may lose the record; it may
+    not lose the run."""
+    repo = hostile_drive_dir
+
+    run_module.checkpoint(repo, "approve")
+    run_module.record_answers_confirmed(repo)
+
+    assert run_module.read_resume(repo) == {}, (
+        "the record was written to a place it should not have been writable"
+    )
+    assert not run_module.answers_already_confirmed(repo), (
+        "a record that could not be written still reported a confirmation — "
+        "which would skip a question on the strength of a write that failed"
+    )
+    assert run_module.resumed_step(repo) is None
+
+
+def test_A_PRD_THAT_CANNOT_BE_COPIED_STOPS_WITH_A_SENTENCE(
+    hostile_drive_dir, tmp_path
+):
+    """**Pre-existing, since the verb shipped, and found by the same probe.**
+
+    The copy is load-bearing, so this one must NOT fail quietly. It must also
+    not fail with a traceback: this is the first step of the verb whose whole
+    job is that a product manager never sees one.
+    """
+    session = run_module.Session(repo=hostile_drive_dir)
+
+    with pytest.raises(run_module.Stop) as stopped:
+        run_module.bring_prd_inside(session, prd(tmp_path))
+
+    assert stopped.value.exit_code == 2
+    assert stopped.value.step.id == "stopped:prd-not-copyable"
+    assert "nothing has been read and nothing was created" in stopped.value.step.text
+    assert stopped.value.step.engine_words, (
+        "the stop does not carry the operating system's own words, so nobody "
+        "can tell a full disk from a permissions problem"
+    )

@@ -203,8 +203,34 @@ def bring_prd_inside(session: Session, prd: Path) -> Path:
         )
 
     inside = session.repo / DRIVE_DIRNAME / PRD_FILENAME
-    inside.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copyfile(prd, inside)
+    try:
+        inside.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(prd, inside)
+    except OSError as exc:
+        # **This one STOPS, and the contrast with `_write_resume` is the
+        # point.** The resume record is a convenience and fails quietly; this
+        # copy is load-bearing — step 1 reads the file it makes — so a failure
+        # here must end the run with a sentence rather than continue, and must
+        # not end it with a traceback either.
+        #
+        # Found by hunting, 2026-08-24, in both shapes a real machine produces:
+        # a stray FILE where `.wringer/drive` should be (`FileExistsError`),
+        # and a directory the operator cannot write (`PermissionError`, which
+        # is what a wrong-owner checkout or a full disk looks like). Both
+        # printed a Python traceback at a product manager, from the first step
+        # of the verb whose whole job is that they never see one.
+        raise Stop(
+            Step(
+                kind=STOPPED,
+                id="stopped:prd-not-copyable",
+                text="I could not put your document inside the project, so "
+                "nothing has been read and nothing was created. The tool only "
+                f"reads files inside the repository, and "
+                f"{DRIVE_DIRNAME / PRD_FILENAME} is where it needs to go.",
+                engine_words=str(exc),
+            ),
+            exit_code=2,
+        ) from exc
     session.emit(
         Step(
             kind=SHOW,
@@ -657,12 +683,32 @@ def read_resume(repo: Path) -> dict:
 
 
 def _write_resume(repo: Path, **fields: object) -> None:
-    record = read_resume(repo)
-    record["schema"] = RESUME_SCHEMA
-    record.update(fields)
-    path = resume_path(repo)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    """Update the record, or give up quietly.
+
+    **A write that fails may not cost somebody their run**, and this is the one
+    place in this package where silence is the right answer. Everywhere else a
+    swallowed failure hides something a person needed — a drained answer, a
+    refusal, a skipped question. Here the entire effect of failing is *"the
+    next run will not know where this one stopped"*, which is precisely the
+    behaviour that shipped before this record existed. The record makes a
+    resumed run gentler; it can never make one proceed, and it must never be
+    the reason one dies.
+
+    **Found by hunting, 2026-08-24, and it was a real regression.**
+    `checkpoint` runs before EVERY ask, so an unwritable `.wringer/drive` — a
+    full disk, a wrong-owner checkout, a stray file where the directory goes —
+    turned every question in the run into a `PermissionError` traceback in
+    front of a product manager. Measured in both shapes.
+    """
+    try:
+        record = read_resume(repo)
+        record["schema"] = RESUME_SCHEMA
+        record.update(fields)
+        path = resume_path(repo)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return
 
 
 def checkpoint(repo: Path, step_id: str) -> None:

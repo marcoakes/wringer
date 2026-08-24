@@ -74,14 +74,29 @@ def probe(command: str, timeout: float = 25.0, send_prompt: bool = False) -> dic
     # the first shape, and the roster needs all of them. `shlex.split` leaves
     # every single-word invocation byte-identical to what it always was, so
     # the captures already in `docs/` reproduce unchanged.
-    proc = subprocess.Popen(
-        shlex.split(command),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
+    # **A binary that is not there is this probe's MOST LIKELY failure, and it
+    # crashed on it.** Found by hunting, 2026-08-24, one fix after the
+    # BrokenPipe one and in exactly the same class: this script exists to
+    # measure agents nobody has measured, so "you typed the name wrong" and
+    # "you have not installed it yet" are the first two things that happen to
+    # it — and both produced a `FileNotFoundError` traceback rather than the
+    # one-line answer the operator needed.
+    try:
+        proc = subprocess.Popen(
+            shlex.split(command),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+        )
+    except (OSError, ValueError) as exc:
+        return {
+            "agent": command,
+            "agent_died_at": "spawn",
+            "agent_exit_code": None,
+            "stderr_tail": f"{type(exc).__name__}: {exc}",
+        }
     errs: list[str] = []
     drain = threading.Thread(target=lambda: errs.extend(proc.stderr), daemon=True)
     drain.start()

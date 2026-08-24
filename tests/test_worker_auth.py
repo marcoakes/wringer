@@ -434,3 +434,29 @@ def test_A_HEALTHY_AGENTS_REPORT_DOES_NOT_GROW_THE_DEATH_LINES():
     assert "agent_died_at" not in probe.HANDSHAKE_KEYS
     assert "agent_died_at" not in probe.PROMPT_KEYS
     assert probe.DEATH_KEYS == ("agent_died_at", "agent_exit_code")
+
+
+def test_THE_PROBE_REPORTS_A_BINARY_THAT_IS_NOT_THERE():
+    """**The probe's most likely failure, and it used to be a traceback.**
+
+    Found by hunting on 2026-08-24, one fix after the `BrokenPipeError` one
+    and in the same class. This script exists to measure agents nobody has
+    measured yet — so "you typed the name wrong" and "you have not installed
+    it" are the first two things that happen to it, and both raised
+    `FileNotFoundError` out of `probe()` instead of answering.
+    """
+    probe = _auth_probe_module()
+
+    found = probe.probe("definitely-not-a-real-binary-xyz", timeout=3.0)
+
+    assert found["agent_died_at"] == "spawn", (
+        f"an agent that never started was not reported as such: {found!r}"
+    )
+    assert found["agent_exit_code"] is None, (
+        "a process that never existed cannot have an exit code, and reporting "
+        "one would be inventing a fact"
+    )
+    assert "FileNotFoundError" in found["stderr_tail"], (
+        "the report does not carry the operating system's own words, so "
+        f"nobody can tell a typo from a missing install: {found['stderr_tail']!r}"
+    )
