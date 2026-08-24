@@ -7,7 +7,11 @@ H1–H6, the ceiling amendment and the endorsements of
 `~/Claude/WRINGER_HUNT_RULINGS_2026-08-23.md`. **Revision 4 folded 2026-08-24**;
 grounded at `main` `746afb2`.*
 
-> ## STATUS — **BLOCKED until a fourth review passes. Reviewed three times, NOT SOUND three times.**
+> ## STATUS — **BLOCKED. Reviewed FOUR times, NOT SOUND four times. THE HUNT IS STOPPED and returns to Fable.**
+>
+> **The carrier's fork fired**: a fourth NOT SOUND stops the hunt entirely —
+> no round 5 in a window. `~/Claude/HUNT_REVIEW_ROUND4_2026-08-24.md` is the
+> review; §Owed below is what it leaves with Fable. **Nothing was built.**
 >
 > Every verdict was reached by EXECUTION, and each killed something:
 >
@@ -16,7 +20,31 @@ grounded at `main` `746afb2`.*
 > | 1 | worktree at base + apply every hunk but this one | one binary file and **no tree can be built at all**; three change kinds emit no `@@` header |
 > | 2 | copy the candidate, "a copy carries the environment" | an editable install's `.pth` is **absolute**, so the copy's interpreter imports the ORIGINAL source |
 > | 3 | clone + overlay, per H1–H6 | the mechanism holds; **the LIFECYCLE BETWEEN LAPS does not** |
-> | 4 | the same, plus R-H1–R-H4 | **under review** |
+> | 4 | the same, plus R-H1–R-H4 | the mechanism still holds; **the lifecycle region was OPENED and not FINISHED** — a check writing OUTSIDE the copy produces false `evidenced` and every net in revision 4 is blind to it at once |
+>
+> ### Round 4's decisive finding, in its own shape
+>
+> §7 Ruling 12 says, as a safety claim: *"A copy whose checks cannot be trusted
+> reports `inconclusive` or `partial`. It never reports `evidenced`."*
+> **Measured FALSE.** State a check leaves outside the copy root — a global
+> cache, a lock file, a port, `~/.cache` — and:
+>
+> - Ruling 11's restoration check reads `git status` **in the copy** → clean;
+> - Ruling 11b's rebuild restores **the copy** → the outside state survives;
+> - Ruling 11c's closing baseline **agrees** with the opening one (with an odd
+>   number of unit laps the parity returns) → the canary is silent;
+> - Ruling 12's fingerprint watches the **operator's tree** → untouched.
+>
+> A false `evidenced` is a false proved-red, which Phase 4 ruled **worse than
+> an uncovered criterion** — manufactured by the feature built to kill that
+> class. **Ruling 11c stated its ceiling in only the safe direction**, and by
+> 11c's own reason for existing — *"a canary whose limits are unstated reads as
+> a guarantee"* — half a ceiling is the same defect one ruling over.
+>
+> **Four of the six findings are one-line repairs and are FOLDED below as
+> factual corrections** (the round-3 precedent: corrections land, mechanisms do
+> not move while blocked). **HIGH-1 is not one of them** — the honest fix may
+> narrow what v0 may claim, which is Fable's.
 >
 > **What round 3 established, and revision 4 does not re-open.** Clone-plus-overlay
 > is right, H4's file-level revert is right, Appendix A reproduced exactly under an
@@ -66,9 +94,11 @@ grounded at `main` `746afb2`.*
 > found`, because a gate spawns with `shell=True` and inherits the operator's
 > PATH. The environment is not only files in the tree.
 >
-> **The BLOCKED header is lifted only by a passing review, in the same commit
-> that starts the build.** A fourth NOT SOUND stops the hunt entirely and returns
-> it to Fable — no round 5 in a window.
+> **The header stays.** It is lifted only by a passing review, in the same
+> commit that starts the build — and there is no fifth review to be had in a
+> window. The four decisions in §Owed are Fable's, and the first one may narrow
+> what v0 is allowed to claim, so the text after it cannot be written until it
+> lands.
 
 ---
 
@@ -289,8 +319,30 @@ kept.
 reading, and it is the third distinct thing this feature has learned about the
 word "environment".*
 
-A gate runs through `gates.run`, which spawns with `shell=True` and **passes no
-`env=`** (`gates.py:196-202`), so it inherits the operator's `PATH`. Therefore:
+A gate runs through `gates.run`, which spawns with `shell=True`, and the
+operator's `PATH` reaches the lap **in both of that function's branches**:
+`env=None` for a gate with no `artifacts:`, and a snapshot of `os.environ` for
+one with it (`gates.py:191-201`, `artifacts.py:162-168`). Therefore:
+
+> **CORRECTED 2026-08-24 by the round-4 review, HIGH-3, and the citation
+> proved it.** This ruling first said `gates.run` *"passes no `env=`
+> (`gates.py:196-202`)"* — and `gates.py:201`, inside the range it cited, is
+> `env=env,`. The CONCLUSION was right and measured; the MECHANISM was wrong,
+> which matters because D14 would have owed a guard against a mechanism that
+> does not exist: an implementer told there is no `env=` threads one in at
+> line 201, where it either overwrites `artifacts.environment()`'s result and
+> silently breaks the artifacts feature, or is overwritten by it and silently
+> drops the PATH fix — the exit-127 false red this ruling itself calls worse
+> than a red. **The seam this spec did not know existed:**
+> `artifacts.environment()` already takes a `base` parameter
+> (`artifacts.py:162`), which is where a copy-first PATH belongs without
+> disturbing either branch.
+>
+> Noted for the guard that let it through: `tests/test_spec_citations.py`
+> checks that a citation RESOLVES and that a QUOTED phrase lands in the range.
+> It cannot check that a PARAPHRASE about the cited code is true, and that is
+> exactly how this got in. A limit, not a defect — and worth knowing before
+> anyone treats that guard as covering claims.
 
 > `run.prove_setup` exiting 0 does NOT mean the lap that follows can find what
 > it installed.
@@ -561,9 +613,29 @@ string, extracted into `vacuity` and called by both**. That is a change to
 ### Ruling 11 — what "restoration matches" means, at last
 
 After each unit lap the copy must show **no tracked modification and no new
-unignored untracked file, measured against the post-overlay snapshot** — using
-`git status --porcelain` in the copy, which H2 makes meaningful and which
-already excludes ignored files.
+unignored untracked file, measured against the post-`prove_setup` SNAPSHOT of
+Ruling 11b** — using `git status --porcelain` in the copy, which H2 makes
+meaningful and which already excludes ignored files.
+
+> **CORRECTED 2026-08-24 by the round-4 review, HIGH-2. It read "the
+> post-overlay snapshot", and revision 4 has no such thing.** Revision 4
+> defines exactly one snapshot and takes it AFTER setup (Ruling 2b, Ruling 7,
+> Ruling 11b), and the two states are not interchangeable — measured on a
+> stock Python repository, `uv pip install -e .` writes `src/pkg.egg-info/`,
+> untracked and unignored. Under the old words a unit lap **that did nothing
+> at all** reports `unsweepable-dirty`; the rebuild restores the post-setup
+> snapshot, which still contains the trigger, so the next unit fires again —
+> every unit `unsweepable-dirty`, forever, against a sum that budgets exactly
+> one pessimistic rebuild.
+>
+> **This repository's own `.gitignore` carries `*.egg-info/` at line 4, which
+> is why the author would never have hit it here.** That is Appendix B's
+> zero-term blindness one floor down, and it is the second time in two
+> revisions that this document's home repository hid a defect from it.
+>
+> **The guard this owes is UNBUILT** and belongs to whichever window builds:
+> `prove_setup`'s own output may never count as contamination, on a fixture
+> whose `.gitignore` does *not* carry `*.egg-info/`. Recorded as D16 below.
 
 - Files the copy's own `.gitignore` covers (`.pyc`, coverage, caches) are
   **exempt**. A check writing IGNORED noise is normal.
@@ -689,6 +761,23 @@ nothing.
 
 **A copy whose checks cannot be trusted reports `inconclusive` or `partial`. It
 never reports `evidenced`.**
+
+> ⚑ **MEASURED FALSE, 2026-08-24, round-4 review HIGH-1 — and this sentence
+> stays here, struck rather than deleted, because it is the claim the hunt
+> stopped on.** A check that writes OUTSIDE the copy root produces false
+> `evidenced` rows and every net in revision 4 is blind to it at once: the
+> restoration check reads the copy, the rebuild restores the copy, the closing
+> baseline agrees with the opening one, and the fingerprint watches the
+> operator's tree. Measured on a fixture whose unit laps read RED from a
+> global cache slot, with both baselines green and the canary silent.
+>
+> **The fix is OWED to Fable and is not an implementer's call**, because the
+> honest version may narrow what v0 is allowed to claim: require containment
+> (the machinery exists in `SPEC_CONTAIN_V0`, and Refusal 10 already says an
+> ACP worker cannot be contained in v0); or carry a named limit in `hunt.json`
+> and on the board where a reader sees it; or narrow v0's claim below
+> `evidenced` altogether. **No page may repeat the sentence above until that
+> ruling lands.**
 
 ### ⚑ Ruling 12a — an unignored dependency directory is counted, not special-cased
 
@@ -861,7 +950,29 @@ derivations, each owed a guard in the build:
 | ⚑ D12 | the rebuild restores the SNAPSHOT to the copy's own path (§6 Ruling 11b) | a rebuild pointed at the bare clone, and one pointed at a different path, must both be caught — the probe's R7 is the shape, and the build owes the same three arms as a fixture |
 | ⚑ D13 | the closing baseline is the SAME lap as the opening one (§6 Ruling 11c) | a second implementation of "the full evidence set" would let the two baselines differ for a reason that is not coupling, which is a canary that fires on itself |
 | ⚑ D14 | the unit lap's PATH puts the copy's tool directory first (§2 Ruling 2d) | a lap whose tools resolve to the OPERATOR's install must be caught; `ruff: command not found` in a copy whose setup exited 0 is the measured shape |
-| ⚑ D15 | the sum's term list is derived from Ruling 7's ORDER, not hand-kept (§5 Ruling 9) | adding a step to the order must change the sum, or the sum silently stops counting it — which is exactly how R-H3's four missing terms got there |
+| ⚑ D15 | the sum's term list is derived from Ruling 7's ORDER **and from §6's contingency terms** (§5 Ruling 9) | adding a step to the order, or a contingency to §6, must change the sum, or the sum silently stops counting it — which is exactly how R-H3's four missing terms got there |
+| ⚑ D16 | `inconclusive-staging` is reported BY NAME, not as a bare `inconclusive` (§2 Ruling 2a-i) | an `MM` candidate must produce the named cause; D3 covers §2a's precondition and covers nothing about §2a-i's name |
+| ⚑ D17 | the copy has no remote that can reach the candidate (§2) | dropping the `origin` a `git clone --local` leaves is the only SAFETY requirement in this document, and until round 4 it was the only one with no guard — measured: `git push origin` from the copy SUCCEEDS and the operator's repository gains the branch |
+
+> **⚑ CORRECTED 2026-08-24 by the round-4 review, MEDIUM-2/3/4, and the pattern
+> is the finding.** Revision 4 added five rulings (2a-i, 2d, 11b, 11c, and the
+> amendment to 9) and four derivations, mapping D12→11b, D13→11c, D14→2d,
+> D15→9. **Ruling 2a-i had none** — a named cause shipped with nothing
+> guarding that the name is used, which is precisely the law this section
+> states. Round 3's review found four derivations missing from this table;
+> revision 4 found three of its own four and missed the fifth ruling entirely.
+>
+> **D15's rule provably could not derive its own eighth term.** The
+> pessimistic rebuild is not a step in Ruling 7's order — it is a §6
+> contingency — so a guard written to D15 as stated would ship with the same
+> hole, and Appendix B2 omitted exactly that term. The derivation source now
+> names both.
+>
+> **§12's own closing paragraph asked for the guard that would have caught
+> this** — *"a derivation table needs a guard that the table is complete"* —
+> and revision 4 did not build one. It is owed by whichever window builds, and
+> the shape is derivable: every ⚑ ruling id in this document appears in the
+> `where` column of some row.
 
 ⚑ **D6 was ABSENT from this table in the revision that went to review, and it is
 the most load-bearing derivation in the document.** D9, D10 and D11 were absent
@@ -1017,6 +1128,28 @@ the amendment.
 sum reads "it fits" on a repository where the sweep cannot afford to run at
 all.
 
+> ⚑ **CORRECTED 2026-08-24 by the round-4 review, MEDIUM-2 — the table above
+> itemises FOUR of Ruling 9's EIGHT terms.** The snapshot and the pessimistic
+> rebuild appear nowhere in it, in an appendix titled *"a repository where NO
+> term is zero"* and written to demonstrate the amended list. That is R-H3's
+> own failure — a term list that silently stops counting — reproduced inside
+> the fix for it, one revision after D6's absence taught the same lesson.
+>
+> **Measured, the missing terms are not small:**
+>
+> | term | ms | how |
+> |---|---|---|
+> | snapshot (`cp -a` of the prepared copy) | **4 820** | 173 MB tree, 109 MB of it `.venv` |
+> | one pessimistic rebuild | **4 820** | the same copy, restored in place |
+>
+> The snapshot term alone is **larger than clone + `prove_setup` combined**,
+> both of which this appendix itemises and makes a point of itemising.
+>
+> **The honest eight-term figure is 1 279 713 ms** — 142% of the whole budget,
+> before a single unit. The verdict is unchanged and the direction is safe: it
+> did not fit at 847 722 and it fits less now. The defect was in the
+> demonstration, not the conclusion.
+
 **Two caveats this capture must carry, both of which make it CONSERVATIVE:**
 
 1. **`prove_setup` at 623 ms is a WARM `uv` cache**, on a machine that has
@@ -1046,3 +1179,44 @@ next gate got `/bin/sh: ruff: command not found`, because a gate spawns with
 `shell=True` and inherits the operator's `PATH` rather than the copy's. The
 term above is 66 ms only because the second attempt put `<copy>/.venv/bin`
 first.
+
+---
+
+## ⚑ Owed to Fable — the four decisions that stop the hunt
+
+*From the round-4 review, 2026-08-24. **Nothing in this document may be built
+until item 1 lands**, because the honest answer to it may narrow what v0 is
+allowed to claim, and the text that follows cannot be written before then.*
+
+1. **May the hunt claim `evidenced` at all, given that a check can write
+   OUTSIDE the copy?** Three options with real costs, and it is a positioning
+   decision rather than an implementation detail: require containment
+   (`SPEC_CONTAIN_V0`'s machinery exists, and refusal 10 already says an ACP
+   worker cannot be contained in v0); carry a named limit in `hunt.json` and on
+   the board so the claim is bounded where a reader sees it; or narrow v0's
+   claim below `evidenced` altogether.
+2. **What a flaky or `stability:`-declared gate does in the two baselines.**
+   Measured: two baselines can disagree with provably ZERO state carried
+   between them, because the gate was nondeterministic — and
+   `inconclusive-lap-coupling` discards every unit state, which on this
+   repository is ~1 270 s already spent. This document does not mention
+   flakiness at all, while the repository ships `SPEC_STABILITY_V0` in which a
+   tolerated mixture is `passed`, is in `planned`, is not `optional`, and is
+   therefore in §3's full evidence set. Discard, exclude such gates from the
+   canary, or compare verdicts rather than colours?
+3. **Whether `inconclusive-lap-coupling` may be reported under that name at
+   all**, given the canary provably cannot tell coupling from flakiness.
+   Naming a cause the mechanism cannot establish is the defect Ruling 2a-i was
+   written to fix, pointing the other way.
+4. **Anything stronger than the canary** — clearing derived caches between
+   laps, hash-based invalidation, caches as part of restoration. Already
+   recorded as Fable's on field evidence; the review found no reason to move it.
+
+**What the review found CORRECT, so the next cycle does not re-litigate it:**
+the probe (47/47, twice, byte-identical modulo tmpdir); Ruling 11b's three arms
+reproduced on the reviewer's own fixture rather than on the probe;
+clone-plus-overlay; H4's file-level revert; the untracked delete/re-place lane;
+Ruling 2a-i's direction (it refuses rather than answering wrongly); §3c's
+empty-set refusal, which correctly fires on this very repository; the
+nineteen-command ceiling; and every `file:line` citation hand-checked — **no
+drift this round**, against four last round.
