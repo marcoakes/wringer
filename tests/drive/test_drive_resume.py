@@ -268,3 +268,96 @@ def test_A_FINISHED_RUN_LEAVES_NOTHING_TO_RESUME_TO(project, tmp_path):
     run_module.clear_resume(project)
     assert not run_module.resume_path(project).exists()
     assert run_module.read_resume(project) == {}
+
+
+# ---------------------------------------------------------------------------
+# S7 — the repo-as-attacker pass over this window's own diff.
+#
+# `.wringer/drive/resume.json` is a file INSIDE the repository, and the
+# repository is the untrusted thing. So the question is not "does the resume
+# work" but "what does a hostile repo buy by shipping one?"
+#
+# The answer, worked out and then measured: a repo can ship a
+# `wringer.spec.yaml` whose questions are already answered AND a
+# `resume.json` whose digest matches them, and the read-back confirm is then
+# skipped for answers the person never wrote. That is a real thing a repo can
+# do, and it is bounded by two properties this file pins:
+#
+#   1. the answers are still DISPLAYED — the skip removes a yes/no, never the
+#      sight of the record;
+#   2. every CONSENT gate is still asked live, so nothing is built, installed
+#      or delivered on the strength of the file.
+#
+# Both are already true. Neither was asserted, and property 1 is one `else`
+# away from not being.
+# ---------------------------------------------------------------------------
+
+
+def test_A_REPO_SHIPPING_ITS_OWN_RESUME_RECORD_STILL_SHOWS_THE_ANSWERS(
+    project, tmp_path
+):
+    """**The attacker's best move, played, and what it does not buy.**
+
+    The fixture is the hostile arrival: answers already in the spec, and a
+    resume record whose digest matches them, both present before the person
+    has seen anything. The read-back confirm is skipped — that is the
+    mechanism working as designed — and the answers are on screen anyway.
+    """
+    document = prd(tmp_path)
+    from wringer_board import interview
+
+    interview.answer(project, "which-columns", "whatever the repo wants")
+    run_module.record_answers_confirmed(project)
+    assert run_module.answers_already_confirmed(project), (
+        "the fixture did not manage to plant a matching record, so this test "
+        "is not measuring the attack"
+    )
+
+    _code, steps = drive(project, document, "")
+
+    ids = [step["id"] for step in steps]
+    assert "answers-recorded" in ids, (
+        "a planted resume record suppressed the DISPLAY of the answers, not "
+        "just the confirm — the person cannot see what was decided for them"
+    )
+    shown = next(s for s in steps if s["id"] == "answers-recorded")
+    assert "whatever the repo wants" in shown["text"], (
+        "the read-back does not contain the answer it is reading back"
+    )
+    assert "approve" in [s["id"] for s in steps if s["kind"] == "confirm"], (
+        "the run did not reach the approval, so this says nothing about "
+        "whether the approval survives a planted record"
+    )
+
+
+def test_A_RECORD_FROM_A_SCHEMA_THIS_VERSION_DOES_NOT_KNOW_IS_IGNORED(
+    project, tmp_path
+):
+    """**The mutation sweep found this one had no guard.**
+
+    `read_resume` checks the schema tag, and nothing exercised it: every
+    record the tests produce carries the current tag, so deleting the check
+    left the suite green. A `wringer.driveresume.v2` written by a later
+    version could then be read by this one under v1's assumptions — which is
+    the compatibility failure law 7 exists to prevent, at the one file this
+    window added.
+
+    Ignored means ASKED, not trusted: the read-back comes back.
+    """
+    document = prd(tmp_path)
+    drive(project, document, "date, total\nyes\n")
+    assert run_module.answers_already_confirmed(project)
+
+    record = json.loads(run_module.resume_path(project).read_text(encoding="utf-8"))
+    record["schema"] = "wringer.driveresume.v2"
+    run_module.resume_path(project).write_text(json.dumps(record), encoding="utf-8")
+
+    assert run_module.read_resume(project) == {}, (
+        "a record tagged with a schema this version has never seen was read "
+        "anyway, under this version's assumptions about what its fields mean"
+    )
+    assert not run_module.answers_already_confirmed(project)
+    _code, again = drive(project, document, "")
+    assert "answers-ok" in [step["id"] for step in again], (
+        "an unreadable record did not fall back to asking"
+    )
