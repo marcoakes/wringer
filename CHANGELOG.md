@@ -70,8 +70,8 @@ proof.
 ### The release bar was red, and running it is how that was found
 
 `scripts/release-check.sh` exercises the INSTALLED package, which is the whole
-point of it. Its `the suite is green` step was failing — nine tests and one
-whole module, all because four test files located `schema/` through an
+point of it. Its `the suite is green` step was failing — nine tests across
+four modules, all because those modules located `schema/` through an
 installed module's `__file__`. That resolves to the repository root from a
 source tree and to `<venv>/lib/pythonX.Y/schema` from a wheel, where nothing
 is. Reproduced at `v0.4.6` as well, so it was red for at least one release.

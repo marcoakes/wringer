@@ -322,8 +322,8 @@ second.
 `scripts/release-check.sh` exercises the **installed** package — the thing
 `pip install wringer` gives a stranger — and that is its entire reason for
 existing. Run as the last gate before this release, its `the suite is green`
-step came back **FAIL**: nine tests failing and one module skipping, because
-four test files located `schema/` as
+step came back **FAIL**: nine tests across four modules, because those
+modules located `schema/` as
 `Path(<some_module>.__file__).parents[2] / "schema"`. From a source tree that
 lands on the repository root and everything passes. From a wheel it lands on
 `<venv>/lib/pythonX.Y/schema`, which does not exist — `schema/` is a
