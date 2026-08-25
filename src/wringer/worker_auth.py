@@ -96,6 +96,89 @@ class WorkerAuth:
         return self.state == LOGGED_OUT
 
 
+#: The free handshake's own ceiling. Measured at 1.4-2.8s across three agents
+#: (`docs/acp-auth-2026-08-24.md`), so this is generous by an order of
+#: magnitude — and an expiry here is UNKNOWN, never a refusal, so being
+#: generous costs a slow run seconds and costs a wrong answer nothing.
+HANDSHAKE_TIMEOUT = 30
+
+
+def _handshake_rung(worker: config.AcpWorker) -> WorkerAuth:
+    """R2.2's free rung: does the agent refuse the SESSION?
+
+    **The whole of this function's authority is one fact**: the agent's own
+    `session/new` error carrying `authMethods`. That is the agent saying, in
+    its own reply, that it will not work until somebody signs it in — and
+    `docs/specs/SPEC_ACPAUTH_V0.md` §3 is why nothing weaker counts.
+
+    Everything else is `UNKNOWN`, including a session that OPENS: measured,
+    `claude-agent-acp` opens one whether or not it is signed in, so an opened
+    session is not evidence of anything and must never read as `LOGGED_IN`.
+
+    **The spawn is `acp`'s, not a second one.** A separate implementation of
+    the wire here would be a second thing to keep in step with the client that
+    does the real turn, and the first divergence would be a preflight
+    answering about a handshake nothing performs.
+    """
+    import subprocess as _subprocess
+
+    env = acp.worker_env(worker.env_passthrough)
+    try:
+        proc = _subprocess.Popen(
+            [worker.command, *worker.args],
+            env=env,
+            stdin=_subprocess.PIPE,
+            stdout=_subprocess.PIPE,
+            stderr=_subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        return WorkerAuth(UNKNOWN, f"{worker.command!r} did not start: {exc}")
+
+    import time as _time
+
+    try:
+        connection = acp.Connection(
+            proc, deadline=_time.monotonic() + HANDSHAKE_TIMEOUT
+        )
+        connection.send_request(
+            "initialize",
+            {
+                "protocolVersion": acp.PROTOCOL_VERSION,
+                "clientCapabilities": acp.CLIENT_CAPABILITIES,
+                "clientInfo": {"name": "wringer-preflight", "version": ""},
+            },
+        )
+        connection.send_request(
+            "session/new", {"cwd": ".", "mcpServers": []}
+        )
+    except acp.AcpError as refused:
+        offered = ((refused.error or {}).get("data") or {}).get("authMethods")
+        if isinstance(offered, list) and offered:
+            return WorkerAuth(
+                LOGGED_OUT,
+                f"{worker.command} refused to open a session: {refused}",
+            )
+        # A refusal that names no method is a refusal about something else —
+        # a malformed request, a bad cwd, an agent that fell over. Routing on
+        # the message text instead would be the hint-tier guessing
+        # `diagnose.py` forbids.
+        return WorkerAuth(
+            UNKNOWN, f"{worker.command!r} could not be asked: {refused}"
+        )
+    except Exception as exc:  # noqa: BLE001 - a preflight may never raise
+        return WorkerAuth(UNKNOWN, f"{worker.command!r} could not be asked: {exc}")
+    finally:
+        acp._stop(proc, HANDSHAKE_TIMEOUT)
+
+    # A session opened. That is NOT evidence of authentication — measured.
+    return WorkerAuth(
+        UNKNOWN,
+        f"{worker.command} opened a session, which does not say whether it "
+        "is signed in",
+    )
+
+
 def read(worker: object, containment_settings: object = None) -> WorkerAuth:
     """Ask the declared ACP worker whether it is logged in.
 
@@ -120,19 +203,29 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
             "ask the agent on this machine",
         )
 
-    known = agents.by_command(worker.command)
-    if known is None or not known.auth_probe:
-        named = known.id if known is not None else worker.command
-        return WorkerAuth(
-            UNKNOWN,
-            f"no way to ask {named!r} whether it is logged in is known here",
-        )
-
     if shutil.which(worker.command) is None:
         # `loop.missing_agent` owns this and says it far better. Two checks
         # failing over one absent binary tells a reader nothing the first did
-        # not.
+        # not. Hoisted above the rungs below, because BOTH of them would
+        # otherwise spawn a binary that is not there.
         return WorkerAuth(UNKNOWN, f"{worker.command!r} is not on PATH")
+
+    known = agents.by_command(worker.command)
+    if known is None or not known.auth_probe:
+        # **The SECOND rung, and the one that makes R2.2's ladder pay.**
+        # Before this, an agent with no known CLI probe returned UNKNOWN and
+        # the run went on to spend. But some agents refuse the SESSION — auth
+        # visible two calls below the paid turn, for free — and that is a
+        # definite answer nobody was asking for. Measured on `kimi-code acp`:
+        # `session/new` refuses with `Authentication required` carrying its
+        # `authMethods`, in 1.4 seconds.
+        #
+        # It is tried SECOND, not first, because the agent's own command line
+        # is the more authoritative surface where it exists: `claude-agent-acp`
+        # opens a session whether or not it is signed in (measured), so the
+        # handshake would report UNKNOWN about an agent whose CLI answers
+        # exactly.
+        return _handshake_rung(worker)
 
     env = acp.worker_env(worker.env_passthrough)
     try:

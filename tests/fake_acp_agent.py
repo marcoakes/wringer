@@ -28,6 +28,10 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
                verbatim from `docs/acp-auth-2026-08-24.md`. The refusal is at
                the SESSION rather than at the prompt, which is what makes this
                a free preflight and `unauth` an expensive one
+    plainrefusal
+               refuse `session/new` for a NON-auth reason, with no
+               `authMethods` in the error — the shape the preflight must not
+               mistake for a logged-out agent
     crash      exit mid-turn, before answering the prompt
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
@@ -295,6 +299,18 @@ def main() -> int:
         elif method == "session/new":
             if BEHAVIOUR == "crash":
                 return 3
+            if BEHAVIOUR == "plainrefusal":
+                # A session refused for a reason that is NOT authentication,
+                # and with no `authMethods` anywhere in it. The preflight
+                # routes on that fact, so this must NOT stop a run — a
+                # protocol error is not a logged-out agent.
+                send({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": INVALID_PARAMS,
+                              "message": "cwd is not a directory"},
+                })
+                return 0
             if BEHAVIOUR == "kimiauth":
                 # **`data.authMethods` is on the refusal, and that is the whole
                 # point.** Measured on `kimi-code acp`: the error object itself

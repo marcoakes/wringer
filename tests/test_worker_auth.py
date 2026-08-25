@@ -460,3 +460,112 @@ def test_THE_PROBE_REPORTS_A_BINARY_THAT_IS_NOT_THERE():
         "the report does not carry the operating system's own words, so "
         f"nobody can tell a typo from a missing install: {found['stderr_tail']!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# R2.2's free rung: an agent that refuses the SESSION is answering for free,
+# two calls below the paid turn. Before this it returned UNKNOWN and the run
+# went on to spend.
+# ---------------------------------------------------------------------------
+
+FAKE_AGENT = Path(__file__).resolve().parent / "fake_acp_agent.py"
+
+
+def _acp(*args: str):
+    from wringer import config
+
+    return config.AcpWorker(
+        command=sys.executable, args=(str(FAKE_AGENT), *args), env_passthrough=()
+    )
+
+
+def test_AN_AGENT_THAT_REFUSES_THE_SESSION_IS_A_FREE_DEFINITE_NO():
+    """**The rung, driven over the wire.** The double refuses `session/new`
+    with `authMethods` in its error data, exactly as `kimi-code acp` does.
+    That is the agent saying it will not work until somebody signs it in, and
+    it costs nothing to hear."""
+    found = worker_auth.read(_acp("kimiauth"))
+
+    assert found.state == worker_auth.LOGGED_OUT, found
+    assert found.will_fail, "a definite refusal did not stop the run"
+    assert "Authentication required" in found.detail
+
+
+def test_AN_OPENED_SESSION_IS_NOT_EVIDENCE_OF_ANYTHING():
+    """**Measured on a real agent, and the reason this rung is second.**
+    `claude-agent-acp` opens a session whether or not it is signed in, so an
+    opened session must read UNKNOWN — never `logged_in`, which would be a
+    green nothing supports."""
+    found = worker_auth.read(_acp("idle"))
+
+    assert found.state == worker_auth.UNKNOWN, found
+    assert not found.will_fail
+    assert found.state != worker_auth.LOGGED_IN
+
+
+def test_A_REFUSAL_THAT_NAMES_NO_METHOD_DOES_NOT_STOP_A_RUN():
+    """The fact this rung routes on is `authMethods` in the error data. A
+    session refused for some other reason — a malformed request, a bad cwd —
+    is not an auth answer, and treating it as one would stop runs over a
+    protocol error."""
+    from wringer import config
+
+    # `session/new` without the fields the double requires: refused, with no
+    # `authMethods` anywhere in it.
+    worker = config.AcpWorker(
+        command=sys.executable,
+        args=(str(FAKE_AGENT), "plainrefusal"),
+        env_passthrough=(),
+    )
+    found = worker_auth.read(worker)
+
+    assert not found.will_fail, (
+        f"a non-auth refusal stopped the run: {found.detail}"
+    )
+
+
+def test_THE_RUNG_NEVER_RAISES_EVEN_WHEN_THE_CLIENT_ITSELF_FAILS(monkeypatch):
+    """**The catch-all, exercised rather than assumed.**
+
+    A preflight that throws is worse than one that says UNKNOWN: it turns a
+    free question into a crashed run. The agent-shaped failures below are all
+    caught as `AcpError`, so they do NOT reach the catch-all — measured, by
+    narrowing it to `ZeroDivisionError` and watching the suite stay green.
+    This drives it directly: the contract is that NOTHING escapes this
+    function, including a failure in Wringer's own client.
+    """
+    from wringer import acp as acp_module
+    from wringer import config
+
+    def explodes(*args, **kwargs):
+        raise RuntimeError("the client itself fell over")
+
+    monkeypatch.setattr(acp_module, "Connection", explodes)
+
+    found = worker_auth.read(
+        config.AcpWorker(
+            command=sys.executable,
+            args=(str(FAKE_AGENT), "idle"),
+            env_passthrough=(),
+        )
+    )
+
+    assert found.state == worker_auth.UNKNOWN, found
+    assert not found.will_fail
+    assert "fell over" in found.detail
+
+
+def test_THE_RUNG_ANSWERS_RATHER_THAN_RAISING_ON_EVERY_AGENT_SHAPE():
+    """The shapes a real machine produces, each of which must produce a state
+    rather than a traceback."""
+    from wringer import config
+
+    for args in (("crash",), ("hang",), ("notamode",)):
+        worker = config.AcpWorker(
+            command=sys.executable,
+            args=(str(FAKE_AGENT), *args),
+            env_passthrough=(),
+        )
+        found = worker_auth.read(worker)
+        assert found.state in (worker_auth.UNKNOWN, worker_auth.LOGGED_OUT), found
+        assert isinstance(found.detail, str) and found.detail
