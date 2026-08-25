@@ -112,8 +112,9 @@ def _handshake_rung(worker: config.AcpWorker) -> WorkerAuth:
     `docs/specs/SPEC_ACPAUTH_V0.md` §3 is why nothing weaker counts.
 
     Everything else is `UNKNOWN`, including a session that OPENS: measured,
-    `claude-agent-acp` opens one whether or not it is signed in, so an opened
-    session is not evidence of anything and must never read as `LOGGED_IN`.
+    the agent measured in `docs/auth-probe-2026-08-22.md` opens one whether or
+    not it is signed in, so an opened session is not evidence of anything and
+    must never read as `LOGGED_IN`.
 
     **The spawn is `acp`'s, not a second one.** A separate implementation of
     the wire here would be a second thing to keep in step with the client that
@@ -221,10 +222,11 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
         # `authMethods`, in 1.4 seconds.
         #
         # It is tried SECOND, not first, because the agent's own command line
-        # is the more authoritative surface where it exists: `claude-agent-acp`
-        # opens a session whether or not it is signed in (measured), so the
-        # handshake would report UNKNOWN about an agent whose CLI answers
-        # exactly.
+        # is the more authoritative surface where it exists: the agent in
+        # `docs/auth-probe-2026-08-22.md` opens a session whether or not it is
+        # signed in (measured), so the handshake would report UNKNOWN about an
+        # agent whose own command line answers exactly. AGENTS.md rule 5 keeps
+        # the name in `agents.py`; the capture carries it.
         return _handshake_rung(worker)
 
     env = acp.worker_env(worker.env_passthrough)

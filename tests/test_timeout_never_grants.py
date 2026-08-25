@@ -54,6 +54,7 @@ WAITS_ON_AN_ANSWER = {
     "vacuity.SETUP_TIMEOUT_SECONDS",
     "witness.TIMEOUT_SECONDS",
     "worker_auth.TIMEOUT",
+    "worker_auth.HANDSHAKE_TIMEOUT",
 }
 
 #: The answer is already in and this only bounds the tidying-up. Expiry here
@@ -234,6 +235,36 @@ def test_AN_AGENT_THAT_WILL_NOT_ANSWER_ITS_AUTH_PROBE_IS_NEVER_LOGGED_IN(
     )
     assert found.state != worker_auth.LOGGED_IN
     assert "did not finish" in found.detail
+
+
+def test_AN_AGENT_THAT_NEVER_ANSWERS_THE_HANDSHAKE_IS_NOT_LOGGED_OUT(monkeypatch):
+    """**The free rung's ceiling, and its expiry runs the OTHER way.**
+
+    Everywhere else in this file a timeout must not become a green. Here it
+    must not become a RED: this rung can stop a run, so an agent that simply
+    never answers must read `UNKNOWN` and let the run proceed. Refusing on
+    silence would make the preflight a gate on the agent's speed, and the
+    module's own law is that only a definite no earns a stop.
+    """
+    import sys as _sys
+    from pathlib import Path as _Path
+
+    from wringer import config, worker_auth
+
+    monkeypatch.setattr(worker_auth, "HANDSHAKE_TIMEOUT", 2)
+    fake = _Path(__file__).resolve().parent / "fake_acp_agent.py"
+
+    found = worker_auth.read(
+        config.AcpWorker(
+            command=_sys.executable, args=(str(fake), "mute"), env_passthrough=()
+        )
+    )
+
+    assert found.state == worker_auth.UNKNOWN, (
+        f"an agent that answered nothing was read as {found.state!r} — a "
+        "silence became a verdict"
+    )
+    assert not found.will_fail, "a handshake that timed out stopped a run"
 
 
 def test_A_CONFIRM_WITH_NOBODY_BEHIND_IT_STOPS_AND_DOES_NOT_PROCEED():
