@@ -93,7 +93,7 @@ Where they disagree about v0.1, the spec wins.
 
 ## Current state — v0.3.0 shipped; unreleased work on `main`
 
-**`v0.1.0` through `v0.4.5` are tagged and on PyPI**
+**`v0.1.0` through `v0.4.6` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
 the first of those: `verify` runs a repo's whole declared gate set and writes
 a real bundle, `--json` feeds agents, and secrets never reach the disk.

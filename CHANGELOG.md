@@ -4,6 +4,41 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.6 — 2026-08-25
+
+**Published.** `uv tool install wringer` gets it.
+
+### An agent that will not work is now refused for free
+
+0.4.5 measured where each ACP agent's authentication becomes visible and wrote
+it down. This uses it. Some agents refuse the SESSION — two calls below the
+paid turn — and until now Wringer had no way to ask an agent it had no CLI
+probe for, so it returned "unknown", drafted your spec, reached the build step
+and met the wall there.
+
+Measured on this Mac, against every agent installed:
+
+    an agent signed OUT that refuses the session   refused   1.1 s
+    an agent whose own command line answers        refused   1.0 s
+    an agent that opens a session                  proceeds  2.2 s
+    a binary that is not installed                 proceeds    0 s
+
+**Its whole authority is one fact** — the agent's own `session/new` error
+carrying `authMethods`. A session that OPENS is explicitly not evidence and
+lets the run proceed: measured, one agent opens one whether or not it is
+signed in. A refusal that names no method is not an auth answer either, so a
+malformed request cannot stop a run. And an agent that simply never answers is
+never refused: this check may only turn a definite no into a stop, never a
+silence, or it would become a gate on how fast your agent starts.
+
+The rung is tried SECOND. Where an agent's own command line answers, that is
+the more authoritative surface and is asked first.
+
+### No schema moved
+
+Nothing in `schema/frozen.json` changed a byte, and there is no twentieth
+command.
+
 ## 0.4.5 — 2026-08-24
 
 **Published.** `uv tool install wringer` gets it. Same release ordering as
