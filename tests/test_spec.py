@@ -622,10 +622,14 @@ def test_a_reply_that_answers_its_own_question_is_refused(
     assert not (repo / spec.SPEC_FILENAME).exists()
 
 
+#: The `.git` paths are the OTHER rule in `check_writable` and stay literal —
+#: there is no list in `src/` to derive them from, and two of them is the
+#: point. The reserved paths are DERIVED (2026-08-24, Fable's hand-kept-list
+#: audit): they were four typed-out names beside a `spec.RESERVED_WRITE_PATHS`
+#: that is itself derived, so a fifth would have been exercised by nothing.
 @pytest.mark.parametrize(
     "path",
-    [".git/refs/heads/main", ".git/config", "tasks.jsonl",
-     "wringer.rubric.yaml", "wringer.spec.yaml", ".wringer.yaml"],
+    [".git/refs/heads/main", ".git/config", *spec.RESERVED_WRITE_PATHS],
 )
 def test_a_write_path_that_would_destroy_something_is_refused(repo, path):
     with pytest.raises(spec.SpecError):

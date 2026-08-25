@@ -62,14 +62,58 @@ def own_voice(text: str) -> str:
     )
 
 
-# Documents in this repository that a reader lands on. Not `tests/`, and not
-# `docs/captures/*.html` — those are committed renders, and a render is
-# evidence rather than a claim.
-PUBLIC_PROSE = (
-    "README.md",
-    "docs/index.md",
-    "docs/captures/README.md",
-)
+# ---------------------------------------------------------------------------
+# **DERIVED, 2026-08-24, and it was the QUICKSTART defect all along.**
+#
+# This was a hand-kept tuple of three names — `README.md`, `docs/index.md`,
+# `docs/captures/README.md` — in a file whose own header says *"A hand-kept
+# list of what is published is drift with extra steps, which is the thing
+# being guarded against."* It was short by nine root documents, and it was
+# MEASURED short: a planted "This repository is not public." in `QUICKSTART.md`
+# passed, while the identical sentence in `README.md` failed. Found by Fable's
+# ruled audit of every guard that parameterises over a hand-kept document list.
+#
+# The inversion is the whole fix. A hand-kept list of what IS covered fails
+# SILENTLY when a page is added; a derived scope with a hand-kept list of what
+# is EXCLUDED fails LOUDLY, because the new page is checked until somebody
+# says why it should not be.
+# ---------------------------------------------------------------------------
+
+#: Records, not claims. A page that says a thing was unpublished ON ITS DATE is
+#: history, and Law 8 keeps history: correcting it in place would destroy the
+#: record. Every name here needs its reason beside it, and a name with no
+#: reason is a page somebody wanted to stop checking.
+NOT_PROSE = {
+    # A changelog entry describing what was true at a release is the record of
+    # that release. The sharpest instance in this repository's history is a
+    # sentence that was true of a local clone and false of the repository —
+    # and a changelog is exactly where the true-then version belongs.
+    "CHANGELOG.md",
+}
+
+
+def public_prose() -> tuple[str, ...]:
+    """Every document a reader lands on, derived from the tree.
+
+    Root markdown is the front door — README, the PM's README, QUICKSTART,
+    SETUP, SECURITY, CONTRIBUTING, the threat model, the roadmap, the agent
+    runbook. `docs/index.md` and `docs/captures/README.md` are the published
+    site's own pages and are named because they are the two documents outside
+    the root that a reader arrives at directly.
+
+    **Not `tests/`, and not `docs/captures/*.html`** — those are committed
+    renders, and a render is evidence rather than a claim. **Not the rest of
+    `docs/`**, which is captures and specs: pages frozen by Law 8 that SHOULD
+    say what was true on their date.
+    """
+    root = repo_root()
+    found = sorted(
+        path.name for path in root.glob("*.md") if path.name not in NOT_PROSE
+    )
+    for extra in ("docs/index.md", "docs/captures/README.md"):
+        if (root / extra).is_file():
+            found.append(extra)
+    return tuple(found)
 
 
 # Sentence shapes that assert THIS REPOSITORY, or the page it serves, is not
@@ -164,7 +208,7 @@ def test_the_readme_does_not_deny_this_repositorys_own_remote():
     HTTP 200. The fact is read from git, in this repository, at test time —
     the one place it cannot go stale.
 
-    Scans every document in `PUBLIC_PROSE`, because the same false sentence
+    Scans every document `public_prose()` derives, because the same false sentence
     stood in `docs/captures/README.md` too, which is how this class travels.
     """
     remote = origin_url()
@@ -175,7 +219,7 @@ def test_the_readme_does_not_deny_this_repositorys_own_remote():
         )
 
     offending = {}
-    for relative in PUBLIC_PROSE:
+    for relative in public_prose():
         path = repo_root() / relative
         if not path.is_file():
             continue

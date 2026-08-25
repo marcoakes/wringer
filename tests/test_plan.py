@@ -15,6 +15,7 @@ import yaml
 from core_helpers import flat
 
 from wringer import cli, config, fleet, rubric, spec
+from wringer import spec as spec_module
 
 CONFIG = """\
 version: 1
@@ -684,10 +685,14 @@ def test_a_brief_inside_dot_git_is_refused(repo, monkeypatch, capsys):
     assert (repo / ".git" / "refs" / "heads" / "main").read_text().strip()
 
 
-@pytest.mark.parametrize(
-    "collides", ["tasks.jsonl", "wringer.rubric.yaml", "wringer.spec.yaml",
-                 ".wringer.yaml"]
-)
+#: **DERIVED from the source, 2026-08-24.** This was the four literal names
+#: typed out, and `spec.RESERVED_WRITE_PATHS` is itself derived from the
+#: filename constants — so a FIFTH reserved path would have been added in
+#: `src/` and exercised by nothing. Measured: adding one left both this file
+#: and `test_spec.py` green. That is `verify.py:477-480`'s lesson exactly —
+#: *"a hand-kept second copy of 'what was left out' is exactly the guard that
+#: goes stale and then lies"* — found by Fable's ruled hand-kept-list audit.
+@pytest.mark.parametrize("collides", spec_module.RESERVED_WRITE_PATHS)
 def test_a_brief_over_a_file_plan_owns_is_refused(
     repo, monkeypatch, capsys, collides
 ):
