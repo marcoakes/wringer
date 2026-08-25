@@ -24,7 +24,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +77,11 @@ class AcpError(Exception):
     """
 
     turn: Turn | None = None
+    #: The agent's own JSON-RPC error object, when the failure was one.
+    #: Carried for the same reason `turn` is: `diagnose.py`'s law is route on
+    #: FACTS, hint on text — and "was this refusal about authentication?" has a
+    #: fact behind it (`data.authMethods`) that a message string does not.
+    error: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -122,6 +127,11 @@ class Turn:
     permissions: list[dict[str, Any]] = field(default_factory=list)
     files_written: list[str] = field(default_factory=list)
     refusals: list[str] = field(default_factory=list)
+    #: What the agent said about its own authentication at `initialize`, as it
+    #: said it (docs/specs/SPEC_ACPAUTH_V0.md). Empty is the honest default and
+    #: means the agent advertised none — MEASURED to be a fact about the agent
+    #: rather than about our request (`docs/acp-auth-2026-08-24.md`, A2).
+    auth_methods: list[dict[str, Any]] = field(default_factory=list)
     # None until an agent reports, and None is meaningful: absent means
     # unreported, and must never be rendered as zero downstream.
     usage: Usage | None = None
@@ -287,7 +297,9 @@ class Connection:
                     # (docs/first-contact.md). The agent names what is
                     # wrong; only Wringer knows what it asked.
                     said = found["error"].get("message", "agent error")
-                    raise AcpError(f"{method} was refused: {said}")
+                    refused = AcpError(f"{method} was refused: {said}")
+                    refused.error = found["error"]
+                    raise refused
                 return found.get("result", {})
             if self._done.is_set() and self._proc.poll() is not None:
                 # ONE LAST DRAIN before giving up, and it is load-bearing.
@@ -509,30 +521,77 @@ def run_turn(
         agent = info.get("agentInfo") or {}
         turn.agent_name = str(agent.get("name", ""))
         turn.agent_version = str(agent.get("version", ""))
+        # **Read, recorded, and NOT acted on here** (SPEC_ACPAUTH_V0 §3). What
+        # the agent offers only matters if the session is then refused, and
+        # `authenticate` proves nothing on its own — measured on two vendors.
+        # So this is kept for the refusal to speak with, and nothing else.
+        offered = info.get("authMethods")
+        turn.auth_methods = list(offered) if isinstance(offered, list) else []
 
-        session = connection.send_request(
-            "session/new",
-            # `mcpServers` is REQUIRED by the protocol — not optional, and not
-            # defaultable by the agent. Omitting it made every real agent
-            # refuse the session with `Invalid params` naming this field,
-            # which is the whole reason no ACP turn had ever run
-            # (docs/first-contact.md). Empty because Wringer connects the
-            # agent to no MCP servers: the tools an agent needs are the gates
-            # the repo already declared, which is SPEC_ACP_V0's v0 position
-            # and the same reason `terminal` is absent from
-            # CLIENT_CAPABILITIES. A future MCP story fills this list; it
-            # never removes it.
-            # **The cwd is the SECOND translation site** (SPEC_CONTAIN_V0 §11
-            # A-3), and the shell path does not have it: that path's problem
-            # was a brief file path substituted into a command string, and this
-            # one is a protocol field. Under a containment the repository is at
-            # /workspace, so a host path here opens a session rooted at a
-            # directory that does not exist inside the boundary.
-            {
-                "cwd": containment.WORKSPACE if contained else str(root),
-                "mcpServers": [],
-            },
-        )
+        # **The one place the handshake pays for itself** (SPEC_ACPAUTH_V0 §3).
+        # A refused session is where an operator meets the auth wall, and until
+        # now it read `session/new was refused: Authentication required` and
+        # nothing else. `authentication_wanted` reads what the agent already
+        # told us at `initialize` and says it in the agent's own words.
+        #
+        # **Note what is NOT done here: `authenticate` is not called.** Measured
+        # on two vendors (`docs/acp-auth-2026-08-24.md`): `kimi-code acp`
+        # accepts its own advertised method id and stays unauthenticated, and
+        # `dcode --acp` returns success for a method it never offered. A client
+        # that called it and believed the answer would report an authenticated
+        # worker and fail at the paid turn — the false green this repository
+        # refuses everywhere else. The evidence is the session opening, and it
+        # did not.
+        try:
+            session = connection.send_request(
+                "session/new",
+                # `mcpServers` is REQUIRED by the protocol — not optional, and
+                # not defaultable by the agent. Omitting it made every real
+                # agent refuse the session with `Invalid params` naming this
+                # field, which is the whole reason no ACP turn had ever run
+                # (docs/first-contact.md). Empty because Wringer connects the
+                # agent to no MCP servers: the tools an agent needs are the
+                # gates the repo already declared, which is SPEC_ACP_V0's v0
+                # position and the same reason `terminal` is absent from
+                # CLIENT_CAPABILITIES. A future MCP story fills this list; it
+                # never removes it.
+                # **The cwd is the SECOND translation site** (SPEC_CONTAIN_V0
+                # §11 A-3), and the shell path does not have it: that path's
+                # problem was a brief file path substituted into a command
+                # string, and this one is a protocol field. Under a
+                # containment the repository is at /workspace, so a host path
+                # here opens a session rooted at a directory that does not
+                # exist inside the boundary.
+                {
+                    "cwd": containment.WORKSPACE if contained else str(root),
+                    "mcpServers": [],
+                },
+            )
+        except AcpError as refused:
+            # **Routed on a FACT, never on the message** (`diagnose.py`'s law).
+            # Not every refused session is an auth wall — a missing protocol
+            # field is `Invalid params` and has nothing to do with signing in,
+            # and the first version of this branch printed "it advertised no
+            # way to authenticate" over exactly that. The fact is the agent's
+            # own error data: Kimi's refusal carries `authMethods` inside it
+            # (`docs/acp-auth-2026-08-24.md`, A5), which is the agent saying in
+            # its own reply that this is about authentication.
+            #
+            # **Stated limit:** an agent that refuses for auth WITHOUT that
+            # data gets the refusal it always got. That is no worse than
+            # before, and inventing the diagnosis from the message text is the
+            # hint-tier guessing this repository forbids in the router.
+            offered = ((refused.error or {}).get("data") or {}).get("authMethods")
+            if not isinstance(offered, list):
+                raise
+            wanted = AcpError(
+                authentication_wanted(
+                    replace(turn, auth_methods=richest(turn.auth_methods, offered)),
+                    str(refused),
+                )
+            )
+            wanted.error = refused.error
+            raise wanted from refused
         session_id = session.get("sessionId")
         if not session_id:
             raise AcpError("the agent opened no session")
@@ -730,6 +789,110 @@ def _handle(
 
     if request_id is not None:
         connection.respond_error(request_id, f"unsupported method {method!r}")
+
+
+#: `_meta` keys that carry a COMMAND for the client to run. Wringer shows
+#: them and never runs them (SPEC_ACPAUTH_V0 §4): a login is somebody's
+#: account, and the block is arbitrary argv supplied by the agent — an
+#: untrusted party — to be executed on the operator's machine.
+_RUNNABLE_META = ("terminal-auth", "terminal", "command")
+
+
+def runnable_block(method: dict[str, Any]) -> dict[str, Any]:
+    """The command block an auth method carries, in either shape it comes in.
+
+    **Two shapes, both measured on the SAME agent in one exchange**
+    (`docs/acp-auth-2026-08-24.md`): `kimi-code acp` nests it under
+    `_meta.terminal-auth` at `initialize`, and FLATTENS it onto the method
+    itself — `type`, `args`, `env` — inside the `session/new` refusal. Reading
+    only the nested shape silently loses the flattened one, which is how a
+    guard goes quiet.
+    """
+    meta = method.get("_meta")
+    if isinstance(meta, dict):
+        for key in _RUNNABLE_META:
+            block = meta.get(key)
+            if isinstance(block, dict):
+                return block
+    if method.get("type") == "terminal" or "args" in method:
+        return method
+    return {}
+
+
+def interactive(method: dict[str, Any]) -> bool:
+    """Whether this auth method needs a PERSON (derivation A1).
+
+    Derived from the shape rather than from a vendor's name: a method carrying
+    a command is one somebody runs at a keyboard. A hand-kept list of vendor
+    ids would be the roster-of-special-cases this whole slice exists to avoid.
+    """
+    return bool(runnable_block(method))
+
+
+def richest(advertised: list[dict], refused: list[dict]) -> list[dict]:
+    """The fuller description of each method the refusal names.
+
+    **Measured: the two lists are not the same list.** `kimi-code acp` sends
+    `_meta.terminal-auth` with a `command` at `initialize`, and the copy inside
+    its `session/new` refusal is flattened AND has no `command` at all. So the
+    refusal says WHICH methods are wanted and the handshake says what running
+    one would take — and an operator needs both. Matched by `id`; a method the
+    refusal names and the handshake never did is used as it arrived.
+    """
+    by_id = {m.get("id"): m for m in advertised if isinstance(m, dict)}
+    out = []
+    for method in refused:
+        if not isinstance(method, dict):
+            continue
+        earlier = by_id.get(method.get("id"))
+        if earlier and runnable_block(earlier).get("command"):
+            out.append({**method, **earlier})
+        else:
+            out.append(method)
+    return out or advertised
+
+
+def authentication_wanted(turn: Turn, said: str) -> str:
+    """What to tell the operator when the agent refuses to open a session.
+
+    **The whole product value of the handshake is this function**, and it is
+    the agent's own words rather than Wringer's: `name` and `description` come
+    verbatim from `authMethods` (derivation A3). Before this, a refused session
+    read `session/new was refused: Authentication required` and the operator
+    had to go and find out what that agent wanted.
+
+    **It never offers to run anything.** Where a method carries a command, the
+    command is PRINTED for the person to run — see `_RUNNABLE_META`.
+    """
+    lines = [f"the agent refused to open a session: {said}"]
+    if not turn.auth_methods:
+        lines.append(
+            "\nIt advertised no way to authenticate, so there is nothing here "
+            "to drive. Check that agent's own documentation for how it expects "
+            "to be signed in."
+        )
+        return "\n".join(lines)
+
+    lines.append("\nThe agent says it accepts:")
+    for method in turn.auth_methods:
+        name = str(method.get("name") or method.get("id") or "(unnamed)")
+        lines.append(f"  - {name}")
+        description = str(method.get("description") or "").strip()
+        if description:
+            lines.append(f"      {description}")
+        block = runnable_block(method)
+        argv = " ".join(
+            [str(block.get("command", ""))] +
+            [str(a) for a in (block.get("args") or [])]
+        ).strip()
+        if argv:
+            lines.append(f"      run this yourself, once: {argv}")
+    lines.append(
+        "\nWringer does not run any of these for you. Signing an agent in is "
+        "your act on your account, and the command above came from the agent "
+        "rather than from Wringer."
+    )
+    return "\n".join(lines)
 
 
 def _stop(proc: subprocess.Popen, timeout: int) -> None:

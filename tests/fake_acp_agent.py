@@ -22,6 +22,12 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
                product manager's machine on 2026-08-21. The handshake
                succeeding is the whole point: it is what makes this
                undetectable before the turn
+    kimiauth   advertise ONE auth method at `initialize`, carrying a
+               `_meta.terminal-auth` command, then REFUSE `session/new` with
+               `Authentication required` — the Kimi-class shape, copied
+               verbatim from `docs/acp-auth-2026-08-24.md`. The refusal is at
+               the SESSION rather than at the prompt, which is what makes this
+               a free preflight and `unauth` an expensive one
     crash      exit mid-turn, before answering the prompt
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
@@ -115,6 +121,45 @@ REQUIRED = {
 # saying which field is missing — copied from what `claude-agent-acp` 0.66.0
 # actually returned, so a test asserting on this is asserting on the wire.
 INVALID_PARAMS = -32602
+
+# Verbatim from `kimi-code acp`, measured 2026-08-24 and captured in
+# `docs/acp-auth-2026-08-24.md`, including the `_meta` block that hands the
+# CLIENT a command to run. Wringer shows it and never runs it, so the command
+# here is `/usr/bin/false`: if anything ever DID run it, the test that watches
+# every spawn would see it by name.
+#
+# **TWO definitions, because the real agent sends TWO SHAPES.** Measured on
+# `kimi-code acp` in one exchange: `initialize` nests the block under
+# `_meta.terminal-auth` WITH a `command`, and the copy inside the `session/new`
+# refusal is FLATTENED onto the method and has no `command` at all. A double
+# that sent the rich shape in both places would let a client that ignores the
+# handshake copy pass — and the first version of this file did exactly that,
+# which a mutation caught.
+AUTH_METHODS = [{
+    "id": "login",
+    "name": "Login with Kimi account",
+    "description": "Run `kimi login` command in the terminal, then follow the "
+                   "instructions to finish login.",
+    "_meta": {"terminal-auth": {
+        "command": "/usr/bin/false",
+        "args": ["login"],
+        "label": "Fake Login",
+        "env": {},
+        "type": "terminal",
+    }},
+}]
+
+#: The refusal's copy, verbatim from the same measurement: flattened, and with
+#: NO `command`. So the refusal says WHICH method is wanted and the handshake
+#: says what running it would take.
+REFUSAL_METHODS = [{
+    "id": "login",
+    "name": "Login with Kimi account",
+    "description": AUTH_METHODS[0]["description"],
+    "type": "terminal",
+    "args": ["login"],
+    "env": {},
+}]
 
 
 def send(message: dict) -> None:
@@ -239,14 +284,36 @@ def main() -> int:
             continue
 
         if method == "initialize":
-            reply(request_id, {
+            answer = {
                 "protocolVersion": 1,
                 "agentCapabilities": {},
                 "agentInfo": {"name": "fake-acp-agent", "version": "0.0.1"},
-            })
+            }
+            if BEHAVIOUR == "kimiauth":
+                answer["authMethods"] = AUTH_METHODS
+            reply(request_id, answer)
         elif method == "session/new":
             if BEHAVIOUR == "crash":
                 return 3
+            if BEHAVIOUR == "kimiauth":
+                # **`data.authMethods` is on the refusal, and that is the whole
+                # point.** Measured on `kimi-code acp`: the error object itself
+                # carries the methods, which is the agent saying in its own
+                # reply that this refusal is about authentication. Wringer
+                # routes on that fact rather than on the message text, so a
+                # double that omitted it would be testing a different wire —
+                # and the first version of this mode did omit it, which the
+                # guard caught.
+                send({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32000,
+                        "message": "Authentication required",
+                        "data": {"authMethods": REFUSAL_METHODS},
+                    },
+                })
+                return 0
             if BEHAVIOUR == "cwd":
                 # Report the working directory the CLIENT named, over the
                 # wire, so a test can assert what Wringer actually sent rather

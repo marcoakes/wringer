@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -1424,3 +1425,183 @@ def test_the_contained_spawn_is_the_runtime_and_keeps_stdin(
     assert "--tty" not in argv
     assert "--workdir" in argv and containment.WORKSPACE in argv
     assert argv[-2:] == [str(AGENT), "cwd"]
+
+
+# ---------------------------------------------------------------------------
+# SPEC_ACPAUTH_V0 — the auth handshake, driven over the wire.
+#
+# The fixture is `tests/fake_acp_agent.py kimiauth`, whose `initialize` reply
+# is copied verbatim from `kimi-code acp` (`docs/acp-auth-2026-08-24.md`),
+# `_meta.terminal-auth` block included. Asserting on it is asserting on a
+# shape a real agent produced.
+# ---------------------------------------------------------------------------
+
+
+def test_A_REFUSED_SESSION_SAYS_WHAT_THE_AGENT_ACCEPTS(tmp_path):
+    """**The whole product value of the handshake, driven end to end.**
+
+    Before this, a refused session read `session/new was refused:
+    Authentication required` and the operator went and found out what that
+    agent wanted. Now the agent's own words arrive with the refusal.
+    """
+    stdout, stderr = tmp_path / "o.log", tmp_path / "e.log"
+
+    with pytest.raises(acp.AcpError) as raised:
+        acp.run_turn(
+            command=sys.executable,
+            args=(str(AGENT), "kimiauth"),
+            env_passthrough=(),
+            brief="do the thing",
+            root=tmp_path,
+            timeout=30,
+            stdout_path=stdout,
+            stderr_path=stderr,
+        )
+
+    said = str(raised.value)
+    assert "Authentication required" in said, said
+    assert "Login with Kimi account" in said, (
+        f"the refusal does not name the method the agent advertised: {said}"
+    )
+    assert "kimi login" in said, (
+        "the agent's own instruction did not reach the operator"
+    )
+    assert "run this yourself, once: /usr/bin/false login" in said, (
+        "the command the agent supplied is not shown for the person to run. "
+        "The double sends the command ONLY in the `initialize` reply — its "
+        "refusal copy is flattened and command-less, exactly as `kimi-code "
+        "acp` measured — so this line arriving proves the client MERGED the "
+        "two lists rather than rendering the refusal's thinner one"
+    )
+    assert "does not run any of these for you" in said
+
+
+def test_WRINGER_NEVER_RUNS_THE_COMMAND_THE_AGENT_SUPPLIED(tmp_path, monkeypatch):
+    """**The consent boundary, and the reason this spec was written first.**
+
+    `_meta.terminal-auth` hands the CLIENT a `command` and `args`. Running
+    them would be arbitrary argv, chosen by an untrusted party, executed on the
+    operator's machine — and it would be Wringer logging somebody into their
+    own account, which `worker_auth.refusal` already forbids in print.
+
+    Driven rather than read: every process spawn in the module is recorded,
+    and the agent's command must not be among them.
+    """
+    spawned: list = []
+    real = subprocess.Popen
+
+    def watched(argv, *args, **kwargs):
+        spawned.append(argv)
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", watched)
+
+    with pytest.raises(acp.AcpError):
+        acp.run_turn(
+            command=sys.executable,
+            args=(str(AGENT), "kimiauth"),
+            env_passthrough=(),
+            brief="do the thing",
+            root=tmp_path,
+            timeout=30,
+            stdout_path=tmp_path / "o.log",
+            stderr_path=tmp_path / "e.log",
+        )
+
+    flat = " ".join(" ".join(map(str, argv)) for argv in spawned)
+    assert "/usr/bin/false" not in flat, (
+        f"Wringer ran the command the AGENT supplied: {spawned}"
+    )
+    assert spawned, "nothing was spawned at all, so this proves nothing"
+
+
+def test_AN_AGENT_OFFERING_NOTHING_GETS_AN_HONEST_SENTENCE():
+    """Two of three measured agents advertise no method. The refusal must not
+    pretend there is something to do."""
+    said = acp.authentication_wanted(acp.Turn(), "refused: nope")
+    assert "advertised no way to authenticate" in said
+    assert "run this yourself" not in said
+
+
+def test_INTERACTIVE_IS_DERIVED_FROM_THE_SHAPE_NOT_A_VENDOR_NAME():
+    """Derivation A1. A hand-kept list of vendor ids would be the
+    roster-of-special-cases this slice exists to avoid — so the test uses ids
+    and names no real agent has."""
+    assert acp.interactive({"id": "x", "_meta": {"terminal-auth": {"command": "c"}}})
+    assert acp.interactive({"id": "x", "_meta": {"command": {"command": "c"}}})
+    assert not acp.interactive({"id": "x"})
+    assert not acp.interactive({"id": "x", "_meta": {"docs": "https://e.invalid"}})
+    assert not acp.interactive({"id": "x", "_meta": "not-a-dict"})
+
+
+def test_THE_HANDSHAKE_RECORDS_WHAT_WAS_OFFERED_AND_CLAIMS_NOTHING_MORE(tmp_path):
+    """**Ruling 2, structurally.** `authenticate` is never called, because a
+    successful one proves nothing — measured on two vendors. So there is no
+    field anywhere saying the worker is authenticated, and there must not be
+    one: the evidence is the session opening, and when it does not open the
+    turn fails."""
+    body = Path(acp.__file__).read_text(encoding="utf-8")
+    assert '"authenticate"' not in body, (
+        "acp.py now calls `authenticate`. SPEC_ACPAUTH_V0 §3 forbids trusting "
+        "its answer, and nothing in the census offers a method worth calling "
+        "it for — if that changed, the spec changes first"
+    )
+    for inventing in ("authenticated = True", '"authenticated"'):
+        assert inventing not in body, (
+            f"acp.py records {inventing!r} — a claim only the next call can "
+            "support"
+        )
+
+
+def test_THE_TWO_METHOD_LISTS_ARE_NOT_THE_SAME_LIST():
+    """**Measured on ONE agent in ONE exchange, and it changed the design.**
+
+    `kimi-code acp` sends `_meta.terminal-auth` with a `command` at
+    `initialize`, and the copy inside its `session/new` refusal is FLATTENED
+    (`type`, `args`, `env` on the method itself) and carries no `command` at
+    all. So the refusal says WHICH method is wanted and the handshake says what
+    running it would take — and an operator needs both. Rendering from the
+    refusal alone loses the command; rendering from the handshake alone would
+    show methods the refusal never asked for.
+    """
+    advertised = [{
+        "id": "login", "name": "Login with Kimi account",
+        "_meta": {"terminal-auth": {"command": "/bin/kimi-code",
+                                    "args": ["login"]}},
+    }]
+    # The refusal's shape, verbatim from the measurement: no `_meta`, no
+    # `command`, and the block flattened onto the method.
+    refused = [{
+        "id": "login", "name": "Login with Kimi account",
+        "type": "terminal", "args": ["login"], "env": {},
+    }]
+
+    merged = acp.richest(advertised, refused)
+
+    assert len(merged) == 1
+    assert acp.runnable_block(merged[0]).get("command") == "/bin/kimi-code", (
+        "the command the handshake carried was lost when the refusal's thinner "
+        "copy replaced it"
+    )
+    said = acp.authentication_wanted(
+        acp.Turn(auth_methods=merged), "refused: Authentication required"
+    )
+    assert "run this yourself, once: /bin/kimi-code login" in said
+
+
+def test_THE_FLATTENED_SHAPE_IS_RECOGNISED_ON_ITS_OWN():
+    """An agent that only ever sends the flattened form must still be read.
+    The first version of `interactive()` looked only under `_meta`, which
+    would have gone quiet on exactly the reply Kimi's refusal carries."""
+    flattened = {"id": "login", "type": "terminal", "args": ["login"]}
+    assert acp.interactive(flattened)
+    assert acp.runnable_block(flattened)["args"] == ["login"]
+    assert not acp.interactive({"id": "api-key", "name": "Paste a key"})
+
+
+def test_A_METHOD_THE_HANDSHAKE_NEVER_MENTIONED_IS_STILL_SHOWN():
+    """`richest` merges; it does not filter. An agent that names a method only
+    in its refusal must not be silently dropped — that would be Wringer
+    deciding which of the agent's answers the operator may see."""
+    merged = acp.richest([], [{"id": "sso", "name": "Company SSO"}])
+    assert [m["id"] for m in merged] == ["sso"]

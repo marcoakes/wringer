@@ -139,6 +139,33 @@ state, so `initialize` and `session/new` are byte-identical authenticated and
 unauthenticated. **No probe below `session/prompt` can see auth.** Any preflight
 that intends to stop a run before it spends must reach `session/prompt`.
 
+> ⚑ **SCOPE-CORRECTED 2026-08-24 by Fable's R2.1, and then narrowed again by
+> measurement. The paragraph above is true of `claude-agent-acp` and false as
+> a statement about ACP agents.**
+>
+> **The generalisation is wrong.** `kimi-code acp` refuses `session/new` with
+> `-32000 Authentication required` and carries its `authMethods` in the error
+> data — auth visible two calls below the prompt, for free. `dcode --acp`
+> exits 1 before any protocol exchange at all. So *"no probe below
+> `session/prompt` can see auth"* holds for one agent in three, and the
+> preflight is a LADDER keyed on per-agent measurement rather than one rule
+> (`docs/specs/SPEC_ACPAUTH_V0.md` §5).
+>
+> **And the stated MECHANISM is wrong too, which R2.1 did not know.** This
+> paragraph says `authMethods` is gated "on a CLI flag and on client
+> capabilities". Measured across three client-capability shapes — `fs` only,
+> nothing at all, `fs` plus `terminal` — the advertised set is byte-identical
+> on all three agents (`docs/acp-auth-2026-08-24.md`, A2). It is not a
+> function of what the client declares, so "this agent offers no methods" is a
+> fact about the agent.
+>
+> **The ruling this document asks for below is ANSWERED**, in
+> `SPEC_ACPAUTH_V0`: Wringer reads the methods and shows them, and does NOT
+> call `authenticate` — because a successful `authenticate` proves nothing.
+> Measured on two vendors: `kimi-code acp` accepts its own advertised method
+> id and stays unauthenticated, and `dcode --acp` returns success for a method
+> it never offered.
+
 **The ruling this document now needs from Fable** is not the one §4 frames. It
 is: does Wringer declare the client-side auth capability and call `authenticate`
 — making the worker's login the operator's ordinary act — or does it keep the

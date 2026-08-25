@@ -96,6 +96,33 @@ Installing it is not npm: `uv tool install deepagents-code`, measured at
 **What this row banks.** Two different vendors' agents have now converged the
 same example under the same judge, the same gates and the same boundary.
 
+## Where each agent's authentication becomes visible
+
+**R2.2's ladder, and every rung is a measurement rather than a belief.** An
+ACP agent surfaces its auth state at a different depth depending on how it was
+built, and the depth decides what a preflight can cost. Sequence L once held
+that no probe below `session/prompt` could see auth; that is true of one agent
+in three and false as a statement about ACP
+([docs/acp-auth-2026-08-24.md](acp-auth-2026-08-24.md)).
+
+| agent | where auth becomes visible | what a preflight costs | measured |
+|---|---|---|---|
+| claude-agent-acp | `session/prompt` only | **the paid turn** — every call below it is identical signed in or out | 2026-08-22 |
+| dcode | process start | **free and instant** — exits 1 before any protocol exchange, naming the variables it wanted | 2026-08-23 |
+| kimi-code | `session/new` | **free** — the handshake opens and the session request is the refusal, carrying `authMethods` in its error data | 2026-08-24 |
+
+**What Wringer does with the third row is show it, never drive it.** Kimi's
+one advertised method is an interactive terminal login, and its `_meta` block
+hands the client a command to run. Wringer prints that command for the person
+and runs nothing: a login is somebody's account, and a command supplied by the
+agent is arbitrary code from an untrusted party
+([docs/specs/SPEC_ACPAUTH_V0.md](specs/SPEC_ACPAUTH_V0.md) §4).
+
+**A successful `authenticate` is not evidence, and no row here rests on one.**
+Measured on two of these three agents: one accepts its own advertised method id
+and stays unauthenticated, the other returns success for a method it never
+offered.
+
 ## Your key, whichever vendor you chose
 
 **One convention, and it is the same shape for every vendor.** Store the key

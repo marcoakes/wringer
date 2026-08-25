@@ -28,6 +28,7 @@ Run it against whatever is on PATH:
 from __future__ import annotations
 
 import json
+import queue
 import shlex
 import subprocess
 import sys
@@ -64,6 +65,27 @@ def exchange(command: str, requests, timeout: float = 20.0) -> dict:
     errs: list[str] = []
     drain = threading.Thread(target=lambda: errs.extend(proc.stderr), daemon=True)
     drain.start()
+
+    # **A READER THREAD, because `readline()` has no deadline.** The first
+    # version of this script checked the clock BETWEEN reads and then called
+    # `proc.stdout.readline()`, which blocks forever on an agent that opens
+    # its pipes and says nothing. Measured: it wedged for fourteen minutes on
+    # `kimi-code acp` against a twenty-second ceiling. That is the exact defect
+    # `tests/test_timeout_never_grants.py` exists to refuse — nothing waits
+    # without a deadline — in the instrument written to measure the surface
+    # that rule is about. `acp.py`'s own `Connection` already reads on a
+    # thread for the same reason; this is that, minimally.
+    inbox: queue.Queue = queue.Queue()
+
+    def pump() -> None:
+        try:
+            for raw in proc.stdout:
+                inbox.put(raw)
+        except (OSError, ValueError):
+            pass
+        inbox.put(None)
+
+    threading.Thread(target=pump, daemon=True).start()
     replies: dict = {}
     counter = 0
 
@@ -79,9 +101,15 @@ def exchange(command: str, requests, timeout: float = 20.0) -> dict:
         except (BrokenPipeError, OSError, ValueError):
             return {"_died": method, "_exit": proc.poll()}
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
-            line = proc.stdout.readline()
-            if not line:
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return {"_timeout": method, "_exit": proc.poll()}
+            try:
+                line = inbox.get(timeout=min(remaining, 1.0))
+            except queue.Empty:
+                continue
+            if line is None:
                 return {"_died": method, "_exit": proc.poll()}
             try:
                 message = json.loads(line)
