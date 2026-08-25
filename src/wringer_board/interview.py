@@ -398,6 +398,19 @@ def plan(repo: Path) -> str:
     data = _load(repo)
     bound = _bindings(repo)
     assumptions, outcomes = _decisions(repo)
+    # **Absent, present-and-empty, and unreadable are three states.** The
+    # third has raised since 2026-08-19 for exactly this reason: swallowing it
+    # rendered a broken sidecar as "no decisions were taken for you", a false
+    # and reassuring sentence on the page a person approves from. The FIRST
+    # was still being rendered as that same sentence — by saying nothing.
+    #
+    # Field report 2026-08-25, finding 6, reproduced at HEAD: a spec whose
+    # sidecar was not beside it produced a plan with no DECIDED WITHOUT ASKING
+    # YOU block at all and four tasks reading "(no plain-language outcome was
+    # written for this task)", and the operator was asked to approve it.
+    # Everything on that page was true of the files present and none of it was
+    # true of the draft it came from.
+    has_sidecar = (repo / DECISIONS_FILENAME).is_file()
     # **Joined on the question's TEXT, not on its id** — the same discipline
     # `carry_answers_forward` uses, and for the same reason. An assumption
     # whose id merely coincides with some question's id had the plan printing
@@ -455,6 +468,26 @@ def plan(repo: Path) -> str:
                 "",
             ]
 
+    if not has_sidecar:
+        # **Said once, above everything it affects.** Not a warning and not an
+        # apology: one fact, and what the reader cannot conclude from its
+        # absence. It renders for a hand-written spec too, where it is equally
+        # true and equally worth knowing — a page that showed this only when
+        # it could prove a draft had gone missing would be guessing about
+        # which of the two states it was in.
+        lines += [
+            "WHAT WAS DECIDED FOR YOU IS NOT IN THIS PROJECT",
+            "",
+            f"  {DECISIONS_FILENAME} is not here. That file holds the "
+            "decisions taken",
+            "  without asking you and the plain-language outcome of each "
+            "task, so this",
+            "  plan can show neither. ITS ABSENCE IS NOT EVIDENCE THAT "
+            "NOTHING WAS",
+            "  DECIDED FOR YOU — only that nothing here records it.",
+            "",
+        ]
+
     lines += ["WHAT I WILL BUILD", ""]
     for task in data.get("tasks") or []:
         if not isinstance(task, dict):
@@ -472,8 +505,15 @@ def plan(repo: Path) -> str:
                 "",
             ]
         else:
+            # Two different sentences for two different states. "No outcome
+            # was written" is a claim about the DRAFTER, and it is one this
+            # renderer cannot make when the file that would hold the outcome
+            # is not on disk — which is exactly the claim it was making.
             lines += [
-                "  (no plain-language outcome was written for this task)",
+                "  (no plain-language outcome was written for this task)"
+                if has_sidecar else
+                f"  (no plain-language outcome — {DECISIONS_FILENAME} is not "
+                "in this project)",
                 f"    For the engineer: {objective}",
                 "",
             ]

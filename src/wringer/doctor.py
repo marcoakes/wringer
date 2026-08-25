@@ -19,7 +19,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from wringer import __version__, config, evidence
+from wringer import __version__, agents, config, evidence
 
 OK, WARN, FAIL, SKIP = "ok", "warn", "fail", "skip"
 
@@ -75,7 +75,8 @@ def run_checks(root: Path) -> list[Check]:
     # answering "could you use a container?" or "will the next verify run at
     # all?" — the same question with two different severities.
     declared = _declared_execution(root) if here else None
-    machine = [_python(), _wring(), _git(), _runtime(declared), _api_key(root)]
+    machine = [_python(), _wring(), _git(), _runtime(declared),
+               _managed_settings(), _api_key(root)]
     if not here:
         skipped = [
             Check(name, SKIP, "not a git repository — run from your repo to check",
@@ -101,7 +102,70 @@ def check_names() -> tuple[str, ...]:
         "python", "wring", "git", "container runtime",
         "git repository", "gates", "runnable checks", "last verify",
         "pytest parallelism", "workspace writable", "worker auth",
-        "llm key",
+        "managed settings", "llm key",
+    )
+
+
+#: Where an IT department's coding-agent policy files live. The paths
+#: themselves are in `agents.py`, which AGENTS.md rule 5 makes the only place
+#: a vendor string may appear — a guard caught this constant here and was
+#: right to.
+#:
+#: **Presence only. Nothing below ever opens one.** It is somebody's
+#: employer's configuration, it can carry anything, and the one thing worth
+#: knowing about it — that it exists — is a `stat`. Names and paths, never
+#: values, which is the same rule `env_passthrough` lives under.
+MANAGED_SETTINGS_PATHS = agents.MANAGED_SETTINGS_PATHS
+
+
+def _managed_settings() -> Check:
+    """Is this machine's coding agent pinned to an org login?
+
+    **Field report 2026-08-25, finding 4, and it is the most expensive shape
+    in the report.** On an IT-managed Mac pinned to first-party OAuth, the
+    documented remedy — `env_passthrough` of an Anthropic key — is not merely
+    ineffective. It is THE CAUSE: with the key present `session/new` is
+    refused, and with no key in the worker env it succeeds. The agent's own
+    `auth status` reports `loggedIn: true, authMethod: api_key` the whole
+    time. Presence is worse than absence, and no surface said a word.
+
+    **What this can and cannot know.** It reports that a policy file is at a
+    documented path. It does NOT read it, so it cannot say whether that
+    policy pins anything — the wording says "if", and the caveat is the point
+    rather than hedging. Nor can it be sure it is looking in the right place:
+    the paths are Claude Code's documented ones and a vendor may move them, so
+    **absence here is not evidence that a machine is unmanaged**, and the SKIP
+    line names the path it looked at so a reader on a managed machine can see
+    for themselves whether this check was even asking the right question.
+
+    No machine available to this repository has one of these files, so the
+    PRESENT branch has never been seen in the wild — only driven against a
+    path in a test. That is said here rather than left for someone to assume.
+    """
+    found = [path for path in MANAGED_SETTINGS_PATHS if Path(path).is_file()]
+    if not found:
+        # **OK and not SKIP.** SKIP means "this is about a repository and you
+        # are not in one" — every repo-scoped check uses it and one invariant
+        # test derives that pairing. A machine check with nothing to report
+        # has found no problem, which is what OK says. The caveat travels in
+        # the sentence rather than in the mark.
+        return Check(
+            "managed settings", OK,
+            "no coding-agent policy file at "
+            f"{MANAGED_SETTINGS_PATHS[0]} (absence here is not proof this "
+            "machine is unmanaged — it is one path, checked)",
+        )
+    return Check(
+        "managed settings", WARN,
+        f"this machine has a coding-agent policy file at {found[0]}. If it "
+        "pins the builder to an organisation login, an Anthropic key in the "
+        "worker's environment will be REFUSED — the key is the thing that "
+        "breaks it, and removing it is the fix",
+        "Read that file, or ask whoever manages this machine. If it pins "
+        "login: log the agent in yourself and declare NO key under "
+        "'run.worker.acp.env_passthrough'. The agent's own `auth status` "
+        "reports a key as valid on such a machine while every session is "
+        "refused, so do not take it as proof",
     )
 
 
@@ -121,6 +185,68 @@ def _python() -> Check:
 # that should be here, here" — and a list derived from what IS on PATH could
 # never notice an absence.
 WRINGER_EXECUTABLES = ("wring", "wringer", "wringer-board", "wringer-drive")
+
+
+def install_shape() -> tuple[str | None, str | None]:
+    """Where the running `wringer` package came from, and what was installed.
+
+    Returns `(source_directory or None, distribution_version or None)`:
+
+    - **source_directory** is set when the imported package does NOT live in a
+      `site-packages` — an editable install (a `.pth` pointing at a checkout)
+      or a source tree on `PYTHONPATH`. The code that runs is then whatever is
+      in that directory right now, including edits nobody has committed.
+    - **distribution_version** is what the installed metadata says, which is
+      the version of the thing somebody actually installed. `__version__` is
+      read out of the imported source, so under an editable install the two
+      can disagree — and the one a person sees is the one that is not true of
+      their install.
+
+    **Field report 2026-08-25.** The run was made against `0.4.0`, six
+    releases stale, from an editable install, and nothing anywhere said so:
+    seven findings were written against code that had moved, and two of them
+    were already dead. Measured on this machine while fixing it, the
+    `uv tool install`ed `wring` on PATH reported `0.4.6` from a `.pth` into a
+    working tree whose `dist-info` said `0.4.1`. Both halves, live, at once.
+
+    Never raises. A doctor check that fell over while reporting on the install
+    would be the least useful failure in the tool.
+    """
+    source: str | None = None
+    try:
+        import wringer
+
+        here = Path(wringer.__file__ or "").resolve().parent
+        if not any(
+            part in ("site-packages", "dist-packages") for part in here.parts
+        ):
+            source = str(here.parent)
+    except Exception:  # noqa: BLE001
+        source = None
+
+    declared: str | None = None
+    try:
+        from importlib import metadata
+
+        declared = metadata.version("wringer")
+    except Exception:  # noqa: BLE001
+        declared = None
+    return source, declared
+
+
+def _install_note() -> str:
+    """The sentence appended to every `wring` line, or nothing at all."""
+    source, declared = install_shape()
+    if source is None:
+        return ""
+    said = f" — running from source at {source}, not from an installed copy"
+    if declared and declared != __version__:
+        said += (
+            f", and the installed distribution says {declared}. The version "
+            "above is read from that source tree, so it is NOT the version "
+            "you installed"
+        )
+    return said
 
 
 def _wring() -> Check:
@@ -145,6 +271,14 @@ def _wring() -> Check:
     different places. WARN rather than FAIL — a split install is usable and
     the person may have arranged it on purpose — but never silent.
     """
+    # **Which Wringer is this, really.** Appended to every branch below,
+    # because a stale editable install is a hazard whatever else is true of
+    # the PATH — field report 2026-08-25 was run against one and nothing said
+    # so, which is why two of its findings were already dead.
+    note = _install_note()
+    source, declared = install_shape()
+    shadowed = bool(source and declared and declared != __version__)
+
     located = {name: shutil.which(name) for name in WRINGER_EXECUTABLES}
     absent = [name for name, path in located.items() if path is None]
     if len(absent) == len(WRINGER_EXECUTABLES):
@@ -152,7 +286,7 @@ def _wring() -> Check:
         # source tree without installing — worth flagging, not fatal.
         return Check(
             "wring", WARN, f"wringer {__version__} is importable but none of "
-            f"{', '.join(WRINGER_EXECUTABLES)} is on PATH",
+            f"{', '.join(WRINGER_EXECUTABLES)} is on PATH{note}",
             "pip install wringer, or add the venv's bin directory to PATH",
         )
 
@@ -168,7 +302,7 @@ def _wring() -> Check:
             "wring", WARN,
             f"wringer {__version__} — the four commands resolve into "
             f"{len(homes)} DIFFERENT directories, so you are running a "
-            "mixture of installs:\n  " + "\n  ".join(lines),
+            f"mixture of installs{note}:\n  " + "\n  ".join(lines),
             "Uninstall every wringer distribution and install once: "
             "`uv tool uninstall wringer wringer-board wringer-drive` then "
             "`uv tool install wringer`",
@@ -178,14 +312,28 @@ def _wring() -> Check:
             "wring", WARN,
             f"wringer {__version__} — {', '.join(absent)} "
             f"{'is' if len(absent) == 1 else 'are'} missing from an otherwise "
-            "complete install:\n  " + "\n  ".join(lines),
+            f"complete install{note}:\n  " + "\n  ".join(lines),
             "Reinstall so the whole distribution is present: "
             "`uv tool install --force wringer`",
+        )
+    if shadowed:
+        # **The version a person reads is not the version they installed.**
+        # WARN, not OK: everything they are about to measure is a fact about
+        # a working tree, and every report they write will name a release it
+        # was not made against.
+        return Check(
+            "wring", WARN,
+            f"wring {__version__}, and all four commands resolve into "
+            f"{homes.pop()}{note}",
+            "Reinstall from the index to run a release: "
+            "`uv tool install --force wringer` — or keep the source install "
+            "and treat the version above as the working tree's, not a "
+            "release's",
         )
     return Check(
         "wring", OK,
         f"wring {__version__}, and all four commands resolve into "
-        f"{homes.pop()}",
+        f"{homes.pop()}{note}",
     )
 
 
@@ -298,6 +446,39 @@ def _worker_auth(root: Path) -> Check:
     if cfg.run is None:
         return Check("worker auth", SKIP, "no 'run:' section, so no worker",
                      scope=REPO)
+
+    # **Before the auth question, because on this shape there is no agent to
+    # ask.** Field report 2026-08-25, finding 5: a project named an ACP
+    # adapter as a STRING worker, which is a shell command. Nothing ever spoke
+    # ACP; the only symptom was a turn that changed nothing. Measured at HEAD,
+    # this check said "the worker is not an ACP agent" — true, useless, and
+    # silent about the fact that the command it names IS one. The names stay
+    # in `agents.py`, per AGENTS.md rule 5, including in this sentence.
+    from wringer import agents
+
+    mistyped = agents.misconfigured_string_worker(cfg.run.worker)
+    if mistyped is not None:
+        typed, current = mistyped
+        renamed = (
+            "" if typed == current else
+            f" That package was also renamed — the current binary is "
+            f"`{current}`."
+        )
+        return Check(
+            "worker auth", WARN,
+            f"'run.worker' is the string {typed!r}, which Wringer runs as a "
+            f"SHELL COMMAND — so nothing will speak ACP to it, and "
+            f"'env_passthrough' cannot be written on that shape at all."
+            f"{renamed}",
+            "Write it as a mapping instead:\n"
+            "    run:\n"
+            "      worker:\n"
+            "        acp:\n"
+            f"          command: {current}\n"
+            "  A string worker is a shell command and stays supported — this "
+            "line is here because that command names an ACP agent",
+            scope=REPO,
+        )
 
     contained = cfg.run.containment
     found = worker_auth.read(cfg.run.worker, contained)

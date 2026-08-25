@@ -24,6 +24,7 @@ import ast
 from pathlib import Path
 
 import pytest
+from core_helpers import repo_root
 
 from wringer import config, diagnose, gates, graph, health, loop, vacuity
 
@@ -389,7 +390,7 @@ def test_the_environment_stop_writes_a_diagnosis_naming_the_gate(repo):
     assert record["evidence"]
 
     schema = json.loads(
-        (Path(loop.__file__).parents[2] / "schema" / "diagnosis.schema.json")
+        (repo_root() / "schema" / "diagnosis.schema.json")
         .read_text(encoding="utf-8")
     )
     jsonschema = pytest.importorskip("jsonschema")

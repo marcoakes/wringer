@@ -22,19 +22,30 @@ import json
 from pathlib import Path
 
 import pytest
+from core_helpers import repo_root
 
 from wringer_board import cards, refusals
 from wringer_board import read as read_module
 
 
 def fixtures_dir() -> Path:
-    """The CORE repository's fixture directory, found through the engine."""
-    accept = pytest.importorskip(
+    """The CORE repository's fixture directory.
+
+    The engine still has to be IMPORTABLE — these tests check the board
+    against bytes the engine writes, and there is nothing to check without
+    it. What changed on 2026-08-25 is where the directory is found: through
+    this file rather than through `accept.__file__`. `schema/` is a
+    repository artefact and is in no wheel, so the installed-package route
+    resolved to `<venv>/lib/pythonX.Y/schema` and silently skipped this whole
+    module under `scripts/release-check.sh` — whose entire job is to exercise
+    the installed package.
+    """
+    pytest.importorskip(
         "wringer.accept",
         reason="the engine is not importable, so the board cannot be checked "
         "against the bytes it actually writes",
     )
-    directory = Path(accept.__file__).parents[2] / "schema" / "fixtures"
+    directory = repo_root() / "schema" / "fixtures"
     if not directory.is_dir():
         pytest.skip(f"the engine is importable but {directory} is absent")
     return directory

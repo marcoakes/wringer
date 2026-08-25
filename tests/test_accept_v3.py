@@ -20,10 +20,18 @@ import textwrap  # noqa: F401  (kept beside the other stdlib imports)
 from pathlib import Path
 
 import pytest
+from core_helpers import repo_root
 
 from wringer import accept, rubric
 
-SCHEMA_DIR = Path(accept.__file__).parents[2] / "schema"
+# **From THIS file, not from the installed package.** `schema/` is a
+# repository artefact and ships in no wheel, so resolving it through
+# `accept.__file__` worked from a source tree and pointed at
+# `<venv>/lib/python3.12/schema` from an install — which is how
+# `scripts/release-check.sh`, whose whole job is to exercise the
+# INSTALLED package, came to have a red "the suite is green" step at
+# `v0.4.6` and nobody noticed. Found 2026-08-25 by running it.
+SCHEMA_DIR = repo_root() / "schema"
 FIXTURE_DIR = SCHEMA_DIR / "fixtures"
 
 

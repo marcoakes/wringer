@@ -2073,7 +2073,18 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
     # rather than emptied. A sentence that quotes silence reads as a bug in
     # Wringer, which is the opposite of what a diagnosis is for.
     said = found.stop_reason or found.engine_words
-    reported = f" (it reported `{said}` and wrote no file)" if said else (
+    # **A refusal that carries the agent's own remedy is NOT re-wrapped.**
+    #
+    # Field report 2026-08-25: the agent's error carried `Remove the
+    # credential and run: claude auth login` in `data.details`, over several
+    # lines. `textwrap.fill` collapses newlines, so folding that into the
+    # sentence would reflow somebody else's instructions into a paragraph and
+    # bury a command a person is meant to copy — a second way of losing the
+    # same words. So a multi-line quote gets its own block, verbatim, and the
+    # hint keeps its own line above it.
+    block = "\n" in said
+    reported = "" if block else (
+        f" (it reported `{said}` and wrote no file)" if said else
         " (it wrote no file and reported nothing)"
     )
     print(
@@ -2084,6 +2095,11 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
             subsequent_indent="  ",
         )
     )
+    if block:
+        # Unindented and unwrapped: these are the agent's bytes, and the
+        # reader has to be able to copy the command out of them.
+        print("\nIt wrote no file. What the agent said:\n")
+        print(said)
 
 
 def _report_loop(outcome: loop.Outcome, root: Path) -> None:

@@ -1860,7 +1860,42 @@ def parse_bindings(
         if twin is None:
             kept.append(gate)
             continue
-        if twin.id == gate.id and twin.proves == gate.proves:
+        if twin.id == gate.id and twin.proves != gate.proves:
+            # **THE SAME ID ON BOTH SIDES OF THE SENTENCE, one field report
+            # later.** 2026-08-21's finding 10 killed the tautology for the
+            # case where the binding matched too; 2026-08-25's finding 2 was
+            # measured at HEAD and this arm still produced it — *"'X' runs
+            # `cmd`, which is already what 'X' runs"* — whenever the installed
+            # gate's `proves:` differed from the proposal's. The commonest
+            # shape is not exotic: somebody hand-wrote the check first, so the
+            # gate on disk carries NO binding at all, and the drafter proposed
+            # binding it. A reader given that sentence learns nothing, and
+            # `parse_gatespec` raises on it, so the build stops on a sentence
+            # nobody can act on.
+            #
+            # It says what is actually true instead, and what to type. There
+            # is still no claim about whether the check passes — that is the
+            # claim ceiling, and the drive's step 7a is what RUNS them.
+            if not twin.proves:
+                notes.append(
+                    f"{where}: '{gate.id}' is already installed in "
+                    f"{config.CONFIG_FILENAME} and runs the same command. The "
+                    f"binding to '{gate.proves}' is the only new part, and "
+                    "Wringer adds whole checks rather than editing one you "
+                    f"already have — add `proves: {gate.proves}` to that gate "
+                    "to bind it"
+                )
+            else:
+                notes.append(
+                    f"{where}: '{gate.id}' is already installed in "
+                    f"{config.CONFIG_FILENAME} and already proves "
+                    f"'{twin.proves}'. One check proves one criterion, so it "
+                    f"cannot also be the proof for '{gate.proves}' — bind "
+                    f"'{gate.proves}' to a check that can tell the difference "
+                    "this work makes, or change the installed gate by hand"
+                )
+            continue
+        if twin.id == gate.id:
             # **ALREADY APPLIED, and this is not a conflict** — field report
             # 2026-08-21 finding 10. A previous run installed this exact gate
             # and left the proposal in the sidecar, so the next run compared
@@ -1878,7 +1913,9 @@ def parse_bindings(
             # The id AND the command AND the binding must all match. Same
             # command under a different id is a real conflict and falls
             # through; same id proving something else is a real change and
-            # falls through too.
+            # is answered by the branch ABOVE this one — which exists because
+            # it used to fall through to the self-comparison and stop the
+            # build (field report 2026-08-25, finding 2).
             applied.append(
                 f"{where}: '{gate.id}' is already installed and runs the same "
                 "command, so there is nothing to add for it. It was installed "
@@ -2090,9 +2127,24 @@ def parse_decisions(
 # rather than on a grammar: this is a stale-fallback detector, not a parser of
 # English, and a pattern that tried to be one would fire on prose that merely
 # discusses uncertainty.
+#
+# **Two field runs, two phrasings, and the second walked past this.** Field
+# report 2026-08-25 finding 6: the plan deferred two tasks "once … is
+# answered" while the spec on disk carried answers for all seven questions,
+# and the detector saw nothing, because every alternative here was built from
+# 2026-08-22's wording. Measured at HEAD before the line below was written —
+# `once the summary question is answered` scored zero hits.
+#
+# So the second alternative is added the same way the first one was: from a
+# phrase a drafter is recorded as having produced, not from a theory of how
+# deferral is expressed. `once`/`until` and nothing wider — a bare "is
+# answered" is ordinary prose, and `after` reaches sentences that merely
+# sequence two events.
 _HEDGE = re.compile(
     r"\(\s*if\s+(?:it\s+is\s+|this\s+is\s+)?unanswered\b[^)]*\)"
-    r"|\bif\s+unanswered\s*,",
+    r"|\bif\s+unanswered\s*,"
+    r"|\b(?:once|until)\b[^.\n]{0,60}?\b(?:is|are|has been|have been)"
+    r"\s+answered\b",
     re.I,
 )
 

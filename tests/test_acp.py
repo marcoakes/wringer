@@ -312,6 +312,173 @@ def test_the_remedy_points_at_a_log_that_actually_HAS_the_words(
     )
 
 
+# --- the refusal's DATA, which is where the answer usually is --------------
+#
+# Field report 2026-08-25, finding 1. An org-managed Mac refused every session
+# with `-32603 Internal error` — JSON-RPC's generic code, which says nothing —
+# while `error.data.details` carried the remedy in plain English, naming the
+# command to run. Wringer rendered the message alone at four surfaces at once
+# and the operator lost a session and a paid drafting call to a problem whose
+# fix was already in the payload.
+
+
+def test_the_agents_own_remedy_reaches_every_surface_verbatim(
+    repo, monkeypatch, capsys
+):
+    """The whole of finding 1, guarded at once.
+
+    Four surfaces, because the defect was one renderer feeding all of them:
+    the console the operator reads, `loop.jsonl` the board reads,
+    `worker-diagnosis.json` the drive reads, and the bundle log the remedy
+    itself points at. The assertion is CONTAINMENT OF THE EXACT STRING — not
+    of a word from it — because the failure this replaces was a rendering
+    that kept some of the agent's words and dropped the useful ones.
+    """
+    setup(repo, "managed")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+
+    remedy = fake_acp_agent.MANAGED_DETAILS
+    assert remedy in printed, (
+        "the console shows the agent's generic message and drops the remedy "
+        "it sent with it — the field report's finding 1, unfixed"
+    )
+    # The code, too. `-32603` alone is worthless, and that is exactly why a
+    # reader must be able to see that it WAS the generic one: it says the
+    # agent had nothing more specific to offer, and sends them to the data.
+    assert "(code -32603)" in printed
+
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert remedy in finished["acp_error"], (
+        "the ledger — what the board renders — kept only the message"
+    )
+
+    payload = json.loads(
+        (only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME).read_text("utf-8")
+    )
+    assert remedy in payload["engine_words"], (
+        "the record the drive shows a product manager kept only the message"
+    )
+
+    logs = [
+        log.read_text(encoding="utf-8")
+        for log in sorted(only_loop(repo).rglob("worker.stdout.log"))
+    ]
+    assert any(remedy in text for text in logs), (
+        "the log the remedy points at does not contain the agent's own words"
+    )
+
+
+def test_a_multi_line_remedy_is_not_reflowed_into_the_hint_sentence(
+    repo, monkeypatch, capsys
+):
+    """Carrying the words is not enough — they have to stay COPYABLE.
+
+    The console hint is `textwrap.fill`ed, which collapses newlines. Folding
+    a multi-line remedy into it would reflow somebody else's instructions
+    into a paragraph and break the one line a person is meant to copy. So the
+    line survives as a line.
+    """
+    setup(repo, "managed")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+
+    assert "Remove the credential and run: claude auth login" in [
+        line.strip() for line in printed.splitlines()
+    ], (
+        "the command the agent told the operator to run was re-wrapped into "
+        "the hint paragraph, so it is no longer a line anyone can copy"
+    )
+    # And the empty-quotation defect stays fixed: the hint drops its inline
+    # quote rather than printing a paragraph's worth of somebody else's text
+    # inside backticks.
+    assert "``" not in printed
+
+
+def test_a_credential_inside_a_refusals_data_reaches_no_surface(
+    repo, monkeypatch, capsys
+):
+    """Carrying `data` verbatim is a security question, not only a legibility
+    one — and the console is the surface with no write path to scrub it.
+
+    The agent is handed a credential BY NAME through `env_passthrough`.
+    Nothing stops it handing the value back inside an error, and that error
+    now reaches a terminal as well as a bundle. Scrubbed once, upstream of
+    every surface, because a scrub that lives on the file writes protects
+    every reader except the person watching the run.
+    """
+    secret = "sk-ant-notarealkey-1c4e77a90fb32d68"
+    monkeypatch.setenv("WRINGER_TEST_API_KEY", secret)
+    setup(
+        repo,
+        "leakrefusal",
+        env_passthrough="      env_passthrough: [WRINGER_TEST_API_KEY]\n",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+
+    assert "[REDACTED]" in printed, (
+        "the agent's refusal never reached the console at all, so this guard "
+        "is watching nothing"
+    )
+    assert secret not in printed, (
+        "a live credential the agent echoed in its error was printed to the "
+        "operator's terminal"
+    )
+    assert mentions(repo, secret) == [], (
+        "a live credential the agent echoed in its error reached the evidence"
+    )
+
+
+def test_a_refusal_that_says_deadline_is_not_recorded_as_a_timeout(
+    repo, monkeypatch, capsys
+):
+    """**Route on facts, hint on text** — and the text is now the agent's.
+
+    The loop read `"deadline" in str(exc)` to decide whether a turn timed
+    out. That was safe only while Wringer wrote every word of the message.
+    It now carries the agent's own `data`, so an agent whose remedy mentions
+    a deadline would have been recorded as having run out of time — and
+    `diagnose_failed_turn` says NOTHING about a timeout, so the operator
+    would lose the diagnosis entirely at the moment they need it.
+    """
+    setup(repo, "fix")
+    monkeypatch.chdir(repo)
+
+    def refuse_mentioning_a_deadline(**kwargs):
+        raise acp.AcpError(
+            acp.refusal_words(
+                "session/new",
+                {
+                    "code": -32603,
+                    "message": "Internal error",
+                    "data": {"details": "the upstream deadline was missed"},
+                },
+            )
+        )
+
+    monkeypatch.setattr(acp, "run_turn", refuse_mentioning_a_deadline)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    finished = next(e for e in events(repo) if e["type"] == "worker.finished")
+    assert "timed_out" not in finished, (
+        "a refused turn was recorded as a timeout because the AGENT used the "
+        "word 'deadline' in its own error"
+    )
+    assert (only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME).is_file(), (
+        "the diagnosis vanished — which is what mistaking a refusal for a "
+        "timeout costs the operator"
+    )
+
+
 def test_a_CONVERGED_loop_never_says_the_agent_changed_nothing(
     repo, monkeypatch, capsys
 ):
@@ -758,7 +925,20 @@ def test_a_refused_session_is_a_failed_turn_and_not_a_crash(
     # first real-agent refusal meant reading someone else's schema to work
     # out which of three calls `Invalid params` referred to; the agent says
     # what is wrong and only Wringer knows what it asked.
-    assert finished["acp_error"] == "session/new was refused: Invalid params"
+    assert finished["acp_error"].startswith(
+        "session/new was refused: Invalid params (code -32602)"
+    )
+    # And the rest of what the agent sent is UNDERNEATH it rather than
+    # instead of it. This assertion used to be an equality on the sentence
+    # above and nothing else, which is precisely the rendering the field
+    # report's finding 1 caught: `_errors` names the field that is missing,
+    # and a client that shows only `Invalid params` has told the reader that
+    # something is wrong with some parameter somewhere.
+    assert "`data.mcpServers`" in finished["acp_error"], (
+        "the agent named the missing field in `data` and the rendering "
+        "dropped it — the whole of finding 1, one refusal earlier"
+    )
+    assert "Required value is missing" in finished["acp_error"]
     assert result(repo)["status"] == "stopped"
     assert (repo / "calc.py").read_text(encoding="utf-8") == "BROKEN\n"
 

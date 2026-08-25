@@ -63,6 +63,91 @@ WRITE_TIMEOUT_SECONDS = 30
 DRAIN_TIMEOUT_SECONDS = 5
 
 
+# How much of one `data` value is rendered into a refusal's words before the
+# rest is dropped WITH A NOTE. The whole point of this rendering is that the
+# operator sees what the agent said, so the number is set far above any real
+# remedy — the org-managed refusal that motivated it is ~430 characters — and
+# exists only for the bad-day case: an agent that puts a log file in its error
+# payload would otherwise write it into `loop.jsonl` as one line.
+#
+# **A cut is announced, never silent.** That is the whole complaint this fix
+# answers (`docs/field-report-2026-08-25.md`): a surface that quietly shows
+# less than it was given teaches the reader nothing about what is missing.
+MAX_ERROR_DATA_CHARS = 20_000
+
+
+def refusal_words(
+    method: str, error: dict[str, Any], skip: tuple[str, ...] = ()
+) -> str:
+    """Everything the agent said about a refusal — code, message AND data.
+
+    **The one place a JSON-RPC error becomes words**, so every surface that
+    renders an `AcpError` — the console, `loop.jsonl`, `worker-diagnosis.json`,
+    the bundle's log, `wring doctor`'s worker-auth line, the drive's `stopped`
+    step — carries the same text. There is no second renderer to drift.
+
+    Field report 2026-08-25, finding 1: this used to be
+    `f"{method} was refused: {said}"` and nothing else, and it cost a product
+    manager an entire session. Their agent sent `-32603 Internal error` — the
+    generic code, which says nothing on its own — with the remedy in
+    `data.details`, in plain English, naming the exact command to run. The
+    message alone was rendered; the remedy was dropped at four surfaces at
+    once. Wringer knew the answer and did not say it.
+
+    `skip` names data keys the CALLER is about to render better itself:
+    `data.authMethods` is a refusal's auth ladder, and `authentication_wanted`
+    prints each method's own name, description and command. Skipping it there
+    keeps the same fact from arriving twice in two shapes — and every OTHER
+    key still travels, because an agent that refuses for auth may also say
+    something about the machine it is running on.
+
+    Nothing here interprets. The code is printed as the number it is, the
+    message as the agent wrote it, each data value verbatim, and the reader
+    decides what it means — the same law the hint tier lives under
+    (`diagnose.py`: route on facts, hint on text, claim on neither).
+    """
+    said = error.get("message") or "agent error"
+    code = error.get("code")
+    # The METHOD is carried for the reason `_await` recorded: a rejection that
+    # reads only `Invalid params` sent the first reader to someone else's
+    # schema to work out which of three calls it was.
+    head = f"{method} was refused: {said}"
+    if code is not None:
+        head += f" (code {code})"
+    return "".join([head, *_data_words(error.get("data"), skip)])
+
+
+def _data_words(data: Any, skip: tuple[str, ...] = ()) -> list[str]:
+    """The `data` member of a JSON-RPC error, rendered for a person.
+
+    A string value is printed as the agent wrote it — NOT re-wrapped, NOT
+    re-indented, NOT JSON-escaped — because a remedy that says
+    `Remove the credential and run: claude auth login` is only useful if the
+    reader can copy the line. Anything else is JSON, which is what it was.
+    """
+    if data is None or data == {} or data == []:
+        return []
+    if isinstance(data, dict):
+        return [
+            _one_value(f"data.{key}", value)
+            for key, value in data.items()
+            if key not in skip
+        ]
+    return [_one_value("data", data)]
+
+
+def _one_value(label: str, value: Any) -> str:
+    text = value if isinstance(value, str) else json.dumps(
+        value, ensure_ascii=False, sort_keys=True
+    )
+    if len(text) > MAX_ERROR_DATA_CHARS:
+        dropped = len(text) - MAX_ERROR_DATA_CHARS
+        text = text[:MAX_ERROR_DATA_CHARS] + (
+            f"\n[wringer: {dropped} further characters of `{label}` not shown]"
+        )
+    return f"\n\nThe agent also sent `{label}`:\n{text}"
+
+
 class AcpError(Exception):
     """The agent could not be spoken to. Recorded as a failed worker turn —
     never as a verdict about the code.
@@ -77,6 +162,17 @@ class AcpError(Exception):
     """
 
     turn: Turn | None = None
+    #: Whether the turn ran out of time, as a FACT rather than as a substring.
+    #:
+    #: The loop used to read this off the message — `"deadline" in str(exc)` —
+    #: which was true of exactly one raise site and no others. That worked
+    #: only while Wringer wrote every word of the message. It now carries the
+    #: agent's own `data` verbatim (`refusal_words`), so an agent whose
+    #: remedy happened to contain the word "deadline" would have had its
+    #: refusal recorded as a timeout — and `diagnose_failed_turn` returns
+    #: nothing for a timeout, so the operator would lose the diagnosis
+    #: entirely. Route on facts, hint on text: this is the fact.
+    timed_out: bool = False
     #: The agent's own JSON-RPC error object, when the failure was one.
     #: Carried for the same reason `turn` is: `diagnose.py`'s law is route on
     #: FACTS, hint on text — and "was this refusal about authentication?" has a
@@ -290,14 +386,13 @@ class Connection:
                 self._serve(message)
             if found is not None:
                 if "error" in found:
-                    # The METHOD is carried, not just the message. Without
-                    # it a rejection reads only `Invalid params`, and
-                    # diagnosing the first real-agent failure meant reading
-                    # someone else's schema to work out which call it was
-                    # (docs/first-contact.md). The agent names what is
-                    # wrong; only Wringer knows what it asked.
-                    said = found["error"].get("message", "agent error")
-                    refused = AcpError(f"{method} was refused: {said}")
+                    # **The WHOLE error becomes the words** — code, message
+                    # and data — through the one renderer, because this is
+                    # the only place a refusal is turned into a sentence and
+                    # everything downstream reads `str(exc)`. Rendering the
+                    # message alone here is what threw away a working remedy
+                    # at four surfaces at once (`refusal_words`).
+                    refused = AcpError(refusal_words(method, found["error"]))
                     refused.error = found["error"]
                     raise refused
                 return found.get("result", {})
@@ -318,9 +413,13 @@ class Connection:
         # Same reason on the deadline path: an agent that ran out of time
         # usually said why first.
         self.drain()
-        raise AcpError(
+        expired = AcpError(
             f"the agent did not reply to {method} before the turn's deadline"
         )
+        # The FACT the loop routes on. The sentence above still says it in
+        # words for the reader; nothing reads those words to decide.
+        expired.timed_out = True
+        raise expired
 
     # Set by the session so inbound requests can be served with context.
     handler: Any = None
@@ -587,7 +686,17 @@ def run_turn(
             wanted = AcpError(
                 authentication_wanted(
                     replace(turn, auth_methods=richest(turn.auth_methods, offered)),
-                    str(refused),
+                    # **The ladder is skipped and NOTHING ELSE IS.** The
+                    # methods are about to be rendered properly below — each
+                    # with its own name, description and command — so passing
+                    # them through here as JSON as well would say one thing
+                    # twice in two shapes. Any other key the agent put in
+                    # `data` still travels: an agent can refuse for auth AND
+                    # say something about the machine in the same breath, and
+                    # dropping that half is this fix's own defect one layer up.
+                    refusal_words(
+                        "session/new", refused.error or {}, skip=("authMethods",)
+                    ),
                 )
             )
             wanted.error = refused.error

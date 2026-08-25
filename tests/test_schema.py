@@ -2046,3 +2046,48 @@ def test_every_routing_word_the_schema_declares_is_reachable():
         stability.NO_REPAIR,
         stability.NOTHING_TO_REPAIR,
     }
+
+
+def test_NO_TEST_FINDS_THIS_DIRECTORY_THROUGH_AN_INSTALLED_PACKAGE():
+    """**`schema/` is a repository artefact and ships in no wheel.**
+
+    Four modules resolved it as `Path(<some_module>.__file__).parents[2] /
+    "schema"`. From a source tree that lands on the repository root and
+    everything passes. From an INSTALLED package it lands on
+    `<venv>/lib/pythonX.Y/schema`, which does not exist — so nine tests fail
+    and one whole module skips.
+
+    That is exactly the harness `scripts/release-check.sh` runs, because its
+    entire purpose is to exercise what `pip install wringer` gives a stranger.
+    Its `the suite is green` step was therefore RED, and reproducibly red at
+    `v0.4.6` as well — found on 2026-08-25 by running the release bar rather
+    than by reading it. A release check nobody can pass is a release check
+    nobody reads.
+
+    **Derived over every test file**, because four is what one grep found and
+    the fifth is what this is for. `Path(__file__)` is fine, and so is
+    `Path(x.__file__)` used to read module `x`'s OWN source — that is where
+    its source is. What is forbidden is the CODE SHAPE that joins a module's
+    location to this directory, matched on `/ "schema"` rather than on the
+    word, so a docstring explaining the rule cannot trip it.
+    """
+    import re
+
+    tests_root = Path(__file__).resolve().parent
+    through_a_module = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\.__file__")
+    joined_to_schema = re.compile(r"""/\s*['"]schema['"]""")
+    offenders: dict[str, list[int]] = {}
+    for path in sorted(tests_root.rglob("*.py")):
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), 1
+        ):
+            if through_a_module.search(line) and joined_to_schema.search(line):
+                offenders.setdefault(
+                    str(path.relative_to(tests_root)), []
+                ).append(number)
+    assert not offenders, (
+        f"{offenders} locate the schema directory through an installed "
+        "module's __file__. That passes from a source tree and fails from a "
+        "wheel — use `core_helpers.repo_root()`, which is derived from the "
+        "test file and is therefore always the checkout being tested"
+    )

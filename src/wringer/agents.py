@@ -124,6 +124,91 @@ AGENTS: tuple[Agent, ...] = (
 )
 
 
+#: Where an IT department's coding-agent policy file lives, per platform.
+#:
+#: **One vendor, because one vendor is what has been measured.** Field report
+#: 2026-08-25 was run on a Mac pinned by managed settings to a first-party
+#: login, and the paths below are that vendor's documented locations. Other
+#: agents on the roster may have equivalents; nobody here has looked, and
+#: naming a path nobody has checked would be the same guess that put a
+#: deprecated package name on a front page for a week. The check that reads
+#: this says out loud that absence proves nothing.
+#:
+#: Here rather than in `doctor.py` because AGENTS.md rule 5 makes this file
+#: the only place a coding-agent vendor string may appear — the derived guard
+#: in `tests/test_start.py` caught the first version of this constant sitting
+#: in `doctor.py`, and was right to.
+#:
+#: **A path, never a read.** Nothing in this repository opens one of these
+#: files: it is somebody's employer's configuration, and the only fact worth
+#: having about it is whether it exists.
+MANAGED_SETTINGS_PATHS: tuple[str, ...] = (
+    "/Library/Application Support/ClaudeCode/managed-settings.json",
+    "/etc/claude-code/managed-settings.json",
+    r"C:\ProgramData\ClaudeCode\managed-settings.json",
+)
+
+
+#: Binaries that WERE an ACP adapter and are not the one to install now.
+#: The value is the command that replaced it.
+#:
+#: **One place, so the documents and the config check cannot disagree.** The
+#: rename was recorded in `docs/MANUAL_CHECKS.md` sequence F on 2026-08-11 and
+#: copied into a front page anyway a week later, and a product manager
+#: installed the deprecated adapter on that instruction. The deprecated one
+#: answers an unauthenticated turn with an empty *result*, which a client
+#: cannot tell from a turn that did nothing — so the failure presents as a
+#: hang. The document guard derives its stale string from here rather than
+#: keeping its own copy, and `misconfigured_string_worker` reads the same
+#: mapping.
+#:
+#: Not in `AGENTS`, deliberately: this is not an agent Wringer offers, drives
+#: or claims to have measured. It is a name a person may already have typed.
+SUPERSEDED_COMMANDS: dict[str, str] = {
+    "claude-code-acp": "claude-agent-acp",
+}
+
+
+def acp_adapter_command(command: str) -> str | None:
+    """The current adapter binary this command names, or None.
+
+    Answers for both the roster and the superseded names, and the answer is
+    the command a person should be running. A command Wringer has never heard
+    of returns None — this is a lookup in two tables, never a guess from a
+    filename.
+    """
+    known_agent = by_command(command)
+    if known_agent is not None:
+        return known_agent.command
+    return SUPERSEDED_COMMANDS.get(command)
+
+
+def misconfigured_string_worker(worker: object) -> tuple[str, str] | None:
+    """A `worker:` STRING that names an ACP adapter, as (typed, current).
+
+    **Field report 2026-08-25, finding 5.** A project carried
+    `run.worker: "claude-code-acp"`. A string worker is a shell command
+    (`config._parse_worker`), so the adapter was never spoken to over ACP at
+    all, `env_passthrough` could not even be expressed on that shape, and the
+    only symptom was a turn that changed nothing — which points nowhere near
+    the cause. Nothing said a word.
+
+    Returns None for every other worker, including a correctly-configured ACP
+    mapping and an ordinary shell command, because a string worker is a
+    supported and common thing to write. The narrow case this names is a
+    string whose FIRST WORD is a binary Wringer knows speaks ACP: nobody
+    writes that by accident meaning a shell script.
+    """
+    if not isinstance(worker, str) or not worker.strip():
+        return None
+    # The first word only. `run.worker: "claude-agent-acp --flag"` is the same
+    # mistake with an argument on it; a command that merely mentions the name
+    # in an argument is not.
+    typed = worker.split()[0]
+    current = acp_adapter_command(typed)
+    return None if current is None else (typed, current)
+
+
 def known() -> tuple[str, ...]:
     """Every id `--agent` accepts, in the order they are offered."""
     return tuple(agent.id for agent in AGENTS)

@@ -967,6 +967,63 @@ def test_the_same_command_under_a_DIFFERENT_id_is_still_a_real_conflict(repo):
     assert "nothing else in the project's settings proves" in notes[0]
 
 
+def test_NO_NOTE_EVER_NAMES_THE_SAME_GATE_ON_BOTH_SIDES(repo):
+    """**Field report 2026-08-25, finding 2 — the half 2026-08-21 left alive.**
+
+    Finding 10 killed the tautology for the case where id, command AND
+    binding all matched. Measured at HEAD a field report later, the same
+    sentence still came out whenever the installed gate's `proves:` differed
+    from the proposal's:
+
+        'acceptance-skip-downstream' runs `pytest -q …`, which is already what
+        'acceptance-skip-downstream' runs
+
+    The commonest way in is not exotic — somebody hand-wrote the check first,
+    so the gate on disk carries no binding at all — and `parse_gatespec`
+    RAISES on the first note, so the build stops on a sentence nobody can act
+    on. That is a product manager stuck, twice, on the same sentence.
+
+    **Derived over every arm, not spot-checked.** The property is that no
+    note may name one id on both sides of its own sentence, whatever the
+    reason for the note. A guard written as three examples would pass again
+    the next time an arm is added.
+    """
+    cmd = "pytest -q acceptance/test_button.py"
+    criteria = [
+        spec.Criterion(id="export-button-exists", title="There is a button"),
+        spec.Criterion(id="something-else", title="Something else"),
+    ]
+    same_id = "acc-export-button"
+    arms = {
+        "installed with no binding at all": config.Gate(id=same_id, run=cmd),
+        "installed proving another criterion": config.Gate(
+            id=same_id, run=cmd, proves="something-else"
+        ),
+        "installed proving the same criterion": config.Gate(
+            id=same_id, run=cmd, proves="export-button-exists"
+        ),
+    }
+    for label, installed in arms.items():
+        _kept, notes, already = spec.parse_bindings(
+            [dict(BINDINGS[0])], criteria, "the sidecar", (installed,)
+        )
+        for said in (*notes, *already):
+            assert said.count(f"'{same_id}'") < 2, (
+                f"{label}: the gate is compared to ITSELF — {said}"
+            )
+        # And whatever it says, it never asserts a result nothing ran.
+        assert "passes today" not in " ".join((*notes, *already)), label
+
+    # The two arms that DROP the binding say what to do about it, because a
+    # refusal that stops the build and names no next step is where the field
+    # report's operator was left.
+    _kept, notes, _already = spec.parse_bindings(
+        [dict(BINDINGS[0])], criteria, "the sidecar",
+        (config.Gate(id=same_id, run=cmd),),
+    )
+    assert "add `proves: export-button-exists`" in notes[0], notes
+
+
 def test_the_unbound_half_of_the_note_is_not_claimed_when_the_config_binds_it(
     repo,
 ):
@@ -2877,6 +2934,67 @@ def test_prose_that_merely_MENTIONS_uncertainty_is_not_a_hedge():
             path="wringer.spec.yaml",
         )
     ) == ()
+
+
+def _hedges(text: str) -> tuple[tuple[str, str], ...]:
+    """One objective through the real detector."""
+    return spec.conditionals_on_answered_questions(
+        spec.Spec(
+            approved=True,
+            title="t",
+            intent="i",
+            questions=(),
+            criteria=(),
+            gates=(),
+            tasks=(spec.Task(id="build", brief="briefs/build.md",
+                             objective=text),),
+            path="wringer.spec.yaml",
+        )
+    )
+
+
+def test_the_SECOND_field_runs_phrasing_is_a_hedge_too():
+    """**Field report 2026-08-25, finding 6 — and the detector walked past it.**
+
+    2026-08-22's drafter wrote `(if unanswered, …)` and this detector was
+    built from that phrase. 2026-08-25's drafter wrote *"once … is answered"*
+    over a spec with answers to all seven questions, and the plan a product
+    manager was asked to approve carried stale deferrals with nothing said.
+    Measured at HEAD before the fix: zero hits on that phrasing.
+
+    Both phrasings are here now because both were produced by a real drafter.
+    Nothing in this list is invented — a pattern reasoned out from how
+    deferral *could* be written is the thing the detector's own comment
+    forbids.
+    """
+    for text in (
+        "Write the summary format once the summary question is answered.",
+        "Defer grouping until 'how should this be grouped' is answered.",
+        "Hold this back until the two open questions have been answered.",
+        # 2026-08-22's, which must not regress while the new arm is added.
+        "Use the default (if unanswered, name each step).",
+        "If unanswered, keep the current order.",
+    ):
+        assert _hedges(text), f"walked past a stale deferral: {text!r}"
+
+
+def test_ordinary_prose_about_answering_is_still_not_a_hedge():
+    """The narrowness half of the widening, and the reason it is `once` and
+    `until` rather than every word that can introduce a sequence.
+
+    A spec is *supposed* to talk about its questions. A detector that fired on
+    "the question was answered" would refuse every spec whose drafter wrote a
+    sentence about the interview — and a refusal nobody can satisfy teaches
+    people to stop reading refusals.
+    """
+    for text in (
+        "The question was answered during the interview, so build it that way.",
+        "Every question is answered in the spec above.",
+        "Once the pipeline runs, the summary is written to stdout.",
+        "The runner answers each request until the queue is empty.",
+        "This is answered by the acceptance check, which is already committed.",
+    ):
+        assert _hedges(text) == (), f"fired on ordinary prose: {text!r}"
 
 
 def test_canonicalization_is_REFUSED_on_a_measured_false_yes():

@@ -871,6 +871,80 @@ def test_revise_REFUSES_an_id_that_is_both_a_question_and_a_decision(repo):
     )
 
 
+def test_a_MISSING_decisions_file_is_SAID_not_rendered_as_no_decisions(repo):
+    """**Field report 2026-08-25, finding 6, reproduced at HEAD.**
+
+    An existing approved spec whose sidecar was not beside it produced a plan
+    with no DECIDED WITHOUT ASKING YOU block at all and every task reading
+    "(no plain-language outcome was written for this task)". The operator was
+    asked to approve that page. Everything on it was true of the files that
+    were present and none of it was true of the draft it came from — the
+    report's words: it *"misrepresented its own decision state"*.
+
+    Unreadable has raised since 2026-08-19 for precisely this reason. Absent
+    was still being rendered as the same false-and-reassuring silence, which
+    is the one thing this file exists to prevent.
+    """
+    assert not (repo / "wringer.decisions.yaml").exists()
+
+    text = interview.plan(repo)
+
+    assert "wringer.decisions.yaml is not here" in text, (
+        "the plan renders a missing decisions file as though nothing had been "
+        "decided for the person reading it"
+    )
+    assert "NOT EVIDENCE THAT NOTHING WAS" in text
+    # And the per-task line stops making a claim about the DRAFTER that this
+    # renderer has no file to support.
+    assert "(no plain-language outcome was written for this task)" not in text
+    assert "wringer.decisions.yaml is not in this project" in text
+
+
+def test_the_absence_line_is_gone_the_moment_the_file_is_there(repo):
+    """The other direction, and the reason the pair exists. A page that says
+    a file is missing while it sits beside the spec is the same class of false
+    sentence, pointed the other way."""
+    (repo / "wringer.decisions.yaml").write_text(DECISIONS, encoding="utf-8")
+
+    text = interview.plan(repo)
+
+    assert "is not here" not in text
+    assert "DECIDED WITHOUT ASKING YOU" in text
+    # A task the sidecar genuinely says nothing about keeps the sentence that
+    # IS true of it — this fix narrows a claim, it does not delete one.
+    (repo / "wringer.spec.yaml").write_text(
+        SPEC.replace(
+            "tasks:\n",
+            "tasks:\n  - id: second-task\n    brief: Another\n"
+            "    objective: Something else again.\n",
+        ),
+        encoding="utf-8",
+    )
+    assert "(no plain-language outcome was written for this task)" in (
+        interview.plan(repo)
+    )
+
+
+def test_the_plan_is_BYTE_IDENTICAL_however_the_files_got_there(repo, tmp_path):
+    """**The re-render path renders the same plan from the same files.**
+
+    Field report 2026-08-25 finding 6 landed as "the degradation is specific
+    to the re-render path", and the fix it demands is that there be no such
+    path — one renderer, one set of files, one page. This pins it: the same
+    three documents, rendered from two different directories, are the same
+    bytes. A second renderer, or a branch keyed on how the spec arrived,
+    fails here.
+    """
+    (repo / "wringer.decisions.yaml").write_text(DECISIONS, encoding="utf-8")
+
+    elsewhere = tmp_path / "as-if-just-drafted"
+    elsewhere.mkdir()
+    for name in ("wringer.spec.yaml", "wringer.gates.yaml", "wringer.decisions.yaml"):
+        (elsewhere / name).write_bytes((repo / name).read_bytes())
+
+    assert interview.plan(repo) == interview.plan(elsewhere)
+
+
 def test_an_unreadable_decisions_file_is_SAID_not_rendered_as_no_decisions(
     repo,
 ):

@@ -18,11 +18,14 @@ import json
 from pathlib import Path
 
 import pytest
+from core_helpers import repo_root
 
 from wringer import artifacts, config, gates
 from wringer.redact import Redactor
 
-SCHEMA_DIR = Path(artifacts.__file__).parents[2] / "schema"
+# From THIS file, not from the installed package — see the note in
+# `test_accept_v3.py`. `schema/` ships in no wheel.
+SCHEMA_DIR = repo_root() / "schema"
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"

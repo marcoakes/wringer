@@ -1,6 +1,6 @@
 # Security
 
-Wringer is young software (`0.4.6`). Read this before running
+Wringer is young software (`0.4.7`). Read this before running
 `wring verify` in a repository you did not write.
 
 ## Reporting a vulnerability
@@ -426,8 +426,8 @@ backported to an older one.
 | Version | Supported |
 |---|---|
 | `main` | ✅ |
-| `0.4.6` (PyPI, current) | ✅ |
-| `0.4.5` (PyPI) | upgrade — `pip install -U wringer` |
+| `0.4.7` (PyPI, current) | ✅ |
+| `0.4.6` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.4` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.3` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.2` (PyPI) | upgrade — `pip install -U wringer` |
@@ -439,8 +439,8 @@ backported to an older one.
 
 **`wring --version` cannot tell you which of these you have.** This row
 previously read *"`*.dev*` (git installs) — reinstall from `main` or PyPI"*,
-and **there is no such marker**: `src/wringer/__init__.py` carries `0.4.6` at
-HEAD, so a git install and the PyPI package print `wring 0.4.6` identically.
+and **there is no such marker**: `src/wringer/__init__.py` carries `0.4.7` at
+HEAD, so a git install and the PyPI package print `wring 0.4.7` identically.
 Corrected 2026-08-18 rather than left standing, because a reader following
 that row would look for a string nothing writes.
 

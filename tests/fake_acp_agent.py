@@ -32,6 +32,19 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
                refuse `session/new` for a NON-auth reason, with no
                `authMethods` in the error — the shape the preflight must not
                mistake for a logged-out agent
+    leakrefusal
+               refuse `session/new` with a passed-through credential inside
+               `error.data` — the shape that makes carrying `data` verbatim a
+               security question and not only a legibility one. An agent is
+               handed a secret by name; nothing stops it handing the value
+               back in an error, and that error now reaches a console as well
+               as a bundle
+    managed    refuse `session/new` with `-32603 Internal error` and the whole
+               remedy inside `error.data.details` — the org-managed Mac's
+               shape, reconstructed from the capture in
+               `docs/field-report-2026-08-25.md` finding 1. The message alone
+               says nothing; everything a person can act on is in the data,
+               which is what made this the most expensive line in the report
     crash      exit mid-turn, before answering the prompt
     loudcrash  say something, THEN exit mid-turn — the shape where the
                agent's last words are the whole diagnostic value
@@ -164,6 +177,31 @@ REFUSAL_METHODS = [{
     "args": ["login"],
     "env": {},
 }]
+
+
+# JSON-RPC's own catch-all. It carries NO information: every agent that falls
+# over anywhere sends this code, which is exactly why a client that renders the
+# message alone renders nothing.
+INTERNAL_ERROR = -32603
+
+#: **The org-managed Mac's refusal, reconstructed from the field capture** —
+#: `docs/field-report-2026-08-25.md` finding 1, which quotes the wire. The
+#: string is the report's `data.details` with its `\n` escapes decoded, and it
+#: is reconstructed rather than re-measured: the machine that produced it is
+#: not this one, and no test may depend on a Mac being org-pinned.
+#:
+#: Every actionable word is in here and none of it is in `message`. That is the
+#: property the guards are about: a surface showing `Internal error` alone has
+#: shown the operator nothing, and it cost a whole session to find that out.
+MANAGED_DETAILS = (
+    "Claude Code process exited with code 1. stderr: This machine's managed "
+    "settings require a first-party login, but an Anthropic-issued credential "
+    "(ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN, or apiKeyHelper) is configured. "
+    "A non-OAuth Anthropic credential cannot satisfy the org pin.\n\n"
+    "Remove the credential and run: claude auth login\n\n"
+    "If this is a third-party desktop session: forceLoginOrgUUID targets "
+    "first-party OAuth and should be removed from managed-settings.json."
+)
 
 
 def send(message: dict) -> None:
@@ -309,6 +347,41 @@ def main() -> int:
                     "id": request_id,
                     "error": {"code": INVALID_PARAMS,
                               "message": "cwd is not a directory"},
+                })
+                return 0
+            if BEHAVIOUR == "leakrefusal":
+                # The credential comes from the environment the client built,
+                # so this leaks only what actually crossed the boundary —
+                # a double that invented a secret would prove nothing about
+                # the passthrough.
+                said = " ".join(
+                    f"{name}={os.environ[name]}"
+                    for name in LEAKABLE if os.environ.get(name)
+                )
+                send({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": INTERNAL_ERROR,
+                        "message": "Internal error",
+                        "data": {"details": f"could not start: {said}"},
+                    },
+                })
+                return 0
+            if BEHAVIOUR == "managed":
+                # **The refusal whose whole value is in `data`.** Nothing here
+                # is guessed: the code, the message and the details are the
+                # field capture. A double that put the remedy in `message`
+                # would test a wire no agent sends and would pass with the
+                # rendering fix reverted.
+                send({
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": INTERNAL_ERROR,
+                        "message": "Internal error",
+                        "data": {"details": MANAGED_DETAILS},
+                    },
                 })
                 return 0
             if BEHAVIOUR == "kimiauth":

@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from core_helpers import reader_facing_pages
+from core_helpers import reader_facing_pages, repo_root
 
 from wringer_drive import run as run_module
 
@@ -1106,19 +1106,32 @@ def test_no_document_names_the_deprecated_acp_adapter():
     unauthenticated turn with an empty *result*, which a client cannot tell
     from a turn that simply did nothing — so the failure presented as a hang.
 
-    Derived over every document and script here, not a spot check.
+    Derived over every document and script here, not a spot check — and the
+    NAMES are derived too, from `agents.SUPERSEDED_COMMANDS`, since 2026-08-25.
+    They used to be a copy typed into this file, which is the same
+    hand-kept-list defect one layer down: a rename recorded in one place and
+    re-typed in another is exactly how the original week of staleness
+    happened. The engine's config check reads that same mapping, so a document
+    and a warning cannot disagree about which name is dead.
     """
-    stale = "claude-code-acp"
-    offenders = []
+    agents = pytest.importorskip("wringer.agents")
+    assert agents.SUPERSEDED_COMMANDS, (
+        "the mapping this guard derives from is empty, so it is watching "
+        "nothing"
+    )
+    offenders: dict[str, list[str]] = {}
     for path in list(ROOT.rglob("*.md")) + list(ROOT.rglob("*.sh")):
         if ".engine" in path.parts or ".board" in path.parts:
             continue
         body = path.read_text(encoding="utf-8", errors="replace")
-        if stale in body:
-            offenders.append(str(path.relative_to(ROOT)))
+        found = sorted(
+            stale for stale in agents.SUPERSEDED_COMMANDS if stale in body
+        )
+        if found:
+            offenders[str(path.relative_to(ROOT))] = found
     assert not offenders, (
-        f"{offenders} name the deprecated adapter; it is "
-        f"`claude-agent-acp` from `@agentclientprotocol/claude-agent-acp`"
+        f"{offenders} name a deprecated adapter; the current names are "
+        f"{sorted(set(agents.SUPERSEDED_COMMANDS.values()))}"
     )
 
 
@@ -1499,6 +1512,22 @@ def test_the_page_states_what_the_AUTH_REMEDY_COST_AND_LIMIT_are():
         "lapsed subscription both report loggedIn true and both die at the "
         "turn — a check sold as proof is worse than no check"
     )
+    # **Field report 2026-08-25, finding 4.** The limit above was true and
+    # understated. On a machine whose managed settings pin the coding agent to
+    # an organisation login, the key is what breaks the run, and the free
+    # check reports `loggedIn: true, authMethod: api_key` the whole time it is
+    # breaking it — so presence is not merely unproven, it is the cause.
+    # Case-insensitive: the page emphasises the word in capitals and pinning
+    # its typography would make this a guard about shouting.
+    assert "worse than" in body.lower(), (
+        "the page states the free check's limit as 'presence is not validity' "
+        "and stops there. On an org-pinned machine presence is WORSE than "
+        "absence, and a reader acting on the softer sentence adds the key"
+    )
+    assert "managed settings" in body, (
+        "the page does not name the machine class where the remedy it offers "
+        "is the cause of the failure"
+    )
     # The claim execution killed. Quoting it under `>` is history and is
     # stripped by `own_voice`; asserting it again in the page's own voice is
     # the regression.
@@ -1642,4 +1671,92 @@ def test_the_pm_page_scope_is_wider_than_the_five_names_it_replaced():
     )
     assert len(scope) > 8, (
         f"only {len(scope)} PM pages discovered; the tuple had five"
+    )
+
+
+@pytest.mark.parametrize("name", [row[0] for row in ALL_EXAMPLES])
+def test_the_driving_section_restates_every_EXPORT_the_epilogue_prints(name):
+    """**Field report 2026-08-25, finding 7 — and it is the second run it bit.**
+
+    The example's `setup.sh` epilogue tells a person at a terminal to put the
+    project's own virtualenv on `PATH`. `AGENTS.md` says the epilogue's steps
+    are the driving agent's to perform on this path, and then restates the key
+    and the drive command and not that line. Without it every gate fails with
+    `ruff: command not found` / `pytest: command not found`, the loop hands a
+    worker an environment problem no worker can fix, and the run dies for a
+    reason with nothing to do with the work.
+
+    **Derived from the script, not from a memory of it.** The last version of
+    this relationship was three sentences a person kept in step by hand, which
+    is how one of the three fell out of step. A second variable added to any
+    epilogue fails here until the page carries it too.
+
+    **One principled exclusion, and it is derived as well.** A CREDENTIAL is
+    never restated here, because law 3 makes the key the person's own act and
+    inline at the launch — a driving agent that exported one would be holding
+    it. The excluded names are the engine's own list of LLM key variables
+    (`doctor.WELL_KNOWN_KEY_ENVS`), so the exclusion cannot quietly widen to
+    cover the next `PATH`-shaped line somebody forgets.
+    """
+    doctor = pytest.importorskip("wringer.doctor")
+    script = (EXAMPLES / name / "setup.sh").read_text(encoding="utf-8")
+    exported = sorted({
+        variable
+        for line in script.splitlines()
+        if line.strip().startswith("export ") and "=" in line
+        for variable in [line.strip().split("=", 1)[0]
+                         .removeprefix("export ").strip()]
+        if variable not in doctor.WELL_KNOWN_KEY_ENVS
+    })
+    if not exported:
+        # Nothing to restate — but that has to be EARNED, not assumed. An
+        # example that builds a virtualenv and exports nothing has the same
+        # `command not found` waiting in it, one layer earlier.
+        assert ".venv" not in script, (
+            f"{name}/setup.sh creates a virtualenv and never puts its bin "
+            "directory on PATH, so the example's own checks cannot run"
+        )
+        return
+
+    driving = drive_agents_md().split("## Driving")[1]
+    missing = [name_ for name_ in exported if f"export {name_}" not in driving]
+    assert not missing, (
+        f"{name}/setup.sh tells the reader to export {missing} and AGENTS.md's "
+        "driving section — which says those steps are the driving agent's — "
+        "does not restate it"
+    )
+
+
+def test_ONLY_ONE_PAGE_TELLS_ANYONE_HOW_TO_AUTHENTICATE_THE_BUILDER():
+    """**The three-drifted-surfaces disease, killed by single-sourcing.**
+
+    Field report 2026-08-25, finding 4. On 2026-08-25 three surfaces carried
+    three different answers to "how does the builder get a credential":
+    `docs/drive/AGENTS.md` said the `env_passthrough` route works and recorded
+    a refusal as NOT REPRODUCED; `INSTALL.md` said *"the authentication path
+    is a live gap, not a solved one"*; and on the reporter's actual machine
+    the route named by the first was the CAUSE of the refusal recorded by it.
+    Every one of those sentences was written honestly. None of them could stay
+    in step, because there were three of them.
+
+    So there is one page that tells a person what to DO about it, and every
+    other page points at it. **Derived over every reader-facing page**, and
+    deliberately keyed on the imperative half — `auth login` is an instruction
+    to a human. Pages may name the config field, describe the mechanism, or
+    record a capture; what they may not do is grow a second set of
+    instructions that can fall behind the first.
+    """
+    home = "docs/drive/AGENTS.md"
+    offenders = []
+    for path in reader_facing_pages(captures=False):
+        relative = str(path.relative_to(repo_root()))
+        if relative == home:
+            continue
+        body = own_voice(path.read_text(encoding="utf-8"))
+        if "auth login" in body and "drive/AGENTS.md" not in body:
+            offenders.append(relative)
+    assert not offenders, (
+        f"{offenders} tell a reader how to log the builder in, and do not "
+        f"point at {home}, which is where that answer lives. Three surfaces "
+        "carrying this answer is how two of them came to be wrong"
     )

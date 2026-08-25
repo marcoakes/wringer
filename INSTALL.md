@@ -183,20 +183,33 @@ Goose, Kimi CLI, Qwen Code, Cursor CLI and Copilot CLI, alongside Claude Code.
 > **result**, which a client cannot tell from a turn that did nothing; the
 > renamed one returns a proper error.
 >
-> **The authentication path is a live gap, not a solved one.** Driven by hand on
-> 2026-08-18 with the environment Wringer actually gives a worker — `PATH`,
-> `HOME`, `LANG` and whatever `env_passthrough` names — `initialize` and
-> `session/new` both succeed and `session/prompt` returns
-> `Authentication required`. Whether a normally-logged-in Claude Code on a
-> user's own machine clears that has **not** been established.
+> **The builder's credential is written down in ONE place**, and it is
+> [`docs/drive/AGENTS.md`](https://github.com/marcoakes/wringer/blob/main/docs/drive/AGENTS.md),
+> under *THE BUILDER'S CREDENTIAL*. Two routes exist and **which one works is
+> decided by the machine, not by preference** — on a host whose managed
+> settings pin the coding agent to an organisation login, passing an Anthropic
+> key into the worker is not an ineffective remedy, it is the CAUSE of the
+> refusal. That page carries the measured table for both machine classes, the
+> free check, and the reason the free check can report a green while every
+> session is refused.
+>
+> **This paragraph deliberately does not restate any of it.** Three surfaces
+> here once carried three different answers to that question and two were
+> wrong — including this one, which said *"the authentication path is a live
+> gap, not a solved one"* for three days after it had been driven end to end.
+> A page that repeats the answer is a page that can fall out of step with it.
 >
 > **What changed on 2026-08-19.** A turn that ends cleanly having written no
 > file and raised no refusal is now diagnosed as such — in the loop's record
 > (`worker-diagnosis.json`), on the console, and in `wring run --json` — with
 > the remedy pointing at `run.worker.acp.env_passthrough` as the operator's
 > channel. It names no variable, deliberately: that field exists so a secret
-> crossing into a worker is a declared act by the person who owns it. The gap
-> above is unchanged; what changed is that it can no longer present as silence.
+> crossing into a worker is a declared act by the person who owns it.
+>
+> **What changed on 2026-08-25.** A refused turn now carries the agent's own
+> `error.code` and `error.data` to every surface, verbatim. That matters here
+> because the org-pinned refusal *names its own remedy in plain English*, and
+> Wringer used to render only `Internal error` and drop the rest.
 
 > **Driving Wringer for somebody else?** `wringer-drive`'s
 > [`AGENTS.md`](https://github.com/marcoakes/wringer/blob/main/docs/drive/AGENTS.md)

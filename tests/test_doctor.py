@@ -782,10 +782,19 @@ def test_the_published_names_include_the_new_checks():
 
 
 def _which(monkeypatch, mapping: dict[str, str | None]):
-    """Pretend PATH resolves exactly this way, and nothing else."""
+    """Pretend PATH resolves exactly this way, and nothing else.
+
+    **Also pins the INSTALL SHAPE to an ordinary installed copy**, because
+    every test below is about which binaries are on PATH and none of them is
+    about where the package was imported from. Without this they answer
+    differently on a developer's editable checkout than on a clean install —
+    which is a real distinction the tool now reports on, and exactly the wrong
+    thing for these tests to be sensitive to.
+    """
     monkeypatch.setattr(
         doctor.shutil, "which", lambda name: mapping.get(name, "/usr/bin/" + name)
     )
+    monkeypatch.setattr(doctor, "install_shape", lambda: (None, None))
 
 
 def test_ALL_FOUR_commands_are_reported_with_where_they_resolve(monkeypatch):
@@ -855,3 +864,198 @@ def test_no_wringer_command_at_all_still_warns_rather_than_failing(monkeypatch):
     check = doctor._wring()
     assert check.status == doctor.WARN
     assert check.passed, "an uninstalled source checkout is not a blocking fault"
+
+
+# --- which Wringer is this, really (field report 2026-08-25) ----------------
+#
+# The run that produced that report was made against `0.4.0` from an editable
+# install, six releases behind, and nothing anywhere said so. Seven findings
+# were written against code that had moved and two of them were already dead
+# before the run started. This is the cheapest possible place to say it.
+
+
+def test_A_SOURCE_INSTALL_IS_NAMED_ON_THE_LINE_A_PERSON_READS(monkeypatch):
+    """Running from a checkout is legitimate. Not knowing you are is not.
+
+    The code that runs is then whatever is in that directory right now,
+    uncommitted edits included, and every measurement made against it is a
+    fact about a working tree rather than about a release.
+    """
+    _which(monkeypatch, dict.fromkeys(
+        doctor.WRINGER_EXECUTABLES, "/opt/w/bin/x"
+    ))
+    monkeypatch.setattr(
+        doctor, "install_shape", lambda: ("/home/pm/wringer/src", doctor.__version__)
+    )
+
+    check = doctor._wring()
+
+    assert "/home/pm/wringer/src" in check.detail
+    assert "not from an installed copy" in check.detail
+    # The versions agree, so this is a shape and not a hazard.
+    assert check.status == doctor.OK
+
+
+def test_A_VERSION_THAT_IS_NOT_THE_ONE_YOU_INSTALLED_IS_A_WARNING(monkeypatch):
+    """**Measured on the author's own Mac while fixing the report.**
+
+    `uv tool install wringer` had left a `.pth` pointing into a working tree:
+    `wring --version` said `0.4.6`, read out of that tree, while the installed
+    distribution's metadata said `0.4.1`. The number a person reads, quotes in
+    a report, and files findings against was not the number they installed.
+    """
+    _which(monkeypatch, dict.fromkeys(
+        doctor.WRINGER_EXECUTABLES, "/opt/w/bin/x"
+    ))
+    monkeypatch.setattr(
+        doctor, "install_shape", lambda: ("/home/pm/wringer/src", "0.4.1")
+    )
+
+    check = doctor._wring()
+
+    assert check.status == doctor.WARN, (
+        "the version on screen is not the version installed, and the line "
+        "reporting it is a tick"
+    )
+    assert "0.4.1" in check.detail and doctor.__version__ in check.detail, (
+        "one of the two versions is missing, so the reader cannot see the "
+        "disagreement that is the whole finding"
+    )
+    assert "NOT the version you installed" in check.detail
+    assert check.fix, "a warning with no next step"
+
+
+def test_the_install_shape_answers_about_THIS_process_without_raising():
+    """The real function, on whatever machine is running the suite.
+
+    It is asserted for SHAPE rather than for values — a test that pinned
+    either would be pinning how the developer happened to install, which is
+    the thing it must not be sensitive to. What matters is that it answers,
+    and that it never raises: a doctor check that fell over while reporting on
+    the install would be the least useful failure in the tool.
+    """
+    source, declared = doctor.install_shape()
+
+    assert source is None or isinstance(source, str)
+    assert declared is None or isinstance(declared, str)
+
+
+# --- the org-pinned machine (field report 2026-08-25, finding 4) ------------
+
+
+def test_a_MANAGED_SETTINGS_FILE_IS_NAMED_AND_NEVER_READ(monkeypatch, tmp_path):
+    """**Presence only, and the sentence says "if".**
+
+    On the report's machine the documented remedy was the CAUSE: with an
+    Anthropic key passed through, `session/new` was refused; with no key in
+    the worker env it succeeded. This check cannot know that a policy file
+    pins anything — it does not open it, because that is somebody's
+    employer's configuration and the one useful fact about it is a `stat`.
+    """
+    policy = tmp_path / "managed-settings.json"
+    policy.write_text('{"forceLoginOrgUUID": "SECRET-ORG-UUID"}', encoding="utf-8")
+    monkeypatch.setattr(doctor, "MANAGED_SETTINGS_PATHS", (str(policy),))
+
+    check = doctor._managed_settings()
+
+    assert check.status == doctor.WARN
+    assert str(policy) in check.detail
+    assert "SECRET-ORG-UUID" not in (check.detail + check.fix), (
+        "the check read a value out of an IT-managed policy file"
+    )
+    # The two halves of finding 4 that cost the session.
+    assert "REFUSED" in check.detail
+    assert "removing it is the fix" in check.detail
+    assert "auth status" in check.fix, (
+        "the false green is the compounding half — a machine like this "
+        "reports the key as valid while refusing every session"
+    )
+
+
+def test_NO_managed_settings_file_CLAIMS_NOTHING(monkeypatch, tmp_path):
+    """Absence is one path checked, not a verdict about the machine.
+
+    No machine available to this repository has such a file, so the paths
+    themselves are unverified in the field. A check whose absence branch read
+    as "this machine is unmanaged" would be making the stronger claim on the
+    weaker evidence.
+    """
+    monkeypatch.setattr(
+        doctor, "MANAGED_SETTINGS_PATHS", (str(tmp_path / "nothing-here.json"),)
+    )
+
+    check = doctor._managed_settings()
+
+    assert check.status == doctor.OK
+    assert "not proof this machine is unmanaged" in check.detail
+
+
+# --- a string worker that names an ACP adapter (finding 5) ------------------
+
+
+def test_a_STRING_worker_naming_an_ACP_ADAPTER_says_so(tmp_path):
+    """**Field report 2026-08-25, finding 5, in the shape it was measured.**
+
+    The project carried `run.worker: "claude-code-acp"`. A string parses as a
+    shell command, so the adapter was never spoken to over ACP at all,
+    `env_passthrough` could not be expressed on that shape, and the only
+    symptom was a turn that changed nothing — which points nowhere near the
+    cause. At HEAD this check said "the worker is not an ACP agent": true,
+    useless, and silent about the command it was looking at.
+    """
+    repo = a_repo(
+        tmp_path,
+        config_text=(
+            "version: 1\ngates:\n  - id: t\n    run: \"true\"\n"
+            "run:\n  worker: \"claude-code-acp\"\n"
+        ),
+    )
+
+    check = named(doctor.run_checks(repo), "worker auth")
+
+    assert check.status == doctor.WARN
+    assert "SHELL COMMAND" in check.detail
+    assert "env_passthrough" in check.detail
+    # Both forms, so the reader can see which one they wrote.
+    assert "acp:" in check.fix and "command: claude-agent-acp" in check.fix
+    # And the deprecated name, from the one place that records the rename.
+    assert "renamed" in check.detail
+
+
+def test_the_CURRENT_adapter_name_as_a_string_is_flagged_too(tmp_path):
+    """The likelier mistake now, and it must not be missed because the name
+    is spelled correctly. The shape is what is wrong, not the spelling."""
+    repo = a_repo(
+        tmp_path,
+        config_text=(
+            "version: 1\ngates:\n  - id: t\n    run: \"true\"\n"
+            "run:\n  worker: \"claude-agent-acp\"\n"
+        ),
+    )
+
+    check = named(doctor.run_checks(repo), "worker auth")
+
+    assert check.status == doctor.WARN
+    assert "SHELL COMMAND" in check.detail
+    assert "renamed" not in check.detail, (
+        "this name was not renamed; saying so would send the reader after a "
+        "package change that never happened"
+    )
+
+
+def test_an_ORDINARY_shell_worker_is_left_alone(tmp_path):
+    """The narrowness half. A string worker is supported and common — this
+    warning fires on a string whose first word is a binary Wringer knows
+    speaks ACP, and on nothing else."""
+    repo = a_repo(
+        tmp_path,
+        config_text=(
+            "version: 1\ngates:\n  - id: t\n    run: \"true\"\n"
+            "run:\n  worker: \"./scripts/fix.sh {brief}\"\n"
+        ),
+    )
+
+    check = named(doctor.run_checks(repo), "worker auth")
+
+    assert check.status == doctor.SKIP
+    assert "not an ACP agent" in check.detail

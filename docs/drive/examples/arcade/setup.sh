@@ -121,8 +121,8 @@ Two things to do, both in THIS terminal window:
      THIS KEY IS FOR WRINGER, NOT FOR THE CODING AGENT. It pays for
      reading your document and drafting the plan, and nothing else. The
      coding agent that writes the code needs a credential of its own, and
-     WRINGER_API_KEY is not it. Give it one of these two, whichever you
-     prefer:
+     WRINGER_API_KEY is not it. Two routes exist, and WHICH ONE WORKS
+     IS DECIDED BY THIS MACHINE, not by preference:
 
        '$AGENT' --cli auth login
 
@@ -130,9 +130,20 @@ Two things to do, both in THIS terminal window:
      in .wringer.yaml, which then spends against that key on every turn
      the builder takes.
 
+     If this machine's settings are managed by an employer and pin the
+     coding agent to an organisation login, the FIRST route is the only
+     one that works and the key is what breaks it — leave it out of the
+     worker's environment entirely. 'wring doctor' says whether such a
+     policy file is here. The full measured table, both machine classes,
+     is the one place this is written down:
+     https://github.com/marcoakes/wringer/blob/main/docs/drive/AGENTS.md
+
      Either way, check it before you start — this answers for free:
 
        '$AGENT' --cli auth status
+
+     and be careful with a green from it: on an org-pinned machine it
+     reports the key as valid while every session is refused.
 
   2. Drive it:
 

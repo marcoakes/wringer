@@ -4,6 +4,86 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.7 — 2026-08-25
+
+**Published.** `uv tool install wringer` gets it.
+
+Answering [the field report of 2026-08-25](docs/field-report-2026-08-25.md),
+whose verdict was *"trustworthy about what it cannot prove and unreliable at
+explaining why it stopped."* Dispositions, with the repros:
+[docs/field-response-2026-08-25.md](docs/field-response-2026-08-25.md).
+
+### A refused turn now carries what the agent actually said
+
+`error.message` was rendered and `error.code` and `error.data` were dropped. An
+IT-managed Mac refused every session with `-32603 Internal error` — JSON-RPC's
+generic code, which says nothing on its own — while the remedy sat in
+`data.details`, in plain English, naming the command to run. The operator lost
+a session and a paid drafting call to a problem whose fix was in the payload.
+
+There is one renderer now, and everything reads it: the console, `loop.jsonl`,
+`worker-diagnosis.json`, the bundle log, the drive's `stopped` step. A
+multi-line remedy keeps its lines, so the command stays copyable.
+
+Two consequences of carrying somebody else's prose, both found by building it:
+a timeout was being decided by looking for the word "deadline" in the message,
+and is now a fact on the exception; and the redaction moved upstream of the
+console, because the scrub lived on the file writes and an agent handed a
+credential by name can hand the value back in an error.
+
+### `wring doctor` says which Wringer you are running
+
+That report was made against `0.4.0` from an editable install, six releases
+stale, and nothing said so. Doctor now names a source install on the line it
+already prints, and **warns** when the installed distribution's metadata
+disagrees with the version on screen — the state a `uv tool install` with a
+`.pth` into a working tree produces, measured on the author's own machine.
+
+### The builder's credential is written down in one place
+
+Two routes exist and **the machine picks, not the person**. On a host whose
+managed settings pin the coding agent to an organisation login, passing an
+Anthropic key into the worker is not an ineffective remedy — it is the cause of
+the refusal, and removing it is the fix. `docs/drive/AGENTS.md` carries the
+measured table for both machine classes; every other page cites it, and a
+derived guard fails if a second page grows its own copy. The 2026-08-22 note
+recording that refusal as NOT REPRODUCED gains its dated correction: it
+reproduces, on a class of machine nobody here had measured.
+
+`wring doctor` gains a presence-only `managed settings` line. It never opens
+the file, and its absence branch says out loud that one path checked is not
+proof.
+
+### Smaller, and each one a silence
+
+- A gate proposal is never compared to itself. `'X' runs …, which is already
+  what 'X' runs` survived on two arms and stopped the build on a tautology.
+- A plan rendered without its decisions sidecar says the file is missing,
+  instead of rendering "nothing was decided for you" by saying nothing.
+- The drive says when it is reusing a spec rather than drafting one.
+- `once … is answered` joins `(if unanswered, …)` as a stale deferral the
+  plan refuses — two field runs, two phrasings, one detector.
+- A string `worker:` naming an ACP adapter is warned about, in both forms.
+- `AGENTS.md` restates the `PATH` export its examples' epilogues print, and a
+  guard derives that from the scripts.
+
+### The release bar was red, and running it is how that was found
+
+`scripts/release-check.sh` exercises the INSTALLED package, which is the whole
+point of it. Its `the suite is green` step was failing — nine tests and one
+whole module, all because four test files located `schema/` through an
+installed module's `__file__`. That resolves to the repository root from a
+source tree and to `<venv>/lib/pythonX.Y/schema` from a wheel, where nothing
+is. Reproduced at `v0.4.6` as well, so it was red for at least one release.
+
+Fixed at the source (`core_helpers.repo_root()`), with a guard derived over
+every test file. **30 of 30 now, against a clean clone.**
+
+### No schema moved
+
+Nothing in `schema/frozen.json` changed a byte, and there is no twentieth
+command.
+
 ## 0.4.6 — 2026-08-25
 
 **Published.** `uv tool install wringer` gets it.

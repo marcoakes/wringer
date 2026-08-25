@@ -200,6 +200,18 @@ adapter version (0.70.0):
    `Internal error`" is NOT REPRODUCED.** Run 3 is exactly that configuration
    and `session/new` opened cleanly. Recorded as not reproduced, not as
    fixed — the evaluator saw something and this run does not explain what.
+
+   > **EXPLAINED 2026-08-25** (field report of that date, finding 4). It
+   > reproduces reliably on an IT-managed Mac pinned to a first-party
+   > organisation login, and the key is what causes it: with
+   > `env_passthrough: [ANTHROPIC_API_KEY]` `session/new` is refused, and with
+   > no key in the worker env it succeeds. Every run above was made on an
+   > unmanaged machine and every one of them was honest. What was missing was
+   > that "this machine" was a variable — a negative result was written down
+   > as though the configuration were the only thing that differed between the
+   > evaluator's run and this one. The refusal's `error.data` said so in plain
+   > English the whole time and Wringer rendered only `error.message`; that is
+   > finding 1, and it is fixed in 0.4.7.
 3. **What §4b got right and keeps.** Point 3 stands: `authMethods: []` is a
    handshake fact, and sequence L stands — no probe below `session/prompt`
    can see auth, which is why the free surface that CAN is a different

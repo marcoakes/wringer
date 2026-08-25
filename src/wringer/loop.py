@@ -1409,7 +1409,22 @@ def _run_acp_worker(
         pgid_file.unlink(missing_ok=True)
         # Not a verdict about the code — a failed worker turn, which the
         # evidence will judge on the next lap like any other.
-        timed_out = "deadline" in str(exc)
+        #
+        # **Read off the exception, not off its words.** This was
+        # `"deadline" in str(exc)` until the message came to carry the agent's
+        # own `data` verbatim; after that, an agent that used the word in its
+        # remedy would have been recorded as having timed out, and a timeout
+        # is the one ending `diagnose_failed_turn` deliberately says nothing
+        # about. The fact travels on `AcpError.timed_out`.
+        timed_out = exc.timed_out
+        # **Scrubbed HERE, once, rather than at each surface.** The agent's
+        # error now reaches the console (`_report_worker_diagnosis`), the
+        # ledger, `worker-diagnosis.json` and the bundle log — and the agent
+        # is handed a credential by name through `env_passthrough`, so its
+        # own words are exactly the kind of text that can carry one back. The
+        # writes below scrub again and that is free; the console print does
+        # not, and this is the only point upstream of all of them.
+        said = bundle.redactor.scrub(str(exc))
         # APPENDED, never written over. `run_turn`'s `finally` has already put
         # whatever the agent managed to say into this file, and on a failed
         # turn that is the entire diagnostic value of the bundle — the last
@@ -1418,10 +1433,10 @@ def _run_acp_worker(
         # A shell worker keeps its stdout when it crashes; SPEC_ACP_V0 §2 says
         # an ACP worker leaves the same shape of evidence, so it keeps its own.
         #
-        # Scrubbed like every other write into a bundle: the message quotes
-        # what the agent said, and what the agent said may be a credential.
+        # Scrubbed like every other write into a bundle — one line up now,
+        # because the same words also reach a console this file cannot scrub.
         with stdout_path.open("a", encoding="utf-8") as log:
-            log.write(bundle.redactor.scrub(f"[wringer: ACP turn failed] {exc}\n"))
+            log.write(f"[wringer: ACP turn failed] {said}\n")
         if not stderr_path.exists():
             stderr_path.write_text("", encoding="utf-8")
         result = gates.GateResult(
@@ -1432,7 +1447,7 @@ def _run_acp_worker(
             stdout_path=stdout_path,
             stderr_path=stderr_path,
         )
-        object.__setattr__(result, "acp_extras", {**extras, "acp_error": str(exc)})
+        object.__setattr__(result, "acp_extras", {**extras, "acp_error": said})
         # **The ending that used to have no shape.** This branch returned here
         # with no diagnosis of any kind, so a refused turn — an agent that has
         # never been logged in answers `session/prompt` with exactly this —
@@ -1449,7 +1464,7 @@ def _run_acp_worker(
             timed_out=timed_out,
             files_written=len(partial.files_written) if partial else None,
             refusals=len(partial.refusals) if partial else None,
-            engine_words=str(exc),
+            engine_words=said,
         )
         if refused is not None:
             object.__setattr__(result, "acp_empty_turn", refused)

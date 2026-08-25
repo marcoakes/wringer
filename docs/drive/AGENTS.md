@@ -186,7 +186,21 @@ document sits one level ABOVE the project, so the command names `../PRD.md`,
 not `PRD.md`. The example's setup also prints an epilogue addressed to a
 person at a terminal ("two things to do, both in THIS terminal window"): on
 this path those steps are YOURS, done with the inline key and `--emit json`,
-and the person types nothing. Then:
+and the person types nothing.
+
+**Do the epilogue's `export PATH` line before the drive, in the same shell.**
+
+```bash
+export PATH="<the example project>/.venv/bin:$PATH"
+```
+
+The example's checks are `ruff` and `pytest` from the project's own
+virtualenv. Without that line on `PATH` every gate fails with
+`ruff: command not found`, the loop hands a worker an environment problem it
+cannot fix, and the run dies for a reason that has nothing to do with the
+work. This has now bitten two independent runs (2026-08-22 and 2026-08-25),
+both times because this page restated the epilogue's key and drive commands
+and not its first line. Then:
 
 - **Read one JSON object per line from stdout.** Each is a step:
   `{"schema_version": "wringer.drive.v1", "kind": ..., "id": ..., "text": ...}`
@@ -284,20 +298,60 @@ Wringer drafts with. On 2026-08-22 a product manager reached the build step
 with a coding agent that was installed and had never been logged in, and lost
 the run there — and no page in this repository had told them to log it in.
 
-Two routes work. Both are the person's decision, not yours:
+### THE BUILDER'S CREDENTIAL — the one place this is written down
+
+**Every other page in this repository points here rather than restating it.**
+Three surfaces once carried three different answers to this question and two
+of them were wrong; the cure is that there is one answer and it has one home.
+If you are reading a restatement somewhere else, it is a bug — report it.
+
+**There are two routes and they are NOT interchangeable. The machine picks,
+not the person.**
+
+| the machine | the route that works | what breaks it |
+|---|---|---|
+| ordinary, unmanaged | **either** — log the agent's CLI in, **or** declare a key under `env_passthrough` | nothing measured |
+| **pinned by managed settings to an organisation login** | log the agent's CLI in, and pass **NO** key | **the key itself.** While it is in the worker's environment, `session/new` is refused |
+
+Both routes are the person's decision, never yours:
 
 - **Log the agent's own CLI in, once.** `claude-agent-acp --cli auth login
   --claudeai` for a Claude subscription, `--console` for Console billing.
   This is the adapter's own advertised login. It opens a browser and it is an
-  interactive act — relay it, never attempt it.
+  interactive act — **relay it, never attempt it.** This route works on both
+  kinds of machine and it is the only one that works on the second.
 - **Declare a key into the worker's environment.** `ANTHROPIC_API_KEY` under
   `run.worker.acp.env_passthrough` in `.wringer.yaml` authenticates the
-  builder. Measured on macOS 2026-08-22 against `claude-agent-acp` 0.70.0:
-  with the key passed through, `session/prompt` returned `stopReason:
-  end_turn`; with nothing passed through, `-32000 Authentication required`.
-  What crosses into a worker's environment is the operator's declaration and
-  the list is deliberately empty by default. Say out loud that every worker
-  turn then spends against that key.
+  builder **on an unmanaged machine**. Measured on macOS 2026-08-22 against
+  `claude-agent-acp` 0.70.0: with the key passed through, `session/prompt`
+  returned `stopReason: end_turn`; with nothing passed through, `-32000
+  Authentication required`. What crosses into a worker's environment is the
+  operator's declaration and the list is deliberately empty by default. Say
+  out loud that every worker turn then spends against that key.
+
+  On an organisation-pinned machine this route does not merely fail to help.
+  **It is the cause of the failure, and removing it is the fix.** Measured
+  2026-08-25, same machine, same adapter, back to back:
+
+  | configuration | `session/new` |
+  |---|---|
+  | `env_passthrough: [ANTHROPIC_API_KEY]`, key present | **refused** — the org pin rejects a non-OAuth credential |
+  | no key in the worker env | **succeeds**, returns a session id |
+
+**How to tell which machine you are on.** Two ways, and neither is a guess:
+
+1. `wring doctor` prints a `managed settings` line. It reports whether a
+   coding-agent policy file exists at the documented path — presence only; it
+   never opens the file. **Absence there is one path checked, not proof that a
+   machine is unmanaged.**
+2. **Ask the agent and read what it says.** An org-pinned refusal names
+   itself, in plain English, in the error's `data` — *"This machine's managed
+   settings require a first-party login, but an Anthropic-issued credential …
+   is configured"*, with the command to run. Since 0.4.7 Wringer carries that
+   text to the console, the ledger, the diagnosis and the bundle verbatim. If
+   the reason you were shown is `session/new was refused: Internal error` and
+   nothing else, **you are on a version older than 0.4.7** — check
+   `wring --version` before you debug anything.
 
 **Check before anyone spends.** The agent's own CLI answers for free, in
 machine form, without a turn:
@@ -306,8 +360,16 @@ machine form, without a turn:
 
 `{"loggedIn": false, …}` means the build step will fail, and the drafting
 money spent before it would be wasted. `wring doctor` reads this and the
-drive preflights it. Presence is not validity: a revoked key and a lapsed
-subscription both still report `loggedIn: true`, and both die at the turn.
+drive preflights it.
+
+**Presence is not validity — and on a managed machine presence is WORSE than
+absence.** A revoked key and a lapsed subscription both still report
+`loggedIn: true`, and both die at the turn. Measured 2026-08-25 on the
+org-pinned Mac: with the key present, `auth status` reported
+`loggedIn: true, authMethod: api_key, apiKeySource: ANTHROPIC_API_KEY` while
+every `session/new` was refused. The green light was produced BY the thing
+that was breaking it. Never treat this check as proof; it can only turn a
+wasted run into a refusal.
 
 ### Correction, 2026-08-22
 
@@ -341,6 +403,30 @@ through this adapter, because no machine here has one. Do not claim it does,
 and do not claim it does not. What was measured is narrower and is the whole
 of what may be said: a credential in the environment drives the builder, and
 an agent that was never logged in cannot be driven by anything.
+
+### Correction to the correction, 2026-08-25
+
+**NOT REPRODUCED was right about the machine it was run on and wrong as a
+statement about the world.** `session/new was refused: Internal error` under
+`env_passthrough` reproduces reliably — on an IT-managed Mac pinned to a
+first-party organisation login, which is a class of machine nobody here had
+ever measured. Field report 2026-08-25, finding 4.
+
+Both re-runs above were done on an unmanaged machine, and every one of them
+was honest. What was missing was not a measurement; it was the awareness that
+"this machine" was a variable. A negative result was written down as though
+the configuration were the only thing that differed between the evaluator's
+run and this one, and the machine was the thing that differed.
+
+So the entry above stands as written and this is what it is worth: **on an
+unmanaged machine the key route works and the refusal does not reproduce; on
+an org-pinned machine the key route IS the refusal.** The table at the top of
+this section is the one to act on.
+
+The evaluator's sentence, which is the ruling: the information existed —
+in `error.data`, in the gate runner, in the adapter's own status verb — and
+in each case the surface shown to the operator was truncated, self-referential
+or false.
 
 ---
 

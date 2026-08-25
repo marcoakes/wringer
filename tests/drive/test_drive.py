@@ -664,6 +664,44 @@ def test_a_no_at_the_plan_builds_nothing_and_changes_nothing(project, tmp_path, 
     assert "The ones on screen." in after
 
 
+def test_REUSING_AN_EXISTING_SPEC_IS_SAID_OUT_LOUD(project, tmp_path, capsys):
+    """**Field report 2026-08-25, finding 6 — the drive's half.**
+
+    Run 1 found an approved spec already in the project and drafted nothing.
+    That is correct behaviour and it was completely silent, so the operator
+    read a re-rendered plan believing they were reading what a drafter had
+    just produced — and the plan was thinner than the one that spec came from,
+    because the sidecar holding the outcomes and the decisions was not beside
+    it. Two silences compounding: this is the first one.
+
+    It also names what is NOT there. A person cannot be expected to notice an
+    absent block on a page they are seeing for the first time.
+    """
+    import io
+    import sys
+
+    document = prd(tmp_path)
+    assert (project / "wringer.spec.yaml").is_file()
+    assert not (project / "wringer.decisions.yaml").is_file()
+    sys.stdin = io.StringIO("The ones on screen.\nyes\nno\n")
+    try:
+        main(["run", str(document), "--repo", str(project)])
+    finally:
+        sys.stdin = sys.__stdin__
+
+    out = capsys.readouterr()
+    said = out.out + out.err
+    assert "already in this project rather than drafting a new one" in said, (
+        "the drive reused a spec and said nothing, so a re-render is "
+        "indistinguishable from a fresh draft"
+    )
+    assert "nothing is sent and nothing is spent" in said
+    assert "wringer.decisions.yaml is not beside it" in said, (
+        "the plan below this is about to be missing its decisions block and "
+        "its outcomes, and nothing said why"
+    )
+
+
 def test_a_yes_approves_only_after_the_plan_was_rendered(project, tmp_path, capsys):
     import io
     import sys

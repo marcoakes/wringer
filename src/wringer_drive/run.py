@@ -558,6 +558,27 @@ def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:
     from wringer import spec
 
     if (repo / spec.SPEC_FILENAME).is_file():
+        # **Reusing a spec is a fact about this run, and it used to be
+        # silent.** Field report 2026-08-25, finding 6: a drive that found an
+        # approved spec already in the project rendered a plan with no
+        # decisions block and no outcomes, and the operator had no way to know
+        # they were looking at a re-render rather than at what a drafter had
+        # just produced. Nothing here decides anything differently; it says
+        # which files this plan is about to be built from, before it is.
+        from wringer_board import interview
+
+        sidecar = repo / interview.DECISIONS_FILENAME
+        said = (
+            f"Using the {spec.SPEC_FILENAME} already in this project rather "
+            "than drafting a new one, so nothing is sent and nothing is spent."
+        )
+        if not sidecar.is_file():
+            said += (
+                f" {interview.DECISIONS_FILENAME} is not beside it, so the "
+                "plan below cannot show what was decided without asking you, "
+                "or the plain-language outcome of each task."
+            )
+        session.emit(Step(kind=SHOW, id="spec-reused", text=said))
         return
     session.emit(
         Step(
