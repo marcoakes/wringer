@@ -4,6 +4,68 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.5 — 2026-08-24
+
+**Published.** `uv tool install wringer` gets it. Same release ordering as
+0.4.4.
+
+### An ACP agent's refusal now carries the agent's own instructions
+
+When a coding agent refuses to open a session, Wringer reads what that agent
+said about its own authentication and puts it in front of you — the method's
+name, the agent's own description of it, and the exact command to run — instead
+of `session/new was refused: Authentication required` and nothing else.
+Measured end to end against a real signed-out agent:
+
+    the agent refused to open a session: session/new was refused:
+    Authentication required
+
+    The agent says it accepts:
+      - Login with Kimi account
+          Run `kimi login` command in the terminal, then follow the
+          instructions to finish login.
+          run this yourself, once: /Users/marc/.local/bin/kimi-code login
+
+    Wringer does not run any of these for you.
+
+**One client implementation, every conforming agent** — no roster of special
+cases, and nothing in the engine branches on a vendor's name.
+[docs/specs/SPEC_ACPAUTH_V0.md](docs/specs/SPEC_ACPAUTH_V0.md) is binding;
+[docs/acp-auth-2026-08-24.md](docs/acp-auth-2026-08-24.md) is the capture.
+
+### Three things that were measured rather than assumed
+
+- **A successful `authenticate` is not evidence, so Wringer does not call
+  it.** Two independent vendors' agents, failing in opposite directions: one
+  accepts its OWN advertised method id and stays unauthenticated; the other
+  returns success for a method it never offered and does not implement. A
+  client that believed either would report an authenticated worker and then
+  fail at the paid turn.
+- **Wringer never runs a command an agent supplies.** A login is your act on
+  your account, and the block carrying that command comes from the agent — an
+  untrusted party — so it is printed for you and never executed. A guard
+  watches every process this code starts.
+- **Where auth becomes visible differs per agent, and that is now a measured
+  row** on [docs/vendors.md](docs/vendors.md): at process start for one, at
+  `session/new` for another, and only at the paid turn for a third. It decides
+  what a preflight can cost, and it was previously assumed to be one rule for
+  all of ACP.
+
+### Two guards that were short, found by an audit rather than a failure
+
+- A guard on what this repository says about its own publication status
+  covered three documents and should have covered twelve. Measured: a planted
+  false sentence in `QUICKSTART.md` passed while the identical sentence in
+  `README.md` failed. It derives its scope from the tree now, with an
+  exclusion list that carries a reason per entry.
+- Two tests hand-copied a constant that `src/` derives properly, so a fifth
+  entry added in the engine would have been exercised by nothing.
+
+### No schema moved
+
+Nothing in `schema/frozen.json` changed a byte, and there is no twentieth
+command.
+
 ## 0.4.4 — 2026-08-24
 
 **Published.** `uv tool install wringer` gets it. A crash-fix release, cut the
