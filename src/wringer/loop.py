@@ -1574,10 +1574,6 @@ def _tree_fingerprint(root: Path) -> str:
     that reproduces a file's exact size AND its exact nanosecond timestamp is
     invisible here. Such a write also changed nothing.
     """
-    import hashlib
-
-    from wringer import git
-
     ours_prefix = evidence.WRINGER_DIRNAME
 
     def ours(path: str) -> bool:
