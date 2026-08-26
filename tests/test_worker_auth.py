@@ -250,7 +250,7 @@ def test_the_question_is_asked_in_the_WORKERS_environment_not_WRINGERS(
 ):
     """The defect this prevents is a green nobody can use.
 
-    A worker gets `PATH`, `HOME`, `LANG` and whatever `env_passthrough`
+    A worker gets `PATH`, `HOME`, `LANG`, `USER` and whatever `env_passthrough`
     declares — nothing else. If the check asked in Wringer's own environment,
     a key set in this shell and NOT declared across would make a signed-out
     worker report as signed in, and the run would fail at the turn with the

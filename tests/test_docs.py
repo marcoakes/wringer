@@ -3460,6 +3460,42 @@ def newest_release_tag() -> str | None:
     return tags[0].lstrip("v") if tags else None
 
 
+def mid_bump() -> bool:
+    """Whether this tree is BETWEEN releases rather than standing on one.
+
+    **Found by cutting `0.4.9`, and it is a contradiction two guards shipped
+    into each other.** The tag-derived guards below hold every front page to
+    `git tag`, and say so in their own docstrings: *"a page naming a version
+    NEWER than any tag is claiming a release that does not exist … the reason
+    `0.4.1` is staged in this repository without touching the version
+    literal."* Then, on 2026-08-26, `eab4cc7` added a sibling that holds the
+    same pages to `wringer.__version__` in the bump commit — because the
+    original is one beat too late, and by the time it speaks the tag is
+    already public.
+
+    Both are right, and between them the bump commit could not be green in
+    either direction: name the old version and the sibling refuses, name the
+    new one and the original does.
+
+    So each is live in exactly one state and neither is ever off:
+
+    - **standing on a release** (`__version__` IS the newest tag) — the
+      tag-derived guards are the live check and the sibling skips;
+    - **mid-bump** (`__version__` is ahead) — the sibling is the live check
+      and the tag-derived ones defer to it.
+
+    The cost is named rather than hidden: between the bump commit and the
+    tag, `main`'s front pages advertise a version PyPI does not yet serve.
+    That is the trade `eab4cc7` chose — a tag is public for ever and a
+    minutes-long window on `main` is not — and this makes it a decision
+    instead of a red suite.
+    """
+    from wringer import __version__
+
+    newest = newest_release_tag()
+    return newest is not None and newest != __version__
+
+
 # "0.3.0 is the released version"; "the current release is 0.3.0"; and the
 # pre-release framing that outlives its own release — "building toward v0.1.0".
 _RELEASED_VERSION_CLAIMS = (
@@ -3502,6 +3538,11 @@ def test_a_document_naming_the_released_version_names_the_newest_tag(document):
             "this checkout cannot read its own tags (no git, or a shallow "
             "clone), so there is no released version to check the prose "
             "against"
+        )
+    if mid_bump():
+        pytest.skip(
+            "this tree is mid-bump, so the pages are supposed to name the "
+            "version being released and its sibling below is the live check"
         )
 
     text = claimed_voice((repo_root() / document).read_text(encoding="utf-8"))
@@ -3734,7 +3775,15 @@ def test_the_front_page_advertises_the_version_that_IS_PUBLISHED():
             "fetch-depth: 0, and without them this guard would pass while "
             "checking nothing"
         )
-    latest = versions[-1]
+    from wringer import __version__
+
+    # **See `mid_bump` — and this guard SWITCHES rather than skips.** Its
+    # parametrised neighbours have a sibling that checks the same pages
+    # against `__version__` during a bump; this headline has none, and the
+    # first draft of this change let it skip, at which point the README could
+    # advertise `9.9.9` and the whole suite stayed green. Found by red-watching
+    # the skip instead of trusting it.
+    latest = __version__ if mid_bump() else versions[-1]
 
     readme = (repo_root() / "README.md").read_text(encoding="utf-8")
     line = next(
@@ -3752,9 +3801,16 @@ def test_the_front_page_advertises_the_version_that_IS_PUBLISHED():
         "version — do not delete it"
     )
     assert latest in line, (
-        f"README's headline says {line.strip()!r}, but the latest published "
-        f"tag is v{latest}. Either the release was cut and this page was not "
-        f"updated, or this page names a version that has not shipped"
+        f"README's headline says {line.strip()!r}, and the version it should "
+        f"name is {latest} — "
+        + (
+            "this tree is mid-bump, so the headline names the version being "
+            "released, which is `wringer.__version__`"
+            if mid_bump()
+            else "the latest published tag. Either the release was cut and "
+            "this page was not updated, or this page names a version that "
+            "has not shipped"
+        )
     )
 
 

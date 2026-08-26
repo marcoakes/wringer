@@ -127,10 +127,17 @@ removed.
 
 ### 3a-ii. The shell-worker asymmetry, named rather than inherited
 
-A shell worker inherits the **operator's entire environment**
-(`gates.py:95-102` passes no `env=`); an ACP worker gets `PATH`, `HOME`,
-`LANG` plus named passthroughs only (`acp.py:255-262`). A wizard that wrote a
-shell worker would silently hand the agent every secret in the shell.
+A shell worker inherits the **operator's entire environment** (`gates.run`
+passes no `env=`); an ACP worker gets `PATH`, `HOME`, `LANG`, `USER` plus
+named passthroughs only (`acp.worker_env`). A wizard that wrote a shell worker
+would silently hand the agent every secret in the shell.
+
+*Corrected 2026-08-26.* This read `PATH`, `HOME`, `LANG` — three names — and
+cited two line ranges that had both moved. The asymmetry it states is
+untouched and is the clause; what changed is the base set it describes, which
+gained `USER` in `0.4.9` so that a Keychain-stored login is visible to the
+agent. The citations are now function names, because a line number is a fact
+about a file on the day somebody read it.
 
 **`wring start` writes an ACP worker or no worker at all.** If the user
 declines every agent it writes no `run:` section and says why — it does not

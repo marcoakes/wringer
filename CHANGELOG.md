@@ -4,6 +4,89 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.9 — 2026-08-26
+
+**The gate-closer.** A product manager drove the whole chain on an
+IT-managed Mac — a machine class nobody here owns — and reached a delivered
+branch: PRD in, interview, plan, a real coding agent building for 4m 40s, a
+held handover, a human verdict, a branch on a remote. The report is
+[docs/field-report-2026-08-26-run6.md](docs/field-report-2026-08-26-run6.md),
+verbatim; the disposition is
+[docs/field-response-2026-08-26-run6.md](docs/field-response-2026-08-26-run6.md).
+Four findings, all fixed here.
+
+### `USER` crosses into the worker, and a logged-in agent stops reporting logged out
+
+`acp.worker_env` handed a worker `PATH`, `HOME`, `LANG`. On a Mac pinned by
+managed settings to an organisation login the credential is in the macOS
+Keychain, and the agent needs `USER` to resolve its own item there. Bisected on
+that machine one variable at a time: without `USER`, `loggedIn: false`; with
+it, `loggedIn: true, authMethod: claude.ai`. Nothing else moved it.
+
+So a **logged-in** agent reported logged out, the drive stopped on a false red,
+and the login route — the only route that class of machine has — was the one
+route that could not work. `run_turn` builds its environment through the same
+function, so the paid turn would have been equally blind.
+
+`USER` is now the fourth name in the base set: identity rather than authority,
+absent rather than empty when this process has none.
+
+### The signed-out stop stops walking people into the thing that breaks them
+
+Worse than the false red. The stop offered two routes; the operator had already
+done the login, so the only apparently-untried one was `env_passthrough` of a
+key — which on a pinned machine **is** the refusal. It now asks the question
+`wring doctor` asks (a `stat` for a policy file, never a read) and on such a
+machine names one route and says to remove a key already declared.
+
+And the preflight's answer is now **shown when it passes**: a `worker-auth`
+step rendered before anything is spent, or a step saying the question could not
+be asked. The engine is asked once, so the sentence a person is shown is the
+one the refusal decided on.
+
+### `mr.md` and the bundle's `summary.md` carry the acceptance counts
+
+The run reached delivered with `evidenced: 1, unevidenced: 6, human: 1`. The
+board said so six times and `acceptance.json` per criterion; the two surfaces
+that TRAVEL with the code said it zero times between them, while `mr.md`
+pointed at `summary.md` as "the human-readable report". Both were true — all
+gates passed — and a reviewer saw three green ticks and the word `passed`.
+
+Both now carry the counts, from one renderer they quote verbatim. The counts
+always travel; the warning only when there is something to warn about.
+
+### The runbook's step 6 can be followed after a clean install
+
+Step 2 says there is nothing to clone — true of the tool — and step 6 then said
+`cd wringer-drive/examples/pipeline`, which has not existed since the packages
+merged and is not in the wheel. A first-time reader stopped there. Step 6 now
+states that the examples need a clone and gives the command, and a new guard
+walks the page's own `cd`/`sh` targets in document order: every one must be
+produced by an earlier step on the same page.
+
+### Also
+
+- **A subscription login is measured serving a build turn** — 4m 40s, exit 0,
+  red gate to green, no key anywhere. The runbook's "still unmeasured" sentence
+  is retired and `docs/vendors.md`'s anthropic/worker row cites the capture.
+  The status did not move: it was already `MEASURED-WORKING` on the key arm.
+- **The transport is told to read with a monotonic cursor**, not a count
+  recomputed each poll — which lost an interview question and looked like a
+  hang. The page warned about writing too early and said nothing about reading
+  too late.
+- **Two `wring doctor` lines answer the reader instead of describing Wringer.**
+  A shell worker has no login to check; a command the roster would know by its
+  bare name now says so, and says which spelling makes the question free and
+  exact. The roster still matches exactly — the silence was the defect, not the
+  matching.
+- **Three surfaces still described the old three-name worker environment**
+  (`SECURITY.md`, `worker_auth.py`, `SPEC_START_V0.md` §3a-ii, the last also
+  citing two line ranges that had moved). Found by a new derived guard, not by
+  a reader. That is the "one fact, three documents" disease this release's own
+  finding 3 is about.
+
+Schema versions: unchanged.
+
 ## 0.4.8 — 2026-08-26
 
 **The full run.** For the first time in this project's life a plain-language

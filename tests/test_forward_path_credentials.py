@@ -287,6 +287,69 @@ def test_EVERY_MODULE_THAT_STARTS_A_PROCESS_HAS_SAID_WHAT_IT_HANDS_ON():
     )
 
 
+def test_NO_SURFACE_STILL_DESCRIBES_THE_OLD_BASE_ENVIRONMENT():
+    """**The one-fact-three-documents disease, aimed at this fact.**
+
+    `USER` joined the base set on 2026-08-26 and `worker_env` is where that
+    fact is MADE — but three other places had written the old set out in
+    prose: `SECURITY.md`'s "what IS bounded" section, `worker_auth.py`'s module
+    docstring, and a test's own explanation of why it exists. Each was true
+    when written. None was derived, so the fix would have landed on one and
+    left the rest making a false promise about what a worker is handed —
+    which is precisely the 2026-08-22 shape whose second reader quoted the
+    stale face four days later.
+
+    So: anywhere in `src/` or in a reader-facing page that names `PATH`,
+    `HOME` and `LANG` close together is describing this environment, and has
+    to name every other member of the base set too. Captures are excluded by
+    `is_capture` — a dated record is supposed to say what was true on its
+    date, and the field report that DIAGNOSED this necessarily describes the
+    three-name version.
+    """
+    import re
+
+    from core_helpers import is_capture, reader_facing_pages, repo_root
+
+    root = repo_root()
+    anchors = ("PATH", "HOME", "LANG")
+    #: Wide enough to span a wrapped sentence and a small table, narrow enough
+    #: that three unrelated mentions on one page do not collide.
+    WINDOW = 260
+
+    surfaces = [path for path in sorted(SRC.rglob("*.py"))
+                if "__pycache__" not in path.parts]
+    surfaces += [
+        path for path in reader_facing_pages(captures=False)
+        if not is_capture(path.relative_to(root), path)
+    ]
+
+    stale = []
+    for path in surfaces:
+        text = path.read_text(encoding="utf-8")
+        for found in re.finditer(r"\bPATH\b", text):
+            window = text[found.start(): found.start() + WINDOW]
+            if not all(re.search(rf"\b{name}\b", window) for name in anchors):
+                continue
+            missing = [
+                name for name in sorted(BASE_NAMES - set(anchors))
+                if not re.search(rf"\b{name}\b", window)
+            ]
+            if missing:
+                stale.append(
+                    f"{path.relative_to(root)}: names {anchors} and not "
+                    f"{missing} — …{' '.join(window.split())[:160]}…"
+                )
+
+    assert not stale, (
+        "these surfaces describe the environment a worker is handed and are "
+        "missing a name that now crosses:\n"
+        + "\n".join(f"  {row}" for row in stale)
+        + f"\n\nThe base set is {sorted(BASE_NAMES)}, made in "
+        "`acp.worker_env`. A page that lists three of four is telling a "
+        "reader something about their credentials that is no longer true."
+    )
+
+
 def test_THE_ONE_MODULE_THAT_BUILDS_AN_ENVIRONMENT_STILL_BUILDS_IT():
     """The classification above is only worth having if `acp.py` really does
     build rather than inherit. Read from the function, and driven by the two

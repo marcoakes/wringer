@@ -46,7 +46,7 @@ module can turn a wasted run into a refusal; it cannot promise a turn will
 succeed, and every message it produces says so.
 
 **Why the environment matters.** A worker does not inherit Wringer's
-environment — it gets `PATH`, `HOME`, `LANG`, and whatever
+environment — it gets `PATH`, `HOME`, `LANG`, `USER`, and whatever
 `run.worker.acp.env_passthrough` declares. So the question is asked in
 `acp.worker_env`, the same function `acp.run_turn` builds the real turn's
 environment with. Asking in Wringer's own environment instead would report on

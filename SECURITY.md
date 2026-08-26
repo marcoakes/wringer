@@ -1,6 +1,6 @@
 # Security
 
-Wringer is young software (`0.4.8`). Read this before running
+Wringer is young software (`0.4.9`). Read this before running
 `wring verify` in a repository you did not write.
 
 ## Reporting a vulnerability
@@ -127,10 +127,16 @@ reach. What follows is exactly what that does and does not bound.
 ### What IS bounded, and is tested
 
 **An ACP agent gets a named environment, not your shell.** `acp.run_turn`
-builds the child's environment from nothing: `PATH`, `HOME`, `LANG`, plus the
-variables `run.worker.acp.env_passthrough` names. A cloud credential, a forge
-token or an SSH agent socket sitting in your environment is **not** handed to
-the agent unless a human wrote its name in `.wringer.yaml`.
+builds the child's environment from nothing: `PATH`, `HOME`, `LANG`, `USER`,
+plus the variables `run.worker.acp.env_passthrough` names. A cloud credential,
+a forge token or an SSH agent socket sitting in your environment is **not**
+handed to the agent unless a human wrote its name in `.wringer.yaml`.
+
+`USER` joined that set in `0.4.9` and is the only one that has ever been added.
+It is identity rather than authority — it names who is running and opens
+nothing — and without it a login stored in the macOS Keychain is invisible to
+the agent, which made a logged-in builder report itself signed out on every
+org-pinned Mac. `HOME` already pointed at the same person's files.
 
 `test_the_agent_gets_a_minimal_environment` proves it by making the agent
 report the variable names it received. That test was previously vacuous —
@@ -426,7 +432,8 @@ backported to an older one.
 | Version | Supported |
 |---|---|
 | `main` | ✅ |
-| `0.4.8` (PyPI, current) | ✅ |
+| `0.4.9` (PyPI, current) | ✅ |
+| `0.4.8` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.7` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.6` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.4.4` (PyPI) | upgrade — `pip install -U wringer` |
@@ -440,8 +447,8 @@ backported to an older one.
 
 **`wring --version` cannot tell you which of these you have.** This row
 previously read *"`*.dev*` (git installs) — reinstall from `main` or PyPI"*,
-and **there is no such marker**: `src/wringer/__init__.py` carries `0.4.8` at
-HEAD, so a git install and the PyPI package print `wring 0.4.8` identically.
+and **there is no such marker**: `src/wringer/__init__.py` carries `0.4.9` at
+HEAD, so a git install and the PyPI package print `wring 0.4.9` identically.
 Corrected 2026-08-18 rather than left standing, because a reader following
 that row would look for a string nothing writes.
 
