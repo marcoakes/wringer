@@ -1713,3 +1713,105 @@ def test_the_board_is_written_at_each_PHASE_BOUNDARY_not_only_at_the_end():
             f"nothing renders the board {where}; the page a person watches is "
             "stale for that whole phase"
         )
+
+
+# --- the warning must arrive before the spend (full run, 2026-08-26) --------
+#
+# Emitting a step and SHOWING one are different acts, and every test of this
+# sentence asked the wrong one. `Session.emit` appends to a list; `_run`
+# rendered that list's last entry AFTER `draft_the_spec` returned. So the
+# order that actually ran was: warn (into a list nobody reads) → spend → print
+# the warning. And when the drafting call REFUSED — which is what the full run
+# met — `draft_the_spec` raised, the render line was never reached, and the
+# operator watched money move with no sentence about it anywhere in the
+# transcript. Verbatim, from that run's capture: `prd-copied`, `resuming`,
+# `stopped`. Three steps, one paid call, no warning.
+
+
+def _reaches_the_paid_call(project, monkeypatch, capsys, *, returncode=0):
+    """Drive as far as the drafting call, with the call itself faked.
+
+    The `--send` subprocess is intercepted rather than run: this test is about
+    the ORDER of two things, and finding out by spending money at a live
+    endpoint would be an odd way to test a guard against spending money.
+    Returns `(launched, printed_before_each_launch)`.
+    """
+    spec_path = project / "wringer.spec.yaml"
+    drafted = spec_path.read_text(encoding="utf-8")
+    spec_path.unlink()
+    launched: list[list[str]] = []
+    before: list[str] = []
+    real = run_module.run_command
+
+    def recording(repo, argv, env=None):
+        # Everything printed so far, snapshotted at the moment of the launch.
+        before.append(capsys.readouterr().out)
+        launched.append(list(argv))
+        if "--send" in argv:
+            if returncode == 0:
+                # What a call that succeeds leaves behind, so the run can
+                # carry on into the interview exactly as a real one does.
+                spec_path.write_text(drafted, encoding="utf-8")
+            return subprocess.CompletedProcess(
+                argv, returncode,
+                stdout="{}" if returncode == 0 else "",
+                stderr="" if returncode == 0 else
+                       "wring spec: the drafted assumptions decide something "
+                       "only a person can settle.",
+            )
+        return real(repo, argv, env)
+
+    monkeypatch.setattr(run_module, "run_command", recording)
+    return launched, before
+
+
+def test_THE_COST_SENTENCE_IS_PRINTED_BEFORE_THE_PAID_CALL_STARTS(
+    project, tmp_path, capsys, monkeypatch
+):
+    """Not "is emitted". Printed, before, where somebody can read it."""
+    import io
+    import sys
+
+    launched, before = _reaches_the_paid_call(project, monkeypatch, capsys)
+
+    original = sys.stdin
+    sys.stdin = io.StringIO("")  # the interview beyond the call is not the point
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    finally:
+        sys.stdin = original
+
+    paid = [i for i, argv in enumerate(launched) if "--send" in argv]
+    assert paid, "the paid call was never reached, so this proves nothing"
+    seen = "".join(before[: paid[0] + 1])
+    assert "usually costs a small amount" in seen, (
+        "the drafting call started before the operator was told it costs "
+        "money — the warning is a report of a spend rather than a warning "
+        f"about one. What HAD been printed by then: {seen!r}"
+    )
+
+
+def test_a_DRAFTING_CALL_THAT_REFUSES_STILL_WARNED_FIRST(
+    project, tmp_path, capsys, monkeypatch
+):
+    """The full run's shape exactly: the call is made, the engine refuses, the
+    verb stops. The spend happened, so the sentence about it must have."""
+    launched, before = _reaches_the_paid_call(
+        project, monkeypatch, capsys, returncode=1
+    )
+
+    code = main(["run", str(prd(tmp_path)), "--repo", str(project)])
+    printed = capsys.readouterr()
+
+    assert code != 0, "the fixture no longer refuses, so this tests nothing"
+    assert [argv for argv in launched if "--send" in argv], (
+        "no paid call was made, so the missing warning would not matter"
+    )
+    everything = "".join(before) + printed.out + printed.err
+    assert "usually costs a small amount" in everything, (
+        "money was spent and no surface anywhere said it would be — this is "
+        "the full run's finding 2, verbatim"
+    )
+    assert "only a person can settle" in everything, (
+        "the engine's own refusal did not reach the operator"
+    )

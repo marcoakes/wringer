@@ -548,12 +548,27 @@ def require_worker(repo: Path) -> None:
         )
 
 
-def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:
+def draft_the_spec(
+    session: Session, repo: Path, prd: Path, announce: object = None
+) -> None:
     """`wring spec --send`, and the cost is said BEFORE the call.
 
     Ruling 2a: step 3's `--send` is authorised by the operator having run the
     verb and been told a paid call is about to happen. That sentence is here,
     before the subprocess, because after it the money is already spent.
+
+    **`announce` is what makes that true, and it was missing.** Measured in
+    the full run of 2026-08-26: emitting a step and SHOWING one are different
+    acts. `Session.emit` only appends to a list; the caller rendered the list's
+    last entry after this function returned — so on the run that mattered, the
+    drafting call was made, the endpoint was paid, the engine refused, this
+    function raised, and the sentence warning that money was about to move was
+    never printed at all. Every test of it passed, because every test asked
+    `session.steps` rather than asking what the operator saw.
+
+    So the renderer is handed IN and called here, on the line before the
+    subprocess. `None` keeps the library shape for a caller that only wants the
+    steps.
     """
     from wringer import spec
 
@@ -578,9 +593,11 @@ def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:
                 "plan below cannot show what was decided without asking you, "
                 "or the plain-language outcome of each task."
             )
-        session.emit(Step(kind=SHOW, id="spec-reused", text=said))
+        reused = session.emit(Step(kind=SHOW, id="spec-reused", text=said))
+        if announce is not None:
+            announce(reused)
         return
-    session.emit(
+    drafting = session.emit(
         Step(
             kind=SHOW,
             id="drafting",
@@ -589,6 +606,10 @@ def draft_the_spec(session: Session, repo: Path, prd: Path) -> None:
             "which usually costs a small amount.",
         )
     )
+    if announce is not None:
+        # BEFORE the subprocess. After it, the money has already moved and the
+        # sentence is a report rather than a warning.
+        announce(drafting)
     done = run_command(
         repo,
         [engine("wring"), "spec", str(prd.relative_to(repo)), "--send", "--json"],

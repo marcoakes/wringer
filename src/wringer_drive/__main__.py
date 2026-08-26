@@ -372,12 +372,16 @@ def _run(session: run_module.Session, args) -> int:
     run_module.require_worker(repo)
 
     # Step 3 — draft the spec from the prose, saying what it costs first.
-    run_module.draft_the_spec(session, repo, inside)
-    # Either step it can emit: `drafting` when it is about to spend, and
-    # `spec-reused` when it is not — the second was silent until field report
-    # 2026-08-25 finding 6, so a re-render looked exactly like a fresh draft.
-    if session.steps[-1].id in ("drafting", "spec-reused"):
-        _render(session.steps[-1:], mode)
+    #
+    # The renderer is handed IN rather than used on the way back, and that is
+    # the whole of finding 2 of the full run, 2026-08-26: rendering after the
+    # call showed the warning after the spend, and showed nothing at all when
+    # the call failed — which is what happened. Either step it can emit is
+    # rendered at the moment it is emitted: `drafting` when it is about to
+    # spend, and `spec-reused` when it is not.
+    run_module.draft_the_spec(
+        session, repo, inside, announce=lambda step: _render([step], mode)
+    )
 
     # Step 4 — the interview. One question at a time, in the drafter's words.
     for step in run_module.questions_to_ask(repo):
