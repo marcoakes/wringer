@@ -149,6 +149,34 @@ MANAGED_SETTINGS_PATHS: tuple[str, ...] = (
 )
 
 
+def managed_policy_file(paths: tuple[str, ...] | None = None) -> str | None:
+    """The coding-agent policy file on this machine, or None. **A stat.**
+
+    Nothing here opens it — see the constant above. What this answers is
+    whether one of the documented paths EXISTS, and the honest reading of a
+    None is "not at any path this build knows", never "this machine is
+    unmanaged".
+
+    **Two callers now, so one function** — `wring doctor`'s `managed settings`
+    line and the signed-out refusal, which needs it to stop offering the key
+    route on the class of machine where the key IS the failure. A second copy
+    of this loop is how the last three surfaces describing one fact came to
+    disagree; the import here rather than a `Path` at module scope keeps this
+    module's "imports nothing that can start a process" guarantee intact.
+
+    `paths` exists so a caller can hand in the tuple it is holding —
+    `doctor.MANAGED_SETTINGS_PATHS` is the same tuple under a name that tests
+    substitute for a directory they control. Defaulting to the constant means
+    the answer is the same either way.
+    """
+    from pathlib import Path
+
+    for path in MANAGED_SETTINGS_PATHS if paths is None else paths:
+        if Path(path).is_file():
+            return path
+    return None
+
+
 #: Binaries that WERE an ACP adapter and are not the one to install now.
 #: The value is the command that replaced it.
 #:

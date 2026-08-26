@@ -271,6 +271,168 @@ def test_the_worker_is_resolved_BEFORE_ANY_PAID_CALL(
     )
 
 
+def _acp_worker_answering(project: Path, tmp_path: Path, monkeypatch, payload):
+    """Point the project at a fake ACP agent that answers `auth status`.
+
+    A real executable on a real `PATH`, spawned the real way. The name comes
+    from `agents.py` so a roster edit takes this with it.
+    """
+    import os
+    import stat
+    import sys
+
+    agents = pytest.importorskip("wringer.agents")
+    command = agents.find("claude-code").command
+    binaries = tmp_path / "fake-bin"
+    binaries.mkdir(exist_ok=True)
+    binary = binaries / command
+    binary.write_text(
+        f"#!{sys.executable}\nimport json\nprint(json.dumps({payload!r}))\n",
+        encoding="utf-8",
+    )
+    binary.chmod(binary.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{binaries}{os.pathsep}{os.environ['PATH']}")
+
+    config_path = project / ".wringer.yaml"
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            '  worker: "true"\n',
+            f"  worker:\n    acp:\n      command: {command}\n",
+        ),
+        encoding="utf-8",
+    )
+    return command
+
+
+def test_a_PASSING_AUTH_PREFLIGHT_IS_SHOWN_not_merely_decided(
+    project, tmp_path, capsys, monkeypatch
+):
+    """**Fable's ruling on Q1, 2026-08-26, and the full run's finding 2.**
+
+    The drive has always preflighted the worker's login before spending —
+    `stopped:worker-signed-out` proved it in the field. What it never did was
+    say so when the answer was YES, so the one precondition a product manager
+    is told to check was invisible at the moment it became checkable, and the
+    documents sent them to `wring doctor` before a config existed for doctor
+    to read.
+
+    **Asserted against what was WRITTEN TO THE STREAM, never against
+    `session.steps`.** That distinction is the whole of the full run's finding
+    2: emitting a step and showing one are different acts, and every test of
+    the drafting warning passed while the operator saw nothing. So this parses
+    stdout.
+    """
+    import os
+    import sys
+
+    _acp_worker_answering(
+        project, tmp_path, monkeypatch,
+        {"loggedIn": True, "authMethod": "api_key"},
+    )
+
+    # An EMPTY stdin, so the run stops at the first question rather than
+    # hanging. The preflight is long over by then, which is the point.
+    read_end, write_end = os.pipe()
+    os.close(write_end)
+    original = sys.stdin
+    sys.stdin = os.fdopen(read_end, "r")
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project), "--emit", "json"])
+    finally:
+        sys.stdin.close()
+        sys.stdin = original
+    printed = capsys.readouterr().out
+
+    shown = [
+        json.loads(line)
+        for line in printed.splitlines()
+        if line.startswith("{")
+    ]
+    auth = [step for step in shown if step["id"] == "worker-auth"]
+    assert auth, (
+        "the auth preflight passed and nothing was put in front of the "
+        f"person. Steps written to the stream: {[s['id'] for s in shown]}"
+    )
+    assert auth[0]["kind"] == "show"
+    assert "api_key" in auth[0]["text"], (
+        "the step does not say HOW the agent is authenticated, which is the "
+        "half a person on a pinned machine has to check"
+    )
+    assert "spent" in auth[0]["text"], (
+        "the step does not say the question was answered before anything was "
+        "spent, which is the reason it is worth showing at all"
+    )
+
+
+def test_AN_UNANSWERABLE_AUTH_PREFLIGHT_IS_SHOWN_TOO(
+    project, tmp_path, capsys, monkeypatch
+):
+    """Silence reads as a tick, and this preflight is often silent.
+
+    `worker_auth` answers UNKNOWN for every agent nobody here has measured,
+    for an answer it cannot parse, and for a containment — and none of those
+    may stop a run. What they may not do either is pass without a word: the
+    person then believes a question was answered that nobody could ask, and
+    the first thing that can tell them is the step that costs money.
+    """
+    import os
+    import sys
+
+    _acp_worker_answering(project, tmp_path, monkeypatch, {"nothing": "useful"})
+
+    read_end, write_end = os.pipe()
+    os.close(write_end)
+    original = sys.stdin
+    sys.stdin = os.fdopen(read_end, "r")
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project), "--emit", "json"])
+    finally:
+        sys.stdin.close()
+        sys.stdin = original
+
+    shown = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    auth = [step for step in shown if step["id"] == "worker-auth"]
+    assert auth, (
+        "the preflight could not answer and said nothing, which reads as a "
+        f"tick. Steps written: {[s['id'] for s in shown]}"
+    )
+    assert "could not be checked" in auth[0]["text"]
+    assert "costs money" in auth[0]["text"], (
+        "the step does not say where the person will find out instead"
+    )
+
+
+def test_a_SHELL_WORKER_IS_NOT_GIVEN_AN_AUTH_STEP(project, tmp_path, capsys):
+    """There is no login to report on, so reporting one would be noise.
+
+    The fixture's worker is a shell command, which is the ordinary shape for
+    every repository that never adopted an ACP agent.
+    """
+    import os
+    import sys
+
+    read_end, write_end = os.pipe()
+    os.close(write_end)
+    original = sys.stdin
+    sys.stdin = os.fdopen(read_end, "r")
+    try:
+        main(["run", str(prd(tmp_path)), "--repo", str(project), "--emit", "json"])
+    finally:
+        sys.stdin.close()
+        sys.stdin = original
+
+    shown = [
+        json.loads(line)
+        for line in capsys.readouterr().out.splitlines()
+        if line.startswith("{")
+    ]
+    assert not [step for step in shown if step["id"] == "worker-auth"]
+
+
 def test_the_drive_and_the_engine_share_ONE_agent_preflight():
     """A second PATH check would be a second opinion, and SPEC_DRIVE_V0 ruling
     1 exists to stop exactly that: *importing is not re-implementing*.

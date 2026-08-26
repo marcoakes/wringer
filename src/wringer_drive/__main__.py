@@ -369,7 +369,14 @@ def _run(session: run_module.Session, args) -> int:
     # Everything below this line can cost money or take an approval; the
     # coding agent is the one precondition that used to be checked after all
     # of it. A run that cannot possibly finish should not be able to start.
-    run_module.require_worker(repo)
+    #
+    # The renderer is handed IN so the answer is SHOWN when it passes too
+    # (Fable's ruling on Q1, 2026-08-26). The refusal was always visible; the
+    # pass was not, and a precondition a person is told to check has to be
+    # answered where they are standing.
+    run_module.require_worker(
+        repo, session, announce=lambda step: _render([step], mode)
+    )
 
     # Step 3 — draft the spec from the prose, saying what it costs first.
     #

@@ -142,8 +142,12 @@ def _managed_settings() -> Check:
     PRESENT branch has never been seen in the wild — only driven against a
     path in a test. That is said here rather than left for someone to assume.
     """
-    found = [path for path in MANAGED_SETTINGS_PATHS if Path(path).is_file()]
-    if not found:
+    # Asked through `agents.py`, which owns both the paths and the stat, so
+    # this line and the signed-out refusal cannot come to disagree about
+    # whether a machine carries one. The tuple is handed in rather than
+    # implied, because this module's name for it is the one tests substitute.
+    found = agents.managed_policy_file(MANAGED_SETTINGS_PATHS)
+    if found is None:
         # **OK and not SKIP.** SKIP means "this is about a repository and you
         # are not in one" — every repo-scoped check uses it and one invariant
         # test derives that pairing. A machine check with nothing to report
@@ -157,7 +161,7 @@ def _managed_settings() -> Check:
         )
     return Check(
         "managed settings", WARN,
-        f"this machine has a coding-agent policy file at {found[0]}. If it "
+        f"this machine has a coding-agent policy file at {found}. If it "
         "pins the builder to an organisation login, an Anthropic key in the "
         "worker's environment will be REFUSED — the key is the thing that "
         "breaks it, and removing it is the fix",

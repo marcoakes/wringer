@@ -63,6 +63,21 @@ def on_path(tmp_path, monkeypatch):
     return binaries
 
 
+@pytest.fixture
+def unmanaged_machine(tmp_path, monkeypatch):
+    """No coding-agent policy file, whatever this computer really has.
+
+    The signed-out refusal reads that fact, so every test of its wording has
+    to say which machine it is describing. Without this the suite would say
+    one thing on an unmanaged laptop and another on the org-pinned Mac the
+    field runs happen on — the machine as an unheld variable, which is the
+    shape of the defect this window is fixing.
+    """
+    monkeypatch.setattr(
+        agents, "MANAGED_SETTINGS_PATHS", (str(tmp_path / "no-policy-here.json"),)
+    )
+
+
 # --- what it believes ------------------------------------------------------
 
 
@@ -214,6 +229,69 @@ def test_the_question_is_asked_in_the_WORKERS_environment_not_WRINGERS(
     assert declared.state == worker_auth.LOGGED_IN
 
 
+def test_a_KEYCHAIN_LOGIN_IS_VISIBLE_TO_THE_AGENT_because_USER_CROSSES(
+    on_path, monkeypatch
+):
+    """**Field report 2026-08-26, finding 1 — the report's own bisection.**
+
+    On an org-pinned Mac the credential is in the macOS Keychain, and the
+    adapter needs `USER` to find its own Keychain item. Handed `PATH`, `HOME`
+    and `LANG` alone it reported `loggedIn: false, authMethod: none`; handed
+    the same three plus `USER` it reported `loggedIn: true, authMethod:
+    claude.ai`. Same binary, back to back, one variable at a time — `LOGNAME`,
+    `SHELL`, `TMPDIR`, `SSH_AUTH_SOCK`, `XPC_SERVICE_NAME` and
+    `__CF_USER_TEXT_ENCODING` each alone changed nothing.
+
+    So the drive stopped at `stopped:worker-signed-out` on a genuinely
+    logged-in agent, and `run_turn` — which builds its environment through the
+    same function — would have been equally blind had the preflight been
+    bypassed. This is the FALSE RED that blocked the login-only route, which
+    is the only route an org-pinned machine has.
+
+    The fake reads `USER` exactly the way the real one reads the Keychain: no
+    `USER`, no login. Reverting `worker_env` to three names turns this red.
+    """
+    fake_agent(
+        on_path,
+        "import json, os\n"
+        "signed_in = bool(os.environ.get('USER'))\n"
+        "print(json.dumps({'loggedIn': signed_in, "
+        "'authMethod': 'claude.ai' if signed_in else 'none'}))",
+    )
+    monkeypatch.setenv("USER", "someone")
+
+    found = worker_auth.read(acp_worker())
+
+    assert found.state == worker_auth.LOGGED_IN, (
+        "a logged-in agent reported logged out because USER did not cross "
+        "into the worker's environment. That is a false red, and on an "
+        "org-pinned machine it blocks the only route that works"
+    )
+    assert found.method == "claude.ai"
+
+
+def test_USER_IS_IDENTITY_AND_CARRIES_NOTHING_ELSE_ACROSS(on_path, monkeypatch):
+    """The other arm: widening the base set by one name widens it by ONE.
+
+    `USER` is identity, not authority — it names who is running, opens
+    nothing, and `HOME` (which already crossed) points at the same person's
+    files. The neighbours the report bisected against stay out.
+    """
+    from wringer import acp
+
+    for name in ("LOGNAME", "SHELL", "SSH_AUTH_SOCK", "XPC_SERVICE_NAME"):
+        monkeypatch.setenv(name, "value")
+    monkeypatch.setenv("USER", "someone")
+
+    env = acp.worker_env(())
+
+    assert env["USER"] == "someone"
+    assert set(env) == {"PATH", "HOME", "LANG", "USER"}, (
+        "the worker's base environment is no longer exactly the four names "
+        "this repository has decided on"
+    )
+
+
 def test_the_environment_is_the_one_the_TURN_builds_not_a_second_copy():
     """Derived, so the two cannot drift apart.
 
@@ -236,7 +314,13 @@ def test_the_environment_is_the_one_the_TURN_builds_not_a_second_copy():
 # --- what the person is told -----------------------------------------------
 
 
-def test_the_refusal_names_BOTH_routes_and_says_what_the_key_one_costs():
+def test_the_refusal_names_BOTH_routes_and_says_what_the_key_one_costs(
+    unmanaged_machine,
+):
+    """The ordinary machine. **Pinned to the unmanaged branch on purpose** —
+    the message now depends on whether this computer carries a coding-agent
+    policy file, and a test whose expected text depends on the machine it runs
+    on is exactly the variable this repository keeps failing to hold still."""
     worker = acp_worker()
     message = worker_auth.refusal(
         worker, worker_auth.WorkerAuth(worker_auth.LOGGED_OUT, "signed out")
@@ -252,7 +336,7 @@ def test_the_refusal_names_BOTH_routes_and_says_what_the_key_one_costs():
     assert "Nothing has been created" in message
 
 
-def test_the_refusal_states_the_limit_of_what_it_CHECKED():
+def test_the_refusal_states_the_limit_of_what_it_CHECKED(unmanaged_machine):
     """Presence is not validity, and a check sold as proof is worse than none."""
     worker = acp_worker()
     message = worker_auth.refusal(
@@ -260,6 +344,71 @@ def test_the_refusal_states_the_limit_of_what_it_CHECKED():
     )
 
     assert "revoked" in message and "lapsed" in message
+
+
+# --- and on a PINNED machine, the key route is the failure ------------------
+
+
+def _signed_out(worker) -> str:
+    return worker_auth.refusal(
+        worker, worker_auth.WorkerAuth(worker_auth.LOGGED_OUT, "signed out")
+    )
+
+
+def test_a_PINNED_MACHINE_IS_NOT_OFFERED_THE_KEY_ROUTE_BARE(monkeypatch, tmp_path):
+    """**Field report 2026-08-26, finding 1, consequence 2 — the worst half.**
+
+    The stop offers two routes. On the reporter's machine they had already
+    done the first, so the only apparently-untried route was "declare
+    `ANTHROPIC_API_KEY` under `env_passthrough`" — which on an org-pinned
+    machine is the DOCUMENTED CAUSE of `session/new` being refused. The
+    refusal walked the operator into the one configuration the rest of this
+    repository exists to warn them off.
+
+    Doctor already knows how to ask this question; the refusal did not ask it.
+    So it asks now, through the same function, and says plainly which route is
+    left. It still never opens the file: presence is the whole of the fact.
+    """
+    policy = tmp_path / "managed-settings.json"
+    policy.write_text('{"forceLoginMethod": "claudeai"}', encoding="utf-8")
+    monkeypatch.setattr(agents, "MANAGED_SETTINGS_PATHS", (str(policy),))
+
+    message = _signed_out(acp_worker())
+
+    assert str(policy) in message, (
+        "the refusal does not name the policy file it decided on, so a "
+        "reader cannot check whether it decided correctly"
+    )
+    assert "refused" in message.lower(), (
+        "the refusal does not say that the key route is refused on this "
+        "class of machine — which is the sentence that stops the operator "
+        "doing the thing that breaks the run"
+    )
+    assert "auth login" in message, "the route that works is not named"
+
+    key_line = [
+        line for line in message.splitlines()
+        if CLAUDE.key_env in line and line.strip().startswith("-")
+    ]
+    assert not key_line, (
+        f"the key route is still offered as a bullet beside the login one: "
+        f"{key_line}. On this machine that is the cause, not a remedy"
+    )
+
+
+def test_AN_UNPINNED_MACHINE_STILL_GETS_BOTH_ROUTES(unmanaged_machine):
+    """The control, and the honest half of the fork.
+
+    Absence of a policy file is ONE PATH CHECKED, never proof that a machine
+    is unmanaged — so this branch may not start claiming the key route is
+    safe. It offers both, exactly as it always did, and the limit sentence
+    that was already there carries the caveat.
+    """
+    message = _signed_out(acp_worker())
+
+    assert "auth login" in message
+    assert CLAUDE.key_env in message, "the key route vanished from every machine"
+    assert "spends against that key" in message
 
 
 # --- and that it actually stops a run --------------------------------------
@@ -300,6 +449,35 @@ def test_both_front_doors_ask_the_SAME_question(on_path):
         "the drive stopped asking the engine's question and now either asks "
         "its own or asks none"
     )
+
+
+def test_THE_PREFLIGHT_IS_ASKED_ONCE_AND_BOTH_ANSWERS_COME_FROM_IT(on_path):
+    """The finding and the show step read ONE reading of the agent.
+
+    `worker_auth.read` spawns the agent's own CLI. Asking twice — once for the
+    stop and once for the sentence that reports the pass — would double the
+    only slow thing in the preflight and, worse, could report a state the
+    refusal did not decide on. `unauthenticated_agent` takes the finding the
+    caller already holds.
+    """
+    calls = []
+    fake_agent(
+        on_path,
+        "import json, os\n"
+        f"open({str(on_path / 'asked')!r}, 'a').write('x')\n"
+        "print(json.dumps({'loggedIn': True, 'authMethod': 'api_key'}))",
+    )
+    settings = config.Run(worker=acp_worker())
+
+    found = loop.worker_auth_finding(settings)
+    assert loop.unauthenticated_agent(settings, found) is None
+
+    calls = (on_path / "asked").read_text()
+    assert len(calls) == 1, (
+        f"the agent's CLI was spawned {len(calls)} times for one preflight"
+    )
+    assert found.state == worker_auth.LOGGED_IN
+    assert found.method == "api_key"
 
 
 def test_doctor_reports_it_where_a_person_looks_FIRST(tmp_path, on_path, monkeypatch):
@@ -358,10 +536,11 @@ def test_the_environment_carries_nothing_it_was_not_given(monkeypatch):
 
     monkeypatch.setenv("A_SECRET", "value")
     monkeypatch.setenv("DECLARED", "value")
+    monkeypatch.setenv("USER", "someone")
 
     env = acp.worker_env(("DECLARED",))
 
-    assert set(env) == {"PATH", "HOME", "LANG", "DECLARED"}
+    assert set(env) == {"PATH", "HOME", "LANG", "USER", "DECLARED"}
     assert "A_SECRET" not in env
     assert os.environ["A_SECRET"] == "value", "the real environment was mutated"
 

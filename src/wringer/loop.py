@@ -540,7 +540,31 @@ def missing_agent(settings: config.Run) -> str | None:
     )
 
 
-def unauthenticated_agent(settings: config.Run) -> str | None:
+def worker_auth_finding(settings: config.Run) -> Any:
+    """What this loop's worker said about its own login, or None.
+
+    A `worker_auth.WorkerAuth`, or None when there was nothing to ask — a
+    shell worker, or a worker inside a containment whose credential store this
+    process cannot see.
+
+    **Separated from the refusal on 2026-08-26 so the answer can be SHOWN as
+    well as acted on** (Fable's ruling on Q1). Reading it costs a spawn of the
+    agent's own CLI, so the caller that wants both the stop and the sentence
+    reporting a pass reads once and hands the result to
+    `unauthenticated_agent` — two reads could give two answers, and the one
+    the person is shown would not be the one the refusal decided on.
+    """
+    worker = settings.worker
+    if not isinstance(worker, config.AcpWorker):
+        return None
+    if settings.containment is not None:
+        return None
+    from wringer import worker_auth
+
+    return worker_auth.read(worker)
+
+
+def unauthenticated_agent(settings: config.Run, found: Any = None) -> str | None:
     """Why this loop's worker cannot authenticate, or None.
 
     `missing_agent` above refuses an agent that is not installed. This refuses
@@ -557,6 +581,11 @@ def unauthenticated_agent(settings: config.Run) -> str | None:
     for an answer it cannot parse — and none of those may stop a run, because
     a stop on Wringer's ignorance of a vendor would be this repository
     charging a person for its own gap.
+
+    `found` is an already-read `WorkerAuth` from `worker_auth_finding` above.
+    Passing it makes the caller's sentence and this refusal two readings of
+    ONE answer; omitting it reads the agent here, which is what `wring run`
+    does because it has nothing to show.
     """
     worker = settings.worker
     if not isinstance(worker, config.AcpWorker):
@@ -565,7 +594,8 @@ def unauthenticated_agent(settings: config.Run) -> str | None:
         return None
     from wringer import worker_auth
 
-    found = worker_auth.read(worker)
+    if found is None:
+        found = worker_auth.read(worker)
     if not found.will_fail:
         return None
     return worker_auth.refusal(worker, found)

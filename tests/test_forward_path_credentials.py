@@ -74,7 +74,16 @@ def _child_environment(tmp_path: Path, passthrough: tuple[str, ...]) -> dict:
     return _child_environment_with(tmp_path, acp.worker_env(passthrough))
 
 
-def test_A_WORKER_IS_HANDED_THREE_NAMES_AND_NOTHING_IT_WAS_NOT_GIVEN(
+#: The whole of what a worker inherits without being told to. Four names,
+#: each of which somebody had to argue for: `PATH` to find its own binaries,
+#: `HOME` and `USER` to find the person's own configuration and Keychain,
+#: `LANG` so its output is not mojibake. `USER` joined on 2026-08-26 — field
+#: report finding 1, where its absence made a logged-in agent report logged
+#: out on every org-pinned Mac.
+BASE_NAMES = {"PATH", "HOME", "LANG", "USER"}
+
+
+def test_A_WORKER_IS_HANDED_FOUR_NAMES_AND_NOTHING_IT_WAS_NOT_GIVEN(
     tmp_path, monkeypatch
 ):
     """Read out of the child. Every other secret-shaped name this process
@@ -86,17 +95,22 @@ def test_A_WORKER_IS_HANDED_THREE_NAMES_AND_NOTHING_IT_WAS_NOT_GIVEN(
     than against Wringer. The control run — spawn the same program with an
     EMPTY environment — is what separates "the platform put this here" from
     "Wringer forwarded this", and only the second is a defect.
+
+    **The base set grew by one on 2026-08-26 and this is where that is
+    measured**, out of a real child rather than out of the function's return
+    value. `USER` is identity: it names who is running and opens nothing.
     """
     monkeypatch.setenv("SOME_TEAM_API_KEY", CANARY)
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", CANARY)
+    monkeypatch.setenv("USER", "someone")
 
     injected = set(_child_environment_with(tmp_path, {}))
     got = _child_environment(tmp_path, ())
 
     forwarded = set(got) - injected
-    assert forwarded == {"PATH", "HOME", "LANG"}, (
-        f"a worker was handed more than the three names it is given: "
-        f"{sorted(forwarded - {'PATH', 'HOME', 'LANG'})}"
+    assert forwarded == BASE_NAMES, (
+        f"a worker was handed a base environment that is not the four names "
+        f"it is given: {sorted(forwarded ^ BASE_NAMES)}"
     )
     assert CANARY not in json.dumps(got), (
         "a credential this process holds reached the worker's environment"
@@ -276,13 +290,32 @@ def test_EVERY_MODULE_THAT_STARTS_A_PROCESS_HAS_SAID_WHAT_IT_HANDS_ON():
 def test_THE_ONE_MODULE_THAT_BUILDS_AN_ENVIRONMENT_STILL_BUILDS_IT():
     """The classification above is only worth having if `acp.py` really does
     build rather than inherit. Read from the function, and driven by the two
-    tests at the top of this file."""
-    body = (SRC / "wringer" / "acp.py").read_text(encoding="utf-8")
-    start = body.index("def worker_env(")
-    window = body[start : start + 2000]
+    tests at the top of this file.
+
+    **The window is the function's CODE, and neither half of that is an
+    accident.** This used to read the 2000 characters after
+    `def worker_env(` — a hand-kept number, which went stale the moment the
+    docstring grew and made the guard fail over a comment rather than over
+    its subject. And a window that includes the docstring can be satisfied by
+    PROSE: a paragraph mentioning `"PATH"` would keep this green over a
+    function that had stopped passing it. So the docstring is stripped and
+    what is left is the code that runs.
+    """
+    import ast
+    import inspect
+    import textwrap
+
+    node = ast.parse(textwrap.dedent(inspect.getsource(acp.worker_env))).body[0]
+    body = node.body[1:] if ast.get_docstring(node) is not None else node.body
+    window = "\n".join(ast.unparse(statement) for statement in body)
     assert "os.environ.copy()" not in window, (
         "the worker environment is inherited now, not built — the guarantee "
         "at the top of this file has gone"
     )
-    assert '"PATH"' in window and '"HOME"' in window and '"LANG"' in window
+    missing = [name for name in sorted(BASE_NAMES) if f"'{name}'" not in window]
+    assert not missing, (
+        f"{missing} are in the base set this file measures out of a real "
+        "child, and `worker_env` no longer names them — so the two halves of "
+        "this claim have drifted"
+    )
     assert "PATH" in acp.worker_env(())

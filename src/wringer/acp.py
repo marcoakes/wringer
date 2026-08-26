@@ -472,17 +472,45 @@ def worker_env(
     the worker's environment rather than reconstruct it. A check that asks
     "will the agent be able to authenticate?" is only worth running if it asks
     in the environment the agent will actually get; a second copy of these
-    three names and this loop would answer about an environment nothing runs
-    in, and would drift the first time either changed.
+    names and this loop would answer about an environment nothing runs in, and
+    would drift the first time either changed.
 
-    Three names and no more, plus whatever the operator declared crosses. The
+    Four names and no more, plus whatever the operator declared crosses. The
     smallness is the point: a worker inherits nothing it was not given.
+
+    **`USER` is the fourth, and it was the gate-blocker** — field report
+    2026-08-26, finding 1. On a Mac pinned by managed settings to an
+    organisation login the credential lives in the macOS Keychain, and the
+    agent needs `USER` to resolve its own Keychain item. Bisected on that
+    machine one variable at a time: `PATH`/`HOME`/`LANG` gave
+    `loggedIn: false`; the same three plus `USER` gave `loggedIn: true,
+    authMethod: claude.ai`. Nothing else moved it. So a logged-in agent
+    reported logged out, the drive stopped on a FALSE RED, and the one route
+    an org-pinned machine has was the one route that could not work.
+
+    It belongs in the base set rather than in somebody's `env_passthrough`
+    because it is **identity, not a credential**: it names who is running, it
+    opens nothing on its own, and `HOME` — which has always crossed — already
+    points at that same person's files. A name every operator on the affected
+    class of machine would have to declare by hand, to fix a failure whose
+    message points the other way, is a default in the wrong place.
+
+    Nobody upstream hit it because the unmanaged route declares a key
+    explicitly and no Keychain read ever happens. The Keychain read only
+    matters on the login-only route, which is exactly the route that class of
+    machine is forced onto — the machine was the variable again.
     """
     env = {
         "PATH": os.environ.get("PATH", ""),
         "HOME": os.environ.get("HOME", ""),
         "LANG": os.environ.get("LANG", "C.UTF-8"),
     }
+    # Absent rather than empty when this process has none. `USER` is unset in
+    # some CI containers and in a bare `env -i`; handing a worker `USER=""`
+    # would be Wringer asserting an identity nobody has, and a Keychain lookup
+    # on an empty user is a different failure from a lookup nobody could make.
+    if os.environ.get("USER"):
+        env["USER"] = os.environ["USER"]
     crossing = env_passthrough
     if containment_settings is not None:
         # Both declared allowlists apply, and the union is ruled rather than

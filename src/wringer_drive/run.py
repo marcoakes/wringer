@@ -476,7 +476,9 @@ def generate_workspace(session: Session, repo: Path, answers: dict) -> None:
     )
 
 
-def require_worker(repo: Path) -> None:
+def require_worker(
+    repo: Path, session: object = None, announce: object = None
+) -> None:
     """**The coding agent must EXIST before anything is paid for.**
 
     Field report 2026-08-21, finding 6, and it is the whole shape of the
@@ -497,6 +499,21 @@ def require_worker(repo: Path) -> None:
     nothing and lets the engine speak in its own words at the first call: a
     surface that invented a config error would be guessing at a file it is not
     the authority on.
+
+    **It also SAYS SO WHEN THE ANSWER IS YES** — Fable's ruling on the full
+    run's Q1, 2026-08-26. This preflight has always run; what it never did was
+    render a result the operator could see, so the one precondition a product
+    manager is told to check was invisible at the exact moment it became
+    checkable, and the documents sent them to `wring doctor` before a config
+    existed for doctor to read. `session` and `announce` are how: the step is
+    emitted into the record AND rendered where the person is standing, on the
+    line that emits it. Both optional, so a library caller that only wants the
+    refusal behaviour keeps it.
+
+    That the renderer is handed IN rather than used on the way back is the
+    full run's finding 2, applied before it could recur here: emitting a step
+    and showing one are different acts, and every test of the drafting warning
+    passed while the operator saw nothing.
     """
     from wringer import config, loop
 
@@ -531,8 +548,17 @@ def require_worker(repo: Path) -> None:
     # required` at the build step. The PATH check above was green for both of
     # them. Imported from the engine for `require_worker`'s own reason — two
     # front doors may not disagree about whether a run can start.
-    message = loop.unauthenticated_agent(settings.run)
+    # **Read ONCE.** Asking the agent's own CLI is the only slow thing in this
+    # preflight, and two reads could give two answers — so the sentence the
+    # person is shown would not be the one the refusal decided on.
+    found = loop.worker_auth_finding(settings.run)
+    message = loop.unauthenticated_agent(settings.run, found)
     if message is not None:
+        # **The remedy is the machine's, not a fixed pair of routes.** Field
+        # report 2026-08-26, finding 1: on an org-pinned Mac the operator had
+        # already done the login, so the only apparently-untried route was the
+        # key — which on that machine is the CAUSE of the refusal. The engine's
+        # words carry that fork now; this text stops promising "both ways".
         raise Stop(
             Step(
                 kind=STOPPED,
@@ -541,11 +567,60 @@ def require_worker(repo: Path) -> None:
                 "agent is installed, but it says it is not logged in — and it "
                 "is the thing that would do the building. Giving it a "
                 "credential is your decision, so this stops here and shows "
-                "you both ways, before the step that costs money.",
+                "you what this machine's route is, before the step that costs "
+                "money.",
                 engine_words=message,
             ),
             exit_code=2,
         )
+    _show_worker_auth(session, announce, found)
+
+
+def _show_worker_auth(session: object, announce: object, found: object) -> None:
+    """The preflight's answer, rendered where the question becomes answerable.
+
+    Two shapes, because there are two non-refusing answers and they mean
+    different things:
+
+    - **logged in** — the question is settled, for free, before a penny moved.
+      The method is named because on a pinned machine `api_key` is the answer
+      that predicts a refusal at the turn, and a person who is shown it can
+      act; a person shown only a tick cannot.
+    - **could not tell** — no agent Wringer has measured, an unparseable
+      answer, a containment. Nothing refuses on that and nothing should; what
+      is wrong is letting it pass in silence, because silence reads as a tick.
+
+    Both say what the check CANNOT do. `worker_auth` cannot tell whether a
+    credential still works — a revoked key and a lapsed subscription both
+    report being logged in — and a green sold as proof is worse than none.
+    """
+    if session is None or found is None:
+        return
+    from wringer import worker_auth
+
+    if found.state == worker_auth.LOGGED_IN:
+        how = f" ({found.method})" if found.method else ""
+        text = (
+            f"The coding agent that will do the building says it is logged "
+            f"in{how} — checked before anything was spent. That is the agent's "
+            "own word for it and not a promise the credential still works: a "
+            "revoked key and a lapsed subscription both report being logged "
+            "in, and both fail at the build step."
+        )
+    elif found.state == worker_auth.LOGGED_OUT:  # pragma: no cover - stopped above
+        return
+    else:
+        text = (
+            "Whether the coding agent is logged in could not be checked here: "
+            f"{found.detail}. Nothing stops for that — it means the build step "
+            "is the first thing that can tell you, and it is the step that "
+            "costs money."
+        )
+    step = Step(kind=SHOW, id="worker-auth", text=text,
+                detail={"state": found.state, "method": found.method})
+    session.emit(step)
+    if announce is not None:
+        announce(step)
 
 
 def draft_the_spec(

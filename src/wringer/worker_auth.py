@@ -258,15 +258,61 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
 
 
 def refusal(worker: object, found: WorkerAuth) -> str:
-    """What to print instead of spending. The two routes, and the limit.
+    """What to print instead of spending. The routes THIS MACHINE has, and the
+    limit.
 
     Both routes are the person's act. Wringer never installs an agent and it
     does not log one in either — and the second is the stronger rule of the
     two, because a login is somebody's account.
+
+    **It is machine-aware, and that is field report 2026-08-26 finding 1's
+    second consequence — the one that made things worse.** This message used
+    to offer both routes unconditionally. On an org-pinned Mac the operator
+    had already done the login, so the only apparently-untried route was the
+    key — and on that class of machine the key IS the refusal: with it in the
+    worker's environment `session/new` is rejected, without it the session
+    opens. The stop sent a person to do the exact thing every other page in
+    this repository warns them off, at the moment they were most likely to
+    act on it.
+
+    So on a machine carrying a coding-agent policy file the key route is not
+    offered as a bullet beside the login one. It is still NAMED, because a
+    reader who has already declared one needs to be told to remove it — what
+    it stops being is an option.
+
+    **The question is a `stat`, asked through `agents.py`**, which is where
+    `wring doctor`'s `managed settings` line asks it too. Nothing opens the
+    file: presence is the whole of the fact, and the sentence says "if it
+    pins" rather than claiming to know. Absence takes the other branch, where
+    both routes are offered exactly as before — because absence is one path
+    checked, never proof that a machine is unmanaged.
     """
     command = getattr(worker, "command", "the coding agent")
     known = agents.by_command(command)
     key = known.key_env if known is not None else "the agent's API key variable"
+    limit = (
+        "This check reads what the agent says about itself and cannot tell "
+        "whether a credential still works: a revoked key and a lapsed "
+        "subscription both report being logged in. Nothing has been created."
+    )
+    policy = agents.managed_policy_file()
+    if policy is not None:
+        return (
+            f"{found.detail}, so the build step would fail after the drafting "
+            f"call had already been paid for.\n\n"
+            f"This machine has a coding-agent policy file at {policy}. If it "
+            f"pins the builder to an organisation login — which is what such "
+            f"a file usually does — then there is ONE route here, and it is "
+            f"not the key:\n"
+            f"  - log the agent in once: {command} --cli auth login\n\n"
+            f"Declaring {key} under 'run.worker.acp.env_passthrough' is "
+            f"REFUSED on a pinned machine: with the key in the worker's "
+            f"environment the agent's session request is rejected, and "
+            f"without it the session opens. If one is already declared "
+            f"in {config.CONFIG_FILENAME}, REMOVE it — that is the fix, not "
+            f"the remedy.\n\n"
+            f"{limit}"
+        )
     return (
         f"{found.detail}, so the build step would fail after the drafting "
         f"call had already been paid for.\n\n"
@@ -275,7 +321,5 @@ def refusal(worker: object, found: WorkerAuth) -> str:
         f"  - or declare {key} under 'run.worker.acp.env_passthrough' in "
         f"{config.CONFIG_FILENAME}, which spends against that key on every "
         f"worker turn\n\n"
-        f"This check reads what the agent says about itself and cannot tell "
-        f"whether a credential still works: a revoked key and a lapsed "
-        f"subscription both report being logged in. Nothing has been created."
+        f"{limit}"
     )
