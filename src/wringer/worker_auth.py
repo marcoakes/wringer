@@ -306,6 +306,46 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
     return WorkerAuth(LOGGED_OUT, f"{worker.command} reports it is not logged in")
 
 
+def _routes(worker: object) -> tuple[str, str, str | None]:
+    """`(command, key variable, policy file or None)` — the whole decision.
+
+    **One decision, two renderings.** `wring doctor` prints a one-line fix and
+    the drive's stop prints a paragraph; what they may never do is disagree
+    about which routes this machine HAS. They did, for the length of one
+    commit: the stop learned that a pinned machine has only the login route
+    and doctor's line went on offering the key route bare — the same defect
+    field report 2026-08-26 finding 1 records, surviving on the surface the
+    fix did not touch. Fixes land where the fact is made, and this is it.
+    """
+    command = getattr(worker, "command", "the coding agent")
+    known = agents.by_command(command)
+    key = known.key_env if known is not None else "the agent's API key variable"
+    return command, key, agents.managed_policy_file()
+
+
+def remedy(worker: object) -> str:
+    """The one-line form, for `wring doctor`'s `fix`.
+
+    Says the same thing `refusal` says at length, from the same branch, and
+    never more than the machine can honestly offer.
+    """
+    command, key, policy = _routes(worker)
+    if policy is not None:
+        return (
+            f"Log the agent in: {command} --cli auth login. This machine has "
+            f"a coding-agent policy file at {policy} — if it pins the builder "
+            f"to an organisation login, {key} under "
+            f"'run.worker.acp.env_passthrough' is REFUSED here, so remove one "
+            f"if it is declared. A login does not prove the credential still "
+            f"works"
+        )
+    return (
+        f"Log the agent in ({command} --cli auth login), or declare {key} "
+        "under 'run.worker.acp.env_passthrough' — 'wring run' will refuse "
+        "until one of those is true. Neither proves the credential still works"
+    )
+
+
 def refusal(worker: object, found: WorkerAuth) -> str:
     """What to print instead of spending. The routes THIS MACHINE has, and the
     limit.
@@ -336,15 +376,12 @@ def refusal(worker: object, found: WorkerAuth) -> str:
     both routes are offered exactly as before — because absence is one path
     checked, never proof that a machine is unmanaged.
     """
-    command = getattr(worker, "command", "the coding agent")
-    known = agents.by_command(command)
-    key = known.key_env if known is not None else "the agent's API key variable"
+    command, key, policy = _routes(worker)
     limit = (
         "This check reads what the agent says about itself and cannot tell "
         "whether a credential still works: a revoked key and a lapsed "
         "subscription both report being logged in. Nothing has been created."
     )
-    policy = agents.managed_policy_file()
     if policy is not None:
         return (
             f"{found.detail}, so the build step would fail after the drafting "

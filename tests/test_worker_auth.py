@@ -440,6 +440,44 @@ def test_a_PINNED_MACHINE_IS_NOT_OFFERED_THE_KEY_ROUTE_BARE(monkeypatch, tmp_pat
     )
 
 
+def test_DOCTORS_ONE_LINE_FIX_MAKES_THE_SAME_DECISION_AS_THE_STOP(
+    monkeypatch, tmp_path
+):
+    """**Found by RUNNING `wring doctor`, not by reading it.**
+
+    The stop learned that a pinned machine has only the login route. Doctor's
+    `worker auth` line went on printing "or declare its key under
+    `env_passthrough`" for one commit — the identical defect finding 1 records,
+    surviving on the surface the fix had not touched, which is the whole shape
+    of the report's Law 1 complaint.
+
+    Two renderings, one decision, derived: doctor asks `worker_auth.remedy`.
+    """
+    policy = tmp_path / "managed-settings.json"
+    policy.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(agents, "MANAGED_SETTINGS_PATHS", (str(policy),))
+
+    line = worker_auth.remedy(acp_worker())
+
+    assert "auth login" in line
+    assert str(policy) in line
+    assert "REFUSED" in line, (
+        "doctor's fix does not say the key route is refused on this machine"
+    )
+    assert "remove one if it is declared" in line, (
+        "doctor's fix names the key route without telling a reader who has "
+        "already taken it what to do — which is the only actionable half"
+    )
+
+
+def test_DOCTOR_STILL_OFFERS_BOTH_ROUTES_WHERE_BOTH_EXIST(unmanaged_machine):
+    """The control. Nothing about an ordinary machine changed."""
+    line = worker_auth.remedy(acp_worker())
+
+    assert "auth login" in line and CLAUDE.key_env in line
+    assert "REFUSED" not in line
+
+
 def test_AN_UNPINNED_MACHINE_STILL_GETS_BOTH_ROUTES(unmanaged_machine):
     """The control, and the honest half of the fork.
 

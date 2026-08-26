@@ -586,11 +586,15 @@ def _worker_auth(root: Path) -> Check:
         how = f" ({found.method})" if found.method else ""
         return Check("worker auth", OK, f"{found.detail}{how}", scope=REPO)
     if found.state == worker_auth.LOGGED_OUT:
+        # **The remedy comes from the engine, machine-aware.** This line used
+        # to offer the key route unconditionally, which on an org-pinned Mac
+        # sends the reader to the one configuration that breaks the run —
+        # field report 2026-08-26, finding 1's second consequence. The drive's
+        # stop learned that; for one commit this line had not, which is the
+        # two-surfaces-one-fact disease with a very short fuse.
         return Check(
             "worker auth", WARN, found.detail,
-            "Log the agent in, or declare its key under "
-            "'run.worker.acp.env_passthrough' — 'wring run' will refuse until "
-            "one of those is true. Neither proves the credential still works",
+            worker_auth.remedy(cfg.run.worker),
             scope=REPO,
         )
     return Check("worker auth", SKIP, found.detail, scope=REPO)
