@@ -107,6 +107,28 @@ for want in manifest.json evidence.jsonl summary.md digests.json; do
 done
 echo
 
+echo "== the whole chain, PRD to a delivered branch =="
+# **The thing no release ever checked, and every field report found broken.**
+# Until 2026-08-26 no window had run the whole machine: run 3B stopped at the
+# pen deliberately, F4-at-scale used shell workers on one slice, run 5 died at
+# the build. The window that finally ran it end to end found the handover held
+# up by Wringer's own board page — a stop no unit test could see, because every
+# unit passed. This drives the real verb against the INSTALLED package with a
+# scripted worker standing in for the paid agent, so "the machine completes" is
+# checked on every release rather than discovered by whoever tries it next.
+#
+# The paid seams stay manual: no key, no network, no model call. Its output is
+# printed rather than swallowed — a chain that stops has one useful line and it
+# is the one saying where.
+if python3 "$ROOT/scripts/chain-completes.py" \
+        --bin "$WORK/venv/bin" --work "$WORK/chain"; then
+    PASS=$((PASS + 1))
+else
+    echo "  FAIL  the chain does not complete against the installed package"
+    FAIL=$((FAIL + 1))
+fi
+echo
+
 echo "== the release bar =="
 cd "$WORK/src" || exit 2
 test -f CHANGELOG.md && \

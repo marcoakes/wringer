@@ -1815,3 +1815,54 @@ def test_a_DRAFTING_CALL_THAT_REFUSES_STILL_WARNED_FIRST(
     assert "only a person can settle" in everything, (
         "the engine's own refusal did not reach the operator"
     )
+
+
+# --- the page that held up the handover (full run, 2026-08-26) -------------
+
+
+def test_THE_BOARD_IS_KEPT_OUT_OF_GIT_SO_THE_HANDOVER_CAN_COMPLETE(project):
+    """**Measured stopping the whole chain.**
+
+    The board is rendered BEFORE the loop, so every verify records it in
+    `untracked.json`. It is rendered again after the loop, because showing the
+    result is what it is for. `wring deliver` then refuses:
+
+        board.html is not what 20260826-085344-3cb5 verified — its contents,
+        its file mode or its symlink target has changed
+
+    A correct refusal about a file that is not the operator's work. The
+    handover cannot complete and nothing says why. The shipped example escapes
+    only because its `.gitignore` was written with this line already in it,
+    and no repository a person starts from has one.
+    """
+    run_module._keep_the_board_out_of_git(project)
+
+    ignored = (project / ".gitignore").read_text(encoding="utf-8")
+    assert run_module.BOARD_FILENAME in ignored.split(), (
+        "the page Wringer writes is not ignored, so the verify records it and "
+        "the delivery refuses on it"
+    )
+
+
+def test_it_never_writes_the_same_line_twice(project):
+    """Rendered several times per run — at the plan, after the loop, and at the
+    ending — so a version that appended each time would grow the operator's
+    `.gitignore` by three lines a run."""
+    for _ in range(3):
+        run_module._keep_the_board_out_of_git(project)
+
+    body = (project / ".gitignore").read_text(encoding="utf-8")
+    assert body.split().count(run_module.BOARD_FILENAME) == 1
+
+
+def test_it_leaves_what_somebody_else_wrote_alone(project):
+    """A `.gitignore` is theirs. This adds a line and touches nothing."""
+    (project / ".gitignore").write_text(
+        "# ours\n.venv/\n*.pyc\n", encoding="utf-8"
+    )
+
+    run_module._keep_the_board_out_of_git(project)
+
+    body = (project / ".gitignore").read_text(encoding="utf-8")
+    assert body.startswith("# ours\n.venv/\n*.pyc\n")
+    assert run_module.BOARD_FILENAME in body.split()

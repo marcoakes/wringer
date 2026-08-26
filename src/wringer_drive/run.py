@@ -1445,8 +1445,54 @@ def deliver(repo: Path, *, answered_yes: bool) -> dict:
 BOARD_FILENAME = "board.html"
 
 
+def _keep_the_board_out_of_git(repo: Path) -> None:
+    """Ignore the page this verb writes, for `wring init`'s exact reason.
+
+    **The whole chain stops here otherwise, and it was measured stopping.**
+    2026-08-26, driving a project whose `.gitignore` had no line for this
+    file: the board is rendered BEFORE the loop, so every verify records it in
+    `untracked.json`; it is rendered again after the loop, because showing the
+    result is what it is for; and `wring deliver` then refuses —
+
+        board.html is not what 20260826-085344-3cb5 verified — its contents,
+        its file mode or its symlink target has changed
+
+    — which is a correct refusal about a file that is not the operator's work
+    and never was. The handover cannot complete, and no message anywhere says
+    why a page Wringer wrote is holding it up. The shipped example only
+    escapes because its `.gitignore` was written with this line in it, and no
+    repository a product manager starts from has one.
+
+    `wring init` already keeps `.wringer/` out of git and prints that it did,
+    for the same reason in the same words: what Wringer writes is not the
+    project's. This is that rule applied to the one file it writes outside
+    that directory. It cannot live in `wring init` — the engine may not
+    import this package, and the name belongs to this one — and it is here
+    rather than in `generate_workspace` so that a project set up before this
+    existed is also carried, rather than only a new one.
+
+    Idempotent, and it never rewrites a line somebody else put there.
+    """
+    gitignore = repo / ".gitignore"
+    try:
+        existing = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
+        if BOARD_FILENAME in existing.split():
+            return
+        separator = "" if existing.endswith("\n") or not existing else "\n"
+        gitignore.write_text(
+            f"{existing}{separator}\n# Wringer's own page, not your project's\n"
+            f"{BOARD_FILENAME}\n",
+            encoding="utf-8",
+        )
+    except OSError:
+        # A repo whose `.gitignore` cannot be written is not a reason to stop
+        # the run; the delivery refusal downstream says its own piece.
+        return
+
+
 def render_board(repo: Path) -> Path:
     """One page a person can read. The last thing the verb does, win or lose."""
+    _keep_the_board_out_of_git(repo)
     done = run_command(
         repo,
         [engine("wringer-board"), "render", str(repo), "-o", BOARD_FILENAME],

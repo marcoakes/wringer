@@ -4274,3 +4274,34 @@ def test_NO_PAGE_ASSERTS_A_RELEASE_CEILING_BELOW_THE_NEWEST_TAG():
         "below it. A reader acts on a ceiling — by installing the wrong thing, "
         "or by not installing at all: " + "; ".join(stale)
     )
+
+
+def test_THE_RELEASE_BAR_RUNS_THE_WHOLE_CHAIN():
+    """**The structural half of the full run, 2026-08-26.**
+
+    Until that day no release had ever run the whole machine, and every field
+    report since had been somebody discovering whole-chain breakage that a
+    ten-minute complete run would have caught first. The window that finally
+    ran it end to end found the handover held up by Wringer's own board page —
+    a stop no unit could see, because every unit passed.
+
+    Fixing that one defect changes nothing structurally. Running the chain on
+    every release does. This is what keeps it wired: the bar must invoke the
+    check, and the check must exist.
+    """
+    root = repo_root()
+    chain = root / "scripts" / "chain-completes.py"
+    assert chain.is_file(), (
+        "the chain-completes check is gone, so 'the machine completes' is "
+        "again nobody's job until a person tries it"
+    )
+    bar = (root / "scripts" / "release-check.sh").read_text(encoding="utf-8")
+    assert "chain-completes.py" in bar, (
+        "the release bar no longer drives the whole chain — a release can "
+        "again ship a machine that stops halfway with every test green"
+    )
+    body = chain.read_text(encoding="utf-8")
+    assert "--send" not in body, (
+        "the chain check spends money; it stands in for the paid seams and "
+        "must stay runnable on any machine with no key"
+    )
