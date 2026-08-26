@@ -227,14 +227,27 @@ def diagnose_turn(
     refusals: int,
     errored: bool,
     engine_words: str = "",
+    changed_tree: bool = False,
 ) -> WorkerDiagnosis | None:
     """A turn that ended cleanly having done nothing, or None.
 
     Every argument is a FACT from the `acp.Turn` ledger. `errored` covers the
     turn that never completed at all — a crash, a timeout, a refused session —
     which is a different ending with its own evidence and is not this.
+
+    **`changed_tree` is the fact the ledger cannot hold**, and the full run of
+    2026-08-26 is why it is here. `files_written` counts files written THROUGH
+    ACP; an agent with its own filesystem tools writes none that way. On that
+    run the count was 0 for a turn that changed seven files, and this function
+    told the operator the agent had done nothing and probably could not
+    authenticate — on the converged run that turn produced. A diagnosis whose
+    only evidence is blind to how the agent works is a confident false
+    sentence, which is the one output this whole tier exists to avoid.
+
+    A changed tree is not a different face; it is a reason to say NOTHING. The
+    turn plainly did something, and what it did is in the diff.
     """
-    if errored or files_written or refusals:
+    if errored or files_written or refusals or changed_tree:
         return None
     if not stop_reason or stop_reason == "unknown":
         # An unreported stop reason is not a clean finish; it is a turn

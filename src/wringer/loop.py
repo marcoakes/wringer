@@ -1368,6 +1368,7 @@ def _run_acp_worker(
     pgid_file = directory / PGID_FILENAME
     started = time.monotonic()
     extras: dict[str, Any] = {"worker_kind": "acp"}
+    tree_before = _tree_fingerprint(root)
 
     def remember(pid: int) -> None:
         # Exactly what `_run_worker` does, and it was missing here. The ACP
@@ -1523,10 +1524,82 @@ def _run_acp_worker(
         refusals=len(turn.refusals),
         errored=False,
         engine_words=(turn.updates[-1].strip() if turn.updates else ""),
+        changed_tree=_tree_fingerprint(root) != tree_before,
     )
     if empty is not None:
         object.__setattr__(result, "acp_empty_turn", empty)
     return result
+
+
+def _tree_fingerprint(root: Path) -> str:
+    """What the working tree looks like right now — enough to tell whether a
+    worker turn touched anything.
+
+    **Measured in the full run of 2026-08-26, and it is why this exists.** The
+    ACP ledger counts files the agent wrote THROUGH THE PROTOCOL. An agent
+    holding its own filesystem tools writes none that way, so `files_written`
+    was 0 on a turn that changed seven files and 174 lines and turned the
+    acceptance check green. `worker-diagnosis.json` recorded
+    `turn_changed_nothing` and told the operator the agent "finished its turn
+    without changing a file… this usually means it could not authenticate" —
+    on the converged run whose convergence that turn caused.
+
+    The ledger is not wrong about ACP writes; it is blind to every other way a
+    file gets written, and a diagnosis derived from it alone speaks
+    confidently about a repository it did not look at. This looks at it.
+
+    Two `git` calls, measured at 18ms and 16ms on a real project. `git status`
+    names every changed and untracked path (`-uall`, for `inspect`'s reason);
+    `git diff HEAD` carries the CONTENT of tracked edits, so an agent that
+    rewrote a file already listed as modified still moves this value.
+
+    **Wringer's own workspace is excluded**, and that is not tidiness. This
+    loop writes the turn's logs into `.wringer/` WHILE the turn runs, so a
+    fingerprint that counted them would move on every turn ever taken — the
+    idle turn included, which is the one shape the diagnosis exists for. The
+    same reason `git.inspect`'s docstring gives for calling it before the
+    bundle is written.
+
+    **Untracked files are covered by their size and modification time**, not
+    by their contents. An agent rewriting a file that was already untracked
+    before its turn creates no new path and changes no tracked byte, so a
+    fingerprint of names and tracked diffs alone would miss it — and that is
+    not a corner: it is what this repository's own `ownhands` fixture does, and
+    what an agent does in any project whose work is not yet committed. Reading
+    every untracked file instead would be unbounded (`node_modules`), while
+    `git status` has already walked exactly this list, so a stat per entry is
+    the same order of cost as the call above it.
+
+    **The limit that remains, said rather than left to be discovered**: a write
+    that reproduces a file's exact size AND its exact nanosecond timestamp is
+    invisible here. Such a write also changed nothing.
+    """
+    import hashlib
+
+    from wringer import git
+
+    ours_prefix = evidence.WRINGER_DIRNAME
+
+    def ours(path: str) -> bool:
+        return path == ours_prefix or path.startswith(ours_prefix + "/")
+
+    state = git.inspect(root)
+    untracked = [p for p in state.untracked if not ours(p)]
+    stamps = []
+    for path in untracked:
+        try:
+            stat = (root / path).stat()
+        except OSError:
+            # Vanished between the listing and here, which is itself a change.
+            stamps.append(f"{path}\0gone")
+            continue
+        stamps.append(f"{path}\0{stat.st_size}\0{stat.st_mtime_ns}")
+    parts = [
+        "\n".join(p for p in state.changed_files if not ours(p)),
+        "\n".join(stamps),
+        git.diff(root, state.head_sha) or "",
+    ]
+    return hashlib.sha256("\0".join(parts).encode("utf-8", "replace")).hexdigest()
 
 
 def usage_totals(rows: list[dict[str, Any]]) -> dict[str, Any]:

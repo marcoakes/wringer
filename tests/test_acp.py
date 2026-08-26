@@ -499,6 +499,22 @@ def test_a_CONVERGED_loop_never_says_the_agent_changed_nothing(
     What was wrong is the INFERENCE. Convergence settles it — the gates went
     green, so something was built, whoever wrote it and however — and a hint
     contradicted by the loop's own verdict is not a hint.
+
+    **And it came back, through the other door** — the full run of 2026-08-26.
+    That first fix was made on the CONSOLE, and this test used to permit the
+    RECORD to keep the face, on the reasoning that `files_written: 0` is a
+    true statement about Wringer's own channel. It is. But `face` and its
+    published `description` are claims about the repository, not about the
+    channel, and `worker-diagnosis.json` has a second reader: `wringer-drive`
+    quotes it into the step a product manager reads. So the same false
+    sentence — *"finished its turn without changing a file… this usually means
+    it could not authenticate"* — arrived attached to `build:converged` on a
+    run where the agent had changed seven files and 174 lines.
+
+    One surface was fixed and the fact stayed wrong, so the next surface
+    inherited it. This is now settled where the fact is made: a turn after
+    which the working tree is different is not a turn that changed nothing,
+    and no file is written at all.
     """
     setup(repo, "ownhands")
     monkeypatch.chdir(repo)
@@ -510,11 +526,14 @@ def test_a_CONVERGED_loop_never_says_the_agent_changed_nothing(
         "the fixture no longer converges, so this guard is checking nothing"
     )
     written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
-    if written.is_file():
-        # The record may still carry the face — it is a true statement about
-        # Wringer's own channel. The CONSOLE is what may not contradict the
-        # ending printed two lines above it.
-        assert json.loads(written.read_text(encoding="utf-8"))["files_written"] == 0
+    assert not written.is_file(), (
+        "the record still carries `turn_changed_nothing` for a turn that "
+        "changed the tree. Every surface reading this file — the console, "
+        "`wringer-drive`'s step stream, anything written next — inherits the "
+        "false sentence, which is exactly how it reached a product manager "
+        "again four days after the console was fixed: "
+        + written.read_text(encoding="utf-8")
+    )
     assert "without changing a file" not in printed, (
         "the loop converged and the console still told the operator the agent "
         "changed nothing"
@@ -1785,3 +1804,147 @@ def test_A_METHOD_THE_HANDSHAKE_NEVER_MENTIONED_IS_STILL_SHOWN():
     deciding which of the agent's answers the operator may see."""
     merged = acp.richest([], [{"id": "sso", "name": "Company SSO"}])
     assert [m["id"] for m in merged] == ["sso"]
+
+
+# --- the fact the ledger cannot hold (full run, 2026-08-26) ----------------
+
+
+def test_a_CHANGED_TREE_SILENCES_THE_DIAGNOSIS_WHATEVER_THE_LEDGER_SAYS():
+    """The unit under the field capture. `files_written: 0` and `end_turn` are
+    exactly what the run recorded; the tree had moved, so there is nothing to
+    diagnose."""
+    unchanged = diagnose.diagnose_turn(
+        stop_reason="end_turn", files_written=0, refusals=0, errored=False,
+        changed_tree=False,
+    )
+    moved = diagnose.diagnose_turn(
+        stop_reason="end_turn", files_written=0, refusals=0, errored=False,
+        changed_tree=True,
+    )
+
+    assert unchanged is not None, (
+        "a turn that really did nothing must still be diagnosed — without "
+        "this half the fix is 'never diagnose anything'"
+    )
+    assert unchanged.face == diagnose.FACE_TURN_CHANGED_NOTHING
+    assert moved is None, (
+        "the tree changed and the diagnosis still claimed the turn changed "
+        "nothing — the full run's finding 3, in one call"
+    )
+
+
+def test_THE_TREE_FINGERPRINT_MOVES_FOR_A_CONTENT_ONLY_EDIT(tmp_path):
+    """**The derived guard.** A fingerprint built from `git status` alone would
+    pass every test above and still miss the commonest shape there is: an agent
+    editing a file that was ALREADY modified before its turn. The status output
+    is byte-identical across that edit; only the content differs.
+    """
+    import subprocess
+
+    from wringer import loop as loop_module
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main", "."], cwd=repo, check=True)
+    for key, value in (("user.email", "t@e.invalid"), ("user.name", "t"),
+                       ("commit.gpgsign", "false")):
+        subprocess.run(["git", "config", key, value], cwd=repo, check=True)
+    tracked = repo / "a.py"
+    tracked.write_text("one\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "commit", "-qm", "base"], cwd=repo, check=True)
+
+    # Already dirty BEFORE the turn — the state a second iteration is in.
+    tracked.write_text("two\n", encoding="utf-8")
+    before = loop_module._tree_fingerprint(repo)
+    status_before = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo,
+        capture_output=True, text=True,
+    ).stdout
+
+    tracked.write_text("three\n", encoding="utf-8")
+    after = loop_module._tree_fingerprint(repo)
+    status_after = subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo,
+        capture_output=True, text=True,
+    ).stdout
+
+    assert status_before == status_after, (
+        "the fixture no longer reproduces the shape it exists to pin: these "
+        "two states must be indistinguishable to `git status`"
+    )
+    assert before != after, (
+        "an edit to an already-modified file did not move the fingerprint, so "
+        "a turn doing exactly that would still be reported as having changed "
+        "nothing"
+    )
+
+
+def test_THE_TREE_FINGERPRINT_MOVES_FOR_AN_UNTRACKED_REWRITE(tmp_path):
+    """The other half of the fingerprint, and the shape `ownhands` really has.
+
+    A file written but never committed is untracked. An agent rewriting it
+    creates no new path and changes no tracked byte, so names and `git diff
+    HEAD` alone cannot see it — and a repository whose work is not yet
+    committed is the normal state of the thing this loop is built to drive.
+    """
+    import subprocess
+
+    from wringer import loop as loop_module
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main", "."], cwd=repo, check=True)
+    for key, value in (("user.email", "t@e.invalid"), ("user.name", "t"),
+                       ("commit.gpgsign", "false")):
+        subprocess.run(["git", "config", key, value], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "base"], cwd=repo, check=True
+    )
+    loose = repo / "calc.py"
+    loose.write_text("BROKEN\n", encoding="utf-8")
+    before = loop_module._tree_fingerprint(repo)
+
+    loose.write_text("FIXED\n", encoding="utf-8")
+    after = loop_module._tree_fingerprint(repo)
+
+    assert subprocess.run(
+        ["git", "status", "--porcelain"], cwd=repo, capture_output=True, text=True
+    ).stdout.strip() == "?? calc.py", (
+        "the fixture no longer reproduces an untracked-only change"
+    )
+    assert before != after, (
+        "rewriting an untracked file did not move the fingerprint, so the "
+        "commonest agent turn there is would still be reported as having "
+        "changed nothing"
+    )
+
+
+def test_WRINGERS_OWN_WORKSPACE_NEVER_COUNTS_AS_THE_AGENTS_WORK(tmp_path):
+    """Without this the fingerprint moves on EVERY turn — the loop writes the
+    turn's own logs under `.wringer/` while the turn is running — and the
+    diagnosis this guards would never fire again, quietly."""
+    import subprocess
+
+    from wringer import evidence as evidence_module
+    from wringer import loop as loop_module
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main", "."], cwd=repo, check=True)
+    for key, value in (("user.email", "t@e.invalid"), ("user.name", "t"),
+                       ("commit.gpgsign", "false")):
+        subprocess.run(["git", "config", key, value], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "base"], cwd=repo, check=True
+    )
+    before = loop_module._tree_fingerprint(repo)
+
+    workspace = repo / evidence_module.WRINGER_DIRNAME / "loops" / "x"
+    workspace.mkdir(parents=True)
+    (workspace / "worker.stdout.log").write_text("chatter\n", encoding="utf-8")
+
+    assert loop_module._tree_fingerprint(repo) == before, (
+        "Wringer's own bundle made the tree look changed, so every turn — "
+        "the idle one included — would be reported as having done something"
+    )
