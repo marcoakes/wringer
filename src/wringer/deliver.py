@@ -723,7 +723,57 @@ def _check_can_sign(cfg: config.Config) -> None:
     )
 
 
-def _check_acceptance(run_dir: Path) -> None:
+def _answers_recorded_since(root: Path, refusing: list[dict]) -> list[str]:
+    """Criteria this record calls unanswered that a person has since answered.
+
+    **The loop a person cannot get out of, measured in the full run of
+    2026-08-26.** `wring deliver` refuses a `human` criterion with "nobody has
+    answered this — a person decides it, and records the decision in
+    `wringer.judgements.yaml`". The operator does exactly that,
+    `wringer-board judge` confirms it wrote the file, `wring deliver --send`
+    is run again — and the IDENTICAL refusal comes back, because the
+    acceptance table is computed at VERIFY time and recorded in the bundle,
+    and deliver reads the record rather than the repository.
+
+    The remedy was followed to the letter and the refusal did not move. That
+    is not a missing sentence; it is an instruction that cannot clear the
+    refusal it prints under, which is the defect this file already records
+    fixing once for the bound-gate trailer.
+
+    Nothing is guessed here. The current file is read, and only a criterion
+    whose answer is present and not stale is named.
+    """
+    from wringer import accept, spec
+
+    unanswered = [
+        row["criterion"] for row in refusing
+        if row.get("cause") == accept.CAUSE_HUMAN_UNANSWERED
+        and row.get("criterion")
+    ]
+    if not unanswered:
+        return []
+    try:
+        judgements = accept.read_judgements(root)
+        drafted = spec.load(root / spec.SPEC_FILENAME)
+    except Exception:  # noqa: BLE001 — a refusal never fails over its own hint
+        return []
+    wording = {criterion.id: criterion for criterion in drafted.criteria}
+    answered = []
+    for name in unanswered:
+        entry = judgements.get(name)
+        criterion = wording.get(name)
+        if entry is None or criterion is None:
+            continue
+        if entry.get("criterion_digest") != accept.criterion_digest(criterion):
+            # Answered, but to a different wording. `wring verify` would report
+            # that as stale rather than clearing this, so promising it would
+            # send the reader round the loop a second time.
+            continue
+        answered.append(name)
+    return answered
+
+
+def _check_acceptance(run_dir: Path, root: Path | None = None) -> None:
     """Refuse a bundle whose spec is not satisfied (SPEC_ACCEPT_V0 §5).
 
     The same statement as "its gates did not pass", one level up: this bundle
@@ -776,6 +826,18 @@ def _check_acceptance(run_dir: Path) -> None:
             "",
             "A criterion is evidenced when its gate passed AND the record shows "
             "that gate can fail. Make the evidence better, not the check weaker.",
+        ]
+    # **The answer that exists and this record predates.** Said only when it is
+    # true of the file on disk right now, and it names the criteria — so the
+    # reader can see that their answer was not lost, and what makes it count.
+    since = _answers_recorded_since(root, refusing) if root is not None else []
+    if since:
+        lines += [
+            "",
+            f"You HAVE answered {', '.join(since)} — "
+            f"`{accept.JUDGEMENTS_FILENAME}` carries it. This record was "
+            "written before that, and it is the record this refuses on. Run "
+            "`wring verify` again and the answer will be in it.",
         ]
     raise Refused("\n".join(lines), 1, reason="acceptance_unevidenced")
 
@@ -877,7 +939,7 @@ def plan(
     # mergeable, not that what was asked for exists. Only BOUND criteria can
     # refuse (ruling 9), so a repo that has declared criteria without binding
     # them is loud in the artifact and delivers exactly as before.
-    _check_acceptance(run_dir)
+    _check_acceptance(run_dir, root)
     # And once more for the signing policy, which is a statement about the
     # ENVIRONMENT rather than about the bundle: a repo that declared
     # `provenance.require_signature: true` ships only from somewhere that can

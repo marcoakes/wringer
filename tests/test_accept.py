@@ -24,7 +24,9 @@ import json
 import subprocess
 from pathlib import Path
 
-from wringer import accept, cli, config, evidence
+import pytest
+
+from wringer import accept, cli, config, evidence, spec
 
 
 def commit(repo: Path, message: str = "the code as it stood") -> None:
@@ -788,3 +790,118 @@ def test_the_state_vocabulary_gained_no_word():
     assert accept.STATES == (
         "evidenced", "unevidenced", "gate-failed", "gate-did-not-run", "human"
     )
+
+
+# --- the loop a person cannot get out of (full run, 2026-08-26) ------------
+
+
+def test_AN_ANSWER_RECORDED_AFTER_THE_RUN_IS_NAMED_BY_THE_REFUSAL(
+    repo, monkeypatch, capsys
+):
+    """**Measured, verbatim, in the full run of 2026-08-26.**
+
+    `wring deliver` refused: *"nobody has answered this — a person decides it,
+    and records the decision in `wringer.judgements.yaml`"*. The operator ran
+    `wringer-board judge`, which confirmed it had written that exact file, and
+    ran `wring deliver --send` again. The IDENTICAL refusal came back.
+
+    Nothing was wrong with the mechanism: acceptance is computed at VERIFY time
+    and recorded in the bundle, and deliver reads the record. But the remedy it
+    printed had been followed to the letter and the refusal did not move, and
+    no surface anywhere said what would move it. An instruction that cannot
+    clear the refusal it prints under is the defect this module already records
+    fixing once, for the bound-gate trailer.
+    """
+    from wringer import deliver
+
+    write_spec(repo, extra=HUMAN_CRITERION)
+    write_config(repo, '  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    # The answer, recorded AFTER the run that will be delivered — exactly the
+    # order a person does it in, because the refusal is what tells them to.
+    criterion = next(
+        c for c in spec.load(repo / "wringer.spec.yaml").criteria
+        if c.id == "copy-reads-well"
+    )
+    (repo / accept.JUDGEMENTS_FILENAME).write_text(
+        "schema_version: wringer.judgement.v1\n"
+        "judgements:\n"
+        '  - criterion: "copy-reads-well"\n'
+        "    verdict: met\n"
+        '    by: "the operator"\n'
+        '    at: "2026-08-26T09:06:03+00:00"\n'
+        f"    criterion_digest: {accept.criterion_digest(criterion)}\n",
+        encoding="utf-8",
+    )
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    with pytest.raises(deliver.Refused) as refused:
+        deliver._check_acceptance(run_dir, repo)
+
+    said = str(refused.value)
+    assert "copy-reads-well" in said
+    assert "You HAVE answered" in said, (
+        "the operator followed the remedy exactly and the refusal repeated "
+        "itself with no way out — this is the full run's finding 4: " + said
+    )
+    assert "wring verify" in said, (
+        "the refusal names no act that would clear it"
+    )
+
+
+def test_a_STALE_ANSWER_IS_NOT_PROMISED_AS_THE_WAY_OUT(repo, monkeypatch, capsys):
+    """The narrowness half, and it matters more than usual here: this sentence
+    PROMISES that a re-verify will clear the refusal. An answer given to an
+    older wording would come back stale instead, so promising it would send the
+    reader round the same loop a second time with more confidence."""
+    from wringer import deliver
+
+    write_spec(repo, extra=HUMAN_CRITERION)
+    write_config(repo, '  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    (repo / accept.JUDGEMENTS_FILENAME).write_text(
+        "schema_version: wringer.judgement.v1\n"
+        "judgements:\n"
+        '  - criterion: "copy-reads-well"\n'
+        "    verdict: met\n"
+        '    by: "the operator"\n'
+        '    at: "2026-08-26T09:06:03+00:00"\n'
+        "    criterion_digest: 0000000000000000000000000000000000000000"
+        "000000000000000000000000\n",
+        encoding="utf-8",
+    )
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    with pytest.raises(deliver.Refused) as refused:
+        deliver._check_acceptance(run_dir, repo)
+
+    assert "You HAVE answered" not in str(refused.value), (
+        "an answer given to a different wording was promised as the way out"
+    )
+
+
+def test_the_refusal_says_nothing_extra_when_NOTHING_was_answered(
+    repo, monkeypatch, capsys
+):
+    """Without this the sentence is unconditional, which would tell every
+    operator their answer is on file the moment before they write one."""
+    from wringer import deliver
+
+    write_spec(repo, extra=HUMAN_CRITERION)
+    write_config(repo, '  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    with pytest.raises(deliver.Refused) as refused:
+        deliver._check_acceptance(run_dir, repo)
+
+    assert "You HAVE answered" not in str(refused.value)
+    assert "nobody has answered this" in str(refused.value)
