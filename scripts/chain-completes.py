@@ -192,8 +192,11 @@ def _site_packages(binaries: Path) -> Path:
     raise SystemExit(f"chain: no site-packages under {lib}")
 
 
-def drive(project: Path, binaries: Path, transcript: Path) -> tuple[int, list[dict]]:
+def drive(
+    project: Path, binaries: Path, transcript: Path, answers: dict | None = None
+) -> tuple[int, list[dict]]:
     """Answer the chain the way a person does: one line, after the question."""
+    answers = ANSWERS if answers is None else answers
     env = dict(os.environ, PATH=f"{binaries}:{os.environ.get('PATH', '')}")
     proc = subprocess.Popen(
         [str(binaries / "wringer-drive"), "run", "PRD.md", "--repo", ".",
@@ -220,7 +223,7 @@ def drive(project: Path, binaries: Path, transcript: Path) -> tuple[int, list[di
         seen.append(step)
         if step.get("kind") not in ("ask", "confirm"):
             continue
-        answer = ANSWERS.get(step.get("id"))
+        answer = answers.get(step.get("id"))
         if answer is None:
             # An unnamed question is not answered. A script that said `yes` to
             # something nobody listed would be approving on a person's behalf.
@@ -305,11 +308,109 @@ def main() -> int:
         failures.append("delivered-branch")
 
     shout(f"  drive exited {code}; transcript at {transcript}")
+
+    # --- run 5's two death scenarios, which nothing checked either ----------
+    #
+    # Both were fixed at the renderer and parser level in 0.4.7 and neither had
+    # been driven through the verb a person types until 2026-08-26. They are
+    # here because they are free — no key, no worker turn, no model call — and
+    # because this project has now lost two field runs to them.
+    failures += _second_drive_reuses_the_spec(work, binaries)
+    failures += _a_spec_without_its_sidecar_says_so(work, binaries)
+
     if failures:
         shout(f"chain: STOPPED at {', '.join(failures)}")
         return 1
     shout("chain: the machine completed, end to end")
     return 0
+
+
+def _second_drive_reuses_the_spec(work: Path, binaries: Path) -> list[str]:
+    """Re-driving a project that has already been driven.
+
+    Run 5 met a re-drive that drafted again, unbound its own gate, and rendered
+    a plan comparing a gate to itself. What must happen instead: the spec on
+    disk is REUSED and said to be reused, nothing is spent, and a binding
+    already installed is not proposed a second time.
+    """
+    shout("")
+    shout("== the same project, driven again ==")
+    _, seen = drive(
+        work / "project", binaries, work / "transcript-again.jsonl"
+    )
+    ids = [step.get("id") for step in seen]
+    failures = []
+    for wanted in ("spec-reused", "plan"):
+        if wanted in ids:
+            shout(f"  ok    the second drive reached {wanted}")
+        else:
+            shout(f"  FAIL  the second drive never reached {wanted}")
+            failures.append(f"again:{wanted}")
+    reused = next((s for s in seen if s.get("id") == "spec-reused"), None)
+    if reused and "nothing is spent" in reused.get("text", ""):
+        shout("  ok    it says nothing was sent and nothing was spent")
+    else:
+        shout("  FAIL  a re-drive did not say it was reusing the spec")
+        failures.append("again:not-said")
+    if "gate-diff" in ids:
+        shout("  FAIL  a gate already installed was proposed again")
+        failures.append("again:gate-unbound")
+    else:
+        shout("  ok    the installed check was not proposed a second time")
+    return failures
+
+
+def _a_spec_without_its_sidecar_says_so(work: Path, binaries: Path) -> list[str]:
+    """A spec carried into a project without `wringer.decisions.yaml`.
+
+    The decisions a drafter took instead of asking live in a sidecar. Move the
+    spec without it — a copy, a fresh clone, a colleague's branch — and the plan
+    cannot show them. Run 5 met a plan that simply had no decisions block and
+    said nothing about why, which reads exactly like a drafter that decided
+    nothing. The absence has to be NAMED, in the step stream a person sees.
+    """
+    shout("")
+    shout("== a spec carried across without its sidecar ==")
+    second = work / "nosidecar"
+    project = build_fixture(second, binaries)
+    source = work / "project"
+    for name in ("wringer.spec.yaml", "wringer.gates.yaml", "wringer.rubric.yaml"):
+        if (source / name).is_file():
+            (project / name).write_text(
+                (source / name).read_text(encoding="utf-8"), encoding="utf-8"
+            )
+    (project / "wringer.decisions.yaml").unlink(missing_ok=True)
+    subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+    subprocess.run(
+        ["git", "commit", "-qm", "the spec, without its sidecar"],
+        cwd=project, check=True,
+    )
+
+    # Declined at the approval: this scenario is about what the plan SAYS, and
+    # building it again would spend a worker turn to learn nothing.
+    _, seen = drive(
+        project, binaries, work / "transcript-nosidecar.jsonl",
+        answers={"approve": "no"},
+    )
+
+    # **Two surfaces, checked separately, and the first version of this check
+    # did not.** It searched every step's text for the filename and passed with
+    # the `spec-reused` sentence deleted, because the PLAN names the sidecar
+    # too — a guard green for the wrong reason, caught by reverting the fix it
+    # was meant to hold. They are different renderers and either can go silent
+    # on its own.
+    failures = []
+    for step_id, what in (
+        ("spec-reused", "the step stream says the sidecar is missing"),
+        ("plan", "the plan says so where the decisions would have been"),
+    ):
+        step = next((s for s in seen if s.get("id") == step_id), None)
+        if step and "wringer.decisions.yaml" in step.get("text", ""):
+            shout(f"  ok    {what}")
+        else:
+            shout(f"  FAIL  {what} — it does not")
+            failures.append(f"nosidecar:{step_id}")
+    return failures
 
 
 if __name__ == "__main__":
