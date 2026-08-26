@@ -182,14 +182,28 @@ def build_fixture(work: Path, binaries: Path) -> Path:
     return project
 
 
-def _site_packages(binaries: Path) -> Path:
-    """The installed package's own `site-packages`, from its `bin` directory."""
-    lib = binaries.parent / "lib"
-    for child in sorted(lib.glob("python3.*")):
-        candidate = child / "site-packages"
-        if candidate.is_dir():
-            return candidate
-    raise SystemExit(f"chain: no site-packages under {lib}")
+def _drive_source(binaries: Path) -> str:
+    """The source of the module whose step ids this script names.
+
+    **Asked of the interpreter, not guessed from the directory layout.** A
+    `site-packages` derived from `<bin>/../lib` is right for a wheel and wrong
+    for an editable install, where the package lives in a source tree behind a
+    `.pth` and that directory holds no `wringer_drive` at all. Guessing would
+    make this check report "no step emits X" about a perfectly good install —
+    a confident false report of a broken chain, which is the shape this whole
+    window kept finding.
+    """
+    found = subprocess.run(
+        [str(binaries / "python"), "-c",
+         "import wringer_drive.run as m; print(m.__file__)"],
+        capture_output=True, text=True,
+    )
+    if found.returncode != 0 or not found.stdout.strip():
+        raise SystemExit(
+            f"chain: the installed package cannot import wringer_drive.run: "
+            f"{found.stderr.strip()}"
+        )
+    return Path(found.stdout.strip()).read_text(encoding="utf-8")
 
 
 def drive(
@@ -254,7 +268,7 @@ def main() -> int:
     # turns this check into a confident false report of a chain that stopped.
     # That failure class has been live in this repository before, in
     # `_clear_previous`, and it is cheap to close here.
-    source = (_site_packages(binaries) / "wringer_drive" / "run.py").read_text()
+    source = _drive_source(binaries)
     unknown = [
         step for step in REQUIRED_STEPS
         if f'id="{step}"' not in source and step != "done"
