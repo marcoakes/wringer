@@ -782,7 +782,7 @@ def _answers_recorded_since(root: Path, refusing: list[dict]) -> list[str]:
     return answered
 
 
-def _check_acceptance(run_dir: Path, root: Path | None = None) -> None:
+def _check_acceptance(run_dir: Path, root: Path) -> None:
     """Refuse a bundle whose spec is not satisfied (SPEC_ACCEPT_V0 §5).
 
     The same statement as "its gates did not pass", one level up: this bundle
@@ -839,7 +839,9 @@ def _check_acceptance(run_dir: Path, root: Path | None = None) -> None:
     # **The answer that exists and this record predates.** Said only when it is
     # true of the file on disk right now, and it names the criteria — so the
     # reader can see that their answer was not lost, and what makes it count.
-    since = _answers_recorded_since(root, refusing) if root is not None else []
+    # `root` is required rather than defaulted: a default would let a future
+    # caller drop the sentence without noticing, and the sentence is the fix.
+    since = _answers_recorded_since(root, refusing)
     if since:
         lines += [
             "",
