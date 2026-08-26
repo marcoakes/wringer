@@ -1107,7 +1107,19 @@ def _mr_body(
     The gate table and where the bundle is — **never raw gate logs**. A bundle
     may hold whatever a gate printed (SECURITY.md), and an MR body is public.
     """
-    lines = ["## What was verified", ""]
+    from wringer import accept
+
+    lines = ["## What was verified"]
+    # **Above the table, because the table is the part that looks like
+    # proof** — field report 2026-08-26, finding 3. This body used to open on
+    # three green gate rows and the word `passed` for a run where six of eight
+    # criteria had nothing checking them, and pointed at a `summary.md` that
+    # omitted it too. The renderer is the engine's; this quotes it, and the
+    # bundle's summary quotes the same lines, so the two surfaces that travel
+    # to whoever merges cannot drift.
+    recorded = accept.read(run_dir) or {}
+    lines += accept.disclosure(recorded.get("counts") or {})
+    lines.append("")
     try:
         rows = evidence.read_gate_results(run_dir)
     except evidence.EvidenceError:

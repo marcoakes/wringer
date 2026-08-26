@@ -948,3 +948,66 @@ def test_a_NOT_MET_ANSWER_IS_NOT_PROMISED_AS_THE_WAY_OUT(repo, monkeypatch, caps
         "a person said this requirement is NOT met, and the refusal offered a "
         "re-verify as the way out — after which it refuses again"
     )
+
+
+# --- the disclosure the travelling surfaces quote ---------------------------
+
+
+def test_EVERY_STATE_HAS_A_PHRASE_A_MERGER_CAN_READ():
+    """Derived from `STATES`, never a list kept beside it.
+
+    A sixth state arriving without a phrase would render its own machine word
+    at whoever is about to merge — `gate-did-not-run` in a sentence meant for
+    a person who has never read this repository. This is the hand-kept-list
+    failure that has been found here four times; the derivation is the fix.
+    """
+    missing = [state for state in accept.STATES if state not in accept.STATE_PHRASES]
+    assert not missing, (
+        f"{missing} can appear in a record's counts and has no reader-facing "
+        "phrase, so `mr.md` would print the state word itself"
+    )
+    assert set(accept.STATE_PHRASES) == set(accept.STATES), (
+        "STATE_PHRASES names something that is not a state"
+    )
+
+
+def test_A_RECORD_WITH_NOTHING_IN_IT_DISCLOSES_NOTHING():
+    """The opt-in boundary. A repository that never ran `wring spec` has no
+    counts, and a surface that printed `Acceptance: .` over an empty record
+    would be inventing a section for a feature nobody adopted."""
+    assert accept.disclosure({}) == []
+    assert accept.disclosure({state: 0 for state in accept.STATES}) == []
+
+
+def test_THE_WARNING_IS_CONDITIONAL_AND_THE_COUNT_IS_NOT():
+    """Two different jobs. The counts are a fact and always travel; the
+    warning is about a gap and only travels when there is one."""
+    clean = accept.disclosure({"evidenced": 3, "human": 1})
+    assert any("3 evidenced" in line for line in clean)
+    assert any("1 for a person to judge" in line for line in clean)
+    assert not any("UNEVIDENCED" in line for line in clean), (
+        "a run that proved everything it was asked to prove is being made to "
+        "carry a warning — which is how people learn to skip warnings"
+    )
+
+    gapped = accept.disclosure({"evidenced": 1, "unevidenced": 6, "human": 1})
+    assert any("6 unevidenced" in line for line in gapped)
+    warning = " ".join(line for line in gapped if "UNEVIDENCED" in line)
+    assert "6 of these 8" in warning, (
+        f"the warning does not put the gap against the whole: {warning!r}"
+    )
+    assert "mergeable" in warning, (
+        "the warning does not say what all-gates-passing actually bought, "
+        "which is the sentence that stops a reader reading green as proved"
+    )
+
+
+def test_A_SINGLE_UNEVIDENCED_CRITERION_IS_NOT_DESCRIBED_IN_THE_PLURAL():
+    """Small, and it is the difference between a sentence somebody wrote and
+    a sentence a program assembled."""
+    warning = " ".join(
+        line for line in accept.disclosure({"evidenced": 1, "unevidenced": 1})
+        if "UNEVIDENCED" in line
+    )
+    assert "1 of these 2 criteria is UNEVIDENCED" in warning, warning
+    assert "it is met" in warning, warning

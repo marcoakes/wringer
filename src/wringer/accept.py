@@ -156,6 +156,69 @@ HUMAN = "human"
 
 STATES = (EVIDENCED, UNEVIDENCED, GATE_FAILED, GATE_DID_NOT_RUN, HUMAN)
 
+#: How each state reads in a sentence a merger has to understand. The keys
+#: derive from `STATES`, so a state that arrives without a phrase here fails
+#: `test_accept.py` rather than silently rendering its own machine word at a
+#: reviewer. `human` is deliberately NOT "human-judged": a `human` row may be
+#: unanswered, and `summary.md` is written at verify time when it usually is.
+STATE_PHRASES = {
+    EVIDENCED: "evidenced",
+    UNEVIDENCED: "unevidenced",
+    GATE_FAILED: "with a failing gate",
+    GATE_DID_NOT_RUN: "with a gate that did not run",
+    HUMAN: "for a person to judge",
+}
+
+
+def disclosure(counts: dict[str, int]) -> list[str]:
+    """The acceptance headline, for the surfaces that TRAVEL. Markdown lines.
+
+    **Field report 2026-08-26, finding 3.** A run reached delivered with
+    `evidenced: 1, unevidenced: 6, human: 1`. `board.html` said so six times
+    and `acceptance.json` said so per criterion — and `mr.md` and the bundle's
+    `summary.md`, the two files that go with the code to whoever merges it,
+    said it zero times between them. Both were literally true: all gates
+    passed. A reviewer saw three green ticks and the word `passed`, and the
+    six criteria with nothing proving them stayed on the machine that ran it.
+
+    That is Law 1's own failure — two surfaces describing one fact, drifting —
+    so there is ONE renderer and both surfaces quote it verbatim. Landing this
+    on the surface where the gap was NOTICED and leaving the other to catch up
+    is the mistake of 2026-08-22, whose second reader quoted the false face
+    four days later.
+
+    Reads a record's `counts` and decides nothing: `assess` made these numbers
+    and this puts them in a sentence. Empty for a repository with no
+    acceptance record at all, which is every repository that never ran `wring
+    spec` — the opt-in boundary, unchanged.
+
+    The warning is CONDITIONAL on there being something to warn about. A
+    caveat printed over a clean record is how a reader learns to skip caveats.
+    """
+    if not counts:
+        return []
+    total = sum(int(counts.get(state, 0)) for state in STATES)
+    if not total:
+        return []
+    said = ", ".join(
+        f"{counts[state]} {STATE_PHRASES[state]}"
+        for state in STATES
+        if counts.get(state)
+    )
+    lines = ["", f"**Acceptance: {said}.**"]
+    unevidenced = int(counts.get(UNEVIDENCED, 0))
+    if unevidenced:
+        lines += [
+            "",
+            f"> ⚠ **{unevidenced} of these {total} criteria "
+            f"{'is' if unevidenced == 1 else 'are'} UNEVIDENCED: nothing in "
+            "this run shows "
+            f"{'it is' if unevidenced == 1 else 'they are'} met.** Every gate "
+            "passing means the change is mergeable. It does not mean the "
+            "thing that was asked for was built, and these are the difference.",
+        ]
+    return lines
+
 # Receipt kinds. `witness` is v2's, and it is the only addition to this
 # vocabulary — **the STATE vocabulary above is untouched**, which is the
 # ruling: delivery consumes the witness through the existing taxonomy and no

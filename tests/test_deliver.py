@@ -16,6 +16,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
@@ -2017,6 +2018,111 @@ def test_an_unbound_criterion_never_refuses_delivery(
 
     assert cli.main(["deliver"]) == cli.EXIT_OK
     capsys.readouterr()
+
+
+def _run_the_mr_is_about(repo: Path, mr_body: str) -> Path:
+    """The bundle this merge request describes, read out of the body itself.
+
+    Not "the newest directory": run ids carry a random suffix, so two runs in
+    the same second sort by luck — which is how the first version of the test
+    below asserted against the RED run and reported the fix as broken.
+    """
+    named = re.search(r"^- run: `([^`]+)`", mr_body, re.M)
+    assert named, mr_body
+    return repo / ".wringer" / "runs" / named.group(1)
+
+
+def test_THE_TRAVELLING_SURFACES_CARRY_THE_UNEVIDENCED_COUNT(
+    delivery_repo, monkeypatch, capsys
+):
+    """**Field report 2026-08-26, finding 3 — and it is the product's own
+    thesis aimed at the product.**
+
+    A real run reached delivered with `evidenced: 1, unevidenced: 6,
+    human: 1`. `board.html` said so six times; `acceptance.json` said so per
+    criterion. `mr.md` and the bundle's `summary.md` — **the two surfaces that
+    travel with the code to whoever merges it** — said it zero times between
+    them, and mr.md points at summary.md as "the human-readable report".
+
+    Everything both files said was true: all gates passed. A reviewer reading
+    the merge request sees three green ticks and the word `passed`, and the
+    fact that six of eight required criteria have nothing proving them lives
+    only on a page that stays on the machine that ran it. That is exactly Law
+    1's failure — two surfaces describing one fact, drifting — with the drift
+    already at its maximum.
+
+    **One renderer, quoted verbatim by both**, so this cannot be fixed on one
+    surface and left wrong on the other, which is the mistake of 2026-08-22
+    whose second reader quoted the false face four days later.
+    """
+    from wringer import accept
+    from wringer import summary as summary_module
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    mr = (
+        sorted((delivery_repo / deliver.DELIVERIES_DIRNAME).iterdir())[0]
+        / deliver.MR_FILENAME
+    ).read_text(encoding="utf-8")
+    run_dir = _run_the_mr_is_about(delivery_repo, mr)
+    recorded = accept.read(run_dir)
+    assert recorded["counts"]["unevidenced"] == 1, recorded["counts"]
+
+    expected = accept.disclosure(recorded["counts"])
+    assert expected, (
+        "the renderer produced nothing for a record with an unevidenced row"
+    )
+
+    bundle_summary = (run_dir / summary_module.SUMMARY_FILENAME).read_text(
+        encoding="utf-8"
+    )
+
+    for surface, body in (("mr.md", mr), ("summary.md", bundle_summary)):
+        for line in expected:
+            assert line in body, (
+                f"{surface} does not carry {line!r}. It is one of the two "
+                "surfaces that travel to whoever merges this, and it says "
+                "less than the board that stayed behind"
+            )
+
+
+def test_a_FULLY_EVIDENCED_RUN_IS_NOT_MADE_TO_APOLOGISE(
+    delivery_repo, monkeypatch, capsys
+):
+    """The control. A run with nothing unevidenced still states its counts —
+    that is a fact worth having — and carries no warning, because there is
+    nothing to warn about. A caveat printed over a clean record is how people
+    learn to skip caveats."""
+    from wringer import accept
+
+    repo = accepting_repo(delivery_repo)
+    monkeypatch.chdir(repo)
+    (repo / ".wringer.yaml").write_text(
+        ACCEPT_CONFIG.replace('run: "true"', 'run: "grep -q FIXED feature.py"'),
+        encoding="utf-8",
+    )
+    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    (repo / "feature.py").write_text("FIXED\n", encoding="utf-8")
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    mr = (
+        sorted((repo / deliver.DELIVERIES_DIRNAME).iterdir())[0]
+        / deliver.MR_FILENAME
+    ).read_text(encoding="utf-8")
+    counts = accept.read(_run_the_mr_is_about(repo, mr))["counts"]
+    assert counts["unevidenced"] == 0 and counts["evidenced"] == 1, counts
+
+    assert "1 evidenced" in mr
+    assert "UNEVIDENCED" not in mr, (
+        "a run that proved everything it was asked to prove is carrying a "
+        "warning about criteria it does not have"
+    )
 
 
 def test_an_unapproved_spec_does_not_touch_delivery(delivery_repo, monkeypatch, capsys):

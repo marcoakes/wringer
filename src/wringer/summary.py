@@ -71,6 +71,15 @@ def write(
     # what a reviewer is handed.
     if template_only:
         lines += ["", f"> ⚠ **{detect.TEMPLATE_WARNING}**"]
+    # **Before the table too, and for the same reason** — field report
+    # 2026-08-26 finding 3. This file is what `mr.md` calls "the
+    # human-readable report", and it carried three green rows and the word
+    # `passed` while six of eight criteria had nothing proving them. The
+    # renderer is `accept.disclosure`, quoted verbatim by `mr.md` as well, so
+    # the two surfaces that travel to a merger cannot come to say different
+    # amounts of the same fact.
+    if acceptance is not None:
+        lines += accept.disclosure(acceptance.counts())
     lines += [
         "",
         "| gate | status | duration | logs |",
