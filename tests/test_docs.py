@@ -4349,3 +4349,45 @@ def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
     assert f"`v{__version__}` the current one" in opening, (
         f"CONTRIBUTING does not call {__version__} the current release"
     )
+
+
+@pytest.mark.parametrize("document", _VERSION_PROSE)
+def test_a_document_naming_the_released_version_names_THE_VERSION_IN_THE_SOURCE(
+    document,
+):
+    """**The same claim, checked one step earlier — and this is the gap that
+    cost a release run on 2026-08-26.**
+
+    Its sibling above derives from `git tag`, which is exactly right and one
+    beat too late: before the tag exists there is nothing for it to be wrong
+    about, so a version bump can be committed, pushed and CI-green with every
+    front page still naming the previous release. The tag is then pushed, four
+    guards go red at once, and the release workflow refuses — correctly, and
+    after the tag is already public.
+
+    `wringer.__version__` moves in the bump commit itself. Checking against it
+    puts the same guard in front of the person doing the bump, on their own
+    machine, before anything is tagged.
+
+    Skipped when the source version is already released — then the sibling
+    above is the live check and this one has nothing to add.
+    """
+    require_checkout(document)
+    from wringer import __version__
+
+    if newest_release_tag() == __version__:
+        pytest.skip("the source version is the newest tag; the sibling checks it")
+
+    text = claimed_voice((repo_root() / document).read_text(encoding="utf-8"))
+    flat = " ".join(text.replace("*", "").split())
+
+    wrong = []
+    for pattern in _RELEASED_VERSION_CLAIMS:
+        for match in pattern.finditer(flat):
+            if match.group(1) != __version__:
+                wrong.append(match.group(0))
+    assert not wrong, (
+        f"{document} calls {wrong} the released version, but this working tree "
+        f"is {__version__}. Update the pages in the bump commit — after the tag "
+        "is pushed this is the release workflow's problem instead of yours."
+    )
