@@ -4,6 +4,81 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.8 — 2026-08-26
+
+**The full run.** For the first time in this project's life a plain-language
+document went in and a delivered branch came out: a real coding agent building,
+the checks proved red first, the one requirement no check can settle judged by
+a person, and `wring deliver --send` landing on a remote. The whole thing is
+captured verbatim in
+[docs/full-run-2026-08-26.md](docs/full-run-2026-08-26.md), written by `tee`
+rather than from memory.
+
+Six findings came out of it. Five were found by running the machine; the suite
+was green throughout, which is the argument for the sixth.
+
+### The chain now completes on every release, not once per field disaster
+
+`scripts/chain-completes.py` drives the real verb against the INSTALLED
+package — a document in, the interview, the plan, the gate diff, the red trial,
+a scripted worker standing in for the paid agent, convergence, and a delivered
+branch on a remote — and refuses if any step is missed, if the acceptance check
+was not red first, or if no branch carrying the work reaches the remote. It
+needs no key, touches no network and makes no model call; the paid seams stay
+manual, because a model drafting well is not a thing a release can promise.
+`scripts/release-check.sh` runs it, and a test holds it there.
+
+It earned its place immediately: it is what found the next entry.
+
+### Wringer's own page was holding up the handover
+
+The board is rendered before the loop, so every verify records `board.html` in
+`untracked.json`; it is rendered again after the loop, because showing the
+result is what it is for. `wring deliver` then refused — correctly — about a
+file that is not the operator's work. The shipped example escapes only because
+its `.gitignore` was written with that line already in it, and no repository a
+product manager starts from has one. `wring init` already keeps `.wringer/` out
+of git for this exact reason; the board is the one file Wringer writes outside
+that directory, and it was left out.
+
+### A converged run no longer says the agent did nothing
+
+`files_written` counts writes that crossed Wringer's own `fs/write_text_file`
+channel, and an agent holding its own filesystem uses none. On the full run the
+count was 0 for a turn that changed seven files and 174 lines and turned the
+acceptance check green — and `worker-diagnosis.json` recorded
+`turn_changed_nothing`, telling the operator the agent had probably failed to
+authenticate. The console half of this was fixed on 2026-08-22 and the record
+was left carrying the face; `wringer-drive` reads that record, so the same
+false sentence reached a person through a second door four days later. The loop
+now fingerprints the working tree either side of the turn, and a changed tree
+means no diagnosis at all.
+
+### The cost is said before the spend
+
+`wringer-drive` built the "this costs money" step before the drafting call and
+RENDERED it after — so the warning arrived after the spend, and not at all when
+the call failed, which is what happened. Every test of it passed, because each
+asked what was emitted rather than what was shown.
+
+### A refusal that names the answer already on file
+
+`wring deliver` refused a `human:` criterion with "nobody has answered this —
+record the decision in `wringer.judgements.yaml`". The decision had just been
+recorded there. Acceptance is computed at verify time and deliver reads the
+record, so the remedy could not clear the refusal it printed under. It now says
+so — and only when the answer is present, unstale and `met`, because a
+`not_met` answer refuses on the next verify too.
+
+### Doctor can see a two-tool mixture
+
+`uv` puts every tool's console scripts into ONE directory, so the split-install
+check — which keyed on that directory — passed a person running a mixture of
+two tool environments. Each command is now asked which environment it belongs
+to: the interpreter its shebang names, compared unresolved, because every uv
+environment's `bin/python` symlinks to the same base interpreter and a resolved
+comparison collapses the whole machine into one owner.
+
 ## 0.4.7 — 2026-08-25
 
 **Published.** `uv tool install wringer` gets it.

@@ -4305,3 +4305,47 @@ def test_THE_RELEASE_BAR_RUNS_THE_WHOLE_CHAIN():
         "the chain check spends money; it stands in for the paid seams and "
         "must stay runnable on any machine with no key"
     )
+
+
+def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
+    """**A hand-kept count, found stale on 2026-08-26**: the sentence said
+    "Ten releases have shipped" and listed eleven, and had been wrong through
+    at least one release before anybody read it.
+
+    Derived from three places that cannot drift apart quietly: the versions
+    the sentence itself names, the CHANGELOG's own entries, and
+    `wringer.__version__`. The count is spelled in words, so the words are
+    what is checked.
+    """
+    import re
+
+    from wringer import __version__
+
+    words = {
+        8: "Eight", 9: "Nine", 10: "Ten", 11: "Eleven", 12: "Twelve",
+        13: "Thirteen", 14: "Fourteen", 15: "Fifteen", 16: "Sixteen",
+        17: "Seventeen", 18: "Eighteen", 19: "Nineteen", 20: "Twenty",
+    }
+    root = repo_root()
+    contributing = (root / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    opening = contributing.split("Since `0.4.0`")[0]
+    listed = re.findall(r"`v(\d+\.\d+\.\d+)`", opening)
+    named = sorted(set(listed))
+
+    said = re.search(r"\*\*(\w+) releases have shipped\*\*", opening)
+    assert said, "the sentence that carries the count has been reworded"
+    assert words.get(len(named)) == said.group(1), (
+        f"CONTRIBUTING says {said.group(1)!r} releases and names "
+        f"{len(named)}: {named}"
+    )
+
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    released = set(re.findall(r"^## (\d+\.\d+\.\d+) — ", changelog, re.M))
+    assert set(named) == released, (
+        "CONTRIBUTING and the CHANGELOG disagree about which releases exist: "
+        f"only in CONTRIBUTING {sorted(set(named) - released)}, only in the "
+        f"CHANGELOG {sorted(released - set(named))}"
+    )
+    assert f"`v{__version__}` the current one" in opening, (
+        f"CONTRIBUTING does not call {__version__} the current release"
+    )
