@@ -1059,3 +1059,157 @@ def test_an_ORDINARY_shell_worker_is_left_alone(tmp_path):
 
     assert check.status == doctor.SKIP
     assert "not an ACP agent" in check.detail
+
+
+# --- one directory is not one install (measured on this Mac, 2026-08-26) ----
+#
+# `uv tool install` puts every tool's console scripts into ONE directory, so
+# the split-install check above — which keys on that directory — sees one
+# place and calls a two-environment mixture a tick. This Mac was in exactly
+# that state: a `wringer` tool environment and a leftover `wringer-drive` tool
+# environment, four shims, one `~/.local/bin`, doctor content.
+#
+# These fixtures are REAL FILES rather than monkeypatched paths, because the
+# whole mechanism is reading a shebang off disk.
+
+
+def _shim(directory, name, interpreter):
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / name
+    path.write_text(f"#!{interpreter}\nprint({name!r})\n")
+    path.chmod(0o755)
+    return path
+
+
+def _installed(monkeypatch, mapping):
+    monkeypatch.setattr(
+        doctor.shutil, "which", lambda name: mapping.get(name)
+    )
+    monkeypatch.setattr(doctor, "install_shape", lambda: (None, None))
+
+
+def test_TWO_TOOL_ENVIRONMENTS_SHARING_ONE_DIRECTORY_ARE_A_MIXTURE(
+    tmp_path, monkeypatch
+):
+    """The state this Mac was actually in, fabricated exactly.
+
+    Four shims, one directory, two owning environments. Before this check the
+    verdict was `ok` — measured, not supposed — and the operator ran a mixture
+    of two Wringers for days with a tick on the line that exists to tell them.
+    """
+    shims = tmp_path / "bin"
+    where = {}
+    for name in doctor.WRINGER_EXECUTABLES:
+        env = "envA" if name in ("wring", "wringer") else "envB"
+        where[name] = str(
+            _shim(shims, name, tmp_path / env / "bin" / "python")
+        )
+    _installed(monkeypatch, where)
+
+    check = doctor._wring()
+
+    assert check.status == doctor.WARN, (
+        "a two-environment mixture reported as a tick is how run 5 measured "
+        "0.4.0 while believing it was measuring 0.4.6"
+    )
+    assert "2 DIFFERENT installs" in check.detail
+    assert str(tmp_path / "envA" / "bin") in check.detail
+    assert str(tmp_path / "envB" / "bin") in check.detail
+    assert "uninstall" in check.fix.lower()
+
+
+def test_ONE_INSTALL_IN_ONE_DIRECTORY_IS_STILL_A_TICK(tmp_path, monkeypatch):
+    """The narrowness half — without it the fix above is a check that warns
+    about every healthy machine, which is the same as no check at all."""
+    shims = tmp_path / "bin"
+    where = {
+        name: str(_shim(shims, name, tmp_path / "env" / "bin" / "python"))
+        for name in doctor.WRINGER_EXECUTABLES
+    }
+    _installed(monkeypatch, where)
+
+    check = doctor._wring()
+
+    assert check.status == doctor.OK
+    assert "DIFFERENT" not in check.detail
+
+
+def test_a_MIXTURE_DOCTOR_CANNOT_SEE_IS_SAID_OUT_LOUD(tmp_path, monkeypatch):
+    """`#!/usr/bin/env python` names no environment, and a binary shim has no
+    shebang at all. Doctor is then blind to this whole class — which is worth
+    printing, because silence on that line reads as agreement."""
+    shims = tmp_path / "bin"
+    where = {
+        name: str(_shim(shims, name, "/usr/bin/env python"))
+        for name in doctor.WRINGER_EXECUTABLES
+    }
+    _installed(monkeypatch, where)
+
+    check = doctor._wring()
+
+    assert check.status == doctor.OK, "not knowing is not a fault"
+    assert "would not be visible here" in check.detail
+    for name in doctor.WRINGER_EXECUTABLES:
+        assert name in check.detail
+
+
+def test_an_UNREADABLE_SHIM_NEVER_BRINGS_DOCTOR_DOWN(tmp_path, monkeypatch):
+    """A doctor check that fell over while reporting on the install would be
+    the least useful failure in the tool."""
+    _installed(monkeypatch, dict.fromkeys(
+        doctor.WRINGER_EXECUTABLES, str(tmp_path / "gone" / "wring")
+    ))
+
+    check = doctor._wring()
+
+    assert check.passed
+    assert doctor.command_owner(str(tmp_path / "gone" / "wring")) is None
+
+
+def test_THE_INTERPRETER_IS_COMPARED_UNRESOLVED(tmp_path):
+    """**The measurement that makes the check work, pinned.**
+
+    Every uv environment's `bin/python` is a symlink to the SAME base
+    interpreter — measured on this Mac across `wringer`, `kimi-code` and this
+    repo's own `.venv`. Resolve the shebang and every environment on the
+    machine collapses into one owner and the mixture check goes blind again,
+    with all its tests still green.
+    """
+    base = tmp_path / "base" / "bin"
+    base.mkdir(parents=True)
+    (base / "python3.12").write_text("#!/bin/sh\n")
+    owners = set()
+    for env in ("envA", "envB"):
+        link = tmp_path / env / "bin" / "python"
+        link.parent.mkdir(parents=True)
+        link.symlink_to(base / "python3.12")
+        owners.add(doctor.command_owner(str(_shim(
+            tmp_path / "bin", f"w-{env}", link
+        ))))
+
+    assert len(owners) == 2, (
+        "two environments sharing one base interpreter were reported as one "
+        "install — the shebang is being resolved, and the mixture this check "
+        "exists to catch is invisible again"
+    )
+    assert len({(tmp_path / env / "bin" / "python").resolve()
+                for env in ("envA", "envB")}) == 1, (
+        "the fixture no longer reproduces the shape it exists to pin: these "
+        "two interpreters must share one base for the assertion above to mean "
+        "anything"
+    )
+
+
+def test_python_and_python312_from_ONE_install_are_not_a_mixture(tmp_path):
+    """The other side of comparing the directory rather than the file: one
+    install writing `python` into some shims and `python3.12` into others is
+    one install, and saying otherwise would be a false alarm on a healthy
+    machine."""
+    env = tmp_path / "env" / "bin"
+    env.mkdir(parents=True)
+    owners = {
+        doctor.command_owner(str(_shim(tmp_path / "bin", name, env / exe)))
+        for name, exe in (("wring", "python"), ("wringer", "python3.12"))
+    }
+
+    assert owners == {str(env)}

@@ -234,6 +234,54 @@ def install_shape() -> tuple[str | None, str | None]:
     return source, declared
 
 
+def command_owner(path: str) -> str | None:
+    """The environment a wringer command will actually run in, or None.
+
+    A console script names its interpreter in its shebang, and THAT is the
+    environment whose `wringer` gets imported when the command runs. The
+    directory the shim sits in says nothing about it.
+
+    **Measured on this Mac, 2026-08-25/26.** `uv tool install` puts every
+    tool's shims into ONE directory — `~/.local/bin` — so an operator running
+    a mixture of two tool environments has all four commands in one place. A
+    check that keys on the directory sees one directory and calls it well.
+    That is the exact state this machine was in: `wringer` and `wringer-drive`
+    were two separate tool environments whose shims shared `~/.local/bin`.
+
+    The interpreter path is compared UNRESOLVED, by the directory holding it.
+    Resolving would be wrong and was measured to be wrong: every uv
+    environment's `bin/python` is a symlink to the same base interpreter
+    (`.../uv/python/cpython-3.12-macos-aarch64-none/bin/python3.12` for all of
+    `wringer`, `kimi-code` and this repo's `.venv`), so a resolved comparison
+    collapses every environment on the machine into one and the check goes
+    blind again. The directory holding the interpreter is the environment;
+    comparing the directory rather than the file also keeps `python` and
+    `python3.12` shebangs from the same install out of the false-positive pile.
+
+    Returns None when the shebang cannot be read or names no environment — a
+    binary shim, an unreadable file, or `#!/usr/bin/env python`, which
+    deliberately defers the choice to PATH. None means "could not tell", which
+    the caller says out loud rather than treating as agreement.
+    """
+    try:
+        # Read THROUGH any symlink: `~/.local/bin/wring` is a link into the
+        # tool environment, and the shebang lives in the file it points at.
+        with open(path, "rb") as handle:
+            first = handle.readline(4096)
+    except OSError:
+        return None
+    if not first.startswith(b"#!"):
+        return None
+    interpreter = first[2:].decode("utf-8", "replace").strip().split()
+    if not interpreter:
+        return None
+    candidate = Path(interpreter[0])
+    if candidate.name == "env" or not candidate.is_absolute():
+        # `#!/usr/bin/env python` names no environment at all.
+        return None
+    return str(candidate.parent)
+
+
 def _install_note() -> str:
     """The sentence appended to every `wring` line, or nothing at all."""
     source, declared = install_shape()
@@ -306,6 +354,40 @@ def _wring() -> Check:
             "Uninstall every wringer distribution and install once: "
             "`uv tool uninstall wringer wringer-board wringer-drive` then "
             "`uv tool install wringer`",
+        )
+    # **One directory is not one install.** Under `uv tool install` the shims
+    # of every tool land in the same directory, so the check above sees one
+    # place and passes a two-environment mixture. Ask each command which
+    # environment it belongs to instead of where it sits.
+    owners = {
+        name: command_owner(path) for name, path in located.items() if path
+    }
+    environments = {owner for owner in owners.values() if owner}
+    if len(environments) > 1:
+        told = [
+            f"{name} → {owner or 'could not tell'}"
+            for name, owner in owners.items()
+        ]
+        return Check(
+            "wring", WARN,
+            f"wringer {__version__} — the commands share a directory but "
+            f"belong to {len(environments)} DIFFERENT installs, so you are "
+            f"running a mixture{note}:\n  " + "\n  ".join(told),
+            "Uninstall every wringer distribution and install once: "
+            "`uv tool uninstall wringer wringer-board wringer-drive` then "
+            "`uv tool install wringer`",
+        )
+    # Say so when the question could not be asked, rather than letting silence
+    # read as agreement. On an ordinary install every shebang is readable and
+    # this stays empty; it appears on the shapes where doctor genuinely cannot
+    # see a mixture — a binary shim, or `#!/usr/bin/env python`.
+    undetermined = [name for name, owner in owners.items() if owner is None]
+    if undetermined:
+        note += (
+            f" (could not tell which install {', '.join(undetermined)} "
+            f"{'belongs' if len(undetermined) == 1 else 'belong'} to, so a "
+            "mixture of installs sharing this directory would not be visible "
+            "here)"
         )
     if absent:
         return Check(
