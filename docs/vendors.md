@@ -36,7 +36,7 @@ enforces the order so nobody can quietly promote one.
 | vendor | lane | status | measured | capture |
 |---|---|---|---|---|
 | anthropic | brain | MEASURED-WORKING | 2026-08-22 | [bench-vendors-2026-08-22.md](bench-vendors-2026-08-22.md) |
-| anthropic | worker | MEASURED-WORKING | 2026-08-22 | [auth-probe-2026-08-22.md](auth-probe-2026-08-22.md) |
+| anthropic | worker | MEASURED-WORKING | 2026-08-26 | [field-report-2026-08-26-run6.md](field-report-2026-08-26-run6.md) |
 | deepseek | brain | BLOCKED-ON-CREDENTIAL | 2026-08-22 | [bench-vendors-2026-08-22.md](bench-vendors-2026-08-22.md) |
 | deepseek | worker | NO-AGENT-CLI | 2026-08-22 | [bench-vendors-2026-08-22.md](bench-vendors-2026-08-22.md) |
 | glm | brain | BLOCKED-ON-CREDENTIAL | 2026-08-22 | [bench-vendors-2026-08-22.md](bench-vendors-2026-08-22.md) |
@@ -51,6 +51,16 @@ enforces the order so nobody can quietly promote one.
 far as proving which environment variable the CLI actually reads, and glm's
 brain got as far as a well-formed authentication refusal from the documented
 endpoint. Neither is a guess and neither is a working row.
+
+**anthropic/worker moved from 2026-08-22 to 2026-08-26 and the STATUS did
+not.** It was already `MEASURED-WORKING` on the strength of a key in the
+worker's environment ([auth-probe-2026-08-22.md](auth-probe-2026-08-22.md),
+still the capture for that arm). What 2026-08-26 adds is the OTHER credential
+route: a **subscription login** with no key anywhere served a real build turn —
+4m 40s, exit 0, red gate to green — on a Mac pinned by managed settings to an
+organisation login. Two routes now measured, one row, same four words. This is
+the whole of the change: no status was promoted, and neither arm claims more
+than its capture.
 
 ## The agents whose vendor is not a model vendor
 

@@ -1728,6 +1728,39 @@ def test_the_stdin_bullet_does_not_promise_more_than_the_drain_does():
     )
 
 
+def test_the_page_warns_about_READING_LATE_and_not_only_WRITING_EARLY():
+    """**Field report 2026-08-26, the transport note — not a product defect,
+    and the page is still where it belongs.**
+
+    A driving agent's polling loop recomputed "steps seen so far" at the start
+    of each check, so a step that arrived between two checks was counted as
+    already-seen and never relayed. The person lost an interview question, the
+    run blocked on stdin for about twenty minutes, and it presented as a hang.
+    `resume.json` had `last_question` right throughout, which is what proved
+    the fault was the transport's.
+
+    The page had a whole paragraph about writing an answer too early and not
+    one sentence about reading a step too late — and only one of those two has
+    ever been hit twice. Both are the transport's burden, so both are here.
+    """
+    body = flattened(own_voice(drive_agents_md()))
+
+    assert "Never queue answers ahead" in body, (
+        "the writing-side rule is gone, so the pair this guard checks is "
+        "half missing"
+    )
+    assert "cursor" in body.lower(), (
+        "the page warns about writing too early and says nothing about "
+        "reading too late. A step that is never relayed is a question the "
+        "person never sees"
+    )
+    assert "recompute" in body.lower() or "recomputed" in body.lower(), (
+        "the page names a cursor without naming the thing it replaces — a "
+        "count sampled at read time, which is the shape that actually lost a "
+        "question"
+    )
+
+
 def test_the_PASTE_BLOCK_points_at_THIS_repositorys_current_runbook():
     """**Found by the bug hunt, 2026-08-22, and it would have broken run 5.**
 

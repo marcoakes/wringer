@@ -256,6 +256,21 @@ and not its first line. Then:
   is exactly why law 2 is YOUR burden and not the transport's: the machine
   cannot prove intent, so the rule against queueing is the whole protection.
 
+- **Track a monotonic CURSOR over the step stream — never a count you
+  recompute.** The rule above is about writing too early. This one is about
+  reading too late, and nothing warned about it until it cost a run. On
+  2026-08-26 a driving agent's polling loop recomputed "steps seen so far" at
+  the start of each check, so a step that arrived *between* two checks was
+  counted as already-seen and never relayed. The person lost an interview
+  question, the run sat on stdin for about twenty minutes, and it looked like
+  a hang. `resume.json` had recorded `last_question` correctly the whole time,
+  which is how the fault was identified as the transport's rather than the
+  engine's.
+
+  Keep an index into the lines you have consumed and only ever move it
+  forward. A step you do not relay is a question the person never sees, and
+  they cannot answer what they were not shown.
+
 - **stderr is the engine's heartbeat** — `iteration 1/3`, gate lines, worker
   turns, as they happen. Relay it to the person as it arrives (it is how they
   see the build breathing), or summarise it only when they have told you to;
@@ -438,11 +453,23 @@ because it is exactly the kind this page exists to prevent:
   REPRODUCED — recorded as that, not as fixed. The evaluator saw something,
   and this run does not explain what.
 
-Still unmeasured: whether a subscription login specifically serves a turn
-through this adapter, because no machine here has one. Do not claim it does,
-and do not claim it does not. What was measured is narrower and is the whole
-of what may be said: a credential in the environment drives the builder, and
-an agent that was never logged in cannot be driven by anything.
+**MEASURED 2026-08-26, and this paragraph used to say it was not.** It read
+*"Still unmeasured: whether a subscription login specifically serves a turn
+through this adapter, because no machine here has one."* One now has. On the
+org-pinned Mac, with `USER` reaching the worker and **no key anywhere**,
+`authMethod: claude.ai` (enterprise): one worker turn of **4m 40s, exit 0**,
+5 files changed (+203 −6), the loop red on `gb-skip-downstream` at iteration 1
+and green at iteration 2. A subscription login does not merely avoid the
+refusal — **it builds.**
+
+    iteration 1/2   ✓ lint  ✓ test  ✗ gb-skip-downstream   → worker 4m 40s (exit 0)
+    iteration 2/2   ✓ lint  ✓ test  ✓ gb-skip-downstream
+
+The capture is
+https://github.com/marcoakes/wringer/blob/main/docs/field-report-2026-08-26-run6.md,
+finding 2. It is one turn on one machine with one adapter, which is exactly as
+far as it goes — but the sentence that said nobody knew is retired, because
+somebody does.
 
 ### Correction to the correction, 2026-08-25
 
