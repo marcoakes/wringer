@@ -180,6 +180,45 @@ def _handshake_rung(worker: config.AcpWorker) -> WorkerAuth:
     )
 
 
+def _name_the_bare_form(worker: config.AcpWorker, found: WorkerAuth) -> WorkerAuth:
+    """Say when a shorter spelling of this command would have answered better.
+
+    **The roster matches EXACTLY and keeps doing so.** `agents.by_command`
+    refuses to match a substring or guess a package from a filename, and its
+    docstring is right that anything else would be this module inventing a
+    vendor string rather than holding one. A command declared as an absolute
+    path, or wrapped, is therefore not on the roster whatever its filename is:
+    the CLI probe that answers this question exactly never runs, and the
+    weaker handshake rung reports `unknown`. (No agent is named in this
+    sentence — AGENTS.md rule 5, and a guard in `tests/test_start.py` caught
+    the first draft of it naming one.)
+
+    What was wrong was the SILENCE around that. The reader was told a question
+    could not be answered and not that a better answer was available for the
+    price of a shorter string. So this appends the remedy — and only when the
+    basename really is a roster entry, which makes it a second lookup in the
+    same table rather than a guess about an unknown binary.
+
+    Only ever on an `UNKNOWN`. A definite answer needs no apology, and a
+    `LOGGED_OUT` from the handshake is the agent's own word for it.
+    """
+    if found.state != UNKNOWN:
+        return found
+    from pathlib import PurePath
+
+    bare = PurePath(worker.command).name
+    if bare == worker.command or agents.by_command(bare) is None:
+        return found
+    return WorkerAuth(
+        found.state,
+        f"{found.detail} — and {worker.command!r} is not in the roster, so "
+        f"the agent's own `auth status` was never asked. If this is "
+        f"{bare!r}, declare it by the bare name and that question becomes "
+        f"free and exact",
+        found.method,
+    )
+
+
 def read(worker: object, containment_settings: object = None) -> WorkerAuth:
     """Ask the declared ACP worker whether it is logged in.
 
@@ -190,7 +229,17 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
     this adapter on 2026-08-22.
     """
     if not isinstance(worker, config.AcpWorker):
-        return WorkerAuth(UNKNOWN, "the worker is not an ACP agent")
+        # **The reader's question, not Wringer's fact.** `wring doctor`
+        # renders this after a `-`, and "the worker is not an ACP agent" left
+        # a person to work out for themselves whether that was a problem. It
+        # is not one: a shell worker inherits the environment it was launched
+        # from (`docs/vendors.md` says so in print), so there is no login for
+        # anything to check and nothing to fix.
+        return WorkerAuth(
+            UNKNOWN,
+            "the worker is a shell command, not an ACP agent — a shell "
+            "worker has no login to check",
+        )
 
     if containment_settings is not None:
         # Under a containment the agent runs INSIDE the boundary, on an image
@@ -227,7 +276,7 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
         # signed in (measured), so the handshake would report UNKNOWN about an
         # agent whose own command line answers exactly. AGENTS.md rule 5 keeps
         # the name in `agents.py`; the capture carries it.
-        return _handshake_rung(worker)
+        return _name_the_bare_form(worker, _handshake_rung(worker))
 
     env = acp.worker_env(worker.env_passthrough)
     try:

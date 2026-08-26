@@ -196,6 +196,50 @@ def test_a_shell_worker_is_not_asked_at_all():
 
     assert found.state == worker_auth.UNKNOWN
     assert not found.will_fail
+    # `wring doctor` renders this detail after a `-` mark, and "the worker is
+    # not an ACP agent" left a reader to work out whether that was a problem.
+    # It is not one: a shell worker inherits the environment you launched
+    # from, so there is no login for anything to check.
+    assert "no login to check" in found.detail, (
+        f"the `-` line still describes Wringer's internals rather than "
+        f"answering the reader's question: {found.detail!r}"
+    )
+
+
+def test_A_COMMAND_THE_ROSTER_WOULD_KNOW_BY_ITS_BARE_NAME_SAYS_SO(on_path):
+    """A path or a wrapper silently costs the run its best auth probe.
+
+    `agents.by_command` matches the declared command EXACTLY, and deliberately
+    so — matching on a substring or guessing a package from a filename would
+    be this repository inventing a vendor string instead of holding one, which
+    its own docstring refuses. That refusal stands. What was wrong was the
+    silence around it: declare `/opt/homebrew/bin/claude-agent-acp` and the
+    CLI probe that answers this question exactly is skipped, the weaker
+    handshake rung answers `unknown`, and nothing anywhere says a better
+    answer was available for the price of a shorter string.
+
+    Only ever fires when the BASENAME really is on the roster, so it is a
+    lookup in the same table and not a guess about an unknown binary.
+    """
+    import os
+
+    nested = on_path / "wrapped"
+    nested.mkdir()
+    fake_agent(nested, answering({"loggedIn": True}))
+    declared = str(nested / CLAUDE.command)
+
+    found = worker_auth.read(config.AcpWorker(command=declared))
+
+    assert found.state == worker_auth.UNKNOWN, (
+        "the roster started matching on something other than the exact "
+        "command — which is the guess `agents.by_command` refuses"
+    )
+    assert "not in the roster" in found.detail, found.detail
+    assert CLAUDE.command in found.detail, (
+        "the line does not name the bare form that would have been probed, "
+        "so the reader is told about a gap and not about the remedy"
+    )
+    assert os.sep in found.detail or declared in found.detail, found.detail
 
 
 # --- the environment it asks in --------------------------------------------
