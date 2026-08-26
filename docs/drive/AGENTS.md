@@ -162,15 +162,26 @@ fails, stop and show them the real error before doing anything else.
    --help` (or an immediate clean exit) is enough. This package name is the
    current one; an older, deprecated name floats around and fails silently.
 
-6. **Set up a worked example** and show the person everything it prints:
+6. **Set up a worked example.** **The examples are NOT in the installed
+   package** — `uv tool install wringer` puts four commands on PATH and no
+   `examples/` directory anywhere, so this step needs a clone and step 2's
+   "nothing to clone" is about the TOOL, not about the examples. Clone it
+   read-only, use the example, and nothing installs from it:
 
    ```bash
-   cd wringer-drive/examples/pipeline
+   git clone https://github.com/marcoakes/wringer.git ~/wringer-source
+   cd ~/wringer-source/examples/pipeline
    sh setup.sh ~/wringer-example
    ```
 
-   `examples/README.md` lists the examples. Inside the example project, run
-   `wring doctor` once more; every line should now be green or explained.
+   Show the person everything `setup.sh` prints. `examples/README.md` in that
+   clone lists the examples. Inside the example project (`~/wringer-example`),
+   run `wring doctor` once more; every line should now be green or explained.
+
+   A first-time reader stopped exactly here on 2026-08-26, because the page
+   said `cd wringer-drive/examples/pipeline` and no such directory has existed
+   since the packages merged. If a step on this page ever names a directory
+   nothing earlier created, **that is a finding** — say so.
 
 7. **The key is the person's act, not yours.** Point them at
    [START-HERE.md](START-HERE.md) for the one masked Keychain command, and
@@ -313,6 +324,27 @@ not the person.**
 | ordinary, unmanaged | **either** — log the agent's CLI in, **or** declare a key under `env_passthrough` | nothing measured |
 | **pinned by managed settings to an organisation login** | log the agent's CLI in, and pass **NO** key | **the key itself.** While it is in the worker's environment, `session/new` is refused |
 
+**On macOS the login route needs the worker to be told who is running it, and
+since 0.4.9 it is.** A worker does not inherit Wringer's environment; it is
+handed a built one — `PATH`, `HOME`, `LANG`, `USER` — plus whatever
+`env_passthrough` declares, and nothing else. `USER` is the fourth name and it
+was added on 2026-08-26 because of what its absence did: a login stored in the
+macOS Keychain is invisible to an agent that has not been told whose Keychain
+to look in, so a **logged-in** agent reported `loggedIn: false`, the drive
+stopped on a false red, and the machine that route exists for was the one
+machine it could not work on. Bisected on that Mac one variable at a time —
+`USER` alone flipped it; `LOGNAME`, `SHELL`, `TMPDIR`, `SSH_AUTH_SOCK`,
+`XPC_SERVICE_NAME` and `__CF_USER_TEXT_ENCODING` each changed nothing
+(the field report is at
+https://github.com/marcoakes/wringer/blob/main/docs/field-report-2026-08-26-run6.md,
+finding 1).
+
+**There is nothing to do about this and that is the point** — it is a default,
+not a step. If you are on `0.4.8` or older and the agent reports itself logged
+out while `claude-agent-acp --cli auth status` in your own shell says it is
+logged in, that is this defect, and `env_passthrough: [USER]` is the one-line
+workaround until you upgrade.
+
 Both routes are the person's decision, never yours:
 
 - **Log the agent's own CLI in, once.** `claude-agent-acp --cli auth login
@@ -359,8 +391,16 @@ machine form, without a turn:
     claude-agent-acp --cli auth status
 
 `{"loggedIn": false, …}` means the build step will fail, and the drafting
-money spent before it would be wasted. `wring doctor` reads this and the
-drive preflights it.
+money spent before it would be wasted.
+
+**You do not have to run that yourself: the drive asks it and shows you the
+answer.** Since 0.4.9 the run emits a `worker-auth` `show` step before it
+spends anything — *"the coding agent that will do the building says it is
+logged in (…) — checked before anything was spent"* when the answer is yes,
+and a step saying the question could not be asked when nobody could answer
+it. `wring doctor`'s `worker auth` line asks the same question, but only
+inside a project that already has a `.wringer.yaml` for it to read — so on a
+fresh machine the drive's own step is the earliest place the answer exists.
 
 **Presence is not validity — and on a managed machine presence is WORSE than
 absence.** A revoked key and a lapsed subscription both still report

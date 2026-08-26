@@ -1315,6 +1315,154 @@ def test_every_path_the_runbook_names_exists_in_this_repository():
     )
 
 
+def _clone_of_this_repository(url: str) -> bool:
+    """Whether a `git clone` URL names THIS repository.
+
+    Derived from the remote rather than from a literal, so a rename moves the
+    check with the project. Falls back to the name of the repository
+    directory, which is what a fresh clone with no remote has.
+    """
+    import subprocess
+
+    remote = subprocess.run(
+        ["git", "remote", "get-url", "origin"],
+        cwd=ROOT, capture_output=True, text=True, check=False,
+    ).stdout.strip()
+    slug = remote.removesuffix(".git").rsplit("/", 1)[-1] if remote else ROOT.name
+    return url.removesuffix(".git").rsplit("/", 1)[-1] == slug
+
+
+def test_EVERY_cd_AND_sh_TARGET_COMES_FROM_A_PRIOR_STEP():
+    """**Field report 2026-08-26, finding 4 — and it is the cheapest kind of
+    unfollowable.**
+
+    Step 2 is emphatic that the three-repo era is over: *"There is nothing to
+    clone and nothing to chain."* Step 6 then said
+
+        cd wringer-drive/examples/pipeline
+        sh setup.sh ~/wringer-example
+
+    After `uv tool install wringer` there is no `wringer-drive/` anywhere, and
+    the installed distribution ships no `examples/`. A first-time reader
+    following the runbook exactly stops at the step where a non-engineer has
+    nothing to fall back on. The field run only got past it because a source
+    clone from three weeks earlier happened to be on the machine.
+
+    `test_every_path_the_runbook_names_exists_in_this_repository` was green
+    throughout: it strips a `wringer-drive/` prefix and checks the remainder
+    against THIS tree, which is a fact about the repository and not about the
+    reader's machine. This guard asks the reader's question instead — **does
+    every directory this page walks into get created by one of this page's own
+    earlier steps?** — and it walks the commands in document order, carrying a
+    working directory, the way somebody typing them would.
+
+    Two escapes, both narrow and both deliberate: a target rooted at `~`, `/`
+    or a variable is a place the person chose, and a `<placeholder>` is not a
+    path at all. Everything else has to be produced.
+    """
+    import posixpath
+
+    # What the page has created so far, mapped to the directory in THIS
+    # repository it corresponds to — or None where the guard cannot see
+    # inside (an unrelated clone, a bare `mkdir`).
+    produced: dict[str, str | None] = {}
+    cwd: tuple[str, str | None] | None = None
+    unfollowable: list[str] = []
+    #: Every target this guard actually decided about. A walker that silently
+    #: found nothing to walk is a green that means "the parser broke", and
+    #: this file has already shipped one guard that only saw what it expected.
+    walked: list[str] = []
+
+    def resolve(target: str) -> tuple[str, str | None] | None | bool:
+        """(prefix, repo-relative path) for a target, None for the person's
+        own place, or False when nothing on this page created it."""
+        target = target.strip("'\"")
+        # **Produced first, and the order is the whole of it.** A clone
+        # destination is usually written `~/somewhere`, so testing the `~`
+        # escape before the produced set would throw away the one fact this
+        # guard exists to follow — and `sh setup.sh` two lines later would
+        # then be unverifiable for the good reason instead of the bad one.
+        for prefix in sorted(produced, key=len, reverse=True):
+            if target == prefix or target.startswith(prefix + "/"):
+                inside = produced[prefix]
+                rest = target[len(prefix):].lstrip("/")
+                if inside is None:
+                    return (prefix, None)
+                return (prefix, posixpath.normpath(posixpath.join(inside, rest)))
+        if target.startswith(("~", "/", "$")) or "<" in target:
+            return None
+        return False
+
+    for command in _fenced_shell_commands(agents_md()):
+        words = command.split()
+        if not words:
+            continue
+        if words[0] == "git" and len(words) > 2 and words[1] == "clone":
+            arguments = [w for w in words[2:] if not w.startswith("-")]
+            url = arguments[0]
+            destination = (
+                arguments[1] if len(arguments) > 1
+                else url.removesuffix(".git").rsplit("/", 1)[-1]
+            )
+            produced[destination.strip("'\"")] = (
+                "." if _clone_of_this_repository(url) else None
+            )
+            continue
+        if words[0] == "mkdir":
+            for made in (w for w in words[1:] if not w.startswith("-")):
+                produced.setdefault(made.strip("'\""), None)
+            continue
+        if words[0] == "cd" and len(words) > 1:
+            walked.append(command)
+            where = resolve(words[1])
+            if where is False:
+                unfollowable.append(
+                    f"`{command}` — nothing earlier on this page creates "
+                    f"`{words[1].split('/')[0]}`"
+                )
+                cwd = None
+                continue
+            if where is not None and where[1] is not None:
+                if not (ROOT / where[1]).is_dir():
+                    unfollowable.append(
+                        f"`{command}` — that path is not in this repository, "
+                        "so the clone the reader was told to make does not "
+                        "contain it"
+                    )
+            cwd = where
+            continue
+        if words[0] in ("sh", "bash") and len(words) > 1:
+            script = words[1].strip("'\"")
+            if "<" in script:
+                continue
+            walked.append(command)
+            if "/" in script or script.startswith(("~", "/", "$")):
+                continue
+            if cwd is None or cwd[1] is None:
+                unfollowable.append(
+                    f"`{command}` — run in a directory this page never "
+                    "established, so there is no telling whether the script "
+                    "is there"
+                )
+                continue
+            if not (ROOT / cwd[1] / script).is_file():
+                unfollowable.append(
+                    f"`{command}` — `{cwd[1]}/{script}` is not in this "
+                    "repository"
+                )
+
+    assert not unfollowable, (
+        "AGENTS.md tells a reader to walk into somewhere its own earlier "
+        "steps never make:\n" + "\n".join(f"  {row}" for row in unfollowable)
+        + "\n\nA runbook is followable or it is decoration. This is the step "
+        "where a non-engineer has nothing to fall back on."
+    )
+    assert walked, (
+        "this guard walked no `cd` or `sh` at all, so its green says the "
+        "command parser found nothing — not that the runbook is followable"
+    )
+
+
 def test_the_runbook_names_the_example_PRD_where_the_example_puts_it():
     """The exact defect `bf44aed` fixed, pinned so it cannot come back.
 
