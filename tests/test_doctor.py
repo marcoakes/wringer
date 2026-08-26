@@ -1213,3 +1213,42 @@ def test_python_and_python312_from_ONE_install_are_not_a_mixture(tmp_path):
     }
 
     assert owners == {str(env)}
+
+
+def test_AN_INTERPRETER_PATH_WITH_A_SPACE_IN_IT_STILL_NAMES_ITS_ENVIRONMENT():
+    """**Found by hunting this function on the day it was written.**
+
+    Splitting the shebang on whitespace and taking word one truncates
+    `#!/Users/a b/venv/bin/python` to `/Users` — so every environment under a
+    path with a space in it collapses into one owner and the mixture check is
+    blind again, silently, and only for the people whose home directory has a
+    space in it.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        shims = Path(tmp)
+        for name, interpreter in (
+            ("a", "/Users/a b/one/bin/python"),
+            ("b", "/Users/a b/two/bin/python"),
+        ):
+            (shims / name).write_text(f"#!{interpreter}\n", encoding="utf-8")
+        owners = {
+            doctor.command_owner(str(shims / name)) for name in ("a", "b")
+        }
+
+    assert owners == {"/Users/a b/one/bin", "/Users/a b/two/bin"}, (
+        f"two environments under a path with a space collapsed to {owners}"
+    )
+
+
+def test_an_interpreter_with_ARGUMENTS_still_names_its_environment():
+    """The other reason the whole line is taken rather than the first word:
+    `#!/x/bin/python -s` is a real console script, and `.parent` drops exactly
+    one component whether that component is `python` or `python -s`."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmp:
+        shim = Path(tmp) / "wring"
+        shim.write_text("#!/x/bin/python -s -E\n", encoding="utf-8")
+        assert doctor.command_owner(str(shim)) == "/x/bin"

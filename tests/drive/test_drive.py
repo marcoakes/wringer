@@ -1866,3 +1866,40 @@ def test_it_leaves_what_somebody_else_wrote_alone(project):
     body = (project / ".gitignore").read_text(encoding="utf-8")
     assert body.startswith("# ours\n.venv/\n*.pyc\n")
     assert run_module.BOARD_FILENAME in body.split()
+
+
+def test_it_writes_NO_gitignore_into_a_directory_with_no_git_in_it(tmp_path):
+    """`wring init` calls that litter and refuses to do it, because a
+    `.gitignore` in a plain directory implies a repository that is not there.
+    Found by hunting this function on the day it was written."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+
+    run_module._keep_the_board_out_of_git(plain)
+
+    assert not (plain / ".gitignore").exists()
+
+
+def test_a_NEGATED_ignore_is_left_exactly_as_the_operator_wrote_it(project):
+    """git is last-match-wins, so appending after `!board.html` silently
+    overrules somebody who deliberately chose to track this file. If they did,
+    the delivery refusal downstream is a true statement about their own choice,
+    and overriding them to avoid it would be the worse act."""
+    original = "*.html\n!board.html\n"
+    (project / ".gitignore").write_text(original, encoding="utf-8")
+
+    run_module._keep_the_board_out_of_git(project)
+
+    assert (project / ".gitignore").read_text(encoding="utf-8") == original
+
+
+def test_an_unwritable_gitignore_never_stops_the_run(project):
+    """A repository whose `.gitignore` cannot be written is not a reason to
+    stop a build; the delivery refusal downstream says its own piece."""
+    ignore = project / ".gitignore"
+    ignore.write_text("*.pyc\n", encoding="utf-8")
+    ignore.chmod(0o444)
+    try:
+        run_module._keep_the_board_out_of_git(project)
+    finally:
+        ignore.chmod(0o644)

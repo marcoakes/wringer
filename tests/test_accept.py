@@ -905,3 +905,46 @@ def test_the_refusal_says_nothing_extra_when_NOTHING_was_answered(
 
     assert "You HAVE answered" not in str(refused.value)
     assert "nobody has answered this" in str(refused.value)
+
+
+def test_a_NOT_MET_ANSWER_IS_NOT_PROMISED_AS_THE_WAY_OUT(repo, monkeypatch, capsys):
+    """**Found by hunting the fix above, 2026-08-26.**
+
+    A `not_met` answer is an answer, and the first version of
+    `_answers_recorded_since` named it — telling the operator to run `wring
+    verify` again so "the answer will be in it". It would be: as
+    `human-said-no`, which refuses too. That is the same defect the sentence
+    was written to fix, reproduced one branch over: a remedy that cannot clear
+    the refusal it prints under.
+    """
+    from wringer import deliver
+
+    write_spec(repo, extra=HUMAN_CRITERION)
+    write_config(repo, '  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    criterion = next(
+        c for c in spec.load(repo / "wringer.spec.yaml").criteria
+        if c.id == "copy-reads-well"
+    )
+    (repo / accept.JUDGEMENTS_FILENAME).write_text(
+        "schema_version: wringer.judgement.v1\n"
+        "judgements:\n"
+        '  - criterion: "copy-reads-well"\n'
+        "    verdict: not_met\n"
+        '    by: "the operator"\n'
+        '    at: "2026-08-26T09:06:03+00:00"\n'
+        f"    criterion_digest: {accept.criterion_digest(criterion)}\n",
+        encoding="utf-8",
+    )
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    with pytest.raises(deliver.Refused) as refused:
+        deliver._check_acceptance(run_dir, repo)
+
+    assert "You HAVE answered" not in str(refused.value), (
+        "a person said this requirement is NOT met, and the refusal offered a "
+        "re-verify as the way out — after which it refuses again"
+    )

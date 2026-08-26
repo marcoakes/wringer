@@ -741,7 +741,13 @@ def _answers_recorded_since(root: Path, refusing: list[dict]) -> list[str]:
     fixing once for the bound-gate trailer.
 
     Nothing is guessed here. The current file is read, and only a criterion
-    whose answer is present and not stale is named.
+    whose answer is present, not stale, and `met` is named.
+
+    **The last of those three was missing in the first version, and it made
+    this function the very defect it fixes.** A `not_met` answer is an answer:
+    it would reach the record on the next verify and refuse there too, as
+    `human-said-no`. Promising a re-verify as the way out of it would send the
+    reader round the loop again, more confidently.
     """
     from wringer import accept, spec
 
@@ -768,6 +774,9 @@ def _answers_recorded_since(root: Path, refusing: list[dict]) -> list[str]:
             # Answered, but to a different wording. `wring verify` would report
             # that as stale rather than clearing this, so promising it would
             # send the reader round the loop a second time.
+            continue
+        if entry.get("verdict") != "met":
+            # A `not_met` answer refuses on the next verify as well.
             continue
         answered.append(name)
     return answered

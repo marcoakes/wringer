@@ -1472,11 +1472,25 @@ def _keep_the_board_out_of_git(repo: Path) -> None:
     existed is also carried, rather than only a new one.
 
     Idempotent, and it never rewrites a line somebody else put there.
+
+    **Two things it will not do, both found by hunting it on the day it was
+    written.** It writes nothing into a directory with no git in it —
+    `wring init` calls that litter and refuses for the same reason. And it
+    leaves a repository alone where somebody has written `!board.html`: git is
+    last-match-wins, so appending after a negation silently overrules an
+    operator who deliberately chose to track this file. If they did, the
+    delivery refusal downstream is a true statement about their own choice,
+    and overriding them to avoid it would be the worse act.
     """
+    from wringer import git
+
+    if not git.is_repo(repo):
+        return
     gitignore = repo / ".gitignore"
     try:
         existing = gitignore.read_text(encoding="utf-8") if gitignore.is_file() else ""
-        if BOARD_FILENAME in existing.split():
+        tokens = existing.split()
+        if BOARD_FILENAME in tokens or f"!{BOARD_FILENAME}" in tokens:
             return
         separator = "" if existing.endswith("\n") or not existing else "\n"
         gitignore.write_text(

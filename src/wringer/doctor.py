@@ -272,12 +272,26 @@ def command_owner(path: str) -> str | None:
         return None
     if not first.startswith(b"#!"):
         return None
-    interpreter = first[2:].decode("utf-8", "replace").strip().split()
-    if not interpreter:
+    line = first[2:].decode("utf-8", "replace").strip()
+    words = line.split()
+    if not words:
         return None
-    candidate = Path(interpreter[0])
-    if candidate.name == "env" or not candidate.is_absolute():
+    if Path(words[0]).name == "env":
         # `#!/usr/bin/env python` names no environment at all.
+        return None
+    # **The WHOLE line, not its first word.** Found by hunting this function,
+    # 2026-08-26: splitting on whitespace and taking word one truncates
+    # `#!/Users/a b/venv/bin/python` to `/Users`, which collapses every
+    # environment under a path with a space in it into one owner and puts the
+    # mixture check straight back to blind — silently, and only for the people
+    # whose home directory has a space in it.
+    #
+    # Taking the whole line is right for both shapes, because `.parent` drops
+    # exactly one path component and an interpreter's arguments carry no
+    # slashes: `/x/bin/python -s` has parent `/x/bin`, and so does
+    # `/x/bin/python`.
+    candidate = Path(line)
+    if not candidate.is_absolute():
         return None
     return str(candidate.parent)
 
