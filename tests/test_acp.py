@@ -223,6 +223,15 @@ def test_a_REFUSED_turn_names_authentication_to_the_operator(
     assert "Authentication required" in payload.get("engine_words", ""), (
         "the agent's own account of the refusal is not carried"
     )
+    # **2026-08-27: the stop ASKS the agent at the moment it composes the
+    # sentence, and the record carries the answer.** This fake opens a
+    # session whether or not it is signed in — the measured unreadable case
+    # — so the honest answer here is `unknown`, and its presence at all is
+    # the proof that the loop wired the read: without it the description
+    # has no fact to branch on and the signed-out reading could never show.
+    assert payload.get("auth_state") == "unknown", (
+        "the loop never asked the agent about its login at the stop"
+    )
 
     # **Absent, not invented.** A refused turn never reached `stopReason`, and
     # writing "unknown" there would be a fact made up about a conversation
@@ -242,6 +251,106 @@ def test_a_REFUSED_turn_names_authentication_to_the_operator(
             f"the remedy names {variable!r} — Wringer would be choosing which "
             "of a person's secrets cross into a worker"
         )
+
+
+# The worker's refusal on the org-pinned Mac, verbatim from field report
+# 2026-08-27 — the line that sat "one level down in the worker log" while the
+# stop's first sentence pointed at a login that was demonstrably present.
+ORG_PIN_REFUSAL = (
+    "Unable to verify organization for the current authentication token… "
+    "the token could not be validated"
+)
+
+# And the old lead it displaced. Asserted ABSENT below, by its own words.
+THE_OLD_WRONG_LEAD = (
+    "the most common cause is that the coding agent is not logged in"
+)
+
+
+def test_a_failed_build_stop_LEADS_with_the_workers_own_refusal():
+    """**Field report 2026-08-27: the stop led with the wrong cause.**
+
+    On the org-pinned Mac the agent's login was accepted and the service
+    refused the token — and the first sentence a non-engineer read was still
+    "the most common cause is that the coding agent is not logged in". The
+    real reason was in the worker log, one level down, in the worker's own
+    words. Measured against that run's captured strings: when the credential
+    was accepted and then failed, the stop leads with the worker's refusal
+    line verbatim, and the not-logged-in reading appears only when auth
+    status actually reports signed out.
+    """
+    from wringer import worker_auth
+
+    # The pinned Mac's state: the agent reports itself logged in, the
+    # service refused the token anyway.
+    found = diagnose.diagnose_failed_turn(
+        timed_out=False,
+        engine_words=ORG_PIN_REFUSAL,
+        read_auth=lambda: worker_auth.LOGGED_IN,
+    )
+    assert found is not None
+    assert found.description.startswith("the worker's own refusal"), (
+        "the stop's first words are not the worker's own account"
+    )
+    assert ORG_PIN_REFUSAL in found.description, (
+        "the worker's refusal line is not carried verbatim in the sentence "
+        "a person reads first"
+    )
+    said = found.description + " " + found.remedy
+    assert THE_OLD_WRONG_LEAD not in said, (
+        "the not-logged-in guess still leads a stop whose agent reports "
+        "itself logged in — the exact wrong-cause sentence the field "
+        "report captured"
+    )
+    assert "check whether the agent is logged in" not in said, (
+        "the remedy still opens by pointing at the login on a stop that "
+        "knows the login was not the problem"
+    )
+    assert "not the cause" in found.remedy, (
+        "the remedy never tells the reader the one thing this stop knows — "
+        "that a missing login is not it"
+    )
+    # The record carries the fact the sentences were composed from.
+    assert found.as_json()["auth_state"] == worker_auth.LOGGED_IN
+
+    # Only the agent's own report of signed-out brings the login reading
+    # back — and then it is the agent's word, not a guess.
+    signed_out = diagnose.diagnose_failed_turn(
+        timed_out=False,
+        engine_words=ORG_PIN_REFUSAL,
+        read_auth=lambda: worker_auth.LOGGED_OUT,
+    )
+    assert signed_out is not None
+    assert "not logged in" in signed_out.description
+    assert "login is the fix" in signed_out.remedy
+
+    # An unreadable login keeps the honest survey — but the LEAD is still
+    # the worker's words, never the guess.
+    unknown = diagnose.diagnose_failed_turn(
+        timed_out=False,
+        engine_words=ORG_PIN_REFUSAL,
+        read_auth=lambda: worker_auth.UNKNOWN,
+    )
+    assert unknown is not None
+    assert unknown.description.startswith("the worker's own refusal")
+    assert THE_OLD_WRONG_LEAD not in unknown.description
+
+    # `read_auth` spawns the agent, so it runs only when a diagnosis is
+    # actually composed — a timeout composes nothing to attach it to.
+    def never() -> str:
+        raise AssertionError("read_auth was called for a timeout")
+
+    assert (
+        diagnose.diagnose_failed_turn(timed_out=True, read_auth=never) is None
+    )
+
+    # Unread is recorded as ABSENT, not defaulted — same rule as the ledger
+    # fields.
+    unread = diagnose.diagnose_failed_turn(
+        timed_out=False, engine_words=ORG_PIN_REFUSAL
+    )
+    assert unread is not None
+    assert "auth_state" not in unread.as_json()
 
 
 def test_the_printed_ending_QUOTES_the_agent_not_an_EMPTY_pair(

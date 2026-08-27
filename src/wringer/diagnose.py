@@ -32,10 +32,11 @@ while the loop re-guessed for itself is the shape F6 was written after.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from wringer import config, gates
+from wringer import config, gates, worker_auth
 
 # The three faces the shipped classifier already knew, named so a record can
 # carry the name instead of the prose. `not_executable` is new here: it was in
@@ -109,21 +110,43 @@ WORKER_DESCRIPTIONS = {
         "error; this usually means it could not authenticate, could not see "
         "the work, or produced nothing it could use"
     ),
-    # **It names AUTHENTICATION, and it names it as a possibility.** The hint
-    # tier may read text but may not claim, so this does not say the agent was
-    # unauthenticated — the agent's own words ride along in `engine_words` and
-    # a reader can see them. What it must not do is what the old ending did,
-    # which is leave the most likely cause unsaid because saying it would be a
-    # guess. A hint that omits the measured cause is not caution, it is a
-    # survey with the answer removed.
+    # **This entry is the SIGNED-OUT reading, and it only shows when the
+    # agent's own auth surface reported signed out at the stop.** Until
+    # 2026-08-27 it was the unconditional first sentence of every refused
+    # turn, phrased "the most common cause is that the coding agent is not
+    # logged in" — honestly qualified, and on the org-pinned Mac of field
+    # report 2026-08-27 it pointed a non-engineer away from the real cause,
+    # which sat one level down in the worker log ("Unable to verify
+    # organization for the current authentication token…"). The worker's own
+    # refusal line now leads instead (see `WorkerDiagnosis.description`), and
+    # this sentence appears only when `auth_state` says the agent reports
+    # itself signed out — at which point it is the agent's own word, not a
+    # guess about the most common cause.
     FACE_TURN_REFUSED: (
         "the agent refused the turn or its session failed, so nothing was "
-        "built; the most common cause is that the coding agent is not "
-        "logged in — it authenticates on its own account, separately from "
+        "built — and asked at the stop, the coding agent reports it is not "
+        "logged in; it authenticates on its own account, separately from "
         "Wringer, and Wringer's API key is not its credential and never "
         "reaches it"
     ),
 }
+
+#: The refused-turn description when the agent did NOT report itself signed
+#: out: the worker's own refusal line, verbatim, ahead of everything else.
+#: The reader the 2026-08-27 field report describes read the wrong cause
+#: first and found the right one "one level down in the worker log" — so the
+#: log's line comes first now, and no cause Wringer merely guesses at
+#: appears at all.
+REFUSED_LEADS_WITH_THE_WORKERS_WORDS = (
+    "the worker's own refusal, verbatim: `{line}` — the agent refused the "
+    "turn or its session failed, so nothing was built"
+)
+
+#: And when there is genuinely nothing to quote, the event alone. Naming a
+#: cause here would be a guess; the remedy already points at the logs.
+REFUSED_WITH_NOTHING_TO_QUOTE = (
+    "the agent refused the turn or its session failed, so nothing was built"
+)
 
 # **A POINTER, never a list.** `env_passthrough` exists so that a secret
 # crossing into a worker is a declared act by the person who owns it — R1
@@ -152,6 +175,13 @@ WORKER_REMEDIES = {
     # succeeded on exactly that. It still does not NAME a variable, for
     # `FACE_TURN_CHANGED_NOTHING`'s reason one entry up, but it no longer
     # tells the reader the route does not exist.
+    #
+    # **This entry is the UNREADABLE-LOGIN reading** — the agent is one whose
+    # auth surface `worker_auth` cannot read, so the survey it offers ("the
+    # credential was accepted and then failed, or the agent is one whose
+    # login this cannot read") is the honest whole of what is known. When the
+    # state WAS read, `REFUSED_REMEDIES_BY_AUTH_STATE` below says the sharper
+    # thing instead.
     FACE_TURN_REFUSED: (
         "check whether the agent is logged in — `wring doctor` answers that "
         "for free and `wring run` now refuses before it spends anything, so "
@@ -159,6 +189,32 @@ WORKER_REMEDIES = {
         "the agent is one whose login this cannot read; the agent's own last "
         "words are in `worker.stdout.log` and `worker.stderr.log`, under this "
         "loop's `iterations/` directory"
+    ),
+}
+
+# **Sharper remedies for the two states the agent can actually report,
+# 2026-08-27.** On the org-pinned Mac the agent's login was present and
+# accepted, the turn failed on the service's own refusal — and the old
+# unconditional remedy still opened with "check whether the agent is logged
+# in", pointing at the one route that was demonstrably not the problem. Same
+# philosophy as 0.4.9's machine-aware signed-out remedy: say what THIS stop
+# knows, not what the commonest stop would need. The signed-out remedy points
+# at `wring doctor` for the login command rather than restating the routes,
+# because `worker_auth._routes` is the one place that decision lives and a
+# third rendering of it is how doctor and the stop came to disagree once
+# already (field report 2026-08-26, finding 1).
+REFUSED_REMEDIES_BY_AUTH_STATE = {
+    worker_auth.LOGGED_OUT: (
+        "the agent's own login is the fix — `wring doctor` names this "
+        "machine's login command; the agent's own last words are in "
+        "`worker.stdout.log` and `worker.stderr.log`, under this loop's "
+        "`iterations/` directory"
+    ),
+    worker_auth.LOGGED_IN: (
+        "asked at the stop, the agent still reports itself logged in, so a "
+        "missing login is not the cause — the credential was accepted and "
+        "then refused; the full exchange is in `worker.stdout.log` and "
+        "`worker.stderr.log`, under this loop's `iterations/` directory"
     ),
 }
 
@@ -190,13 +246,46 @@ class WorkerDiagnosis:
     # What the agent said for itself, if anything, carried BESIDE the
     # description rather than parsed into one.
     engine_words: str = ""
+    # **What the agent's own auth surface said at the stop** — one of
+    # `worker_auth`'s states, or `""` when nobody asked. A FACT read off the
+    # agent (`worker_auth.read`), never a guess from text, and it exists so
+    # the sentence a non-engineer reads first can stop pointing at a login on
+    # the machine where the login was demonstrably not the problem (field
+    # report 2026-08-27).
+    auth_state: str = ""
 
     @property
     def description(self) -> str:
+        # **The refused turn leads with the worker's own words, unless the
+        # agent itself reports signed out.** The not-logged-in sentence is a
+        # hint, and field report 2026-08-27 measured what it costs when it
+        # leads wrongly: the reader is pointed away from a cause that was
+        # sitting, verbatim, in the worker's log one level down. So the
+        # log's line is promoted to the front, and the hint appears only
+        # when auth status actually reports signed out — at which point it
+        # is the agent's own word.
+        if self.face == FACE_TURN_REFUSED:
+            if self.auth_state == worker_auth.LOGGED_OUT:
+                return WORKER_DESCRIPTIONS[self.face]
+            line = next(
+                (
+                    row.strip()
+                    for row in self.engine_words.splitlines()
+                    if row.strip()
+                ),
+                "",
+            )
+            if line:
+                return REFUSED_LEADS_WITH_THE_WORKERS_WORDS.format(line=line)
+            return REFUSED_WITH_NOTHING_TO_QUOTE
         return WORKER_DESCRIPTIONS[self.face]
 
     @property
     def remedy(self) -> str:
+        if self.face == FACE_TURN_REFUSED:
+            found = REFUSED_REMEDIES_BY_AUTH_STATE.get(self.auth_state)
+            if found is not None:
+                return found
         return WORKER_REMEDIES[self.face]
 
     def as_json(self) -> dict[str, Any]:
@@ -217,6 +306,11 @@ class WorkerDiagnosis:
             recorded["refusals"] = self.refusals
         if self.engine_words:
             recorded["engine_words"] = self.engine_words
+        # Present only when it was READ — same rule as the ledger fields
+        # above. A record with no `auth_state` says nobody asked the agent,
+        # which is different from any answer.
+        if self.auth_state:
+            recorded["auth_state"] = self.auth_state
         return recorded
 
 
@@ -269,6 +363,7 @@ def diagnose_failed_turn(
     files_written: int | None = None,
     refusals: int | None = None,
     engine_words: str = "",
+    read_auth: Callable[[], str] | None = None,
 ) -> WorkerDiagnosis | None:
     """A turn that ended in an ERROR instead of ending at all, or None.
 
@@ -292,6 +387,14 @@ def diagnose_failed_turn(
 
     `engine_words` is the agent's own message and is the HINT tier: it is
     carried, shown and never read. Nothing above branches on it.
+
+    **`read_auth` is called once, and only when a diagnosis is actually
+    composed** — it spawns the agent to ask (`worker_auth.read`), which is
+    free but not instant, and a timeout or a landed turn composes nothing to
+    attach the answer to. It returns a `worker_auth` state; the diagnosis
+    carries it as `auth_state` and the sentences branch on it — the
+    not-logged-in reading only when the agent itself reports signed out
+    (field report 2026-08-27).
     """
     if timed_out:
         return None
@@ -302,6 +405,7 @@ def diagnose_failed_turn(
         files_written=files_written,
         refusals=refusals,
         engine_words=engine_words,
+        auth_state=read_auth() if read_auth is not None else "",
     )
 
 

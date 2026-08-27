@@ -138,7 +138,7 @@ DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
 # ABSENT unless a worker turn really ended clean and empty, so a reader that
 # finds one knows the worker never engaged without having to read a null.
 WORKER_DIAGNOSIS_FILENAME = "worker-diagnosis.json"
-WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v2"
+WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v3"
 
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
@@ -1491,11 +1491,26 @@ def _run_acp_worker(
         # than assumed; when the failure predates the turn they are None and
         # the record says nothing about them rather than claiming zero.
         partial = getattr(exc, "turn", None)
+        # **The auth state is read HERE, at the stop, not remembered from the
+        # preflight.** `wring run` refuses before spending when the agent is
+        # signed out, so a refused turn usually means the credential was
+        # accepted and then failed — but "usually" is exactly the word the
+        # stop must not lean on (field report 2026-08-27: the old sentence
+        # led with the not-logged-in guess on a machine where the login was
+        # accepted and the service refused it). A fresh read also catches the
+        # one case the preflight cannot: a login that expired mid-run. Lazy,
+        # because `diagnose_failed_turn` composes nothing for a timeout or a
+        # landed turn and the read spawns the agent.
+        from wringer import worker_auth
+
         refused = diagnose.diagnose_failed_turn(
             timed_out=timed_out,
             files_written=len(partial.files_written) if partial else None,
             refusals=len(partial.refusals) if partial else None,
             engine_words=said,
+            read_auth=lambda: worker_auth.read(
+                worker, containment_settings
+            ).state,
         )
         if refused is not None:
             object.__setattr__(result, "acp_empty_turn", refused)

@@ -2083,7 +2083,14 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
     # same words. So a multi-line quote gets its own block, verbatim, and the
     # hint keeps its own line above it.
     block = "\n" in said
+    # A refused turn's description now leads with the agent's words itself
+    # (2026-08-27), so quoting them again here would print the same line
+    # twice in one paragraph. Matched on the backticked form the description
+    # uses, not on a bare substring — a stop reason that happens to appear
+    # as a WORD in a description must still be quoted.
+    already_quoted = bool(said) and f"`{said}`" in found.description
     reported = "" if block else (
+        " (and it wrote no file)" if already_quoted else
         f" (it reported `{said}` and wrote no file)" if said else
         " (it wrote no file and reported nothing)"
     )

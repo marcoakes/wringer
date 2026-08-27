@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/worker-diagnosis-v3.schema.json",
+  "title": "wringer.workerdiagnosis.v3",
+  "description": "A ROUTING DIAGNOSIS ABOUT THE WORKER'S TURN, NEVER A VERDICT. Why the last worker turn produced nothing, read out of the turn's own ledger — and nothing that reads this file may let it reach a verdict: not acceptance's receipts, not vacuity, not health. The same boundary `diagnosis.schema.json` carries, for the same reason.\n\nWHY v3 EXISTS. On 2026-08-27 a field run on an org-pinned Mac met a refused turn whose cause was NOT a missing login: the agent was logged in, the service refused the token, and the record's `description` still led with \"the most common cause is that the coding agent is not logged in\" — pointing the reader away from the worker's own refusal line one level down in the log. The stop now asks the agent about its login at the moment the diagnosis is composed and branches the sentences on the answer, and the answer itself is a new FACT the record must carry. v2 is published and frozen (law 7: a byte change without a new schema_version is a silent break for every reader), so this is a new file and v2 keeps every byte it published.\n\nWHAT CHANGED, exactly: one OPTIONAL property, `auth_state` — what the agent's own auth surface said at the stop, present only when it was asked. Nothing else moves, and every v2 record is a valid v3 record.\n\nABSENT rather than null, throughout. A reader that finds no `files_written` knows nobody counted — the turn died before there was a ledger to read. A reader that finds `0` knows somebody counted and the answer was none. The same rule carries `auth_state`: absent means nobody asked, which is different from any answer.\n\nA SIBLING file in the loop bundle, beside `manifest.json`, on the `usage.json`, `vacuity.json` and `diagnosis.json` precedent. It is NOT a face on `wringer.diagnosis.v1`: that schema's `face` is closed too, and its required `gate` and `evidence` are read off a failing gate's log by `gates.cite`. These facts come from the worker's ledger and name no gate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "face",
+    "description",
+    "remedy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.workerdiagnosis.v3"
+    },
+    "face": {
+      "description": "Which shape the turn wore. A CLOSED enum, derived from `diagnose.WORKER_FACES` — a face with no name is a face no reader can route on. `turn_changed_nothing`: the turn ended cleanly, wrote no file and raised no refusal. `turn_refused`: the turn ended in an error instead of ending at all — the agent refused the prompt or the session failed. The two are exclusive by construction, one per detector, and the second was added because its absence was the defect: a refused turn used to produce no record of any kind, so the loop's most common real failure was the one ending nothing could describe.",
+      "enum": ["turn_changed_nothing", "turn_refused"]
+    },
+    "description": {
+      "description": "The hint, addressed to a person, phrased as the possibility it is. Composed by `diagnose.WorkerDiagnosis`, so the record and the console cannot disagree about which sentence they carry. As of v3 a `turn_refused` description LEADS with the worker's own refusal line, quoted verbatim, and the not-logged-in reading appears only when `auth_state` is the agent's own report of being signed out — a hint that led with the unmeasured common cause pointed a real reader away from the measured one (field report 2026-08-27). The hint tier may read text and may never claim.",
+      "type": "string",
+      "minLength": 1
+    },
+    "remedy": {
+      "description": "What the operator can actually do. A POINTER, never a list of credentials. `turn_changed_nothing` names `run.worker.acp.env_passthrough` as the operator's channel and NEVER which variables belong in it: that field exists so a secret crossing into a worker is a declared act by the person who owns it. `turn_refused` branches on `auth_state`: signed out points at the agent's own login (via `wring doctor`, where the machine-aware routes live); logged in says a missing login is not the cause; unread or unreadable keeps the honest survey. Every branch names the worker log, and none names a credential variable.",
+      "type": "string",
+      "minLength": 1
+    },
+    "stop_reason": {
+      "description": "The ACP `stopReason` the agent reported for the turn — a FACT from the ledger, recorded and never obeyed. A turn claiming `end_turn` having written nothing is the shape a deprecated adapter's unauthenticated reply has. OPTIONAL since v2, and absent for `turn_refused`: a turn that was refused never reached a stop reason, and `\"none\"` or `\"unknown\"` written here would be an invented fact about a conversation that did not happen.",
+      "type": "string",
+      "minLength": 1
+    },
+    "files_written": {
+      "description": "How many files the turn wrote through the file seam. OPTIONAL since v2: present when a ledger survived the turn, absent when the failure came before there was one. Zero is what makes `turn_changed_nothing` apply; the number is recorded rather than the fact, so a reader sees what was counted.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "refusals": {
+      "description": "How many writes the file seam refused during the turn. OPTIONAL since v2, for `files_written`'s reason. Zero, likewise: a turn that was refused a write DID try to do something, and is a different ending with its own evidence.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "engine_words": {
+      "description": "The agent's own last account of itself, if it gave one, carried verbatim BESIDE the description rather than parsed into it. Detection never reads this — F6's law: route on facts, hint on text, claim on neither — and the deprecated adapter's empty success is precisely why text cannot be trusted here. For `turn_refused` this is the agent's error message, and it is the one line that told a real operator what had gone wrong; it is scrubbed by the bundle's redactor on the way to disk like every other write.",
+      "type": "string"
+    },
+    "auth_state": {
+      "description": "What the agent's own auth surface said when the diagnosis was composed — a FACT read by `worker_auth.read` at the stop, never a guess from text. An OPEN string on the `wringer.loop.v2` `reason` precedent, so a new state costs no schema version; its known values are `logged_in` (the agent reports itself logged in — a missing login is not the cause), `logged_out` (the agent's own report of being signed out — the one answer that brings the login reading back), and `unknown` (the agent's auth surface could not be read, or answered in no shape this check trusts). Present only when the agent was ASKED: absent means nobody asked, which is different from any answer, and every record written before v3 is absent here.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

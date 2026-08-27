@@ -66,7 +66,7 @@ COVERED: dict[tuple[str, str, str], tuple[str, tuple[str, ...]]] = {
         "diagnosis.schema.json", (),
     ),
     ("diagnose", "WorkerDiagnosis", "as_json"): (
-        "worker-diagnosis-v2.schema.json", (),
+        "worker-diagnosis-v3.schema.json", (),
     ),
 }
 
@@ -86,6 +86,7 @@ EXCLUDED = {
     "loop-manifest.schema.json": "superseded by v2",
     "untracked.schema.json": "superseded by v2",
     "worker-diagnosis.schema.json": "superseded by v2",
+    "worker-diagnosis-v2.schema.json": "superseded by v3; kept for old bundles",
     # Person-authored INPUT formats. There is no writer to derive from —
     # a human writes these, and the schema is the contract they are held to.
     "judgements.schema.json": "a person writes this file; there is no writer",
