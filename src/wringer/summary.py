@@ -43,6 +43,7 @@ def write(
     results: list[GateResult],
     skipped: list[Gate],
     failed_gate: str | None,
+    recorded_after_failure: tuple[str, ...] = (),
     status: str = "passed",
     interrupted: Interrupted | None = None,
     template_only: bool = False,
@@ -88,7 +89,8 @@ def write(
 
     for result in results:
         lines.append(
-            f"| {result.gate.id} | {_status(result)}{_flake_mark(stability, result)} "
+            f"| {result.gate.id} | {_status(result)}{_flake_mark(stability, result)}"
+            f"{_for_the_record(recorded_after_failure, result)} "
             f"| {result.duration_ms / 1000:.1f}s | {_logs(bundle, result)} |"
         )
     # The gate a Ctrl-C caught mid-flight: it ran, so "skipped" would be
@@ -231,6 +233,20 @@ def _flake_mark(stability: Any, result: GateResult) -> str:
     if row is None or row.classification != stability_module.FLAKY:
         return ""
     return " (flaky, tolerated)" if row.tolerated else " (flaky)"
+
+
+def _for_the_record(recorded_after_failure: tuple[str, ...], result: GateResult) -> str:
+    """`(for the record)` beside a gate that ran after the run had failed.
+
+    Field report 2026-08-27 finding 1's fix put bound gates back on the tree
+    after a required failure, so their red reaches the record instead of being
+    thrown away. That is worth exactly one word here, because without it the
+    table shows two ✗ rows and a reader has no way to tell the gate that
+    stopped the run from a gate that ran only so its result would be written
+    down. `_result_line` already names which failure this run was; this names
+    what the other rows are.
+    """
+    return " (for the record)" if result.gate.id in recorded_after_failure else ""
 
 
 def _stability_section(bundle: Bundle, stability: Any) -> list[str]:

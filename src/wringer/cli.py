@@ -1097,6 +1097,7 @@ def _start_build(root: Path, worker: config.AcpWorker | None) -> int:
             outcome.bundle, root, outcome.results, outcome.failed_gate,
             outcome.status, template_only=outcome.template_only,
             execution=backend.for_config(cfg.execution),
+            recorded_after_failure=outcome.recorded_after_failure,
         )
         _diagnose_failure(outcome)
         if worker is None:
@@ -1740,6 +1741,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             template_only=outcome.template_only,
             vacuity_result=outcome.vacuity,
             execution=backend.for_config(cfg.execution),
+            recorded_after_failure=outcome.recorded_after_failure,
         )
         _report_check_notes(root, outcome.bundle.directory)
 
@@ -4571,6 +4573,7 @@ def _report_run(
     template_only: bool = False,
     vacuity_result: object | None = None,
     execution: object | None = None,
+    recorded_after_failure: tuple[str, ...] = (),
 ) -> None:
     if status == "interrupted":
         print("\n✗ interrupted — the run stopped before every gate finished")
@@ -4578,6 +4581,22 @@ def _report_run(
         failure = next(r for r in results if r.gate.id == failed_gate)
         for path in (failure.stdout_path, failure.stderr_path):
             _print_tail(path, bundle.relative(path))
+    # **Only the failing gate's logs are tailed above, and that is unchanged.**
+    # But a person watching the terminal saw more than one ✗ go by and has to
+    # be told which one this run failed at, and why the others ran at all —
+    # field report 2026-08-27 finding 1 put bound gates back on the tree after
+    # a required failure so their red reaches the record. Silence here would
+    # read as two independent things to go and fix.
+    if recorded_after_failure and failed_gate is not None:
+        names = ", ".join(recorded_after_failure)
+        many = len(recorded_after_failure) > 1
+        print(
+            f"\n! This run failed at {failed_gate}. {names} ran anyway because"
+            f"\n  {'they each prove' if many else 'it proves'} a requirement — "
+            "a red there is the evidence that"
+            "\n  requirement needs, and skipping past it is how a check ends up"
+            "\n  green from birth, proving nothing."
+        )
     if template_only:
         # A `!`, deliberately — the same mark `wring doctor` uses for "worth
         # knowing, not a problem". This run did not fail and must not look

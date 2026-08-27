@@ -547,6 +547,14 @@ red.** Read from the run record: iteration 1 ran `test` then failed `g-hdr`
 and stopped there — `wring verify` stops at the first required failure, so
 `g-rows` and `g-cents` never ran at all. Iteration 2 ran all four green.
 
+> **FIXED 2026-08-27.** The starvation this section measured is gone: a gate
+> carrying `proves:` is no longer skipped by another gate's failure, so
+> `g-rows` and `g-cents` would run and be recorded red on iteration 1 today.
+> Everything below stays as the record of what the engine did when this was
+> filmed — including the `evidenced: 0` artifact, which is the reason the fix
+> exists. It took a second sighting, in front of a person, to land: field
+> report 2026-08-27 finding 1.
+
 The acceptance artifact on that green run:
 
 ```json

@@ -235,7 +235,13 @@ evidence:
 **Rules (binding):**
 
 1. Gates run cheapest first.
-2. Stop on first required failure by default.
+2. Stop on first required failure by default. **AMENDED 2026-08-27**: that
+   stop decides the run's OUTCOME, not its RECORD. A gate carrying `proves:`
+   is no longer skipped by another gate's failure, because its red is the
+   evidence a criterion rests on and skipping it is how a check goes green from birth
+   (field report 2026-08-27 finding 1). A gate with no binding is still
+   skipped, which is what bounds the cost of this to the declared bindings.
+   The run's `status`, `failed_gate`, exit code and rerun hint are unchanged.
 3. Optional gates record failure but do not fail the run.
 4. Every command gets stdout, stderr, exit code, duration, timeout status.
 5. Secrets are redacted **before** writing evidence.

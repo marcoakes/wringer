@@ -70,6 +70,17 @@ born green at lap 2 — `evidenced: 0`, every criterion refusing delivery, on
 a change that genuinely satisfied all three. **A one-shot agent can evidence
 at most one criterion per red lap**, and every good agent is one-shot.
 
+**AMENDED 2026-08-27 — the starvation was the defect, and it is fixed.** Run
+6's re-run on the main Mac hit exactly this shape once more, and this time in
+front of a person: the drive told them "None of them passes today", naming the
+gate, and the record then refused delivery because "nothing in the record shows
+it can fail". A gate carrying `proves:` is no longer skipped by another gate's
+failure, so every bound gate gets its red on the pre-change lap and a one-shot
+agent can now evidence every criterion its turn satisfies. The paragraph above
+describes what was measured on 2026-08-11 and stays as the record of it; the
+sentence it licensed — that `run.prove: true` is effectively required of any
+repo that binds criteria — no longer follows.
+
 So the mechanism is the **`sensitive` receipt**: `--prove` re-runs the bound
 gate against the pre-change tree, and a gate that fails there and passes here
 has demonstrated exactly what a historical red demonstrates — on the same

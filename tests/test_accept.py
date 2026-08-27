@@ -319,7 +319,16 @@ def test_a_human_criterion_is_answered_by_people(repo, monkeypatch, capsys):
 def test_a_gate_that_did_not_run_is_absence_not_a_pass(repo, monkeypatch, capsys):
     """Absence of a result is absence, never a pass-through to an older
     green. A criterion whose gate was skipped this run is not evidenced by
-    the fact that it was evidenced last week."""
+    the fact that it was evidenced last week.
+
+    **The route here changed on 2026-08-27 and the property did not.** This
+    used to starve `csv` by putting a failing gate in front of it, which is
+    exactly the starvation field report finding 1 removed: a BOUND gate is no
+    longer skipped by another gate's failure, so that route now produces a
+    real `gate-failed` row and cannot reach this state. `--gate` is the route
+    that still leaves a bound gate with no result, and the state it lands in
+    is the one this test is about.
+    """
     write_spec(repo)
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     write_config(
@@ -329,8 +338,8 @@ def test_a_gate_that_did_not_run_is_absence_not_a_pass(repo, monkeypatch, capsys
     )
     monkeypatch.chdir(repo)
 
-    # `first` fails, so `csv` never runs and leaves no result.
-    assert cli.main(["verify"]) == cli.EXIT_GATE_FAILED
+    # This run was never asked to run `csv`, so it leaves no result for it.
+    assert cli.main(["verify", "--gate", "first"]) == cli.EXIT_GATE_FAILED
     capsys.readouterr()
 
     row = artifact(repo)["criteria"][0]

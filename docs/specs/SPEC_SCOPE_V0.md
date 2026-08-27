@@ -395,6 +395,13 @@ a worker that then satisfied the WHOLE task in one call left the second gate
 green having never been red — `unevidenced`, `refuses: true`, delivery
 refused, with the summary's born-green warning firing correctly beside it.
 Nothing here is unsafe: the guard does its job and the tick does not inflate.
+
+**AMENDED 2026-08-27.** The measurement above stands as the record of what
+shipped then. It no longer describes the engine: a gate carrying `proves:` is
+no longer skipped by another gate's failure (SPEC_VERIFY rule 2, amended the
+same day, after field report 2026-08-27 finding 1), so a scoped child whose task
+owns two bound gates arms BOTH on one red iteration. The finding's conclusion
+— that the tick does not inflate — is unaffected either way.
 What breaks is the cycle's headline deliverable, because a capture built from
 one-gate tasks would go green while demonstrating strictly less than the box
 claims — a check that narrowed while still passing, which is the defect class

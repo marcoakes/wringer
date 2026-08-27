@@ -54,6 +54,14 @@ class Outcome:
     interrupted: summary.Interrupted | None
     failed_gate: str | None
     status: str
+    # The bound gates this run executed after it had already failed, so their
+    # result would be on the record (field report 2026-08-27 finding 1). Empty
+    # for every run that passed and for every run whose failure was its last
+    # gate. Carried so the summary can mark those rows: "the gate that stopped
+    # the run" and "a gate that ran only so the record would have its result"
+    # are different facts, and a table rendering them identically sends a
+    # reader off to fix two things when one of them is not theirs to fix.
+    recorded_after_failure: tuple[str, ...] = ()
     # Every required gate is still the placeholder `wring init` writes, so
     # this run's `passed` is about the harness and not about the code. The
     # caller has to be able to say so; a green exit that quietly means
@@ -271,6 +279,12 @@ def run(
 
     results: list[gates.GateResult] = []
     skipped: list[config.Gate] = []
+    # Bound gates that ran AFTER a required gate had already failed, so their
+    # red would reach the record (field report 2026-08-27 finding 1). Carried
+    # rather than re-derived: "which rows came after the failure" is a fact
+    # about how this run was executed, and a second reader computing it from
+    # the results list would be one more surface able to disagree.
+    recorded_after_failure: list[str] = []
     failed_gate: str | None = None
     interrupted: summary.Interrupted | None = None
     # Appended by `_run_gate` for every gate that declared a policy, INCLUDING
@@ -287,6 +301,40 @@ def run(
     # declared none gets a group per gate, which is exactly the loop that shipped.
     grouped = group_gates(planned, serial=serial)
     for offset, group in enumerate(grouped):
+        if failed_gate is not None:
+            # **A BOUND gate is not skipped by another gate's failure** — field
+            # report 2026-08-27 finding 1.
+            #
+            # Fail-fast decides the OUTCOME of a run, and that is not in
+            # question: `failed_gate` is already set and nothing below moves
+            # it. What fail-fast was also deciding, silently, is the RECORD —
+            # and the record is what refuses a delivery weeks later.
+            #
+            # In the field: `acceptance` failed at iteration 1, so
+            # `skip-downstream-acceptance` never ran while it was red, in any
+            # recorded run. One worker turn then fixed both, and the criterion
+            # it proves was refused as `born-green` — "nothing in the record
+            # shows it can fail" — minutes after the drive had told the person
+            # to their face that none of those checks passed. The trial that
+            # saw it red keeps a boolean and writes nothing; the run that could
+            # have written it never ran the gate.
+            #
+            # A gate carrying `proves:` is the one kind whose red is EVIDENCE
+            # and not just an outcome, so it runs anyway, and `accept` reads
+            # its result exactly as it reads any other. Everything unbound is
+            # still skipped: that is what bounds the cost of this to the
+            # bindings a repository actually declared, and it is why a red run
+            # does not now pay for every gate in the file.
+            #
+            # This buys nothing on its own — a gate that PASSES here is still
+            # born-green, because a pass is what the record then shows. It only
+            # stops the product throwing away a red it was standing in front of.
+            held_back = [pending for _, pending in group if pending.proves is None]
+            skipped.extend(held_back)
+            group = [(index, gate) for index, gate in group if gate.proves]
+            if not group:
+                continue
+            recorded_after_failure.extend(gate.id for _, gate in group)
         if len(group) > 1:
             names = [gate.id for _, gate in group]
             ran_beside += [
@@ -312,9 +360,17 @@ def run(
             interrupted = summary.Interrupted(
                 gate=gate, directory=bundle.gate_dir(index, gate.id)
             )
-            skipped = [pending for _, pending in group[1:]] + remaining
+            skipped.extend([pending for _, pending in group[1:]] + remaining)
+            # A gate that never ran is not a gate that ran for the record.
+            recorded_after_failure = [
+                gate_id
+                for gate_id in recorded_after_failure
+                if gate_id in {result.gate.id for result in results}
+            ]
             break
         results.extend(done)
+        if failed_gate is not None:
+            continue
         # **Every gate in a group runs, and only then is the stop decided.**
         # Within a group there is no early exit — the gates are already in
         # flight, so "stop at the first required failure" cannot mean what it
@@ -327,8 +383,6 @@ def run(
         )
         if failed is not None:
             failed_gate = failed.gate.id
-            skipped = remaining
-            break
 
     if interrupted is not None:
         status = "interrupted"
@@ -484,6 +538,7 @@ def run(
         state,
         results=results,
         skipped=skipped,
+        recorded_after_failure=tuple(recorded_after_failure),
         scoped_out=scoped_out,
         scoped_to=scoped_to,
         failed_gate=failed_gate,
@@ -507,6 +562,7 @@ def run(
         interrupted=interrupted,
         failed_gate=failed_gate,
         status=status,
+        recorded_after_failure=tuple(recorded_after_failure),
         template_only=template_only,
         vacuity=proved,
         stability=observed_report,

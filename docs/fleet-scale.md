@@ -43,7 +43,10 @@ one gate would go green while demonstrating strictly less than this page
 claims — `wring verify` stops at the first required failure, so the
 interesting case is a task that has to arm two gates on two separate red laps.
 That case is [§3a](#3a-one-wring-verify-arms-one-gate), and it is the reason
-this recording is shaped the way it is.
+this recording is shaped the way it is. **AMENDED 2026-08-27: a gate carrying
+`proves:` is no longer skipped by another gate's failure, so two bound gates
+arm on one lap now — see §3a. The recording still shows two, because that is
+what the engine did the day it was filmed.**
 
 ## The chain, at scale, and where it reached
 
@@ -466,6 +469,15 @@ verify if nobody built it, and acceptance refuses delivery exactly as today.
 ## 3. What it still cannot do
 
 ### 3a. One `wring verify` arms one gate
+
+> **FIXED 2026-08-27, and this section is the record of the limit it had.**
+> A gate carrying `proves:` is no longer skipped by another gate's failure, so
+> one `wring verify` now arms **every bound gate**. The capture below, and the
+> narration of it above, are what the engine did on 2026-08-10 and are kept
+> verbatim; what they describe is no longer a limit of the product. The change
+> came out of field report 2026-08-27 finding 1, where the same starvation
+> refused a delivery for the absence of a red a person had watched happen.
+> A gate with **no** binding is still skipped by an earlier failure.
 
 `wring verify` stops at the first required failure, and scoping does not
 change that — it is a binding non-goal here. So a scoped child whose task

@@ -440,8 +440,10 @@ you it is green. This tells you what the green is worth.
 **"The LLM writes the check — isn't that circular?"** Three things break the
 circle, and all three ship. **Temporal independence:** a proposed gate goes
 through `wring plan`'s diff to a human, and it is recorded RED before any work
-begins — one `wring verify` arms one gate, because verify stops at the first
-required failure, which is why `run.prove: true` exists for specs with many.
+begins — one `wring verify` arms every bound gate, because a gate carrying
+`proves:` is no longer skipped by another gate's failure (a gate with no
+binding still is). `run.prove: true` remains the answer where the reds have to come
+from a controlled comparison rather than from history.
 **A check that arrived with the work cannot evidence the work:** where a
 criterion's only receipt is a `--prove` sensitivity row and the check's command
 names a file git reports as new, the receipt is refused and the criterion exits
