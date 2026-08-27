@@ -1359,12 +1359,32 @@ def test_EVERY_cd_AND_sh_TARGET_COMES_FROM_A_PRIOR_STEP():
     Two escapes, both narrow and both deliberate: a target rooted at `~`, `/`
     or a variable is a place the person chose, and a `<placeholder>` is not a
     path at all. Everything else has to be produced.
+
+    **Amended 2026-08-27, after the defect class shipped a THIRD time with
+    this guard green on it** (field report 2026-08-27, finding 3). The page
+    said `cd ~/wringer-source/examples/pipeline`; the example lives at
+    `docs/drive/examples/pipeline`. This guard walked that step and stayed
+    green, because its clone mapping resolved against `ROOT` — `docs/drive/`,
+    the documents' home INSIDE the checkout — while the page's own clone
+    command creates the checkout itself. In `ROOT`'s coordinate system
+    `examples/pipeline` exists (it is the example's real home), so the wrong
+    path in the document resolved to the right directory in the guard's
+    model: the document and the guard dropped the same `docs/drive/` prefix
+    from opposite ends, and the errors cancelled. The guard was green not
+    despite the defect but because it SHARED it. Worse in the field than the
+    2026-08-26 form: `examples/` does exist at a real clone's top, without
+    the example in it, so an operator gets a folder that looks right instead
+    of a clean failure. Every path a clone produces is now resolved against
+    `repo_root()` — the layout `git clone` actually creates.
     """
     import posixpath
 
     # What the page has created so far, mapped to the directory in THIS
     # repository it corresponds to — or None where the guard cannot see
-    # inside (an unrelated clone, a bare `mkdir`).
+    # inside (an unrelated clone, a bare `mkdir`). A clone of this repository
+    # maps to `"."` — the top of the CHECKOUT, anchored at `repo_root()`
+    # below, never at `ROOT`: `ROOT` is `docs/drive/`, and resolving a
+    # clone's paths there is the 2026-08-27 amendment's whole story.
     produced: dict[str, str | None] = {}
     cwd: tuple[str, str | None] | None = None
     unfollowable: list[str] = []
@@ -1423,11 +1443,11 @@ def test_EVERY_cd_AND_sh_TARGET_COMES_FROM_A_PRIOR_STEP():
                 cwd = None
                 continue
             if where is not None and where[1] is not None:
-                if not (ROOT / where[1]).is_dir():
+                if not (repo_root() / where[1]).is_dir():
                     unfollowable.append(
-                        f"`{command}` — that path is not in this repository, "
-                        "so the clone the reader was told to make does not "
-                        "contain it"
+                        f"`{command}` — a fresh clone has no "
+                        f"`{where[1]}` directory, so the clone the reader "
+                        "was told to make does not contain it"
                     )
             cwd = where
             continue
@@ -1445,10 +1465,10 @@ def test_EVERY_cd_AND_sh_TARGET_COMES_FROM_A_PRIOR_STEP():
                     "is there"
                 )
                 continue
-            if not (ROOT / cwd[1] / script).is_file():
+            if not (repo_root() / cwd[1] / script).is_file():
                 unfollowable.append(
-                    f"`{command}` — `{cwd[1]}/{script}` is not in this "
-                    "repository"
+                    f"`{command}` — a fresh clone has no "
+                    f"`{cwd[1]}/{script}`"
                 )
 
     assert not unfollowable, (

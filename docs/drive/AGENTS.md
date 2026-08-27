@@ -170,12 +170,15 @@ fails, stop and show them the real error before doing anything else.
 
    ```bash
    git clone https://github.com/marcoakes/wringer.git ~/wringer-source
-   cd ~/wringer-source/examples/pipeline
+   cd ~/wringer-source/docs/drive/examples/pipeline
    sh setup.sh ~/wringer-example
    ```
 
-   Show the person everything `setup.sh` prints. `examples/README.md` in that
-   clone lists the examples. Inside the example project (`~/wringer-example`),
+   The examples live under `docs/drive/examples/` in that clone — **not**
+   under the top-level `examples/`, which exists and holds other things, so
+   a wrong `cd` here lands in a folder that looks right and has no
+   `setup.sh`. Show the person everything `setup.sh` prints.
+   `docs/drive/examples/README.md` in that clone lists the examples. Inside the example project (`~/wringer-example`),
    run `wring doctor` once more; every line should now be green or explained.
 
    A first-time reader stopped exactly here on 2026-08-26, because the page
