@@ -3933,7 +3933,13 @@ def test_the_release_recipe_NAMES_every_document_the_version_guard_checks():
     # of the paragraph it is about. Caught by mutating the recipe and watching
     # nothing go red.
     changelog = (repo_root() / "CHANGELOG.md").read_text(encoding="utf-8")
-    start = changelog.index("## 0.4.1")
+    # Anchored on the heading's full form, not a bare prefix. `index("##
+    # 0.4.1")` bound to `## 0.4.10` the day that release was cut, so this
+    # guard silently started reading the NEWEST entry as "the recipe" and
+    # went red on a release commit that had done nothing wrong — the same
+    # substring-anchoring defect class the 2026-08-27 followability
+    # amendment records, in the guard that polices the recipe.
+    start = changelog.index("## 0.4.1 —")
     end = changelog.index("\n## ", start + 1)
     recipe = changelog[start:end]
 
