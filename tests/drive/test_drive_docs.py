@@ -1961,3 +1961,26 @@ def test_ONLY_ONE_PAGE_TELLS_ANYONE_HOW_TO_AUTHENTICATE_THE_BUILDER():
         f"point at {home}, which is where that answer lives. Three surfaces "
         "carrying this answer is how two of them came to be wrong"
     )
+
+
+def test_the_credential_table_carries_the_PRECEDENCE_fact():
+    """**Presence is worse than absence, and the WHY is banked.**
+
+    Measured on the org-pinned Mac, 2026-08-27 (that day's field report): an
+    `env_passthrough` Anthropic key does not merely get refused there — it
+    DISPLACES a claude.ai login and takes precedence over it, so the one
+    route the machine permits is invisible while the key is present. That is
+    the mechanism behind every "remove the key — that is the fix" remedy in
+    this repository, and it lives in the one credential home every other
+    page points at. This guard pins the fact and the measured refusal it was
+    read from to that home, so neither can be silently dropped.
+    """
+    body = flattened(agents_md())
+    assert "displaces a claude.ai login and takes precedence" in body, (
+        "the credential table no longer states that a passed-through key "
+        "displaces the login — the measured mechanism behind presence "
+        "being worse than absence"
+    )
+    assert (
+        "A non-OAuth Anthropic credential cannot satisfy the org pin" in body
+    ), "the measured refusal is no longer quoted beside the fact it proves"

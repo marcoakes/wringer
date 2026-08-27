@@ -340,7 +340,7 @@ not the person.**
 | the machine | the route that works | what breaks it |
 |---|---|---|
 | ordinary, unmanaged | **either** — log the agent's CLI in, **or** declare a key under `env_passthrough` | nothing measured |
-| **pinned by managed settings to an organisation login** | log the agent's CLI in, and pass **NO** key | **the key itself.** While it is in the worker's environment, `session/new` is refused |
+| **pinned by managed settings to an organisation login** | log the agent's CLI in, and pass **NO** key | **the key itself.** While it is in the worker's environment, `session/new` is refused — and not by merely failing: the key **displaces a claude.ai login and takes precedence over it**, which is why presence is worse than absence. Measured 2026-08-27 on such a Mac: *"managed settings require a first-party login… A non-OAuth Anthropic credential cannot satisfy the org pin"* |
 
 **On macOS the login route needs the worker to be told who is running it, and
 since 0.4.9 it is.** A worker does not inherit Wringer's environment; it is
