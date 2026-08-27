@@ -211,12 +211,16 @@ def _load(path: Path) -> Any:
 
 
 def latest_run(repo: Path) -> Path | None:
-    """The most recent verify bundle, by the LOOP's order where one exists.
+    """The most recent verify bundle, by mtime — whoever wrote it.
 
-    Falls back to the newest directory by mtime, never by id: run ids are
-    `<date>-<HHMMSS>-<4 hex>` and do not sort chronologically. In the probe's
-    capture four of five runs shared one second and lexical order was wrong
-    (ruling 8).
+    By mtime, never by id: run ids are `<date>-<HHMMSS>-<4 hex>` and do not
+    sort chronologically. In the probe's capture four of five runs shared one
+    second and lexical order was wrong (ruling 8).
+
+    The docstring said "by the LOOP's order where one exists" until
+    2026-08-27, which described its CALLER and not this function — and the
+    caller was the drift finding 2 named. This reads the directory, and the
+    directory is where a standalone `wring verify` puts its record too.
     """
     runs = repo / ".wringer" / "runs"
     if not runs.is_dir():
@@ -594,9 +598,25 @@ def read(
     board.loop_dir = latest_loop(repo)
     board.attempts, board.ordered = attempts_from_loop(repo, board.loop_dir)
 
-    # The run the board describes: the LAST one the loop verified where a loop
-    # exists, so the board and the loop agree about which run is "this run".
-    board.run_dir = board.attempts[-1].directory if board.attempts else latest_run(repo)
+    # **RECENCY WINS** — the run the board describes is the repository's
+    # NEWEST run record, whoever wrote it.
+    #
+    # This pinned `run_dir` to the loop's last attempt whenever a loop existed,
+    # and that is the drift of field report 2026-08-27 finding 2. Both `wring
+    # verify` and `wring verify --prove` write STANDALONE runs — outside any
+    # loop — and both are what the engine's own refusals send a person off to
+    # run. So after the pen had moved and `--prove` had recorded a real red,
+    # the page still said "Nobody has yet" and "0 of 8 proved" while
+    # `acceptance.json` in the newest run carried the person's `not_met` and
+    # `wring deliver` was refusing delivery citing it. The hero surface told a
+    # person to go and do a thing they had already done.
+    #
+    # The loop rail is a DIFFERENT fact and keeps its own: `board.attempts`
+    # still comes from the loop's ledger and still tells the loop's story. The
+    # page names the run it rendered (the engineers' block), because the whole
+    # cost of the finding was that a stale page and a fresh record could not be
+    # told apart by reading them.
+    board.run_dir = latest_run(repo)
     if board.run_dir is None or not board.run_dir.is_dir():
         board.refusal = (
             "There is no evidence here yet. Nothing has been verified in this "
