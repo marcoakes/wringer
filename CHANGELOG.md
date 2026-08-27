@@ -4,6 +4,74 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.10 — 2026-08-27
+
+**The re-run's findings.** The same operator re-ran the chain on the same
+org-pinned Mac against 0.4.9. The build was blocked by the machine's own
+auth — both routes measured refused, neither a Wringer defect — and the run
+confirmed three 0.4.9 fixes working in the field. What it surfaced is what
+ships here. The report is
+[docs/field-report-2026-08-27-run6-rerun.md](docs/field-report-2026-08-27-run6-rerun.md),
+verbatim (incomplete by its own statement — it still awaits the answer to
+what `auth login` did on that machine).
+
+### The runbook's example path — and the guard that shared its confusion
+
+`docs/drive/AGENTS.md` step 6 said `cd ~/wringer-source/examples/pipeline`;
+the example lives at `docs/drive/examples/pipeline`. Third shipping of the
+same defect class in two days, one level deeper each time — and this time
+worse in the field, because `examples/` does exist at a clone's top, without
+the example in it, so the operator got a folder that looks right instead of
+a clean failure.
+
+The interesting defect is the guard. 0.4.9's followability guard walks the
+page's `cd`/`sh` targets the way a reader types them — and it stayed green,
+because it resolved the clone's paths against `docs/drive/` (where the
+drive's documents live inside this repository) rather than against the
+checkout the page's own `git clone` creates. In that coordinate system
+`examples/pipeline` exists. The document and the guard had dropped the same
+`docs/drive/` prefix from opposite ends, and the errors cancelled: the guard
+was green not despite the defect but because it shared it. It now resolves
+every clone-produced path against the repository root, was watched go red on
+the shipped 0.4.9 text (both steps), and went green only with the corrected
+path.
+
+### The failed-build stop leads with the worker's own words
+
+On a failed build turn the stop's first sentence was "the most common cause
+is that the coding agent is not logged in" — honestly qualified, and on the
+pinned Mac it pointed a non-engineer away from the real cause, which sat one
+level down in the worker log ("Unable to verify organization for the current
+authentication token…").
+
+The refused-turn diagnosis now asks the agent about its login at the moment
+the stop is composed (`worker_auth.read`, the same free read the preflight
+uses — which also catches a login that expired mid-run) and branches on the
+answer: the stop leads with the worker's own refusal line, quoted verbatim,
+and the not-logged-in reading appears only when the agent itself reports
+signed out — at which point it is the agent's word, not a guess. When the
+agent still reports logged in, the remedy now says the one thing that stop
+knows: a missing login is not the cause. Every surface inherits, because the
+sentences are composed where the fact is made and the console, the record
+and the drive all read the same object.
+
+The record's new fact needs a schema, and published schemas are frozen — so
+the loop now writes `wringer.workerdiagnosis.v3`
+([schema/worker-diagnosis-v3.schema.json](schema/worker-diagnosis-v3.schema.json)):
+one optional `auth_state` key over v2, present only when the agent was
+asked, absent on every earlier record. Every v2 record is a valid v3
+record; v2 keeps every byte it published.
+
+### The credential table names the displacement
+
+Measured on the pinned Mac: an `env_passthrough` Anthropic key does not
+merely fail there — it **displaces a claude.ai login and takes precedence
+over it**, which is the mechanism behind every "presence is worse than
+absence" sentence in this repository. The credential table's pinned-machine
+row now states it, beside the measured refusal ("managed settings require a
+first-party login… A non-OAuth Anthropic credential cannot satisfy the org
+pin"), and a guard pins both to the one page every other page points at.
+
 ## 0.4.9 — 2026-08-26
 
 **The gate-closer.** A product manager drove the whole chain on an
