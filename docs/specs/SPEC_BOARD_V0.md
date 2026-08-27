@@ -278,6 +278,43 @@ as an **unordered set** and uses no "first"/"then"/"attempt N" language about
 them. Sorting by id, or by `started_at` alone, is forbidden and is a test
 (`test_the_board_never_orders_runs_by_id`).
 
+### Ruling 8a — RECENCY WINS: the board renders the repository's newest run
+
+*Added 2026-08-27, after field report
+[docs/field-report-2026-08-27-run6-rerun-mainmac.md](../field-report-2026-08-27-run6-rerun-mainmac.md)
+finding 2.*
+
+Ruling 8 orders the loop's **attempts**. It says nothing about **which run the
+page is about**, and the implementation quietly answered that question with
+"the loop's last attempt, whenever a loop exists". That is wrong, and it was
+wrong on the surface the whole product points at.
+
+Measured: after the pen had moved and `wring verify --prove` had recorded a
+real red, a fresh render still said "Nobody has yet" and "0 of 8 proved", while
+`acceptance.json` in the run just written carried the person's `not_met` and
+`wring deliver` was refusing delivery citing it. Both `wring verify` and `wring
+verify --prove` write **standalone** runs — outside any loop — and both are
+what the engine's own refusals send a person off to run. So the page told
+somebody to go and do a thing they had already done, and stayed silent about
+the verdict blocking their handover.
+
+**The board renders the repository's newest run record, whoever wrote it**
+(`latest_run`, by mtime, never by id — ruling 8's trap applies here too). The
+loop rail is a different fact and keeps ruling 8's answer: `attempts` still
+comes from the loop's ledger and still tells the loop's story, even when the
+run being rendered is not one of them.
+
+**And the page NAMES the run it rendered**, in the engineers' block — B4 keeps
+run ids out of a PM's line, and this is a technical string. It is on the page
+because the whole cost of the finding was that a stale page and a fresh record
+could not be told apart by reading them. No new flag: there is deliberately no
+`--run`, because a person who has to name the run is a person the page has
+already failed.
+
+Acceptance is the recipe a person actually follows — judge, `wring verify`,
+render — with the page checked against the record after every step
+(`tests/test_board_follows_the_record.py`).
+
 ### Ruling 9 — the honest limits render verbatim, in the engine's own voice
 
 `acceptance.json`'s `limits[]` (`accept.py:67-79`; schema requires at least
