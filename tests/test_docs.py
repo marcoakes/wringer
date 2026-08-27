@@ -4296,10 +4296,23 @@ def test_NO_PAGE_ASSERTS_A_RELEASE_CEILING_BELOW_THE_NEWEST_TAG():
     `v0.3.0`" is either true or it is not. A page may still RECORD an old
     ceiling — the programme notes that ruled 0.4.0 out do exactly that — as
     long as the sentence dates itself.
+
+    **Mid-bump, the ceiling is the version being RELEASED** — `mid_bump()`'s
+    switch, joined 2026-08-27 after this guard rejected the `v0.4.10` tag in
+    CI. QUICKSTART's "That is 0.4.9, all nineteen commands" and SETUP's
+    "installs 0.4.9 from PyPI" are ceiling claims that match none of
+    `_RELEASED_VERSION_CLAIMS`' shapes, so no sibling held them to
+    `__version__` at the bump commit: the local gate was green with the
+    stale pages in it, and the first thing to say so was the tag-verify —
+    one CI cycle and a moved tag later than this test can say it.
     """
     newest = newest_release_tag()
     if newest is None:
         pytest.skip("this checkout cannot read its own tags")
+    if mid_bump():
+        from wringer import __version__
+
+        newest = __version__
     newest_parts = tuple(int(n) for n in newest.lstrip("v").split("."))
 
     root = repo_root()
