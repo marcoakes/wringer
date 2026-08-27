@@ -4,6 +4,78 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.11 — 2026-08-27
+
+**The board and the witness.** Gate 1 — a fresh install, the login route,
+converge → hold → pen, every stop legible — was run on Marc's own main Mac
+against 0.4.10 and passed five of six legs; the sixth was not reached because
+delivery was correctly refused on the human criterion the person judged
+`not_met`. The two product defects it surfaced ship here. The report is
+[docs/field-report-2026-08-27-run6-rerun-mainmac.md](docs/field-report-2026-08-27-run6-rerun-mainmac.md),
+verbatim.
+
+### The board follows the newest record, and names it
+
+After the pen had moved and `wring verify --prove` had recorded a real red, a
+fresh `wringer-board render` still said "Nobody has yet" and "0 of 8 proved" —
+while `acceptance.json` in the run just written carried the person's `not_met`
+verdict, and `wring deliver` was at that moment refusing delivery citing it.
+The hero surface was telling a person to go and do a thing they had already
+done, and staying silent about the verdict blocking the handover.
+
+The board pinned the run it renders to the LOOP's last attempt whenever a loop
+existed. Both `wring verify` and `wring verify --prove` write standalone runs
+outside the loop, and both are what the engine's own refusals send a person off
+to run — so the board never followed. **Recency wins**: the board renders the
+repository's newest run record, whoever wrote it. The loop rail is a separate
+fact and keeps telling the loop's story.
+
+The page now names the run it rendered, in the engineers' block. The whole cost
+of the finding was that a stale page and a fresh record could not be told apart
+by reading them.
+
+### A bound gate's red reaches the record
+
+The drive told the operator, to their face, "None of them passes today",
+naming the two checks it had just tried. Minutes later the record refused
+delivery: "`skip-downstream-acceptance` passed, but nothing in the record shows
+it can fail — a gate born green evidences nothing." Both sentences were true.
+
+Measured before anything was written: the receipts that refusal is the absence
+of come from the repository's own run bundles, keyed by `(gate_id, command)`.
+The gate had no pre-change red because the runner is fail-fast — `acceptance`
+failed at iteration 1, so the bundle stops there and the gate never ran inside
+a recorded run while it was red. The one place that did see it red, the drive's
+pre-install trial, keeps a boolean and writes nothing.
+
+So the fact was never made, and the starvation is an engine property that
+reproduces with no drive anywhere near it. **Fail-fast decides a run's OUTCOME,
+not its RECORD.** A gate carrying `proves:` now runs after a required failure;
+a gate with no binding is still skipped, which bounds the cost to the bindings
+a repository actually declared. The run's `status`, `failed_gate`, exit code
+and rerun hint are unchanged, and only the failing gate's logs are tailed.
+`summary.md` marks the extra rows `(for the record)` and the console says which
+gate the run actually failed at — two ✗ rows must not read as two independent
+things to go and fix.
+
+**The born-green refusal is untouched.** It fired on the wrong case; it is not
+wrong to exist. A bound gate nobody has ever seen fail still reads born-green,
+and a bound gate that passes after the failure still evidences nothing.
+
+Six documents taught the starvation as current behaviour, including
+SPEC_VERIFY's binding rule 2 and `docs/fleet-scale.md`'s "what it still cannot
+do". All amended, and the guard over them was vacuous twice before it held —
+first accepting `proves:` (ordinary vocabulary on every one of those pages),
+then a dated `AMENDED` marker (two of them already carry `AMENDED 2026-08-11`
+in the same paragraph). Both found by reverting each amendment individually.
+
+### Not in this release, deliberately
+
+The example pipeline built in that run names only one of a doubly-blocked
+step's two blocking failures, against the one interview answer the drafter was
+given. That is the second run's worker turn, not an engine defect, and the
+criterion that would have caught it is one of the seven with no gate bound.
+
 ## 0.4.10 — 2026-08-27
 
 **The re-run's findings.** The same operator re-ran the chain on the same
