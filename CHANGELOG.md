@@ -4,7 +4,70 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 0.5.1 — 2026-08-28
+## 0.5.2 — 2026-08-28
+
+**Break the change on purpose.** Every green in this program was red first —
+and red-first is a claim about ONE failure that was recorded. It says nothing
+about whether the check would notice a DIFFERENT way of breaking the same
+code.
+
+```
+wring verify --falsify
+```
+
+One mechanical substitution at a time, from a fixed ordered table, applied to
+lines the change itself touched; the BOUND checks run against each mutant in a
+scratch copy; and the record says which breakages nothing noticed. **Model-free
+— no LLM, no network, no rival agent.**
+
+**A surviving mutation is a finding about the CHECKS, never a verdict on the
+work**, and the sentence a reader meets says so before it says anything else:
+*these checks could not tell the difference between the code as delivered and
+the code with that line broken.* The ceiling rides with it — surviving
+mechanical mutation is necessary and demonstrably not sufficient, and it is
+never a score.
+
+**It refuses nothing.** No exit code, status, failing gate or acceptance row
+differs between a run with the flag and a run without it, and the guard
+compares all four. Whether a survivor should ever refuse a delivery is a named
+future ruling that wants this version's field evidence first.
+
+No new verb: `--prove` is the exact precedent — run the declared gates against
+a different tree and compare — so this is the same flag shape on the same
+command.
+
+### What it found on a real delivery
+
+Run 2's delivered change, measured on a clone so the operator's tree was never
+touched: **23 of 24 attempted mutations survived.** The two bound acceptance
+gates could not tell the delivered code from the code with a conditional
+inverted. That corroborates the coverage number below — 5 of 8 requirements
+unwatched — from the other direction.
+
+### Three defects it found in itself, all inflating "caught"
+
+- **Two same-size mutants of one file, written inside one second, shared a
+  stale `.pyc`** — so the second was executed as the first's bytecode, and a
+  breakage nothing checks was recorded as caught. Every write now gets a
+  strictly increasing modification time. Any build cache keyed on
+  `(mtime, size)` has this shape.
+- **A mutant left in place while the next file's mutant ran** meant the second
+  was judged against a tree carrying both.
+- **The first field run came back inconclusive**, because a change that adds
+  an acceptance test adds it *untracked*, and a scratch copy carries tracked
+  files only. The control run refused the measurement — correctly, that is its
+  whole job — but it meant most changes could never be falsified.
+
+### A note on 0.5.1
+
+`v0.5.1` was tagged and **never published**: CI's tag gate rejected it over a
+test that asserted a shell's phrasing of "command not found", which differs
+between macOS and Linux. The local release bar runs on one operating system
+and is not a measurement of both. Everything that release carried is in this
+one, described below, and the tag was removed rather than left pointing at
+something PyPI does not have.
+
+---
 
 **The coverage number.** Every surface counted STATES — what happened to each
 requirement in this round. None of them answered the question a person
