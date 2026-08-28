@@ -52,8 +52,25 @@ def prompt_lines() -> list[str]:
     return found
 
 
-def test_every_wringer_board_line_in_the_install_prompt_parses():
-    """Through THIS package's real parser, not a copy of its flags."""
+def test_every_wringer_board_line_in_the_install_prompt_parses(
+    tmp_path, monkeypatch
+):
+    """Through THIS package's real parser, not a copy of its flags.
+
+    **Run from `tmp_path`, and the assertion at the end is why** — field
+    report 2026-08-28, finding 5. This guard runs the prompt's lines for
+    real, and the prompt's line is `wringer-board render . -o board.html`.
+    Run from the repository root, `.` is the repository and `board.html` is
+    a TRACKED file: the guard was rendering the project's own committed page
+    into the developer's working tree on every `pytest`. It went unnoticed
+    for as long as the rendered bytes happened to match the committed ones,
+    which is exactly as long as nobody was changing the renderer.
+
+    The `board.html` snapshot is taken by `st_mtime_ns` rather than by
+    content, deliberately: a byte comparison passes when the page renders
+    identically, so it would be vacuous on the very day this landed and
+    would only start catching the fault once the renderer moved.
+    """
     import shlex
 
     from wringer_board.__main__ import main  # noqa: F401  (import proves it loads)
@@ -61,6 +78,10 @@ def test_every_wringer_board_line_in_the_install_prompt_parses():
     lines = prompt_lines()
     assert lines, "INSTALL.md's prompt invokes `wringer-board` nowhere"
 
+    tracked = install_md().parent / "board.html"
+    before = tracked.stat().st_mtime_ns if tracked.exists() else None
+
+    monkeypatch.chdir(tmp_path)
     for line in lines:
         argv = shlex.split(line)
         assert argv[0] == "wringer-board", argv
@@ -78,6 +99,12 @@ def test_every_wringer_board_line_in_the_install_prompt_parses():
             # Any non-SystemExit failure is a RUNTIME problem (no such repo),
             # which means the arguments parsed. That is all this guard claims.
             pass
+
+    after = tracked.stat().st_mtime_ns if tracked.exists() else None
+    assert after == before, (
+        f"the suite wrote {tracked} — a clean checkout must stay clean after "
+        "`pytest`, and this guard runs commands that write"
+    )
 
 
 def test_the_prompt_only_uses_verbs_this_package_actually_has():
