@@ -131,7 +131,7 @@ green — and a bundle on disk to check the claim against. Regenerate it with
 
 ## What ships first
 
-**Proof beats orchestration.** `uv tool install wringer` — **0.5.0, nineteen commands, out now.**
+**Proof beats orchestration.** `uv tool install wringer` — **0.5.1, nineteen commands, out now.**
 It began as one command, and that command is still the core of it:
 
 ### Not an engineer? Ask your coding agent to install it
@@ -148,11 +148,11 @@ it with the input masked. Every step of that prompt was
 [executed in a clean environment](docs/install-2026-08-17.md) before it
 shipped, and running it found three defects that reading it had not.
 
-> **What the package is, as of 2026-08-28.** `0.5.0` is the released
+> **What the package is, as of 2026-08-28.** `0.5.1` is the released
 > version, and unlike every version before 0.4.0, it is **one package**: the
 > engine, the requirements board and the drive verb all ship inside the
 > `wringer` distribution. `uv tool install wringer` gets all three.
-> `0.5.0` registers nineteen commands, derived from the tag by
+> `0.5.1` registers nineteen commands, derived from the tag by
 > `tests/test_docs.py` rather than kept by hand.
 >
 > This paragraph used to say the opposite — that the release was behind
@@ -311,7 +311,7 @@ bundle may hold whatever a gate printed and an MR body is public.
 ### The proof travels — `certificate.md`
 
 A reviewer who never ran the machine used to be told there was a hole and that
-the map was not coming. In `0.5.0` the delivery carries **`certificate.md`**
+the map was not coming. Since `0.5.0` the delivery carries **`certificate.md`**
 and **`certificate.json`** beside `mr.md`, plus a copy of the board page: every
 requirement by title with what the record can honestly say about it, the proved
 ones named with their check and where that check is on record failing, and a

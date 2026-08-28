@@ -4,6 +4,80 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.1 — 2026-08-28
+
+**The coverage number.** Every surface counted STATES — what happened to each
+requirement in this round. None of them answered the question a person
+actually arrives with: *how much of what we asked for is anybody watching?*
+
+The field case was already in hand. On run 2's delivered board **5 of 8
+requirements had no check at all, and the defect that run existed to fix
+landed exactly on one of the unwatched ones**. The fact had been on disk the
+whole time — `acceptance.json` carries the binding per row, so the number was
+one subtraction away, and no artifact did the subtraction.
+
+### Two debts, two lines, never blended
+
+> **N of M requirements carry a check that can prove them.**
+>
+> **K of H requirements that need a person have something to show them.**
+
+A single number over both populations points nowhere. The remedy for the first
+is to write a check; the remedy for the second is to declare a command that
+renders the thing a person is being asked to look at. Those are different jobs
+done by different people, and a reader given one blended number cannot tell
+which is theirs.
+
+Both sentences appear on all four surfaces the counts already travel on — the
+bundle's `summary.md`, `mr.md`, the certificate, and the board — from one
+renderer, so they cannot come to state different numbers for one run. Each
+line appears only when its population exists: a sentence reading "0 of 0" is
+how a reader learns to skip caveats.
+
+The claim ceiling rides with the number, wherever it is rendered:
+
+> This counts checks that are bound to a requirement. A bound check can still
+> test less than the requirement means, and this number cannot see that —
+> `wring health` is what watches coverage narrow over time.
+
+### A warning where the plan can still change
+
+`wring plan` and the board's plan — which `approve` prints before it writes —
+now name every requirement only a person can settle that has nothing declared
+to show them. **It warns and does not refuse.** The only place this has hurt
+anybody is at the pen, and the pen already speaks in capitals; a plan-time
+refusal would stop work over a file the person can write at any moment up to
+the judgement.
+
+### A red the environment caused says so
+
+The first `wring verify` of run 2 recorded `ruff: command not found` — the
+example's gates resolve only with the project's `.venv` on `PATH`. Documented
+behaviour rather than a defect, and **indistinguishable in the summary from a
+red the requirement earned**. It went into the record as one.
+
+Where `wring diagnose` has a face for a red gate, `summary.md`'s row now
+carries `(maybe the environment)` with a section naming the guess and the line
+it was read from, and the board's card for that requirement carries the
+engine's own sentence. It is a hint and says so: the guard runs two identical
+repositories, one failing on a missing command and one failing ordinarily, and
+asserts every outcome is equal.
+
+Only the loop wrote `diagnosis.json`, and the board reads the run bundle — so
+the one surface a non-engineer opens could never show the guess. There is one
+writer now, and both callers use it.
+
+### Schema versions
+
+| Schema | Version |
+|---|---|
+| `coverage-v1.schema.json` | `wringer.coverage.v1` — NEW |
+
+`wringer.certificate.v1` is unchanged: the coverage record travels beside it as
+a sibling and the face renders it. A key added to a published schema is a
+silent break for every reader of a document already written, and a key held
+open and empty is a claim that the question was asked.
+
 ## 0.5.0 — 2026-08-28
 
 **The certificate: the proof travels.** A minor bump, and it is a FORMAT
