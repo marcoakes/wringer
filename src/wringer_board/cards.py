@@ -201,6 +201,11 @@ class Card:
     # whether a changed check should block delivery is a named future ruling
     # that wants this v0's field evidence first.
     check_note: str | None = None
+    # What the ENGINE guessed about why this criterion's check went red, when
+    # the red looks like the environment rather than the work. Hint tier: it
+    # never moves a card between states and never refuses anything, and the
+    # card that renders it says out loud that it is a guess.
+    check_environment: str | None = None
     receipt: str | None = None
     engine_words: str | None = None
     cause: str | None = None
@@ -419,7 +424,45 @@ def card_for(board: Board, criterion: Criterion) -> Card:
     # deletable with nobody noticing. A board that has lost the field should
     # be a loud AttributeError, not a page quietly missing its notes.
     note = board.check_notes.get(criterion.id)
-    return card if note is None else replace(card, check_note=note)
+    if note is not None:
+        card = replace(card, check_note=note)
+    # **The environment guess, attached the SAME way and for the same reason.**
+    # Field report 2026-08-28, finding 4: a red the environment caused and a
+    # red the requirement earned read identically, so a reader went off to
+    # change working code. Attached after the state is decided, so there is
+    # structurally no path on which it could have altered a verdict — the
+    # discipline `check_note` already established one line above.
+    guess = _environment_guess(board, criterion)
+    return card if guess is None else replace(card, check_environment=guess)
+
+
+def _environment_guess(board: Board, criterion: Criterion) -> str | None:
+    """The engine's own sentence about this criterion's failing check, or None.
+
+    Read from `diagnosis.json`, which the engine writes and this page renders
+    — the board owns no wording for it, exactly as it owns none for a check
+    note or a refusal. Absent unless a face matched, and matched only against
+    the gate this criterion is bound to: a guess about another gate's red is
+    not about this requirement.
+    """
+    recorded = board.diagnosis
+    if not recorded or not criterion.gate_id:
+        return None
+    if recorded.get("gate") != criterion.gate_id:
+        return None
+    # **The ENGINE's sentence for the face, never one written here.**
+    # `wringer.diagnosis.v1` is `additionalProperties: false` and frozen, so
+    # the record carries the face and not its wording — and a translation
+    # table living in this package is precisely the drift the layer seam
+    # exists to stop. `diagnose.DESCRIPTIONS` is the definition; this reads
+    # it. Guarded, so a board with no engine present renders the page and
+    # simply has no guess to show.
+    try:
+        from wringer import diagnose as diagnose_module
+
+        return diagnose_module.DESCRIPTIONS.get(recorded.get("face"))
+    except Exception:  # pragma: no cover - a hint never breaks the page
+        return None
 
 
 def _card_for(board: Board, criterion: Criterion, refused: bool, state: str) -> Card:

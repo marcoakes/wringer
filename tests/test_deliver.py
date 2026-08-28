@@ -2448,3 +2448,64 @@ def test_the_offline_check_CATCHES_AN_EDITED_CERTIFICATE(
     assert cli.main(["audit", str(record)]) == cli.EXIT_GATE_FAILED
     printed = capsys.readouterr().out
     assert "never-asked-for" in printed, printed
+
+
+def test_THE_MERGE_REQUEST_CARRIES_THE_COVERAGE_NUMBER(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The fourth surface, and the one that goes to whoever merges.**
+
+    Run 2 delivered with 5 of 8 requirements unwatched and the defect that run
+    existed to fix landing on one of them. The states were on every surface;
+    the NUMBER was on none. It is quoted from `coverage.lines` — the one
+    renderer the bundle summary, the board and the certificate all quote — so
+    the four cannot come to state different numbers for one run.
+    """
+    from wringer import coverage
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    run_dir = _run_the_mr_is_about(delivery_repo, mr)
+
+    expected = coverage.lines(coverage.of(coverage.read(run_dir)))
+    assert expected, "the run wrote no coverage record to carry"
+    for line in expected:
+        assert line in mr, f"mr.md does not carry {line!r}"
+
+
+def test_THE_DELIVERY_CARRIES_THE_COVERAGE_RECORD_BESIDE_THE_CERTIFICATE(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The face grows; the certificate's record does not.**
+
+    A later fact rides its OWN sibling file and the face renders it. A key
+    added to `wringer.certificate.v1` would be a silent break for every reader
+    of a document already written, and a key held open and empty would be a
+    claim that the question was asked.
+    """
+    from wringer import certificate, coverage
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    assert (written / coverage.COVERAGE_FILENAME).is_file(), sorted(
+        p.name for p in written.iterdir()
+    )
+
+    record = json.loads(
+        (written / certificate.RECORD_FILENAME).read_text(encoding="utf-8")
+    )
+    assert "coverage" not in record, (
+        "the certificate's own record grew a key for a fact version 1 did not "
+        "earn"
+    )
+    face = (written / certificate.FACE_FILENAME).read_text(encoding="utf-8")
+    assert "How much of it anybody is watching" in face, face

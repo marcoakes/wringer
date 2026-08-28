@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/coverage-v1.schema.json",
+  "title": "Wringer coverage",
+  "description": "One `coverage.json`, written beside `acceptance.json` by `wring verify` and carried into a delivery beside the certificate. **A NEW FILE, and no published schema changes for it** — the frozen-schema law. It answers a question no other artifact did: not *what happened to each requirement this run*, which the acceptance record already says per row, but *how much of what was asked for is anybody watching at all*. The field case is run 2, where 5 of 8 requirements had no check and the defect that run existed to fix landed on one of the unwatched ones. **Two populations, disjoint, and never blended into one number** (ruling MR1): a requirement marked `human` can never carry a check — that is what the marking means — so it is counted only under `needing_a_person`, and everything else only under `checkable`. The remedy for a gap in the first is to write a check; the remedy for a gap in the second is to declare a command that renders what a person is being asked to look at. Those are different jobs done by different people, and a reader given one blended number cannot tell which is theirs. **Half of this is a rendering and half of it has no other home**, which is the whole reason a file exists: the binding fact is already in `acceptance.json` per row, and the visibility fact is `show:` in the person's own `.wringer.yaml`, read at render time and recorded by nothing. **Absent is absent**: a bundle written before this file existed has no coverage record, and every surface that reads one renders nothing rather than a coverage of zero.",
+  "type": "object",
+  "required": ["schema_version", "counts", "requirements", "limits"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Always `wringer.coverage.v1` in this format.",
+      "const": "wringer.coverage.v1"
+    },
+    "counts": {
+      "description": "The two numbers, over an ENUMERATED population — the requirements an approved spec declares — so a zero here is a real zero rather than the invented one the absence law forbids elsewhere. They are carried rather than left to be recomputed so that a reader can check the summary against the rows, which is the cheapest forgery there is.",
+      "type": "object",
+      "required": ["covered", "checkable", "shown", "needing_a_person"],
+      "additionalProperties": false,
+      "properties": {
+        "covered": {
+          "description": "How many requirements that a check COULD prove have one bound to them — a gate whose `proves:` names them, or a witness that covers them.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "checkable": {
+          "description": "How many requirements a check could prove at all: every one not marked `human`.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "shown": {
+          "description": "How many requirements needing a person have a `show:` command declared for them — something that will put the thing being judged in front of the person judging it.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "needing_a_person": {
+          "description": "How many requirements are marked `human`.",
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "requirements": {
+      "description": "In the order the approved spec declares them, and sorted by nothing: ranking these would be this artifact deciding which debts matter, which is the reader's call — the same refusal `acceptance.json` makes.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion",
+          "title",
+          "needs_a_person",
+          "covered",
+          "check",
+          "shown",
+          "show"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "description": "The criterion id exactly as `wringer.spec.yaml` writes it — the join key, never slugged.",
+            "type": "string"
+          },
+          "title": { "type": "string" },
+          "needs_a_person": {
+            "description": "Whether the spec marks this `human`. It decides which of the two questions below is asked at all.",
+            "type": "boolean"
+          },
+          "covered": {
+            "description": "Whether anything is bound that could prove this — **null on a row marked `human`, and null is not false.** False is a debt somebody could pay by writing a check; null is a question nobody asked, because no check can settle this requirement and none ever will. Collapsing those two is how a record comes to lie, which is the same reason `demonstrated_able_to_fail` is three-valued in `wringer.acceptance.v3`.",
+            "type": ["boolean", "null"]
+          },
+          "check": {
+            "description": "The gate bound to this requirement, or null. Null with `covered: true` means a witness covers it instead.",
+            "type": ["string", "null"]
+          },
+          "shown": {
+            "description": "Whether a `show:` command is declared for this requirement — **null on every row NOT marked `human`**, for the mirror of the reason above: nobody is going to be asked to judge it, so there is nothing to show them and no debt to record.",
+            "type": ["boolean", "null"]
+          },
+          "show": {
+            "description": "The declared command, after redaction, or null. Recorded because a reviewer deciding whether a judgement was informed needs to know what the person was shown — and because a command is a thing that RUNS, it is scrubbed on the way in like every other command this program records.",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this artifact does NOT say, travelling with the numbers rather than living in a spec nobody opened, and rendered on every surface that carries the number. One sentence, and it is the honest reading of what was counted: a BINDING, which is a declaration somebody made, and not a measurement of how much of the requirement that check actually exercises.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

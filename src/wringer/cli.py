@@ -23,6 +23,7 @@ from wringer import (
     agents,
     backend,
     config,
+    coverage,
     deliver,
     detect,
     doctor,
@@ -3442,10 +3443,14 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # the config cannot be parsed, this particular check does not run, and
     # every other thing that reads the config will say so loudly first.
     config_path = root / config.CONFIG_FILENAME
+    declared_show: dict[str, str] = {}
     try:
-        declared_gates = (
-            config.load(config_path).gates if config_path.is_file() else ()
-        )
+        if config_path.is_file():
+            loaded_config = config.load(config_path)
+            declared_gates = loaded_config.gates
+            declared_show = loaded_config.show
+        else:
+            declared_gates = ()
     except config.ConfigError:
         declared_gates = ()
 
@@ -3494,6 +3499,16 @@ def cmd_plan(args: argparse.Namespace) -> int:
         )
     else:
         _report_plan(loaded, briefs, diff, fresh, already)
+        # **A warning by name, after the plan and before the exit** — ruling
+        # MR2. A requirement only a person can settle, with nothing declared
+        # to show them, ends its life at a pen with a blank page. It does not
+        # refuse: the only place this has hurt anybody is at the pen, and a
+        # plan-time refusal waits for somebody hurt DESPITE the warning.
+        warned = coverage.plan_warning(loaded.criteria, declared_show)
+        if warned:
+            print()
+            for line in warned:
+                print(line if line.startswith("  ") else _wrap_message(line))
     return EXIT_OK
 
 

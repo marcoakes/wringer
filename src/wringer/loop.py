@@ -122,8 +122,11 @@ ENVIRONMENT = "environment"
 #
 # ABSENT rather than null when nothing matched a face, like `usage.json` is
 # absent when the agent reported nothing.
-DIAGNOSIS_FILENAME = "diagnosis.json"
-DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
+# Re-exported from `diagnose`, which owns the writer as of 2026-08-28. Kept
+# as names here because this module's readers and several tests reach for
+# them, and one definition site is the point.
+DIAGNOSIS_FILENAME = diagnose.DIAGNOSIS_FILENAME
+DIAGNOSIS_SCHEMA_VERSION = diagnose.DIAGNOSIS_SCHEMA_VERSION
 
 # `worker-diagnosis.json` — R1 (2026-08-18), and a THIRD sibling for the same
 # reason the second one exists.
@@ -1267,21 +1270,13 @@ def _write_diagnosis(
     ordinary reasons writes no `diagnosis.json` at all, so a reader that finds
     one knows the environment was implicated without having to read a null.
     """
-    failing = _failing_result(final)
-    if failing is None:
-        return None
-    found = diagnose.diagnose(failing)
-    if found is None:
-        return None
-    path = bundle.directory / DIAGNOSIS_FILENAME
-    payload = {"schema_version": DIAGNOSIS_SCHEMA_VERSION, **found.as_json()}
-    path.write_text(
-        bundle.redactor.scrub(
-            json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
-        ),
-        encoding="utf-8",
+    # **Through `diagnose.write`, which is now the only writer of this file.**
+    # A plain `wring verify` writes one too, for its own failing gate, so the
+    # board — which reads the RUN bundle and never the loop's — can render the
+    # guess. Two writers of one record is the drift this programme is about.
+    return diagnose.write(
+        bundle.directory, _failing_result(final), bundle.redactor
     )
-    return found
 
 
 def _flaky_failure(outcome: verify.Outcome) -> str | None:

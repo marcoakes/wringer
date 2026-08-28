@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import certificate, config, evidence, git, summary
+from wringer import certificate, config, coverage, evidence, git, summary
 from wringer.redact import Redactor
 
 DELIVERIES_DIRNAME = Path(".wringer") / "deliveries"
@@ -251,6 +251,13 @@ class Plan:
     # can come to disagree about what a delivery contains, and this program
     # has already shipped that shape twice.
     board_page: str | None = None
+    # `wringer.coverage.v1`, the run's own record, or None. **A sibling that
+    # travels beside the certificate rather than a key inside it** — the
+    # certificate's schema is frozen at what version 1 earned, and a later
+    # fact rides its own file. Carried so the number the face states can be
+    # re-checked by whoever was handed the delivery, which is the whole
+    # difference between a document and a claim.
+    coverage: dict[str, Any] | None = None
 
 
 def _relative_to_root(path: Path, root: Path) -> str:
@@ -1071,6 +1078,7 @@ def plan(
         run_relative=run_relative,
     )
     board, board_page = _board_to_carry(root)
+    measured = coverage.read(run_dir)
     # Tracked changes, plus a real new-file diff for the untracked ones. A
     # change made entirely of new files used to render an EMPTY patch, so the
     # human approving `--send` approved nothing. `--no-index` gets the content
@@ -1103,6 +1111,7 @@ def plan(
         certificate=built,
         board=board,
         board_page=board_page,
+        coverage=measured,
         commands=(
             f"git switch --create {branch}",
             # the planned paths on stdin — never a bare add --all; see send()
@@ -1189,6 +1198,12 @@ def _mr_body(
     # to whoever merges cannot drift.
     recorded = accept.read(run_dir) or {}
     lines += accept.disclosure(recorded.get("counts") or {})
+    # **The same two sentences the bundle's summary carries**, from the same
+    # renderer, read out of the record the run wrote rather than recomputed
+    # here. A merge request and a bundle summary that counted coverage
+    # separately would be two answers to one question, which is the drift this
+    # whole programme is about.
+    lines += coverage.quoted(coverage.of(coverage.read(run_dir)))
     lines.append("")
     try:
         rows = evidence.read_gate_results(run_dir)
@@ -1240,6 +1255,8 @@ def _mr_body(
             f"`{CERTIFICATE_FILENAME}`",
             f"`{CERTIFICATE_RECORD_FILENAME}`",
         ]
+    if built is not None and coverage.read(run_dir) is not None:
+        travelling.append(f"`{coverage.COVERAGE_FILENAME}`")
     if board is not None:
         travelling.append(f"`{BOARD_FILENAME}`")
     lines += [
@@ -1416,7 +1433,18 @@ class Bundle:
                 encoding="utf-8",
             )
             (self.directory / CERTIFICATE_FILENAME).write_text(
-                write(certificate.render(planned.certificate)), encoding="utf-8"
+                write(certificate.render(planned.certificate, planned.coverage)),
+                encoding="utf-8",
+            )
+        if planned.coverage is not None:
+            # The sibling the face renders, carried so the number can be
+            # re-checked rather than only read.
+            (self.directory / coverage.COVERAGE_FILENAME).write_text(
+                json.dumps(
+                    evidence.deep_scrub(self.redactor, planned.coverage), indent=2
+                )
+                + "\n",
+                encoding="utf-8",
             )
         if planned.board_page is not None:
             (self.directory / BOARD_FILENAME).write_text(

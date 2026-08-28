@@ -387,6 +387,23 @@ def _scalar(text: str, indent: str = "    ") -> str:
 # --- capability 2: the plain-language plan ----------------------------------
 
 
+def _declared_show(repo: Path) -> dict[str, str]:
+    """The `show:` commands this repository declares, or none.
+
+    Guarded like every other engine import in this package: a board with no
+    engine present still renders a plan, and simply cannot say which
+    requirements have something to show them. It says nothing there rather
+    than warning about every one of them, because "I could not look" and
+    "nobody declared one" are different facts.
+    """
+    try:
+        from wringer import config as config_module
+
+        return dict(config_module.load(repo / config_module.CONFIG_FILENAME).show)
+    except Exception:  # pragma: no cover - a hint never breaks the plan
+        return {}
+
+
 def plan(repo: Path) -> str:
     """*Here is what I will build, and here is how I will prove each piece.*
 
@@ -517,6 +534,7 @@ def plan(repo: Path) -> str:
                 f"    For the engineer: {objective}",
                 "",
             ]
+    declared_show = _declared_show(repo)
     lines += ["HOW EACH PIECE WILL BE PROVED", ""]
     for criterion in data.get("criteria") or []:
         if not isinstance(criterion, dict):
@@ -529,6 +547,18 @@ def plan(repo: Path) -> str:
                 "A PERSON decides this. No check can, and none will be written "
                 "for it — you record the answer yourself"
             )
+            # **Ruling MR2, at the surface a person APPROVES from.** A
+            # requirement only a person can settle, with nothing declared to
+            # show them, ends its life at a pen with a blank page — which is
+            # what happened in the field on run 2. Said here, by name, while
+            # the plan can still be changed; it never refuses, because the
+            # command can be declared any time before somebody is asked.
+            if cid not in declared_show:
+                how += (
+                    ". NOTHING WILL SHOW IT TO YOU YET — declare a command "
+                    "under `show:` and whoever judges will see what they are "
+                    "judging"
+                )
         elif cid in bound:
             gate, installed = bound[cid]
             how = f"the check `{gate}` — and it must be seen to FAIL first"

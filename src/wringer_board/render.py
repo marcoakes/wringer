@@ -211,6 +211,43 @@ def _round_html(board: Board) -> str:
     return "\n".join(parts)
 
 
+def _marked(text: str) -> str:
+    """`**bold**` from the engine's sentence, escaped, and nothing else.
+
+    The engine words these lines in markdown because three of the four
+    surfaces that carry them are markdown files. This is the fourth, and it
+    renders exactly one construct rather than pulling in a markdown parser to
+    put a number in bold — everything else in the string is escaped, so a
+    sentence that ever carried angle brackets stays text.
+    """
+    import re
+
+    return re.sub(
+        r"\*\*(.+?)\*\*", r"<strong>\1</strong>", _esc(text)
+    )
+
+
+def _coverage_lines(board: Board) -> list[str]:
+    """The engine's coverage sentences, or nothing at all.
+
+    **Guarded, and the guard is the seam.** The board must load and render
+    with no engine importable — `test_layer_seam.py` proves it in a
+    subprocess — so this import is inside the function and its failure is
+    caught. A board without the engine simply has no coverage sentences, and
+    says nothing rather than guessing at them.
+    """
+    if not board.coverage:
+        return []
+    try:
+        from wringer import coverage as coverage_module
+    except Exception:  # pragma: no cover - the board never fails on an import
+        return []
+    try:
+        return coverage_module.lines(coverage_module.of(board.coverage))
+    except Exception:  # pragma: no cover - a hint never breaks the page
+        return []
+
+
 def _titles(cards: list[Card], states: tuple[str, ...]) -> list[str]:
     return [card.title or card.id for card in cards if card.state in states]
 
@@ -316,6 +353,25 @@ def _headline_html(board: Board, cards: list[Card]) -> str:
             "understand, so it is showing you nothing rather than a guess."
             "</p></dd>"
         )
+
+    # **How much of it anybody is watching, which the lists above do not
+    # say.** They partition the requirements by what this ROUND found; this
+    # counts what is BOUND, and the two differ exactly where it matters — a
+    # check that exists and has never been red is not "nobody is checking",
+    # and a requirement only a person can settle is not uncovered, it is
+    # waiting.
+    #
+    # Every word comes from the engine's `coverage.lines` and none of it is
+    # written here, for the same reason `refusals.say` owns every sentence in
+    # the round section: two surfaces wording one number is how they come to
+    # state different ones.
+    said = _coverage_lines(board)
+    if said:
+        parts.append("<dt>How much of it anybody is watching</dt><dd>")
+        parts.append(
+            "<ul>" + "".join(f"<li>{_marked(one)}</li>" for one in said) + "</ul>"
+        )
+        parts.append("</dd>")
 
     parts.append("</dl>")
 
@@ -467,6 +523,20 @@ def _card_html(card: Card) -> str:
         # in v0 it is not a thing that stops a handover, and the page must not
         # imply it is.
         parts.append(f'<p class="checknote"><b>Note</b> {_esc(card.check_note)}</p>')
+    if card.check_environment:
+        # **The same hint-tier shape, for the same reason** — field report
+        # 2026-08-28, finding 4. A red the environment caused and a red the
+        # requirement earned read identically here, so a reader went off to
+        # change working code. The engine's sentence verbatim, and the word
+        # "guess" is in this block rather than in a footnote: the whole
+        # licence for reading a gate's output at all is that nothing read
+        # there decides anything.
+        parts.append(
+            '<p class="checknote"><b>This red may not be about your work</b> '
+            f"— it looks like the check {_esc(card.check_environment)}. That "
+            "is a guess from what it printed. Nothing here was decided by it, "
+            "and the check is red either way.</p>"
+        )
     if card.question:
         # **The unblocking question, rendered — H-4.** Ruling 16 has given
         # every value a question since S2 and nothing on this surface showed

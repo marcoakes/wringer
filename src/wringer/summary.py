@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from wringer import accept, detect, evidence
+from wringer import coverage as coverage_module
 from wringer.config import Gate
 from wringer.evidence import Bundle
 from wringer.gates import GateResult
@@ -53,6 +54,7 @@ def write(
     scoped_to: list[str] | None = None,
     stability: Any = None,
     execution: Any = None,
+    coverage: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -81,6 +83,16 @@ def write(
     # amounts of the same fact.
     if acceptance is not None:
         lines += accept.disclosure(acceptance.counts())
+    # **The coverage number, right under the states it explains** — the field
+    # case is run 2, where 5 of 8 requirements had no check at all and the
+    # defect that run existed to fix landed on one of the unwatched ones. The
+    # states above say what happened; this says how much of what was asked for
+    # anybody is watching, which is a different question and had no number.
+    #
+    # Two lines, never blended (SPEC_COVERAGE_V0, ruling MR1), and both from
+    # `coverage.lines` — the one renderer every surface quotes.
+    if coverage is not None:
+        lines += coverage_module.quoted(coverage)
     lines += [
         "",
         "| gate | status | duration | logs |",
@@ -90,7 +102,8 @@ def write(
     for result in results:
         lines.append(
             f"| {result.gate.id} | {_status(result)}{_flake_mark(stability, result)}"
-            f"{_for_the_record(recorded_after_failure, result)} "
+            f"{_for_the_record(recorded_after_failure, result)}"
+            f"{_environment_mark(result)} "
             f"| {result.duration_ms / 1000:.1f}s | {_logs(bundle, result)} |"
         )
     # The gate a Ctrl-C caught mid-flight: it ran, so "skipped" would be
@@ -106,6 +119,8 @@ def write(
     # set is visible.
     for gate in skipped:
         lines.append(f"| {gate.id} | skipped | — | — |")
+
+    lines += _environment_section(results)
 
     lines += _execution_section(execution)
 
@@ -233,6 +248,71 @@ def _flake_mark(stability: Any, result: GateResult) -> str:
     if row is None or row.classification != stability_module.FLAKY:
         return ""
     return " (flaky, tolerated)" if row.tolerated else " (flaky)"
+
+
+def _environment_mark(result: GateResult) -> str:
+    """`(maybe the environment)` beside a red that may not be the code's.
+
+    **Field report 2026-08-28, finding 4.** The first `wring verify` of that
+    run recorded `ruff: command not found` — the example's gates resolve only
+    with the project's `.venv` on PATH. That is documented behaviour and not a
+    defect: the bundle says plainly that gates run with the whole environment
+    inherited. What it is not is a red the requirement earned, and in the
+    summary it was **indistinguishable** from one. It went into the record as
+    one.
+
+    So the table says which it might be, in four words, because the table is
+    what a person reads before they go and change their code.
+
+    **Hint tier, and it stays there.** `diagnose.face_of` may read text
+    precisely because nothing it returns decides anything — SPEC_ENV ruling 1,
+    *a classification may ROUTE and may never CLAIM*. This changes no status,
+    no exit code, no acceptance row and no verdict. It is four words beside a
+    row that is red either way.
+    """
+    if result.passed:
+        return ""
+    from wringer import diagnose as diagnose_module
+
+    return " (maybe the environment)" if diagnose_module.face_of(result) else ""
+
+
+def _environment_section(results: list[GateResult]) -> list[str]:
+    """What the mark above means, said once, with the line it was read from.
+
+    Named a GUESS in its own first sentence rather than in a footnote: the
+    whole tier's licence to read text at all is that it never claims, and a
+    reader who takes this for a verdict has been misled by the surface rather
+    than by the classifier.
+    """
+    from wringer import diagnose as diagnose_module
+
+    found = [
+        (result, diagnose_module.diagnose(result))
+        for result in results
+        if not result.passed
+    ]
+    found = [(result, seen) for result, seen in found if seen is not None]
+    if not found:
+        return []
+    lines = [
+        "",
+        "## Some of these reds may not be yours",
+        "",
+        "A guess, read from what each gate printed. It decided nothing here — "
+        "the gate is red either way, and no verdict, state or exit code "
+        "changed because of it. It is here because a red the ENVIRONMENT "
+        "caused and a red the requirement earned read identically in the "
+        "table above, and a person acting on the wrong one goes and changes "
+        "working code.",
+        "",
+    ]
+    for result, seen in found:
+        lines.append(
+            f"- `{result.gate.id}` {seen.description}, by the look of it: "
+            f"`{seen.evidence}`"
+        )
+    return lines
 
 
 def _for_the_record(recorded_after_failure: tuple[str, ...], result: GateResult) -> str:

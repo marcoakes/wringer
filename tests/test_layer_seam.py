@@ -50,11 +50,31 @@ BOARD = SRC / "wringer_board"
 # board renders its output verbatim without interpreting it. The alternative
 # was a second YAML parser inside the board, which is the drift this test
 # exists to prevent, arriving by the door marked "avoiding an import".
+# **The fifth, admitted 2026-08-28, and it passed the same test.** The board
+# renders the coverage number, and `wringer.coverage` is the module that
+# WORDS it — one renderer, quoted verbatim by the bundle summary, the merge
+# request, the certificate and this page. A copy of "N of M requirements
+# carry a check that can prove them" living inside this package is precisely
+# the two-surfaces-one-fact drift the seam exists to stop, and it would be
+# the same defect that `accept.disclosure` was created to fix. The import is
+# inside a function and its failure is caught, so a board with no engine
+# present still loads and simply has no coverage sentences.
+# **The sixth, admitted 2026-08-28, and it passed the same test.**
+# `wringer.diagnosis.v1` is `additionalProperties: false` and frozen, so a
+# record carries the FACE a failure wore and not the sentence for it. The
+# board must render that sentence verbatim — it is the engine's guess about
+# whether a red belongs to the environment or to the work — and the only
+# alternative was a face-to-English table living in this package, which is
+# exactly the two-implementations drift the seam prevents, arriving through
+# the door marked "avoiding an import". The import is inside a function and
+# its failure is caught.
 PERMITTED = {
     "wringer.spec",
     "wringer.accept",
     "wringer.checks",
     "wringer.config",
+    "wringer.coverage",
+    "wringer.diagnose",
     "wringer",
 }
 
@@ -160,6 +180,8 @@ def test_the_permitted_list_is_not_silently_widened():
         "wringer.accept",
         "wringer.checks",
         "wringer.config",
+        "wringer.coverage",
+        "wringer.diagnose",
         "wringer",
     }, (
         "the permitted-import set changed. That is allowed, but it is the "

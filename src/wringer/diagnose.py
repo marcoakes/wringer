@@ -430,6 +430,43 @@ class Diagnosis:
         return {"face": self.face, "gate": self.gate, "evidence": self.evidence}
 
 
+# **Named here, not in `loop`, since 2026-08-28 — one writer, two callers.**
+# The loop wrote this file for its final failing gate; a plain `wring verify`
+# wrote nothing, so the board — which reads the RUN bundle — could never see a
+# guess about a red the environment caused. Two writers of one record is the
+# drift this programme is about, so the writer moved here, beside the
+# classifier, and `loop` calls it.
+DIAGNOSIS_FILENAME = "diagnosis.json"
+DIAGNOSIS_SCHEMA_VERSION = "wringer.diagnosis.v1"
+
+
+def write(
+    directory: Any, result: gates.GateResult | None, redactor: Any = None
+) -> Diagnosis | None:
+    """Write `diagnosis.json` for one failing gate, or nothing at all.
+
+    **Absence is meaningful and is the common case.** A run whose gates failed
+    for ordinary reasons writes no file, so a reader that finds one knows the
+    environment was implicated without having to read a null.
+
+    **A routing diagnosis, never a verdict** — SPEC_ENV ruling 1. Nothing that
+    reads this may let it reach acceptance, vacuity or health.
+    """
+    import json as json_module
+
+    if result is None:
+        return None
+    found = diagnose(result)
+    if found is None:
+        return None
+    payload = {"schema_version": DIAGNOSIS_SCHEMA_VERSION, **found.as_json()}
+    text = json_module.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+    if redactor is not None:
+        text = redactor.scrub(text)
+    (directory / DIAGNOSIS_FILENAME).write_text(text, encoding="utf-8")
+    return found
+
+
 def face_of(result: gates.GateResult) -> str | None:
     """Which face this failure wears, or None.
 

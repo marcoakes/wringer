@@ -15,6 +15,7 @@
     "certificate-v1.schema.json": "e1c9dcbc6caca2858198d644a0b35c9bf86b75991a015f63679b995dfe771126",
     "checks.schema.json": "68ab1a888fe9a9c5413cdff486aeb003481cff42d746747d0a79c369ec819bf1",
     "concurrency.schema.json": "21d85d090444bc900c8529e3a0fdc342d31ab0c62c317707f1dd1cc52a417c00",
+    "coverage-v1.schema.json": "bcff4c719f476f6b59b729fb44c9fdb291e807408ba7b833e127307c3b9348ca",
     "decisions-v2.schema.json": "08fca6b35d1afa96a1bfbdc016626ba6ace2f87070e58f491dbaec69d0e750a5",
     "decisions.schema.json": "4dcebbf901406b59584f8270c7d07edcb067f5dd2dd6a6ba17ad1ec76cf9e092",
     "delivery-manifest.schema.json": "46eb3fbc8be513979962213eee1c06d6783aeaea8b4afcf1ec3d155037f0aa33",

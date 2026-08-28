@@ -46,7 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import accept, evidence
+from wringer import accept, coverage, evidence
 
 SCHEMA_VERSION = "wringer.certificate.v1"
 RECORD_FILENAME = "certificate.json"
@@ -487,8 +487,21 @@ def requirement_lines(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
-def render(payload: dict[str, Any]) -> str:
-    """`certificate.md` — the face, from the record and from nothing else."""
+def render(payload: dict[str, Any], measured: dict[str, Any] | None = None) -> str:
+    """`certificate.md` — the face, from the record and its siblings.
+
+    **The face grows; the record does not.** `measured` is a
+    `wringer.coverage.v1` record — a SIBLING file, written by the run and
+    carried into the delivery beside this one. It is rendered here and is
+    deliberately not folded into `certificate.json`, which is frozen at what
+    version 1 earned: a key added to a published schema is a silent break for
+    every reader of a document already written, and a key held open and empty
+    is a claim that the question was asked.
+
+    Absent means absent. A delivery from a run that predates the coverage
+    record renders no coverage sentences at all, rather than a zero nobody
+    measured.
+    """
     change = payload.get("change") or {}
     run = payload.get("run") or {}
     title = change.get("title") or "this change"
@@ -510,6 +523,10 @@ def render(payload: dict[str, Any]) -> str:
         "",
     ]
     lines += headline(payload)
+    said = coverage.lines(coverage.of(measured))
+    if said:
+        lines += ["", "## How much of it anybody is watching", ""]
+        lines += [f"- {one}" for one in said]
     lines += ["", "## Every requirement"]
     lines += requirement_lines(payload)
 

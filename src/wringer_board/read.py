@@ -49,6 +49,8 @@ KNOWN_ACCEPTANCE = (
 )
 
 ACCEPTANCE_FILENAME = "acceptance.json"
+COVERAGE_FILENAME = "coverage.json"
+DIAGNOSIS_FILENAME = "diagnosis.json"
 MANIFEST_FILENAME = "manifest.json"
 VACUITY_FILENAME = "vacuity.json"
 EVENTS_FILENAME = "loop.jsonl"
@@ -201,6 +203,13 @@ class Board:
     # with the other about whether a check changed. Empty for every bundle
     # written before `checks.json` shipped — absence is not a change.
     check_notes: dict[str, str] = field(default_factory=dict)
+    # `wringer.coverage.v1` as the run wrote it, or None when the run wrote
+    # none. Rendered through the engine's own `coverage.lines`, so this
+    # package owns no wording for it.
+    coverage: dict[str, Any] | None = None
+    # `wringer.diagnosis.v1` as the run wrote it, or None. A HINT: it changes
+    # no card's state and no verdict, and the card that renders it says so.
+    diagnosis: dict[str, Any] | None = None
 
 
 def _load(path: Path) -> Any:
@@ -704,6 +713,26 @@ def read(
         )
 
     board.vacuity = _load(board.run_dir / VACUITY_FILENAME)
+
+    # **The coverage record, if the run wrote one.** ABSENT IS ABSENT: a
+    # bundle from before `coverage.json` existed produces no sentences at all
+    # rather than a zero nobody measured, which is ruling 11 applied to an
+    # eighth family.
+    #
+    # The sentences themselves come from the ENGINE's renderer, never from
+    # wording written here — SPEC_BOARD ruling 1, and the same argument that
+    # admitted `accept` and `checks` through the seam. A second copy of "N of
+    # M requirements carry a check" living in this package is how the board
+    # and the merge request come to state different numbers for one run.
+    board.coverage = _load(board.run_dir / COVERAGE_FILENAME)
+
+    # **A guess about a red the ENVIRONMENT may have caused** — field
+    # report 2026-08-28, finding 4. `ruff: command not found` went into
+    # the record indistinguishable from a red the requirement earned,
+    # and this page is the one surface a non-engineer opens. The
+    # engine writes it; this renders its sentence and owns no wording
+    # for it. Absent unless a face matched.
+    board.diagnosis = _load(board.run_dir / DIAGNOSIS_FILENAME)
 
     # The gates this run was not asked to check. Read from the manifest rather
     # than inferred: a scoped run has its own honest sentence and ruling 4b

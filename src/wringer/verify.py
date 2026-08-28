@@ -27,7 +27,9 @@ from wringer import (
     checks,
     concurrency,
     config,
+    coverage,
     detect,
+    diagnose,
     evidence,
     gates,
     git,
@@ -520,8 +522,33 @@ def run(
         root, cfg, results, state=state, redactor=bundle.redactor,
         witnesses=witness_evidence,
     )
+    # **A guess about a red the ENVIRONMENT may have caused, in the RUN
+    # bundle** — field report 2026-08-28, finding 4. `ruff: command not found`
+    # went into the record indistinguishable from a red the requirement
+    # earned. Only the loop wrote this file before, and the board reads the
+    # run bundle, so the one surface a non-engineer opens could never show it.
+    #
+    # Hint tier: absent unless a face matched, and it changes no status, no
+    # acceptance row and no exit code.
+    diagnose.write(
+        bundle.directory,
+        next((r for r in results if r.gate.id == failed_gate), None),
+        bundle.redactor,
+    )
+    measured = None
     if accepted is not None:
         accept.write(bundle.directory, accepted, redactor=bundle.redactor)
+        # **The coverage number, beside the acceptance record it is derived
+        # from** — SPEC_COVERAGE_V0. A sibling file rather than a field,
+        # because half of it has no home: `show:` is declared in the person's
+        # own `.wringer.yaml` and recorded by nothing, and `acceptance.json`
+        # is frozen. Fed the rows THIS run just assessed rather than a re-read
+        # of the file, so the two artifacts cannot describe different runs.
+        measured = coverage.assess(
+            accepted.as_json().get("criteria"), cfg.show
+        )
+        if measured is not None:
+            coverage.write(bundle.directory, measured, redactor=bundle.redactor)
     # AFTER acceptance, which is a move made for one reason: SPEC_GATEGEN
     # ruling 3 says a bound gate green at its first recorded run must be
     # called out, and `summary.md` is the document the person who just
@@ -547,6 +574,7 @@ def run(
         template_only=template_only,
         vacuity=proved,
         acceptance=accepted,
+        coverage=measured,
         stability=observed_report,
         execution=engine,
     )
