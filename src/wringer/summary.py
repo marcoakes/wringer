@@ -55,6 +55,7 @@ def write(
     stability: Any = None,
     execution: Any = None,
     coverage: Any = None,
+    falsification: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
     lines = [
@@ -132,6 +133,8 @@ def write(
         lines += _vacuity_section(vacuity)
 
     lines += _born_green_section(acceptance)
+
+    lines += _falsification_section(falsification)
 
     if failed_gate is not None:
         lines += [
@@ -441,6 +444,26 @@ def _born_green_section(acceptance: Any) -> list[str]:
             "done."
         )
     return lines
+
+
+def _falsification_section(result: Any) -> list[str]:
+    """What happened when this change was broken on purpose.
+
+    Absent unless `--falsify` was typed, which is the same absence rule every
+    other optional section here keeps: a run that measured nothing is not a
+    run that scored zero. The sentences are `falsify.lines` — one renderer,
+    quoted by the certificate as well.
+    """
+    if result is None:
+        return []
+    from wringer import falsify as falsify_module
+
+    said = falsify_module.lines(result.as_json())
+    if not said:
+        return []
+    return ["", "## Broken on purpose", ""] + [
+        one if one.startswith("  -") else f"- {one}" for one in said
+    ]
 
 
 def _vacuity_section(result: Any) -> list[str]:

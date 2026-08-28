@@ -24,6 +24,7 @@
     "evidence-event.schema.json": "ddc61d7b0eaa39fd0d08cf77cd2eff64d9fc1bb959a5e8586b51543abfa5157e",
     "execution-v2.schema.json": "7752a4730cc0dfbfe9f63e8b3b1aa9958e20ca2fd8f5aa629e7b6fec674455be",
     "execution.schema.json": "692e30cdb252873fe1ec9ee9a62c0118d1567fa995d5eb2be08c3f972331cc1e",
+    "falsification-v1.schema.json": "d8a108b786253ce1d1fcbcc09dc5062e30042edd72b0e0dbfd1e7c9844ec4fd3",
     "fleet-event.schema.json": "477527a1ffc141b9a0a2dfe47c43675b562b16d45bce21f35ab2667d971f1946",
     "fleet-manifest.schema.json": "594c5060c9fff05d05f5a23449e9008ec300eb5d70496bc165977baf9563ffe5",
     "fleetscope.schema.json": "31005bc4561fe6db4de567b525cb20d5fe522b0bdd17b15993343273e8c862d4",

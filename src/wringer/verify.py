@@ -196,6 +196,7 @@ def run(
     output: str | None = None,
     on_gate: GateReporter | None = None,
     prove: bool = False,
+    falsify: bool = False,
     serial: bool = False,
     established: object | None = None,
     witnesses: object | None = None,
@@ -402,6 +403,51 @@ def run(
     # `wringer.evidence.v1` is frozen and cannot grow a field for this.
     template_only = detect.is_untouched_template(cfg.gates)
 
+    # **The falsification pass** — SPEC_FALSIFY_V0. AFTER the gates and only
+    # when they all passed, on the same reasoning as the prove pass: there is
+    # nothing to falsify about a change whose checks are already red.
+    #
+    # It refuses nothing (ruling 3) and touches no outcome. `status`,
+    # `failed_gate` and the acceptance rows are all decided above and none of
+    # them is read here — which is what a guard asserts by running the same
+    # repository twice, once with the flag and once without.
+    broken = None
+    if falsify and status == "passed" and state.dirty:
+        from wringer import falsify as falsify_module
+
+        # **Tracked changes AND the files this change created.** The first
+        # version passed `git diff` alone, and the first FIELD run came back
+        # inconclusive because of it: a change that adds an acceptance test
+        # adds it as an UNTRACKED file, the file never reached the scratch
+        # copy, and the gate that runs it failed there for that reason. That
+        # is `deliver.plan`'s exact lesson — a change made entirely of new
+        # files rendered an empty patch — arriving in a second place.
+        carried = tuple(
+            path
+            for path in state.untracked
+            if not path.startswith(f"{evidence.WRINGER_DIRNAME}/")
+        )
+        broken = falsify_module.falsify(
+            root,
+            cfg,
+            bundle.directory,
+            (git.diff(root, state.head_sha) or "")
+            + git.diff_untracked(root, carried),
+            redactor=bundle.redactor,
+        )
+        falsify_module.write(bundle.directory, broken, bundle.redactor)
+    elif falsify:
+        from wringer import falsify as falsify_module
+
+        broken = falsify_module.not_applicable(
+            "a required check failed, so there is nothing to break on purpose "
+            "— fix the check first"
+            if status != "passed"
+            else "the working tree has no changes, so there is no change to "
+            "break on purpose"
+        )
+        falsify_module.write(bundle.directory, broken, bundle.redactor)
+
     # The prove pass, when the repo declared it or a flag tightened to it.
     # AFTER the gates and only when they all passed: there is nothing to prove
     # about a failure, which is law 3's shape.
@@ -575,6 +621,7 @@ def run(
         vacuity=proved,
         acceptance=accepted,
         coverage=measured,
+        falsification=broken,
         stability=observed_report,
         execution=engine,
     )

@@ -237,6 +237,17 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser_verify.add_argument(
+        "--falsify",
+        action="store_true",
+        help=(
+            "after the gates pass, break this change on purpose — one "
+            "mechanical mutation at a time, in a scratch copy — and report "
+            "which breakages the bound checks did not notice. Model-free: no "
+            "LLM and no network. A surviving mutation is a finding about the "
+            "CHECKS and never a verdict on the work, and it refuses nothing"
+        ),
+    )
+    parser_verify.add_argument(
         "--json",
         action="store_true",
         help="emit one JSON object instead of the human report",
@@ -1721,6 +1732,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             # The flag TIGHTENS; `run.prove: true` in the config is read
             # inside `verify.wants_prove` and nothing here can turn it off.
             prove=args.prove,
+            falsify=getattr(args, "falsify", False),
             # Also tightens: it can only collapse a declared group, never build
             # one the config did not declare.
             serial=args.serial,

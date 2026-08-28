@@ -2509,3 +2509,44 @@ def test_THE_DELIVERY_CARRIES_THE_COVERAGE_RECORD_BESIDE_THE_CERTIFICATE(
     )
     face = (written / certificate.FACE_FILENAME).read_text(encoding="utf-8")
     assert "How much of it anybody is watching" in face, face
+
+
+def test_THE_DELIVERY_CARRIES_THE_FALSIFICATION_RECORD(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The third sibling, and the certificate's record still does not
+    grow.** Each later fact rides its own file and the face renders it; a key
+    added to `wringer.certificate.v1` would be a silent break for every reader
+    of a document already written."""
+    from wringer import certificate, falsify
+
+    accepting_repo(delivery_repo, bound=False)
+    monkeypatch.chdir(delivery_repo)
+    assert cli.main(["verify", "--falsify"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    record = json.loads(
+        (written / certificate.RECORD_FILENAME).read_text(encoding="utf-8")
+    )
+    assert "falsification" not in record, (
+        "the certificate's own record grew a key for a fact version 1 did not "
+        "earn"
+    )
+
+    run_dir = _run_the_mr_is_about(
+        delivery_repo, (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    )
+    recorded = falsify.read(run_dir)
+    assert recorded is not None, "the run wrote no falsification record"
+    assert (written / falsify.FALSIFICATION_FILENAME).is_file(), sorted(
+        p.name for p in written.iterdir()
+    )
+
+    face = (written / certificate.FACE_FILENAME).read_text(encoding="utf-8")
+    said = falsify.lines(recorded)
+    assert said, recorded
+    assert "broken on purpose" in face.lower(), face
+    assert said[0] in face, face

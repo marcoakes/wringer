@@ -41,6 +41,9 @@ COVERED: dict[tuple[str, str, str], tuple[str, tuple[str, ...]]] = {
     ("checks", "Identity", "as_json"): (
         "checks.schema.json", ("checks", "items"),
     ),
+    ("falsify", "Attempt", "as_json"): (
+        "falsification-v1.schema.json", ("attempts", "items"),
+    ),
     ("coverage", "Requirement", "as_json"): (
         "coverage-v1.schema.json", ("requirements", "items"),
     ),

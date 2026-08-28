@@ -46,7 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import accept, coverage, evidence
+from wringer import accept, coverage, evidence, falsify
 
 SCHEMA_VERSION = "wringer.certificate.v1"
 RECORD_FILENAME = "certificate.json"
@@ -487,7 +487,11 @@ def requirement_lines(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
-def render(payload: dict[str, Any], measured: dict[str, Any] | None = None) -> str:
+def render(
+    payload: dict[str, Any],
+    measured: dict[str, Any] | None = None,
+    broken: dict[str, Any] | None = None,
+) -> str:
     """`certificate.md` — the face, from the record and its siblings.
 
     **The face grows; the record does not.** `measured` is a
@@ -527,6 +531,16 @@ def render(payload: dict[str, Any], measured: dict[str, Any] | None = None) -> s
     if said:
         lines += ["", "## How much of it anybody is watching", ""]
         lines += [f"- {one}" for one in said]
+    said = falsify.lines(broken)
+    if said:
+        # **The survivor line** — SPEC_FALSIFY_V0 §6. Another sibling record,
+        # rendered here and not folded into `certificate.json`, for the same
+        # reason the coverage record is not: version 1 is frozen at what it
+        # earned.
+        lines += ["", "## What happened when this change was broken on purpose", ""]
+        lines += [
+            one if one.startswith("  -") else f"- {one}" for one in said
+        ]
     lines += ["", "## Every requirement"]
     lines += requirement_lines(payload)
 

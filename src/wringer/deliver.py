@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import certificate, config, coverage, evidence, git, summary
+from wringer import certificate, config, coverage, evidence, falsify, git, summary
 from wringer.redact import Redactor
 
 DELIVERIES_DIRNAME = Path(".wringer") / "deliveries"
@@ -258,6 +258,10 @@ class Plan:
     # re-checked by whoever was handed the delivery, which is the whole
     # difference between a document and a claim.
     coverage: dict[str, Any] | None = None
+    # `wringer.falsification.v1`, the run's own record, or None. Another
+    # sibling that travels beside the certificate rather than a key
+    # inside it, for the same reason.
+    falsification: dict[str, Any] | None = None
 
 
 def _relative_to_root(path: Path, root: Path) -> str:
@@ -1079,6 +1083,7 @@ def plan(
     )
     board, board_page = _board_to_carry(root)
     measured = coverage.read(run_dir)
+    broken = falsify.read(run_dir)
     # Tracked changes, plus a real new-file diff for the untracked ones. A
     # change made entirely of new files used to render an EMPTY patch, so the
     # human approving `--send` approved nothing. `--no-index` gets the content
@@ -1112,6 +1117,7 @@ def plan(
         board=board,
         board_page=board_page,
         coverage=measured,
+        falsification=broken,
         commands=(
             f"git switch --create {branch}",
             # the planned paths on stdin — never a bare add --all; see send()
@@ -1257,6 +1263,8 @@ def _mr_body(
         ]
     if built is not None and coverage.read(run_dir) is not None:
         travelling.append(f"`{coverage.COVERAGE_FILENAME}`")
+    if built is not None and falsify.read(run_dir) is not None:
+        travelling.append(f"`{falsify.FALSIFICATION_FILENAME}`")
     if board is not None:
         travelling.append(f"`{BOARD_FILENAME}`")
     lines += [
@@ -1433,7 +1441,13 @@ class Bundle:
                 encoding="utf-8",
             )
             (self.directory / CERTIFICATE_FILENAME).write_text(
-                write(certificate.render(planned.certificate, planned.coverage)),
+                write(
+                    certificate.render(
+                        planned.certificate,
+                        planned.coverage,
+                        planned.falsification,
+                    )
+                ),
                 encoding="utf-8",
             )
         if planned.coverage is not None:
@@ -1442,6 +1456,15 @@ class Bundle:
             (self.directory / coverage.COVERAGE_FILENAME).write_text(
                 json.dumps(
                     evidence.deep_scrub(self.redactor, planned.coverage), indent=2
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        if planned.falsification is not None:
+            (self.directory / falsify.FALSIFICATION_FILENAME).write_text(
+                json.dumps(
+                    evidence.deep_scrub(self.redactor, planned.falsification),
+                    indent=2,
                 )
                 + "\n",
                 encoding="utf-8",

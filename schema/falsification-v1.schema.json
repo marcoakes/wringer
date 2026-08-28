@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/falsification-v1.schema.json",
+  "title": "Wringer falsification",
+  "description": "One `falsification.json`, written by `wring verify --falsify` and carried into a delivery beside the certificate. **A NEW FILE; no published schema moves.** Every green in this program was red first — and red-first is a claim about ONE recorded failure. It says nothing about whether the check would notice a DIFFERENT way of breaking the same code. So this breaks the change on purpose, mechanically, and reports which breakages the bound checks did not notice. **v0 IS MODEL-FREE**: no LLM, no network, no rival agent — the mutations come from a fixed, ordered table and are applied by textual substitution to lines the change itself touched. **A SURVIVOR IS A FINDING ABOUT THE CHECKS, NEVER A VERDICT ON THE WORK.** It says these checks could not tell the difference between the code as delivered and the code with that line broken; it does not say the change is wrong or the requirement unmet, and no surface may phrase it that way. **The ceiling, which is the whole of what this buys**: surviving mechanical mutation is necessary and demonstrably NOT sufficient, and this is never a score. **It refuses nothing** — no exit code, acceptance row, verdict or delivery outcome differs between a run with the flag and a run without it; whether a survivor should ever refuse is a named future ruling that wants this v0's field evidence first. **Absent when the flag was not typed**, which is not a run that scored zero.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "verdict",
+    "reason",
+    "counts",
+    "gates",
+    "attempts",
+    "duration_ms",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Always `wringer.falsification.v1` in this format.",
+      "const": "wringer.falsification.v1"
+    },
+    "verdict": {
+      "description": "`measured` — mutants were made and the bound checks ran against each. `inconclusive` — the measurement could not be made honestly, and NOTHING is claimed either way. `not-applicable` — there was nothing to attempt. **The three are never collapsed**: an unmeasurable run must not score zero and must not score full marks, which is the trap the control run exists to catch. A scratch copy carries tracked files only, so in a repository whose dependencies are not committed every gate fails there and every mutant would be recorded as CAUGHT — a perfect score produced by a broken environment, which is worse than no measurement.",
+      "enum": ["measured", "inconclusive", "not-applicable"]
+    },
+    "reason": {
+      "description": "Why, in the engine's own words, for the two verdicts that are not a measurement. Empty on `measured`.",
+      "type": "string"
+    },
+    "counts": {
+      "description": "Over an ENUMERATED population — the mutants this run actually attempted — so a zero is a real zero. `attempted` is what was tried, NOT what was possible: see `truncated`.",
+      "type": "object",
+      "required": ["attempted", "caught", "survived"],
+      "additionalProperties": false,
+      "properties": {
+        "attempted": { "type": "integer", "minimum": 0 },
+        "caught": { "type": "integer", "minimum": 0 },
+        "survived": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "gates": {
+      "description": "The BOUND checks that ran against each mutant — the ones whose `proves:` names a requirement. A gate binding nothing has no opinion about whether a mutant broke anything anybody asked for. Empty on a verdict that is not a measurement.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "attempts": {
+      "description": "Every mutant, in the order it was attempted. **Deterministic**: the file order is sorted, each file's mutations keep their diff order, and the ceiling is spread round-robin across files — so two runs of one commit attempt the same mutations in the same order, and a survivor is a fact somebody can go and reproduce.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "line", "was", "became", "mutation", "caught_by", "survived"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "Repo-relative. **Load-bearing rather than decorative**: a mutation in a file the bound checks never execute — a test file, a fixture — survives because nothing ran it, which says only that, and the path is how a reader tells that case from a mutation of code the checks were supposed to be watching.",
+            "type": "string"
+          },
+          "line": { "type": "integer", "minimum": 1 },
+          "was": {
+            "description": "The line as delivered, verbatim. Carried so a reader can see what was broken without opening the tree, and checked against the file before the mutation is applied — a diff's line numbers are about the diff's idea of the file, and mutating by number alone would break a line nobody chose.",
+            "type": "string"
+          },
+          "became": { "type": "string" },
+          "mutation": {
+            "description": "The substitution, as `'what' -> 'what it became'`. Textual, and nothing here parses the code — that buys language independence and costs precision, which `limits` states out loud.",
+            "type": "string"
+          },
+          "caught_by": {
+            "description": "The bound checks that FAILED on this mutant. Empty when it survived.",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "survived": {
+            "description": "Whether every bound check still passed. True is the finding; false is the ordinary case and is not a claim that the check is good.",
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "truncated": {
+      "description": "PRESENT ONLY when a ceiling was actually reached, and it says how many mutations were possible and not attempted. A key saying 'nothing was truncated' on every clean run is the caveat-over-a-clean-record shape this project refuses — and a silent truncation reads as 'we tried everything', which is the worse of the two mistakes.",
+      "type": "string"
+    },
+    "duration_ms": { "type": "integer", "minimum": 0 },
+    "limits": {
+      "description": "What this measurement does NOT say, travelling with the numbers rather than living in a spec nobody opened, and rendered on every surface that carries them.",
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
