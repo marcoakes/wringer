@@ -468,7 +468,16 @@ def test_S4_A_RED_THE_ENVIRONMENT_CAUSED_SAYS_SO_IN_THE_SUMMARY(
     assert "| lint | failed (maybe the environment)" in body, body
     assert "Some of these reds may not be yours" in body
     assert "ran a command that is not on PATH" in body
-    assert "command not found" in body, "the line it was guessed from is missing"
+    # **The COMMAND, not the shell's phrasing.** This asserted "command not
+    # found" and CI reddened the tag twice: macOS `/bin/sh` says that and
+    # Linux's dash says "not found". The engine's own face was right either
+    # way — it comes from exit 127 — and the portable fact about the quoted
+    # line is that it names the command nobody could find. THE MACHINE IS A
+    # VARIABLE, and a local bar on one operating system is not a measurement
+    # of both.
+    assert "ruffle-that-does-not-exist" in body, (
+        "the line the guess was read from is missing"
+    )
 
 
 def test_S4_IT_IS_A_GUESS_AND_THE_SURFACE_SAYS_SO(tmp_path, monkeypatch):
