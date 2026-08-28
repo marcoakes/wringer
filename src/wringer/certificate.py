@@ -377,12 +377,14 @@ def headline(payload: dict[str, Any]) -> list[str]:
         )
     if failing:
         lines.append(
-            f"- **{failing} {'has a check that' if failing == 1 else 'have checks that'} "
+            f"- **{failing} "
+            f"{'has a check that' if failing == 1 else 'have checks that'} "
             "ran and failed.**"
         )
     if absent:
         lines.append(
-            f"- **{absent} {'has a check that' if absent == 1 else 'have checks that'} "
+            f"- **{absent} "
+            f"{'has a check that' if absent == 1 else 'have checks that'} "
             "did not run in this round.**"
         )
     if people:

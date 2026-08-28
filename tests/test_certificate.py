@@ -85,7 +85,10 @@ ROWS = [
         accept.EVIDENCED,
         gate="check",
         command="pytest -q tests/test_export.py",
-        receipt={"kind": accept.FAILURE, "bundle": ".wringer/runs/20260101-000000-aaaa"},
+        receipt={
+            "kind": accept.FAILURE,
+            "bundle": ".wringer/runs/20260101-000000-aaaa",
+        },
     ),
     row("headers-right", "The columns are in the order finance asked for",
         accept.UNEVIDENCED, cause=accept.CAUSE_UNBOUND),
@@ -750,7 +753,8 @@ def test_THE_CONSOLE_PRINTS_ITS_OWN_CEILING_AND_POINTS_AT_THE_REST(
     by name and by count. The measurement that prompted it is in the finish
     report: the release bar's own clean-room delivery, audited by hand.
     """
-    from wringer import cli, spec as spec_module
+    from wringer import cli
+    from wringer import spec as spec_module
 
     (tmp_path / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
     payload = built(tmp_path, spec_sha256=spec_module.authorising_sha256(tmp_path))

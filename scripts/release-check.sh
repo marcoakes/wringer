@@ -153,7 +153,26 @@ fi
 # own install — added AFTER the runtime check, never before it.
 "$UV" pip install -q '.[dev]' --python "$WORK/venv/bin/python" || {
     echo "  FAIL  dev extras do not install"; FAIL=$((FAIL + 1)); }
-check "the suite is green"  "$WORK/venv/bin/python" -m pytest -q "$WORK/src/tests"
+
+# **`wring verify`, not `pytest` — and the difference cost a tag.**
+#
+# This line ran `pytest` alone until 2026-08-28. The release workflow's
+# tag-verify step runs `wring verify`, which is this repository's OWN declared
+# gates: `ruff check src tests examples scripts` AND `pytest -q`. So the bar
+# could be 31/0 on a tree whose lint gate was red, and it was: `v0.5.0` was
+# tagged, pushed, and rejected by CI over three ruff errors this script had
+# just called green.
+#
+# It is also the README's own headline promise about this bar — *"Wringer
+# verifies Wringer, in CI, with the demo bundle committed"* — which a bar that
+# runs pytest instead of the gates does not keep. Running the real verb is
+# both the stronger check and the honest one, and it costs nothing extra: the
+# suite runs inside it rather than beside it.
+#
+# PATH carries the clean-room venv so the gates resolve `ruff` and `pytest`
+# there rather than wherever the operator happens to have them.
+check "wringer verifies wringer (its own gates, in the clean clone)" \
+    env PATH="$WORK/venv/bin:$PATH" "$WORK/venv/bin/wring" verify
 
 echo
 echo "-------------------------------------------"
