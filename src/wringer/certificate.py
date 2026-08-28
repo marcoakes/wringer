@@ -357,7 +357,11 @@ def headline(payload: dict[str, Any]) -> list[str]:
     # first draft read "2 of 8 are proved — a check covers it", which is the
     # sentence a program assembles rather than one somebody wrote: the number
     # repeated four times and the pronoun disagreeing with it.
-    lines = [f"Of the {total} requirements this change was asked to satisfy:", ""]
+    lines = [
+        f"Of the {total} requirement{'' if total == 1 else 's'} this change "
+        "was asked to satisfy:",
+        "",
+    ]
     lines.append(
         f"- **{proved} {'is' if proved == 1 else 'are'} proved** — a check "
         f"covers {'it' if proved == 1 else 'each of them'}, and the record "
@@ -653,7 +657,7 @@ def _check_counts(payload: dict[str, Any]) -> Claim:
         return Claim(
             "the counts match the requirements listed below them",
             HOLDS,
-            f"{len(rows)} requirements",
+            f"{len(rows)} requirement{'' if len(rows) == 1 else 's'}",
         )
     return Claim(
         "the counts match the requirements listed below them",
@@ -691,7 +695,14 @@ def _check_spec(payload: dict[str, Any], root: Path) -> list[Claim]:
     listed = [row.get("id") for row in payload.get("requirements") or []]
     claims = []
     if declared == listed:
-        claims.append(Claim(what, HOLDS, f"{len(listed)} requirements, in order"))
+        claims.append(
+            Claim(
+                what,
+                HOLDS,
+                f"{len(listed)} requirement{'' if len(listed) == 1 else 's'}, "
+                "in order",
+            )
+        )
     else:
         missing = [one for one in listed if one not in declared]
         claims.append(

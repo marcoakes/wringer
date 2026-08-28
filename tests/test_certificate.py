@@ -718,3 +718,55 @@ def test_the_ENGINE_no_longer_writes_the_broad_sentence_at_all():
         "`wring deliver` still claims the whole bundle stays behind"
     )
     assert "The gate LOGS stay with the machine that ran it" in source
+
+
+def test_a_ONE_REQUIREMENT_CHANGE_IS_NOT_DESCRIBED_IN_THE_PLURAL(tmp_path):
+    """Small, and found by READING a real clean-room delivery rather than by
+    a test: the release bar's own chain produced *"Of the 1 requirements this
+    change was asked to satisfy"*. That is the difference between a sentence
+    somebody wrote and a sentence a program assembled, on the first line of
+    the document."""
+    one = certificate.render(
+        built(tmp_path, rows=[row("only", "The only one", accept.EVIDENCED)])
+    )
+    assert "Of the 1 requirement this change" in one, one
+    many = certificate.render(built(tmp_path))
+    assert "Of the 4 requirements this change" in many, many
+
+
+def test_THE_CONSOLE_PRINTS_ITS_OWN_CEILING_AND_POINTS_AT_THE_REST(
+    tmp_path, capsys, monkeypatch
+):
+    """**Nothing is lowered; the wall is.**
+
+    A real delivery's certificate carries thirteen ceiling sentences — its
+    own four plus the acceptance record's nine, which is correct and stays,
+    because the ceiling has to travel ON the artifact. Printing all thirteen
+    after a passing check is how a reader learns to skip the `!` mark, which
+    is the lesson `accept.disclosure` already encodes about warnings printed
+    over clean records.
+
+    So the console prints THIS COMMAND's ceiling and says where the rest is,
+    by name and by count. The measurement that prompted it is in the finish
+    report: the release bar's own clean-room delivery, audited by hand.
+    """
+    from wringer import cli, spec as spec_module
+
+    (tmp_path / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
+    payload = built(tmp_path, spec_sha256=spec_module.authorising_sha256(tmp_path))
+    record_path = tmp_path / certificate.RECORD_FILENAME
+    record_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+    cli.main(["audit", str(record_path)])
+    printed = capsys.readouterr().out
+
+    for mine in certificate.LIMITS:
+        assert mine in printed, f"the command's own ceiling is missing: {mine!r}"
+    assert "the record's own ceiling sentence" not in printed, (
+        "the console is reprinting the record's whole ceiling after a passing "
+        "check, which is how people learn to skip the mark"
+    )
+    assert "more sentences" in printed and "What this does not say" in printed, (
+        "the console dropped sentences and did not say where they went"
+    )

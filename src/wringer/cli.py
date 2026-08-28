@@ -4193,8 +4193,23 @@ def _audit_certificate(named: Path, as_json: bool) -> int:
             "is not a pass and not a failure: what they rest on did not "
             "travel with this document."
         )
-    for limit in report.limits:
+    # **THIS COMMAND's ceiling on the console, and the document's ON the
+    # document.** The certificate carries the acceptance record's own limits
+    # as well as its own — thirteen sentences on a real delivery — and
+    # printing all of them after a passing check is how a reader learns to
+    # skip the `!` mark, which is the lesson `accept.disclosure` already
+    # encodes about conditional warnings. Nothing is lowered: the full list
+    # is on the artifact this command was pointed at, and the line below says
+    # where.
+    mine = [limit for limit in report.limits if limit in certificate.LIMITS]
+    for limit in mine or report.limits:
         print(f"\n! {limit}")
+    if len(report.limits) > len(mine) and mine:
+        print(
+            f"\n· and what the RECORD says it does not say — "
+            f"{len(report.limits) - len(mine)} more sentences — travels on "
+            f"{named.name}'s own page, under 'What this does not say'."
+        )
     return EXIT_OK if report.ok else EXIT_GATE_FAILED
 
 
