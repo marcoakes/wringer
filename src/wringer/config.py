@@ -41,7 +41,7 @@ MAX_GATE_ID_LENGTH = 64
 
 _TOP_LEVEL_KEYS = {
     "version", "gates", "evidence", "run", "judge", "fleet", "workspace",
-    "forge", "deliver", "bench", "execution", "provenance",
+    "forge", "deliver", "bench", "execution", "provenance", "show",
 }
 _PROVENANCE_KEYS = {"require_signature", "signer", "expect_identity"}
 _EXECUTION_KEYS = {"backend", "image", "runtime", "network", "env", "user"}
@@ -673,6 +673,19 @@ class Config:
     # attestation written before this section was — and which `wring audit`
     # reports as `signature_missing`, the ordinary case rather than a failure.
     provenance: Provenance | None = None
+    # **What a person is shown when they are asked to judge something** —
+    # criterion id to a command whose output IS the thing to look at. Empty
+    # when the repository has declared none, and empty is what makes
+    # `wringer-board judge` say out loud that it is asking about something it
+    # cannot show.
+    #
+    # **Here, and NEVER in `wringer.spec.yaml`.** The spec is drafted by a
+    # model; this file is the person's, and it is already the file where a
+    # command earns the right to run — `wring plan` prints proposed gates as a
+    # diff and refuses to install one itself, for exactly this reason. A
+    # `show:` in the spec would be a model-supplied command executing on a
+    # person's machine on the strength of having been suggested.
+    show: dict[str, str] = field(default_factory=dict)
 
 
 def load(path: Path) -> Config:
@@ -817,7 +830,33 @@ def parse(raw: Any, source: str = CONFIG_FILENAME) -> Config:
         bench=_parse_bench(raw.get("bench"), source),
         execution=_parse_execution(raw.get("execution"), raw.get("fleet"), source),
         provenance=_parse_provenance(raw.get("provenance"), source),
+        show=_parse_show(raw.get("show"), source),
     )
+
+
+def _parse_show(raw: Any, source: str) -> dict[str, str]:
+    """The `show:` section — criterion id to the command that renders it.
+
+    A plain mapping of strings. No shape beyond that, because the value is a
+    command and the only thing this parser can honestly check about a command
+    is that somebody wrote one.
+    """
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ConfigError(
+            f"{source}: 'show' must be a mapping of criterion id to command"
+        )
+    out: dict[str, str] = {}
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.strip():
+            raise ConfigError(f"{source}: 'show' keys must be criterion ids")
+        if not isinstance(value, str) or not value.strip():
+            raise ConfigError(
+                f"{source}: 'show.{key}' must be a command, got {value!r}"
+            )
+        out[key.strip()] = value.strip()
+    return out
 
 
 def _parse_provenance(raw: Any, source: str) -> Provenance | None:

@@ -115,6 +115,84 @@ def wording(criterion: dict) -> str:
     return "\n".join(lines)
 
 
+SHOW_TIMEOUT = 120
+
+
+def shown(repo: Path, criterion_id: str) -> tuple[str | None, str]:
+    """What the person is being asked to look at, and where it came from.
+
+    **The finding this exists for, 2026-08-28.** A person was asked to judge
+    *"a reader can tell at a glance which one thing to fix"* — a requirement
+    about the wording of a summary — and the summary appeared NOWHERE. Not in
+    this command, which printed the requirement and stopped. Not on the board,
+    which had zero occurrences of it. Not in the run bundle, whose only copy
+    was a string literal inside a test's source in `diff.patch`. The one place
+    it had ever existed was a gate log from the run where the check was still
+    failing — visible only while the thing was broken — and the requirement's
+    own guidance says the person judges it *without opening the logs*.
+
+    The judgement was possible only because a coding agent pasted the output
+    into a chat window unprompted. That is not a product behaviour.
+
+    Returns `(text, source)`. `text` is None when the repository declares no
+    `show:` for this criterion, and the caller must SAY SO rather than print
+    the question as if nothing were missing.
+
+    **Run at judging time, in the repository, not read from a bundle.** A
+    person judging wording should see what the wording is now, not what it was
+    when some earlier run happened to capture it.
+    """
+    try:
+        from wringer import config as config_module
+
+        cfg = config_module.load(repo / config_module.CONFIG_FILENAME)
+    except Exception:  # a repo with no config shows nothing, and says so
+        return None, ""
+    command = cfg.show.get(criterion_id)
+    if not command:
+        return None, ""
+    try:
+        done = subprocess.run(
+            command,
+            shell=True,
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=SHOW_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return f"[the command for this requirement could not be run: {exc}]", command
+    text = (done.stdout or "") + (done.stderr or "")
+    # **Newlines only.** A plain `.strip()` eats the FIRST line's indentation
+    # and leaves every other line's alone, so a summary whose whole point is
+    # that its columns line up arrives with its first row shifted left. The
+    # person is judging this text's shape; the surface does not get to change
+    # it on the way past.
+    return text.strip("\n") or "[the command produced no output]", command
+
+
+def standing_objection(repo: Path, criterion_id: str) -> dict[str, Any] | None:
+    """The `not_met` a person already recorded against this requirement.
+
+    A criterion re-offered because somebody said no reads identically to one
+    nobody has ever looked at, unless the listing says which it is — and the
+    two ask for completely different things. One asks a person to form a
+    judgement; the other asks them whether the objection they already made has
+    been answered. Printing their own words back is what tells them apart.
+    """
+    try:
+        entries = _existing(repo / JUDGEMENTS_FILENAME)
+    except InterviewError:
+        return None
+    for entry in entries:
+        if str(entry.get("criterion", "")) != criterion_id:
+            continue
+        if str(entry.get("verdict", "")) == "not_met":
+            return entry
+    return None
+
+
 def _default_by(repo: Path) -> str:
     """A name for the record, from git, or nothing.
 
@@ -288,11 +366,29 @@ def record(
 
 
 def unanswered(repo: Path) -> list[dict[str, Any]]:
-    """Every `human:` criterion with no answer recorded against its wording.
+    """Every `human:` criterion still waiting on a person.
 
     Used to tell a person what is still waiting. A criterion whose answer was
-    given against DIFFERENT wording counts as unanswered here, because that is
+    given against DIFFERENT wording counts as waiting here, because that is
     what the engine will say too — somebody answered a different question.
+
+    **A `not_met` is an open objection, not a settled answer** — field report
+    2026-08-28, and it closed the loop this whole product is built to open.
+    A person judged a requirement not met. An engineer fixed exactly what they
+    complained about. The person ran `wringer-board judge` to look again and
+    was told *"nothing is waiting on your judgement in this repository"* —
+    while the engine went on refusing the delivery on that same verdict, and
+    went on refusing it forever, because the one verb that moves the pen would
+    not offer the question again.
+
+    The escape hatch was real and useless: `--id` still records over a prior
+    verdict, so anyone who already knew the identifier could re-judge. This
+    listing exists precisely so that *"a person who does not know the ids
+    should not have to read a YAML file to find them"*, and it was refusing to
+    name the one id that mattered.
+
+    **Only `met` settles a criterion.** Every other state — no answer, a stale
+    answer, or a standing `not_met` — is a person's turn.
     """
     from wringer import accept, spec
 
@@ -315,8 +411,10 @@ def unanswered(repo: Path) -> list[dict[str, Any]]:
             required=bool(criterion.get("required", True)),
             human=True,
         )
-        if entry is None or entry.get("criterion_digest") != accept.criterion_digest(
-            parsed
+        if (
+            entry is None
+            or entry.get("criterion_digest") != accept.criterion_digest(parsed)
+            or str(entry.get("verdict", "")) != "met"
         ):
             waiting.append(criterion)
     return waiting

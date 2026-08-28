@@ -4,6 +4,81 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.4.12 — 2026-08-28
+
+**The pen, reachable.** Gate 1 closed on Marc's main Mac: the sixth leg — a
+delivered branch earned on a re-judge — landed. Getting there needed two
+fixes, and both were about the same thing. A human criterion is the one path
+in this product with no evidence surface, and it turned out a person could
+neither be asked again nor be shown what they were being asked about. The
+report is
+[docs/field-report-2026-08-28-run2.md](docs/field-report-2026-08-28-run2.md),
+verbatim.
+
+### A `not_met` is an open objection, not a settled answer
+
+A person judged a requirement not met. An engineer fixed exactly what they
+objected to. The person ran `wringer-board judge` and was told *"nothing is
+waiting on your judgement in this repository"* — while the engine went on
+refusing the delivery on that same verdict, and would have gone on refusing it
+forever, because the one verb that moves the pen would not offer the question
+a second time.
+
+`--id` had always recorded over a prior verdict, so anyone who already knew
+the identifier could re-judge. The listing exists precisely so that a person
+who does not know the ids need not read a YAML file to find them, and it was
+withholding the one id that mattered. Only `met` settles a criterion now, and
+a re-offered requirement prints the person's own objection back so it does not
+read like a question nobody has looked at.
+
+### `show:` — the person sees what they are judging
+
+The criterion was about the wording of a run summary. That summary appeared in
+no surface Wringer had: `wringer-board judge` printed the requirement and
+stopped, `board.html` had zero occurrences of it, and the run bundle's only
+copy was a string literal inside `diff.patch`. The one place it had ever
+existed was the gate log from the run where the check was still failing —
+visible only while the thing was broken — and the requirement's own guidance
+says the person judges it *without opening the logs*. The judgement was
+possible only because a coding agent pasted the output into a chat window.
+
+`.wringer.yaml` now takes a `show:` mapping of criterion id to a command whose
+output is the thing to look at, and `wringer-board judge --id` prints it under
+the requirement. Where nothing is declared the command says so in capitals
+rather than asking as though nothing were missing.
+
+**In `.wringer.yaml` and deliberately not in `wringer.spec.yaml`**: the spec is
+drafted by a model and this value is a command that runs. Same boundary that
+makes `wring plan` print proposed gates as a diff and refuse to install one
+itself.
+
+### The board says the short version first
+
+Added after the field verdict on the page as it stood: *"you need a PhD to
+understand what is going on here."* Nothing on it was wrong; it answered "what
+is the state of each requirement" and never answered what a person arrives
+with. The new block names every requirement in exactly one group — proved,
+nothing checking it, not finished, yours to decide, unreadable — and ends on
+whether any of it can be handed over. A guard fails the build if that block
+ever uses `bound`, `evidenced`, `criterion`, `red first`, `witness`,
+`receipt`, `gate` or `verdict` again.
+
+The plainer wording went wider than the block: "It was red first" is now "This
+was watched failing before it was fixed", and "No check is bound to this
+requirement" is now "Nothing is checking this requirement".
+
+### A delivery refusal about an older run is history
+
+Rendering that block against a real board found the page contradicting itself:
+the summary cleared a handover the engine had refused. Behind it was an older
+defect — the refusal being rendered was from the previous day, about a run two
+runs back, and its cause had since been reversed by the person who raised it.
+The comment above the code already promised otherwise; it was a promise about
+`latest_refusal`, which sorts records by name and knows nothing about which run
+is on the page. A refusal that does not name the run being rendered is now
+history, and a record too old to name one is kept, because a fact that cannot
+be dated has not been disproved.
+
 ## 0.4.11 — 2026-08-27
 
 **The board and the witness.** Gate 1 — a fresh install, the login route,

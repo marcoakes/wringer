@@ -43,7 +43,20 @@ BOARD = SRC / "wringer_board"
 # Everything else is an internal. The test for admitting a fourth is the same
 # one that admitted these: is the board rendering the engine's own words, or
 # reaching for a mechanism it should be asking the engine for?
-PERMITTED = {"wringer.spec", "wringer.accept", "wringer.checks", "wringer"}
+# **The fourth, admitted 2026-08-28, and it passed that same test.** The board
+# asks `wringer.config` for one thing: the `show:` command a person declared
+# for a criterion they are about to judge. That is a DECLARATION in the
+# person's own file — the same class of thing `wringer.spec` holds — and the
+# board renders its output verbatim without interpreting it. The alternative
+# was a second YAML parser inside the board, which is the drift this test
+# exists to prevent, arriving by the door marked "avoiding an import".
+PERMITTED = {
+    "wringer.spec",
+    "wringer.accept",
+    "wringer.checks",
+    "wringer.config",
+    "wringer",
+}
 
 
 def _engine_imports(path: Path) -> set[str]:
@@ -127,11 +140,26 @@ def test_the_permitted_list_is_not_silently_widened():
     the two-surfaces-one-fact drift the seam exists to prevent. The import is
     guarded so the board still loads with no engine present, which is the
     property `test_the_board_imports_without_the_engine` holds.
+
+    **Widened again, 2026-08-28, and the argument is this.** `wringer.config`
+    joined for the reason `spec` is on the list: it holds DECLARATIONS a
+    person wrote, and the board needs exactly one of them — the `show:`
+    command for a criterion somebody is about to judge. The board runs it and
+    prints the output verbatim; it interprets nothing and decides nothing.
+
+    The finding behind it is that a person was asked to judge the wording of
+    a summary that appeared in no surface Wringer had. The alternative to this
+    import was a second YAML parser living inside the board, which is the
+    two-implementations drift this seam exists to prevent, arriving through
+    the door marked "avoiding an import". The import is inside the function
+    and its failure is caught, so a board with no engine present still loads
+    and simply has nothing to show — which it then says.
     """
     assert PERMITTED == {
         "wringer.spec",
         "wringer.accept",
         "wringer.checks",
+        "wringer.config",
         "wringer",
     }, (
         "the permitted-import set changed. That is allowed, but it is the "

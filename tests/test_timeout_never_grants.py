@@ -52,6 +52,7 @@ WAITS_ON_AN_ANSWER = {
     "deliver.GIT_TIMEOUT_SECONDS",
     "git.GIT_TIMEOUT_SECONDS",
     "vacuity.SETUP_TIMEOUT_SECONDS",
+    "judge.SHOW_TIMEOUT",
     "witness.TIMEOUT_SECONDS",
     "worker_auth.TIMEOUT",
     "worker_auth.HANDSHAKE_TIMEOUT",
@@ -395,3 +396,47 @@ def test_no_waiting_surface_defaults_its_answer_when_the_wait_expires():
     assert not offenders, (
         "a wait that expired is being answered affirmatively: " f"{offenders}"
     )
+
+
+def test_A_SHOW_COMMAND_THAT_HANGS_IS_NEVER_READ_AS_NOTHING_TO_SHOW(
+    tmp_path, monkeypatch
+):
+    """**The two silences must not look alike.**
+
+    `wringer_board.judge.shown` returns None to mean *this repository declares
+    no way to render this requirement*, and the command that prints that says
+    so in capitals — a person is being asked to judge something nobody can
+    show them. A `show:` command that hangs must NOT collapse into that same
+    None: a declared-and-broken renderer would then be indistinguishable from
+    a renderer nobody wrote, and the loudest sentence on the surface would be
+    pointing at the wrong repair.
+
+    Expiry here grants nothing either way. The person still types the verdict.
+    What it must not do is lie about which of the two silences this is.
+    """
+    from wringer_board import judge as board_judge
+
+    repo = tmp_path / "project"
+    repo.mkdir()
+    (repo / "wringer.spec.yaml").write_text(
+        "schema_version: wringer.spec.v1\napproved: true\ntitle: T\n"
+        "intent: i\nopen_questions: []\ncriteria:\n"
+        "  - id: slow\n    title: Slow\n    required: true\n    human: true\n"
+        "gates: []\ntasks: []\n",
+        encoding="utf-8",
+    )
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: t\n    run: 'true'\n"
+        "show:\n  slow: sleep 30\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(board_judge, "SHOW_TIMEOUT", 1)
+
+    text, command = board_judge.shown(repo, "slow")
+
+    assert text is not None, (
+        "a `show:` command that ran out of time came back as 'nothing is "
+        "declared' — a broken renderer became an unwritten one"
+    )
+    assert command == "sleep 30"
+    assert "could not be run" in text

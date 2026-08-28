@@ -642,3 +642,117 @@ def _criterion(*, state, cause, gate_id=None):
         witness=None,
         cause=cause,
     )
+
+
+# --- field report 2026-08-28: the two ways the pen was unreachable ----------
+
+
+def test_a_NOT_MET_criterion_is_offered_again(repo, capsys):
+    """**The closed loop, and it closed on the product's own reason to exist.**
+
+    A person judged a requirement not met. An engineer fixed exactly what they
+    objected to. The person ran `wringer-board judge` to look again and was
+    told *"nothing is waiting on your judgement in this repository"* — while
+    the engine went on refusing the delivery on that same verdict, and would
+    have gone on refusing it forever, because the one verb that moves the pen
+    would not offer the question a second time.
+
+    Only `met` settles a criterion. A `not_met` is an open objection.
+    """
+    assert main(["judge", str(repo), "--id", "heading-reads-as-mine",
+                 "--verdict", "not_met", "--note", "It is generic."]) == 0
+    capsys.readouterr()
+
+    assert main(["judge", str(repo)]) == 0
+    said = capsys.readouterr().out
+    assert "nothing is waiting" not in said.lower(), (
+        "a requirement somebody rejected was dropped from the list, so the fix "
+        "for it can never be re-judged"
+    )
+    assert "heading-reads-as-mine" in said
+    # **Their own words back.** A re-offered requirement and one nobody has
+    # ever looked at ask for completely different things.
+    assert "You said this was NOT met" in said
+    assert "It is generic." in said
+
+
+def test_a_MET_criterion_is_settled_and_stays_off_the_list(repo, capsys):
+    assert main(["judge", str(repo), "--id", "heading-reads-as-mine",
+                 "--verdict", "met", "--note", "It sounds like us."]) == 0
+    capsys.readouterr()
+    assert main(["judge", str(repo)]) == 0
+    assert "nothing is waiting" in capsys.readouterr().out.lower()
+
+
+def test_the_person_is_SHOWN_the_thing_they_are_judging(repo, capsys):
+    """**The finding of run 2.**
+
+    A person was asked to judge the wording of a summary, and the summary
+    appeared in no surface Wringer has: not this command, not the board, not
+    the run bundle. They could answer only because an agent pasted it into a
+    chat window unprompted.
+    """
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\n"
+        "gates:\n"
+        "  - id: t\n"
+        "    run: 'true'\n"
+        "show:\n"
+        "  heading-reads-as-mine: printf 'Welcome back to Arcade'\n",
+        encoding="utf-8",
+    )
+    assert main(["judge", str(repo), "--id", "heading-reads-as-mine"]) == 2
+    said = capsys.readouterr().out
+    assert "Welcome back to Arcade" in said, (
+        "the person was asked to judge something this command never showed them"
+    )
+    # The requirement first, then the thing, then the question.
+    assert said.index("The heading reads as mine") < said.index("Welcome back")
+
+
+def test_when_NOTHING_can_be_shown_the_command_SAYS_SO(repo, capsys):
+    """Asking somebody to judge what you will not show them is the defect.
+    Asking while pretending nothing is missing is the same defect with the
+    evidence removed."""
+    assert main(["judge", str(repo), "--id", "heading-reads-as-mine"]) == 2
+    said = capsys.readouterr().out
+    assert "NOTHING IS BEING SHOWN TO YOU" in said
+    assert "show:" in said
+    assert "heading-reads-as-mine" in said
+
+
+def test_a_show_command_is_read_from_the_PERSONS_file_not_the_spec(repo):
+    """**The boundary, and it is the reason `show:` is not in the spec.**
+
+    `wringer.spec.yaml` is drafted by a model. `.wringer.yaml` is the person's,
+    and it is already the file where a command earns the right to run — `wring
+    plan` prints proposed gates as a diff and refuses to install one itself. A
+    `show:` in the spec would be a model-supplied command executing on a
+    person's machine on the strength of having been suggested.
+    """
+    spec_module = pytest.importorskip("wringer.spec")
+    text = (repo / "wringer.spec.yaml").read_text(encoding="utf-8")
+    loaded = spec_module.load(repo / "wringer.spec.yaml")
+    assert "show" not in text
+    for criterion in loaded.criteria:
+        assert not hasattr(criterion, "show"), (
+            "a criterion carries a `show:` command, so a drafted spec can put "
+            "a command on a person's machine"
+        )
+
+
+def test_the_shown_text_keeps_the_shape_the_person_is_judging(repo, capsys):
+    """A plain `.strip()` eats the FIRST line's indentation and no other's.
+
+    The requirement this exists for is about whether columns line up. A
+    surface that re-indents the thing on the way past is deciding the answer.
+    """
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: t\n    run: 'true'\n"
+        "show:\n  heading-reads-as-mine: \"printf '  a\\\\n  b\\\\n'\"\n",
+        encoding="utf-8",
+    )
+    text, _ = judge_module.shown(repo, "heading-reads-as-mine")
+    assert text == "  a\n  b", (
+        f"the shown text was re-indented on the way to the person: {text!r}"
+    )

@@ -218,6 +218,20 @@ def _judge(args, repo: Path) -> int:
         print("These requirements are waiting for a person to judge them:\n")
         for criterion in waiting:
             print(judge_module.wording(criterion))
+            # **A requirement you already rejected is not a blank question.**
+            # Field report 2026-08-28: a `not_met` used to remove a criterion
+            # from this list entirely, which meant a fix could never be
+            # re-judged through the listing. It is back on the list now, and
+            # a reader meeting it needs to know it is THEIR objection they are
+            # being asked about, in the words they wrote it in.
+            standing = judge_module.standing_objection(repo, criterion.get("id", ""))
+            if standing is not None:
+                print(
+                    f"\n    You said this was NOT met on {standing.get('at', '')}."
+                    "\n    Your words: "
+                    f"{str(standing.get('note') or '(no note recorded)').strip()}"
+                    "\n    Has that been answered?"
+                )
             print()
         print(
             "Answer one with:\n"
@@ -233,6 +247,32 @@ def _judge(args, repo: Path) -> int:
     print("You are answering this requirement:\n")
     print(judge_module.wording(criterion))
     print()
+
+    # **AND THE THING ITSELF.** Field report 2026-08-28: this command printed
+    # the requirement and stopped, so a person was asked to judge the wording
+    # of a summary that appeared nowhere in any surface Wringer has. They
+    # could answer only because an agent pasted it into a chat window.
+    #
+    # When the repository declares nothing to show, that is said out loud
+    # rather than passed over. Asking somebody to judge what you will not show
+    # them is the defect; asking them while pretending nothing is missing is
+    # the same defect with the evidence removed.
+    text, command = judge_module.shown(repo, str(criterion.get("id", "")))
+    if text is None:
+        print(
+            "NOTHING IS BEING SHOWN TO YOU FOR THIS ONE.\n"
+            "  This repository declares no way to render what this requirement "
+            "is about,\n"
+            "  so you are being asked to judge something you cannot see. An "
+            "engineer can fix\n"
+            "  that by adding a command under `show:` in .wringer.yaml, keyed "
+            f"by `{criterion.get('id', '')}`.\n"
+        )
+    else:
+        print(f"This is what you are judging — from `{command}`:\n")
+        for line in text.splitlines():
+            print(f"  | {line}")
+        print()
 
     if not args.verdict:
         print(

@@ -105,6 +105,31 @@ requirement per invocation. The answer is pinned to that wording: if the
 requirement is later reworded, the answer goes stale and is asked again,
 because somebody answered a different question.
 
+A `not_met` is an open objection, not a settled answer: the requirement stays
+on the waiting list, with the person's own words printed back, until somebody
+answers `met`. That is what makes a fix re-judgeable.
+
+### Show them what they are judging
+
+A person asked to judge *"a reader can tell at a glance which one thing to
+fix"* needs to see the thing. Declare, in **`.wringer.yaml`** — the person's
+file, never the spec — a command whose output is what they should look at:
+
+```yaml
+show:
+  summary-reads-clearly: python -m pipeline acceptance/two_failures.json
+```
+
+`wringer-board judge --id <the id>` runs it and prints the output under the
+requirement. **Where no `show:` is declared, the command says so in capitals**
+— a person is being asked to judge something nobody can show them, and that is
+worth a line rather than a silence.
+
+It belongs in `.wringer.yaml` and not in `wringer.spec.yaml` because the spec
+is drafted by a model and this value is a command that runs. Same reason
+`wring plan` prints proposed gates as a diff and refuses to install one
+itself.
+
 **Law 2 governs this hardest of all.** A `human:` requirement exists precisely
 because a machine asked anyway would be guessing, and you are a machine. Relay
 the requirement's text verbatim, ask the person, and write back what they
