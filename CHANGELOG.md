@@ -4,6 +4,113 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.0 — 2026-08-28
+
+**The certificate: the proof travels.** A minor bump, and it is a FORMAT
+change rather than a behaviour one — `wring deliver` now hands over a document
+a reviewer who never ran the machine can act on, and a stranger can re-check
+offline. Nothing that ran before runs differently.
+
+On 2026-08-27 a cold reviewer was given a real delivery and asked whether they
+could act on it. Their answer was *partly*, and the four things they could not
+do are this release:
+
+> *"'Unevidenced' isn't a word I use … '6 of 8 requirements have no test
+> proving them' would land faster."*
+>
+> *"It doesn't say which six. That's the big one … To find out I'd need the
+> board, which the same file tells me 'stays with the machine that ran it.'
+> I'm told there's a hole and told the map isn't coming."*
+>
+> *"'1 for a person to judge' doesn't say it was judged. You judged that
+> criterion met, with a note. The MR doesn't show the verdict, the note, or
+> who gave it. I'd assume it was still outstanding."*
+>
+> *"Nothing names the one proved criterion either."*
+
+**Every one of those was a rendering failure, not a recording failure.** The
+run that produced them had all four facts on disk in `acceptance.json` and put
+none of them in the two files that go with the code. The before-picture is
+committed verbatim at
+[docs/run2-2026-08-28/](docs/run2-2026-08-28/README.md).
+
+The sentence in the second quote is narrowed rather than deleted, and this is
+its wording from now on: **the gate LOGS stay behind; the certificate and a
+copy of the board travel with the delivery.** What may not travel is gate
+output — a bundle may hold whatever a gate printed, and a merge request body
+is public — and that was always the promise the old sentence was protecting.
+It was simply broader than the promise.
+
+### What `wring deliver` writes now
+
+Into the delivery, beside `mr.md`:
+
+- **`certificate.md`** — the face. Every requirement BY TITLE with what the
+  record can honestly say about it, in plain English; the proved ones named
+  with their check and where that check is on record failing; a person's
+  verdict with WHO, WHEN and their NOTE, verbatim. Nothing on it needs the
+  machine that ran it — it names a run, never a path into somebody's disk.
+- **`certificate.json`** — `wringer.certificate.v1`, a NEW schema file. No
+  published schema changed.
+- **`board.html`** — a copy of the repository's board page, when it has one,
+  scrubbed like everything else in the bundle. Where there is none, the body
+  says so rather than reading like a delivery that carried one.
+
+`mr.md` quotes the same renderer, so the merge request and the certificate
+cannot come to describe the same requirements differently — and the sentence
+the reviewer quoted back is narrowed rather than deleted: the gate LOGS stay
+with the machine that ran it, and only those.
+
+`summary.md` and `mr.md` both stop saying `UNEVIDENCED` at a reader, because
+`accept.disclosure` is the one renderer both of them quote.
+
+### Checking one offline
+
+```
+wring audit certificate.json
+```
+
+No network, no model, no config, no account — an argument shape rather than a
+twentieth command. One line per claim: that the counts match the rows below
+them, that the requirements listed are the ones the clone's spec declares,
+that the commit named is in the clone, and one line per receipt, joined
+through the same reader that wrote the receipt in the first place.
+
+**Three outcomes, and the third is not a hedge.** A claim whose evidence did
+not travel has NOT been checked, and reporting it as either a pass or a
+failure would be a lie in one of the two directions.
+
+**Author-blind, and it is tested rather than announced.** The check never
+reads who wrote the branch, which tool produced it, or whose name is on the
+judgement — a test moves every one of them and asserts the outcomes are
+identical, claim for claim.
+
+### Two defects the guards caught in the first draft
+
+- `cause` is v3-only, so a v1 or v2 record carries a `human` row with no cause
+  AND no judgement. Keying the wording on the cause alone made that pair mean
+  *"a person looked and said it was met"* — a verdict invented by a renderer,
+  in the one place this document exists to show a person's actual answer.
+- *"there is no repository here"* was reported identically to *"this commit is
+  fabricated"*, so a certificate read beside a bare checkout came back ✗ on a
+  claim nobody could have checked.
+
+### Also
+
+The suite leaves a clean checkout clean. The install-prompt guard runs
+`INSTALL.md`'s lines for real, and one of them is
+`wringer-board render . -o board.html` — so every `pytest` was rendering the
+project's own committed page into the developer's working tree. Unnoticed for
+exactly as long as nobody was changing the renderer.
+
+### Schema versions
+
+| Schema | Version |
+|---|---|
+| `certificate-v1.schema.json` | `wringer.certificate.v1` — NEW |
+
+Everything else is unchanged. No published schema was amended.
+
 ## 0.4.12 — 2026-08-28
 
 **The pen, reachable.** Gate 1 closed on Marc's main Mac: the sixth leg — a
