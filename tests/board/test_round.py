@@ -362,7 +362,7 @@ def test_the_round_section_is_NOT_a_criterion_card(repo, tmp_path):
     assert 'class="card' not in section
     assert "<h2>" in section and "What happened in this round" in section
     assert "Refused" not in section
-    assert "It was red first." not in section
+    assert "This was watched failing before it was fixed." not in section
     # Between the counts and the first card, in that order.
     assert page.index('class="counts"') < page.index('class="round"')
     assert page.index('class="round"') < page.index('class="card ')

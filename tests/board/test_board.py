@@ -58,7 +58,7 @@ def test_a_resolved_evidenced_row_is_DONE_and_says_it_was_red_first(repo):
 
     page = html_of(repo)
     assert "DONE — AND PROVED" in page
-    assert "It was red first." in page, (
+    assert "This was watched failing before it was fixed." in page, (
         "the hero box is missing — the green is the ordinary part, the record "
         "of the same check FAILING is what this page exists to show"
     )
@@ -401,10 +401,12 @@ def test_an_UNBOUND_criterion_says_nothing_checks_it_yet(repo):
     # checks this yet" — was reworded on 2026-08-20 because six cold readers
     # met it beside a printed check whose assertions matched these very
     # requirements, and concluded the page was lying to them. What must stay
-    # true is that an unbound criterion says NO CHECK IS BOUND TO IT and does
-    # not claim more.
-    assert "bound to this requirement" in card.sentence
-    assert "prove it either way" in card.sentence
+    # true is that an unbound criterion says NOTHING IS CHECKING IT and does
+    # not claim more. Reworded again 2026-08-28 — "bound" was the last word
+    # here a product manager had to already know — and the property is the
+    # same one.
+    assert "Nothing is checking this requirement" in card.sentence
+    assert "nobody can say whether it works" in card.sentence
 
 
 def test_an_UNMAPPED_reason_renders_the_engines_words_VERBATIM(repo):

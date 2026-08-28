@@ -537,7 +537,32 @@ def read_facts(
             board.unreadable.append(f"refusal record: {unknown}")
         elif payload is not None:
             reason = payload.get("reason")
-            if isinstance(reason, str) and reason:
+            # **The newest RECORD is not the same as a refusal about the state
+            # in front of you** — field report 2026-08-28, on a repository
+            # where it mattered. Yesterday's refusal said the handover was held
+            # because a person had judged a requirement NOT met. The person
+            # then judged it met, the work was fixed, two further runs were
+            # recorded — and the board still rendered that refusal as the
+            # current verdict, three inches below a round section saying the
+            # work had finished. Nothing had refused anything today.
+            #
+            # The paragraph above this block already promised the right
+            # behaviour: *"a refusal from last week that somebody has since
+            # fixed is history, not a verdict about the work in front of you."*
+            # It was a promise about `latest_refusal`, which sorts records and
+            # knows nothing about what this page renders.
+            #
+            # A refusal names the run it refused. If that is not the run on the
+            # page, it is history. A record too old to name one is kept, because
+            # a fact that cannot be dated is not a fact that has been disproved.
+            refused_run = payload.get("run")
+            stale = (
+                isinstance(refused_run, str)
+                and bool(refused_run)
+                and board.run_dir is not None
+                and refused_run != board.run_dir.name
+            )
+            if isinstance(reason, str) and reason and not stale:
                 facts.append(Fact(refusals.DELIVERY_REFUSAL, reason))
 
     order = {family: index for index, family in enumerate(refusals.FAMILIES)}

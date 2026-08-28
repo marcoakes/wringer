@@ -332,7 +332,7 @@ def test_the_whole_v3_fixture_renders_without_a_version_refusal(tmp_path):
     )
     assert "wringer.acceptance.v3" not in page or code != 2
     # The cards are really there, with the engine's causes translated.
-    assert "No check is bound to this requirement" in page
+    assert "Nothing is checking this requirement" in page
     assert "new check cannot vouch" in page
 
 

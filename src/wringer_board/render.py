@@ -134,6 +134,26 @@ color:var(--dim);margin:18px 0 12px}
 .round p{margin:0 0 10px;padding:0 0 0 14px;border-left:2px solid var(--line)}
 .round .untranslated{padding:0 0 0 14px;border-left:2px solid var(--grey);margin:0 0 10px}
 .round .said{margin-top:6px}
+/* **The short version.** Field report 2026-08-28, and the reader was the
+   product manager this whole surface is for: *"you need a fucking PhD to
+   understand what is going on here."* Everything below this block is true and
+   was written for someone who already knows what bound, red-first and
+   evidenced mean. This block assumes none of it. */
+.short{border:1px solid var(--line);border-radius:8px;background:var(--card);
+padding:22px 24px;margin:0 0 22px}
+.short h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:0 0 14px}
+.short dl{margin:0}
+.short dt{font-weight:600;font-size:14px;margin:14px 0 2px}
+.short dt:first-of-type{margin-top:0}
+.short dd{margin:0;color:var(--ink)}
+.short dd .why{color:var(--dim);font-size:14px}
+.short ul{margin:4px 0 0;padding-left:20px}
+.short li{margin:0 0 3px}
+.short .verdict{margin:18px 0 0;padding:12px 14px;border-radius:5px;font-weight:600;
+background:var(--greyb);border-left:4px solid var(--grey)}
+.short .verdict.held{background:var(--amberb);border-left-color:var(--amber);color:var(--amber)}
+.short .verdict.clear{background:var(--doneb);border-left-color:var(--done);color:var(--done)}
 """.replace("themax", "760px")
 
 
@@ -191,6 +211,158 @@ def _round_html(board: Board) -> str:
     return "\n".join(parts)
 
 
+def _titles(cards: list[Card], states: tuple[str, ...]) -> list[str]:
+    return [card.title or card.id for card in cards if card.state in states]
+
+
+def _bullets(titles: list[str]) -> str:
+    return "<ul>" + "".join(f"<li>{_esc(one)}</li>" for one in titles) + "</ul>"
+
+
+def _headline_html(board: Board, cards: list[Card]) -> str:
+    """The whole page in plain English, for a reader who reads nothing else.
+
+    **Field report 2026-08-28, and the reader was Wringer's own product
+    manager**, on a page that had already survived six cold reads: *"you need a
+    PhD to understand what is going on here."* He was right, and nothing below
+    was wrong — the page answered "what is the state of each requirement" in
+    careful, hedged, accurate language, and never answered the three questions
+    a person actually arrives with: **what did we ask for, what came back, and
+    what is wrong with it.**
+
+    So this block asks nothing of the reader's vocabulary. No `bound`, no
+    `evidenced`, no `red first`, no `witness`, no `criterion` — the words the
+    rest of the page is built out of appear nowhere in it. It says what was
+    asked for, names what came back, names what did not, and says in one line
+    whether any of it can be handed over.
+
+    It repeats what the cards below say, deliberately. A summary that only
+    forwarded to the detail would be one more thing to read before the answer.
+    """
+    proved = _titles(cards, SETTLED)
+    yours = _titles(cards, BLOCKED_ON_PERSON)
+    unwatched = _titles(cards, BLOCKED_ON_ENGINEER)
+    unfinished = _titles(cards, BLOCKED_ON_THE_WORK)
+    unreadable = _titles(cards, INDETERMINATE)
+    total = len(cards)
+
+    # **No "what you asked for" row.** It was written, rendered, and read back
+    # as the page title repeated word for word twenty pixels below itself —
+    # the `h1` IS what was asked for. A summary that opens by restating the
+    # heading teaches the reader that this block is padding.
+    parts = ['<section class="short"><h2>The short version</h2><dl>']
+
+    # **What came back, from the round's own fact** — never a sentence written
+    # here. `refusals.say` owns every word a PM reads about how a round ended,
+    # and a second copy of that wording in a summary block is how the summary
+    # and the detail come to disagree about the same run.
+    ending = next(
+        (
+            refusals.say(fact.family, fact.value)
+            for fact in board.facts
+            if fact.family == refusals.LOOP_ENDING
+        ),
+        None,
+    )
+    if ending is not None:
+        parts.append("<dt>What came back</dt>")
+        parts.append(f"<dd>{_esc(ending.sentence)}</dd>")
+
+    if proved:
+        parts.append(
+            f"<dt>What is actually proved — {len(proved)} of {total}</dt><dd>"
+            + _bullets(proved)
+            + '<p class="why">Each of these was checked by something that was '
+            "watched to fail first, so a tick here means it did not work "
+            "before and does work now.</p></dd>"
+        )
+    else:
+        parts.append(
+            f"<dt>What is actually proved — none of the {total}</dt>"
+            "<dd>Nothing on this page has a check that was watched to fail "
+            "and then pass.</dd>"
+        )
+
+    if unwatched:
+        parts.append(
+            f"<dt>What nobody is checking — {len(unwatched)} of {total}</dt><dd>"
+            + _bullets(unwatched)
+            + '<p class="why">These are not failing. Nothing is testing them '
+            "at all, so this page cannot tell you either way. That is an "
+            "engineer's job to fix, not yours.</p></dd>"
+        )
+
+    if unfinished:
+        parts.append(
+            f"<dt>What is not finished — {len(unfinished)} of {total}</dt><dd>"
+            + _bullets(unfinished)
+            + '<p class="why">The work on these is not done yet.</p></dd>'
+        )
+
+    if yours:
+        parts.append(
+            f"<dt>What only you can decide — {len(yours)} of {total}</dt><dd>"
+            + _bullets(yours)
+            + '<p class="why">No check can settle these. They need a person to '
+            "look and say.</p></dd>"
+        )
+
+    if unreadable:
+        parts.append(
+            f"<dt>What this page could not read — {len(unreadable)} of "
+            f"{total}</dt><dd>"
+            + _bullets(unreadable)
+            + '<p class="why">The record says something this page does not '
+            "understand, so it is showing you nothing rather than a guess."
+            "</p></dd>"
+        )
+
+    parts.append("</dl>")
+
+    # **The one line most readers came for, and the first draft got it wrong
+    # in the most instructive way.**
+    #
+    # It read `card.refused` alone. On the very first real board it rendered
+    # against, EVERY card had `refuses: false` and the round section three
+    # inches below carried `delivery-refusal: acceptance_unevidenced` — so the
+    # page said *"Nothing on this page is holding up the handover"* directly
+    # above *"The handover is being held"*. Two answers to the one question a
+    # summary exists to answer, which is the exact defect class findings 12 and
+    # 13 were about, reintroduced by the block written to cure them.
+    #
+    # `refuses` is a per-criterion fact and it is not the delivery's verdict:
+    # a run can be refused for reasons no single row carries — five unproved
+    # requirements refuse the delivery while each of them, individually, is
+    # waiting on nobody. **The engine's delivery refusal is the authority**,
+    # and its own sentence is what gets rendered; the card partition is only
+    # consulted when the record carries no refusal at all.
+    refusal = next(
+        (
+            refusals.say(fact.family, fact.value)
+            for fact in board.facts
+            if fact.family == refusals.DELIVERY_REFUSAL
+        ),
+        None,
+    )
+    held = [card for card in cards if card.refused]
+    if refusal is not None:
+        parts.append(f'<p class="verdict held">{_esc(refusal.sentence)}</p>')
+    elif held:
+        who = sorted({waiting_on(card.state) for card in held})
+        parts.append(
+            '<p class="verdict held">This cannot be handed over yet: '
+            f"{len(held)} of {total} {'thing is' if len(held) == 1 else 'things are'} "
+            f"holding it up, and {' and '.join(who)}.</p>"
+        )
+    else:
+        parts.append(
+            '<p class="verdict clear">Nothing on this page is holding up the '
+            "handover.</p>"
+        )
+    parts.append("</section>")
+    return "\n".join(parts)
+
+
 def _card_html(card: Card) -> str:
     klass = _STATE_CLASS.get(card.state, "unknown")
     parts = [f'<div class="card {klass}">']
@@ -216,9 +388,15 @@ def _card_html(card: Card) -> str:
     if card.state == DONE:
         # **The hero.** Not the green — the green is ordinary. What sells is
         # that the same check is on the record having failed.
+        # **"It was red first" is the programme's own slogan, and a product
+        # manager does not speak it.** Field report 2026-08-28: red and green
+        # are an engineer's words for failing and passing, and the hero line of
+        # the whole surface was written in them. The fact is unchanged and the
+        # sentence after it is untouched; only the words a non-engineer has to
+        # already know are gone.
         parts.append(
-            '<div class="wasred"><b>It was red first.</b> '
-            f"{_esc(card.receipt or '')}</div>"
+            '<div class="wasred"><b>This was watched failing before it was '
+            f"fixed.</b> {_esc(card.receipt or '')}</div>"
         )
     if card.check_said:
         # **Say WHOSE check this is, or the page reads as a contradiction.**
@@ -347,6 +525,12 @@ def render(board: Board) -> str:
         body.append(f'<div class="refusal"><p>{_esc(board.refusal)}</p></div>')
         return _page(title, body)
 
+    # **THE SHORT VERSION, above everything.** The promise below is a careful
+    # sentence about a subset, and the counts below it are a tally — both are
+    # answers to questions a reader has to already know to ask. This is the
+    # answer to the question they arrived with.
+    body.append(_headline_html(board, cards))
+
     # **The promise, earned or withheld** — never softened into a maybe.
     done_count = sum(1 for c in cards if c.state == DONE)
     if promise_earned(board, cards):
@@ -358,10 +542,10 @@ def render(board: Board) -> str:
         body.append(
             '<div class="promise">'
             f"{'The one requirement' if done_count == 1 else f'All {done_count} requirements'}"
-            f" marked done below {'was' if done_count == 1 else 'were'} "
-            "demonstrated able to FAIL before being made to pass. "
-            "<strong>This says nothing about the rest of the page.</strong>"
-            "</div>"
+            f" ticked below {'was' if done_count == 1 else 'were'} watched "
+            "failing first, and then made to pass. That is what a tick here "
+            "means. <strong>It says nothing about the rest of this "
+            "page.</strong></div>"
         )
     else:
         body.append(

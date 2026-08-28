@@ -249,8 +249,8 @@ def _chain(board: Board, criterion: Criterion) -> tuple[bool, str | None, str | 
         return (
             True,
             (
-                "This check has been recorded failing — the run that failed it is "
-                "in this repository's evidence."
+                "This check has been seen failing, and the run where it failed "
+                "is saved with this project's records."
             ),
             said,
         )

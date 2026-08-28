@@ -132,17 +132,21 @@ MAPPING: dict[tuple[str, str], Saying] = {
     # `accept.py` at `d23d7ca`; the witness lane added the second row below and
     # S1's real-bundle tests found it on real data rather than by reading.
     (UNEVIDENCED_CAUSE, "unbound"): Saying(
-        "No check is bound to this requirement, so nobody can prove it either "
-        "way. A check elsewhere on this page may happen to test something "
-        "similar; it does not count for this one.",
+        # **"Bound" was the last piece of engineer's vocabulary a PM had to
+        # already know** — field report 2026-08-28. Nothing about the fact
+        # changes: no check decides this requirement, and one that happens to
+        # cover something similar still does not decide it.
+        "Nothing is checking this requirement, so nobody can say whether it "
+        "works or not. Another check on this page may happen to cover "
+        "something similar; it does not count for this one.",
         # The old question here was "Which check should decide this
         # requirement?" — asked of a reader who has no list of checks, does
         # not know what one is, and has nowhere to write an answer. All six
         # cold readers on 2026-08-19 named it, and it was the most-repeated
         # question on the page. A question a reader cannot act on is not a
         # question; it is a demand disguised as one.
-        "Nothing is needed from you — an engineer has to bind a check to this "
-        "before it can be proved.",
+        "Nothing is needed from you — an engineer has to write a check for "
+        "this before it can be proved.",
     ),
     (UNEVIDENCED_CAUSE, "witness-evidenced-nothing"): Saying(
         "Nothing in this repository checks this requirement, so Wringer wrote "

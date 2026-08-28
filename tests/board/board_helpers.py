@@ -107,6 +107,38 @@ def write_loop(repo: Path, loop_id: str, run_ids: list[str]) -> Path:
 # a loop ledger would make the absence discipline untestable.
 
 
+def write_refusal(
+    repo: Path, refusal_id: str, reason: str, *, run: str | None = None
+) -> Path:
+    """`.wringer/refusals/<id>/refusal.json` — a delivery the engine stopped.
+
+    `run` is the run the refusal was ABOUT, and it is the field that tells a
+    live refusal from a fixed one: a record naming a run this board is not
+    rendering is history. Defaults to None, which is what pre-2026 records
+    carry and which no board may treat as stale.
+    """
+    from wringer_board.read import REFUSALS_DIRNAME
+
+    directory = repo / ".wringer" / REFUSALS_DIRNAME / refusal_id
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / "refusal.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "wringer.refusal.v1",
+                "reason": reason,
+                "exit_code": 1,
+                "message": f"refusing to deliver: {reason}",
+                "at": "2026-08-28T09:00:00+01:00",
+                "run": run,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def write_loop_manifest(
     repo: Path, loop_id: str, reason: str, *, version: str = "wringer.loop.v2"
 ) -> Path:

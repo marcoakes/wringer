@@ -136,7 +136,7 @@ def test_the_promise_is_WITHHELD_on_a_run_that_evidenced_nothing(tmp_path):
     board = read_module.read(_repo(tmp_path))
     page = render_module.render(board)
     assert "does not claim that every requirement" in page
-    assert "It was red first." not in page
+    assert "This was watched failing before it was fixed." not in page
 
 
 def test_the_real_bundles_limits_render_verbatim(tmp_path):
@@ -208,7 +208,7 @@ def test_a_WITNESS_receipt_resolves_and_earns_the_promise(tmp_path):
     assert cards.promise_earned(board, [card])
 
     page = render_module.render(board)
-    assert "It was red first." in page
+    assert "This was watched failing before it was fixed." in page
     assert "before the work began" in page
 
 
