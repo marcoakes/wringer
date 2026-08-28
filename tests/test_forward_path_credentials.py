@@ -235,6 +235,9 @@ INHERITS_AND_WHY = {
     "attest.py": "git reads, on Wringer's own behalf",
     "backend.py": "the runtime CLIENT; what reaches the CONTAINER is the "
     "`--env NAME` allowlist checked above, not this",
+    "certificate.py": "two read-only git questions — `rev-parse --git-dir` "
+    "and `cat-file -e` — asked on Wringer's own behalf while checking a "
+    "certificate against a clone, the same shape as attest.py's git reads",
     "cli.py": "Wringer running its own tooling",
     "containment.py": "the runtime client, same as backend.py",
     "deliver.py": "git, run by Wringer to write history the operator asked "

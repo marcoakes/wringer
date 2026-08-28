@@ -583,21 +583,29 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser_audit = subparsers.add_parser(
         "audit",
-        help="check an attestation — or one bare bundle — offline: no config, "
-             "no network, no LLM",
+        help="check an attestation, a certificate, or one bare bundle — "
+             "offline: no config, no network, no LLM",
     )
     parser_audit.add_argument(
         "attestation",
-        metavar="ATTESTATION_OR_BUNDLE",
+        metavar="ATTESTATION_CERTIFICATE_OR_BUNDLE",
         # **An argument SHAPE, not a twentieth command.** Point it at an
         # attestation and it checks every bundle that attestation names;
         # point it at a bundle directory and it checks that one against its
         # own digests and chains. The second exists because `attest.build`
         # refuses failed runs — so until 2026-08-22 the bundles most likely
         # to be disputed were the ones no verb could digest-check.
-        help="the attestation.json to check, or a bundle directory (one "
-             "carrying digests.json) to check on its own — including a "
-             "FAILED run's, which no attestation will ever name",
+        #
+        # **The third, 2026-08-28: a certificate.** It is the same question —
+        # "is this document telling the truth, and can I check it without
+        # trusting whoever handed it to me?" — and the same contract: reads
+        # files, opens no socket, needs no config. The core is at its
+        # nineteen-command ceiling and a new verb for the third shape of one
+        # question would be the ceiling being spent on a synonym.
+        help="the attestation.json to check, a certificate.json handed over "
+             "with a change, or a bundle directory (one carrying "
+             "digests.json) to check on its own — including a FAILED run's, "
+             "which no attestation will ever name",
     )
     parser_audit.add_argument(
         "--json",
@@ -3787,11 +3795,6 @@ def cmd_deliver(args: argparse.Namespace) -> int:
     # reached the delivery patch in cleartext, AND the tree-match check below
     # compares this redactor's output against verify's — so a narrower list
     # here makes the two disagree and refuses a tree that never moved.
-    # Every name this config declares, not just the forge's. Two things need
-    # it: a credential an AGENT was handed (run.worker.acp.env_passthrough)
-    # reached the delivery patch in cleartext, AND the tree-match check below
-    # compares this redactor's output against verify's — so a narrower list
-    # here makes the two disagree and refuses a tree that never moved.
     redactor = redact.Redactor.from_config(
         cfg.evidence, extra_names=config.declared_secret_names(cfg)
     )
@@ -4125,11 +4128,91 @@ def cmd_attest(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _certificate_root(named: Path) -> Path:
+    """The clone a certificate should be checked against.
+
+    **The clone the reader is standing in wins**, because that is the shape
+    of the act: a stranger has been handed a branch and a document, they
+    check the branch out, and they run this. A certificate that arrived on
+    its own — an email attachment, a paste — has no repository around it at
+    all, so falling back to wherever it is sitting is the only other honest
+    answer, and it makes the spec claims report "not checkable here" rather
+    than inventing a verdict.
+    """
+    from wringer import attest, git
+
+    try:
+        return git.find_root(Path.cwd())
+    except Exception:  # noqa: BLE001 — not in a repo is not an error here
+        return attest.root_for(named)
+
+
+def _audit_certificate(named: Path, as_json: bool) -> int:
+    """`wring audit certificate.json` — the stranger's command.
+
+    One line per claim, each marked ✓ / ✗ / −, and the third mark is not a
+    hedge: a claim whose evidence did not travel HAS NOT BEEN CHECKED, and
+    printing it as either of the other two would be a lie in one of the two
+    directions.
+    """
+    from wringer import certificate
+
+    try:
+        payload = certificate.read(named)
+    except ValueError as exc:
+        print(f"wring audit: {exc}", file=sys.stderr)
+        return EXIT_CONFIG
+
+    root = _certificate_root(named)
+    report = certificate.check(payload, root)
+
+    if as_json:
+        print(json.dumps({**report.as_json(), "checked_against": str(root)}))
+        return EXIT_OK if report.ok else EXIT_GATE_FAILED
+
+    change = payload.get("change") or {}
+    heading = "✓" if report.ok else "✗"
+    print(
+        f"{heading} {named.name} — {change.get('branch') or 'this change'}, "
+        f"checked against {root}"
+    )
+    print()
+    for claim in report.claims:
+        print(f"  {claim.mark} {claim.what}")
+        if claim.detail:
+            print(f"      {claim.detail}")
+    unchecked = sum(
+        1 for claim in report.claims if claim.outcome == certificate.NOT_HERE
+    )
+    if unchecked:
+        # Said on the console and not only in the marks. A reader scanning
+        # for red would otherwise count a `−` as a pass, which is the whole
+        # reason it is not one.
+        print(
+            f"\n  − {unchecked} claim(s) could NOT be checked from here. That "
+            "is not a pass and not a failure: what they rest on did not "
+            "travel with this document."
+        )
+    for limit in report.limits:
+        print(f"\n! {limit}")
+    return EXIT_OK if report.ok else EXIT_GATE_FAILED
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     """Check an attestation. No config is read — an auditor may not have one."""
-    from wringer import attest
+    from wringer import attest, certificate
 
     path = Path(args.attestation)
+    # **A certificate is checked as a certificate, before anything else, and
+    # by its own declared version rather than by its name.** A delivery
+    # directory carries `digests.json` too, so the bundle branch below would
+    # otherwise swallow one and answer a narrower question — "were these
+    # bytes edited?" — than the one the reader asked, which is whether the
+    # document is telling the truth about the change in front of them.
+    named = path / certificate.RECORD_FILENAME if path.is_dir() else path
+    if certificate.is_certificate(named):
+        return _audit_certificate(named, args.json)
+
     # **A bundle is checked as a bundle, before anything looks for an
     # attestation in it.** Order matters: a bundle directory used to become
     # `<bundle>/attestation.json` and then "no such file", which is a true

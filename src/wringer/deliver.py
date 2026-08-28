@@ -30,7 +30,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import config, evidence, git, summary
+from wringer import certificate, config, evidence, git, summary
 from wringer.redact import Redactor
 
 DELIVERIES_DIRNAME = Path(".wringer") / "deliveries"
@@ -42,6 +42,9 @@ COMMIT_FILENAME = "commit.txt"
 BRANCH_FILENAME = "branch.txt"
 MR_FILENAME = "mr.md"
 COMMANDS_FILENAME = "commands.txt"
+CERTIFICATE_FILENAME = certificate.FACE_FILENAME
+CERTIFICATE_RECORD_FILENAME = certificate.RECORD_FILENAME
+BOARD_FILENAME = certificate.BOARD_FILENAME
 
 GIT_TIMEOUT_SECONDS = 120
 
@@ -233,6 +236,21 @@ class Plan:
     # `approved: true` is the authority the whole build ran on, and
     # nothing else in the program wrote down which spec that was.
     spec_sha256: str | None = None
+    # `wringer.certificate.v1`, or None for a repository that declared no
+    # requirements. None rather than an empty document: a certificate over
+    # zero requirements would assert that nothing was asked for.
+    certificate: dict[str, Any] | None = None
+    # The board page this delivery carries a copy of, as the repository sees
+    # it, or None when there is none to carry. **Absent is absent**: no page
+    # is copied and the merge request says so, rather than the delivery
+    # carrying a stale one and reading as though the map came with it.
+    board: str | None = None
+    # Its bytes, read at PLAN time. Carried on the plan rather than re-read at
+    # write time so that `write_plan` needs no repository root: a writer that
+    # takes one more argument than it used to is a writer whose two call sites
+    # can come to disagree about what a delivery contains, and this program
+    # has already shipped that shape twice.
+    board_page: str | None = None
 
 
 def _relative_to_root(path: Path, root: Path) -> str:
@@ -1033,6 +1051,26 @@ def plan(
         )
 
     title = _title(run_dir, root, task)
+    spec_sha256 = _spec_module().authorising_sha256(root)
+    run_relative = _relative_to_root(run_dir, root)
+    # **The proof, in a form that travels.** Built here rather than in
+    # `write_plan` because the merge request quotes it: one renderer, two
+    # surfaces, exactly as `accept.disclosure` is quoted by two. The
+    # alternative — an `mr.md` that describes the requirements and a
+    # `certificate.md` that describes them again — is the drift this program
+    # is about, in the artifact it is about.
+    built = certificate.build(
+        root,
+        run_dir,
+        title=title,
+        branch=branch,
+        base=base,
+        head_sha=state.head_sha,
+        files_changed=len(carried),
+        spec_sha256=spec_sha256,
+        run_relative=run_relative,
+    )
+    board, board_page = _board_to_carry(root)
     # Tracked changes, plus a real new-file diff for the untracked ones. A
     # change made entirely of new files used to render an EMPTY patch, so the
     # human approving `--send` approved nothing. `--no-index` gets the content
@@ -1047,7 +1085,7 @@ def plan(
         remote=settings.remote,
         title=title,
         commit_message=f"{title}\n\nVerified by wringer: {run_dir.name}\n",
-        mr_body=_mr_body(run_dir, root, state, len(carried)),
+        mr_body=_mr_body(run_dir, root, state, len(carried), built, board),
         patch=patch,
         changed_files=carried,
         # **REPO-RELATIVE, like every other cross-bundle reference in this
@@ -1060,8 +1098,11 @@ def plan(
         #
         # `loop.final_run`, `health`'s discovery and `_wanted` in this module all
         # speak repo-relative posix already; this is the one that did not.
-        run_dir=_relative_to_root(run_dir, root),
-        spec_sha256=_spec_module().authorising_sha256(root),
+        run_dir=run_relative,
+        spec_sha256=spec_sha256,
+        certificate=built,
+        board=board,
+        board_page=board_page,
         commands=(
             f"git switch --create {branch}",
             # the planned paths on stdin — never a bare add --all; see send()
@@ -1099,8 +1140,37 @@ def _title(run_dir: Path, root: Path, task: str | None) -> str:
     return task or f"wringer: verified change {run_dir.name}"
 
 
+def _board_to_carry(root: Path) -> tuple[str | None, str | None]:
+    """The board page this delivery should copy — its path and its bytes.
+
+    `<root>/board.html` is where `wringer-drive` writes it and where
+    `INSTALL.md` tells every operator to put it, so that is where this looks.
+    **The engine does not render it.** The board is a layer above this one
+    and consumes what the engine emits; an engine that invoked the board
+    would be the seam dissolving from the other side, and `wring deliver`
+    would have acquired a dependency on a surface. So it copies a page
+    somebody made, or it copies nothing and says which.
+
+    A page that cannot be read is reported as no page at all, both here and
+    in `mr.md`, which reads the same answer. Refusing a delivery over a copy
+    of a rendering would be this slice taking a power it was not granted.
+    """
+    page = root / BOARD_FILENAME
+    if not page.is_file():
+        return None, None
+    try:
+        return BOARD_FILENAME, page.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None, None
+
+
 def _mr_body(
-    run_dir: Path, root: Path, state: git.RepoState, carried: int
+    run_dir: Path,
+    root: Path,
+    state: git.RepoState,
+    carried: int,
+    built: dict[str, Any] | None = None,
+    board: str | None = None,
 ) -> str:
     """The receipts, which is what the OKR actually promises.
 
@@ -1134,6 +1204,18 @@ def _mr_body(
     else:
         lines.append("_No gate results were recorded._")
 
+    # **Which ones, by title — the reviewer's "big one", 2026-08-27.** They
+    # read a body exactly like the one above and wrote: *"It doesn't say
+    # which six. That's the big one … To find out I'd need the board, which
+    # the same file tells me stays with the machine that ran it. I'm told
+    # there's a hole and told the map isn't coming."* The list is quoted from
+    # `certificate.requirement_lines` and rendered nowhere else, so the merge
+    # request and the certificate beside it cannot come to describe the same
+    # requirements differently.
+    if built is not None:
+        lines += ["", "## Every requirement"]
+        lines += certificate.requirement_lines(built)
+
     verdict = _verdict(root, run_dir)
     if verdict:
         lines += ["", "## Judge", "", verdict]
@@ -1146,11 +1228,55 @@ def _mr_body(
         f"- run: `{shown}`",
         f"- commit verified at: `{state.head_sha or 'unknown'}`",
         f"- files changed: {carried}",
+    ]
+    # **AMENDED 2026-08-28: the proof travels now, and this paragraph used to
+    # say the opposite.** What stays behind is the LOGS, and it always was —
+    # a bundle may hold whatever a gate printed, and an MR body is public. The
+    # sentence said `the full bundle … stays with the machine that ran it`,
+    # and a cold reviewer correctly read that as "the map isn't coming".
+    travelling = [f"`{MR_FILENAME}`"]
+    if built is not None:
+        travelling += [
+            f"`{CERTIFICATE_FILENAME}`",
+            f"`{CERTIFICATE_RECORD_FILENAME}`",
+        ]
+    if board is not None:
+        travelling.append(f"`{BOARD_FILENAME}`")
+    lines += [
         "",
-        "The full bundle — `evidence.jsonl`, `manifest.json`, `summary.md`, "
-        "`diff.patch` and per-gate logs — stays with the machine that ran it. "
-        "Gate output is deliberately not reproduced here: a bundle may contain "
-        "whatever a gate printed.",
+        "The gate LOGS stay with the machine that ran it, and only those: a "
+        "bundle may contain whatever a gate printed, and this body is public.",
+        "",
+        "Everything else you need travels. The delivery directory beside this "
+        f"file carries {', '.join(travelling)} — hand it over with the branch.",
+    ]
+    if built is not None:
+        lines += [
+            "",
+            f"- `{CERTIFICATE_FILENAME}` says the same as the section above, "
+            "as a document that stands on its own, with what it does NOT "
+            "claim written on it.",
+            f"- `{CERTIFICATE_RECORD_FILENAME}` is the machine form. Re-check "
+            f"it against a clone with `wring audit "
+            f"{CERTIFICATE_RECORD_FILENAME}` — no network, no model, no "
+            "account, and it never reads who produced the branch.",
+        ]
+    if board is not None:
+        lines.append(
+            f"- `{BOARD_FILENAME}` is a copy of the page, self-contained: one "
+            "HTML file, no assets and nothing to install. It was rendered "
+            "from this repository, and whether it names THIS run is stated on "
+            "the page itself."
+        )
+    else:
+        # Absence is absence. Saying nothing here would let a delivery with no
+        # page read exactly like one that carried it.
+        lines.append(
+            f"- There is no `{BOARD_FILENAME}` in this repository, so none "
+            "was copied. `wringer-board render . -o board.html` makes one, "
+            "and the next delivery will carry it."
+        )
+    lines += [
         "",
         f"_Opened by `wring deliver`. {summary.SUMMARY_FILENAME} in the bundle "
         "is the human-readable report._",
@@ -1260,8 +1386,46 @@ class Bundle:
         with path.open("a", encoding="utf-8") as stream:
             stream.write(line + "\n")
 
+    def _write_certificate(self, planned: Plan) -> None:
+        """`certificate.json` and `certificate.md`, plus the board's copy.
+
+        **Written on a dry run too**, like everything else here: the whole
+        point of the dry run is that a person reads what would be handed over
+        before it is, and a certificate that only appeared on `--send` would
+        be the one artifact nobody could review first.
+
+        Everything is SCRUBBED on the way in, exactly like the patch and the
+        merge request. That matters most for the board page: it is a
+        rendering of a run, and a failing card on it carries the gate's own
+        stderr — so a page copied unredacted would walk a credential out of
+        the bundle that redacted it.
+
+        Called by `write_plan` rather than beside it. A delivery whose
+        contents depend on each caller remembering a second method is a
+        delivery that will one day be missing half of itself on one path,
+        which is the shape this program has already shipped.
+        """
+        write = self.redactor.scrub
+        if planned.certificate is not None:
+            (self.directory / CERTIFICATE_RECORD_FILENAME).write_text(
+                json.dumps(
+                    evidence.deep_scrub(self.redactor, planned.certificate),
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            (self.directory / CERTIFICATE_FILENAME).write_text(
+                write(certificate.render(planned.certificate)), encoding="utf-8"
+            )
+        if planned.board_page is not None:
+            (self.directory / BOARD_FILENAME).write_text(
+                write(planned.board_page), encoding="utf-8"
+            )
+
     def write_plan(self, planned: Plan) -> None:
         write = self.redactor.scrub
+        self._write_certificate(planned)
         (self.directory / BRANCH_FILENAME).write_text(
             write(planned.branch) + "\n", encoding="utf-8"
         )

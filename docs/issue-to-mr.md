@@ -182,6 +182,18 @@ The gate **table** travels; the gate **logs** do not. A bundle can hold
 anything a gate printed, and an MR body is public — so the reviewer gets the
 verdict and a pointer, not a paste.
 
+> **AMENDED 2026-08-28 — the capture above is 2026-08-01's and the sentence
+> in it has since been narrowed.** A cold reviewer read *"the full bundle …
+> stays with the machine that ran it"* and wrote: *"I'm told there's a hole
+> and told the map isn't coming."* They were right, and the sentence was
+> broader than the promise it was protecting. Today the gate LOGS stay
+> behind; the certificate and a copy of the board travel with the delivery.
+> `wring deliver` now writes `certificate.md` and `certificate.json` beside
+> `mr.md` — every requirement by title with what the record can honestly say
+> about it — plus `board.html` when the repository has one, and the body
+> names all three. A stranger re-checks the record with `wring audit
+> certificate.json`: no network, no model, no account.
+
 `commit.txt` and `mr.md` are yours to edit before the next step. `--send`
 reads them back off disk rather than out of memory, precisely so that editing
 them means something.

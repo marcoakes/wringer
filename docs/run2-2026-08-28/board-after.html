@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Skip work downstream of a failed pipeline step and explain each skip in the run summary</title><style>
+:root{--ink:#16181d;--dim:#5c6370;--line:#e2e5ea;--bg:#fbfcfd;--card:#fff;
+--done:#1a7f4b;--doneb:#e6f4ec;--red:#b3261e;--redb:#fdeceb;
+--amber:#8a5a00;--amberb:#fdf3e2;--grey:#565d68;--greyb:#f1f3f5;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:760px;margin:0 auto;padding:40px 24px 80px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+.intent{color:var(--dim);margin:0 0 28px;max-width:60ch}
+.promise{border:1px solid var(--line);border-left:4px solid var(--done);
+background:var(--doneb);padding:14px 18px;border-radius:6px;margin:0 0 10px;font-weight:600}
+.promise.withheld{border-left-color:var(--grey);background:var(--greyb);font-weight:400;color:var(--dim)}
+.counts{color:var(--dim);font-size:14px;margin:0 0 28px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;
+padding:18px 20px;margin:0 0 14px}
+.card h2{font-size:17px;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
+.state{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+text-transform:uppercase;padding:3px 8px;border-radius:4px;margin:0 8px 0 0;vertical-align:2px}
+.done .state{background:var(--doneb);color:var(--done)}
+.notyet .state{background:var(--amberb);color:var(--amber)}
+.notreached .state,.unknown .state,.untranslated .state{background:var(--greyb);color:var(--grey)}
+.needsyou .state{background:var(--amberb);color:var(--amber)}
+/* Neutral, not amber. These are real debts and they are NOT the reader's to
+   discharge — badging them like the rows that need a person is what put nine
+   demands for attention on a page whose summary counted two. */
+.notprovable .state,.needsengineer .state{background:var(--greyb);color:var(--grey)}
+.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--redb);color:var(--red)}
+.ask{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);
+font-weight:600;color:var(--ink)}
+.needsyou .ask{color:var(--amber)}
+.done .ask,.notreached .ask{font-weight:400;color:var(--dim)}
+.said{margin:12px 0 0;padding:10px 14px;background:#f7f8fa;border:1px solid var(--line);
+border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+white-space:pre-wrap;overflow-x:auto}
+.said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
+margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+/* F14: the card's check output is collapsible, so it must inherit none of
+   the page-level disclosure chrome below — no 36px gap, no rule above it.
+   Shut it is one line; open it is exactly the block it always was.
+   No tag names in angle brackets here: a literal one inside a stylesheet
+   comment makes every tag-counting reader of this page see an unclosed
+   element, which is how the well-formedness guard first went red. */
+.card details.said{margin:12px 0 0;border-top:none;padding-top:10px;font-size:13px}
+.card details.said summary.who{margin:0;color:var(--dim);list-style:revert}
+.card details.said[open] summary.who{margin:0 0 6px}
+/* **The scope sentence had NO rule at all** — found 2026-08-22 by a guard
+   over every class the page emits. It sits INSIDE the monospace log block,
+   so with no styling it rendered in the check's own typeface and read as one
+   more line the check had printed. That is the opposite of what it is for:
+   it is the board speaking ABOUT the log, and F14's structural answer leans
+   on the reader meeting it as such at the moment they open the block. */
+.said .scope{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+font-size:13px;color:var(--dim);margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line);
+white-space:normal}
+.wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
+border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
+.wasred b{color:var(--red)}
+.checknote{margin:12px 0 0;padding:10px 14px;border:1px solid var(--line);
+border-left:4px solid var(--amber);background:var(--amberb);border-radius:5px;font-size:14px}
+.checknote b{color:var(--amber);text-transform:uppercase;font-size:11px;letter-spacing:.06em;
+margin-right:6px}
+p{margin:0 0 6px}
+details{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;font-size:14px;color:var(--dim)}
+summary{cursor:pointer;color:var(--ink)}
+details li{margin-bottom:8px}
+.refusal{border:1px solid var(--red);border-left:4px solid var(--red);background:var(--redb);
+padding:18px 20px;border-radius:6px}
+.round{margin:0 0 28px;padding:2px 0 0;border-top:1px solid var(--line)}
+.round h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:18px 0 12px}
+.round p{margin:0 0 10px;padding:0 0 0 14px;border-left:2px solid var(--line)}
+.round .untranslated{padding:0 0 0 14px;border-left:2px solid var(--grey);margin:0 0 10px}
+.round .said{margin-top:6px}
+/* **The short version.** Field report 2026-08-28, and the reader was the
+   product manager this whole surface is for: *"you need a fucking PhD to
+   understand what is going on here."* Everything below this block is true and
+   was written for someone who already knows what bound, red-first and
+   evidenced mean. This block assumes none of it. */
+.short{border:1px solid var(--line);border-radius:8px;background:var(--card);
+padding:22px 24px;margin:0 0 22px}
+.short h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:0 0 14px}
+.short dl{margin:0}
+.short dt{font-weight:600;font-size:14px;margin:14px 0 2px}
+.short dt:first-of-type{margin-top:0}
+.short dd{margin:0;color:var(--ink)}
+.short dd .why{color:var(--dim);font-size:14px}
+.short ul{margin:4px 0 0;padding-left:20px}
+.short li{margin:0 0 3px}
+.short .verdict{margin:18px 0 0;padding:12px 14px;border-radius:5px;font-weight:600;
+background:var(--greyb);border-left:4px solid var(--grey)}
+.short .verdict.held{background:var(--amberb);border-left-color:var(--amber);color:var(--amber)}
+.short .verdict.clear{background:var(--doneb);border-left-color:var(--done);color:var(--done)}
+</style></head><body><div class="wrap"><h1>Skip work downstream of a failed pipeline step and explain each skip in the run summary</h1><section class="short"><h2>The short version</h2><dl>
+<dt>What came back</dt>
+<dd>The work finished: the checks it was asked to satisfy are passing.</dd>
+<dt>What is actually proved — 2 of 8</dt><dd><ul><li>A step whose dependency failed is never executed</li><li>Each skipped step is labelled with the failure it was waiting on</li></ul><p class="why">Each of these was checked by something that was watched to fail first, so a tick here means it did not work before and does work now.</p></dd>
+<dt>What nobody is checking — 5 of 8</dt><dd><ul><li>Skipping propagates all the way down the chain</li><li>Steps not waiting on the failure still run and still report as before</li><li>The summary names the steps that were not attempted</li><li>The run completes without crashing and reports overall failure</li><li>Nothing else about running or reporting changes</li></ul><p class="why">These are not failing. Nothing is testing them at all, so this page cannot tell you either way. That is an engineer's job to fix, not yours.</p></dd>
+<dt>What only you can decide — 1 of 8</dt><dd><ul><li>A reader can tell at a glance which one thing to fix</li></ul><p class="why">No check can settle these. They need a person to look and say.</p></dd>
+</dl>
+<p class="verdict clear">Nothing on this page is holding up the handover.</p>
+</section><div class="promise">All 2 requirements ticked below were watched failing first, and then made to pass. That is what a tick here means. <strong>It says nothing about the rest of this page.</strong></div><p class="counts">2 of 8 proved · 1 needs you · 5 cannot be proved yet — they have no working check</p><section class="round"><h2>What happened in this round</h2>
+<p>The work finished: the checks it was asked to satisfy are passing.</p>
+<p>The handover is being held because at least one requirement cannot show its proof.</p>
+</section><div class="card done">
+<h2><span class="state">DONE — AND PROVED</span>A step whose dependency failed is never executed</h2>
+<p>This check failed on the code as it was BEFORE this change, and passes on it now.</p>
+<div class="wasred"><b>This was watched failing before it was fixed.</b> This check failed on the code as it was BEFORE this change, and passes on it now.</div>
+<details class="said"><summary class="who">What the check for <b>this</b> requirement printed <b>BEFORE the work</b></summary>6 failed, 3 passed in 0.12s<p class="nowpasses">Those failures are the point: this is the recorded run from <b>before</b> the work, kept so that a tick means <b>this did not work before and works now</b> rather than &ldquo;nobody noticed a problem&rdquo;. The same check <b>passes today</b> — that is what marks this requirement done.</p><p class="scope">These lines are what this one requirement's check said. It may test more than this requirement does — but it only <b>proves</b> this one, so a requirement below saying nothing checks it is not contradicted by anything here.</p></details>
+</div><div class="card notprovable">
+<h2><span class="state">NOTHING CHECKS THIS</span>Skipping propagates all the way down the chain</h2>
+<p>Nothing is checking this requirement, so nobody can say whether it works or not. Another check on this page may happen to cover something similar; it does not count for this one.</p>
+<p class="ask">Nothing is needed from you — an engineer has to write a check for this before it can be proved.</p>
+</div><div class="card notprovable">
+<h2><span class="state">NOTHING CHECKS THIS</span>Steps not waiting on the failure still run and still report as before</h2>
+<p>Nothing is checking this requirement, so nobody can say whether it works or not. Another check on this page may happen to cover something similar; it does not count for this one.</p>
+<p class="ask">Nothing is needed from you — an engineer has to write a check for this before it can be proved.</p>
+</div><div class="card notprovable">
+<h2><span class="state">NOTHING CHECKS THIS</span>The summary names the steps that were not attempted</h2>
+<p>Nothing is checking this requirement, so nobody can say whether it works or not. Another check on this page may happen to cover something similar; it does not count for this one.</p>
+<p class="ask">Nothing is needed from you — an engineer has to write a check for this before it can be proved.</p>
+</div><div class="card done">
+<h2><span class="state">DONE — AND PROVED</span>Each skipped step is labelled with the failure it was waiting on</h2>
+<p>This check has been seen failing, and the run where it failed is saved with this project's records.</p>
+<div class="wasred"><b>This was watched failing before it was fixed.</b> This check has been seen failing, and the run where it failed is saved with this project's records.</div>
+<details class="said"><summary class="who">What the check for <b>this</b> requirement printed <b>BEFORE the work</b></summary>..FF.F                                                                   [100%]
+=================================== FAILURES ===================================
+____________ test_a_step_waiting_on_two_failures_names_both_of_them ____________
+
+    def test_a_step_waiting_on_two_failures_names_both_of_them():
+        """The one the last build got wrong: `publish` needs package AND format."""
+        row = summary_rows()["publish"]
+        assert "build" in row, f"publish does not name the build failure: {row}"
+&gt;       assert "lint" in row, f"publish does not name the lint failure: {row}"
+E      <p class="nowpasses">Those failures are the point: this is the recorded run from <b>before</b> the work, kept so that a tick means <b>this did not work before and works now</b> rather than &ldquo;nobody noticed a problem&rdquo;. The same check <b>passes today</b> — that is what marks this requirement done.</p><p class="scope">These lines are what this one requirement's check said. It may test more than this requirement does — but it only <b>proves</b> this one, so a requirement below saying nothing checks it is not contradicted by anything here.</p></details>
+</div><div class="card notprovable">
+<h2><span class="state">NOTHING CHECKS THIS</span>The run completes without crashing and reports overall failure</h2>
+<p>Nothing is checking this requirement, so nobody can say whether it works or not. Another check on this page may happen to cover something similar; it does not count for this one.</p>
+<p class="ask">Nothing is needed from you — an engineer has to write a check for this before it can be proved.</p>
+</div><div class="card notprovable">
+<h2><span class="state">NOTHING CHECKS THIS</span>Nothing else about running or reporting changes</h2>
+<p>Nothing is checking this requirement, so nobody can say whether it works or not. Another check on this page may happen to cover something similar; it does not count for this one.</p>
+<p class="ask">Nothing is needed from you — an engineer has to write a check for this before it can be proved.</p>
+</div><div class="card needsyou">
+<h2><span class="state">NEEDS YOU</span>A reader can tell at a glance which one thing to fix</h2>
+<p>A person has to decide this one. Nothing automatic can, and Wringer will not pretend otherwise.</p>
+<p class="ask">Pipeline team said this was met, against the requirement as worded then. Nothing re-checks it — does it still hold?</p>
+</div><p class="spend">What this run recorded using — completion tokens: 6,542, prompt tokens: 2,432, total tokens: 8,974. These are the counts the model and the worker reported; Wringer does not price them.</p><details><summary>What this page does not claim — Wringer's own words, unedited</summary><ul><li>Evidenced means the bound gate passed and has demonstrably failed before. It does not mean the criterion is what the user needed, that the gate covers the criterion's whole meaning, or that coverage cannot narrow later — `wring health` watches that across time.</li><li>The gate-to-criterion binding is a human's declaration. Wringer checks the binding's consequences, never its wisdom.</li><li>Human criteria are answered by people. Nothing here scored them.</li><li>A sensitivity receipt says the gate's result differed between the two trees, not that the difference was the change. A gate whose own command arrived with the change reads sensitive for that reason alone — the citation beside it is how you tell.</li><li>A witness proves the stated criterion could fail and was made to pass. It does not certify agreement with an unstated intended fix, and where the criterion under-describes the intent the witness inherits that gap. Nothing here catches a change that satisfies the criterion and is still wrong.</li><li>A witness evidences ONE criterion. A manufactured fail-to-pass check is necessary and demonstrably not sufficient — it raises the floor and does not make a delivery safe.</li><li>The pin is tamper-EVIDENT, not tamper-proof: a worker on the host can read and rewrite what it finds there. It becomes a boundary only under run.containment.</li><li>`demonstrated_able_to_fail` is about the RECORD, never about the world. `false` means nothing on disk shows this check failing — NOT that it cannot fail. `null` means there was no bound (gate, command) to ask about, which includes a criterion covered by a witness with no gate, and such a row can still be evidenced.</li><li>`cause` names WHY a row is unevidenced or awaiting a person. It is the machine's handle on the fact the `reason` prose already states; it is not a diagnosis, not a remedy, and not a claim that the cause is the only one that applies.</li><li>A human judgement records that a PERSON said this was met at a moment, against the requirement as worded then. It is not re-checked by anything, and later work can invalidate it without this record changing. It is pinned to the WORDING of the criterion and to nothing else — not to a tree, a commit, a bundle or a build.</li></ul></details><details class="intent-block"><summary>What was asked for, in the words it was asked in</summary><div class="intent"><p>Pipeline runs keep wasting everyone's time after something breaks</p><p>When one step of a pipeline fails, everything that was waiting on it runs anyway. Support keeps forwarding us runs where a step fell over two minutes in and the run carried on for another twenty, producing a wall of errors that all trace back to the same thing. Somebody then has to sit down and work out by hand which failures were real and which were just knock-on from the first one. Two teams have told us they now ignore the summary entirely and go straight to the logs, which rather defeats the point of having a summary.</p><p>What we want is for a run to stop pouring effort into work that cannot possibly succeed. If a step fails, anything waiting on it — directly, or further down the chain — should not be attempted at all. Steps that were not waiting on it should carry on exactly as they do now; people rely on getting the rest of the results.</p><p>The summary is the other half of this. It should say plainly which steps were not attempted, and for each one it should name the failure that caused it, so that a person reading it can tell at a glance which single thing to go and fix. When there is more than one failure in a run, each skipped step should point at the one it was actually waiting on rather than at whichever failure happened first.</p><p>The run itself should still finish tidily rather than fall over, and it should still be obvious overall that the run did not succeed.</p></div></details><details><summary>For engineers</summary><ul><li>acceptance record: <code>wringer.acceptance.v3</code></li><li>verifications in this loop: 2</li><li>this page renders run <code>20260828-090115-e02e</code> — the newest record in the repository</li></ul></details></div></body></html>

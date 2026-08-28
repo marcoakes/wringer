@@ -44,6 +44,7 @@ WAITS_ON_AN_ANSWER = {
     "acp.REQUEST_TIMEOUT_SECONDS",
     "acp.WRITE_TIMEOUT_SECONDS",
     "attest._GIT_TIMEOUT_SECONDS",
+    "certificate._GIT_TIMEOUT_SECONDS",
     "config.DEFAULT_FORGE_TIMEOUT_SECONDS",
     "config.DEFAULT_JUDGE_TIMEOUT_SECONDS",
     "config.DEFAULT_TIMEOUT_SECONDS",
@@ -440,3 +441,47 @@ def test_A_SHOW_COMMAND_THAT_HANGS_IS_NEVER_READ_AS_NOTHING_TO_SHOW(
     )
     assert command == "sleep 30"
     assert "could not be run" in text
+
+
+def test_A_GIT_THAT_HANGS_NEVER_CONFIRMS_A_COMMIT_A_CERTIFICATE_NAMES(
+    tmp_path, monkeypatch
+):
+    """**The certificate's offline check, driven into its own ceiling.**
+
+    `wring audit certificate.json` asks git one question: is the commit this
+    document names an object in the clone in front of me? A git that never
+    answers must not be read as "yes" — a certificate naming a fabricated
+    commit would then verify on any machine slow enough — and it must not be
+    read as "no" either, because a hung subprocess says nothing about the
+    document.
+
+    It reports `not-checkable-here`, which is the third outcome existing for
+    exactly this: a claim nobody could check is neither a pass nor a failure.
+    """
+    import subprocess
+
+    from wringer import certificate
+
+    def never_answers(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd="git", timeout=1)
+
+    monkeypatch.setattr(subprocess, "run", never_answers)
+
+    payload = {
+        "schema_version": certificate.SCHEMA_VERSION,
+        "written_at": "2026-08-28T00:00:00+00:00",
+        "change": {"title": "t", "branch": "b", "base": "main",
+                   "commit": "f" * 40, "files_changed": 1},
+        "run": {"id": "r", "bundle": "b"},
+        "spec": {"sha256": None},
+        "acceptance": {"schema_version": "wringer.acceptance.v3", "counts": {}},
+        "requirements": [],
+        "limits": ["one", "two", "three", "four"],
+    }
+    report = certificate.check(payload, tmp_path)
+    commit = next(c for c in report.claims if "commit" in c.what)
+
+    assert commit.outcome == certificate.NOT_HERE, commit
+    assert commit.outcome != certificate.HOLDS, (
+        "a git that never answered has confirmed a commit nobody looked for"
+    )

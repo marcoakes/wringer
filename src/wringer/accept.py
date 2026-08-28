@@ -161,11 +161,21 @@ STATES = (EVIDENCED, UNEVIDENCED, GATE_FAILED, GATE_DID_NOT_RUN, HUMAN)
 #: `test_accept.py` rather than silently rendering its own machine word at a
 #: reviewer. `human` is deliberately NOT "human-judged": a `human` row may be
 #: unanswered, and `summary.md` is written at verify time when it usually is.
+#:
+#: **AMENDED 2026-08-28 — the machine words left the page.** A cold reviewer
+#: read this line as `1 evidenced, 6 unevidenced, 1 for a person to judge`
+#: and said: *"'Unevidenced' isn't a word I use. I'd infer it, but '6 of 8
+#: requirements have no test proving them' would land faster."* They were
+#: right, and the record's own state names were never meant to be a reader's
+#: vocabulary — `state` is the machine's handle and this mapping is the
+#: reader's, which is exactly why the mapping exists. So `evidenced` becomes
+#: `proved` and `unevidenced` becomes `unproved`: ordinary words, and the
+#: record's enum is untouched.
 STATE_PHRASES = {
-    EVIDENCED: "evidenced",
-    UNEVIDENCED: "unevidenced",
-    GATE_FAILED: "with a failing gate",
-    GATE_DID_NOT_RUN: "with a gate that did not run",
+    EVIDENCED: "proved",
+    UNEVIDENCED: "unproved",
+    GATE_FAILED: "with a failing check",
+    GATE_DID_NOT_RUN: "with a check that did not run",
     HUMAN: "for a person to judge",
 }
 
@@ -205,17 +215,24 @@ def disclosure(counts: dict[str, int]) -> list[str]:
         for state in STATES
         if counts.get(state)
     )
-    lines = ["", f"**Acceptance: {said}.**"]
+    lines = ["", f"**Requirements: {said}.**"]
     unevidenced = int(counts.get(UNEVIDENCED, 0))
     if unevidenced:
+        # **The cold reviewer's own sentence, 2026-08-27.** This warning used
+        # to read "N of these M criteria are UNEVIDENCED", and the reviewer
+        # said the shape that would have landed was "6 of 8 requirements have
+        # no test proving them". The fix is the sentence, not a glossary: a
+        # reader who has to be taught a word before the warning works has
+        # already been failed by the warning.
         lines += [
             "",
-            f"> ⚠ **{unevidenced} of these {total} criteria "
-            f"{'is' if unevidenced == 1 else 'are'} UNEVIDENCED: nothing in "
-            "this run shows "
-            f"{'it is' if unevidenced == 1 else 'they are'} met.** Every gate "
-            "passing means the change is mergeable. It does not mean the "
-            "thing that was asked for was built, and these are the difference.",
+            f"> ⚠ **{unevidenced} of these {total} requirements "
+            f"{'has' if unevidenced == 1 else 'have'} no check proving "
+            f"{'it' if unevidenced == 1 else 'them'}: nothing in this run "
+            f"shows {'it is' if unevidenced == 1 else 'they are'} met.** "
+            "Every gate passing means the change is mergeable. It does not "
+            "mean the thing that was asked for was built, and these are the "
+            "difference.",
         ]
     return lines
 

@@ -117,6 +117,16 @@ EXCLUDED = {
     "untracked-v2.schema.json": "assembled inline",
     "acquired-manifest.schema.json": "assembled inline",
     "attestation.schema.json": "assembled inline across several clauses",
+    # Assembled inline, AND the growth direction this guard exists for is
+    # covered twice over elsewhere: the schema is `additionalProperties:
+    # false` at the top level and on every requirement item, and
+    # `test_certificate.py` both validates a real built record against it and
+    # pins the exact top-level key set — because "no empty key for a fact this
+    # version has not earned" is a rule about the record and not only about
+    # the schema.
+    "certificate-v1.schema.json": "assembled inline; growth is closed by "
+                                  "additionalProperties and pinned in "
+                                  "test_certificate.py",
     "briefed.schema.json": "assembled inline",
     "decisions-v2.schema.json": "assembled inline",
     "judge-request.schema.json": "assembled inline from a rubric",

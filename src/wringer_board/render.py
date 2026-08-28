@@ -671,14 +671,6 @@ def render(board: Board) -> str:
             f"this page renders run <code>{_esc(board.run_dir.name)}</code> — "
             "the newest record in the repository"
         )
-    # **The run this page came from, named.** Field report 2026-08-27 finding
-    # 2: the board and the record disagreed, and nothing on the page said
-    # which record it was rendering — so the only way to tell a stale page
-    # from a fresh one was to go and read `.wringer/runs/` by hand. A run id
-    # is a technical string and belongs in the block B4 keeps technical
-    # strings in; it does not belong on a PM's line. But it belongs on the
-    # page. The board renders the repository's NEWEST run record, so this is
-    # also what says so.
     if board.vacuity:
         technical.append(
             f"vacuity verdict: <code>{_esc(str(board.vacuity.get('verdict')))}</code>"

@@ -243,7 +243,7 @@ It never installs anything, and it never assumes.**
 **This spec does not install.** Three reasons, the first decisive:
 
 1. **The program already promises the opposite, in shipped strings a user can
-   read.** `cli.py:855` — *"Wringer never installs an agent. Running your
+   read.** `cli.py:863` — *"Wringer never installs an agent. Running your
    package manager is a larger power than launching a build, and this command
    was not granted it."* — and the same promise at `loop.py:538` and
    `bench.py:415`. Falsifying live error messages to save one paste is the
@@ -390,7 +390,7 @@ condition under which it opens a socket: the user asked it to clone.
 2. **§3c-i stands — `wring start` does NOT install an agent.** Marc confirmed
    2026-08-06. It names the agent and prints the exact install command; the
    human runs it. The shipped error strings promising Wringer never installs
-   one (`cli.py:855`, `loop.py:538`, `bench.py:415` — see the dated note in
+   one (`cli.py:863`, `loop.py:538`, `bench.py:415` — see the dated note in
    §3 for the two citations these replaced and why) therefore stay
    true and must not be rewritten. `SPEC_ACP_V0.md:47-48`'s parenthetical is
    struck instead, per §8.

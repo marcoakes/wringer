@@ -4233,14 +4233,31 @@ def test_EVERY_RELATIVE_LINK_IN_EVERY_PAGE_RESOLVES():
     Committed evidence is exempt — `.wringer.example/` and the cold-read
     captures are bundles and transcripts, and their internal paths are
     relative to where they were WRITTEN, not to this tree.
+
+    **`run2-2026-08-28/` joined that list 2026-08-28** for exactly the stated
+    reason and no other: it holds a verbatim copy of a run bundle's
+    `summary.md`, whose `[diff.patch](diff.patch)` is correct relative to the
+    BUNDLE and nonsense relative to this tree. Editing those links to resolve
+    here would be editing a capture, which Law 8 forbids and which would also
+    make the capture wrong about the file it is a copy of. The directory's own
+    `README.md` is prose and is NOT exempt — it is discovered by the
+    `*.md` walk like any other page, because its links are its own.
     """
     root = repo_root()
     skip = {".wringer", ".wringer.example", "node_modules", ".venv", "build",
             "dist", "coldread", ".git", ".pytest_cache"}
+    # Named files rather than the whole directory, so the README beside them
+    # stays under the guard.
+    evidence_copies = {
+        "docs/run2-2026-08-28/summary-2026-08-28.md",
+        "docs/run2-2026-08-28/mr-2026-08-28.md",
+    }
     broken = []
     checked = 0
     for page in sorted(root.rglob("*.md")):
         if any(part in skip for part in page.relative_to(root).parts):
+            continue
+        if page.relative_to(root).as_posix() in evidence_copies:
             continue
         for target, line in _link_targets(page.read_text(encoding="utf-8")):
             checked += 1

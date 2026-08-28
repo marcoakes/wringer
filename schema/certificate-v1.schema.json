@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/certificate-v1.schema.json",
+  "title": "Wringer certificate",
+  "description": "One `certificate.json`, written by `wring deliver` into the delivery beside `mr.md`. **A NEW FILE, and no published schema changes for it** — the frozen-schema law's whole point is that a sibling is always allowed and an amendment never is. This is the portable form of what a run already recorded: every requirement the approved spec declares, what the record can honestly say about each, and — for the ones a check proves — where that check is on record failing. **It re-assesses nothing.** Every requirement fact is copied out of the run's `acceptance.json`; a second assessor would be a second opinion about one run, and the two would drift. **The face grows and this record does not.** It carries exactly the facts this version earns, and there are deliberately no empty keys held open for facts a later version might add: a key present and null is a claim that the question was asked and came back empty, which is the absence-as-verdict failure this project exists to refuse. A later fact rides its own sibling record and the face renders it where it finds it. What this document is NOT is in `limits`, travelling on the document rather than in a spec nobody opened, and it is the acceptance record's own ceiling PLUS this one's — a shorter list on the more portable artifact would be the ceiling quietly falling as the claim travels further.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "written_at",
+    "change",
+    "run",
+    "spec",
+    "acceptance",
+    "requirements",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "description": "Always `wringer.certificate.v1` in this format.",
+      "const": "wringer.certificate.v1"
+    },
+    "written_at": {
+      "description": "ISO-8601, when `wring deliver` wrote this. The machine's clock, recorded and not checked.",
+      "type": "string"
+    },
+    "change": {
+      "description": "What is being handed over. Enough for a reader to know which change this is about, and no more: there is no author, no committer and no agent name anywhere in this record, because the offline check must not be able to read one. A verification whose answer moves when the author changes is a verification of the author.",
+      "type": "object",
+      "required": ["title", "branch", "base", "commit", "files_changed"],
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "description": "The approved spec's title, or the task, or the run. Never invented — it is taken from something a person wrote.",
+          "type": "string"
+        },
+        "branch": { "type": "string" },
+        "base": { "type": "string" },
+        "commit": {
+          "description": "The commit the gates were verified against, or null when the tree could not be read. Checked by `wring audit` against the clone in front of the reader.",
+          "type": ["string", "null"]
+        },
+        "files_changed": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "run": {
+      "description": "The run whose record this document renders.",
+      "type": "object",
+      "required": ["id", "bundle"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "bundle": {
+          "description": "Repo-relative, like every other cross-bundle reference in this program — never absolute, because an artifact whose whole purpose is that a stranger can read it must not carry somebody's home directory.",
+          "type": "string"
+        }
+      }
+    },
+    "spec": {
+      "description": "The document the work was authorised by. `sha256` is over `wringer.spec.yaml`'s bytes, and `wring audit` re-hashes the clone's copy: a mismatch says the spec moved after the run, which is a fact the reader needs and is not by itself a forgery.",
+      "type": "object",
+      "required": ["sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "sha256": { "type": ["string", "null"] }
+      }
+    },
+    "acceptance": {
+      "description": "Which acceptance version this was rendered from, and its counts verbatim. The counts are carried rather than recomputed so that `wring audit` can check the summary against the rows — the cheapest forgery is an edited number over honest rows.",
+      "type": "object",
+      "required": ["schema_version", "counts"],
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": { "type": ["string", "null"] },
+        "counts": { "type": "object" }
+      }
+    },
+    "requirements": {
+      "description": "Every requirement the approved spec declares, in the order it declares them. **Sorted by nothing.** Ranking these would be this document deciding which debts matter, which is the reader's call — the same refusal `acceptance.json` makes, for the same reason.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "required",
+          "state",
+          "says",
+          "means",
+          "check",
+          "command",
+          "receipt",
+          "reason",
+          "refuses",
+          "judgement"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "description": "The criterion id from `wringer.spec.yaml`, never slugged or normalised: it is the join key `wring audit` uses against the clone's spec, and a normalised join is a silent mis-bind.",
+            "type": "string"
+          },
+          "title": { "type": "string" },
+          "required": { "type": "boolean" },
+          "state": {
+            "description": "The acceptance record's own state word, carried unchanged. It is here for the machine; nothing renders it to a reader.",
+            "type": "string"
+          },
+          "says": {
+            "description": "The plain-English label a reader sees, IN the record. The reviewer's first gap was that `unevidenced` is not a word they use — so the words a person reads travel with the row rather than being re-derived by every surface that renders it. A `(state, cause)` pair the renderer has no wording for produces an explicit refusal to translate, never the nearest phrase.",
+            "type": "string"
+          },
+          "means": {
+            "description": "The same fact as a sentence: what this state means for the person deciding whether to merge.",
+            "type": "string"
+          },
+          "check": {
+            "description": "The gate whose `proves:` names this requirement, or null when nothing binds it. Null is a DEBT, not an error.",
+            "type": ["string", "null"]
+          },
+          "command": { "type": ["string", "null"] },
+          "receipt": {
+            "description": "Where the record shows this check failing, copied from the acceptance row, or null. This is what `wring audit` re-checks per receipt — and where the run it names did not travel with the document, the audit says so in those words rather than counting it either way.",
+            "type": ["object", "null"]
+          },
+          "reason": {
+            "description": "The engine's own prose for this state, carried verbatim. It holds the remedy, and this document does not regenerate it from the label above.",
+            "type": "string"
+          },
+          "refuses": { "type": "boolean" },
+          "judgement": {
+            "description": "A person's answer to a requirement only a person can settle, copied from the acceptance row, or null. It carries the verdict, the name, the date and — the reason this key is here at all — the NOTE. A note reading `your words here5` reached a delivered branch as the stated reason a requirement passed, and was caught only by somebody opening the YAML, because no surface in the program showed a judgement note to anybody.",
+            "type": ["object", "null"]
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this document does NOT say. The acceptance record's list, plus this document's own — never fewer.",
+      "type": "array",
+      "minItems": 4,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

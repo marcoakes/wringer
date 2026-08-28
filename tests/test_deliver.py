@@ -281,7 +281,15 @@ def test_the_mr_body_carries_receipts_but_never_gate_logs(
     delivery_repo, monkeypatch, capsys
 ):
     """A bundle may hold whatever a gate printed (SECURITY.md); an MR body is
-    public. The gate TABLE travels; the logs do not."""
+    public. The gate TABLE travels; the logs do not.
+
+    **AMENDED 2026-08-28, and the amendment is narrower than it looks.** This
+    used to pin the sentence *"The full bundle … stays with the machine that
+    ran it"*, and that sentence was too broad by exactly the thing a cold
+    reviewer needed: they read it as "the map isn't coming" and they were
+    right to. What may not travel is the LOGS. The body still says so — and
+    now also says what does travel, which is the half that was missing.
+    """
     (delivery_repo / ".wringer.yaml").write_text(
         CONFIG.replace('run: "true"', 'run: "echo SECRET-GATE-CHATTER"'),
         encoding="utf-8",
@@ -297,7 +305,8 @@ def test_the_mr_body_carries_receipts_but_never_gate_logs(
     ).read_text(encoding="utf-8")
     assert "| check | passed |" in body
     assert "SECRET-GATE-CHATTER" not in body
-    assert "deliberately not reproduced here" in body
+    assert "The gate LOGS stay with the machine that ran it" in body, body
+    assert "Everything else you need travels" in body, body
 
 
 # --- wring deliver: §1's five conditions ---------------------------------
@@ -2118,10 +2127,10 @@ def test_a_FULLY_EVIDENCED_RUN_IS_NOT_MADE_TO_APOLOGISE(
     counts = accept.read(_run_the_mr_is_about(repo, mr))["counts"]
     assert counts["unevidenced"] == 0 and counts["evidenced"] == 1, counts
 
-    assert "1 evidenced" in mr
-    assert "UNEVIDENCED" not in mr, (
+    assert "1 proved" in mr
+    assert "no check proving" not in mr, (
         "a run that proved everything it was asked to prove is carrying a "
-        "warning about criteria it does not have"
+        "warning about requirements it does not have"
     )
 
 
@@ -2233,3 +2242,209 @@ def test_a_delivery_manifest_records_the_run_the_way_the_REPOSITORY_sees_it(
     assert ".wringer/runs/" in recorded, recorded
     # and it resolves against the repository, which is the whole point
     assert (delivery_repo / recorded).is_dir(), recorded
+
+
+# --- the certificate travels (SPEC_CERTIFICATE_V0) ------------------------
+
+
+def _delivered(repo: Path) -> Path:
+    return sorted((repo / deliver.DELIVERIES_DIRNAME).iterdir())[0]
+
+
+def test_THE_DELIVERY_CARRIES_THE_CERTIFICATE_AND_MR_POINTS_AT_IT(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The proof must TRAVEL** — the whole of SPEC_CERTIFICATE_V0.
+
+    A cold reviewer read a delivery on 2026-08-27 and could not tell WHICH
+    requirements were unproved, because the only surface that said so was a
+    page the same file told them "stays with the machine that ran it". Now
+    the delivery carries the document, and the body a reviewer actually reads
+    names it.
+    """
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    face = written / certificate.FACE_FILENAME
+    record = written / certificate.RECORD_FILENAME
+    assert face.is_file(), sorted(p.name for p in written.iterdir())
+    assert record.is_file(), sorted(p.name for p in written.iterdir())
+
+    mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    assert certificate.FACE_FILENAME in mr, mr
+    assert certificate.RECORD_FILENAME in mr, mr
+    assert "The export downloads a CSV" in mr, (
+        "the merge request still does not say WHICH requirements, which was "
+        "the reviewer's 'big one'"
+    )
+
+    loaded = json.loads(record.read_text(encoding="utf-8"))
+    assert loaded["schema_version"] == certificate.SCHEMA_VERSION
+    assert [r["id"] for r in loaded["requirements"]] == ["csv-downloads"]
+
+
+def test_the_certificate_is_written_on_a_DRY_RUN_too(
+    delivery_repo, monkeypatch, capsys
+):
+    """The whole point of the dry run is that a person reads what would be
+    handed over before it is. A document that only appeared on `--send` would
+    be the one artifact nobody could review first."""
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK   # no --send
+    capsys.readouterr()
+
+    assert (_delivered(delivery_repo) / certificate.FACE_FILENAME).is_file()
+
+
+def test_a_repository_with_no_spec_gets_no_certificate_and_says_nothing(
+    delivery_repo, monkeypatch, capsys
+):
+    """The opt-in boundary. A repo that never ran `wring spec` declared no
+    requirements, and a certificate over none of them would assert that
+    nothing was asked for."""
+    from wringer import certificate
+
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    assert not (written / certificate.FACE_FILENAME).exists()
+    mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    assert "Every requirement" not in mr
+
+
+def test_THE_BOARD_TRAVELS_AND_IS_SCRUBBED_ON_THE_WAY(
+    delivery_repo, monkeypatch, capsys
+):
+    """S3: the delivery carries a self-contained copy of the page.
+
+    **Scrubbed like everything else here**, and that is not a formality: the
+    board renders a failing card's gate stderr, so a page copied unredacted
+    would walk a credential out of the very bundle that redacted it.
+    """
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    (delivery_repo / ".wringer.yaml").write_text(
+        CONFIG + "evidence:\n  redact:\n    env:\n      - '*SEKRIT*'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("MY_SEKRIT_TOKEN", "sekrit-token-value")
+    (delivery_repo / "board.html").write_text(
+        "<html><body>the page, and sekrit-token-value in it</body></html>",
+        encoding="utf-8",
+    )
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    copied = written / certificate.BOARD_FILENAME
+    assert copied.is_file(), sorted(p.name for p in written.iterdir())
+    page = copied.read_text(encoding="utf-8")
+    assert "the page" in page
+    assert "sekrit-token-value" not in page, page
+
+    mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    assert certificate.BOARD_FILENAME in mr
+
+
+def test_A_DELIVERY_WITH_NO_BOARD_SAYS_SO_RATHER_THAN_GOING_QUIET(
+    delivery_repo, monkeypatch, capsys
+):
+    """Absence is absence. Saying nothing would let a delivery that carried
+    no page read exactly like one that did — which is the defect class this
+    whole programme is about, in the artifact it is about."""
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    written = _delivered(delivery_repo)
+    assert not (written / certificate.BOARD_FILENAME).exists()
+    mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    assert f"There is no `{certificate.BOARD_FILENAME}`" in mr, mr
+
+
+def test_THE_MR_NO_LONGER_TELLS_A_REVIEWER_THE_MAP_IS_NOT_COMING(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The sentence the cold reviewer quoted back, amended 2026-08-28.**
+
+    *"To find out I'd need the board, which the same file tells me 'stays
+    with the machine that ran it.' I'm told there's a hole and told the map
+    isn't coming."*
+
+    What may not travel is the LOGS, and the body now says exactly that and
+    no more. The old sentence claimed the whole bundle stayed behind, which
+    was broader than the promise it was protecting.
+    """
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    mr = (_delivered(delivery_repo) / deliver.MR_FILENAME).read_text(
+        encoding="utf-8"
+    )
+    assert "The full bundle" not in mr, (
+        "the body still claims the whole bundle stays behind, which is the "
+        "sentence a reviewer read as 'the map isn't coming'"
+    )
+    assert "The gate LOGS stay with the machine that ran it" in mr, mr
+
+
+def test_the_offline_check_runs_against_a_real_delivery(
+    delivery_repo, monkeypatch, capsys
+):
+    """`wring audit certificate.json` — the stranger's command, end to end,
+    over a certificate this repository's own `wring deliver` produced rather
+    than one a test built."""
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    record = _delivered(delivery_repo) / certificate.RECORD_FILENAME
+    assert cli.main(["audit", str(record)]) == cli.EXIT_OK
+    printed = capsys.readouterr().out
+    assert "✓ the counts match" in printed, printed
+    assert "the requirements listed are the ones this repository declares" in printed
+
+
+def test_the_offline_check_CATCHES_AN_EDITED_CERTIFICATE(
+    delivery_repo, monkeypatch, capsys
+):
+    """The control for the test above, and the reason it is worth running."""
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    record = _delivered(delivery_repo) / certificate.RECORD_FILENAME
+    forged = json.loads(record.read_text(encoding="utf-8"))
+    forged["requirements"].append({
+        **forged["requirements"][0],
+        "id": "never-asked-for",
+        "title": "A requirement nobody wrote",
+    })
+    record.write_text(json.dumps(forged, indent=2), encoding="utf-8")
+
+    assert cli.main(["audit", str(record)]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+    assert "never-asked-for" in printed, printed

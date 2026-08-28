@@ -992,16 +992,16 @@ def test_THE_WARNING_IS_CONDITIONAL_AND_THE_COUNT_IS_NOT():
     """Two different jobs. The counts are a fact and always travel; the
     warning is about a gap and only travels when there is one."""
     clean = accept.disclosure({"evidenced": 3, "human": 1})
-    assert any("3 evidenced" in line for line in clean)
+    assert any("3 proved" in line for line in clean)
     assert any("1 for a person to judge" in line for line in clean)
-    assert not any("UNEVIDENCED" in line for line in clean), (
+    assert not any("no check proving" in line for line in clean), (
         "a run that proved everything it was asked to prove is being made to "
         "carry a warning — which is how people learn to skip warnings"
     )
 
     gapped = accept.disclosure({"evidenced": 1, "unevidenced": 6, "human": 1})
-    assert any("6 unevidenced" in line for line in gapped)
-    warning = " ".join(line for line in gapped if "UNEVIDENCED" in line)
+    assert any("6 unproved" in line for line in gapped)
+    warning = " ".join(line for line in gapped if "no check proving" in line)
     assert "6 of these 8" in warning, (
         f"the warning does not put the gap against the whole: {warning!r}"
     )
@@ -1016,7 +1016,37 @@ def test_A_SINGLE_UNEVIDENCED_CRITERION_IS_NOT_DESCRIBED_IN_THE_PLURAL():
     a sentence a program assembled."""
     warning = " ".join(
         line for line in accept.disclosure({"evidenced": 1, "unevidenced": 1})
-        if "UNEVIDENCED" in line
+        if "no check proving" in line
     )
-    assert "1 of these 2 criteria is UNEVIDENCED" in warning, warning
+    assert "1 of these 2 requirements has no check proving it" in warning, warning
     assert "it is met" in warning, warning
+
+
+def test_THE_DISCLOSURE_USES_NO_WORD_THE_READER_HAS_TO_BE_TAUGHT():
+    """**The cold reviewer's first gap, closed where both surfaces read it.**
+
+    *"'Unevidenced' isn't a word I use. I'd infer it, but '6 of 8
+    requirements have no test proving them' would land faster."* — field
+    report 2026-08-27, on a merge request body that carried this renderer's
+    output word for word.
+
+    The record's `state` enum is untouched and stays the machine's handle.
+    What changed is the one mapping that was always the reader's, and this
+    asserts over EVERY state rather than the two that happened to be in the
+    field report — a phrase table fixed only where somebody complained is the
+    next complaint.
+
+    **`gate` is deliberately NOT on this list, and the first version of this
+    guard put it there and went red.** The same reviewer quoted *"Every gate
+    passing means the change is mergeable. It does not mean the thing that
+    was asked for was built"* as the sentence that made the whole warning
+    work. A guard that banned a word out of a sentence its own reader praised
+    would be tidiness overruling the measurement, and the body carries a gate
+    table under a column headed `gate` regardless.
+    """
+    every = accept.disclosure({state: 1 for state in accept.STATES})
+    said = " ".join(every).lower()
+    for word in ("unevidenced", "evidenced", "criteria", "criterion"):
+        assert word not in said, (
+            f"{word!r} reaches a merge request reader: {said!r}"
+        )

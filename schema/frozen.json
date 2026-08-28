@@ -12,6 +12,7 @@
     "bench-manifest-v2.schema.json": "a7e335126c5857c3f72633f76f4a1ee48569c0b226dcef3cba0033c2f3d3214f",
     "bench-manifest.schema.json": "77cc197fb6cdc8b59e78525669598e790b8bc980e908afa772a8cb481ab7ed7c",
     "briefed.schema.json": "7512852efd82b12885286d9c4df18fe01ada117fd218bad643d057e96997bf8f",
+    "certificate-v1.schema.json": "e1c9dcbc6caca2858198d644a0b35c9bf86b75991a015f63679b995dfe771126",
     "checks.schema.json": "68ab1a888fe9a9c5413cdff486aeb003481cff42d746747d0a79c369ec819bf1",
     "concurrency.schema.json": "21d85d090444bc900c8529e3a0fdc342d31ab0c62c317707f1dd1cc52a417c00",
     "decisions-v2.schema.json": "08fca6b35d1afa96a1bfbdc016626ba6ace2f87070e58f491dbaec69d0e750a5",
