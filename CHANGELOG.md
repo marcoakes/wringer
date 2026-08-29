@@ -4,6 +4,49 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.3 — 2026-08-29
+
+**A bug review of 0.5.2, done by running it.** Six probe scripts against real
+`git diff` output, real records, and this repository's own 7,736-line diff.
+Four defects, and **every one of them made the checks look better than they
+are** — the single direction the falsification lane must never fail in.
+
+### Three in the mutation table
+
+- **A dead entry.** `(" += ", " -= ")` could never fire, because `+=` matched
+  first. It sat in the table looking like an operator this lane covers. The
+  vacuity class this project keeps finding in its predicates, arriving in a
+  data table instead.
+- **`!==` contains `!=`**, so `if (a !== b)` became `if (a !!= b)` — a syntax
+  error rather than a mutation, and a syntax error is caught by everything.
+  Found by probing the table against the TypeScript the module's own
+  documentation claims to support. The three-character operators come first
+  now.
+- **A run of four or more `=`** — a pytest banner, a markdown rule, ASCII art
+  — was sliced by the `===` rule into `!==================`. Found by pointing
+  the table at this repository's own diff, where a committed capture of a test
+  transcript contains exactly that. An operator now only matches when the
+  characters either side of it are not themselves operator characters.
+
+### One on the board
+
+The gate that printed `ruff: command not found` in the field report is `lint`,
+and `lint` is **bound to no criterion**. A card is keyed to a requirement, so
+the guess reached no card and the board said nothing about the one red the
+report was about. It now appears in the block the page keeps engineers' facts
+in — there is no requirement to attach it to, and the engine's sentence for a
+face has one reader that both places share.
+
+### Found sound, by probe rather than by reading
+
+The diff parser against renames, filenames with spaces, multiple hunks,
+deletions, new untracked files, missing trailing newlines, binary files and
+content that looks like diff syntax. The certificate over v1 and v2 records,
+missing titles, multi-line notes, unknown states, and a handover read outside
+any repository. Coverage over rows with missing keys and states from the
+future. Every rendered surface agreeing on one run's numbers. A gate that
+writes into the tree, and one that is not deterministic.
+
 ## 0.5.2 — 2026-08-28
 
 **Break the change on purpose.** Every green in this program was red first —
