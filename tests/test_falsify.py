@@ -501,3 +501,147 @@ def test_A_MUTANT_IS_NEVER_JUDGED_BESIDE_A_PREVIOUS_ONE(tmp_path, monkeypatch):
         "a mutant was judged beside another file's mutant, so a breakage "
         "nothing checks was recorded as caught"
     )
+
+
+# --- the table itself, which is data and can go stale like any guard ------
+
+
+def test_EVERY_MUTATION_IN_THE_TABLE_IS_REACHABLE():
+    """**A dead table entry reads as coverage and is not.**
+
+    The first matching pair wins, so a pair whose `what` contains an earlier
+    pair's `what` can never fire. `(" += ", " -= ")` was exactly that — `+=`
+    matched first — and it sat in the table looking like an operator this lane
+    covers. Same vacuity class this project keeps finding in its predicates,
+    arriving in a data table instead.
+    """
+    dead = [
+        (was, earlier)
+        for index, (was, _) in enumerate(falsify.MUTATIONS)
+        for earlier, _ in falsify.MUTATIONS[:index]
+        if earlier in was
+    ]
+    assert not dead, f"shadowed by an earlier entry and can never fire: {dead}"
+
+
+def test_A_MUTATION_NEVER_PRODUCES_A_DOUBLED_OPERATOR():
+    """**Found by probing the table against TypeScript, and it errs the worst
+    way.**
+
+    `!==` contains `!=`. With the two-character pairs first, `if (a !== b)`
+    became `if (a !!= b)` — a SYNTAX ERROR rather than a mutation. Every check
+    catches a syntax error, so it lands in the caught column and makes the
+    checks look better than they are. Longest operator first is the rule, and
+    this is what holds it.
+
+    The samples are ordinary lines from the languages this table claims to
+    work on. The assertion is that every run of operator characters in a
+    mutant is a REAL operator — a vocabulary check rather than a length one,
+    because the first version of this guard used "three or more characters"
+    and flagged `===` and `!==` themselves, which are perfectly good
+    operators. `!!=` is not.
+    """
+    import re
+
+    samples = (
+        "if (a === b) {", "if (a !== b) {", "if (a == b) {", "if (a != b) {",
+        "if a >= 3:", "if a <= 3:", "x += 1", "x -= 1",
+        "if a and b:", "if a or b:", "if not a:",
+        "return True", "return False",
+    )
+    real = {
+        "=", "==", "===", "!", "!=", "!==", "<", ">", "<=", ">=", "<>",
+        "+", "-", "+=", "-=", "=>", "->", "<-", "<<", ">>", "<<=", ">>=",
+        "<=>", "--", "++",
+    }
+    runs = re.compile(r"[=!<>+-]+")
+    offenders = []
+    for line in samples:
+        planned, _ = falsify.plan(f"+++ b/x.ts\n@@ -1 +1 @@\n+{line}")
+        for one in planned:
+            broken = [r for r in runs.findall(one.became) if r not in real]
+            if one.became == one.was or broken:
+                offenders.append((line, one.became, one.mutation, broken))
+    assert not offenders, (
+        "a mutation produced a broken operator rather than a different "
+        f"meaning — a syntax error is caught by everything: {offenders}"
+    )
+
+
+def test_the_three_character_operators_are_mutated_as_themselves():
+    """The control for the rule above: `===` and `!==` are not merely left
+    alone, they get their own honest mutation."""
+    for line, want in (
+        ("if (a === b) {", "if (a !== b) {"),
+        ("if (a !== b) {", "if (a === b) {"),
+    ):
+        planned, _ = falsify.plan(f"+++ b/x.ts\n@@ -1 +1 @@\n+{line}")
+        assert [one.became for one in planned] == [want], planned
+
+
+def test_AN_OPERATOR_IS_MATCHED_WHOLE_AND_NEVER_SLICED_OUT_OF_A_RUN():
+    """**Found by pointing the table at this repository's own diff.**
+
+    A pytest banner — `================ FAILURES ================` — contains
+    `===`, so the equality rule fired on the first three characters and
+    produced `!==================================`. That is not a mutation, it
+    is a syntax error, and a syntax error is caught by everything: the caught
+    column inflates and the checks look better than they are. Markdown rules,
+    table separators and ASCII art all have that shape.
+
+    Same direction as the three defects before it, which is why the rule now
+    has two mechanisms — longest-operator-first in the table's ORDER, and
+    whole-operator matching here.
+    """
+    runs = (
+        "==================== FAILURES ====================",
+        "# ------------------------------------------",
+        "assert a === b",
+        "x = 1  # ====",
+        "if (a !== b) {",
+    )
+    import re
+
+    # **The property is what the mutation INTRODUCES**, and the first version
+    # of this guard got it wrong: it compared the LONGEST operator run before
+    # and after, and slicing `===` out of a twenty-character banner leaves a
+    # run of exactly the same length. Every operator run in the mutant must
+    # either be a real operator or have been in the original already.
+    real = {
+        "=", "==", "===", "!", "!=", "!==", "<", ">", "<=", ">=", "<>",
+        "+", "-", "+=", "-=", "=>", "->", "<-", "<<", ">>", "++", "--",
+    }
+    operators = re.compile(r"[=!<>+-]+")
+    offenders = []
+    for line in runs:
+        planned, _ = falsify.plan(f"+++ b/x.ts\n@@ -1 +1 @@\n+{line}")
+        for one in planned:
+            before = set(operators.findall(one.was))
+            introduced = [
+                chunk for chunk in operators.findall(one.became)
+                if chunk not in real and chunk not in before
+            ]
+            if introduced:
+                offenders.append((line, one.became, one.mutation, introduced))
+    assert not offenders, (
+        "a substitution sliced an operator out of a longer run and produced "
+        f"a syntax error rather than a different meaning: {offenders}"
+    )
+
+
+def test_a_banner_of_equals_signs_is_left_alone_entirely():
+    """The control: not merely mutated safely — not offered at all, because
+    there is no operator there to mutate."""
+    banner = "==================== FAILURES ===================="
+    planned, _ = falsify.plan(f"+++ b/x.py\n@@ -1 +1 @@\n+{banner}")
+    assert planned == [], planned
+
+
+def test_a_real_operator_beside_other_punctuation_is_still_offered():
+    """The other control. Whole-operator matching must not make the lane
+    silently stop working on ordinary code — a rule that rejects everything
+    passes the guard above and measures nothing."""
+    planned, _ = falsify.plan(
+        "+++ b/x.py\n@@ -1 +1 @@\n+    if n >= 3 and m == 4:"
+    )
+    assert [one.mutation for one in planned] == ["'==' -> '!='"], planned

@@ -62,7 +62,15 @@ DEFAULT_BUDGET_SECONDS = 600
 #: Each pair is `(what, what it becomes)`. The FIRST pair that matches a line
 #: makes that line's attempt, so a line is mutated once and no pair can
 #: undo another's edit.
+#: **The THREE-character equality operators come first, and a probe is why.**
+#: `!==` contains `!=` and `===` contains `==`, so with the two-character
+#: pairs first, `if (a !== b)` became `if (a !!= b)` — a SYNTAX ERROR rather
+#: than a mutation. Every check catches a syntax error, so it lands in the
+#: caught column: the direction this lane must never fail in, and the fourth
+#: time this slice has failed in it. Longest operator first is the rule.
 MUTATIONS: tuple[tuple[str, str], ...] = (
+    ("===", "!=="),
+    ("!==", "==="),
     ("==", "!="),
     ("!=", "=="),
     (" and ", " or "),
@@ -72,9 +80,53 @@ MUTATIONS: tuple[tuple[str, str], ...] = (
     (" not ", " "),
     ("True", "False"),
     ("False", "True"),
+    # `(" += ", " -= ")` was here and was DEAD: `+=` matches first, so it
+    # could never fire. A table entry that cannot be reached reads as
+    # coverage and is not, which is the vacuity class this project keeps
+    # finding in its own guards — this time in a data table rather than a
+    # predicate.
     ("+=", "-="),
-    (" += ", " -= "),
+    ("-=", "+="),
 )
+
+#: The characters an operator is made of. Used to tell a WHOLE operator from
+#: a slice of a longer run of the same punctuation.
+_OPERATOR_CHARS = set("=!<>+-")
+
+
+def _whole_operator(text: str, was: str) -> int:
+    """Where `was` occurs as a whole operator in `text`, or -1.
+
+    **Found by pointing the table at this repository's own diff.** A pytest
+    banner — `=================== FAILURES ===================` — contains
+    `===`, so the equality rule fired on the first three characters and
+    produced `!==================================`. That is not a mutation, it
+    is a syntax error, and a syntax error is caught by everything: the caught
+    column inflates and the checks look better than they are. Markdown rules,
+    table separators and ASCII art all have the same shape.
+
+    So an operator only matches when the characters either side of it are not
+    themselves operator characters. `a >= b` matches; `====` does not; and
+    `!=` inside `!==` is rejected here as well as being out-ranked by the
+    ordering above — two mechanisms for one rule, because this one has now
+    cost four fixes in the same direction.
+
+    Word substitutions like `" and "` are unaffected: their neighbours are
+    letters and spaces, never operator characters.
+    """
+    if not set(was) <= _OPERATOR_CHARS:
+        return text.find(was)
+    start = 0
+    while True:
+        at = text.find(was, start)
+        if at < 0:
+            return -1
+        before = text[at - 1] if at else ""
+        after = text[at + len(was)] if at + len(was) < len(text) else ""
+        if before not in _OPERATOR_CHARS and after not in _OPERATOR_CHARS:
+            return at
+        start = at + 1
+
 
 #: Lines this will not touch, because a mutation inside prose is a mutant that
 #: changes no behaviour and would be recorded as a survivor — a finding about
@@ -298,7 +350,8 @@ def plan(
         if _is_comment(text) or not _mutable(path):
             continue
         for was, becomes in MUTATIONS:
-            if was not in text:
+            at = _whole_operator(text, was)
+            if at < 0:
                 continue
             total += 1
             by_file.setdefault(path, []).append(
@@ -306,7 +359,9 @@ def plan(
                     path=path,
                     line=number,
                     was=text.rstrip("\n"),
-                    became=text.replace(was, becomes, 1).rstrip("\n"),
+                    became=(
+                        text[:at] + becomes + text[at + len(was):]
+                    ).rstrip("\n"),
                     mutation=f"{was!r} -> {becomes!r}",
                 )
             )
