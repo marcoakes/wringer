@@ -227,6 +227,21 @@ def _marked(text: str) -> str:
     )
 
 
+def _environment_sentence(recorded: dict) -> str | None:
+    """The ENGINE's sentence for a diagnosis's face, or None.
+
+    One reader for it, used by the card and by the engineers' block alike,
+    because a second copy is how the two come to say different things about
+    one record.
+    """
+    try:
+        from wringer import diagnose as diagnose_module
+
+        return diagnose_module.DESCRIPTIONS.get(recorded.get("face"))
+    except Exception:  # pragma: no cover - a hint never breaks the page
+        return None
+
+
 def _coverage_lines(board: Board) -> list[str]:
     """The engine's coverage sentences, or nothing at all.
 
@@ -741,6 +756,28 @@ def render(board: Board) -> str:
             f"this page renders run <code>{_esc(board.run_dir.name)}</code> — "
             "the newest record in the repository"
         )
+    # **A guess about a gate NO REQUIREMENT OWNS.** Found by probing the
+    # board's new card against the field case it was written for: in run 2's
+    # example the gate that printed `ruff: command not found` was `lint`, and
+    # `lint` is bound to nothing — so the guess reached no card and this page
+    # said nothing about the one red the report was about.
+    #
+    # A card is keyed to a requirement and there is no requirement here, so
+    # the fact belongs in the block this page keeps engineers' facts in. The
+    # engine's own sentence, as everywhere else.
+    if board.diagnosis:
+        owned = {one.gate_id for one in board.criteria if one.gate_id}
+        gate = board.diagnosis.get("gate")
+        if gate and gate not in owned:
+            said = _environment_sentence(board.diagnosis)
+            if said:
+                technical.append(
+                    f"the check <code>{_esc(str(gate))}</code> is bound to no "
+                    f"requirement, and its red looks like the environment: it "
+                    f"{_esc(said)}. That is a guess from what it printed, and "
+                    "nothing here was decided by it"
+                )
+
     if board.vacuity:
         technical.append(
             f"vacuity verdict: <code>{_esc(str(board.vacuity.get('verdict')))}</code>"

@@ -457,12 +457,9 @@ def _environment_guess(board: Board, criterion: Criterion) -> str | None:
     # exists to stop. `diagnose.DESCRIPTIONS` is the definition; this reads
     # it. Guarded, so a board with no engine present renders the page and
     # simply has no guess to show.
-    try:
-        from wringer import diagnose as diagnose_module
+    from wringer_board.render import _environment_sentence
 
-        return diagnose_module.DESCRIPTIONS.get(recorded.get("face"))
-    except Exception:  # pragma: no cover - a hint never breaks the page
-        return None
+    return _environment_sentence(recorded)
 
 
 def _card_for(board: Board, criterion: Criterion, refused: bool, state: str) -> Card:

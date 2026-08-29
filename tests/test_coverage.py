@@ -632,3 +632,67 @@ def test_a_DISCARDED_witness_covers_nothing_however_it_went_red():
                     witness={"pinned_sha256": "x", "proved_red": "assertion",
                              "result": "not_run", "discarded": "proved nothing"})
     assert coverage.assess([discarded], {}).covered == 0
+
+
+def test_S4_A_GUESS_ABOUT_A_GATE_NO_REQUIREMENT_OWNS_STILL_REACHES_THE_PAGE(
+    tmp_path, monkeypatch
+):
+    """**The field case itself, and the card alone missed it.**
+
+    In run 2's example the gate that printed `ruff: command not found` was
+    `lint` — and `lint` is bound to no criterion. A card is keyed to a
+    requirement, so the guess reached no card and the board said nothing at
+    all about the one red the field report was about.
+
+    There is no requirement to attach it to, so it goes in the block this page
+    keeps engineers' facts in, in the engine's own words. Found by probing the
+    new card against the case it was written for.
+    """
+    import subprocess
+
+    from wringer import cli
+    from wringer_board import read as board_read
+    from wringer_board import render as board_render
+
+    (tmp_path / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
+    (tmp_path / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: check\n    run: \"true\"\n"
+        "    proves: bound\n"
+        "  - id: lint\n    run: \"ruffle-that-does-not-exist check .\"\n",
+        encoding="utf-8",
+    )
+    (tmp_path / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    monkeypatch.chdir(tmp_path)
+    cli.main(["verify"])
+
+    page = board_render.render(board_read.read(tmp_path))
+    body = page.split("</style>")[-1]
+
+    assert "is bound to no requirement" in body, body[-2500:]
+    assert "ran a command that is not on PATH" in body
+    assert "That is a guess" in body, "the page does not say it is a guess"
+
+
+def test_S4_a_guess_about_a_gate_a_requirement_DOES_own_stays_on_its_card(
+    tmp_path, monkeypatch
+):
+    """The control. A bound gate's guess belongs beside its requirement, not
+    in the engineers' block — otherwise the fix above would have quietly moved
+    every guess off the surface a non-engineer reads."""
+    import subprocess
+
+    from wringer import cli
+    from wringer_board import read as board_read
+    from wringer_board import render as board_render
+
+    (tmp_path / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
+    (tmp_path / ".wringer.yaml").write_text(ENV_CONFIG, encoding="utf-8")
+    (tmp_path / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", "-b", "main", str(tmp_path)], check=True)
+    monkeypatch.chdir(tmp_path)
+    cli.main(["verify"])
+
+    body = board_render.render(board_read.read(tmp_path)).split("</style>")[-1]
+    assert "This red may not be about your work" in body, body[-2000:]
+    assert "is bound to no requirement" not in body
