@@ -108,7 +108,36 @@ REPO_PATTERN = re.compile(
 # condition, broken without breaking the grep that checks it. A remote of
 # `--receive-pack=...` is worse. They are slugs, checked here, before the
 # value can reach an argv.
-REF_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._/-]*")
+# `..` is excluded the way `REPO_PATTERN` excludes it, and for the same
+# reason: `git push <path> <branch>` takes a filesystem path as readily as a
+# configured remote, so `a/../../../tmp/evil` fullmatched this and directed
+# pushed history to an arbitrary local repository outside the tree. The
+# reasoning was written down once for the forge slug and not carried here.
+# A hostname, and nothing that is not one. **These are interpolated UNQUOTED
+# into an `sh -c` script that runs inside the broker — the container started
+# with `--cap-add NET_ADMIN --cap-add NET_RAW` whose whole job is to install
+# the egress rules.** `hosts: ["api.example.com", "x; iptables -P OUTPUT
+# ACCEPT; :"]` parsed, and `containment._arm` built
+#
+#     for host in api.example.com x; iptables -P OUTPUT ACCEPT; :; do
+#
+# so the boundary was disarmed by the thing that arms it — while
+# `containment.declared_record` went on writing `egress.policy: allowlist`
+# and the host list into `worker_execution`, a record asserting a policy the
+# mechanism did not have.
+#
+# This parser is careful about every value that reaches an ARGV
+# (`_USER_PATTERN`, `REPO_PATTERN`, `REF_NAME_PATTERN`, two leading-`-`
+# refusals) and had no discipline at all about values reaching a shell script
+# the program assembles itself. Two patterns, and `_arm` quotes as well.
+HOSTNAME_PATTERN = re.compile(
+    r"[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?"
+    r"(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*"
+)
+# A program name for `command -v`, reachable from plain `wring verify` through
+# `run.containment.requires` and into the same kind of assembled script.
+BINARY_NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*")
+REF_NAME_PATTERN = re.compile(r"(?!.*\.\.)[A-Za-z0-9][A-Za-z0-9._/-]*")
 _GATE_KEYS = {"id", "run", "timeout", "optional", "required"}
 # `.wringer.yaml` ONLY. `parse_gate` is deliberately shared — `wring spec`
 # runs proposed gates through it so Wringer can never propose a gate its own
@@ -1672,13 +1701,16 @@ def _parse_containment(raw: Any, source: str) -> Containment | None:
 
     requires = raw.get("requires", [])
     if not isinstance(requires, list) or not all(
-        isinstance(name, str) and name.strip() for name in requires
+        isinstance(name, str) and BINARY_NAME_PATTERN.fullmatch(name.strip())
+        for name in requires
     ):
         raise ConfigError(
             f"{source}: 'run.containment.requires' must be a list of binary "
             "NAMES the image must carry — the worker's own command is the "
             "one that matters, and Wringer refuses rather than discovering it "
-            "missing on the first turn"
+            "missing on the first turn. A name only: these are joined into a "
+            "shell script the preflight runs, and `wring verify` reaches that "
+            "path"
         )
 
     env = raw.get("env", [])
@@ -1750,11 +1782,15 @@ def _parse_egress(raw: Any, source: str) -> Egress:
 
     hosts = raw.get("hosts", [])
     if not isinstance(hosts, list) or not all(
-        isinstance(name, str) and name.strip() for name in hosts
+        isinstance(name, str) and HOSTNAME_PATTERN.fullmatch(name.strip())
+        for name in hosts
     ):
         raise ConfigError(
             f"{source}: 'run.containment.egress.hosts' must be a list of "
-            "hostnames"
+            "hostnames — letters, digits, '.' and '-', each label starting "
+            "and ending alphanumeric. They are interpolated into a shell "
+            "script that runs inside the NET_ADMIN broker, so a value that "
+            "is not a hostname is a command"
         )
 
     ports_raw = raw.get("ports", list(DEFAULT_EGRESS_PORTS))

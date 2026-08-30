@@ -44,6 +44,7 @@ the `limits` this module contributes to the record say so in the record.
 from __future__ import annotations
 
 import os
+import shlex
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -342,8 +343,11 @@ def _missing_binaries(
     """
     if not required:
         return []
+    # Quoted for the same reason `_arm` quotes, and reachable from plain
+    # `wring verify` rather than only from `wring run`.
     script = "; ".join(
-        f'command -v {name} >/dev/null 2>&1 || echo "MISSING {name}"'
+        f"command -v {shlex.quote(name)} >/dev/null 2>&1 || "
+        f"echo MISSING {shlex.quote(name)}"
         for name in required
     )
     try:
@@ -491,25 +495,25 @@ def _start_holder(
     return done.stdout.strip()
 
 
-def _arm(
-    binary: str, settings: Containment, holder_cid: str, workdir: Path
-) -> tuple[str, ...]:
-    """**Refusal 7.** Resolve, write the hosts file, drop everything else.
+def _arm_script(settings: Containment) -> str:
+    """The script `_arm` runs inside the broker, built where it can be READ.
 
-    Resolution happens INSIDE the holder, not on this machine, and that is not
-    fussiness. On macOS the runtime's containers live in a Linux VM with its
-    own resolver, so a host-side answer can name an address the container's
-    resolver never returns — and the allowlist would then block the very API
-    it was written to admit. Resolving where the rules apply makes the
-    mismatch impossible rather than unlikely.
-
-    DNS is then dropped entirely. The worker reaches the declared hosts
-    through the `hosts` file this writes and can reach no name Wringer did not
-    put in it.
+    Extracted so a test can assert on the security-relevant artefact
+    itself rather than on the parser that feeds it. The values here reach
+    a shell inside the one container holding `NET_ADMIN`, so what the
+    string actually contains is the question.
     """
-    hosts = " ".join(settings.egress.hosts)
+    # **Quoted, and the parser refuses anything that would need quoting.**
+    # Two layers on purpose: this script runs inside the broker — the
+    # container started with `--cap-add NET_ADMIN --cap-add NET_RAW` whose
+    # only job is to install the egress rules — so a value that becomes a
+    # command here disarms the boundary from inside the thing that arms it,
+    # while `declared_record` goes on writing `egress.policy: allowlist` into
+    # `worker_execution`. `config.HOSTNAME_PATTERN` is the first layer; a
+    # parser is not a good place for a security property to live ALONE.
+    hosts = " ".join(shlex.quote(host) for host in settings.egress.hosts)
     ports = " ".join(str(port) for port in settings.egress.ports)
-    script = f"""
+    return f"""
 set -e
 : > /broker/{HOSTS_FILENAME}
 printf '127.0.0.1\\tlocalhost\\n::1\\tlocalhost\\n' >> /broker/{HOSTS_FILENAME}
@@ -531,6 +535,25 @@ for ip in $ADDRS; do
 done
 for ip in $ADDRS; do echo "RESOLVED $ip"; done
 """
+
+
+def _arm(
+    binary: str, settings: Containment, holder_cid: str, workdir: Path
+) -> tuple[str, ...]:
+    """**Refusal 7.** Resolve, write the hosts file, drop everything else.
+
+    Resolution happens INSIDE the holder, not on this machine, and that is not
+    fussiness. On macOS the runtime's containers live in a Linux VM with its
+    own resolver, so a host-side answer can name an address the container's
+    resolver never returns — and the allowlist would then block the very API
+    it was written to admit. Resolving where the rules apply makes the
+    mismatch impossible rather than unlikely.
+
+    DNS is then dropped entirely. The worker reaches the declared hosts
+    through the `hosts` file this writes and can reach no name Wringer did not
+    put in it.
+    """
+    script = _arm_script(settings)
     try:
         done = subprocess.run(
             [binary, "exec", holder_cid, "/bin/sh", "-c", script],

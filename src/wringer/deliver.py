@@ -280,13 +280,47 @@ def _relative_to_root(path: Path, root: Path) -> str:
 
 
 def resolve_branch(template: str, run_id: str, task: str | None) -> str:
-    """Fill the declared placeholders, then check git would accept the name."""
+    """Fill the declared placeholders, then check git would accept the name.
+
+    **The name goes through `REF_NAME_PATTERN`, like `base` and `remote`.**
+
+    It was the one string in this module that reached `git push` argv without
+    that check, and it does not reach it as a NAME — it reaches it as a
+    one-sided REFSPEC. `deliver.branch: "+main"` passed every guard here (`+`
+    is not in `_BAD_BRANCH` and the name does not start with `-`), passed
+    `branch == base` and `branch == default` (exact compares against `main`),
+    and passed `branch_exists` (`refs/heads/+main` is nowhere). `git
+    check-ref-format refs/heads/+main` exits 0, so `switch --create` worked.
+    Then git read the leading `+` as FORCE and the src as `main`.
+
+    REPRODUCED on git 2.50.1 against a divergent bare remote:
+
+        + f9e8e93...2bdb45f main -> main (forced update)
+
+    — a remote-only commit destroyed, from a run that asked for an ordinary
+    delivery. Delivery conditions 2, 3 and 4 fall on that one line. The
+    force-push guard could not see it: it greps the source for a literal
+    `--force` or `+refs/`, and this `+` came from config at runtime. Its own
+    comment already records the same hole being found once for `remote`.
+
+    `_BAD_BRANCH` is kept BESIDE the pattern rather than replaced by it. The
+    pattern is an allowlist and says what may pass; the list names the
+    characters git itself rejects and is what makes the error message say
+    which one. Two statements of one rule would be drift; a statement and its
+    explanation are not.
+    """
     name = config.substitute(template, run=run_id, task=task or run_id)
     if not name or name.startswith("-") or name.endswith(("/", ".lock", ".")):
         raise DeliverError(f"'{name}' is not a usable branch name")
     for bad in _BAD_BRANCH:
         if bad in name:
             raise DeliverError(f"branch name '{name}' contains {bad!r}")
+    if not config.REF_NAME_PATTERN.fullmatch(name):
+        raise DeliverError(
+            f"'{name}' is not a plain branch name — letters, digits, '.', "
+            "'_', '-' and '/', starting with a letter or digit. It reaches "
+            "`git push` as a refspec, where a leading '+' means FORCE"
+        )
     return name
 
 
@@ -1623,8 +1657,21 @@ def send(
 
     if push:
         bundle.event("push.planned", remote=planned.remote, branch=planned.branch)
-        # No force. Not here, not anywhere — a test greps the whole program.
-        _run(root, ["push", "--set-upstream", planned.remote, planned.branch])
+        # **An explicit two-sided refspec, and that is the point of it.**
+        #
+        # A bare `planned.branch` here is not a NAME to git, it is a refspec,
+        # and a refspec's leading `+` means force. `deliver.branch: "+main"`
+        # therefore assembled `git push origin +main` — force-update `main` on
+        # the remote — with the word "force" appearing nowhere in this source
+        # and every guard in `plan` satisfied. Reproduced against a divergent
+        # bare remote: `+ f9e8e93...2bdb45f main -> main (forced update)`.
+        #
+        # `resolve_branch` now refuses that name one layer up. This is the
+        # second layer, and it is the one that cannot be argued with: with src
+        # and dst spelled out, there is no position in the argument where a
+        # modifier could be read at all.
+        refspec = f"refs/heads/{planned.branch}:refs/heads/{planned.branch}"
+        _run(root, ["push", "--set-upstream", planned.remote, refspec])
         done["pushed"] = True
         bundle.event("push.done", remote=planned.remote, branch=planned.branch)
 

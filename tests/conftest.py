@@ -7,7 +7,87 @@ from pathlib import Path
 
 import pytest
 
-from wringer import config
+from wringer import config, deliver
+
+# --- D0: every declared refusal must be one a test has actually taken -------
+#
+# **The lexical guards this replaces could not see reachability.** They parsed
+# `deliver.py` with `ast`, counted the `raise Refused(` sites and matched
+# their literal `reason=` strings against `REFUSAL_REASONS`. Nothing checked a
+# site could be REACHED: `if code != 0 and False:` left both of them green,
+# demonstrated on `remote_unreachable`. A whole-suite probe on
+# `Refused.__init__` then showed FOUR of the declared reasons were constructed
+# by no test at all — including `tracked_contents_differ`, the tracked-diff
+# byte check the product's core promise rests on, whose deletion left 199
+# tests across five modules passing.
+#
+# Red-first applies to our own refusals before it applies to anyone's gates. A
+# refusal nobody has seen fire is a check green from birth, which is the exact
+# thing this program exists to refuse.
+#
+# The recording is a fact about the RUN, so it lives here and the assertion is
+# made once at session end (see `pytest_sessionfinish`). A filtered run — `-k`,
+# a node id, `-m` — cannot see the whole set, so it reports what it could not
+# check instead of asserting on a partial view; CI runs the suite whole.
+CONSTRUCTED_REFUSALS: set[str] = set()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _record_every_refusal_constructed():
+    """Wrap `Refused.__init__` for the whole session and remember the names."""
+    original = deliver.Refused.__init__
+
+    def recording(self, message, exit_code=1, *, reason):
+        CONSTRUCTED_REFUSALS.add(reason)
+        original(self, message, exit_code, reason=reason)
+
+    deliver.Refused.__init__ = recording
+    try:
+        yield
+    finally:
+        deliver.Refused.__init__ = original
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Assert the recorded set equals `deliver.REFUSAL_REASONS`, or say why not.
+
+    Only on a WHOLE run: a filtered one has not had the chance, and failing it
+    would train everyone to ignore this. `--co` (collect-only) never
+    constructs anything either.
+    """
+    if exitstatus not in (0, 1):
+        return
+    options = session.config.option
+    filtered = bool(
+        getattr(options, "keyword", "")
+        or getattr(options, "markexpr", "")
+        or getattr(options, "collectonly", False)
+        or getattr(options, "file_or_dir", []) not in ([], ["tests"])
+    )
+    if filtered:
+        return
+    missing = sorted(set(deliver.REFUSAL_REASONS) - CONSTRUCTED_REFUSALS)
+    stray = sorted(CONSTRUCTED_REFUSALS - set(deliver.REFUSAL_REASONS))
+    if not missing and not stray:
+        return
+    session.exitstatus = 1
+    reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+    if reporter is None:                                # pragma: no cover
+        return
+    reporter.write_sep("=", "D0: refusals no test has taken", red=True)
+    if missing:
+        reporter.write_line(
+            "declared in deliver.REFUSAL_REASONS and constructed by NO test: "
+            + ", ".join(missing)
+        )
+        reporter.write_line(
+            "  a refusal nobody has seen fire is a check green from birth. "
+            "Drive it through the command that owes it, or strike the name."
+        )
+    if stray:
+        reporter.write_line(
+            "constructed but not declared: " + ", ".join(stray)
+        )
 
 # Never inherit the developer's identity, hooks, or signing config: a test
 # repo must behave the same on every machine and in CI.

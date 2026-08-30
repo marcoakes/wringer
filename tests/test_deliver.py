@@ -724,7 +724,17 @@ def test_no_git_identity_is_refused_before_the_branch_exists(
 
 @pytest.mark.parametrize(
     "value",
-    ["--force", "-f", "--mirror", "--receive-pack=touch /tmp/pwned", "-", "--"],
+    [
+        "--force", "-f", "--mirror", "--receive-pack=touch /tmp/pwned",
+        "-", "--",
+        # `git push <path> <branch>` takes a filesystem path as readily as a
+        # configured remote, so this directed pushed history to an arbitrary
+        # local repository OUTSIDE the tree. `REPO_PATTERN` was written to
+        # make `..` impossible for the forge slug and the reasoning was never
+        # carried to `REF_NAME_PATTERN`.
+        "a/../../../tmp/evil",
+        "..",
+    ],
 )
 @pytest.mark.parametrize("key", ["remote", "base"])
 def test_a_deliver_name_can_never_look_like_a_git_option(key, value):
@@ -738,6 +748,66 @@ def test_a_deliver_name_can_never_look_like_a_git_option(key, value):
                 "deliver": {key: value},
             }
         )
+
+
+@pytest.mark.parametrize(
+    "template", ["+main", "+refs/heads/main", "a/../../../tmp/evil", "x..y"]
+)
+def test_a_branch_name_can_never_become_a_refspec_modifier(template):
+    """**REPRODUCED before the fix, on git 2.50.1 against a divergent bare
+    remote: `+ f9e8e93...2bdb45f main -> main (forced update)`.**
+
+    `deliver.branch` was the one string in the module that reached `git push`
+    argv without `REF_NAME_PATTERN`, and it does not arrive as a NAME — it
+    arrives as a REFSPEC, where a leading `+` means force. `"+main"` passed
+    `_BAD_BRANCH` (no `+` in it), passed the leading-`-` check, passed
+    `branch == base` and `branch == default` (exact compares against `main`),
+    and passed `branch_exists` (`refs/heads/+main` is nowhere). Conditions 2,
+    3 and 4 fell on one line, and a remote-only commit was destroyed.
+
+    The hostile-value sweep one test up parametrised over `["remote", "base"]`
+    and never `branch`, which is why nothing here had ever tried it.
+    """
+    from wringer import deliver as deliver_module
+
+    with pytest.raises(deliver_module.DeliverError):
+        deliver_module.resolve_branch(template, "20260101-000000-aaaa", None)
+
+
+def test_the_push_argv_spells_out_both_sides_of_the_refspec(
+    delivery_repo, monkeypatch, capsys
+):
+    """**Asserted on the argv actually built, which is what the source grep
+    cannot see.**
+
+    `test_no_force_push_anywhere` parses every `.py` for a literal `--force`
+    or `+refs/`. Its own comment records that a `remote` of `--force` once
+    assembled a force push with the word appearing nowhere in the source, and
+    the same class returned through `branch`. A guard over source text cannot
+    answer a question about a runtime string, so this one reads the command.
+    """
+    calls: list[list[str]] = []
+    real = deliver.subprocess.run
+
+    def recording(argv, *args, **kwargs):
+        if argv and argv[0] == "git":
+            calls.append(list(argv))
+        return real(argv, *args, **kwargs)
+
+    monkeypatch.setattr(deliver.subprocess, "run", recording)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    pushes = [argv for argv in calls if "push" in argv]
+    assert pushes, calls
+    for argv in pushes:
+        spec = argv[-1]
+        assert spec.startswith("refs/heads/"), argv
+        assert ":" in spec, argv
+        src, dst = spec.split(":", 1)
+        assert src == dst, argv
+        assert not any(part.startswith("+") for part in argv), argv
 
 
 @pytest.mark.parametrize("value", ["origin", "upstream", "my-fork", "main",

@@ -21,6 +21,7 @@ from __future__ import annotations
 import ast
 import json
 import os
+import shlex
 from pathlib import Path
 
 import pytest
@@ -59,6 +60,131 @@ def settings(**overrides) -> config.Containment:
 
 
 # --- S1: the declaration ----------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "x; iptables -P OUTPUT ACCEPT; :",
+        "$(touch /tmp/pwned)",
+        "a b",
+        "`id`",
+        "host|nc 10.0.0.1 1",
+    ],
+)
+def test_an_egress_host_that_is_not_a_hostname_is_REFUSED(host):
+    """**The boundary must not be disarmed by the thing that arms it.**
+
+    `egress.hosts` entries are interpolated into an `sh -c` script that runs
+    inside the broker — the container started with `--cap-add NET_ADMIN
+    --cap-add NET_RAW`. Before this, `hosts: ["api.example.com", "x; iptables
+    -P OUTPUT ACCEPT; :"]` parsed and `_arm` built
+
+        for host in api.example.com x; iptables -P OUTPUT ACCEPT; :; do
+
+    so every `iptables` call that followed was swallowed — while
+    `declared_record` went on writing `egress.policy: allowlist` and the host
+    list into `worker_execution`, a record asserting a policy the mechanism
+    did not have. Found independently by two reviewers.
+
+    This parser is careful about every value that reaches an ARGV and had no
+    discipline at all about values reaching a shell script it assembles
+    itself.
+    """
+    with pytest.raises(config.ConfigError, match="hostname"):
+        config.parse(
+            {
+                "version": 1,
+                "gates": [{"id": "t", "run": "true"}],
+                "run": {
+                    "worker": "agent",
+                    "containment": {
+                        "image": "img",
+                        "egress": {"policy": "allowlist", "hosts": [host]},
+                    },
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "name", ["git; rm -rf /", "$(id)", "a b", "-rf"]
+)
+def test_a_required_binary_that_is_not_a_name_is_REFUSED(name):
+    """`run.containment.requires` reaches `command -v {name}` in the same kind
+    of assembled script, and that path is reachable from plain `wring verify`
+    rather than only from `wring run`."""
+    with pytest.raises(config.ConfigError, match="NAMES"):
+        config.parse(
+            {
+                "version": 1,
+                "gates": [{"id": "t", "run": "true"}],
+                "run": {
+                    "worker": "agent",
+                    "containment": {"image": "img", "requires": [name]},
+                },
+            }
+        )
+
+
+def test_ordinary_hosts_and_binaries_still_parse():
+    """The other half of the boundary: the allowlist must still admit what a
+    real repository declares."""
+    parsed = config.parse(
+        {
+            "version": 1,
+            "gates": [{"id": "t", "run": "true"}],
+            "run": {
+                "worker": "agent",
+                "containment": {
+                    "image": "img",
+                    "requires": ["git", "node", "python3.12", "g++"],
+                    "egress": {
+                        "policy": "allowlist",
+                        "broker_image": "alpine:3",
+                        "hosts": [
+                            "api.anthropic.com", "registry.npmjs.org",
+                            "localhost", "a-b.example.co.uk",
+                        ],
+                    },
+                },
+            },
+        }
+    )
+    assert parsed.run is not None and parsed.run.containment is not None
+    assert parsed.run.containment.egress is not None
+
+
+def test_the_armed_script_quotes_every_host_it_interpolates():
+    """The second layer, asserted on the script actually built.
+
+    A parser is not a good place for a security property to live ALONE: it is
+    one edit from being widened, and the value's destination is a shell inside
+    the one container that can change the firewall.
+    """
+    # Built from a Containment constructed DIRECTLY, bypassing the parser:
+    # the whole point of a second layer is that it holds on the day the first
+    # one is widened, so testing it through the validator would test nothing.
+    egress = config.Egress(
+        policy="allowlist",
+        hosts=("api.example.com", "x; iptables -P OUTPUT ACCEPT; :"),
+        ports=(443,),
+    )
+    settings = config.Containment(
+        runtime="docker", image="img", egress=egress
+    )
+    script = containment._arm_script(settings)
+
+    loop = next(
+        line for line in script.splitlines() if line.startswith("for host in")
+    )
+    # The question is not whether the characters appear — it is whether the
+    # shell would read them as commands. Tokenised the way `sh` reads it, the
+    # hostile value is ONE word and `iptables` is not a command in this line.
+    words = shlex.split(loop.removeprefix("for host in").removesuffix("; do"))
+    assert words == [
+        "api.example.com", "x; iptables -P OUTPUT ACCEPT; :"
+    ], words
 
 
 def test_a_repo_that_declares_nothing_is_unchanged():

@@ -25,7 +25,6 @@ most of the 23 sites are on no tested path at all.
 
 from __future__ import annotations
 
-import ast
 import json
 from pathlib import Path
 
@@ -44,8 +43,6 @@ from test_graph_deliver import (  # noqa: F401
 )
 
 from wringer import cli, deliver, evidence
-
-SOURCE = Path(deliver.__file__)
 
 
 def refusal_records(root: Path) -> list[Path]:
@@ -177,86 +174,118 @@ def test_an_ABSENT_record_is_still_an_opt_out(
     assert not refusal_records(repo)
 
 
-def raise_sites() -> list[ast.Raise]:
-    """Every `raise Refused(...)` in `deliver.py`, parsed rather than grepped."""
-    tree = ast.parse(SOURCE.read_text(encoding="utf-8"), filename=str(SOURCE))
-    found = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Raise) or not isinstance(node.exc, ast.Call):
-            continue
-        callee = node.exc.func
-        name = (
-            callee.id
-            if isinstance(callee, ast.Name)
-            else callee.attr if isinstance(callee, ast.Attribute) else None
-        )
-        if name == "Refused":
-            found.append(node)
-    return found
+# --- D0: the four reasons no test had ever taken ---------------------------
+#
+# Found by the session-wide recorder in `tests/conftest.py`, which is the
+# guard that replaced two lexical ones. Each of these was declared, rendered
+# by the board, described in SPEC_REFUSAL's table, and constructed by nothing.
 
 
-def named_reason(node: ast.Raise) -> str | None:
-    """The `reason=` a site passes, or None — a non-literal counts as None,
-    because a name computed at runtime is not a name a reader can enumerate."""
-    for keyword in node.exc.keywords:  # type: ignore[union-attr]
-        if keyword.arg == "reason":
-            value = keyword.value
-            return value.value if isinstance(value, ast.Constant) else None
-    return None
+def test_tracked_contents_differ_is_REACHED_by_editing_a_verified_file(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The tracked-diff byte check, driven through `deliver` at last.**
+
+    This is the product's core promise: a run's gate results may only be
+    attached to the code that run saw. `if False and before.strip() !=
+    after.strip():` deleted the whole check and 199 tests across
+    `test_deliver`, `test_refusal`, `test_graph_deliver`, `test_attempts` and
+    `test_untracked` still passed. `test_refusal.py` records that someone once
+    aimed at this refusal, got `untracked_file_moved` instead, and nobody went
+    back for it.
+
+    The shape it exists for: the FILE LIST is identical, so `tree_moved`
+    cannot fire — only the bytes moved, which is the commonest way a tree
+    moves without its shape moving.
+    """
+    repo = delivery_repo
+    tracked = repo / "tracked.py"
+    tracked.write_text("def one():\n    return 1\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-m", "a tracked file to move")
+    tracked.write_text("def one():\n    return 2\n", encoding="utf-8")
+
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    # Same file list, different bytes.
+    tracked.write_text("def one():\n    return 3\n", encoding="utf-8")
+
+    assert cli.main(["deliver"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "tracked_contents_differ"
 
 
-# --- the two directions ----------------------------------------------------
+def test_untracked_record_unreadable_is_REACHED(
+    delivery_repo, monkeypatch, capsys
+):
+    """Its two neighbours execute — `untracked_record_unknown_version` and
+    `files_unreadable_at_verify` — so the fixture reached this function and
+    stopped one branch short. Untracked bytes are the one class git cannot
+    catch downstream."""
+    repo = delivery_repo
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert run_dir is not None
+    recorded = run_dir / evidence.UNTRACKED_FILENAME
+    assert recorded.is_file(), "the fixture recorded no untracked files"
+    recorded.write_text("{ not json", encoding="utf-8")
+
+    assert cli.main(["deliver"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "untracked_record_unreadable"
 
 
-def test_every_refusal_site_names_a_reason():
-    """§4 ruling 7. A site that raises without a name is a refusal no machine
-    can tell from any other, and the whole slice is that they can."""
-    sites = raise_sites()
-    assert len(sites) == 25, (
-        f"expected 25 `raise Refused(` sites in {SOURCE.name}, found "
-        f"{len(sites)} at lines {[n.lineno for n in sites]} — if a refusal was "
-        "added or removed, docs/specs/SPEC_REFUSAL_V0.md §4's table and "
-        "deliver.REFUSAL_REASONS both move with it"
+def test_branch_is_current_is_REACHED(delivery_repo, monkeypatch, capsys):
+    """Wringer commits to a branch it created, never the one you are on."""
+    repo = delivery_repo
+    (repo / ".wringer.yaml").write_text(
+        CONFIG.replace('branch: "wringer/{run}"', 'branch: "work"'),
+        encoding="utf-8",
     )
+    git(repo, "checkout", "-q", "-b", "work")
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
 
-    unnamed = [node.lineno for node in sites if named_reason(node) is None]
-    assert not unnamed, (
-        f"{SOURCE.name} raises Refused without a literal `reason=` at lines "
-        f"{unnamed}. `Refused.__init__` requires it, but most of these 23 "
-        "sites are on no tested path, so nothing would have executed the "
-        "constructor to find out."
-    )
-
-    stray = sorted(
-        {
-            named_reason(node)
-            for node in sites
-            if named_reason(node) not in deliver.REFUSAL_REASONS
-        }
-    )
-    assert not stray, (
-        f"raised but not in deliver.REFUSAL_REASONS: {stray} — a name that is "
-        "not in the tuple is a name no reader can enumerate"
-    )
+    assert cli.main(["deliver"]) == cli.EXIT_REFUSED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "branch_is_current"
 
 
-def test_every_named_reason_is_raised_somewhere():
-    """The other direction, and the reason it exists: a name in the tuple that
-    nothing raises is dead text that reads as coverage."""
-    raised = {named_reason(node) for node in raise_sites()}
-    declared = set(deliver.REFUSAL_REASONS)
-    assert raised == declared, (
-        f"declared but never raised: {sorted(declared - raised)}; "
-        f"raised but never declared: {sorted(raised - declared)}"
-    )
+def test_remote_unreachable_is_REACHED(delivery_repo, monkeypatch, capsys):
+    """**Named, and its own fixture had never taken it.**
 
+    `test_deliver.py:1750` asserts `"cannot" in str(...)` over a fixture whose
+    origin does not exist — but `resolve_base` refuses first with
+    `default_branch_unknown` ("...cannot be sure it is avoiding it"), so the
+    reason actually raised was that one and editing this refusal away left
+    the test green.
 
-def test_the_reasons_are_a_closed_tuple_without_duplicates():
-    assert isinstance(deliver.REFUSAL_REASONS, tuple)
-    assert len(set(deliver.REFUSAL_REASONS)) == len(deliver.REFUSAL_REASONS)
+    The distinction it protects: `ls-remote` failing used to fall through to
+    "the branch does not exist", so an unreachable remote silently satisfied
+    condition 1 and delivery planned a branch that might already be someone
+    else's. So the remote here is reachable enough to RESOLVE a default
+    branch, and unreachable by the time `branch_exists` looks.
+    """
+    repo = delivery_repo
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
 
+    # The default branch is already cached in `refs/remotes/origin/HEAD`, so
+    # `resolve_base` answers without the network; `ls-remote` does not.
+    git(repo, "remote", "set-head", "origin", "-a")
+    upstream = repo.parent / f"{repo.name}-upstream.git"
+    upstream.rename(repo.parent / f"{repo.name}-upstream.gone")
 
-# --- the record ------------------------------------------------------------
+    assert cli.main(["deliver"]) == cli.EXIT_REFUSED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "remote_unreachable"
 
 
 def test_a_refused_delivery_writes_a_record_naming_the_reason(
