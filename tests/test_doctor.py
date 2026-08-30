@@ -319,6 +319,47 @@ def test_doctor_outside_a_repo_skips_repo_checks_and_exits_zero(
     assert "✗" not in out
 
 
+def test_a_WARNING_is_never_swallowed_by_a_SKIP(tmp_path):
+    """**Reproduced in this repository: "This machine is ready" over four
+    `!` lines**, one of them "you are running a mixture … the version above is
+    NOT the version you installed".
+
+    `elif skipped:` came before `elif warned:`, and inside a repository
+    `pytest parallelism` and `worker auth` skip routinely — so the warned
+    branch was unreachable whenever anything skipped at all. On an org-pinned
+    Mac the `managed settings` warning, which its own docstring calls "the
+    most expensive shape in the report", was reported as "This machine is
+    ready." The same wrong sentence is published verbatim in this repo's own
+    field report of 2026-08-27.
+
+    Every clause that applies is said now. Precedence was the bug.
+    """
+    checks = [
+        doctor.Check("a", doctor.WARN, "something to look at"),
+        doctor.Check("b", doctor.SKIP, "not checked here"),
+        doctor.Check("git repository", doctor.OK, str(tmp_path)),
+    ]
+    said = doctor.report(checks)
+
+    assert "optional extras" in said, said
+    assert "gave nothing to check" in said, said
+    # ...and the repo hint is about SCOPE, so it is absent while standing in
+    # one — it used to print two lines under `✓ git repository <that repo>`.
+    assert "from your repo" not in said, said
+
+
+def test_the_repo_hint_still_appears_OUTSIDE_a_repository():
+    """The other half: the clause is about checks that were not run here, and
+    outside a repository it is the useful thing to say."""
+    said = doctor.report([
+        doctor.Check("a", doctor.WARN, "something"),
+        doctor.Check("git repository", doctor.SKIP, "not a git repository"),
+    ])
+    assert "This machine is ready" in said, said
+    assert "from your repo" in said, said
+    assert "optional extras" in said, said
+
+
 def test_doctor_inside_a_repo_still_runs_every_check(repo, monkeypatch, capsys):
     monkeypatch.chdir(repo)
 

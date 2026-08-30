@@ -180,7 +180,51 @@ STATE_PHRASES = {
 }
 
 
-def disclosure(counts: dict[str, int]) -> list[str]:
+# The two causes that mean NOTHING IS WATCHING. The other three unevidenced
+# causes — born-green, arrived-with-the-work, pre-existence-unestablished —
+# all have a bound check; what they lack is a recorded red.
+NO_CHECK_AT_ALL = (CAUSE_UNBOUND, CAUSE_WITNESS_EVIDENCED_NOTHING)
+
+
+def unevidenced_split(rows: Any) -> tuple[int, int]:
+    """`(no check at all, a check that has never been red)`.
+
+    **The two adjacent sentences said 6 + 4 = 10 of 8.** Eight criteria — one
+    evidenced, three bound gates born green, three unbound, one human —
+    rendered "⚠ 6 of these 8 requirements have no check proving them"
+    immediately above "4 of 7 requirements carry a check that can prove
+    them", in `summary.md`, in `mr.md` and on the certificate.
+
+    Both numbers were right about their own question and the first one was
+    asked wrongly: three of the five unevidenced causes DO have a bound
+    check. The sentence sent a reader off to write a check that already
+    exists, and `certificate.py` rules against exactly this wording while the
+    per-row chips get it right ("ITS CHECK HAS NEVER FAILED").
+
+    Reads `state` and `cause` off dicts or off `Row`s, because the surfaces
+    that need it hold one or the other. A record with no `cause` at all — v1
+    and v2 — falls back to whether the row names a gate, which is the only
+    fact those versions carry.
+    """
+    def field(row: Any, name: str) -> Any:
+        if isinstance(row, dict):
+            return row.get(name)
+        return getattr(row, name, None)
+
+    unwatched = watched = 0
+    for row in rows or ():
+        if field(row, "state") != UNEVIDENCED:
+            continue
+        cause = field(row, "cause")
+        gate = field(row, "gate") or field(row, "gate_id")
+        if cause in NO_CHECK_AT_ALL or (cause is None and not gate):
+            unwatched += 1
+        else:
+            watched += 1
+    return unwatched, watched
+
+
+def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
     """The acceptance headline, for the surfaces that TRAVEL. Markdown lines.
 
     **Field report 2026-08-26, finding 3.** A run reached delivered with
@@ -217,6 +261,28 @@ def disclosure(counts: dict[str, int]) -> list[str]:
     )
     lines = ["", f"**Requirements: {said}.**"]
     unevidenced = int(counts.get(UNEVIDENCED, 0))
+    if unevidenced and rows is not None:
+        unwatched, watched = unevidenced_split(rows)
+        clauses = []
+        if unwatched:
+            clauses.append(
+                f"{unwatched} of these {total} requirement"
+                f"{'' if unwatched == 1 else 's'} "
+                f"{'has' if unwatched == 1 else 'have'} no check at all"
+            )
+        if watched:
+            clauses.append(
+                f"{watched} {'has' if watched == 1 else 'have'} a check that "
+                "has never been recorded failing, so passing it shows nothing"
+            )
+        if clauses:
+            lines += [
+                "",
+                f"> ⚠ **{' — and '.join(clauses)}.** Every gate passing means "
+                "the change is mergeable. It does not mean the thing that was "
+                "asked for was built, and these are the difference.",
+            ]
+        return lines
     if unevidenced:
         # **The cold reviewer's own sentence, 2026-08-27.** This warning used
         # to read "N of these M criteria are UNEVIDENCED", and the reviewer

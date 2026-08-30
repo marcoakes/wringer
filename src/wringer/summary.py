@@ -83,7 +83,11 @@ def write(
     # the two surfaces that travel to a merger cannot come to say different
     # amounts of the same fact.
     if acceptance is not None:
-        lines += accept.disclosure(acceptance.counts())
+        # The ROWS as well as the counts: the warning splits on cause, so
+        # a bound gate that has never been red is not counted as having
+        # no check. Without it the two adjacent sentences here said
+        # 6 + 4 = 10 of 8.
+        lines += accept.disclosure(acceptance.counts(), acceptance.rows)
     # **The coverage number, right under the states it explains** — the field
     # case is run 2, where 5 of 8 requirements had no check at all and the
     # defect that run existed to fix landed on one of the unwatched ones. The

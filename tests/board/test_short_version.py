@@ -233,6 +233,50 @@ def test_the_summary_never_clears_a_handover_the_ENGINE_refused(repo):
     assert "The handover is being held" in short
 
 
+def test_an_UNTRANSLATED_refusal_still_holds_the_handover(repo):
+    """**The half of that fix that was missed, and it is reproduced.**
+
+    The block above keys on `say()` RETURNING a sentence. An untranslated
+    reason — one whose value is not in `MAPPING`, which is every reason added
+    to the engine before this surface catches up — makes `say()` return None,
+    the search falls through, and the page renders *"Nothing on this page is
+    holding up the handover"* directly above the round section's
+    `UNTRANSLATED a_brand_new_reason`.
+
+    Not having words for a refusal is a reason to SAY SO. It is never a
+    reason to say the opposite.
+    """
+    write_run(
+        repo,
+        "20260828-090000-aaaa",
+        [
+            criterion(
+                "fast",
+                "The export finishes inside a minute",
+                "unevidenced",
+                gate=None,
+                reason="no gate proves this criterion",
+                refuses=False,
+            )
+        ],
+    )
+    write_loop_manifest(repo, LOOP, "converged")
+    write_refusal(
+        repo,
+        "20260828-090100-rrrr",
+        "a_brand_new_reason",
+        run="20260828-090000-aaaa",
+    )
+    short = _short(_page(repo))
+
+    assert "Nothing on this page is holding up the handover" not in short, (
+        "the summary cleared a handover the engine refused, because this "
+        "surface had no words for the reason"
+    )
+    assert "cannot be handed over yet" in short, short
+    assert "a_brand_new_reason" in short, short
+
+
 def test_a_refusal_about_an_OLDER_run_is_history_and_not_the_verdict(repo):
     """**Field report 2026-08-28, and the promise was already in the code.**
 

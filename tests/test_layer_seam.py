@@ -68,8 +68,22 @@ BOARD = SRC / "wringer_board"
 # exactly the two-implementations drift the seam prevents, arriving through
 # the door marked "avoiding an import". The import is inside a function and
 # its failure is caught.
+# **The seventh, admitted 2026-08-30, and it passed the same test.** "Which
+# run is the latest" is a DEFINITION, and there were two of them: this package
+# ordered by `st_mtime` and `wringer.evidence` orders by the manifest's
+# recorded `started_at`. A run that starts at 09:00 and takes two hours
+# finishes after one that starts at 11:00 and takes a minute, so the engine
+# answered `…-110000` and the board answered `…-090000` — and any `cp -r` or
+# CI artifact restore rewrites mtimes wholesale. `read.latest_refusal`, ninety
+# lines below the site, already refuses mtime IN THOSE WORDS.
+#
+# So the board asks the engine rather than keeping a second definition, which
+# is the whole of what this seam is for. The import is inside a function and
+# its failure is caught, so a board with no engine present still loads and
+# falls back to the ordering it had.
 PERMITTED = {
     "wringer.spec",
+    "wringer.evidence",
     "wringer.accept",
     "wringer.checks",
     "wringer.config",
@@ -182,6 +196,12 @@ def test_the_permitted_list_is_not_silently_widened():
         "wringer.config",
         "wringer.coverage",
         "wringer.diagnose",
+        # Admitted 2026-08-30: "which run is the latest" is a DEFINITION, and
+        # there were two of them — `st_mtime` here, the manifest's recorded
+        # `started_at` in the engine — answering differently whenever two runs
+        # overlap or a checkout rewrites mtimes. The board asks rather than
+        # keeping a second one, which is what this seam is for.
+        "wringer.evidence",
         "wringer",
     }, (
         "the permitted-import set changed. That is allowed, but it is the "

@@ -2167,7 +2167,11 @@ def test_THE_TRAVELLING_SURFACES_CARRY_THE_UNEVIDENCED_COUNT(
     recorded = accept.read(run_dir)
     assert recorded["counts"]["unevidenced"] == 1, recorded["counts"]
 
-    expected = accept.disclosure(recorded["counts"])
+    # The rows too: the warning splits on cause now, so a renderer given only
+    # counts produces a different (and, for a bound-but-never-red row, false)
+    # sentence. Passing them here is what keeps this a ONE-RENDERER test
+    # rather than a second implementation of the split.
+    expected = accept.disclosure(recorded["counts"], recorded["criteria"])
     assert expected, (
         "the renderer produced nothing for a record with an unevidenced row"
     )

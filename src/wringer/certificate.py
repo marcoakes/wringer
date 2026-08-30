@@ -371,10 +371,27 @@ def headline(payload: dict[str, Any]) -> list[str]:
         "was watched to fail and then pass."
     )
     if unproved:
-        lines.append(
-            f"- **{unproved} {'has' if unproved == 1 else 'have'} no check "
-            f"proving {'it' if unproved == 1 else 'them'}.**"
-        )
+        # **Split on CAUSE, because the flat count contradicted the coverage
+        # section ten lines below it.** Eight criteria — one evidenced, three
+        # bound gates born green, three unbound, one human — gave "6 have no
+        # check proving them" above "4 of 7 requirements carry a check that
+        # can prove them". 6 + 4 = 10 of 8. Three of the five unevidenced
+        # causes DO have a bound check; what they lack is a recorded red, and
+        # this page's own per-row chips say so correctly ("ITS CHECK HAS NEVER
+        # FAILED") while its headline did not.
+        unwatched, watched = accept.unevidenced_split(rows)
+        if unwatched:
+            lines.append(
+                f"- **{unwatched} {'has' if unwatched == 1 else 'have'} no "
+                f"check at all.** Nothing is testing "
+                f"{'it' if unwatched == 1 else 'them'}."
+            )
+        if watched:
+            lines.append(
+                f"- **{watched} {'has' if watched == 1 else 'have'} a check "
+                "that has never been recorded failing**, so passing it shows "
+                "nothing."
+            )
     if failing:
         lines.append(
             f"- **{failing} "

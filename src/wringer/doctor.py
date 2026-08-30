@@ -1010,21 +1010,49 @@ def report(checks: list[Check]) -> str:
     warned = [c for c in checks if c.status == WARN]
     skipped = [c for c in checks if c.status == SKIP]
     lines.append("")
+    # **WARNED outranks SKIPPED, and the repo sentence is about SCOPE.**
+    #
+    # Reproduced in this repository: `wring doctor` printed "This machine is
+    # ready" over FOUR `!` lines, one of them "you are running a mixture …
+    # the version above is NOT the version you installed" — because `elif
+    # skipped:` came first and, inside a repository, `pytest parallelism` and
+    # `worker auth` skip routinely. The warned branch was unreachable whenever
+    # anything skipped at all. The same wrong sentence is published verbatim
+    # in this repo's own field report of 2026-08-27.
+    #
+    # And it told a reader standing in a repository to "run `wring doctor`
+    # from your repo", two lines under `✓ git repository <that repo>`. That
+    # clause is about the checks NOT RUN here, so it belongs to the scope
+    # question, not to the presence of any skip.
+    here = any(
+        check.name == "git repository" and check.status == OK
+        for check in checks
+    )
     if failed:
         lines.append(
             f"{len(failed)} blocking problem"
             f"{'' if len(failed) == 1 else 's'} — fix the ✗ lines above."
         )
-    elif skipped:
-        lines.append(
-            "This machine is ready. The - lines describe a repository and "
-            "were not checked here — run `wring doctor` from your repo for "
-            "those."
+        return "\n".join(lines)
+
+    # **Every clause that applies, and no clause swallowing another.** The
+    # precedence was the bug: whichever branch matched first spoke, and the
+    # skip branch matched first. Saying both is the answer to a precedence
+    # question nobody should have to get right.
+    outside = bool(skipped) and not here
+    said = ["This machine is ready." if outside else "Ready."]
+    if warned:
+        said.append("The ! lines are optional extras, not problems.")
+    if outside:
+        said.append(
+            "The - lines describe a repository and were not checked here — "
+            "run `wring doctor` from your repo for those."
         )
-    elif warned:
-        lines.append("Ready. The ! lines are optional extras, not problems.")
-    else:
-        lines.append("Ready.")
+    elif skipped:
+        said.append(
+            "The - lines are checks this repository gave nothing to check."
+        )
+    lines.append(" ".join(said))
     return "\n".join(lines)
 
 

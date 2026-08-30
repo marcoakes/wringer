@@ -1762,13 +1762,12 @@ def cmd_verify(args: argparse.Namespace) -> int:
         return EXIT_CONFIG
 
     if args.json:
-        _report_json(
-            outcome.bundle,
-            root,
-            outcome.failed_gate,
-            outcome.status,
-            template_only=outcome.template_only,
-        )
+        # **`verify.json_summary` is the only producer now** (T2). There were
+        # two hand-maintained copies of one contract object and they had
+        # already drifted: this one carried `template_only` and that one did
+        # not, and that one is what `run --json`, `resume --json` and the
+        # worker brief read.
+        print(json.dumps(verify.json_summary(outcome, root)))
     else:
         _report_run(
             outcome.bundle,
@@ -1780,6 +1779,8 @@ def cmd_verify(args: argparse.Namespace) -> int:
             vacuity_result=outcome.vacuity,
             execution=backend.for_config(cfg.execution),
             recorded_after_failure=outcome.recorded_after_failure,
+            coverage_result=outcome.coverage,
+            falsification=outcome.falsification,
         )
         _report_check_notes(root, outcome.bundle.directory)
 
@@ -4719,39 +4720,43 @@ def _bundle_path(bundle: evidence.Bundle, root: Path) -> str:
         return str(bundle.directory)
 
 
-def _report_json(
-    bundle: evidence.Bundle,
-    root: Path,
-    failed_gate: str | None,
-    status: str = "passed",
-    template_only: bool = False,
-) -> None:
-    """One object on stdout and nothing else (spec §CLI surface).
+def _report_measured(coverage_result: object, falsification: object) -> None:
+    """The coverage statement and the falsification result, ON THE TERMINAL.
 
-    This is what a coding agent consumes, so the keys are stable and present
-    even when empty: a consumer should never have to distinguish "passed"
-    from "the tool forgot to tell me".
+    **D6, 2026-08-29, and it blocks run 3.** Both were written to the bundle
+    and reached no console: `wring verify --falsify` ran up to 24 mutations
+    against every bound gate — minutes of work, and real information about
+    what the checks do not notice — and printed nothing at all. The coverage
+    record's two sentences reached `summary.md`, the certificate and the
+    board, and never a terminal.
+
+    "Emitting a step and SHOWING one are different acts" is a lesson this
+    program paid for in 0.4.8, and `_report_vacuity` above records the same
+    one for `--prove`: everything a reader needed was on disk and none of it
+    was in front of them.
+
+    Silent when neither was measured, which is the absence rule every
+    optional artifact here keeps: a run that measured nothing is not a run
+    that scored zero.
     """
-    print(
-        json.dumps(
-            {
-                "status": status,
-                "failed_gate": failed_gate,
-                "rerun": (
-                    f"wring verify --gate {failed_gate}"
-                    if failed_gate is not None
-                    else None
-                ),
-                "evidence_dir": _bundle_path(bundle, root),
-                # An agent is the reader most likely to over-read a bare
-                # `"status": "passed"`, and it is exactly the reader the
-                # terminal warning cannot reach. Without this key, the one
-                # consumer that cannot see the `!` line is the one acting on
-                # the result.
-                "template_only": template_only,
-            }
-        )
-    )
+    from wringer import coverage as coverage_module
+    from wringer import falsify as falsify_module
+
+    if coverage_result is not None:
+        # Already a `Coverage`: `verify` carries the object it assessed, not
+        # a re-read of the file, so the console and the record cannot describe
+        # different runs.
+        said = coverage_module.lines(coverage_result)
+        if said:
+            print()
+            for line in said:
+                print(line)
+    if falsification is not None:
+        said = falsify_module.lines(falsification.as_json())
+        if said:
+            print()
+            for line in said:
+                print(line)
 
 
 def _report_run(
@@ -4764,6 +4769,8 @@ def _report_run(
     vacuity_result: object | None = None,
     execution: object | None = None,
     recorded_after_failure: tuple[str, ...] = (),
+    coverage_result: object | None = None,
+    falsification: object | None = None,
 ) -> None:
     if status == "interrupted":
         print("\n✗ interrupted — the run stopped before every gate finished")
@@ -4798,6 +4805,7 @@ def _report_run(
             "\n  mergeable."
         )
     _report_vacuity(vacuity_result, bundle, root)
+    _report_measured(coverage_result, falsification)
     _report_execution(execution)
 
     shown = _bundle_path(bundle, root)

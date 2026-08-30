@@ -644,3 +644,53 @@ def test_the_page_is_WELL_FORMED_and_nothing_it_emits_is_UNSTYLED(repo):
         f"them: {unstyled}. A block that renders unstyled is a block a reader "
         "cannot tell from body text"
     )
+
+
+def test_the_board_and_the_ENGINE_agree_which_run_is_latest(repo):
+    """**Two definitions of "now", answering differently.**
+
+    This package ordered by `st_mtime`; `wringer.evidence.latest_run` orders
+    by the manifest's own recorded `started_at`. A run beginning at 09:00 that
+    takes two hours FINISHES after one beginning at 11:00 that takes a
+    minute — so the engine answered the 11:00 run and this page answered the
+    09:00 one, and the PM's page then described a different run from the one
+    `wring deliver` and `wring explain` were acting on. Any `cp -r` or CI
+    artifact restore rewrites mtimes wholesale.
+
+    `read.latest_refusal`, ninety lines below the site, already refuses mtime
+    for exactly this reason and says so.
+    """
+    import json
+    import os
+
+    from wringer import evidence as evidence_module
+    from wringer_board import read as read_module
+
+    runs = repo / ".wringer" / "runs"
+    for run_id, started, finished in (
+        ("20260829-090000-aaaa", "2026-08-29T09:00:00+00:00", 2_000_000_000),
+        ("20260829-110000-bbbb", "2026-08-29T11:00:00+00:00", 1_000_000_000),
+    ):
+        directory = runs / run_id
+        directory.mkdir(parents=True, exist_ok=True)
+        (directory / evidence_module.MANIFEST_FILENAME).write_text(
+            json.dumps({
+                "schema_version": evidence_module.SCHEMA_VERSION,
+                "run_id": run_id,
+                "started_at": started,
+                "repo": {"head_sha": "0" * 40},
+                "result": {"status": "passed", "failed_gate": None},
+            }),
+            encoding="utf-8",
+        )
+        # The long run finishes LAST, so it holds the newest mtime.
+        os.utime(directory, (finished, finished))
+
+    engine = evidence_module.latest_run(runs)
+    board = read_module.latest_run(repo)
+
+    assert engine is not None and board is not None
+    assert board.name == engine.name == "20260829-110000-bbbb", (
+        board.name, engine.name
+    )
+

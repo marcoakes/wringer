@@ -1273,7 +1273,9 @@ def _mr_body(
     # bundle's summary quotes the same lines, so the two surfaces that travel
     # to whoever merges cannot drift.
     recorded = accept.read(run_dir) or {}
-    lines += accept.disclosure(recorded.get("counts") or {})
+    lines += accept.disclosure(
+        recorded.get("counts") or {}, recorded.get("criteria")
+    )
     # **The same two sentences the bundle's summary carries**, from the same
     # renderer, read out of the record the run wrote rather than recomputed
     # here. A merge request and a bundle summary that counted coverage

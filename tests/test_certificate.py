@@ -170,11 +170,65 @@ def test_GAP_1_the_page_uses_no_word_the_reviewer_said_they_do_not_use(tmp_path)
 
 
 def test_GAP_1_the_headline_counts_the_way_the_reviewer_asked(tmp_path):
-    """*"'6 of 8 requirements have no test proving them' would land faster."*"""
+    """*"'6 of 8 requirements have no test proving them' would land faster."*
+
+    **AMENDED 2026-08-30:** the flat count contradicted the coverage section
+    ten lines below it — eight criteria gave "6 have no check proving them"
+    above "4 of 7 requirements carry a check that can prove them", and
+    6 + 4 = 10 of 8. Three of the five unevidenced causes DO have a bound
+    check; what they lack is a recorded red. The reviewer's shape is kept and
+    the question is asked correctly.
+    """
     said = " ".join(certificate.headline(built(tmp_path)))
     assert "Of the 4 requirements" in said, said
-    assert "2 have no check proving them" in said, said
     assert "1 is proved" in said, said
+    assert "have no check at all" in said, said
+
+    # ...and a BOUND row that has never been red is told apart from an unbound
+    # one, which is the whole of the 6 + 4 = 10 defect. The default fixture is
+    # all-unbound, so asserting only on it left the split untested.
+    mixed = certificate.headline({
+        "requirements": [
+            {"id": "a", "state": accept.EVIDENCED, "check": "g1"},
+            {"id": "b", "state": accept.UNEVIDENCED, "check": "g2",
+             "cause": accept.CAUSE_BORN_GREEN},
+            {"id": "c", "state": accept.UNEVIDENCED, "check": None,
+             "cause": accept.CAUSE_UNBOUND},
+        ]
+    })
+    both = " ".join(mixed)
+    assert "1 has no check at all" in both, both
+    assert "1 has a check that has never been recorded failing" in both, both
+
+
+def test_THE_HEADLINE_AND_THE_COVERAGE_LINE_CANNOT_CONTRADICT(tmp_path):
+    """**6 + 4 = 10 of 8, on one page, in two adjacent sentences.**
+
+    The headline counted every `unevidenced` row as having no check while
+    `coverage` counted a bound-but-never-red row as covered — both right
+    about their own question, and the first one asked wrongly. A reader was
+    sent to write a check that already exists.
+
+    Pinned as arithmetic rather than as wording: the rows the headline calls
+    "no check at all" plus the rows `coverage` calls checkable cannot exceed
+    the number of requirements that are not human.
+    """
+    from wringer import accept as accept_module
+    from wringer import coverage as coverage_module
+
+    payload = built(tmp_path)
+    rows = payload["requirements"]
+    unwatched, watched = accept_module.unevidenced_split(rows)
+    measured = coverage_module.assess(rows, None)
+    assert measured is not None
+
+    machine = [r for r in rows if r.get("state") != accept_module.HUMAN]
+    assert unwatched + watched <= len(machine), (unwatched, watched, machine)
+    # The two numbers describe disjoint groups of the same rows, so the
+    # covered count plus the two unevidenced groups cannot exceed the whole.
+    assert measured.covered + unwatched + watched <= len(machine) + watched, (
+        measured.covered, unwatched, watched, len(machine)
+    )
 
 
 def test_a_state_this_page_has_no_wording_for_REFUSES_TO_TRANSLATE():

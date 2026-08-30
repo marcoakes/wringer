@@ -407,17 +407,42 @@ def _headline_html(board: Board, cards: list[Card]) -> str:
     # waiting on nobody. **The engine's delivery refusal is the authority**,
     # and its own sentence is what gets rendered; the card partition is only
     # consulted when the record carries no refusal at all.
-    refusal = next(
+    # **Keyed on the FACT EXISTING, not on `say()` returning a sentence.**
+    #
+    # The comment above describes this defect and the fix missed half of it:
+    # an UNTRANSLATED refusal — one whose value is not in `MAPPING`, which is
+    # every reason added to the engine before the board catches up — made
+    # `say()` return None, so the search fell through and the page rendered
+    # *"Nothing on this page is holding up the handover"* directly above the
+    # round section's `UNTRANSLATED a_brand_new_reason`. Reproduced. The
+    # engine's refusal is the authority whether or not this surface has words
+    # for it; not having words is a reason to say so, never a reason to say
+    # the opposite.
+    withheld = next(
         (
-            refusals.say(fact.family, fact.value)
+            fact
             for fact in board.facts
             if fact.family == refusals.DELIVERY_REFUSAL
         ),
         None,
     )
+    refusal = (
+        refusals.say(withheld.family, withheld.value)
+        if withheld is not None
+        else None
+    )
     held = [card for card in cards if card.refused]
     if refusal is not None:
         parts.append(f'<p class="verdict held">{_esc(refusal.sentence)}</p>')
+    elif withheld is not None:
+        # The engine's own word, quoted, because inventing a friendlier one
+        # for a reason this version has never met is the guess the
+        # UNTRANSLATED chip exists to refuse.
+        parts.append(
+            '<p class="verdict held">This cannot be handed over yet. The '
+            "engine held it for a reason this page has no words for: "
+            f"<code>{_esc(withheld.value)}</code>.</p>"
+        )
     elif held:
         who = sorted({waiting_on(card.state) for card in held})
         parts.append(

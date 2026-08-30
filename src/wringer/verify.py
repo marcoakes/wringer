@@ -95,6 +95,23 @@ class Outcome:
     # `required`, `covered` and `refuses`; recomputing any of that in `loop.py`
     # would be a second reader of one fact, drifting from the first.
     acceptance: accept.Result | None = None
+    # **The two 0.5.x capabilities, carried for the SAME reason as the three
+    # fields above** (D6, 2026-08-29). Both were written to the bundle and
+    # neither reached the outcome, so the CLI was structurally unable to
+    # report them: `wring verify --falsify` ran up to 24 mutations against
+    # every bound gate — minutes of work — and printed nothing to any console
+    # and emitted no `--json` key, while the coverage record's two sentences
+    # reached `summary.md` and the certificate and no terminal.
+    #
+    # "Emitting a step and SHOWING one are different acts" is a lesson this
+    # program paid for in 0.4.8. `_report_vacuity` records the same one for
+    # `--prove`: everything a reader needed was on disk and none of it was in
+    # front of them.
+    #
+    # None means the flag was not typed, which the console must stay silent
+    # about — the absence rule every optional artifact here keeps.
+    coverage: Any = None
+    falsification: Any = None
 
     @property
     def passed(self) -> bool:
@@ -117,7 +134,7 @@ def json_summary(outcome: Outcome, root: Path) -> dict[str, object]:
     Keys are stable and present even when empty: a consumer should never have
     to distinguish "passed" from "the tool forgot to tell me".
     """
-    return {
+    said: dict[str, object] = {
         "status": outcome.status,
         "failed_gate": outcome.failed_gate,
         "rerun": (
@@ -126,7 +143,28 @@ def json_summary(outcome: Outcome, root: Path) -> dict[str, object]:
             else None
         ),
         "evidence_dir": bundle_path(outcome.bundle, root),
+        # **Contractual, "present even when `false`"** — SPEC_VERIFY §CLI
+        # surface, because "an agent is the reader most likely to act on a
+        # bare `status: passed`". This producer omitted it while
+        # `cli._report_json` included it, and THIS is the one feeding
+        # `run --json`, `resume --json` and the worker brief. A template repo's
+        # placeholder gate always passes, so a template-only repo is exactly
+        # where `wring run` converged and reported `{"status": "passed"}` with
+        # no template signal at all.
+        "template_only": outcome.template_only,
     }
+    # **The two 0.5.x capabilities reach the machine reader too** (D6). Absent
+    # when the run did not measure: a key that is always present and usually
+    # null teaches a consumer to ignore it, and "not measured" is not "zero".
+    if outcome.coverage is not None:
+        said["coverage"] = outcome.coverage.as_json().get("counts")
+    if outcome.falsification is not None:
+        broken = outcome.falsification.as_json()
+        said["falsification"] = {
+            "verdict": broken.get("verdict"),
+            "counts": broken.get("counts"),
+        }
+    return said
 
 
 def plan(
@@ -646,6 +684,8 @@ def run(
         vacuity=proved,
         stability=observed_report,
         acceptance=accepted,
+        coverage=measured,
+        falsification=broken,
     )
 
 

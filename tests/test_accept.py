@@ -1138,3 +1138,75 @@ def test_THE_DISCLOSURE_USES_NO_WORD_THE_READER_HAS_TO_BE_TAUGHT():
         assert word not in said, (
             f"{word!r} reaches a merge request reader: {said!r}"
         )
+
+
+# --- 6 + 4 = 10 of 8 -------------------------------------------------------
+
+
+EIGHT = [
+    {"criterion": "a", "state": accept.EVIDENCED, "gate": "g1"},
+    {"criterion": "b", "state": accept.UNEVIDENCED, "gate": "g2",
+     "cause": accept.CAUSE_BORN_GREEN},
+    {"criterion": "c", "state": accept.UNEVIDENCED, "gate": "g3",
+     "cause": accept.CAUSE_ARRIVED_WITH_THE_WORK},
+    {"criterion": "d", "state": accept.UNEVIDENCED, "gate": "g4",
+     "cause": accept.CAUSE_PRE_EXISTENCE_UNESTABLISHED},
+    {"criterion": "e", "state": accept.UNEVIDENCED, "gate": None,
+     "cause": accept.CAUSE_UNBOUND},
+    {"criterion": "f", "state": accept.UNEVIDENCED, "gate": None,
+     "cause": accept.CAUSE_UNBOUND},
+    {"criterion": "g", "state": accept.UNEVIDENCED, "gate": None,
+     "cause": accept.CAUSE_UNBOUND},
+    {"criterion": "h", "state": accept.HUMAN, "gate": None},
+]
+
+
+def test_the_unevidenced_warning_does_not_count_a_BOUND_row_as_unchecked():
+    """**The measured shape: 6 + 4 = 10 of 8.**
+
+    Eight criteria — one evidenced, three bound gates born green, three
+    unbound, one human — rendered "⚠ 6 of these 8 requirements have no check
+    proving them" in `summary.md` and `mr.md`, immediately above "4 of 7
+    requirements carry a check that can prove them". Both numbers were right
+    about their own question and the first was asked wrongly: three of the
+    five unevidenced causes DO have a bound check, and the sentence sent a
+    reader off to write a check that already exists.
+
+    `certificate.py` rules against this wording by name, and its own per-row
+    chips get it right ("ITS CHECK HAS NEVER FAILED") while its headline did
+    not.
+    """
+    unwatched, watched = accept.unevidenced_split(EIGHT)
+    assert (unwatched, watched) == (3, 3), (unwatched, watched)
+
+    counts = {accept.EVIDENCED: 1, accept.UNEVIDENCED: 6, accept.HUMAN: 1}
+    said = " ".join(accept.disclosure(counts, EIGHT))
+
+    assert "3 of these 8 requirements have no check at all" in said, said
+    assert "3 have a check that has never been recorded failing" in said, said
+    assert "6 of these 8" not in said, said
+
+
+def test_the_two_adjacent_sentences_add_up():
+    """Pinned as arithmetic, on the shape that produced the contradiction.
+
+    The rows the warning calls "no check at all" and the rows `coverage`
+    calls covered are disjoint, and together with the rows that have a check
+    which has never been red they account for every non-human requirement.
+    """
+    from wringer import coverage as coverage_module
+
+    unwatched, watched = accept.unevidenced_split(EIGHT)
+    measured = coverage_module.assess(EIGHT, None)
+    assert measured is not None
+
+    machine = [row for row in EIGHT if row["state"] != accept.HUMAN]
+    # **This is the identity the old sentence broke.** `covered` counts every
+    # row with a bound check — the evidenced one AND the three that have never
+    # been red — so the rows with NO check plus the covered rows are the whole
+    # machine-checkable set. 3 + 4 = 7. The warning said 6, and 6 + 4 = 10.
+    assert unwatched + measured.covered == len(machine), (
+        unwatched, measured.covered, len(machine)
+    )
+    assert watched <= measured.covered, (watched, measured.covered)
+

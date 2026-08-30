@@ -750,3 +750,50 @@ def test_a_real_operator_beside_other_punctuation_is_still_offered():
         "+++ b/x.py\n@@ -1 +1 @@\n+    if n >= 3 and m == 4:"
     )
     assert [one.mutation for one in planned] == ["'==' -> '!='"], planned
+
+
+# --- D6: emitting a step and SHOWING one are different acts ----------------
+
+
+def test_FALSIFY_REPORTS_TO_THE_TERMINAL_AND_TO_JSON(both_sides, capsys):
+    """**It ran up to 24 mutations against every bound gate and said nothing.**
+
+    Minutes of work on the critical path, real information about what the
+    checks do not notice, written to `falsification.json` and to a
+    `summary.md` section — and no console line and no `--json` key. The
+    renderer already existed; nothing called it. `verify.Outcome` grew
+    `vacuity`, `stability` and `acceptance` for exactly the "the caller
+    cannot say so if the outcome does not tell it" reason, and these two
+    never joined, so the CLI was STRUCTURALLY unable to report them.
+
+    This blocks run 3: the sheet sends a person to read the falsify table,
+    and today they would be reading silence.
+    """
+    assert cli.main(["verify", "--falsify"]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+
+    flat = " ".join(said.split()).lower()
+    assert "deliberate breakages of this change went unnoticed" in flat, said
+    assert "a surviving mutation is a finding about the checks" in flat, said
+    # ...and the coverage statement, which reached `summary.md`, the
+    # certificate and the board, and never a terminal.
+    assert "carries a check that can prove it" in flat, said
+
+    assert cli.main(["verify", "--falsify", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert payload["falsification"]["verdict"] == "measured", payload
+    assert payload["falsification"]["counts"]["survived"] >= 1, payload
+    # ...and the contract key that one of the two producers used to drop.
+    assert payload["template_only"] is False, payload
+
+
+def test_a_run_that_measured_NOTHING_says_nothing_about_falsification(
+    both_sides, capsys
+):
+    """The absence rule every optional artifact here keeps. A key that is
+    always present and usually null teaches a consumer to ignore it, and
+    "not measured" is not "zero"."""
+    assert cli.main(["verify", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert "falsification" not in payload, payload
+

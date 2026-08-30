@@ -237,7 +237,36 @@ def latest_run(repo: Path) -> Path | None:
     candidates = [p for p in runs.iterdir() if p.is_dir()]
     if not candidates:
         return None
-    return max(candidates, key=lambda p: p.stat().st_mtime)
+    return _newest(candidates)
+
+
+def _newest(candidates: list[Path]) -> Path | None:
+    """The most recent bundle, by the ENGINE's definition of recent.
+
+    **There were two definitions and they disagreed.** This package ordered by
+    `st_mtime`; `wringer.evidence.latest_run` orders by the manifest's own
+    recorded `started_at`. A run beginning at 09:00 that takes two hours
+    finishes after one beginning at 11:00 that takes a minute, so the engine
+    answered `…-110000` and this page answered `…-090000` — and the PM's page
+    then described a different run from the one `wring deliver` and `wring
+    explain` were acting on. Any `cp -r` or CI artifact restore rewrites
+    mtimes wholesale and reorders the lot.
+
+    `latest_refusal`, ninety lines below, already refuses mtime for exactly
+    this reason and says so. Now every family answers the same way.
+
+    Falls back to mtime when the engine is not installed, because this package
+    must load without it (SPEC_BOARD's seam) — and a board with no engine has
+    no better answer available.
+    """
+    if not candidates:
+        return None
+    try:
+        from wringer import evidence as evidence_module
+
+        return max(candidates, key=evidence_module._started_at)
+    except Exception:  # noqa: BLE001 — no engine here; keep the old ordering
+        return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
 def latest_loop(repo: Path) -> Path | None:
@@ -247,7 +276,7 @@ def latest_loop(repo: Path) -> Path | None:
     candidates = [p for p in loops.iterdir() if p.is_dir()]
     if not candidates:
         return None
-    return max(candidates, key=lambda p: p.stat().st_mtime)
+    return _newest(candidates)
 
 
 def attempts_from_loop(repo: Path, loop_dir: Path | None) -> tuple[list[Attempt], bool]:
@@ -332,7 +361,7 @@ def latest_fleet(repo: Path) -> Path | None:
     candidates = [p for p in fleets.iterdir() if p.is_dir()]
     if not candidates:
         return None
-    return max(candidates, key=lambda p: p.stat().st_mtime)
+    return _newest(candidates)
 
 
 def latest_refusal(repo: Path) -> Path | None:
