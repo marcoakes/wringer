@@ -400,10 +400,25 @@ percentages as exit codes or thresholds (a knob for making debts disappear)
       `acceptance.json` reads `evidenced` citing the red bundle; then
       delivery succeeds, and reverting the criterion's binding reddens
       delivery, not just a test
-- [x] a required criterion with no binding renders UNEVIDENCED and refuses
-      delivery with the criterion named; marking it `human: true` **changes
-      WHO must answer, and does not lift the refusal** — a test pins both
-      directions
+- [x] a required criterion with no binding renders UNEVIDENCED and **refuses
+      nothing**; marking it `human: true` **changes WHO must answer, and DOES
+      make it refuse** — a test pins both directions
+
+      *AMENDED 2026-08-30 (D5 ruling 1 of the code-review disposition). This
+      box read "…and refuses delivery with the criterion named", which §5
+      ruling 9 in this same file rules against for non-`human` rows and which
+      the code has never done: `accept.py`'s `Row.refuses` requires `covered`,
+      and `test_an_unbound_criterion_never_refuses_delivery` pins that an
+      unbound required criterion ships.*
+
+      *The CODE is right and this box was wrong. An unbound criterion
+      refusing delivery would have made Gate 1 undeliverable at five of eight
+      unbound, and ruling 9 was the later, deliberate decision: an uncovered
+      row is "a debt the author has not paid yet — loud, never fatal".
+      DISCLOSURE is the product's answer, and since 0.5.1 it has a number —
+      `coverage.json`'s "N of M requirements carry a check that can prove
+      them", on every surface that travels. This was the only ticked box in
+      this spec, which is the worst place for a sentence to be backwards.*
       > **AMENDED 2026-08-17, OQ-1 — and this is a shipped acceptance
       > criterion of this spec that a CORRECT tree now fails.** It read
       > *"marking it `human: true` (the author's honest out) lifts the refusal

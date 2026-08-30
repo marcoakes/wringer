@@ -85,10 +85,10 @@ then opened — never "authenticated: true".
 | an INTERACTIVE method (`terminal-auth`, OAuth, a browser) | **SHOWS it. Never runs it.** | a login is somebody's account, and `_meta.terminal-auth` carries a `command` and `args` from the AGENT — running them is arbitrary code from an untrusted party on the operator's machine |
 | a method taking a declared credential | calls `authenticate`, with the credential crossing as the declared act | the boundary law, unchanged |
 
-⚑ **The third row is IMPLEMENTED AND UNEXERCISED, and no page may say
-otherwise.** No agent in the census offers such a method. The code exists so
-that a conforming agent is served the day it appears; the capture says nobody
-has appeared, and the vendors matrix carries the same limit.
+⚑ **AMENDED 2026-08-30: the third row is NOT BUILT.** Nothing calls `authenticate` — `methodId`/`method_id` appear nowhere in `src/` or `tests/`, and the only `send_request` calls in `src/wringer/acp.py` are `initialize`, `session/new` and `session/prompt`. §3's ruling already makes the credential path unnecessary. ~~The third row is IMPLEMENTED AND UNEXERCISED, and no page may say
+otherwise. The code exists so that a conforming agent is served the day it
+appears.~~ No agent in the census offers such a method; the capture says
+nobody has appeared, and the vendors matrix carries the same limit.
 
 **Wringer never runs a `terminal-auth` command.** `worker_auth.refusal`
 already states the rule — *"Wringer never installs an agent and it does not log

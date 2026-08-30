@@ -294,7 +294,7 @@ network anything.
 
 *AMENDED 2026-08-15: the first non-goal is SUPERSEDED by
 [SPEC_SIGN_V0.md](SPEC_SIGN_V0.md) — signing is offered in CI only, keyless,
-with no key held (header amendment). The rest stand; in-toto emission is
+with no key held (header amendment). The rest stand; **AMENDED 2026-08-30: in-toto emission IS BUILT** — `src/wringer/intoto.py` emits two Statements and `attest.Bundle.write` calls it on every attestation, covered by `tests/test_intoto.py`. The sentence below said it was not. in-toto emission is
 sequenced as Phase 4 of the witness programme and is not built.*
 
 ## 7. Definition of DONE

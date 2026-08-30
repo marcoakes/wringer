@@ -201,6 +201,11 @@ and §8 records the gap.
 ## 8. What this does NOT do
 
 - **`wring health --json` says nothing about stability.** Human report only, for
+  — *AMENDED 2026-08-30: `health.as_json` emits `"limits": list(LIMITS)` and
+  `LIMITS` gained a fifth entry that is entirely about stability, so the
+  limits SENTENCE does travel in `--json`. No gate-object key changed, so
+  the frozen shape holds — and SPEC_HEALTH's own DONE box still says the
+  report's "four `limits`" are pinned by content; there are five.* For
   the frozen-schema reason in §7. A consumer that needs it reads each bundle's
   `stability.json`, which is published and frozen.
 - **A flaky child under `wring fleet` is `failed`, not `parked`.**

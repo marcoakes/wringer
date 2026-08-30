@@ -350,3 +350,39 @@ def test_a_page_with_nothing_refusing_says_the_handover_is_clear(repo):
     short = _short(_page(repo))
     assert "Nothing on this page is holding up the handover" in short
     assert "cannot be handed over yet" not in short
+
+
+def test_a_BORN_GREEN_row_is_not_counted_as_unchecked(repo):
+    """**Three answers to one question, on one page, in the same eye.**
+
+    `BLOCKED_ON_ENGINEER` is `(NOT_PROVABLE, NEEDS_AN_ENGINEER,
+    UNTRANSLATED)` and only the first means nothing is watching. A born-green
+    row is `NEEDS_AN_ENGINEER`: its own card reads "The check passes, but it
+    has never been recorded failing", and the summary above it counted it
+    under "Nothing is testing them at all" while the count line called it "no
+    working check".
+
+    An UNTRANSLATED row is worse: the board has explicitly refused to say
+    anything about it, and this said something.
+    """
+    write_run(
+        repo,
+        "20260828-090000-aaaa",
+        [
+            criterion(
+                "fast",
+                "The export finishes inside a minute",
+                "unevidenced",
+                gate="suite",
+                cause="born-green",
+                reason="`suite` passed and has never been recorded failing",
+                refuses=True,
+            )
+        ],
+    )
+    write_loop_manifest(repo, LOOP, "converged")
+    short = _short(_page(repo))
+
+    assert "Nothing is testing them at all" not in short, short
+    assert "an engineer has to look at" in short.lower(), short
+

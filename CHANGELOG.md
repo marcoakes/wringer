@@ -4,6 +4,100 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.6 — 2026-08-30
+
+**The surface tells the truth.** Phase 3 of the receipt window: the two 0.5.x
+capabilities reach a reader, the pages that contradicted themselves stop, a
+resume continues the run it names, and an instrument failure stops wearing a
+verdict's exit code.
+
+### The two capabilities speak (D6)
+
+`verify.Outcome` grows `coverage` and `falsification`, and both reach the
+console and `--json`. `wring verify --falsify` ran up to 24 mutations against
+every bound gate — minutes of work, real information about what the checks do
+not notice — and printed nothing at all; the coverage record's two sentences
+reached `summary.md`, the certificate and the board, and never a terminal. The
+outcome grew `vacuity`, `stability` and `acceptance` for exactly this reason,
+and these two had never joined it.
+
+`cli._report_json` is deleted: `verify.json_summary` is the ONE producer of
+the `--json` object. Two hand-maintained copies of one contract had already
+drifted — one carried `template_only` and the other did not, and the other is
+what feeds `run --json`, `resume --json` and the worker brief.
+
+QUICKSTART and README gain rows for both.
+
+### Two sentences that could not both be true
+
+**6 + 4 = 10 of 8.** Eight criteria — one evidenced, three bound gates born
+green, three unbound, one human — rendered *"6 of these 8 requirements have no
+check proving them"* immediately above *"4 of 7 requirements carry a check
+that can prove them"*, in `summary.md`, `mr.md` and on the certificate. Both
+numbers were right about their own question and the first was asked wrongly:
+three of the five unevidenced causes DO have a bound check. Split on cause, in
+one renderer, and pinned as arithmetic.
+
+**`wring doctor` said "This machine is ready" over four `!` lines**, because
+`elif skipped:` came before `elif warned:` and inside a repository two checks
+skip routinely. Every clause that applies is said now, and the "run from your
+repo" hint no longer prints two lines under `✓ git repository <that repo>`.
+
+**The board** keyed its verdict on `say()` returning a sentence, so an
+untranslated refusal made it announce *"Nothing on this page is holding up the
+handover"* above the round section's UNTRANSLATED line; it keys on the refusal
+EXISTING now. And *"Nothing is testing them at all"* was asserted over
+born-green rows whose own card says the check passes — three answers to one
+question on one page.
+
+**One definition of "the latest run"**: the board asks `wringer.evidence`
+instead of ordering by `st_mtime`. A run starting at 09:00 and taking two
+hours finishes after one starting at 11:00, so the two answered differently.
+
+### A resume continues the run it names (D4)
+
+Scope, `--prove` and the iteration ceiling ride a new sibling,
+`invocation.json`, and are replayed. `wring run --gate api` killed and
+resumed came back verifying every declared gate — a scoped loop silently
+widened, claiming MORE than the run it says it continues. A VOID is exit 3
+everywhere; `resume` and the guided launch produced the forbidden 1.
+`bench._bench_one` catches `Exception`, so one contender's failure is a row
+rather than the end of a comparison somebody paid for.
+
+### An instrument failure is not a verdict (T8)
+
+`main` caught only `KeyboardInterrupt`, so any uncaught `OSError` — a full
+disk, a read-only tree, EMFILE under a wide fleet — exited **1**, the code
+that means A REQUIRED GATE FAILED. The code is chosen from the contract that
+already exists (2, "config or environment error"); there is no sixth code.
+Plus the instances: the forge's issue number reaching a bare `int()`, a
+JSON-RPC `result` that is not an object crashing the supervisor, an
+`fs/write_text_file` onto a directory taking the run with it, and the drive's
+Ctrl-C traceback.
+
+### A declared gate nobody has run gets a row (D5)
+
+SPEC_HEALTH promises `untested (0 runs)` in two sections and no code path
+could produce it: `history` builds pairs only from rows found inside bundles,
+so the one shape this command exists to catch — a check that has never run —
+was invisible to it.
+
+### The documents
+
+SPEC_ACCEPT's only ticked box is unticked: it said an unbound required
+criterion refuses delivery, which ruling 9 in the same file rules against and
+the code has never done. SPEC_BOARD ruling 12's staleness banner carries a
+dated UNBUILT marker — the mechanism or the marker, never silence. AGENTS.md's
+hierarchy gains the three specs defining 0.5.0/0.5.1/0.5.2, and its guard is
+scoped to the table it names rather than searching the whole file. Plus
+amendments to SPEC_ACPAUTH, SPEC_BENCH, SPEC_BENCHMARK, SPEC_ENV,
+SPEC_HEALTH, SPEC_PROVENANCE, SPEC_STABILITY, SECURITY.md, README.md,
+INSTALL.md and QUICKSTART.md.
+
+Schema versions unchanged; `wringer.invocation.v1` is a new sibling and no
+frozen file moved. `wringer.evidence` joins the board's layer seam, argued in
+place. Nineteen red-watches; four guards were vacuous on the first pass.
+
 ## 0.5.5 — 2026-08-30
 
 **The refusal is real.** Phase 2 of the receipt window: the guard that says

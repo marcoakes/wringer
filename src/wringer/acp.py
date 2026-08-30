@@ -76,6 +76,22 @@ DRAIN_TIMEOUT_SECONDS = 5
 MAX_ERROR_DATA_CHARS = 20_000
 
 
+def result_of(message: dict) -> dict:
+    """A JSON-RPC reply's `result`, as an OBJECT whatever the agent sent.
+
+    **Shape-checked, because the value is the agent's** (T8). `result: null`
+    is legal JSON-RPC and made `send_request` return None; every caller then
+    does `.get(...)` on it, so an `AttributeError` came out of the supervisor
+    and a misbehaving AGENT crashed WRINGER rather than failing its own turn.
+    A list or a string does the same.
+
+    Empty rather than an error: an agent that answers with the wrong shape has
+    said nothing, and "said nothing" is a state every caller already handles.
+    """
+    result = message.get("result")
+    return result if isinstance(result, dict) else {}
+
+
 def refusal_words(
     method: str, error: dict[str, Any], skip: tuple[str, ...] = ()
 ) -> str:
@@ -395,7 +411,7 @@ class Connection:
                     refused = AcpError(refusal_words(method, found["error"]))
                     refused.error = found["error"]
                     raise refused
-                return found.get("result", {})
+                return result_of(found)
             if self._done.is_set() and self._proc.poll() is not None:
                 # ONE LAST DRAIN before giving up, and it is load-bearing.
                 # The reader sets `_done` only at EOF, so by now everything
@@ -914,8 +930,19 @@ def _handle(
             connection.respond_error(request_id, "refused: path escapes the repository")
             turn.refusals.append(named)
             return
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(str(params.get("content", "")), encoding="utf-8")
+        # **The write can fail, and that is the agent's turn failing, not
+        # Wringer's run** (T8). The READ path two branches up guards its
+        # `is_file()`; this one did not, so `fs/write_text_file` onto an
+        # existing DIRECTORY — or into a full disk, or a read-only tree —
+        # raised `OSError` out of the handler thread and took the whole run
+        # with it.
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(str(params.get("content", "")), encoding="utf-8")
+        except OSError as exc:
+            connection.respond_error(request_id, f"could not write: {exc}")
+            turn.refusals.append(named)
+            return
         turn.files_written.append(named)
         connection.respond(request_id, {})
         return

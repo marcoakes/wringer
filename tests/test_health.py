@@ -1203,3 +1203,48 @@ def test_a_repo_that_never_measured_stability_is_not_nagged(tmp_path):
 
     assert assessed[0].frequency is None
     assert "measured runs" not in health.render(coverage, assessed)
+
+
+def test_a_DECLARED_gate_with_no_history_at_all_still_gets_a_row(tmp_path):
+    """**SPEC_HEALTH §3b and §3c both promise this row, and no code path
+    could produce it.**
+
+    "A gate declared in `.wringer.yaml` with no history at all renders
+    `untested (0 runs)`" — twice, in two sections. `history` builds pairs
+    solely from rows found INSIDE bundles, so a gate nobody has ever run gave
+    no `Pair`, no `Assessment` and no line at all.
+
+    A gate that has never run is exactly the coverage narrowing this command
+    exists to catch, and it was the one shape invisible to it. Declared minus
+    observed is one subtraction.
+    """
+    write_run(runs_dir(tmp_path) / "real", "real",
+              [{"gate_id": "test", "command": "pytest -q"}])
+    coverage = health.discover(tmp_path)
+
+    declared = {("test", "pytest -q"), ("lint", "ruff check .")}
+    verdicts = {
+        a.pair.gate_id: (a.verdict, len(a.pair.runs))
+        for a in health.assess(coverage, declared)
+    }
+
+    # The EXACT set, so a row invented from nowhere fails too: this table is
+    # about coverage narrowing, and a phantom gate in it is the same lie
+    # pointing the other way.
+    assert set(verdicts) == {"test", "lint"}, verdicts
+    assert verdicts["lint"] == (health.UNTESTED, 0), verdicts
+    assert "lint" in health.render(coverage, health.assess(coverage, declared))
+
+
+def test_a_gate_health_HAS_NEVER_SEEN_is_not_invented_without_a_config(tmp_path):
+    """The other half of the boundary. With no `.wringer.yaml` this module
+    reads bundles and knows of no gate it has not seen, so it must not
+    conjure rows — `declared is None` is the caller saying "I cannot tell
+    you what the contract is"."""
+    write_run(runs_dir(tmp_path) / "real", "real",
+              [{"gate_id": "test", "command": "pytest -q"}])
+    coverage = health.discover(tmp_path)
+
+    seen = {a.pair.gate_id for a in health.assess(coverage, None)}
+    assert seen == {"test"}, seen
+

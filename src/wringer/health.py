@@ -706,6 +706,22 @@ def assess(
     """
     pairs = history(coverage)
 
+    # **A declared gate with NO history is a row, not a silence** (SPEC_HEALTH
+    # §3b and §3c, built 2026-08-30). `history` builds pairs solely from rows
+    # found inside bundles, so a gate nobody has ever run produced no `Pair`,
+    # no `Assessment` and no line — invisible to the command whose entire job
+    # is spotting coverage narrowing, and stated twice in the spec as
+    # `untested (0 runs)`. Declared-minus-observed is one subtraction.
+    #
+    # Only when a config was given: with `declared is None` this module reads
+    # bundles and knows of no gate it has not seen.
+    if declared is not None:
+        seen = {pair.key for pair in pairs}
+        pairs = tuple(pairs) + tuple(
+            Pair(gate_id=gate_id, command=command, runs=())
+            for gate_id, command in sorted(set(declared) - seen)
+        )
+
     # Which pairs are still the contract. With a config, that is the config.
     # Without one — health reads bundles, not trees, and works with no
     # `.wringer.yaml` at all — recency stands in for it: a pair absent from

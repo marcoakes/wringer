@@ -126,7 +126,7 @@ build a classifier.
 - **The record spends `wringer.loop.v2`** — the lawful route through the
   frozen-schema regime — so a stopped loop finally has a true thing to say,
   and every stop that ships a diagnosis shows its working.
-- **Under `wring fleet`, an environment stop parks immediately**, spending
+- **Under `wring fleet`, an environment stop ~~parks immediately~~ **is FAILED, not parked — AMENDED 2026-08-30.** Ruling 4's own 2026-08-17 amendment killed the park (`task.parked`'s `why` is a closed enum and `environment` is not in it), the DONE box says "The row is `failed`, not `parked`", and `fleet.py` returns before the ladder emitting no `task.parked` event. This §1 bullet was never amended and read flatly against all three**, spending
   no retry: a retry re-runs the same command in the same environment.
 - **The capture films the chain meeting a missing dependency** — the first
   capture in this corpus to do so. Every prior capture selected gates that

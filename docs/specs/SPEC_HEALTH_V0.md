@@ -234,7 +234,7 @@ silently absorbed.
 ### 3c. What counts, and what never counts
 
 - A **genuine failure** is `status: failed`, **`timed_out: false`**, and
-  **`exit_code != 127`** on the changed tree. Both halves are required and the second is not decoration:
+  **`exit_code != 127`** on the changed tree. Both halves are required and the second is not decoration — **AMENDED 2026-08-30: that is THREE conditions described as two, and the engine applies a FOURTH, `not self.flaky`**, ruled in SPEC_STABILITY_V0 §7 and nowhere in this document, which is the binding contract for this verdict. A reader computing `alive` from this paragraph gets a different answer from the engine for any repo that declared `stability:`:
   `gate-result.schema.json` has a two-value status whose own description
   reads *"passed requires exit_code 0 AND timed_out false"*, so **every
   timeout already records `status: failed`**. The first draft's predicate was

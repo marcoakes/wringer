@@ -131,7 +131,7 @@ green — and a bundle on disk to check the claim against. Regenerate it with
 
 ## What ships first
 
-**Proof beats orchestration.** `uv tool install wringer` — **0.5.5, nineteen commands, out now.**
+**Proof beats orchestration.** `uv tool install wringer` — **0.5.6, nineteen commands, out now.**
 It began as one command, and that command is still the core of it:
 
 ### Not an engineer? Ask your coding agent to install it
@@ -148,11 +148,11 @@ it with the input masked. Every step of that prompt was
 [executed in a clean environment](docs/install-2026-08-17.md) before it
 shipped, and running it found three defects that reading it had not.
 
-> **What the package is, as of 2026-08-30.** `0.5.5` is the released
+> **What the package is, as of 2026-08-30.** `0.5.6` is the released
 > version, and unlike every version before 0.4.0, it is **one package**: the
 > engine, the requirements board and the drive verb all ship inside the
 > `wringer` distribution. `uv tool install wringer` gets all three.
-> `0.5.5` registers nineteen commands, derived from the tag by
+> `0.5.6` registers nineteen commands, derived from the tag by
 > `tests/test_docs.py` rather than kept by hand.
 >
 > This paragraph used to say the opposite — that the release was behind
@@ -728,7 +728,7 @@ The full eleven, with rationale, are in [the plan](docs/ARCHITECTURE-NORTHSTAR.m
 
 ## Contributing
 
-The highest-value contributions right now are **design review and prior art** on the open RFCs — the [loop-contract schema, the gate plugin interface, and the evidence-bundle format](https://github.com/marcoakes/wringer/issues?q=is%3Aissue+RFC). Code has started landing (`wring init` and `wring verify` work — see [AGENTS.md](AGENTS.md) for state and setup); green tests are the only law. See [CONTRIBUTING.md](CONTRIBUTING.md).
+The highest-value contributions right now are **design review and prior art** on the open RFCs — the [loop-contract schema, the gate plugin interface, and the evidence-bundle format](https://github.com/marcoakes/wringer/issues?q=is%3Aissue+RFC). All nineteen commands ship — see [AGENTS.md](AGENTS.md) for state and setup; green tests are the only law. *(This said "code has started landing (`wring init` and `wring verify` work)" until 2026-08-30, seventeen commands and twenty-one releases after it stopped being true — and 134 lines under a heading saying `0.5.x, nineteen commands, out now`.)* See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -33,6 +33,7 @@ except ImportError:  # pragma: no cover — non-POSIX; the drain degrades below
     termios = None
 
 from wringer_drive import run as run_module
+from wringer_drive import steps
 from wringer_drive.steps import ASK, SHOW, emit_json
 
 
@@ -74,6 +75,34 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         return _run(session, args)
+    except KeyboardInterrupt:
+        # **START-HERE.md calls Ctrl-C safe; this gave a PM a traceback.**
+        #
+        # `wringer.cli.main` catches `KeyboardInterrupt` and this did not, and
+        # SIGINT reaches the whole foreground process group — so the main
+        # thread took it inside `proc.stdout.read()` or `_read_line`'s
+        # `os.read(fd, 1)` and unwound uncaught, printing exactly the thing
+        # `bring_prd_inside`'s own docstring says a product manager must never
+        # see.
+        #
+        # And it says what has already been written, because by the time a
+        # long build stalls `.gitignore` has been appended to and
+        # `.wringer.yaml` has had the gate diff applied. "Nothing of yours is
+        # touched" was not true at that point.
+        session.emit(
+            steps.Step(
+                kind=steps.STOPPED,
+                id="stopped:interrupted",
+                text=(
+                    "You stopped this. Nothing new was started. What was "
+                    "already written stays: the PRD copy under `.wringer/`, "
+                    "the `.gitignore` line, and any gates that were installed "
+                    "in `.wringer.yaml` — all of them ordinary files you can "
+                    "read and undo."
+                ),
+            )
+        )
+        return 4
     except run_module.Stop as stop:
         session.emit(stop.step)
         # **Which channel the ENDING goes to, and why it differs by mode.**

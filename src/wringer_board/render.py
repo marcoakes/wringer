@@ -293,7 +293,19 @@ def _headline_html(board: Board, cards: list[Card]) -> str:
     """
     proved = _titles(cards, SETTLED)
     yours = _titles(cards, BLOCKED_ON_PERSON)
-    unwatched = _titles(cards, BLOCKED_ON_ENGINEER)
+    # **Split, because "nothing is testing them at all" was asserted over rows
+    # whose own card says the check passes.** `BLOCKED_ON_ENGINEER` is
+    # `(NOT_PROVABLE, NEEDS_AN_ENGINEER, UNTRANSLATED)`, and only the first
+    # means nothing is watching. A born-green row is `NEEDS_AN_ENGINEER`: its
+    # card reads "The check passes, but it has never been recorded failing",
+    # and this summary counted it under "Nothing is testing them at all" — two
+    # answers to one question on one page, in the same reader's eye. An
+    # UNTRANSLATED row is worse: the board has explicitly refused to say
+    # anything about it, and this said something.
+    unwatched = _titles(cards, (NOT_PROVABLE,))
+    engineer_other = _titles(
+        cards, tuple(s for s in BLOCKED_ON_ENGINEER if s != NOT_PROVABLE)
+    )
     unfinished = _titles(cards, BLOCKED_ON_THE_WORK)
     unreadable = _titles(cards, INDETERMINATE)
     total = len(cards)
@@ -341,6 +353,16 @@ def _headline_html(board: Board, cards: list[Card]) -> str:
             + _bullets(unwatched)
             + '<p class="why">These are not failing. Nothing is testing them '
             "at all, so this page cannot tell you either way. That is an "
+            "engineer's job to fix, not yours.</p></dd>"
+        )
+
+    if engineer_other:
+        parts.append(
+            f"<dt>What an engineer has to look at — {len(engineer_other)} of "
+            f"{total}</dt><dd>"
+            + _bullets(engineer_other)
+            + '<p class="why">Something IS checking these, and what the record '
+            "says about them cannot be turned into an answer yet. That is an "
             "engineer's job to fix, not yours.</p></dd>"
         )
 

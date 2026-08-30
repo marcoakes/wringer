@@ -605,6 +605,18 @@ def _check_acyclic(nodes: tuple[Node, ...], problems: list[str]) -> None:
         colour[node_id] = 1  # grey: on the stack
         for target in edges.get(node_id, []):
             if colour.get(target) == 1:
+                # **A reported finding that does not reproduce, recorded so it
+                # is not re-derived** (2026-08-30). The review claimed
+                # `trail.index(target)` raises `ValueError` "on a class of
+                # cyclic graphs". It cannot as written: `trail` is threaded as
+                # `trail + [target]` from the outer loop's `visit(id, [id])`,
+                # so it holds the whole path from the root and every GREY node
+                # is on it by construction. A self-edge, a back-edge to the
+                # root, and a back-edge to a mid-path node were each driven
+                # and each reported the cycle.
+                #
+                # No defensive branch, deliberately: unreachable code that
+                # reads as coverage is the defect this file keeps finding.
                 cycle = " → ".join(trail[trail.index(target):] + [target])
                 problems.append(
                     f"a cycle: {cycle}. v0 graphs are acyclic — the loop node "

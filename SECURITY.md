@@ -1,6 +1,6 @@
 # Security
 
-Wringer is young software (`0.5.5`). Read this before running
+Wringer is young software (`0.5.6`). Read this before running
 `wring verify` in a repository you did not write.
 
 ## Reporting a vulnerability
@@ -372,7 +372,7 @@ What the check buys is that gaps in the map are loud.
   resolved addresses are **written into the bundle** (`worker_execution.
   established.egress.resolved`), so what was asked is auditable rather than
   asserted; and `wring verify` does **not** do it — the containment checks it
-  performs are the static ones, which cost no process and no packet, exactly
+  performs are the static ones, which cost no packet and no DNS (*AMENDED 2026-08-30: this said "no process and no packet". SPEC_CONTAIN_V0 ruling 3's own dated amendment already ruled that "the line STATIC actually draws is the network, not the process" — `containment._missing_binaries` runs a throwaway container per image during verify preflight*), exactly
   so that this sentence stays true of `verify`. Nothing is uploaded and
   nothing is phoned home: a DNS query for a host the repository named is the
   whole of it.
@@ -432,7 +432,8 @@ backported to an older one.
 | Version | Supported |
 |---|---|
 | `main` | ✅ |
-| `0.5.5` (PyPI, current) | ✅ |
+| `0.5.6` (PyPI, current) | ✅ |
+| `0.5.5` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.5.4` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.5.3` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.5.2` (PyPI) | upgrade — `pip install -U wringer` |

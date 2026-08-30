@@ -1193,7 +1193,21 @@ def test_the_document_hierarchy_lists_every_spec_in_the_repo():
         f"only {len(specs)} spec documents found under docs/specs/ — this "
         "guard would pass while checking almost nothing. Did they move again?"
     )
-    missing = [path.name for path in specs if path.name not in text]
+    # **Scoped to the TABLE, and it went vacuous a second way without it**
+    # (2026-08-30). Searching the whole file meant a mention anywhere
+    # satisfied it — and the module map at the bottom names every spec — so
+    # `SPEC_CERTIFICATE_V0`, `SPEC_COVERAGE_V0` and `SPEC_FALSIFY_V0`, the
+    # contracts defining 0.5.0/0.5.1/0.5.2, were absent from the hierarchy
+    # for three releases with this guard green. Its own docstring already
+    # records going vacuous once when the specs moved directory.
+    start = text.index("### Document hierarchy")
+    table = text[start:]
+    end = table.find("\n## ")
+    table = table[:end] if end != -1 else table
+    assert table.count("|") > 40, (
+        "the hierarchy table was not found where this guard looks for it"
+    )
+    missing = [path.name for path in specs if path.name not in table]
     assert not missing, f"AGENTS.md's document hierarchy omits {missing}"
 
 

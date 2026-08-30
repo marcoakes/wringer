@@ -411,7 +411,7 @@ additive, nothing frozen is touched.
 A winner, score, rank, or any ordering of contenders · calling the judge ·
 any socket, sender, or fetcher (the worker's own network remains the
 worker's, exactly as under `wring run`) · a price table, currency
-conversion, or cost arithmetic across currencies · parallel contenders ·
+conversion, or cost arithmetic across currencies · ~~parallel contenders~~ (**AMENDED 2026-08-30: `bench.parallel: N` is BUILT** — SPEC_ATTEMPTS_V0 §4 ruled it legal and `bench.py` implements it; this non-goal was never struck) ·
 `--runs N` / statistics across repeats · resuming a bench (ruling 8) ·
 per-contender gates, budgets, dirs, or environments · installing an absent
 agent (preflight refuses and prints the install command, §3b) · cross-repo

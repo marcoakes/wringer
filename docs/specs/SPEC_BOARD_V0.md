@@ -362,6 +362,25 @@ the situation impossible to miss, which it does.
 
 ### Ruling 12 — staleness is recomputed, is BOARD-level, and follows DELIVERY's document set
 
+> **UNBUILT as of 2026-08-30, and marked here rather than left silent** (D5
+> ruling 2 of the code-review disposition). Nothing in `src/wringer_board/`
+> implements the board-wide OUT OF DATE banner this ruling specifies:
+> `AUTHORITY_DOCUMENTS`, `briefed`, `sha256` and `digest` appear in that
+> package only in one docstring line, `staleness` is not on the layer seam's
+> permitted list, and no test in `tests/board/` mentions any of it. §2 ruling
+> 1 counts this as one of exactly THREE things the surface computes; it
+> computes two.
+>
+> The engine-side halves ARE built and are what the cited line numbers below
+> describe — the comparison runs live at the loop's iteration boundary and at
+> delivery. What does not exist is this surface recomputing it and rendering
+> the banner.
+>
+> The ruling stands. This marker is here because the alternative was silence,
+> and a spec that describes a mechanism nobody built is the class of defect
+> this window was opened to close — **the mechanism or the marker; never
+> neither.**
+
 Nothing writes a stale verdict anywhere: the comparison runs live at the loop's
 iteration boundary (`loop.py:854-856`) and at delivery
 (`deliver.py:507-521`), and `briefed.json` holds only the digests captured at

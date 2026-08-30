@@ -4984,3 +4984,24 @@ def main(argv: list[str] | None = None) -> int:
         # caller the contract's exit code, not a traceback.
         print("\nwring: interrupted", file=sys.stderr)
         return EXIT_INTERRUPTED
+    except OSError as exc:
+        # **An instrument failure never wears a verdict's exit code** (T8).
+        #
+        # `main` caught only `KeyboardInterrupt`, so any uncaught `OSError` —
+        # ENOSPC on a `write_text`, EROFS, a file removed between `is_file()`
+        # and `open()`, EMFILE under a wide fleet — reached Python's default
+        # handler: traceback, **exit 1**. In this contract 1 means the gates
+        # failed or delivery refused ON THE EVIDENCE.
+        #
+        # The code is chosen from the contract that already exists rather than
+        # invented: QUICKSTART states five codes and calls 2 "config or
+        # ENVIRONMENT error", which is exactly what a disk that filled up is.
+        # There is no sixth code and no new vocabulary.
+        #
+        # This repository has already paid for the confusion once, in print:
+        # `docs/benchmark-first-run.md` records a `UnicodeDecodeError` giving
+        # "exit 1 with a traceback, indistinguishable from 'a gate failed' …
+        # so the harness scored a refusal Wringer never made". Fixing that one
+        # decode did not fix the class.
+        print(f"wring: {exc}", file=sys.stderr)
+        return EXIT_CONFIG

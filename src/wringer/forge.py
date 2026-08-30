@@ -277,8 +277,21 @@ def fetch_issue(forge: Forge, number: int, token: str | None) -> Issue:
             f"the forge's reply is not an issue: no title or number in "
             f"{sorted(body) if isinstance(body, dict) else type(body).__name__}"
         )
+    # **The TYPE, not just the presence** (T8). `int(fields["number"])` took a
+    # value straight from the forge's reply, so `{"number": "abc"}` — or
+    # `"1.5"`, or `{}` — raised `ValueError` out of this function. `cmd_issue`
+    # catches only `ForgeError` and `main` only `KeyboardInterrupt`, so a
+    # hostile or merely broken reply exited 1: the code that means A GATE
+    # FAILED. `git.py` documents that confusion at length as unacceptable.
+    try:
+        number = int(fields["number"])
+    except (TypeError, ValueError) as exc:
+        raise ForgeError(
+            f"the forge's reply names issue number {fields['number']!r}, "
+            "which is not a number"
+        ) from exc
     return Issue(
-        number=int(fields["number"]),
+        number=number,
         title=fields["title"],
         # An issue with an empty body is ordinary; a missing one is not fatal.
         body=fields.get("body") or "",

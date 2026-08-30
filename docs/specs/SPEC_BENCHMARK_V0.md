@@ -301,4 +301,4 @@ harness.
 - [x] A precondition refusal is VOID and not a true refusal.
 - [x] The harness lives outside `src/wringer/` and is pruned from the
       distribution, with tests holding both.
-- [x] No corpus run; no money spent.
+- [x] ~~No corpus run; no money spent.~~ **AMENDED 2026-08-30: the corpus RAN, twice, and `benchmark/corpus/results/rows.jsonl` holds 26 rows over 13 tasks in both arms at $38.78. `benchmark/harness.py` writes `wringer.benchmark.v6`, not the v2 §8a names, and v6 carries a `containment` field, `CONTAINMENT_IMAGE_ENV` and a live `WITNESS_ENDPOINT`.** §9's "Not measured: anything about any agent" and §10's "No corpus … Nothing here spends money" and "No container execution" are false the same way.

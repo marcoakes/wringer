@@ -323,6 +323,7 @@ def criterion(
     reason: str = "",
     receipt: dict | None = None,
     witness: dict | None = None,
+    cause: str | None = None,
 ) -> dict:
     row = {
         "id": cid,
@@ -337,4 +338,9 @@ def criterion(
     }
     if witness is not None:
         row["witness"] = witness
+    if cause is not None:
+        # v3's closed `cause` enum. The board reads it in preference to
+        # prose, so a fixture that wants a SPECIFIC unevidenced cause has to
+        # be able to say which one.
+        row["cause"] = cause
     return row
