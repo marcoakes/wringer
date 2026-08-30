@@ -3474,6 +3474,33 @@ def newest_release_tag() -> str | None:
     return tags[0].lstrip("v") if tags else None
 
 
+def release_tags() -> set[str] | None:
+    """Every `vX.Y.Z` tag, without the `v`, or None when git cannot answer.
+
+    The same rule `newest_release_tag` follows and for the same reason: no
+    git, no tags, a shallow clone — the caller skips rather than guessing.
+    """
+    import subprocess
+
+    try:
+        done = subprocess.run(
+            ["git", "tag", "--list", "v[0-9]*"],
+            cwd=repo_root(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    found = {
+        line.strip().lstrip("v") for line in done.stdout.splitlines()
+        if line.strip()
+    }
+    return found or None
+
+
 def mid_bump() -> bool:
     """Whether this tree is BETWEEN releases rather than standing on one.
 
@@ -4504,4 +4531,245 @@ def test_a_document_naming_the_released_version_names_THE_VERSION_IN_THE_SOURCE(
         f"{document} calls {wrong} the released version, but this working tree "
         f"is {__version__}. Update the pages in the bump commit — after the tag "
         "is pushed this is the release workflow's problem instead of yours."
+    )
+
+
+# --- the class that shipped four times ------------------------------------
+
+
+#: Extensions that make a backticked string a claim about a FILE. A path with
+#: no extension is almost always a bundle directory (`gates/`, `attempts/`),
+#: which is runtime layout rather than a repository citation.
+_PATH_EXTENSIONS = (
+    ".md", ".py", ".yaml", ".yml", ".json", ".sh", ".txt", ".toml",
+    ".html", ".svg", ".jsonl",
+)
+
+#: Characters that mean the string is a TEMPLATE, not a path: `<id>`,
+#: `{1..4}`, `{cards,read}`, a glob, a shell variable.
+_NOT_A_PATH = set("<>{}*?|$ ")
+
+#: First segments that name a RUNTIME tree rather than this repository —
+#: written by a run, absent from a checkout, and correctly so.
+_RUNTIME_ROOTS = {
+    ".wringer", "gates", "attempts", "iterations", "fs", "scratch", "arcade",
+}
+
+
+def _reader_facing_pages() -> list[Path]:
+    """The pages a stranger reads, DERIVED rather than listed.
+
+    Every `*.md` at the repository root plus the drive's own front pages.
+    `CHANGELOG.md` is excluded because it is history: it records what a page
+    said on the day, and correcting a quotation there would be editing the
+    record.
+
+    Captured field reports and the specs are out for the same reason — they
+    quote runbooks verbatim, and several of those quotations are *supposed*
+    to still be wrong.
+    """
+    root = repo_root()
+    pages = sorted(
+        set(root.glob("*.md")) | set((root / "docs" / "drive").glob("*.md"))
+    )
+    return [page for page in pages if page.name != "CHANGELOG.md"]
+
+
+def _cited_paths(page: Path) -> list[str]:
+    """Every backticked string on `page` that claims to be a file in here."""
+    import re
+
+    found = []
+    text = page.read_text(encoding="utf-8", errors="replace")
+    for match in re.finditer(r"`([^`\n]+)`", text):
+        cited = match.group(1).strip().rstrip(".,;:)")
+        if any(character in cited for character in _NOT_A_PATH):
+            continue
+        if "://" in cited or cited.startswith(("~", "/", "http")):
+            continue
+        if "/" not in cited or not cited.endswith(_PATH_EXTENSIONS):
+            continue
+        first = cited.split("/", 1)[0]
+        if first in _RUNTIME_ROOTS:
+            continue
+        # `../x` addresses the READER's own layout — the worked example's PRD
+        # sits one level above their project — and this repository cannot
+        # check that. A citation of a file in here is written from the root,
+        # which is what is checked below.
+        if first == "..":
+            continue
+        found.append(cited)
+    return found
+
+
+def test_every_cited_repo_path_resolves_from_its_own_page():
+    """**The class that has now shipped four times, through three guards that
+    each shared its confusion.**
+
+    A page in `docs/drive/` said `wringer-drive/docs/pm-mode-2026-08-17.md`
+    and three other pages copied it. There is no `wringer-drive/` directory —
+    the packages merged into one on 2026-08-20 — and the file is at
+    `docs/drive/docs/pm-mode-2026-08-17.md`. In SECURITY.md those two
+    citations are the EVIDENCE column for the "not contained" rows, so a
+    reader auditing the security claims could not reach the capture.
+
+    `docs/drive/AGENTS.md:210` documents the identical prefix being found and
+    fixed on 2026-08-26 — and it survived on four other pages, because the
+    guards that existed resolved paths against ONE root each and the errors
+    cancelled.
+
+    So every cited path is resolved **from the repository root**, which is
+    this house's citation convention on every page that has one.
+
+    **The carrier asked for own-directory resolution as well, and that branch
+    is deliberately NOT here.** It was written, and then measured: no citation
+    on any reader-facing page needs it — the drive's own pages cite
+    `docs/drive/examples/…` from the root like everything else — and a
+    second accepted root can only ever EXCUSE a citation, never catch one. So
+    it would have been an unexercised branch that made the guard more
+    permissive while reading as coverage, which is the exact disease this
+    guard was commissioned to end. Reported to Fable rather than added
+    silently.
+
+    Measured RED on the shipped text before the fix: five, in EVIDENCE.md,
+    README.md, README-PM.md and SECURITY.md twice. Seventy-two paths were
+    swept to find them, so this is not a guard that passes by looking at
+    nothing.
+    """
+    require_checkout("README.md", "docs/drive/README.md")
+    root = repo_root()
+    swept = 0
+    broken: list[str] = []
+    for page in _reader_facing_pages():
+        for cited in _cited_paths(page):
+            swept += 1
+            if not (root / cited).exists():
+                broken.append(
+                    f"{page.relative_to(root)} cites `{cited}` — no such file"
+                )
+
+    assert swept > 40, (
+        f"only {swept} cited paths found across "
+        f"{len(_reader_facing_pages())} pages — this guard would pass while "
+        "checking almost nothing. Did the pages move, or the predicate rot?"
+    )
+    assert not broken, "citations that resolve to nothing:\n  " + "\n  ".join(
+        broken
+    )
+
+
+def test_SECURITYs_supported_versions_table_names_every_release():
+    """**Hand-kept, and it had already skipped two.**
+
+    `0.4.5` and `0.4.11` are real tags with CHANGELOG entries and both
+    shipped to PyPI, and neither had a row — on the one page where "is my
+    version covered" is the whole question. Sixteen releases were listed
+    where eighteen had shipped, and nothing noticed, because the table was
+    maintained by hand and guarded by nothing.
+
+    Derived from `git tag`, the same pattern the release-count guard in
+    CONTRIBUTING already uses, so a release cannot skip it again.
+
+    **Mid-bump defers**, exactly as the other tag-derived guards do: between
+    the bump commit and the tag, the table names the version being released
+    and no tag exists for it yet. Its sibling below is the live check then.
+    """
+    require_checkout("SECURITY.md")
+    tagged = release_tags()
+    if tagged is None:
+        pytest.skip("this checkout has no tags, so the table cannot be derived")
+
+    text = (repo_root() / "SECURITY.md").read_text(encoding="utf-8")
+    start = text.index("## Supported versions")
+    table = text[start:]
+    end = table.find("\n## ")
+    table = table[:end] if end != -1 else table
+
+    listed = set(re.findall(r"^\| `(\d+\.\d+\.\d+)`", table, re.M))
+    assert len(listed) > 10, (
+        f"only {len(listed)} versions found in SECURITY.md's table — this "
+        "guard would pass while checking almost nothing"
+    )
+
+    from wringer import __version__
+
+    # Mid-bump: the version being released is in the table and not yet a tag.
+    expected = tagged | ({__version__} if mid_bump() else set())
+    missing = sorted(expected - listed)
+    stray = sorted(listed - expected)
+    assert not missing, (
+        f"SECURITY.md's supported-versions table omits {missing} — releases "
+        "that shipped, on the page whose whole question is whether a version "
+        "is covered"
+    )
+    assert not stray, (
+        f"SECURITY.md's table names {stray}, which no tag matches — a row "
+        "for a release that does not exist"
+    )
+
+
+def _tests_defined_in_the_suite() -> set[str]:
+    """Every `test_*` this suite defines, by name.
+
+    Parsed from the files rather than collected through pytest: a collection
+    run inside a test is slow and can pass for reasons of its own, and the
+    question here is only whether a NAME exists to be run.
+    """
+    found: set[str] = set()
+    for path in (repo_root() / "tests").rglob("*.py"):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        found.update(re.findall(r"^\s*def (test_\w+)", text, re.M))
+    return found
+
+
+def test_every_test_a_spec_cites_actually_exists():
+    """**A spec citing a test that does not exist is a claim guarded by
+    nothing, dressed as a claim guarded by something.**
+
+    The specs name a `test_*` beside a ruling to say "this is how a reviewer
+    catches a violation". Thirty of those names resolved to nothing. The
+    sharpest was SPEC_BOARD B1, whose row says *"Structural, because a page
+    test cannot catch a server"* — and neither
+    `test_the_surface_ships_no_server` nor `test_the_page_makes_no_request`
+    existed, so the row's ONLY check was the sentence claiming there was one.
+
+    Two more were dead because of a correct change: D0 deleted the two
+    lexical refusal guards on 2026-08-30 and their citations stayed. A
+    citation is part of the ruling it sits in, and it moves with the code.
+
+    **A dead citation is corrected to the test that really covers the claim,
+    or the claim is struck and marked UNGUARDED with a date.** It is never
+    re-pointed at a weaker test that happens to exist — that is the vacuity
+    disease in citation form, and it is worse than the hole, because it
+    closes the hole in the reader's mind and not on disk.
+
+    A struck citation is written without backticks on purpose, so the record
+    of what was intended survives while this guard stops asserting it.
+    """
+    require_checkout("docs/specs")
+    defined = _tests_defined_in_the_suite()
+    assert len(defined) > 1000, (
+        f"only {len(defined)} tests found — this guard would pass while "
+        "checking almost nothing"
+    )
+
+    cited: dict[str, set[str]] = {}
+    for spec in sorted((repo_root() / "docs" / "specs").glob("*.md")):
+        text = spec.read_text(encoding="utf-8", errors="replace")
+        for name in re.findall(r"`(test_\w+)`", text):
+            cited.setdefault(name, set()).add(spec.name)
+
+    assert len(cited) > 40, (
+        f"only {len(cited)} test citations found across the specs — did the "
+        "citation style change, or the specs move?"
+    )
+
+    dead = sorted(
+        f"{name} (cited by {', '.join(sorted(where))})"
+        for name, where in cited.items()
+        if name not in defined
+    )
+    assert not dead, (
+        "specs cite tests that do not exist — each is a ruling whose stated "
+        "guard is a sentence:\n  " + "\n  ".join(dead)
     )

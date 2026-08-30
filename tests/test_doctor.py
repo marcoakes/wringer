@@ -217,10 +217,18 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-def cited_check_names(text: str) -> set[str]:
-    """Every check name a document illustrates in a doctor transcript."""
-    names: set[str] = set()
+def cited_check_names_per_block(text: str) -> list[set[str]]:
+    """The check names each fenced block illustrates, block by block.
+
+    **Per BLOCK and not per page**, because a page carries more than one
+    transcript and the defect is a transcript losing a row. Unioned across
+    the page, a row deleted from one run is still "named" by the other, and
+    the loss goes unseen — measured: deleting `runnable checks` from the
+    in-repo transcript left a page-level assertion green.
+    """
+    blocks: list[set[str]] = []
     for block in re.findall(r"```[^\n]*\n(.*?)```", text, re.DOTALL):
+        names: set[str] = set()
         for line in block.splitlines():
             found = _STATUS_LINE.match(line)
             if found is None:
@@ -229,7 +237,16 @@ def cited_check_names(text: str) -> set[str]:
             if _GATE_RESULT_NAME.search(name):
                 continue  # a gate result from verify or run, not a check
             names.add(name)
-    return names
+        if names:
+            blocks.append(names)
+    return blocks
+
+
+def cited_check_names(text: str) -> set[str]:
+    """Every check name a document illustrates in a doctor transcript."""
+    return set().union(*cited_check_names_per_block(text)) if (
+        cited_check_names_per_block(text)
+    ) else set()
 
 
 def docs_with_doctor_output() -> list[Path]:
@@ -260,6 +277,45 @@ def test_every_doctor_check_a_doc_illustrates_actually_exists():
         + "; ".join(sorted(offenders))
         + f"\nreal checks: {sorted(real)}"
     )
+
+
+def test_SETUPs_transcripts_name_EVERY_check_doctor_has():
+    """**The other direction, and it was missing for the whole feature's
+    life.**
+
+    The guard above asserts named → exists. It cannot see a transcript that
+    silently LOSES a row, and SETUP.md's had lost five of thirteen —
+    `runnable checks`, `last verify`, `pytest parallelism`, `worker auth` and
+    `managed settings` — while staying green. Its prose said "eight
+    questions: five about this machine, three about the repository" against a
+    real thirteen, and its closing line was one the program had stopped
+    printing.
+
+    That page's own stop condition (§"How to use this page") is *"a verify
+    command's output does not match what this file says"* — so a reader
+    obeying the runbook HALTS at step 8 on correct output. That is why the
+    two-directional assertion belongs to this page in particular and not to
+    every page with a transcript: `docs/attest-and-audit.md` shows an
+    excerpt on purpose and makes no such promise.
+    """
+    setup = repo_root() / "SETUP.md"
+    blocks = cited_check_names_per_block(setup.read_text(encoding="utf-8"))
+    real = set(doctor.check_names())
+
+    # Both of them: the in-repo run and the not-a-repo run are each presented
+    # as a complete capture, and each is what a reader compares against.
+    assert len(blocks) == 2, (
+        f"expected SETUP.md's two doctor transcripts, found {len(blocks)} — "
+        "this guard would pass while checking a page it cannot see"
+    )
+    for number, cited in enumerate(blocks, start=1):
+        missing = sorted(real - cited)
+        assert not missing, (
+            f"SETUP.md's doctor transcript {number} does not name {missing} "
+            "— a reader following this page halts when the real output does "
+            "not match it, so a lost row stops setup on correct output"
+        )
+        assert len(cited) == len(real), (number, sorted(cited), sorted(real))
 
 
 def test_the_doctor_transcript_scope_finds_the_pages_that_have_one():

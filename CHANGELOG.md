@@ -4,6 +4,66 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.8 — 2026-08-30
+
+**The front-door slice, cut before run 3.** Docs and guards only — no engine
+behaviour changed. Every item was a known lie on a page a blind operator
+reads, and each is fixed with the guard that ends its class rather than only
+the sentence.
+
+### The paths, fourth generation
+
+Five citations pointed at `wringer-drive/…`, a directory that has not existed
+since the packages merged on 2026-08-20. In SECURITY.md two of them are the
+EVIDENCE column for the "not contained" rows, so a reader auditing the
+security claims could not reach the capture. `docs/drive/AGENTS.md` documents
+the identical prefix being found and fixed on 2026-08-26, and it survived on
+four other pages because the guards that existed each resolved paths against
+one root and the errors cancelled.
+
+**The deliverable is the guard**: every backticked repo path on every
+reader-facing page must resolve from the repository root. Seventy-two paths
+swept, five red on the shipped text, green after.
+
+### SETUP.md's doctor transcript, and its guard made two-directional
+
+The transcript had silently lost five of thirteen rows and its prose said
+"eight questions: five about this machine, three about the repository". The
+page's own stop condition is *"output does not match what this file says"* —
+so a reader following it **halts at step 8 on correct output**.
+
+Both transcripts recaptured from the released `wring` in a fresh clone. The
+guard asserted named → exists and now asserts existing → named as well, **per
+transcript rather than per page**: measured, a row deleted from one of the two
+runs is invisible to a page-level assertion because the other still names it.
+
+Step 7's `wring 0.2…` is now `wring <version>`, for the reason step 3 already
+gives.
+
+### SECURITY.md's supported versions, derived from `git tag`
+
+Hand-kept, and it had already skipped `0.4.5` and `0.4.11` — sixteen rows
+where eighteen releases had shipped, on the page whose whole question is
+whether your version is covered. The guard derives the expected set from
+`git tag` and defers mid-bump, exactly as the other tag-derived guards do.
+
+### Spec-cited tests resolve, or the suite is red
+
+Thirty `test_*` names cited by the specs as "how a reviewer catches a
+violation" resolved to nothing. Eleven are re-pointed at the test that really
+covers the claim — each read first — and the rest are struck with a dated
+**UNGUARDED** note. **None is re-pointed at a near-miss**: that closes the
+hole in the reader's mind and not on disk.
+
+**SPEC_BOARD B1's two checks are written for real.**
+`test_the_surface_ships_no_server` asserts no web-server dependency in the
+distribution's metadata and no server import in any shipped module;
+`test_the_page_makes_no_request` sweeps the board's own chrome. The row said
+"Structural, because a page test cannot catch a server" and named both — and
+for the life of the surface its only check was that sentence. The row also
+claimed "exactly one console entry point", false since the merge made four;
+amended rather than asserted.
+
 ## 0.5.7 — 2026-08-30
 
 **A bug review of this window's own diff, done by running it.** Two defects,

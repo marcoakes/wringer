@@ -18,7 +18,7 @@ python3 --version        # must be 3.11+
 uv tool install wringer
 ```
 
-That is **0.5.7**, all nineteen commands, and its only runtime dependency is
+That is **0.5.8**, all nineteen commands, and its only runtime dependency is
 PyYAML. It installs four executables — `wring`, `wringer`, `wringer-board`
 and `wringer-drive` — as one distribution, and puts them on your PATH without
 touching your system Python. `pipx install wringer` and `pip install wringer`
@@ -37,7 +37,7 @@ into a venv both work identically.
 Verify it:
 
 ```bash
-wring --version          # wring 0.5.7
+wring --version          # wring 0.5.8
 ```
 
 > **Installing from git** — `pip install "git+https://github.com/marcoakes/wringer"`

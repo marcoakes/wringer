@@ -148,7 +148,7 @@ command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install --force --python 3.12 wringer && uv tool update-shell
 ```
 
-That installs 0.5.7 from PyPI — one distribution carrying `wring`, `wringer`,
+That installs 0.5.8 from PyPI — one distribution carrying `wring`, `wringer`,
 `wringer-board` and `wringer-drive`. **To set up against unreleased work on
 `main`** instead, from this clone: `uv tool install --force --python 3.12 .`
 
@@ -406,8 +406,10 @@ Apple container:
 container run --rm --volume "$HOME/wringer-workspace:/workspace" --workdir /workspace ghcr.io/marcoakes/wringer:main --version
 ```
 
-Correct output: the same `wring 0.2…` line step 3 printed, this time from
-inside the container.
+Correct output: the same `wring <version>` line step 3 printed, this time
+from inside the container. *(This said `wring 0.2…` until 2026-08-30 — a
+pinned prefix on a page whose own stop condition is "output does not match
+what this file says", which would have halted a reader on correct output.)*
 
 **The first `container run` on a machine does extra setup work** — it
 fetches a kernel and a ~66 MB init image, behind a six-stage progress
@@ -475,42 +477,53 @@ something is actually staged fixes both halves at once.
 
 ## Step 8 — Run `wring doctor`, **from your clone**
 
-`wring doctor` answers eight questions: five about this machine, three about
-the repository you are standing in. **Run it from the clone** — from
-somewhere else the three repository checks have nothing to look at and are
+`wring doctor` answers thirteen questions: six about this machine, seven
+about the repository you are standing in. **Run it from the clone** — from
+somewhere else the seven repository checks have nothing to look at and are
 reported as skipped.
 
 ```bash
-cd ~/wringer && wring doctor; echo "doctor exit: $?"
+cd "$(git rev-parse --show-toplevel)" && wring doctor; echo "doctor exit: $?"
 ```
 
 A real captured run, on a Mac with no container runtime installed:
 
 ```
 ✓ python                Python 3.12.13
-✓ wring                 wring 0.3.0 at /Users/you/.local/bin/wring
+✓ wring                 wring <version>, and all four commands resolve into /Users/you/.local/bin
 ✓ git                   git version 2.50.1 (Apple Git-155)
 ! container runtime     no container runtime found (Apple silicon detected)
                         → Install apple/container (needs macOS 26) or Docker Desktop — or skip the container and run wring directly
 ✓ git repository        /Users/you/wringer
-✓ gates                 2 gate(s): lint, test
+✓ gates                 2 gate(s): lint, test; also configured: run
+✓ runnable checks       2 declared and ready to run
+! last verify           never run here, so nothing is known yet
+                        → Run: wring verify
+- pytest parallelism    no recorded duration for a pytest gate yet — run wring verify
 ✓ workspace writable    /Users/you/wringer/.wringer is writable
+- worker auth           the worker is a shell command, not an ACP agent — a shell worker has no login to check
+✓ managed settings      no coding-agent policy file at /Library/Application Support/ClaudeCode/managed-settings.json (absence here is not proof this machine is unmanaged — it is one path, checked)
 ! llm key               no LLM API key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
                         → Only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. Provide it when you launch, and never paste it to an agent
 
-Ready. The ! lines are optional extras, not problems.
+Ready. The ! lines are optional extras, not problems. The - lines are checks this repository gave nothing to check.
 doctor exit: 0
 ```
 
 Paths and versions will differ; the check *names* will not — a test in this
 repository fails if this transcript names a check `wring doctor` does not
-have.
+have, **and now also if `wring doctor` has a check this transcript does not
+name**. Both directions, because until 2026-08-30 only the first was
+guarded, and this transcript had silently lost five of thirteen rows while
+staying green.
 
-Both transcripts on this page are captured output. The only edit is
-anonymising the home directory: the machine they came from prints
-`/Users/<its user>/…`, and the clone lives one directory deeper than the
-`~/wringer` this runbook assumes. Nothing else was touched, and nothing was
-composed.
+Both transcripts on this page are captured output, recaptured on 2026-08-30
+from the released `wring` in a fresh clone. Three edits, all disclosed: the
+home directory is anonymised (the machine prints `/Users/<its user>/…`); the
+clone's path is written as the `~/wringer` this runbook assumes; and the
+version is written `<version>` for the reason step 3 already gives —
+*"pinning a number here would make the runbook wrong on the day of every
+release"*. Nothing else was touched, and nothing was composed.
 
 **And what "reported as skipped" actually looks like.** The paragraph above
 tells you the three repository checks skip outside a repo, but the command
@@ -524,22 +537,27 @@ cd /tmp && mkdir -p not-a-repo && cd not-a-repo && wring doctor; echo "doctor ex
 
 ```
 ✓ python                Python 3.12.13
-✓ wring                 wring 0.3.0 at /Users/you/.local/bin/wring
+✓ wring                 wring <version>, and all four commands resolve into /Users/you/.local/bin
 ✓ git                   git version 2.50.1 (Apple Git-155)
 ! container runtime     no container runtime found (Apple silicon detected)
                         → Install apple/container (needs macOS 26) or Docker Desktop — or skip the container and run wring directly
 - git repository        not a git repository — run from your repo to check
 - gates                 not a git repository — run from your repo to check
+- runnable checks       not a git repository — run from your repo to check
+- last verify           not a git repository — run from your repo to check
+- pytest parallelism    not a git repository — run from your repo to check
 - workspace writable    not a git repository — run from your repo to check
+- worker auth           not a git repository — run from your repo to check
+✓ managed settings      no coding-agent policy file at /Library/Application Support/ClaudeCode/managed-settings.json (absence here is not proof this machine is unmanaged — it is one path, checked)
 ! llm key               no LLM API key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
                         → Only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. Provide it when you launch, and never paste it to an agent
 
-This machine is ready. The - lines describe a repository and were not checked here — run `wring doctor` from your repo for those.
+This machine is ready. The ! lines are optional extras, not problems. The - lines describe a repository and were not checked here — run `wring doctor` from your repo for those.
 doctor exit: 0
 ```
 
-**Three `-` lines, and the exit code is still `0`.** A skip is not a
-failure: those three checks had nothing to look at, and the closing line
+**Seven `-` lines, and the exit code is still `0`.** A skip is not a
+failure: those seven checks had nothing to look at, and the closing line
 says so rather than implying the machine is short of something.
 
 **Read the marks, not the vibes:**

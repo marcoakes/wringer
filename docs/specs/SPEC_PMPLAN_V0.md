@@ -870,7 +870,7 @@ never claimed a fingerprint, and refusing it would be inventing a claim.
 **⚠ This contradicts an existing pinned invariant, and that invariant has THREE
 teeth, not one.** SPEC_BOARD §8 non-goal 9 — *"the surface writes
 `wringer.spec.yaml` and nothing else"* — is pinned by
-`test_no_verb_writes_anything_but_the_spec_file`
+~~test_no_verb_writes_anything_but_the_spec_file~~ (**UNGUARDED 2026-08-30** — this name resolves to no test; the claim above is stated and not checked. Not re-pointed at a near-miss, which would close the hole in the reader's mind and not on disk)
 (`test_interview.py:229-283`), which enforces it three separate ways. A consent
 write breaks two of them, and a builder told this was a one-line filename edit
 would hit two red tests unannounced:

@@ -41,7 +41,7 @@ That paragraph is the product. **Most of the machinery under it is built and
 has been driven end to end, and since 2026-08-17 so is the surface a
 non-technical person would touch**: one verb — `wringer-drive run PRD.md` —
 carries a prose file through every step above to a rendered page, measured at
-**27.5 seconds** (`wringer-drive/docs/pm-mode-2026-08-17.md`). The table below
+**27.5 seconds** (`docs/drive/docs/pm-mode-2026-08-17.md`). The table below
 still says which parts are built and which are direction rather than leaving
 you to find out.
 

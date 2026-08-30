@@ -694,3 +694,97 @@ def test_the_board_and_the_ENGINE_agree_which_run_is_latest(repo):
         board.name, engine.name
     )
 
+
+# --- B1's only structural check, written 2026-08-30 ------------------------
+#
+# The ruling's own row says "Structural, because a page test cannot catch a
+# server" and named two tests as the way a reviewer catches a violation.
+# NEITHER EXISTED. The row's only check was the sentence claiming there was
+# one, for the whole life of the surface.
+
+
+_SERVER_PACKAGES = (
+    "flask", "fastapi", "uvicorn", "aiohttp", "starlette", "bottle",
+    "tornado", "http.server", "socketserver", "wsgiref",
+)
+
+
+def _source_files() -> list[Path]:
+    root = Path(__file__).resolve().parent.parent.parent / "src"
+    return sorted(root.rglob("*.py"))
+
+
+def test_the_surface_ships_no_server():
+    """**B1, and it had no check at all.**
+
+    v0 is local and single-user: filesystem bundles, no server, no auth, no
+    hosting. A page test cannot catch a server — a server is a dependency and
+    an import — so this is structural, over the distribution's metadata and
+    over every module it ships.
+
+    Not over the console entry points: the row also said the package
+    "registers exactly one", which stopped being true when the packages
+    merged on 2026-08-20 and there were four. Asserting a number that the
+    merge already falsified would fail for a reason that has nothing to do
+    with servers, so the row is amended and this checks the half that is the
+    ruling.
+    """
+    import re
+    import tomllib
+
+    root = Path(__file__).resolve().parent.parent.parent
+    declared = tomllib.load((root / "pyproject.toml").open("rb"))["project"]
+    named = list(declared.get("dependencies") or [])
+    for extra in (declared.get("optional-dependencies") or {}).values():
+        named.extend(extra)
+    offenders = [
+        one for one in named
+        if any(one.lower().startswith(server) for server in _SERVER_PACKAGES)
+    ]
+    assert not offenders, f"the distribution declares a web server: {offenders}"
+
+    files = _source_files()
+    assert len(files) > 20, f"only {len(files)} modules swept — did src/ move?"
+    importing = []
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for found in re.finditer(r"^\s*(?:import|from)\s+([\w.]+)", text, re.M):
+            module = found.group(1)
+            if any(
+                module == server or module.startswith(server + ".")
+                for server in _SERVER_PACKAGES
+            ):
+                importing.append(f"{path.name} imports {module}")
+    assert not importing, (
+        "a shipped module imports a server: " + "; ".join(importing)
+    )
+
+
+def test_the_page_makes_no_request():
+    """B1's secondary check, and it did not exist either.
+
+    Scoped to the board's own CHROME — its source literals — because ruling 7
+    licenses a check's own message verbatim, and a real gate command or
+    failure message may legitimately contain a URL. The chrome is what this
+    package writes; gate output is data passing through it.
+    """
+    import re
+
+    board = Path(__file__).resolve().parent.parent.parent / "src" / "wringer_board"
+    files = sorted(board.glob("*.py"))
+    assert len(files) > 4, f"only {len(files)} board modules swept"
+
+    forbidden = re.compile(
+        r"fetch\(|XMLHttpRequest|<script|<iframe|\bsrc=|<link\b|\bimport\("
+    )
+    offenders = []
+    for path in files:
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            if forbidden.search(line):
+                offenders.append(f"{path.name}:{number}: {line.strip()[:80]}")
+    assert not offenders, (
+        "the board's own chrome would make a request: " + "; ".join(offenders)
+    )
+

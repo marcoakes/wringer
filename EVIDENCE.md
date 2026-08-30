@@ -136,6 +136,6 @@ Not everything here is a caveat.
   the corpus mirrors by name.
 - **The whole arc runs end to end** — prose PRD to a built change to a
   refusal — and the refusal is the ending it was designed for:
-  `wringer-drive/docs/the-whole-arc.md`.
+  `docs/drive/docs/the-whole-arc.md`.
 - **A loss was published.** The corpus result above was written up and kept
   rather than quietly dropped, and this file exists for the same reason.

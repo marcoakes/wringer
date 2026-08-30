@@ -1426,7 +1426,7 @@ inspection did not.
 | 11 | MED | A criterion id containing `/` or `..` escaped both the store and the tree, and `clean()` would then delete outside the tree — exactly what `materialise`'s own comment warns of | refused by name. Not slugified: a silent rewrite would break the id-keyed join to `acceptance.json` |
 | 12 | LOW | A row where NO worker ran carried *"THE WORKER RAN UNCONTAINED"* | the deviation appears only when a worker actually ran outside a boundary |
 | 13 | LOW | Arm A and arm B rows carried different `containment` key sets, so `row["containment"]["declared"]` raised on every arm A row | the same keys in both arms |
-| 14 | LOW | `test_a_repository_with_no_witness_lane_is_byte_for_byte_unmoved` compared no bytes | renamed to what it actually pins, and a second test compares the signature against a REIMPLEMENTATION of the pre-P4-1 algorithm — written out rather than imported, because importing the shipped one is how the pin became a tautology last time |
+| 14 | LOW | ~~test_a_repository_with_no_witness_lane_is_byte_for_byte_unmoved~~ (**UNGUARDED 2026-08-30** — this name resolves to no test; the claim above is stated and not checked. Not re-pointed at a near-miss, which would close the hole in the reader's mind and not on disk) compared no bytes | renamed to what it actually pins, and a second test compares the signature against a REIMPLEMENTATION of the pre-P4-1 algorithm — written out rather than imported, because importing the shipped one is how the pin became a tautology last time |
 
 **What the review checked and found CORRECT**, recorded so an unexamined area
 and a held one do not read alike. **P4-1 holds**, and by mutation rather than by

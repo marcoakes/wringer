@@ -279,7 +279,7 @@ later runs gates. Step 2 therefore shells out to `wring init` and imports
 - On any non-interactive stream, the verb **stops and says why** rather than
   choosing a default. A default here is an approval nobody gave.
 
-`test_the_drive_verb_has_no_flag_that_skips_approval`, structural, over the
+~~test_the_drive_verb_has_no_flag_that_skips_approval~~ (**UNGUARDED 2026-08-30** — this name resolves to no test; the claim above is stated and not checked. Not re-pointed at a near-miss, which would close the hole in the reader's mind and not on disk), structural, over the
 real parser — the shape `test_no_flag_no_env_var_and_no_command_can_write_a_judgement`
 already uses for the judgement file.
 
@@ -558,7 +558,7 @@ make a demo look better.**
       **DONE**, and two of them were wrong in the way §5 warns about until a
       mutation pass corrected them: the byte-equality guard compared added
       lines by VALUE, which an append-to-the-end writer would have passed,
-      and `test_no_approval_means_no_gate_is_INSTALLED` was green while never
+      and ~~test_no_approval_means_no_gate_is_INSTALLED~~ (**UNGUARDED 2026-08-30** — this name resolves to no test; the claim above is stated and not checked. Not re-pointed at a near-miss, which would close the hole in the reader's mind and not on disk) was green while never
       reaching step 7 at all.
 - [x] §6's capture, filmed, naming what drove it. **DONE — 27s.** It names a
       real drafting endpoint and model, and an ACP worker that is **not a
