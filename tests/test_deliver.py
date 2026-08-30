@@ -1677,8 +1677,17 @@ def test_a_case_only_rename_is_refused_before_a_branch_exists(
     So this refuses, and it refuses in `plan()` — before `switch --create`,
     so there is no branch to strand.
     """
-    if not deliver._case_insensitive(delivery_repo):
-        pytest.skip("this filesystem is case-sensitive; the alias cannot occur")
+    # **`core.ignorecase`, declared rather than inherited** — which is what
+    # `_case_insensitive` reads, and reading it is deliberate: a case-sensitive
+    # volume mounted on macOS is an ordinary thing to have.
+    #
+    # This test used to SKIP on any case-sensitive filesystem, so it ran on
+    # exactly one of four CI legs and on none of the Linux ones. D0's guard
+    # caught the consequence on its first CI run: `case_alias_collision` was
+    # constructed by no test on Linux, so the refusal was green from birth
+    # there — and macOS, where it did run, is the platform whose result
+    # everyone reads locally.
+    git(delivery_repo, "config", "core.ignorecase", "true")
 
     (delivery_repo / "feature.py").unlink()
     (delivery_repo / "Foo.py").write_text("x = 1\n", encoding="utf-8")
