@@ -950,3 +950,96 @@ def test_a_parked_task_that_left_no_loop_directory_is_not_claimed_to_have_one(
     summary = fleet_summary(outcome)
     assert "left no child loop directory" in summary
     assert "in the child loop directories" not in summary
+
+
+# --- D4: a resume CONTINUES the run it names -------------------------------
+
+
+def test_a_resumed_loop_keeps_the_scope_its_first_life_was_given(
+    repo, monkeypatch, capsys
+):
+    """**A scoped loop silently widened on resume.**
+
+    `Resumable` carried no scope and `cmd_resume` passed none, so
+    `wring run --gate api` — killed, resumed — came back verifying every
+    declared gate: spending worker turns on gates the operator had scoped
+    OUT, and writing a bundle that claims MORE than the run it says it
+    continues. That is the inverse of SPEC_SCOPE's rule that a scoped run
+    claims strictly less.
+
+    The word "resume" promises a continuation, so the invocation is recorded
+    beside the ledger — `loop-event-v2.schema.json` is frozen with
+    `additionalProperties: false` on every branch, and the facts have a home
+    that costs no version.
+    """
+    from wringer import loop as loop_module
+
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        '  - id: api\n    run: "grep -q FIXED calc.py"\n'
+        '  - id: other\n    run: "true"\n'
+        'run:\n  worker: "true"\n  max_iterations: 1\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run", "--gate", "api", "--max-iterations", "3"]) != 0
+    capsys.readouterr()
+
+    loop_dir = sorted((repo / loop_module.LOOPS_DIRNAME).iterdir())[-1]
+    asked = loop_module.read_invocation(loop_dir)
+    assert asked is not None, "the loop recorded nothing about what it was asked"
+    assert asked.gates == ("api",), asked
+    assert asked.max_iterations == 3, asked
+
+    # **And the RESUME actually verifies only that gate.** Asserting the
+    # sibling alone left the replay untested: the fact was recorded, nothing
+    # read it, and the guard was green either way.
+    #
+    # A killed loop is one whose ledger stops without `loop.finished`, so the
+    # last line goes — which is what a `kill -9` leaves behind, and which
+    # keeps the hash chain valid because every line still hashes its
+    # predecessor.
+    ledger = loop_dir / loop_module.EVENTS_FILENAME
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    assert json.loads(lines[-1])["type"] == "loop.finished", lines[-1]
+    cut = next(
+        n for n, line in enumerate(lines)
+        if json.loads(line)["type"] == "verify.finished"
+    )
+    # Truncated after the FIRST verification, so the loop reads as killed with
+    # two of its three iterations still unspent. Only trailing lines go, so
+    # every remaining line still hashes its predecessor.
+    ledger.write_text("\n".join(lines[: cut + 1]) + "\n", encoding="utf-8")
+
+    resumable = loop_module.inspect_for_resume(loop_dir)
+    assert resumable is not None, "the truncated ledger did not read as killed"
+    assert resumable.asked is not None
+    assert resumable.asked.gates == ("api",), resumable.asked
+
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    cfg = config.load(repo / ".wringer.yaml")
+    outcome = loop_module.run(repo, cfg, resuming=resumable)
+
+    assert outcome.final is not None
+    ran = sorted(
+        path.name for path in (outcome.final.bundle.directory / "gates").iterdir()
+    )
+    assert ran == ["001_api"], (
+        f"the resumed loop verified {ran} — a scoped loop widened on resume, "
+        "claiming more than the run it says it continues"
+    )
+
+
+def test_a_loop_from_BEFORE_the_sibling_existed_still_resumes(repo):
+    """Absence is absence. Every loop written before 0.5.6 has no
+    `invocation.json`, and those resume the way they always did rather than
+    refusing for a file nobody wrote."""
+    from wringer import loop as loop_module
+
+    directory = repo / "no-sibling"
+    directory.mkdir()
+    assert loop_module.read_invocation(directory) is None
+

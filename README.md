@@ -312,11 +312,28 @@ bundle may hold whatever a gate printed and an MR body is public.
 
 A reviewer who never ran the machine used to be told there was a hole and that
 the map was not coming. Since `0.5.0` the delivery carries **`certificate.md`**
-and **`certificate.json`** beside `mr.md`, plus a copy of the board page: every
-requirement by title with what the record can honestly say about it, the proved
-ones named with their check and where that check is on record failing, and a
-person's verdict with their own words. The merge request quotes the same
-renderer, so the two cannot drift.
+and **`certificate.json`** beside `mr.md`, plus `coverage.json`,
+`falsification.json` and a copy of the board page: every requirement by title
+with what the record can honestly say about it, the proved ones named with
+their check and where that check is on record failing, and a person's verdict
+with their own words. The merge request quotes the same renderer, so the two
+cannot drift.
+
+### Two questions a passing suite cannot answer
+
+**How much of what was asked for is even watched?** Since `0.5.1` every run
+with an approved spec prints the coverage statement — *N of M requirements
+carry a check that can prove them* — and a second line saying what that number
+cannot see. It is two sentences and never one, because a bound check can still
+test less than the requirement means.
+
+**What could I break that nothing would notice?** `wring verify --falsify`
+(since `0.5.2`) takes the change you just made, breaks it on purpose one line
+at a time, and re-runs the bound checks against each version. A mutation that
+survives is a finding **about the checks**, not about the change: they could
+not tell the delivered code from the code with that line broken. No model is
+involved — the substitutions come from a fixed table, and the record says so
+where the number is.
 
 ```
 $ wring audit certificate.json

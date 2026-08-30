@@ -391,6 +391,56 @@ class Bundle:
         )
 
 
+INVOCATION_FILENAME = "invocation.json"
+INVOCATION_SCHEMA = "wringer.invocation.v1"
+
+
+@dataclass(frozen=True)
+class Invocation:
+    """What this loop was asked to do, so a resume can continue exactly it."""
+
+    gates: tuple[str, ...] | None = None
+    prove: bool = False
+    max_iterations: int | None = None
+
+    def as_json(self) -> dict[str, Any]:
+        return {
+            "schema_version": INVOCATION_SCHEMA,
+            "gates": list(self.gates) if self.gates is not None else None,
+            "prove": self.prove,
+            "max_iterations": self.max_iterations,
+        }
+
+
+def write_invocation(directory: Path, asked: Invocation) -> Path:
+    path = directory / INVOCATION_FILENAME
+    path.write_text(
+        json.dumps(asked.as_json(), indent=2) + "\n", encoding="utf-8"
+    )
+    return path
+
+
+def read_invocation(directory: Path) -> Invocation | None:
+    """What the loop's first life was asked for, or None for an older bundle.
+
+    None is not a failure: every loop written before 0.5.6 has no sibling, and
+    those resume the way they always did.
+    """
+    raw = evidence.read_sidecar(directory / INVOCATION_FILENAME).payload
+    if raw is None:
+        return None
+    gates = raw.get("gates")
+    return Invocation(
+        gates=tuple(str(one) for one in gates) if isinstance(gates, list) else None,
+        prove=bool(raw.get("prove")),
+        max_iterations=(
+            int(raw["max_iterations"])
+            if isinstance(raw.get("max_iterations"), int)
+            else None
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class Resumable:
     """What a ledger says about a loop that never finished.
@@ -405,7 +455,21 @@ class Resumable:
     iterations_done: int
     seen_signatures: frozenset[str]
     started_at: str | None
+    # **What the loop was ASKED to do, so resuming continues it rather than
+    # starting something else** (D4, 2026-08-29). `Resumable` carried none of
+    # this, and `cmd_resume` passed none, so `wring run --gate api` killed and
+    # resumed came back verifying every declared gate — a scoped loop silently
+    # widened, claiming MORE than the run it says it continues, which is the
+    # inverse of SPEC_SCOPE's rule. `--prove` was lost the same way, and the
+    # iteration ceiling fell back to the config's, so one resume of a
+    # `--max-iterations 8` loop closed it at the repo's default.
+    #
+    # Read from a SIBLING (`invocation.json`), not from `loop.started`:
+    # `loop-event-v2.schema.json` is frozen with `additionalProperties: false`
+    # on every branch, and the facts have a home that costs no version — the
+    # pattern `vacuity.json` and `witness.json` already set.
     orphan_pgids: tuple[int, ...]
+    asked: Invocation | None = None
 
 
 def read_events(loop_dir: Path) -> list[dict[str, Any]]:
@@ -460,6 +524,7 @@ def inspect_for_resume(loop_dir: Path) -> Resumable | None:
         ),
         started_at=started.get("ts"),
         orphan_pgids=worker_pgids(loop_dir),
+        asked=read_invocation(loop_dir),
     )
 
 
@@ -838,6 +903,19 @@ def run(
     the budget resumes with its *remainder* — spent iterations stay spent.
     """
     assert cfg.run is not None
+
+    # **A resume CONTINUES the run it names.** Scope, `--prove` and the
+    # iteration ceiling come from what that loop's first life was asked for,
+    # unless this caller stated one explicitly. Without it a scoped loop
+    # silently widened on resume — verifying gates the operator had scoped
+    # out, briefing the worker on them, and writing a bundle claiming MORE
+    # than the run it says it continues.
+    if resuming is not None and resuming.asked is not None:
+        if gates is None:
+            gates = resuming.asked.gates
+        prove = prove or resuming.asked.prove
+        if max_iterations is None:
+            max_iterations = resuming.asked.max_iterations
     settings = cfg.run
     budget = max_iterations if max_iterations is not None else settings.max_iterations
     # Invariant 8: budgets NEST. A fleet's per-child ceilings override the
@@ -887,6 +965,16 @@ def run(
             repo=root.name,
             sha=state.head_sha,
             max_iterations=budget,
+        )
+        # The sibling that makes a resume a continuation. Written once, on the
+        # first life, beside the ledger it belongs to.
+        write_invocation(
+            bundle.directory,
+            Invocation(
+                gates=tuple(gates) if gates is not None else None,
+                prove=prove,
+                max_iterations=budget,
+            ),
         )
 
     # What authorises this loop's work, hashed BEFORE the first worker turn.

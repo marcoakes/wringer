@@ -48,8 +48,8 @@ Here is what to do.
    If those commands are not on my PATH afterwards, run `uv tool update-shell`
    and tell me to open a new terminal.
 
-4. Now show me what this is for, by building a tiny real project. In a NEW
-   folder beside the two clones — call it `first-board` — make a git
+3. Now show me what this is for, by building a tiny real project. In a NEW
+   folder anywhere you like — call it `first-board` — make a git
    repository and write exactly three files.
 
    `wringer.spec.yaml` — the requirement, in my language:
@@ -87,7 +87,7 @@ Here is what to do.
          return {"Content-Type": "text/csv"}
    and run the same two commands again. Open the new `board.html`.
 
-5. Tell me, in plain language and in about six sentences:
+4. Tell me, in plain language and in about six sentences:
      - what is now installed on my machine, and where
      - how the board changed between those two runs, and what the phrase on
        the finished card means
@@ -102,7 +102,7 @@ remote. I have not asked for that.
 
 ## What you should see
 
-Nothing on that page is a sample or a screenshot. The repository in step 5 is
+Nothing on that page is a sample or a screenshot. The repository in step 3 is
 one your agent built on your machine a minute earlier, the check really ran,
 and the board is reading the evidence it left.
 
@@ -140,7 +140,7 @@ pytest` does not fix it either: that installs them into the tool's own
 environment, not onto the PATH the gate's shell searches.
 
 Setting up another project's development environment is an engineer's job and
-this page is not for that. The tiny project in step 4 is real, runs a real
+this page is not for that. The tiny project in step 3 is real, runs a real
 check, and needs nothing installed.
 
 ---
@@ -281,17 +281,19 @@ Stated precisely, because the loose version of this sentence would be false:
 
 ## What this page does not claim
 
-- **It does not claim the install is quick.** Step 4 runs a real test suite.
+- **It does not claim the install is quick.** Step 3 runs a real check — a
+  `grep` gate, so it needs no toolchain of its own.
 - **It does not claim your agent will get it right.** It is a prompt, and your
-  agent is a model. If it goes wrong, the errors are real errors and the
-  cloned repositories are ordinary folders you can delete.
+  agent is a model. If it goes wrong, the errors are real errors and
+  `first-board` is an ordinary folder you can delete.
 - **It does not install an agent for you**, and Wringer never will.
 - **It installs from PyPI**, which is where the current release lives. This
   page used to install from source, and to carry a paragraph promising that
   "when a release is cut, this page's install step becomes `uv tool install
   wringer` and this paragraph goes away". The release was cut on 2026-08-20.
   The paragraph did not go away, because nothing made it. A product manager
-  followed the source path on 2026-08-22 and step 3's second command failed
+  followed the source path on 2026-08-22 and the clone step's second command
+  failed
   outright — `error: Executable already exists: wringer-board` — because by
   then both packages declared the same executable. One command cannot collide
   with itself, which is the other reason this page now has only one.

@@ -1170,6 +1170,11 @@ def _start_repair(
             on_gate=_report_gate,
             on_worker=_report_worker,
         )
+    except witness.WitnessError as exc:
+        # A VOID is 3 everywhere (SPEC_GATEGEN_V0 §6 W4). The guided launch
+        # drives the same `loop.run` and produced the forbidden 1.
+        _fail("start", exc)
+        raise SystemExit(EXIT_REFUSED) from exc
     except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("start", exc)
         return None
@@ -2675,6 +2680,13 @@ def cmd_resume(args: argparse.Namespace) -> int:
             on_worker=on_worker,
             resuming=resumable,
         )
+    except witness.WitnessError as exc:
+        # **The same ruling as `wring run`** (SPEC_GATEGEN_V0 §6 W4). A VOID
+        # is 3 everywhere: 1 would file it as evidence ABOUT the change, and
+        # `resume`, `bench` and the guided launch drive the same `loop.run`.
+        # They produced the forbidden 1, with a traceback.
+        _fail("resume", exc)
+        return EXIT_REFUSED
     except (evidence.EvidenceError, backend.BackendError) as exc:
         _fail("resume", exc)
         return EXIT_CONFIG

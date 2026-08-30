@@ -415,9 +415,19 @@ Everything else that works today:
 
 ```bash
 wring verify --gate test        # one gate; its evidence keeps its declared number
+wring verify --serial           # never overlap two gates, whatever the config says
+wring verify --prove            # run the gates against the tree WITHOUT your change
+wring verify --falsify          # break your change on purpose; report what nothing noticed
 wring explain .wringer/runs/<id>    # diagnose a specific run
 wring --version
 ```
+
+`--prove` answers "could these gates have failed?"; `--falsify` answers the
+harder one — "what could I break in this change that every bound check would
+still pass?" Both print what they found, and both write a record beside the
+run. A repository with an approved `wringer.spec.yaml` also gets the coverage
+statement on every run: **how many of its requirements carry a check that can
+prove them**, in two lines, one of which is what that number cannot see.
 
 ## ⚠️ `.wringer.yaml` is code
 
@@ -548,6 +558,6 @@ contents never enter `diff.patch`.
 
 ## What it will never do
 
-Write code (the harness never writes code — agents do), open
-PRs, replace your CI, or upload anything anywhere. Evidence stays on your
-disk; `.wringer/` is gitignored by the template.
+Write code (the harness never writes code — agents do), replace your CI, or
+send anything without a `--send` flag you typed — the five senders are listed
+above. Evidence stays on your disk; `.wringer/` is gitignored by the template.

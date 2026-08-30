@@ -803,9 +803,20 @@ def _bench_one(
             prove=prove,
             **console,
         )
-    except (evidence.EvidenceError, config.ConfigError) as exc:
-        # Honest partial success (invariant 6): one contender's failure is a
-        # row, not the end of the comparison.
+    except Exception as exc:  # noqa: BLE001
+        # **Honest partial success (invariant 6): one contender's failure is a
+        # row, not the end of the comparison** — and it was only true for two
+        # exception types. `_setup` raises `BenchError` on a failed
+        # `prove_setup`, `loop.run` raises `WitnessError` on a VOID, and
+        # `git.inspect`/`make_worktree` raise `OSError`; any of those in the
+        # THIRD contender discarded the first two's already-paid-for results,
+        # because `write_manifest`, `write_summary` and `write_digests` all
+        # sit after `_run_attempts`. That is real money with no artifact — law
+        # 11 — and under `parallel > 1` it also kills every still-healthy
+        # attempt's agent.
+        #
+        # The comment above promised this shape; the `except` clause did not
+        # implement it.
         return Row(
             contender=contender.id,
             agent_id=contender.agent_id,

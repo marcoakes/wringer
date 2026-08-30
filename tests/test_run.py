@@ -330,6 +330,14 @@ def test_json_keys_are_stable(
         "failed_gate",
         "rerun",
         "evidence_dir",
+        # **Contractual, "present even when `false`"** (SPEC_VERIFY §CLI
+        # surface). `verify.json_summary` omitted it while `cli._report_json`
+        # carried it, and THIS is the producer feeding `run --json`,
+        # `resume --json` and the worker brief — so a template repo, whose
+        # placeholder gate always passes, converged and reported
+        # `{"status": "passed"}` with no template signal at all. There is one
+        # producer now.
+        "template_only",
     }
 
 
