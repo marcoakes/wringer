@@ -623,13 +623,64 @@ def test_the_loop_proves_when_the_repo_declared_it(repo, monkeypatch, capsys):
     monkeypatch.chdir(repo)
 
     assert cli.main(["run"]) == cli.EXIT_OK
-    capsys.readouterr()
+    said = capsys.readouterr().out
 
     proved = [
         run_dir for run_dir in sorted((repo / evidence.RUNS_DIRNAME).iterdir())
         if (run_dir / vacuity.VACUITY_FILENAME).is_file()
     ]
     assert proved, "the loop ran without proving anything"
+
+    # **And a PROVEN run says nothing about vacuity.** The disclosure D3 added
+    # for a converged-but-vacuous loop must not fire here, or every repo that
+    # opted in gets nagged on every successful run — the failure §7 names by
+    # name. Without this the disclosure could be made unconditional and no
+    # test would notice.
+    assert "would have passed WITHOUT" not in said, said
+    assert "will refuse this bundle" not in said, said
+
+
+def test_a_loop_that_converges_on_VACUOUS_gates_says_so_on_the_console(
+    repo, monkeypatch, capsys
+):
+    """**D3's code half: the person learns at the LOOP, not at the pen.**
+
+    SPEC_VACUITY §3 said a converged-but-vacuous iteration "does not converge
+    … and the loop continues". No such mechanism ever existed — `loop.py` has
+    never imported `vacuity` — so the lap converged, `wring run` exited 0 and
+    printed "Converged in N iterations", and the tautology surfaced much
+    later when `wring deliver` refused the same bundle for a reason nothing
+    had mentioned.
+
+    Routing the loop on the verdict was ruled AGAINST (a new refusal cycle
+    with no body count, and a worker cannot reliably de-vacuous a gate). The
+    enforcement point stays delivery. What was missing was a sentence.
+
+    The gate here passes on both trees, so it carries no information about
+    the change at all — which is what `gates_vacuous` means.
+    """
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "initial")
+    (repo / ".wringer.yaml").write_text(
+        'version: 1\ngates:\n  - id: test\n    run: "true"\n'
+        'run:\n  worker: "echo touched > note.txt"\n  max_iterations: 1\n'
+        "  prove: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+
+    # Collapsed, because the note is wrapped at 78 columns and capitalised
+    # at the start of its last sentence — asserting the raw string would pin
+    # the wrapping rather than the sentence.
+    flat = " ".join(said.split()).lower()
+    assert "converged" in flat, said
+    assert "would have passed without this change" in flat, said
+    assert "will refuse this bundle" in flat, said
+    assert vacuity.FIX in flat, said
 
 
 # --- the honest limit, pinned so nobody rediscovers it in the field --------
@@ -846,21 +897,30 @@ def test_proving_many_gates_is_faster_than_proving_them_one_at_a_time(
 ):
     """`--prove` runs every gate TWICE — once on the changed tree, once in the
     scratch worktree — so the second pass is pure duplicated cost on the
-    critical path. Those runs are independent of each other and of anything
-    published: no number anywhere compares one gate's pre-change duration to
-    another's, which is exactly why this is safe here and forbidden in
-    `wring verify` (WRINGER_SPEED_PLAN §2, R1).
+    critical path. No number anywhere compares one gate's pre-change duration
+    to another's, so overlapping them costs no published measurement.
 
-    Four gates that each sleep a second. Serial that is four seconds of
-    scratch-tree work; concurrent it is about one. The bound is generous
-    because CI machines are not quiet, but four sequential sleeps cannot fit
-    inside it."""
+    **AMENDED 2026-08-29: the repository decides, as it does everywhere else.**
+    This test used to declare four ORDINARY gates and assert the prove pass
+    overlapped them anyway, because it did — 8-way, unconditionally, whatever
+    `gates[].concurrent` said, and `--serial` could not reach it. Two gates a
+    repo never declared safe together (one port, one `.coverage`, one temp
+    fixture, one database) pass serially on the changed tree and fail side by
+    side in the scratch tree, and `sensitive` is `changed.passed and not
+    pre.passed` — so the runner manufactured the PROVEN verdict. SPEC_PERF §3
+    R3 rules that out by name.
+
+    The win is kept where it is declared. Four gates that each sleep a second,
+    marked `concurrent: true`. Serial that is four seconds of scratch-tree
+    work; concurrent it is about one. The bound is generous because CI
+    machines are not quiet, but four sequential sleeps cannot fit inside it."""
     import time
 
     (changed / ".wringer.yaml").write_text(
         "version: 1\ngates:\n"
         + "".join(
             f'  - id: g{i}\n    run: "sleep 1 && grep -q FIXED calc.py"\n'
+            "    concurrent: true\n"
             for i in range(4)
         ),
         encoding="utf-8",
@@ -883,6 +943,79 @@ def test_proving_many_gates_is_faster_than_proving_them_one_at_a_time(
         "it is still running them one at a time"
     )
     assert elapsed < 7, elapsed
+
+
+def test_the_prove_pass_never_overlaps_gates_the_repo_did_not_declare(
+    changed, monkeypatch, capsys
+):
+    """**The runner must not manufacture the verdict it is measuring.**
+
+    Every pre-change gate ran 8-way concurrent regardless of
+    `gates[].concurrent`, and `wring verify --serial` could not reach the
+    prove pass at all — the flag that TIGHTENS was structurally unable to.
+    Two gates the repository never declared safe together — one port, one
+    `.coverage` file, one temp fixture, one database — pass serially on the
+    changed tree and FAIL side by side in the scratch tree; `sensitive` is
+    `changed.passed and not pre.passed`, so the verdict came back `proven` on
+    evidence the runner made. SPEC_PERF §3 R3 rules exactly this out by name.
+
+    Driven on the interference itself rather than on a clock: two gates that
+    cannot both hold the same lock file. Serially both pass; overlapped, one
+    of them fails and its row reads `sensitive`.
+    """
+    lock = "mkdir .excl || exit 9; sleep 0.4; rmdir .excl"
+    (changed / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        f"  - id: one\n    run: '{lock} && grep -q FIXED calc.py'\n"
+        f"  - id: two\n    run: '{lock} && grep -q FIXED calc.py'\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(changed)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    recorded = verdict_of(changed)
+    cites = {row["gate_id"]: (row["cites"] or "") for row in recorded["gates"]}
+    # MEASURED under the reverted code: the second row's citation becomes
+    # `mkdir: .excl: File exists` — a `sensitive` row whose evidence is the
+    # runner colliding with itself. `prove_ms` halves from ~905 to ~463 at the
+    # same time, which is the speedup being taken from a repo that never
+    # granted it.
+    assert all(".excl" not in cite for cite in cites.values()), (
+        "the prove pass overlapped two gates this repository never declared "
+        f"concurrent, and one of them died on the collision: {cites}"
+    )
+    # Both are genuinely sensitive, on their own merits, one at a time.
+    assert all(row["sensitive"] for row in recorded["gates"]), recorded
+    assert recorded["verdict"] == "proven", recorded
+
+
+def test_serial_reaches_the_prove_pass_too(changed, monkeypatch, capsys):
+    """`--serial` TIGHTENS, and a flag that tightens must tighten everywhere
+    the declared gates run. It collapses every group to one gate — including
+    a group the repository itself declared concurrent — so the operator who
+    typed it does not still have two of them overlapping in the scratch tree.
+    """
+    lock = "mkdir .excl2 || exit 9; sleep 0.4; rmdir .excl2"
+    (changed / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n"
+        f"  - id: one\n    run: '{lock} && grep -q FIXED calc.py'\n"
+        "    concurrent: true\n"
+        f"  - id: two\n    run: '{lock} && grep -q FIXED calc.py'\n"
+        "    concurrent: true\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(changed)
+
+    assert cli.main(["verify", "--prove", "--serial"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    recorded = verdict_of(changed)
+    cites = {row["gate_id"]: (row["cites"] or "") for row in recorded["gates"]}
+    assert all(".excl2" not in cite for cite in cites.values()), (
+        f"--serial did not reach the prove pass: {cites}"
+    )
 
 
 def test_concurrent_proving_records_exactly_what_serial_proving_did(

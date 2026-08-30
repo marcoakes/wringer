@@ -333,6 +333,31 @@ def test_an_unmet_required_criterion_fails(tmp_path):
     assert verdict.verdict == judge.FAIL
 
 
+def test_a_reply_that_answers_one_criterion_twice_is_needs_human(tmp_path):
+    """**The model must not get to overwrite its own `fail`.**
+
+    `{a["id"]: a for a in parsed["criteria"]}` is last-wins, so a reply
+    carrying the same id twice had its first answer silently replaced by its
+    second — and the thing being judged decided which of its own two answers
+    Wringer read. Nothing else in the program lets that happen.
+
+    `needs_human`, like every other failure to understand a reply: "the
+    evidence says no" and "the reply is ambiguous" are different claims, and
+    picking either answer here would be inventing one.
+    """
+    verdict = judge.parse_response(
+        reply(json.dumps({"criteria": [
+            {"id": "docstring-present", "met": False, "reason": "none"},
+            {"id": "docstring-present", "met": True, "reason": "on reflection"},
+            {"id": "no-scope-creep", "met": True, "reason": "tight"},
+        ]})),
+        loaded_rubric(tmp_path),
+    )
+    assert verdict.verdict == judge.NEEDS_HUMAN, verdict
+    assert "docstring-present" in (verdict.note or ""), verdict.note
+    assert "more than once" in (verdict.note or ""), verdict.note
+
+
 def test_an_unmet_optional_criterion_does_not_fail(tmp_path):
     verdict = judge.parse_response(
         reply(json.dumps({"criteria": [

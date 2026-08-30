@@ -326,6 +326,53 @@ def changed_lines(patch: str) -> list[tuple[str, int, str]]:
     return found
 
 
+def _diff_path(target: str) -> str | None:
+    """One side of a `--- `/`+++ ` header, as a repo-relative path or None."""
+    if target == "/dev/null":
+        return None
+    return target[2:] if target[:2] in ("a/", "b/") else target
+
+
+def changed_paths(patch: str) -> tuple[list[str], list[str]]:
+    """`(present, absent)` — what the delivered tree HAS, and what it does not.
+
+    **The reconstruction needs both halves and only ever had one.** The scratch
+    copy is a worktree detached at HEAD, so it starts as the tree BEFORE the
+    change; the delivered files are copied over it. That set used to come from
+    `changed_lines`, which by construction records ADDED lines only — so a
+    delivery that DELETED a file, or that only removed lines from one, left
+    HEAD's version of it sitting in the scratch copy.
+
+    Two consequences, both in the direction this lane must never fail in. The
+    control run then passes against a hybrid tree that is not the change. And
+    an obsolete test the delivery removed is still there to catch mutants, so
+    every mutant it catches is recorded as caught by a check that no longer
+    exists — caught-count inflation, which is the whole number this lane
+    reports.
+
+    A rename appears as `--- a/old` / `+++ b/new`, so `old` is absent too.
+    """
+    present: list[str] = []
+    absent: list[str] = []
+    old: str | None = None
+    for line in patch.splitlines():
+        if line.startswith("--- "):
+            old = _diff_path(line[4:].strip())
+            continue
+        if line.startswith("+++ "):
+            new = _diff_path(line[4:].strip())
+            if new is None:
+                if old is not None:
+                    absent.append(old)
+            else:
+                present.append(new)
+                if old is not None and old != new:
+                    absent.append(old)
+            old = None
+    kept = set(present)
+    return sorted(kept), sorted(set(absent) - kept)
+
+
 def _is_comment(text: str) -> bool:
     stripped = text.strip()
     return not stripped or stripped.startswith(_COMMENT_PREFIXES)
@@ -477,9 +524,25 @@ def falsify(
         # worktree is detached at HEAD and carries tracked files only, so the
         # changed files are copied over it — that IS the tree the gates just
         # passed against, and it is what a mutant has to be a mutation OF.
-        touched = sorted({path for path, _, _ in changed_lines(patch)})
+        # **Every path the diff names, both halves.** `changed_lines` records
+        # ADDED lines only, so the reconstruction used to leave HEAD's copy of
+        # any deleted file — and of any file the change only removed lines
+        # from — sitting in the scratch copy. Measured on a three-file diff:
+        # a deleted file and a pure-deletion hunk both yielded
+        # `touched: ['keep.py']`, so an obsolete test the delivery REMOVED was
+        # still present to catch mutants, and every mutant it caught was
+        # recorded as caught by a check that no longer exists.
+        present, absent = changed_paths(patch)
+        for relative in absent:
+            gone = worktree / relative
+            if gone.is_file() or gone.is_symlink():
+                gone.unlink()
+        # Only files the delivery still HAS can carry a mutation.
+        touched = sorted(
+            set(present) & {path for path, _, _ in changed_lines(patch)}
+        )
         originals: dict[str, str] = {}
-        for relative in touched:
+        for relative in present:
             source = root / relative
             try:
                 originals[relative] = source.read_text(encoding="utf-8")

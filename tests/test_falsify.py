@@ -447,6 +447,111 @@ def test_A_CHANGE_THAT_ADDS_ITS_OWN_CHECK_IS_STILL_MEASURABLE(
     )
 
 
+def test_A_CHECK_THE_DELIVERY_WEAKENED_CANNOT_CATCH_ANYTHING(
+    both_sides, capsys
+):
+    """**The scratch copy is the DELIVERED tree, removals included.**
+
+    The worktree is detached at HEAD, so it starts as the tree before the
+    change and the delivered files are copied over it. That set came from
+    `changed_lines`, which by construction records ADDED lines only — so a
+    file the delivery only REMOVED lines from was never copied, and HEAD's
+    version of it stayed in the scratch copy. Measured on a three-file diff
+    before the fix: a deleted file and a pure-deletion hunk both yielded
+    `touched: ['keep.py']`.
+
+    The consequence runs in the one direction this lane must never fail in.
+    Here the delivery deletes the boundary assertion from the gate's own
+    check — a pure-removal hunk, so nothing was added and the file was
+    invisible to the old reader. HEAD's stronger check then caught the
+    `>=` -> `>` mutant, and the record said the delivered checks caught it.
+    They do not: the assertion that caught it is not in the delivered tree.
+
+    A survivor is a finding about the CHECKS, so a caught count inflated by
+    the reconstruction is this lane reporting the opposite of its own job.
+    """
+    weakened = "\n".join(
+        line for line in CHECK.splitlines()
+        if "covered(3)" not in line
+    ) + "\n"
+    (both_sides / "check.py").write_text(weakened, encoding="utf-8")
+
+    recorded = measured(both_sides)
+    capsys.readouterr()
+
+    # The delivered check no longer exercises the boundary, so nothing in the
+    # delivered tree catches this mutant.
+    boundary = [
+        a for a in recorded["attempts"] if a["mutation"] == "'>=' -> '>'"
+    ]
+    assert boundary, recorded["attempts"]
+    assert all(a["survived"] for a in boundary), (
+        "a mutant was recorded CAUGHT by an assertion this delivery removed: "
+        f"{boundary}"
+    )
+    assert recorded["counts"]["caught"] == 0, recorded["counts"]
+
+
+def test_A_FILE_THE_DELIVERY_DELETED_IS_GONE_FROM_THE_SCRATCH_COPY(
+    both_sides, capsys
+):
+    """The other half of the reconstruction: an outright deletion.
+
+    A pure-removal hunk was invisible to the old reader; so was a deleted
+    file, whose `+++` side is `/dev/null`. HEAD's copy therefore survived in
+    the scratch tree, and the control — "the bound checks pass on a scratch
+    copy of THIS CHANGE" — was asserted about a hybrid that is not the change.
+
+    Driven on something a gate can see: the delivery removes `legacy.py` and
+    the check refuses to pass while it exists. On the changed tree that is
+    green; in a scratch copy that still carries HEAD's `legacy.py` the control
+    fails and the whole run is `inconclusive`, which is the shipped defect
+    made visible without reading any internal state.
+    """
+    (both_sides / "legacy.py").write_text("# superseded\n", encoding="utf-8")
+    # ONLY `legacy.py`: the fixture's own uncommitted change to `rules.py` is
+    # what supplies the mutable lines, so `git add -A` here would commit it
+    # and the run would have nothing to mutate.
+    subprocess.run(["git", "add", "legacy.py"], cwd=both_sides, check=True,
+                   capture_output=True)
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@e.invalid",
+         "-c", "commit.gpgsign=false", "commit", "-m", "legacy"],
+        cwd=both_sides, check=True, capture_output=True,
+    )
+    (both_sides / "legacy.py").unlink()
+    (both_sides / ".wringer.yaml").write_text(
+        CONFIG.replace(
+            'run: "python3 check.py"',
+            'run: "test ! -e legacy.py && python3 check.py"',
+        ),
+        encoding="utf-8",
+    )
+
+    recorded = measured(both_sides)
+    capsys.readouterr()
+
+    assert recorded["verdict"] == "measured", (
+        "the control ran against a tree still carrying a file the delivery "
+        f"deleted: {recorded['verdict']} — {recorded.get('reason')}"
+    )
+
+
+def test_changed_paths_names_both_halves_of_the_diff():
+    """Unit, because the reconstruction rests entirely on this partition and
+    a diff is cheap to state exactly. Deletion, pure-removal hunk, rename."""
+    patch = (
+        "--- a/gone.py\n+++ /dev/null\n@@ -1,2 +0,0 @@\n-one\n-two\n"
+        "--- a/trimmed.py\n+++ b/trimmed.py\n@@ -1,3 +1,2 @@\n one\n-two\n three\n"
+        "--- a/old.py\n+++ b/new.py\n@@ -1 +1 @@\n-a\n+b\n"
+    )
+    present, absent = falsify.changed_paths(patch)
+    assert present == ["new.py", "trimmed.py"], present
+    assert absent == ["gone.py", "old.py"], absent
+    # ...and the old reader saw only the one file that gained a line.
+    assert sorted({p for p, _, _ in falsify.changed_lines(patch)}) == ["new.py"]
+
+
 def test_A_MUTANT_IS_NEVER_JUDGED_BESIDE_A_PREVIOUS_ONE(tmp_path, monkeypatch):
     """**One mutation at a time, across FILES as well as within one.**
 

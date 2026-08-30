@@ -74,7 +74,10 @@ INCONCLUSIVE = "inconclusive"
 # verification it is meant to strengthen.
 SETUP_TIMEOUT_SECONDS = 900
 
-_FIX = "write a test that fails without your change"
+# The one sentence this whole feature exists to make somebody read.
+# **Public**: `cli` renders it on a converged-but-vacuous loop (D3), so a
+# second copy of it there would be the drift this module keeps finding.
+FIX = "write a test that fails without your change"
 
 
 @dataclass
@@ -141,6 +144,7 @@ def prove(
     bundle_dir: Path,
     dirty: bool,
     redactor: Redactor | None = None,
+    serial: bool = False,
 ) -> Result:
     """Run the declared gates against the pre-change tree and compare.
 
@@ -245,34 +249,47 @@ def prove(
                 continue
             comparable.append((index, gate, changed))
 
-        # CONCURRENTLY, and this is the one place in the program where that is
-        # free. `--prove` runs every gate a second time in the scratch tree,
-        # so it is pure duplicated cost on the critical path — and unlike the
-        # changed-tree run, nothing published compares these durations to
-        # anything. `wring verify` stays serial precisely because its
-        # `duration_ms` IS compared, by health, across the window
-        # (WRINGER_SPEED_PLAN §2 and §4 R1); a guard test keeps the two apart.
+        # **Grouped by what the REPOSITORY declared, exactly as the
+        # changed-tree pass is.** Until this landed, every pre-change gate ran
+        # 8-way concurrent whatever `gates[].concurrent` said, and `--serial`
+        # could not reach here at all — the flag that TIGHTENS was unable to.
         #
-        # Measured on four one-second gates: 4.07s serial, 1.03s on four
-        # workers. Threads rather than processes because the wait here is a
-        # subprocess, which releases the GIL — the same reason the same trick
-        # gave nothing for health's JSON parsing.
+        # The old comment argued the concurrency was free because nothing
+        # published compares these durations. That answered the timing hazard
+        # and not the interference one: two gates the repo never declared safe
+        # together — one port, one `.coverage`, one temp fixture, one database
+        # — pass serially on the changed tree and FAIL side by side in the
+        # scratch tree. `sensitive` is `changed.passed and not pre.passed`, so
+        # the verdict comes back PROVEN and the evidence was manufactured by
+        # the runner. SPEC_PERF §3 R3 rules exactly this out by name: a flag
+        # that widened "would let an operator overlap gates the repository
+        # never declared safe". This widened unconditionally, for every repo,
+        # with no way to tighten.
+        #
+        # The measured win is kept where it was declared: a repo that says
+        # `concurrent: true` still gets it, in both trees, from one function.
         rows: list[GateRow] = []
-        if comparable:
-            with ThreadPoolExecutor(max_workers=min(len(comparable), 8)) as pool:
+        changed_for = {index: changed for index, _, changed in comparable}
+
+        def compare(entry: tuple[int, config.Gate]) -> GateRow:
+            index, gate = entry
+            return _compare(
+                gate, index, changed_for[index], worktree, logs, bundle_dir,
+                redactor,
+            )
+
+        for group in gates.group_gates(
+            [(index, gate) for index, gate, _ in comparable], serial=serial
+        ):
+            if len(group) == 1:
+                rows.append(compare(group[0]))
+                continue
+            with ThreadPoolExecutor(max_workers=min(len(group), 8)) as pool:
                 # `map` preserves INPUT order, so the rows land in declared
                 # order rather than completion order. `vacuity.json` is a
                 # published artifact and a set of rows that reshuffled itself
                 # per run would be non-deterministic evidence.
-                rows = list(
-                    pool.map(
-                        lambda item: _compare(
-                            item[1], item[0], item[2], worktree, logs,
-                            bundle_dir, redactor,
-                        ),
-                        comparable,
-                    )
-                )
+                rows.extend(pool.map(compare, group))
     finally:
         # Pass, fail or Ctrl-C — the scratch tree goes.
         fleet.remove_worktree(root, worktree)
@@ -308,7 +325,7 @@ def prove(
         reason=(
             f"every required gate passed without the change too "
             f"({', '.join(row.gate_id for row in rows)}), so they proved "
-            f"nothing about it — {_FIX}"
+            f"nothing about it — {FIX}"
         ),
         rows=rows,
         worktree_ms=worktree_ms,
@@ -415,17 +432,17 @@ def write(bundle_dir: Path, result: Result) -> Path:
 def read_verdict(run_dir: Path) -> Result | None:
     """The recorded verdict, or None when the run never proved anything.
 
-    Total by construction: a bundle whose `vacuity.json` cannot be read is
-    treated as one that has none. The refusal downstream is for a run that
-    MEASURED and came back saying nothing was proven, and a damaged file is
-    not that.
+    **The convenience form, derived from `evidence.read_sidecar`.** It
+    answers "what did this run prove", which is what `health` and `accept`
+    need, and it cannot tell absent from unreadable.
+
+    The caller who MUST tell them apart is `deliver`: a damaged `vacuity.json`
+    silently removed the `gates_vacuous` refusal, so a run that MEASURED the
+    tautology delivered if one byte of its record was damaged. That caller
+    reads the sidecar itself and refuses on `unreadable` (D2).
     """
-    path = run_dir / VACUITY_FILENAME
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return None
-    if not isinstance(raw, dict) or not isinstance(raw.get("verdict"), str):
+    raw = evidence.read_sidecar(run_dir / VACUITY_FILENAME).payload
+    if raw is None or not isinstance(raw.get("verdict"), str):
         return None
     rows = []
     for entry in raw.get("gates", []) or []:
@@ -462,7 +479,7 @@ def refusal_message(run_name: str, result: Result, vacuity_path: str) -> str:
     return (
         f"refusing to deliver {run_name} — it recorded `{GATES_VACUOUS}`. "
         f"{named} passed on the pre-change tree too, so they proved nothing "
-        f"about this change. The fix is to {_FIX}, then verify again; both "
+        f"about this change. The fix is to {FIX}, then verify again; both "
         f"trees' output is in {vacuity_path}/ if you want to see why. There is "
         "no flag for this — make the evidence better, not the check weaker"
     )

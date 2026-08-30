@@ -387,3 +387,38 @@ def _stop(proc: subprocess.Popen, hard: bool) -> None:
     os.killpg(
         os.getpgid(proc.pid), signal.SIGKILL if hard else signal.SIGTERM
     )
+
+
+Group = list[tuple[int, Gate]]
+
+
+def group_gates(
+    planned: list[tuple[int, Gate]], serial: bool = False
+) -> list[Group]:
+    """Partition the planned gates into groups that run together.
+
+    A group is one gate, or a **maximal run of CONSECUTIVE** `concurrent: true`
+    gates. Consecutive is the whole rule: collecting every concurrent gate into
+    one group wherever it sat would reorder them relative to the serial gates
+    between, and declared order is a contract — the config decides what runs
+    cheapest first.
+
+    A repo that declared no concurrency gets one group per gate, which is the
+    loop that shipped.
+
+    `serial=True` — `wring verify --serial` — collapses every group to one gate.
+    It TIGHTENS and there is deliberately no flag that widens: a `--jobs N` would
+    let an operator overlap gates the repository never declared safe to overlap,
+    from outside the only file that knows whether they interfere.
+    """
+    if serial:
+        return [[entry] for entry in planned]
+
+    groups: list[Group] = []
+    for entry in planned:
+        _, gate = entry
+        if gate.concurrent and groups and groups[-1][-1][1].concurrent:
+            groups[-1].append(entry)
+        else:
+            groups.append([entry])
+    return groups

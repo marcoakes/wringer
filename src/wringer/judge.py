@@ -207,6 +207,27 @@ def parse_response(body: Any, rubric: Rubric) -> Verdict:
         content = body["choices"][0]["message"]["content"]
         parsed = json.loads(_strip_fences(content))
         answers = {a["id"]: a for a in parsed["criteria"]}
+        # **A duplicated id is refused, not resolved.** The comprehension
+        # above is last-wins, so a reply carrying the same criterion twice —
+        # `{"id": "x", "met": false}` and then `{"id": "x", "met": true}` —
+        # had its `fail` silently overwritten by its own later line, and the
+        # model decided which of its two answers Wringer read. Nothing else
+        # in the program lets the thing being judged pick the reading.
+        #
+        # `needs_human`, like every other failure to understand a reply: "the
+        # evidence says no" and "the reply is ambiguous" are different claims,
+        # and choosing either answer here would be inventing one.
+        seen = [a["id"] for a in parsed["criteria"]]
+        if len(seen) != len(set(seen)):
+            repeated = sorted({one for one in seen if seen.count(one) > 1})
+            return Verdict(
+                NEEDS_HUMAN,
+                note=(
+                    "the reply answered "
+                    f"{', '.join(repeated)} more than once, so which answer it "
+                    "meant is the model's choice rather than a reading"
+                ),
+            )
     except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError):
         return Verdict(NEEDS_HUMAN, note="the reply could not be parsed")
 

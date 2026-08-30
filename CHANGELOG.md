@@ -4,6 +4,97 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.4 — 2026-08-30
+
+**The red is earned.** Phase 1 of the receipt window, closing six paths by
+which a green criterion could carry a red it did not earn, and the two
+delivery interlocks that failed open on a damaged record.
+
+### A committed bundle is not a receipt (D1)
+
+`search_roots` includes `.wringer.example/` and `Bundle.qualifying` excluded
+only bench-sourced bundles, so a bundle **checked into git** qualified.
+Measured before the fix: copy `.wringer.example/` alone into an empty
+directory — a fresh clone, `.wringer/` absent — and `accept` returned
+`('test','pytest -q') -> Receipt(kind='failure')` from
+`.wringer.example/runs/20260809-132737-4355`, whose `002_test` row is
+`failed, exit 1`. Any user binding a criterion to a gate named `test` read
+"every green on this board was red first" off a file that arrived with the
+clone.
+
+`Bundle` gains `committed`, decided by position as `bench_sourced` is. Both
+are still read, and now **itemised**: the human report names each
+non-qualifying bundle and why. `--json` is byte-identical —
+`wringer.health.v1`'s `coverage.counts` is frozen, so the new fact waits for
+a version rather than growing a quiet key.
+
+### The witness lane
+
+- **A skipped witness is never recorded passed.** `Execution.passed` was
+  `exit_code == 0`, and pytest exits 0 when everything was skipped,
+  deselected or never collected. The pin covers the witness's bytes, command
+  and path — not the pytest *configuration*, which the worker owns. Green is
+  an observation now: the probe records a mark off a passing call-phase
+  report.
+- **`run.prove_setup` runs in the proving worktree**, the control `vacuity`
+  has had since 2026-08-11 and SPEC_GATEGEN W8 already required. A failing
+  setup discards every row with the failure cited; an absent one is disclosed.
+
+### The scratch-tree runner
+
+Pre-change gates ran 8-way concurrent whatever `gates[].concurrent` said, and
+`--serial` could not reach them. Two gates a repo never declared safe together
+fail side by side in the scratch tree, and `sensitive` is `changed.passed and
+not pre.passed` — so the runner manufactured `proven`. Measured: the second
+row's citation became `mkdir: .excl: File exists`. One runner now, honouring
+the declaration in both trees.
+
+### Falsification counts what was delivered
+
+The reconstruction copied only files with ADDED lines, so a deleted file — or
+one the change only removed lines from — kept HEAD's version in the scratch
+copy. An obsolete check the delivery removed was still there to catch mutants,
+and every mutant it caught was recorded as caught. `changed_paths` names both
+halves of the diff.
+
+### The judge cannot overwrite its own answer
+
+Duplicate criterion ids in a model reply were last-wins, so the thing being
+judged chose which of its two answers Wringer read. `needs_human`, like every
+other failure to understand a reply.
+
+### An unreadable record refuses (D2)
+
+`accept.read` and `vacuity.read_verdict` returned `None` both for "never
+opted in" and for "present but truncated", and the delivery interlocks
+returned on `None` — so a bundle that had **recorded** refusing rows delivered
+with no refusal and no word. Twenty lines away, `_check_untracked_bytes`
+already said the rule: "an unanswerable check refuses rather than passes".
+One shared three-valued reader, `evidence.read_sidecar`, and two new refusals:
+`acceptance_record_unreadable`, `vacuity_record_unreadable`. Absent still opts
+out.
+
+### Two surfaces that said the wrong thing about red
+
+- `summary.md` rendered `arrived-with-the-work` and
+  `pre-existence-unestablished` rows — both carrying
+  `demonstrated_able_to_fail: True` — under "Bound gates that have never been
+  red". They have their own section and their own sentences now.
+- A loop that converges on vacuous gates **says so on the console** (D3).
+  SPEC_VACUITY §3's "the loop continues" described a mechanism that never
+  existed; the spec bullet is amended, dated, and the disclosure is the code
+  half of that ruling.
+
+### Warm-up
+
+`fleet.run()` gained a `try/finally` — an interrupt left supervisors and their
+workers running detached and a checkout per task on disk — and the fleet's
+scratch path carries the fleet id, as every other lane's already did.
+
+Schema versions unchanged. Twenty-six red-watches by individual reversion;
+three guards were vacuous on the first pass and are recorded in the finish
+report.
+
 ## 0.5.3 — 2026-08-29
 
 **A bug review of 0.5.2, done by running it.** Six probe scripts against real

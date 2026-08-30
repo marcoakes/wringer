@@ -625,6 +625,51 @@ def summary_of(repo: Path) -> str:
     return (latest / "summary.md").read_text(encoding="utf-8")
 
 
+def test_a_gate_whose_red_came_too_late_is_NOT_called_never_red(
+    repo, monkeypatch, capsys
+):
+    """**The summary must not tell a reader the opposite of its own record.**
+
+    `_born_green_section` filtered on `state == UNEVIDENCED and gate_id`,
+    which swept up two other causes. A row with
+    `cause: pre-existence-unestablished` or `arrived-with-the-work` carries
+    `demonstrated_able_to_fail: True` — the record shows the gate CAN fail —
+    and it was rendered under "Bound gates that have never been red" with the
+    sentence "nothing in the record shows it can fail". SPEC_REFUSAL ruling
+    13 names that error exactly: rendering one cause as another "is false and
+    BACKWARDS", here in the one document the person who just installed the
+    gate opens.
+
+    The cause is not dropped either — a cause that reaches no surface is the
+    defect Gate 1 closed. It gets a sentence that is true about it.
+    """
+    write_spec(repo)
+    # The gate exercises a file this change CREATED, so the pre-change tree
+    # fails for the one reason that is not the tree — `arrived-with-the-work`,
+    # which carries `demonstrated_able_to_fail: True`.
+    (repo / "README.md").write_text("x\n", encoding="utf-8")
+    bound_config(repo, command="grep -q FIXED calc.py")
+    commit(repo)
+    (repo / "calc.py").write_text("FIXED\n", encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    row = artifact(repo)["criteria"][0]
+    # **Asserted, never skipped.** A skip here would stand in for a pass and
+    # the guard would say nothing on the day the cause stopped being produced.
+    assert row["state"] == accept.UNEVIDENCED, row
+    assert row["cause"] == accept.CAUSE_ARRIVED_WITH_THE_WORK, row
+    assert row["demonstrated_able_to_fail"] is True, row
+
+    said = " ".join(summary_of(repo).split())
+    assert "should be RED" not in said, said
+    assert "nothing in the record shows it can fail" not in said, said
+    # ...and the cause still reaches the reader, saying the true thing.
+    assert "has been red, and it does not count yet" in said, said
+
+
 def test_a_bound_gate_green_on_its_first_run_is_called_out_in_the_summary(
     repo, monkeypatch, capsys
 ):

@@ -398,12 +398,15 @@ sentences before the policy lands**, which is what this ruling is.
 
 ### Ruling 7 — a closed, public tuple, the constructor requires it, and the guard parses with `ast`
 
-`deliver.py` raises `Refused` at **23 sites**, verified by count at `478494c`
+`deliver.py` raises `Refused` at **25 sites** — 23 at `478494c`, plus the
+two D2 added on 2026-08-29 (`acceptance_record_unreadable`,
+`vacuity_record_unreadable`), verified by count
 and re-counted by the review at its own HEAD. Every one is a prose string plus
 an exit code; there is no enum, no machine-readable record, and a refused
 delivery writes nothing at all.
 
-**`deliver.REFUSAL_REASONS`** becomes a public tuple of 23 names, and
+**`deliver.REFUSAL_REASONS`** becomes a public tuple of 25 names (23 at the
+time of this ruling; AMENDED 2026-08-29 by D2), and
 `Refused.__init__` (`deliver.py:68-70`) takes `reason` as a **required**
 argument.
 
@@ -416,6 +419,8 @@ argument.
 | `tree_moved` | `262` | **evidence** |
 | `tracked_contents_differ` | `284` | **evidence** |
 | `untracked_record_unreadable` | `332` | **evidence** |
+| `acceptance_record_unreadable` | `857` | **evidence** — AMENDED 2026-08-29, D2 |
+| `vacuity_record_unreadable` | `672` | **evidence** — AMENDED 2026-08-29, D2 |
 | `untracked_record_unknown_version` | `349` | **evidence** — an unanswerable check refuses rather than passes |
 | `files_unreadable_at_verify` | `359` | **evidence** |
 | `unsupported_file_type` | `367` | machine/tree |

@@ -2173,11 +2173,56 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
                 subsequent_indent="  ",
             )
         )
+    _report_converged_but_vacuous(outcome)
     _report_diagnosis(outcome, root)
     _report_worker_diagnosis(outcome)
     print(f"Loop evidence: {_relative(outcome.directory, root)}/")
     if not outcome.converged and outcome.final is not None:
         print(f"Last verification: {verify.bundle_path(outcome.final.bundle, root)}/")
+
+
+def _report_converged_but_vacuous(outcome: loop.Outcome) -> None:
+    """A loop that converged on gates which could not have failed says so HERE.
+
+    **D3 of the 2026-08-29 disposition, and it is the code half of a ruling
+    whose other half moved a spec bullet.** SPEC_VACUITY §3 said a
+    converged-but-vacuous iteration "does not converge … and the loop
+    continues". No such mechanism ever existed — `loop.py` has never imported
+    `vacuity` — so the lap converged, `wring run` exited 0 and printed
+    "Converged in N iterations", and the tautology surfaced much later when
+    `wring deliver` refused the same bundle for a reason nothing had
+    mentioned.
+
+    Routing the loop on the verdict was ruled AGAINST: it would be a new
+    refusal cycle with no body count, a worker cannot reliably de-vacuous a
+    gate, and the loop would spend budget it cannot spend well. The
+    enforcement point stays delivery. What was missing was not enforcement
+    but a sentence, and this is that sentence — the same lesson
+    `_report_vacuity` records for `wring verify`: everything a reader needed
+    was on disk and none of it was in front of them.
+
+    Silent unless the loop CONVERGED and the verdict is `gates_vacuous`: a
+    run that stopped has louder problems, and a repo that never opted in must
+    not be nagged.
+    """
+    from wringer import vacuity as vacuity_module
+
+    if not outcome.converged or outcome.final is None:
+        return
+    result = outcome.final.vacuity
+    if getattr(result, "verdict", None) != vacuity_module.GATES_VACUOUS:
+        return
+    insensitive = ", ".join(f"`{one}`" for one in result.insensitive)
+    print(
+        "! "
+        + textwrap.fill(
+            f"The gates passed, and {insensitive} would have passed WITHOUT "
+            "this change — so nothing here tested it. `wring deliver` will "
+            "refuse this bundle. " + vacuity_module.FIX.capitalize() + ".",
+            width=78,
+            subsequent_indent="  ",
+        )
+    )
 
 
 def _relative(path: Path, root: Path) -> str:

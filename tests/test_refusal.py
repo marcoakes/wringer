@@ -62,6 +62,121 @@ def only_record(root: Path) -> dict:
     return json.loads(found[0].read_text(encoding="utf-8"))
 
 
+SPEC_FOR_ACCEPTANCE = """\
+schema_version: wringer.spec.v1
+approved: true
+title: Something is asked for
+intent: So that an acceptance record exists to damage.
+tasks:
+  - id: build
+    brief: Build it
+    objective: It works.
+criteria:
+  - id: it-works
+    title: It works
+    required: true
+"""
+
+
+def _approve_a_spec(repo: Path) -> None:
+    """An approved spec, which is what makes `verify` write `acceptance.json`
+    at all. The criterion is UNBOUND, so it refuses nothing — the record's
+    mere existence is the subject here, not its verdict."""
+    (repo / "wringer.spec.yaml").write_text(
+        SPEC_FOR_ACCEPTANCE, encoding="utf-8"
+    )
+
+
+def test_an_unreadable_acceptance_record_REFUSES_rather_than_delivering(
+    delivery_repo, monkeypatch, capsys
+):
+    """**D2, and it is the interlock the product's central claim rests on.**
+
+    `accept.read` collapsed three causes into one `None`: no approved spec (a
+    genuine opt-out), the file absent (the same), and the file PRESENT BUT
+    TRUNCATED — disk full mid-write, a SIGKILL, a partial CI artifact restore.
+    `_refuse_unevidenced_acceptance` returned on `None`, so a bundle that had
+    RECORDED `refuses: true` rows delivered with no refusal and no word.
+
+    Twenty lines over, `_check_untracked_bytes` already refuses on an
+    unreadable record and says why: "an unanswerable check refuses rather
+    than passes". One file, two policies, and the fail-open one guarded the
+    claim.
+    """
+    repo = delivery_repo
+    _approve_a_spec(repo)
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert run_dir is not None
+    written = run_dir / evidence.ACCEPTANCE_FILENAME
+    assert written.is_file(), "the fixture records no acceptance at all"
+    # Truncated, not deleted: absent is an opt-out and stays one.
+    written.write_text(
+        written.read_text(encoding="utf-8")[:20], encoding="utf-8"
+    )
+
+    assert cli.main(["deliver"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "acceptance_record_unreadable"
+
+
+def test_an_unreadable_vacuity_record_REFUSES_rather_than_delivering(
+    delivery_repo, monkeypatch, capsys
+):
+    """The same shape, one refusal over.
+
+    `vacuity.read_verdict` returned `None` both for "this repo never opted
+    in" and for "the file that says GATES_VACUOUS is damaged", and
+    `_check_not_vacuous` returned on `None`. A run that MEASURED the tautology
+    delivered if one byte of its record was damaged.
+    """
+    from wringer import vacuity
+
+    repo = delivery_repo
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify", "--prove"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert run_dir is not None
+    written = run_dir / vacuity.VACUITY_FILENAME
+    assert written.is_file(), "the fixture proved nothing, so there is no record"
+    written.write_text("{ not json", encoding="utf-8")
+
+    assert cli.main(["deliver"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "vacuity_record_unreadable"
+
+
+def test_an_ABSENT_record_is_still_an_opt_out(
+    delivery_repo, monkeypatch, capsys
+):
+    """The other half of the boundary, and the reason this is three-valued
+    rather than two. Absent is a fact about configuration and opts out;
+    unreadable is an instrument failure and never wears a favourable verdict.
+    Refusing on absence would refuse every repo that never heard of the
+    feature."""
+    from wringer import vacuity
+
+    repo = delivery_repo
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert run_dir is not None
+    for name in (evidence.ACCEPTANCE_FILENAME, vacuity.VACUITY_FILENAME):
+        if (run_dir / name).exists():
+            (run_dir / name).unlink()
+
+    assert cli.main(["deliver"]) == cli.EXIT_OK, capsys.readouterr().err
+    capsys.readouterr()
+    assert not refusal_records(repo)
+
+
 def raise_sites() -> list[ast.Raise]:
     """Every `raise Refused(...)` in `deliver.py`, parsed rather than grepped."""
     tree = ast.parse(SOURCE.read_text(encoding="utf-8"), filename=str(SOURCE))
@@ -97,8 +212,8 @@ def test_every_refusal_site_names_a_reason():
     """§4 ruling 7. A site that raises without a name is a refusal no machine
     can tell from any other, and the whole slice is that they can."""
     sites = raise_sites()
-    assert len(sites) == 23, (
-        f"expected 23 `raise Refused(` sites in {SOURCE.name}, found "
+    assert len(sites) == 25, (
+        f"expected 25 `raise Refused(` sites in {SOURCE.name}, found "
         f"{len(sites)} at lines {[n.lineno for n in sites]} — if a refusal was "
         "added or removed, docs/specs/SPEC_REFUSAL_V0.md §4's table and "
         "deliver.REFUSAL_REASONS both move with it"

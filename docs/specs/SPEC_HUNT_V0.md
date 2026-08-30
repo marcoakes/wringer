@@ -387,7 +387,7 @@ The full evidence set is: **the gates that ran in this verify** — `planned` in
 - Scoped-out and skipped gates are **not** in the set. A gate that did
   not run on the operator's tree cannot be asked whether it notices something,
   and asking it would redden the baseline lap on a healthy run.
-- **Optional gates are excluded by ruling**, following `vacuity.py:241-245`:
+- **Optional gates are excluded by ruling**, following `vacuity.py:245-249`:
   *"Proving an OPTIONAL gate is out of scope by ruling: it does not decide the
   outcome."*
 - A `proves:`-bound gate that was scoped out is **recorded as absent**, with its

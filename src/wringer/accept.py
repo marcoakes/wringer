@@ -1274,14 +1274,16 @@ def write(bundle_dir: Path, result: Result, redactor: Redactor | None = None) ->
 def read(bundle_dir: Path) -> dict[str, Any] | None:
     """The recorded artifact, or None when the repo never opted in.
 
-    Total by construction, exactly like `vacuity.read_verdict`: a bundle
-    whose artifact cannot be read is treated as one that has none. The
-    refusal downstream is for a bundle that RECORDED an unevidenced criterion,
-    and a damaged file is not that.
+    **The convenience form, and it is derived — one line over
+    `evidence.read_sidecar`.** It answers "what does this bundle say", which
+    is all its callers here and in `certificate` need, and it deliberately
+    cannot tell absent from unreadable.
+
+    The caller who MUST tell them apart is `deliver`, because a damaged
+    record silently removed the acceptance interlock: the bundle recorded
+    `refuses: true` rows and delivery proceeded with no refusal and no word.
+    That caller reads the sidecar itself and refuses on `unreadable` (D2).
     """
-    path = bundle_dir / ACCEPTANCE_FILENAME
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError, UnicodeDecodeError):
-        return None
-    return raw if isinstance(raw, dict) else None
+    return evidence_module.read_sidecar(
+        bundle_dir / ACCEPTANCE_FILENAME
+    ).payload

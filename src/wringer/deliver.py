@@ -71,7 +71,7 @@ class DeliverError(Exception):
 # because a test can only force totality from a symbol it can import.
 #
 # Both directions are guarded in `tests/test_refusal.py`: every site names one
-# of these (parsed with `ast`, never grepped — 21 of the 23 raises span lines),
+# of these (parsed with `ast`, never grepped — all but two of them span lines),
 # and every name here is raised somewhere. A name nothing raises is dead text
 # that reads as coverage.
 #
@@ -86,6 +86,8 @@ REFUSAL_REASONS = (
     "tree_moved",
     "tracked_contents_differ",
     "untracked_record_unreadable",
+    "acceptance_record_unreadable",
+    "vacuity_record_unreadable",
     "untracked_record_unknown_version",
     "files_unreadable_at_verify",
     "unsupported_file_type",
@@ -659,6 +661,23 @@ def _check_not_vacuous(run_dir: Path) -> None:
     """
     from wringer import vacuity
 
+    # **Absent opts out; UNREADABLE refuses** (D2, 2026-08-29). These are two
+    # different facts and this function used to have one answer for both: a
+    # run that MEASURED `gates_vacuous` delivered if a byte of its record was
+    # damaged, silently. `_check_untracked_bytes` in this same file already
+    # says the rule — "an unanswerable check refuses rather than passes" — and
+    # it was the interlocks that had the other policy.
+    sidecar = evidence.read_sidecar(run_dir / vacuity.VACUITY_FILENAME)
+    if sidecar.unreadable:
+        raise Refused(
+            f"{run_dir.name} recorded a `--prove` pass but "
+            f"{vacuity.VACUITY_FILENAME} cannot be read ({sidecar.why}). That "
+            "run's verdict cannot be established, so whether its gates could "
+            "have failed is unknown — and an unanswerable check refuses "
+            "rather than passes. Re-run `wring verify --prove`",
+            1,
+            reason="vacuity_record_unreadable",
+        )
     recorded = vacuity.read_verdict(run_dir)
     if recorded is None or recorded.verdict != vacuity.GATES_VACUOUS:
         return
@@ -827,7 +846,24 @@ def _check_acceptance(run_dir: Path, root: Path) -> None:
     """
     from wringer import accept
 
-    recorded = accept.read(run_dir)
+    # **Absent opts out; UNREADABLE refuses** (D2, 2026-08-29). A bundle that
+    # RECORDED `refuses: true` rows delivered with no refusal and no word if
+    # its `acceptance.json` was truncated — disk full mid-write, a SIGKILL, a
+    # partial CI artifact restore. `_check_untracked_bytes` twenty lines over
+    # already refuses on an unreadable record and says why; the interlock the
+    # product's central claim rests on had the opposite policy.
+    sidecar = evidence.read_sidecar(run_dir / accept.ACCEPTANCE_FILENAME)
+    if sidecar.unreadable:
+        raise Refused(
+            f"{run_dir.name} carries an acceptance record but "
+            f"{accept.ACCEPTANCE_FILENAME} cannot be read ({sidecar.why}). "
+            "Whether that run's spec was satisfied is unknown, and an "
+            "unanswerable check refuses rather than passes. Re-run "
+            "`wring verify`",
+            1,
+            reason="acceptance_record_unreadable",
+        )
+    recorded = sidecar.payload
     if recorded is None:
         return
     refusing = [

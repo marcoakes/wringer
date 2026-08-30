@@ -429,6 +429,18 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "could not be read.",
         "Nothing is needed from you; an engineer has to look at the evidence.",
     ),
+    (DELIVERY_REFUSAL, "acceptance_record_unreadable"): Saying(
+        "The handover is being held because the record of what this work was "
+        "meant to satisfy could not be read.",
+        "Nothing is needed from you; the checks have to be run again so the "
+        "record can be written afresh.",
+    ),
+    (DELIVERY_REFUSAL, "vacuity_record_unreadable"): Saying(
+        "The handover is being held because the record of whether the checks "
+        "could have failed could not be read.",
+        "Nothing is needed from you; the checks have to be run again so the "
+        "record can be written afresh.",
+    ),
     (DELIVERY_REFUSAL, "untracked_record_unknown_version"): Saying(
         "The handover is being held because the record of newly added files "
         "is in a format this version does not read.",

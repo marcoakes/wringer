@@ -80,9 +80,30 @@ every line.
   rubric line "a new behaviour needs a test that fails without it" turned
   from a judge's opinion into a machine check.
 - **The loop, when the repo opts in** (`run.prove: true` — see ruling 1):
-  a converged-but-vacuous iteration does not converge; the worker gets a
+  ~~a converged-but-vacuous iteration does not converge; the worker gets a
   brief that says *"write a test that fails without your change"* and the
-  loop continues. The plateau fingerprint already prevents thrash.
+  loop continues. The plateau fingerprint already prevents thrash.~~
+
+  **AMENDED 2026-08-29 (D3 of the 2026-08-29 code-review disposition).**
+  This described a mechanism that never existed: `loop.py` has never
+  imported `vacuity`, and its continuation predicate is `final.passed and
+  not outstanding`, where `outstanding` is witnesses. A lap verdicted
+  `gates_vacuous` converged, `wring run` exited 0 and reported "converged",
+  and the tautology surfaced later at `wring deliver`. `vacuity._FIX`
+  reached the deliver and attest refusals and never a worker.
+
+  **The DOC moves, and the ruling is deliberate rather than a concession.**
+  Routing the loop on the verdict would be a new refusal cycle with no body
+  count: nobody has been hurt by converge-then-refuse, a worker cannot
+  reliably de-vacuous a gate, and the loop would spend budget it cannot
+  spend well. The enforcement point stays delivery, which already refuses
+  `gates_vacuous` — and which, since D2 landed the same day, no longer
+  fails open on a damaged `vacuity.json`.
+
+  **What ships in code instead is DISCLOSURE.** The converged report names
+  the verdict beside the green, so the person learns at the loop rather
+  than at the pen: a run that converged with vacuous gates says so, and
+  says that delivery will refuse it.
 - **`wring deliver` refuses a `gates_vacuous` bundle** — see §3b.
 
 ## 3a. How it is switched on — BINDING (ruling 1)

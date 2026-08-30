@@ -94,6 +94,7 @@ ENGINE_VALUES: dict[str, frozenset[str]] = {
     refusals.GATE_AT_INSTALL: frozenset({"born-green"}),
     refusals.DELIVERY_REFUSAL: frozenset(
         {
+            "acceptance_record_unreadable",
             "acceptance_unevidenced",
             "authority_moved",
             "branch_exists",
@@ -117,6 +118,7 @@ ENGINE_VALUES: dict[str, frozenset[str]] = {
             "untracked_file_moved",
             "untracked_record_unknown_version",
             "untracked_record_unreadable",
+            "vacuity_record_unreadable",
         }
     ),
 }

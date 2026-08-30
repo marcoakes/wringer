@@ -95,6 +95,72 @@ RUNS_DIRNAME = Path(".wringer") / "runs"
 VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
+
+# --- reading an optional bundle record, in the three states it really has ---
+#
+# **D2, 2026-08-29: fail-closed wherever silence is favourable.**
+#
+# Every reader of an optional sidecar used to collapse three causes into one
+# `None`: the repo never opted in (a fact about configuration, and a genuine
+# opt-out), the file is absent (the same thing), and the file is PRESENT BUT
+# UNPARSEABLE (an instrument failure, and not an opt-out at all). Two of those
+# readers gate a delivery refusal, so a truncated `acceptance.json` — disk
+# full mid-write, a SIGKILL, a partial CI artifact restore — silently removed
+# the interlock the product's central claim rests on. The bundle had RECORDED
+# `refuses: true` rows and delivery proceeded with no refusal and no word.
+#
+# Twenty lines from those readers, `deliver._check_untracked_bytes` already
+# applies the opposite policy and says why: "an unanswerable check refuses
+# rather than passes". One file, two policies, and the fail-open one guarded
+# the claim. This is that sentence, made available once so the twelve
+# remaining readers can adopt it rather than each deciding again.
+#
+# `null is not false` is already the rule in `wringer.acceptance.v3`; this is
+# the readers adopting it.
+SIDECAR_ABSENT = "absent"
+SIDECAR_UNREADABLE = "unreadable"
+SIDECAR_PRESENT = "present"
+
+
+@dataclass(frozen=True)
+class Sidecar:
+    """One optional bundle record: which of the three states it is in."""
+
+    state: str
+    payload: dict[str, Any] | None = None
+    #: Why it could not be read. Empty unless `state` is `unreadable` — and it
+    #: names the exception, because a refusal a reader cannot act on is a
+    #: refusal that sends them to a person with nothing to carry.
+    why: str = ""
+
+    @property
+    def absent(self) -> bool:
+        return self.state == SIDECAR_ABSENT
+
+    @property
+    def unreadable(self) -> bool:
+        return self.state == SIDECAR_UNREADABLE
+
+
+def read_sidecar(path: Path) -> Sidecar:
+    """Read one optional JSON record without ever confusing its three states.
+
+    A file that is not there is ABSENT. A file that is there and does not
+    parse, or does not hold an object, is UNREADABLE — never absent, and never
+    silently favourable. Anything else is PRESENT with its payload.
+    """
+    if not path.is_file():
+        return Sidecar(SIDECAR_ABSENT)
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError) as exc:
+        return Sidecar(SIDECAR_UNREADABLE, why=str(exc))
+    if not isinstance(raw, dict):
+        return Sidecar(
+            SIDECAR_UNREADABLE, why="the file does not hold a JSON object"
+        )
+    return Sidecar(SIDECAR_PRESENT, payload=raw)
+
 STABILITY_FILENAME = "stability.json"
 # Which gates ran beside which (SPEC_PERF_V0). Absent when every gate ran
 # alone, which is every bundle written before concurrency existed.

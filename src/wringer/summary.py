@@ -424,25 +424,61 @@ def _born_green_section(acceptance: Any) -> list[str]:
     """
     if acceptance is None:
         return []
-    # `unevidenced` WITH a gate is precisely the born-green case: the unbound
-    # kind carries no gate id at all, and telling a reader to go and look at
-    # a command that does not exist would be the worse of the two mistakes.
+    # **Filtered on the CAUSE, not on `state == UNEVIDENCED and gate_id`.**
+    #
+    # That predicate swept up two other causes and told the reader something
+    # false about both. A row with `cause: arrived-with-the-work` or
+    # `pre-existence-unestablished` carries `demonstrated_able_to_fail: True`
+    # — the record shows the gate CAN fail — and it was being rendered under
+    # "Bound gates that have never been red" with the sentence "nothing in
+    # the record shows it can fail". SPEC_REFUSAL ruling 13 names this error
+    # exactly: rendering one cause as another "is false and BACKWARDS", and
+    # it was happening in the one document the person who just installed the
+    # gate opens.
+    #
+    # The other two are not dropped — a cause that reaches no surface is the
+    # defect Gate 1 closed. They get their own sentences below, which say the
+    # true thing about each.
     born_green = [
         row for row in acceptance.rows
-        if row.state == accept.UNEVIDENCED and row.gate_id
+        if row.state == accept.UNEVIDENCED
+        and row.gate_id
+        and row.cause == accept.CAUSE_BORN_GREEN
     ]
-    if not born_green:
-        return []
-
-    lines = ["", "## Bound gates that have never been red", ""]
-    for row in born_green:
-        lines.append(
-            f"- ⚠ **`{row.gate_id}` should be RED.** It proves "
-            f"`{row.criterion}`, and nothing in the record shows it can fail. "
-            "If the criterion is unmet, a gate that proves it must fail here "
-            "— green means it tests something else, not that the work is "
-            "done."
+    unproven = [
+        row for row in acceptance.rows
+        if row.state == accept.UNEVIDENCED
+        and row.gate_id
+        and row.cause in (
+            accept.CAUSE_ARRIVED_WITH_THE_WORK,
+            accept.CAUSE_PRE_EXISTENCE_UNESTABLISHED,
         )
+    ]
+    lines: list[str] = []
+    if born_green:
+        lines += ["", "## Bound gates that have never been red", ""]
+        for row in born_green:
+            lines.append(
+                f"- ⚠ **`{row.gate_id}` should be RED.** It proves "
+                f"`{row.criterion}`, and nothing in the record shows it can "
+                "fail. If the criterion is unmet, a gate that proves it must "
+                "fail here — green means it tests something else, not that "
+                "the work is done."
+            )
+    if unproven:
+        lines += ["", "## Bound gates whose red came too late to count", ""]
+        for row in unproven:
+            why = (
+                "its command arrived with this change, so the failure in the "
+                "record is not one that pre-dates the work"
+                if row.cause == accept.CAUSE_ARRIVED_WITH_THE_WORK
+                else "the record does not establish that the check existed "
+                "before the work it is proving"
+            )
+            lines.append(
+                f"- ⚠ **`{row.gate_id}` has been red, and it does not count "
+                f"yet.** It proves `{row.criterion}`, and {why}."
+            )
     return lines
 
 
