@@ -670,57 +670,72 @@ def run(
     running: list[_Child] = []
     deadline = time.monotonic() + settings.deadline
 
-    while queue or running:
-        expired = time.monotonic() >= deadline
-        while queue and not expired and len(running) < settings.concurrency:
-            state = queue.pop(0)
-            child = _spawn(root, bundle, state, settings, scope)
-            if child is None:
-                continue
-            running.append(child)
+    try:
+        while queue or running:
+            expired = time.monotonic() >= deadline
+            while queue and not expired and len(running) < settings.concurrency:
+                state = queue.pop(0)
+                child = _spawn(root, bundle, state, settings, scope)
+                if child is None:
+                    continue
+                running.append(child)
 
-        if expired:
-            for child in running:
-                _stop(child)
-                child.state.status = PARKED
-                child.state.reason = "fleet deadline"
-                bundle.event(
-                    "task.parked", task=child.state.task.id, why="deadline"
-                )
-            for state in queue:
-                state.status = PARKED
-                state.reason = "fleet deadline"
-                bundle.event("task.parked", task=state.task.id, why="deadline")
-            running, queue = [], []
-            break
+            if expired:
+                for child in running:
+                    _stop(child)
+                    child.state.status = PARKED
+                    child.state.reason = "fleet deadline"
+                    bundle.event(
+                        "task.parked", task=child.state.task.id, why="deadline"
+                    )
+                for state in queue:
+                    state.status = PARKED
+                    state.reason = "fleet deadline"
+                    bundle.event(
+                        "task.parked", task=state.task.id, why="deadline"
+                    )
+                running, queue = [], []
+                break
 
-        time.sleep(POLL_SECONDS)
-        for child in list(running):
-            if child.proc.poll() is not None:
-                running.remove(child)
-                _settle(bundle, child, settings, queue)
-            elif _is_silent(child, settings):
-                _stop(child)
-                running.remove(child)
-                child.state.status = FAILED
-                child.state.reason = "reaped: no progress in its ledger"
-                bundle.event("task.reaped", task=child.state.task.id)
-                _maybe_retry(bundle, child.state, settings, queue, "no_progress")
-
-    if settings.worktree:
-        # Tidy up every checkout this fleet made. Parked and failed tasks
-        # keep their EVIDENCE — but only because it is COPIED OUT first
-        # (ruling 8). `git worktree remove --force` discards untracked files
-        # and a child's whole `.wringer/` is untracked, so until this landed
-        # the sentence promising the evidence and the call deleting it were
-        # written by the same function. The working copies still go, or a
-        # hundred-task fleet leaves a hundred trees behind.
-        for state in states:
-            if state.worktree:
-                state.preserved = bundle.preserve_loops(
-                    state, Path(state.worktree)
-                )
-                remove_worktree(root, Path(state.worktree))
+            time.sleep(POLL_SECONDS)
+            for child in list(running):
+                if child.proc.poll() is not None:
+                    running.remove(child)
+                    _settle(bundle, child, settings, queue)
+                elif _is_silent(child, settings):
+                    _stop(child)
+                    running.remove(child)
+                    child.state.status = FAILED
+                    child.state.reason = "reaped: no progress in its ledger"
+                    bundle.event("task.reaped", task=child.state.task.id)
+                    _maybe_retry(
+                        bundle, child.state, settings, queue, "no_progress"
+                    )
+    finally:
+        # **Every exit runs this, including Ctrl-C and any raise.** Until it
+        # did, an interrupt left the supervisors AND their workers running
+        # detached — `_spawn` starts them in their own session precisely so a
+        # signal to this process does not reach them — and one checkout per
+        # task on disk. The deadline branch above bounds the ordinary case;
+        # nothing bounded the exceptional one, and a fleet is the command most
+        # likely to be interrupted because it is the one that runs longest.
+        for child in running:
+            _stop(child)
+        running = []
+        if settings.worktree:
+            # Tidy up every checkout this fleet made. Parked and failed tasks
+            # keep their EVIDENCE — but only because it is COPIED OUT first
+            # (ruling 8). `git worktree remove --force` discards untracked
+            # files and a child's whole `.wringer/` is untracked, so until this
+            # landed the sentence promising the evidence and the call deleting
+            # it were written by the same function. The working copies still
+            # go, or a hundred-task fleet leaves a hundred trees behind.
+            for state in states:
+                if state.worktree:
+                    state.preserved = bundle.preserve_loops(
+                        state, Path(state.worktree)
+                    )
+                    remove_worktree(root, Path(state.worktree))
 
     satisfied = _join_satisfied(states, settings.join)
     counts = _counts(states)
@@ -783,7 +798,16 @@ def _spawn(
     scope: Scope | None = None,
 ) -> _Child | None:
     if settings.worktree:
-        made = make_worktree(root, state.task.id)
+        # **The fleet id is part of the path**, as it is for every other lane
+        # that makes a scratch checkout: `prove-<bundle>`, `falsify-<bundle>`,
+        # `witness-<bundle>`, `<bench_id>-<name>`. On the bare task id, a
+        # second `wring fleet` in the same repository — a CI matrix leg, a
+        # re-run of the same spec, two shells — resolved to the SAME path, and
+        # `make_worktree` force-removes a path that exists. The newcomer
+        # deleted a running child's checkout, uncommitted work included. The
+        # three sibling modules each fixed themselves; the one that runs
+        # hundreds of children did not.
+        made = make_worktree(root, f"{bundle.fleet_id}-{state.task.id}")
         if made is None:
             state.status = PARKED
             state.reason = "could not create a git worktree"

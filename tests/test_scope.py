@@ -770,7 +770,12 @@ def test_worktree_teardown_keeps_the_evidence_its_summary_cites(repo):
     ]
     assert len(named) == 2, named
     # The trees really are gone — the claim is about what SURVIVED them.
-    assert not (repo / fleet.WORKTREES_DIRNAME / "t-good").exists()
+    # DERIVED, not a spelled-out path: the scratch path carries the fleet id
+    # now, so a literal `t-good` would be a name nothing ever created and the
+    # assertion would pass for having looked in the wrong place.
+    made = repo / fleet.WORKTREES_DIRNAME
+    left = sorted(p.name for p in made.iterdir()) if made.is_dir() else []
+    assert not left, f"checkouts survived the teardown: {left}"
     missing = [
         (task_id, loop_id)
         for task_id, loop_id in named

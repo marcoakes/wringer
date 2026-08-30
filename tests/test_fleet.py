@@ -442,6 +442,114 @@ run:
     assert before == after, "the fleet wrote git history"
 
 
+def _worktree_repo_at_head(repo: Path) -> None:
+    """A committed repo whose child config passes on the first lap."""
+    import subprocess
+
+    (repo / "work.txt").write_text("FIXED\n", encoding="utf-8")
+    (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    (repo / ".wringer.yaml").write_text(
+        """\
+version: 1
+gates:
+  - id: test
+    run: "grep -q FIXED work.txt"
+run:
+  worker: "true"
+  max_iterations: 1
+""",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "-c", "user.email=t@e.invalid", "-c", "user.name=t",
+         "-c", "commit.gpgsign=false", "commit", "-qm", "base"],
+        cwd=repo, check=True,
+    )
+
+
+def test_two_fleets_in_one_repo_never_ask_for_the_same_worktree_path(
+    repo, monkeypatch, capsys
+):
+    """The scratch path carries the FLEET id, not only the task id.
+
+    Every other lane that makes a scratch checkout already does this —
+    `prove-<bundle>`, `falsify-<bundle>`, `witness-<bundle>`,
+    `<bench_id>-<name>`. The fleet asked for the bare task id, so a second
+    `wring fleet` in the same repository — a CI matrix leg, a re-run of the
+    same spec, two shells — resolved to the SAME path, and `make_worktree`
+    force-removes a path that exists. The newcomer deleted a running child's
+    checkout, uncommitted work included.
+
+    The assertion is the PROPERTY (two fleets, disjoint paths), not the
+    spelling, so a differently-shaped prefix still passes and no prefix at
+    all still fails.
+    """
+    _worktree_repo_at_head(repo)
+    worktree_fleet(repo, [{"id": "solo", "brief": "work.txt", "dir": "."}])
+    monkeypatch.chdir(repo)
+
+    asked: list[list[str]] = []
+    real = fleet.make_worktree
+
+    def recording(root: Path, task_id: str):
+        asked[-1].append(task_id)
+        return real(root, task_id)
+
+    monkeypatch.setattr(fleet, "make_worktree", recording)
+
+    for _ in range(2):
+        asked.append([])
+        assert cli.main(["fleet", "tasks.jsonl"]) == cli.EXIT_OK
+        capsys.readouterr()
+
+    first, second = asked
+    assert first and second, asked
+    assert not set(first) & set(second), (
+        "two fleets asked for the same worktree path, so the second "
+        f"force-removed the first's checkout: {asked}"
+    )
+
+
+def test_an_interrupted_fleet_leaves_no_worktree_behind(
+    repo, monkeypatch, capsys
+):
+    """Every exit tidies up, including the exceptional one.
+
+    Until `run()` had its `try/finally` only the deadline branch bounded
+    anything: a raise or a Ctrl-C left the supervisors and their workers
+    running detached — `_spawn` starts them in their own session precisely so
+    a signal to this process does not reach them — and one checkout per task
+    on disk. A fleet is the command most likely to be interrupted, because it
+    is the one that runs longest.
+    """
+    import subprocess
+
+    _worktree_repo_at_head(repo)
+    worktree_fleet(
+        repo,
+        [{"id": f"t-{n}", "brief": "work.txt", "dir": "."} for n in range(2)],
+    )
+    monkeypatch.chdir(repo)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("the machine had a bad day")
+
+    monkeypatch.setattr(fleet, "_settle", boom)
+
+    with pytest.raises(RuntimeError, match="bad day"):
+        cli.main(["fleet", "tasks.jsonl"])
+    capsys.readouterr()
+
+    listed = subprocess.run(
+        ["git", "worktree", "list"], cwd=repo, capture_output=True, text=True
+    ).stdout
+    assert str(fleet.WORKTREES_DIRNAME) not in listed, listed
+    made = repo / fleet.WORKTREES_DIRNAME
+    survivors = sorted(p.name for p in made.iterdir()) if made.is_dir() else []
+    assert not survivors, f"checkouts left on disk after a raise: {survivors}"
+
+
 def test_worktree_must_be_a_boolean():
     with pytest.raises(config.ConfigError, match="worktree"):
         config.parse(
