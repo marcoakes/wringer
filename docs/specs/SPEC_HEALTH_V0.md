@@ -164,7 +164,8 @@ roots, in this order, each walked recursively:
   and itemised, **labelled `bench` and non-qualifying** (ruling 9);
 - `.wringer.example/` — the committed fixture. Named explicitly because it is
   the oldest bundle in the tree and, `.wringer/` being gitignored, the only
-  one in a fresh clone. It must land in `read`;
+  one in a fresh clone. It must land in `read`; **AMENDED 2026-08-29 — and it
+  is non-qualifying, for the same reason bench evidence is.** See ruling 9;
 - **`--from DIR`**, repeatable — CI artifact restores, other checkouts.
 - **`vacuity.json` inside any run bundle read above** supplies the per-gate
   `sensitive` rows, which are the strongest vitality evidence there is.
@@ -247,6 +248,19 @@ silently absorbed.
   verdicts, leaving the verdict undefined for a gate whose verdict decides
   `--strict`'s exit code.
 - **Bench-sourced runs never qualify** (ruling 9).
+- **Committed runs never qualify** (ruling 9, AMENDED 2026-08-29). A bundle
+  under `.wringer.example/` is checked in, so it arrives in every clone: its
+  rows are evidence about the day somebody ran them and about no reader's
+  machine. Measured on the shipping tree — `.wringer.example/runs/
+  20260809-132737-4355` records `test | failed | 1 | pytest -q`, and in a
+  fresh clone with no `.wringer/` at all that row was handed to `accept` as a
+  discrimination receipt for the pair `('test', 'pytest -q')`. Any user who
+  binds a criterion to a gate named `test` and runs `wring verify` once green
+  then reads "every green on this board was red first" off a file nobody ran.
+  A receipt is earned on this machine or it is not a receipt; this repository
+  has already paid once for git carrying the answer, in the corpus run of
+  2026-08-13. Read and itemised exactly as bench evidence is — the human
+  report names each non-qualifying bundle and why — and deciding nothing.
 - **Interrupted runs** contribute nothing: a gate with no `result.json`
   never finished, and non-evidence is not evidence.
 - **Pre-change failures** from prove passes count as *sensitivity* (the gate

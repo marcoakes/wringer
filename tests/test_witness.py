@@ -140,10 +140,57 @@ def test_anything_that_is_not_a_collected_failure_claims_less(
     assert not item.usable, label
 
 
+def test_a_witness_the_repos_own_conftest_skips_is_never_a_pass(tmp_path):
+    """**Exit 0 is "nothing objected", not "the criterion is satisfied".**
+
+    pytest exits 0 for a run in which every test was skipped, deselected or
+    never collected. The pin covers the witness's BYTES, its command and its
+    path — it does not, and cannot, cover the pytest CONFIGURATION, which the
+    worker owns and rewrites freely. So a root `conftest.py` with an autouse
+    fixture calling `pytest.skip` (or an `addopts` carrying `-k`/`-m`)
+    converted every witness in the repository, and every criterion bound to
+    one read `evidenced` on a check that never executed. Nothing voided,
+    nothing was discarded, and the record simply said `passed`.
+
+    Green is an OBSERVATION the runner makes now — the probe writes a mark off
+    a passing call-phase report — so a run with no observed pass claims less
+    rather than more, which is where a silent zero belongs.
+    """
+    (tmp_path / "conftest.py").write_text(
+        "import pytest\n\n"
+        "@pytest.fixture(autouse=True)\n"
+        "def _skip_everything():\n"
+        "    pytest.skip('the worker owns this file')\n",
+        encoding="utf-8",
+    )
+
+    result = witness.execute(tmp_path, make(PASSING))
+
+    assert result.exit_code == 0, "the premise: pytest reports success"
+    assert result.outcome == witness.COLLECTION_ERROR, result.outcome
+    assert not result.passed, (
+        "a witness that never ran was recorded as evidencing its criterion"
+    )
+
+
+def test_a_witness_that_really_runs_and_passes_is_still_green(tmp_path):
+    """The other half of the boundary. Making green an observation must not
+    make an honest pass unreadable — that would discard every real witness
+    and send every criterion to a human."""
+    result = witness.execute(tmp_path, make(PASSING))
+
+    assert result.exit_code == 0
+    assert result.outcome == witness.GREEN, result.outcome
+    assert result.passed
+
+
 def test_the_classification_is_structural_and_exhaustive():
     """Read off the runner's exit code, never off its message. Measured on
     this machine: 1 failed, 2 import or syntax error, 5 nothing collected."""
     assert witness.classify(0) == witness.GREEN
+    # ...but only when the runner observed a test actually pass. Exit 0 with
+    # nothing run is an unmeasured lap, and it claims less.
+    assert witness.classify(0, observed_pass=False) == witness.COLLECTION_ERROR
     assert witness.classify(1) == witness.ASSERTION
     assert witness.classify(1, frozenset({"ImportError"})) == (
         witness.COLLECTION_ERROR

@@ -294,6 +294,59 @@ def test_bench_sourced_bundles_are_read_but_never_qualify(tmp_path):
         "gate discriminates"
     )
 
+    # **And the VERDICT honours it.** Asserting the flag alone left the
+    # exclusion declared and never taken: `assess` re-derived half the
+    # predicate from `GateRun`, so the day a SECOND reason to disqualify a
+    # bundle arrived (a committed one) the flag said no and the verdict said
+    # alive. A property nobody acts on is a property nobody has.
+    verdicts = {
+        a.pair.gate_id: a.verdict
+        for a in health.assess(coverage, {("test", "pytest -q")})
+    }
+    assert verdicts == {"test": health.UNTESTED}, verdicts
+
+
+def test_a_committed_bundles_failure_is_read_named_and_never_alive(tmp_path):
+    """The second reason a bundle may not decide, and the same three claims.
+
+    `.wringer.example/` is checked in, so it arrives in every clone. Letting
+    its planted failure count would hand a stranger the tagline off a file
+    nobody ran — measured on the shipping tree at
+    `.wringer.example/runs/20260809-132737-4355`, whose `002_test` row is
+    `failed, exit 1`.
+
+    Read, named, and never deciding: all three, because a bundle dropped
+    before classification looks exactly like a clean run, and an exclusion
+    stated nowhere is the silent narrowing this command exists to catch.
+    """
+    write_run(runs_dir(tmp_path) / "real", "real",
+              [{"gate_id": "test", "command": "pytest -q"}])
+    write_run(
+        tmp_path / health.EXAMPLE_DIRNAME / "runs" / "shipped", "shipped",
+        [{"gate_id": "test", "command": "pytest -q", "status": "failed"}],
+    )
+
+    coverage = health.discover(tmp_path)
+    by_id = {bundle.run_id: bundle for bundle in coverage.read}
+
+    assert set(by_id) == {"real", "shipped"}, sorted(by_id)   # read
+    assert by_id["shipped"].committed is True
+    assert by_id["shipped"].qualifying is False
+    assert not coverage.skipped, coverage.skipped
+    assert coverage.discovered == len(coverage.read)
+
+    # named, in the human report a person actually reads
+    page = health.render(coverage, health.assess(coverage))
+    assert "read, decides nothing" in page, page
+    assert "committed to git" in page, page
+
+    # and never deciding
+    verdicts = {
+        a.pair.gate_id: a.verdict
+        for a in health.assess(coverage, {("test", "pytest -q")})
+    }
+    assert verdicts == {"test": health.UNTESTED}, verdicts
+
 
 # --- identity: (id, command), and the sensitivity join ----------------------
 

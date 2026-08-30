@@ -361,7 +361,15 @@ class Execution:
 
     @property
     def passed(self) -> bool:
-        return self.exit_code == 0
+        """**The runner's own observation, not its exit code.**
+
+        `exit_code == 0` is "nothing objected", which pytest also reports for
+        a run where every test was skipped, deselected, or never collected —
+        so a witness that never executed was converted and its criterion read
+        evidenced. `classify` decides `green` from a mark the probe writes off
+        a passing call-phase report, so this reads one fact from one place.
+        """
+        return self.outcome == GREEN
 
 
 @dataclass
@@ -643,15 +651,28 @@ def load(root: Path) -> list[Witness]:
 PROBE_FILENAME = "conftest.py"
 OUTCOME_FILENAME = "outcome.txt"
 
-PROBE_SOURCE = '''\
-"""Written by Wringer. Records the exception CLASS of a failing witness.
+# **The sentinel a passing call-phase report writes.** Deliberately not a
+# valid Python identifier, so it can never collide with an exception class
+# name in the same file and `_raised` can drop it by shape rather than by a
+# hand-kept exclusion list.
+OBSERVED_PASS = "+passed"
 
-Not the message — the class, off the report object, which is a fact the runner
-states about its own run.
+PROBE_SOURCE = '''\
+"""Written by Wringer. Records what the runner OBSERVED, not what it exited.
+
+Two facts, both off the report object, both things the runner states about its
+own run: the exception CLASS of a failing witness (not the message), and that
+a witness actually ran and passed.
 """
 import pathlib
 
 import pytest
+
+
+def _record(text):
+    path = pathlib.Path(__file__).parent / "OUTCOME_FILENAME"
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(text + "\\n")
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -659,10 +680,12 @@ def pytest_runtest_makereport(item, call):
     outcome = yield
     report = outcome.get_result()
     if call.excinfo is not None and report.when in ("setup", "call"):
-        path = pathlib.Path(__file__).parent / "OUTCOME_FILENAME"
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(call.excinfo.type.__name__ + "\\n")
-'''.replace("OUTCOME_FILENAME", OUTCOME_FILENAME)
+        _record(call.excinfo.type.__name__)
+    elif report.when == "call" and report.passed:
+        _record("OBSERVED_PASS")
+'''.replace("OUTCOME_FILENAME", OUTCOME_FILENAME).replace(
+    "OBSERVED_PASS", OBSERVED_PASS
+)
 
 # The exception classes that mean "the check could not find the thing it was
 # written against" rather than "the thing behaved wrongly".
@@ -883,10 +906,14 @@ def execute(
                 "criterion uncovered for a reason that is not about the "
                 "criterion"
             )
-        raised = _raised(tree)
+        reported = _reported(tree)
         return Execution(
             exit_code=done.returncode,
-            outcome=classify(done.returncode, raised),
+            outcome=classify(
+                done.returncode,
+                frozenset(n for n in reported if n != OBSERVED_PASS),
+                OBSERVED_PASS in reported,
+            ),
             first_line=_first_meaningful_line(log, witness),
             log=log,
         )
@@ -942,8 +969,8 @@ def _runner_missing(
     return None
 
 
-def _raised(tree: Path) -> frozenset[str]:
-    """The exception classes the runner reported, as it reported them."""
+def _reported(tree: Path) -> frozenset[str]:
+    """Everything the probe recorded, verbatim — classes and the pass mark."""
     path = tree / MATERIAL_DIRNAME / OUTCOME_FILENAME
     try:
         return frozenset(path.read_text(encoding="utf-8").split())
@@ -951,8 +978,19 @@ def _raised(tree: Path) -> frozenset[str]:
         return frozenset()
 
 
-def classify(exit_code: int, raised: frozenset[str] = frozenset()) -> str:
-    """W8's structural discriminator, in both of its halves.
+def _raised(tree: Path) -> frozenset[str]:
+    """The exception classes the runner reported, as it reported them."""
+    return frozenset(
+        name for name in _reported(tree) if name != OBSERVED_PASS
+    )
+
+
+def classify(
+    exit_code: int,
+    raised: frozenset[str] = frozenset(),
+    observed_pass: bool = True,
+) -> str:
+    """W8's structural discriminator, in all three of its halves.
 
     `assertion` ONLY when the runner collected the check, ran it, and it failed
     on something other than not finding what it was written against.
@@ -965,11 +1003,25 @@ def classify(exit_code: int, raised: frozenset[str] = frozenset()) -> str:
     refuses, turning green the moment any file of that name exists with any
     content.
 
-    Everything unrecognised is `collection_error` and is **not a proved red**:
-    an outcome nobody anticipated claims less rather than more.
+    **The third is the one exit 0 cannot answer at all: did anything RUN?**
+    pytest exits 0 for a run in which every test was skipped, deselected or
+    never collected, so `exit_code == 0` was reading "nothing objected" as
+    "the criterion is satisfied". The pin covers the witness's BYTES, its
+    command and its path; it does not — and cannot — cover the pytest
+    CONFIGURATION, which the worker owns and rewrites freely. A root
+    `conftest.py` with an autouse fixture calling `pytest.skip`, or an
+    `addopts` carrying `-k`/`-m`, converts every witness in the repository
+    and every criterion reads evidenced by a check that never executed.
+    Nothing voided; nothing was discarded; the record simply said `passed`.
+
+    So green is now an OBSERVATION the runner made — the probe writes a mark
+    from the report object on a passing call phase — and not an inference
+    from an exit code. Everything unrecognised is `collection_error` and is
+    **not a proved red**: an outcome nobody anticipated claims less rather
+    than more, and that is where a silent zero now lands.
     """
     if exit_code == 0:
-        return GREEN
+        return GREEN if observed_pass else COLLECTION_ERROR
     if exit_code == EXIT_FAILED:
         return COLLECTION_ERROR if (raised & LOAD_FAILURES) else ASSERTION
     return COLLECTION_ERROR

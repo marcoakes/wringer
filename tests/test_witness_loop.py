@@ -243,6 +243,59 @@ def test_a_red_witness_over_a_GREEN_GATE_makes_the_loop_run_a_worker_turn(
     assert code == 0, captured.out + captured.err
 
 
+def test_a_failing_prove_setup_discards_the_witness_and_cites_why(
+    repo, git_run, monkeypatch, capsys
+):
+    """**The control `vacuity` has had since 2026-08-11, in the lane that
+    needed it most.**
+
+    Born red is established in a scratch worktree, which carries TRACKED FILES
+    ONLY — so in any repo whose dependencies are gitignored the project is not
+    installed there, and W10 tells the author to exercise the very interface
+    that then fails for a reason which is not the tree. `classify` reads such
+    a failure as a genuine ASSERTION, so the witness is "proved red" in the
+    scratch tree, passes in the full working tree for reasons that have
+    nothing to do with the change, and the criterion collects a receipt that
+    means nothing. SPEC_GATEGEN W8 already called `run.prove_setup` "a hard
+    precondition for the witness lane only"; nothing ran it and nothing
+    required it.
+
+    A FAILING setup is not proof, and every row says so in the record rather
+    than the run proceeding on a born-red nobody can trust. (An ABSENT
+    `prove_setup` is disclosed, never refused — the 2026-08-11 ruling — which
+    is why every other test in this file still runs without declaring one.)
+    """
+    write_repo(repo, worker="true", max_iterations=1)
+    config_path = repo / ".wringer.yaml"
+    written = config_path.read_text(encoding="utf-8")
+    anchor = "  max_iterations: 1\n"
+    assert anchor in written, written   # the fixture, asserted not assumed
+    config_path.write_text(
+        written.replace(anchor, '  prove_setup: "exit 3"\n' + anchor),
+        encoding="utf-8",
+    )
+    from wringer import config as config_module
+
+    parsed = config_module.load(config_path)
+    assert parsed.run is not None and parsed.run.prove_setup == "exit 3", parsed
+    commit_everything(repo, git_run)
+    monkeypatch.chdir(repo)
+    author_the_witness(repo)
+
+    cli.main(["run"])
+    capsys.readouterr()
+
+    record = json.loads(
+        (only_loop(repo) / witness.WITNESS_FILENAME).read_text(encoding="utf-8")
+    )
+    row = record["witnesses"][0]
+    assert row.get("proved_red") is None, (
+        "a born-red was claimed in a worktree whose setup command failed"
+    )
+    assert "prove_setup" in (row.get("discarded") or ""), row
+    assert "exit 3" in row["discarded"] or "3" in row["discarded"], row
+
+
 def test_the_worker_is_briefed_with_the_witness_failure_and_not_its_source(
     repo, git_run, monkeypatch
 ):

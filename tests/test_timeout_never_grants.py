@@ -362,7 +362,7 @@ def test_A_PROVE_SETUP_THAT_RUNS_OUT_OF_TIME_IS_NOT_ok(tmp_path, monkeypatch):
     logs = tmp_path / "logs"
     logs.mkdir()
 
-    setup = vacuity._run_setup(cfg, tmp_path, logs, None)
+    setup = vacuity.run_setup(cfg, tmp_path, logs, None)
 
     assert setup is not None, "the fixture declared no prove_setup"
     assert setup["ok"] is False, (

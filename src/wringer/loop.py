@@ -45,6 +45,14 @@ from wringer import (
     spec,
     stability,
     staleness,
+    # **`vacuity` for ONE helper — `run_setup` — and for nothing else.**
+    # SPEC_VACUITY §3's loop-continues bullet is amended, not implemented:
+    # this module deliberately does not read a vacuity VERDICT, and importing
+    # the module must not be mistaken for doing so. `run_setup` is "install
+    # the project where the comparison happens", which both scratch-tree
+    # lanes need and which had two copies before the witness lane got its
+    # control.
+    vacuity,
     verify,
     witness,
 )
@@ -72,6 +80,11 @@ LOOPS_DIRNAME = Path(".wringer") / "loops"
 # `test_the_console_names_every_reason_the_loop_can_stop_for`, which already
 # exists and already caught this class of gap once.
 SCHEMA_VERSION = "wringer.loop.v2"
+
+# Where the witness lane's `run.prove_setup` logs land, beside the
+# `witness.json` they belong to. Its own name rather than `vacuity/`:
+# two lanes share the helper, not the evidence.
+WITNESS_SETUP_DIRNAME = "witness"
 # Every version a reader accepts. DERIVED from here rather than named at each
 # reader, because the naive bump silently orphans every bundle already on disk
 # (SPEC_ENV_V0 §3, finding D3): `health._KINDS` is keyed off this constant, so
@@ -915,7 +928,7 @@ def run(
     # pre-date the work — the load-bearing property, because a check authored
     # before the work exists cannot have been written to flatter it.
     witnesses = _pin_witnesses(
-        bundle, root, worker_containment, established
+        bundle, root, worker_containment, established, cfg
     )
 
     final: verify.Outcome | None = None
@@ -1670,6 +1683,7 @@ def _pin_witnesses(
     root: Path,
     containment_settings: config.Containment | None,
     established: containment.Established | None,
+    cfg: config.Config | None = None,
 ) -> list[witness.Witness]:
     """Establish the born red, pin it, and record the pin. Or VOID.
 
@@ -1715,6 +1729,43 @@ def _pin_witnesses(
             "way and the run does not proceed on an unproved witness"
         )
     try:
+        # **The control `vacuity` has had since 2026-08-11, which this lane
+        # never got.** The scratch worktree carries TRACKED FILES ONLY, so in
+        # any repo whose dependencies are gitignored the project is not
+        # installed here — and W10 tells the author to exercise the INTERFACE
+        # the criterion names, which is exactly the shape that then fails for
+        # a reason that is not the tree. `classify` reads a bare
+        # `AssertionError` from such a run as a genuine ASSERTION, so the
+        # witness is "proved red" here, passes in the full working tree for
+        # reasons that have nothing to do with the change, and the criterion
+        # collects a receipt that means nothing.
+        #
+        # SPEC_GATEGEN W8 already calls `run.prove_setup` "a hard precondition
+        # for the witness lane only". Nothing ran it, and nothing required it.
+        #
+        # Absent is DISCLOSED, never refused — the 2026-08-11 ruling, for the
+        # reason `accept.py` records: refusing on a missing `prove_setup`
+        # would have refused the first real agent measurement this program
+        # ever took, whose gates are stdlib and whose receipts were true.
+        # FAILING is a different fact, and every row must cite it.
+        setup = (
+            vacuity.run_setup(
+                cfg, tree, bundle.directory / WITNESS_SETUP_DIRNAME,
+                bundle.redactor,
+            )
+            if cfg is not None
+            else None
+        )
+        if setup is not None and not setup["ok"]:
+            for item in found:
+                item.discarded = (
+                    f"`run.prove_setup` failed in the proving worktree "
+                    f"({setup['cites']}), so a born-red here would be a "
+                    "broken environment rather than the pre-change tree. "
+                    "That is not proof — fix the setup command and run again"
+                )
+            return found
+
         for item in found:
             # **Proved where it will be EXECUTED, which is where the gates run**
             # — not inside the worker's containment. This passed the worker's

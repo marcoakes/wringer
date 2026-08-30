@@ -835,7 +835,7 @@ def test_gates_are_serial_unless_a_repo_declared_otherwise():
         health_module.GateRun(
             gate_id="a", command="true", status="passed", timed_out=False,
             optional=False, duration_ms=10, truncated=False, receipt=f"r{n}",
-            started_at="", bench_sourced=False, concurrent=n >= 10,
+            started_at="", qualifying=True, concurrent=n >= 10,
         )
         for n in range(12)
     )

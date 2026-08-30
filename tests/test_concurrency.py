@@ -238,7 +238,7 @@ def test_a_contended_duration_is_excluded_from_the_drift_trend():
         return health.GateRun(
             gate_id="a", command="true", status="passed", timed_out=False,
             optional=False, duration_ms=ms, truncated=False,
-            receipt=f"r{number:03d}", started_at="", bench_sourced=False,
+            receipt=f"r{number:03d}", started_at="", qualifying=True,
             concurrent=contended,
         )
 

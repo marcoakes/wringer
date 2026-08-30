@@ -218,7 +218,7 @@ def prove(
 
     prove_started = time.monotonic()
     try:
-        setup = _run_setup(cfg, worktree, logs, redactor)
+        setup = run_setup(cfg, worktree, logs, redactor)
         if setup is not None and not setup["ok"]:
             return Result(
                 verdict=INCONCLUSIVE,
@@ -317,13 +317,25 @@ def prove(
     )
 
 
-def _run_setup(
+def run_setup(
     cfg: config.Config, worktree: Path, logs: Path, redactor: Redactor
 ) -> dict[str, Any] | None:
-    """`run.prove_setup` in the scratch worktree, if the repo declared one."""
+    """`run.prove_setup` in the scratch worktree, if the repo declared one.
+
+    **Public because the witness lane needs the same control, not a second
+    copy of it.** A scratch worktree carries TRACKED FILES ONLY, so in any
+    repo whose dependencies are gitignored a pre-change run fails for a reason
+    that has nothing to do with the tree — and both lanes build such a tree.
+    `loop._pin_witnesses` calls this one; there is no reason for two
+    implementations of "install the project where the comparison happens" to
+    drift apart, and `bench._setup` is already a third that should join them.
+    """
     command = cfg.run.prove_setup if cfg.run is not None else None
     if not command:
         return None
+    # Here rather than at each call site: two lanes call this now, and the
+    # second one crashed on a missing directory the first happened to create.
+    logs.mkdir(parents=True, exist_ok=True)
     setup_gate = config.Gate(
         id="prove_setup", run=command, timeout=SETUP_TIMEOUT_SECONDS
     )

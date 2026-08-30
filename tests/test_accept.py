@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from wringer import accept, cli, config, evidence, spec
+from wringer import accept, cli, config, evidence, health, spec
 
 
 def commit(repo: Path, message: str = "the code as it stood") -> None:
@@ -427,6 +427,49 @@ def test_a_bench_sourced_red_row_is_not_a_discrimination_receipt(
     assert cli.main(["verify"]) == cli.EXIT_OK
     capsys.readouterr()
     assert state_of(repo, "csv-downloads") == accept.UNEVIDENCED
+
+
+def test_a_committed_red_row_is_not_a_discrimination_receipt(
+    repo, monkeypatch, capsys
+):
+    """**A receipt is earned on this machine or it is not a receipt.**
+
+    Measured on the shipping tree before the fix: copy `.wringer.example/`
+    alone into an empty directory — a fresh clone, `.wringer/` gitignored and
+    absent — and `accept._discriminating_pairs` handed back
+    `('test','pytest -q') -> Receipt(kind='failure')` from
+    `.wringer.example/runs/20260809-132737-4355`, whose `002_test/result.json`
+    is `failed, exit 1`. A user binding a criterion to a gate named `test` and
+    running `wring verify` once green then read "every green on this board was
+    red first" off a file that arrived with the clone.
+
+    Committed evidence is documentation that TRAVELS. It is still read and
+    still itemised by `wring health`; it decides nothing. Same shape as the
+    bench-sourced rule one test above, and the same shape as the corpus leak
+    of 2026-08-13, where the claim lost because `.git` supplied the answer.
+    """
+    write_spec(repo)
+    bound_config(repo, command="true")
+    monkeypatch.chdir(repo)
+
+    # A red row for the pair, in a bundle that is checked in rather than run.
+    _plant_run(
+        repo / health.EXAMPLE_DIRNAME / "runs" / "20260101-000000-dddd",
+        "csv", "true", status="failed", exit_code=1,
+    )
+
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert state_of(repo, "csv-downloads") == accept.UNEVIDENCED
+
+    # ...and it is READ, not skipped: not deciding is not the same as not
+    # counting, and a bundle dropped before classification looks exactly like
+    # a clean run.
+    found = health.discover(repo)
+    committed = [b for b in found.read if b.committed]
+    assert len(committed) == 1, found.read
+    assert committed[0] in found.non_qualifying
+    assert not found.skipped, found.skipped
 
 
 def test_a_sensitive_vacuity_row_evidences_and_carries_its_citation(

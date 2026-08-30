@@ -96,11 +96,38 @@ class Bundle:
     # `.wringer/worktrees/` or `.wringer/benches/` was written by a bench.
     bench_sourced: bool
     source: str          # "repo", or the --from root it was found under
+    # Position decides this too: a bundle under `.wringer.example/` is IN GIT.
+    committed: bool = False
 
     @property
     def qualifying(self) -> bool:
-        """Whether this bundle's rows may decide a verdict (ruling 9)."""
-        return self.kind == "run" and not self.bench_sourced
+        """Whether this bundle's rows may decide a verdict (ruling 9).
+
+        **A receipt is earned on this machine or it is not a receipt.**
+        Committed bundles are documentation that TRAVELS: they arrive in
+        every clone, so letting them qualify hands a stranger a red nobody
+        ran. Measured before the fix: copy `.wringer.example/` alone into an
+        empty directory — no `.wringer/` at all — and `accept` returned
+        `('test','pytest -q') -> Receipt(kind='failure')` from
+        `.wringer.example/runs/20260809-132737-4355`. A user who binds a
+        criterion to a gate named `test` and runs `wring verify` once green
+        then reads "every green on this board was red first" off a file in
+        git. That is manufactured red-first — the product's own disease,
+        inside the product.
+
+        This repository has already paid for git carrying the answer once:
+        the corpus run of 2026-08-13, where the claim LOST because `.git`
+        supplied it. Same disease, one layer over.
+
+        They are still READ and still ITEMISED — `health` names them, and
+        `discovered == read + skipped + duplicate` still balances. Not
+        deciding is not the same as not counting.
+        """
+        return (
+            self.kind == "run"
+            and not self.bench_sourced
+            and not self.committed
+        )
 
 
 @dataclass(frozen=True)
@@ -134,6 +161,28 @@ class Coverage:
             kinds[bundle.kind] += 1
         return kinds
 
+    @property
+    def non_qualifying(self) -> tuple[Bundle, ...]:
+        """Bundles that were READ and decide nothing, so a reader can see them.
+
+        Before this, a bench-sourced or committed run bundle was tallied under
+        `run` and its exclusion from every verdict was stated NOWHERE: the
+        header said "read 4 bundles · 4 runs" and the table counted one. The
+        reader was left to discover the other three by arithmetic, which is
+        the silent narrowing this whole command exists to catch.
+
+        Kept out of `counts()` on purpose. That dict is published under
+        `wringer.health.v1`, whose `coverage.counts` is frozen with
+        `additionalProperties: false` — new facts ride a new version or a
+        sibling, never a quiet extra key. `--json` is byte-identical to
+        before; the human report is where this lands today.
+        """
+        return tuple(
+            bundle
+            for bundle in self.read
+            if bundle.kind == "run" and not bundle.qualifying
+        )
+
 
 @dataclass(frozen=True)
 class GateRun:
@@ -148,7 +197,11 @@ class GateRun:
     truncated: bool
     receipt: str
     started_at: str
-    bench_sourced: bool
+    # **`Bundle.qualifying`, carried — not re-derived.** This row used to hold
+    # `bench_sourced` and the one place that read it re-implemented half the
+    # predicate, so a second reason a bundle may not decide (a COMMITTED one)
+    # was invisible here. One fact, one implementation.
+    qualifying: bool
     # Joined from the same bundle's `vacuity.json` — see `_sensitivity`.
     sensitive: bool = False
     # Joined from the same bundle's `stability.json`, when it wrote one. None
@@ -347,6 +400,12 @@ def discover(
                 f"/{marker}/" in f"/{resolved.as_posix()}/"
                 or f"/{BENCHES_DIRNAME.as_posix()}/" in f"/{resolved.as_posix()}/"
             )
+            # Same rule as `bench_sourced`: POSITION decides, not a manifest
+            # field a bundle could claim for itself. `.wringer.example/` is
+            # tracked, so everything under it arrived with the clone.
+            committed = (
+                f"/{EXAMPLE_DIRNAME.as_posix()}/" in f"/{resolved.as_posix()}/"
+            )
             read.append(
                 Bundle(
                     directory=directory,
@@ -356,6 +415,7 @@ def discover(
                     started_at=str(raw.get("started_at") or ""),
                     bench_sourced=bench_sourced,
                     source=source,
+                    committed=committed,
                 )
             )
 
@@ -433,7 +493,7 @@ def gate_runs(bundle: Bundle) -> list[GateRun]:
                 or bool(raw.get("stderr_truncated")),
                 receipt=bundle.receipt,
                 started_at=bundle.started_at,
-                bench_sourced=bundle.bench_sourced,
+                qualifying=bundle.qualifying,
                 # The join: this row's own command decides which pair the
                 # sensitivity attaches to.
                 sensitive=bool(sensitive.get(gate_id)),
@@ -666,7 +726,7 @@ def assess(
 
     assessments = []
     for pair in pairs:
-        qualifying = tuple(run for run in pair.runs if not run.bench_sourced)
+        qualifying = tuple(run for run in pair.runs if run.qualifying)
         window = qualifying[-WINDOW:]
         failures = [run for run in window if run.genuine_failure]
         # `not run.flaky` for the reason `genuine_failure` carries it: a
@@ -819,6 +879,9 @@ def render(coverage: Coverage, assessments: tuple[Assessment, ...]) -> str:
         f"{plural(counts['loop'], 'loop')}, "
         f"{counts['bench']} bench (bench evidence decides nothing)",
     ]
+    for bundle in coverage.non_qualifying:
+        why = "committed to git" if bundle.committed else "written by a bench"
+        lines.append(f"  read, decides nothing: {bundle.receipt} ({why})")
     for skip in coverage.skipped:
         lines.append(f"  skipped: {skip.receipt} ({skip.reason})")
     for dup in coverage.duplicates:
