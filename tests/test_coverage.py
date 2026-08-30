@@ -696,3 +696,64 @@ def test_S4_a_guess_about_a_gate_a_requirement_DOES_own_stays_on_its_card(
     body = board_render.render(board_read.read(tmp_path)).split("</style>")[-1]
     assert "This red may not be about your work" in body, body[-2000:]
     assert "is bound to no requirement" not in body
+
+
+# --- the headline against the rows, on the record that travels -------------
+
+
+def test_AN_EDITED_COVERAGE_COUNT_OVER_HONEST_ROWS_IS_CAUGHT():
+    """The cheapest forgery there is, on the artifact the certificate quotes.
+
+    `coverage.json` travels in every delivery and its two sentences are read
+    aloud in `mr.md` and on the board. The certificate has guarded its own
+    counts since 0.5.0; the sibling it quotes was unguarded.
+    """
+    from wringer import coverage as coverage_module
+
+    honest = {
+        "schema_version": coverage_module.SCHEMA_VERSION,
+        "counts": {
+            "covered": 1, "checkable": 2, "shown": 1, "needing_a_person": 1,
+        },
+        "requirements": [
+            {"criterion": "a", "needs_a_person": False, "covered": True},
+            {"criterion": "b", "needs_a_person": False, "covered": False},
+            {"criterion": "c", "needs_a_person": True, "shown": True},
+        ],
+        "limits": [coverage_module.LIMIT],
+    }
+    assert coverage_module.check_counts(honest) is None
+
+    forged = json.loads(json.dumps(honest))
+    forged["counts"]["covered"] = 2
+    said = coverage_module.check_counts(forged)
+    assert said is not None and "covered" in said, said
+
+
+def test_a_certificate_audit_reads_the_coverage_record_beside_it(tmp_path):
+    """The claim reaches the STRANGER's command, which is the whole point:
+    `wring audit certificate.json` is what a reviewer runs, and a sibling
+    nothing checks is a sibling that can say anything."""
+    from wringer import certificate as certificate_module
+    from wringer import coverage as coverage_module
+
+    payload = {
+        "schema_version": coverage_module.SCHEMA_VERSION,
+        "counts": {
+            "covered": 9, "checkable": 1, "shown": 0, "needing_a_person": 0,
+        },
+        "requirements": [
+            {"criterion": "a", "needs_a_person": False, "covered": True},
+        ],
+        "limits": [coverage_module.LIMIT],
+    }
+    (tmp_path / coverage_module.COVERAGE_FILENAME).write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+
+    claims = certificate_module._check_coverage(tmp_path)
+
+    assert [c.outcome for c in claims] == [certificate_module.BROKEN], claims
+    # ...and a delivery that carries no coverage record claims nothing.
+    assert certificate_module._check_coverage(tmp_path / "empty") == []
+

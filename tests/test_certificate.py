@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pytest
 
-from wringer import accept, certificate
+from wringer import accept, certificate, evidence
 
 # --- a synthetic record, and the fixture says so ---------------------------
 #
@@ -450,15 +450,203 @@ def outcomes(report) -> dict[str, str]:
     return {claim.what: claim.outcome for claim in report.claims}
 
 
+def _make_the_receipt_travel(clone: Path, payload: dict) -> Path:
+    """Put the run bundle the receipt NAMES into the clone, for real.
+
+    Derived from the payload rather than spelled out, so the fixture cannot
+    drift from the document it is meant to evidence — building a run under a
+    different id was exactly how the first version of this helper produced a
+    green test that verified nothing.
+
+    Without it every receipt claim is `not-checkable-here` and the flagship
+    property — a stranger checks the strongest claim on the page, offline —
+    is asserted by nothing at all.
+    """
+    row = next(
+        r for r in payload["requirements"] if isinstance(r.get("receipt"), dict)
+    )
+    receipt = row["receipt"]
+    run = clone / receipt["bundle"]
+    gates_dir = run / "gates" / "001_the-check"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    (run / evidence.MANIFEST_FILENAME).write_text(
+        json.dumps({
+            "schema_version": evidence.SCHEMA_VERSION,
+            "run_id": run.name,
+            "started_at": "2026-01-01T00:00:00+00:00",
+            "repo": {"head_sha": "0" * 40},
+            "result": {"status": "failed", "failed_gate": row["check"]},
+        }),
+        encoding="utf-8",
+    )
+    result = gates_dir / "result.json"
+    result.write_text(
+        json.dumps({
+            "gate_id": row["check"], "command": row["command"],
+            "exit_code": 1, "duration_ms": 5, "timed_out": False,
+            "optional": False, "stdout_truncated": False,
+            "stderr_truncated": False, "status": "failed",
+        }),
+        encoding="utf-8",
+    )
+    return result
+
+
 def test_a_certificate_that_matches_its_clone_HOLDS(clone):
+    """**Every claim's outcome, by name.**
+
+    This asserted "no claim is BROKEN" and `report.ok` — and `report.ok` is
+    DEFINED as `not any(BROKEN)`, so it was the same assertion twice. A
+    change that made every claim degrade to `not-checkable-here` — a moved
+    spec filename, a path resolved against the wrong root, an early return on
+    a missing bundle — satisfied both. This is the flagship "a reviewer can
+    check it offline" claim, and its only green-path test could not tell
+    verification from abstention.
+
+    So: the receipt's run TRAVELS here, the strongest claim on the page
+    actually HOLDS, and the whole map is pinned.
+    """
     from wringer import spec as spec_module
 
     payload = built(clone, spec_sha256=spec_module.authorising_sha256(clone))
+    _make_the_receipt_travel(clone, payload)
     report = certificate.check(payload, clone)
-    assert all(
-        claim.outcome != certificate.BROKEN for claim in report.claims
-    ), outcomes(report)
-    assert report.ok
+
+    assert report.ok, outcomes(report)
+    receipts = {
+        what: outcome for what, outcome in outcomes(report).items()
+        if what.startswith("the record shows the check")
+    }
+    assert set(receipts.values()) == {certificate.HOLDS}, receipts
+    assert outcomes(report) == {
+        "the counts match the requirements listed below them":
+            certificate.HOLDS,
+        "the plain words match the record they describe": certificate.HOLDS,
+        "the requirements listed are the ones this repository declares":
+            certificate.HOLDS,
+        "the spec in this clone is the one this document was written against":
+            certificate.HOLDS,
+        "the commit this was verified at is in this clone":
+            certificate.NOT_HERE,
+        **receipts,
+    }
+
+
+def test_check_READS_THE_COVERAGE_RECORD_BESIDE_THE_CERTIFICATE(clone):
+    """The wiring, not just the function.
+
+    `_check_coverage` on its own is a unit test of a helper; what a stranger
+    runs is `wring audit certificate.json`, which passes the document's own
+    directory. Without this the helper could be perfect and never called —
+    and a sibling nothing checks is a sibling that can say anything.
+    """
+    from wringer import coverage as coverage_module
+    from wringer import spec as spec_module
+
+    payload = built(clone, spec_sha256=spec_module.authorising_sha256(clone))
+    _make_the_receipt_travel(clone, payload)
+    beside = clone / "delivery"
+    beside.mkdir()
+    (beside / coverage_module.COVERAGE_FILENAME).write_text(
+        json.dumps({
+            "schema_version": coverage_module.SCHEMA_VERSION,
+            "counts": {
+                "covered": 7, "checkable": 1, "shown": 0,
+                "needing_a_person": 0,
+            },
+            "requirements": [
+                {"criterion": "a", "needs_a_person": False, "covered": True},
+            ],
+            "limits": [coverage_module.LIMIT],
+        }),
+        encoding="utf-8",
+    )
+
+    report = certificate.check(payload, clone, beside=beside)
+
+    assert not report.ok, outcomes(report)
+    assert [c.what for c in report.claims if c.outcome == certificate.BROKEN] == [
+        "the coverage numbers match the requirements they count"
+    ], outcomes(report)
+
+
+def test_TAMPERING_WITH_THE_RECEIPTS_RUN_FLIPS_EXACTLY_THAT_CLAIM(clone):
+    """The control's negative twin, and it is what makes the control mean
+    something: the same document, the same clone, one file changed, and
+    exactly one claim moves."""
+    from wringer import spec as spec_module
+
+    payload = built(clone, spec_sha256=spec_module.authorising_sha256(clone))
+    result = _make_the_receipt_travel(clone, payload)
+    before = outcomes(certificate.check(payload, clone))
+
+    # The run travelled, and it does not record the failure it is cited for.
+    payload_row = json.loads(result.read_text(encoding="utf-8"))
+    payload_row["status"] = "passed"
+    payload_row["exit_code"] = 0
+    result.write_text(json.dumps(payload_row), encoding="utf-8")
+
+    after = outcomes(certificate.check(payload, clone))
+
+    moved = {k: (before[k], after[k]) for k in before if before[k] != after[k]}
+    assert len(moved) == 1, moved
+    what, (was, now) = next(iter(moved.items()))
+    assert what.startswith("the record shows the check"), moved
+    assert (was, now) == (certificate.HOLDS, certificate.BROKEN), moved
+
+
+def test_A_FORGED_PROVED_CHIP_OVER_AN_UNEVIDENCED_ROW_IS_CAUGHT(clone):
+    """**The cheapest forgery after the counts, and nothing checked it.**
+
+    The plain words travel IN the record — deliberately, so two renderers of
+    one fact cannot drift — and `check` never re-derived them. A row could
+    carry `state: unevidenced` beside `says: PROVED` and the sentence that
+    goes with a proved row, and the audit returned `ok=True`. The chip is
+    exactly what a reader trusts, so the reader was told the opposite of what
+    the row records, by the document built to be checked offline.
+
+    Checked with nothing but the page, like the counts: `PROVED` belongs to
+    an `evidenced` row and to no other.
+    """
+    from wringer import spec as spec_module
+
+    payload = built(clone, spec_sha256=spec_module.authorising_sha256(clone))
+    _make_the_receipt_travel(clone, payload)
+    proved, means = certificate._plain(accept.EVIDENCED, None)
+    row = next(
+        r for r in payload["requirements"] if r["state"] == accept.UNEVIDENCED
+    )
+    row["says"], row["means"] = proved, means
+
+    report = certificate.check(payload, clone)
+
+    assert not report.ok, outcomes(report)
+    broken = [c for c in report.claims if c.outcome == certificate.BROKEN]
+    assert [c.what for c in broken] == [
+        "the plain words match the record they describe"
+    ], outcomes(report)
+    assert "labelled" in broken[0].detail, broken[0]
+
+
+def test_A_SENTENCE_NOBODY_WROTE_IS_CAUGHT(clone):
+    """The other direction: wording that is in no table at all. A phrase this
+    document does not have is a sentence somebody typed, and `UNKNOWN` exists
+    precisely so the page never invents one."""
+    from wringer import spec as spec_module
+
+    # The real spec digest, so the ONLY thing wrong is the sentence. Built
+    # with the default `abc123` this test passed with the wording check
+    # removed entirely — the spec claim was broken anyway, and `not
+    # report.ok` said nothing about wording at all.
+    payload = built(clone, spec_sha256=spec_module.authorising_sha256(clone))
+    _make_the_receipt_travel(clone, payload)
+    payload["requirements"][0]["means"] = "It is fine, honestly."
+
+    report = certificate.check(payload, clone)
+
+    assert not report.ok, outcomes(report)
+    broken = [c.what for c in report.claims if c.outcome == certificate.BROKEN]
+    assert broken == ["the plain words match the record they describe"], broken
 
 
 def test_AN_EDITED_COUNT_OVER_HONEST_ROWS_IS_CAUGHT(clone):

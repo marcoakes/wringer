@@ -894,7 +894,112 @@ def _check_receipts(payload: dict[str, Any], root: Path) -> list[Claim]:
     return claims
 
 
-def check(payload: dict[str, Any], root: Path) -> Report:
+# Every `(chip, sentence)` this document can carry, and which STATES may
+# carry it. Derived from `_PHRASES` rather than restated, so a phrase added
+# there is covered here on the same commit.
+#
+# The row does not carry its `cause` — `certificate-v1` is frozen with
+# `additionalProperties: false` and the reader was never given one — so the
+# check is over what the page actually shows. That is the right scope
+# anyway: the chip is what a reader trusts, and a chip its own `state` cannot
+# produce is the forgery.
+_STATES_FOR_WORDING: dict[tuple[str, str], set[str]] = {}
+for (_state, _cause), _wording in _PHRASES.items():
+    _STATES_FOR_WORDING.setdefault(_wording, set()).add(_state)
+_STATES_FOR_WORDING.setdefault(
+    (
+        JUDGED_MET,
+        "No check can settle this one. A person looked and said it "
+        "was met; their answer, and their words, are below.",
+    ),
+    set(),
+).add(accept.HUMAN)
+_STATES_FOR_WORDING.setdefault(
+    (
+        UNKNOWN,
+        "The record describes this requirement in a way this document does "
+        "not have wording for, so it is showing you nothing rather than a "
+        "guess.",
+    ),
+    set(),
+).update(accept.STATES)
+
+
+def _check_wording(payload: dict[str, Any]) -> Claim:
+    """Every row's `says` and `means`, RE-DERIVED from its own `(state, cause)`.
+
+    **The cheapest forgery on this page after the counts, and nothing checked
+    it.** The plain words travel in the record — deliberately, so two
+    renderers of one fact cannot drift — and `check` never re-derived them.
+    So a row could carry `state: unevidenced, cause: born-green` beside
+    `says: PROVED` and the sentence for a proved row, and the audit returned
+    `ok=True`: a reader who trusts the chip (which is the whole point of the
+    chip) was told the opposite of what the row records.
+
+    Checked with nothing but the page, like the counts. `_plain` is the one
+    function that decides this, so re-running it here is a comparison rather
+    than a second implementation.
+    """
+    rows = payload.get("requirements") or []
+    wrong: list[str] = []
+    for row in rows:
+        wording = (row.get("says"), row.get("means"))
+        allowed = _STATES_FOR_WORDING.get(wording)
+        if allowed is None:
+            wrong.append(
+                f"`{row.get('id')}` is labelled {row.get('says')!r} with "
+                "wording this document does not have — a phrase not in the "
+                "table is a sentence nobody wrote"
+            )
+        elif row.get("state") not in allowed:
+            wrong.append(
+                f"`{row.get('id')}` records {row.get('state')!r} and is "
+                f"labelled {row.get('says')!r}, which only a "
+                f"{' or '.join(sorted(allowed))} row can say"
+            )
+    if wrong:
+        return Claim(
+            "the plain words match the record they describe",
+            BROKEN,
+            "; ".join(wrong[:3]),
+        )
+    return Claim(
+        "the plain words match the record they describe",
+        HOLDS,
+        f"every one of {len(rows)} row(s) is labelled the way its own state "
+        "and cause say it should be",
+    )
+
+
+def _check_coverage(beside: Path | None) -> list[Claim]:
+    """The coverage record's own headline against its own rows.
+
+    **The certificate QUOTES these two sentences**, and `coverage.json`
+    travels beside it in every delivery — so the cheapest forgery the counts
+    claim guards on this page was unguarded one file over: leave the rows
+    honest and edit the number above them.
+
+    Absent is absent: a delivery from before the coverage record existed, or
+    one whose sibling did not travel, carries no claim at all rather than a
+    zero nobody measured.
+    """
+    if beside is None:
+        return []
+    record = evidence.read_sidecar(beside / coverage.COVERAGE_FILENAME)
+    if record.absent:
+        return []
+    what = "the coverage numbers match the requirements they count"
+    if record.unreadable or record.payload is None:
+        return [Claim(what, NOT_HERE, f"it could not be read ({record.why})")]
+    wrong = coverage.check_counts(record.payload)
+    if wrong:
+        return [Claim(what, BROKEN, wrong)]
+    return [Claim(what, HOLDS, "counted from the rows beside them")]
+
+
+def check(
+    payload: dict[str, Any], root: Path, beside: Path | None = None
+) -> Report:
     """Re-check a certificate against a clone. Offline, and author-blind.
 
     No network, no model, no config: an auditor may not have a `.wringer.yaml`
@@ -905,7 +1010,8 @@ def check(payload: dict[str, Any], root: Path) -> Report:
     have travelled — and marking it as one would teach readers that the
     ordinary case is a red page.
     """
-    claims = [_check_counts(payload)]
+    claims = [_check_counts(payload), _check_wording(payload)]
+    claims += _check_coverage(beside)
     claims += _check_spec(payload, root)
     claims.append(_check_commit(payload, root))
     claims += _check_receipts(payload, root)

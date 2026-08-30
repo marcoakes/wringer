@@ -162,11 +162,13 @@ def check_digests(bundle: Path, role: str) -> tuple[str, int]:
             f"{evidence.DIGESTS_FILENAME}"
         )
 
-    on_disk = {
-        path.relative_to(bundle).as_posix()
-        for path in bundle.rglob("*")
-        if path.is_file() and path.name != evidence.DIGESTS_FILENAME
-    }
+    # **`evidence.bundle_entries`, the same walker the WRITER uses.** Two
+    # implementations of "what is in this bundle" had the same blind spot —
+    # `rglob` does not descend a symlinked directory and the link itself
+    # fails `is_file()` — so a planted `gates/002_security-scan -> /elsewhere`
+    # was in neither set and `wring audit` said every digest matched, while
+    # `read_gate_results` returned a gate row nothing had ever hashed.
+    on_disk = set(evidence.bundle_entries(bundle))
     missing = sorted(set(recorded) - on_disk)
     if missing:
         raise Refused(
@@ -182,7 +184,7 @@ def check_digests(bundle: Path, role: str) -> tuple[str, int]:
             "something was added to it after it was written"
         )
     for name in sorted(recorded):
-        if _sha256(bundle / name) != recorded[name]:
+        if evidence.entry_digest(bundle / name) != recorded[name]:
             raise Refused(
                 f"{bundle.name}/{name} does not match the digest "
                 f"{bundle.name} recorded for it — that file has changed since "
@@ -582,6 +584,28 @@ class Bundle:
                     (self.directory / "emission-refused.txt").write_text(
                         f"{type(exc).__name__}: {exc}\n", encoding="utf-8"
                     )
+        # **LAST, so it covers the summary and both in-toto statements.**
+        #
+        # Every other bundle type in the program does this — bench, deliver,
+        # judge, loop, fleet, graph — and the attestation directory did not.
+        # So `summary.md` and `witness.intoto.json`, which carry facts the
+        # frozen `test-result` predicate structurally CANNOT hold (`provedRed`,
+        # `pinnedSha256`, the vacuity verdict), had strictly LESS
+        # tamper-evidence than the bundles they describe: they could be edited
+        # freely with nothing able to notice. `audit` reads it back.
+        # `attestation.json` is EXCLUDED, and so is any signature beside it.
+        #
+        # The attestation is not a sibling: its every clause is re-derived by
+        # `_cross_check` against the bundles it names, and a signature is what
+        # covers its bytes. Digesting it here would add nothing an auditor
+        # does not already have — and it would make the cross-check tests pass
+        # for a different reason than the one they are named for, which is the
+        # vacuous-guard shape this file keeps finding. A `.sig` is produced
+        # AFTER this runs, so it could never be covered anyway.
+        evidence.digest_directory(
+            self.directory,
+            exclude=(ATTESTATION_FILENAME, f"{ATTESTATION_FILENAME}.sig"),
+        )
         return path
 
 
@@ -839,6 +863,46 @@ def audit_bundle(bundle: Path) -> AuditReport:
     )
 
 
+def _check_siblings(directory: Path) -> None:
+    """The attestation's siblings, against the `digests.json` beside them.
+
+    `check_digests` cannot be used directly: it demands the on-disk set and
+    the recorded set be EQUAL, and this directory legitimately holds two
+    files the digests exclude — the attestation itself and any signature over
+    it. So this checks what the record covers, in both directions, over the
+    excluded set.
+    """
+    recorded = _read_json(directory / evidence.DIGESTS_FILENAME).get("files", {})
+    if not isinstance(recorded, dict):
+        raise Refused(
+            f"the attestation directory {directory.name} has a malformed "
+            f"{evidence.DIGESTS_FILENAME}"
+        )
+    excluded = (ATTESTATION_FILENAME, f"{ATTESTATION_FILENAME}.sig")
+    on_disk = set(evidence.bundle_entries(directory, exclude=excluded))
+    missing = sorted(set(recorded) - on_disk)
+    if missing:
+        raise Refused(
+            f"the attestation directory {directory.name} is missing "
+            f"{', '.join(missing[:5])}, which its own "
+            f"{evidence.DIGESTS_FILENAME} records"
+        )
+    extra = sorted(on_disk - set(recorded))
+    if extra:
+        raise Refused(
+            f"the attestation directory {directory.name} holds "
+            f"{', '.join(extra[:5])}, which its own "
+            f"{evidence.DIGESTS_FILENAME} does not record"
+        )
+    for name in sorted(recorded):
+        if evidence.entry_digest(directory / name) != recorded[name]:
+            raise Refused(
+                f"{directory.name}/{name} does not match the digest recorded "
+                "for it — that file has changed since the attestation was "
+                "written"
+            )
+
+
 def audit(
     attestation_path: Path,
     signer: str = sign.DEFAULT_SIGNER,
@@ -888,6 +952,24 @@ def audit(
                 "pass"
             ),
         )
+
+    # **The attestation directory's OWN digests, checked.** Written last by
+    # `Bundle.write`, so they cover `summary.md` and both in-toto statements —
+    # the files carrying facts the frozen `test-result` predicate structurally
+    # cannot hold. Absent on every attestation written before 0.5.5, which is
+    # not a failure: an older artifact is not a tampered one, and saying so
+    # would refuse every attestation this program has ever produced.
+    if (attestation_path.parent / evidence.DIGESTS_FILENAME).is_file():
+        try:
+            _check_siblings(attestation_path.parent)
+        except Refused as exc:
+            return AuditReport(
+                ok=False,
+                integrity=sign.INTEGRITY_INVALID,
+                attestation=str(attestation_path),
+                limits=limits,
+                problem=str(exc),
+            )
 
     root = root_for(attestation_path)
     checked: list[dict[str, Any]] = []
@@ -939,7 +1021,11 @@ def audit(
             )
         checked.append({"role": role, "path": named, "files": count})
 
-    problem = _cross_check(root, payload)
+    # Only the refs whose digests were just verified above may resolve a
+    # clause's directory. `checked` is that set, by role.
+    problem = _cross_check(
+        root, payload, {row["role"]: row["path"] for row in checked}
+    )
     if problem is not None:
         # `integrity_invalid`, like every other refusal above. A cross-check
         # failure means the attestation's own clauses disagree with the bundles
@@ -987,18 +1073,56 @@ def audit(
     )
 
 
-def _cross_check(root: Path, payload: dict[str, Any]) -> str | None:
+def _cross_check(
+    root: Path, payload: dict[str, Any], verified: dict[str, str] | None = None
+) -> str | None:
     """Every claim in the attestation, re-read from the bundles themselves.
 
     The digests prove the bundles have not changed. This proves the
     ATTESTATION still says what they say — a hand-edited `verdict: pass` in
     the attestation over an untouched `verdict.json` saying otherwise is
     exactly the forgery a digest check alone would wave through.
+
+    **Every directory below comes from a `bundles[]` ref whose digests were
+    just verified, never from the clause's own path.** It used to read
+    `judged_by.verdict_dir` and `delivered_as.delivery_dir` straight out of
+    the payload, so the cross-check compared a forged file to the forged
+    payload that named it. PROBED end to end: an attestation with
+    `bundles: [run only]` and `judged_by.verdict_dir: ".wringer/verdicts/FAKE"`
+    — a hand-made directory holding one `verdict.json` and **no
+    `digests.json` at all** — audited `ok=True`, `integrity_valid`, and
+    `summary.md` rendered "judged by: `strict.md` — **pass**".
+
+    `proven_by.run` had the same shape: it was never required to equal the
+    `run` ref's path, so the digest-checked bundle and the cross-checked one
+    could be two different runs.
     """
     from wringer import deliver, judge
 
+    verified = verified or {}
+
+    def named(clause: str, role: str, key: str, value: str) -> str | Path:
+        """The role's verified path, or the reason this clause cannot stand."""
+        if role not in verified:
+            return (
+                f"the attestation carries a `{clause}` clause and names no "
+                f"{role} bundle in `bundles[]`, so nothing about it was "
+                "digest-checked and nothing about it can be re-read"
+            )
+        if value != verified[role]:
+            return (
+                f"the attestation's `{clause}.{key}` names `{value}`, and the "
+                f"{role} bundle it had digest-checked is "
+                f"`{verified[role]}` — a clause about one bundle cannot be "
+                "evidenced by another"
+            )
+        return root / verified[role]
+
     proven = payload.get("proven_by") or {}
-    run_dir = root / str(proven.get("run", ""))
+    resolved = named("proven_by", "run", "run", str(proven.get("run", "")))
+    if isinstance(resolved, str):
+        return resolved
+    run_dir = resolved
     try:
         manifest = _read_json(run_dir / evidence.MANIFEST_FILENAME)
     except AttestError as exc:
@@ -1018,10 +1142,14 @@ def _cross_check(root: Path, payload: dict[str, Any]) -> str | None:
 
     judged = payload.get("judged_by")
     if judged:
+        resolved = named(
+            "judged_by", "verdict", "verdict_dir",
+            str(judged.get("verdict_dir", "")),
+        )
+        if isinstance(resolved, str):
+            return resolved
         try:
-            recorded = _read_json(
-                root / str(judged.get("verdict_dir", "")) / judge.VERDICT_FILENAME
-            )
+            recorded = _read_json(resolved / judge.VERDICT_FILENAME)
         except AttestError as exc:
             return str(exc)
         if recorded.get("verdict") != judged.get("verdict"):
@@ -1033,11 +1161,14 @@ def _cross_check(root: Path, payload: dict[str, Any]) -> str | None:
 
     delivered = payload.get("delivered_as")
     if delivered:
+        resolved = named(
+            "delivered_as", "delivery", "delivery_dir",
+            str(delivered.get("delivery_dir", "")),
+        )
+        if isinstance(resolved, str):
+            return resolved
         try:
-            recorded = _read_json(
-                root / str(delivered.get("delivery_dir", ""))
-                / deliver.MANIFEST_FILENAME
-            )
+            recorded = _read_json(resolved / deliver.MANIFEST_FILENAME)
         except AttestError as exc:
             return str(exc)
         if recorded.get("branch") != delivered.get("branch"):

@@ -594,6 +594,199 @@ def test_audit_catches_a_file_added_to_a_bundle_after_the_fact(
     assert "planted.txt" in capsys.readouterr().err
 
 
+def test_audit_catches_a_SYMLINKED_GATE_DIRECTORY_planted_after_the_fact(
+    project, monkeypatch, capsys, tmp_path
+):
+    """**PROBED before the fix: `wring audit` said "every digest matches".**
+
+    `Path.rglob` does not descend a symlinked directory, and the link itself
+    fails `is_file()` — so a planted `gates/002_security-scan -> /elsewhere`
+    landed in NEITHER the recorded set nor the on-disk set. The digests
+    matched, the file count was identical, and
+    `evidence.read_gate_results` then returned a gate row nothing had ever
+    hashed, feeding `proven_by.gates`, the in-toto `passedTests`, `explain`
+    and the board.
+
+    The WRITER had the same blind spot (`digest_directory` used the same
+    `rglob`), which is why the omission was symmetric and therefore invisible:
+    both halves agreed about a file neither could see.
+    """
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "result.json").write_text(
+        json.dumps({
+            "gate_id": "security-scan", "command": "true", "exit_code": 0,
+            "duration_ms": 1, "timed_out": False, "optional": False,
+            "stdout_truncated": False, "stderr_truncated": False,
+            "status": "passed",
+        }),
+        encoding="utf-8",
+    )
+    planted = only(project, ".wringer", "runs") / "gates" / "002_security-scan"
+    planted.parent.mkdir(parents=True, exist_ok=True)
+    planted.symlink_to(elsewhere, target_is_directory=True)
+
+    assert cli.main(["audit", str(attested(project))]) == cli.EXIT_GATE_FAILED
+    assert "002_security-scan" in capsys.readouterr().err
+
+
+def test_a_symlink_is_digested_by_its_TARGET_TEXT_not_its_referent(tmp_path):
+    """Retargeting a link at a file with identical bytes must not be
+    invisible. `untracked_digests` was corrected the same way and for the same
+    reason; the tree digests kept the confusion, so a `digests.json` could
+    cover bytes the bundle does not contain — and a bundle archived without
+    `-h` then dangles."""
+    from wringer import evidence as evidence_module
+
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    (tmp_path / "a.txt").write_text("same\n", encoding="utf-8")
+    (tmp_path / "b.txt").write_text("same\n", encoding="utf-8")
+    (bundle / "link").symlink_to(tmp_path / "a.txt")
+
+    before = evidence_module.entry_digest(bundle / "link")
+    (bundle / "link").unlink()
+    (bundle / "link").symlink_to(tmp_path / "b.txt")
+    after = evidence_module.entry_digest(bundle / "link")
+
+    assert before != after, (
+        "a retargeted link with identical bytes hashed the same, so nothing "
+        "downstream could refuse it"
+    )
+    assert "link" in evidence_module.bundle_entries(bundle)
+
+
+def test_a_clause_naming_a_bundle_nothing_digest_checked_is_REFUSED(
+    project, monkeypatch, capsys
+):
+    """**PROBED end to end before the fix: `ok=True`, `integrity_valid`.**
+
+    `_cross_check` read `judged_by.verdict_dir` straight out of the payload,
+    so it compared a forged file to the forged payload that named it. An
+    attestation whose `bundles[]` held the run alone, plus
+    `judged_by.verdict_dir: ".wringer/verdicts/FAKE"` — a hand-made directory
+    with one `verdict.json` and **no `digests.json` at all** — audited clean,
+    and `summary.md` rendered "judged by … **pass**".
+
+    The weak axis of this whole module was never the hashing: it was anything
+    reached by a PATH IN THE PAYLOAD rather than by a ref that was hashed.
+    """
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    path = attested(project)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    forged = project / ".wringer" / "verdicts" / "FAKE"
+    forged.mkdir(parents=True)
+    (forged / judge.VERDICT_FILENAME).write_text(
+        json.dumps({"verdict": "pass", "mode": "live", "rubric": "strict.md"}),
+        encoding="utf-8",
+    )
+    payload["judged_by"] = {
+        "verdict_dir": ".wringer/verdicts/FAKE",
+        "verdict": "pass",
+        "rubric": {"path": "strict.md", "sha256": "d" * 64},
+    }
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    # ...and re-digest the siblings, so the ONLY thing wrong is the clause.
+    evidence.digest_directory(
+        path.parent,
+        exclude=(attest.ATTESTATION_FILENAME,
+                 f"{attest.ATTESTATION_FILENAME}.sig"),
+    )
+
+    assert cli.main(["audit", str(path)]) == cli.EXIT_GATE_FAILED
+    said = capsys.readouterr().err
+    assert "verdict" in said, said
+
+
+def test_a_proven_by_run_that_is_not_the_digest_checked_run_is_REFUSED(
+    project, monkeypatch, capsys
+):
+    """The same hole on the clause that carries the gates.
+
+    `proven_by.run` was never required to equal the `run` ref's path, so the
+    bundle whose digests were verified and the bundle whose manifest was read
+    could be two different runs.
+    """
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    path = attested(project)
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["proven_by"]["run"] = ".wringer/runs/somewhere-else"
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    evidence.digest_directory(
+        path.parent,
+        exclude=(attest.ATTESTATION_FILENAME,
+                 f"{attest.ATTESTATION_FILENAME}.sig"),
+    )
+
+    assert cli.main(["audit", str(path)]) == cli.EXIT_GATE_FAILED
+    assert "cannot be evidenced by another" in capsys.readouterr().err
+
+
+def test_a_hand_edited_SUMMARY_beside_the_attestation_fails_the_audit(
+    project, monkeypatch, capsys
+):
+    """**The attestation directory had no tamper-evidence at all.**
+
+    Every other bundle type digests itself — bench, deliver, judge, loop,
+    fleet, graph — and this one did not. So `summary.md` and
+    `witness.intoto.json`, which carry facts the frozen `test-result`
+    predicate structurally cannot hold (`provedRed`, `pinnedSha256`, the
+    vacuity verdict), had strictly LESS tamper-evidence than the bundles they
+    describe. They could be edited freely with nothing able to notice, on the
+    artifact designed to be handed to a stranger.
+    """
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    path = attested(project)
+    summary = path.parent / attest.SUMMARY_FILENAME
+    assert summary.is_file()
+    summary.write_text(
+        summary.read_text(encoding="utf-8") + "\nand it was all fine\n",
+        encoding="utf-8",
+    )
+
+    assert cli.main(["audit", str(path)]) == cli.EXIT_GATE_FAILED
+    assert attest.SUMMARY_FILENAME in capsys.readouterr().err
+
+
+def test_an_attestation_written_before_digests_existed_still_audits(
+    project, monkeypatch, capsys
+):
+    """An older artifact is not a tampered one.
+
+    Refusing an attestation that carries no `digests.json` would refuse every
+    one this program produced before 0.5.5 — a version bump reported as a
+    forgery, which is the worst way to be wrong about provenance.
+    """
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    path = attested(project)
+    (path.parent / evidence.DIGESTS_FILENAME).unlink()
+
+    assert cli.main(["audit", str(path)]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
 def test_audit_catches_a_rewritten_bundle_and_its_rewritten_digests(
     project, monkeypatch, capsys
 ):

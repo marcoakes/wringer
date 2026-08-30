@@ -341,6 +341,36 @@ def quoted(coverage: Coverage | None) -> list[str]:
     return out
 
 
+def check_counts(payload: dict[str, Any]) -> str | None:
+    """The headline against the rows it claims to count, or the disagreement.
+
+    **The same cheapest forgery the certificate already guards against**, on
+    the artifact the certificate quotes: leave the rows honest and change the
+    number above them. `coverage.json` travels in every delivery, its two
+    sentences are read aloud in `mr.md` and on the board, and nothing
+    re-derived them from the rows sitting beside them.
+
+    Checked with nothing but the record, so an auditor with the file and no
+    repository can run it.
+    """
+    counts = payload.get("counts") or {}
+    rows = [r for r in payload.get("requirements") or [] if isinstance(r, dict)]
+    people = [r for r in rows if r.get("needs_a_person")]
+    checkable = [r for r in rows if not r.get("needs_a_person")]
+    tallied = {
+        "covered": sum(1 for r in checkable if r.get("covered")),
+        "checkable": len(checkable),
+        "shown": sum(1 for r in people if r.get("shown")),
+        "needing_a_person": len(people),
+    }
+    wrong = sorted(
+        f"{name}: says {counts.get(name)!r}, rows show {value}"
+        for name, value in tallied.items()
+        if counts.get(name) != value
+    )
+    return "; ".join(wrong) or None
+
+
 def write(directory: Path, coverage: Coverage, redactor: Any = None) -> Path:
     """Write `coverage.json` into a bundle. A NEW file; nothing else moves.
 

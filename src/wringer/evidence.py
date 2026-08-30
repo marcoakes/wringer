@@ -382,7 +382,70 @@ def hash_untracked(root: Path, paths: Iterable[str]) -> dict[str, str]:
     return entries
 
 
-def digest_directory(directory: Path) -> Path:
+def bundle_entries(
+    directory: Path, exclude: tuple[str, ...] = ()
+) -> list[str]:
+    """Every entry a bundle's digests must cover — relative, POSIX, sorted.
+
+    **Walked with `followlinks=False`, and a SYMLINK is an entry in its own
+    right**, directory or file. `Path.rglob` does not descend a symlinked
+    directory, and the link itself fails `is_file()`, so a planted
+    `gates/002_security-scan -> /elsewhere` landed in NEITHER the recorded set
+    nor the on-disk set. Probed: `wring audit` printed "every digest matches"
+    with an identical `digests_sha256` and file count, and
+    `read_gate_results` then returned a gate row nothing had ever hashed —
+    feeding `proven_by.gates`, the in-toto `passedTests`, `explain` and the
+    board. The WRITER had the same blind spot, so the omission was symmetric
+    and therefore invisible.
+
+    `digests.json` is excluded by NAME anywhere in the tree, exactly as
+    before: changing that would change the digests of every bundle already
+    written, including the committed one that is this repository's
+    compatibility gate.
+    """
+    found: list[str] = []
+    for parent, dirnames, filenames in os.walk(directory, followlinks=False):
+        here = Path(parent)
+        for name in list(dirnames):
+            if (here / name).is_symlink():
+                # Recorded, and NOT descended. A link is a fact about the
+                # bundle whatever it points at.
+                found.append((here / name).relative_to(directory).as_posix())
+                dirnames.remove(name)
+        for name in filenames:
+            if name == DIGESTS_FILENAME:
+                continue
+            relative = (here / name).relative_to(directory).as_posix()
+            if relative in exclude:
+                continue
+            found.append(relative)
+    return sorted(found)
+
+
+def entry_digest(path: Path) -> str:
+    """The sha256 of a file's bytes, or of a symlink's TARGET TEXT.
+
+    `os.readlink` rather than following it. `untracked_digests` was corrected
+    the same way and for the same reason: retarget a link at a file with
+    identical bytes and a hash of the referent sees nothing to refuse. A
+    bundle archived without `-h` then dangles, and a `digests.json` covering
+    bytes the bundle does not contain claims more than it can.
+    """
+    if path.is_symlink():
+        target = os.readlink(path)
+        return hashlib.sha256(
+            b"symlink:" + target.encode("utf-8", "surrogateescape")
+        ).hexdigest()
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(65536), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def digest_directory(
+    directory: Path, exclude: tuple[str, ...] = ()
+) -> Path:
     """Hash every file in `directory`, into a sibling `digests.json`.
 
     **Written last**, so it covers everything else — including
@@ -402,15 +465,10 @@ def digest_directory(directory: Path) -> Path:
     Paths are POSIX and bundle-relative so a digest computed on Linux matches
     one computed on macOS.
     """
-    entries: dict[str, str] = {}
-    for path in sorted(directory.rglob("*")):
-        if not path.is_file() or path.name == DIGESTS_FILENAME:
-            continue
-        digest = hashlib.sha256()
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(65536), b""):
-                digest.update(chunk)
-        entries[path.relative_to(directory).as_posix()] = digest.hexdigest()
+    entries = {
+        name: entry_digest(directory / name)
+        for name in bundle_entries(directory, exclude)
+    }
 
     target = directory / DIGESTS_FILENAME
     target.write_text(

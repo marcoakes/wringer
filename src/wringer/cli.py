@@ -4236,7 +4236,9 @@ def _audit_certificate(named: Path, as_json: bool) -> int:
         return EXIT_CONFIG
 
     root = _certificate_root(named)
-    report = certificate.check(payload, root)
+    # The certificate's own directory, so its SIBLINGS can be checked too —
+    # `coverage.json` travels beside it and the page quotes its two sentences.
+    report = certificate.check(payload, root, beside=named.parent)
 
     if as_json:
         print(json.dumps({**report.as_json(), "checked_against": str(root)}))
