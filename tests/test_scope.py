@@ -1043,3 +1043,48 @@ def test_a_loop_from_BEFORE_the_sibling_existed_still_resumes(repo):
     directory.mkdir()
     assert loop_module.read_invocation(directory) is None
 
+
+def test_a_DAMAGED_invocation_refuses_rather_than_widening(repo):
+    """**D4's own defect arriving through the error path, found by running
+    the fix after it shipped.**
+
+    `read_invocation` read the payload leniently, so `gates: "not-a-list"`
+    became `None` — and `None` means EVERY DECLARED GATE. A corrupt sibling
+    therefore silently widened the scope of the run it claims to continue,
+    which is the exact thing D4 exists to close.
+
+    Absent opts out; unreadable is an instrument failure and never gets the
+    wider reading. Same rule as `evidence.read_sidecar` one module over.
+    """
+    import pytest
+
+    from wringer import evidence as evidence_module
+    from wringer import loop as loop_module
+
+    directory = repo / "damaged"
+    directory.mkdir()
+
+    for payload in (
+        "{ not json",
+        json.dumps({"gates": "api", "prove": False, "max_iterations": 3}),
+        json.dumps({"gates": ["api"], "prove": False, "max_iterations": "3"}),
+    ):
+        (directory / loop_module.INVOCATION_FILENAME).write_text(
+            payload, encoding="utf-8"
+        )
+        with pytest.raises(evidence_module.EvidenceError):
+            loop_module.read_invocation(directory)
+
+    # ...and an honest one still reads.
+    (directory / loop_module.INVOCATION_FILENAME).write_text(
+        json.dumps({
+            "schema_version": loop_module.INVOCATION_SCHEMA,
+            "gates": ["api"], "prove": True, "max_iterations": 3,
+        }),
+        encoding="utf-8",
+    )
+    asked = loop_module.read_invocation(directory)
+    assert asked == loop_module.Invocation(
+        gates=("api",), prove=True, max_iterations=3
+    ), asked
+

@@ -149,8 +149,27 @@ def read_sidecar(path: Path) -> Sidecar:
     parse, or does not hold an object, is UNREADABLE — never absent, and never
     silently favourable. Anything else is PRESENT with its payload.
     """
-    if not path.is_file():
+    # **Absent means NOTHING IS THERE, and `is_file()` alone said otherwise.**
+    #
+    # Found by running this function after it shipped: a DIRECTORY at the
+    # sidecar's path, and a DANGLING SYMLINK at it, both failed `is_file()`
+    # and were reported ABSENT — so the delivery interlock this reader exists
+    # to close fell open on exactly the shape it was written for. That is the
+    # D2 disease inside the D2 fix.
+    #
+    # `os.path.lexists` answers "is there something here", without following
+    # the link. Something that is here and is not a readable regular file is
+    # UNREADABLE, which is the fail-closed side.
+    if not os.path.lexists(path):
         return Sidecar(SIDECAR_ABSENT)
+    if not path.is_file():
+        return Sidecar(
+            SIDECAR_UNREADABLE,
+            why=(
+                "there is something at this path and it is not a readable "
+                "file"
+            ),
+        )
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError, UnicodeDecodeError) as exc:

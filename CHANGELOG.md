@@ -4,6 +4,37 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.7 — 2026-08-30
+
+**A bug review of this window's own diff, done by running it.** Two defects,
+both in code shipped hours earlier, and **both in the fail-open direction the
+window existed to close.**
+
+### The D2 disease inside the D2 fix
+
+`evidence.read_sidecar` asked `is_file()` and reported everything else ABSENT.
+So a **directory** at `acceptance.json`, and a **dangling symlink** at it,
+both read as "this repository never opted in" — and the delivery interlock
+that reader exists to close fell open on exactly the shape it was written for.
+Neither is exotic: an interrupted `cp -r`, an archive restored without `-h`, a
+`mkdir` where a write was meant.
+
+Absent means NOTHING IS THERE. `os.path.lexists` answers that without
+following the link; something that is here and is not a readable regular file
+is UNREADABLE, which is the fail-closed side.
+
+### D4's defect through the error path
+
+`loop.read_invocation` read its payload leniently, so `gates: "not-a-list"`
+became `None` — and `None` means EVERY DECLARED GATE. A corrupt
+`invocation.json` therefore silently widened the scope of the run it claims to
+continue, which is the exact thing D4 landed a day earlier to close. Absent
+opts out; unreadable raises, and the types are checked, because a resume is a
+claim about what a previous run was doing.
+
+Both found by probing this window's own new surfaces rather than by rereading
+them, and both red-watched.
+
 ## 0.5.6 — 2026-08-30
 
 **The surface tells the truth.** Phase 3 of the receipt window: the two 0.5.x

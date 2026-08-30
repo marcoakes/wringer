@@ -148,6 +148,48 @@ def test_an_unreadable_vacuity_record_REFUSES_rather_than_delivering(
     assert only_record(repo)["reason"] == "vacuity_record_unreadable"
 
 
+def test_something_that_is_NOT_A_FILE_at_the_record_path_REFUSES(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The D2 disease inside the D2 fix, found by running it.**
+
+    `read_sidecar` asked `is_file()` and reported everything else ABSENT — so
+    a DIRECTORY at `acceptance.json`, and a DANGLING SYMLINK at it, both read
+    as "the repo never opted in" and the interlock fell open on exactly the
+    shape it was written for. Neither is exotic: an interrupted `cp -r`, an
+    archive restored without `-h`, a `mkdir` where a write was meant.
+
+    Absent means NOTHING IS THERE. `os.path.lexists` answers that without
+    following the link; something that is here and is not a readable regular
+    file is UNREADABLE, which is the fail-closed side.
+    """
+    from wringer import evidence as evidence_module
+
+    repo = delivery_repo
+    _approve_a_spec(repo)
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = evidence.latest_run(repo / evidence.RUNS_DIRNAME)
+    assert run_dir is not None
+    written = run_dir / evidence.ACCEPTANCE_FILENAME
+    assert written.is_file()
+
+    # A directory where the record should be.
+    written.unlink()
+    written.mkdir()
+    assert evidence_module.read_sidecar(written).unreadable
+    assert cli.main(["deliver"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    assert only_record(repo)["reason"] == "acceptance_record_unreadable"
+
+    # ...and a dangling link, which is the same claim by a different route.
+    written.rmdir()
+    written.symlink_to(run_dir / "nowhere.json")
+    assert evidence_module.read_sidecar(written).unreadable
+
+
 def test_an_ABSENT_record_is_still_an_opt_out(
     delivery_repo, monkeypatch, capsys
 ):

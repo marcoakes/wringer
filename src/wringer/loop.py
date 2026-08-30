@@ -425,19 +425,48 @@ def read_invocation(directory: Path) -> Invocation | None:
 
     None is not a failure: every loop written before 0.5.6 has no sibling, and
     those resume the way they always did.
+
+    **A DAMAGED sibling raises** (found by running this after it shipped).
+    The first version read the payload leniently: `gates: "not-a-list"` became
+    `None`, and `None` means EVERY DECLARED GATE — so a corrupt record
+    silently widened the scope, which is the exact defect D4 exists to close,
+    arriving through the error path. Absent opts out; unreadable is an
+    instrument failure and never gets the wider reading (D2, one module over).
+
+    The types are checked for the same reason. A resume is a claim about what
+    a previous run was doing, and a claim assembled from bytes that do not
+    parse is not one.
     """
-    raw = evidence.read_sidecar(directory / INVOCATION_FILENAME).payload
-    if raw is None:
+    record = evidence.read_sidecar(directory / INVOCATION_FILENAME)
+    if record.absent:
         return None
+    if record.unreadable or record.payload is None:
+        raise evidence.EvidenceError(
+            f"{directory.name}/{INVOCATION_FILENAME} cannot be read "
+            f"({record.why}), so what this loop was asked to do is unknown "
+            "and resuming it would be a guess. Start a new run with "
+            "`wring run`"
+        )
+    raw = record.payload
     gates = raw.get("gates")
+    if gates is not None and not (
+        isinstance(gates, list) and all(isinstance(one, str) for one in gates)
+    ):
+        raise evidence.EvidenceError(
+            f"{directory.name}/{INVOCATION_FILENAME} names a gate scope that "
+            f"is not a list of names ({gates!r}), so resuming it would widen "
+            "the run it claims to continue"
+        )
+    budget = raw.get("max_iterations")
+    if budget is not None and not isinstance(budget, int):
+        raise evidence.EvidenceError(
+            f"{directory.name}/{INVOCATION_FILENAME} names an iteration "
+            f"ceiling that is not a number ({budget!r})"
+        )
     return Invocation(
-        gates=tuple(str(one) for one in gates) if isinstance(gates, list) else None,
-        prove=bool(raw.get("prove")),
-        max_iterations=(
-            int(raw["max_iterations"])
-            if isinstance(raw.get("max_iterations"), int)
-            else None
-        ),
+        gates=tuple(gates) if gates is not None else None,
+        prove=raw.get("prove") is True,
+        max_iterations=budget,
     )
 
 
