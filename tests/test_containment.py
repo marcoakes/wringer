@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from wringer import backend, config, containment
+from wringer import backend, cli, config, containment
 
 
 def repo_root() -> Path:
@@ -1502,3 +1502,42 @@ def test_a_SHELL_worker_derives_nothing_because_nothing_is_known(monkeypatch):
         "binary out of it means parsing one"
     )
     assert hasattr(config_module, "AcpWorker")
+
+
+def test_verify_REFUSES_when_the_containment_preflight_does(
+    repo, monkeypatch, capsys
+):
+    """**`preflight` runs on every verify and returned non-None in no test.**
+
+    Its five refusals — no runtime on PATH, the image not present locally,
+    the image cannot run the declared ACP agent, the broker without
+    `iptables`, a `:` in the repository path — are unit-tested against
+    `preflight` directly and never through the command that is supposed to
+    STOP on them. Deleting the two lines that turn its answer into a refusal
+    left the whole suite green and turned every containment refusal into a
+    warning nobody sees.
+    """
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: t\n    run: \"true\"\n"
+        "run:\n"
+        "  worker:\n"
+        "    acp:\n"
+        "      command: some-agent\n"
+        "  containment:\n"
+        "    runtime: docker\n"
+        "    image: example/img:1\n"
+        "    egress:\n"
+        "      policy: none\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    # No runtime on PATH — refusal 1, and the one a reader is likeliest to
+    # meet. `which` is what `preflight` asks.
+    monkeypatch.setattr(containment.shutil, "which", lambda name: None)
+
+    code = cli.main(["verify"])
+    said = capsys.readouterr()
+
+    assert code != cli.EXIT_OK, said.out + said.err
+    assert "docker" in (said.out + said.err), said.out + said.err
+

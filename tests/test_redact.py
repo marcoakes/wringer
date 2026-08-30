@@ -79,3 +79,53 @@ def test_no_matching_variables_means_no_op():
 
     assert redactor.secrets == ()
     assert redactor.scrub("nothing to do") == "nothing to do"
+
+
+# --- D8: the writer scrubs, and the encoding Wringer applies is undone -----
+
+
+def test_a_secret_that_JSON_ENCODING_ESCAPES_is_still_matched():
+    """**The redactor matches raw bytes; Wringer JSON-encodes first.**
+
+    `acp.py` writes `json.dumps(update)` into a turn's updates, and
+    `json.dumps` escapes `"`, backslash and every non-ASCII character. A
+    secret containing any of them therefore never matched the pattern at all:
+    the scrub ran, found nothing, and the credential went into the bundle
+    intact. The encoding is one WRINGER applies, not one the gate chose, so
+    it is ours to undo.
+    """
+    import json as json_module
+
+    secret = 'sk-live-"quoted"-café-AAAAAAAA'
+    redactor = redact.Redactor.from_config({}, {"MY_TOKEN": secret})
+
+    encoded = json_module.dumps({"message": secret})
+    assert secret not in encoded, "the premise: encoding changes the bytes"
+    assert redactor.scrub(encoded) == '{"message": "[REDACTED]"}'
+    # ...and the plain form still works.
+    assert redactor.scrub(f"here: {secret}") == "here: [REDACTED]"
+
+
+def test_the_bundle_writer_scrubs_whatever_it_is_handed(tmp_path):
+    """One writer, and it cannot be forgotten.
+
+    Redaction was a habit at each call site and three writers skipped it:
+    `artifacts.collect` left artifact FILENAMES intact in a row claiming
+    `redacted: true`, `acquire.record` took a redactor argument its body never
+    referenced, and `checks.write` took none while `result.json` beside it
+    scrubbed the same command string.
+    """
+    from wringer import evidence
+
+    secret = "ghp_AAAAAAAAAAAAAAAAAAAA"
+    redactor = redact.Redactor.from_config({}, {"GITHUB_TOKEN": secret})
+    path = evidence.write_record(
+        tmp_path / "record.json",
+        {"name": f"report-{secret}.txt", "nested": [{"cmd": secret}]},
+        redactor,
+    )
+
+    written = path.read_text(encoding="utf-8")
+    assert secret not in written, written
+    assert written.count("[REDACTED]") == 2, written
+

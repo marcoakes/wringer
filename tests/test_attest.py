@@ -661,6 +661,99 @@ def test_a_symlink_is_digested_by_its_TARGET_TEXT_not_its_referent(tmp_path):
     assert "link" in evidence_module.bundle_entries(bundle)
 
 
+# --- the tamper surfaces nothing had ever taken --------------------------
+#
+# Each of these `raise Refused(` sites executed in no test. Their NEIGHBOURS
+# did — the "added" and "changed" digest branches, the `prev_hash` break, the
+# unapproved spec — so every fixture reached the function and stopped one
+# branch short.
+
+
+def test_audit_catches_a_file_REMOVED_from_a_bundle(
+    project, monkeypatch, capsys
+):
+    """The third direction, and the cheapest attack on the artifact the whole
+    certificate story rests on: strip a gate log and the bundle says less
+    than it did. "Added" and "changed" were both driven; "removed" was not."""
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    assert cli.main(["attest"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run = only(project, ".wringer", "runs")
+    recorded = json.loads(
+        (run / evidence.DIGESTS_FILENAME).read_text(encoding="utf-8")
+    )["files"]
+    victim = next(name for name in sorted(recorded) if "gates/" in name)
+    (run / victim).unlink()
+
+    assert cli.main(["audit", str(attested(project))]) == cli.EXIT_GATE_FAILED
+    assert victim in capsys.readouterr().err
+
+
+def test_audit_catches_a_ledger_line_that_is_not_valid_JSON(
+    project, monkeypatch, capsys
+):
+    """One byte earlier than the `prev_hash` break, which has two tests —
+    and both of those corrupt a line that still parses."""
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = only(project, ".wringer", "runs")
+    ledger = run_dir / evidence.EVIDENCE_FILENAME
+    lines = ledger.read_text(encoding="utf-8").splitlines()
+    lines[-1] = "{ not json"
+    ledger.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    evidence.digest_directory(run_dir)  # digests agree — only the line does not
+
+    assert cli.main(["attest"]) == cli.EXIT_GATE_FAILED
+    assert "not valid" in capsys.readouterr().err
+
+
+def test_a_ledger_line_that_is_JSON_but_not_an_object_REFUSES(
+    project, monkeypatch, capsys
+):
+    """PROBED: `123` on its own line reached `.get` and raised
+    AttributeError out of `audit`, so a malformed bundle read as a broken
+    TOOL. `audit_bundle` and `audit` catch only `Refused`, and `cmd_audit`
+    only `AttestError`, so the user got a traceback where they were owed
+    "this bundle does not verify"."""
+    monkeypatch.chdir(project)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    run_dir = only(project, ".wringer", "runs")
+    (run_dir / evidence.EVIDENCE_FILENAME).write_text("123\n", encoding="utf-8")
+    evidence.digest_directory(run_dir)
+
+    assert cli.main(["attest"]) == cli.EXIT_GATE_FAILED
+    # Collapsed: the message is wrapped for the terminal, and pinning the
+    # wrap would pin the width rather than the sentence.
+    assert "not an event object" in " ".join(capsys.readouterr().err.split())
+
+
+def test_attest_refuses_a_spec_it_cannot_READ(project, monkeypatch, capsys):
+    """Its sibling — `approved: false` — is driven, so the fixture reaches
+    this block. Nothing proved that an UNREADABLE spec refuses rather than
+    falling through to an attestation with no authority clause: the interlock
+    defeated by an I/O error instead of by a flag."""
+    monkeypatch.chdir(project)
+    (project / "wringer.spec.yaml").write_text(
+        "schema_version: wringer.spec.v1\napproved: true\n"
+        "title: A thing\nintent: x\ntasks: []\ncriteria: []\n",
+        encoding="utf-8",
+    )
+    assert cli.main(["verify"]) == cli.EXIT_OK
+    capsys.readouterr()
+    (project / "wringer.spec.yaml").write_text(
+        "approved: [true\n  nope: :\n", encoding="utf-8"
+    )
+
+    assert cli.main(["attest"]) == cli.EXIT_GATE_FAILED
+    assert "authority" in capsys.readouterr().err
+
+
 def test_a_clause_naming_a_bundle_nothing_digest_checked_is_REFUSED(
     project, monkeypatch, capsys
 ):

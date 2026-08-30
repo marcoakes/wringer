@@ -202,7 +202,9 @@ def identity_of(gate_id: str, run: str, root: Path) -> Identity:
     )
 
 
-def write(bundle_dir: Path, root: Path, gates: list[Any]) -> Path | None:
+def write(
+    bundle_dir: Path, root: Path, gates: list[Any], redactor: Any = None
+) -> Path | None:
     """`<bundle>/checks.json` — what every declared gate's check was, now.
 
     Written BEFORE `digests.json`, like every other sibling, so the bundle's
@@ -217,20 +219,21 @@ def write(bundle_dir: Path, root: Path, gates: list[Any]) -> Path | None:
     ]
     if not identities:
         return None
-    path = bundle_dir / CHECKS_FILENAME
-    path.write_text(
-        json.dumps(
-            {
-                "schema_version": SCHEMA_VERSION,
-                "checks": identities,
-                "limits": list(LIMITS),
-            },
-            indent=2,
-        )
-        + "\n",
-        encoding="utf-8",
+    # **Scrubbed, like `result.json` beside it** (D8). `Bundle.write_gate_result`
+    # records `"command": self.redactor.scrub(result.gate.run)`; this file
+    # serialised the same string raw. One fact, two surfaces in one bundle,
+    # one of them scrubbed — the drift pattern this codebase has paid for.
+    from wringer import evidence as evidence_module
+
+    return evidence_module.write_record(
+        bundle_dir / CHECKS_FILENAME,
+        {
+            "schema_version": SCHEMA_VERSION,
+            "checks": identities,
+            "limits": list(LIMITS),
+        },
+        redactor,
     )
-    return path
 
 
 def read(bundle_dir: Path) -> dict[str, Identity]:

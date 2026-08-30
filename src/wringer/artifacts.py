@@ -64,6 +64,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from wringer import evidence
 from wringer.redact import Redactor
 
 SCHEMA_VERSION = "wringer.gate-artifacts.v1"
@@ -272,11 +273,18 @@ def collect(
             "truncated image is a corrupt image that still reads as evidence.",
         ],
     }
-    path = workdir / FILENAME
-    path.write_text(
-        json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    # **Through the one writer that scrubs by construction** (D8). This wrote
+    # the payload raw: `collect` scrubs artifact CONTENTS and never touched
+    # `name`, and `workdir` is the bundle's own `gates/NNN_<id>/` — so a gate
+    # writing `"$WRINGER_ARTIFACTS_DIR/report-$GITHUB_TOKEN.txt"` put a live
+    # token into the evidence bundle, in a row that says `redacted: true`.
+    # Probed with a `Redactor(secrets=(secret,))`: the name came back intact.
+    # This is the class `evidence.deep_scrub` was added for — "a file whose
+    # NAME carries a secret was reaching evidence.jsonl intact" — reappearing
+    # in a newer module.
+    return evidence.write_record(
+        workdir / FILENAME, payload, redactor, ensure_ascii=False
     )
-    return path
 
 
 def read(workdir: Path) -> dict[str, Any] | None:

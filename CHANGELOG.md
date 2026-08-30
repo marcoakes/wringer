@@ -4,6 +4,77 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.5.5 — 2026-08-30
+
+**The refusal is real.** Phase 2 of the receipt window: the guard that says
+a declared refusal has actually fired, the two security weapons the review
+reproduced, the provenance chain's weak axis, and redaction as a property of
+the writer.
+
+### A refusal nobody has seen fire is a check green from birth (D0)
+
+`tests/conftest.py` records every `Refused` reason CONSTRUCTED during the
+session and asserts the set equals `deliver.REFUSAL_REASONS` at session end.
+It **replaces** the two lexical guards rather than standing beside them: they
+parsed `deliver.py` with `ast` and matched literal `reason=` strings, so
+`if code != 0 and False:` left both green.
+
+Run whole, it named four declared reasons that no test had ever constructed:
+`tracked_contents_differ` — the tracked-diff byte check, deleting which left
+199 tests across five modules passing — `untracked_record_unreadable`,
+`branch_is_current` and `remote_unreachable`. Each has a taken-path test now,
+as do attest's removed-file, unparseable-ledger-line and unreadable-spec
+branches, `verify`'s containment preflight, and `start`'s refusal to replace
+a `run:` section somebody wrote. A ledger line that is valid JSON and not an
+object refuses instead of raising `AttributeError`.
+
+### Two weapons, both reproduced (T4)
+
+`deliver.branch` joins `REF_NAME_PATTERN` and the push spells out both sides
+of the refspec. `branch: "+main"` passed every guard and git read the `+` as
+FORCE: `+ f9e8e93...2bdb45f main -> main (forced update)`. The force-push
+guard is a source grep and could not see a refspec assembled at runtime;
+there is a guard on the argv now. `REF_NAME_PATTERN` also excludes `..`.
+
+`egress.hosts` and `run.containment.requires` are validated, and both
+assembled shell scripts quote what they interpolate. `hosts: [..., "x;
+iptables -P OUTPUT ACCEPT; :"]` parsed, and the broker — the container
+holding NET_ADMIN — ran a loop that swallowed every rule that followed,
+while the record went on asserting `egress.policy: allowlist`.
+
+### The chain covers the paths that reach it (T3)
+
+- **Symlinks**, on the walker and the writer: a planted
+  `gates/002_security-scan -> /elsewhere` was in neither the recorded set nor
+  the on-disk set, so `wring audit` said every digest matched while a gate row
+  nothing had hashed reached `proven_by.gates`, the in-toto `passedTests`,
+  `explain` and the board.
+- **`_cross_check` binds to the verified refs**, not to paths in the payload.
+  A forged verdict directory with no `digests.json` at all audited `ok=True`.
+- **The attestation directory digests itself**, so `summary.md` and both
+  in-toto statements stop having less tamper-evidence than the bundles they
+  describe. Attestations written before this carry none and still audit.
+- **`certificate.check` re-derives the plain words**, so a forged `PROVED`
+  chip over an unevidenced row is caught, and **`coverage.check_counts`**
+  guards the sibling the certificate quotes.
+- The certificate's positive control now DISCRIMINATES: it asserted "no claim
+  is BROKEN" and `report.ok`, which is defined as `not any(BROKEN)`.
+
+### Redaction is a property of the writer (D8)
+
+`evidence.write_record` scrubs by construction, and the three writers that
+skipped it are routed through it: `artifacts.collect` left artifact FILENAMES
+intact in a row claiming `redacted: true`, `acquire.record` took a redactor
+its body never referenced, `checks.write` took none. The ACP seam scrubs
+before it truncates — the rule `_write_log` already states — and the redactor
+is taught the JSON-encoded form of each secret, because Wringer encodes the
+value before it reaches a log. `check_url` refuses a query string, the other
+way a token gets pasted.
+
+Schema versions unchanged; `deliver.REFUSAL_REASONS` gained two names in
+0.5.4 and none here. Thirty-two red-watches by individual reversion; five
+guards were vacuous on the first pass and are recorded in the finish report.
+
 ## 0.5.4 — 2026-08-30
 
 **The red is earned.** Phase 1 of the receipt window, closing six paths by

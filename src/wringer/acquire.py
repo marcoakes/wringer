@@ -12,13 +12,13 @@ history it writes is the history it just downloaded.
 
 from __future__ import annotations
 
-import json
 import re
 import subprocess
 import urllib.parse
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from wringer import evidence
 from wringer import git as git_module
@@ -85,6 +85,18 @@ def check_url(url: str) -> None:
             "the URL must not carry a username over http(s) — that is how a "
             "token gets pasted, and this URL is recorded in the acquisition "
             "manifest. Let git's own credential helper answer"
+        )
+    if parsed.query:
+        # **The other way a token is pasted**, and this function refused
+        # userinfo BECAUSE the URL is recorded while letting a query string
+        # through. `config._validate_endpoint` refuses one for exactly that
+        # reason, in those words. Verified before the fix:
+        # `check_url("https://h/r.git?token=SEKRET")` returned clean and the
+        # string landed verbatim in `.wringer/acquired/<id>/manifest.json`.
+        raise AcquireError(
+            "the URL must not carry a query string — it is recorded in the "
+            "acquisition manifest, and `?token=…` is how a credential gets "
+            "pasted. Let git's own credential helper answer"
         )
 
 
@@ -171,7 +183,7 @@ def _read(args: list[str], cwd: Path) -> str | None:
     return git_module.decode(proc.stdout).strip()
 
 
-def record(root: Path, acquired: Acquired, redactor: object = None) -> Path:
+def record(root: Path, acquired: Acquired, redactor: Any = None) -> Path:
     """Write `.wringer/acquired/<id>/manifest.json`.
 
     A working copy that cannot say where it came from is the provenance gap
@@ -192,6 +204,11 @@ def record(root: Path, acquired: Acquired, redactor: object = None) -> Path:
         "head_sha": acquired.head_sha,
         "default_branch": acquired.default_branch,
     }
-    path = directory / MANIFEST_FILENAME
-    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-    return path
+    # **The `redactor` argument is USED now** (D8). It was declared, both call
+    # sites passed none, and the body never referenced it — while `origin` was
+    # written raw. `check_url` refuses userinfo credentials *because* they are
+    # recorded here, and did not refuse a QUERY STRING, which
+    # `_validate_endpoint` refuses for exactly that reason. So
+    # `https://host/repo.git?token=...` landed verbatim in a manifest that
+    # SECURITY.md's own framing puts one `git add -f` from public.
+    return evidence.write_record(directory / MANIFEST_FILENAME, payload, redactor)

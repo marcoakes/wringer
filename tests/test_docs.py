@@ -4417,6 +4417,10 @@ def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
         8: "Eight", 9: "Nine", 10: "Ten", 11: "Eleven", 12: "Twelve",
         13: "Thirteen", 14: "Fourteen", 15: "Fifteen", 16: "Sixteen",
         17: "Seventeen", 18: "Eighteen", 19: "Nineteen", 20: "Twenty",
+        21: "Twenty-one", 22: "Twenty-two", 23: "Twenty-three",
+        24: "Twenty-four", 25: "Twenty-five", 26: "Twenty-six",
+        27: "Twenty-seven", 28: "Twenty-eight", 29: "Twenty-nine",
+        30: "Thirty",
     }
     root = repo_root()
     contributing = (root / "CONTRIBUTING.md").read_text(encoding="utf-8")
@@ -4424,7 +4428,11 @@ def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
     listed = re.findall(r"`v(\d+\.\d+\.\d+)`", opening)
     named = sorted(set(listed))
 
-    said = re.search(r"\*\*(\w+) releases have shipped\*\*", opening)
+    # `[\w-]` and not `\w`: the count is spelled in words, and past twenty
+    # those words are hyphenated. On `\w+` the search returned None and the
+    # guard failed with "the sentence has been reworded" — reporting a stale
+    # PATTERN as a stale document.
+    said = re.search(r"\*\*([\w-]+) releases have shipped\*\*", opening)
     assert said, "the sentence that carries the count has been reworded"
     assert words.get(len(named)) == said.group(1), (
         f"CONTRIBUTING says {said.group(1)!r} releases and names "

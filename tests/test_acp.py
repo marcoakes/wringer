@@ -2057,3 +2057,56 @@ def test_WRINGERS_OWN_WORKSPACE_NEVER_COUNTS_AS_THE_AGENTS_WORK(tmp_path):
         "Wringer's own bundle made the tree look changed, so every turn — "
         "the idle one included — would be reported as having done something"
     )
+
+
+def test_an_update_is_SCRUBBED_BEFORE_it_is_truncated():
+    """**`_write_log` states the rule and these two sites broke it.**
+
+    "Truncation must never be what saves a secret" — so `_write_log` scrubs
+    and then cuts. Each `session/update` was cut to 400 characters at APPEND
+    time and the scrub happened later, at the join, so a secret straddling
+    offset 400 left its head in `stdout.log`. SECURITY.md says an agent IS
+    handed a credential by name through `env_passthrough`, which is what makes
+    an agent echoing one an ordinary event rather than an exotic one.
+
+    Probed on the shipping tree with a 48-character secret:
+    `sk-live-AAAAAAAAAAAAAA` survived the scrub.
+    """
+    from wringer import acp as acp_module
+    from wringer.redact import Redactor
+
+    secret = "sk-live-" + "A" * 40
+    redactor = Redactor.from_config({}, {"MY_TOKEN": secret})
+    turn = acp_module.Turn()
+
+    class _Silent:
+        def respond(self, *args, **kwargs):
+            pass
+
+        def respond_error(self, *args, **kwargs):
+            pass
+
+    acp_module._handle(
+        {
+            "method": "session/update",
+            "params": {
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    # Padded so the secret STRADDLES offset 400: cut first
+                    # and sixty characters of it survive; scrubbed first and
+                    # the placeholder lands inside the cut.
+                    "content": {"type": "text", "text": "x" * 250 + secret},
+                }
+            },
+        },
+        _Silent(),
+        Path("."),
+        turn,
+        False,
+        redactor,
+    )
+
+    said = "\n".join(turn.updates)
+    assert secret[:20] not in said, said
+    assert "[REDACTED]" in said, said
+

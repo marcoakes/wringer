@@ -221,6 +221,17 @@ def check_chain(ledger: Path, role: str) -> None:
                 f"the {role} ledger {ledger.name} line {number} is not valid "
                 f"JSON: {exc}"
             ) from exc
+        if not isinstance(event, dict):
+            # A line that is valid JSON and not an OBJECT — `123`, `"x"`,
+            # `[]` — reached `.get` and raised AttributeError out of `audit`,
+            # so a malformed bundle read as a broken TOOL: a traceback where
+            # the user was owed "this bundle does not verify". `audit_bundle`
+            # and `audit` catch only `Refused`, and `cmd_audit` only
+            # `AttestError`.
+            raise Refused(
+                f"the {role} ledger {ledger.name} line {number} is JSON but "
+                "not an event object"
+            )
         if event.get("prev_hash") != expected:
             raise Refused(
                 f"the {role} ledger {ledger.name} breaks its hash chain at "

@@ -630,6 +630,41 @@ def deep_scrub(redactor: Redactor, value: Any) -> Any:
     return value
 
 
+def write_record(
+    path: Path,
+    payload: Any,
+    redactor: Redactor | None = None,
+    *,
+    ensure_ascii: bool = True,
+) -> Path:
+    """Write one JSON record into a bundle, **scrubbed by construction**.
+
+    D8, 2026-08-29. Redaction was a HABIT at each call site rather than a
+    property of the writer, and three writers skipped it: `artifacts.collect`
+    scrubbed contents and left artifact FILENAMES intact — in a row that says
+    `redacted: true`, so a gate writing
+    `"$WRINGER_ARTIFACTS_DIR/report-$GITHUB_TOKEN.txt"` put a live token in
+    the bundle under a claim that it had not; `acquire.record` took a
+    `redactor` argument and never referenced it; `checks.write` took none,
+    while `result.json` beside it in the same bundle scrubbed the same
+    command string.
+
+    SECURITY.md's guarantee is about THE BUNDLE. A guarantee that holds for
+    some files in it is not a guarantee, so the scrub happens here, where a
+    caller cannot forget it.
+
+    `ensure_ascii` is a parameter and not a decision: `artifacts.json` has
+    always been written with it False, and flipping it would change the bytes
+    of every bundle already digested.
+    """
+    scrubbed = deep_scrub(redactor or Redactor(), payload)
+    path.write_text(
+        json.dumps(scrubbed, indent=2, ensure_ascii=ensure_ascii) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def timestamp() -> str:
     """Local ISO-8601 with offset, to the millisecond — fine enough to order
     two fast gates, coarse enough to stay readable."""

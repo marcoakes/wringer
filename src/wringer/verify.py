@@ -564,7 +564,7 @@ def run(
     # because `assess` compares this run's identities against the ones in the
     # bundle each receipt cites. `src/wringer/checks.py` carries the reasoning
     # and the v0 limit: a changed check is a NOTE, never a refusal.
-    checks.write(bundle.directory, root, list(cfg.gates))
+    checks.write(bundle.directory, root, list(cfg.gates), bundle.redactor)
     witness_evidence = _run_witnesses(
         root, witnesses, bundle, cfg
     )

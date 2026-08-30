@@ -18,6 +18,7 @@ losing token protection should never be one line of config away.
 from __future__ import annotations
 
 import fnmatch
+import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -61,6 +62,18 @@ class Redactor:
             if len(value) >= MIN_SECRET_LENGTH
             and any(fnmatch.fnmatchcase(name.upper(), p) for p in patterns)
         }
+        # **Every JSON-ENCODED form too** (D8, 2026-08-29). The redactor
+        # matches raw bytes, and Wringer itself JSON-encodes values before
+        # they reach a log — `acp.py` writes `json.dumps(update)` into the
+        # turn's updates. `json.dumps` escapes `"`, `\\` and every
+        # non-ASCII character, so a secret containing any of them never
+        # matched the pattern at all: the scrub ran, found nothing, and the
+        # credential went into the bundle intact. The encoding is one Wringer
+        # applies, not one the gate chose, so this is ours to undo.
+        encoded = {
+            json.dumps(value)[1:-1] for value in values
+        }
+        values |= {form for form in encoded if len(form) >= MIN_SECRET_LENGTH}
         # Longest first: if one secret contains another, replacing the short
         # one first would leave a recognisable tail of the long one behind.
         return cls(tuple(sorted(values, key=len, reverse=True)))

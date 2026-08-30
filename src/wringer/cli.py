@@ -995,7 +995,9 @@ def _start_clone(here: Path, url: str, workspace: str | None) -> int:
             url, (root / (workspace or cfg_workspace or ".")).resolve(), None
         )
         acquired = acquire.clone(url, target)
-        manifest = acquire.record(root, acquired)
+        manifest = acquire.record(
+            root, acquired, _graph_redactor(root)
+        )
     except acquire.AcquireError as exc:
         _fail("start", exc)
         return EXIT_CONFIG
@@ -1322,6 +1324,21 @@ def cmd_graph_validate(args: argparse.Namespace) -> int:
             print(f"✓ {kinds.count(kind)} {kind}")
     print("✓ acyclic, every route reachable, every routed value written")
     return EXIT_OK
+
+
+def _redactor_for(cfg: config.Config | None) -> redact.Redactor:
+    """Every credential a loaded config declares, for a writer that needs one.
+
+    Used where the config is already in hand — `wring get` and
+    `wring start --clone` — so the acquisition manifest scrubs like every
+    other record. `None` still gets the defaults: an absent config is not a
+    reason to write unscrubbed evidence.
+    """
+    if cfg is None:
+        return redact.Redactor.from_config({})
+    return redact.Redactor.from_config(
+        cfg.evidence, extra_names=config.declared_secret_names(cfg)
+    )
 
 
 def _graph_redactor(root: Path) -> redact.Redactor:
@@ -3735,7 +3752,8 @@ def cmd_get(args: argparse.Namespace) -> int:
             args.url, (root / (cfg.workspace or ".")).resolve(), args.into
         )
         acquired = acquire.clone(args.url, target)
-        manifest = acquire.record(root, acquired)
+        # The repo's own declared names reach the manifest writer (D8).
+        manifest = acquire.record(root, acquired, _redactor_for(cfg))
     except acquire.AcquireError as exc:
         _fail("get", exc)
         return EXIT_CONFIG

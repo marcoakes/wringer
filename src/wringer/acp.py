@@ -632,7 +632,7 @@ def run_turn(
     turn = Turn()
     connection = Connection(proc, deadline=time.monotonic() + timeout)
     connection.handler = lambda message: _handle(
-        message, connection, root, turn, contained
+        message, connection, root, turn, contained, redactor
     )
 
     try:
@@ -852,13 +852,26 @@ def _handle(
     root: Path,
     turn: Turn,
     contained: bool = False,
+    redactor: Redactor | None = None,
 ) -> None:
     """Serve one agent-to-client message.
 
     `contained` is carried down to `_inside` and nowhere else: a contained
     agent names container paths, and the translation happens at the one place
     that resolves them (SPEC_CONTAIN_V0 §11 A-4).
+
+    **`redactor` is here because this function TRUNCATES** (D8, 2026-08-29).
+    `_write_log` states the rule — "Truncation must never be what saves a
+    secret" — and scrubs before it cuts. These two sites did the opposite:
+    each update was cut to 400 characters at append time and the scrub
+    happened later, at the join. SECURITY.md says an agent IS handed a
+    credential by name through `env_passthrough`, so an agent echoing it in
+    a chunk that straddles offset 400 wrote the head of that token into
+    `stdout.log`. Probed with a 48-character secret: `sk-live-AAAAAAAAAAAAAA`
+    survived the scrub. `session/request_permission` cuts at 200, which is
+    tighter and likelier.
     """
+    scrub = (redactor or Redactor()).scrub
     method = message.get("method", "")
     params = message.get("params") or {}
     request_id = message.get("id")
@@ -878,7 +891,7 @@ def _handle(
                 # earlier one. Adding them would double-count the agent's own
                 # running total.
                 turn.usage = reported
-        turn.updates.append(f"[{kind}] {json.dumps(update)[:400]}")
+        turn.updates.append(f"[{kind}] {scrub(json.dumps(update))[:400]}")
         return
 
     if method == "fs/read_text_file":
@@ -912,7 +925,9 @@ def _handle(
         # sitting at is not a safety control; the container and the
         # supervision invariants are. The ledger is what makes this
         # auditable rather than invisible.
-        tool = json.dumps(params.get("toolCall") or params.get("tool") or {})[:200]
+        tool = scrub(
+            json.dumps(params.get("toolCall") or params.get("tool") or {})
+        )[:200]
         turn.permissions.append({"tool": tool, "outcome": "auto_approved"})
         options = params.get("options") or []
         chosen = next(

@@ -193,6 +193,71 @@ def test_an_existing_config_is_added_to_never_replaced(repo, monkeypatch, capsys
     assert [gate.id for gate in read_config(repo).gates] == ["mine"]
 
 
+RUN_ALREADY_WRITTEN = """\
+version: 1
+gates:
+  - id: mine
+    run: "true"
+
+run:
+  worker:
+    acp:
+      command: my-own-agent
+"""
+
+
+def test_a_run_SECTION_the_user_wrote_is_refused_rather_than_rewritten(repo):
+    """**The `run:` half of §3d, which executed in no test.**
+
+    The workspace branch one test down is driven; this one never was. Delete
+    this `else:` and `emit` returns an Emission with neither `added` nor
+    `already` naming "run" — so `wring start --agent X` reports success and
+    silently installs NOTHING, on the one stanza that names the process
+    allowed to edit the user's code.
+    """
+    from wringer import agents as agents_module
+    from wringer import start as start_module
+
+    (repo / config.CONFIG_FILENAME).write_text(
+        RUN_ALREADY_WRITTEN, encoding="utf-8"
+    )
+    before = (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8")
+
+    # Driven at `emit`, which is where the refusal lives. The CLI preamble
+    # ahead of it has its own refusals (a missing key, an unknown agent id)
+    # and reaching this branch through them would test those instead.
+    other = agents_module.worker(agents_module.find("gemini"))
+    with pytest.raises(start_module.Refused, match="run"):
+        start_module.emit(repo, worker=other)
+
+    assert (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8") == before
+
+
+def test_an_emitted_config_that_would_say_a_key_TWICE_is_refused(repo):
+    """The emitter checks its own OUTPUT before writing it, and neither of
+    those two guards had ever run.
+
+    A duplicated top-level key parses fine and means whatever the reader's
+    parser decides, so a config with one is a config that lies to somebody.
+    Delete the check and a composition bug in `_append` lands silently in the
+    person's file.
+    """
+    from wringer import start as start_module
+
+    # A key the emitter is not touching, said twice: the workspace clash and
+    # the run clash both refuse EARLIER, so a duplicate of either would test
+    # the wrong branch.
+    (repo / config.CONFIG_FILENAME).write_text(
+        MINIMAL + "\nversion: 1\n", encoding="utf-8"
+    )
+    before = (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8")
+
+    with pytest.raises(start_module.Refused, match="more than once"):
+        start_module.emit(repo, workspace="../c")
+
+    assert (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8") == before
+
+
 def test_a_section_the_user_wrote_is_refused_rather_than_rewritten(
     repo, monkeypatch, capsys
 ):

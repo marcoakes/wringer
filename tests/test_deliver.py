@@ -140,6 +140,13 @@ def test_get_clones_and_records_where_it_came_from(repo, monkeypatch, capsys):
         ("https://ghp_tokentoken@example.com/x.git", "username over http(s)"),
         ("ftp://example.com/x.git", "not a scheme"),
         ("ext::sh -c whoami", "not a scheme"),
+        # The OTHER way a token gets pasted. `check_url` refused userinfo
+        # BECAUSE the URL is recorded in the acquisition manifest, and let a
+        # query string through — while `config._validate_endpoint` refuses one
+        # for exactly that reason, in those words. Verified before the fix:
+        # this returned clean and the string landed verbatim in
+        # `.wringer/acquired/<id>/manifest.json`.
+        ("https://example.com/x.git?token=SEKRETVALUE1234", "query string"),
     ],
 )
 def test_get_refuses_a_url_it_should_not_clone(repo, monkeypatch, capsys, url,

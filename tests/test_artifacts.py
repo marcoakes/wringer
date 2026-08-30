@@ -366,3 +366,36 @@ def test_the_count_is_a_count_and_the_mr_body_never_carries_a_payload():
         if isinstance(node, ast.Constant) and isinstance(node.value, str):
             assert "data:image" not in node.value
             assert artifacts.DIRNAME + "/" not in node.value
+
+
+def test_an_artifact_FILENAME_carrying_a_secret_is_scrubbed(tmp_path):
+    """**Probed on the shipping tree: the name came back intact, in a row
+    that says `redacted: true`.**
+
+    `collect` scrubs artifact CONTENTS and never touched `name` or the
+    `omitted` names — and `workdir` is the bundle's own `gates/NNN_<id>/`, so
+    a gate writing `"$WRINGER_ARTIFACTS_DIR/report-$GITHUB_TOKEN.txt"` put a
+    live token into the evidence bundle under a claim that it had not. This
+    is the exact class `evidence.deep_scrub` was added for — "a file whose
+    NAME carries a secret was reaching evidence.jsonl intact" — reappearing
+    in a newer module.
+    """
+    from wringer.redact import Redactor
+
+    secret = "ghp_BBBBBBBBBBBBBBBBBBBB"
+    workdir = tmp_path / "gates" / "001_t"
+    workdir.mkdir(parents=True)
+    settings = config.Artifacts()
+    outputs = artifacts.prepare(workdir, gate(settings))
+    assert outputs is not None
+    (outputs / f"report-{secret}.txt").write_text("ok\n", encoding="utf-8")
+
+    artifacts.collect(
+        workdir, gate(settings),
+        Redactor.from_config({}, {"GITHUB_TOKEN": secret}),
+    )
+
+    written = (workdir / artifacts.FILENAME).read_text(encoding="utf-8")
+    assert secret not in written, written
+    assert "[REDACTED]" in written, written
+
