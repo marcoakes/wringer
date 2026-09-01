@@ -224,6 +224,48 @@ def unevidenced_split(rows: Any) -> tuple[int, int]:
     return unwatched, watched
 
 
+def _judgement_sentences(rows: Any) -> list[str]:
+    """The person's answer, IN THEIR WORDS, on every surface quoting this
+    renderer.
+
+    **Run 4, 2026-09-01.** `mr.md` carried the operator's note verbatim —
+    through the certificate's own section — while `summary.md`, quoting THIS
+    renderer, presented the human requirement with no verdict and no note.
+    The one thing only a person could say about the delivery was missing
+    from the run's own human-readable report. One renderer, so the sentence
+    lands on both travelling surfaces at once and cannot drift between them.
+
+    Reads dicts or `Row`s, like `unevidenced_split`, because the surfaces
+    that quote this hold one or the other.
+    """
+    def field(row: Any, name: str) -> Any:
+        if isinstance(row, dict):
+            return row.get(name)
+        return getattr(row, name, None)
+
+    if rows is None:
+        return []
+    sentences = []
+    for row in rows:
+        judgement = field(row, "judgement")
+        if judgement is None:
+            continue
+        verdict = field(judgement, "verdict")
+        by = field(judgement, "by") or "somebody"
+        note = field(judgement, "note")
+        stale = bool(field(judgement, "stale"))
+        sentence = f"- **{field(row, 'criterion')}** — {by} said **{verdict}**"
+        if note:
+            sentence += f': "{note}"'
+        if stale:
+            sentence += (
+                " *(the requirement's wording has changed since this answer"
+                " — it may no longer apply)*"
+            )
+        sentences.append(sentence)
+    return ([""] + sentences) if sentences else []
+
+
 def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
     """The acceptance headline, for the surfaces that TRAVEL. Markdown lines.
 
@@ -260,6 +302,7 @@ def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
         if counts.get(state)
     )
     lines = ["", f"**Requirements: {said}.**"]
+    lines += _judgement_sentences(rows)
     unevidenced = int(counts.get(UNEVIDENCED, 0))
     if unevidenced and rows is not None:
         unwatched, watched = unevidenced_split(rows)

@@ -460,7 +460,9 @@ LIMITS_V1 = (
     "sandbox and Wringer has never claimed it is one.",
     "A container backend records the command line Wringer ASKED the runtime "
     "for. Whether the runtime delivered it is a separate claim, now PARTLY "
-    "measured: docs/MANUAL_CHECKS.md sequence G ran seven named attacks on "
+    "measured: MANUAL_CHECKS.md sequence G "
+    "(https://github.com/marcoakes/wringer/blob/main/docs/MANUAL_CHECKS.md) "
+    "ran seven named attacks on "
     "three platform-and-runtime combinations — rootless podman on macOS and on "
     "a shared-kernel Linux host, and Docker on Linux CI — and six were "
     "prevented in each. Seven scripted reads are not an escape suite, and no "

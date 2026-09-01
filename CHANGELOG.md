@@ -4,6 +4,43 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.6 — 2026-09-01
+
+**Run 4's front-door trail and story edges.** Run 4 (2026-09-01, clean
+machine, codex, 0.6.5) ended its blind phase at the front door: `wring
+start`'s only vendor pointer was `docs/vendors.md` — a repo-relative path
+the installed package does not carry — and the placeholder path offered a
+clean operator no route to a worked example. Salvage then measured four
+story-edge defects. All six are closed here.
+
+### The trail resolves for an installed user
+
+Every `docs/` reference an installed user can be shown is now a full URL
+(the door label, the placeholder branch, the unbriefable refusal, the
+read-only remedy, the fleet summary, the containment claim-ceiling texts),
+and a guard walks every string literal in the shipped packages and refuses
+a relative pointer — docstrings exempt, they ship to nobody. The
+placeholder branch now hands the operator the worked example by URL and
+says out loud that the installed package ships no examples.
+
+### The person's words travel everywhere
+
+`accept.disclosure` — the one renderer `summary.md` and `mr.md` both quote
+— now carries the human answer in the person's words: who said what,
+the note verbatim, and the stale caveat when the wording moved. The board
+card carries the same words on both display branches, copied, never
+summarised. Run 4's note reached the certificate and stopped there.
+
+### The audit gets a working directory; the dead links get named
+
+`mr.md`'s audit instruction says where to stand: copy the delivery's
+contents into a fresh clone's root and run the command there — run 4
+measured the old wording failing as printed (`no such file`). And the
+summary's non-travelling links (`diff.patch`, `status.txt`, gate logs) are
+now a stated limit beside the file instead of silent dead links.
+
+Schema versions: unchanged.
+
 ## 0.6.5 — 2026-09-01
 
 **Two defects found preparing run 4's sheet — by executing the interview's

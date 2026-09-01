@@ -166,8 +166,8 @@ SHELL_TURN_READ_ONLY_REMEDY = (
     "read the worker's own words first — `worker.stdout.log` and "
     "`worker.stderr.log`, under this loop's `iterations/` directory. If it "
     "reports a sandbox or write-permission wall, the declared command's "
-    "write policy is the fix; docs/vendors.md carries the tested flags per "
-    "vendor"
+    "write policy is the fix; the tested flags per vendor are at "
+    "https://github.com/marcoakes/wringer/blob/main/docs/vendors.md"
 )
 
 # **A POINTER, never a list.** `env_passthrough` exists so that a secret

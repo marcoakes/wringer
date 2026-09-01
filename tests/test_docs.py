@@ -4462,6 +4462,11 @@ def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
         24: "Twenty-four", 25: "Twenty-five", 26: "Twenty-six",
         27: "Twenty-seven", 28: "Twenty-eight", 29: "Twenty-nine",
         30: "Thirty",
+        31: "Thirty-one",
+        32: "Thirty-two",
+        33: "Thirty-three",
+        34: "Thirty-four",
+        35: "Thirty-five",
     }
     root = repo_root()
     contributing = (root / "CONTRIBUTING.md").read_text(encoding="utf-8")
@@ -4772,4 +4777,69 @@ def test_every_test_a_spec_cites_actually_exists():
     assert not dead, (
         "specs cite tests that do not exist — each is a ruling whose stated "
         "guard is a sentence:\n  " + "\n  ".join(dead)
+    )
+
+
+def test_no_printed_pointer_names_a_page_the_INSTALLED_package_lacks():
+    """**Run 4's blind blocker, 2026-09-01.** `wring start`'s door label said
+    "docs/vendors.md holds the measured commands" — a repo-relative path.
+    `uv tool install wringer` ships four commands and no docs directory, so
+    the neutral front door's only vendor pointer was dead on the exact
+    artifact a clean operator holds, and the blind phase ended there.
+
+    The property "resolves for an installed user" reduces to "is a full
+    URL": every `docs/` reference inside a string literal in the shipped
+    packages must be part of the one canonical URL base. Comments are
+    exempt — they ship to nobody.
+    """
+    import ast as ast_module
+
+    base = "github.com/marcoakes/wringer/blob/main/docs/"
+    offenders = []
+    for package in ("wringer", "wringer_board", "wringer_drive"):
+        for path in sorted((repo_root() / "src" / package).glob("*.py")):
+            tree = ast_module.parse(path.read_text(encoding="utf-8"))
+            # Docstrings ship to nobody: they are never printed, rendered,
+            # or written into an artifact, so a spec citation there is for a
+            # source reader who has the repository by definition.
+            docstrings = set()
+            for scope in ast_module.walk(tree):
+                if isinstance(
+                    scope,
+                    (
+                        ast_module.Module,
+                        ast_module.FunctionDef,
+                        ast_module.AsyncFunctionDef,
+                        ast_module.ClassDef,
+                    ),
+                ) and scope.body:
+                    first = scope.body[0]
+                    if isinstance(first, ast_module.Expr) and isinstance(
+                        first.value, ast_module.Constant
+                    ):
+                        docstrings.add(id(first.value))
+            for node in ast_module.walk(tree):
+                if id(node) in docstrings:
+                    continue
+                if not (
+                    isinstance(node, ast_module.Constant)
+                    and isinstance(node.value, str)
+                    and "docs/" in node.value
+                ):
+                    continue
+                text = node.value
+                bad = [
+                    index
+                    for index in range(len(text))
+                    if text.startswith("docs/", index)
+                    and not text[:index].endswith(
+                        "github.com/marcoakes/wringer/blob/main/"
+                    )
+                ]
+                if bad:
+                    offenders.append(f"{path.name}:{node.lineno} {text[:90]!r}")
+    assert not offenders, (
+        "these strings point an installed user at pages the package does "
+        "not ship — use the full URL (…" + base + "<page>):\n  "
+        + "\n  ".join(offenders)
     )

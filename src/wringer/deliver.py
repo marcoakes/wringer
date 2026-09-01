@@ -1648,10 +1648,13 @@ def _mr_body(
             f"- `{CERTIFICATE_FILENAME}` says the same as the section above, "
             "as a document that stands on its own, with what it does NOT "
             "claim written on it.",
-            f"- `{CERTIFICATE_RECORD_FILENAME}` is the machine form. Re-check "
-            f"it against a clone with `wring audit "
-            f"{CERTIFICATE_RECORD_FILENAME}` — no network, no model, no "
-            "account, and it never reads who produced the branch.",
+            f"- `{CERTIFICATE_RECORD_FILENAME}` is the machine form. To "
+            "re-check it from a fresh clone: copy THIS directory's contents "
+            "into the clone's root and run `wring audit "
+            f"{CERTIFICATE_RECORD_FILENAME}` there — no network, no model, "
+            "no account, and it never reads who produced the branch. (Run 4, "
+            "2026-09-01: the command was printed without the copy step and "
+            "failed as printed, `no such file`.)",
         ]
     if board is not None:
         lines.append(
@@ -1679,7 +1682,10 @@ def _mr_body(
     lines += [
         "",
         f"_Opened by `wring deliver`. `{summary.SUMMARY_FILENAME}` — the "
-        "run's human-readable report — travels in this directory._",
+        "run's human-readable report — travels in this directory. Its links "
+        "to `diff.patch`, `status.txt` and the gate logs refer to the run "
+        "bundle on the machine that produced it and do not travel; the "
+        "receipts directory is what travels in their place._",
         "",
     ]
     return "\n".join(lines)

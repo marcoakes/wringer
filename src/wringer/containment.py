@@ -869,7 +869,9 @@ LIMITS = (
     "A contained worker record states what Wringer ASKED a runtime for, plus "
     "the addresses an allowlist admitted. Whether the runtime delivered it is "
     "a separate claim, measured per platform, per runtime and per image in "
-    "docs/MANUAL_CHECKS.md sequence I and nowhere else.",
+    "MANUAL_CHECKS.md sequence I "
+    "(https://github.com/marcoakes/wringer/blob/main/docs/MANUAL_CHECKS.md) "
+    "and nowhere else.",
     "The egress allowlist is an ADDRESS allowlist. Anything else served from "
     "those addresses is reachable, which on shared CDN infrastructure can be "
     "a large set, and no canary in sequence I can see it.",

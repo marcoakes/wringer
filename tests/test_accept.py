@@ -1210,3 +1210,38 @@ def test_the_two_adjacent_sentences_add_up():
     )
     assert watched <= measured.covered, (watched, measured.covered)
 
+
+
+def test_the_disclosure_carries_the_persons_answer_IN_THEIR_WORDS():
+    """Run 4, 2026-09-01: `summary.md` — quoting this renderer — presented
+    the human requirement with no verdict and no note, while `mr.md` carried
+    the note only through the certificate's section. One renderer, so the
+    sentence lands on every quoting surface at once. Both row shapes, because
+    `summary.md` holds Rows and `mr.md` holds the record's dicts."""
+    note = "The summary names the blocking cause, so the next fix is clear."
+    as_dict = [{
+        "criterion": "summary-reads-at-a-glance",
+        "judgement": {"verdict": "met", "by": "Marc", "at": "x",
+                      "stale": False, "note": note},
+    }]
+    as_row = [accept.Row(
+        criterion="summary-reads-at-a-glance", title="t", required=True,
+        state="human",
+        judgement=accept.Judgement(
+            verdict="met", by="Marc", at="x", stale=False, note=note
+        ),
+    )]
+    for rows in (as_dict, as_row):
+        said = "\n".join(accept.disclosure({"human": 1}, rows))
+        assert "Marc said **met**" in said, said
+        assert note in said, "the note travels verbatim, never summarised"
+
+
+def test_a_STALE_answer_discloses_that_the_wording_moved():
+    rows = [{
+        "criterion": "c",
+        "judgement": {"verdict": "met", "by": "Marc", "at": "x",
+                      "stale": True},
+    }]
+    said = "\n".join(accept.disclosure({"human": 1}, rows))
+    assert "wording has changed since this answer" in said

@@ -407,16 +407,25 @@ def _answered_question(criterion: Criterion) -> str | None:
     # verdict a person recorded on their own sight of it is theirs to give;
     # what the surface may not do is render it indistinguishably from one
     # the product actually displayed.
+    # **Their words, on the card** (run 4, 2026-09-01): the delivered board
+    # said "said this was met" while the certificate beside it carried the
+    # note verbatim — the one sentence only a person could write about the
+    # delivery, reduced to a verdict on the page most people read. Copied,
+    # never summarised.
+    said = ""
+    note = judged.get("note")
+    if note:
+        said = f' Their words: "{note}".'
     if criterion.judged_without_display:
         return (
             f"{who} said this was met — WITHOUT the product showing them "
             "anything: they said so explicitly and judged on their own "
-            "sight of it. Nothing re-checks it — does it still hold, and "
-            "should a `show:` exist so the next person is shown?"
+            f"sight of it.{said} Nothing re-checks it — does it still hold, "
+            "and should a `show:` exist so the next person is shown?"
         )
     return (
-        f"{who} said this was met, against the requirement as worded then. "
-        "Nothing re-checks it — does it still hold?"
+        f"{who} said this was met, against the requirement as worded then."
+        f"{said} Nothing re-checks it — does it still hold?"
     )
 
 

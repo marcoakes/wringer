@@ -1011,6 +1011,16 @@ def test_a_template_only_launch_says_so_and_attempts_no_receipt(
         "a receipt was written over a run that proved nothing"
     )
     assert "placeholder" in (captured.out + captured.err)
+    # Run 4, 2026-09-01: this is the exact spot the blind operator stood —
+    # a placeholder-only config, nothing proving anything, and no route
+    # anywhere. The step must hand them the worked example by FULL URL
+    # (the installed package ships no examples and no docs), and say the
+    # clone is needed.
+    assert (
+        "https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md"
+        in captured.out
+    ), "the placeholder path names no worked example an installed user can reach"
+    assert "ships no examples" in captured.out
 
 
 def test_failing_gates_are_exit_1_and_leave_no_receipt(repo, monkeypatch, capsys):

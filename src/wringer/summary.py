@@ -230,7 +230,9 @@ def _execution_section(execution: Any) -> list[str]:
         "",
         "This records the command line Wringer **asked the runtime for**. "
         "Whether the runtime delivered it is a separate claim, measured in "
-        "part: `docs/MANUAL_CHECKS.md` sequence G ran seven named attacks on "
+        "part: MANUAL_CHECKS.md sequence G "
+        "(<https://github.com/marcoakes/wringer/blob/main/docs/MANUAL_CHECKS.md>) "
+        "ran seven named attacks on "
         "three platform-and-runtime combinations and six were prevented in "
         "each. That is not an escape suite, and no `--privileged` control run "
         "has shown these flags are what stopped them. The mount is read-write "

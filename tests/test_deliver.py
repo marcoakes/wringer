@@ -2661,3 +2661,29 @@ def test_THE_DELIVERY_CARRIES_THE_FALSIFICATION_RECORD(
     assert said, recorded
     assert "broken on purpose" in face.lower(), face
     assert said[0] in face, face
+
+
+def test_the_mr_gives_the_audit_a_WORKING_DIRECTORY_and_names_the_dead_links(
+    delivery_repo, monkeypatch, capsys
+):
+    """Run 4, 2026-09-01, two findings on one page. The audit command failed
+    AS PRINTED in a fresh clone (`no such file: certificate.json`) because
+    nothing said where to put the delivery or where to stand; and the
+    travelled `summary.md` linked `diff.patch`, `status.txt` and gate logs
+    that stay on the producing machine, silently."""
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    mr = (_delivered(delivery_repo) / deliver.MR_FILENAME).read_text(
+        encoding="utf-8"
+    )
+    assert "copy THIS directory's contents into the clone's root" in mr, (
+        "the audit instruction names no working directory — run 4 measured "
+        "the command failing as printed"
+    )
+    assert "do not travel" in mr and "diff.patch" in mr, (
+        "the summary's non-travelling links are not named, so they read as "
+        "dead links instead of a stated limit"
+    )

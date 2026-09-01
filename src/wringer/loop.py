@@ -689,8 +689,9 @@ def unbriefable_worker(settings: config.Run) -> RunRefusal | None:
             "Add {brief} to the command — the documented form is\n"
             '  worker: claude -p "$(cat {brief})"\n'
             "— or declare the worker with 'exec:', where the brief transport "
-            "is written down (docs/vendors.md carries a tested recipe per "
-            "vendor). Nothing has been created and nothing was spent."
+            "is written down — a tested recipe per vendor is at\n"
+            "https://github.com/marcoakes/wringer/blob/main/docs/vendors.md\n"
+            "Nothing has been created and nothing was spent."
         ),
     )
 

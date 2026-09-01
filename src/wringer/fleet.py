@@ -580,7 +580,8 @@ def _blocked_sentence(states: list[TaskState], scoped: bool) -> list[str]:
         "set: a failure above may mean **blocked by a gate another task will "
         "build**, not broken work. That is why `fleet.retries` matters — one "
         "full pass leaves every task's code in the shared tree and the retry "
-        "queue converts the rest. `docs/fleet-scale.md` has the measurements; "
+        "queue converts the rest. The measurements are at "
+        "<https://github.com/marcoakes/wringer/blob/main/docs/fleet-scale.md>; "
         "`fleet.scope` is how a task converges on its own gates instead.",
     ]
 

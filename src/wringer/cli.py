@@ -827,7 +827,11 @@ def _start_gates(
             print(
                 "  nothing here declares a command Wringer recognises, so the\n"
                 "  config will carry the placeholder gate — which proves "
-                "nothing\n  about your code until you replace it."
+                "nothing\n  about your code until you replace it.\n\n"
+                "  A worked example with a real red check lives at\n"
+                "  https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md\n"
+                "  — the installed package ships no examples, so it needs a "
+                "clone."
             )
 
     if accepted:
@@ -883,8 +887,8 @@ def _start_agent(
     print(
         "  This door offers ACP agents. Any agent you can start from a\n"
         "  terminal works too: write its command as 'worker:' under 'run:'\n"
-        "  in .wringer.yaml yourself — docs/vendors.md holds the measured\n"
-        "  commands."
+        "  in .wringer.yaml yourself. The measured commands, per vendor:\n"
+        "  https://github.com/marcoakes/wringer/blob/main/docs/vendors.md"
     )
 
     if chosen is not None:

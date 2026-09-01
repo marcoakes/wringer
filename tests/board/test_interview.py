@@ -1395,3 +1395,33 @@ def test_an_LF_spec_is_not_given_CRLF_either(repo):
     path = repo / "wringer.spec.yaml"
     interview.answer(repo, "filename", "export.csv")
     assert b"\r\n" not in path.read_bytes()
+
+
+def test_the_card_carries_the_answers_words_not_just_the_verdict():
+    """Run 4, 2026-09-01: the delivered board said "said this was met" while
+    the certificate beside it carried the note verbatim — the one sentence
+    only a person could write, reduced to a verdict on the page most people
+    read. Copied, never summarised, on both display branches."""
+    note = "The summary names the blocking cause."
+    with_display = cards.card_for(
+        read_module.Board(repo=Path('.')),
+        criterion(
+            state="human",
+            refuses=False,
+            judgement={"verdict": "met", "by": "Marc", "at": "x",
+                       "stale": False, "note": note},
+        ),
+    )
+    assert f'Their words: "{note}"' in with_display.question
+    without = cards.card_for(
+        read_module.Board(repo=Path('.')),
+        criterion(
+            state="human",
+            refuses=False,
+            judgement={"verdict": "met", "by": "Marc", "at": "x",
+                       "stale": False, "note": note},
+            judged_without_display=True,
+        ),
+    )
+    assert f'Their words: "{note}"' in without.question
+    assert "WITHOUT the product showing them" in without.question
