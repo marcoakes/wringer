@@ -199,6 +199,31 @@ a frozen `wringer.loop.v2`.
 | `criterion_digest` | sha256 of the criterion this answers (ruling 3) |
 | `note` | optional, free text, rendered verbatim wherever it is rendered at all |
 
+> **AMENDED 2026-09-01 — `wringer.judgement.v2`, the pen failing closed
+> (0.6.1; run 3, F11/F12).** Run 3 measured the open pen's cost: the
+> declared `show:` produced `/bin/sh: python: command not found` and
+> `wringer-board judge --verdict met` recorded `met` anyway — the product
+> saying a person saw and approved something it failed to display. The
+> writer now emits **v2** (`schema/judgements-v2.schema.json`; v1 stays
+> published, frozen, and read by every reader): a verdict requires a fresh
+> SUCCESSFUL display — bound into the entry as `display` (command, exit,
+> output digest, timestamp, tree identity), refused as `show_failed` when
+> the `show:` is absent, exits non-zero, times out, or the tree moved
+> between showing and recording — or the person's own explicit
+> `--without-display`, which records `judged_without_display: true` plus
+> the show surface's failure verbatim. Never silently. `show_failed`
+> follows D0 as the pen's own refusal family
+> (`judge.PEN_REFUSAL_REASONS`). Because THIS table's acceptance-row
+> `judgement` object is frozen and closed, the new facts reach the record
+> as a run-bundle SIBLING — `judgements.json`,
+> `wringer.judgementrecord.v1`, the file's entries captured verbatim at
+> assess time — and the certificate and the board render the
+> judged-without-display fact from that record wherever the note renders.
+> Landing this found and fixed a live emission bug: `accept.has_v3_facts`
+> promised "or a judgement" in prose and never checked it, so a record
+> whose only v3 fact was an answered human judgement emitted v1 and
+> dropped the person's answer.
+
 **It is a file a person edits, exactly like `approved: true`, and for exactly
 the same reason.** There is deliberately **no flag, no `--judge`, no
 `--accept-human`, and no environment variable** that writes an entry. Nothing

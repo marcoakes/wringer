@@ -606,9 +606,14 @@ def run(
     witness_evidence = _run_witnesses(
         root, witnesses, bundle, cfg
     )
+    # ONE read of the judgements file serves both the acceptance rows and
+    # the run-bundle capture below (0.6.1) — two reads could describe two
+    # files if the operator saved between them.
+    judgement_version, judgement_entries = accept.read_judgement_file(root)
     accepted = accept.assess(
         root, cfg, results, state=state, redactor=bundle.redactor,
         witnesses=witness_evidence,
+        judgements=accept.judgements_by_criterion(judgement_entries),
     )
     # **A guess about a red the ENVIRONMENT may have caused, in the RUN
     # bundle** — field report 2026-08-28, finding 4. `ruff: command not found`
@@ -626,6 +631,16 @@ def run(
     measured = None
     if accepted is not None:
         accept.write(bundle.directory, accepted, redactor=bundle.redactor)
+        # **What the judgements file said when this run assessed** — the
+        # sibling the pen's new facts travel in (0.6.1, run 3 F12): the
+        # acceptance row's judgement object is frozen and closed, so the
+        # bound display and the judged-without-display acknowledgement ride
+        # here, and the certificate and board render them from the RECORD
+        # rather than re-reading a live file that may have moved.
+        accept.write_judgement_record(
+            bundle.directory, judgement_version, judgement_entries,
+            redactor=bundle.redactor,
+        )
         # **The coverage number, beside the acceptance record it is derived
         # from** — SPEC_COVERAGE_V0. A sibling file rather than a field,
         # because half of it has no home: `show:` is declared in the person's

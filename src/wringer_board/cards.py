@@ -402,6 +402,18 @@ def _answered_question(criterion: Criterion) -> str | None:
     if not judged or judged.get("verdict") != "met":
         return None
     who = judged.get("by") or "somebody"
+    # **The judged-without-display fact, wherever the answer renders**
+    # (0.6.1, run 3 F11/F12) — from the run's own judgement record. A
+    # verdict a person recorded on their own sight of it is theirs to give;
+    # what the surface may not do is render it indistinguishably from one
+    # the product actually displayed.
+    if criterion.judged_without_display:
+        return (
+            f"{who} said this was met — WITHOUT the product showing them "
+            "anything: they said so explicitly and judged on their own "
+            "sight of it. Nothing re-checks it — does it still hold, and "
+            "should a `show:` exist so the next person is shown?"
+        )
     return (
         f"{who} said this was met, against the requirement as worded then. "
         "Nothing re-checks it — does it still hold?"

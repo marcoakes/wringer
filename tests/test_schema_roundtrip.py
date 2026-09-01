@@ -96,6 +96,14 @@ EXCLUDED = {
     # Person-authored INPUT formats. There is no writer to derive from —
     # a human writes these, and the schema is the contract they are held to.
     "judgements.schema.json": "a person writes this file; there is no writer",
+    "judgements-v2.schema.json": "the pen assembles entries as inline dicts "
+    "with conditional keys; the REAL written file is jsonschema-validated in "
+    "tests/board/test_board_judge.py::test_the_written_file_matches_its_"
+    "published_schema",
+    "judgement-record.schema.json": "an inline-dict writer "
+    "(accept.write_judgement_record) capturing another file verbatim; the "
+    "REAL bundle sibling is jsonschema-validated in tests/board/"
+    "test_pen_fails_closed.py",
     "rubric.schema.json": "a person writes this file; there is no writer",
     "spec.schema.json": "drafted then human-approved; the loader is the reader",
     "gatespec.schema.json": "a person or the drafter writes this sidecar",

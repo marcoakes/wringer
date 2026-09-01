@@ -30,7 +30,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import certificate, config, coverage, evidence, falsify, git, summary
+from wringer import (
+    accept,
+    certificate,
+    config,
+    coverage,
+    evidence,
+    falsify,
+    git,
+    summary,
+)
 from wringer.redact import Redactor
 
 DELIVERIES_DIRNAME = Path(".wringer") / "deliveries"
@@ -260,6 +269,11 @@ class Plan:
     # re-checked by whoever was handed the delivery, which is the whole
     # difference between a document and a claim.
     coverage: dict[str, Any] | None = None
+    # `wringer.judgementrecord.v1`, the run's capture of the judgements
+    # file, or None (0.6.1). It TRAVELS: the certificate face renders the
+    # judged-without-display fact from it, and the acceptance row's frozen
+    # judgement object cannot carry the display facts.
+    judgement_record: dict[str, Any] | None = None
     # `wringer.falsification.v1`, the run's own record, or None. Another
     # sibling that travels beside the certificate rather than a key
     # inside it, for the same reason.
@@ -1154,6 +1168,7 @@ def plan(
     board, board_page = _board_to_carry(root)
     measured = coverage.read(run_dir)
     broken = falsify.read(run_dir)
+    judged_record = accept.read_judgement_record(run_dir)
     # Tracked changes, plus a real new-file diff for the untracked ones. A
     # change made entirely of new files used to render an EMPTY patch, so the
     # human approving `--send` approved nothing. `--no-index` gets the content
@@ -1188,6 +1203,7 @@ def plan(
         board_page=board_page,
         coverage=measured,
         falsification=broken,
+        judgement_record=judged_record,
         commands=(
             f"git switch --create {branch}",
             # the planned paths on stdin — never a bare add --all; see send()
@@ -1307,7 +1323,9 @@ def _mr_body(
     # requirements differently.
     if built is not None:
         lines += ["", "## Every requirement"]
-        lines += certificate.requirement_lines(built)
+        lines += certificate.requirement_lines(
+            built, accept.read_judgement_record(run_dir)
+        )
 
     verdict = _verdict(root, run_dir)
     if verdict:
@@ -1518,6 +1536,7 @@ class Bundle:
                         planned.certificate,
                         planned.coverage,
                         planned.falsification,
+                        planned.judgement_record,
                     )
                 ),
                 encoding="utf-8",
@@ -1536,6 +1555,18 @@ class Bundle:
             (self.directory / falsify.FALSIFICATION_FILENAME).write_text(
                 json.dumps(
                     evidence.deep_scrub(self.redactor, planned.falsification),
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        if planned.judgement_record is not None:
+            # The judgement capture travels too (0.6.1): the face just
+            # rendered facts out of it, and a delivery whose face cites a
+            # record it does not carry is the F15 shape one file over.
+            (self.directory / accept.JUDGEMENT_RECORD_FILENAME).write_text(
+                json.dumps(
+                    evidence.deep_scrub(self.redactor, planned.judgement_record),
                     indent=2,
                 )
                 + "\n",

@@ -117,13 +117,33 @@ file, never the spec — a command whose output is what they should look at:
 
 ```yaml
 show:
-  summary-reads-clearly: python -m pipeline acceptance/two_failures.json
+  summary-reads-clearly: "PYTHONPATH=src .venv/bin/python -m pipeline acceptance/two_failures.json || [ $? -eq 1 ]"
 ```
 
+That command is the one this example's own tree can actually run — measured,
+2026-09-01, against the shipped fixture
+`docs/drive/examples/pipeline/project/acceptance/two_failures.json`
+(build and lint fail; docs and notify are unaffected; once the built change
+lands, test, package, format and publish render as skipped). This block used
+to quote a bare `python -m pipeline …`, which fails twice on the machine the
+runbook builds: `python` may not resolve at all — run 3 met exactly
+`/bin/sh: python: command not found` at the pen — and the module does not
+import without `PYTHONPATH=src`. The `|| [ $? -eq 1 ]` tail declares exit 1
+an EXPECTED display outcome: the pipeline exits 1 when it reports failures,
+and reporting failures is the thing being displayed — while a genuine
+display failure (`command not found`, a missing fixture) still exits
+non-zero and refuses the pen.
+
 `wringer-board judge --id <the id>` runs it and prints the output under the
-requirement. **Where no `show:` is declared, the command says so in capitals**
-— a person is being asked to judge something nobody can show them, and that is
-worth a line rather than a silence.
+requirement. **Where no `show:` is declared, the command says so in
+capitals — and recording a verdict is REFUSED** (0.6.1): a person being
+asked to judge something nobody can show them is worth a stop, not only a
+line. The same refusal meets a `show:` whose command fails or times out,
+with the failure printed as the failure it is. The one way past it is the
+person's own explicit act — `--without-display` — which records "judged
+without display", plus what the show surface said, verbatim, into the
+judgement; the certificate and the board then render that fact wherever the
+answer renders.
 
 It belongs in `.wringer.yaml` and not in `wringer.spec.yaml` because the spec
 is drafted by a model and this value is a command that runs. Same reason

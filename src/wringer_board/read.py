@@ -50,6 +50,10 @@ KNOWN_ACCEPTANCE = (
 
 ACCEPTANCE_FILENAME = "acceptance.json"
 COVERAGE_FILENAME = "coverage.json"
+# The run's capture of `wringer.judgements.yaml` (0.6.1) — the engine's
+# `accept.JUDGEMENT_RECORD_FILENAME`, named here for the layer seam's
+# reason COVERAGE_FILENAME is.
+JUDGEMENT_RECORD_FILENAME = "judgements.json"
 DIAGNOSIS_FILENAME = "diagnosis.json"
 MANIFEST_FILENAME = "manifest.json"
 VACUITY_FILENAME = "vacuity.json"
@@ -147,6 +151,34 @@ class Criterion:
     # **v3.** A person's answer to a `human` criterion, verbatim. Never scored
     # here, never re-checked here.
     judgement: dict[str, Any] | None = None
+    # **0.6.1.** True when the run's judgement record (`judgements.json`, a
+    # sibling this surface reads like `coverage.json`) says this answer was
+    # recorded WITHOUT a display — the person said so explicitly, and the
+    # fact renders wherever the answer does. False covers both "shown" and
+    # "no record travelled" (a run from before the sibling existed): the
+    # card claims the fact only where the record states it.
+    judged_without_display: bool = False
+
+
+def _judged_without_display(
+    row: dict[str, Any], judgement_record: dict[str, Any] | None
+) -> bool:
+    """The exact join the certificate makes — id, `at`, verdict — or False."""
+    if not isinstance(judgement_record, dict):
+        return False
+    judged = row.get("judgement")
+    if not isinstance(judged, dict):
+        return False
+    for entry in judgement_record.get("entries", []):
+        if not isinstance(entry, dict):
+            continue
+        if (
+            entry.get("criterion") == (row.get("id") or row.get("criterion"))
+            and entry.get("at") == judged.get("at")
+            and entry.get("verdict") == judged.get("verdict")
+        ):
+            return bool(entry.get("judged_without_display"))
+    return False
 
 
 @dataclass(frozen=True)
@@ -719,6 +751,9 @@ def read(
         raise UnknownVersion(ACCEPTANCE_FILENAME, str(version), KNOWN_ACCEPTANCE)
 
     board.limits = list(accepted.get("limits") or [])
+    # The run's capture of the judgements file (0.6.1) — read once, like
+    # coverage below. Absent is absent: no record, no claims.
+    judgement_record = _load(board.run_dir / JUDGEMENT_RECORD_FILENAME)
     for row in accepted.get("criteria") or []:
         board.criteria.append(
             Criterion(
@@ -738,6 +773,9 @@ def read(
                 cause=row.get("cause"),
                 demonstrated_able_to_fail=row.get("demonstrated_able_to_fail"),
                 judgement=row.get("judgement"),
+                judged_without_display=_judged_without_display(
+                    row, judgement_record
+                ),
             )
         )
 

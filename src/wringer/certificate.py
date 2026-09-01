@@ -430,7 +430,36 @@ def _receipt_line(row: dict[str, Any]) -> str | None:
     return said
 
 
-def _judgement_lines(row: dict[str, Any]) -> list[str]:
+def _judgement_entry_for(
+    row: dict[str, Any], judgement_record: dict[str, Any] | None
+) -> dict[str, Any] | None:
+    """The verbatim judgements-file entry behind this row's judgement.
+
+    An EXACT join — criterion id, `at`, and verdict must all agree — the
+    "join from a run to its loop is exact" rule: a near-match would attach
+    one judgement's display facts to a different judgement's verdict. None
+    when the record is absent (a run from before 0.6.1) or nothing matches.
+    """
+    if judgement_record is None:
+        return None
+    judged = row.get("judgement")
+    if not isinstance(judged, dict):
+        return None
+    for entry in judgement_record.get("entries", []):
+        if not isinstance(entry, dict):
+            continue
+        if (
+            entry.get("criterion") == row.get("id")
+            and entry.get("at") == judged.get("at")
+            and entry.get("verdict") == judged.get("verdict")
+        ):
+            return entry
+    return None
+
+
+def _judgement_lines(
+    row: dict[str, Any], entry: dict[str, Any] | None = None
+) -> list[str]:
     """WHO judged, WHAT they said, THEIR WORDS, and WHEN — gap 3, closed.
 
     *"'1 for a person to judge' doesn't say it was judged. You judged that
@@ -464,10 +493,33 @@ def _judgement_lines(row: dict[str, Any]) -> list[str]:
             "- ⚠ The requirement has been REWORDED since they answered, so "
             "their answer was about different words."
         )
+    # **The display facts, wherever the note renders** (0.6.1, run 3
+    # F11/F12) — from the run's own judgement record, never re-read live.
+    if entry is not None:
+        display = entry.get("display")
+        if isinstance(display, dict):
+            lines.append(
+                f"- Shown by `{display.get('command', '')}` — the display "
+                "is bound to this judgement (its digest is on record)."
+            )
+        if entry.get("judged_without_display"):
+            lines.append(
+                "- ⚠ Judged WITHOUT DISPLAY — the product showed them "
+                "nothing; they said so explicitly and judged on their own "
+                "sight of it."
+            )
+            failure = str(entry.get("show_failure") or "")
+            if failure:
+                lines.append("- What the show surface said at the time:")
+                lines.append("")
+                for piece in failure.splitlines() or [""]:
+                    lines.append(f"  > {piece}")
     return lines
 
 
-def requirement_lines(payload: dict[str, Any]) -> list[str]:
+def requirement_lines(
+    payload: dict[str, Any], judgement_record: dict[str, Any] | None = None
+) -> list[str]:
     """Every requirement BY TITLE with its state — gaps 2 and 4, closed.
 
     *"It doesn't say which six. That's the big one … Nothing names the one
@@ -498,7 +550,7 @@ def requirement_lines(payload: dict[str, Any]) -> list[str]:
         receipt = _receipt_line(row)
         if receipt:
             lines.append(f"- Where it was seen failing: {receipt}")
-        lines += _judgement_lines(row)
+        lines += _judgement_lines(row, _judgement_entry_for(row, judgement_record))
         if row.get("refuses"):
             lines.append("- **This one is holding up the handover.**")
     return lines
@@ -508,6 +560,7 @@ def render(
     payload: dict[str, Any],
     measured: dict[str, Any] | None = None,
     broken: dict[str, Any] | None = None,
+    judgement_record: dict[str, Any] | None = None,
 ) -> str:
     """`certificate.md` — the face, from the record and its siblings.
 
@@ -559,7 +612,7 @@ def render(
             one if one.startswith("  -") else f"- {one}" for one in said
         ]
     lines += ["", "## Every requirement"]
-    lines += requirement_lines(payload)
+    lines += requirement_lines(payload, judgement_record)
 
     # **Two groups, and the plain one leads.** The record's own ceiling
     # sentences are carried VERBATIM — they are the engine's careful words

@@ -4,6 +4,66 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.1 — 2026-09-01
+
+**The pen fails closed — the second slice of the cross-surface window.**
+Run 3, F11/F12: the worked example reached a human HOLD with nothing to
+show and a missing fixture, and when the `show:` command then failed
+(`/bin/sh: python: command not found`) the pen recorded `met` anyway — the
+product saying a person saw and approved something it failed to display.
+
+### `show_failed` — a verdict needs a display, or the person's own word
+
+`wringer-board judge` refuses to record a verdict when the declared `show:`
+is absent, exits non-zero, times out, or the tree moved between showing and
+recording. A failing display renders AS a failure (capitals, the exit code,
+the output below), never under the ordinary header. The one way past is the
+person's own explicit act — `--without-display` — which records "judged
+without display" plus the show surface's words verbatim into the judgement.
+Never silently. `show_failed` joins D0 as the pen's own refusal family
+(`judge.PEN_REFUSAL_REASONS`, the third recorder in the session guard).
+
+### `wringer.judgement.v2` — the display bound to the judgement
+
+A successful show binds `display` into the entry: command, exit, sha256 of
+the exact text shown, timestamp, and the tree it rendered against. v1 stays
+published, frozen and read; every new key is optional, so old entries stay
+valid and the next write migrates the file. The engine and the pen both
+accept v1 and v2.
+
+### `judgements.json` — the capture that lets the record render the fact
+
+The acceptance row's `judgement` object is frozen and closed, so the new
+facts ride a run-bundle SIBLING (`wringer.judgementrecord.v1`): the
+judgements file's entries verbatim, captured in the same read that fed the
+acceptance rows. It travels into the delivery, and the certificate face,
+`mr.md` and the board render "Judged WITHOUT DISPLAY" — with the show
+surface's words — from the RECORD, never a live re-read.
+
+### The worked example is seeded (F11)
+
+`acceptance/two_failures.json` ships in the pipeline example (build and
+lint fail; docs and notify unaffected), and the runbook's `show:` block now
+quotes a command the example's own tree can run — measured: the old quoted
+form failed twice (`python` unresolvable, no `PYTHONPATH`). Its
+`|| [ $? -eq 1 ]` tail declares exit 1 an EXPECTED display outcome — the
+pipeline exits 1 when it reports failures, and reporting failures is the
+thing displayed — while a genuinely broken display still refuses. A guard
+derives the quoted command from the page and drives it against the shipped
+fixture.
+
+### Found by landing it
+
+`accept.has_v3_facts` promised "or a judgement" in its docstring and never
+checked one: a record whose ONLY v3 fact was an answered human judgement
+emitted `wringer.acceptance.v1` — which has no judgement key — silently
+dropping the person's answer from the record the certificate and board
+read. Fixed, with the unused `has_judgement` property standing beside it
+the whole time. And the engine-writes-no-judgement guard was sharpened
+deliberately (the engine now COPIES the capture; the pen's own file stays
+forbidden) — the sharpened guard was red-watched with a planted engine
+write before it shipped.
+
 ## 0.6.0 — 2026-08-31
 
 **The worker contract — the first slice of the cross-surface window.** Run 3

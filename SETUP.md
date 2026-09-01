@@ -148,7 +148,7 @@ command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install --force --python 3.12 wringer && uv tool update-shell
 ```
 
-That installs 0.6.0 from PyPI — one distribution carrying `wring`, `wringer`,
+That installs 0.6.1 from PyPI — one distribution carrying `wring`, `wringer`,
 `wringer-board` and `wringer-drive`. **To set up against unreleased work on
 `main`** instead, from this clone: `uv tool install --force --python 3.12 .`
 

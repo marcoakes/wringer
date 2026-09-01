@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/judgements-v2.schema.json",
+  "title": "wringer.judgement.v2",
+  "description": "A person's answers to the requirements only a person can judge — v2, the pen failing closed (0.6.1, run 3 F11/F12). WHY v2 EXISTS: run 3 measured `wringer-board judge --verdict met` recording a verdict after the declared `show:` command had FAILED (`/bin/sh: python: command not found`) — the product recorded that a person saw and approved something it failed to display. v1 is published and frozen (law 7: a byte change without a new schema_version is a silent break for every reader), so the display facts arrive as a NEW schema, and every v1 record remains readable by every reader that accepts both. WHAT CHANGED, exactly: three OPTIONAL per-entry properties. `display` binds a SUCCESSFUL show to the judgement — the command, its exit, a digest of what was displayed, when, and the tree it rendered against. `judged_without_display: true` plus `show_failure` record the one honest escape: a person judged on their own sight of it, explicitly, with the show's failure carried verbatim — never silently. A v1-shaped entry (none of the three) is a record from before the pen failed closed, and readers treat it exactly as they always did. Absent rather than null, throughout: a reader that finds no `display` knows no successful show was bound, which is different from any answer.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "judgements"],
+  "properties": {
+    "schema_version": { "const": "wringer.judgement.v2" },
+    "judgements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["criterion", "verdict", "by", "at", "criterion_digest"],
+        "properties": {
+          "criterion": { "type": "string", "minLength": 1 },
+          "verdict": { "enum": ["met", "not_met"] },
+          "by": { "type": "string", "minLength": 1 },
+          "at": { "type": "string", "minLength": 1 },
+          "criterion_digest": { "pattern": "^[0-9a-f]{64}$", "type": "string" },
+          "note": { "type": "string" },
+          "display": {
+            "description": "The successful show this verdict was recorded against — the fresh display F12's fix requires. `output_digest` is sha256 of the exact text the person was shown; `head_sha`/`dirty` are the tree it rendered against, read at show time (empty string outside a git repository — recorded as unknown, never invented).",
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["command", "exit", "output_digest", "at"],
+            "properties": {
+              "command": { "type": "string", "minLength": 1 },
+              "exit": { "type": "integer" },
+              "output_digest": { "pattern": "^[0-9a-f]{64}$", "type": "string" },
+              "at": { "type": "string", "minLength": 1 },
+              "head_sha": { "type": "string" },
+              "dirty": { "type": "boolean" }
+            }
+          },
+          "judged_without_display": {
+            "description": "The explicit escape: the person recorded this verdict with no successful display, on their own authority and their own sight of the thing. Only ever true — the ordinary case is the key's ABSENCE.",
+            "const": true
+          },
+          "show_failure": {
+            "description": "What the show surface said when it could not display — the missing-`show:` banner or the failed command's output, verbatim. Present only beside `judged_without_display`.",
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

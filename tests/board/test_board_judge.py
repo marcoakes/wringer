@@ -65,6 +65,20 @@ def repo(tmp_path: Path) -> Path:
     subprocess.run(["git", "init", "-q", "-b", "main"], cwd=root, check=True)
     subprocess.run(["git", "config", "user.name", "A Person"], cwd=root, check=True)
     (root / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
+    # A working `show:` for the human criterion, because the pen fails
+    # CLOSED since 0.6.1 (run 3, F12): a verdict needs a successful display
+    # or the explicit --without-display acknowledgement. The green-path
+    # tests exercise the bound display; the tests ABOUT the refusal remove
+    # or break this declaration themselves.
+    (root / ".wringer.yaml").write_text(
+        "version: 1\n"
+        "gates:\n"
+        "  - id: t\n"
+        '    run: "true"\n'
+        "show:\n"
+        '  heading-reads-as-mine: "echo the heading, as a person sees it"\n',
+        encoding="utf-8",
+    )
     return root
 
 
@@ -106,14 +120,21 @@ def test_the_written_file_matches_its_published_schema(repo):
     jsonschema = pytest.importorskip("jsonschema")
     main(["judge", str(repo), "--id", "heading-reads-as-mine",
           "--verdict", "not_met", "--note", "The heading is generic."])
+    written = yaml.safe_load(
+        (repo / judge_module.JUDGEMENTS_FILENAME).read_text("utf-8")
+    )
+    # The writer writes v2 since 0.6.1; the schema file is picked by what the
+    # record itself declares, so this guard follows the version rather than
+    # pinning one.
+    named = {
+        "wringer.judgement.v1": "judgements.schema.json",
+        "wringer.judgement.v2": "judgements-v2.schema.json",
+    }[written["schema_version"]]
     schema = json.loads(
-        (Path(__file__).resolve().parents[2] / "schema" / "judgements.schema.json")
+        (Path(__file__).resolve().parents[2] / "schema" / named)
         .read_text(encoding="utf-8")
     )
-    jsonschema.validate(
-        yaml.safe_load((repo / judge_module.JUDGEMENTS_FILENAME).read_text("utf-8")),
-        schema,
-    )
+    jsonschema.validate(written, schema)
 
 
 def test_RE_WORDING_THE_REQUIREMENT_STALES_THE_ANSWER(repo):
@@ -281,6 +302,16 @@ def test_the_ENGINE_still_writes_no_judgement():
     `src/wringer/`, which this change does not touch. This asserts the same
     fact from the board's side, so a later refactor that moved `judge.py` into
     the engine would redden something.
+
+    **Sharpened for 0.6.1, deliberately and no further**: the net used to be
+    any write whose source mentioned JUDGEMENT at all, and the engine now
+    legitimately COPIES the run's judgement CAPTURE (`judgements.json`,
+    `wringer.judgementrecord.v1` — entries verbatim, never composed) into a
+    delivery. Copying a record a person already wrote is not answering a
+    criterion. What stays forbidden is the pen's own file: any engine write
+    touching `JUDGEMENTS` (the plural — `wringer.judgements.yaml` and its
+    `JUDGEMENTS_FILENAME` constant) still reddens this, and the red-watch
+    for the sharpening planted exactly such a write and saw it fire.
     """
     accept = pytest.importorskip("wringer.accept")
     engine = Path(accept.__file__).parent
@@ -293,7 +324,7 @@ def test_the_ENGINE_still_writes_no_judgement():
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr in ("write_text", "write_bytes", "safe_dump", "dump"):
                     segment = ast.get_source_segment(source, node) or ""
-                    if "JUDGEMENT" in segment.upper():
+                    if "JUDGEMENTS" in segment.upper():
                         writers.append(f"{path.name}:{node.lineno}")
     assert writers == [], f"the engine writes a judgement at {writers}"
 
@@ -336,7 +367,8 @@ def test_an_unreadable_judgements_file_REFUSES_rather_than_overwriting(repo):
     before = (repo / judge_module.JUDGEMENTS_FILENAME).read_bytes()
     with pytest.raises(interview.InterviewError, match="could not be read"):
         judge_module.record(
-            repo, "heading-reads-as-mine", "met", read_the_criterion=True
+            repo, "heading-reads-as-mine", "met", read_the_criterion=True,
+            without_display=True,
         )
     assert (repo / judge_module.JUDGEMENTS_FILENAME).read_bytes() == before
 
@@ -714,6 +746,10 @@ def test_when_NOTHING_can_be_shown_the_command_SAYS_SO(repo, capsys):
     """Asking somebody to judge what you will not show them is the defect.
     Asking while pretending nothing is missing is the same defect with the
     evidence removed."""
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\ngates:\n  - id: t\n    run: \"true\"\n",
+        encoding="utf-8",
+    )
     assert main(["judge", str(repo), "--id", "heading-reads-as-mine"]) == 2
     said = capsys.readouterr().out
     assert "NOTHING IS BEING SHOWN TO YOU" in said
@@ -752,7 +788,9 @@ def test_the_shown_text_keeps_the_shape_the_person_is_judging(repo, capsys):
         "show:\n  heading-reads-as-mine: \"printf '  a\\\\n  b\\\\n'\"\n",
         encoding="utf-8",
     )
-    text, _ = judge_module.shown(repo, "heading-reads-as-mine")
-    assert text == "  a\n  b", (
-        f"the shown text was re-indented on the way to the person: {text!r}"
+    display = judge_module.shown(repo, "heading-reads-as-mine")
+    assert display.state == judge_module.SHOWN
+    assert display.text == "  a\n  b", (
+        "the shown text was re-indented on the way to the person: "
+        f"{display.text!r}"
     )

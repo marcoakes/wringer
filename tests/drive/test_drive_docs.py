@@ -1984,3 +1984,67 @@ def test_the_credential_table_carries_the_PRECEDENCE_fact():
     assert (
         "A non-OAuth Anthropic credential cannot satisfy the org pin" in body
     ), "the measured refusal is no longer quoted beside the fact it proves"
+
+
+def test_the_runbooks_SHOW_COMMAND_runs_against_the_shipped_two_failures_fixture():
+    """F11's fix, guarded from the page (0.6.1).
+
+    Run 3 reached the pen with NOTHING to show, and the runbook's own worked
+    example quoted a `show:` command over a fixture that existed nowhere —
+    `acceptance/two_failures.json` was hand-made in a field run and never
+    shipped. The fixture ships now, and this drives the runbook's QUOTED
+    command (derived from the page, so the page and the fixture cannot
+    drift) against the example's own tree:
+
+    - the raw pipeline run exits 1 and reports BOTH failures — that is the
+      thing the person is shown;
+    - the quoted command's `|| [ $? -eq 1 ]` tail declares that outcome an
+      EXPECTED display, exiting 0 — so the closed pen accepts it;
+    - a genuinely broken display (the fixture missing) still exits non-zero.
+
+    The venv path in the page (`.venv/bin/python`) is setup.sh's; here the
+    suite's own interpreter stands in — the page's PYTHONPATH and fixture
+    path are the parts under test.
+    """
+    page = (repo_root() / "docs" / "drive" / "AGENTS.md").read_text("utf-8")
+    quoted = re.search(r"summary-reads-clearly: \"([^\"]+)\"", page)
+    assert quoted, "the runbook no longer quotes the worked example's show:"
+    command = quoted.group(1)
+    assert "two_failures.json" in command
+    assert "|| [ $? -eq 1 ]" in command, (
+        "the quoted command lost the declared-exit tail — a pipeline that "
+        "reports failures exits 1, and without the tail the closed pen "
+        "refuses the example's own display"
+    )
+
+    example = repo_root() / "docs" / "drive" / "examples" / "pipeline" / "project"
+    runnable = command.replace(".venv/bin/python", sys.executable)
+
+    raw = subprocess.run(
+        f"PYTHONPATH=src {sys.executable} -m pipeline acceptance/two_failures.json",
+        shell=True, cwd=example, capture_output=True, text=True, timeout=60,
+    )
+    assert raw.returncode == 1, "the fixture no longer shows a failing run"
+    assert "build" in raw.stdout and "lint" in raw.stdout
+    assert raw.stdout.count("FAILED") == 2, (
+        f"the fixture must show exactly the two failures: {raw.stdout}"
+    )
+
+    declared = subprocess.run(
+        runnable, shell=True, cwd=example, capture_output=True, text=True,
+        timeout=60,
+    )
+    assert declared.returncode == 0, (
+        "the runbook's quoted command exits non-zero on the example's own "
+        f"tree, so the closed pen would refuse it: {declared.stdout}"
+        f"{declared.stderr}"
+    )
+
+    broken = subprocess.run(
+        runnable.replace("two_failures.json", "no-such-fixture.json"),
+        shell=True, cwd=example, capture_output=True, text=True, timeout=60,
+    )
+    assert broken.returncode != 0, (
+        "a genuinely broken display must still exit non-zero — the declared-"
+        "exit tail may excuse exit 1 and nothing else"
+    )

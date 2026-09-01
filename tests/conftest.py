@@ -9,6 +9,7 @@ import pytest
 
 from wringer import config, deliver
 from wringer import loop as loop_module
+from wringer_board import judge as pen_module
 
 # --- D0: every declared refusal must be one a test has actually taken -------
 #
@@ -37,6 +38,9 @@ CONSTRUCTED_REFUSALS: set[str] = set()
 # family, one roster each, both asserted whole at session end.
 CONSTRUCTED_RUN_REFUSALS: set[str] = set()
 
+# The third family (0.6.1): the pen's refusals.
+CONSTRUCTED_PEN_REFUSALS: set[str] = set()
+
 
 @pytest.fixture(autouse=True, scope="session")
 def _record_every_refusal_constructed():
@@ -53,13 +57,21 @@ def _record_every_refusal_constructed():
         CONSTRUCTED_RUN_REFUSALS.add(reason)
         original_run(self, reason, message)
 
+    original_pen = pen_module.PenRefused.__init__
+
+    def recording_pen(self, message, *, reason):
+        CONSTRUCTED_PEN_REFUSALS.add(reason)
+        original_pen(self, message, reason=reason)
+
     deliver.Refused.__init__ = recording
     loop_module.RunRefusal.__init__ = recording_run
+    pen_module.PenRefused.__init__ = recording_pen
     try:
         yield
     finally:
         deliver.Refused.__init__ = original
         loop_module.RunRefusal.__init__ = original_run
+        pen_module.PenRefused.__init__ = original_pen
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -88,7 +100,16 @@ def pytest_sessionfinish(session, exitstatus):
     stray_run = sorted(
         CONSTRUCTED_RUN_REFUSALS - set(loop_module.RUN_REFUSAL_REASONS)
     )
-    if not missing and not stray and not missing_run and not stray_run:
+    missing_pen = sorted(
+        set(pen_module.PEN_REFUSAL_REASONS) - CONSTRUCTED_PEN_REFUSALS
+    )
+    stray_pen = sorted(
+        CONSTRUCTED_PEN_REFUSALS - set(pen_module.PEN_REFUSAL_REASONS)
+    )
+    if (
+        not missing and not stray and not missing_run and not stray_run
+        and not missing_pen and not stray_pen
+    ):
         return
     session.exitstatus = 1
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
@@ -120,6 +141,19 @@ def pytest_sessionfinish(session, exitstatus):
     if stray_run:
         reporter.write_line(
             "run refusals constructed but not declared: " + ", ".join(stray_run)
+        )
+    if missing_pen:
+        reporter.write_line(
+            "declared in judge.PEN_REFUSAL_REASONS and constructed by NO "
+            "test: " + ", ".join(missing_pen)
+        )
+        reporter.write_line(
+            "  a refusal nobody has seen fire is a check green from birth. "
+            "Drive it through the command that owes it, or strike the name."
+        )
+    if stray_pen:
+        reporter.write_line(
+            "pen refusals constructed but not declared: " + ", ".join(stray_pen)
         )
 
 # Never inherit the developer's identity, hooks, or signing config: a test

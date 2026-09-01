@@ -675,8 +675,17 @@ class Result:
         carrying no new fact, and that the two pinned selector tests stay green
         unmodified — both construct `Row`s with neither field set.
         """
+        # **`or a judgement` was in this docstring and not in this code**
+        # until 2026-09-01, found by executing the 0.6.1 pen tests: a record
+        # whose ONLY v3 fact was an answered-`met` human judgement (cause
+        # None on every row) emitted v1 — and a v1 row has no `judgement`
+        # key, so the person's answer was silently dropped from the record
+        # the certificate and board read. The `has_judgement` property below
+        # existed, unused, the whole time.
         return any(
-            row.cause is not None or row.demonstrated_able_to_fail is not None
+            row.cause is not None
+            or row.demonstrated_able_to_fail is not None
+            or row.judgement is not None
             for row in self.rows
         )
 
@@ -809,6 +818,12 @@ def _arrived_with_the_change(command: str | None, created: Any) -> str | None:
 
 JUDGEMENTS_FILENAME = "wringer.judgements.yaml"
 JUDGEMENT_SCHEMA_VERSION = "wringer.judgement.v1"
+# Every version this reader accepts — the `loop.SCHEMA_VERSIONS` rule: a
+# naive bump orphans every file already on disk. v2 (0.6.1) adds only
+# OPTIONAL per-entry facts (the bound display, the judged-without-display
+# acknowledgement), so a v2 entry reads exactly as a v1 entry does here and
+# the extra keys ride along verbatim for the record writer.
+JUDGEMENT_SCHEMA_VERSIONS = ("wringer.judgement.v2", JUDGEMENT_SCHEMA_VERSION)
 
 
 def criterion_digest(criterion) -> str:
@@ -850,37 +865,46 @@ def _iso(value: Any) -> str:
     return isoformat() if callable(isoformat) else str(value)
 
 
-def read_judgements(root: Path) -> dict[str, dict[str, Any]]:
-    """Every answer a PERSON wrote, by criterion id. Total by construction.
+def read_judgement_file(root: Path) -> tuple[str, list[dict[str, Any]]]:
+    """The judgements file's declared version and its entries, VERBATIM.
 
-    An unreadable, unparseable or wrong-shaped file is treated as one that is
-    not there — the same rule `read_spec` follows, and for the same reason:
-    this runs inside `wring verify`, and a malformed sibling must not take down
-    a verification.
-
-    **Absence is never read as `met`.** A criterion with no entry is
-    UNANSWERED, which is a state and not a judgement.
+    The one raw reader, so `read_judgements` (the assess view) and
+    `write_judgement_record` (the run-bundle capture, 0.6.1) cannot disagree
+    about what the file said. An unreadable, unparseable or wrong-shaped
+    file is `("", [])` — the same rule `read_spec` follows, and for the same
+    reason: this runs inside `wring verify`, and a malformed sibling must
+    not take down a verification.
     """
     path = root / JUDGEMENTS_FILENAME
     if not path.is_file():
-        return {}
+        return "", []
     try:
         import yaml
 
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception:
-        return {}
+        return "", []
     if not isinstance(raw, dict):
-        return {}
-    if raw.get("schema_version") != JUDGEMENT_SCHEMA_VERSION:
-        return {}
+        return "", []
+    version = raw.get("schema_version")
+    if version not in JUDGEMENT_SCHEMA_VERSIONS:
+        return "", []
     entries = raw.get("judgements")
     if not isinstance(entries, list):
-        return {}
+        return "", []
+    return str(version), [e for e in entries if isinstance(e, dict)]
+
+
+def judgements_by_criterion(
+    entries: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """The assess view: usable entries keyed by criterion id.
+
+    **Absence is never read as `met`.** A criterion with no entry is
+    UNANSWERED, which is a state and not a judgement.
+    """
     found: dict[str, dict[str, Any]] = {}
     for entry in entries:
-        if not isinstance(entry, dict):
-            continue
         name = entry.get("criterion")
         if not isinstance(name, str) or not name:
             continue
@@ -888,6 +912,74 @@ def read_judgements(root: Path) -> dict[str, dict[str, Any]]:
             continue
         found[name] = entry
     return found
+
+
+def read_judgements(root: Path) -> dict[str, dict[str, Any]]:
+    """Every answer a PERSON wrote, by criterion id. Total by construction."""
+    _version, entries = read_judgement_file(root)
+    return judgements_by_criterion(entries)
+
+
+# The run-bundle capture of the judgements file (0.6.1, run 3 F12) — a
+# SIBLING, the `coverage.json` precedent exactly: the acceptance row's
+# `judgement` object is frozen and closed (verdict, by, at, stale, note),
+# so the display facts `wringer.judgement.v2` binds to a judgement cannot
+# ride it, and law 7 says a new fact arrives as a new file. The certificate
+# and the board read THIS to render the judged-without-display fact
+# wherever the note renders; the acceptance row stays the one authority
+# for verdict and staleness.
+JUDGEMENT_RECORD_FILENAME = "judgements.json"
+JUDGEMENT_RECORD_SCHEMA_VERSION = "wringer.judgementrecord.v1"
+
+
+def write_judgement_record(
+    directory: Path,
+    source_version: str,
+    entries: list[dict[str, Any]],
+    redactor: Redactor | None = None,
+) -> Path | None:
+    """Capture what `wringer.judgements.yaml` said when this run assessed.
+
+    ABSENT — not empty — when the repository holds no judgements, the
+    sibling rule every other optional file follows. Entries travel VERBATIM:
+    this is a capture of one file at one moment, never a second assessor.
+    """
+    if not entries:
+        return None
+    import json as json_module
+
+    scrub = (redactor or Redactor()).scrub
+    path = directory / JUDGEMENT_RECORD_FILENAME
+    payload = {
+        "schema_version": JUDGEMENT_RECORD_SCHEMA_VERSION,
+        "source_schema_version": source_version,
+        "entries": entries,
+    }
+    path.write_text(
+        scrub(json_module.dumps(payload, indent=2, ensure_ascii=False)) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def read_judgement_record(run_dir: Path) -> dict[str, Any] | None:
+    """The capture back, or None — absent is absent, wrong version is None."""
+    path = run_dir / JUDGEMENT_RECORD_FILENAME
+    if not path.is_file():
+        return None
+    try:
+        import json as json_module
+
+        raw = json_module.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    if raw.get("schema_version") != JUDGEMENT_RECORD_SCHEMA_VERSION:
+        return None
+    if not isinstance(raw.get("entries"), list):
+        return None
+    return raw
 
 
 def assess(
@@ -898,6 +990,7 @@ def assess(
     state: Any = None,
     redactor: Redactor | None = None,
     witnesses: Any = None,
+    judgements: Any = None,
 ) -> Result | None:
     """What this run can say about each criterion. None when not opted in.
 
@@ -933,8 +1026,11 @@ def assess(
     created = created_stems(state)
 
     by_criterion = dict(witnesses or {})
-    # What a PERSON wrote. Read once, like the record above.
-    judgements = read_judgements(root)
+    # What a PERSON wrote. Read once, like the record above — and handed in
+    # by `verify.run` since 0.6.1 so the run-bundle capture and these rows
+    # describe ONE read of the file, never two.
+    if judgements is None:
+        judgements = read_judgements(root)
 
     rows = []
     for criterion in approved.criteria:

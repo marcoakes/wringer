@@ -52,6 +52,7 @@ skips the printing. This verb takes that discipline exactly.
 from __future__ import annotations
 
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -60,12 +61,47 @@ from wringer_board.interview import InterviewError, _load, _read, _write
 # The one file this module writes, and the only executable mention of it in
 # any of the three packages.
 JUDGEMENTS_FILENAME = "wringer.judgements.yaml"
-JUDGEMENT_SCHEMA_VERSION = "wringer.judgement.v1"
+# v2 since 0.6.1 — the pen failing closed (run 3, F11/F12): a successful
+# show is BOUND to the judgement (command, exit, output digest, tree), and
+# the explicit judged-without-display acknowledgement travels with the show's
+# failure verbatim. v1 is published, frozen, and still READ (the tuple below);
+# only the write moved.
+JUDGEMENT_SCHEMA_VERSION = "wringer.judgement.v2"
+JUDGEMENT_SCHEMA_VERSIONS = (JUDGEMENT_SCHEMA_VERSION, "wringer.judgement.v1")
 
 # Closed, and typed out in full by whoever answers. `wringer.judgement.v1`
 # has no third value on purpose: a judgement that can hedge is one nothing
 # downstream can act on.
 VERDICTS = ("met", "not_met")
+
+# Every refusal THE PEN can produce, under a name a machine can read — the
+# D0 discipline, third family (delivery's and the run preflight's rule,
+# generalised on 2026-08-30): CLOSED and PUBLIC, the constructor requires
+# the name, `tests/conftest.py`'s session hook asserts
+# constructed-equals-declared, and each name is driven through the command
+# that owes it by a taken-path test.
+PEN_REFUSAL_REASONS = (
+    # The declared display could not vouch for what the person saw — the
+    # `show:` is absent, its command exited non-zero or timed out, or the
+    # tree moved between showing and recording. Run 3 measured the open
+    # pen's cost (F12): `/bin/sh: python: command not found`, and `met` was
+    # recorded anyway — the product said a person saw and approved a thing
+    # it failed to display.
+    "show_failed",
+)
+
+
+class PenRefused(InterviewError):
+    """The pen said no. Carries WHICH no, structurally.
+
+    `reason` — one of `PEN_REFUSAL_REASONS` — is required for
+    `deliver.Refused`'s reason: a test can be forgotten, a constructor
+    cannot.
+    """
+
+    def __init__(self, message: str, *, reason: str) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 def _criteria(repo: Path) -> list[dict]:
@@ -117,9 +153,66 @@ def wording(criterion: dict) -> str:
 
 SHOW_TIMEOUT = 120
 
+# The three states a show attempt can end in. A closed vocabulary, because
+# `record` routes on it: `shown` is the only state a verdict may be recorded
+# against without the explicit acknowledgement.
+SHOWN = "shown"
+MISSING = "missing"
+FAILED = "failed"
 
-def shown(repo: Path, criterion_id: str) -> tuple[str | None, str]:
-    """What the person is being asked to look at, and where it came from.
+
+def _tree_identity(repo: Path) -> tuple[str, bool | None]:
+    """`(head_sha, dirty)` — the tree a display rendered against.
+
+    Best-effort and never fatal: outside a git repository, or with git
+    unanswerable, the identity is recorded as unknown (`""`, `None`) rather
+    than invented. Read here, at the pen, because the judgement's whole new
+    claim is "this display was of THIS tree" — and a claim nobody captured
+    at the moment of display cannot be reconstructed later.
+    """
+    try:
+        head = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo, capture_output=True, text=True, timeout=5,
+        )
+        if head.returncode != 0:
+            return "", None
+        status = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=repo, capture_output=True, text=True, timeout=10,
+        )
+        dirty = bool(status.stdout.strip()) if status.returncode == 0 else None
+        return head.stdout.strip(), dirty
+    except (OSError, subprocess.SubprocessError):
+        return "", None
+
+
+@dataclass(frozen=True)
+class ShowResult:
+    """One attempt to put the thing itself in front of the person.
+
+    `state` is `SHOWN` only when the command ran AND exited 0 — run 3's F12
+    measured why the exit matters: `/bin/sh: python: command not found` was
+    rendered under the ordinary header and a `met` was recorded against it.
+    `text` always carries what there is to carry — the display, the failure
+    output, or `""` for a missing declaration — so the caller can SAY what
+    happened whichever state it is.
+    """
+
+    state: str
+    command: str = ""
+    exit_code: int | None = None
+    text: str = ""
+    #: sha256 of `text`, set only when `state == SHOWN` — the digest the
+    #: judgement binds.
+    output_digest: str = ""
+    at: str = ""
+    head_sha: str = ""
+    dirty: bool | None = None
+
+
+def shown(repo: Path, criterion_id: str) -> ShowResult:
+    """What the person is being asked to look at, typed (0.6.1).
 
     **The finding this exists for, 2026-08-28.** A person was asked to judge
     *"a reader can tell at a glance which one thing to fix"* — a requirement
@@ -134,23 +227,30 @@ def shown(repo: Path, criterion_id: str) -> tuple[str | None, str]:
     The judgement was possible only because a coding agent pasted the output
     into a chat window unprompted. That is not a product behaviour.
 
-    Returns `(text, source)`. `text` is None when the repository declares no
+    Returns a `ShowResult`. `MISSING` when the repository declares no
     `show:` for this criterion, and the caller must SAY SO rather than print
-    the question as if nothing were missing.
+    the question as if nothing were missing; `FAILED` when the command could
+    not run, timed out, or exited non-zero — the display's own exit is part
+    of the answer since 0.6.1, because run 3 recorded a `met` against
+    `/bin/sh: python: command not found` (F12).
 
     **Run at judging time, in the repository, not read from a bundle.** A
     person judging wording should see what the wording is now, not what it was
     when some earlier run happened to capture it.
     """
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).replace(microsecond=0).isoformat()
     try:
         from wringer import config as config_module
 
         cfg = config_module.load(repo / config_module.CONFIG_FILENAME)
     except Exception:  # a repo with no config shows nothing, and says so
-        return None, ""
+        return ShowResult(state=MISSING, at=now)
     command = cfg.show.get(criterion_id)
     if not command:
-        return None, ""
+        return ShowResult(state=MISSING, at=now)
+    head_sha, dirty = _tree_identity(repo)
     try:
         done = subprocess.run(
             command,
@@ -162,14 +262,43 @@ def shown(repo: Path, criterion_id: str) -> tuple[str | None, str]:
             timeout=SHOW_TIMEOUT,
         )
     except (OSError, subprocess.SubprocessError) as exc:
-        return f"[the command for this requirement could not be run: {exc}]", command
+        return ShowResult(
+            state=FAILED,
+            command=command,
+            text=f"[the command for this requirement could not be run: {exc}]",
+            at=now,
+            head_sha=head_sha,
+            dirty=dirty,
+        )
     text = (done.stdout or "") + (done.stderr or "")
     # **Newlines only.** A plain `.strip()` eats the FIRST line's indentation
     # and leaves every other line's alone, so a summary whose whole point is
     # that its columns line up arrives with its first row shifted left. The
     # person is judging this text's shape; the surface does not get to change
     # it on the way past.
-    return text.strip("\n") or "[the command produced no output]", command
+    text = text.strip("\n") or "[the command produced no output]"
+    if done.returncode != 0:
+        return ShowResult(
+            state=FAILED,
+            command=command,
+            exit_code=done.returncode,
+            text=text,
+            at=now,
+            head_sha=head_sha,
+            dirty=dirty,
+        )
+    import hashlib
+
+    return ShowResult(
+        state=SHOWN,
+        command=command,
+        exit_code=0,
+        text=text,
+        output_digest=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+        at=now,
+        head_sha=head_sha,
+        dirty=dirty,
+    )
 
 
 def standing_objection(repo: Path, criterion_id: str) -> dict[str, Any] | None:
@@ -243,10 +372,11 @@ def _existing(path: Path) -> list[dict]:
     if not isinstance(data, dict):
         raise InterviewError(f"{JUDGEMENTS_FILENAME} is not a mapping")
     version = data.get("schema_version")
-    if version != JUDGEMENT_SCHEMA_VERSION:
+    if version not in JUDGEMENT_SCHEMA_VERSIONS:
         raise InterviewError(
             f"{JUDGEMENTS_FILENAME} says 'schema_version: {version!r}' and this "
-            f"surface writes {JUDGEMENT_SCHEMA_VERSION}. It will not guess"
+            f"surface reads {' or '.join(JUDGEMENT_SCHEMA_VERSIONS)}. It will "
+            "not guess"
         )
     entries = data.get("judgements")
     if entries is None:
@@ -286,6 +416,26 @@ def _render(entries: list[dict]) -> str:
         lines.append(f"    criterion_digest: {entry['criterion_digest']}")
         if entry.get("note"):
             lines.append(f"    note: {json.dumps(entry['note'])}")
+        # The v2 facts (0.6.1). A v1 entry carries none and renders exactly
+        # as it always did — the file's version says v2, and the schema makes
+        # every one of these optional for precisely that migration.
+        display = entry.get("display")
+        if isinstance(display, dict):
+            lines.append("    display:")
+            lines.append(f"      command: {json.dumps(display['command'])}")
+            lines.append(f"      exit: {display['exit']}")
+            lines.append(f"      output_digest: {display['output_digest']}")
+            lines.append(f"      at: {json.dumps(display['at'])}")
+            if display.get("head_sha"):
+                lines.append(f"      head_sha: {display['head_sha']}")
+            if display.get("dirty") is not None:
+                lines.append(
+                    f"      dirty: {'true' if display['dirty'] else 'false'}"
+                )
+        if entry.get("judged_without_display"):
+            lines.append("    judged_without_display: true")
+        if entry.get("show_failure"):
+            lines.append(f"    show_failure: {json.dumps(entry['show_failure'])}")
     return "\n".join(lines) + "\n"
 
 
@@ -297,15 +447,25 @@ def record(
     by: str = "",
     note: str = "",
     read_the_criterion: bool,
+    display: ShowResult | None = None,
+    without_display: bool = False,
     now: str = "",
 ) -> Path:
-    """Write one person's answer to one criterion.
+    """Write one person's answer to one criterion — against a display, or
+    with the explicit acknowledgement that there was none.
 
     `read_the_criterion` is `approve`'s `read_the_plan`, and it carries the
     same meaning and the same limitation: it is the CALLER's assertion that
     the wording was put in front of the person, and the CLI is what makes it
     true by printing first. A caller that lies here is a caller that could
     have written the file itself.
+
+    **The pen fails CLOSED since 0.6.1** (run 3, F12: a `met` was recorded
+    against `/bin/sh: python: command not found`). A verdict needs a fresh
+    SUCCESSFUL display — `display.state == SHOWN`, rendered against the tree
+    as it still is — or `without_display=True`, the one honest escape: the
+    person judged on their own sight of it, explicitly, and the record says
+    so with the show's failure carried verbatim. Never silently.
     """
     if not read_the_criterion:
         raise InterviewError(
@@ -318,6 +478,43 @@ def record(
             f"{verdict!r}. There is no third value: a judgement that can hedge "
             "is one nothing downstream can act on"
         )
+    if not without_display:
+        if display is None or display.state != SHOWN:
+            said = (display.text if display is not None else "").strip()
+            happened = {
+                None: "no display was attempted",
+                MISSING: "this repository declares no `show:` for it",
+                FAILED: (
+                    "the declared show command failed"
+                    + (
+                        f" (exit {display.exit_code})"
+                        if display is not None and display.exit_code is not None
+                        else ""
+                    )
+                ),
+            }[None if display is None else display.state]
+            raise PenRefused(
+                f"nothing vouches for what you saw: {happened}. A verdict "
+                "recorded against a display that did not happen is the "
+                "product saying a person saw and approved something it "
+                "failed to show them — measured, run 3.\n\n"
+                + (f"What the show surface said:\n{said}\n\n" if said else "")
+                + "Fix the `show:` command in .wringer.yaml, or — if you "
+                "judged this on your own sight of it — say so explicitly "
+                "with --without-display, and the record will carry that "
+                "fact beside your verdict. Nothing was written",
+                reason="show_failed",
+            )
+        moved_head, _moved_dirty = _tree_identity(repo)
+        if display.head_sha and moved_head and display.head_sha != moved_head:
+            raise PenRefused(
+                f"the tree moved between showing and recording — the display "
+                f"rendered {display.head_sha[:12]} and the repository is now "
+                f"at {moved_head[:12]}, so the thing you saw is not the "
+                "thing this verdict would be recorded against. Show it "
+                "again. Nothing was written",
+                reason="show_failed",
+            )
     criterion = find(repo, criterion_id)
 
     author = by.strip() or _default_by(repo)
@@ -351,16 +548,34 @@ def record(
         entry for entry in _existing(path)
         if str(entry.get("criterion", "")) != criterion_id
     ]
-    entries.append(
-        {
-            "criterion": criterion_id,
-            "verdict": verdict,
-            "by": author,
-            "at": now,
-            "criterion_digest": digest,
-            **({"note": note.strip()} if note.strip() else {}),
+    answered: dict[str, Any] = {
+        "criterion": criterion_id,
+        "verdict": verdict,
+        "by": author,
+        "at": now,
+        "criterion_digest": digest,
+        **({"note": note.strip()} if note.strip() else {}),
+    }
+    if without_display:
+        answered["judged_without_display"] = True
+        failure = (display.text if display is not None else "").strip("\n")
+        if display is not None and display.state == MISSING:
+            failure = (
+                "no `show:` is declared for this requirement — nothing was "
+                "displayed"
+            )
+        if failure:
+            answered["show_failure"] = failure
+    else:
+        answered["display"] = {
+            "command": display.command,
+            "exit": display.exit_code if display.exit_code is not None else 0,
+            "output_digest": display.output_digest,
+            "at": display.at,
+            **({"head_sha": display.head_sha} if display.head_sha else {}),
+            **({"dirty": display.dirty} if display.dirty is not None else {}),
         }
-    )
+    entries.append(answered)
     _write(path, _render(entries))
     return path
 

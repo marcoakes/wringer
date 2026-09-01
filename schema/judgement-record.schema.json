@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/judgement-record.schema.json",
+  "title": "wringer.judgementrecord.v1",
+  "description": "What `wringer.judgements.yaml` said when this run assessed — a SIBLING file in the run bundle (`judgements.json`), the `coverage.json` precedent exactly (0.6.1, run 3 F12). WHY IT EXISTS: the acceptance row's `judgement` object is frozen and closed (`wringer.acceptance.v3`: verdict, by, at, stale, note — nothing else), so the display facts the pen now binds to a judgement (`wringer.judgement.v2`) cannot ride it, and law 7 says a new fact arrives as a new file. The certificate and the board read THIS file to render the judged-without-display fact wherever the note renders; the acceptance row stays the one authority for verdict and staleness. ABSENT from every run whose repository holds no judgements — absence is the record, not a new field. Entries are the source file's entries VERBATIM as read at assess time, so this is a capture of one file at one moment, never a second assessor.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_schema_version", "entries"],
+  "properties": {
+    "schema_version": { "const": "wringer.judgementrecord.v1" },
+    "source_schema_version": {
+      "description": "Which schema the source file declared when it was read — `wringer.judgement.v1` or later. A reader that meets a version it does not know keeps the verbatim entries and claims nothing about their extra keys.",
+      "type": "string",
+      "minLength": 1
+    },
+    "entries": {
+      "type": "array",
+      "items": { "type": "object" }
+    }
+  }
+}

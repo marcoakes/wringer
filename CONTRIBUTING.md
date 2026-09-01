@@ -1,9 +1,9 @@
 # Contributing to Wringer
 
-Thanks for landing here this early. **Twenty-five releases have shipped** —
+Thanks for landing here this early. **Twenty-six releases have shipped** —
 `v0.1.0` on July 31, 2026, then `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.4.1`,
 `v0.4.2`, `v0.4.3`, `v0.4.4`, `v0.4.5`, `v0.4.6`, `v0.4.7`, `v0.4.8`,
-`v0.4.9`, `v0.4.10`, `v0.4.11`, `v0.4.12`, `v0.5.0`, `v0.5.2`, `v0.5.3`, `v0.5.4`, `v0.5.5`, `v0.5.6`, `v0.5.7`, `v0.5.8` and `v0.6.0`, all on PyPI, with `v0.6.0` the current one. Since `0.4.0` it is ONE
+`v0.4.9`, `v0.4.10`, `v0.4.11`, `v0.4.12`, `v0.5.0`, `v0.5.2`, `v0.5.3`, `v0.5.4`, `v0.5.5`, `v0.5.6`, `v0.5.7`, `v0.5.8`, `v0.6.0` and `v0.6.1`, all on PyPI, with `v0.6.1` the current one. Since `0.4.0` it is ONE
 distribution: `uv tool install wringer` gets the engine, the board and the
 drive verb together. The ["One Loop" MVP](ROADMAP.md) it was building toward — a
 GitHub issue in, a verified merge request with evidence out — landed with

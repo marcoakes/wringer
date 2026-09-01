@@ -146,6 +146,11 @@ def test_the_board_agrees_with_the_record_after_JUDGE_and_VERIFY(
         by="Pipeline team",
         note="the summary buries the failure",
         read_the_criterion=True,
+        # The pen fails closed since 0.6.1; this fixture declares no
+        # `show:`, and its subject is the board following the record — so
+        # the judgement rides the explicit escape, exactly as an operator
+        # judging on their own sight of it would.
+        without_display=True,
     )
     assert (project / "wringer.judgements.yaml").is_file()
 

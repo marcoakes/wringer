@@ -433,14 +433,17 @@ def test_A_SHOW_COMMAND_THAT_HANGS_IS_NEVER_READ_AS_NOTHING_TO_SHOW(
     )
     monkeypatch.setattr(board_judge, "SHOW_TIMEOUT", 1)
 
-    text, command = board_judge.shown(repo, "slow")
+    display = board_judge.shown(repo, "slow")
 
-    assert text is not None, (
-        "a `show:` command that ran out of time came back as 'nothing is "
-        "declared' — a broken renderer became an unwritten one"
+    assert display.state == board_judge.FAILED, (
+        "a `show:` command that ran out of time must read as a FAILED "
+        "display — never as 'nothing is declared' (a broken renderer "
+        "becoming an unwritten one), and since 0.6.1 never as shown either"
     )
-    assert command == "sleep 30"
-    assert "could not be run" in text
+    assert display.command == "sleep 30"
+    assert "could not be run" in display.text, (
+        "the timeout's own words travel"
+    )
 
 
 def test_A_GIT_THAT_HANGS_NEVER_CONFIRMS_A_COMMIT_A_CERTIFICATE_NAMES(

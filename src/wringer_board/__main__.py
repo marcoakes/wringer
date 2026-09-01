@@ -125,6 +125,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="a name for the record. Defaults to your git user.name. "
         "Recorded, never verified — this is not an identity system",
     )
+    judged.add_argument(
+        "--without-display",
+        action="store_true",
+        help="record the verdict even though nothing could be displayed — "
+        "your explicit statement that you judged this on your own sight of "
+        "it. The record carries that fact, and the show failure verbatim, "
+        "beside your verdict. Never the default: a missing or failing "
+        "`show:` otherwise refuses to record",
+    )
 
     return parser
 
@@ -257,8 +266,8 @@ def _judge(args, repo: Path) -> int:
     # rather than passed over. Asking somebody to judge what you will not show
     # them is the defect; asking them while pretending nothing is missing is
     # the same defect with the evidence removed.
-    text, command = judge_module.shown(repo, str(criterion.get("id", "")))
-    if text is None:
+    display = judge_module.shown(repo, str(criterion.get("id", "")))
+    if display.state == judge_module.MISSING:
         print(
             "NOTHING IS BEING SHOWN TO YOU FOR THIS ONE.\n"
             "  This repository declares no way to render what this requirement "
@@ -267,10 +276,35 @@ def _judge(args, repo: Path) -> int:
             "engineer can fix\n"
             "  that by adding a command under `show:` in .wringer.yaml, keyed "
             f"by `{criterion.get('id', '')}`.\n"
+            "  Recording a verdict is REFUSED until one exists — or pass\n"
+            "  --without-display to record that you judged it on your own "
+            "sight of it.\n"
         )
+    elif display.state == judge_module.FAILED:
+        # **Said as the failure it is** — run 3's F12 rendered a failed
+        # command's output under the ordinary header, and a `met` was
+        # recorded against it.
+        exit_note = (
+            f"exit {display.exit_code}"
+            if display.exit_code is not None
+            else "it could not be run"
+        )
+        print(
+            f"THE COMMAND FOR THIS REQUIREMENT FAILED ({exit_note}) — "
+            f"`{display.command}`.\n"
+            "  What it printed is below, but it does NOT vouch for what you "
+            "are judging,\n"
+            "  and recording a verdict is REFUSED until the command "
+            "succeeds — or you pass\n"
+            "  --without-display to record that you judged this on your own "
+            "sight of it.\n"
+        )
+        for line in display.text.splitlines():
+            print(f"  | {line}")
+        print()
     else:
-        print(f"This is what you are judging — from `{command}`:\n")
-        for line in text.splitlines():
+        print(f"This is what you are judging — from `{display.command}`:\n")
+        for line in display.text.splitlines():
             print(f"  | {line}")
         print()
 
@@ -291,6 +325,8 @@ def _judge(args, repo: Path) -> int:
         by=args.by,
         note=args.note,
         read_the_criterion=True,
+        display=display,
+        without_display=bool(getattr(args, "without_display", False)),
     )
     print("-" * 60)
     print(f"wringer-board: recorded {args.verdict!r} for {args.id!r} in {path.name}")
