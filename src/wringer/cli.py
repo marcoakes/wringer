@@ -1162,6 +1162,22 @@ def _start_repair(
 ) -> verify.Outcome | None:
     """Hand the failure to the configured agent, then report what came back."""
     print("\nThe gates said no. Handing it to the agent you configured.")
+    # The run path's own preflights (0.6.0): the guided launch drives the
+    # same `loop.run` as `wring run` and used to skip them — the uncovered
+    # door the run-3 map named. Same order, same no-bundle-behind rule.
+    if cfg.run is not None:
+        unbriefed = loop.unbriefable_worker(cfg.run)
+        if unbriefed is not None:
+            print(f"wring start: {unbriefed.message}", file=sys.stderr)
+            return None
+        found_auth = loop.worker_auth_finding(
+            cfg.run, declared_secret_names=config.declared_secret_names(cfg)
+        )
+        refused_auth = loop.unauthenticated_agent(cfg.run, found_auth)
+        if refused_auth is not None:
+            print(f"wring start: {refused_auth.message}", file=sys.stderr)
+            return None
+        _report_worker_auth(found_auth, as_json=False)
     try:
         loop_outcome = loop.run(
             root,
@@ -1865,13 +1881,28 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"wring run: {absent}", file=sys.stderr)
         return EXIT_CONFIG
 
+    # A worker with no channel for the brief is refused for the price of a
+    # string check, not discovered by a fifteen-minute silence (0.6.0, F5/F6).
+    # Before the auth read, because a worker that cannot be told what to
+    # build has no credential question worth a spawn.
+    unbriefed = loop.unbriefable_worker(cfg.run)
+    if unbriefed is not None:
+        print(f"wring run: {unbriefed.message}", file=sys.stderr)
+        return EXIT_CONFIG
+
     # And the same again for an agent that is present and signed out, which is
     # what two field runs actually hit. Same place, same exit code: both are
     # "this loop cannot start", and both must leave no bundle behind.
-    signed_out = loop.unauthenticated_agent(cfg.run)
+    # Read ONCE: the state the person is shown below is the one the refusal
+    # decided on.
+    found_auth = loop.worker_auth_finding(
+        cfg.run, declared_secret_names=config.declared_secret_names(cfg)
+    )
+    signed_out = loop.unauthenticated_agent(cfg.run, found_auth)
     if signed_out is not None:
-        print(f"wring run: {signed_out}", file=sys.stderr)
+        print(f"wring run: {signed_out.message}", file=sys.stderr)
         return EXIT_CONFIG
+    _report_worker_auth(found_auth, args.json)
 
     on_iteration, on_gate, on_worker = _loop_reporters(args.json)
     try:
@@ -1931,6 +1962,25 @@ def cmd_run(args: argparse.Namespace) -> int:
     if outcome.status == "interrupted":
         return EXIT_INTERRUPTED
     return EXIT_OK if outcome.converged else EXIT_GATE_FAILED
+
+
+def _report_worker_auth(found, as_json: bool) -> None:
+    """The typed worker-auth state, rendered before anything is spent.
+
+    Every worker gets a line — verified, rejected, unknown or not applicable
+    — because run 3 measured what the alternative is (F10): a shell worker's
+    state arrived as None, every renderer returned early on it, and silence
+    read as success. The refusing state never reaches here (the caller
+    stopped), so this line is the non-refusing three.
+
+    Under `--json` it goes to stderr like every other progress line: the
+    stdout object is the machine's, and a state only a scrollback saw is
+    still a state that was shown.
+    """
+    if found is None:  # a belt: worker_auth_finding no longer returns None
+        return
+    stream = sys.stderr if as_json else sys.stdout
+    print(f"worker auth: {found.word} — {found.detail}", file=stream, flush=True)
 
 
 def _report_iteration(iteration: int, budget: int, stream=None) -> None:
@@ -2008,6 +2058,9 @@ _LOOP_ENDINGS = {
     "the checks still fail.",
     "no_progress": "Stopped after {n} iteration{s} — the worker changed nothing, "
     "so the checks would say the same again.",
+    loop.WORKER_READ_ONLY: "Stopped after {n} iteration{s} — the worker's turn "
+    "ended cleanly and wrote nothing: a read-only turn. Its own words are "
+    "quoted below and in the worker log.",
     "oscillating": "Stopped after {n} iteration{s} — the same failure came back, "
     "so the worker is not converging.",
     "budget_exhausted": "Stopped after {n} iteration{s} — the wall-clock budget "
@@ -2627,10 +2680,19 @@ def cmd_resume(args: argparse.Namespace) -> int:
         print(f"wring resume: {absent}", file=sys.stderr)
         return EXIT_CONFIG
 
-    signed_out = loop.unauthenticated_agent(cfg.run)
-    if signed_out is not None:
-        print(f"wring resume: {signed_out}", file=sys.stderr)
+    unbriefed = loop.unbriefable_worker(cfg.run)
+    if unbriefed is not None:
+        print(f"wring resume: {unbriefed.message}", file=sys.stderr)
         return EXIT_CONFIG
+
+    found_auth = loop.worker_auth_finding(
+        cfg.run, declared_secret_names=config.declared_secret_names(cfg)
+    )
+    signed_out = loop.unauthenticated_agent(cfg.run, found_auth)
+    if signed_out is not None:
+        print(f"wring resume: {signed_out.message}", file=sys.stderr)
+        return EXIT_CONFIG
+    _report_worker_auth(found_auth, args.json)
 
     if args.loop is not None:
         loop_dir = Path(args.loop)

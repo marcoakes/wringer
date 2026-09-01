@@ -124,6 +124,78 @@ AGENTS: tuple[Agent, ...] = (
 )
 
 
+@dataclass(frozen=True)
+class ShellVendor:
+    """One SHELL-worker vendor whose credential surfaces have been measured.
+
+    The sibling of `Agent` for the other worker form. An `Agent` row is an
+    ACP binary Wringer holds a session with; this is a vendor whose CLI a
+    repo declares as a shell or `exec:` worker — and the only reason a row
+    exists is that somebody ran the binary and wrote down what it said.
+    `worker_auth.py` is what runs `login_probe`; this module still starts no
+    process.
+
+    `login_probe` answers for the STORED login lane only, and that limit is
+    measured, not assumed: with the key variable exported and no stored
+    login, the probe below still answers "Not logged in" — it cannot see an
+    environment key at all. Which credential actually spends is decided by
+    the vendor at the turn, where the key DISPLACES the login (run 3, F7 —
+    the same precedence the ACP lane measured on 2026-08-27). So a probe
+    answer plus the key variable's presence is the WHOLE of what a preflight
+    can honestly say, and `worker_auth.read` composes exactly those two
+    facts.
+    """
+
+    id: str
+    #: The binary's basename, matched against a declared worker's first word.
+    command: str
+    #: The env variable whose presence displaces the stored login at the turn.
+    key_env: str
+    #: Argv suffix asking the binary about its stored login. Free, offline,
+    #: instant — all three measured before the row was written.
+    login_probe: tuple[str, ...]
+    #: Argv suffix that starts the vendor's own login flow. Printed, never
+    #: executed — a login is somebody's account. Read off the CLI's own help.
+    login_verb: tuple[str, ...] = ()
+
+    @property
+    def login_command(self) -> str:
+        """The whole line a person types to log this vendor in."""
+        return " ".join((self.command, *self.login_verb))
+
+
+# One row, because one vendor's login surface has been measured. Codex:
+# `codex login status` on codex-cli 0.149.0, macOS, 2026-08-31 — exit 0 with
+# "Logged in using ChatGPT" on stdout when a stored login exists, exit 1 with
+# "Not logged in" when none does, identical with and without CODEX_API_KEY
+# exported (the probe cannot see the key), no network traffic, instant.
+# `codex doctor` was measured and DISQUALIFIED as a probe the same day: it
+# reports its auth row as satisfied on the mere PRESENCE of an env key —
+# presence read as validity, the exact disease — and it opens sockets.
+SHELL_VENDORS: tuple[ShellVendor, ...] = (
+    ShellVendor(
+        id="codex",
+        command="codex",
+        key_env="CODEX_API_KEY",
+        login_probe=("login", "status"),
+        login_verb=("login",),
+    ),
+)
+
+
+def shell_vendor_by_command(basename: str) -> ShellVendor | None:
+    """The vendor row for a worker command's first word, or None.
+
+    Exact match on the basename, `by_command`'s rule: guessing a vendor from
+    a wrapper script's filename would be this module inventing a vendor
+    string rather than holding one.
+    """
+    for vendor in SHELL_VENDORS:
+        if vendor.command == basename:
+            return vendor
+    return None
+
+
 #: Where an IT department's coding-agent policy file lives, per platform.
 #:
 #: **One vendor, because one vendor is what has been measured.** Field report

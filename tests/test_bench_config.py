@@ -45,9 +45,9 @@ bench:
   contender_wall_clock: 900
   contenders:
     - id: scripted
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
     - id: other
-      worker: "sh ./other.sh"
+      worker: ": {brief}; sh ./other.sh"
 """
 
 
@@ -59,7 +59,7 @@ def test_two_shell_contenders_parse():
     assert cfg.bench is not None
     assert cfg.bench.contender_wall_clock == 900
     assert [c.id for c in cfg.bench.contenders] == ["scripted", "other"]
-    assert cfg.bench.contenders[0].worker == "sh ./fix.sh"
+    assert cfg.bench.contenders[0].worker == ": {brief}; sh ./fix.sh"
 
 
 def test_a_repo_without_the_section_has_no_bench():
@@ -81,7 +81,7 @@ bench:
     - id: claude
       agent: claude-code
     - id: scripted
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
 """
     contender = parse(body).bench.contenders[0]
     assert isinstance(contender.worker, config.AcpWorker)
@@ -155,7 +155,7 @@ bench:
   contender_wall_clock: 900
   contenders:
     - id: only
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
 """
     message = refusal(body)
     assert "wring run" in message, message
@@ -187,7 +187,7 @@ bench:
   contenders:
     - id: one
       agent: claude-code
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
     - id: two
       worker: "b"
 """

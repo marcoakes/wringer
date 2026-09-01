@@ -382,7 +382,8 @@ def test_a_slow_human_approval_does_not_spend_the_graphs_budget(
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "sh -c \'echo FIXED > calc.py\'"\n  max_iterations: 2\n',
+        'run:\n  worker: ": {brief}; sh -c \'echo FIXED > calc.py\'"\n'
+        '  max_iterations: 2\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(repo)
@@ -420,7 +421,8 @@ def test_execution_time_still_exhausts_the_budget(repo, monkeypatch, capsys):
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "sh -c \'echo FIXED > calc.py\'"\n  max_iterations: 2\n',
+        'run:\n  worker: ": {brief}; sh -c \'echo FIXED > calc.py\'"\n'
+        '  max_iterations: 2\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(repo)

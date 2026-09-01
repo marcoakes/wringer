@@ -317,7 +317,7 @@ and not its first line. Then:
   |---|---|
   | model endpoint | `https://api.anthropic.com/v1/chat/completions` |
   | model | `claude-opus-5` |
-  | coding agent (worker) | `acp: claude-agent-acp`, `acp: dcode --acp`, `acp: kimi acp`, `codex exec --json -` |
+  | coding agent (worker) | `acp: claude-agent-acp`, `acp: dcode --acp`, `acp: kimi acp`, `codex exec --json --sandbox workspace-write "$(cat {brief})"` |
 
   `detail.suggested` is a LIST on every one of the three, even where it holds
   a single value, and `detail.more` points at https://github.com/marcoakes/wringer/blob/main/docs/vendors.md — the measured

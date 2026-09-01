@@ -57,6 +57,11 @@ def git(cwd: Path, *args: str) -> str:
 
 
 def write_config(repo: Path, worker: str, max_iterations: int = 2) -> None:
+    # The worker contract (0.6.0) refuses a shell worker with no brief
+    # channel; these fixtures' tasks are defined by the fixture itself, so
+    # the channel is a no-op consumer of the path.
+    if "{brief}" not in worker:
+        worker = ": {brief}; " + worker
     (repo / ".wringer.yaml").write_text(
         NEVER.format(worker=json.dumps(worker), max_iterations=max_iterations),
         encoding="utf-8",
@@ -229,7 +234,8 @@ def loop_repo(repo: Path) -> Path:
     (repo / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
     (repo / "wringer.spec.yaml").write_text(SPEC, encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
-        CONFIG_WITH_REMOTE.format(worker=json.dumps("true")), encoding="utf-8"
+        CONFIG_WITH_REMOTE.format(worker=json.dumps(": {brief}; true")),
+        encoding="utf-8",
     )
     git(repo, "add", "-A")
     git(repo, "commit", "-m", "config")

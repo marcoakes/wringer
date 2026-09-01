@@ -50,6 +50,9 @@ ENGINE_VALUES: dict[str, frozenset[str]] = {
             "max_iterations",
             "budget_exhausted",
             "no_progress",
+            # The tenth, 0.6.0's F8: the turn ended cleanly, spoke, and
+            # wrote nothing — the worker's own words carried in the record.
+            "worker_read_only",
             "oscillating",
             "authority_moved",
             "flaky_gate",

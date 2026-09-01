@@ -148,7 +148,7 @@ command -v uv >/dev/null 2>&1 || curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install --force --python 3.12 wringer && uv tool update-shell
 ```
 
-That installs 0.5.8 from PyPI — one distribution carrying `wring`, `wringer`,
+That installs 0.6.0 from PyPI — one distribution carrying `wring`, `wringer`,
 `wringer-board` and `wringer-drive`. **To set up against unreleased work on
 `main`** instead, from this clone: `uv tool install --force --python 3.12 .`
 
@@ -477,9 +477,9 @@ something is actually staged fixes both halves at once.
 
 ## Step 8 — Run `wring doctor`, **from your clone**
 
-`wring doctor` answers thirteen questions: six about this machine, seven
+`wring doctor` answers fourteen questions: six about this machine, eight
 about the repository you are standing in. **Run it from the clone** — from
-somewhere else the seven repository checks have nothing to look at and are
+somewhere else the eight repository checks have nothing to look at and are
 reported as skipped.
 
 ```bash
@@ -501,10 +501,11 @@ A real captured run, on a Mac with no container runtime installed:
                         → Run: wring verify
 - pytest parallelism    no recorded duration for a pytest gate yet — run wring verify
 ✓ workspace writable    /Users/you/wringer/.wringer is writable
-- worker auth           the worker is a shell command, not an ACP agent — a shell worker has no login to check
+- worker auth           'python3' is a shell command with no login surface on the roster — the worker authenticates on its own account, and this check has nothing measured to ask it
+- worker credential     the worker is a shell command with no roster entry for 'python3' — it authenticates on its own account, and this check has nothing measured to ask
 ✓ managed settings      no coding-agent policy file at /Library/Application Support/ClaudeCode/managed-settings.json (absence here is not proof this machine is unmanaged — it is one path, checked)
-! llm key               no LLM API key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
-                        → Only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. Provide it when you launch, and never paste it to an agent
+! drafting key          no drafting key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
+                        → The DRAFTING lane: only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. The worker's credential is a separate lane, checked above. Provide it when you launch, and never paste it to an agent
 
 Ready. The ! lines are optional extras, not problems. The - lines are checks this repository gave nothing to check.
 doctor exit: 0
@@ -517,8 +518,10 @@ name**. Both directions, because until 2026-08-30 only the first was
 guarded, and this transcript had silently lost five of thirteen rows while
 staying green.
 
-Both transcripts on this page are captured output, recaptured on 2026-08-30
-from the released `wring` in a fresh clone. Three edits, all disclosed: the
+Both transcripts on this page are captured output, recaptured on 2026-08-31
+from the 0.6.0 working tree built into a fresh venv and run in a fresh clone
+(the lane split renamed `llm key` to `drafting key` and added
+`worker credential`). Three edits, all disclosed: the
 home directory is anonymised (the machine prints `/Users/<its user>/…`); the
 clone's path is written as the `~/wringer` this runbook assumes; and the
 version is written `<version>` for the reason step 3 already gives —
@@ -548,16 +551,17 @@ cd /tmp && mkdir -p not-a-repo && cd not-a-repo && wring doctor; echo "doctor ex
 - pytest parallelism    not a git repository — run from your repo to check
 - workspace writable    not a git repository — run from your repo to check
 - worker auth           not a git repository — run from your repo to check
+- worker credential     not a git repository — run from your repo to check
 ✓ managed settings      no coding-agent policy file at /Library/Application Support/ClaudeCode/managed-settings.json (absence here is not proof this machine is unmanaged — it is one path, checked)
-! llm key               no LLM API key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
-                        → Only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. Provide it when you launch, and never paste it to an agent
+! drafting key          no drafting key set — looked for ANTHROPIC_API_KEY, CODEX_API_KEY, KIMI_API_KEY, OPENAI_API_KEY, WRINGER_API_KEY
+                        → The DRAFTING lane: only needed for `wring judge --send` and for an agent driving `wring run`; this repo declares no name, so those are the well-known ones. The worker's credential is a separate lane, checked above. Provide it when you launch, and never paste it to an agent
 
 This machine is ready. The ! lines are optional extras, not problems. The - lines describe a repository and were not checked here — run `wring doctor` from your repo for those.
 doctor exit: 0
 ```
 
-**Seven `-` lines, and the exit code is still `0`.** A skip is not a
-failure: those seven checks had nothing to look at, and the closing line
+**Eight `-` lines, and the exit code is still `0`.** A skip is not a
+failure: those eight checks had nothing to look at, and the closing line
 says so rather than implying the machine is short of something.
 
 **Read the marks, not the vibes:**
@@ -569,7 +573,7 @@ says so rather than implying the machine is short of something.
 | `-` | skipped, and the line says why | no |
 | `✗` | blocking — **only these change the exit code** | yes |
 
-**`! container runtime` and `! llm key` are both expected here.** The key
+**`! container runtime` and `! drafting key` are both expected here.** The key
 arrives in step 9, from the human, and the runtime is step 4's business. A
 `✗` maps back to a step above: re-run that step, then re-run `wring doctor`.
 

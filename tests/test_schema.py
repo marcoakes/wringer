@@ -145,7 +145,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo FIXED > calc.py"
+  worker: ": {brief}; echo FIXED > calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",
@@ -161,7 +161,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "sleep 30"
+  worker: ": {brief}; sleep 30"
   max_iterations: 2
   worker_timeout: 1
 """,
@@ -309,7 +309,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo FIXED > calc.py"
+  worker: ": {brief}; echo FIXED > calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",
@@ -366,7 +366,7 @@ gates:
   - id: test
     run: "true"
 run:
-  worker: "true"
+  worker: ": {brief}; true"
   prove: true
 """
 
@@ -1487,7 +1487,7 @@ def test_a_real_vacuity_verdict_matches_its_schema(repo, monkeypatch, capsys):
     recorded = _proved(
         repo, monkeypatch, capsys,
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "true"\n  prove_setup: "true"\n',
+        'run:\n  worker: ": {brief}; true"\n  prove_setup: "true"\n',
     )
     schema = load("vacuity.schema.json")
 

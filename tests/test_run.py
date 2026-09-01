@@ -36,6 +36,11 @@ run:
 def write_loop_config(repo: Path, worker: str, max_iterations: int = 3) -> None:
     # json.dumps gives a double-quoted YAML scalar, so a worker like `true`
     # stays the *string* "true" rather than becoming a boolean.
+    # The worker contract (0.6.0) refuses a shell worker with no brief
+    # channel; these fixtures' tasks are defined by the fixture itself, so
+    # the channel is a no-op consumer of the path.
+    if "{brief}" not in worker:
+        worker = ": {brief}; " + worker
     (repo / ".wringer.yaml").write_text(
         CHECKS.format(worker=json.dumps(worker), max_iterations=max_iterations),
         encoding="utf-8",
@@ -159,7 +164,7 @@ gates:
   - id: test
     run: "cat calc.py; grep -q FIXED calc.py"
 run:
-  worker: "date +%s%N >> calc.py"
+  worker: ": {brief}; date +%s%N >> calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",
@@ -227,7 +232,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "sleep 30"
+  worker: ": {brief}; sleep 30"
   max_iterations: 2
   worker_timeout: 1
 """,
@@ -425,7 +430,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo $$ > worker.pid; sleep 30"
+  worker: ": {brief}; echo $$ > worker.pid; sleep 30"
   worker_timeout: 60
 """,
         encoding="utf-8",

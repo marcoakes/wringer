@@ -32,7 +32,7 @@ bench:
   attempts: 3
   contenders:
     - id: fixer
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
 """
 
 
@@ -68,7 +68,8 @@ def flaky_config(counter: Path, *, parallel: int = 1) -> str:
         f"  parallel: {parallel}\n"
         "  contenders:\n"
         "    - id: coin\n"
-        f'      worker: "until mkdir {lock} 2>/dev/null; do sleep 0.01; done; '
+        f'      worker: ": {{brief}}; until mkdir {lock} 2>/dev/null; '
+        f'do sleep 0.01; done; '
         f'n=$(cat {counter} 2>/dev/null || echo 0); '
         f'n=$((n+1)); printf %s $n > {counter}; rmdir {lock}; '
         'if [ $((n % 2)) -eq 1 ]; then echo FIXED > calc.py; fi"\n'

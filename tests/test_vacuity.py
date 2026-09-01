@@ -230,7 +230,7 @@ def test_a_failing_prove_setup_is_inconclusive_never_proven(
     """"If it fails, the verdict is `inconclusive` — never `proven`, and never
     silently dropped." """
     (changed / ".wringer.yaml").write_text(
-        SENSITIVE + 'run:\n  worker: "true"\n  prove_setup: "exit 7"\n',
+        SENSITIVE + 'run:\n  worker: ": {brief}; true"\n  prove_setup: "exit 7"\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(changed)
@@ -254,7 +254,7 @@ def test_prove_setup_runs_in_the_worktree_and_makes_proof_honest(
     (repo / ".gitignore").write_text("vendor/\n.wringer/\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "cat vendor/lib.py"\n'
-        'run:\n  worker: "true"\n'
+        'run:\n  worker: ": {brief}; true"\n'
         '  prove_setup: "mkdir -p vendor && echo installed > vendor/lib.py"\n',
         encoding="utf-8",
     )
@@ -281,7 +281,8 @@ def test_prove_setup_runs_in_the_worktree_and_makes_proof_honest(
 
 def test_run_prove_true_makes_every_run_prove(changed, monkeypatch, capsys):
     (changed / ".wringer.yaml").write_text(
-        TAUTOLOGY + 'run:\n  worker: "true"\n  prove: true\n', encoding="utf-8"
+        TAUTOLOGY + 'run:\n  worker: ": {brief}; true"\n  prove: true\n',
+        encoding="utf-8",
     )
     monkeypatch.chdir(changed)
 
@@ -311,7 +312,8 @@ def test_no_prove_is_not_a_flag_and_wring_run_exits_2(changed, monkeypatch,
     """"--no-prove does not exist, deliberately." Not silently ignored —
     argparse rejects it, which is exit 2."""
     (changed / ".wringer.yaml").write_text(
-        TAUTOLOGY + 'run:\n  worker: "true"\n  prove: true\n', encoding="utf-8"
+        TAUTOLOGY + 'run:\n  worker: ": {brief}; true"\n  prove: true\n',
+        encoding="utf-8",
     )
     monkeypatch.chdir(changed)
 
@@ -336,7 +338,8 @@ def test_nothing_can_turn_off_what_the_repo_declared(changed, monkeypatch,
     from wringer import verify
 
     (changed / ".wringer.yaml").write_text(
-        TAUTOLOGY + 'run:\n  worker: "true"\n  prove: true\n', encoding="utf-8"
+        TAUTOLOGY + 'run:\n  worker: ": {brief}; true"\n  prove: true\n',
+        encoding="utf-8",
     )
     monkeypatch.chdir(changed)
     for name in (
@@ -616,7 +619,7 @@ def test_the_loop_proves_when_the_repo_declared_it(repo, monkeypatch, capsys):
     git(repo, "commit", "-qm", "initial")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "echo FIXED > calc.py"\n  max_iterations: 3\n'
+        'run:\n  worker: ": {brief}; echo FIXED > calc.py"\n  max_iterations: 3\n'
         "  prove: true\n",
         encoding="utf-8",
     )
@@ -664,7 +667,7 @@ def test_a_loop_that_converges_on_VACUOUS_gates_says_so_on_the_console(
     git(repo, "commit", "-qm", "initial")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "true"\n'
-        'run:\n  worker: "echo touched > note.txt"\n  max_iterations: 1\n'
+        'run:\n  worker: ": {brief}; echo touched > note.txt"\n  max_iterations: 1\n'
         "  prove: true\n",
         encoding="utf-8",
     )
@@ -780,7 +783,7 @@ def test_the_pre_change_gate_logs_are_redacted_like_every_other_bundle_file(
         '  - id: leaky\n'
         '    run: "echo $WRINGER_PROVE_TOKEN"\n'
         'run:\n'
-        '  worker: "true"\n'
+        '  worker: ": {brief}; true"\n'
         '  prove: true\n',
     )
     (repo / "change.txt").write_text("a change to prove something about\n", "utf-8")

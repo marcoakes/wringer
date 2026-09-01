@@ -140,7 +140,7 @@ gates:
   - id: test
     run: "$PYTHON -m pytest test_calc.py -q"
 run:
-  worker: "sh ./scripted-fix.sh"
+  worker: "sh ./scripted-fix.sh {brief}"
   max_iterations: 3
 deliver:
   remote: origin

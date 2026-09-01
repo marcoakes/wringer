@@ -349,17 +349,25 @@ SETUP_QUESTIONS = (
     Step(
         kind=ASK,
         id="setup:worker",
+        # The codex form here is the one run 3 measured WORKING as a Wringer
+        # worker — brief received through `{brief}`, repository writable. The
+        # form this list used to offer (`codex exec --json -`) was measured
+        # as an agent and never as a worker, and as a worker it hangs on a
+        # stdin nothing writes and cannot edit a file (F5/F8). A suggestion
+        # is pasted verbatim, so a suggestion is a recipe and carries a
+        # recipe's duty.
         text="Which coding agent should do the building? Give the command "
         "that starts it — any agent you can start from a terminal will "
         "do. Four that were measured: acp: claude-agent-acp, "
-        "acp: dcode --acp, acp: kimi acp, and codex exec --json -.",
+        "acp: dcode --acp, acp: kimi acp, and "
+        'codex exec --json --sandbox workspace-write "$(cat {brief})".',
         detail={
             "key": "worker",
             "suggested": [
                 "acp: claude-agent-acp",
                 "acp: dcode --acp",
                 "acp: kimi acp",
-                "codex exec --json -",
+                'codex exec --json --sandbox workspace-write "$(cat {brief})"',
             ],
             "more": VENDORS_PAGE,
         },
@@ -540,6 +548,25 @@ def require_worker(
             ),
             exit_code=2,
         )
+    # A worker with no channel for the brief is the run that cannot possibly
+    # build anything, started without a word (run 3, F5/F6) — refused here
+    # for `require_worker`'s own reason: the engine's preflight, called
+    # EARLIER, before anything is paid for.
+    unbriefed = loop.unbriefable_worker(settings.run)
+    if unbriefed is not None:
+        raise Stop(
+            Step(
+                kind=STOPPED,
+                id="stopped:worker-unbriefable",
+                text="Nothing was built and nothing has been spent. The "
+                "declared worker command has no channel through which to "
+                "receive its task, so a run would sit in silence until the "
+                "timeout and build nothing — this stops here instead, "
+                "before the step that costs money.",
+                engine_words=unbriefed.message,
+            ),
+            exit_code=2,
+        )
     # **And the next question along, which cost two field runs.**
     #
     # An agent can be installed and never logged in, and on 2026-08-21 and
@@ -551,9 +578,12 @@ def require_worker(
     # **Read ONCE.** Asking the agent's own CLI is the only slow thing in this
     # preflight, and two reads could give two answers — so the sentence the
     # person is shown would not be the one the refusal decided on.
-    found = loop.worker_auth_finding(settings.run)
-    message = loop.unauthenticated_agent(settings.run, found)
-    if message is not None:
+    found = loop.worker_auth_finding(
+        settings.run,
+        declared_secret_names=config.declared_secret_names(settings),
+    )
+    refused = loop.unauthenticated_agent(settings.run, found)
+    if refused is not None:
         # **The remedy is the machine's, not a fixed pair of routes.** Field
         # report 2026-08-26, finding 1: on an org-pinned Mac the operator had
         # already done the login, so the only apparently-untried route was the
@@ -569,7 +599,7 @@ def require_worker(
                 "credential is your decision, so this stops here and shows "
                 "you what this machine's route is, before the step that costs "
                 "money.",
-                engine_words=message,
+                engine_words=refused.message,
             ),
             exit_code=2,
         )
@@ -609,12 +639,19 @@ def _show_worker_auth(session: object, announce: object, found: object) -> None:
         )
     elif found.state == worker_auth.LOGGED_OUT:  # pragma: no cover - stopped above
         return
+    elif found.state == worker_auth.NOT_APPLICABLE:
+        text = (
+            "The declared worker authenticates on its own account, and "
+            f"nothing measured exists to ask it: {found.detail}. Nothing "
+            "stops for that — it means the build step is the first thing "
+            "that can tell you, and it is the step that costs money."
+        )
     else:
         text = (
-            "Whether the coding agent is logged in could not be checked here: "
-            f"{found.detail}. Nothing stops for that — it means the build step "
-            "is the first thing that can tell you, and it is the step that "
-            "costs money."
+            "Whether the coding agent's credential will serve could not be "
+            f"settled here: {found.detail}. Nothing stops for that — it "
+            "means the build step is the first thing that can tell you, and "
+            "it is the step that costs money."
         )
     step = Step(kind=SHOW, id="worker-auth", text=text,
                 detail={"state": found.state, "method": found.method})

@@ -34,7 +34,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "sh ./fix.sh"
+  worker: ": {brief}; sh ./fix.sh"
   max_iterations: 3
 deliver:
   branch: "wringer/{run}"

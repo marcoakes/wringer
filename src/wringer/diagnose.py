@@ -148,6 +148,28 @@ REFUSED_WITH_NOTHING_TO_QUOTE = (
     "the agent refused the turn or its session failed, so nothing was built"
 )
 
+#: The SHELL lane's clean-and-empty turn (0.6.0, run 3 F8). The ACP sentence
+#: one table up surveys causes because an ACP ledger has telemetry to reason
+#: from; a shell worker's whole testimony is its output, so the description
+#: states the two facts the loop owns — exit 0, nothing written — and the
+#: worker's own words ride `engine_words` verbatim rather than being summed
+#: up. Run 3's read-only codex turn is the measured case: the cause ("blocked
+#: by the workspace's read-only filesystem policy") was in the worker's own
+#: last message, and no sentence Wringer could invent says it better.
+SHELL_TURN_READ_ONLY = (
+    "the worker's turn ended cleanly and wrote nothing — a read-only turn. "
+    "Its own words are quoted below and in the worker log; a sandbox or "
+    "permission wall looks exactly like this from the outside"
+)
+
+SHELL_TURN_READ_ONLY_REMEDY = (
+    "read the worker's own words first — `worker.stdout.log` and "
+    "`worker.stderr.log`, under this loop's `iterations/` directory. If it "
+    "reports a sandbox or write-permission wall, the declared command's "
+    "write policy is the fix; docs/vendors.md carries the tested flags per "
+    "vendor"
+)
+
 # **A POINTER, never a list.** `env_passthrough` exists so that a secret
 # crossing into a worker is a declared act by the person who owns it — R1
 # refuses naming credential variables by default for exactly that reason, and
@@ -253,9 +275,20 @@ class WorkerDiagnosis:
     # the machine where the login was demonstrably not the problem (field
     # report 2026-08-27).
     auth_state: str = ""
+    # Which worker form's facts composed this record: `""` is the ACP lane —
+    # the only one v3 ever had — and `"shell"` is the 0.6.0 shell/exec lane.
+    # NEVER serialized: `wringer.workerdiagnosis.v3` is frozen and
+    # `additionalProperties: false`, so this steers which sentences are
+    # composed and leaves every written record byte-valid against the
+    # published schema. A reader tells the lanes apart the honest way — by
+    # which fields are present (`stop_reason` is the ACP ledger's fact and
+    # the shell lane never carries one).
+    lane: str = ""
 
     @property
     def description(self) -> str:
+        if self.lane == "shell" and self.face == FACE_TURN_CHANGED_NOTHING:
+            return SHELL_TURN_READ_ONLY
         # **The refused turn leads with the worker's own words, unless the
         # agent itself reports signed out.** The not-logged-in sentence is a
         # hint, and field report 2026-08-27 measured what it costs when it
@@ -282,6 +315,8 @@ class WorkerDiagnosis:
 
     @property
     def remedy(self) -> str:
+        if self.lane == "shell" and self.face == FACE_TURN_CHANGED_NOTHING:
+            return SHELL_TURN_READ_ONLY_REMEDY
         if self.face == FACE_TURN_REFUSED:
             found = REFUSED_REMEDIES_BY_AUTH_STATE.get(self.auth_state)
             if found is not None:
@@ -354,6 +389,40 @@ def diagnose_turn(
         files_written=files_written,
         refusals=refusals,
         engine_words=engine_words,
+    )
+
+
+def diagnose_shell_turn(
+    *,
+    exit_code: int,
+    timed_out: bool,
+    changed_tree: bool,
+    engine_words: str = "",
+    auth_state: str = "",
+) -> WorkerDiagnosis | None:
+    """A shell or `exec:` turn that ended cleanly having written nothing.
+
+    The shell lane's facts are thinner than the ACP ledger's and this
+    composes only from what the loop actually owns: the exit code, the
+    timeout fact, and the tree fingerprint. Exit 0 IS the clean finish — a
+    shell worker has no `stopReason` to demand — and a changed tree is the
+    same reason to say nothing it is for the ACP lane: the turn plainly did
+    something, and what it did is in the diff.
+
+    Run 3, F8, is the measured case this exists for: the documented codex
+    command completed its turn in 60 seconds, exit 0, changed nothing — and
+    its own final message named the cause exactly ("blocked by the
+    workspace's read-only filesystem policy"). The record carries those words
+    verbatim in `engine_words`; nothing here summarises them, because the
+    summary is where the false sentence would live.
+    """
+    if exit_code != 0 or timed_out or changed_tree:
+        return None
+    return WorkerDiagnosis(
+        face=FACE_TURN_CHANGED_NOTHING,
+        engine_words=engine_words,
+        auth_state=auth_state,
+        lane="shell",
     )
 
 

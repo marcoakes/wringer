@@ -399,7 +399,7 @@ def project(tmp_path: Path) -> Path:
         "  rubric: wringer.rubric.yaml\n"
         "\n"
         "run:\n"
-        '  worker: "true"\n'
+        '  worker: ": {brief}; true"\n'
         "  max_iterations: 1\n"
         "\n"
         "deliver:\n"

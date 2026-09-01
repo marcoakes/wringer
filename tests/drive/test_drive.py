@@ -81,7 +81,7 @@ def project(tmp_path: Path) -> Path:
         "  rubric: wringer.rubric.yaml\n"
         "\n"
         "run:\n"
-        '  worker: "true"\n'
+        '  worker: ": {brief}; true"\n'
         "  max_iterations: 1\n"
         "\n"
         "deliver:\n"
@@ -230,7 +230,7 @@ def test_the_worker_is_resolved_BEFORE_ANY_PAID_CALL(
     config_path = project / ".wringer.yaml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            '  worker: "true"\n',
+            '  worker: ": {brief}; true"\n',
             "  worker:\n"
             "    acp:\n"
             '      command: "wringer-no-such-agent-anywhere"\n',
@@ -296,7 +296,7 @@ def _acp_worker_answering(project: Path, tmp_path: Path, monkeypatch, payload):
     config_path = project / ".wringer.yaml"
     config_path.write_text(
         config_path.read_text(encoding="utf-8").replace(
-            '  worker: "true"\n',
+            '  worker: ": {brief}; true"\n',
             f"  worker:\n    acp:\n      command: {command}\n",
         ),
         encoding="utf-8",
@@ -400,17 +400,22 @@ def test_AN_UNANSWERABLE_AUTH_PREFLIGHT_IS_SHOWN_TOO(
         "the preflight could not answer and said nothing, which reads as a "
         f"tick. Steps written: {[s['id'] for s in shown]}"
     )
-    assert "could not be checked" in auth[0]["text"]
+    assert "could not be settled here" in auth[0]["text"]
     assert "costs money" in auth[0]["text"], (
         "the step does not say where the person will find out instead"
     )
 
 
-def test_a_SHELL_WORKER_IS_NOT_GIVEN_AN_AUTH_STEP(project, tmp_path, capsys):
-    """There is no login to report on, so reporting one would be noise.
+def test_a_SHELL_WORKER_GETS_A_TYPED_AUTH_STEP_TOO(project, tmp_path, capsys):
+    """0.6.0 inverts the old rule here, and run 3 is why (F10).
 
-    The fixture's worker is a shell command, which is the ordinary shape for
-    every repository that never adopted an ACP agent.
+    This test used to assert a shell worker got NO auth step — "there is no
+    login to report on, so reporting one would be noise". Run 3 measured
+    what that silence costs on the run path: a shell worker's state arrived
+    as None, every renderer returned early, and silence read as a tick on
+    the run where the worker's credential was the thing that broke. The
+    state is typed now — this fixture's plain shell command renders
+    `not_applicable`, which never refuses and never passes without a word.
     """
     import os
     import sys
@@ -430,7 +435,10 @@ def test_a_SHELL_WORKER_IS_NOT_GIVEN_AN_AUTH_STEP(project, tmp_path, capsys):
         for line in capsys.readouterr().out.splitlines()
         if line.startswith("{")
     ]
-    assert not [step for step in shown if step["id"] == "worker-auth"]
+    auth = [step for step in shown if step["id"] == "worker-auth"]
+    assert auth, "a shell worker's auth state passed in silence again (F10)"
+    assert auth[0]["detail"]["state"] == "not_applicable"
+    assert "authenticates on its own account" in auth[0]["text"]
 
 
 def test_the_drive_and_the_engine_share_ONE_agent_preflight():
@@ -499,7 +507,7 @@ def two_questions(tmp_path: Path) -> Path:
         "version: 1\ngates:\n  - id: unit\n    run: \"true\"\n\n"
         "judge:\n  endpoint: http://127.0.0.1:1/v1/chat/completions\n"
         "  model: none\n  rubric: wringer.rubric.yaml\n\n"
-        "run:\n  worker: \"true\"\n  max_iterations: 1\n\n"
+        "run:\n  worker: \": {brief}; true\"\n  max_iterations: 1\n\n"
         "deliver:\n  branch: \"wringer/{run}\"\n",
         encoding="utf-8",
     )

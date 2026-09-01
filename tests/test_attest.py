@@ -140,7 +140,7 @@ def test_a_loop_bundle_carries_its_own_digests(repo, monkeypatch, capsys):
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "echo FIXED > calc.py"\n  max_iterations: 3\n',
+        'run:\n  worker: ": {brief}; echo FIXED > calc.py"\n  max_iterations: 3\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(repo)

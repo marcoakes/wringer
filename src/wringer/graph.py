@@ -60,6 +60,10 @@ LOOP_REASONS = frozenset(
         "converged",
         "max_iterations",
         "no_progress",
+        # The `no_progress` refinement (0.6.0, F8): the turn ended cleanly,
+        # said something and wrote nothing — a read-only turn, the worker's
+        # own words carried in the record.
+        "worker_read_only",
         "oscillating",
         "budget_exhausted",
         # A gate that did not give the same answer twice on one tree, so no
@@ -1663,6 +1667,20 @@ def _run_loop(
             f"no 'run:' section in {config_module.CONFIG_FILENAME} — a loop "
             "node runs the worker YOUR repo declared, and there is no default",
         )
+
+    # The run path's own preflights, here too (0.6.0): the graph door used to
+    # skip them, so the same unbriefable or credential-less worker that
+    # `wring run` refuses for free would spend a graph's whole budget in
+    # silence — the uncovered door run 3's map named.
+    unbriefed = loop_module.unbriefable_worker(cfg.run)
+    if unbriefed is not None:
+        raise NodeFailed(node.id, unbriefed.message)
+    refused_auth = loop_module.unauthenticated_agent(
+        cfg.run,
+        declared_secret_names=config_module.declared_secret_names(cfg),
+    )
+    if refused_auth is not None:
+        raise NodeFailed(node.id, refused_auth.message)
 
     wall_clock = min(node.budgets.wall_clock or left, left)
     try:

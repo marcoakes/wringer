@@ -100,14 +100,17 @@ def test_an_acp_agent_drives_the_loop_to_convergence(repo, monkeypatch, capsys):
 
 def test_the_loop_cannot_tell_which_worker_form_ran(repo, monkeypatch, capsys):
     """The supervision invariants must not know about ACP. An idle ACP agent
-    trips `no_progress` exactly as an idle shell worker does."""
+    trips the same stop an idle shell worker does — since 0.6.0 that is
+    `worker_read_only` when the turn ended cleanly with output, and the
+    refinement is chosen on facts both lanes share (exit code, output, tree
+    fingerprint), so the parity this test guards is unchanged."""
     setup(repo, "idle")
     monkeypatch.chdir(repo)
 
     assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
     capsys.readouterr()
 
-    assert result(repo)["reason"] == "no_progress"
+    assert result(repo)["reason"] == loop.WORKER_READ_ONLY
 
 
 def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
@@ -126,8 +129,10 @@ def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
     message text — F6's law, and the deprecated adapter's empty success is
     precisely why text cannot be trusted here.
 
-    `no_progress` still stands (R2: no new reason value, the frozen enums do
-    not move). Only legibility changes, and it reaches the RECORD.
+    Since 0.6.0 the stop is `worker_read_only` — the refinement F8 ruled,
+    chosen on the same ledger-free facts (clean exit, output present, tree
+    unchanged), and `wringer.loop.v2`'s `reason` is an open string so no
+    frozen enum moves. The diagnosis this test exists for is unchanged.
     """
     setup(repo, "idle")
     monkeypatch.chdir(repo)
@@ -135,7 +140,7 @@ def test_a_turn_that_changed_nothing_and_said_nothing_IS_DIAGNOSED(
     assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
     capsys.readouterr()
 
-    assert result(repo)["reason"] == "no_progress", "the reason enum moved"
+    assert result(repo)["reason"] == loop.WORKER_READ_ONLY
 
     written = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
     assert written.is_file(), (
@@ -1158,7 +1163,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "printenv WRINGER_TEST_SECRET_VAR > seen.txt; echo FIXED > calc.py"
+  worker: ": {brief}; printenv WRINGER_TEST_SECRET_VAR > seen.txt; echo FIXED > calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",

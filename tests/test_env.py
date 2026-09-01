@@ -288,7 +288,7 @@ def test_environment_is_a_loop_reason_everywhere_or_nowhere():
     assert loop.ENVIRONMENT == "environment"
     assert loop.ENVIRONMENT in graph.LOOP_REASONS
     assert loop.ENVIRONMENT in loop._REASONS
-    assert len(graph.LOOP_REASONS) == 9
+    assert len(graph.LOOP_REASONS) == 10
 
 
 # --- end to end: the rail's probe, and the counterweight that guards it -----
@@ -410,7 +410,7 @@ gates:
   - id: unit
     run: "test -f FIXED"
 run:
-  worker: "true"
+  worker: ": {brief}; true"
   max_iterations: 1
 """,
         encoding="utf-8",
@@ -570,7 +570,7 @@ gates:
   - id: test
     run: "wringer-no-such-tool-fleet --check"
 run:
-  worker: "printf 'RAN' >> {repo.as_posix()}/worker-ran.txt"
+  worker: ": {{brief}}; printf 'RAN' >> {repo.as_posix()}/worker-ran.txt"
   max_iterations: 3
   worker_timeout: 30
 """,

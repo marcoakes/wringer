@@ -45,7 +45,7 @@ held_out:
 # The SAME command for both arms — the treatment is what it is told, not which
 # program runs. `{brief}` is substituted with the statement in arm A and by
 # `wring run` with the real brief in arm B.
-worker: "sh ./scripted-fix.sh"
+worker: "sh ./scripted-fix.sh {brief}"
 
 budget:
   wall_clock: 120

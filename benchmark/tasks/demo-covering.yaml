@@ -35,7 +35,7 @@ held_out:
   # environment rather than the change.
   run: "{python} -m pytest held_out_demo.py -q"
 
-worker: "sh ./scripted-fix.sh"
+worker: "sh ./scripted-fix.sh {brief}"
 
 budget:
   wall_clock: 120

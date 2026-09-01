@@ -281,9 +281,9 @@ enforcement is the loop's existing enforcement rather than a second timer to
 keep honest.
 
 Every loop outcome — `converged`, `max_iterations`, `no_progress`,
-`oscillating`, `budget_exhausted`, `flaky_gate`, `authority_moved`,
-`environment`, `interrupted`, enumerated from `graph.LOOP_REASONS` — is a
-**routing fact, never a graph failure**.
+`worker_read_only`, `oscillating`, `budget_exhausted`, `flaky_gate`,
+`authority_moved`, `environment`, `interrupted`, enumerated from
+`graph.LOOP_REASONS` — is a **routing fact, never a graph failure**.
 A loop node ending any of them reads `failed` or `done`, never `parked`:
 `parked` is reachable only through the `Parked` exception, which ends the whole
 invocation. The node

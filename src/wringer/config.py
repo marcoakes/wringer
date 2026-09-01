@@ -475,10 +475,11 @@ class Run:
     wrote down; inventing one would be the same sin as inventing a gate.
     """
 
-    # Either a shell command (the original form, supported forever) or an
-    # AcpWorker. Both run under the same supervision invariants; the loop
-    # does not know or care which it got, and that is deliberate.
-    worker: str | AcpWorker
+    # A shell command (the original form, supported forever), an AcpWorker,
+    # or an ExecWorker (the declarative form, documented first since 0.6.0).
+    # All run under the same supervision invariants; the loop does not know
+    # or care which it got, and that is deliberate.
+    worker: str | AcpWorker | ExecWorker
     max_iterations: int = DEFAULT_MAX_ITERATIONS
     worker_timeout: int = DEFAULT_WORKER_TIMEOUT_SECONDS
     # Optional, no default: the loop is already structurally bounded by
@@ -522,6 +523,44 @@ class AcpWorker:
     # is withheld: an agent gets a minimal environment, not the operator's
     # whole shell. Each named variable's value is folded into the redactor.
     env_passthrough: tuple[str, ...] = ()
+
+
+# The two ways `{brief}` may be filled in an `exec:` worker's argv, and there
+# is no default: the brief transport IS the contract this form exists to make
+# explicit, so it is written down like the worker itself is (SPEC_WORKER_V0).
+# `argument` substitutes the brief's CONTENT — what the shell form's
+# `"$(cat {brief})"` does, without a shell. `path` substitutes the absolute
+# path, for an agent that takes a file. A `stdin` transport is deliberately
+# absent: nothing has measured a worker that reads its prompt from a pipe
+# Wringer writes, and run 3 measured what the documented stdin form actually
+# does — it inherits a terminal and waits on it forever (F5).
+BRIEF_TRANSPORTS = ("argument", "path")
+
+
+@dataclass(frozen=True)
+class ExecWorker:
+    """`run.worker.exec` — the declarative worker form (docs/specs/SPEC_WORKER_V0.md).
+
+    The third worker form, and the documented one since 0.6.0. An argv, run
+    directly — no shell — with the brief transport declared beside it instead
+    of implied by an interpolation the operator has to know about. Run 3
+    measured what the implicit contract costs: a published worker command with
+    no brief channel sat on an inherited terminal for fifteen minutes per
+    iteration, briefing nobody (F5/F6).
+
+    What this form does NOT declare, and why: the working directory is always
+    the repository root (the same law every gate runs under); termination is
+    structural — the worker's stdin is closed, so a command that waits for a
+    terminal reads EOF instead of hanging; the auth probe is derived from
+    `argv[0]` through the roster in `agents.py`; and there is no `writes:`
+    key, because a write policy Wringer cannot enforce would be a decorative
+    claim — the tested flags ride the recipe's argv and the capability stamp
+    in docs/vendors.md proves them.
+    """
+
+    argv: tuple[str, ...]
+    # One of `BRIEF_TRANSPORTS`. Required, no default — see the constant.
+    brief: str
 
 
 @dataclass(frozen=True)
@@ -1614,6 +1653,22 @@ def _parse_run(raw: Any, source: str, fleet_raw: Any = None) -> Run | None:
             "Pick one"
         )
 
+    # An `exec:` worker under containment is refused because nobody has
+    # measured the pair, and the two mechanisms disagree about what the argv
+    # IS: containment wraps a shell string through `--entrypoint /bin/sh -c`
+    # and rewrites `{brief}`'s host path into the mount, while `exec:` runs
+    # an argv with no shell and may substitute the brief's TEXT. Claiming the
+    # composition works without running it is how the last false containment
+    # sentence in this repository would get written. The shell form is the
+    # contained one, measured; declare that here instead.
+    if containment is not None and isinstance(worker, ExecWorker):
+        raise ConfigError(
+            f"{source}: 'run.worker.exec' cannot yet be combined with "
+            "'run.containment' — the pair is unmeasured. Declare the worker "
+            "as a shell string (the contained form sequence I measured), or "
+            "drop the containment"
+        )
+
     return Run(
         worker=worker,
         containment=containment,
@@ -1883,8 +1938,8 @@ def _optional_command(
 
 def _parse_worker(
     raw: Any, source: str, section: str = "run.worker"
-) -> str | AcpWorker:
-    """A shell string, or an `acp:` mapping. Never both, never neither.
+) -> str | AcpWorker | ExecWorker:
+    """A shell string, an `acp:` mapping, or an `exec:` mapping. Exactly one.
 
     `section` names the key in messages. It defaults to `run.worker`, which is
     every existing caller, and a bench contender passes its own path so a
@@ -1905,18 +1960,20 @@ def _parse_worker(
         return raw
 
     if isinstance(raw, dict):
-        extra = sorted(set(raw) - {"acp"})
-        if extra or "acp" not in raw:
+        extra = sorted(set(raw) - {"acp", "exec"})
+        if extra or len(set(raw) & {"acp", "exec"}) != 1:
             raise ConfigError(
                 f"{source}: '{section}' as a mapping takes exactly one key, "
-                f"'acp' (got {sorted(raw) or 'nothing'})"
+                f"'acp' or 'exec' (got {sorted(raw) or 'nothing'})"
             )
-        return _parse_acp(raw["acp"], source, section=f"{section}.acp")
+        if "acp" in raw:
+            return _parse_acp(raw["acp"], source, section=f"{section}.acp")
+        return _parse_exec(raw["exec"], source, section=f"{section}.exec")
 
     raise ConfigError(
         f"{source}: '{section}' must be a shell command string, or a mapping "
-        "with an 'acp' key. There is no default: Wringer runs the worker you "
-        "wrote down, never one it guessed"
+        "with an 'acp' or 'exec' key. There is no default: Wringer runs the "
+        "worker you wrote down, never one it guessed"
     )
 
 
@@ -1959,6 +2016,105 @@ def _parse_acp(
         args=tuple(args),
         env_passthrough=tuple(names),
     )
+
+
+_EXEC_KEYS = {"argv", "brief"}
+
+
+def _parse_exec(
+    raw: Any, source: str, section: str = "run.worker.exec"
+) -> ExecWorker:
+    """The declarative worker form, validated to the contract it declares.
+
+    Everything a shell worker leaves implicit is refused here if absent: an
+    argv with no `{brief}` element is a worker with no channel for the task,
+    which run 3 measured as fifteen minutes of silence per iteration rather
+    than a message (F5/F6) — so this form cannot even be written down without
+    one. The shell form survives with the same requirement enforced one step
+    later, at preflight (`loop.unbriefable_worker`), because existing configs
+    must keep parsing.
+    """
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{source}: '{section}' must be a mapping")
+
+    unknown = sorted(set(raw) - _EXEC_KEYS)
+    if unknown:
+        raise ConfigError(
+            f"{source}: unknown keys under '{section}': {', '.join(unknown)}"
+        )
+
+    argv = raw.get("argv")
+    if (
+        not isinstance(argv, list)
+        or not argv
+        or not all(isinstance(a, str) and a.strip() for a in argv)
+    ):
+        raise ConfigError(
+            f"{source}: '{section}.argv' must be a non-empty list of "
+            "non-empty strings — the worker command as an argv, run without "
+            "a shell"
+        )
+
+    unknown_names = sorted(
+        {
+            name
+            for element in argv
+            for name in _PLACEHOLDER_PATTERN.findall(element)
+        }
+        - set(WORKER_PLACEHOLDERS)
+    )
+    if unknown_names:
+        raise ConfigError(
+            f"{source}: '{section}.argv' uses unknown placeholder(s) "
+            f"{', '.join('{' + name + '}' for name in unknown_names)} — "
+            f"available: {', '.join('{' + p + '}' for p in WORKER_PLACEHOLDERS)}"
+        )
+    if not any("{brief}" in element for element in argv):
+        raise ConfigError(
+            f"{source}: '{section}.argv' has no {{brief}} element, so this "
+            "worker has no channel through which to receive the task. Add "
+            "one — with 'brief: argument' it is replaced by the brief's "
+            "text, with 'brief: path' by its file path"
+        )
+
+    transport = raw.get("brief")
+    if transport not in BRIEF_TRANSPORTS:
+        raise ConfigError(
+            f"{source}: '{section}.brief' must be one of "
+            f"{', '.join(repr(t) for t in BRIEF_TRANSPORTS)} — how the brief "
+            "reaches the agent. There is no default: the brief transport is "
+            "the contract this form exists to make explicit"
+        )
+
+    return ExecWorker(argv=tuple(a.strip() for a in argv), brief=transport)
+
+
+def expand_argv(
+    worker: ExecWorker,
+    *,
+    brief_path: Any,
+    brief_text: str,
+    evidence_dir: Any,
+    iteration: int,
+) -> list[str]:
+    """Fill an `exec:` worker's placeholders, honouring its brief transport.
+
+    Beside the schema on purpose: the transport's meaning is part of the
+    contract, and a second definition of it in `loop.py` would be a second
+    thing to keep in step. `{brief}` becomes the brief's TEXT under
+    `argument` — the same bytes `"$(cat {brief})"` hands a shell worker,
+    without a shell — and the absolute path under `path`.
+    """
+    brief_value = brief_text if worker.brief == "argument" else str(brief_path)
+    return [
+        substitute(
+            element,
+            brief=brief_value,
+            evidence_dir=evidence_dir,
+            iteration=iteration,
+        )
+        for element in worker.argv
+    ]
 
 
 def _positive_int(

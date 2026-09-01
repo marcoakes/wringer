@@ -117,7 +117,7 @@ rather than fixing it silently and reporting a pass.
       image behind a six-stage ladder, taking about ten seconds. Expected,
       once.
 - [ ] **8. `wring doctor` from the clone** → exit 0; the `!` lines for
-      container runtime and llm key are expected.
+      container runtime and drafting key are expected.
 - [ ] **8. `wring doctor` from a directory that is not a repo** → exit 0,
       and **three `-` lines**. (`setup-selftest.sh` asserts this too, so a
       disagreement between them is itself a finding.)

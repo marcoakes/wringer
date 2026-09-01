@@ -144,8 +144,17 @@ def run(
     redactor: Redactor | None = None,
     on_spawn: Callable[[int], None] | None = None,
     backend: Any = None,
+    closed_stdin: bool = False,
 ) -> GateResult:
     """Run `gate.run` in `cwd` through the given backend, capturing its streams.
+
+    `closed_stdin` gives the child `/dev/null` instead of this process's own
+    stdin — the worker-contract's non-interactive termination leg (0.6.0). A
+    gate keeps inheriting stdin, byte-identical behaviour; a WORKER never
+    should: run 3 measured the alternative, a worker command that read its
+    prompt from the inherited terminal and sat on it for fifteen minutes per
+    iteration, 0.08s of CPU in twelve clock minutes (F5). With stdin closed,
+    a command that waits for a terminal reads EOF and terminates instead.
 
     `backend` decides WHAT gets spawned; everything else here is the same
     whichever backend it is — the timing, the process group, the timeout
@@ -195,6 +204,7 @@ def run(
             spawn.args,
             shell=spawn.shell,
             cwd=cwd,
+            stdin=subprocess.DEVNULL if closed_stdin else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             start_new_session=_POSIX,

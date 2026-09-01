@@ -30,9 +30,9 @@ bench:
   contender_wall_clock: 300
   contenders:
     - id: fixer
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
     - id: idler
-      worker: "true"
+      worker: ": {brief}; true"
 """
 
 
@@ -104,7 +104,10 @@ def test_a_failure_to_converge_is_a_result_not_a_bench_failure(
 
     # Both contenders do nothing at all; nothing converges.
     (repo / ".wringer.yaml").write_text(
-        CONFIG.replace('worker: "sh ./fix.sh"', 'worker: "true"'), encoding="utf-8"
+        CONFIG.replace(
+            'worker: ": {brief}; sh ./fix.sh"', 'worker: ": {brief}; true"'
+        ),
+        encoding="utf-8",
     )
     assert cli.main(["bench"]) == cli.EXIT_OK
     capsys.readouterr()
@@ -304,7 +307,7 @@ def test_prove_setup_runs_in_every_worktree(repo, git_run, monkeypatch, capsys):
     marker = "setup-ran"
     config = CONFIG.replace(
         "bench:",
-        f'run:\n  worker: "true"\n  prove_setup: "touch {marker}"\nbench:',
+        f'run:\n  worker: ": {{brief}}; true"\n  prove_setup: "touch {marker}"\nbench:',
     )
     setup(repo, git_run, config=config)
     monkeypatch.chdir(repo)
@@ -324,7 +327,7 @@ def test_a_failing_setup_is_an_environment_answer_not_a_brief(
     cannot host a fair run; briefing an agent about it would be measuring the
     environment and calling it the agent."""
     config = CONFIG.replace(
-        "bench:", 'run:\n  worker: "true"\n  prove_setup: "false"\nbench:'
+        "bench:", 'run:\n  worker: ": {brief}; true"\n  prove_setup: "false"\nbench:'
     )
     setup(repo, git_run, config=config)
     monkeypatch.chdir(repo)
@@ -354,7 +357,7 @@ def test_an_absent_agent_binary_is_refused_before_any_worktree_exists(
     leaves nothing behind — and because an absent binary discovered mid-bench
     would be a partial comparison presented as a whole one."""
     config = CONFIG.replace(
-        '    - id: fixer\n      worker: "sh ./fix.sh"\n',
+        '    - id: fixer\n      worker: ": {brief}; sh ./fix.sh"\n',
         "    - id: missing\n      worker:\n        acp:\n"
         "          command: definitely-not-an-agent-binary\n",
     )
@@ -376,7 +379,8 @@ def test_a_shell_worker_has_no_preflight(repo, git_run, monkeypatch, capsys):
     and a worker that fails at runtime is that contender's recorded outcome
     rather than a bench abort."""
     config = CONFIG.replace(
-        'worker: "sh ./fix.sh"', 'worker: "definitely-not-a-command"'
+        'worker: ": {brief}; sh ./fix.sh"',
+        'worker: ": {brief}; definitely-not-a-command"',
     )
     setup(repo, git_run, config=config)
     monkeypatch.chdir(repo)
@@ -469,7 +473,7 @@ def test_the_contender_setup_writes_its_logs_through_the_redactor(
     monkeypatch.setenv("BENCH_SETUP_CREDENTIAL", secret)
     config = CONFIG.replace(
         "bench:",
-        'run:\n  worker: "true"\n'
+        'run:\n  worker: ": {brief}; true"\n'
         '  prove_setup: "echo $BENCH_SETUP_CREDENTIAL"\nbench:',
     ).replace(
         "  contenders:",
@@ -480,7 +484,7 @@ def test_the_contender_setup_writes_its_logs_through_the_redactor(
     # env_passthrough promise, since this one matches no default pattern.
     (repo / ".wringer.yaml").write_text(
         config.replace(
-            'run:\n  worker: "true"',
+            'run:\n  worker: ": {brief}; true"',
             "run:\n  worker:\n    acp:\n      command: unused\n"
             "      env_passthrough: [BENCH_SETUP_CREDENTIAL]",
         ),
@@ -509,8 +513,9 @@ def test_a_credential_never_reaches_a_bench_artifact(
     secret = "notarealcredential-bench-4c2f80ab"
     monkeypatch.setenv("BENCH_ONE_CREDENTIAL", secret)
     config = CONFIG.replace(
-        '    - id: fixer\n      worker: "sh ./fix.sh"\n',
-        '    - id: leaky\n      worker: "echo $BENCH_ONE_CREDENTIAL > /dev/null; '
+        '    - id: fixer\n      worker: ": {brief}; sh ./fix.sh"\n',
+        '    - id: leaky\n      worker: '
+        '": {brief}; echo $BENCH_ONE_CREDENTIAL > /dev/null; '
         'sh ./fix.sh"\n',
     ).replace(
         "bench:",
@@ -582,9 +587,9 @@ bench:
   contender_wall_clock: 300
   contenders:
     - id: idler
-      worker: "true"
+      worker: ": {brief}; true"
     - id: fixer
-      worker: "sh ./fix.sh"
+      worker: ": {brief}; sh ./fix.sh"
 """
 
 
@@ -704,7 +709,7 @@ bench:
           command: {command}
           args: [{agent}, "usage"]
     - id: silent
-      worker: "sh ./fix.sh"
+      worker: ": {{brief}}; sh ./fix.sh"
 """
 
 

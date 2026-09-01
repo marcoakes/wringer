@@ -258,7 +258,7 @@ gates:
   - id: check
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo {sentinel}; echo FIXED > calc.py"
+  worker: ": {{brief}}; echo {sentinel}; echo FIXED > calc.py"
 judge:
   endpoint: http://127.0.0.1:11434/v1/chat/completions
   model: cheap-model
@@ -519,7 +519,7 @@ def test_verify_and_run_can_never_return_needs_human(repo, monkeypatch, capsys):
     setup_repo(repo, gate='"false"')
     (repo / ".wringer.yaml").write_text(
         (repo / ".wringer.yaml").read_text(encoding="utf-8")
-        + 'run:\n  worker: "true"\n  max_iterations: 1\n',
+        + 'run:\n  worker: ": {brief}; true"\n  max_iterations: 1\n',
         encoding="utf-8",
     )
     (repo / "graph.yaml").write_text(

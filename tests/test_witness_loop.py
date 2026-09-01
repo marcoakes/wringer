@@ -90,6 +90,9 @@ FIXED = "def total(*values):\n    return sum(values)\n"
 
 
 def write_repo(repo: Path, worker: str, max_iterations: int = 3) -> None:
+    # The worker contract (0.6.0): see test_staleness.write_config.
+    if "{brief}" not in worker:
+        worker = ": {brief}; " + worker
     (repo / ".wringer.yaml").write_text(
         VACUOUS_GATE.format(
             worker=json.dumps(worker), max_iterations=max_iterations

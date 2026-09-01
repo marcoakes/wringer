@@ -63,7 +63,7 @@ gates:
 
 run:
   max_iterations: 2
-  worker: "printf 'done\\n' > figures.txt"
+  worker: ": {brief}; printf 'done\\n' > figures.txt"
 """
 
 CHECK = """\

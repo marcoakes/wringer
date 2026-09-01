@@ -550,7 +550,7 @@ def test_a_declared_prove_setup_needs_no_disclosure(repo, monkeypatch, capsys):
     # `prove_setup` lives under `run:`, and `run:` needs a worker — the loop
     # never runs here, but the section is parsed strictly either way.
     with config_path.open("a", encoding="utf-8") as handle:
-        handle.write('run:\n  worker: "true"\n  prove_setup: "true"\n')
+        handle.write('run:\n  worker: ": {brief}; true"\n  prove_setup: "true"\n')
     monkeypatch.chdir(repo)
 
     assert cli.main(["verify", "--prove"]) == cli.EXIT_OK

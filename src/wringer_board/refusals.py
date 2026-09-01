@@ -235,6 +235,14 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "it again unchanged would not help.",
         "Nothing is needed from you; an engineer has to look at why it is stuck.",
     ),
+    (LOOP_ENDING, "worker_read_only"): Saying(
+        "The work stopped because the builder finished its turn cleanly and "
+        "wrote nothing — it could read the project and speak, but no file "
+        "changed. Its own explanation was kept word for word.",
+        "Nothing is needed from you; an engineer should read what the "
+        "builder said — a permission or sandbox wall looks exactly like "
+        "this from the outside.",
+    ),
     (LOOP_ENDING, "environment"): Saying(
         "The work never started: the very first check could not run at all, "
         "because the command it needs is not installed on the machine. No "

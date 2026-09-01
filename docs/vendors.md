@@ -180,19 +180,77 @@ name nobody could verify from official docs is not printed here.
 | kimi | `https://api.moonshot.ai/v1/chat/completions` | `kimi-k3` |
 | openai | `https://api.openai.com/v1/chat/completions` | `gpt-5.2` |
 
-## The worker commands, in the two forms the engine has
+## The worker commands, in the three forms the engine has
 
 Nothing here is a default. These are the commands an operator writes down;
 `wringer-drive` offers them as examples and still makes the person answer.
 
-| vendor | form | `run.worker` |
-|---|---|---|
-| anthropic | ACP | `acp: claude-agent-acp` |
-| kimi | ACP | `acp: kimi acp` |
-| kimi | shell | `kimi --print --output-format stream-json` |
-| langchain | ACP | `acp: dcode --acp` |
-| openai | shell | `codex exec --json -` |
-| openai | shell, zero-auth | `codex exec --json --oss --local-provider ollama -` |
+**A worker recipe is a stronger claim than an agent measurement, and run 3
+proved the difference the expensive way.** This table used to publish
+`codex exec --json -` — a command measured as a standalone AGENT and never
+as a WRINGER WORKER. Declared as `run.worker` it hangs forever on a stdin
+nothing writes (no `{brief}`, so no brief channel at all) and its default
+sandbox cannot edit a file. Twelve minutes of silence, 0.08s of CPU,
+repeated once per iteration. So every shell and `exec:` row below now
+carries a **capability stamp**, proven in CI by driving a real `wring run`
+through the row's exact command shape with a fake vendor binary
+(`tests/test_worker_contract.py`): **brief received · repo editable ·
+terminates non-interactively**. The stamp measures WRINGER'S side of the
+contract — that the brief really arrives through this shape, that an edit
+really lands, that the process really ends. It does not run the vendor's
+own binary: that spends somebody's account, and it is run 4's canary, by
+hand, not CI's.
+
+| vendor | form | `run.worker` | stamped | the vendor's own binary |
+|---|---|---|---|---|
+| anthropic | ACP | `acp: claude-agent-acp` | — (ACP: the brief travels the session) | measured working, see the matrix |
+| anthropic | shell | `claude -p "$(cat {brief})"` | brief · write · terminates | the documented form since v0.2; measured in the field |
+| kimi | ACP | `acp: kimi acp` | — (ACP: the brief travels the session) | measured working, see the matrix |
+| kimi | shell | `kimi --print --output-format stream-json "$(cat {brief})"` | brief · write · terminates | **NOT yet run as a Wringer worker** — the old row lacked `{brief}` and had never been run as one either |
+| langchain | ACP | `acp: dcode --acp` | — (ACP: the brief travels the session) | measured, judge-only — see the matrix |
+| openai | shell | `codex exec --json --sandbox workspace-write "$(cat {brief})"` | brief · write · terminates | **measured working as a Wringer worker** — run 3, 2026-08-31: brief received, repo edited, converged in one turn |
+| openai | shell, zero-auth | `codex exec --json --oss --local-provider ollama --sandbox workspace-write "$(cat {brief})"` | brief · write · terminates | the `--oss` lane itself is unmeasured since the shape was corrected |
+
+The **`exec:` form is the documented one since 0.6.0** — the same contract
+with the brief transport written down instead of implied by shell
+interpolation, and no shell at all:
+
+```yaml
+run:
+  worker:
+    exec:
+      argv: ["codex", "exec", "--json", "--sandbox", "workspace-write", "{brief}"]
+      brief: argument
+```
+
+`brief: argument` substitutes the brief's TEXT into the `{brief}` element —
+the same bytes `"$(cat {brief})"` hands a shell — and `brief: path`
+substitutes the file's path instead. A worker declared with no `{brief}` in
+either form is refused before anything is spent (`worker_unbriefable`),
+because a worker that cannot be told what to build is a fifteen-minute
+silence per iteration, measured.
+
+### Credential precedence — the fact that broke a working machine
+
+**A set environment key DISPLACES a stored login.** Measured twice, on two
+vendors: the ACP lane on 2026-08-27 (an Anthropic key declared across
+`env_passthrough` makes an org-pinned machine's `session/new` refuse, and
+removing it is the fix), and the codex lane in run 3 (with `CODEX_API_KEY`
+exported the worker died on `401 invalid_api_key`; with it unset the same
+machine's ChatGPT login served a real turn). Presence is not validity — and
+beside a working login it is worse than absence, because a dead key breaks a
+machine that was fine.
+
+Before spending, Wringer now reads both facts where the vendor gives it a
+free probe and renders them as a typed state — `codex login status` answers
+for the stored-login lane (exit 0 "Logged in using ChatGPT" / exit 1 "Not
+logged in", measured on codex-cli 0.149.0, offline and instant), and the key
+variable's presence is read from the environment the worker will actually
+inherit. The probe cannot see the key and the key cannot be validated
+without a turn, so a set key renders as *unknown, displacement named* —
+never as a green. `codex doctor` was measured the same day and disqualified
+as a probe: it reports its auth row satisfied on the mere PRESENCE of an env
+key, and it opens sockets.
 
 ## Measure it yourself
 

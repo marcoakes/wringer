@@ -54,7 +54,7 @@ agent:
 
 # Unused by the agent arms (the ACP worker is what runs), kept so the task file
 # validates against the same loader the scripted tasks use.
-worker: "sh ./scripted-fix.sh"
+worker: "sh ./scripted-fix.sh {brief}"
 
 budget:
   # Generous on purpose: a real model's turn on a cold session took 4m37s the

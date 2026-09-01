@@ -125,6 +125,22 @@ FLAKY_GATE = "flaky_gate"
 # before this spec did. `graph.LOOP_REASONS` is the drift guard.
 ENVIRONMENT = "environment"
 
+# The worker's last turn ended cleanly, said something, and wrote nothing —
+# a READ-ONLY turn (0.6.0, run 3 F8). A refinement of `no_progress` chosen on
+# facts the loop already owns: exit 0, not timed out, output present, tree
+# fingerprint unchanged. The name states what the turn DID — it read and it
+# spoke — and claims nothing about why; the why is the worker's own words,
+# carried verbatim in `worker-diagnosis.json` and quoted at the stop. Run 3
+# measured the cost of the collapsed reason: a codex turn blocked by its
+# read-only sandbox printed the same `no_progress` as "never spoke" and
+# "timed out mid-work", and the one actionable fact sat unquoted in the log.
+#
+# **It costs no schema version** — `wringer.loop.v2`'s `reason` is an open
+# string on purpose, `flaky_gate`'s and `environment`'s precedent exactly.
+# The roster is `_REASONS` ⇄ `cli._LOOP_ENDINGS` ⇄ `graph.LOOP_REASONS`,
+# pinned by `test_the_console_names_every_reason_the_loop_can_stop_for`.
+WORKER_READ_ONLY = "worker_read_only"
+
 # `diagnosis.json` — a SIBLING file, and the `usage.json` reasoning above
 # applies unchanged: `result` is `additionalProperties: false` in the published
 # `wringer.loop.v2` manifest schema, and that schema is frozen, so a
@@ -604,6 +620,81 @@ def reap_orphans(pgids: tuple[int, ...]) -> list[int]:
     return killed
 
 
+# Every preflight refusal the run path can produce, under a name a machine
+# can read — the D0 discipline (`deliver.REFUSAL_REASONS`'s reasoning,
+# generalised per refusal family on 2026-08-30): CLOSED and PUBLIC, both
+# directions guarded in `tests/conftest.py`'s session hook, and every name
+# here is driven through the command that owes it by a taken-path test. A
+# refusal nobody has seen fire is a check green from birth.
+#
+# These fire BEFORE a bundle exists and BEFORE anything is spent, which is
+# what distinguishes them from a loop stop reason: a stop describes how a
+# life ended, a preflight refusal is a life that correctly never started.
+RUN_REFUSAL_REASONS = (
+    # A shell worker command with no `{brief}` — no channel through which
+    # Wringer can say what to build. Run 3 measured the alternative: the
+    # documented codex command sat on an inherited terminal for fifteen
+    # minutes per iteration, briefing nobody (F5/F6).
+    "worker_unbriefable",
+    # The worker's own auth surface gave a definite NO before spend — the
+    # agent's session refusal, its CLI's `loggedIn: false`, or a shell
+    # vendor's own "Not logged in" with no key set. Where a set key is part
+    # of the story, the message names the displacement (F7).
+    "worker_auth_rejected",
+)
+
+
+@dataclass(frozen=True)
+class RunRefusal:
+    """One preflight refusal: which no, and the sentence that says it.
+
+    `reason` — one of `RUN_REFUSAL_REASONS` — is required structurally, for
+    `deliver.Refused`'s reason: a test can be forgotten, a constructor
+    cannot, and the session guard in `tests/conftest.py` records every
+    construction against the roster.
+    """
+
+    reason: str
+    message: str
+
+
+def unbriefable_worker(settings: config.Run) -> RunRefusal | None:
+    """A shell worker with no channel for the brief, refused before spend.
+
+    Wringer hands a shell worker its task by substituting `{brief}`; a
+    command without it is spawned exactly as if it were fine and the operator
+    learns from a fifteen-minute silence per iteration, repeated to the
+    budget (run 3, F5/F6 — measured on the then-documented codex command).
+    Plan time knows the declared command and knows the contract, so this is
+    refused where a typo’d gate already is: before the first gate or paid
+    call.
+
+    The `exec:` form cannot construct this state — its parse requires a
+    `{brief}` element — and an ACP worker's brief travels the session, so
+    only the shell string can arrive here unbriefable.
+    """
+    worker = settings.worker
+    if not isinstance(worker, str):
+        return None
+    if "{brief}" in worker:
+        return None
+    return RunRefusal(
+        reason="worker_unbriefable",
+        message=(
+            f"the declared worker has no channel for the brief — "
+            f"'run.worker' is {worker!r}, and Wringer tells a shell worker "
+            "what to build only by substituting {brief} in its command. "
+            "Started anyway, this worker would sit in silence until the "
+            "timeout, once per iteration, and build nothing.\n\n"
+            "Add {brief} to the command — the documented form is\n"
+            '  worker: claude -p "$(cat {brief})"\n'
+            "— or declare the worker with 'exec:', where the brief transport "
+            "is written down (docs/vendors.md carries a tested recipe per "
+            "vendor). Nothing has been created and nothing was spent."
+        ),
+    )
+
+
 def missing_agent(settings: config.Run) -> str | None:
     """Why this loop cannot start, or None — SPEC_ACP_V0 §3's first row.
 
@@ -616,10 +707,22 @@ def missing_agent(settings: config.Run) -> str | None:
     not, so the same absent agent read as two different things depending on
     which command found it.
 
+    Since 0.6.0 an `exec:` worker gets the same row — its `argv[0]` is known
+    without a shell, so an absent binary is refused for the price of a stat
+    instead of an exit-127 turn.
+
     Returns the message rather than raising: the caller owns the exit code,
     and `wring run`'s is 2.
     """
     worker = settings.worker
+    if isinstance(worker, config.ExecWorker):
+        if shutil.which(worker.argv[0]) is not None:
+            return None
+        return (
+            f"the worker's binary {worker.argv[0]!r} is not on PATH, so "
+            "there is nothing to hand the brief to.\n\nWringer never "
+            "installs an agent. Nothing has been created."
+        )
     if not isinstance(worker, config.AcpWorker):
         # A shell worker gets no preflight, for `bench.py`'s reason: its
         # failure at runtime is that worker's recorded outcome, not a refusal.
@@ -650,12 +753,18 @@ def missing_agent(settings: config.Run) -> str | None:
     )
 
 
-def worker_auth_finding(settings: config.Run) -> Any:
-    """What this loop's worker said about its own login, or None.
+def worker_auth_finding(
+    settings: config.Run, declared_secret_names: tuple[str, ...] = ()
+) -> Any:
+    """What this loop's worker said about its own credential — for EVERY
+    worker.
 
-    A `worker_auth.WorkerAuth`, or None when there was nothing to ask — a
-    shell worker, or a worker inside a containment whose credential store this
-    process cannot see.
+    A `worker_auth.WorkerAuth`, always. Until 0.6.0 a shell worker and a
+    contained worker both returned None here, and run 3 measured what that
+    None costs (F10): every renderer downstream returned early on it, so the
+    run path emitted no worker-auth step at all and silence read as success.
+    The typed state — verified / rejected / unknown / not applicable — exists
+    so there is no None left to be silent about.
 
     **Separated from the refusal on 2026-08-26 so the answer can be SHOWN as
     well as acted on** (Fable's ruling on Q1). Reading it costs a spawn of the
@@ -664,17 +773,19 @@ def worker_auth_finding(settings: config.Run) -> Any:
     `unauthenticated_agent` — two reads could give two answers, and the one
     the person is shown would not be the one the refusal decided on.
     """
-    worker = settings.worker
-    if not isinstance(worker, config.AcpWorker):
-        return None
-    if settings.containment is not None:
-        return None
     from wringer import worker_auth
 
-    return worker_auth.read(worker)
+    return worker_auth.read(
+        settings.worker, settings.containment,
+        declared_secret_names=declared_secret_names,
+    )
 
 
-def unauthenticated_agent(settings: config.Run, found: Any = None) -> str | None:
+def unauthenticated_agent(
+    settings: config.Run,
+    found: Any = None,
+    declared_secret_names: tuple[str, ...] = (),
+) -> RunRefusal | None:
     """Why this loop's worker cannot authenticate, or None.
 
     `missing_agent` above refuses an agent that is not installed. This refuses
@@ -687,34 +798,44 @@ def unauthenticated_agent(settings: config.Run, found: Any = None) -> str | None
     function's.
 
     Only a definite "no" refuses. `worker_auth` returns `UNKNOWN` for every
-    agent whose auth surface nobody here has measured, for a containment, and
-    for an answer it cannot parse — and none of those may stop a run, because
-    a stop on Wringer's ignorance of a vendor would be this repository
-    charging a person for its own gap.
+    agent whose auth surface nobody here has measured, for a containment, for
+    an answer it cannot parse, and for a set key whose validity only the turn
+    can tell — and none of those may stop a run, because a stop on Wringer's
+    ignorance of a vendor would be this repository charging a person for its
+    own gap. `NOT_APPLICABLE` never refuses either, for the same reason.
+
+    Since 0.6.0 the refusal carries its name — `worker_auth_rejected` — and
+    covers every worker form: the agent's session refusal, its CLI's
+    `loggedIn: false`, or a shell vendor's own "Not logged in" with no key
+    set. The message names the displacement where a set key is part of the
+    story (F7).
 
     `found` is an already-read `WorkerAuth` from `worker_auth_finding` above.
     Passing it makes the caller's sentence and this refusal two readings of
     ONE answer; omitting it reads the agent here, which is what `wring run`
     does because it has nothing to show.
     """
-    worker = settings.worker
-    if not isinstance(worker, config.AcpWorker):
-        return None
-    if settings.containment is not None:
-        return None
     from wringer import worker_auth
 
     if found is None:
-        found = worker_auth.read(worker)
+        found = worker_auth.read(
+            settings.worker, settings.containment,
+            declared_secret_names=declared_secret_names,
+        )
     if not found.will_fail:
         return None
-    return worker_auth.refusal(worker, found)
+    return RunRefusal(
+        reason="worker_auth_rejected",
+        message=worker_auth.refusal(settings.worker, found),
+    )
 
 
 def _worker_text(worker: Any) -> str:
     """How a worker is written down in the manifest, whichever form it is."""
     if isinstance(worker, config.AcpWorker):
         return " ".join(["acp:", worker.command, *worker.args])
+    if isinstance(worker, config.ExecWorker):
+        return " ".join(["exec:", *worker.argv])
     return str(worker)
 
 
@@ -1066,6 +1187,11 @@ def run(
     # The tree as it was when the previous worker was handed control. Equal
     # again now means that worker changed nothing.
     before_worker: str | None = None
+    # The previous worker turn's result, read at the stop that refines
+    # `no_progress` into `worker_read_only`. None until a turn has run in
+    # THIS life — which `before_worker` being set already implies, and this
+    # is the belt for that implication.
+    result: gates.GateResult | None = None
     # Every failure shape this loop has already seen. Seeing one twice means
     # the worker is going in circles (A→B→A) or standing still (A→A), and
     # either way the gates will keep saying the same thing.
@@ -1179,7 +1305,44 @@ def run(
             # would be theatre. Checked BEFORE the breaker because it is the
             # more precise diagnosis of the same symptom: "your worker did
             # nothing" is actionable in a way "the failure came back" is not.
-            status, reason = "stopped", "no_progress"
+            #
+            # **Refined on facts since 0.6.0 (F8):** when the turn that left
+            # the tree untouched ended cleanly AND said something, the stop
+            # is `worker_read_only` — the turn read and spoke and wrote
+            # nothing — and the worker's own words travel with it. A turn
+            # that failed, timed out or stayed mute keeps `no_progress`,
+            # because calling those read-only would claim a shape the facts
+            # do not show.
+            spoke = False
+            if result is not None and result.passed:
+                try:
+                    spoke = result.stdout_path.stat().st_size > 0
+                except OSError:
+                    spoke = False
+            if spoke:
+                status, reason = "stopped", WORKER_READ_ONLY
+                if empty_turn is None and not isinstance(
+                    settings.worker, config.AcpWorker
+                ):
+                    from wringer import worker_auth
+
+                    empty_turn = diagnose.diagnose_shell_turn(
+                        exit_code=result.exit_code,
+                        timed_out=result.timed_out,
+                        changed_tree=False,
+                        engine_words=_tail(result.stdout_path),
+                        # Asked AT the stop, the v3 precedent: the state the
+                        # diagnosis carries is the one that was true when the
+                        # sentence was composed.
+                        auth_state=worker_auth.read(
+                            settings.worker, settings.containment,
+                            declared_secret_names=config.declared_secret_names(
+                                cfg
+                            ),
+                        ).state,
+                    )
+            else:
+                status, reason = "stopped", "no_progress"
             break
 
         # The breaker. The worker changed *something* and the same failure
@@ -1219,6 +1382,11 @@ def run(
             if isinstance(settings.worker, config.AcpWorker)
             else None
         )
+        exec_worker = (
+            settings.worker
+            if isinstance(settings.worker, config.ExecWorker)
+            else None
+        )
         if acp_worker is not None:
             command = " ".join([acp_worker.command, *acp_worker.args])
             bundle.event(
@@ -1227,6 +1395,23 @@ def run(
                 command=command,
                 worker_kind="acp",
             )
+        elif exec_worker is not None:
+            # The PATH is what the event records for `{brief}`, never the
+            # text: under the `argument` transport the substituted argv
+            # carries the whole brief, and a ledger line quoting kilobytes of
+            # prose describes the run worse than the path to the same bytes
+            # one directory over. Every other placeholder substitutes as the
+            # shell form's event does.
+            command = shlex.join(
+                config.expand_argv(
+                    exec_worker,
+                    brief_path=brief,
+                    brief_text=str(brief),
+                    evidence_dir=verify.bundle_path(final.bundle, root),
+                    iteration=iteration,
+                )
+            )
+            bundle.event("worker.started", iteration=iteration, command=command)
         else:
             command = config.substitute(
                 settings.worker,
@@ -1242,6 +1427,11 @@ def run(
                     iteration, root,
                     containment_settings=worker_containment,
                     established=established,
+                )
+            elif exec_worker is not None:
+                result = _run_exec_worker(
+                    bundle, exec_worker, brief, turn_ceiling, iteration,
+                    final, root,
                 )
             else:
                 result = _run_worker(
@@ -1488,6 +1678,11 @@ def _run_worker(
         stderr_path=directory / "worker.stderr.log",
         redactor=bundle.redactor,
         on_spawn=remember,
+        # The non-interactive termination leg of the worker contract
+        # (0.6.0): a worker never gets this process's stdin. Run 3 measured
+        # what inheriting it costs — a worker that waited on the terminal
+        # for fifteen minutes per iteration, briefing nobody (F5).
+        closed_stdin=True,
     )
     if containment_settings is not None:
         # The container the runtime CLIENT started outlives a kill of the
@@ -1498,6 +1693,84 @@ def _run_worker(
         containment.teardown(containment_settings, directory)
     # It finished, so there is nothing to reap and a stale pgid could name a
     # process the OS has since given to somebody else.
+    pgid_file.unlink(missing_ok=True)
+    return result
+
+
+@dataclass(frozen=True)
+class _ExecSpawn:
+    """The `exec:` form's engine for `gates.run` — an argv, no shell.
+
+    The thinnest possible thing that satisfies the engine seam, so the
+    process-group kill, the timeout ladder, the bounded drain and the
+    scrub-then-cap logging stay the ONE implementation `_run_worker`'s
+    docstring defends. Containment never reaches this class: config refuses
+    the pair at parse.
+    """
+
+    argv: tuple[str, ...]
+
+    def spawn(self, gate: Any, cwd: Path, workdir: Path) -> Any:
+        from wringer import backend
+
+        return backend.Spawn(args=list(self.argv), shell=False)
+
+    def cleanup(self, workdir: Path) -> None:
+        return None
+
+
+def _run_exec_worker(
+    bundle: Bundle,
+    worker: config.ExecWorker,
+    brief: Path,
+    timeout: int,
+    iteration: int,
+    final: verify.Outcome,
+    root: Path,
+) -> gates.GateResult:
+    """Run an `exec:` worker — the declarative form, argv straight to spawn.
+
+    The brief transport is honoured here through `config.expand_argv`, which
+    owns its meaning: `argument` hands the agent the brief's TEXT — the same
+    bytes the shell form's `"$(cat {brief})"` reads — and `path` hands it the
+    file. Everything else is `_run_worker`'s machinery through the same
+    `gates.run` seam, stdin closed for the same contract leg.
+    """
+    directory = bundle.iteration_dir(iteration)
+    pgid_file = directory / PGID_FILENAME
+
+    def remember(pid: int) -> None:
+        pgid_file.write_text(str(pid), encoding="utf-8")
+
+    argv = config.expand_argv(
+        worker,
+        brief_path=brief,
+        brief_text=brief.read_text(encoding="utf-8"),
+        evidence_dir=verify.bundle_path(final.bundle, root),
+        iteration=iteration,
+    )
+    display = shlex.join(
+        config.expand_argv(
+            worker,
+            brief_path=brief,
+            brief_text=str(brief),
+            evidence_dir=verify.bundle_path(final.bundle, root),
+            iteration=iteration,
+        )
+    )
+    result = gates.run(
+        # `run` is display-only on this path — `_ExecSpawn` decides the argv —
+        # but it reaches results and summaries, so it carries the event's own
+        # path-for-brief rendering rather than the brief's whole text.
+        config.Gate(id=WORKER_ID, run=display, timeout=timeout),
+        cwd=root,
+        stdout_path=directory / "worker.stdout.log",
+        stderr_path=directory / "worker.stderr.log",
+        redactor=bundle.redactor,
+        on_spawn=remember,
+        backend=_ExecSpawn(argv=tuple(argv)),
+        closed_stdin=True,
+    )
     pgid_file.unlink(missing_ok=True)
     return result
 
@@ -2347,6 +2620,8 @@ _REASONS = {
     "converged": "every required gate passed",
     "max_iterations": "the iteration budget ran out",
     "no_progress": "the worker changed nothing, so the gates would say the same",
+    WORKER_READ_ONLY: "the worker's turn ended cleanly and wrote nothing — a "
+    "read-only turn; its own words are in the record",
     "oscillating": "the same failure came back, so the worker is not converging",
     "budget_exhausted": "the wall-clock budget ran out",
     FLAKY_GATE: "the failing gate is nondeterministic, so there is nothing in "

@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from wringer import config, deliver
+from wringer import loop as loop_module
 
 # --- D0: every declared refusal must be one a test has actually taken -------
 #
@@ -31,21 +32,34 @@ from wringer import config, deliver
 # check instead of asserting on a partial view; CI runs the suite whole.
 CONSTRUCTED_REFUSALS: set[str] = set()
 
+# D0, generalised per refusal family (2026-08-31): the run path's preflight
+# refusals get the same discipline the delivery's got. One recorder per
+# family, one roster each, both asserted whole at session end.
+CONSTRUCTED_RUN_REFUSALS: set[str] = set()
+
 
 @pytest.fixture(autouse=True, scope="session")
 def _record_every_refusal_constructed():
-    """Wrap `Refused.__init__` for the whole session and remember the names."""
+    """Wrap each refusal constructor for the whole session; remember names."""
     original = deliver.Refused.__init__
 
     def recording(self, message, exit_code=1, *, reason):
         CONSTRUCTED_REFUSALS.add(reason)
         original(self, message, exit_code, reason=reason)
 
+    original_run = loop_module.RunRefusal.__init__
+
+    def recording_run(self, reason, message):
+        CONSTRUCTED_RUN_REFUSALS.add(reason)
+        original_run(self, reason, message)
+
     deliver.Refused.__init__ = recording
+    loop_module.RunRefusal.__init__ = recording_run
     try:
         yield
     finally:
         deliver.Refused.__init__ = original
+        loop_module.RunRefusal.__init__ = original_run
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -68,7 +82,13 @@ def pytest_sessionfinish(session, exitstatus):
         return
     missing = sorted(set(deliver.REFUSAL_REASONS) - CONSTRUCTED_REFUSALS)
     stray = sorted(CONSTRUCTED_REFUSALS - set(deliver.REFUSAL_REASONS))
-    if not missing and not stray:
+    missing_run = sorted(
+        set(loop_module.RUN_REFUSAL_REASONS) - CONSTRUCTED_RUN_REFUSALS
+    )
+    stray_run = sorted(
+        CONSTRUCTED_RUN_REFUSALS - set(loop_module.RUN_REFUSAL_REASONS)
+    )
+    if not missing and not stray and not missing_run and not stray_run:
         return
     session.exitstatus = 1
     reporter = session.config.pluginmanager.get_plugin("terminalreporter")
@@ -87,6 +107,19 @@ def pytest_sessionfinish(session, exitstatus):
     if stray:
         reporter.write_line(
             "constructed but not declared: " + ", ".join(stray)
+        )
+    if missing_run:
+        reporter.write_line(
+            "declared in loop.RUN_REFUSAL_REASONS and constructed by NO "
+            "test: " + ", ".join(missing_run)
+        )
+        reporter.write_line(
+            "  a refusal nobody has seen fire is a check green from birth. "
+            "Drive it through the command that owes it, or strike the name."
+        )
+    if stray_run:
+        reporter.write_line(
+            "run refusals constructed but not declared: " + ", ".join(stray_run)
         )
 
 # Never inherit the developer's identity, hooks, or signing config: a test

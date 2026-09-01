@@ -561,7 +561,7 @@ def test_the_worker_is_recorded_separately_and_is_never_contained(
     write_config(
         repo,
         "version: 1\ngates:\n  - id: unit\n    run: 'true'\n"
-        'run:\n  worker: "true"\n',
+        'run:\n  worker: ": {brief}; true"\n',
     )
     monkeypatch.chdir(repo)
 

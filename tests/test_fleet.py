@@ -52,6 +52,9 @@ def make_task(repo: Path, task_id: str, worker: str, fixed: bool = False) -> dic
         "FIXED\n" if fixed else "BROKEN\n", encoding="utf-8"
     )
     (workdir / ".gitignore").write_text(".wringer/\n", encoding="utf-8")
+    # The worker contract (0.6.0): see test_staleness.write_config.
+    if "{brief}" not in worker:
+        worker = ": {brief}; " + worker
     (workdir / ".wringer.yaml").write_text(
         CHILD_CONFIG.format(worker=json.dumps(worker)), encoding="utf-8"
     )
@@ -368,7 +371,7 @@ gates:
   - id: test
     run: "grep -q FIXED work.txt"
 run:
-  worker: "echo FIXED > work.txt"
+  worker: ": {brief}; echo FIXED > work.txt"
   max_iterations: 2
 """,
         encoding="utf-8",
@@ -414,7 +417,7 @@ gates:
   - id: test
     run: "grep -q FIXED work.txt"
 run:
-  worker: "true"
+  worker: ": {brief}; true"
   max_iterations: 1
 """,
         encoding="utf-8",
@@ -455,7 +458,7 @@ gates:
   - id: test
     run: "grep -q FIXED work.txt"
 run:
-  worker: "true"
+  worker: ": {brief}; true"
   max_iterations: 1
 """,
         encoding="utf-8",
@@ -622,7 +625,8 @@ def test_a_child_budget_overrides_the_repos_own(repo, monkeypatch, capsys):
     (repo / "calc.py").write_text("BROKEN\n", encoding="utf-8")
     (repo / ".wringer.yaml").write_text(
         'version: 1\ngates:\n  - id: test\n    run: "grep -q FIXED calc.py"\n'
-        'run:\n  worker: "sleep 30"\n  max_iterations: 2\n  worker_timeout: 300\n',
+        'run:\n  worker: ": {brief}; sleep 30"\n'
+        '  max_iterations: 2\n  worker_timeout: 300\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(repo)

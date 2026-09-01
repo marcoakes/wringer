@@ -96,8 +96,8 @@ def test_a_missing_key_is_only_a_warning(repo, monkeypatch):
 
     checks = by_name(doctor.run_checks(repo))
 
-    assert checks["llm key"].status == doctor.WARN
-    assert "never paste it to an agent" in checks["llm key"].fix
+    assert checks["drafting key"].status == doctor.WARN
+    assert "never paste it to an agent" in checks["drafting key"].fix
 
 
 def test_json_is_machine_readable_and_complete(repo, write_config, monkeypatch,
@@ -175,7 +175,7 @@ def test_doctor_repairs_nothing(repo, monkeypatch, capsys):
 #
 # A real first run on a fresh Mac (2026-08-04) found SETUP.md illustrating
 # `wring doctor` output containing an image check and a platform check that
-# do not exist, and `✗ api key` where the real check is a `! llm key` warn.
+# do not exist, and `✗ api key` where the real check is a `! drafting key` warn.
 # The transcript had been WRITTEN rather than captured — law 8's failure mode,
 # in the one document whose whole job is to be followed literally.
 #
@@ -472,34 +472,68 @@ run:
 """
 
 
-def test_doctor_reads_the_key_name_the_config_declares(
+def test_the_worker_lane_reads_the_name_the_config_declares(
     repo, write_config, monkeypatch
 ):
+    """0.6.0's lane split (F4/F10b): the declared passthrough name is the
+    WORKER lane's fact now, answered by `worker credential` — the old blended
+    line reported it as an LLM key and then hid the worker lane entirely."""
     write_config(repo, DECLARES_ITS_OWN_NAME)
     monkeypatch.setenv("MY_AGENT_CREDENTIAL", "notarealkey-8812fa03")
     for name in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
-    check = by_name(doctor.run_checks(repo))["llm key"]
+    check = by_name(doctor.run_checks(repo))["worker credential"]
 
     assert check.status == doctor.OK, (
         "the key is set under the name this repo declared, and doctor said no"
     )
     assert "MY_AGENT_CREDENTIAL" in check.detail
+    assert "precedence" in check.detail, (
+        "a set key displaces a stored login (measured, F7) — the line that "
+        "reports it set must say so"
+    )
     assert "notarealkey" not in check.detail  # the name is the answer
 
 
-def test_doctor_names_the_variable_it_looked_for(repo, write_config, monkeypatch):
-    """A warning that does not say which name it wanted sends the reader to
-    export the wrong one."""
+def test_the_worker_lane_names_the_variable_even_when_unset(
+    repo, write_config, monkeypatch
+):
+    """A line that does not say which name it wanted sends the reader to
+    export the wrong one — the disease F4 measured, now guarded on the
+    worker's own lane."""
     write_config(repo, DECLARES_ITS_OWN_NAME)
     for name in ("MY_AGENT_CREDENTIAL", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
-    check = by_name(doctor.run_checks(repo))["llm key"]
+    check = by_name(doctor.run_checks(repo))["worker credential"]
+
+    assert check.status == doctor.OK
+    assert "MY_AGENT_CREDENTIAL" in check.detail
+    assert "login is the lane" in check.detail
+
+
+def test_the_drafting_line_no_longer_swallows_the_worker_lane(
+    repo, write_config, monkeypatch
+):
+    """F10b verbatim: once a repo declared a worker passthrough name, the old
+    `llm key` line looked ONLY for it — `CODEX_API_KEY` was never among the
+    names doctor looked for, on the run where it was the thing that broke.
+    The drafting line now reads `judge.api_key_env` alone and falls back to
+    the well-known names; a worker declaration cannot narrow it."""
+    write_config(repo, DECLARES_ITS_OWN_NAME)
+    for name in doctor.WELL_KNOWN_KEY_ENVS + ("MY_AGENT_CREDENTIAL",):
+        monkeypatch.delenv(name, raising=False)
+
+    check = by_name(doctor.run_checks(repo))["drafting key"]
 
     assert check.status == doctor.WARN
-    assert "MY_AGENT_CREDENTIAL" in check.detail
+    assert "MY_AGENT_CREDENTIAL" not in check.detail, (
+        "the drafting line is reading the worker's declared name again — "
+        "the F10b narrowing is back"
+    )
+    for name in doctor.WELL_KNOWN_KEY_ENVS:
+        assert name in check.detail
 
 
 # The name guard above compares NAMES only — which is exactly how a change to
@@ -515,9 +549,9 @@ def test_the_key_line_a_doc_shows_is_the_line_doctor_prints(tmp_path, monkeypatc
     the point: the sentence doctor prints has already changed once and left
     three documents quoting words the program no longer said.
     """
-    for name in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+    for name in doctor.WELL_KNOWN_KEY_ENVS:
         monkeypatch.delenv(name, raising=False)
-    real = by_name(doctor.run_checks(tmp_path))["llm key"].detail
+    real = by_name(doctor.run_checks(tmp_path))["drafting key"].detail
 
     offenders = []
     showing = 0
@@ -525,8 +559,13 @@ def test_the_key_line_a_doc_shows_is_the_line_doctor_prints(tmp_path, monkeypatc
         doc = path.relative_to(repo_root()).as_posix()
         for number, line in enumerate(path.read_text("utf-8").splitlines(), 1):
             if line.startswith("! llm key"):
+                # The check was renamed by 0.6.0's lane split (F4); a page
+                # still showing the old name quotes words the program no
+                # longer says, which is this guard's whole subject.
+                offenders.append(f"{doc}:{number} still shows `! llm key`")
+            if line.startswith("! drafting key"):
                 showing += 1
-                shown = line.split("llm key", 1)[1].strip()
+                shown = line.split("drafting key", 1)[1].strip()
                 if shown != real:
                     offenders.append(f"{doc}:{number} shows {shown!r}")
     assert not offenders, (
@@ -534,7 +573,7 @@ def test_the_key_line_a_doc_shows_is_the_line_doctor_prints(tmp_path, monkeypatc
         + "; ".join(offenders)
     )
     assert showing, (
-        "no page shows the `! llm key` line any more, so this guard is "
+        "no page shows the `! drafting key` line any more, so this guard is "
         "checking nothing. Either the transcripts moved and it needs "
         "re-deriving, or the line is gone and it should be retired"
     )
@@ -1155,7 +1194,7 @@ def test_an_ORDINARY_shell_worker_is_left_alone(tmp_path):
     check = named(doctor.run_checks(repo), "worker auth")
 
     assert check.status == doctor.SKIP
-    assert "not an ACP agent" in check.detail
+    assert "authenticates on its own account" in check.detail
 
 
 # --- one directory is not one install (measured on this Mac, 2026-08-26) ----

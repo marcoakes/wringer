@@ -390,14 +390,32 @@ def preflight(contenders: tuple[config.Contender, ...]) -> None:
     and leaves nothing behind, and because an absent binary discovered
     mid-bench would be a partial comparison presented as a whole one.
 
-    A shell worker has no meaningful preflight and gets none: a worker that
-    fails at runtime is that contender's recorded outcome, not a bench abort.
+    A shell worker's RUNTIME failure is that contender's recorded outcome,
+    not a bench abort — but a shell worker with no `{brief}` cannot even be
+    told what to build, so its rows would measure nothing while spending the
+    ceiling (0.6.0, run 3 F5/F6). That is refused here for the same reason an
+    absent binary is: a partial comparison presented as a whole one.
     """
     from wringer import agents
 
     missing = []
     for contender in contenders:
         worker = contender.worker
+        if isinstance(worker, str) and "{brief}" not in worker:
+            missing.append(
+                f"contender '{contender.id}' declares a shell worker with no "
+                f"{{brief}} — it has no channel through which to receive the "
+                f"task, so its rows would measure a worker that was never "
+                f"briefed"
+            )
+            continue
+        if isinstance(worker, config.ExecWorker):
+            if shutil.which(worker.argv[0]) is None:
+                missing.append(
+                    f"contender '{contender.id}' needs {worker.argv[0]!r}, "
+                    f"which is not on PATH"
+                )
+            continue
         if not isinstance(worker, config.AcpWorker):
             continue
         if shutil.which(worker.command) is None:

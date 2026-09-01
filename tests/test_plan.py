@@ -413,7 +413,7 @@ gates:
   - id: check
     run: "grep -q DONE work.txt"
 run:
-  worker: "echo DONE > work.txt"
+  worker: ": {brief}; echo DONE > work.txt"
   max_iterations: 2
 fleet:
   deadline: 120

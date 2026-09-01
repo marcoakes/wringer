@@ -83,13 +83,15 @@ def run_checks(root: Path) -> list[Check]:
                   fix="", scope=REPO)
             for name in ("git repository", "gates", "runnable checks",
                          "last verify", "pytest parallelism",
-                         "workspace writable", "worker auth")
+                         "workspace writable", "worker auth",
+                         "worker credential")
         ]
         return machine[:4] + skipped + machine[4:]
     return (
         machine[:4]
         + [_repo(root), _config(root), _runnable_checks(root), _last_verify(root),
-           pytest_parallel_check(root), _workspace(root), _worker_auth(root)]
+           pytest_parallel_check(root), _workspace(root), _worker_auth(root),
+           _worker_credential(root)]
         + machine[4:]
     )
 
@@ -102,7 +104,7 @@ def check_names() -> tuple[str, ...]:
         "python", "wring", "git", "container runtime",
         "git repository", "gates", "runnable checks", "last verify",
         "pytest parallelism", "workspace writable", "worker auth",
-        "managed settings", "llm key",
+        "worker credential", "managed settings", "drafting key",
     )
 
 
@@ -581,7 +583,10 @@ def _worker_auth(root: Path) -> Check:
         )
 
     contained = cfg.run.containment
-    found = worker_auth.read(cfg.run.worker, contained)
+    found = worker_auth.read(
+        cfg.run.worker, contained,
+        declared_secret_names=config.declared_secret_names(cfg),
+    )
     if found.state == worker_auth.LOGGED_IN:
         how = f" ({found.method})" if found.method else ""
         return Check("worker auth", OK, f"{found.detail}{how}", scope=REPO)
@@ -947,12 +952,19 @@ WELL_KNOWN_KEY_ENVS = (
 
 
 def _declared_key_names(root: Path) -> tuple[str, ...]:
-    """The variable names this repository says hold an LLM credential.
+    """The variable names this repository says hold the DRAFTING credential.
 
     Narrower than `config.declared_secret_names`, deliberately: that one
     answers "what must the redactor erase" and includes `forge.token_env`,
     which is a forge token and not an LLM key. Reporting a set `FORGE_TOKEN`
-    as "llm key: ok" would be a check that lies to pass.
+    as "drafting key: ok" would be a check that lies to pass.
+
+    **Narrowed again by the 0.6.0 lane split (run 3, F4/F10b).** This used to
+    fold in `run.worker.acp.env_passthrough`, which is the WORKER's lane —
+    so a repo that declared a drafting name stopped being told anything about
+    its worker's credential at all, on the machine where the worker's key was
+    the thing that broke the run. The worker lane is `_worker_credential`'s
+    now, derived from `run.worker`, and this reads only `judge.api_key_env`.
 
     Best-effort: an unreadable or invalid config is `_config`'s problem to
     report, and this check must not fail twice for it.
@@ -961,37 +973,124 @@ def _declared_key_names(root: Path) -> tuple[str, ...]:
         cfg = config.load(root / config.CONFIG_FILENAME)
     except (config.ConfigError, OSError):
         return ()
-    names: list[str] = []
     if cfg.judge is not None and cfg.judge.api_key_env:
-        names.append(cfg.judge.api_key_env)
-    if cfg.run is not None and isinstance(cfg.run.worker, config.AcpWorker):
-        names.extend(cfg.run.worker.env_passthrough)
-    return tuple(dict.fromkeys(names))
+        return (cfg.judge.api_key_env,)
+    return ()
 
 
 def _api_key(root: Path) -> Check:
-    """Only relevant once a judge or an agent is configured, so its absence is
-    never fatal. Values are never printed — the name is the answer.
+    """The DRAFTING lane's key — `wring judge --send`, `wring spec --send`,
+    and an agent driving `wring run`. Only relevant once a judge is
+    configured, so its absence is never fatal. Values are never printed — the
+    name is the answer.
 
-    It reads the names the CONFIG declares first. Hardcoding the two
-    well-known ones meant a repo whose agent wants a differently-named
-    variable got "no LLM API key" with the key correctly set, and no
-    indication of which name doctor had actually looked for. `wring start`
-    writes exactly such a name.
+    Named `drafting key` since 0.6.0, because the old `llm key` line served
+    two lanes and said which for neither (run 3, F4): a codex operator
+    hunting for where their OpenAI key goes read it, set `OPENAI_API_KEY`,
+    and got a worker that never authenticates — the worker's lane is a
+    DIFFERENT check now, one line up.
     """
     declared = _declared_key_names(root)
     looked_for = declared or WELL_KNOWN_KEY_ENVS
     named = [name for name in looked_for if os.environ.get(name)]
     if named:
-        return Check("llm key", OK, f"set: {', '.join(named)} (value not shown)")
+        return Check(
+            "drafting key", OK, f"set: {', '.join(named)} (value not shown)"
+        )
     return Check(
-        "llm key", WARN,
-        f"no LLM API key set — looked for {', '.join(looked_for)}",
-        "Only needed for `wring judge --send` and for an agent driving "
-        "`wring run`"
+        "drafting key", WARN,
+        f"no drafting key set — looked for {', '.join(looked_for)}",
+        "The DRAFTING lane: only needed for `wring judge --send` and for an "
+        "agent driving `wring run`"
         + ("" if declared else "; this repo declares no name, so those are "
                                "the well-known ones")
-        + ". Provide it when you launch, and never paste it to an agent",
+        + ". The worker's credential is a separate lane, checked above. "
+        "Provide it when you launch, and never paste it to an agent",
+    )
+
+
+def _worker_credential(root: Path) -> Check:
+    """The WORKER lane's credential, derived from `run.worker` (0.6.0, F4).
+
+    Which variable this worker's lane reads, whether it is set, and the
+    measured precedence — a set key DISPLACES a stored login at the turn
+    (run 3, F7; the ACP lane measured the same on 2026-08-27). `worker auth`
+    one line up answers the login-state question; this answers the
+    which-credential question, and until the split nobody answered it on the
+    machine where a dead key silently broke a working login.
+
+    `warn`, never `fail`, its siblings' rule: doctor's exit gates setup
+    scripts. Values are never printed.
+    """
+    try:
+        cfg = config.load(root / config.CONFIG_FILENAME)
+    except (config.ConfigError, OSError):
+        return Check(
+            "worker credential", SKIP,
+            f"{config.CONFIG_FILENAME} is missing or invalid", scope=REPO,
+        )
+    if cfg.run is None:
+        return Check(
+            "worker credential", SKIP,
+            "no 'run:' section, so no worker", scope=REPO,
+        )
+    from wringer import agents, worker_auth
+
+    worker = cfg.run.worker
+    if isinstance(worker, config.AcpWorker):
+        names = list(worker.env_passthrough)
+        known = agents.by_command(worker.command)
+        if known is not None and known.key_env not in names:
+            names.append(known.key_env)
+        crossing = [n for n in worker.env_passthrough if os.environ.get(n)]
+        if crossing:
+            return Check(
+                "worker credential", OK,
+                f"set and declared to cross: {', '.join(crossing)} (value "
+                "not shown) — a key in the worker's environment takes "
+                "precedence over any login the agent holds",
+                scope=REPO,
+            )
+        declared_unset = [
+            n for n in worker.env_passthrough if not os.environ.get(n)
+        ]
+        if declared_unset:
+            return Check(
+                "worker credential", OK,
+                f"declared to cross but not set: {', '.join(declared_unset)} "
+                "— so nothing crosses, and the agent's own login is the lane "
+                "(the 'worker auth' line is its state)",
+                scope=REPO,
+            )
+        return Check(
+            "worker credential", OK,
+            "no key crosses into the worker — the agent's own login is the "
+            "lane (the 'worker auth' line is its state)",
+            scope=REPO,
+        )
+    word = worker_auth.command_word(worker)
+    vendor = agents.shell_vendor_by_command(word) if word else None
+    if vendor is None:
+        return Check(
+            "worker credential", SKIP,
+            f"the worker is a shell command with no roster entry for "
+            f"{word or 'its first word'!r} — it authenticates on its own "
+            "account, and this check has nothing measured to ask",
+            scope=REPO,
+        )
+    if os.environ.get(vendor.key_env):
+        return Check(
+            "worker credential", OK,
+            f"{vendor.key_env} is set (value not shown) — it takes "
+            "precedence over any stored login, so it is what this worker "
+            "will spend against. Presence is not validity",
+            scope=REPO,
+        )
+    return Check(
+        "worker credential", OK,
+        f"{vendor.key_env} is not set — the vendor's stored login is the "
+        "lane (the 'worker auth' line is its state)",
+        scope=REPO,
     )
 
 

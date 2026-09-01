@@ -191,18 +191,25 @@ def test_an_answer_this_check_cannot_READ_is_unknown_never_a_refusal(
     assert not found.will_fail
 
 
-def test_a_shell_worker_is_not_asked_at_all():
+def test_a_shell_worker_off_the_roster_is_NOT_APPLICABLE_and_never_refuses():
+    """0.6.0: a plain shell worker gets a typed state, not a silence.
+
+    Run 3's F10 measured what the old None-shaped answer cost: every renderer
+    on the run path returned early on it, so nothing was said at all and
+    silence read as a tick. `not_applicable` is the honest word for a command
+    no roster row has measured — different from `unknown`, which is a vendor
+    whose probe could not answer — and it never refuses, for the same reason
+    `unknown` never does.
+    """
     found = worker_auth.read("make build")
 
-    assert found.state == worker_auth.UNKNOWN
+    assert found.state == worker_auth.NOT_APPLICABLE
     assert not found.will_fail
-    # `wring doctor` renders this detail after a `-` mark, and "the worker is
-    # not an ACP agent" left a reader to work out whether that was a problem.
-    # It is not one: a shell worker inherits the environment you launched
-    # from, so there is no login for anything to check.
-    assert "no login to check" in found.detail, (
-        f"the `-` line still describes Wringer's internals rather than "
-        f"answering the reader's question: {found.detail!r}"
+    assert found.word == "not applicable"
+    assert "authenticates on its own account" in found.detail, (
+        f"the state's detail should answer the reader's question — whose "
+        f"credential story is this — rather than describe Wringer's "
+        f"internals: {found.detail!r}"
     )
 
 
@@ -352,7 +359,10 @@ def test_the_environment_is_the_one_the_TURN_builds_not_a_second_copy():
         "run_turn no longer builds its environment through acp.worker_env, so "
         "the preflight is now predicting an environment nothing runs in"
     )
-    assert "worker_env(" in inspect.getsource(worker_auth.read)
+    # `_read`, not `read`: since 0.6.0 the public `read` is the scrubbing
+    # wrapper (an agent echoed a credential into a refusal detail, measured),
+    # and the probe mechanics live one function down.
+    assert "worker_env(" in inspect.getsource(worker_auth._read)
 
 
 # --- what the person is told -----------------------------------------------
@@ -500,10 +510,11 @@ def test_the_loop_REFUSES_a_signed_out_agent_before_it_starts(on_path):
     fake_agent(on_path, answering({"loggedIn": False}))
     settings = config.Run(worker=acp_worker())
 
-    message = loop.unauthenticated_agent(settings)
+    refused = loop.unauthenticated_agent(settings)
 
-    assert message is not None
-    assert "auth login" in message
+    assert refused is not None
+    assert refused.reason == "worker_auth_rejected"
+    assert "auth login" in refused.message
 
 
 def test_the_loop_starts_normally_for_every_UNKNOWN(on_path):
@@ -514,7 +525,7 @@ def test_the_loop_starts_normally_for_every_UNKNOWN(on_path):
     assert loop.unauthenticated_agent(settings) is None
 
 
-def test_the_loop_asks_nothing_of_a_shell_worker():
+def test_the_loop_asks_nothing_of_a_shell_worker_off_the_roster():
     assert loop.unauthenticated_agent(config.Run(worker="make build")) is None
 
 

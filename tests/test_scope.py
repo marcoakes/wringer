@@ -41,6 +41,9 @@ FIXES_MINE = "printf 'FIXED\\n' > calc.py"
 def write_two_gate_config(
     repo: Path, worker: str = FIXES_MINE, max_iterations: int = 3
 ) -> None:
+    # The worker contract (0.6.0): see test_staleness.write_config.
+    if "{brief}" not in worker:
+        worker = ": {brief}; " + worker
     (repo / ".wringer.yaml").write_text(
         TWO_GATES.format(worker=json.dumps(worker), max_iterations=max_iterations),
         encoding="utf-8",
@@ -215,7 +218,7 @@ gates:
     run: "grep -q FIXED calc.py"
     proves: c-mine
 run:
-  worker: "printf 'FIXED\\n' > calc.py"
+  worker: ": {brief}; printf 'FIXED\\n' > calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",
@@ -534,7 +537,7 @@ gates:
     run: "grep -q BETA beta.txt"
     proves: c-beta
 run:
-  worker: "sh worker.sh"
+  worker: ": {brief}; sh worker.sh"
   max_iterations: 3
   worker_timeout: 60
 fleet:
@@ -693,7 +696,7 @@ gates:
   - id: t-gate
     run: "grep -q FIXED work.txt"
 run:
-  worker: "sh worker.sh"
+  worker: ": {brief}; sh worker.sh"
   max_iterations: 2
   worker_timeout: 60
 fleet:
@@ -980,7 +983,7 @@ def test_a_resumed_loop_keeps_the_scope_its_first_life_was_given(
         "version: 1\ngates:\n"
         '  - id: api\n    run: "grep -q FIXED calc.py"\n'
         '  - id: other\n    run: "true"\n'
-        'run:\n  worker: "true"\n  max_iterations: 1\n',
+        'run:\n  worker: ": {brief}; true"\n  max_iterations: 1\n',
         encoding="utf-8",
     )
     monkeypatch.chdir(repo)

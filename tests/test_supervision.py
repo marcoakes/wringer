@@ -78,7 +78,7 @@ gates:
   - id: test
     run: "echo \\"failed at $(date +%H:%M:%S) after $((RANDOM))ms\\"; exit 1"
 run:
-  worker: "date +%s%N >> calc.py"
+  worker: ": {brief}; date +%s%N >> calc.py"
   max_iterations: 4
 """,
         encoding="utf-8",
@@ -107,7 +107,7 @@ gates:
   - id: test
     run: "cat state; grep -q DONE state"
 run:
-  worker: "if grep -q A state; then echo B > state; else echo A > state; fi"
+  worker: ": {brief}; if grep -q A state; then echo B > state; else echo A > state; fi"
   max_iterations: 9
 """,
         encoding="utf-8",
@@ -142,7 +142,7 @@ gates:
   - id: test
     run: "cat calc.py; grep -q FIXED calc.py"
 run:
-  worker: "date +%s%N >> calc.py"
+  worker: ": {brief}; date +%s%N >> calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",
@@ -170,7 +170,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "true"
+  worker: ": {brief}; true"
   max_iterations: 5
 """,
         encoding="utf-8",
@@ -197,7 +197,7 @@ gates:
   - id: test
     run: "cat calc.py; grep -q FIXED calc.py"
 run:
-  worker: "sleep 2; date +%s%N >> calc.py"
+  worker: ": {brief}; sleep 2; date +%s%N >> calc.py"
   max_iterations: 9
   wall_clock: 1
 """,
@@ -258,7 +258,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo $$ > worker.pid; sleep 30"
+  worker: ": {brief}; echo $$ > worker.pid; sleep 30"
   max_iterations: 5
   worker_timeout: 60
 """
@@ -309,8 +309,8 @@ def test_a_killed_loop_resumes_from_its_ledger(repo):
 
     (repo / ".wringer.yaml").write_text(
         RESUMABLE.replace(
-            'worker: "echo $$ > worker.pid; sleep 30"',
-            'worker: "echo FIXED > calc.py"',
+            'worker: ": {brief}; echo $$ > worker.pid; sleep 30"',
+            'worker: ": {brief}; echo FIXED > calc.py"',
         ),
         encoding="utf-8",
     )
@@ -353,7 +353,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo FIXED > calc.py"
+  worker: ": {brief}; echo FIXED > calc.py"
 """,
         encoding="utf-8",
     )
@@ -441,7 +441,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "echo FIXED > calc.py"
+  worker: ": {brief}; echo FIXED > calc.py"
   max_iterations: 3
 """,
         encoding="utf-8",

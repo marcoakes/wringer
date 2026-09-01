@@ -399,7 +399,7 @@ def test_the_LOOPS_first_lap_records_every_bound_gates_red(two_gates, monkeypatc
     """
     (two_gates / ".wringer.yaml").write_text(
         two_gates.joinpath(".wringer.yaml").read_text(encoding="utf-8")
-        + '\nrun:\n  max_iterations: 2\n  worker: "printf \'{\\"a\\": true, '
+        + '\nrun:\n  max_iterations: 2\n  worker: ": {brief}; printf \'{\\"a\\": true, '
         '\\"b\\": true}\' > state.json"\n',
         encoding="utf-8",
     )

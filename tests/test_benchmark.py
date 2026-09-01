@@ -228,7 +228,7 @@ def test_a_gate_that_mentions_the_held_out_file_is_void(tmp_path: Path):
     (repo / ".wringer.yaml").write_text(
         "version: 1\ngates:\n  - id: test\n"
         '    run: "python3 -m pytest test_calc.py held_out_demo.py -q"\n'
-        'run:\n  worker: "sh ./scripted-fix.sh"\n',
+        'run:\n  worker: ": {brief}; sh ./scripted-fix.sh"\n',
         encoding="utf-8",
     )
     out = tmp_path / "out"

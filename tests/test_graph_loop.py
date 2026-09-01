@@ -26,7 +26,7 @@ gates:
   - id: test
     run: "grep -q FIXED calc.py"
 run:
-  worker: "sh ./fix.sh"
+  worker: ": {brief}; sh ./fix.sh"
   max_iterations: 3
 """
 
@@ -93,6 +93,35 @@ def test_a_loop_node_converges_and_the_router_sends_it_to_done(
     selected = next(e for e in recorded if e["type"] == "route.selected")
     assert selected["to"] == "done"
     assert (repo / "calc.py").read_text(encoding="utf-8") == "FIXED\n"
+
+
+def test_an_unbriefable_worker_fails_the_node_before_the_loop_spends(
+    repo, monkeypatch, capsys
+):
+    """The graph door gets the run path's own preflight (0.6.0, F5/F6).
+
+    Before this, `graph run` skipped the preflights `wring run` performs —
+    the uncovered door the run-3 map named — so the same worker that `wring
+    run` refuses for free would spend a graph's whole budget in silence.
+    """
+    setup(repo, worker_fixes=False)
+    (repo / ".wringer.yaml").write_text(
+        CONFIG.replace('": {brief}; sh ./fix.sh"', '"sh ./fix.sh"'),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["graph", "run", "graph.yaml"]) != cli.EXIT_OK
+    said = capsys.readouterr()
+
+    recorded = events(only_graph(repo))
+    failed = [e for e in recorded if e["type"] == "node.failed"]
+    assert failed, "the node ran a loop for a worker that cannot be briefed"
+    assert not any(e["type"] == "worker.started" for e in recorded), (
+        "something spent a worker turn on an unbriefable declaration"
+    )
+    spoken = said.err + said.out + failed[0].get("detail", "")
+    assert "no channel for the brief" in spoken
 
 
 def test_a_loop_that_does_not_converge_routes_to_fail_rather_than_crashing(
@@ -241,7 +270,7 @@ nodes:
     kind: router
     routes:
       - when: "state.build-status in ['converged', 'max_iterations', \
-'no_progress', 'oscillating', 'budget_exhausted', 'flaky_gate', \
+'no_progress', 'worker_read_only', 'oscillating', 'budget_exhausted', 'flaky_gate', \
 'authority_moved', 'environment', 'interrupted']"
         to: done
     default: fail

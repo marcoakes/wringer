@@ -250,7 +250,10 @@ INHERITS_AND_WHY = {
     "sign.py": "the signing tool, which needs the operator's key material",
     "spec.py": "Wringer's own tooling",
     "witness.py": "the witness runner — Wringer's own manufactured check",
-    "worker_auth.py": "asks in `acp.worker_env`, which is the built one",
+    "worker_auth.py": "the ACP probes ask in `acp.worker_env`, the built "
+    "one; the shell-vendor login probe (0.6.0) inherits DELIBERATELY, "
+    "because a shell worker inherits the whole environment and a probe run "
+    "anywhere else would report on a process that never runs",
     "run.py": "wringer-drive driving `wring`, which is this program",
     "judge.py": "wringer-board driving `wring judge`, which is this program",
 }

@@ -543,7 +543,7 @@ def test_the_loop_never_hands_a_flaky_gate_to_the_worker(
     write_config(
         repo,
         alternating_config(tmp_path / "n")
-        + f"run:\n  worker: \"touch {marker}\"\n  max_iterations: 3\n",
+        + f"run:\n  worker: \": {{brief}}; touch {marker}\"\n  max_iterations: 3\n",
     )
     monkeypatch.chdir(repo)
 
@@ -572,7 +572,7 @@ def test_the_loop_still_repairs_a_gate_that_really_is_broken(
         repo,
         "version: 1\ngates:\n  - id: unit\n    run: 'test -f fixed'\n"
         "    stability:\n      attempts: 2\n"
-        'run:\n  worker: "touch fixed"\n  max_iterations: 3\n',
+        'run:\n  worker: ": {brief}; touch fixed"\n  max_iterations: 3\n',
     )
     monkeypatch.chdir(repo)
 
@@ -587,7 +587,7 @@ def test_the_loop_records_the_flaky_gate_by_name(
     write_config(
         repo,
         alternating_config(tmp_path / "n")
-        + 'run:\n  worker: "true"\n  max_iterations: 3\n',
+        + 'run:\n  worker: ": {brief}; true"\n  max_iterations: 3\n',
     )
     monkeypatch.chdir(repo)
 

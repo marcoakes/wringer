@@ -71,6 +71,26 @@ TIMEOUT = 90.0
 LOGGED_IN = "logged_in"
 LOGGED_OUT = "logged_out"
 UNKNOWN = "unknown"
+#: The fourth state, added by the 0.6.0 worker contract: the question does
+#: not apply as far as anything here has measured. A shell worker built from
+#: a command no roster row covers has no login surface Wringer knows how to
+#: ask — which is a different fact from a vendor whose probe could not
+#: answer (`UNKNOWN`), and collapsing them is how a silence came to read as
+#: a tick (run 3, F10).
+NOT_APPLICABLE = "not_applicable"
+
+#: How each state renders on the run path — the typed vocabulary the 0.6.0
+#: contract names. One table, because the drive, `wring run` and `wring
+#: doctor` may never disagree about what a state is called. "verified" means
+#: exactly what `LOGGED_IN` means — the agent's own word was obtained and
+#: says yes — and every sentence beside it still carries the ceiling: a
+#: verified login is not a promise the credential still works.
+STATE_WORDS = {
+    LOGGED_IN: "verified",
+    LOGGED_OUT: "rejected",
+    UNKNOWN: "unknown",
+    NOT_APPLICABLE: "not applicable",
+}
 
 
 @dataclass(frozen=True)
@@ -94,6 +114,12 @@ class WorkerAuth:
         earns a stop, and it is the agent's own word for it.
         """
         return self.state == LOGGED_OUT
+
+    @property
+    def word(self) -> str:
+        """The state's rendered name — `STATE_WORDS`, with a belt for a state
+        the table has not met, which is better shown raw than crashed on."""
+        return STATE_WORDS.get(self.state, self.state)
 
 
 #: The free handshake's own ceiling. Measured at 1.4-2.8s across three agents
@@ -219,27 +245,96 @@ def _name_the_bare_form(worker: config.AcpWorker, found: WorkerAuth) -> WorkerAu
     )
 
 
-def read(worker: object, containment_settings: object = None) -> WorkerAuth:
-    """Ask the declared ACP worker whether it is logged in.
+def command_word(worker: object) -> str | None:
+    """The basename of a worker's binary, whichever form declared it.
+
+    None when it cannot be told — an unparseable shell string, say. Used only
+    to look a vendor up in the roster; never to run anything the operator did
+    not write down.
+    """
+    from pathlib import PurePath
+
+    if isinstance(worker, config.AcpWorker):
+        return PurePath(worker.command).name
+    if isinstance(worker, config.ExecWorker):
+        return PurePath(worker.argv[0]).name
+    if isinstance(worker, str):
+        import shlex
+
+        try:
+            words = shlex.split(worker)
+        except ValueError:
+            return None
+        return PurePath(words[0]).name if words else None
+    return None
+
+
+def read(
+    worker: object,
+    containment_settings: object = None,
+    declared_secret_names: tuple[str, ...] = (),
+) -> WorkerAuth:
+    """`_read`, with the detail SCRUBBED before anything can render it.
+
+    `declared_secret_names` is `config.declared_secret_names(cfg)` from any
+    caller holding a Config — the fuller set the redactor law wants folded
+    in. This function deliberately takes a worker rather than a Config, so
+    the names travel as a parameter; the worker's own `env_passthrough` is
+    always folded in besides, because that is the declared share a worker
+    can echo even when a caller passes nothing.
+
+    The detail can embed text an AGENT supplied — the handshake rung folds a
+    `session/new` refusal's own words in, and an agent has echoed a live
+    credential into exactly that surface (the `leakrefusal` fixture is that
+    measurement). Until 0.6.0 the unknown-state details were rendered by
+    nobody, so the hazard had no surface; the typed state is rendered on the
+    run path now, so the scrub happens HERE, once, where the sentence is
+    made — protecting doctor, the console line, the drive step and the
+    refusal message alike. The redactor is built from the default env-name
+    patterns plus every name the worker declares to cross.
+    """
+    found = _read(worker, containment_settings)
+    from wringer import redact
+
+    scrub = redact.Redactor.from_config(
+        extra_names=tuple(declared_secret_names)
+        + tuple(getattr(worker, "env_passthrough", ()) or ())
+    ).scrub
+    cleaned = scrub(found.detail)
+    if cleaned == found.detail:
+        return found
+    return WorkerAuth(found.state, cleaned, found.method)
+
+
+def _read(worker: object, containment_settings: object = None) -> WorkerAuth:
+    """The declared worker's credential state, typed, for EVERY worker form.
 
     Every path that cannot produce a trustworthy answer returns `UNKNOWN` with
     the reason in `detail`, because the alternative — inferring "logged out"
     from a timeout, a missing binary, or an agent this repository has never
     measured — is exactly the reasoning that produced a false sentence about
     this adapter on 2026-08-22.
+
+    **A shell worker no longer arrives as a bare UNKNOWN** (run 3, F10: on
+    the path a run actually takes, that None-shaped answer was rendered by
+    nobody, and silence read as a tick). Where the vendor has a measured
+    login probe on the roster (`agents.SHELL_VENDORS`), it is asked — in the
+    environment a shell worker actually gets, which is this process's own,
+    inherited whole (`docs/vendors.md` says so in print) — and the answer is
+    composed with the one other fact this preflight owns: whether the
+    vendor's key variable is set. The key DISPLACES the login at the turn
+    (measured on the ACP lane 2026-08-27, re-measured on codex in run 3), so
+    a set key makes the EFFECTIVE credential the key, and its validity is
+    exactly as unknowable as before: presence is not validity.
     """
     if not isinstance(worker, config.AcpWorker):
-        # **The reader's question, not Wringer's fact.** `wring doctor`
-        # renders this after a `-`, and "the worker is not an ACP agent" left
-        # a person to work out for themselves whether that was a problem. It
-        # is not one: a shell worker inherits the environment it was launched
-        # from (`docs/vendors.md` says so in print), so there is no login for
-        # anything to check and nothing to fix.
-        return WorkerAuth(
-            UNKNOWN,
-            "the worker is a shell command, not an ACP agent — a shell "
-            "worker has no login to check",
-        )
+        if containment_settings is not None:
+            return WorkerAuth(
+                UNKNOWN,
+                "the worker runs inside a containment, and this check can "
+                "only ask the vendor's binary on this machine",
+            )
+        return _shell_lane(worker)
 
     if containment_settings is not None:
         # Under a containment the agent runs INSIDE the boundary, on an image
@@ -306,6 +401,91 @@ def read(worker: object, containment_settings: object = None) -> WorkerAuth:
     return WorkerAuth(LOGGED_OUT, f"{worker.command} reports it is not logged in")
 
 
+def _shell_lane(worker: object) -> WorkerAuth:
+    """The typed state for a shell or `exec:` worker.
+
+    Two facts, composed and never blended: what the vendor's own probe says
+    about the STORED login, and whether the vendor's key variable is set in
+    the environment the worker will inherit. The composition rules are the
+    measured precedence — the key displaces the login — so the state answers
+    the only question that matters before spend: is the EFFECTIVE credential
+    known-good, known-bad, or unknowable from here?
+
+    - no roster row       → NOT_APPLICABLE. Nothing measured exists to ask.
+    - probe yes, no key   → LOGGED_IN, the vendor's own word, ceiling stated.
+    - probe yes, key set  → UNKNOWN, the displacement NAMED: the login works
+                            and will not be used. Presence is not validity —
+                            and here it is worse than absence, because a dead
+                            key fails a turn the login would have served.
+    - probe no,  key set  → UNKNOWN: the key is the only lane, and only the
+                            turn can say whether it works.
+    - probe no,  no key   → LOGGED_OUT — the vendor's own definite no, with
+                            no other credential in sight. The one composition
+                            that refuses.
+    """
+    import os
+
+    word = command_word(worker)
+    if word is None:
+        return WorkerAuth(
+            UNKNOWN, "the worker command could not be read as a command line"
+        )
+    vendor = agents.shell_vendor_by_command(word)
+    if vendor is None:
+        return WorkerAuth(
+            NOT_APPLICABLE,
+            f"{word!r} is a shell command with no login surface on the "
+            "roster — the worker authenticates on its own account, and this "
+            "check has nothing measured to ask it",
+        )
+    if shutil.which(vendor.command) is None:
+        return WorkerAuth(
+            UNKNOWN, f"{vendor.command!r} is not on PATH, so it cannot be asked"
+        )
+
+    key_set = bool(os.environ.get(vendor.key_env))
+    try:
+        proc = subprocess.run(
+            [vendor.command, *vendor.login_probe],
+            capture_output=True, text=True, timeout=TIMEOUT,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return WorkerAuth(
+            UNKNOWN, f"asking {vendor.command!r} did not finish: {exc}"
+        )
+
+    answer = (proc.stdout or proc.stderr).strip().splitlines()
+    said = answer[0].strip() if answer else ""
+    if proc.returncode == 0:
+        if key_set:
+            return WorkerAuth(
+                UNKNOWN,
+                f"{vendor.key_env} is set and takes precedence over the "
+                f"stored login ({vendor.command} says: {said or 'logged in'})."
+                f" The key is what this run will spend against, and presence "
+                f"is not validity — a dead key here fails a turn the login "
+                f"would have served. Unset it to spend on the login",
+            )
+        return WorkerAuth(
+            LOGGED_IN,
+            f"{vendor.command} says: {said or 'logged in'} — the vendor's "
+            "own word, not a promise the credential still works",
+        )
+    if key_set:
+        return WorkerAuth(
+            UNKNOWN,
+            f"the only credential is {vendor.key_env} ({vendor.command} "
+            f"says: {said or 'not logged in'}); whether the key works, only "
+            "the turn can say — presence is not validity",
+        )
+    return WorkerAuth(
+        LOGGED_OUT,
+        f"{vendor.command} says: {said or 'not logged in'}, and "
+        f"{vendor.key_env} is not set — there is no credential for this "
+        "worker to spend against",
+    )
+
+
 def _routes(worker: object) -> tuple[str, str, str | None]:
     """`(command, key variable, policy file or None)` — the whole decision.
 
@@ -323,12 +503,27 @@ def _routes(worker: object) -> tuple[str, str, str | None]:
     return command, key, agents.managed_policy_file()
 
 
+def _shell_vendor(worker: object):
+    """The roster row for a non-ACP worker, or None."""
+    if isinstance(worker, config.AcpWorker):
+        return None
+    word = command_word(worker)
+    return agents.shell_vendor_by_command(word) if word else None
+
+
 def remedy(worker: object) -> str:
     """The one-line form, for `wring doctor`'s `fix`.
 
     Says the same thing `refusal` says at length, from the same branch, and
     never more than the machine can honestly offer.
     """
+    vendor = _shell_vendor(worker)
+    if vendor is not None:
+        return (
+            f"Log the vendor's CLI in ({vendor.login_command}), or export "
+            f"{vendor.key_env} — which then takes precedence over any stored "
+            "login on every turn. Neither proves the credential still works"
+        )
     command, key, policy = _routes(worker)
     if policy is not None:
         return (
@@ -376,6 +571,20 @@ def refusal(worker: object, found: WorkerAuth) -> str:
     both routes are offered exactly as before — because absence is one path
     checked, never proof that a machine is unmanaged.
     """
+    vendor = _shell_vendor(worker)
+    if vendor is not None:
+        return (
+            f"{found.detail}, so the build step would fail after the "
+            f"drafting call had already been paid for.\n\n"
+            f"Two ways to give it a credential, both yours to choose:\n"
+            f"  - log the vendor's CLI in once: {vendor.login_command}\n"
+            f"  - or export {vendor.key_env}, which then takes precedence "
+            f"over any stored login on every worker turn\n\n"
+            f"This check reads what the vendor's own status command says and "
+            f"cannot tell whether a credential still works: a revoked key "
+            f"and a lapsed subscription both die at the turn. Nothing has "
+            f"been created."
+        )
     command, key, policy = _routes(worker)
     limit = (
         "This check reads what the agent says about itself and cannot tell "
@@ -397,6 +606,35 @@ def refusal(worker: object, found: WorkerAuth) -> str:
             f"without it the session opens. If one is already declared "
             f"in {config.CONFIG_FILENAME}, REMOVE it — that is the fix, not "
             f"the remedy.\n\n"
+            f"{limit}"
+        )
+    import os
+
+    crossing = [
+        name
+        for name in getattr(worker, "env_passthrough", ())
+        if os.environ.get(name)
+    ]
+    if crossing:
+        # **The displacement, named** (run 3, F7 — the ACP law of 2026-08-27
+        # re-measured on a second vendor): a set key is already crossing into
+        # the worker's environment, and the measured precedence is that the
+        # key DISPLACES any login. An agent refusing with that key present is
+        # therefore most plainly refusing the KEY — so offering "declare the
+        # key" as the remedy here would send the operator to re-do the thing
+        # being rejected.
+        named = ", ".join(crossing)
+        return (
+            f"{found.detail}, so the build step would fail after the "
+            f"drafting call had already been paid for.\n\n"
+            f"{named} is set and declared under "
+            f"'run.worker.acp.env_passthrough', so it crosses into the "
+            f"worker's environment — and a key there takes precedence over "
+            f"any login the agent holds (measured; presence is not "
+            f"validity). If that key is dead, it is the thing being "
+            f"refused, and it makes this machine fail where the login alone "
+            f"would have worked. Unset or replace it, or log the agent in "
+            f"and remove the declaration: {command} --cli auth login\n\n"
             f"{limit}"
         )
     return (

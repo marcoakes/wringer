@@ -4,6 +4,108 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.0 — 2026-08-31
+
+**The worker contract — the first slice of the cross-surface window.** Run 3
+(the codex blind test, review of record 2026-08-31) measured the worker
+journey failing end to end on a real account: a published worker command with
+no brief channel sat on an inherited terminal for fifteen minutes per
+iteration (F5), nothing validated a channel existed (F6), a dead env key
+silently displaced a working ChatGPT login (F7), the documented command could
+not edit a file (F8), and a shell worker's auth state arrived as `None` so
+the run path said nothing at all (F10). Every clause below was measured
+failing before it was written. The spec is
+`docs/specs/SPEC_WORKER_V0.md`; no frozen schema moved.
+
+### The `exec:` worker form — the documented one now
+
+A third worker form beside the shell string and `acp:`: an argv, run with no
+shell, with the brief transport declared (`brief: argument` substitutes the
+brief's TEXT — the shell form's `"$(cat {brief})"` without a shell — and
+`brief: path` the file's path). It cannot be parsed without a brief channel,
+and it is refused at parse under `run.containment` because that pair is
+unmeasured.
+
+### `worker_unbriefable` — refused for the price of a string check
+
+A shell worker with no `{brief}` has no channel through which Wringer can
+say what to build; started anyway it sits in silence to the timeout, once
+per iteration. Refused now at every door before spend — `wring run`,
+`wring resume`, the drive, a graph's loop node, and `wring bench`
+(an unbriefable contender's rows would measure a worker never briefed).
+Preflight refusals follow D0 as their own family: `loop.RUN_REFUSAL_REASONS`
+is closed and public, the constructor requires the reason, and the session
+guard in `tests/conftest.py` fails the suite over any name no test drove
+through the command that owes it.
+
+### Worker auth is a TYPED state for every worker
+
+`verified / rejected / unknown / not applicable`, rendered on the run path
+before anything is spent — a shell worker's `None` no longer reads as
+success. Where the vendor has a measured probe it is asked:
+`agents.SHELL_VENDORS` gains the codex row (`codex login status`, measured
+on codex-cli 0.149.0: exit 0 "Logged in using ChatGPT" / exit 1 "Not logged
+in", offline, instant, blind to env keys — and `codex doctor` measured and
+DISQUALIFIED: it reads key presence as auth and opens sockets). The
+composition follows the measured precedence — **a set key DISPLACES a
+stored login** (the ACP law of 2026-08-27, re-measured on codex in run 3) —
+so a set key renders `unknown` with the displacement named, never a green;
+the vendor's own "Not logged in" with no key in sight is the one
+composition that refuses (`worker_auth_rejected`), and an ACP agent
+refusing its session while a declared key crosses gets the same name with
+the displacement leading the message.
+
+### `worker_read_only` — the stop that carries the worker's own words
+
+A refinement of `no_progress` chosen on facts the loop already owns: the
+turn exited 0, was not timed out, produced output, and left the tree
+byte-identical. Run 3's read-only codex turn printed the same `no_progress`
+as "never spoke" and "timed out", with the one actionable fact — codex's
+own "blocked by the workspace's read-only filesystem policy" — sitting
+unquoted in a log. The stop now names the shape, and the worker's words
+travel verbatim in `worker-diagnosis.json` (still `wringer.workerdiagnosis.v3`
+— every field it needs was already optional) and are quoted at the stop. A
+turn that failed, timed out or stayed mute keeps `no_progress`: calling
+those read-only would claim a shape the facts do not show.
+
+### Non-interactive termination, structurally
+
+A worker's stdin is `/dev/null` now, never this process's own — a command
+that waits on a terminal reads EOF and terminates instead of inheriting the
+tty (F5's twelve minutes, 0.08s of CPU). Gates are untouched.
+
+### The capability stamp — recipes proven, not asserted
+
+Every shell recipe `docs/vendors.md` publishes is driven through a real
+`wring run` in CI with a fake vendor binary standing in
+(`tests/test_worker_contract.py`): brief received (the fake's last argv must
+equal the brief's text) · repo editable · terminates. The codex rows are
+corrected to the form run 3 measured working
+(`codex exec --json --sandbox workspace-write "$(cat {brief})"`); the kimi
+shell row gains its brief channel and says out loud that the real binary
+has never run as a Wringer worker. **The real-vendor canary is a STOP for
+run 4** — it spends a real account and is not CI's to run. Credential
+precedence is documented where the credentials live, on both vendors'
+measurements.
+
+### `wring doctor`: the lane split
+
+`llm key` is renamed `drafting key` and reads `judge.api_key_env` alone —
+the old line served two lanes and said which for neither (F4), and a
+declared worker name silently narrowed it until the worker's lane vanished
+(F10b). A new `worker credential` check is derived from `run.worker`: which
+variable that worker's lane reads, whether it is set, and the displacement
+it would cause. `worker auth` reports the shell vendors' typed state too.
+SETUP.md's transcripts are recaptured; the key-line guard now also fails
+any living page still showing the old name.
+
+Schema notes: `wringer.loop.v2`'s open `reason` gains `worker_read_only`
+(no version spend, by that field's own design); the `worker.started` event
+for an `exec:` worker records the argv with the brief's PATH in the
+`{brief}` slot, never its text, and carries no `worker_kind` (the published
+event schema froze that key as `const: "acp"`; absence has always meant
+"not ACP").
+
 ## 0.5.8 — 2026-08-30
 
 **The front-door slice, cut before run 3.** Docs and guards only — no engine
