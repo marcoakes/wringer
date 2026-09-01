@@ -475,7 +475,12 @@ def test_a_converged_run_emits_the_board_TOO_and_ends_on_the_page(
     """
     monkeypatch.setattr(run_module, "delivery_plan", lambda repo: {"would": "send"})
     monkeypatch.setattr(
-        run_module, "deliver", lambda repo, *, answered_yes: {"sent": answered_yes}
+        run_module,
+        "deliver",
+        lambda repo, *, answered_yes: {
+            "sent": answered_yes,
+            "delivery_dir": ".wringer/deliveries/20260901-120000-abcd",
+        },
     )
 
     code, steps = drive(
@@ -488,6 +493,13 @@ def test_a_converged_run_emits_the_board_TOO_and_ends_on_the_page(
     assert "board" in ids, f"a converged run never announced the board: {ids}"
     assert ids[-1] == "done", f"a converged run ended on {ids[-1]!r}: {ids}"
     assert (project / run_module.BOARD_FILENAME).is_file()
+    # 0.6.5: the orchestrator threads the delivery's own record into the done
+    # step, so the falsify command the human console prints reaches the drive
+    # lane too — with the REAL id, from the payload it used to throw away.
+    assert (
+        "wring verify --falsify --delivery 20260901-120000-abcd"
+        in steps[-1].text
+    ), steps[-1].text
 
 
 def test_both_endings_render_the_board_in_the_orchestrator_itself():

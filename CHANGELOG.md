@@ -4,6 +4,34 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.5 — 2026-09-01
+
+**Two defects found preparing run 4's sheet — by executing the interview's
+own suggestion.**
+
+### The interview's writer could not write its own offers
+
+`wringer-drive`'s generated `.wringer.yaml` wrapped the worker answer in
+bare double quotes, and the suggested codex command carries double quotes
+of its own — so the person's exact suggested answer produced a config no
+verb could read, and the first stop was a raw YAML parse error two steps
+after the interview. The quoting is now the YAML library's, in the shell
+form and the `acp:` words alike, and every suggested worker answer is
+round-tripped through the real writer and the real parser in CI. (An
+unreadable config still speaks in the engine's words at the first call —
+the standing ruling — but the drive can no longer be the one that wrote
+it.)
+
+### The falsify command reaches the drive lane
+
+`wring deliver` prints `wring verify --falsify --delivery <the real id>`
+on its human console, but the drive calls it with `--json` and threw the
+payload away — so the operator the worked examples put on exactly that
+path never saw the command 0.6.3 built. The drive's done step now carries
+it, with the id from the delivery's own record.
+
+Schema versions: unchanged.
+
 ## 0.6.4 — 2026-09-01
 
 **The vendor-neutral front door — the last slice of the cross-surface

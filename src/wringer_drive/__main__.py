@@ -573,7 +573,7 @@ def _run(session: run_module.Session, args) -> int:
     session.emit(board)
     _render([board], mode)
 
-    run_module.deliver(
+    sent = run_module.deliver(
         repo, answered_yes=_confirm(run_module.delivery_step(), mode, repo)
     )
 
@@ -583,7 +583,9 @@ def _run(session: run_module.Session, args) -> int:
     # resume to.
     run_module.clear_resume(repo)
 
-    final = run_module.final_step(repo, run_module.render_board(repo))
+    final = run_module.final_step(
+        repo, run_module.render_board(repo), delivery=sent
+    )
     session.emit(final)
     _render([final], mode)
     return 0

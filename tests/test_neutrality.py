@@ -174,6 +174,61 @@ def test_a_GENERATED_CONFIG_contains_only_what_the_person_TYPED(tmp_path):
         assert value in written, f"{value!r} is not in the generated config"
 
 
+def test_EVERY_SUGGESTED_WORKER_ANSWER_ROUND_TRIPS_THROUGH_THE_CONFIG(
+    tmp_path,
+):
+    """**Executed with the interview's own offers, because run 4's sheet
+    verification found the gap the expensive way**: the writer wrapped the
+    answer in bare double quotes, the suggested codex command carries double
+    quotes of its own, and the person's exact suggested answer produced a
+    `.wringer.yaml` no verb could read — the first stop a raw parse error
+    two steps after the interview, with the interview long gone.
+
+    An offer the writer cannot write is worse than no offer. So every
+    suggested answer goes through the real writer and the real parser, and
+    what comes back must be the same command."""
+    from wringer import config as engine_config
+    from wringer_drive import run as run_module
+
+    suggested = []
+    for question in run_module.SETUP_QUESTIONS:
+        if question.id == "setup:worker":
+            suggested = list((question.detail or {}).get("suggested", []))
+    assert suggested, "the worker question offers nothing to measure"
+
+    for index, offer in enumerate(suggested):
+        repo = tmp_path / f"offer-{index}"
+        (repo / ".git").mkdir(parents=True)
+        (repo / "pyproject.toml").write_text(
+            "[project]\nname='x'\nversion='0'\n", encoding="utf-8"
+        )
+        (repo / "tests").mkdir()
+        (repo / "tests" / "test_x.py").write_text(
+            "def test_x():\n    pass\n", "utf-8"
+        )
+        answers = {
+            "endpoint": "https://example.invalid/v1/chat/completions",
+            "model": "some-model-name",
+            "worker": offer,
+        }
+        session = run_module.Session(repo=repo)
+        try:
+            run_module.generate_workspace(session, repo, answers)
+        except run_module.Stop as stop:  # pragma: no cover - diagnosed below
+            pytest.skip(f"the workspace could not be generated here: {stop}")
+
+        settings = engine_config.load(repo / engine_config.CONFIG_FILENAME)
+        worker = settings.run.worker
+        if offer.lower().startswith("acp:"):
+            words = offer[len("acp:"):].strip().split()
+            assert worker.command == words[0], (offer, worker)
+        else:
+            assert worker == offer, (
+                f"the offer came back changed:\n  offered: {offer!r}\n"
+                f"  parsed:  {worker!r}"
+            )
+
+
 def test_NO_SETUP_QUESTION_FALLS_BACK_TO_ITS_OWN_SUGGESTION():
     """An offer becomes a default the moment something reads it at run time.
 

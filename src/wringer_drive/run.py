@@ -381,19 +381,37 @@ def _worker_block(answer: str) -> str:
     The engine has exactly two: a shell string ("run this and see what
     changed") and an `acp:` mapping ("hold a session with an agent that speaks
     a standard"). An operator whose agent speaks ACP says so with an `acp:`
-    prefix; anything else is the command, quoted and otherwise untouched.
+    prefix; anything else is the command, untouched.
 
     **Neither form is invented and neither is defaulted to.** This writes down
     what the person said, which is the difference between generating a config
     and guessing one.
+
+    **The quoting is the YAML library's, not an f-string's** (0.6.5). The
+    naive `worker: "{answer}"` wrote invalid YAML for any answer carrying a
+    double quote — including this interview's own suggested codex command,
+    `... "$(cat {brief})"` — so the person's exact suggested answer produced
+    a config no verb could read, and the first stop was a raw parse error
+    two steps later. Found preparing run 4, by executing the suggestion.
     """
     if not answer.lower().startswith("acp:"):
-        return f'  worker: "{answer}"\n'
+        return f"  worker: {_scalar(answer)}\n"
     words = answer[len("acp:") :].strip().split()
-    block = "  worker:\n    acp:\n" + f'      command: "{words[0]}"\n'
+    block = "  worker:\n    acp:\n" + f"      command: {_scalar(words[0])}\n"
     if words[1:]:
-        block += "      args: [" + ", ".join(f'"{w}"' for w in words[1:]) + "]\n"
+        block += (
+            "      args: ["
+            + ", ".join(_scalar(w) for w in words[1:])
+            + "]\n"
+        )
     return block
+
+
+def _scalar(value: str) -> str:
+    """One YAML double-quoted scalar, escaped by the parser's own library."""
+    import yaml
+
+    return yaml.safe_dump(value, default_style='"', width=10**9).strip()
 
 
 def needs_workspace(repo: Path) -> bool:
@@ -1640,11 +1658,35 @@ def board_step(board_path: Path) -> Step:
     )
 
 
-def final_step(repo: Path, board_path: Path) -> Step:
+def final_step(
+    repo: Path, board_path: Path, delivery: dict | None = None
+) -> Step:
+    """The end of the chain — and the one command that comes after it.
+
+    **The falsify command travels this lane too (0.6.5).** `wring deliver`
+    prints `wring verify --falsify --delivery <the real id>` on its human
+    console, but this verb calls it with `--json` and used to throw the
+    payload away — so a drive operator, the person the worked examples put
+    on exactly this path, never saw the command run 3 could not have and
+    0.6.3 built. The id comes from the delivery's own record, never guessed.
+    """
+    text = (
+        f"Open {board_path} to see what is done, what is proved, and "
+        "what still needs you."
+    )
+    detail: dict = {"board": str(board_path)}
+    delivery_dir = str((delivery or {}).get("delivery_dir", ""))
+    if delivery_dir:
+        delivery_id = delivery_dir.rstrip("/").rsplit("/", 1)[-1]
+        text += (
+            "\n\nProve it can fail: wring verify --falsify --delivery "
+            f"{delivery_id}  (measures the committed range this delivery "
+            "shipped)."
+        )
+        detail["falsify"] = f"wring verify --falsify --delivery {delivery_id}"
     return Step(
         kind=DONE,
         id="done",
-        text=f"Open {board_path} to see what is done, what is proved, and "
-        "what still needs you.",
-        detail={"board": str(board_path)},
+        text=text,
+        detail=detail,
     )

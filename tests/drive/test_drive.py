@@ -2073,3 +2073,44 @@ def test_an_unwritable_gitignore_never_stops_the_run(project):
         run_module._keep_the_board_out_of_git(project)
     finally:
         ignore.chmod(0o644)
+
+
+def test_the_done_step_carries_the_falsify_command_with_the_REAL_id(tmp_path):
+    """Run 3 F16's fix, carried the last mile (0.6.5): `wring deliver` prints
+    the exact falsify command on its human console, but this verb calls it
+    with `--json` and used to throw the payload away — so the drive operator,
+    the person the worked examples put on exactly this path, never saw the
+    command. The id comes from the delivery's own record, never guessed."""
+    sent = {"delivery_dir": ".wringer/deliveries/20260901-120000-abcd"}
+    step = run_module.final_step(tmp_path, tmp_path / "board.html", delivery=sent)
+    assert (
+        "wring verify --falsify --delivery 20260901-120000-abcd" in step.text
+    ), step.text
+    assert step.detail["falsify"] == (
+        "wring verify --falsify --delivery 20260901-120000-abcd"
+    )
+
+
+def test_the_done_step_without_a_delivery_promises_no_falsify_command(tmp_path):
+    """A run that ended without `--send` shipped no committed range; a
+    command naming a delivery that does not exist would be a lie."""
+    step = run_module.final_step(tmp_path, tmp_path / "board.html")
+    assert "--falsify" not in step.text
+    assert "falsify" not in step.detail
+
+
+def test_the_worker_block_survives_a_double_quote_in_ANY_answer_form():
+    """The 0.6.5 defect class, held at the writer itself: the YAML library
+    does the quoting, so an answer carrying a double quote — the suggested
+    codex command's shape — round-trips in the shell form and in the acp
+    words alike."""
+    import yaml
+
+    shell = 'codex exec --json --sandbox workspace-write "$(cat {brief})"'
+    parsed = yaml.safe_load("run:\n" + run_module._worker_block(shell))
+    assert parsed["run"]["worker"] == shell
+
+    acp = 'acp: weird"cmd --flag="x"'
+    parsed = yaml.safe_load("run:\n" + run_module._worker_block(acp))
+    assert parsed["run"]["worker"]["acp"]["command"] == 'weird"cmd'
+    assert parsed["run"]["worker"]["acp"]["args"] == ['--flag="x"']
