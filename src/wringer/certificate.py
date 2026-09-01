@@ -881,7 +881,104 @@ def _check_commit(payload: dict[str, Any], root: Path) -> Claim:
     return Claim(what, BROKEN, f"{commit} is not an object in {root}")
 
 
-def _check_receipts(payload: dict[str, Any], root: Path) -> list[Claim]:
+def _packed_receipt(
+    beside: Path | None, run_id: str
+) -> tuple[Any, str] | None:
+    """The receipt this delivery carries for `run_id`, verified, or None.
+
+    **0.6.2, F15.** Run 3's clean-clone audit reported the fail-first claim
+    as unavailable because the cited run stayed on the machine. Deliveries
+    now pack it under `receipts/<run_id>/` — manifest, hash-chained ledger,
+    digest manifest, gate results — and this verifies the pack before any
+    claim rests on it: every packed file's sha256 must match the pack's own
+    `digests.json` row, and the ledger's `prev_hash` chain must link from
+    genesis. A pack that fails either is returned as the FAILURE it is, and
+    the claim renders BROKEN naming tampering — never silently skipped back
+    to "did not travel".
+
+    **This can never earn a tick.** `health.qualifying` refuses committed
+    and copied bundles for acceptance, untouched; the constructed bundle
+    below says `committed=True` out loud. A packed receipt answers the
+    AUDIT's question — does the record behind this certificate's citation
+    show the failure — and nothing else.
+
+    Returns `(bundle, "")` on a verified pack, `(None, why)` on a tampered
+    one, and None when nothing is packed for this run.
+    """
+    if beside is None:
+        return None
+    pack = beside / "receipts" / run_id
+    if not pack.is_dir():
+        return None
+    import hashlib as hashlib_module
+
+    try:
+        digests = json.loads(
+            (pack / evidence.DIGESTS_FILENAME).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError, UnicodeDecodeError):
+        return None, "the packed receipt carries no readable digest manifest"
+    rows = digests.get("files") if isinstance(digests, dict) else None
+    if not isinstance(rows, dict):
+        return None, "the packed receipt's digest manifest has no files table"
+    for entry in sorted(pack.rglob("*")):
+        if not entry.is_file():
+            continue
+        rel = entry.relative_to(pack).as_posix()
+        if rel == evidence.DIGESTS_FILENAME:
+            continue
+        recorded = rows.get(rel)
+        actual = hashlib_module.sha256(entry.read_bytes()).hexdigest()
+        if recorded is None:
+            return None, (
+                f"the packed receipt carries `{rel}`, which its own digest "
+                "manifest never recorded"
+            )
+        if isinstance(recorded, dict):
+            recorded = recorded.get("sha256")
+        if recorded != actual:
+            return None, (
+                f"`{rel}` in the packed receipt does not match the digest "
+                "its own manifest recorded — the pack was altered after it "
+                "was written"
+            )
+    ledger = pack / evidence.EVIDENCE_FILENAME
+    if ledger.is_file():
+        previous = "0" * 64
+        for line in ledger.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                return None, "the packed receipt's ledger is not JSON lines"
+            if event.get("prev_hash") != previous:
+                return None, (
+                    "the packed receipt's ledger chain does not link — a "
+                    "line was altered, inserted or removed"
+                )
+            previous = hashlib_module.sha256(line.encode("utf-8")).hexdigest()
+    from wringer import health
+
+    bundle = health.Bundle(
+        directory=pack,
+        receipt=run_id,
+        kind="run",
+        run_id=run_id,
+        started_at="",
+        bench_sourced=False,
+        source="delivery-receipts",
+        # Out loud: a travelled copy, so `qualifying` stays False and this
+        # bundle can never decide an acceptance verdict — the corpus's
+        # git-carried-the-answer lesson, kept.
+        committed=True,
+    )
+    return bundle, ""
+
+
+def _check_receipts(
+    payload: dict[str, Any], root: Path, beside: Path | None = None
+) -> list[Claim]:
     """✓/✗ per receipt — and `−` where the evidence did not travel.
 
     The join is `health.gate_runs`, which is the SAME reader `accept` used to
@@ -914,6 +1011,16 @@ def _check_receipts(payload: dict[str, Any], root: Path) -> list[Claim]:
         title = row.get("title") or row.get("id")
         what = f"the record shows the check for “{title}” failing"
         bundle = found.get(receipt.get("bundle"))
+        packed_note = ""
+        if bundle is None:
+            run_name = Path(str(receipt.get("bundle") or "")).name
+            packed = _packed_receipt(beside, run_name)
+            if packed is not None:
+                bundle, why = packed
+                if bundle is None:
+                    claims.append(Claim(what, BROKEN, why))
+                    continue
+                packed_note = " — from the receipt this delivery carries"
         if bundle is None:
             claims.append(
                 Claim(
@@ -937,7 +1044,9 @@ def _check_receipts(payload: dict[str, Any], root: Path) -> list[Claim]:
                 seen = True
                 break
         if seen:
-            claims.append(Claim(what, HOLDS, f"run `{bundle.run_id}`"))
+            claims.append(
+                Claim(what, HOLDS, f"run `{bundle.run_id}`{packed_note}")
+            )
         elif kind == accept.WITNESS:
             # A witness is pinned over its own bytes and is checked by the
             # witness lane, not by a gate row. Saying `✗` because this
@@ -1084,7 +1193,7 @@ def check(
     claims += _check_coverage(beside)
     claims += _check_spec(payload, root)
     claims.append(_check_commit(payload, root))
-    claims += _check_receipts(payload, root)
+    claims += _check_receipts(payload, root, beside)
     return Report(
         ok=not any(claim.outcome == BROKEN for claim in claims),
         claims=claims,

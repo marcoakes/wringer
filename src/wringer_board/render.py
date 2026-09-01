@@ -20,6 +20,7 @@ wrong fixes.
 from __future__ import annotations
 
 import html
+import json
 from pathlib import Path
 
 from wringer_board import refusals
@@ -636,6 +637,76 @@ def _intent_html(text: str) -> str:
     return "".join(out)
 
 
+def _meta_island(board: Board) -> str:
+    """The page's machine-readable identity (`wringer.boardmeta.v1`, 0.6.2).
+
+    A JSON island a machine can read without parsing prose: which run this
+    page renders, the acceptance record's own counts, each human answer's
+    verdict with a digest of its note, and the canonical digest of the
+    coverage record — computed by the ENGINE's `coverage.record_digest`, the
+    one canonicalisation both sides share. `wring deliver`'s cross-artifact
+    invariant compares these against the certificate before anything is
+    pushed (run 3's F13: a delivered page and a delivered certificate told
+    two different stories, and nothing was positioned to notice). P2.3's
+    self-test opens the portable page and reads exactly this block.
+
+    Facts already on the page, restated structurally — never a second
+    assessment.
+    """
+    import hashlib
+
+    judged = []
+    for criterion in board.criteria:
+        answer = criterion.judgement
+        if not isinstance(answer, dict):
+            continue
+        note = answer.get("note")
+        judged.append(
+            {
+                "criterion": criterion.id,
+                "verdict": answer.get("verdict"),
+                **(
+                    {
+                        "note_sha256": hashlib.sha256(
+                            str(note).encode("utf-8")
+                        ).hexdigest()
+                    }
+                    if note
+                    else {}
+                ),
+            }
+        )
+    coverage_digest = None
+    try:
+        from wringer import coverage as coverage_module
+
+        coverage_digest = coverage_module.record_digest(board.coverage)
+    except Exception:  # noqa: BLE001 — no engine here: the key stays null
+        coverage_digest = None
+    meta = {
+        "schema_version": "wringer.boardmeta.v1",
+        "run_id": board.run_dir.name if board.run_dir is not None else None,
+        "selected": board.selected,
+        "counts": board.acceptance_counts,
+        "judgements": judged,
+        "coverage_sha256": coverage_digest,
+    }
+    payload = json.dumps(meta, sort_keys=True, ensure_ascii=False)
+    # An HTML-escaped data attribute, deliberately not a script-tag JSON
+    # island: B1's guard forbids that tag's opening token in this package's
+    # chrome outright, and a carrier that cannot even be mistaken for
+    # executable is the better shape anyway. A reader takes the attribute
+    # and `html.unescape`s it. Escaped with quote=True HERE — the page's
+    # `_esc` deliberately leaves quotes alone for text nodes, and a quote
+    # inside an ATTRIBUTE ends it: the first render shipped exactly that,
+    # a data-meta cut off at the JSON's first `"`.
+    return (
+        '<div id="wringer-board-meta" hidden data-meta="'
+        + html.escape(payload, quote=True)
+        + '"></div>'
+    )
+
+
 def render(board: Board) -> str:
     """The whole page, as one self-contained string."""
     cards = [card_for(board, criterion) for criterion in board.criteria]
@@ -656,6 +727,24 @@ def render(board: Board) -> str:
     if board.refusal:
         body.append(f'<div class="refusal"><p>{_esc(board.refusal)}</p></div>')
         return _page(title, body)
+
+    # **Ruling 12: OUT OF DATE, across the whole board and above everything
+    # on it** (0.6.2). Recomputed at render time by the reader, against the
+    # engine's own `briefed.json` and document set — a page whose authorising
+    # documents moved after the work was briefed describes an answer to a
+    # question that has changed, and every card below inherits that. Not per
+    # card, by ruling. Absent `briefed.json` renders NOTHING here: silence,
+    # never a verdict.
+    if board.staleness_moved:
+        moved_names = ", ".join(f"<code>{_esc(n)}</code>" for n in board.staleness_moved)
+        body.append(
+            '<div class="refusal"><p><strong>OUT OF DATE.</strong> '
+            "Since the work on this page was briefed, the documents that "
+            f"authorise it have changed: {moved_names}. Everything below "
+            "describes the question as it was THEN — re-run "
+            "<code>wring verify</code> and re-render before trusting a "
+            "single card.</p></div>"
+        )
 
     # **THE SHORT VERSION, above everything.** The promise below is a careful
     # sentence about a subset, and the counts below it are a tally — both are
@@ -799,10 +888,23 @@ def render(board: Board) -> str:
     # page. The board renders the repository's NEWEST run record, so this is
     # also what says so.
     if board.run_dir is not None:
-        technical.append(
-            f"this page renders run <code>{_esc(board.run_dir.name)}</code> — "
-            "the newest record in the repository"
-        )
+        if board.selected:
+            # A caller pinned the record (0.6.2 — `wring deliver` renders
+            # the delivered page from the run it selected). "The newest
+            # record in the repository" would be a lie here the moment a
+            # newer run lands, which is exactly run 3's F13 contradiction
+            # from the other side.
+            technical.append(
+                f"this page renders run <code>{_esc(board.run_dir.name)}</code>"
+                " — the record its caller selected (a delivery renders the "
+                "run it delivers), not necessarily the newest in the "
+                "repository"
+            )
+        else:
+            technical.append(
+                f"this page renders run <code>{_esc(board.run_dir.name)}</code> — "
+                "the newest record in the repository"
+            )
     # **A guess about a gate NO REQUIREMENT OWNS.** Found by probing the
     # board's new card against the field case it was written for: in run 2's
     # example the gate that printed `ruff: command not found` was `lint`, and
@@ -859,6 +961,7 @@ def render(board: Board) -> str:
         + "".join(f"<li>{line}</li>" for line in technical)
         + "</ul></details>"
     )
+    body.append(_meta_island(board))
     return _page(title, body)
 
 

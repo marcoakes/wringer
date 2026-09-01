@@ -54,6 +54,7 @@ WAITS_ON_AN_ANSWER = {
     "git.GIT_TIMEOUT_SECONDS",
     "vacuity.SETUP_TIMEOUT_SECONDS",
     "judge.SHOW_TIMEOUT",
+    "deliver.BOARD_RENDER_TIMEOUT",
     "witness.TIMEOUT_SECONDS",
     "worker_auth.TIMEOUT",
     "worker_auth.HANDSHAKE_TIMEOUT",
@@ -487,4 +488,36 @@ def test_A_GIT_THAT_HANGS_NEVER_CONFIRMS_A_COMMIT_A_CERTIFICATE_NAMES(
     assert commit.outcome == certificate.NOT_HERE, commit
     assert commit.outcome != certificate.HOLDS, (
         "a git that never answered has confirmed a commit nobody looked for"
+    )
+
+
+def test_A_BOARD_RENDER_THAT_HANGS_YIELDS_HONEST_ABSENCE_NOT_A_STALE_PAGE(
+    tmp_path, monkeypatch
+):
+    """`deliver.BOARD_RENDER_TIMEOUT`'s expiry, driven (0.6.2).
+
+    The wait is answer-bearing: the rendered page is what the one-story
+    invariant cross-checks, so its expiry MUST resolve to the stated-absence
+    path — no page, and `mr.md` says the render failed — and never to a
+    fallback copy of whatever page was lying around, which would be F13
+    reintroduced through a hang.
+    """
+    import stat
+    import sys as sys_module
+
+    from wringer import deliver
+
+    hang = tmp_path / "hangs"
+    hang.write_text("#!/bin/sh\nsleep 30\n", encoding="utf-8")
+    hang.chmod(hang.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setattr(deliver, "BOARD_RENDER_TIMEOUT", 1)
+    monkeypatch.setattr(sys_module, "executable", str(hang))
+    # A stale page sits at the root, exactly where the old copy path looked.
+    (tmp_path / "board.html").write_text("<html>stale</html>", encoding="utf-8")
+
+    name, page = deliver._board_rendered(tmp_path, tmp_path / "no-run")
+
+    assert name is None and page is None, (
+        "a hung render produced a page from somewhere — nothing legitimate "
+        "could have written one"
     )

@@ -48,6 +48,14 @@ def build_parser() -> argparse.ArgumentParser:
         "PATH'. Without it the page says nothing about check health",
     )
     rendered.add_argument(
+        "--run",
+        metavar="DIR",
+        help="render THIS verification record instead of the newest one — "
+        "the door `wring deliver` uses so the delivered page and the "
+        "delivered certificate describe one run. The page says which run it "
+        "renders and that a caller selected it",
+    )
+    rendered.add_argument(
         "--audit-report",
         metavar="PATH",
         help="an audit report the engine wrote: 'wring audit --json ATTESTATION"
@@ -149,10 +157,19 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out)
 
     try:
+        selected = Path(args.run) if getattr(args, "run", None) else None
+        if selected is not None and not selected.is_dir():
+            print(
+                f"wringer-board: no run record at {selected} — nothing to "
+                "render from",
+                file=sys.stderr,
+            )
+            return 2
         board = read_module.read(
             repo,
             health_report=Path(args.health_report) if args.health_report else None,
             audit_report=Path(args.audit_report) if args.audit_report else None,
+            run_dir=selected,
         )
     except read_module.UnknownVersion as exc:
         # **Ruling 6, and the exit code says it too.** A version this board does

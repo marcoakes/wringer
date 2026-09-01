@@ -362,24 +362,16 @@ the situation impossible to miss, which it does.
 
 ### Ruling 12 — staleness is recomputed, is BOARD-level, and follows DELIVERY's document set
 
-> **UNBUILT as of 2026-08-30, and marked here rather than left silent** (D5
-> ruling 2 of the code-review disposition). Nothing in `src/wringer_board/`
-> implements the board-wide OUT OF DATE banner this ruling specifies:
-> `AUTHORITY_DOCUMENTS`, `briefed`, `sha256` and `digest` appear in that
-> package only in one docstring line, `staleness` is not on the layer seam's
-> permitted list, and no test in `tests/board/` mentions any of it. §2 ruling
-> 1 counts this as one of exactly THREE things the surface computes; it
-> computes two.
->
-> The engine-side halves ARE built and are what the cited line numbers below
-> describe — the comparison runs live at the loop's iteration boundary and at
-> delivery. What does not exist is this surface recomputing it and rendering
-> the banner.
->
-> The ruling stands. This marker is here because the alternative was silence,
-> and a spec that describes a mechanism nobody built is the class of defect
-> this window was opened to close — **the mechanism or the marker; never
-> neither.**
+> **BUILT 2026-09-01 (0.6.2), and the 2026-08-30 UNBUILT marker retires
+> with it** — the mechanism or the marker; never neither, and now it is the
+> mechanism. `read._staleness_moved` recomputes the comparison through the
+> ENGINE's own `staleness.moved` over `staleness.AUTHORITY_DOCUMENTS` (the
+> tuple imported, never hand-copied — `wringer.staleness` joined the layer
+> seam's permitted list with its argument written beside it), against the
+> `briefed.json` of the loop the rendered run belongs to; `render` shows
+> OUT OF DATE across the whole board, naming the moved documents. Absent
+> `briefed.json`, or no engine to ask: the page says NOTHING about
+> staleness — silence, never a verdict, exactly as ruled below.
 
 Nothing writes a stale verdict anywhere: the comparison runs live at the loop's
 iteration boundary (`loop.py:854-856`) and at delivery

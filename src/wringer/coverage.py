@@ -371,6 +371,29 @@ def check_counts(payload: dict[str, Any]) -> str | None:
     return "; ".join(wrong) or None
 
 
+def record_digest(recorded: dict[str, Any] | None) -> str | None:
+    """One canonical digest of a coverage record, or None for none (0.6.2).
+
+    Defined HERE — the module that owns the record — because two surfaces
+    now compare it (the board's machine-readable meta and `wring deliver`'s
+    cross-artifact invariant), and two canonicalisations is how one run
+    comes to disagree with itself. Sorted-key compact JSON over the PARSED
+    record, so byte-level formatting differences between writers cannot
+    move it.
+    """
+    if recorded is None:
+        return None
+    import hashlib
+    import json as json_module
+
+    return hashlib.sha256(
+        json_module.dumps(
+            recorded, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+
+
 def write(directory: Path, coverage: Coverage, redactor: Any = None) -> Path:
     """Write `coverage.json` into a bundle. A NEW file; nothing else moves.
 

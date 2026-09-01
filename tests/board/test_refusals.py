@@ -106,6 +106,7 @@ ENGINE_VALUES: dict[str, frozenset[str]] = {
             "branch_is_default",
             "case_alias_collision",
             "default_branch_unknown",
+            "delivery_surface_mismatch",
             "files_unreadable_at_verify",
             "gates_did_not_pass",
             "gates_vacuous",

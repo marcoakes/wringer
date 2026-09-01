@@ -530,6 +530,14 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "exists, and overwriting it might destroy somebody's work.",
         "Nothing is needed from you; an engineer has to clear the way.",
     ),
+    (DELIVERY_REFUSAL, "delivery_surface_mismatch"): Saying(
+        "The handover is being held because the papers it would carry do "
+        "not agree with each other — the certificate, the page and the "
+        "report describe different runs or different answers, and handing "
+        "over a bundle that tells two stories would be worse than waiting.",
+        "Nothing is needed from you; re-running the checks refreshes every "
+        "paper from one run, and an engineer can do that.",
+    ),
     # **Said BEFORE the person answers, which is the whole reason it exists.**
     # Ruling 18 holds: this does not soften anything and it does not decide.
     # It is one fact and one question, put in front of the person while their

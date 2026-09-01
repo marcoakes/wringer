@@ -201,11 +201,28 @@ class Board:
 
     repo: Path
     run_dir: Path | None = None
+    # **0.6.2.** True when a CALLER pinned `run_dir` — `wring deliver`
+    # rendering the delivered page from the record it selected — and False
+    # for the recency default. The engineers' block words the run line on
+    # this flag, because "the newest record in the repository" is a sentence
+    # that becomes a lie the moment a caller selects.
+    selected: bool = False
+    # **Ruling 12 (0.6.2), three-valued.** A non-empty tuple: the named
+    # authorising documents hash differently NOW than `briefed.json`
+    # recorded — the whole board is OUT OF DATE, and the banner names them.
+    # `()`: compared and unmoved. None: no briefed.json to compare against
+    # (or no engine to compare with), and the page then says NOTHING about
+    # staleness — silence, never a verdict.
+    staleness_moved: tuple[str, ...] | None = None
     loop_dir: Path | None = None
     acceptance_version: str | None = None
     criteria: list[Criterion] = field(default_factory=list)
     limits: list[str] = field(default_factory=list)
     attempts: list[Attempt] = field(default_factory=list)
+    # The acceptance record's own `counts` object, verbatim — carried for the
+    # machine-readable meta block (0.6.2), where a delivery-time invariant
+    # compares it against the certificate's copy of the same record.
+    acceptance_counts: dict[str, Any] | None = None
     ordered: bool = False
     spec_title: str | None = None
     spec_intent: str | None = None
@@ -309,6 +326,68 @@ def latest_loop(repo: Path) -> Path | None:
     if not candidates:
         return None
     return _newest(candidates)
+
+
+def _staleness_moved(repo: Path, loop_dir: Path | None) -> tuple[str, ...] | None:
+    """Ruling 12's comparison, or None for silence. Engine-guarded like
+    every other import through the seam: no engine, no claim."""
+    if loop_dir is None:
+        return None
+    briefed_path = loop_dir / "briefed.json"
+    if not briefed_path.is_file():
+        return None
+    try:
+        from wringer import staleness as staleness_module
+
+        briefed = json.loads(briefed_path.read_text(encoding="utf-8"))
+        recorded = briefed.get("documents")
+        if not isinstance(recorded, dict):
+            return None
+        return tuple(
+            staleness_module.moved(
+                recorded,
+                staleness_module.capture(repo),
+                staleness_module.AUTHORITY_DOCUMENTS,
+            )
+        )
+    except Exception:  # noqa: BLE001 — no engine, unreadable record: silence
+        return None
+
+
+def loop_for_run(repo: Path, run_dir: Path) -> Path | None:
+    """The loop whose own ledger cites this run, or None.
+
+    An EXACT join on the ledger's `verify.finished.evidence_dir` — the
+    "join from a run to its loop is exact" rule: for a SELECTED record the
+    loop rail must be the loop that produced it, not whichever loop is
+    newest. None when no ledger cites it (a standalone `wring verify`), and
+    the attempts then render as a set with no order language, exactly as a
+    loopless repository's do.
+    """
+    loops = repo / ".wringer" / "loops"
+    if not loops.is_dir():
+        return None
+    wanted = run_dir.name
+    candidates = sorted((p for p in loops.iterdir() if p.is_dir()), reverse=True)
+    for candidate in candidates:
+        ledger = candidate / EVENTS_FILENAME
+        if not ledger.is_file():
+            continue
+        try:
+            text = ledger.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            if '"verify.finished"' not in line:
+                continue
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            named = str(event.get("evidence_dir") or "")
+            if named and Path(named).name == wanted:
+                return candidate
+    return None
 
 
 def attempts_from_loop(repo: Path, loop_dir: Path | None) -> tuple[list[Attempt], bool]:
@@ -685,12 +764,25 @@ def read(
     repo: Path,
     health_report: Path | None = None,
     audit_report: Path | None = None,
+    run_dir: Path | None = None,
 ) -> Board:
-    """Everything one render needs. Raises `UnknownVersion` rather than guess."""
+    """Everything one render needs. Raises `UnknownVersion` rather than guess.
+
+    `run_dir` pins the board to ONE verification record (0.6.2): `wring
+    deliver` renders the delivered page from the record it selected, so the
+    board and the certificate cannot tell different stories — run 3's F13
+    was exactly that contradiction, a copied root page naming an old run
+    beside a certificate naming the delivered one. None keeps the recency
+    default below, byte-identical for every existing caller.
+    """
     repo = repo.resolve()
     board = Board(repo=repo)
     board.spec_title, board.spec_intent = read_spec(repo)
-    board.loop_dir = latest_loop(repo)
+    if run_dir is not None:
+        board.selected = True
+        board.loop_dir = loop_for_run(repo, run_dir)
+    else:
+        board.loop_dir = latest_loop(repo)
     board.attempts, board.ordered = attempts_from_loop(repo, board.loop_dir)
 
     # **RECENCY WINS** — the run the board describes is the repository's
@@ -711,7 +803,7 @@ def read(
     # page names the run it rendered (the engineers' block), because the whole
     # cost of the finding was that a stale page and a fresh record could not be
     # told apart by reading them.
-    board.run_dir = latest_run(repo)
+    board.run_dir = run_dir.resolve() if run_dir is not None else latest_run(repo)
     if board.run_dir is None or not board.run_dir.is_dir():
         board.refusal = (
             "There is no evidence here yet. Nothing has been verified in this "
@@ -751,6 +843,10 @@ def read(
         raise UnknownVersion(ACCEPTANCE_FILENAME, str(version), KNOWN_ACCEPTANCE)
 
     board.limits = list(accepted.get("limits") or [])
+    board.acceptance_counts = (
+        dict(accepted.get("counts")) if isinstance(accepted.get("counts"), dict)
+        else None
+    )
     # The run's capture of the judgements file (0.6.1) — read once, like
     # coverage below. Absent is absent: no record, no claims.
     judgement_record = _load(board.run_dir / JUDGEMENT_RECORD_FILENAME)
@@ -792,6 +888,16 @@ def read(
     # M requirements carry a check" living in this package is how the board
     # and the merge request come to state different numbers for one run.
     board.coverage = _load(board.run_dir / COVERAGE_FILENAME)
+
+    # **Ruling 12: staleness is recomputed, is BOARD-level, and follows
+    # DELIVERY's document set** (0.6.2; the spec carried an UNBUILT marker
+    # for this from 2026-08-30 until it shipped — the mechanism or the
+    # marker, never neither). The comparison is the ENGINE's own —
+    # `staleness.moved` over `staleness.AUTHORITY_DOCUMENTS`, the tuple
+    # imported and never hand-copied — against the `briefed.json` of the
+    # loop this page's run belongs to. No briefed.json, or no engine to
+    # ask: the page says NOTHING about staleness. Silence, never a verdict.
+    board.staleness_moved = _staleness_moved(repo, board.loop_dir)
 
     # **A guess about a red the ENVIRONMENT may have caused** — field
     # report 2026-08-28, finding 4. `ruff: command not found` went into

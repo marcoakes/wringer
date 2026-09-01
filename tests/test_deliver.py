@@ -2429,11 +2429,20 @@ def test_THE_BOARD_TRAVELS_AND_IS_SCRUBBED_ON_THE_WAY(
         encoding="utf-8",
     )
     monkeypatch.setenv("MY_SEKRIT_TOKEN", "sekrit-token-value")
-    (delivery_repo / "board.html").write_text(
-        "<html><body>the page, and sekrit-token-value in it</body></html>",
-        encoding="utf-8",
-    )
     verified(delivery_repo, monkeypatch, capsys)
+
+    # Since 0.6.2 the page is RENDERED by the delivery, not copied from the
+    # root — so the vector is a render whose output carries the credential
+    # (a failing card's gate stderr is the real-world route). The renderer
+    # is wrapped rather than replaced: the real page, plus the leak.
+    real = deliver._board_rendered
+
+    def leaky(root, run_dir):
+        name, page = real(root, run_dir)
+        assert page is not None
+        return name, page.replace("</body>", "sekrit-token-value</body>")
+
+    monkeypatch.setattr(deliver, "_board_rendered", leaky)
     assert cli.main(["deliver"]) == cli.EXIT_OK
     capsys.readouterr()
 
@@ -2441,19 +2450,25 @@ def test_THE_BOARD_TRAVELS_AND_IS_SCRUBBED_ON_THE_WAY(
     copied = written / certificate.BOARD_FILENAME
     assert copied.is_file(), sorted(p.name for p in written.iterdir())
     page = copied.read_text(encoding="utf-8")
-    assert "the page" in page
     assert "sekrit-token-value" not in page, page
+    assert "[REDACTED]" in page, "the scrub left no mark, so what removed it?"
 
     mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
     assert certificate.BOARD_FILENAME in mr
 
 
-def test_A_DELIVERY_WITH_NO_BOARD_SAYS_SO_RATHER_THAN_GOING_QUIET(
+def test_A_DELIVERY_RENDERS_ITS_OWN_BOARD_FROM_THE_SELECTED_RECORD(
     delivery_repo, monkeypatch, capsys
 ):
-    """Absence is absence. Saying nothing would let a delivery that carried
-    no page read exactly like one that did — which is the defect class this
-    whole programme is about, in the artifact it is about."""
+    """0.6.2 inverts this test's old subject, and run 3's F13 is why.
+
+    It used to assert that a repository with no root `board.html` delivered
+    no board — "absence is absence". The absence RULE stands (the mr.md
+    sentence for a failed render still says so), but the ordinary case
+    moved: a delivery now RENDERS the page itself, from the record it
+    selected, so a repository that never rendered a board still hands one
+    over — and the page it hands names the delivered run instead of
+    whichever run a stale root page happened to describe."""
     from wringer import certificate
 
     accepting_repo(delivery_repo, bound=False)
@@ -2462,9 +2477,15 @@ def test_A_DELIVERY_WITH_NO_BOARD_SAYS_SO_RATHER_THAN_GOING_QUIET(
     capsys.readouterr()
 
     written = _delivered(delivery_repo)
-    assert not (written / certificate.BOARD_FILENAME).exists()
+    page = written / certificate.BOARD_FILENAME
+    assert page.is_file(), sorted(p.name for p in written.iterdir())
     mr = (written / deliver.MR_FILENAME).read_text(encoding="utf-8")
-    assert f"There is no `{certificate.BOARD_FILENAME}`" in mr, mr
+    assert "RENDERED BY THIS DELIVERY" in mr, mr
+    run_named = _run_the_mr_is_about(delivery_repo, mr)
+    assert run_named.name in page.read_text(encoding="utf-8"), (
+        "the delivered page does not name the delivered run — F13's "
+        "contradiction is constructable again"
+    )
 
 
 def test_THE_MR_NO_LONGER_TELLS_A_REVIEWER_THE_MAP_IS_NOT_COMING(

@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -113,6 +113,10 @@ REFUSAL_REASONS = (
     "branch_is_default",
     "branch_is_current",
     "branch_exists",
+    # 0.6.2, run 3 F13: the delivery's own surfaces — certificate, board,
+    # summary, mr.md — disagreed about which run, which counts, which
+    # judgement. One directory, two stories, no refusal. Now the refusal.
+    "delivery_surface_mismatch",
 )
 
 # `.wringer/refusals/<id>/refusal.json`. A root of its own, and NEVER under
@@ -274,6 +278,18 @@ class Plan:
     # judged-without-display fact from it, and the acceptance row's frozen
     # judgement object cannot carry the display facts.
     judgement_record: dict[str, Any] | None = None
+    # The run's own `summary.md`, or None when the record has none (0.6.2,
+    # F14): `mr.md` promised a summary the handed-over delivery did not
+    # carry. Now it travels, and it is digested like everything else here.
+    run_summary: str | None = None
+    # The red receipts (0.6.2, F15): for every requirement the certificate
+    # marks PROVED, the cited run's own record — manifest, hash-chained
+    # ledger, digest manifest, and each gate's result row — keyed by run id,
+    # each file verbatim. Packed so a clean clone can check the fail-first
+    # claim from the delivery alone; `health.qualifying` still refuses every
+    # committed bundle for ACCEPTANCE, deliberately — these serve the
+    # AUDIT's claim and can never earn a red-first tick.
+    receipts: dict[str, dict[str, str]] = field(default_factory=dict)
     # `wringer.falsification.v1`, the run's own record, or None. Another
     # sibling that travels beside the certificate rather than a key
     # inside it, for the same reason.
@@ -1165,10 +1181,17 @@ def plan(
         spec_sha256=spec_sha256,
         run_relative=run_relative,
     )
-    board, board_page = _board_to_carry(root)
+    board, board_page = _board_rendered(root, run_dir)
     measured = coverage.read(run_dir)
     broken = falsify.read(run_dir)
     judged_record = accept.read_judgement_record(run_dir)
+    try:
+        run_summary = (run_dir / summary.SUMMARY_FILENAME).read_text(
+            encoding="utf-8"
+        )
+    except (OSError, UnicodeDecodeError):
+        run_summary = None
+    receipts = _receipts_to_carry(root, built)
     # Tracked changes, plus a real new-file diff for the untracked ones. A
     # change made entirely of new files used to render an EMPTY patch, so the
     # human approving `--send` approved nothing. `--no-index` gets the content
@@ -1177,13 +1200,17 @@ def plan(
     patch = (git.diff(root, state.head_sha) or "") + git.diff_untracked(
         root, untracked
     )
+    mr = _mr_body(run_dir, root, state, len(carried), built, board)
+    # **One story or nothing ships** (0.6.2, run 3 F13) — after every
+    # carried surface exists and before anything is written or pushed.
+    _check_one_story(run_dir, built, board_page, measured, run_summary, mr)
     return Plan(
         branch=branch,
         base=base,
         remote=settings.remote,
         title=title,
         commit_message=f"{title}\n\nVerified by wringer: {run_dir.name}\n",
-        mr_body=_mr_body(run_dir, root, state, len(carried), built, board),
+        mr_body=mr,
         patch=patch,
         changed_files=carried,
         # **REPO-RELATIVE, like every other cross-bundle reference in this
@@ -1204,6 +1231,8 @@ def plan(
         coverage=measured,
         falsification=broken,
         judgement_record=judged_record,
+        run_summary=run_summary,
+        receipts=receipts,
         commands=(
             f"git switch --create {branch}",
             # the planned paths on stdin — never a bare add --all; see send()
@@ -1241,28 +1270,268 @@ def _title(run_dir: Path, root: Path, task: str | None) -> str:
     return task or f"wringer: verified change {run_dir.name}"
 
 
-def _board_to_carry(root: Path) -> tuple[str | None, str | None]:
-    """The board page this delivery should copy — its path and its bytes.
+#: How long a board render may take before the delivery stops waiting for
+#: it. Generous — a render is file reads and string building — and a hang
+#: here must not hold a delivery hostage.
+BOARD_RENDER_TIMEOUT = 60
 
-    `<root>/board.html` is where `wringer-drive` writes it and where
-    `INSTALL.md` tells every operator to put it, so that is where this looks.
-    **The engine does not render it.** The board is a layer above this one
-    and consumes what the engine emits; an engine that invoked the board
-    would be the seam dissolving from the other side, and `wring deliver`
-    would have acquired a dependency on a surface. So it copies a page
-    somebody made, or it copies nothing and says which.
 
-    A page that cannot be read is reported as no page at all, both here and
-    in `mr.md`, which reads the same answer. Refusing a delivery over a copy
-    of a rendering would be this slice taking a power it was not granted.
+def _board_rendered(root: Path, run_dir: Path) -> tuple[str | None, str | None]:
+    """The board page rendered FROM THE SELECTED RECORD — never a root copy.
+
+    **Run 3, F13, is why the copy died.** This function used to read
+    `<root>/board.html` as it sat on disk — whatever run it was rendered
+    from, whenever — and the delivered board named an old run, stale counts
+    and a pending judgement beside a certificate saying the opposite. The
+    two artifacts in one delivery told two stories, and nothing was
+    positioned to notice.
+
+    **The seam holds: the engine still renders nothing.** The board stays
+    the layer above, "consuming bundles and the CLI as its API" — and the
+    CLI is exactly what this uses: `wringer-board render --run <record>`,
+    the surface's own front door, in a subprocess. No board import enters
+    the engine; a render is the board's work, done by the board, pointed at
+    the record THIS delivery selected.
+
+    A render that fails or times out is reported as no page at all — here
+    and in `mr.md`, which reads the same answer, with the reason. Refusing
+    a delivery over a rendering would be taking a power this slice was not
+    granted; the cross-artifact invariant is what refuses, and only over a
+    page that EXISTS and disagrees.
     """
-    page = root / BOARD_FILENAME
-    if not page.is_file():
-        return None, None
+    import subprocess
+    import sys
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="wringer-board-") as scratch:
+        out = Path(scratch) / BOARD_FILENAME
+        try:
+            done = subprocess.run(
+                [
+                    sys.executable, "-m", "wringer_board", "render",
+                    str(root), "--run", str(run_dir), "-o", str(out),
+                ],
+                capture_output=True, text=True, timeout=BOARD_RENDER_TIMEOUT,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None, None
+        if done.returncode != 0 or not out.is_file():
+            return None, None
+        try:
+            return BOARD_FILENAME, out.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            return None, None
+
+
+#: What travels for one cited red-first receipt (0.6.2, F15): the run's
+#: index, its hash-chained ledger, its digest manifest — which covers the
+#: logs that stay behind — and every gate's result row. The LOGS stay with
+#: the machine, as everywhere: a bundle may hold whatever a gate printed.
+RECEIPTS_DIRNAME = "receipts"
+_RECEIPT_FILES = ("manifest.json", evidence.EVIDENCE_FILENAME, "digests.json")
+
+
+def _receipts_to_carry(
+    root: Path, built: dict[str, Any] | None
+) -> dict[str, dict[str, str]]:
+    """The cited runs behind every PROVED claim, packed to travel.
+
+    Run 3's clean-clone audit reported the one claim that matters most —
+    the record shows the check failing — as unavailable: *"run
+    `20260831-134640-258d` did not travel with this document, so nothing
+    here can look."* Now it travels: for each receipt the certificate
+    cites, the run's `manifest.json`, `evidence.jsonl` (the hash chain),
+    `digests.json` (which pins the logs that stay behind), and each
+    `gates/NNN_<id>/result.json`, verbatim, keyed by run id under
+    `receipts/<run_id>/`.
+
+    **This can never become manufactured red-first.** `health.qualifying`
+    refuses every committed or copied bundle for ACCEPTANCE — the corpus
+    paid for that lesson — and nothing here touches it: the pack serves
+    `wring audit`'s claim about the CERTIFICATE, and a clone that carries
+    it still cannot earn a single evidenced tick from it.
+
+    Best-effort per file: a cited run already gone from disk packs nothing,
+    and the audit then says NOT_HERE exactly as before — absence stated,
+    never invented.
+    """
+    packed: dict[str, dict[str, str]] = {}
+    if built is None:
+        return packed
+    for row in built.get("requirements") or []:
+        receipt = row.get("receipt")
+        if not isinstance(receipt, dict):
+            continue
+        bundle_rel = str(receipt.get("bundle") or "")
+        if not bundle_rel:
+            continue
+        bundle_dir = (root / bundle_rel).resolve()
+        run_id = bundle_dir.name
+        if run_id in packed or not bundle_dir.is_dir():
+            continue
+        files: dict[str, str] = {}
+        for name in _RECEIPT_FILES:
+            path = bundle_dir / name
+            if path.is_file():
+                try:
+                    files[name] = path.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+        gates_dir = bundle_dir / "gates"
+        if gates_dir.is_dir():
+            for result in sorted(gates_dir.glob("*/result.json")):
+                try:
+                    files[f"gates/{result.parent.name}/result.json"] = (
+                        result.read_text(encoding="utf-8")
+                    )
+                except (OSError, UnicodeDecodeError):
+                    continue
+        if files:
+            packed[run_id] = files
+    return packed
+
+
+def _board_meta(page: str | None) -> dict[str, Any] | None:
+    """The board page's machine-readable identity, or None.
+
+    The reader half of `wringer.boardmeta.v1` (0.6.2): the page carries its
+    facts in an HTML-escaped `data-meta` attribute, and this parses exactly
+    that — no HTML parser, one anchored pattern, `html.unescape`, JSON.
+    None for a page without the block (a page rendered by an older board),
+    and the invariant then treats the page as it treats an absent one: it
+    cannot check what is not stated, and says so rather than guessing.
+    """
+    if not page:
+        return None
+    import html as html_module
+    import re
+
+    found = re.search(r'id="wringer-board-meta" hidden data-meta="([^"]*)"', page)
+    if not found:
+        return None
     try:
-        return BOARD_FILENAME, page.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return None, None
+        meta = json.loads(html_module.unescape(found.group(1)))
+    except ValueError:
+        return None
+    if not isinstance(meta, dict):
+        return None
+    if meta.get("schema_version") != "wringer.boardmeta.v1":
+        return None
+    return meta
+
+
+def _check_one_story(
+    run_dir: Path,
+    built: dict[str, Any] | None,
+    board_page: str | None,
+    measured: dict[str, Any] | None,
+    run_summary: str | None,
+    mr: str,
+) -> None:
+    """Every surface this delivery carries tells ONE story, or nothing ships.
+
+    **Run 3, F13, is the measurement**: the delivered certificate said 1 of
+    7 proved, the human judgement MET with the note reproduced — and the
+    delivered board said none proved, the gate still red, judgement still
+    pending, rendering a different run. Two artifacts, one directory, two
+    stories, no refusal. This is that refusal: run id, counts, judgement
+    state, note digest and coverage digest are compared across the
+    certificate, the board's machine-readable meta, `summary.md` and
+    `mr.md`, and a mismatch is `delivery_surface_mismatch` — exit 3, the
+    unsafe-state code, because the tree is fine and the STORY is not.
+
+    Only surfaces that EXIST are compared: a delivery with no board says so
+    in `mr.md` and is not a mismatch. What may never happen is two present
+    surfaces disagreeing.
+    """
+    import hashlib
+
+    run_id = run_dir.name
+    stories: list[str] = []
+
+    if built is not None:
+        named = str((built.get("run") or {}).get("id") or "")
+        if named and named != run_id:
+            stories.append(
+                f"the certificate names run `{named}` and this delivery "
+                f"selected `{run_id}`"
+            )
+
+    if run_summary is not None and run_id not in run_summary:
+        stories.append(
+            f"the travelling summary.md never names run `{run_id}`, so it "
+            "describes some other verification"
+        )
+
+    if run_id not in mr:
+        stories.append(f"mr.md never names run `{run_id}`")
+
+    meta = _board_meta(board_page)
+    if meta is not None:
+        board_run = str(meta.get("run_id") or "")
+        if board_run != run_id:
+            stories.append(
+                f"the board renders run `{board_run or 'unknown'}` and this "
+                f"delivery selected `{run_id}`"
+            )
+        if built is not None:
+            cert_counts = (built.get("acceptance") or {}).get("counts")
+            board_counts = meta.get("counts")
+            if (
+                cert_counts is not None
+                and board_counts is not None
+                and cert_counts != board_counts
+            ):
+                stories.append(
+                    f"the certificate counts {cert_counts} and the board "
+                    f"counts {board_counts}"
+                )
+            cert_judged = {}
+            for row in built.get("requirements") or []:
+                answer = row.get("judgement")
+                if isinstance(answer, dict):
+                    note = answer.get("note")
+                    cert_judged[str(row.get("id"))] = (
+                        str(answer.get("verdict") or ""),
+                        hashlib.sha256(str(note).encode("utf-8")).hexdigest()
+                        if note
+                        else "",
+                    )
+            board_judged = {
+                str(entry.get("criterion")): (
+                    str(entry.get("verdict") or ""),
+                    str(entry.get("note_sha256") or ""),
+                )
+                for entry in meta.get("judgements") or []
+                if isinstance(entry, dict)
+            }
+            if cert_judged != board_judged:
+                stories.append(
+                    "the certificate and the board disagree about the human "
+                    f"judgements (certificate: {sorted(cert_judged)}, board: "
+                    f"{sorted(board_judged)}, or their verdicts/notes differ)"
+                )
+        expected = coverage.record_digest(measured)
+        board_cov = meta.get("coverage_sha256")
+        if expected is not None and board_cov is not None and (
+            board_cov != expected
+        ):
+            stories.append(
+                "the board's coverage digest is not this run's coverage "
+                "record"
+            )
+
+    if stories:
+        raise Refused(
+            "this delivery's surfaces tell more than one story, so none of "
+            "it ships:\n  - "
+            + "\n  - ".join(stories)
+            + "\n\nEvery carried artifact must describe the one selected "
+            "run. Re-run `wring verify` and deliver from the fresh record — "
+            "nothing was created and nothing was pushed.",
+            3,
+            reason="delivery_surface_mismatch",
+        )
 
 
 def _mr_body(
@@ -1357,6 +1626,7 @@ def _mr_body(
         travelling.append(f"`{falsify.FALSIFICATION_FILENAME}`")
     if board is not None:
         travelling.append(f"`{BOARD_FILENAME}`")
+    travelling.append(f"`{summary.SUMMARY_FILENAME}`")
     lines += [
         "",
         "The gate LOGS stay with the machine that ran it, and only those: a "
@@ -1378,23 +1648,31 @@ def _mr_body(
         ]
     if board is not None:
         lines.append(
-            f"- `{BOARD_FILENAME}` is a copy of the page, self-contained: one "
-            "HTML file, no assets and nothing to install. It was rendered "
-            "from this repository, and whether it names THIS run is stated on "
-            "the page itself."
+            f"- `{BOARD_FILENAME}` is the page, self-contained: one HTML "
+            "file, no assets and nothing to install. It was RENDERED BY THIS "
+            f"DELIVERY from run `{run_dir.name}` — the record every other "
+            "file here describes — and the page says so on itself."
         )
     else:
         # Absence is absence. Saying nothing here would let a delivery with no
         # page read exactly like one that carried it.
         lines.append(
-            f"- There is no `{BOARD_FILENAME}` in this repository, so none "
-            "was copied. `wringer-board render . -o board.html` makes one, "
-            "and the next delivery will carry it."
+            f"- There is no `{BOARD_FILENAME}` in this delivery: the board "
+            "could not be rendered here (the surface is missing or its "
+            "render failed). Everything else still travels."
         )
+    lines.append(
+        f"- `{RECEIPTS_DIRNAME}/` carries, for every requirement marked "
+        "PROVED, the cited run's own record — its manifest, its "
+        "hash-chained ledger, its digest manifest and its gate results — so "
+        "`wring audit` can check the fail-first claim from this directory "
+        "alone. Receipts prove the certificate's citation; they can never "
+        "earn a new tick."
+    )
     lines += [
         "",
-        f"_Opened by `wring deliver`. {summary.SUMMARY_FILENAME} in the bundle "
-        "is the human-readable report._",
+        f"_Opened by `wring deliver`. `{summary.SUMMARY_FILENAME}` — the "
+        "run's human-readable report — travels in this directory._",
         "",
     ]
     return "\n".join(lines)
@@ -1572,6 +1850,25 @@ class Bundle:
                 + "\n",
                 encoding="utf-8",
             )
+        if planned.run_summary is not None:
+            # F14 (0.6.2): mr.md promised a summary the delivery never
+            # carried. It travels now, scrubbed, and `write_digests` below
+            # covers it like everything else here.
+            (self.directory / summary.SUMMARY_FILENAME).write_text(
+                write(planned.run_summary), encoding="utf-8"
+            )
+        for run_id, files in sorted(planned.receipts.items()):
+            # F15 (0.6.2): the red receipts travel. Scrubbed on the way in,
+            # like every write here — the sources were scrubbed at their own
+            # birth with the same environment-derived values, so this is
+            # idempotent in the ordinary case; if a NEW secret in today's
+            # environment matches old bytes, the scrub alters them, the
+            # packed chain visibly breaks, and `wring audit` says so — the
+            # failure lands closed, never silent.
+            for rel, content in sorted(files.items()):
+                target = self.directory / RECEIPTS_DIRNAME / run_id / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(write(content), encoding="utf-8")
         if planned.board_page is not None:
             (self.directory / BOARD_FILENAME).write_text(
                 write(planned.board_page), encoding="utf-8"

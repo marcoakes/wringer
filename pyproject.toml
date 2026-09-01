@@ -106,6 +106,10 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # six function signatures — hides the reason at each site instead of stating it
 # once here.
 "tests/test_refusal.py" = ["F811"]
+# Same false positive, same fixture family, same reason (0.6.2): the
+# one-delivery-one-story tests run inside a REAL delivery via
+# `test_deliver`'s fixtures rather than a second copy that would drift.
+"tests/test_one_delivery_one_story.py" = ["F811"]
 
 # **E501 on the merged board source is DATED DEBT, stated rather than hidden.**
 #

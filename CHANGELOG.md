@@ -4,6 +4,75 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.2 — 2026-09-01
+
+**One delivery, one story — the third slice of the cross-surface window.**
+Run 3, F13/F14/F15: the delivered board was a copy of a stale root page
+naming an old run, stale counts and a pending judgement beside a
+certificate saying the opposite; `mr.md` promised a `summary.md` the
+delivery did not carry; and the clean-clone audit could not check the
+red-first claim because its evidence never travelled.
+
+### The board is rendered from the selected record, never copied
+
+`wring deliver` invokes the board's own CLI (`wringer-board render --run
+<the selected record>`, a subprocess — no board import enters the engine;
+the surface's charter is "consuming bundles and the CLI as its API", and
+the CLI is exactly what is consumed). The page says a caller selected its
+run; the recency sentence stays for recency renders. A failed or timed-out
+render is honest absence in `mr.md`, never a fallback copy. `read()` takes
+a `run_dir`, and the selected run's loop rail comes from the loop whose own
+ledger cites it.
+
+### `delivery_surface_mismatch` — the cross-artifact invariant
+
+The page carries `wringer.boardmeta.v1` — run id, acceptance counts,
+judgement verdicts with note digests, and the coverage record's canonical
+digest (`coverage.record_digest`, the one canonicalisation both sides
+share) — in an inert HTML-escaped data attribute. At plan time, after
+every surface exists, the run id, counts, judgement state, note digests
+and coverage digest are compared across certificate, board meta,
+`summary.md` and `mr.md`; a mismatch refuses delivery by name, exit 3,
+with a refusal record. The taken-path test forces the renderer to lie
+about the run — the only place the F13 shape can still arise — and run
+3's stale-board contradiction is unconstructable.
+
+### `summary.md` travels; the red receipts travel
+
+The run's summary rides the delivery, digested (F14), and `mr.md`'s
+promise now points at the travelling copy. For every PROVED requirement,
+`receipts/<run_id>/` packs the cited run's manifest, hash-chained ledger,
+digest manifest and gate results (F15). `wring audit` resolves the
+red-first claim from the pack when the machine's bundles don't hold it —
+after verifying every packed file against the pack's own digest rows and
+walking the ledger chain from genesis; tampering is BROKEN, never
+silently unavailable, and a verified claim says "from the receipt this
+delivery carries". A clean clone plus the handed-over delivery now audits
+every PROVED claim with zero unavailable ones. The corpus's law is kept
+untouched: a packed receipt is `committed=True`, `health.qualifying`
+still refuses it, and it can never earn an acceptance tick.
+
+### Ruling 12's staleness banner, and the marker retires
+
+The board recomputes staleness through the engine's own
+`staleness.moved` over `AUTHORITY_DOCUMENTS` — the tuple imported, never
+hand-copied; `wringer.staleness` joined the layer seam's permitted list
+with its argument written beside it — against the rendered run's own
+loop's `briefed.json`, and renders OUT OF DATE across the whole board
+naming the moved documents. No briefed record: silence, never a verdict.
+SPEC_BOARD ruling 12's UNBUILT marker is retired by the mechanism.
+
+### Found while landing it
+
+The meta attribute shipped broken for the length of one test run: the
+board's `_esc` deliberately leaves quotes alone, so the JSON ended the
+attribute at its first quote and the reader got nothing — the invariant
+silently skipping the board leg, the F13 class in miniature. Fixed with
+attribute-context escaping and red-watched. The first red-watch pass also
+caught two overlapping tamper guards masking each other's reverts (one
+tampered line tripped both the digest row and the chain walk); the tamper
+tests were split so each guard has a vector only it can catch.
+
 ## 0.6.1 — 2026-09-01
 
 **The pen fails closed — the second slice of the cross-surface window.**

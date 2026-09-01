@@ -89,6 +89,7 @@ PERMITTED = {
     "wringer.config",
     "wringer.coverage",
     "wringer.diagnose",
+    "wringer.staleness",
     "wringer",
 }
 
@@ -202,6 +203,17 @@ def test_the_permitted_list_is_not_silently_widened():
         # overlap or a checkout rewrites mtimes. The board asks rather than
         # keeping a second one, which is what this seam is for.
         "wringer.evidence",
+        # Admitted 2026-09-01, for SPEC_BOARD ruling 12 (0.6.2): the board
+        # recomputes board-level staleness, and the ruling's own words are
+        # why this is an import — "the filenames are never hand-copied
+        # silently: the surface imports the tuple". The comparison
+        # (`staleness.moved`), the capture, and `AUTHORITY_DOCUMENTS` are
+        # the ENGINE's one implementation; a board that kept its own list
+        # or its own hash walk could disagree with `wring deliver` about
+        # whether the authorising documents moved — the exact
+        # two-surfaces-one-fact drift this seam exists to prevent. Guarded
+        # like every other admitted import: no engine, no claim, silence.
+        "wringer.staleness",
         "wringer",
     }, (
         "the permitted-import set changed. That is allowed, but it is the "
