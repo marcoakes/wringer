@@ -27,11 +27,11 @@ can read it too.
 
 Drafting the plan calls a model, which costs money and needs **an API key for whichever
 provider you choose** — billed per token, pennies per run. The providers measured so far,
-and the one Keychain name for each, are in [the measured vendor list](https://github.com/marcoakes/wringer/blob/main/docs/vendors.md). Give the key
-to your Mac's Keychain in **Terminal**, not in your agent — swap `anthropic` for yours:
+and the one Keychain name for each (`anthropic-api-key`, `deepseek-api-key`, …), are in
+[the measured vendor list](https://github.com/marcoakes/wringer/blob/main/docs/vendors.md). Give the key to your Mac's Keychain in **Terminal**, not in your agent:
 
 ```bash
-security add-generic-password -U -s anthropic -a wringer -w
+security add-generic-password -U -s <vendor>-api-key -a wringer -w
 ```
 
 No value after `-w`, deliberately: your Mac prompts you with the input masked, so the key

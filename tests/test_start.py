@@ -507,6 +507,37 @@ def test_the_emitter_takes_no_worker_form_but_the_acp_one():
     assert signature.parameters["worker"].annotation == "config.AcpWorker | None"
 
 
+def test_the_agent_door_says_it_is_ACP_and_names_the_shell_route(
+    repo, fake_agent, monkeypatch, capsys
+):
+    """Run 3, F3: the operator read this list as 'the agents Wringer
+    supports' when it is only the agents THIS door offers. The step labels
+    the door and says where the other route is written — without naming a
+    vendor, which stays agents.py's monopoly (rule 5)."""
+    real_gates(repo)
+    monkeypatch.chdir(repo)
+
+    code = cli.main(["start", "--accept-gates", "--agent", fake_agent.id])
+    said = capsys.readouterr().out
+
+    assert code == cli.EXIT_OK
+    assert "This door offers ACP agents" in said
+    assert "docs/vendors.md" in said
+    assert f"{fake_agent.id:<14}{fake_agent.route}" in said, (
+        "the chosen row does not carry the route label"
+    )
+
+    # The SURVEY path is a different print statement — walked without
+    # --agent, where the wizard lists what it found and exits asking for an
+    # answer. Both rows must carry the label or one door stays unlabelled.
+    code = cli.main(["start", "--accept-gates"])
+    survey = capsys.readouterr().out
+    assert code == cli.EXIT_CONFIG
+    assert f"{fake_agent.id:<14}{fake_agent.route}" in survey, (
+        "the survey row does not carry the route label"
+    )
+
+
 def test_a_missing_agent_answer_exits_2_naming_both_flags(
     repo, monkeypatch, capsys
 ):

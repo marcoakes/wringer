@@ -14,7 +14,11 @@ def render(results: list[Result]) -> str:
         elif result.status == FAILED:
             lines.append(f"  FAILED   {result.name}  {result.detail}".rstrip())
         else:
-            lines.append(f"  {result.status:<8} {result.name}  {result.detail}".rstrip())
+            # The cause is DERIVED from the structured field, never stored
+            # twice: prose beside `blocked_by` is a second truth waiting to
+            # disagree with the first.
+            cause = ", ".join(result.blocked_by) if result.blocked_by else result.detail
+            lines.append(f"  {result.status:<8} {result.name}  {cause}".rstrip())
     failed = [r.name for r in results if r.status == FAILED]
     if failed:
         lines.append("")

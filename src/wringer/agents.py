@@ -55,6 +55,13 @@ class Agent:
     package: str
     key_env: str
     args: tuple[str, ...] = ()
+    #: Which door this agent comes through. Everything in this table speaks
+    #: ACP — that is what the wizard can detect and drive — and the label
+    #: says so out loud, because run 3's operator read this list as "the
+    #: agents Wringer supports" when it is only the agents THIS door offers.
+    #: A shell-route worker is a plain command string under `run.worker` in
+    #: `.wringer.yaml`; `docs/vendors.md` holds the measured commands.
+    route: str = "acp"
     #: The argv suffix that asks THIS agent whether it is logged in, or `()`
     #: when nobody has verified that it has such a surface. Data, like every
     #: other field here — `worker_auth.py` is what runs it, and this module

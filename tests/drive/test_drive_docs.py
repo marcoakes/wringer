@@ -673,43 +673,36 @@ def test_every_example_ships_a_setup_script_that_refuses_a_broken_copy(name):
 
 
 @pytest.mark.parametrize("name", [name for name, _, _ in ALL_EXAMPLES])
-def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
-    name, tmp_path
-):
-    """**Field report 2026-08-21 finding 6, EXECUTED rather than read.**
+def test_the_front_door_OPENS_with_no_coding_agent_anywhere(name, tmp_path):
+    """**Run 3 F1, EXECUTED rather than read — and it INVERTS the guard that
+    stood here.**
 
-    `setup.sh` preflighted `git` and `node`, validated the whole starting
-    state, printed "Ready", and told the reader to answer
-    `acp: claude-agent-acp` — having never checked that agent existed. On the
-    evaluator's Mac it did not, and the run reached the build step only after
-    the interview, two paid API calls, three approvals and a gate install.
+    Until 0.6.4 both scripts hard-stopped when `claude-agent-acp` was not on
+    PATH: a vendor's agent was a precondition of the vendor-neutral product's
+    own front door, and run 3's operator — Codex only, deliberately — met a
+    wall telling them to install a competitor's tool. The 2026-08-21 finding
+    the old check fixed (saying "Ready" and THEN recommending a missing
+    agent) is closed differently now: the epilogue recommends no agent at
+    all, and the worker contract (0.6.0) validates whatever agent the person
+    answers with after selection, before anything is spent.
 
-    Run with a PATH holding everything the script needs EXCEPT the agent, so
-    the check under test is the one that fires. Reading the script for a
-    string would pass on a script where the check sits after the banner —
-    which is the exact defect, one position over.
+    So the law executed here: with everything the script needs on PATH and
+    NO coding agent anywhere, setup completes, says Ready, and its epilogue
+    names no vendor's worker — it points at the measured recipes instead.
     """
     import os
     import shutil
     import subprocess
+    import sys
 
     script = EXAMPLES / name / "setup.sh"
-    # Everything the script legitimately needs, and nothing else, so a missing
-    # agent is the ONLY reason it can fail here.
-    #
-    # **This list is longer than it looks like it needs to be, and the reason
-    # is a defect this test had while being written.** With only `git` and
-    # `node` linked, removing the agent check made the script die on
-    # `dirname: command not found` — so it still exited non-zero and still
-    # never printed "Ready", and the first two assertions below passed while
-    # the behaviour under test was absent. A guard that goes red for the wrong
-    # reason is a guard that will go green for the wrong reason later. The
-    # script must be able to run PAST the agent check for this to measure
-    # anything.
+    # Everything the script legitimately needs, and nothing else — the
+    # stripped PATH is what makes "no agent anywhere" a fact of the run
+    # rather than an assumption about this machine.
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     needed = (
-        "git", "node", "npm", "uv", "sh", "env",
+        "git", "node", "npm", "sh", "env", "chmod",
         "dirname", "basename", "cp", "mkdir", "rm", "cat", "sed", "tr", "pwd",
     )
     missing = []
@@ -723,10 +716,36 @@ def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
         pytest.skip("git is absent, so this example cannot be set up at all")
     assert shutil.which("dirname", path=str(bin_dir)) is not None, (
         "the sandbox PATH cannot run the script at all, so this test would "
-        "pass on a script with no agent check in it"
+        "pass on a script that never runs"
     )
-    # The agent must be genuinely unreachable, which is the condition under
-    # test — assert it rather than assuming the stripped PATH did it.
+    # `uv` is a STUB, not the real tool: the real one would reach for PyPI
+    # to install pytest and ruff, and this suite is offline by construction.
+    # The stub makes `.venv/bin/python` this suite's own interpreter — which
+    # carries both — so every later line of the script (the seeded suite
+    # green, ruff clean, acceptance red) still executes for real. The real
+    # `uv` route is what a person runs, and run 4's clean machine is the
+    # named measurement of it.
+    # An exec shim, not a symlink: a symlink into another venv defeats
+    # CPython's pyvenv.cfg discovery and lands on the bare base interpreter,
+    # measured while writing this ("No module named pytest").
+    (bin_dir / "uv").write_text(
+        "#!/bin/sh\n"
+        'if [ "$1" = venv ]; then\n'
+        "  mkdir -p .venv/bin\n"
+        "  cat > .venv/bin/python <<SHIM\n"
+        "#!/bin/sh\n"
+        f'exec "{sys.executable}" "\\$@"\n'
+        "SHIM\n"
+        "  chmod +x .venv/bin/python\n"
+        "  exit 0\n"
+        "fi\n"
+        'if [ "$1" = pip ]; then exit 0; fi\n'
+        "exit 1\n",
+        encoding="utf-8",
+    )
+    (bin_dir / "uv").chmod(0o755)
+    # No agent anywhere is the condition under test — assert it rather than
+    # assuming the stripped PATH did it.
     assert shutil.which("claude-agent-acp", path=str(bin_dir)) is None
 
     done = subprocess.run(
@@ -738,47 +757,41 @@ def test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT(
     )
     printed = done.stdout + done.stderr
 
-    # **Why this can skip after the script has already run — the CI red of
-    # 2026-08-22.** The symlink loop above drops a tool it cannot find. On this
-    # maintainer's Mac every name in `needed` resolves, the sandbox reaches the
-    # agent check, and the guard measures what it says it measures. On GitHub's
-    # ubuntu runner `uv` is not installed; `pipeline`'s own prerequisite loop
-    # demands it and exited on "'uv' is not on your PATH, and this needs it."
-    # — before the agent check ever ran. `assert "claude-agent-acp" in printed`
-    # then failed for a reason with nothing to do with the behaviour under test,
-    # and main went red on a defect that was not there.
-    #
-    # A guard that goes red for the wrong reason is the same defect as one that
-    # goes green for the wrong reason: in both cases the tick is not evidence.
-    # So say plainly that the sandbox could not be built and name what is
-    # missing. This is deliberately checked from the script's OWN prerequisite
-    # message rather than from `missing` — a machine without `uv` can still
-    # measure `arcade`, which does not need it, and a blanket skip would throw
-    # that coverage away. `tests.yml` installs `uv` so this does not fire in CI.
+    # The wrong-reason-red rationale, kept from the guard this replaces (the
+    # CI red of 2026-08-22): a machine missing one of the script's OWN
+    # prerequisites never reaches the behaviour under test, and a red about
+    # THAT would be a tick that is not evidence. The script's own message is
+    # the detector, so a machine without `node` can still measure `pipeline`.
     if "and this needs it." in printed:
         pytest.skip(
             f"{name}'s setup.sh stopped on its own prerequisite check "
             f"({', '.join(missing) or 'unknown tool'} absent from this "
-            f"machine), so it never reached the agent check under test"
+            f"machine), so it never reached the behaviour under test"
         )
 
-    assert done.returncode != 0, (
-        f"{name}'s setup.sh succeeded with no coding agent installed — the "
-        "operator is sent to spend money on a run that cannot finish"
+    assert done.returncode == 0, (
+        f"{name}'s setup.sh failed with no coding agent installed — the "
+        f"front door still has a vendor's tool as a precondition:\n{printed}"
     )
-    assert "Ready" not in done.stdout, (
-        f"{name}'s setup.sh printed 'Ready' while the agent it goes on to "
-        "recommend is missing. That is the finding: not a wrong message, a "
-        "correct one in the wrong order"
+    assert "Ready" in done.stdout, (
+        f"{name}'s setup.sh completed but never said Ready:\n{printed}"
     )
-    assert "claude-agent-acp" in printed
-    assert "npm install -g" in printed, "the reader is not told how to fix it"
-    # Finding 9: installing it is not always sufficient, and the message that
-    # stops at the install line starts a second search on a machine like the
-    # evaluator's, where npm's global bin was not on PATH.
-    assert "npm bin -g" in printed, (
-        "the message does not name the case where the install succeeds and "
-        "the command is still not found"
+    assert "claude-agent-acp" not in printed, (
+        f"{name}'s setup.sh still names a vendor's agent — the neutral front "
+        "door recommends none and points at the measured recipes"
+    )
+    assert "docs/vendors.md" in done.stdout, (
+        f"{name}'s epilogue does not point at the measured per-vendor "
+        "recipes, so the person has nowhere to take the worker question"
+    )
+    # BOTH Keychain commands pinned individually: run 6's rerun lost a
+    # stored key to two surfaces naming two services, and one epilogue
+    # carrying a diverged pair is the same defect with a shorter walk.
+    assert "find-generic-password -s <vendor>-api-key" in done.stdout, (
+        f"{name}'s reading command left the one Keychain convention"
+    )
+    assert "add-generic-password -U -s <vendor>-api-key" in done.stdout, (
+        f"{name}'s storing command left the one Keychain convention"
     )
 
 
@@ -825,6 +838,18 @@ def test_no_setup_script_claims_wringers_key_reaches_the_coding_agent(name):
     assert "auth status" in script, (
         f"{name}'s setup.sh does not give the reader the free check that says "
         "which route they need before they spend anything"
+    )
+    # Run 3 P1.3, where credentials LIVE: the person holding a key learns
+    # HERE that it can displace a stored login (measured 2026-08-27; the
+    # precedence fact's home stays drive/AGENTS.md, which the script points
+    # at — this is the pointer's summary, not a second home).
+    assert "DISPLACE" in script and "take precedence" in script, (
+        f"{name}'s setup.sh no longer says an environment key can displace "
+        "a stored login — the reader with the key never learns precedence"
+    )
+    assert "docs/drive/AGENTS.md" in script, (
+        f"{name}'s setup.sh does not point at the one page where the "
+        "credential story is written down"
     )
     for killed in ("never reaches it", "no other variable does either"):
         assert killed not in script, (
@@ -927,6 +952,61 @@ def test_the_acceptance_check_is_RED_and_the_suite_is_GREEN(tmp_path):
         "the acceptance check PASSES against the shipped project. The example "
         "claims it is red until the feature is built, and a check that is "
         "green at the start cannot show the difference the work makes"
+    )
+
+
+def test_the_acceptance_posture_is_EXACTLY_the_one_the_riders_pinned(tmp_path):
+    """**Run 3's code-review riders, held against the seeded source.**
+
+    "Red overall" is too coarse to protect the riders: the acceptance file
+    fails with the seeded `SKIPPED` export deleted, with the constructor's
+    invariants gone, and with the report no longer deriving the cause from
+    `blocked_by` — an import error fails everything, and 'red' stays red.
+    So the EXACT posture is pinned: the seven behaviour specs are red
+    because the feature is unbuilt, and the seven conventions the riders
+    seeded (the exported vocabulary, the refused illegal states, the derived
+    rendering, exactly-once, the run outcome) hold against the shipped tree.
+    A rider reverted moves a name across this line, and that is the red.
+    """
+    import shutil
+    import subprocess
+    import sys
+
+    project = tmp_path / "project"
+    shutil.copytree(EXAMPLE / "project", project)
+    done = subprocess.run(
+        [sys.executable, "-m", "pytest", "-q", "--tb=no",
+         "acceptance/test_skip_downstream.py"],
+        cwd=project, capture_output=True, text=True, check=False,
+    )
+    failed = {
+        line.split("::", 1)[1].split(" ")[0].strip()
+        for line in done.stdout.splitlines()
+        if line.startswith("FAILED ")
+    }
+    assert failed == {
+        "test_a_job_that_depends_on_a_failure_is_not_attempted",
+        "test_skipping_carries_all_the_way_down_the_chain",
+        "test_the_summary_names_each_skipped_job_and_the_failure_that_caused_it",
+        "test_a_deeper_chain_is_blamed_on_the_nearest_failure",
+        "test_two_failed_roots_converging_through_skips_blame_both_once",
+        "test_the_command_line_still_exits_non_zero_and_does_not_crash",
+        "test_the_real_process_skips_too",
+    }, (failed, done.stdout[-1500:])
+    assert "7 failed, 7 passed" in done.stdout, done.stdout[-300:]
+    # Rider 1's other half: the vocabulary is PACKAGE API, not a private
+    # name a consumer happens to reach — `__all__` is where that promise is
+    # written, and the acceptance file importing from `pipeline.runner`
+    # cannot see it.
+    exported = subprocess.run(
+        [sys.executable, "-c",
+         "import pipeline; assert 'SKIPPED' in pipeline.__all__"],
+        cwd=project, capture_output=True, text=True, check=False,
+        env={"PYTHONPATH": "src", "PATH": "/usr/bin:/bin"},
+    )
+    assert exported.returncode == 0, (
+        "pipeline.__all__ no longer exports SKIPPED beside OK and FAILED:\n"
+        + exported.stderr
     )
 
 

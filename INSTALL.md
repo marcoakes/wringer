@@ -236,10 +236,13 @@ judging a bundle, or driving an ACP worker.
 ### macOS
 
 Run this yourself, in your own terminal. **Do not paste your key into your
-coding agent, and do not put it on the command line:**
+coding agent, and do not put it on the command line.** One convention, the
+same shape for every vendor — swap `<vendor>` for the provider whose key
+this is (`anthropic-api-key`, `deepseek-api-key`, …; the measured list is
+in [docs/vendors.md](docs/vendors.md)):
 
 ```bash
-security add-generic-password -U -s anthropic -a wringer -w
+security add-generic-password -U -s <vendor>-api-key -a wringer -w
 ```
 
 Note there is **no value after `-w`**. That is deliberate: the operating system

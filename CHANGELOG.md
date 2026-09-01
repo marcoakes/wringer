@@ -4,6 +4,65 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.4 — 2026-09-01
+
+**The vendor-neutral front door — the last slice of the cross-surface
+window.** Run 3, F1/F2/F3 (P1.1–P1.3): the neutral product's own worked
+examples demanded a vendor's agent before they would even copy files, the
+epilogue pre-answered the interview with that vendor's worker, endpoint and
+model, and `wring start`'s agent list read as "the agents Wringer supports"
+when it is only the agents one door offers.
+
+### The examples' setup opens with no coding agent anywhere (F1)
+
+Both `setup.sh` copies drop the `claude-agent-acp` precondition: the worker
+is validated after selection, by the 0.6.0 worker contract — a missing or
+unauthenticated worker is a named refusal before spend, not a wall before
+the files are even copied. The guard that held the old order EXECUTES the
+new law instead: with everything the script needs on PATH and no coding
+agent anywhere, setup completes, says Ready, and names no vendor.
+
+### The epilogue is strictly neutral (F2)
+
+The worker answer is "the agent YOU use", pointing at the measured
+commands, one per vendor, ACP and shell forms both (`docs/vendors.md`) —
+same for the drafting endpoint/model pair. The credential copy keeps the
+two-credential distinction and now carries the precedence fact where the
+key-holder reads it: an environment key can DISPLACE a stored login and
+take precedence over it (P1.3, measured 2026-08-27), pointing at the one
+page. Both Keychain commands use the one measured convention
+(`-s <vendor>-api-key`) — run 6's rerun watched two surfaces naming two
+services make a stored key "not found", and the reading and storing
+commands are now pinned individually so one epilogue cannot diverge
+against itself.
+
+### `wring start` labels its door (F3)
+
+The agent step says out loud that its roster is ACP agents — one door, not
+the world — and that any agent you can start from a terminal is one line of
+YAML away, with the measured commands on the vendors page. Every survey row
+carries a route label (`Agent.route`, data in the one module vendor strings
+may live in).
+
+### The example takes run 3's code-review riders (1–7)
+
+The seeded pipeline exports `SKIPPED` beside `OK`/`FAILED`; `Result` gains
+structured `blocked_by` with constructor-refused illegal states (a skip
+with no blocker, a blocker on a job that ran); the report derives the
+rendered cause from the structured field — one source of truth; the
+acceptance file imports the package's vocabulary instead of shadowing it,
+asserts on `blocked_by` instead of whitespace-splitting rendered lines
+(full-word job names — a one-letter `c` once matched the word "blocked"),
+pins exactly-once rendering, the run outcome, and the multi-root join case
+(two failed roots converging through skips, blamed both, once each,
+stably). The suite stays 18-green, the acceptance stays red overall, and
+the EXACT posture — seven behaviour specs red, seven seeded conventions
+green — is pinned in CI so a reverted rider moves a name across the line.
+Rider 8 (one gate proving several criteria) is banked as a spec question,
+not built.
+
+Schema versions: unchanged.
+
 ## 0.6.3 — 2026-09-01
 
 **Falsify the committed change — the fourth slice of the cross-surface

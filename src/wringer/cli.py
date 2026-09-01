@@ -120,8 +120,10 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="ID",
         help=(
             "the agent that drives the repair loop, by id "
-            f"({', '.join(agents.known())}). It must already be installed: "
-            "Wringer names what to install and never installs it"
+            f"({', '.join(agents.known())}) — all ACP; a shell-route "
+            "worker is written into .wringer.yaml directly. It must already "
+            "be installed: Wringer names what to install and never installs "
+            "it"
         ),
     )
     agent_choice.add_argument(
@@ -874,6 +876,17 @@ def _start_agent(
         )
         return None, None
 
+    # The door is labelled: this list is what THIS wizard can detect and
+    # drive, not the set of agents Wringer works with. A shell-route agent
+    # is one line of YAML away and this sentence is where a reader learns
+    # that, instead of concluding the roster below is the whole world.
+    print(
+        "  This door offers ACP agents. Any agent you can start from a\n"
+        "  terminal works too: write its command as 'worker:' under 'run:'\n"
+        "  in .wringer.yaml yourself — docs/vendors.md holds the measured\n"
+        "  commands."
+    )
+
     if chosen is not None:
         agent = agents.find(chosen)
         if agent is None:
@@ -900,7 +913,7 @@ def _start_agent(
             return None, EXIT_CONFIG
 
         worker = agents.worker(agent)
-        print(start.fit(f"  ✓ {agent.id:<14}{where}"))
+        print(start.fit(f"  ✓ {agent.id:<14}{agent.route}  {where}"))
         # Consent IS the written stanza (§3c), so the human sees the exact
         # YAML — from the same function that writes it, not a second renderer.
         print("\n  This is what will be added:\n")
@@ -911,10 +924,13 @@ def _start_agent(
     installed = []
     for agent, where in agents.survey():
         if where is not None:
-            print(start.fit(f"  ✓ {agent.id:<14}{where}"))
+            print(start.fit(f"  ✓ {agent.id:<14}{agent.route}  {where}"))
             installed.append(agent.id)
         else:
-            print(start.fit(f"  - {agent.id:<14}not installed:  {agent.install}"))
+            print(start.fit(
+                f"  - {agent.id:<14}{agent.route}  not installed:  "
+                f"{agent.install}"
+            ))
 
     if asking.interactive() and installed:
         picked = asking.choose(

@@ -42,12 +42,15 @@ it as an argument you have seen: the run command reads it **inline**, straight
 from the Keychain into the child process's environment —
 
 ```bash
-WRINGER_API_KEY="$(security find-generic-password -s anthropic -a wringer -w)" wringer-drive run PRD.md --repo . --emit json
+WRINGER_API_KEY="$(security find-generic-password -s <vendor>-api-key -a wringer -w)" wringer-drive run PRD.md --repo . --emit json
 ```
 
-`-s anthropic` is the service name from the worked example. **Use the one the
-person actually stored** — `deepseek`, `glm`, `moonshot`, `openai` — matching
-the endpoint they gave at setup. `WRINGER_API_KEY` on the left does NOT
+`-s <vendor>-api-key` is the one convention, the same shape the vendors page
+and the worked examples use (`anthropic-api-key`, `deepseek-api-key`, …).
+**Use the name the person actually stored** — a key stored under an older
+name stays where it is; the command changes, never the Keychain. Run 6's
+rerun measured what divergence costs here: two surfaces naming two services
+made a stored key "not found". `WRINGER_API_KEY` on the left does NOT
 change: it is the variable the generated config declares in `judge.api_key_env`
 and it is deliberately vendor-free, so the same command line serves every
 provider.
@@ -196,8 +199,12 @@ fails, stop and show them the real error before doing anything else.
    person. This is the step that catches a half-done install before it costs
    a drafting call.
 
-5. **Install the worker adapter** that lets Wringer drive Claude Code as the
-   builder:
+5. **Install the person's chosen worker — the builder is THEIR choice,
+   never a precondition.** Ask which coding agent will do the building; the
+   measured commands, one per vendor, are in `docs/vendors.md`, and an
+   agent already on this machine needs nothing installed. If — and only
+   if — their choice is Claude Code, the adapter that lets Wringer drive
+   it is:
 
    ```bash
    npm install -g @agentclientprotocol/claude-agent-acp

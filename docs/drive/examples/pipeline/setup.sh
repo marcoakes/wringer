@@ -10,6 +10,11 @@
 # It installs nothing globally and touches nothing outside the directory you
 # name. Run it again with a different directory to get another clean copy.
 #
+# No coding agent is checked here, and none is recommended below: the agent
+# is YOUR answer at the interview, and the worker contract validates it
+# after selection, before anything is spent — a missing or unauthenticated
+# worker is a named refusal, not a discovery at the build step.
+#
 #   sh setup.sh ~/wringer-example
 #
 set -eu
@@ -33,33 +38,6 @@ for tool in git uv; do
         exit 2
     }
 done
-
-# The agent this example tells you to answer with, checked before "Ready" is
-# printed. Same defect, same fix, same reason as the arcade example's — see
-# docs/field-report-2026-08-21.md finding 6. Two copies of a shell script is
-# two places to fix; both are fixed, and `test_docs.py` holds them together.
-AGENT=claude-agent-acp
-if ! command -v "$AGENT" >/dev/null 2>&1; then
-    echo "setup: '$AGENT' is not on your PATH." >&2
-    echo "" >&2
-    echo "  This example tells you to answer 'acp: $AGENT' when Wringer asks" >&2
-    echo "  which coding agent should do the building. That agent is what" >&2
-    echo "  actually writes the code, so without it the run stops at the" >&2
-    echo "  build step having already spent money on drafting." >&2
-    echo "" >&2
-    echo "  Install it with:" >&2
-    echo "    npm install -g @agentclientprotocol/claude-agent-acp" >&2
-    echo "" >&2
-    echo "  If that succeeds and this still says the same thing, npm's global" >&2
-    echo "  bin directory is not on your PATH — 'npm bin -g' prints where it" >&2
-    echo "  put the command." >&2
-    echo "" >&2
-    echo "  If you already use a DIFFERENT agent that speaks ACP, that is" >&2
-    echo "  fine: install nothing, and answer with its command instead of" >&2
-    echo "  the one above. Wringer runs the agent you name and never one it" >&2
-    echo "  guessed." >&2
-    exit 2
-fi
 
 mkdir -p "$TARGET"
 TARGET=$(cd "$TARGET" && pwd)
@@ -104,43 +82,43 @@ Ready. The starting state is the one this example needs:
 
 Two things to do, both in THIS terminal window:
 
-  1. Put your key in the environment. Wringer reads it from there and
-     nowhere else, and a coding agent launched from a desktop icon will
-     not have it:
+  1. Put your drafting key in the environment. Wringer reads it from
+     there and nowhere else, and a coding agent launched from a desktop
+     icon will not have it. One convention, the same shape for every
+     vendor — swap <vendor> for the drafting vendor you will answer
+     with (the measured list is the vendors page linked below):
 
-       export WRINGER_API_KEY="\$(security find-generic-password -s anthropic -a wringer -w)"
+       export WRINGER_API_KEY="\$(security find-generic-password -s <vendor>-api-key -a wringer -w)"
 
      If you have not stored one yet, run this first and paste the key at
-     the masked prompt:
+     the masked prompt — and if you stored one under another name
+     already, keep YOUR name in both commands rather than storing a
+     second copy:
 
-       security add-generic-password -U -s anthropic -a wringer -w
+       security add-generic-password -U -s <vendor>-api-key -a wringer -w
 
      THIS KEY IS FOR WRINGER, NOT FOR THE CODING AGENT. It pays for
      reading your document and drafting the plan, and nothing else. The
      coding agent that writes the code needs a credential of its own, and
-     WRINGER_API_KEY is not it. Two routes exist, and WHICH ONE WORKS
-     IS DECIDED BY THIS MACHINE, not by preference:
+     WRINGER_API_KEY is not it. Which shape that credential takes is the
+     agent's, not a preference: an agent with a stored login has its own
+     'auth login'-style route, and an agent that reads a key takes it via
+     'env_passthrough' in .wringer.yaml (ACP form) or from the
+     environment you launch from (shell form).
 
-       '$AGENT' --cli auth login
-
-     or declare ANTHROPIC_API_KEY under 'run.worker.acp.env_passthrough'
-     in .wringer.yaml, which then spends against that key on every turn
-     the builder takes.
-
-     If this machine's settings are managed by an employer and pin the
-     coding agent to an organisation login, the FIRST route is the only
-     one that works and the key is what breaks it — leave it out of the
-     worker's environment entirely. 'wring doctor' says whether such a
-     policy file is here. The full measured table, both machine classes,
-     is the one place this is written down:
+     A key in the worker's environment can DISPLACE a stored login and
+     take precedence over it — on an employer-managed machine pinned to
+     an organisation login, the key is exactly what breaks the only
+     route that works, so leave it out of the worker's environment
+     entirely there. 'wring doctor' says whether such a policy file is
+     on this machine. The full measured table, per vendor and both
+     machine classes, is the one place this is written down:
      https://github.com/marcoakes/wringer/blob/main/docs/drive/AGENTS.md
 
-     Either way, check it before you start — this answers for free:
-
-       '$AGENT' --cli auth status
-
-     and be careful with a green from it: on an org-pinned machine it
-     reports the key as valid while every session is refused.
+     Check before you start: most agents answer an 'auth status'-style
+     question for free — and be careful with a green from it: a present
+     key is not a valid one, and on an org-pinned machine an agent can
+     report a key as valid while every session is refused.
 
   2. Drive it:
 
@@ -148,13 +126,12 @@ Two things to do, both in THIS terminal window:
        cd $TARGET/project
        wringer-drive run ../PRD.md --repo .
 
-When it asks which coding agent should do the building, the answer is:
+When it asks which coding agent should do the building, answer with the
+agent YOU use — its command, exactly as you would start it. Nothing here
+is a default: Wringer runs the agent you name and never one it guessed.
+The measured commands, one per vendor, ACP and shell forms both — and the
+measured endpoint/model pair for each drafting vendor — are on one page:
 
-  acp: claude-agent-acp
-
-For the endpoint and the model:
-
-  https://api.anthropic.com/v1/chat/completions
-  claude-opus-5
+  https://github.com/marcoakes/wringer/blob/main/docs/vendors.md
 
 EOF

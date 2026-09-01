@@ -2,11 +2,12 @@
 
 from pipeline.graph import Graph, GraphError, Job
 from pipeline.report import render
-from pipeline.runner import FAILED, OK, Result, run, succeeded
+from pipeline.runner import FAILED, OK, SKIPPED, Result, run, succeeded
 
 __all__ = [
     "FAILED",
     "OK",
+    "SKIPPED",
     "Graph",
     "GraphError",
     "Job",
