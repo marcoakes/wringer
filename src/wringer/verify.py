@@ -235,6 +235,7 @@ def run(
     on_gate: GateReporter | None = None,
     prove: bool = False,
     falsify: bool = False,
+    falsify_range: tuple[str, str] | None = None,
     serial: bool = False,
     established: object | None = None,
     witnesses: object | None = None,
@@ -450,7 +451,28 @@ def run(
     # them is read here — which is what a guard asserts by running the same
     # repository twice, once with the flag and once without.
     broken = None
-    if falsify and status == "passed" and state.dirty:
+    if falsify and falsify_range is not None and status == "passed":
+        # **The committed range** (0.6.3, run 3 F16): `--delivery <id>` or
+        # `--base <ref>` resolved to `(base_sha, head_sha)` by the CLI, the
+        # patch from git over committed trees, the scratch worktree detached
+        # at the range's own head — no reconstruction from a live tree that
+        # by now describes some other moment. Run 3 got its table only by
+        # cloning main and re-applying the delivery diff uncommitted, by
+        # hand; this is that measurement as a command.
+        from wringer import falsify as falsify_module
+
+        base_sha, head_sha = falsify_range
+        range_patch = git.range_diff(root, base_sha, head_sha) or ""
+        broken = falsify_module.falsify(
+            root,
+            cfg,
+            bundle.directory,
+            range_patch,
+            redactor=bundle.redactor,
+            worktree_ref=head_sha,
+        )
+        falsify_module.write(bundle.directory, broken, bundle.redactor)
+    elif falsify and status == "passed" and state.dirty:
         from wringer import falsify as falsify_module
 
         # **Tracked changes AND the files this change created.** The first

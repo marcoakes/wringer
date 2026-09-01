@@ -1240,6 +1240,13 @@ def plan(
             "git commit --file .wringer/deliveries/<id>/commit.txt",
             f"git push --set-upstream {settings.remote} {branch}",
             f"POST a merge request: {branch} -> {base}",
+            # 0.6.3, run 3 F16: the exact command that falsifies the
+            # COMMITTED change this delivery ships — run 3 got its table
+            # only by rebuilding the delivery as an uncommitted patch by
+            # hand. `<id>` is this delivery's directory name, the same
+            # placeholder the commit line has always used.
+            "wring verify --falsify --delivery <id>  "
+            "(after --send; measures the committed range)",
         ),
     )
 

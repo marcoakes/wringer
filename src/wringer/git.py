@@ -164,6 +164,47 @@ def in_progress(root: Path) -> str | None:
     return None
 
 
+def rev_parse(root: Path, ref: str) -> str | None:
+    """The full sha `ref` names in this repository, or None.
+
+    Read-only, like every call in this module (0.6.3 — the committed-range
+    falsify needs to name commits, and a helper that guessed instead of
+    asking git would be a second definition of what a ref means).
+    """
+    found = _git(["rev-parse", "--verify", f"{ref}^{{commit}}"], cwd=root)
+    return found or None
+
+
+def merge_base(root: Path, one: str, two: str) -> str | None:
+    """The merge base of two refs, or None when git cannot answer.
+
+    The committed-range modes measure `merge-base(base, head)..head` rather
+    than `base..head` verbatim, because a base BRANCH may have moved on
+    since the change was cut — and mutating lines the base grew afterwards
+    would measure a change nobody delivered.
+    """
+    found = _git(["merge-base", one, two], cwd=root)
+    return found or None
+
+
+def range_diff(root: Path, base_sha: str, head_sha: str) -> str | None:
+    """The committed range's patch, with `diff`'s exact hygiene flags.
+
+    `base_sha..head_sha` over COMMITTED trees only: a committed change has
+    no untracked half, which is what makes this simpler than the
+    working-tree capture and is why it is a separate function rather than a
+    flag on `diff`.
+    """
+    return _git(
+        [
+            "diff", "--no-color", "--no-ext-diff", "--no-textconv",
+            base_sha, head_sha,
+        ],
+        cwd=root,
+        strip=False,
+    )
+
+
 def diff(root: Path, head_sha: str | None) -> str | None:
     """Staged and unstaged changes as one patch; None outside a repo.
 

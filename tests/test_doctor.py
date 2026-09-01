@@ -859,8 +859,20 @@ def test_last_verify_reads_the_record_rather_than_running_the_suite(tmp_path):
     })
     bundle = repo / evidence_module.RUNS_DIRNAME / "20260819-120000-abcd"
     bundle.mkdir(parents=True)
-    (bundle / "run.json").write_text(
-        json_module.dumps({"result": {"status": "passed", "failed_gate": None}}),
+    # `manifest.json`, the file a run really writes — this fixture wrote a
+    # phantom `run.json` for the life of F17, so the guard agreed with the
+    # bug: doctor read a file no producer had ever produced, both its
+    # branches were dead against every real bundle, and the fixture kept it
+    # green (run 3, F17).
+    (bundle / evidence_module.MANIFEST_FILENAME).write_text(
+        json_module.dumps({
+            "schema_version": "wringer.evidence.v1",
+            "run_id": "20260819-120000-abcd",
+            "started_at": "2026-08-19T12:00:00.000+00:00",
+            "repo": {"root": ".", "head_sha": None, "branch": None,
+                     "dirty": False},
+            "result": {"status": "passed", "failed_gate": None},
+        }),
         encoding="utf-8",
     )
 
@@ -882,8 +894,15 @@ def test_a_red_last_verify_is_a_WARNING_and_never_blocks(tmp_path):
     })
     bundle = repo / evidence_module.RUNS_DIRNAME / "20260819-120000-abcd"
     bundle.mkdir(parents=True)
-    (bundle / "run.json").write_text(
-        json_module.dumps({"result": {"status": "failed", "failed_gate": "unit"}}),
+    (bundle / evidence_module.MANIFEST_FILENAME).write_text(
+        json_module.dumps({
+            "schema_version": "wringer.evidence.v1",
+            "run_id": "20260819-120000-abcd",
+            "started_at": "2026-08-19T12:00:00.000+00:00",
+            "repo": {"root": ".", "head_sha": None, "branch": None,
+                     "dirty": False},
+            "result": {"status": "failed", "failed_gate": "unit"},
+        }),
         encoding="utf-8",
     )
 
@@ -892,6 +911,75 @@ def test_a_red_last_verify_is_a_WARNING_and_never_blocks(tmp_path):
     assert check.status == doctor.WARN
     assert check.passed, "a red suite must not fail the diagnosis"
     assert "unit" in check.detail
+
+
+def test_last_verify_picks_the_run_the_RECORD_calls_newest_not_the_name(
+    tmp_path,
+):
+    """Ids were stamped in local time until 2026-08-05, so a directory NAME
+    can sort forty minutes from the truth — the record's `started_at` is the
+    only unambiguous clock. Here the lexically-later bundle is the OLDER run
+    and it is red; reading the wrong one turns a green last-verify into a
+    warning about a failure that has since been fixed."""
+    import json as json_module
+
+    from wringer import evidence as evidence_module
+
+    repo = a_repo(tmp_path, files={
+        "package.json": '{"name": "x", "scripts": {"test": "node --test"}}\n',
+    })
+    runs = repo / evidence_module.RUNS_DIRNAME
+    older_but_sorts_last = runs / "20260830-120000-zzzz"
+    older_but_sorts_last.mkdir(parents=True)
+    (older_but_sorts_last / evidence_module.MANIFEST_FILENAME).write_text(
+        json_module.dumps({
+            "schema_version": "wringer.evidence.v1",
+            "run_id": "20260830-120000-zzzz",
+            "started_at": "2026-08-19T12:00:00.000+00:00",
+            "repo": {"root": ".", "head_sha": None, "branch": None,
+                     "dirty": False},
+            "result": {"status": "failed", "failed_gate": "unit"},
+        }),
+        encoding="utf-8",
+    )
+    newer = runs / "20260819-120000-aaaa"
+    newer.mkdir(parents=True)
+    (newer / evidence_module.MANIFEST_FILENAME).write_text(
+        json_module.dumps({
+            "schema_version": "wringer.evidence.v1",
+            "run_id": "20260819-120000-aaaa",
+            "started_at": "2026-08-30T12:00:00.000+00:00",
+            "repo": {"root": ".", "head_sha": None, "branch": None,
+                     "dirty": False},
+            "result": {"status": "passed", "failed_gate": None},
+        }),
+        encoding="utf-8",
+    )
+
+    check = named(doctor.run_checks(repo), "last verify")
+
+    assert check.status == doctor.OK, (check.status, check.detail)
+    assert "all gates passed" in check.detail
+
+
+def test_doctor_reads_the_record_a_REAL_run_writes_falsify_included(
+    repo, write_config, monkeypatch, capsys
+):
+    """F17's red-watch fixture, the run prompt's own words: *"the falsify
+    run that blinds doctor is the red-watch fixture."* A REAL
+    `wring verify --falsify` writes the newest bundle, and doctor must read
+    it — with the phantom `run.json` read reverted, this prints "has no
+    summary to read" about a bundle that carries everything, exactly what
+    run 3 met."""
+    write_config(repo, 'version: 1\ngates:\n  - id: t\n    run: "true"\n')
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify", "--falsify"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    check = named(doctor.run_checks(repo), "last verify")
+
+    assert check.status == doctor.OK, (check.status, check.detail)
+    assert "all gates passed" in check.detail
 
 
 def test_both_new_checks_are_SKIPPED_outside_a_repository(tmp_path):

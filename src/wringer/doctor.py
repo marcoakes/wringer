@@ -748,16 +748,26 @@ def _last_verify(root: Path) -> Check:
             "last verify", WARN, "never run here, so nothing is known yet",
             "Run: wring verify", scope=REPO,
         )
-    bundles = sorted(p for p in runs.iterdir() if p.is_dir())
-    if not bundles:
+    # **`evidence.latest_run`, the engine's own definition of newest** —
+    # a hand-kept name sort here inherited the documented `manual-001` >
+    # every-real-id-forever ordering bug, and could land on a `wring judge`
+    # verdict directory that is not a run at all.
+    latest = evidence.latest_run(runs)
+    if latest is None:
         return Check(
             "last verify", WARN, "never run here, so nothing is known yet",
             "Run: wring verify", scope=REPO,
         )
-    latest = bundles[-1]
-    summary = latest / "run.json"
+    # **`manifest.json` — the file every run actually writes.** This check
+    # read `run.json` from the day it shipped, and NO producer in this
+    # program has ever written a file of that name: both its branches were
+    # dead against every real bundle, and its own fixtures hand-wrote the
+    # phantom file so the guard agreed with the bug (run 3, F17 — noticed
+    # when a falsify run made a fresh newest bundle and doctor said it had
+    # "no summary to read", which it said about every bundle).
+    summary = latest / evidence.MANIFEST_FILENAME
     if not summary.is_file():
-        return Check("last verify", SKIP, f"{latest.name} has no summary to read",
+        return Check("last verify", SKIP, f"{latest.name} has no record to read",
                      scope=REPO)
     try:
         payload = json.loads(summary.read_text(encoding="utf-8"))

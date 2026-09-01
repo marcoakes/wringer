@@ -4,6 +4,45 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.3 — 2026-09-01
+
+**Falsify the committed change — the fourth slice of the cross-surface
+window.** Run 3, F16/F17: immediately after delivery, `wring verify
+--falsify` said *"the working tree has no changes, so there is no change to
+break on purpose"* — the falsification table for the delivered branch was
+obtainable only by cloning main and re-applying the diff uncommitted, by
+hand. And `wring doctor`'s last-verify check read a `run.json` no run had
+ever written, so it called a bundle carrying everything "nothing to read".
+
+### `wring verify --falsify --delivery <id>` / `--base <ref>`
+
+Acceptance test 10: the table after the branch has been committed and
+pushed. `--delivery` reads the delivery's own record for the range
+(base to the delivered commit); `--base` measures HEAD against the
+merge-base with the ref you name. The scratch worktree is detached **at the
+range's own head** — never the live HEAD, which by then describes some
+other moment — and the bound gates come from the **worktree's own config**:
+the tree being falsified declares its own law, and the live one may have
+moved since. The record's `reason` says which committed range was measured,
+at which commit; the renderer says it beside the numbers. `wring deliver`
+prints the exact command with the real delivery id, and `commands.txt`
+carries it. Naming a range without `--falsify`, naming both ranges, a
+dry-run delivery, or an unknown id each refuse with a sentence (exit 2).
+The standing ruling holds: the range flags change no verify outcome — exit
+code, status and acceptance rows are identical with and without them.
+
+### `wring doctor` reads the record a real run writes
+
+The last-verify check now reads `manifest.json` — the file `wring verify`
+actually produces — and picks the newest run by the record's own
+`started_at`, never by directory-name sort (ids were stamped in local time
+until 2026-08-05; the record is the only unambiguous clock). Both of its
+branches were dead against every real bundle for the life of F17, and its
+fixture agreed with the bug.
+
+Schema versions: unchanged (`wringer.falsification.v1` gains no fields —
+the committed-range fact rides the existing open `reason` string).
+
 ## 0.6.2 — 2026-09-01
 
 **One delivery, one story — the third slice of the cross-surface window.**

@@ -483,18 +483,31 @@ def falsify(
     redactor: Redactor | None = None,
     limit: int = DEFAULT_MAX_ATTEMPTS,
     budget_seconds: int = DEFAULT_BUDGET_SECONDS,
+    worktree_ref: str | None = None,
 ) -> Result:
     """Break this change mechanically and see whether the bound gates notice.
 
     **Never the person's tree** (ruling 6). Every mutant is written into a
     detached scratch worktree and nowhere else; the working tree is not
     touched, not stashed and not reverted.
+
+    **`worktree_ref` is the committed-range mode** (0.6.3, run 3 F16): the
+    scratch tree is detached AT the range's own head, so it already IS the
+    delivered code — no reconstruction copy from the live tree, which by
+    then describes some other moment (that copy is exactly why run 3 had to
+    rebuild the delivery as an uncommitted patch to get a table at all).
+    The BOUND gates come from the worktree's own config in this mode: the
+    tree being falsified declares its own law, and the live config may have
+    moved since.
     """
     from wringer import fleet
 
     redactor = redactor or Redactor()
     bound = _bound(cfg)
-    if not bound:
+    # In committed-range mode the binding question is answered by the
+    # WORKTREE's own config below — the live one may have moved since the
+    # range was cut, in either direction.
+    if not bound and worktree_ref is None:
         return not_applicable(
             "no gate in this repository names a requirement it proves, so "
             "there is nothing whose blindness could be measured"
@@ -512,14 +525,40 @@ def falsify(
     logs.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
 
-    worktree = fleet.make_worktree(root, f"falsify-{bundle_dir.name}")
+    worktree = fleet.make_worktree(
+        root, f"falsify-{bundle_dir.name}", ref=worktree_ref or "HEAD"
+    )
     if worktree is None:
         return inconclusive(
-            "a scratch copy could not be created, so nothing could be broken "
-            "safely. Nothing was measured either way"
+            "a scratch copy could not be created"
+            + (
+                f" at {worktree_ref[:12]}"
+                if worktree_ref
+                else ""
+            )
+            + ", so nothing could be broken safely. Nothing was measured "
+            "either way"
         )
 
     try:
+        if worktree_ref is not None:
+            # The committed range declares its own law: bound gates from the
+            # WORKTREE's config, which is the config as delivered.
+            try:
+                cfg = config.load(worktree / config.CONFIG_FILENAME)
+            except (config.ConfigError, OSError) as exc:
+                return inconclusive(
+                    "the range's own gate declaration could not be read "
+                    f"({exc}), so which checks were bound at that commit "
+                    "cannot be known. Nothing was measured either way"
+                )
+            bound = _bound(cfg)
+            if not bound:
+                return not_applicable(
+                    "no gate in the range's own configuration names a "
+                    "requirement it proves, so there is nothing whose "
+                    "blindness could be measured"
+                )
         # **The delivered code, reconstructed in the scratch copy.** The
         # worktree is detached at HEAD and carries tracked files only, so the
         # changed files are copied over it — that IS the tree the gates just
@@ -533,24 +572,36 @@ def falsify(
         # still present to catch mutants, and every mutant it caught was
         # recorded as caught by a check that no longer exists.
         present, absent = changed_paths(patch)
-        for relative in absent:
-            gone = worktree / relative
-            if gone.is_file() or gone.is_symlink():
-                gone.unlink()
+        if worktree_ref is None:
+            for relative in absent:
+                gone = worktree / relative
+                if gone.is_file() or gone.is_symlink():
+                    gone.unlink()
         # Only files the delivery still HAS can carry a mutation.
         touched = sorted(
             set(present) & {path for path, _, _ in changed_lines(patch)}
         )
         originals: dict[str, str] = {}
-        for relative in present:
-            source = root / relative
-            try:
-                originals[relative] = source.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
-                continue
-            target = worktree / relative
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(originals[relative], encoding="utf-8")
+        if worktree_ref is None:
+            for relative in present:
+                source = root / relative
+                try:
+                    originals[relative] = source.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
+                target = worktree / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(originals[relative], encoding="utf-8")
+        else:
+            # The worktree at the range head already carries the delivered
+            # bytes; the originals map — what `_apply` restores between
+            # mutants — reads from THERE, never from the live tree.
+            for relative in present:
+                source = worktree / relative
+                try:
+                    originals[relative] = source.read_text(encoding="utf-8")
+                except (OSError, UnicodeDecodeError):
+                    continue
         # Every rewrite from here on goes through the clock — see `_Clock`.
         clock = _Clock([worktree / one for one in touched])
 
@@ -614,6 +665,16 @@ def falsify(
 
     return Result(
         verdict=MEASURED,
+        # For the committed-range mode, WHICH change was measured — the open
+        # `reason` string is the one field the frozen record has for it, and
+        # the renderer says it beside the numbers. Empty for the working-tree
+        # mode, exactly as every record before 0.6.3.
+        reason=(
+            f"measured over the committed range this invocation named, "
+            f"at {worktree_ref[:12]}"
+            if worktree_ref
+            else ""
+        ),
         attempts=tuple(done),
         truncated=truncated,
         gates_used=tuple(gate.id for gate in bound),
@@ -745,6 +806,10 @@ def lines(recorded: dict[str, Any] | None) -> list[str]:
     if not attempted:
         return []
     said = []
+    if reason:
+        # The committed-range mode says WHICH change the numbers are about;
+        # the working-tree mode carries no reason and adds no line.
+        said.append(f"_{reason}._")
     if survived:
         said.append(
             f"**{survived} of {attempted} deliberate breakages of this change "

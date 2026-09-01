@@ -248,6 +248,26 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser_verify.add_argument(
+        "--delivery",
+        metavar="ID",
+        help=(
+            "with --falsify: break the COMMITTED change a delivery shipped, "
+            "resolved from .wringer/deliveries/ID — the range from its "
+            "recorded base to its recorded commit. Run 3 could falsify a "
+            "delivered branch only by rebuilding it as an uncommitted patch "
+            "by hand; this is that measurement as a command"
+        ),
+    )
+    parser_verify.add_argument(
+        "--base",
+        metavar="REF",
+        help=(
+            "with --falsify: break the committed change between "
+            "merge-base(REF, HEAD) and HEAD — a delivered or merged branch, "
+            "measured after the fact"
+        ),
+    )
+    parser_verify.add_argument(
         "--json",
         action="store_true",
         help="emit one JSON object instead of the human report",
@@ -1744,6 +1764,86 @@ def _ignore_runs(root: Path) -> str | None:
     return ".gitignore"
 
 
+def _falsify_range(
+    root: Path, delivery_id: str | None, base_ref: str | None
+) -> tuple[str, str] | None:
+    """`(base_sha, head_sha)` for the committed-range falsify, or None said.
+
+    `--delivery` reads the delivery's own manifest — its recorded base and
+    the commit `send` recorded — and `--base` takes HEAD as the range's
+    head. Both anchor at the merge base, because a base branch may have
+    moved on since the change was cut, and mutating lines the base grew
+    afterwards would measure a change nobody delivered. Every failure
+    prints WHICH resolution failed and returns None; the caller exits 2.
+    """
+    if delivery_id is not None:
+        manifest_path = (
+            root / deliver.DELIVERIES_DIRNAME / delivery_id / "manifest.json"
+        )
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError, UnicodeDecodeError):
+            print(
+                f"wring verify: no readable delivery record at "
+                f"{_relative(manifest_path, root)} — `wring deliver` writes "
+                "one per delivery, and the id is its directory name",
+                file=sys.stderr,
+            )
+            return None
+        head = (manifest.get("result") or {}).get("commit")
+        base = manifest.get("base")
+        if not head:
+            print(
+                f"wring verify: delivery {delivery_id} records no commit — "
+                "a dry run ships nothing, so there is no committed change "
+                "to break. Deliver with --send first",
+                file=sys.stderr,
+            )
+            return None
+    else:
+        base = base_ref
+        head = git.rev_parse(root, "HEAD")
+        if head is None:
+            print(
+                "wring verify: HEAD could not be resolved here",
+                file=sys.stderr,
+            )
+            return None
+    base_sha = git.rev_parse(root, str(base)) if base else None
+    if base_sha is None:
+        print(
+            f"wring verify: the base {base!r} could not be resolved in this "
+            "repository",
+            file=sys.stderr,
+        )
+        return None
+    head_sha = git.rev_parse(root, str(head))
+    if head_sha is None:
+        print(
+            f"wring verify: the commit {str(head)[:12]!r} is not in this "
+            "repository — fetch the delivered branch first",
+            file=sys.stderr,
+        )
+        return None
+    anchored = git.merge_base(root, base_sha, head_sha)
+    if anchored is None:
+        print(
+            f"wring verify: {str(base)!r} and {head_sha[:12]} share no "
+            "history here, so there is no range between them",
+            file=sys.stderr,
+        )
+        return None
+    if anchored == head_sha:
+        print(
+            f"wring verify: {head_sha[:12]} is already contained in "
+            f"{str(base)!r} — the range is empty, so there is no committed "
+            "change to break",
+            file=sys.stderr,
+        )
+        return None
+    return anchored, head_sha
+
+
 def cmd_verify(args: argparse.Namespace) -> int:
     root = git.find_root(Path.cwd())
 
@@ -1758,6 +1858,29 @@ def cmd_verify(args: argparse.Namespace) -> int:
         _fail("verify", exc)
         return EXIT_CONFIG
 
+    falsify_range = None
+    named_delivery = getattr(args, "delivery", None)
+    named_base = getattr(args, "base", None)
+    if named_delivery or named_base:
+        if not getattr(args, "falsify", False):
+            print(
+                "wring verify: --delivery and --base only choose what "
+                "--falsify breaks; without it they choose nothing. Add "
+                "--falsify, or drop them",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+        if named_delivery and named_base:
+            print(
+                "wring verify: --delivery and --base each name the range — "
+                "pick one",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+        falsify_range = _falsify_range(root, named_delivery, named_base)
+        if falsify_range is None:
+            return EXIT_CONFIG
+
     try:
         outcome = verify.run(
             root,
@@ -1771,6 +1894,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             # inside `verify.wants_prove` and nothing here can turn it off.
             prove=args.prove,
             falsify=getattr(args, "falsify", False),
+            falsify_range=falsify_range,
             # Also tightens: it can only collapse a declared group, never build
             # one the config did not declare.
             serial=args.serial,
@@ -4125,6 +4249,14 @@ def _report_delivery(
     if isinstance(merge_request, dict):
         print(f"MR:      {merge_request.get('url')}")
     print(f"\nDelivery evidence: {where}/")
+    # The exact command that falsifies what was just shipped, with the REAL
+    # id (0.6.3, run 3 F16) — the one surface that knows it. `commands.txt`
+    # carries the same line with the `<id>` placeholder.
+    print(
+        "\nBreak the delivered change on purpose and see what the checks "
+        "notice:\n"
+        f"  wring verify --falsify --delivery {bundle.directory.name}"
+    )
 
 
 def _refuse_unverifiable(root: Path, command: str) -> int | None:

@@ -759,23 +759,26 @@ def run(
     )
 
 
-def make_worktree(root: Path, task_id: str) -> Path | None:
+def make_worktree(root: Path, task_id: str, ref: str = "HEAD") -> Path | None:
     """Give a task its own checkout, so parallel children cannot collide.
 
     The only git WRITE Wringer performs, and it is metadata: `worktree add`
     and `worktree remove`. No commit, no branch move, no push — the law that
     the harness never writes history is untouched.
 
-    Detached at HEAD: a worktree on a branch would move that branch, which is
-    history. Returns None if git refuses, and the caller parks the task —
-    a fleet that silently ran two children in one tree would be worse.
+    Detached at `ref` — HEAD for every caller that existed before 0.6.3,
+    byte-identical; the committed-range falsify passes the range's own head
+    so the scratch tree IS the delivered code with no reconstruction copy. A
+    worktree on a branch would move that branch, which is history. Returns
+    None if git refuses, and the caller parks the task — a fleet that
+    silently ran two children in one tree would be worse.
     """
     path = root / WORKTREES_DIRNAME / task_id
     path.parent.mkdir(parents=True, exist_ok=True)
     if path.exists():
         remove_worktree(root, path)
     proc = subprocess.run(
-        ["git", "worktree", "add", "--detach", str(path), "HEAD"],
+        ["git", "worktree", "add", "--detach", str(path), ref],
         cwd=root, capture_output=True, text=True, timeout=120,
     )
     return path if proc.returncode == 0 else None
