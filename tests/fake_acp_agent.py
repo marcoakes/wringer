@@ -78,6 +78,13 @@ Behaviour is chosen by argv so one file covers every case the loop needs:
                which a `turn_changed_nothing` diagnosis carries telemetry in
                `engine_words`, which is what decides whether that field or
                the stop reason is the one quoted to a person.
+    leakidle   say, in its LAST update, what a vendor says about a rejected
+               key — the credential whole, the credential masked to its
+               first three and last four characters, and a vendor-shaped
+               token that was never declared — then change NOTHING. The
+               shape run 4B measured (2026-09-01): those words become the
+               diagnosis's `engine_words`, and `wring run --json` prints the
+               diagnosis to a console no file scrub can reach.
 """
 
 from __future__ import annotations
@@ -484,6 +491,16 @@ def main() -> int:
                         sys.stderr.flush()
                         notify(session_id, f"update says {name}={value}")
 
+
+            if BEHAVIOUR == "leakidle":
+                value = os.environ.get("WRINGER_TEST_CREDENTIAL", "")
+                masked = f"{value[:3]}\u2026{value[-4:]}" if value else ""
+                notify(
+                    session_id,
+                    "Incorrect API key provided: " + masked
+                    + f" (whole: {value}) and a key nobody declared: "
+                    + "sk-proj-NEVERDECLARED0000111122223333",
+                )
 
             if BEHAVIOUR in ("usage", "usageleak", "usageidle"):
                 # A credential inside the SAME notification for `usageleak`,
