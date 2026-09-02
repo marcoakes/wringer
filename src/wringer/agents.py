@@ -73,6 +73,19 @@ class Agent:
     #: do anything, and a guess that happened to exit 0 would report a green
     #: nobody checked.
     auth_probe: tuple[str, ...] = ()
+    #: A regex for the SHAPE of this vendor's credential, or `""` when
+    #: nobody has measured one. `redact.py`'s second tier scrubs every
+    #: non-empty shape from every write path whether or not such a value
+    #: was declared — run 4B (2026-09-01) measured why: the vendor's own
+    #: `401` echoed the key's first eight characters, a run of `*`, and its
+    #: last four, and the redactor owned none of those bytes because none
+    #: of them was the declared value. Data, like every other field here;
+    #: the matching happens in `redact.py`, which imports the shapes from
+    #: this table and holds no vendor string of its own (AGENTS.md rule 5).
+    #:
+    #: Empty is the honest default. A shape nobody has seen is a guess, and
+    #: a guessed shape either scrubs ordinary words or misses the echo.
+    key_shape: str = ""
 
     @property
     def install(self) -> str:
@@ -117,6 +130,15 @@ AGENTS: tuple[Agent, ...] = (
         # 2026-08-22, in all three states: signed out, `HOME` emptied, and
         # `ANTHROPIC_API_KEY` present.
         auth_probe=("--cli", "auth", "status"),
+        # The prefix this vendor's keys carry — the form the suite has
+        # planted as this vendor's since 2026-08-22 (`tests/test_acp.py`,
+        # `tests/test_no_secret_in_any_bundle.py`) and the one the author's
+        # own key had on the auth-probe arm of that day. What this vendor
+        # ECHOES on a rejected key has NOT been measured — the org-pinned
+        # refusal of 2026-08-27 named no key at all — so the shape covers
+        # the key and any echo that keeps its prefix, and claims nothing
+        # about an echo that does not.
+        key_shape=r"(?<![A-Za-z0-9_-])sk-ant-[A-Za-z0-9_*.\u2026-]{4,}",
     ),
     Agent(
         id="gemini",
@@ -126,7 +148,8 @@ AGENTS: tuple[Agent, ...] = (
         args=("--experimental-acp",),
         # Deliberately empty: nobody here has run this agent's auth surface,
         # and inventing one is how the last auth sentence in this repository
-        # came to be false.
+        # came to be false. `key_shape` is empty for the same reason: nobody
+        # here has seen one of this vendor's keys or its echo of one.
     ),
 )
 
@@ -164,6 +187,10 @@ class ShellVendor:
     #: Argv suffix that starts the vendor's own login flow. Printed, never
     #: executed — a login is somebody's account. Read off the CLI's own help.
     login_verb: tuple[str, ...] = ()
+    #: The shape of this vendor's credential AND of what the vendor echoes
+    #: when it rejects one — `Agent.key_shape`'s twin, read by `redact.py`'s
+    #: second tier. Measured or empty, never guessed.
+    key_shape: str = ""
 
     @property
     def login_command(self) -> str:
@@ -186,8 +213,35 @@ SHELL_VENDORS: tuple[ShellVendor, ...] = (
         key_env="CODEX_API_KEY",
         login_probe=("login", "status"),
         login_verb=("login",),
+        # **What it echoes on a rejected key, measured twice.** Run 3
+        # (2026-08-31, codex-cli 0.149.0) and run 4B (2026-09-01, 45 lines
+        # of one worker log): `401 Unauthorized: Incorrect API key provided:
+        # sk-proj-` + a run of `*` + the key's LAST FOUR characters + `.`.
+        # The first eight characters and the last four are the vendor's
+        # own bytes of somebody's key. The shape below matches the key
+        # itself (`sk-`, then token characters) and that echo (the same
+        # prefix, then any mix of token characters, `*`, `.` and `…`), so
+        # a log carrying either is scrubbed whether or not the key was
+        # declared. `sk-` followed by fewer than four characters is left
+        # alone: that is the word, not the key.
+        key_shape=r"(?<![A-Za-z0-9_-])sk-[A-Za-z0-9_*.\u2026-]{4,}",
     ),
 )
+
+
+def key_shapes() -> tuple[str, ...]:
+    """Every measured credential shape, in table order, duplicates dropped.
+
+    The ONLY door through which vendor knowledge reaches `redact.py`: it
+    compiles what this returns and applies it to every write path. Empty
+    rows contribute nothing, so a vendor nobody has measured costs no
+    false scrub.
+    """
+    found: list[str] = []
+    for row in (*AGENTS, *SHELL_VENDORS):
+        if row.key_shape and row.key_shape not in found:
+            found.append(row.key_shape)
+    return tuple(found)
 
 
 def shell_vendor_by_command(basename: str) -> ShellVendor | None:

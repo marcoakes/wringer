@@ -907,7 +907,15 @@ def _handle(
                 # earlier one. Adding them would double-count the agent's own
                 # running total.
                 turn.usage = reported
-        turn.updates.append(f"[{kind}] {scrub(json.dumps(update))[:400]}")
+        # `ensure_ascii=False`, because the default turns a non-ASCII byte
+        # into `\uXXXX` BEFORE the redactor reads the text — a masked key
+        # `sk-…8dd6` became `sk-\u20268dd6`, the measured shape stopped at
+        # the backslash, and the key's last four characters reached the log
+        # (review of 0.7.4, 2026-09-02). The redactor must see what the agent
+        # actually said.
+        turn.updates.append(
+            f"[{kind}] {scrub(json.dumps(update, ensure_ascii=False))[:400]}"
+        )
         return
 
     if method == "fs/read_text_file":

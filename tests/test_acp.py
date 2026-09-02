@@ -1396,6 +1396,50 @@ def test_an_env_passthrough_value_is_redacted_even_with_an_unremarkable_name(
     )
 
 
+def test_the_JSON_front_door_carries_no_shape_of_a_key_the_agent_echoed(
+    repo, monkeypatch, capsys
+):
+    """**0.7.4, run 4B (2026-09-01).** A turn's last words become the
+    diagnosis's `engine_words`, and `wring run --json` prints the diagnosis
+    to a console — the one surface no file scrub can reach, and the one the
+    drive reads. The words are scrubbed where the ledger is written
+    (`acp._handle`, D8), which is the ONE routing every later reader
+    inherits: a key echoed whole, masked to three-and-four the way a vendor
+    masks it, and a vendor-shaped token nobody declared all leave the
+    front door as placeholders. Reverting that routing alone turns this
+    red — the bundle stays clean either way, because the log writer scrubs
+    again, so only the console can tell."""
+    secret = "sk-proj-notarealcredential9f3e11c4a7028dd6"
+    monkeypatch.setenv("WRINGER_TEST_CREDENTIAL", secret)
+    setup(
+        repo,
+        "leakidle",
+        env_passthrough="      env_passthrough: [WRINGER_TEST_CREDENTIAL]\n",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run", "--json"]) == cli.EXIT_GATE_FAILED
+    printed = capsys.readouterr().out
+
+    payload = json.loads(printed[printed.index("{"):])
+    found = payload["worker_diagnosis"]
+    assert found is not None and found["face"] == diagnose.FACE_TURN_CHANGED_NOTHING
+    assert "Incorrect API key provided" in found["engine_words"], found
+    for form in (secret, f"{secret[:3]}\u2026{secret[-4:]}",
+                 "sk-proj-NEVERDECLARED0000111122223333"):
+        assert form not in printed, f"{form!r} reached the JSON front door"
+    for start in range(len(secret) - 5):
+        assert secret[start:start + 6] not in printed, printed
+    assert mentions(repo, secret) == []
+    # **The reviewer's measurement (2026-09-02)**: the masked form's LAST FOUR
+    # characters reached the log as `sk-\u20268dd6` because json.dumps had
+    # escaped the ellipsis before the redactor looked — and the assertion
+    # above on the literal masked form was green for the wrong reason. The
+    # tail is the fact: no four-character tail of the key anywhere.
+    assert secret[-4:] not in printed, printed
+    assert mentions(repo, secret[-4:]) == [], "the key's tail reached a file"
+
+
 def test_a_failed_turn_keeps_what_the_agent_said_before_it_died(
     repo, monkeypatch, capsys
 ):
