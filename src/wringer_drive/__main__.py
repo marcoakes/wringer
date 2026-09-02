@@ -65,6 +65,25 @@ def build_parser() -> argparse.ArgumentParser:
     # is no `--yes`, no `--auto`, no `--non-interactive` that answers the
     # approval. `test_there_is_no_flag_that_answers_the_approval` reads this
     # parser and fails if one appears.
+
+    # 0.7.1 (P0.2): the verb run 4B had no name for. Same steps, same
+    # renderer, one extra sentence first; it takes no document because the
+    # record already knows where the one it copied is.
+    resumed = sub.add_parser(
+        "resume",
+        help="continue a stopped run from the step it stopped at — answers, "
+        "the approved plan and installed checks are reused, never re-asked",
+    )
+    resumed.add_argument(
+        "--repo", default=".", help="the project the run stopped in (default: here)"
+    )
+    resumed.add_argument(
+        "--emit",
+        choices=("text", "json"),
+        default="text",
+        help="`json` emits one object per line for a coding agent to drive; "
+        "`text` is for a person at a terminal. The same steps either way",
+    )
     return parser
 
 
@@ -74,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
     session = run_module.Session(repo=repo)
 
     try:
+        if args.command == "resume":
+            return _resume(session, args)
         return _run(session, args)
     except KeyboardInterrupt:
         # **START-HERE.md calls Ctrl-C safe; this gave a PM a traceback.**
@@ -352,8 +373,7 @@ def _confirm(step, mode: str, repo=None) -> bool:
 
 
 def _run(session: run_module.Session, args) -> int:
-    from wringer_board import interview
-
+    """`wringer-drive run`: the PRD comes inside, then the whole sequence."""
     mode = args.emit
     repo = session.repo
 
@@ -371,11 +391,105 @@ def _run(session: run_module.Session, args) -> int:
         session.emit(resumed)
         _render([resumed], mode)
 
+    # `run` starts every phase, whatever the record says: its approval is
+    # asked live on every run (the law in `run.py`'s resume section).
+    return _drive(session, mode, inside, start=None)
+
+
+def _resume(session: run_module.Session, args) -> int:
+    """`wringer-drive resume`: the record's phase is the starting point.
+
+    **0.7.1 (P0.2), from run 4B.** Re-running `run` already reused an
+    approved spec and spent nothing on a second draft; no verb SAID so, and
+    nothing printed what would be reused versus spent. This one reads the
+    checkpoint, refuses a plan whose bytes moved since it was approved, says
+    the three lines, and joins the one sequence at the phase that stopped.
+    """
+    mode = args.emit
+    repo = session.repo
+
+    facts = run_module.resume_facts(repo)
+    if facts is None:
+        raise run_module.Stop(run_module.nothing_to_resume_step(), exit_code=2)
+    if facts.spec_changed:
+        raise run_module.Stop(run_module.spec_changed_step(), exit_code=1)
+
+    preface = session.emit(run_module.resume_preface(facts))
+    _render([preface], mode)
+
+    # The document the record's own `run` copied inside. Only the draft phase
+    # reads it, and only while no spec exists; a resume that finds neither is
+    # a run that never drafted and a document that has since gone.
+    inside = repo / run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME
+    if not facts.spec_present and not facts.prd_inside:
+        raise run_module.Stop(run_module.nothing_to_resume_step(), exit_code=2)
+    return _drive(session, mode, inside, start=facts.phase)
+
+
+def _gates(session: run_module.Session, mode: str) -> None:
+    """The gate phase's body (step 7): a diff, INSTALLED only on a yes (§3a).
+
+    The diff is rendered by this process before the question is asked, for
+    the same reason the plan is: the interlock is that a person SAW it. A
+    helper only so `_drive` reads as the phase list it is; the call site
+    keeps its "Step 7" marker for the board-boundary guard.
+    """
+    repo = session.repo
+    proposal = run_module.gate_proposal(repo)
+    diff = run_module.gate_diff_step(proposal)
+    if diff is not None:
+        session.emit(diff)
+        _render([diff], mode)
+        # Step 7a — a check that already passes today is named HERE, before the
+        # yes, because at the handover it is five seconds too late. Running a
+        # model-authored command needs its own permission: see `trial_step`.
+        if _confirm(run_module.trial_step(proposal), mode, repo):
+            tried = run_module.proposed_gates(repo, proposal)
+            found = run_module.trial_result_step(
+                tried, run_module.already_passing(repo, tried)
+            )
+            session.emit(found)
+            _render([found], mode)
+        run_module.install_gates(
+            repo,
+            proposal,
+            answered_yes=_confirm(run_module.gate_approval_step(proposal), mode, repo),
+        )
+    else:
+        # No diff, and the THREE reasons for that are not the same news. Said
+        # out loud rather than skipped: a step that vanishes looks like one
+        # that failed, and the sentence that used to stand here was false on a
+        # real run.
+        nothing = run_module.nothing_to_install_step(proposal)
+        session.emit(nothing)
+        _render([nothing], mode)
+
+
+def _drive(session: run_module.Session, mode: str, inside: Path, start: str | None) -> int:
+    """THE ONE STEP SEQUENCE, with a starting point.
+
+    `run` passes `start=None` and every phase is due. `resume` passes the
+    phase the record names, and the phases before it are skipped — each was
+    completed by the run that wrote the record (`run_module.PHASES` says why
+    that holds), and re-running a completed phase was measured as a safe act
+    before this verb existed. Two front doors, one implementation: nothing
+    here is duplicated per verb, and the resume record is written HERE at
+    each phase's start, so a phase added later inherits the checkpoint.
+    """
+    from wringer_board import interview
+
+    repo = session.repo
+
+    def due(phase: str) -> bool:
+        return run_module.phase_is_due(start, phase)
+
     # Step 2 — the workspace, only when there is none. The three things DRIVE
     # may not invent are ASKED for: an endpoint is a network address, a model
     # is a bill, and a worker is a command. Ruling 5 forbids guessing any of
     # them, and asking is the one thing this verb is built to do.
-    if run_module.needs_workspace(repo):
+    if due("setup"):
+        run_module.checkpoint_phase(repo, "setup")
+    if due("setup") and run_module.needs_workspace(repo):
         answers = {}
         for question in run_module.SETUP_QUESTIONS:
             said = _ask(question, mode, repo)
@@ -415,12 +529,16 @@ def _run(session: run_module.Session, args) -> int:
     # the call failed — which is what happened. Either step it can emit is
     # rendered at the moment it is emitted: `drafting` when it is about to
     # spend, and `spec-reused` when it is not.
-    run_module.draft_the_spec(
-        session, repo, inside, announce=lambda step: _render([step], mode)
-    )
+    if due("draft"):
+        run_module.checkpoint_phase(repo, "draft")
+        run_module.draft_the_spec(
+            session, repo, inside, announce=lambda step: _render([step], mode)
+        )
 
     # Step 4 — the interview. One question at a time, in the drafter's words.
-    for step in run_module.questions_to_ask(repo):
+    if due("interview"):
+        run_module.checkpoint_phase(repo, "interview")
+    for step in run_module.questions_to_ask(repo) if due("interview") else ():
         answer = _ask(step, mode, repo)
         if not answer:
             raise run_module.Stop(
@@ -448,7 +566,9 @@ def _run(session: run_module.Session, args) -> int:
     # answering and approving are different acts and one keystroke may never
     # do both. This asks whether the RECORD is right; step 6 asks whether the
     # PLAN is right, against a plan this has not produced yet.
-    recorded = run_module.answers_recorded_step(repo)
+    if due("read-back"):
+        run_module.checkpoint_phase(repo, "read-back")
+    recorded = run_module.answers_recorded_step(repo) if due("read-back") else None
     if recorded is not None:
         session.emit(recorded)
         _render([recorded], mode)
@@ -483,33 +603,45 @@ def _run(session: run_module.Session, args) -> int:
 
     # Step 5 — the plan, verbatim. Step 6 — the approval, asked by this
     # process, after this process rendered the plan.
-    plan = run_module.plan_step(repo)
-    session.emit(plan)
-    _render([plan], mode)
+    #
+    # **Skipped by `resume` only once the phase after it began** — which
+    # means `approve()` wrote the spec's own `approved: true` in the run that
+    # left the record, and `_resume` has already compared the spec's bytes
+    # to the ones that approval was given against. Nothing in the resume
+    # record answers this question; a run killed AT it is asked it again.
+    if due("approve"):
+        run_module.checkpoint_phase(repo, "approve")
+        plan = run_module.plan_step(repo)
+        session.emit(plan)
+        _render([plan], mode)
 
-    run_module.approve(
-        repo, answered_yes=_confirm(run_module.approval_step(), mode, repo)
-    )
-
-    remaining = interview.unanswered(repo)
-    if remaining:
-        raise run_module.Stop(
-            run_module.Step(
-                kind="stopped",
-                id="stopped:still-unanswered",
-                text="Nothing was built: "
-                + ", ".join(q.id for q in remaining)
-                + " is still unanswered.",
-            )
+        run_module.approve(
+            repo, answered_yes=_confirm(run_module.approval_step(), mode, repo)
         )
 
-    approved = run_module.Step(
-        kind="show",
-        id="approved",
-        text="Approved. The plan is recorded and the build can start.",
-    )
-    session.emit(approved)
-    _render([approved], mode)
+        remaining = interview.unanswered(repo)
+        if remaining:
+            raise run_module.Stop(
+                run_module.Step(
+                    kind="stopped",
+                    id="stopped:still-unanswered",
+                    text="Nothing was built: "
+                    + ", ".join(q.id for q in remaining)
+                    + " is still unanswered.",
+                )
+            )
+
+        approved = run_module.Step(
+            kind="show",
+            id="approved",
+            text="Approved. The plan is recorded and the build can start.",
+        )
+        session.emit(approved)
+        _render([approved], mode)
+        # The bytes this approval was given against, recorded with the
+        # phase that follows it. `resume` refuses to reuse the approval if
+        # they move (P0.2's staleness law).
+        run_module.record_approved_spec(repo)
 
     # **The board is re-rendered at each phase boundary, not only at the end.**
     # A run takes minutes and the page is the person's only window into it; a
@@ -521,54 +653,42 @@ def _run(session: run_module.Session, args) -> int:
     # Step 7 — the proposed gates, as a diff, INSTALLED only on a yes (§3a).
     # The diff is rendered by this process before the question is asked, for
     # the same reason the plan is: the interlock is that a person SAW it.
-    proposal = run_module.gate_proposal(repo)
-    diff = run_module.gate_diff_step(proposal)
-    if diff is not None:
-        session.emit(diff)
-        _render([diff], mode)
-        # Step 7a — a check that already passes today is named HERE, before the
-        # yes, because at the handover it is five seconds too late. Running a
-        # model-authored command needs its own permission: see `trial_step`.
-        if _confirm(run_module.trial_step(proposal), mode, repo):
-            tried = run_module.proposed_gates(repo, proposal)
-            found = run_module.trial_result_step(
-                tried, run_module.already_passing(repo, tried)
-            )
-            session.emit(found)
-            _render([found], mode)
-        run_module.install_gates(
-            repo,
-            proposal,
-            answered_yes=_confirm(run_module.gate_approval_step(proposal), mode, repo),
-        )
-    else:
-        # No diff, and the THREE reasons for that are not the same news. Said
-        # out loud rather than skipped: a step that vanishes looks like one
-        # that failed, and the sentence that used to stand here was false on a
-        # real run.
-        nothing = run_module.nothing_to_install_step(proposal)
-        session.emit(nothing)
-        _render([nothing], mode)
+    if due("gates"):
+        run_module.checkpoint_phase(repo, "gates")
+        _gates(session, mode)
 
     # Step 7b — what shows a requirement only a person can judge (0.6.7,
     # runs 4 and 4B): asked here, once, before anything is built, so the pen
     # has something to run instead of only `--without-display` to offer.
     shows: dict[str, str] = {}
-    for step in run_module.show_questions(repo):
-        session.emit(step)
-        shows[str(step.detail["criterion_id"])] = _ask(step, mode, repo)
-    for step in run_module.record_shows(repo, shows):
-        session.emit(step)
-        _render([step], mode)
+    if due("show"):
+        run_module.checkpoint_phase(repo, "show")
+        for step in run_module.show_questions(repo):
+            session.emit(step)
+            shows[str(step.detail["criterion_id"])] = _ask(step, mode, repo)
+        for step in run_module.record_shows(repo, shows):
+            session.emit(step)
+            _render([step], mode)
 
     # The second phase boundary: the gates are settled, so the board can now
     # say which requirements have a check bound to them.
     run_module.render_board(repo)
 
     # Step 8 — the loop, with the worker the project declares.
-    for step in run_module.build_steps(repo):
-        session.emit(step)
-        _render([step], mode)
+    #
+    # **The record advances past the build only when the loop CONVERGED.**
+    # A build that stopped — run 4B's refused worker turn — is the phase a
+    # resume must redo, and a record that had already moved on to the
+    # handover would send the resume to a refusal about evidence the build
+    # never produced.
+    if due("build"):
+        run_module.checkpoint_phase(repo, "build")
+        built = run_module.build_steps(repo)
+        for step in built:
+            session.emit(step)
+            _render([step], mode)
+        if built[-1].detail.get("status") == "converged":
+            run_module.checkpoint_phase(repo, "deliver")
 
     # Steps 9 and 10 — the board is rendered BEFORE the handover is offered,
     # because ruling 2a's second authorisation is given against it. A refusal

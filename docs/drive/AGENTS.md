@@ -350,6 +350,23 @@ and not its first line. Then:
   until a command exists under `show:` (or they record on their own sight
   of it with `--without-display`, which the record says).
 
+- **A stopped run is continued with `wringer-drive resume --emit json`**
+  (0.7.1). Same steps, same stream, no document argument — the run's own
+  checkpoint says where it was. It emits one `resume-preface` step first,
+  with three labelled lines — `Preserved:` (what is on disk), `Reused:`
+  (what will not be asked or paid for again, by name), `Will spend:` (the
+  next paid thing) — then joins at the phase that stopped: recorded answers,
+  an approved plan and installed checks are reused and never re-asked, and
+  no drafting call is made while a spec exists. A run killed AT a question
+  is asked that question again. If `wringer.spec.yaml` changed since the
+  approval, the ending is `stopped:spec-changed` and the plan is approved
+  again with `wringer-drive run`; with no checkpoint at all it is
+  `stopped:nothing-to-resume`. Relay the preface verbatim like any `show`.
+
+  ```bash
+  wringer-drive resume --emit json
+  ```
+
 - **The first run in a fresh project asks three setup questions**, and each
   offers its documented example values in the question text. For the record,
   those values are:
