@@ -4,6 +4,41 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.5 — 2026-09-02
+
+**Every command the product prints is executed in CI, as printed (P0.5)
+— window A of the world-class plan closes.** Runs 4 and 4B: two audit
+instructions failed as printed before one was executed. Now nothing may
+print a command it has not run.
+
+### The registry, and its guard
+
+`tests/journey/test_printed_commands.py` is a registry of 44
+printed-command families — `commands.txt`, `mr.md`, every verb's console,
+the drive's steps and stops, doctor's remedies, the board's help, the setup
+epilogues — each row running the real surface, lifting the command out,
+and executing it through the real entry point in the surface's own
+fixture: 33 executed there, 5 by a named CI test the registry checks
+exists, 6 HUMAN-ONLY with the reason CI may not run them (a package
+manager, the operator's Keychain, a merge request on a forge). A guard
+walks every shipped string literal and fails on a command-shaped literal
+no row covers — 202 sites found, 202 covered. Binding:
+`docs/specs/SPEC_PRINTED_V0.md`.
+
+### Two defects the first execution found
+
+- The missing-agent hint offered `npm bin -g` — removed in npm 9, exit 1
+  on npm 11 — dead as printed for the life of the message. Now `npm prefix
+  -g`.
+- The bench summary offered `wring judge <run>` for every row, and the
+  judge refuses a bundle whose gates did not pass, so a non-converged
+  row's line exited 3 as printed. Offered only for rows whose loop
+  converged.
+
+Seven red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.7.4 — 2026-09-02
 
 **Worker logs sanitised below the declared value (P0.6).** Run 4B: the
