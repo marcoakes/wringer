@@ -65,8 +65,14 @@ RUBRIC_FILENAME = "wringer.rubric.yaml"
 # stays the one file that puts a command in Wringer's mouth (SPEC_GRAPH
 # ruling 1).
 GATESPEC_FILENAME = "wringer.gates.yaml"
-GATESPEC_SCHEMA_VERSION = "wringer.gatespec.v1"
-_GATESPEC_KEYS = {"schema_version", "gates"}
+# `wringer.gatespec.v2` (2026-09-02, world-class plan P0.3): the sidecar may
+# also PROPOSE a `show:` display per `human: true` criterion. v1 is frozen
+# (schema/frozen.json), so the optional key is a new schema version on the
+# `decisions.v2` precedent — every v1 document is a valid v2 document, both
+# are read forever, and a v1 document carrying `show:` is refused by name.
+GATESPEC_SCHEMA_VERSION = "wringer.gatespec.v2"
+GATESPEC_SCHEMA_VERSIONS = ("wringer.gatespec.v1", "wringer.gatespec.v2")
+_GATESPEC_KEYS = {"schema_version", "gates", "show"}
 TASKS_FILENAME = "tasks.jsonl"
 SPECS_DIRNAME = Path(".wringer") / "specs"
 REQUEST_FILENAME = "request.json"
@@ -285,6 +291,20 @@ class Draft:
     # drafted spec, and a criterion with no binding is already a legal state
     # the plan renders in words ("NOTHING CHECKS THIS YET").
     notes: tuple[str, ...] = ()
+    # What would SHOW each `human: true` criterion to the person judging it —
+    # criterion id to a command, proposed the way a gate is proposed: into
+    # the sidecar, rendered by `wring plan` into the same diff, run by nothing
+    # until a person applies it (P0.3, 2026-09-02).
+    show: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Sidecar:
+    """What `wringer.gates.yaml` proposes: gates, and displays for the
+    criteria only a person can settle. Either half may be empty."""
+
+    gates: tuple[config.Gate, ...] = ()
+    show: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -1430,7 +1450,16 @@ def render_request(
         "the criterion is left with nothing checking it — the check passes "
         "today, so no amount of work can make it fail, and a check that "
         "cannot fail proves nothing. Give it a command of its own or give it "
-        "none.\n\n"
+        "none.\n"
+        "8. **For each `\"human\": true` criterion, propose a `show_proposals` "
+        "entry**: ONE command, run from the repository root, whose output "
+        "puts the thing being judged in front of the person — the page, the "
+        "report, the rendered text. It is not a check and it decides nothing; "
+        "it is what the person looks at. It may name only files that exist "
+        "today and run only what this repository already runs. Omit a "
+        "criterion rather than guess at a command that would display it: a "
+        "guess dressed as a recipe fails on the person's machine at the exact "
+        "moment they are asked to judge.\n\n"
         "## Reply format\n"
         "Return ONLY a JSON object, no prose and no code fence:\n"
         "{\n"
@@ -1447,6 +1476,8 @@ def render_request(
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'
         '  "gate_bindings": [{"id": "<slug>", "run": "<shell command>", '
         '"proves": "<criterion id from above>"}],\n'
+        '  "show_proposals": {"<human criterion id from above>": "<shell '
+        'command whose output shows it>"},\n'
         '  "tasks": [{"id": "<slug>", "brief": "briefs/<slug>.md", '
         '"dir": ".", "objective": "<one paragraph, for the engineer>", '
         '"outcome": "<one sentence, for the person who asked>"}]\n'
@@ -1454,7 +1485,9 @@ def render_request(
         "Slugs are letters, digits, '-' and '_'. At least one criterion must "
         "be `required`. At least one task. `gates` are the repository's "
         "existing checks; `gate_bindings` are the per-criterion acceptance "
-        "checks, and only these carry `proves`. An `assumptions` id must not "
+        "checks, and only these carry `proves`; `show_proposals` names only "
+        "`human` criteria and is omitted when there are none. An "
+        "`assumptions` id must not "
         "be the id of a question you are also asking — decide it or ask it, "
         "never both.\n\n"
         "An assumption's `criteria` names every criterion below whose "
@@ -1604,7 +1637,7 @@ def parse_response(
     unknown = sorted(
         set(drafted)
         - {"title", "open_questions", "criteria", "gates", "tasks",
-           "gate_bindings", "assumptions"}
+           "gate_bindings", "assumptions", "show_proposals"}
     )
     if unknown:
         raise SpecError(
@@ -1713,14 +1746,23 @@ def parse_response(
         drafted_spec.questions,
         drafted_spec.criteria,
     )
+    # A display the drafter proposed for a criterion that is not `human`, or
+    # that nobody declared, is DROPPED with a note on this path — the same
+    # asymmetry as a duplicate binding: a model's proposal survives with its
+    # losses named, a person's sidecar gets the strict error.
+    shows, show_notes = parse_show_proposals(
+        drafted.get("show_proposals"), drafted_spec.criteria, "the drafted displays"
+    )
     return Draft(
         spec=drafted_spec,
         gates=proposed,
         assumptions=assumptions,
         outcomes=outcomes,
+        show=shows,
         notes=(
             *dropped,
             *notes,
+            *show_notes,
             # Informational, and last: a gate already installed by an earlier
             # run is news the operator may want and is never a problem.
             *already,
@@ -1954,16 +1996,35 @@ def parse_gatespec(
     is a file somebody wrote on purpose, and silently ignoring a line they
     typed is worse for them than refusing it to their face.
     """
+    return parse_sidecar(data, where, criteria, declared).gates
+
+
+def parse_sidecar(
+    data: Any, where: str, criteria: Any, declared: Any = ()
+) -> Sidecar:
+    """Both halves of `wringer.gates.yaml`: the gates, and the displays.
+
+    `parse_gatespec` above is the gates-only view every caller had before
+    the sidecar could carry a `show:` block; this is what reads the file.
+    """
     if not isinstance(data, dict):
         raise SpecError(f"{where}: top level must be a mapping")
     unknown = sorted(set(data) - _GATESPEC_KEYS)
     if unknown:
         raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
     version = data.get("schema_version")
-    if version != GATESPEC_SCHEMA_VERSION:
+    if version not in GATESPEC_SCHEMA_VERSIONS:
         raise SpecError(
             f"{where}: 'schema_version: {GATESPEC_SCHEMA_VERSION}' is "
             f"required (got {version!r})"
+        )
+    if "show" in data and version != GATESPEC_SCHEMA_VERSION:
+        # v1 is frozen: a reader that knows only v1 would refuse this key,
+        # and a file that claims v1 while carrying it is a file two readers
+        # disagree about. Said by name rather than accepted quietly.
+        raise SpecError(
+            f"{where}: 'show:' needs 'schema_version: "
+            f"{GATESPEC_SCHEMA_VERSION}' (got {version!r})"
         )
     # **`already` is deliberately not raised on** — field report 2026-08-21
     # finding 10. This function refuses a sidecar entry it cannot use, because
@@ -1979,40 +2040,111 @@ def parse_gatespec(
     )
     if notes:
         raise SpecError(notes[0])
-    return gates
+    # The same asymmetry for a display: the drafted path drops with a note,
+    # a typed file is refused to its author's face.
+    show, show_notes = parse_show_proposals(data.get("show"), criteria, where)
+    if show_notes:
+        raise SpecError(show_notes[0])
+    return Sidecar(gates=gates, show=show)
+
+
+def parse_show_proposals(
+    raw: Any, criteria: Any, where: str
+) -> tuple[dict[str, str], tuple[str, ...]]:
+    """A proposed display per `human: true` criterion — id to command.
+
+    **A display is the same power as a gate, no larger** (P0.3, 2026-09-02):
+    a command a model wrote, run on the person's machine only after they
+    applied the diff that carries it. So it gets the gate's treatment — the
+    shape `config._parse_show` will face, checked here so `wring plan` can
+    never propose a `show:` block `.wringer.yaml` would refuse — plus the
+    join the display channel is FOR: the criterion must exist and it must be
+    `human`. A display for a criterion a machine decides is the category
+    error in reverse of a binding on a `human` one, and it is dropped with a
+    note rather than installed as if it meant something.
+
+    Returns the usable proposals and one note per dropped entry. Shape errors
+    (not a mapping, a blank command) RAISE on every path: nothing downstream
+    can do anything with them and the request named the shape.
+    """
+    if raw is None:
+        return {}, ()
+    if not isinstance(raw, dict):
+        raise SpecError(
+            f"{where}: 'show_proposals' must be a mapping of criterion id to "
+            "command"
+        )
+    known = {c.id: c for c in criteria}
+    kept: dict[str, str] = {}
+    notes: list[str] = []
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.strip():
+            raise SpecError(f"{where}: 'show_proposals' keys must be criterion ids")
+        if not isinstance(value, str) or not value.strip():
+            raise SpecError(
+                f"{where}: show_proposals['{key}'] must be a command, got "
+                f"{value!r}"
+            )
+        cid = key.strip()
+        criterion = known.get(cid)
+        if criterion is None:
+            notes.append(
+                f"{where}: the display proposed for '{cid}' was dropped — "
+                f"{SPEC_FILENAME} declares no criterion with that id"
+            )
+            continue
+        if not getattr(criterion, "human", False):
+            notes.append(
+                f"{where}: the display proposed for '{cid}' was dropped — "
+                "a machine decides that criterion, and a display is for the "
+                "ones only a person can settle"
+            )
+            continue
+        kept[cid] = value.strip()
+    return kept, tuple(notes)
 
 
 def load_gatespec(
     root: Path, criteria: Any, declared: Any = ()
 ) -> tuple[config.Gate, ...]:
-    """The sidecar's proposals, or none because there is no sidecar.
+    """The sidecar's gate proposals, or none because there is no sidecar.
 
     Absent is not an error: the file is optional everywhere, and a repo that
     binds its criteria by hand never grows one.
     """
+    return load_sidecar(root, criteria, declared).gates
+
+
+def load_sidecar(root: Path, criteria: Any, declared: Any = ()) -> Sidecar:
+    """The sidecar, both halves, or an empty one because there is no file."""
     path = root / GATESPEC_FILENAME
     if not path.is_file():
-        return ()
+        return Sidecar()
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError, UnicodeDecodeError) as exc:
         raise SpecError(f"{GATESPEC_FILENAME} is not valid YAML: {exc}") from exc
-    return parse_gatespec(data, GATESPEC_FILENAME, criteria, declared)
+    return parse_sidecar(data, GATESPEC_FILENAME, criteria, declared)
 
 
-def render_gatespec(gates: Any) -> str:
+def render_gatespec(gates: Any, show: Any = None) -> str:
     """The sidecar as the file a human reads, edits, or writes from scratch."""
     lines = [
         GATESPEC_MARKER,
         f"schema_version: {GATESPEC_SCHEMA_VERSION}",
-        "",
-        "gates:",
     ]
+    if gates:
+        lines += ["", "gates:"]
     for gate in gates:
         lines += [f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"]
         if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
             lines.append(f"    timeout: {gate.timeout}")
         lines.append(f"    proves: {gate.proves}")
+    if show:
+        # Quoted by the same emitter as every command here (0.6.5's lesson:
+        # a bare `|| [ $? -eq 1 ]` is not the YAML a person thinks it is).
+        lines += ["", "show:"]
+        lines += [f"  {cid}: {_scalar(command)}" for cid, command in show.items()]
     return "\n".join(lines) + "\n"
 
 
@@ -2608,8 +2740,9 @@ def proposals(loaded: Spec, sidecar: Any = ()) -> tuple[config.Gate, ...]:
     return (*loaded.gates, *sidecar)
 
 
-def gate_diff(existing: str, proposed: Any) -> tuple[str, tuple[str, ...],
-                                                     tuple[str, ...]]:
+def gate_diff(
+    existing: str, proposed: Any, show: Any = None
+) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
     """The change a human would have to make to `.wringer.yaml`, as a diff.
 
     Returns the diff text, the ids it would add, and the ids that already
@@ -2620,37 +2753,54 @@ def gate_diff(existing: str, proposed: Any) -> tuple[str, tuple[str, ...],
     because the sidecar is a second source and a binding cannot live on a
     `Spec` at all — `wringer.spec.v1` is frozen and `spec.parse` builds its
     gates with `allow_proves` off.
+
+    `show` (P0.3, 2026-09-02) is the `show:` block the SAME diff appends —
+    criterion id to display command, already partitioned by `show_plan` so
+    only entries this file can take arrive here. One diff, one yes: a
+    proposed display runs on the person's machine under exactly the consent
+    a proposed gate does, and splitting it into a second patch would be a
+    second thing to approve for no second power.
     """
     import difflib
 
     declared = declared_gate_ids(existing)
     fresh = tuple(g.id for g in proposed if g.id not in declared)
     already = tuple(g.id for g in proposed if g.id in declared)
-    if not fresh:
+    show = dict(show or {})
+    if not fresh and not show:
         return "", fresh, already
 
-    addition = []
-    for gate in proposed:
-        if gate.id not in fresh:
-            continue
-        addition += [f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"]
-        if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
-            addition.append(f"    timeout: {gate.timeout}")
-        if gate.optional:
-            addition.append("    optional: true")
-        if gate.proves:
-            # The binding travels WITH the command, so one edit installs both
-            # and nobody ends up with a gate whose purpose was left behind in
-            # another file.
-            addition.append(f"    proves: {gate.proves}")
+    merged = existing
+    if fresh:
+        addition = []
+        for gate in proposed:
+            if gate.id not in fresh:
+                continue
+            addition += [
+                f"  - id: {_scalar(gate.id)}", f"    run: {_scalar(gate.run)}"
+            ]
+            if gate.timeout != config.DEFAULT_TIMEOUT_SECONDS:
+                addition.append(f"    timeout: {gate.timeout}")
+            if gate.optional:
+                addition.append("    optional: true")
+            if gate.proves:
+                # The binding travels WITH the command, so one edit installs
+                # both and nobody ends up with a gate whose purpose was left
+                # behind in another file.
+                addition.append(f"    proves: {gate.proves}")
 
-    merged = _append_gates(existing, addition)
-    if merged is None:
-        # The change could not be expressed as an edit to this file without
-        # risking a second `gates:` key — which YAML resolves by keeping the
-        # LAST one, silently deleting every gate the repo already declared.
-        # No diff is the honest answer; the caller prints the gates in words.
-        return "", fresh, already
+        merged = _append_gates(existing, addition)
+        if merged is None:
+            # The change could not be expressed as an edit to this file
+            # without risking a second `gates:` key — which YAML resolves by
+            # keeping the LAST one, silently deleting every gate the repo
+            # already declared. No diff is the honest answer; the caller
+            # prints the gates in words — and the displays with them, since
+            # a diff carrying only the displays would let the drive read
+            # "installed" over gates that were not.
+            return "", fresh, already
+    if show:
+        merged = _append_show(merged, show)
 
     before = existing.splitlines(keepends=True)
     proposed = merged.splitlines(keepends=True)
@@ -2703,6 +2853,50 @@ def _append_gates(existing: str, addition: list[str]) -> str | None:
         return None
     tail = "" if existing.endswith("\n") or not existing else "\n"
     return f"{existing}{tail}gates:\n{block}\n"
+
+
+# The comment the appended `show:` block carries INTO `.wringer.yaml`. It is
+# the one place the marker is rendered: the diff quotes it wherever the diff
+# is shown, and the file keeps it after the person applies it.
+SHOW_PROPOSAL_COMMENT = (
+    "# What shows a requirement only a person can judge — proposed by "
+    "`wring plan`;\n"
+    "# this runs on your machine at the pen, and only once you apply this "
+    "change."
+)
+
+
+def _append_show(existing: str, show: dict[str, str]) -> str:
+    """Put a `show:` block at the end of the file. Textual, like
+    `_append_gates`, and for the same reason. The caller has already refused
+    the case where a top-level `show:` exists (`show_plan`): a second key
+    would replace the first, and YAML would not say so."""
+    tail = "" if existing.endswith("\n") or not existing else "\n"
+    body = "".join(f"  {cid}: {_scalar(command)}\n" for cid, command in show.items())
+    return f"{existing}{tail}\n{SHOW_PROPOSAL_COMMENT}\nshow:\n{body}"
+
+
+def show_plan(
+    existing: str, proposals: dict[str, str], declared: dict[str, str]
+) -> tuple[dict[str, str], tuple[str, ...], tuple[str, ...]]:
+    """Which proposed displays the diff can carry — and which it cannot.
+
+    Returns `(writable, already_declared, not_installable)`. A proposal for
+    a criterion `.wringer.yaml` already shows is not proposed again (the
+    re-run rule, finding 10 of 2026-08-21). The rest are writable only when
+    the file has NO top-level `show:` yet: this mirrors `_append_gates`'s
+    refusal of a second `gates:` key and `wringer-drive`'s `record_shows`,
+    which will not rewrite a person's own `show:` section either. Those go
+    to the caller in words, never into a patch that would replace the block
+    the person wrote.
+    """
+    import re
+
+    already = tuple(cid for cid in proposals if cid in declared)
+    fresh = {cid: cmd for cid, cmd in proposals.items() if cid not in declared}
+    if fresh and re.search(r"^show\s*:", existing, re.MULTILINE):
+        return {}, already, tuple(fresh)
+    return fresh, already, ()
 
 
 def tasks_file_is_generated(path: Path) -> bool:

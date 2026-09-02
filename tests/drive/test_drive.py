@@ -2297,3 +2297,140 @@ def test_RUN_4B_the_drives_stop_step_names_the_key_and_the_resume_command(
     from wringer_board import refusals
 
     assert stopped.text == refusals.say(refusals.LOOP_ENDING, "no_progress").sentence
+
+
+# --- a display PROPOSED by the plan is installed by the gate yes (P0.3) ------
+
+
+@pytest.fixture
+def proposing_display(project: Path) -> Path:
+    """A project with a `human` criterion and a sidecar that proposes what
+    to show for it — the file `wring spec` writes since P0.3, in the shape
+    its own message tells an operator to write by hand."""
+    from wringer import spec
+
+    drafted = spec.load(project / "wringer.spec.yaml")
+    with_human = spec.Spec(
+        approved=drafted.approved, title=drafted.title, intent=drafted.intent,
+        questions=drafted.questions,
+        criteria=drafted.criteria + (
+            spec.Criterion(
+                id="reads-at-a-glance", title="The summary reads at a glance",
+                required=True, human=True,
+            ),
+        ),
+        gates=drafted.gates, tasks=drafted.tasks, path=drafted.path,
+    )
+    (project / "wringer.spec.yaml").write_text(spec.render(with_human), encoding="utf-8")
+    (project / "wringer.gates.yaml").write_text(
+        "schema_version: wringer.gatespec.v2\n"
+        "gates:\n"
+        "  - id: acc-exports-csv\n"
+        '    run: "test -f exports.csv"\n'
+        "    proves: exports-csv\n"
+        "show:\n"
+        '  reads-at-a-glance: "echo PROPOSED-BY-PLAN"\n',
+        encoding="utf-8",
+    )
+    approve_the_plan(project)
+    return project
+
+
+def test_a_PROPOSED_DISPLAY_is_installed_by_the_same_yes_and_never_asked_again(
+    proposing_display,
+):
+    """Runs 4 and 4B: the pen had a blank page; 0.6.7 asked the person to
+    invent a command. Now the plan proposes one, the gate yes installs it
+    through the same `git apply`, and the 0.6.7 question — which reads the
+    settings — has nothing left to ask."""
+    config = pytest.importorskip("wringer.config")
+
+    proposal = run_module.gate_proposal(proposing_display)
+    assert proposal["show_proposed"] == ["reads-at-a-glance"], proposal
+    assert proposal["gates_proposed"] == ["acc-exports-csv"]
+    assert run_module.show_questions(proposing_display) != [], (
+        "the question was already silent before anything was installed"
+    )
+
+    assert run_module.install_gates(proposing_display, proposal, answered_yes=True)
+
+    loaded = config.load(proposing_display / config.CONFIG_FILENAME)
+    assert loaded.show == {"reads-at-a-glance": "echo PROPOSED-BY-PLAN"}
+    assert "acc-exports-csv" in [gate.id for gate in loaded.gates]
+    assert run_module.show_questions(proposing_display) == [], (
+        "the drive asked again for a display the plan already installed"
+    )
+
+
+def test_the_diff_step_SAYS_it_adds_a_display_that_runs_on_the_machine(
+    proposing_display,
+):
+    proposal = run_module.gate_proposal(proposing_display)
+    step = run_module.gate_diff_step(proposal)
+    assert step is not None
+    assert "the checks that will prove the work" in step.text
+    assert "shown to you" in step.text and "reads-at-a-glance" in step.text
+    assert "runs on your machine" in step.text
+    assert step.detail["show"] == ["reads-at-a-glance"]
+    # The diff itself is the engine's, verbatim, and carries the block.
+    assert "+show:" in step.engine_words
+
+
+def test_the_approval_step_NAMES_the_display_beside_the_checks():
+    both = run_module.gate_approval_step(
+        {"gates_proposed": ["acc-x"], "show_proposed": ["reads-well"]}
+    )
+    assert "acc-x" in both.text and "reads-well" in both.text
+    assert "shown to you" in both.text
+    assert "Shall I add those checks" in both.question
+
+    only = run_module.gate_approval_step(
+        {"gates_proposed": [], "show_proposed": ["reads-well"]}
+    )
+    assert "reads-well" in only.text and "checks" not in only.text
+    assert "asked what should be shown" in only.refusing_means
+
+
+def test_declining_a_DISPLAY_ONLY_diff_does_not_stop_the_build(project):
+    """A no to a display is not a no to the checks that prove the work: the
+    build goes on and the 0.6.7 question asks what to show instead."""
+    config = pytest.importorskip("wringer.config")
+    from wringer import spec
+
+    drafted = spec.load(project / "wringer.spec.yaml")
+    with_human = spec.Spec(
+        approved=drafted.approved, title=drafted.title, intent=drafted.intent,
+        questions=drafted.questions,
+        criteria=drafted.criteria + (
+            spec.Criterion(id="reads-at-a-glance", title="Reads", required=True, human=True),
+        ),
+        gates=drafted.gates, tasks=drafted.tasks, path=drafted.path,
+    )
+    (project / "wringer.spec.yaml").write_text(spec.render(with_human), encoding="utf-8")
+    (project / "wringer.gates.yaml").write_text(
+        "schema_version: wringer.gatespec.v2\nshow:\n  reads-at-a-glance: \"echo x\"\n",
+        encoding="utf-8",
+    )
+    approve_the_plan(project)
+    path = project / config.CONFIG_FILENAME
+    before = path.read_bytes()
+
+    proposal = run_module.gate_proposal(project)
+    assert proposal["gates_proposed"] == [] and proposal["show_proposed"]
+    assert run_module.install_gates(project, proposal, answered_yes=False) is False
+    assert path.read_bytes() == before
+
+    declined = run_module.show_proposal_declined_step(proposal)
+    assert declined is not None and "reads-at-a-glance" in declined.text
+    assert [s.detail["criterion_id"] for s in run_module.show_questions(project)] == [
+        "reads-at-a-glance"
+    ], "the fallback question went missing"
+
+
+def test_a_display_the_settings_CANNOT_TAKE_is_said_not_swallowed():
+    step = run_module.show_not_installable_step(
+        {"show_not_installable": ["reads-well"]}
+    )
+    assert step is not None and step.id == "show-proposal-not-installable"
+    assert "reads-well" in step.text and "by hand" in step.text
+    assert run_module.show_not_installable_step({"show_not_installable": []}) is None

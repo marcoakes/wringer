@@ -111,6 +111,8 @@ EXCLUDED = {
     "rubric.schema.json": "a person writes this file; there is no writer",
     "spec.schema.json": "drafted then human-approved; the loader is the reader",
     "gatespec.schema.json": "a person or the drafter writes this sidecar",
+    "gatespec-v2.schema.json": "a person or the drafter writes this sidecar; "
+    "the REAL rendered file is jsonschema-validated in tests/test_schema.py",
     "fleetscope.schema.json": "declared in .wringer.yaml by a person",
     # Inline-dict writers: the record is assembled in a function rather than
     # by a dataclass, often with conditional keys, so the field set is not a

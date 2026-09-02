@@ -153,6 +153,23 @@ is drafted by a model and this value is a command that runs. Same reason
 `wring plan` prints proposed gates as a diff and refuses to install one
 itself.
 
+**The plan may propose the display, and the person approves it with the
+gates** (P0.3, 2026-09-02). The drafter's sidecar (`wringer.gates.yaml`) may
+carry a `show:` block — one proposed command per `human: true` requirement —
+and `wring plan` renders it into the SAME diff as the proposed gates, under
+`show:`, saying in its prose that it is proposed and runs on the person's
+machine at the pen. The drive shows that diff and asks its one gate question;
+the same yes installs both, by the same `git apply`, and the question above
+is then asked only for requirements still lacking a `show:`. A proposed
+display is a model-written command with exactly a proposed gate's power and
+no larger, so it gets exactly a proposed gate's consent — printed, applied
+by the person, or not at all. Where `.wringer.yaml` already has a `show:`
+section the plan lists the proposal in words instead (a second top-level key
+would silently replace the first), the drive says so, and an engineer adds it
+by hand. A no to a diff that carries ONLY a display does not stop the build:
+nothing is built less for it, and the question above asks what to show
+instead.
+
 **Law 2 governs this hardest of all.** A `human:` requirement exists precisely
 because a machine asked anyway would be guessing, and you are a machine. Relay
 the requirement's text verbatim, ask the person, and write back what they
@@ -348,7 +365,12 @@ and not its first line. Then:
   anything is built. What they type is what `wringer-board judge` runs at
   the hold; an empty answer declares none, and the pen will then refuse
   until a command exists under `show:` (or they record on their own sight
-  of it with `--without-display`, which the record says).
+  of it with `--without-display`, which the record says). Since P0.3 the
+  plan may have PROPOSED one in the gate diff (the `gate-diff` step's
+  `detail.show` names which), and the gate yes installs it; the question is
+  then asked only for what is still missing. A declined display-only diff
+  emits `show-proposal-declined` and the question follows; a proposal the
+  settings could not take emits `show-proposal-not-installable`.
 
 - **A stopped run is continued with `wringer-drive resume --emit json`**
   (0.7.1). Same steps, same stream, no document argument — the run's own

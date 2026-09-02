@@ -1659,13 +1659,72 @@ def gate_diff_step(proposal: dict) -> Step | None:
     diff = proposal.get("gate_diff") or ""
     if not diff.strip():
         return None
+    gates = list(proposal.get("gates_proposed") or ())
+    shows = list(proposal.get("show_proposed") or ())
+    # **What the diff adds is read off the engine's JSON, never inferred from
+    # the diff** (ruling 1). Since P0.3 the same diff may carry a proposed
+    # display for a requirement only a person can judge — a command the plan
+    # proposed, run on this machine at the pen — and the sentence says which
+    # of the two it is adding, or both, rather than calling a display a check.
+    parts = []
+    if gates:
+        parts.append("the checks that will prove the work")
+    if shows:
+        parts.append(
+            "what will be shown to you when you are asked to judge "
+            + ", ".join(shows)
+            + " — a command the plan proposed, which runs on your machine "
+            "at that moment and not before"
+        )
     return Step(
         kind=SHOW,
         id="gate-diff",
-        text="Before anything is built, this adds the checks that will prove "
-        "the work. This is the exact change to the project's settings:",
+        text="Before anything is built, this adds "
+        + " and ".join(parts)
+        + ". This is the exact change to the project's settings:",
         engine_words=diff,
-        detail={"gates": list(proposal.get("gates_proposed") or ())},
+        detail={"gates": gates, "show": shows},
+    )
+
+
+def show_not_installable_step(proposal: dict) -> Step | None:
+    """A proposed display the engine could not write into the settings.
+
+    The engine lists it in words when `.wringer.yaml` already has a `show:`
+    section (a second key would replace the first). Said here for the same
+    reason `gates-not-installable` is: a proposal that vanishes looks like
+    one that was never made. The question that follows (step 7b) will still
+    ask what shows the requirement, and an engineer can add the plan's
+    command under `show:` by hand.
+    """
+    blocked = list(proposal.get("show_not_installable") or ())
+    if not blocked:
+        return None
+    return Step(
+        kind=SHOW,
+        id="show-proposal-not-installable",
+        text="The plan proposed what to show you for "
+        + ", ".join(blocked)
+        + ", but the project's settings already have a 'show:' section, so "
+        "it could not be written in automatically. You will be asked what "
+        "should be shown; an engineer can also add the plan's command under "
+        "'show:' by hand.",
+        detail={"show": blocked},
+    )
+
+
+def show_proposal_declined_step(proposal: dict) -> Step | None:
+    """A no to a diff that carried only displays: nothing changed, and the
+    question that follows is the fallback the plan named."""
+    shows = list(proposal.get("show_proposed") or ())
+    if not shows:
+        return None
+    return Step(
+        kind=SHOW,
+        id="show-proposal-declined",
+        text="Nothing was added to the project's settings. You will be asked "
+        "what should be shown for " + ", ".join(shows) + " instead.",
+        detail={"show": shows},
     )
 
 
@@ -1820,11 +1879,33 @@ def trial_result_step(tried: tuple, green: tuple[str, ...]) -> Step:
 
 def gate_approval_step(proposal: dict) -> Step:
     """The second interlock §3a rests on, asked after the diff was rendered."""
-    names = ", ".join(proposal.get("gates_proposed") or ()) or "no new checks"
+    gates = list(proposal.get("gates_proposed") or ())
+    shows = list(proposal.get("show_proposed") or ())
+    if not gates:
+        # A diff carrying only a proposed display: a no here does not stop
+        # the build — the question that follows asks what to show instead.
+        return Step(
+            kind=CONFIRM,
+            id="install-gates",
+            text="That change adds what will be shown to you for: "
+            + (", ".join(shows) or "nothing")
+            + ".",
+            question="Shall I add that to the project? Type yes or no.",
+            refusing_means="the project's settings are left exactly as they "
+            "are, and you will be asked what should be shown instead.",
+        )
+    names = ", ".join(gates)
     return Step(
         kind=CONFIRM,
         id="install-gates",
-        text=f"That change adds: {names}.",
+        text=f"That change adds: {names}."
+        + (
+            " It also adds what will be shown to you for: "
+            + ", ".join(shows)
+            + "."
+            if shows
+            else ""
+        ),
         question="Shall I add those checks to the project? Type yes or no.",
         refusing_means="the project's settings are left exactly as they are, "
         "and nothing is built.",
@@ -1844,6 +1925,11 @@ def install_gates(repo: Path, proposal: dict, *, answered_yes: bool) -> bool:
     """
     diff = proposal.get("gate_diff") or ""
     if not diff.strip():
+        return False
+    if not answered_yes and not proposal.get("gates_proposed"):
+        # Only displays were proposed. Declining one is not declining the
+        # checks that prove the work — nothing is built LESS for it — so the
+        # build goes on and the 0.6.7 question asks what to show instead.
         return False
     if not answered_yes:
         raise Stop(
