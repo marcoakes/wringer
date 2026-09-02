@@ -4,6 +4,49 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.1 — 2026-09-02
+
+**Every stop names its next move (P0.1).** Run 4B, 2026-09-01: a shell
+worker exited 1 on a dead key; the pre-spend line had already said which
+credential the turn would spend against and that it displaced a working
+stored login; the stop said "an attempt changed nothing at all". Two facts,
+each shown, joined by nobody.
+
+### `WorkerDiagnosis.next_move` — the join, from facts only
+
+Composed from face × lane × the agent's own auth answer × the typed
+credential facts (`key_env`, `login_stored`, now carried on
+`worker_auth.WorkerAuth` beside the prose it already printed) — never from
+the worker's text. Run 4B's shape reads: *"The credential this turn spent
+against — CODEX_API_KEY — failed the turn (exit 1), and it is overriding a
+stored login that reports itself valid. Unset it, then: wringer-drive
+resume"*. A key with no login behind it says so and names the alternatives;
+a read-only turn points at the write policy (the tested flags on the
+vendors page); a shape no sentence fits says the literal *"no next move is
+known for this shape"* — an honest blank, never silence.
+
+### `next-move.json` — a new sibling, frozen at birth
+
+`wringer.nextmove.v1`, beside `worker-diagnosis.json`, because
+`wringer.workerdiagnosis.v3` is frozen and closed: the sentence beside the
+facts it came from, absent when the last turn did something.
+
+### One renderer, quoted everywhere
+
+The console prints `Next: …` on one unwrapped line; `wring run --json` and
+`wring resume --json` carry `next_move` beside the diagnosis; the drive's
+stopped step carries it after the question (the engine's sentence first,
+the board's for the ending otherwise); `wring explain <loop dir>` now reads
+a loop directory and quotes the recorded next move after the terminal is
+gone. Every loop ending's board sentence carries a next move ending in
+`wringer-drive resume` (0.7.0's verb); `converged` says there is nothing to
+run. Guards: a D0-style roster over every worker face × auth state × lane
+× credential fact; run 4B end to end on the console, `--json`, the sibling
+(schema-validated, redacted), the drive's build step and `wring explain`;
+a key-only control that never says "unset it". Eleven red-watches, all red.
+
+Schema versions: new sibling `wringer.nextmove.v1`; nothing existing moves.
+
 ## 0.7.0 — 2026-09-02
 
 **One reliable resume command — window A of the world-class plan opens

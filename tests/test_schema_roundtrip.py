@@ -95,6 +95,10 @@ EXCLUDED = {
     "worker-diagnosis-v2.schema.json": "superseded by v3; kept for old bundles",
     # Person-authored INPUT formats. There is no writer to derive from —
     # a human writes these, and the schema is the contract they are held to.
+    "next-move.schema.json": "an inline-dict writer (loop._write_next_move) "
+    "beside the diagnosis it quotes; the REAL written file is "
+    "jsonschema-validated in tests/test_worker_contract.py (0.7.1, the "
+    "run-4B end-to-end test)",
     "judgements.schema.json": "a person writes this file; there is no writer",
     "judgements-v2.schema.json": "the pen assembles entries as inline dicts "
     "with conditional keys; the REAL written file is jsonschema-validated in "
