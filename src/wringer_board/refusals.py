@@ -92,7 +92,7 @@ FAMILIES = (
 class Saying:
     """One sentence a PM reads, and the one question that unblocks it.
 
-    **`next_move` (0.7.0, P0.1) — for the loop-ending family, the one thing
+    **`next_move` (0.7.1, P0.1) — for the loop-ending family, the one thing
     to do next, ending in the command that continues.** Run 4B's operator
     read "an attempt changed nothing at all" over a dead key and was left
     with no move; every stop now names one. For a WORKER stop the engine
@@ -228,7 +228,7 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "Does your earlier answer still hold for the requirement as it reads now?",
     ),
     # Loop endings. `graph.LOOP_REASONS`, NINE values.
-    # **Every loop ending carries a `next_move` (0.7.0).** Each names the one
+    # **Every loop ending carries a `next_move` (0.7.1).** Each names the one
     # act and ends in the command that continues: `wringer-drive resume`
     # (0.7.1's verb, printed here as the literal it will be). The two WORKER
     # stops — `no_progress`, `worker_read_only` — say what a stop says when

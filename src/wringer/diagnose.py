@@ -266,7 +266,7 @@ REFUSED_REMEDIES_BY_AUTH_STATE = {
 }
 
 
-# --- the next move (0.7.0, P0.1) -------------------------------------------
+# --- the next move (0.7.1, P0.1) -------------------------------------------
 #
 # **A stop without a next move is a stop the product has not finished
 # writing.** Run 4B, 2026-09-01: the operator read "an attempt changed
@@ -411,7 +411,7 @@ class WorkerDiagnosis:
     # for the same reason `lane` is: the record's shape is frozen and the
     # description already carries the number in words.
     exit_code: int | None = None
-    # **The typed credential facts, from `worker_auth.WorkerAuth` (0.7.0).**
+    # **The typed credential facts, from `worker_auth.WorkerAuth` (0.7.1).**
     # `key_env` names the vendor's key variable only when it was SET in the
     # environment the turn inherited — it is then the credential the turn
     # spent against, by the measured precedence; `login_stored` is the

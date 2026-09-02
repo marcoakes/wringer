@@ -86,7 +86,7 @@ class Step:
     # softening a question is how a person ends up answering a different one.
     # This says how to type, which is DRIVE's own business as the transport.
     answering: str | None = None
-    # **The next move, on a STOPPED step (0.7.0, P0.1).** Verbatim from the
+    # **The next move, on a STOPPED step (0.7.1, P0.1).** Verbatim from the
     # engine (`WorkerDiagnosis.next_move`, read off `wring run --json`) when
     # it composed one, else the board's own `Saying.next_move` for the
     # ending. Optional and ABSENT from the JSON when None, so every step

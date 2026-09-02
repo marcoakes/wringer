@@ -1601,7 +1601,7 @@ def build_steps(repo: Path) -> list[Step]:
             text=ending.text,
             question=ending.question,
             engine_words=_worker_words(outcome) or ending.engine_words,
-            # **The next move (0.7.0, P0.1)**: the engine's own, when it
+            # **The next move (0.7.1, P0.1)**: the engine's own, when it
             # composed one from the turn's facts — run 4B's "Unset it,
             # then: wringer-drive resume", naming the variable — else the
             # board's sentence for this ending. Never both: one renderer

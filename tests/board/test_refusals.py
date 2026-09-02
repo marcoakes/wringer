@@ -458,7 +458,7 @@ def test_an_unmapped_value_is_None_rather_than_a_guess():
 
 
 def test_EVERY_loop_ending_carries_a_next_move_that_ends_in_a_command():
-    """**0.7.0, P0.1 — the plan's second new law, held on the string table.**
+    """**0.7.1, P0.1 — the plan's second new law, held on the string table.**
 
     Run 4B (2026-09-01): the operator read "an attempt changed nothing at
     all" and was left with no move. Every loop ending's Saying now carries

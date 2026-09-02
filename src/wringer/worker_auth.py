@@ -104,7 +104,7 @@ class WorkerAuth:
     #: acted on.
     method: str = ""
     #: **The two facts the shell lane composes `state` from, kept TYPED
-    #: (0.7.0, run 4B).** Until now they lived only in `detail`'s prose —
+    #: (0.7.1, run 4B).** Until now they lived only in `detail`'s prose —
     #: "CODEX_API_KEY is set and takes precedence over the stored login" —
     #: and a stop that wanted to say which credential the failed turn spent
     #: against would have had to read its own sentence back. `key_env` is
@@ -471,7 +471,7 @@ def _shell_lane(worker: object) -> WorkerAuth:
 
     answer = (proc.stdout or proc.stderr).strip().splitlines()
     said = answer[0].strip() if answer else ""
-    # The two facts ride TYPED beside the sentence they compose (0.7.0):
+    # The two facts ride TYPED beside the sentence they compose (0.7.1):
     # `key_env` names the variable only when it is set — it is then the
     # credential the turn spends against — and `login_stored` is the probe's
     # own answer. A stop composing its next move reads these, never the prose.

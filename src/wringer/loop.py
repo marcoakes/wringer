@@ -171,7 +171,7 @@ DIAGNOSIS_SCHEMA_VERSION = diagnose.DIAGNOSIS_SCHEMA_VERSION
 # finds one knows the worker never engaged without having to read a null.
 WORKER_DIAGNOSIS_FILENAME = "worker-diagnosis.json"
 WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v3"
-#: The next move (0.7.0, P0.1) — a sibling beside `worker-diagnosis.json`,
+#: The next move (0.7.1, P0.1) — a sibling beside `worker-diagnosis.json`,
 #: because that record's v3 schema is frozen and closed. Written only when
 #: a worker diagnosis was; carries the composed sentence AND the facts it
 #: was composed from.
@@ -1336,7 +1336,7 @@ def run(
                     # Asked AT the stop, the v3 precedent: the state the
                     # diagnosis carries is the one that was true when the
                     # sentence was composed. The typed credential facts
-                    # travel with it (0.7.0) so the next move can name
+                    # travel with it (0.7.1) so the next move can name
                     # which credential this turn spent against.
                     asked = worker_auth.read(
                         settings.worker, settings.containment,
@@ -1391,7 +1391,7 @@ def run(
                         changed_tree=False,
                         engine_words=words,
                         auth_state=asked.state,
-                        # **The JOIN run 4B lacked (0.7.0):** which credential
+                        # **The JOIN run 4B lacked (0.7.1):** which credential
                         # this turn spent against, typed, so the stop's next
                         # move can name the variable to unset rather than
                         # leaving the pre-spend line and the stop as two
@@ -1622,7 +1622,7 @@ def _write_worker_diagnosis(
 def _write_next_move(
     bundle: Bundle, empty: diagnose.WorkerDiagnosis | None
 ) -> None:
-    """Write `next-move.json`, or nothing at all (0.7.0, P0.1).
+    """Write `next-move.json`, or nothing at all (0.7.1, P0.1).
 
     **A NEW sibling, because `wringer.workerdiagnosis.v3` is frozen** and
     `additionalProperties: false` — the next move cannot ride in the record

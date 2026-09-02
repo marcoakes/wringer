@@ -2099,7 +2099,7 @@ def cmd_run(args: argparse.Namespace) -> int:
                         if outcome.worker_diagnosis is not None
                         else None
                     ),
-                    # 0.7.0: the next move rides BESIDE the diagnosis
+                    # 0.7.1: the next move rides BESIDE the diagnosis
                     # object, not inside it — that object is the frozen
                     # `wringer.workerdiagnosis.v3` shape and must stay
                     # byte-equal to the sibling file. Null when there is
@@ -2366,7 +2366,7 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
         # reader has to be able to copy the command out of them.
         print("\nIt wrote no file. What the agent said:\n")
         print(said)
-    # **The next move, quoted from the one renderer (0.7.0, P0.1).** Run 4B's
+    # **The next move, quoted from the one renderer (0.7.1, P0.1).** Run 4B's
     # operator read the paragraph above over a dead key and had nowhere to
     # go; `WorkerDiagnosis.next_move` composes the join — which credential
     # this turn spent against, what to do about it, and the command that
@@ -2934,7 +2934,7 @@ def cmd_resume(args: argparse.Namespace) -> int:
                         if outcome.final is not None
                         else None
                     ),
-                    # 0.7.0: a resumed loop's ending is a stop like any
+                    # 0.7.1: a resumed loop's ending is a stop like any
                     # other, and a stop carries its next move (P0.1). Same
                     # two keys `wring run --json` carries, same nulls.
                     "worker_diagnosis": (
@@ -4735,7 +4735,7 @@ def cmd_explain(args: argparse.Namespace) -> int:
     try:
         manifest = evidence.read_manifest(run_dir)
         if manifest.get("schema_version") in loop.SCHEMA_VERSIONS:
-            # **A LOOP directory (0.7.0, P0.1).** Measured before this was
+            # **A LOOP directory (0.7.1, P0.1).** Measured before this was
             # written: `wring explain .wringer/loops/<id>` read the loop's
             # manifest as a run's, then failed on the missing
             # `evidence.jsonl` — so the stop's next move, which the console
@@ -4804,7 +4804,7 @@ def _explain_loop(loop_dir: Path, manifest: dict) -> None:
     elif diagnosis is not None:
         print(
             "\nNext: this loop's record carries no next-move file "
-            f"(`{loop.NEXT_MOVE_FILENAME}` is written since 0.7.0)"
+            f"(`{loop.NEXT_MOVE_FILENAME}` is written since 0.7.1)"
         )
     try:
         shown = loop_dir.relative_to(Path.cwd()).as_posix()

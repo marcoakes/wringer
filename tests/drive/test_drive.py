@@ -2189,7 +2189,7 @@ def test_an_EXISTING_show_section_is_never_rewritten_only_reported(project):
     assert path.read_text(encoding="utf-8") == original, "somebody's file was rewritten"
 
 
-# --- 0.7.0, P0.1: every stop carries its next move, and the engine's wins --
+# --- 0.7.1, P0.1: every stop carries its next move, and the engine's wins --
 
 
 def test_a_loop_ending_step_carries_the_boards_next_move_after_the_question():

@@ -638,7 +638,7 @@ def test_the_failed_shell_diagnosis_routes_on_facts_never_text():
     assert "printed nothing to quote" in mute.description
 
 
-# --- 0.7.0, P0.1: every stop names its next move, and it is a command -------
+# --- 0.7.1, P0.1: every stop names its next move, and it is a command -------
 #
 # Run 4B, 2026-09-01: a shell worker exited 1 on a dead key, the pre-spend
 # line had already said which credential the turn would spend against and
