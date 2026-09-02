@@ -14,7 +14,7 @@ What counts as a secret: the *value* of any environment variable whose
 `*KEY*`; a repo's `.wringer.yaml` can add more, but cannot remove the defaults —
 losing token protection should never be one line of config away.
 
-**Three tiers, one `scrub`, applied on every write path** (0.7.5, run 4B):
+**Three tiers, one `scrub`, applied on every write path** (0.7.4, run 4B):
 
 1. the declared VALUES, whole, longest first — the tier that has been here
    since 0.1;

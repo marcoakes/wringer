@@ -131,7 +131,7 @@ def test_the_bundle_writer_scrubs_whatever_it_is_handed(tmp_path):
 
 
 
-# --- 0.7.5: the tiers below the declared value ----------------------------
+# --- 0.7.4: the tiers below the declared value ----------------------------
 #
 # Run 4B, 2026-09-01. Codex rejected a dead Platform key and its own `401`
 # echoed `sk-proj-`, a run of `*` and the key's LAST FOUR characters into the

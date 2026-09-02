@@ -378,7 +378,7 @@ def test_no_TABLE_CELL_makes_a_claim_this_page_cannot_back(forbidden: str):
 
 # --- what a vendor echoes on a rejected key: the shape is MEASURED ---------
 #
-# 0.7.5, run 4B (2026-09-01). `redact.py`'s shape tier scrubs whatever
+# 0.7.4, run 4B (2026-09-01). `redact.py`'s shape tier scrubs whatever
 # `src/wringer/agents.py` says a vendor's credential looks like, whether or
 # not the key was declared — so a `key_shape` that nobody saw is a regex
 # eating prose, or one missing the echo it was written for. The page's echo

@@ -1714,7 +1714,7 @@ def test_every_redactor_reads_the_names_the_config_declares():
 
 # --- the redaction ceiling, stated where a reader will meet it -------------
 #
-# 0.7.5, run 4B (2026-09-01). SECURITY.md said redaction "knows about values
+# 0.7.4, run 4B (2026-09-01). SECURITY.md said redaction "knows about values
 # that are in the environment of the run" — true, and after the two tiers
 # below the whole value it would have been an UNDERSTATEMENT that hid the
 # tiers' own limits (a five-character head survives; an interior run

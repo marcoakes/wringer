@@ -1399,7 +1399,7 @@ def test_an_env_passthrough_value_is_redacted_even_with_an_unremarkable_name(
 def test_the_JSON_front_door_carries_no_shape_of_a_key_the_agent_echoed(
     repo, monkeypatch, capsys
 ):
-    """**0.7.5, run 4B (2026-09-01).** A turn's last words become the
+    """**0.7.4, run 4B (2026-09-01).** A turn's last words become the
     diagnosis's `engine_words`, and `wring run --json` prints the diagnosis
     to a console — the one surface no file scrub can reach, and the one the
     drive reads. The words are scrubbed where the ledger is written

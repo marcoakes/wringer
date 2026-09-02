@@ -1,4 +1,4 @@
-"""**0.7.5 — worker logs sanitised completely, measured through `wring run`.**
+"""**0.7.4 — worker logs sanitised completely, measured through `wring run`.**
 
 Run 4B, 2026-09-01, codex on a clean machine: the vendor rejected a dead
 Platform key and its own `401` echoed `sk-proj-`, a run of `*` and the

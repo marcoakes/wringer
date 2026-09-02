@@ -94,7 +94,7 @@ commands and `evidence.jsonl`. This happens *before* the write, not as a
 cleanup pass: the raw value never reaches the file. That is why gate output
 travels through a pipe instead of straight to a file descriptor.
 
-**Two tiers below the whole value, since 0.7.5.** The same scrub, on the
+**Two tiers below the whole value, since 0.7.4.** The same scrub, on the
 same write paths — a worker's logs, the diagnosis words that reach the stop
 line and `worker-diagnosis.json`, the delivery patch, every record — also
 replaces:
