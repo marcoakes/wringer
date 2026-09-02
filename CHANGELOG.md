@@ -4,6 +4,39 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.3 — 2026-09-02
+
+**`wring audit --delivery <dir>` — the portable audit is one command
+(P0.4).** Runs 4 and 4B each printed a multi-step audit instruction in
+`mr.md` and each failed as printed (no copy step; then no checkout, so the
+clone stood on `main` and the requirement claim came back `−`).
+
+The flag takes the delivery directory itself, copied anywhere: it reads
+the delivery's own `manifest.json` for the delivered commit, adds a
+read-only detached worktree at that commit (`fleet.make_worktree`, the
+machinery falsify's committed-range mode already uses), checks every claim
+against THAT tree's spec plus the receipts the delivery carries, and
+removes the worktree — and any `.wringer/worktrees/` it had to create — in
+`finally`. The operator's checkout is never switched, never written; a
+forgery control plants a run bundle and a stranger's file beforehand and
+finds them byte-identical afterwards (the adversarial review of this
+release measured a recursive delete staying green without it). A commit
+this repository does not have refuses in one sentence, exit 2, naming
+`git fetch <remote> <branch>` from the manifest as a command; a never-sent
+delivery refuses naming the positional form; a worktree git will not add
+refuses by name (a taken path, not a traceback). `wring audit
+certificate.json` is unchanged; both forms quote one renderer and the
+claim ceiling is untouched. SPEC_CERTIFICATE_V0 ruling 13.
+
+`mr.md` prints exactly the one command with the fetch beside it; the
+three-step form is deleted. CI executes both as printed from a fresh clone
+standing on `main`, with the delivery outside the clone, and asserts the
+clone is still on `main`, no worktree remains and no `.wringer/` was
+created; a second test constructs the missing-commit refusal and then runs
+the fetch it printed.
+
+Schema versions: unchanged.
+
 ## 0.7.2 — 2026-09-02
 
 **`wring plan` proposes the display for a human criterion (P0.3).** Runs 4
