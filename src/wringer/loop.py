@@ -1344,6 +1344,42 @@ def run(
                     )
             else:
                 status, reason = "stopped", "no_progress"
+                # **0.6.7, run 4B.** A shell turn that FAILED — exit non-zero,
+                # not a timeout — having written nothing keeps `no_progress`
+                # (the reason is the fact), but its own words now travel
+                # with the stop: codex's `401 invalid_api_key` sat in the
+                # worker log while the operator read "an attempt changed
+                # nothing at all". stderr's tail leads, stdout's follows —
+                # a vendor prints its refusal where errors go.
+                if (
+                    empty_turn is None
+                    and result is not None
+                    and not result.passed
+                    and not result.timed_out
+                    and not isinstance(settings.worker, config.AcpWorker)
+                ):
+                    from wringer import worker_auth
+
+                    words = "\n".join(
+                        part
+                        for part in (
+                            _tail(result.stderr_path),
+                            _tail(result.stdout_path),
+                        )
+                        if part
+                    )
+                    empty_turn = diagnose.diagnose_failed_shell_turn(
+                        exit_code=result.exit_code,
+                        timed_out=result.timed_out,
+                        changed_tree=False,
+                        engine_words=words,
+                        auth_state=worker_auth.read(
+                            settings.worker, settings.containment,
+                            declared_secret_names=config.declared_secret_names(
+                                cfg
+                            ),
+                        ).state,
+                    )
             break
 
         # The breaker. The worker changed *something* and the same failure

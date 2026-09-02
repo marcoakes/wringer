@@ -4843,3 +4843,23 @@ def test_no_printed_pointer_names_a_page_the_INSTALLED_package_lacks():
         "not ship — use the full URL (…" + base + "<page>):\n  "
         + "\n  ".join(offenders)
     )
+
+
+def test_the_CONSENT_CONTRACT_is_written_where_deliver_is_specified():
+    """**Ruled 2026-09-01, after run 4B.** Two runs expected a second yes from
+    bare `wring deliver --send` and reported its absence as a defect; the
+    CLI was right and the guidance promised the wrong surface. The contract
+    is pinned on the spec that owns `deliver` and on the drive's runbook,
+    in the ruling's own words, so no page can drift back to promising a
+    re-ask from an imperative flag."""
+    sentence = "typing the flag is consent and it does not ask again"
+
+    def flat(path):
+        return " ".join(path.read_text(encoding="utf-8").split())
+
+    spec_page = flat(repo_root() / "docs" / "specs" / "SPEC_GET_V0.md")
+    assert sentence in spec_page, "SPEC_GET_V0.md lost the consent contract"
+    assert "asks the informed second yes" in spec_page
+    runbook = flat(repo_root() / "docs" / "drive" / "AGENTS.md")
+    assert sentence in runbook, "the drive runbook lost the consent contract"
+    assert "The second yes is the DRIVE's" in runbook

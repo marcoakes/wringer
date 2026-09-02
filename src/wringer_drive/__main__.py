@@ -550,6 +550,17 @@ def _run(session: run_module.Session, args) -> int:
         session.emit(nothing)
         _render([nothing], mode)
 
+    # Step 7b — what shows a requirement only a person can judge (0.6.7,
+    # runs 4 and 4B): asked here, once, before anything is built, so the pen
+    # has something to run instead of only `--without-display` to offer.
+    shows: dict[str, str] = {}
+    for step in run_module.show_questions(repo):
+        session.emit(step)
+        shows[str(step.detail["criterion_id"])] = _ask(step, mode, repo)
+    for step in run_module.record_shows(repo, shows):
+        session.emit(step)
+        _render([step], mode)
+
     # The second phase boundary: the gates are settled, so the board can now
     # say which requirements have a check bound to them.
     run_module.render_board(repo)

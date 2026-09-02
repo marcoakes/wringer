@@ -2687,3 +2687,43 @@ def test_the_mr_gives_the_audit_a_WORKING_DIRECTORY_and_names_the_dead_links(
         "the summary's non-travelling links are not named, so they read as "
         "dead links instead of a stated limit"
     )
+
+
+def test_the_mr_audit_instruction_WORKS_AS_PRINTED_from_a_fresh_clone(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Runs 4 and 4B, 2026-09-01: the audit instruction failed as printed
+    twice — first without a copy step (`no such file`), then without the
+    branch checkout (the requirement claim reads the branch's own spec, and
+    the clone stood on `main`: "could NOT be checked from here"). So the
+    instruction is EXECUTED here, step by step as `mr.md` prints it, in a
+    clone that never saw the producing repository's working tree."""
+    import re
+    import shutil
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    fake_forge(monkeypatch, reply={"number": 7, "html_url": "https://x/7"})
+    assert cli.main(["deliver", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+    delivered = _delivered(delivery_repo)
+    mr = (delivered / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    named = re.search(r"`git switch ([^`]+)`", mr)
+    assert named, "mr.md names no branch to check out before the audit"
+    branch = named.group(1)
+    assert branch.startswith("wringer/"), branch
+
+    origin = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=delivery_repo,
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    clone = tmp_path / "fresh-clone"
+    subprocess.run(["git", "clone", "-q", origin, str(clone)], check=True)
+    # The instruction, in its printed order: checkout, copy, audit.
+    subprocess.run(["git", "switch", "-q", branch], cwd=clone, check=True)
+    shutil.copytree(delivered, clone, dirs_exist_ok=True)
+    monkeypatch.chdir(clone)
+    code = cli.main(["audit", deliver.CERTIFICATE_RECORD_FILENAME])
+    said = capsys.readouterr()
+    assert code == cli.EXIT_OK, said.out + said.err
+    assert "could NOT be checked" not in said.out + said.err, said.out

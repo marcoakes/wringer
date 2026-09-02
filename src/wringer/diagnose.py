@@ -162,6 +162,31 @@ SHELL_TURN_READ_ONLY = (
     "permission wall looks exactly like this from the outside"
 )
 
+#: The SHELL lane's FAILED turn (0.6.7, run 4B). A shell worker that exits
+#: non-zero having written nothing used to stop the loop on a bare
+#: `no_progress` — "an attempt changed nothing at all" — while the one
+#: actionable line (`401 invalid_api_key`, run 4B) sat in the worker log under
+#: a timestamped directory. The same structural silence as the ACP lane's
+#: refused turn of 2026-08-21: no shape for the ending, so nothing to carry.
+#: The worker's own words lead, verbatim; the exit code is the loop's fact.
+SHELL_TURN_FAILED = (
+    "the worker's turn failed (exit {code}) and wrote nothing — its own last "
+    "words, verbatim: `{line}`"
+)
+
+SHELL_TURN_FAILED_NOTHING_TO_QUOTE = (
+    "the worker's turn failed (exit {code}) and wrote nothing, and printed "
+    "nothing to quote"
+)
+
+SHELL_TURN_FAILED_REMEDY = (
+    "read the worker's own words first — `worker.stdout.log` and "
+    "`worker.stderr.log`, under this loop's `iterations/` directory. A "
+    "credential the vendor rejected looks exactly like this, and the "
+    "worker-auth line printed before spend said which credential this turn "
+    "spent against"
+)
+
 SHELL_TURN_READ_ONLY_REMEDY = (
     "read the worker's own words first — `worker.stdout.log` and "
     "`worker.stderr.log`, under this loop's `iterations/` directory. If it "
@@ -284,11 +309,28 @@ class WorkerDiagnosis:
     # which fields are present (`stop_reason` is the ACP ledger's fact and
     # the shell lane never carries one).
     lane: str = ""
+    # The shell lane's exit code, for its FAILED-turn sentence. Unserialised
+    # for the same reason `lane` is: the record's shape is frozen and the
+    # description already carries the number in words.
+    exit_code: int | None = None
 
     @property
     def description(self) -> str:
         if self.lane == "shell" and self.face == FACE_TURN_CHANGED_NOTHING:
             return SHELL_TURN_READ_ONLY
+        if self.lane == "shell" and self.face == FACE_TURN_REFUSED:
+            line = next(
+                (
+                    row.strip()
+                    for row in self.engine_words.splitlines()
+                    if row.strip() and not row.startswith("[...")
+                ),
+                "",
+            )
+            code = self.exit_code if self.exit_code is not None else "?"
+            if line:
+                return SHELL_TURN_FAILED.format(code=code, line=line)
+            return SHELL_TURN_FAILED_NOTHING_TO_QUOTE.format(code=code)
         # **The refused turn leads with the worker's own words, unless the
         # agent itself reports signed out.** The not-logged-in sentence is a
         # hint, and field report 2026-08-27 measured what it costs when it
@@ -317,6 +359,9 @@ class WorkerDiagnosis:
     def remedy(self) -> str:
         if self.lane == "shell" and self.face == FACE_TURN_CHANGED_NOTHING:
             return SHELL_TURN_READ_ONLY_REMEDY
+        if self.lane == "shell" and self.face == FACE_TURN_REFUSED:
+            found = REFUSED_REMEDIES_BY_AUTH_STATE.get(self.auth_state)
+            return found if found is not None else SHELL_TURN_FAILED_REMEDY
         if self.face == FACE_TURN_REFUSED:
             found = REFUSED_REMEDIES_BY_AUTH_STATE.get(self.auth_state)
             if found is not None:
@@ -423,6 +468,39 @@ def diagnose_shell_turn(
         engine_words=engine_words,
         auth_state=auth_state,
         lane="shell",
+    )
+
+
+def diagnose_failed_shell_turn(
+    *,
+    exit_code: int,
+    timed_out: bool,
+    changed_tree: bool,
+    engine_words: str = "",
+    auth_state: str = "",
+) -> WorkerDiagnosis | None:
+    """A shell or `exec:` turn that FAILED having written nothing (0.6.7).
+
+    The sibling of `diagnose_shell_turn`, exclusive with it by construction:
+    that one is exit 0, this one is not. Routed on the loop's own facts — a
+    non-zero exit, not a timeout (a deadline is its own ending with its own
+    evidence), an unchanged tree (a turn that wrote something did something,
+    and what it did is in the diff). The worker's own last words ride
+    `engine_words` verbatim and lead the description; nothing here reads
+    them, because a summary is where the false sentence would live.
+
+    Run 4B, 2026-09-01, is the measured case: codex exited 1 on a dead
+    Platform key, the response carried `401 invalid_api_key`, and the
+    operator was told only that "an attempt changed nothing at all".
+    """
+    if exit_code == 0 or timed_out or changed_tree:
+        return None
+    return WorkerDiagnosis(
+        face=FACE_TURN_REFUSED,
+        engine_words=engine_words,
+        auth_state=auth_state,
+        lane="shell",
+        exit_code=exit_code,
     )
 
 

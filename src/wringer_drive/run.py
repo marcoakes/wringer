@@ -792,6 +792,127 @@ def record_answer(repo: Path, question_id: str, text: str) -> None:
 # --- step 4a: read the answers back -----------------------------------------
 
 
+# --- step 7b: what shows a requirement only a person can judge -------------
+
+
+def show_questions(repo: Path) -> list[Step]:
+    """One ASK per `human` criterion with no `show:` command declared.
+
+    **Run 4 and run 4B, 2026-09-01, the same hole twice.** The drive wrote a
+    config with no `show:` section, nothing ever asked for one, and the
+    first the operator heard of it was the pen refusing at the HOLD — whose
+    only offered route forward was `--without-display`. The pen failing
+    closed is right (0.6.1); the drive never asking is the defect. So the
+    question is asked HERE, after the plan is approved and before anything
+    is built, in the operator's own terminal, and what they type is what
+    runs at the pen — their command, never one this package invented.
+
+    Asked only for criteria still lacking one, so a resumed run does not
+    ask twice and a hand-written `show:` is left alone.
+    """
+    from wringer import config, spec
+
+    path = repo / spec.SPEC_FILENAME
+    if not path.is_file():
+        return []
+    try:
+        loaded = spec.load(path)
+    except spec.SpecError:
+        return []
+    declared: dict[str, str] = {}
+    settings = repo / config.CONFIG_FILENAME
+    if settings.is_file():
+        try:
+            declared = config.load(settings).show
+        except config.ConfigError:
+            declared = {}
+    return [
+        Step(
+            kind=ASK,
+            id=f"show:{criterion.id}",
+            text=(
+                f"Only a person can settle '{criterion.title}' "
+                f"({criterion.id}). When it is your turn to judge it, what "
+                "command should run to SHOW it to you? One line, run from "
+                "the project's root — the pen runs exactly this and refuses "
+                "to record a verdict if it fails. Leave it empty to declare "
+                "none: the pen will then refuse until an engineer adds one "
+                "under 'show:' in .wringer.yaml, or you record on your own "
+                "sight of it with --without-display and the record says so."
+            ),
+            detail={"criterion_id": criterion.id},
+        )
+        for criterion in loaded.criteria
+        if getattr(criterion, "human", False) and criterion.id not in declared
+    ]
+
+
+def record_shows(repo: Path, answers: dict[str, str]) -> list[Step]:
+    """Write the person's `show:` commands — their exact bytes, once.
+
+    **Appended as ONE block**, because a second top-level `show:` key would
+    be the duplicate-key defect `wring start` refuses (start.py). If the
+    file already has a `show:` section the entries cannot be appended into
+    it without rewriting somebody's file, so they are reported for an
+    engineer to add by hand — the same honesty as `gates-not-installable`.
+    Every command is quoted by the YAML library (0.6.5's lesson) and the
+    file is parsed back before this returns.
+    """
+    from wringer import config, start
+
+    wanted = {key: value.strip() for key, value in answers.items() if value.strip()}
+    declined = [key for key, value in answers.items() if not value.strip()]
+    steps: list[Step] = []
+    for key in declined:
+        steps.append(
+            Step(
+                kind=SHOW,
+                id=f"show-declined:{key}",
+                text=f"Nothing will be shown for {key}: no command was given. "
+                "The pen will refuse to record a verdict for it until a "
+                "command exists under 'show:', or you record on your own "
+                "sight of it with --without-display.",
+                detail={"criterion_id": key},
+            )
+        )
+    if not wanted:
+        return steps
+    path = repo / config.CONFIG_FILENAME
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    if "show" in start._top_level_keys(text):
+        steps.append(
+            Step(
+                kind=SHOW,
+                id="show-not-installable",
+                text="A 'show:' section already exists in .wringer.yaml, so "
+                "these could not be written into it automatically — add "
+                "them under it by hand: "
+                + "; ".join(f"{key}: {value}" for key, value in wanted.items()),
+                detail={"show": dict(wanted)},
+            )
+        )
+        return steps
+    block = (
+        "\n# What shows a requirement only a person can judge — the person's "
+        "own\n# command, written by wringer-drive from their answer.\n"
+        "show:\n"
+        + "".join(f"  {key}: {_scalar(value)}\n" for key, value in wanted.items())
+    )
+    path.write_text(text.rstrip("\n") + "\n" + block, encoding="utf-8")
+    config.load(path)
+    for key, value in wanted.items():
+        steps.append(
+            Step(
+                kind=SHOW,
+                id=f"show-installed:{key}",
+                text=f"When {key} comes up for your judgement, this will run "
+                f"to show it to you: {value}",
+                detail={"criterion_id": key, "command": value},
+            )
+        )
+    return steps
+
+
 def answers_recorded_step(repo: Path) -> Step | None:
     """Every recorded answer, beside the question it answers, or None.
 

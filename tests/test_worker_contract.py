@@ -569,3 +569,70 @@ def test_every_run_refusal_reason_is_declared_exactly_once():
     assert len(set(loop.RUN_REFUSAL_REASONS)) == len(loop.RUN_REFUSAL_REASONS)
     for reason in loop.RUN_REFUSAL_REASONS:
         assert re.fullmatch(r"[a-z][a-z_]*", reason)
+
+
+# --- 0.6.7, run 4B: a FAILED shell turn carries the worker's words ----------
+
+
+def test_a_FAILED_shell_turn_carries_the_workers_own_words_to_the_stop(
+    repo, monkeypatch, capsys
+):
+    """Run 4B, 2026-09-01: codex exited 1 on a dead Platform key, its output
+    carried `401 invalid_api_key`, and the operator read only "an attempt
+    changed nothing at all" — the actionable line sat in the worker log.
+    The reason stays `no_progress` (the fact); the words now travel with it,
+    to the console and to the loop's own record."""
+    a_broken_repo(repo)
+    (repo / config.CONFIG_FILENAME).write_text(
+        GATE
+        + "run:\n"
+        "  worker: ': {brief}; echo \"ERROR: HTTP 401 invalid_api_key\" >&2; "
+        "exit 1'\n"
+        "  worker_timeout: 30\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    said = flat(capsys.readouterr().out)
+
+    assert "401 invalid_api_key" in said, (
+        "the worker's own refusal must reach the operator, not only the log"
+    )
+    assert "exit 1" in said
+    record = only_loop(repo) / loop.WORKER_DIAGNOSIS_FILENAME
+    assert record.is_file(), "a failed turn wrote no diagnosis"
+    payload = json.loads(record.read_text(encoding="utf-8"))
+    assert payload["face"] == diagnose.FACE_TURN_REFUSED
+    assert "401 invalid_api_key" in payload["engine_words"]
+    assert "401 invalid_api_key" in payload["description"]
+    manifest = json.loads(
+        (only_loop(repo) / "manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["result"]["reason"] == "no_progress"
+
+
+def test_the_failed_shell_diagnosis_routes_on_facts_never_text():
+    """Exit 0 is the read-only sibling's; a timeout is its own ending; a
+    changed tree did something. Only a non-zero, non-timeout, empty turn
+    composes — and the words are carried, never read."""
+    assert diagnose.diagnose_failed_shell_turn(
+        exit_code=0, timed_out=False, changed_tree=False, engine_words="x"
+    ) is None
+    assert diagnose.diagnose_failed_shell_turn(
+        exit_code=1, timed_out=True, changed_tree=False, engine_words="x"
+    ) is None
+    assert diagnose.diagnose_failed_shell_turn(
+        exit_code=1, timed_out=False, changed_tree=True, engine_words="x"
+    ) is None
+    found = diagnose.diagnose_failed_shell_turn(
+        exit_code=2, timed_out=False, changed_tree=False,
+        engine_words="[... 3 earlier lines, see the bundle ...]\nboom: no\n",
+    )
+    assert found is not None and found.face == diagnose.FACE_TURN_REFUSED
+    assert "exit 2" in found.description
+    assert "`boom: no`" in found.description, found.description
+    mute = diagnose.diagnose_failed_shell_turn(
+        exit_code=3, timed_out=False, changed_tree=False
+    )
+    assert "printed nothing to quote" in mute.description

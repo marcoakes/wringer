@@ -4,6 +4,52 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.6.7 — 2026-09-01
+
+**Run 4B's four blockers.** Marc's PM verdict on run 4B (0.6.6, clean
+machine, codex): the engine works; the end-to-end product does not yet
+work as advertised, because an unrepaired journey still broke in four
+places. Three are closed as code here; the fourth was ruled a
+documentation and test-contract defect and is closed as words.
+
+### The worker's own failure reaches the stop
+
+A shell or `exec:` turn that FAILED — exit non-zero, not a timeout —
+having written nothing keeps `no_progress` (the reason is the fact), but
+its own words now travel with it: the stop line, the drive's stop step and
+the loop's `worker-diagnosis.json` carry the worker's last output verbatim
+(stderr's tail first), with the exit code. Run 4B's `401 invalid_api_key`
+sat in the worker log while the operator read "an attempt changed nothing
+at all" — the same structural silence the ACP lane's refused turn had until
+2026-08-21, closed the same way: a shape for the ending.
+
+### The drive asks what SHOWS a human requirement
+
+After the plan is approved and before anything is built, one question per
+`human` criterion with no `show:` declared: what command should run to
+show it to you. The person's exact line is written under `show:` (YAML
+quoting by the library; appended as one block, never into somebody's
+existing section — that is reported for hand-editing instead), so the pen
+has something to run instead of only `--without-display` to offer. An
+empty answer declares none and says what the pen will do.
+
+### The audit instruction works as printed
+
+`mr.md` now says the order — check out the delivered branch (`git switch
+<branch>`, the requirement claim reads the branch's own spec), copy the
+delivery's contents into the clone's root, run `wring audit` there — and
+CI executes exactly that from a fresh clone.
+
+### The consent contract, ruled
+
+`wringer-drive` renders the board and asks the informed second yes; bare
+`wring deliver` previews without sending; `wring deliver --send` sends
+immediately — typing the flag is consent and it does not ask again. Pinned
+on SPEC_GET_V0 and the drive runbook. Run 4B's observed no-prompt was the
+CLI behaving correctly and a run sheet promising the wrong surface.
+
+Schema versions: unchanged (`workerdiagnosis` gains no serialised field).
+
 ## 0.6.6 — 2026-09-01
 
 **Run 4's front-door trail and story edges.** Run 4 (2026-09-01, clean

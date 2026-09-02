@@ -1200,7 +1200,7 @@ def plan(
     patch = (git.diff(root, state.head_sha) or "") + git.diff_untracked(
         root, untracked
     )
-    mr = _mr_body(run_dir, root, state, len(carried), built, board)
+    mr = _mr_body(run_dir, root, state, len(carried), built, board, branch)
     # **One story or nothing ships** (0.6.2, run 3 F13) — after every
     # carried surface exists and before anything is written or pushed.
     _check_one_story(run_dir, built, board_page, measured, run_summary, mr)
@@ -1548,6 +1548,7 @@ def _mr_body(
     carried: int,
     built: dict[str, Any] | None = None,
     board: str | None = None,
+    branch: str | None = None,
 ) -> str:
     """The receipts, which is what the OKR actually promises.
 
@@ -1649,12 +1650,15 @@ def _mr_body(
             "as a document that stands on its own, with what it does NOT "
             "claim written on it.",
             f"- `{CERTIFICATE_RECORD_FILENAME}` is the machine form. To "
-            "re-check it from a fresh clone: copy THIS directory's contents "
-            "into the clone's root and run `wring audit "
-            f"{CERTIFICATE_RECORD_FILENAME}` there — no network, no model, "
-            "no account, and it never reads who produced the branch. (Run 4, "
-            "2026-09-01: the command was printed without the copy step and "
-            "failed as printed, `no such file`.)",
+            "re-check it from a fresh clone, in this order: check out the "
+            f"delivered branch (`git switch {branch or '<the branch above>'}` "
+            "— the requirement claim reads the branch's own spec file), copy "
+            "THIS directory's contents into the clone's root, and run `wring "
+            f"audit {CERTIFICATE_RECORD_FILENAME}` there — no network, no "
+            "model, no account, and it never reads who produced the branch. "
+            "(Run 4 printed this without the copy step and failed as printed; "
+            "run 4B printed it without the checkout and could not check the "
+            "requirement claim from `main`.)",
         ]
     if board is not None:
         lines.append(

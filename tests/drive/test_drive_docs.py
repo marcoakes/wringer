@@ -2140,3 +2140,40 @@ def test_the_runbooks_SHOW_COMMAND_runs_against_the_shipped_two_failures_fixture
         "a genuinely broken display must still exit non-zero — the declared-"
         "exit tail may excuse exit 1 and nothing else"
     )
+
+
+def test_the_drive_WIRES_the_show_question_and_writes_the_answer(
+    project, tmp_path, capsys, monkeypatch
+):
+    """0.6.7, runs 4 and 4B: the orchestrator asks what shows each human
+    requirement after the plan is approved and before the build, and the
+    person's exact line lands under `show:`. Wired here, not only unit-tested:
+    a question the orchestrator never asks is the defect both runs met."""
+    from wringer import config, spec
+
+    drafted = spec.load(project / "wringer.spec.yaml")
+    with_human = spec.Spec(
+        approved=drafted.approved, title=drafted.title, intent=drafted.intent,
+        questions=drafted.questions,
+        criteria=drafted.criteria + (
+            spec.Criterion(
+                id="reads-at-a-glance", title="The summary reads at a glance",
+                required=True, human=True,
+            ),
+        ),
+        gates=drafted.gates, tasks=drafted.tasks, path=drafted.path,
+    )
+    (project / "wringer.spec.yaml").write_text(spec.render(with_human), encoding="utf-8")
+    subprocess.run(["git", "commit", "-qam", "human criterion"], cwd=project, check=True)
+
+    code, steps = drive(
+        project, tmp_path,
+        "The ones on screen.\nyes\nyes\necho SHOWN-TO-ME\nyes\n", monkeypatch,
+    )
+    capsys.readouterr()
+    ids = [step.id for step in steps]
+    assert "show:reads-at-a-glance" in ids, ids
+    assert "show-installed:reads-at-a-glance" in ids, ids
+    assert config.load(project / config.CONFIG_FILENAME).show == {
+        "reads-at-a-glance": "echo SHOWN-TO-ME"
+    }

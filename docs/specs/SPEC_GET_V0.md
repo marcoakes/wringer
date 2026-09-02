@@ -55,6 +55,16 @@ wring deliver --send             # actually branch, commit, push, open the MR
 wring deliver --json
 ```
 
+**The consent contract — ruled 2026-09-01, after run 4B.** `wringer-drive`
+renders the board and asks the informed second yes; bare `wring deliver`
+previews without sending; `wring deliver --send` sends immediately —
+**typing the flag is consent and it does not ask again.** `--send` is an
+imperative flag: a re-ask afterwards would weaken CLI semantics,
+complicate automation, and create two competing consent mechanisms. An
+acceptance test that wants "a second yes against the board" exercises the
+drive, never direct `--send`. Run 4B's observed no-prompt was the CLI
+behaving correctly and a run sheet promising the wrong surface.
+
 **Exit codes**, the family's, nothing new: `0` ok · `1` refused because of the
 work (nothing to deliver, gates did not pass) · `2` config/environment · `3`
 unsafe tree / refused precondition · `4` interrupted.

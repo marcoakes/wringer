@@ -2114,3 +2114,76 @@ def test_the_worker_block_survives_a_double_quote_in_ANY_answer_form():
     parsed = yaml.safe_load("run:\n" + run_module._worker_block(acp))
     assert parsed["run"]["worker"]["acp"]["command"] == 'weird"cmd'
     assert parsed["run"]["worker"]["acp"]["args"] == ['--flag="x"']
+
+
+# --- 0.6.7, runs 4 and 4B: the drive asks what SHOWS a human requirement ---
+
+
+def _human_spec(repo: Path) -> None:
+    from wringer import spec
+
+    drafted = spec.Spec(
+        approved=True,
+        title="Weekly report export",
+        intent="A manager can export the weekly report as a CSV.",
+        questions=(),
+        criteria=(
+            spec.Criterion(id="exports-csv", title="It exports a CSV", required=True),
+            spec.Criterion(
+                id="reads-at-a-glance", title="The summary reads at a glance",
+                required=True, human=True,
+            ),
+        ),
+        gates=(),
+        tasks=(spec.Task(id="build", brief="briefs/build.md", objective="x"),),
+        path="wringer.spec.yaml",
+    )
+    (repo / "wringer.spec.yaml").write_text(spec.render(drafted), encoding="utf-8")
+
+
+def test_the_drive_asks_what_shows_each_HUMAN_requirement_and_only_those(project):
+    """Runs 4 and 4B: the drive wrote a config with no `show:` and nothing
+    ever asked for one, so the first the operator heard of it was the pen
+    refusing with only `--without-display` to offer."""
+    _human_spec(project)
+    asked = run_module.show_questions(project)
+    assert [step.detail["criterion_id"] for step in asked] == ["reads-at-a-glance"]
+    assert "reads-at-a-glance" in asked[0].text
+    assert "--without-display" in asked[0].text, "the empty-answer consequence"
+
+
+def test_a_recorded_show_command_is_the_persons_exact_bytes_and_parses(project):
+    from wringer import config
+
+    _human_spec(project)
+    command = 'PYTHONPATH=src .venv/bin/python -m pipeline "a b.json" || [ $? -eq 1 ]'
+    steps = run_module.record_shows(project, {"reads-at-a-glance": command})
+    assert [s.id for s in steps] == ["show-installed:reads-at-a-glance"]
+    loaded = config.load(project / config.CONFIG_FILENAME)
+    assert loaded.show == {"reads-at-a-glance": command}
+    # Asked once: a resumed run finds it declared and asks nothing.
+    assert run_module.show_questions(project) == []
+
+
+def test_an_EMPTY_show_answer_writes_nothing_and_says_what_the_pen_will_do(project):
+    from wringer import config
+
+    _human_spec(project)
+    before = (project / config.CONFIG_FILENAME).read_text(encoding="utf-8")
+    steps = run_module.record_shows(project, {"reads-at-a-glance": "   "})
+    assert [s.id for s in steps] == ["show-declined:reads-at-a-glance"]
+    assert "--without-display" in steps[0].text
+    assert (project / config.CONFIG_FILENAME).read_text(encoding="utf-8") == before
+
+
+def test_an_EXISTING_show_section_is_never_rewritten_only_reported(project):
+    from wringer import config
+
+    _human_spec(project)
+    path = project / config.CONFIG_FILENAME
+    original = path.read_text(encoding="utf-8") + "\nshow:\n  other: \"true\"\n"
+    path.write_text(original, encoding="utf-8")
+    steps = run_module.record_shows(project, {"reads-at-a-glance": "echo hi"})
+    assert [s.id for s in steps] == ["show-not-installable"]
+    assert "reads-at-a-glance: echo hi" in steps[0].text
+    assert path.read_text(encoding="utf-8") == original, "somebody's file was rewritten"

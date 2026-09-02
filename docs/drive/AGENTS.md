@@ -336,6 +336,20 @@ and not its first line. Then:
   page says why, in their words. Do not re-run, re-answer, or work around a
   refusal on your own initiative.
 
+- **The second yes is the DRIVE's, and only the drive's** (ruled 2026-09-01,
+  run 4B). The drive renders the board and asks the informed second yes
+  before it sends. Bare `wring deliver` previews without sending, and `wring
+  deliver --send` sends immediately — typing the flag is consent and it does
+  not ask again. Never tell the person to expect a confirmation from
+  `--send`; if they want the board-backed yes, they want the drive.
+
+- **The drive asks what SHOWS a requirement only a person can judge** — one
+  question per `human` criterion, after the plan is approved and before
+  anything is built. What they type is what `wringer-board judge` runs at
+  the hold; an empty answer declares none, and the pen will then refuse
+  until a command exists under `show:` (or they record on their own sight
+  of it with `--without-display`, which the record says).
+
 - **The first run in a fresh project asks three setup questions**, and each
   offers its documented example values in the question text. For the record,
   those values are:
