@@ -1431,6 +1431,13 @@ def test_the_JSON_front_door_carries_no_shape_of_a_key_the_agent_echoed(
     for start in range(len(secret) - 5):
         assert secret[start:start + 6] not in printed, printed
     assert mentions(repo, secret) == []
+    # **The reviewer's measurement (2026-09-02)**: the masked form's LAST FOUR
+    # characters reached the log as `sk-\u20268dd6` because json.dumps had
+    # escaped the ellipsis before the redactor looked — and the assertion
+    # above on the literal masked form was green for the wrong reason. The
+    # tail is the fact: no four-character tail of the key anywhere.
+    assert secret[-4:] not in printed, printed
+    assert mentions(repo, secret[-4:]) == [], "the key's tail reached a file"
 
 
 def test_a_failed_turn_keeps_what_the_agent_said_before_it_died(
