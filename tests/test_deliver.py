@@ -2734,6 +2734,7 @@ def test_the_mr_audit_instruction_WORKS_AS_PRINTED_from_a_fresh_clone(
     handed = tmp_path / "handed-over"
     shutil.copytree(delivered, handed)
     monkeypatch.chdir(clone)
+    assert not (clone / ".wringer").exists(), "a fresh clone carries no .wringer/"
     code = cli.main(["audit", "--delivery", str(handed)])
     said = capsys.readouterr()
     assert code == cli.EXIT_OK, said.out + said.err
@@ -2745,6 +2746,12 @@ def test_the_mr_audit_instruction_WORKS_AS_PRINTED_from_a_fresh_clone(
     trees = [line for line in listing.splitlines() if line.startswith("worktree ")]
     assert len(trees) == 1, listing
     assert not list((clone / fleet.WORKTREES_DIRNAME).glob("audit-*"))
+    # Measured 2026-09-02: `make_worktree` creates `.wringer/worktrees/` and
+    # `git worktree remove` takes only the worktree, so the clone was left
+    # holding an empty `.wringer/` it never had. "Not touched" means not.
+    assert not (clone / ".wringer").exists(), sorted(
+        p.as_posix() for p in (clone / ".wringer").rglob("*")
+    )
 
 
 def _sent_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path, *clone_flags):

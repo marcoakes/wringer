@@ -4593,8 +4593,21 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         )
         return EXIT_CONFIG
 
+    # **"Never touched" includes the directories.** `fleet.make_worktree`
+    # creates `.wringer/worktrees/` on the way in and `git worktree remove`
+    # takes only the worktree itself, so a fresh clone that had no `.wringer/`
+    # was left holding an empty one — measured 2026-09-02 on this command's
+    # own executing test. Whichever of the two the audit had to create, it
+    # removes; one the clone already had is the clone's and stays.
+    worktrees_dir = root / fleet.WORKTREES_DIRNAME
+    made_by_us = [
+        parent
+        for parent in (worktrees_dir, worktrees_dir.parent)
+        if not parent.exists()
+    ]
     worktree = fleet.make_worktree(root, f"audit-{str(commit)[:12]}", ref=commit)
     if worktree is None:
+        _tidy_empty(made_by_us)
         print(
             f"wring audit: git refused to add a read-only worktree at "
             f"{str(commit)[:12]} under {fleet.WORKTREES_DIRNAME.as_posix()}/, "
@@ -4611,6 +4624,7 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         report = certificate.check(payload, worktree, beside=delivery)
     finally:
         fleet.remove_worktree(root, worktree)
+        _tidy_empty(made_by_us)
     return _report_certificate(
         named,
         payload,
@@ -4618,6 +4632,20 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         f"commit {str(commit)[:12]} of {root} (a read-only worktree, removed)",
         as_json,
     )
+
+
+def _tidy_empty(directories: list[Path]) -> None:
+    """Remove, innermost first, directories the audit created and left empty.
+
+    `rmdir` and never a recursive delete: if anything else appeared in one of
+    them meanwhile, it is not this command's to remove and the call fails
+    quietly, leaving it.
+    """
+    for directory in directories:
+        try:
+            directory.rmdir()
+        except OSError:
+            pass
 
 
 def _report_certificate(
