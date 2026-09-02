@@ -640,6 +640,28 @@ def build_parser() -> argparse.ArgumentParser:
              "with a change, or a bundle directory (one carrying "
              "digests.json) to check on its own — including a FAILED run's, "
              "which no attestation will ever name",
+        # Optional since 2026-09-02, because `--delivery` names the target.
+        # Neither given is a refusal, not a default: there is no artifact an
+        # auditor "usually" means.
+        nargs="?",
+    )
+    parser_audit.add_argument(
+        "--delivery",
+        metavar="DIR",
+        # **The fourth shape, 2026-09-02, and still not a twentieth command:
+        # a whole delivery directory, from ANY clone.** Runs 4 and 4B each
+        # printed a multi-step audit instruction and each failed as printed
+        # (no copy step; then no checkout — the clone stood on `main` and
+        # the requirement claim read the wrong spec). This reads the
+        # delivery's own manifest for the delivered commit, checks the
+        # certificate against a read-only worktree at that commit, and
+        # removes the worktree afterwards. The operator's checkout is never
+        # touched.
+        help="a delivery directory (the one `wring deliver` wrote, copied "
+             "anywhere): its certificate is checked against the commit its "
+             "manifest names, in a read-only worktree this command adds and "
+             "removes — run it from any clone that has fetched the "
+             "delivered branch; your checkout is not touched",
     )
     parser_audit.add_argument(
         "--json",
@@ -4484,16 +4506,143 @@ def _audit_certificate(named: Path, as_json: bool) -> int:
     # The certificate's own directory, so its SIBLINGS can be checked too —
     # `coverage.json` travels beside it and the page quotes its two sentences.
     report = certificate.check(payload, root, beside=named.parent)
+    return _report_certificate(named, payload, report, str(root), as_json)
+
+
+def _audit_delivery(delivery: Path, as_json: bool) -> int:
+    """`wring audit --delivery <dir>` — the same check, from ANY clone.
+
+    **Runs 4 and 4B, 2026-09-01: the printed audit instruction failed as
+    printed twice.** Run 4's had no copy step (`no such file`); run 4B's had
+    no checkout, so the clone stood on `main` and the requirement claim —
+    which reads the checked-out spec — came back "could NOT be checked".
+    Three steps a reader performs by hand are three places to be wrong. This
+    is the one command: the delivery's own manifest names the delivered
+    commit; a read-only, detached worktree is added at that commit (the
+    machinery falsify's committed-range mode uses — `fleet.make_worktree`);
+    the certificate is checked against THAT tree's spec plus the receipts
+    and coverage the delivery carries; the worktree is removed in `finally`.
+    The operator's checkout is never switched, never written.
+
+    A commit this repository does not have is a refusal that names the
+    fetch, exactly as a command, and exits 2 — never a `−` on every claim.
+    """
+    from wringer import certificate, deliver, fleet, git
+
+    manifest_path = delivery / deliver.MANIFEST_FILENAME
+    named = delivery / certificate.RECORD_FILENAME
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError) as exc:
+        print(
+            f"wring audit: {delivery} is not a delivery directory — its "
+            f"{deliver.MANIFEST_FILENAME} could not be read ({exc})",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    if not isinstance(manifest, dict):
+        print(
+            f"wring audit: {manifest_path} is not a delivery manifest",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    if not certificate.is_certificate(named):
+        print(
+            f"wring audit: {delivery} carries no "
+            f"{certificate.RECORD_FILENAME} this version of wring reads, so "
+            "there is nothing to check",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+
+    branch = manifest.get("branch") or "<the delivered branch>"
+    remote = manifest.get("remote") or "origin"
+    result = manifest.get("result")
+    commit = result.get("commit") if isinstance(result, dict) else None
+    if not commit:
+        # A dry-run delivery was planned and never sent, so no commit was
+        # ever written: there is no delivered tree to stand a worktree on.
+        # The next move is the positional form, from the checkout the
+        # certificate was verified on.
+        print(
+            "wring audit: this delivery was never sent — its manifest names "
+            "no commit, so there is no delivered tree to check against. "
+            "From the checkout it was verified on, run: "
+            f"wring audit {named}",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+
+    root = git.find_root(Path.cwd())
+    if not git.is_repo(root):
+        print(
+            f"wring audit: {root} is not a git repository. Run this from a "
+            "clone of the repository this delivery came from, after: "
+            f"git fetch {remote} {branch}",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    if git.rev_parse(root, str(commit)) is None:
+        # One sentence, and the next move is itself a command — the branch
+        # name comes from the manifest, never guessed.
+        print(
+            f"wring audit: commit {str(commit)[:12]} is not in this "
+            f"repository — fetch the delivered branch first: git fetch "
+            f"{remote} {branch}",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+
+    worktree = fleet.make_worktree(root, f"audit-{str(commit)[:12]}", ref=commit)
+    if worktree is None:
+        print(
+            f"wring audit: git refused to add a read-only worktree at "
+            f"{str(commit)[:12]} under {fleet.WORKTREES_DIRNAME.as_posix()}/, "
+            "so nothing was checked",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    try:
+        try:
+            payload = certificate.read(named)
+        except ValueError as exc:
+            print(f"wring audit: {exc}", file=sys.stderr)
+            return EXIT_CONFIG
+        report = certificate.check(payload, worktree, beside=delivery)
+    finally:
+        fleet.remove_worktree(root, worktree)
+    return _report_certificate(
+        named,
+        payload,
+        report,
+        f"commit {str(commit)[:12]} of {root} (a read-only worktree, removed)",
+        as_json,
+    )
+
+
+def _report_certificate(
+    named: Path,
+    payload: dict,
+    report: object,
+    where: str,
+    as_json: bool,
+) -> int:
+    """THE renderer for a certificate audit — both entry points quote it.
+
+    `where` is the one line that differs: the clone the reader stands in
+    (positional form) or the delivered commit in a worktree (`--delivery`).
+    """
+    from wringer import certificate
 
     if as_json:
-        print(json.dumps({**report.as_json(), "checked_against": str(root)}))
+        print(json.dumps({**report.as_json(), "checked_against": where}))
         return EXIT_OK if report.ok else EXIT_GATE_FAILED
 
     change = payload.get("change") or {}
     heading = "✓" if report.ok else "✗"
     print(
         f"{heading} {named.name} — {change.get('branch') or 'this change'}, "
-        f"checked against {root}"
+        f"checked against {where}"
     )
     print()
     for claim in report.claims:
@@ -4535,6 +4684,23 @@ def _audit_certificate(named: Path, as_json: bool) -> int:
 def cmd_audit(args: argparse.Namespace) -> int:
     """Check an attestation. No config is read — an auditor may not have one."""
     from wringer import attest, certificate
+
+    if args.delivery is not None and args.attestation is not None:
+        print(
+            "wring audit: one target — either --delivery DIR or a file, "
+            "not both",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
+    if args.delivery is not None:
+        return _audit_delivery(Path(args.delivery), args.json)
+    if args.attestation is None:
+        print(
+            "wring audit: name what to check — an attestation.json, a "
+            "certificate.json, a bundle directory, or --delivery DIR",
+            file=sys.stderr,
+        )
+        return EXIT_CONFIG
 
     path = Path(args.attestation)
     # **A certificate is checked as a certificate, before anything else, and

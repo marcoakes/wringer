@@ -163,6 +163,32 @@ the author. `test_certificate.py` moves every name and asserts the outcomes
 are identical, claim for claim; a second guard greps the checking half of the
 module for the identity fields that exist to be read.
 
+**Ruling 13 (2026-09-02) — one portable command: `wring audit --delivery
+<dir>`.** Runs 4 and 4B (2026-09-01) each printed a multi-step audit
+instruction in `mr.md` and each failed as printed — no copy step, then no
+checkout, so the clone stood on `main` and claim 2 read the wrong spec and
+came back `−`. Three steps a reader performs by hand are three places to be
+wrong. The flag takes the delivery directory itself, copied anywhere: it
+reads the delivery's own `manifest.json` for the delivered commit, adds a
+read-only detached worktree at that commit (`fleet.make_worktree`, the
+machinery falsify's committed-range mode already uses), checks every claim
+against THAT tree's spec plus the receipts and coverage the delivery
+carries, and removes the worktree in `finally`. The operator's checkout is
+never switched and never written. A commit this repository does not have is
+a REFUSAL — one sentence, exit 2, naming `git fetch <remote> <branch>` from
+the manifest as a command — and never a `−` on every claim, which read as
+"the document is fine, the auditor is not". A delivery that was never sent
+(no commit in its manifest) refuses too, naming the positional form. The
+positional form (`wring audit certificate.json`, against the clone the reader
+stands in) is unchanged; both forms quote ONE renderer, and the claim
+ceiling above is untouched — a worktree proves the cited records are intact
+and consistent with the delivered tree, not that the pack was honest before
+first handover. `mr.md` prints exactly the one command with the fetch beside
+it, and `test_deliver.py` executes both as printed from a fresh clone,
+asserting the clone is still on `main` and no worktree remains; a second
+test constructs the missing-commit refusal and then runs the fetch it
+printed. A zipped delivery is a later rider.
+
 ---
 
 ## §5 The claim ceiling, ON the document

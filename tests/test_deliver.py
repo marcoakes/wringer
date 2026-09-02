@@ -2679,9 +2679,20 @@ def test_the_mr_gives_the_audit_a_WORKING_DIRECTORY_and_names_the_dead_links(
     mr = (_delivered(delivery_repo) / deliver.MR_FILENAME).read_text(
         encoding="utf-8"
     )
-    assert "copy THIS directory's contents into the clone's root" in mr, (
-        "the audit instruction names no working directory — run 4 measured "
-        "the command failing as printed"
+    # 0.7.3 (2026-09-02): the instruction is ONE command that takes the
+    # directory, so "where to put it" is an argument and not a step a
+    # reader performs by hand. The three-step form is deleted, not kept
+    # beside it — two instructions for one act is two places to be wrong.
+    assert "`wring audit --delivery <path-to-this-directory>`" in mr, (
+        "the audit instruction is not the one-command form — runs 4 and 4B "
+        "each measured a multi-step form failing as printed"
+    )
+    assert re.search(r"`git fetch \S+ wringer/\S+`", mr), (
+        "the fetch that makes the delivered commit present is not printed "
+        "as a command beside the audit"
+    )
+    assert "git switch" not in mr and "copy THIS" not in mr, (
+        "the three-step form is still printed beside the one command"
     )
     assert "do not travel" in mr and "diff.patch" in mr, (
         "the summary's non-travelling links are not named, so they read as "
@@ -2695,35 +2706,141 @@ def test_the_mr_audit_instruction_WORKS_AS_PRINTED_from_a_fresh_clone(
     """Runs 4 and 4B, 2026-09-01: the audit instruction failed as printed
     twice — first without a copy step (`no such file`), then without the
     branch checkout (the requirement claim reads the branch's own spec, and
-    the clone stood on `main`: "could NOT be checked from here"). So the
-    instruction is EXECUTED here, step by step as `mr.md` prints it, in a
-    clone that never saw the producing repository's working tree."""
-    import re
+    the clone stood on `main`: "could NOT be checked from here"). 0.7.3
+    (2026-09-02): the instruction is ONE command, `wring audit --delivery
+    <dir>`, and it is EXECUTED here exactly as `mr.md` prints it — from a
+    fresh clone standing on `main`, the delivery copied OUTSIDE the clone —
+    and afterwards the clone is still on `main` with no worktree left
+    behind. The checkout an auditor stands in is never the audit's to
+    move."""
     import shutil
 
+    from wringer import fleet
+
+    delivered, branch, clone = _sent_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    mr = (delivered / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    fetch = re.search(r"`(git fetch \S+ \S+)`", mr)
+    assert fetch, "mr.md prints no fetch command beside the audit"
+    assert fetch.group(1) == f"git fetch origin {branch}", fetch.group(1)
+    assert "`wring audit --delivery <path-to-this-directory>`" in mr, mr
+
+    # The instruction, as printed: the fetch (a no-op on a full clone, and
+    # executed anyway — it is a printed command), then the one command from
+    # the clone's root, pointed at the directory wherever it was put.
+    subprocess.run(fetch.group(1).split(), cwd=clone, check=True,
+                   capture_output=True)
+    handed = tmp_path / "handed-over"
+    shutil.copytree(delivered, handed)
+    monkeypatch.chdir(clone)
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+    assert code == cli.EXIT_OK, said.out + said.err
+    assert "could NOT be checked" not in said.out + said.err, said.out
+    assert "checked against commit" in said.out, said.out
+    # The operator's checkout: untouched, and nothing left behind.
+    assert git(clone, "branch", "--show-current") == "main"
+    listing = git(clone, "worktree", "list", "--porcelain")
+    trees = [line for line in listing.splitlines() if line.startswith("worktree ")]
+    assert len(trees) == 1, listing
+    assert not list((clone / fleet.WORKTREES_DIRNAME).glob("audit-*"))
+
+
+def _sent_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path, *clone_flags):
+    """A sent delivery, its branch name, and a fresh clone of the origin."""
     accepting_repo(delivery_repo, bound=False)
     verified(delivery_repo, monkeypatch, capsys)
     fake_forge(monkeypatch, reply={"number": 7, "html_url": "https://x/7"})
     assert cli.main(["deliver", "--send"]) == cli.EXIT_OK
     capsys.readouterr()
     delivered = _delivered(delivery_repo)
-    mr = (delivered / deliver.MR_FILENAME).read_text(encoding="utf-8")
-    named = re.search(r"`git switch ([^`]+)`", mr)
-    assert named, "mr.md names no branch to check out before the audit"
-    branch = named.group(1)
+    manifest = json.loads(
+        (delivered / deliver.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    branch = manifest["branch"]
     assert branch.startswith("wringer/"), branch
-
-    origin = subprocess.run(
-        ["git", "remote", "get-url", "origin"], cwd=delivery_repo,
-        capture_output=True, text=True, check=True,
-    ).stdout.strip()
+    assert manifest["result"]["commit"], manifest["result"]
+    origin = git(delivery_repo, "remote", "get-url", "origin")
     clone = tmp_path / "fresh-clone"
-    subprocess.run(["git", "clone", "-q", origin, str(clone)], check=True)
-    # The instruction, in its printed order: checkout, copy, audit.
-    subprocess.run(["git", "switch", "-q", branch], cwd=clone, check=True)
-    shutil.copytree(delivered, clone, dirs_exist_ok=True)
+    subprocess.run(
+        ["git", "clone", "-q", *clone_flags, origin, str(clone)], check=True
+    )
+    return delivered, branch, clone
+
+
+def test_audit_delivery_REFUSES_a_clone_without_the_branch_and_the_printed_fetch_WORKS(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """The taken path for the one refusal `--delivery` adds. A clone that
+    never fetched the delivered branch does not have the commit; the old
+    positional form answered that with a `−` on the requirement claim (run
+    4B's "could NOT be checked from here"), which reads as "the document
+    is fine, the auditor is not". This refuses, in one sentence, naming
+    the fetch as a command — and the command is then RUN, as printed, and
+    the same audit passes."""
+    import shutil
+
+    delivered, branch, clone = _sent_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path,
+        "--single-branch", "--branch", "main",
+    )
+    handed = tmp_path / "handed-over"
+    shutil.copytree(delivered, handed)
     monkeypatch.chdir(clone)
-    code = cli.main(["audit", deliver.CERTIFICATE_RECORD_FILENAME])
+    assert cli.main(["audit", "--delivery", str(handed)]) == cli.EXIT_CONFIG
     said = capsys.readouterr()
-    assert code == cli.EXIT_OK, said.out + said.err
-    assert "could NOT be checked" not in said.out + said.err, said.out
+    assert said.out == "", said.out
+    assert "is not in this repository" in flat(said.err), said.err
+    assert "could NOT be checked" not in said.err
+    fetch = re.search(r"git fetch \S+ \S+", said.err)
+    assert fetch and fetch.group(0) == f"git fetch origin {branch}", said.err
+    assert len(said.err.strip().splitlines()) == 1, said.err
+
+    subprocess.run(fetch.group(0).split(), cwd=clone, check=True,
+                   capture_output=True)
+    assert cli.main(["audit", "--delivery", str(handed)]) == cli.EXIT_OK
+    said = capsys.readouterr()
+    assert "could NOT be checked" not in said.out, said.out
+    assert git(clone, "branch", "--show-current") == "main"
+
+
+def test_audit_delivery_REFUSES_a_never_sent_delivery_and_names_the_positional_form(
+    delivery_repo, monkeypatch, capsys
+):
+    """A dry-run delivery has a manifest with no commit: there is no
+    delivered tree to stand a worktree on. The refusal says so and its
+    next move is the positional form from the verified checkout — which is
+    then run, as printed."""
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+    delivered = _delivered(delivery_repo)
+
+    assert cli.main(["audit", "--delivery", str(delivered)]) == cli.EXIT_CONFIG
+    said = capsys.readouterr()
+    assert "never sent" in flat(said.err), said.err
+    printed = re.search(r"wring audit (\S+certificate\.json)", said.err)
+    assert printed, said.err
+    assert cli.main(["audit", printed.group(1)]) == cli.EXIT_OK
+
+
+def test_audit_delivery_refuses_a_directory_that_is_not_a_delivery(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    monkeypatch.chdir(delivery_repo)
+    empty = tmp_path / "not-a-delivery"
+    empty.mkdir()
+    assert cli.main(["audit", "--delivery", str(empty)]) == cli.EXIT_CONFIG
+    assert "is not a delivery directory" in flat(capsys.readouterr().err)
+
+
+def test_audit_takes_exactly_one_target(delivery_repo, monkeypatch, capsys, tmp_path):
+    monkeypatch.chdir(delivery_repo)
+    assert cli.main(["audit"]) == cli.EXIT_CONFIG
+    assert "name what to check" in flat(capsys.readouterr().err)
+    assert cli.main(
+        ["audit", "--delivery", str(tmp_path), "certificate.json"]
+    ) == cli.EXIT_CONFIG
+    assert "one target" in flat(capsys.readouterr().err)

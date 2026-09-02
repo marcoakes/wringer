@@ -351,7 +351,12 @@ No network, no model, no account, and **it never reads who produced the
 branch** — a verification whose answer moved when the author changed would be
 a verification of the author. `−` is a third outcome and not a hedge: a claim
 whose evidence did not travel has *not* been checked, and calling that a pass
-or a failure would be a lie in one of the two directions. Contract:
+or a failure would be a lie in one of the two directions. Handed a whole
+delivery directory, `wring audit --delivery <dir>` does the same check from
+any clone that has fetched the delivered branch: it reads
+the delivery's own manifest for the commit, checks against a read-only
+worktree at that commit, and removes it afterwards — your checkout is not
+touched. Contract:
 **[docs/specs/SPEC_CERTIFICATE_V0.md](docs/specs/SPEC_CERTIFICATE_V0.md)**.
 
 `wring get <url>` clones a repo into a declared workspace and records where
