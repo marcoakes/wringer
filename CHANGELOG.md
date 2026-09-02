@@ -4,6 +4,49 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.4 — 2026-09-02
+
+**Worker logs sanitised below the declared value (P0.6).** Run 4B: the
+vendor rejected a dead Platform key and its own `401` echoed `sk-proj-`, a
+run of `*` and the key's LAST FOUR characters into `worker.stderr.log`,
+and since 0.6.7 those words travel to the stop line, the drive's stop step
+and `worker-diagnosis.json`. The redactor owned none of those bytes — none
+was the declared value.
+
+The one `Redactor` every write path already holds now has two tiers below
+the whole value, applied on every write — gate and worker logs, the
+diagnosis words, the delivery patch, every record, the `--json` console:
+
+- **every measured credential shape**, whether or not such a value was
+  declared. The shapes are `agents.py`'s rows — `Agent`/`ShellVendor` gain
+  a `key_shape` regex (unserialised; no schema moves), empty for a vendor
+  nobody has measured. `codex` carries the shape runs 3 and 4B saw;
+  `claude-code` carries the key's own `sk-ant-` prefix and claims nothing
+  about an echo; `gemini` is empty on purpose.
+- **any prefix or suffix of a declared value six or more characters long**
+  — a key a worker wrapped across two lines, the head a tool truncated.
+  Six is the same floor as on a whole value, one constant, so `sk-pr`
+  stays prose.
+
+`scrub_bytes` is no longer its own value-only loop: bytes get every tier
+the text path has. The ACP lane's session updates are scrubbed as the
+agent said them — `json.dumps` no longer escapes a non-ASCII byte before
+the redactor looks (the adversarial review of this release measured a
+masked `sk-…8dd6` reaching the log as `sk-…8dd6`, its last four
+characters intact; the guard now asserts the key's tail is nowhere).
+
+**What it still does not do**, stated in SECURITY.md so nobody reads "all
+secrets": an interior run of a value, a fragment under six, an unmeasured
+vendor's echo. `docs/vendors.md` gains "What a vendor echoes on a rejected
+credential"; a guard holds it to `agents.py`'s vendor set and refuses a
+`key_shape` with no dated sighting. Tests plant a fake key and run a real
+fake worker that echoes it whole, masked and wrapped through the real
+`wring run`, then walk every file under `.wringer/` and the console for
+any six characters of it; the forgery control's log comes back
+byte-identical. Twelve red-watches, all red.
+
+Schema versions: unchanged.
+
 ## 0.7.3 — 2026-09-02
 
 **`wring audit --delivery <dir>` — the portable audit is one command
