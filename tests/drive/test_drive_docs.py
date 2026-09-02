@@ -2208,6 +2208,7 @@ def test_the_runbook_names_the_RESUME_verb_and_what_it_reuses():
         assert f"`{stop.id}`" in body, f"the runbook does not name {stop.id}"
     assert "never re-asked" in body and "no drafting call" in body, (
         "the runbook does not say what a resume reuses"
+    )
 
 
 def test_the_drive_INSTALLS_a_proposed_display_with_the_gate_yes_and_asks_nothing(

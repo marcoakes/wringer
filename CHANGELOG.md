@@ -4,6 +4,49 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.2 — 2026-09-02
+
+**`wring plan` proposes the display for a human criterion (P0.3).** Runs 4
+and 4B both ended at a pen with a blank page; 0.6.7 made the drive ASK for
+a `show:` command, which left the person inventing one. Now the drafter's
+sidecar may propose it, and the person approves it with the gates — the
+same consent, the same power as a proposed gate, and nothing runs until
+the change is applied.
+
+### The sidecar, the diff, the JSON
+
+`wringer.gates.yaml` is now `wringer.gatespec.v2` (a new schema file,
+frozen at birth; v1 stays frozen and is still read; a v1 file carrying
+`show:` is refused by name). It adds one optional key, `show:` — criterion
+id to a display command, for `human: true` criteria only; `gates:` became
+optional so a spec whose every criterion needs a person can propose
+displays alone. `wring spec --send` asks the drafter for `show_proposals`
+(with the ceiling: name only files that exist today, run only what the
+repo already runs, omit rather than guess) and writes them into the
+sidecar; a display for a machine or unknown criterion is dropped with a
+note from a drafted reply, and refused (exit 2) from a typed sidecar.
+`wring plan` renders the proposal INTO the same diff as the gates under a
+top-level `show:` with a two-line marker comment, saying in its prose that
+it is "proposed; each runs on your machine at the pen, and only once you
+apply this change"; `--json` gains `show_proposed`,
+`show_already_declared`, `show_not_installable`. Where `.wringer.yaml`
+already has a `show:` section — or the gates cannot be appended — the
+proposal is listed in words with the command to add by hand.
+
+### The drive
+
+The `gate-diff` step names what will be shown (read off the JSON, never
+the diff); the one gate yes installs both by the same `git apply`; a no to
+a display-only diff does not stop the build (`show-proposal-declined`, then
+the 0.6.7 question); a proposal the settings cannot take is said
+(`show-proposal-not-installable`). The 0.6.7 question is asked only for
+criteria still lacking a `show:`. SPEC_COVERAGE_V0 ruling MR3 (dated);
+MR2 is unchanged — absent or declined, the warning stands and the question
+remains the fallback; `--without-display` is unchanged. 28 tests; 17
+red-watches, all red on a lone revert.
+
+Schema versions: new `wringer.gatespec.v2`; v1 frozen and still read.
+
 ## 0.7.1 — 2026-09-02
 
 **Every stop names its next move (P0.1).** Run 4B, 2026-09-01: a shell
