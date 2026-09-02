@@ -1097,10 +1097,30 @@ PHASES = (
 
 def checkpoint_phase(repo: Path, phase: str) -> None:
     """Record the phase about to start — before it does, for `checkpoint`'s
-    reason: a record written after knows nothing about the phase that died."""
+    reason: a record written after knows nothing about the phase that died.
+
+    **And the question is cleared.** A phase can only start once every
+    question of the phase before it was answered, so the `last_question` in
+    the record is stale the moment this is written — and a stale one had the
+    resume say a build stopped "at the question 'approve'" (measured on the
+    failed-turn fixture, 2026-09-02): the approval had been given; the build
+    is what stopped. The record says a question only while one is pending.
+    """
     if phase not in PHASES:
         raise ValueError(f"unknown phase {phase!r}; one of {PHASES}")
-    _write_resume(repo, phase=phase)
+    _write_resume(repo, phase=phase, last_question=None)
+
+
+def stopped_where(phase: str | None, last_question: str | None) -> str | None:
+    """THE ONE RENDERER of where a run stopped; `resuming` and the resume
+    preface both quote it. None when the record names neither a phase nor a
+    question — there is nothing to say."""
+    parts: list[str] = []
+    if phase:
+        parts.append(f"during the '{phase}' step")
+    if last_question:
+        parts.append(f"at the question '{last_question}'")
+    return ", ".join(parts) or None
 
 
 def phase_is_due(start: str | None, phase: str) -> bool:
@@ -1247,11 +1267,9 @@ def resume_preface(facts: ResumeFacts) -> Step:
     from wringer import spec
 
     where = (
-        f"during the '{facts.phase}' step" if facts.phase else "before the "
-        "record named a step"
+        stopped_where(facts.phase, facts.last_question)
+        or "before the record named a step"
     )
-    if facts.last_question:
-        where += f", at the question '{facts.last_question}'"
     past = {
         phase: facts.phase is not None and PHASES.index(facts.phase) > PHASES.index(phase)
         for phase in PHASES
@@ -1323,14 +1341,17 @@ def resume_preface(facts: ResumeFacts) -> Step:
 
 def resumed_step(repo: Path) -> Step | None:
     """Where the last run stopped, said out loud, or None on a first run."""
-    last = read_resume(repo).get("last_question")
-    if not last:
+    record = read_resume(repo)
+    last = record.get("last_question") or None
+    phase = record.get("phase")
+    where = stopped_where(phase if phase in PHASES else None, last)
+    if where is None:
         return None
     return Step(
         kind=SHOW,
         id="resuming",
-        text="This project has been driven before. The last run stopped at "
-        f"'{last}', and nothing before that is being done again — your "
+        text="This project has been driven before. The last run stopped "
+        f"{where}, and nothing before that is being done again — your "
         "answers and the plan are already recorded. Anything that needs your "
         "permission is still asked, every time.",
         detail={"last_question": last},

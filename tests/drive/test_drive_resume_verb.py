@@ -235,6 +235,17 @@ def test_A_RUN_STOPPED_AT_A_FAILED_TURN_RESUMES_AT_THE_BUILD_ASKING_AND_DRAFTING
     assert "1 attempt(s)" in text, "the spend is not the project's own ceiling"
     assert "during the 'build' step" in text
     assert steps[0]["detail"]["phase"] == "build"
+    # The build is not a question. The record carried the approval's
+    # `last_question` into the build phase, and the preface said the run
+    # stopped "at the question 'approve'" — after that approval had been
+    # given. A phase's start clears the question; only a pending one is named.
+    assert "at the question" not in text, f"a stale question survives:\n{text}"
+    assert steps[0]["detail"]["last_question"] is None
+    # And `run`'s own first sentence quotes the same renderer, so the two
+    # front doors cannot disagree about where the run stopped.
+    resuming = run_module.resumed_step(failing_build)
+    assert resuming is not None and "during the 'build' step" in resuming.text
+    assert "at the question" not in resuming.text
 
 
 def test_A_SPEC_CHANGED_SINCE_THE_APPROVAL_STOPS_THE_RESUME(failing_build, tmp_path):
@@ -331,7 +342,11 @@ def test_A_RESUME_RECORD_FROM_BEFORE_PHASES_EXISTED_STARTS_FROM_THE_BEGINNING(
     code, steps = drive(["resume", "--repo", str(converging_build)], "")
 
     assert [s["id"] for s in steps if s["kind"] == "confirm"] == ["approve"]
-    assert "before the record named a step" in steps[0]["text"]
+    # A 0.6.7 record names the question and no phase, and the preface says
+    # exactly that much: the question, and no step it never recorded.
+    assert "at the question 'approve'" in steps[0]["text"]
+    assert "during the '" not in steps[0]["text"]
+    assert steps[0]["detail"]["phase"] is None
 
 
 # --- two front doors, one implementation --------------------------------------

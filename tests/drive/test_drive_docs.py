@@ -2194,7 +2194,7 @@ def test_the_runbook_names_the_RESUME_verb_and_what_it_reuses():
         "the runbook never puts `wringer-drive resume` where a command is typed"
     )
     facts = run_module.ResumeFacts(
-        last_question="approve", phase="build", prd_inside=True,
+        last_question=None, phase="build", prd_inside=True,
         spec_present=True, spec_approved=True, spec_changed=False,
         answers=("which-columns",), gates=("unit",), shows=(), max_iterations=1,
     )
