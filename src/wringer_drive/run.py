@@ -67,6 +67,17 @@ PRD_FILENAME = "prd.md"
 # states in the code is NOT an approval and authorises nothing, and it is
 # removed only while the answers are byte-identical to the ones that were
 # confirmed. Change any answer and the question comes back.
+#
+# **AMENDED 2026-09-02 (0.7.1, P0.2).** The paragraph above is `run`'s law
+# and still binds it. `wringer-drive resume` continues from the PHASE the
+# record names, and past an approval that was given — lawfully, because the
+# approval it reuses is not this file's: it is the spec's own `approved:
+# true`, written by the interlock after the plan was rendered, and it is
+# reused only while the spec's BYTES are the ones that approval was given
+# against (`approved_spec_sha256`, compared before anything is reused; a
+# changed spec is `stopped:spec-changed`). A run 4B operator whose build
+# turn was refused had an approved plan, recorded answers and installed
+# checks, and no verb that would say so and carry on.
 RESUME_FILENAME = "resume.json"
 
 #: `wringer-drive`'s own, in its own directory. It spends no version of any
@@ -1055,16 +1066,292 @@ def record_answers_confirmed(repo: Path) -> None:
     _write_resume(repo, answers_confirmed_sha256=answers_digest(repo))
 
 
+# --- the phases, and the verb that continues one (0.7.1, P0.2) --------------
+#
+# **Two front doors, one step sequence.** `wringer-drive run` and
+# `wringer-drive resume` drive the SAME ordered phases in `__main__._drive`;
+# the only thing `resume` adds is a starting point read from this record.
+# The phase is written at each phase's START, so a record naming a phase is
+# a record whose earlier phases all completed — and `run` re-running a
+# completed phase was already measured as a safe act (2026-08-21), which is
+# what makes starting at one lawful.
+#
+# **The build is the phase that failed most in the field, and it is not a
+# question.** `checkpoint` records questions; run 4B's stop (a worker turn
+# refused with a 401) happened between the last question and the next, so
+# a question-only record put the resume one phase too late — at the handover
+# — rather than at the build. `build` advances to `deliver` only when the
+# loop CONVERGED; a build that stopped is the build a resume redoes.
+PHASES = (
+    "setup",
+    "draft",
+    "interview",
+    "read-back",
+    "approve",
+    "gates",
+    "show",
+    "build",
+    "deliver",
+)
+
+
+def checkpoint_phase(repo: Path, phase: str) -> None:
+    """Record the phase about to start — before it does, for `checkpoint`'s
+    reason: a record written after knows nothing about the phase that died.
+
+    **And the question is cleared.** A phase can only start once every
+    question of the phase before it was answered, so the `last_question` in
+    the record is stale the moment this is written — and a stale one had the
+    resume say a build stopped "at the question 'approve'" (measured on the
+    failed-turn fixture, 2026-09-02): the approval had been given; the build
+    is what stopped. The record says a question only while one is pending.
+    """
+    if phase not in PHASES:
+        raise ValueError(f"unknown phase {phase!r}; one of {PHASES}")
+    _write_resume(repo, phase=phase, last_question=None)
+
+
+def stopped_where(phase: str | None, last_question: str | None) -> str | None:
+    """THE ONE RENDERER of where a run stopped; `resuming` and the resume
+    preface both quote it. None when the record names neither a phase nor a
+    question — there is nothing to say."""
+    parts: list[str] = []
+    if phase:
+        parts.append(f"during the '{phase}' step")
+    if last_question:
+        parts.append(f"at the question '{last_question}'")
+    return ", ".join(parts) or None
+
+
+def phase_is_due(start: str | None, phase: str) -> bool:
+    """Whether `phase` runs on a sequence starting at `start` (None: all)."""
+    if start is None or start not in PHASES:
+        return True
+    return PHASES.index(phase) >= PHASES.index(start)
+
+
+def spec_digest(repo: Path) -> str | None:
+    """sha256 of the spec file's bytes, or None when there is no spec.
+
+    **The bytes, not the parse.** The approval was given against words a
+    person read, and a byte is the smallest unit in which those words can
+    change. This is the same staleness law the judgement obeys — a verdict is
+    pinned to the criterion's wording — applied to the plan as a whole.
+    """
+    import hashlib
+
+    from wringer import spec
+
+    try:
+        return hashlib.sha256((repo / spec.SPEC_FILENAME).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def record_approved_spec(repo: Path) -> None:
+    """The bytes the approval was given against — written the moment the
+    approval is, and compared by `resume` before anything is reused."""
+    _write_resume(repo, approved_spec_sha256=spec_digest(repo))
+
+
+@dataclass(frozen=True)
+class ResumeFacts:
+    """What the record and the files beside it say, and nothing else.
+
+    Every field is read off disk at the moment `resume` starts; the preface
+    renders these and the sequence starts from `phase`. Nothing here is a
+    consent: `approved` is the spec's own interlock line, and the digest is
+    what makes reusing it lawful (`spec_changed` is the one refusal).
+    """
+
+    last_question: str | None
+    phase: str | None
+    prd_inside: bool
+    spec_present: bool
+    spec_approved: bool
+    spec_changed: bool
+    answers: tuple[str, ...]
+    gates: tuple[str, ...]
+    shows: tuple[str, ...]
+    max_iterations: int | None
+
+
+def resume_facts(repo: Path) -> ResumeFacts | None:
+    """The record and its surroundings, or None when there is nothing to resume."""
+    from wringer import config, spec
+    from wringer_board import interview
+
+    record = read_resume(repo)
+    if not record:
+        return None
+    spec_path = repo / spec.SPEC_FILENAME
+    approved = False
+    if spec_path.is_file():
+        try:
+            approved = bool(spec.load(spec_path).approved)
+        except spec.SpecError:
+            approved = False
+    recorded = record.get("approved_spec_sha256")
+    changed = recorded is not None and recorded != spec_digest(repo)
+    try:
+        answers = tuple(q.id for q in interview.questions(repo) if q.answered)
+    except interview.InterviewError:
+        answers = ()
+    gates: tuple[str, ...] = ()
+    shows: tuple[str, ...] = ()
+    attempts: int | None = None
+    settings_path = repo / config.CONFIG_FILENAME
+    if settings_path.is_file():
+        try:
+            settings = config.load(settings_path)
+            gates = tuple(gate.id for gate in settings.gates)
+            shows = tuple(settings.show)
+            attempts = settings.run.max_iterations if settings.run else None
+        except config.ConfigError:
+            pass
+    phase = record.get("phase")
+    return ResumeFacts(
+        last_question=str(record.get("last_question") or "") or None,
+        phase=str(phase) if phase in PHASES else None,
+        prd_inside=(repo / DRIVE_DIRNAME / PRD_FILENAME).is_file(),
+        spec_present=spec_path.is_file(),
+        spec_approved=approved,
+        spec_changed=changed,
+        answers=answers,
+        gates=gates,
+        shows=shows,
+        max_iterations=attempts,
+    )
+
+
+def nothing_to_resume_step() -> Step:
+    """**Run 4B, 2026-09-01.** The operator's stop said an attempt changed
+    nothing; no verb said how to continue. This is that verb saying, honestly,
+    that there is nothing here for it to continue."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:nothing-to-resume",
+        text="Nothing to resume here: no run of wringer-drive has stopped in "
+        "this project, so there is no checkpoint to continue from. Nothing "
+        "was built and nothing was spent. Start one with: wringer-drive run "
+        "<your document>",
+    )
+
+
+def spec_changed_step() -> Step:
+    """The approval was for other words. The staleness law the judgement
+    already obeys, applied to the plan: a changed spec is re-approved by a
+    person, never carried by a record."""
+    from wringer import spec
+
+    return Step(
+        kind=STOPPED,
+        id="stopped:spec-changed",
+        text=f"The plan you approved has changed since — {spec.SPEC_FILENAME} "
+        "is not byte-for-byte the file that approval was given against, so "
+        "nothing is built from it and nothing was spent. Approve it again "
+        "with wringer-drive run <your document>, which shows the plan and "
+        "asks.",
+    )
+
+
+def resume_preface(facts: ResumeFacts) -> Step:
+    """ONE step, three labelled lines, every item read off the record.
+
+    *Preserved* is what is on disk. *Reused* is what this run will not ask
+    for or pay for again, derived from the PHASE — a plan is "not re-approved"
+    only when the approve phase completed, so a run killed at the approval is
+    told the approval is coming. *Will spend* is the next paid thing, and it
+    is never a drafting call while a spec exists.
+    """
+    from wringer import spec
+
+    where = (
+        stopped_where(facts.phase, facts.last_question)
+        or "before the record named a step"
+    )
+    past = {
+        phase: facts.phase is not None and PHASES.index(facts.phase) > PHASES.index(phase)
+        for phase in PHASES
+    }
+
+    preserved: list[str] = []
+    if facts.prd_inside:
+        preserved.append(f"your document at {DRIVE_DIRNAME / PRD_FILENAME}")
+    if facts.spec_present:
+        state = "approved" if facts.spec_approved else "not yet approved"
+        preserved.append(f"the plan in {spec.SPEC_FILENAME} ({state})")
+    if facts.answers:
+        preserved.append(
+            f"{len(facts.answers)} recorded answer(s): {', '.join(facts.answers)}"
+        )
+    if facts.gates:
+        preserved.append(
+            f"{len(facts.gates)} check(s) in .wringer.yaml: {', '.join(facts.gates)}"
+        )
+    if facts.shows:
+        preserved.append(f"show commands for: {', '.join(facts.shows)}")
+
+    reused: list[str] = []
+    if facts.spec_present:
+        reused.append("the drafted plan (no drafting call)")
+        if facts.spec_approved and past["approve"]:
+            reused.append("your approval of it (not asked again)")
+    if facts.answers and past["interview"]:
+        reused.append("your answers (not asked again)")
+    if facts.gates and past["gates"]:
+        reused.append("the installed checks (not proposed again)")
+    if facts.shows and past["show"]:
+        reused.append("the show commands (not asked again)")
+
+    if not facts.spec_present:
+        spend = "one drafting call to the model endpoint, which reads your document"
+        if facts.max_iterations is not None:
+            spend += f", then the build (up to {facts.max_iterations} attempt(s))"
+    elif past["build"]:
+        spend = "nothing paid — the handover is what remains, and it asks first"
+    else:
+        attempts = (
+            f"up to {facts.max_iterations} attempt(s)"
+            if facts.max_iterations is not None
+            else "as many attempts as the project allows"
+        )
+        spend = f"the build: your coding agent's turns, {attempts}; no drafting"
+
+    text = (
+        f"This project has a run that stopped {where}, and this continues it "
+        "from there.\n\n"
+        f"Preserved: {'; '.join(preserved) or 'nothing yet'}\n"
+        f"Reused: {'; '.join(reused) or 'nothing yet'}\n"
+        f"Will spend: {spend}"
+    )
+    return Step(
+        kind=SHOW,
+        id="resume-preface",
+        text=text,
+        detail={
+            "phase": facts.phase,
+            "last_question": facts.last_question,
+            "preserved": preserved,
+            "reused": reused,
+            "will_spend": spend,
+        },
+    )
+
+
 def resumed_step(repo: Path) -> Step | None:
     """Where the last run stopped, said out loud, or None on a first run."""
-    last = read_resume(repo).get("last_question")
-    if not last:
+    record = read_resume(repo)
+    last = record.get("last_question") or None
+    phase = record.get("phase")
+    where = stopped_where(phase if phase in PHASES else None, last)
+    if where is None:
         return None
     return Step(
         kind=SHOW,
         id="resuming",
-        text="This project has been driven before. The last run stopped at "
-        f"'{last}', and nothing before that is being done again — your "
+        text="This project has been driven before. The last run stopped "
+        f"{where}, and nothing before that is being done again — your "
         "answers and the plan are already recorded. Anything that needs your "
         "permission is still asked, every time.",
         detail={"last_question": last},
@@ -1602,6 +1889,9 @@ def build_steps(repo: Path) -> list[Step]:
             detail={
                 "iterations": outcome.get("iterations"),
                 "loop": outcome.get("loop_dir"),
+                # The engine's own status, so the orchestrator advances the
+                # resume record on CONVERGED and on nothing else (P0.2).
+                "status": outcome.get("status"),
             },
         ),
     ]

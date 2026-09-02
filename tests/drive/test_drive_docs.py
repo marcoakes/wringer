@@ -506,21 +506,22 @@ def test_both_endings_render_the_board_in_the_orchestrator_itself():
     """The structural half, and it is what stops a refactor from removing one
     branch while the other stays green.
 
-    `__main__._run` renders the board on the refused branch (inside the
-    `except run_module.Stop`) and on the converged one (after it). Both call
-    sites are read out of the source with `ast`, so deleting either reddens
-    this even if a live test happens not to reach that path.
+    `__main__._drive` — the ONE step sequence `run` and `resume` share since
+    0.7.1; it was `_run` before — renders the board on the refused branch
+    (inside the `except run_module.Stop`) and on the converged one (after
+    it). Both call sites are read out of the source with `ast`, so deleting
+    either reddens this even if a live test happens not to reach that path.
     """
     source = (SRC / "__main__.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
     run_fn = next(
         node
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name == "_run"
+        if isinstance(node, ast.FunctionDef) and node.name == "_drive"
     )
 
     handlers = [n for n in ast.walk(run_fn) if isinstance(n, ast.ExceptHandler)]
-    assert handlers, "`_run` no longer catches a Stop around delivery"
+    assert handlers, "`_drive` no longer catches a Stop around delivery"
 
     def renders_board(node) -> bool:
         return any(
@@ -2177,3 +2178,34 @@ def test_the_drive_WIRES_the_show_question_and_writes_the_answer(
     assert config.load(project / config.CONFIG_FILENAME).show == {
         "reads-at-a-glance": "echo SHOWN-TO-ME"
     }
+
+
+def test_the_runbook_names_the_RESUME_verb_and_what_it_reuses():
+    """**Run 4B, 2026-09-01.** The operator's stop said an attempt changed
+    nothing, and the runbook the driving agent follows named no way to
+    continue — so the agent had nothing to relay but the stop. The bullet
+    must name the verb at command position (the verbs guard then checks it
+    exists), the preface step, both of its stops, and the three labels, each
+    cross-checked against the SOURCE so the page cannot drift from it."""
+    import re
+
+    body = drive_agents_md()
+    assert re.search(r"^[ \t]*wringer-drive[ \t]+resume\b", body, re.MULTILINE), (
+        "the runbook never puts `wringer-drive resume` where a command is typed"
+    )
+    facts = run_module.ResumeFacts(
+        last_question=None, phase="build", prd_inside=True,
+        spec_present=True, spec_approved=True, spec_changed=False,
+        answers=("which-columns",), gates=("unit",), shows=(), max_iterations=1,
+    )
+    preface = run_module.resume_preface(facts)
+    assert f"`{preface.id}`" in body, f"the runbook does not name the {preface.id} step"
+    for label in ("Preserved:", "Reused:", "Will spend:"):
+        assert label in preface.text and f"`{label}`" in body, (
+            f"the runbook and the preface disagree about the label {label!r}"
+        )
+    for stop in (run_module.spec_changed_step(), run_module.nothing_to_resume_step()):
+        assert f"`{stop.id}`" in body, f"the runbook does not name {stop.id}"
+    assert "never re-asked" in body and "no drafting call" in body, (
+        "the runbook does not say what a resume reuses"
+    )
