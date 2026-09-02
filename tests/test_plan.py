@@ -1040,3 +1040,263 @@ def test_a_hedge_is_still_refused_when_EVERY_question_is_answered(
     assert "hedges against a question that has been answered" in err
     assert "if unanswered" in err, "the refusal does not quote the document back"
     assert not (repo / spec.TASKS_FILENAME).exists()
+
+
+# --- a display for every human criterion, PROPOSED (P0.3, 2026-09-02) -------
+#
+# Runs 4 and 4B both ended at a pen with a blank page: nothing showed the
+# person the thing they were asked to judge. 0.6.7 made the drive ASK for a
+# `show:` command, which left the person inventing one. The sidecar may now
+# PROPOSE it, and `wring plan` renders it into the SAME diff as the gates — a
+# model-written command that runs on the person's machine, under exactly the
+# consent a proposed gate gets and no larger a power.
+
+SHOW_COMMAND = 'PYTHONPATH=src python3 -m report "a b.json" || [ $? -eq 1 ]'
+
+SIDECAR_WITH_SHOW = (
+    "schema_version: wringer.gatespec.v2\n"
+    "gates:\n"
+    "  - id: acc-button\n"
+    '    run: "pytest -q acceptance/test_button.py"\n'
+    "    proves: export-button-exists\n"
+    "show:\n"
+    "  reads-well: " + json.dumps(SHOW_COMMAND) + "\n"
+)
+
+DISPLAY_ONLY_SIDECAR = (
+    "schema_version: wringer.gatespec.v2\n"
+    "show:\n"
+    "  reads-well: " + json.dumps(SHOW_COMMAND) + "\n"
+)
+
+
+def _apply(repo: Path, diff: str) -> None:
+    import subprocess
+
+    (repo / "plan.patch").write_text(diff, encoding="utf-8")
+    applied = subprocess.run(
+        ["git", "apply", str(repo / "plan.patch")],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert applied.returncode == 0, applied.stderr
+
+
+def test_a_PROPOSED_DISPLAY_rides_the_same_diff_as_the_gates_and_applies(
+    repo, monkeypatch, capsys
+):
+    """One diff, one yes: the display lands under `show:` beside the gate,
+    `git apply` takes it, and `.wringer.yaml`'s own loader reads the exact
+    command back."""
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(SIDECAR_WITH_SHOW, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["show_proposed"] == ["reads-well"]
+    assert payload["show_already_declared"] == []
+    assert payload["show_not_installable"] == []
+    assert "acc-button" in payload["gates_proposed"]
+    diff = payload["gate_diff"]
+    assert "+show:" in diff
+    # Quoted by the ONE emitter every command in the diff goes through: it
+    # picks the plain form only after reading it back byte-identical, and
+    # `config.load` below is the proof that it did.
+    assert "+  reads-well: " + spec_module._scalar(SHOW_COMMAND) in diff
+    # The marker travels IN the diff — the one renderer of the fact that this
+    # is a proposal which runs on the person's machine at the pen.
+    assert "+" + spec.SHOW_PROPOSAL_COMMENT.splitlines()[0] in diff
+
+    _apply(repo, diff)
+    updated = config.load(repo / config.CONFIG_FILENAME)
+    assert updated.show == {"reads-well": SHOW_COMMAND}
+    assert {g.id: g.proves for g in updated.gates if g.proves} == {
+        "acc-button": "export-button-exists"
+    }
+    # And a second plan proposes neither again: re-running is a safe act.
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    again = json.loads(capsys.readouterr().out)
+    assert again["show_proposed"] == [] and again["gate_diff"] == ""
+    assert again["show_already_declared"] == ["reads-well"]
+
+
+def test_the_plans_prose_MARKS_the_display_as_running_on_the_machine(
+    repo, monkeypatch, capsys
+):
+    """The sentence a person reads before the diff says where the command
+    will run and when — before they are asked to apply it."""
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(SIDECAR_WITH_SHOW, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    out = flat(capsys.readouterr().out)
+
+    assert "Proposed displays (reads-well)" in out
+    assert "proposed; each runs on your machine at the pen" in out
+    assert "does not install these either" in out
+    assert "+show:" in out
+    # And the config on disk is byte-untouched: proposed, never installed.
+    assert "show:" not in (repo / config.CONFIG_FILENAME).read_text(encoding="utf-8")
+
+
+def test_an_EXISTING_show_section_gets_words_not_a_second_key(
+    repo, monkeypatch, capsys
+):
+    """The refusal `_append_gates` makes for a second `gates:` key, mirrored:
+    a second top-level `show:` REPLACES the first and YAML says nothing. So
+    the proposal is listed in words, the diff carries only the gate, and the
+    person's own `show:` section survives the diff being applied."""
+    setup_repo(repo, config_text=CONFIG + 'show:\n  other: "true"\n')
+    (repo / spec.GATESPEC_FILENAME).write_text(SIDECAR_WITH_SHOW, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["show_not_installable"] == ["reads-well"]
+    assert payload["show_proposed"] == []
+    diff = payload["gate_diff"]
+    assert "+show:" not in diff and "reads-well" not in diff
+    assert "+  - id: acc-button" in diff
+
+    _apply(repo, diff)
+    updated = config.load(repo / config.CONFIG_FILENAME)
+    assert updated.show == {"other": "true"}, "the person's section was replaced"
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    out = flat(capsys.readouterr().out)
+    assert "Proposed displays (reads-well), as text rather than a diff" in out
+    assert "already has a 'show:' section" in out
+    assert f"reads-well: {SHOW_COMMAND}" in out, "the command to add by hand"
+
+
+def test_a_display_ALREADY_DECLARED_is_not_proposed_twice(repo, monkeypatch, capsys):
+    setup_repo(repo, config_text=CONFIG + 'show:\n  reads-well: "echo mine"\n')
+    (repo / spec.GATESPEC_FILENAME).write_text(SIDECAR_WITH_SHOW, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["show_already_declared"] == ["reads-well"]
+    assert payload["show_proposed"] == []
+    assert payload["show_not_installable"] == []
+    assert "reads-well" not in payload["gate_diff"]
+
+    assert cli.main(["plan"]) == cli.EXIT_OK
+    assert "Already shown, so not proposed: reads-well" in flat(capsys.readouterr().out)
+
+
+def test_NO_proposal_means_no_show_in_the_diff(repo, monkeypatch, capsys):
+    """Absent proposal, nothing changes: a v1 sidecar with gates alone yields
+    the diff it always did, and the 0.6.7 question stays the fallback."""
+    setup_repo(repo)
+    write_sidecar(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["show_proposed"] == []
+    assert payload["show_not_installable"] == []
+    assert "show" not in payload["gate_diff"]
+
+
+def test_a_display_for_a_MACHINE_criterion_is_refused_at_plan_time(
+    repo, monkeypatch, capsys
+):
+    """A display is for the criteria only a person can settle. Proposing one
+    for a criterion a machine decides is the category error in reverse of
+    binding a gate to a `human` one, and a typed sidecar is refused to its
+    author's face rather than quietly trimmed."""
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        SIDECAR_WITH_SHOW.replace("  reads-well:", "  export-button-exists:"),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "export-button-exists" in err and "machine decides" in err
+    assert spec.GATESPEC_FILENAME in err
+
+
+def test_a_display_for_an_UNKNOWN_criterion_names_the_spec(repo, monkeypatch, capsys):
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        SIDECAR_WITH_SHOW.replace("  reads-well:", "  reads-wel:"), encoding="utf-8"
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+
+    err = flat(capsys.readouterr().err)
+    assert "reads-wel" in err and spec.SPEC_FILENAME in err
+
+
+def test_a_DISPLAY_ONLY_sidecar_yields_a_diff_carrying_only_show(
+    repo, monkeypatch, capsys
+):
+    """A spec whose criteria all need a person proposes no gate and still
+    gets its display into a diff that applies."""
+    setup_repo(
+        repo, SPEC.replace("gates:\n  - id: test\n    run: pytest -q\n", "gates: []\n")
+    )
+    (repo / spec.GATESPEC_FILENAME).write_text(DISPLAY_ONLY_SIDECAR, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["gates_proposed"] == []
+    assert payload["show_proposed"] == ["reads-well"]
+    assert "+show:" in payload["gate_diff"]
+    assert "gates:" not in "".join(
+        row for row in payload["gate_diff"].splitlines(True) if row.startswith("+")
+    )
+    _apply(repo, payload["gate_diff"])
+    installed = config.load(repo / config.CONFIG_FILENAME).show
+    assert installed == {"reads-well": SHOW_COMMAND}
+
+
+def test_displays_go_to_WORDS_when_the_gates_cannot_be_appended(
+    repo, monkeypatch, capsys
+):
+    """No diff at all when the gate list is not block-style: a diff carrying
+    only the display would let the drive read "installed" over gates that
+    were not. The display is listed in words with the gates."""
+    setup_repo(
+        repo,
+        config_text=CONFIG.replace(
+            'gates:\n  - id: check\n    run: "true"\n',
+            'gates: [{id: check, run: "true"}]\n',
+        ),
+    )
+    (repo / spec.GATESPEC_FILENAME).write_text(SIDECAR_WITH_SHOW, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+
+    assert payload["gate_diff"] == ""
+    assert "acc-button" in payload["gates_proposed"]
+    assert payload["show_proposed"] == []
+    assert payload["show_not_installable"] == ["reads-well"]
+
+
+def test_a_v1_sidecar_that_carries_show_is_refused_by_name(repo, monkeypatch, capsys):
+    """v1 is frozen. A file that claims v1 while carrying the v2 key is a
+    file two readers disagree about, and it is refused naming the version
+    it needs rather than read by the one that happens to know both."""
+    setup_repo(repo)
+    (repo / spec.GATESPEC_FILENAME).write_text(
+        SIDECAR_WITH_SHOW.replace("gatespec.v2", "gatespec.v1"), encoding="utf-8"
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan"]) == cli.EXIT_CONFIG
+    assert "wringer.gatespec.v2" in flat(capsys.readouterr().err)

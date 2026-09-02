@@ -161,6 +161,13 @@ a diff a human applies, and `wring plan` still stops.
   machine criterion, none for `human: true` ones. A sidecar because
   `wringer.spec.v1` is frozen and its gates section has no `proves` channel
   (SPEC_ACCEPT ruling 2) — a new file with a new schema is the lawful route.
+  *Dated note, 2026-09-02 (world-class plan P0.3): the drafter now writes
+  `wringer.gatespec.v2`, which adds ONE optional key — `show:`, a proposed
+  display command per `human: true` criterion, rendered by `wring plan` into
+  the same diff as the gates under the same yes. v1 is frozen and every v1
+  file is still read; `gates:` became optional so a spec whose every
+  criterion needs a person can propose displays alone. The ruling is
+  SPEC_COVERAGE_V0 MR3.*
 - **`wring plan` renders the sidecar through `gate_diff` — WITH the
   `proves:` lines — and STOPS**, exactly as gate proposals always have. The
   human applies the diff to `.wringer.yaml` by hand or not at all. A1's

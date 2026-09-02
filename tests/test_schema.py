@@ -1908,13 +1908,87 @@ def test_a_drafted_gate_sidecar_matches_its_schema(repo, monkeypatch, capsys):
     import yaml
 
     document = yaml.safe_load(path.read_text(encoding="utf-8"))
-    check(document, load("gatespec.schema.json"), "wringer.gates.yaml")
+    # v2 since P0.3 (2026-09-02): the renderer writes the newest version, and
+    # the v1 schema below stays frozen and readable for the files already on
+    # disk.
+    check(document, load("gatespec-v2.schema.json"), "wringer.gates.yaml")
 
-    built = validators()["gatespec.schema.json"]
+    built = validators()["gatespec-v2.schema.json"]
     errors = [
         f"{e.json_path} {e.message}" for e in built.iter_errors(document)
     ]
     assert not errors, "\n".join(errors)
+
+
+def test_a_sidecar_carrying_a_PROPOSED_DISPLAY_matches_the_v2_schema(repo):
+    """P0.3 (2026-09-02): the real file the real renderer writes with a
+    `show:` block, against the published v2 schema — and v1 refuses it,
+    which is what "v1 is frozen" means."""
+    import yaml
+
+    from wringer import config as config_module
+    from wringer import spec as spec_module
+
+    gates = (
+        config_module.Gate(
+            id="acc-rows", run="pytest -q acceptance/test_rows.py",
+            proves="every-row-exported",
+        ),
+    )
+    show = {"reads-well": 'PYTHONPATH=src python3 -m report "a b.json" || [ $? -eq 1 ]'}
+    text = spec_module.render_gatespec(gates, show)
+    document = yaml.safe_load(text)
+    assert document["show"] == show, "the display did not survive the YAML"
+
+    check(document, load("gatespec-v2.schema.json"), "wringer.gates.yaml")
+    v2 = validators()["gatespec-v2.schema.json"]
+    errors = [f"{e.json_path} {e.message}" for e in v2.iter_errors(document)]
+    assert not errors, "\n".join(errors)
+
+    v1 = validators()["gatespec.schema.json"]
+    assert list(v1.iter_errors(document)), (
+        "the frozen v1 schema accepted a document with a `show` key — v1 "
+        "has changed, or v2 is not needed"
+    )
+
+
+def test_every_v1_sidecar_is_a_valid_v2_sidecar_and_both_are_read():
+    """Law 7's other half: a reader that accepted only the newest version
+    would turn "new file, never a changed one" into a break by another
+    route. A v1 document already on disk stays readable, and the same
+    document with only its version bumped validates against v2."""
+    import pytest
+    import yaml
+
+    from wringer import spec as spec_module
+    from wringer.rubric import Criterion
+
+    v1_text = (
+        "schema_version: wringer.gatespec.v1\n"
+        "gates:\n"
+        "  - id: acc-header\n"
+        '    run: "pytest -q acceptance/test_header.py"\n'
+        "    proves: c-one\n"
+    )
+    criteria = (Criterion(id="c-one", title="One"),)
+    back = spec_module.parse_sidecar(
+        yaml.safe_load(v1_text), spec_module.GATESPEC_FILENAME, criteria
+    )
+    assert [g.id for g in back.gates] == ["acc-header"] and back.show == {}
+
+    as_v2 = yaml.safe_load(
+        v1_text.replace("wringer.gatespec.v1", "wringer.gatespec.v2")
+    )
+    v2 = validators()["gatespec-v2.schema.json"]
+    assert not list(v2.iter_errors(as_v2))
+    # And a v1 document that smuggles the v2 key is refused by NAME, not
+    # accepted quietly by a reader that happens to know both.
+    with pytest.raises(spec_module.SpecError) as refused:
+        spec_module.parse_sidecar(
+            {**yaml.safe_load(v1_text), "show": {"c-one": "true"}},
+            spec_module.GATESPEC_FILENAME, criteria,
+        )
+    assert "wringer.gatespec.v2" in str(refused.value)
 
 
 def test_what_the_sidecar_renderer_writes_round_trips_through_its_reader():

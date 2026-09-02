@@ -3326,7 +3326,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
         # everything else the reply got right.
         for note in draft.notes:
             print(f"wring spec: {note}.", file=sys.stderr)
-        if proposed:
+        if proposed or draft.show:
             # A sidecar with no entries is never written: absence is absence,
             # and an empty `gates:` list would assert that no criterion here
             # can be evidenced, which is a different and much stronger claim.
@@ -3341,7 +3341,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 )
             else:
                 sidecar.write_text(
-                    spec.render_gatespec(proposed), encoding="utf-8"
+                    spec.render_gatespec(proposed, draft.show), encoding="utf-8"
                 )
         # **A generated sidecar may never OUTLIVE the spec it describes.**
         # A redraft whose new reply carries no assumptions and no outcomes used
@@ -3558,14 +3558,17 @@ def _report_spec(
         print(
             f"\nNo endpoint? Write {spec.GATESPEC_FILENAME} by hand — one "
             "entry per criterion a machine can decide, each naming the "
-            "criterion it proves:"
+            "criterion it proves, and under 'show:' a command that displays "
+            "each criterion only a person can judge:"
         )
         print(
             f"  schema_version: {spec.GATESPEC_SCHEMA_VERSION}\n"
             "  gates:\n"
             "    - id: acc-<criterion>\n"
             '      run: "<the command that fails until it is built>"\n'
-            "      proves: <criterion-id>"
+            "      proves: <criterion-id>\n"
+            "  show:\n"
+            '    <human-criterion-id>: "<the command whose output shows it>"'
         )
         return
 
@@ -3752,9 +3755,8 @@ def cmd_plan(args: argparse.Namespace) -> int:
     # about a gate file; before, because a plan that half-ran leaves a tasks
     # file describing briefs that do not exist.
     try:
-        proposed_gates = spec.proposals(
-            loaded, spec.load_gatespec(root, loaded.criteria, declared_gates)
-        )
+        sidecar = spec.load_sidecar(root, loaded.criteria, declared_gates)
+        proposed_gates = spec.proposals(loaded, sidecar.gates)
     except spec.SpecError as exc:
         _fail("plan", exc)
         return EXIT_CONFIG
@@ -3770,10 +3772,22 @@ def cmd_plan(args: argparse.Namespace) -> int:
         path.write_text(body, encoding="utf-8")
 
     existing = root / config.CONFIG_FILENAME
-    diff, fresh, already = spec.gate_diff(
-        existing.read_text(encoding="utf-8") if existing.is_file() else "",
-        proposed_gates,
+    existing_text = existing.read_text(encoding="utf-8") if existing.is_file() else ""
+    # **The displays ride the SAME diff as the gates** (P0.3, 2026-09-02).
+    # A proposed `show:` command is a model's command that will run on this
+    # machine, exactly as a proposed gate is, and it gets exactly that
+    # consent: printed, applied by the person or not at all. A display the
+    # file cannot take — a `show:` section already there — is listed in
+    # words, the way gates a flow-style list cannot take are.
+    show_fresh, show_already, show_blocked = spec.show_plan(
+        existing_text, sidecar.show, declared_show
     )
+    diff, fresh, already = spec.gate_diff(existing_text, proposed_gates, show_fresh)
+    if fresh and not diff and show_fresh:
+        # The gates could not be appended, so no diff was rendered at all —
+        # the displays it would have carried are words now too.
+        show_blocked = (*show_blocked, *show_fresh)
+        show_fresh = {}
 
     briefs = [_relative(path, root) for path in brief_paths]
     if args.json:
@@ -3787,11 +3801,17 @@ def cmd_plan(args: argparse.Namespace) -> int:
                     "gates_proposed": list(fresh),
                     "gates_already_declared": list(already),
                     "gate_diff": diff,
+                    "show_proposed": list(show_fresh),
+                    "show_already_declared": list(show_already),
+                    "show_not_installable": list(show_blocked),
                 }
             )
         )
     else:
-        _report_plan(loaded, briefs, diff, fresh, already)
+        _report_plan(
+            loaded, briefs, diff, fresh, already,
+            show_fresh, show_already, show_blocked, sidecar.show,
+        )
         # **A warning by name, after the plan and before the exit** — ruling
         # MR2. A requirement only a person can settle, with nothing declared
         # to show them, ends its life at a pen with a blank page. It does not
@@ -3878,7 +3898,13 @@ def _report_plan(
     diff: str,
     fresh: tuple[str, ...],
     already: tuple[str, ...],
+    show_fresh: dict[str, str] | None = None,
+    show_already: tuple[str, ...] = (),
+    show_blocked: tuple[str, ...] = (),
+    show_proposals: dict[str, str] | None = None,
 ) -> None:
+    show_fresh = show_fresh or {}
+    show_proposals = show_proposals or {}
     count = len(loaded.tasks)
     print(f"Wrote {spec.TASKS_FILENAME} — {count} task{'' if count == 1 else 's'}.")
     # One per line: the list is paths, and a joined run of them is the
@@ -3894,7 +3920,7 @@ def _report_plan(
         + "."
     )
 
-    if diff:
+    if diff and fresh:
         # Wrapped, like every other paragraph here: this is the sentence that
         # tells a reader Wringer will not install the gate for them, and it
         # ran to 128 columns as soon as a spec proposed three.
@@ -3903,10 +3929,25 @@ def _report_plan(
             + _wrap_message(
                 f"Proposed gates ({', '.join(fresh)}). Wringer does not "
                 "install these — changing what 'verified' means is yours to "
-                "do:"
+                "do"
+                + (":" if not show_fresh else ".")
             )
-            + "\n"
         )
+    if diff and show_fresh:
+        # The display is a proposal with the gate's power and the gate's
+        # consent, and the sentence says where it runs before the diff shows
+        # what it is (P0.3, 2026-09-02).
+        print(
+            "\n"
+            + _wrap_message(
+                f"Proposed displays ({', '.join(show_fresh)}) for the "
+                "requirements only a person can judge — proposed; each runs "
+                "on your machine at the pen, and only once you apply this "
+                "change. Wringer does not install these either:"
+            )
+        )
+    if diff:
+        print()
         print(diff.rstrip())
     elif fresh:
         # No diff, but there IS something to propose: the config's gate list is
@@ -3926,6 +3967,30 @@ def _report_plan(
         for gate in loaded.gates:
             if gate.id in fresh:
                 print(f"  - id: {gate.id}\n    run: {gate.run}")
+    if show_blocked:
+        # Mirrors the gates-as-text case above: a second top-level `show:`
+        # key would REPLACE the one already there, and YAML would not say so.
+        print(
+            "\n"
+            + _wrap_message(
+                f"Proposed displays ({', '.join(show_blocked)}), as text "
+                f"rather than a diff: {config.CONFIG_FILENAME} already has a "
+                "'show:' section, and a patch that appended a second one "
+                "would replace it. Each runs on your machine at the pen once "
+                "it is declared. Add these under 'show:' by hand:"
+            )
+        )
+        for cid in show_blocked:
+            print(f"  {cid}: {show_proposals.get(cid, '')}")
+    if show_already:
+        print(
+            "\n"
+            + _wrap_message(
+                "Already shown, so not proposed: "
+                f"{', '.join(show_already)}. Check the declared command "
+                "shows what the requirement means."
+            )
+        )
     if already:
         # One short id fits; a spec that re-proposes six does not, and the
         # line length is the ids' length. Wrapped for the same reason as the

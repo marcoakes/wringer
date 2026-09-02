@@ -3052,3 +3052,122 @@ def test_canonicalization_is_REFUSED_on_a_measured_false_yes():
         f"classes the way the refusal assumes: {got}. Re-take the measurement "
         "in scripts/canonicalization-probe.py before concluding anything here"
     )
+
+
+# --- the drafter proposes a DISPLAY per human criterion (P0.3, 2026-09-02) --
+
+
+def test_the_request_asks_for_a_display_per_HUMAN_criterion(repo, monkeypatch, capsys):
+    """The `gate_bindings` lesson, applied before it repeats: a channel the
+    request never names is a channel the drafter never fills."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--print-request"]) == cli.EXIT_OK
+
+    asked = json.loads(capsys.readouterr().out)["messages"][1]["content"]
+    # Two separate facts, asserted separately — the key's NAME appears three
+    # times in the request, so `"show_proposals" in asked` survived deleting
+    # the instruction that tells the drafter to fill it (red-watch RW16,
+    # 2026-09-02, stayed green on the first pass).
+    assert "propose a `show_proposals` entry" in asked, "the instruction"
+    assert '"show_proposals": {"<human criterion id from above>"' in asked, (
+        "the reply format"
+    )
+    assert "guess dressed as a recipe" in asked, "the ceiling the plan named"
+
+
+def test_the_drafter_proposes_a_DISPLAY_for_the_human_criterion(
+    repo, monkeypatch, capsys
+):
+    """The proposal lands in the sidecar under `show:`, as the newest schema
+    version, and reads back as the exact command through the sidecar's own
+    parser."""
+    command = 'PYTHONPATH=src python3 -m report "a b.json" || [ $? -eq 1 ]'
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply(
+            {**draft_with(BINDINGS), "show_proposals": {"reads-well": command}}
+        ),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = sidecar(repo)
+    assert written["schema_version"] == "wringer.gatespec.v2"
+    assert written["show"] == {"reads-well": command}
+    assert [g["id"] for g in written["gates"]] == ["acc-export-button", "acc-filters"]
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    back = spec.load_sidecar(repo, loaded.criteria)
+    assert back.show == {"reads-well": command}
+    capsys.readouterr()
+
+
+def test_a_DISPLAY_ONLY_reply_still_writes_the_sidecar(repo, monkeypatch, capsys):
+    """No binding proposed, one display proposed: the sidecar exists for it.
+    Before P0.3 a sidecar was written only when a gate was."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch, reply=reply({**DRAFT, "show_proposals": {"reads-well": "true"}})
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = sidecar(repo)
+    assert "gates" not in written
+    assert written["show"] == {"reads-well": "true"}
+    capsys.readouterr()
+
+
+def test_a_display_proposed_for_a_MACHINE_criterion_is_dropped_with_a_note(
+    repo, monkeypatch, capsys
+):
+    """The drafted path drops and says so — one bad display is not a reason
+    to throw away a spec; the typed-sidecar path refuses (tests/test_plan.py)."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply({
+            **draft_with(BINDINGS),
+            "show_proposals": {"export-button-exists": "true", "reads-well": "true"},
+        }),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    err = flat(capsys.readouterr().err)
+    assert "export-button-exists" in err and "machine decides" in err
+    assert sidecar(repo)["show"] == {"reads-well": "true"}
+
+
+def test_a_display_proposed_for_an_UNKNOWN_criterion_is_dropped_with_a_note(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply({**draft_with(BINDINGS), "show_proposals": {"reads-wel": "true"}}),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert "reads-wel" in flat(capsys.readouterr().err)
+    assert "show" not in sidecar(repo)
+
+
+def test_a_display_that_is_not_a_command_is_refused_whole(repo, monkeypatch, capsys):
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply({**draft_with(BINDINGS), "show_proposals": {"reads-well": ""}}),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    assert not (repo / spec.SPEC_FILENAME).is_file(), "a half-refused reply was written"
+    capsys.readouterr()

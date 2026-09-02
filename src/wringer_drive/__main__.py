@@ -529,30 +529,46 @@ def _run(session: run_module.Session, args) -> int:
         # Step 7a — a check that already passes today is named HERE, before the
         # yes, because at the handover it is five seconds too late. Running a
         # model-authored command needs its own permission: see `trial_step`.
-        if _confirm(run_module.trial_step(proposal), mode, repo):
+        # Only when there are checks to try: a diff carrying a proposed
+        # display alone (P0.3) has nothing whose passing would mean anything.
+        tryable = bool(proposal.get("gates_proposed"))
+        if tryable and _confirm(run_module.trial_step(proposal), mode, repo):
             tried = run_module.proposed_gates(repo, proposal)
             found = run_module.trial_result_step(
                 tried, run_module.already_passing(repo, tried)
             )
             session.emit(found)
             _render([found], mode)
-        run_module.install_gates(
+        installed = run_module.install_gates(
             repo,
             proposal,
             answered_yes=_confirm(run_module.gate_approval_step(proposal), mode, repo),
         )
-    else:
-        # No diff, and the THREE reasons for that are not the same news. Said
-        # out loud rather than skipped: a step that vanishes looks like one
-        # that failed, and the sentence that used to stand here was false on a
-        # real run.
+        if not installed:
+            declined = run_module.show_proposal_declined_step(proposal)
+            if declined is not None:
+                session.emit(declined)
+                _render([declined], mode)
+    if diff is None or not proposal.get("gates_proposed"):
+        # No gate diff, and the THREE reasons for that are not the same news.
+        # Said out loud rather than skipped: a step that vanishes looks like
+        # one that failed, and the sentence that used to stand here was false
+        # on a real run. Said also when the diff carried only a display, so
+        # "no checks were proposed" is not swallowed by a display being.
         nothing = run_module.nothing_to_install_step(proposal)
         session.emit(nothing)
         _render([nothing], mode)
+    blocked = run_module.show_not_installable_step(proposal)
+    if blocked is not None:
+        session.emit(blocked)
+        _render([blocked], mode)
 
     # Step 7b — what shows a requirement only a person can judge (0.6.7,
     # runs 4 and 4B): asked here, once, before anything is built, so the pen
     # has something to run instead of only `--without-display` to offer.
+    # Since P0.3 the plan may have PROPOSED one and the yes above installed
+    # it; `show_questions` reads the settings and asks only for what is
+    # still missing, so an installed proposal is never asked about again.
     shows: dict[str, str] = {}
     for step in run_module.show_questions(repo):
         session.emit(step)

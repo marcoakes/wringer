@@ -115,6 +115,30 @@ about something it cannot show. A plan-time refusal would stop work over a
 file the person can write at any moment up to the judgement. When somebody is
 hurt DESPITE the warning, the ruling is already written.
 
+**Ruling MR3 (2026-09-02, world-class plan P0.3) — the display is PROPOSED
+in the same diff as the gates, and approved by the same yes; proposed, never
+installed.** Runs 4 and 4B both ended at a pen with a blank page, and 0.6.7's
+answer — the drive ASKS for a `show:` command per `human` criterion — left
+the person inventing one. So the drafter's sidecar (`wringer.gates.yaml`,
+now `wringer.gatespec.v2`; v1 is frozen and stays readable) may carry a
+`show:` block, one proposed display command per `human: true` criterion, and
+`wring plan` renders it INTO the gate diff under a top-level `show:`, marked
+in the plan's prose as *proposed; each runs on your machine at the pen*. The
+Gate 1 ruling that `show:` lives in `.wringer.yaml` and never in the spec —
+because a model-drafted value RUNS — is kept, not bent: a proposed gate is
+already a model-written command that runs on the person's machine after they
+apply the diff, and a proposed display is exactly that power and no larger,
+so it takes exactly that consent. `wring plan` writes nothing into
+`.wringer.yaml` for it, as for a gate. Where the file already has a `show:`
+section the proposal is listed in words (`show_not_installable` in `--json`),
+mirroring the second-`gates:`-key refusal: a second top-level key would
+REPLACE the first and YAML would not say so. A proposal for a criterion a
+machine decides, or one the spec never declared, is refused at plan time from
+a typed sidecar and dropped with a note from a drafted reply. MR2 is
+unchanged: absent or declined, the warning stands and the drive's 0.6.7
+question remains the fallback, asked only for criteria still lacking a
+`show:` after the diff is applied.
+
 ---
 
 ## §5 An environment-faced red says so where a person reads

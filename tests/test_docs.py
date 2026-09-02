@@ -4863,3 +4863,19 @@ def test_the_CONSENT_CONTRACT_is_written_where_deliver_is_specified():
     runbook = flat(repo_root() / "docs" / "drive" / "AGENTS.md")
     assert sentence in runbook, "the drive runbook lost the consent contract"
     assert "The second yes is the DRIVE's" in runbook
+
+
+def test_the_DISPLAY_PROPOSAL_ruling_is_written_where_show_is_specified():
+    """**P0.3, 2026-09-02.** `show:` was ruled into `.wringer.yaml` and out
+    of the spec because a model-drafted value RUNS. The proposal keeps that
+    ruling — the sidecar proposes, the person applies — and the spec that
+    owns plan-time visibility has to say so in the same breath as MR2, or the
+    next reader infers that a proposed display is installed by the plan."""
+
+    def flat(path):
+        return " ".join(path.read_text(encoding="utf-8").split())
+
+    page = flat(repo_root() / "docs" / "specs" / "SPEC_COVERAGE_V0.md")
+    assert "Ruling MR3" in page, "SPEC_COVERAGE_V0.md lost the display-proposal ruling"
+    assert "proposed, never installed" in page
+    assert "the same yes" in page

@@ -2177,3 +2177,154 @@ def test_the_drive_WIRES_the_show_question_and_writes_the_answer(
     assert config.load(project / config.CONFIG_FILENAME).show == {
         "reads-at-a-glance": "echo SHOWN-TO-ME"
     }
+
+
+def test_the_drive_INSTALLS_a_proposed_display_with_the_gate_yes_and_asks_nothing(
+    project, tmp_path, capsys, monkeypatch
+):
+    """P0.3 (2026-09-02), wired end to end: with a sidecar proposing what to
+    show for the human requirement, the orchestrator renders it in the gate
+    diff, the person's yes installs it, and the 0.6.7 question is NOT asked
+    — the settings already carry the command. The unit tests prove each
+    piece; this proves the orchestrator strings them in that order."""
+    from wringer import config, spec
+
+    drafted = spec.load(project / "wringer.spec.yaml")
+    with_human = spec.Spec(
+        approved=drafted.approved, title=drafted.title, intent=drafted.intent,
+        questions=drafted.questions,
+        criteria=drafted.criteria + (
+            spec.Criterion(
+                id="reads-at-a-glance", title="The summary reads at a glance",
+                required=True, human=True,
+            ),
+        ),
+        gates=drafted.gates, tasks=drafted.tasks, path=drafted.path,
+    )
+    (project / "wringer.spec.yaml").write_text(spec.render(with_human), encoding="utf-8")
+    (project / "wringer.gates.yaml").write_text(
+        "schema_version: wringer.gatespec.v2\n"
+        "show:\n"
+        '  reads-at-a-glance: "echo PROPOSED-BY-PLAN"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+    subprocess.run(["git", "commit", "-qm", "human criterion"], cwd=project, check=True)
+
+    code, steps = drive(
+        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch,
+    )
+    capsys.readouterr()
+    ids = [step.id for step in steps]
+    assert "gate-diff" in ids, ids
+    assert "show:reads-at-a-glance" not in ids, (
+        f"the drive asked for a display the plan had proposed and the yes "
+        f"installed: {ids}"
+    )
+    assert ids.index("gate-diff") < ids.index("building"), ids
+    assert config.load(project / config.CONFIG_FILENAME).show == {
+        "reads-at-a-glance": "echo PROPOSED-BY-PLAN"
+    }
+
+
+def _with_human_criterion(project: Path) -> None:
+    from wringer import spec
+
+    drafted = spec.load(project / "wringer.spec.yaml")
+    with_human = spec.Spec(
+        approved=drafted.approved, title=drafted.title, intent=drafted.intent,
+        questions=drafted.questions,
+        criteria=drafted.criteria + (
+            spec.Criterion(
+                id="reads-at-a-glance", title="The summary reads at a glance",
+                required=True, human=True,
+            ),
+        ),
+        gates=drafted.gates, tasks=drafted.tasks, path=drafted.path,
+    )
+    (project / "wringer.spec.yaml").write_text(spec.render(with_human), encoding="utf-8")
+
+
+def test_the_drive_SAYS_a_DECLINED_display_was_declined_and_then_asks(
+    project, tmp_path, capsys, monkeypatch
+):
+    """P0.3: a no to a diff carrying ONLY a proposed display is not a no to
+    the checks — the orchestrator says nothing was added, the 0.6.7 question
+    follows with the person's own command, and the build still runs. Wired,
+    because the `declined` branch lives in `__main__` and a unit test of the
+    step cannot see whether the orchestrator ever reaches it."""
+    from wringer import config
+
+    _with_human_criterion(project)
+    (project / "wringer.gates.yaml").write_text(
+        "schema_version: wringer.gatespec.v2\n"
+        "show:\n"
+        '  reads-at-a-glance: "echo PROPOSED-BY-PLAN"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+    subprocess.run(["git", "commit", "-qm", "human criterion"], cwd=project, check=True)
+
+    code, steps = drive(
+        project, tmp_path,
+        "The ones on screen.\nyes\nyes\nno\necho MINE\nyes\n", monkeypatch,
+    )
+    capsys.readouterr()
+    ids = [step.id for step in steps]
+    assert "gate-diff" in ids, ids
+    assert "show-proposal-declined" in ids, ids
+    assert "show:reads-at-a-glance" in ids, f"the fallback question went missing: {ids}"
+    assert ids.index("show-proposal-declined") < ids.index("show:reads-at-a-glance")
+    assert "building" in ids, f"a declined display stopped the build: {ids}"
+    assert config.load(project / config.CONFIG_FILENAME).show == {
+        "reads-at-a-glance": "echo MINE"
+    }, "the plan's declined command was installed, or the person's was not"
+
+
+def test_the_drive_SAYS_when_the_settings_CANNOT_TAKE_a_proposed_display(
+    project, tmp_path, capsys, monkeypatch
+):
+    """P0.3: the settings already have a `show:` section, so the engine lists
+    the proposal in words (`show_not_installable`) and the orchestrator says
+    so before asking the 0.6.7 question — a proposal that vanished would look
+    like one never made."""
+    from wringer import config
+
+    _with_human_criterion(project)
+    settings = project / config.CONFIG_FILENAME
+    settings.write_text(
+        settings.read_text(encoding="utf-8") + 'show:\n  other: "true"\n',
+        encoding="utf-8",
+    )
+    (project / "wringer.gates.yaml").write_text(
+        "schema_version: wringer.gatespec.v2\n"
+        "show:\n"
+        '  reads-at-a-glance: "echo PROPOSED-BY-PLAN"\n',
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+    subprocess.run(["git", "commit", "-qm", "human criterion"], cwd=project, check=True)
+
+    code, steps = drive(
+        project, tmp_path, "The ones on screen.\nyes\nyes\necho MINE\nyes\n", monkeypatch,
+    )
+    capsys.readouterr()
+    ids = [step.id for step in steps]
+    assert "show-proposal-not-installable" in ids, ids
+    assert "show:reads-at-a-glance" in ids, ids
+    assert ids.index("show-proposal-not-installable") < ids.index("show:reads-at-a-glance")
+    blocked = next(s for s in steps if s.id == "show-proposal-not-installable")
+    assert "reads-at-a-glance" in blocked.text and "by hand" in blocked.text
+    assert config.load(settings).show == {"other": "true"}, "somebody's section moved"
+
+
+def test_the_runbook_says_the_plan_may_PROPOSE_the_display():
+    """The judging section is where an agent learns what `show:` is; it has
+    to say the plan may propose one and that the person approves it with the
+    gates, or an agent reading it tells the person to invent a command the
+    plan already offered."""
+    text = " ".join(drive_agents_md().split())
+    assert "may propose" in text and "same yes" in text, (
+        "the runbook's judging section no longer says the plan may propose "
+        "the display and that the gate yes approves it"
+    )
