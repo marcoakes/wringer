@@ -1200,7 +1200,9 @@ def plan(
     patch = (git.diff(root, state.head_sha) or "") + git.diff_untracked(
         root, untracked
     )
-    mr = _mr_body(run_dir, root, state, len(carried), built, board, branch)
+    mr = _mr_body(
+        run_dir, root, state, len(carried), built, board, branch, settings.remote
+    )
     # **One story or nothing ships** (0.6.2, run 3 F13) — after every
     # carried surface exists and before anything is written or pushed.
     _check_one_story(run_dir, built, board_page, measured, run_summary, mr)
@@ -1549,6 +1551,7 @@ def _mr_body(
     built: dict[str, Any] | None = None,
     board: str | None = None,
     branch: str | None = None,
+    remote: str | None = None,
 ) -> str:
     """The receipts, which is what the OKR actually promises.
 
@@ -1650,15 +1653,17 @@ def _mr_body(
             "as a document that stands on its own, with what it does NOT "
             "claim written on it.",
             f"- `{CERTIFICATE_RECORD_FILENAME}` is the machine form. To "
-            "re-check it from a fresh clone, in this order: check out the "
-            f"delivered branch (`git switch {branch or '<the branch above>'}` "
-            "— the requirement claim reads the branch's own spec file), copy "
-            "THIS directory's contents into the clone's root, and run `wring "
-            f"audit {CERTIFICATE_RECORD_FILENAME}` there — no network, no "
-            "model, no account, and it never reads who produced the branch. "
-            "(Run 4 printed this without the copy step and failed as printed; "
-            "run 4B printed it without the checkout and could not check the "
-            "requirement claim from `main`.)",
+            "re-check it, from any clone of this repository that has fetched "
+            f"the delivered branch (`git fetch {remote or 'origin'} "
+            f"{branch or '<the branch above>'}`), run ONE command from the "
+            "clone's root: `wring audit --delivery <path-to-this-directory>` "
+            "— it reads this directory's manifest for the delivered commit, "
+            "checks every claim against a read-only worktree at that commit "
+            "plus the receipts here, and removes the worktree afterwards; "
+            "your checkout is not touched. No network, no model, no account, "
+            "and it never reads who produced the branch. (Runs 4 and 4B each "
+            "printed a multi-step form and each failed as printed; this "
+            "command is executed in CI as printed.)",
         ]
     if board is not None:
         lines.append(
