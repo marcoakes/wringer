@@ -747,11 +747,20 @@ def missing_agent(settings: config.Run) -> str | None:
     # sufficient, which on that machine it was not. Naming the failure mode
     # costs one line and is the difference between a message that ends the
     # problem and one that starts a second search.
+    #
+    # **`npm prefix -g`, not `npm bin -g` (0.7.5).** The hint named `npm bin
+    # -g` from the day it shipped, and `npm bin` was removed in npm 9 — on
+    # npm 11.17.0 it exits 1 with "To see a list of supported npm commands,
+    # run: npm help". Found the day every printed command was first EXECUTED
+    # in CI (P0.5): the one command this message offers as the fix had been
+    # dead as printed for the whole life of the message. `npm prefix -g`
+    # exists on every npm, and the command lands in that prefix's `bin/`.
     hint = (
         f"\n\nInstall it with: {known.install}"
         "\nIf you have just installed it and this still says the same thing, "
-        "the installer's directory may not be on PATH — `npm bin -g` prints "
-        "where it put the command."
+        "the installer's directory may not be on PATH — `npm prefix -g` "
+        "prints the prefix it installed under, and the command is in that "
+        "prefix's bin/."
     ) if known is not None else ""
     return (
         f"the ACP agent {worker.command!r} is not on PATH, so there is nothing "

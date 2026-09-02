@@ -1007,8 +1007,17 @@ def _summary(
         "",
         "```",
     ]
+    # **Only rows whose loop CONVERGED (0.7.5).** `wring judge` refuses a
+    # bundle whose gates did not pass — "a judge has nothing to add when the
+    # deterministic gates already said no" — so offering the line for a row
+    # that stopped on its budget was advice that cannot be taken: executed
+    # as printed, the idler contender's line exited 3. Found the day every
+    # printed command was first run in CI (P0.5); the same class as the
+    # graph report that once offered `resume` on a finished graph.
     lines += [
-        f"wring judge {row.final_run}" for row in rows if row.final_run
+        f"wring judge {row.final_run}"
+        for row in rows
+        if row.final_run and row.outcome == "converged"
     ]
     lines += ["```", ""]
 
