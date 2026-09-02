@@ -384,3 +384,80 @@ def test_RUN_AND_RESUME_SHARE_ONE_STEP_SEQUENCE():
     # (`--yes` is `test_there_is_no_flag_that_answers_the_approval`'s to
     # refuse, from the parser — a text scan reads the docstring that says
     # there is none as the defect it describes.)
+
+
+# --- review of 0.7.0, 2026-09-02: three holes the adversarial pass found ---
+
+
+def test_a_CHANGED_SPEC_STOPS_ONLY_ONCE_THE_APPROVAL_WOULD_BE_REUSED(
+    converging_build, tmp_path
+):
+    """Measured by the reviewer: a run killed AT the approval, then a comment
+    appended to the spec, then `resume` → `stopped:spec-changed` forever, the
+    approval never asked — the stop's own next move led back to itself. The
+    digest decides nothing while the approval is still to be asked live."""
+    document = prd(tmp_path)
+    code, first = drive(["run", str(document), "--repo", str(converging_build)],
+                        "The ones on screen.\nyes\n")
+    assert code == 2 and first[-1]["id"] == "stopped:nobody-there"
+    spec_path = converging_build / "wringer.spec.yaml"
+    # The reviewer's shape: a digest from an EARLIER approval is on the record
+    # while the run now stands at the approval again.
+    earlier = run_module.spec_digest(converging_build)
+    run_module._write_resume(converging_build, approved_spec_sha256=earlier)
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8") + "# a comment\n", encoding="utf-8"
+    )
+    facts = run_module.resume_facts(converging_build)
+    assert facts.phase == "approve"
+    assert facts.spec_changed is False, (
+        "the approval is pending, so a moved spec is simply what gets approved"
+    )
+    # And once the record is PAST the approval, the same move is a stop.
+    run_module.checkpoint_phase(converging_build, "build")
+    assert run_module.resume_facts(converging_build).spec_changed is True
+
+
+def test_the_preface_NEVER_claims_an_approval_it_is_about_to_ask_for():
+    """Reviewer's red-watch: `and past["approve"]` was untested — a spec
+    with `approved: true` from an EARLIER approval and a record standing at
+    the approval (the operator answered `no` on a re-run) made the preface
+    say the approval was reused, and the resume then asked for it."""
+    at_approval = run_module.ResumeFacts(
+        last_question="approve", phase="approve", prd_inside=True,
+        spec_present=True, spec_approved=True, spec_changed=False,
+        answers=("which-columns",), gates=("unit",), shows=(), max_iterations=1,
+    )
+    reused = next(
+        line for line in run_module.resume_preface(at_approval).text.splitlines()
+        if line.startswith("Reused:")
+    )
+    assert "your approval of it" not in reused, reused
+    past_it = run_module.ResumeFacts(
+        last_question=None, phase="build", prd_inside=True,
+        spec_present=True, spec_approved=True, spec_changed=False,
+        answers=("which-columns",), gates=("unit",), shows=(), max_iterations=1,
+    )
+    reused = next(
+        line for line in run_module.resume_preface(past_it).text.splitlines()
+        if line.startswith("Reused:")
+    )
+    assert "your approval of it (not asked again)" in reused, reused
+
+
+def test_RESUME_WITH_THE_SPEC_GONE_PAST_DRAFTING_STOPS_BY_NAME(
+    converging_build, tmp_path
+):
+    """Reviewer's scenario A: killed at a question, then `wringer.spec.yaml`
+    deleted, then `resume` → a Python traceback out of the interview. Now a
+    named stop with the only honest next move."""
+    document = prd(tmp_path)
+    code, first = drive(["run", str(document), "--repo", str(converging_build)], "")
+    assert first[-1]["id"] == "stopped:nobody-there", [s["id"] for s in first]
+    assert run_module.read_resume(converging_build).get("phase") == "interview"
+    (converging_build / "wringer.spec.yaml").unlink()
+
+    code, steps = drive(["resume", "--repo", str(converging_build)], "")
+    assert code == 2
+    assert steps[-1]["id"] == "stopped:spec-missing", [s["id"] for s in steps]
+    assert "wringer-drive run" in steps[-1]["text"]

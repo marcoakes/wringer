@@ -4,6 +4,48 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.7.0 — 2026-09-02
+
+**One reliable resume command — window A of the world-class plan opens
+(P0.2).** Run 4B, 2026-09-01: a worker turn was refused with a 401, the
+operator read "an attempt changed nothing at all", and no verb said how to
+continue. Re-running `run` already reused the approved spec and spent
+nothing on a second draft (measured) — and nothing said so.
+
+### `wringer-drive resume`
+
+`wringer-drive resume [--repo DIR] [--emit text|json]` continues a stopped
+run from the phase it stopped at. It emits ONE `resume-preface` step first
+— **Preserved:** what is on disk; **Reused:** what will not be asked or
+paid for again, by name; **Will spend:** the next paid thing, never a
+drafting call while a spec exists — then joins the same sequence `run`
+drives. Recorded answers, a given approval and installed checks are never
+re-asked; a run killed AT a question is asked that question again. `run`
+and `resume` share one step sequence with a starting point
+(`__main__._drive`), and a structural guard holds that neither front door
+drives a phase itself.
+
+The drive's own record (`.wringer/drive/resume.json`,
+`wringer.driveresume.v1` — the drive's file, not an engine schema) gains
+`phase`, written at each phase's start, and `approved_spec_sha256`,
+written with the approval. The record advances past the build only when
+the loop CONVERGED, so a failed build is the phase a resume redoes; a
+phase's start clears the pending question.
+
+Three stops, each a sentence with a next move: `stopped:nothing-to-resume`
+(exit 2); `stopped:spec-changed` (exit 1 — the spec is not byte-for-byte
+the file the approval was given against, and the approval is being
+reused; while the approval is still to be asked, a moved spec is simply
+what gets approved — the adversarial review of this release measured the
+other rule locking a killed run out of its own approval); and
+`stopped:spec-missing` (exit 2 — the record says drafting happened and the
+plan file is gone; this was a traceback out of the interview until the
+same review). `docs/drive/AGENTS.md` names the verb, the preface, its
+three labels and the stops; a guard cross-checks the bullet against the
+source.
+
+Schema versions: unchanged (the drive's record is its own file).
+
 ## 0.6.7 — 2026-09-01
 
 **Run 4B's four blockers.** Marc's PM verdict on run 4B (0.6.6, clean

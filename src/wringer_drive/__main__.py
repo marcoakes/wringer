@@ -423,6 +423,12 @@ def _resume(session: run_module.Session, args) -> int:
     inside = repo / run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME
     if not facts.spec_present and not facts.prd_inside:
         raise run_module.Stop(run_module.nothing_to_resume_step(), exit_code=2)
+    # A record past drafting with no plan file to read: a named stop, never
+    # a traceback out of the interview (review of 0.7.0, 2026-09-02).
+    if not facts.spec_present and facts.phase is not None and (
+        run_module.PHASES.index(facts.phase) > run_module.PHASES.index("draft")
+    ):
+        raise run_module.Stop(run_module.spec_missing_step(), exit_code=2)
     return _drive(session, mode, inside, start=facts.phase)
 
 

@@ -1191,8 +1191,16 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
             approved = bool(spec.load(spec_path).approved)
         except spec.SpecError:
             approved = False
+    phase = record.get("phase")
     recorded = record.get("approved_spec_sha256")
-    changed = recorded is not None and recorded != spec_digest(repo)
+    # **Only once the approval is REUSED** (review of 0.7.0, 2026-09-02): a
+    # record whose phase is at or before `approve` will ask for the approval
+    # live, so the digest decides nothing there — refusing on it left a run
+    # killed at the approval unable ever to reach it (measured).
+    past_approve = phase in PHASES and PHASES.index(phase) > PHASES.index("approve")
+    changed = (
+        past_approve and recorded is not None and recorded != spec_digest(repo)
+    )
     try:
         answers = tuple(q.id for q in interview.questions(repo) if q.answered)
     except interview.InterviewError:
@@ -1209,7 +1217,6 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
             attempts = settings.run.max_iterations if settings.run else None
         except config.ConfigError:
             pass
-    phase = record.get("phase")
     return ResumeFacts(
         last_question=str(record.get("last_question") or "") or None,
         phase=str(phase) if phase in PHASES else None,
@@ -1235,6 +1242,22 @@ def nothing_to_resume_step() -> Step:
         "this project, so there is no checkpoint to continue from. Nothing "
         "was built and nothing was spent. Start one with: wringer-drive run "
         "<your document>",
+    )
+
+
+def spec_missing_step() -> Step:
+    """The record says drafting happened and the plan file is gone (review of
+    0.7.0, 2026-09-02: this was a Python traceback out of the interview).
+    A named stop, and the only honest next move — start again."""
+    from wringer import spec
+
+    return Step(
+        kind=STOPPED,
+        id="stopped:spec-missing",
+        text=f"The plan file {spec.SPEC_FILENAME} is gone, and this project's "
+        "record says the run had already drafted one — so there is nothing "
+        "here to continue from. Nothing was built and nothing was spent. "
+        "Start again with: wringer-drive run <your document>",
     )
 
 
