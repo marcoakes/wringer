@@ -2851,3 +2851,75 @@ def test_audit_takes_exactly_one_target(delivery_repo, monkeypatch, capsys, tmp_
         ["audit", "--delivery", str(tmp_path), "certificate.json"]
     ) == cli.EXIT_CONFIG
     assert "one target" in flat(capsys.readouterr().err)
+
+
+def test_the_audit_tidy_NEVER_touches_what_the_clone_already_had(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Review of 0.7.3, 2026-09-02 — a forgery control. Every --delivery test
+    ran in a clone with no `.wringer/`, so a tidy-up that deleted the
+    operator's whole `.wringer/` (measured by mutation: rmtree in place of
+    rmdir) stayed green while the help text promised "your checkout is not
+    touched". A run bundle and a delivery planted BEFORE the audit must be
+    there, byte for byte, AFTER it."""
+    import shutil
+
+    delivered, branch, clone = _sent_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    handed = tmp_path / "handed-over"
+    shutil.copytree(delivered, handed)
+    planted = clone / ".wringer" / "runs" / "20260101-000000-keep" / "manifest.json"
+    planted.parent.mkdir(parents=True)
+    planted.write_text('{"kept": true}', encoding="utf-8")
+    worktrees_dir = clone / ".wringer" / "worktrees"
+    worktrees_dir.mkdir()
+    keeper = worktrees_dir / "not-ours.txt"
+    keeper.write_text("somebody else's", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    assert cli.main(["audit", "--delivery", str(handed)]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert planted.read_text(encoding="utf-8") == '{"kept": true}', (
+        "the audit's tidy-up removed a run bundle the clone already had"
+    )
+    assert keeper.read_text(encoding="utf-8") == "somebody else's", (
+        "the audit's tidy-up removed a file it did not create"
+    )
+    assert worktrees_dir.is_dir(), "a directory the clone already had is gone"
+
+
+def test_audit_delivery_REFUSES_by_name_when_git_cannot_add_the_worktree(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Review of 0.7.3, 2026-09-02: the refusal for a worktree git would not
+    add was untested — with it reverted the command died in a traceback on a
+    constructible input, a plain non-empty directory already sitting where
+    the worktree would go."""
+    import shutil
+
+    delivered, branch, clone = _sent_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    handed = tmp_path / "handed-over"
+    shutil.copytree(delivered, handed)
+    manifest = json.loads(
+        (handed / deliver.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )
+    squatting = clone / ".wringer" / "worktrees" / (
+        "audit-" + manifest["result"]["commit"][:12]
+    )
+    squatting.mkdir(parents=True)
+    (squatting / "junk").write_text("x", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG, said.err
+    assert "refused to add a read-only worktree" in said.err, said.err
+    assert "Traceback" not in said.err
+    assert (squatting / "junk").read_text(encoding="utf-8") == "x", (
+        "the refusal path removed what was already there"
+    )
