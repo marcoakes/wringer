@@ -111,6 +111,10 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # `test_deliver`'s fixtures rather than a second copy that would drift.
 "tests/test_one_delivery_one_story.py" = ["F811"]
 "tests/test_falsify_committed.py" = ["F811"]
+# Same again for the printed-command registry (0.7.5): its rows run inside
+# the REAL delivery, spec and drive fixtures other modules already build,
+# imported by name rather than copied.
+"tests/journey/*.py" = ["F811"]
 
 # **E501 on the merged board source is DATED DEBT, stated rather than hidden.**
 #

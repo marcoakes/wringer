@@ -45,6 +45,11 @@ what stands between here and it is in [ROADMAP.md](ROADMAP.md). The
   and `pytest -q`, and both must pass ([README](README.md), *Wringer verifies
   Wringer*). Locally, `sh scripts/ci-repro.sh` runs both in a fresh clone and
   prints an exit code for each; read BOTH. No PR merges red.
+- **Every command the product prints is executed in CI, as printed.**
+  `tests/journey/test_printed_commands.py` is the registry: print a new
+  command and its guard fails until a row executes it, names the test that
+  does, or says why only a person may run it
+  ([SPEC_PRINTED_V0](docs/specs/SPEC_PRINTED_V0.md)).
 - Small, reviewable PRs; conventional commits; evidence in the PR
   description.
 - Respect the package-boundary matrix (enforced by lint).
