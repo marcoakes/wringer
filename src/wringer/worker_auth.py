@@ -59,7 +59,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from wringer import acp, agents, config
 
@@ -103,6 +103,18 @@ class WorkerAuth:
     #: Only ever set alongside `LOGGED_IN`, and only ever reported, never
     #: acted on.
     method: str = ""
+    #: **The two facts the shell lane composes `state` from, kept TYPED
+    #: (0.7.0, run 4B).** Until now they lived only in `detail`'s prose —
+    #: "CODEX_API_KEY is set and takes precedence over the stored login" —
+    #: and a stop that wanted to say which credential the failed turn spent
+    #: against would have had to read its own sentence back. `key_env` is
+    #: the vendor's key variable, named only when it is SET in the
+    #: environment the turn inherits (so it is the credential that spends);
+    #: `login_stored` is what the vendor's own probe said about the stored
+    #: login, None when nobody asked. Neither is serialised by anything:
+    #: `diagnose.WorkerDiagnosis.next_move` composes from them.
+    key_env: str = ""
+    login_stored: bool | None = None
 
     @property
     def will_fail(self) -> bool:
@@ -303,7 +315,10 @@ def read(
     cleaned = scrub(found.detail)
     if cleaned == found.detail:
         return found
-    return WorkerAuth(found.state, cleaned, found.method)
+    # `replace`, not a positional rebuild: the typed facts (`key_env`,
+    # `login_stored`) travel with the scrubbed detail rather than being
+    # dropped on the one path where the detail needed scrubbing.
+    return replace(found, detail=cleaned)
 
 
 def _read(worker: object, containment_settings: object = None) -> WorkerAuth:
@@ -456,6 +471,10 @@ def _shell_lane(worker: object) -> WorkerAuth:
 
     answer = (proc.stdout or proc.stderr).strip().splitlines()
     said = answer[0].strip() if answer else ""
+    # The two facts ride TYPED beside the sentence they compose (0.7.0):
+    # `key_env` names the variable only when it is set — it is then the
+    # credential the turn spends against — and `login_stored` is the probe's
+    # own answer. A stop composing its next move reads these, never the prose.
     if proc.returncode == 0:
         if key_set:
             return WorkerAuth(
@@ -465,11 +484,14 @@ def _shell_lane(worker: object) -> WorkerAuth:
                 f" The key is what this run will spend against, and presence "
                 f"is not validity — a dead key here fails a turn the login "
                 f"would have served. Unset it to spend on the login",
+                key_env=vendor.key_env,
+                login_stored=True,
             )
         return WorkerAuth(
             LOGGED_IN,
             f"{vendor.command} says: {said or 'logged in'} — the vendor's "
             "own word, not a promise the credential still works",
+            login_stored=True,
         )
     if key_set:
         return WorkerAuth(
@@ -477,12 +499,15 @@ def _shell_lane(worker: object) -> WorkerAuth:
             f"the only credential is {vendor.key_env} ({vendor.command} "
             f"says: {said or 'not logged in'}); whether the key works, only "
             "the turn can say — presence is not validity",
+            key_env=vendor.key_env,
+            login_stored=False,
         )
     return WorkerAuth(
         LOGGED_OUT,
         f"{vendor.command} says: {said or 'not logged in'}, and "
         f"{vendor.key_env} is not set — there is no credential for this "
         "worker to spend against",
+        login_stored=False,
     )
 
 

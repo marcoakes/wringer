@@ -171,6 +171,12 @@ DIAGNOSIS_SCHEMA_VERSION = diagnose.DIAGNOSIS_SCHEMA_VERSION
 # finds one knows the worker never engaged without having to read a null.
 WORKER_DIAGNOSIS_FILENAME = "worker-diagnosis.json"
 WORKER_DIAGNOSIS_SCHEMA_VERSION = "wringer.workerdiagnosis.v3"
+#: The next move (0.7.0, P0.1) — a sibling beside `worker-diagnosis.json`,
+#: because that record's v3 schema is frozen and closed. Written only when
+#: a worker diagnosis was; carries the composed sentence AND the facts it
+#: was composed from.
+NEXT_MOVE_FILENAME = "next-move.json"
+NEXT_MOVE_SCHEMA_VERSION = "wringer.nextmove.v1"
 
 # The synthetic gate id the worker runs as. Not a gate anyone declared — it
 # just borrows the gate runner's process-group kill, bounded drain, and
@@ -1327,20 +1333,25 @@ def run(
                 ):
                     from wringer import worker_auth
 
+                    # Asked AT the stop, the v3 precedent: the state the
+                    # diagnosis carries is the one that was true when the
+                    # sentence was composed. The typed credential facts
+                    # travel with it (0.7.0) so the next move can name
+                    # which credential this turn spent against.
+                    asked = worker_auth.read(
+                        settings.worker, settings.containment,
+                        declared_secret_names=config.declared_secret_names(
+                            cfg
+                        ),
+                    )
                     empty_turn = diagnose.diagnose_shell_turn(
                         exit_code=result.exit_code,
                         timed_out=result.timed_out,
                         changed_tree=False,
                         engine_words=_tail(result.stdout_path),
-                        # Asked AT the stop, the v3 precedent: the state the
-                        # diagnosis carries is the one that was true when the
-                        # sentence was composed.
-                        auth_state=worker_auth.read(
-                            settings.worker, settings.containment,
-                            declared_secret_names=config.declared_secret_names(
-                                cfg
-                            ),
-                        ).state,
+                        auth_state=asked.state,
+                        key_env=asked.key_env,
+                        login_stored=asked.login_stored,
                     )
             else:
                 status, reason = "stopped", "no_progress"
@@ -1368,17 +1379,25 @@ def run(
                         )
                         if part
                     )
+                    asked = worker_auth.read(
+                        settings.worker, settings.containment,
+                        declared_secret_names=config.declared_secret_names(
+                            cfg
+                        ),
+                    )
                     empty_turn = diagnose.diagnose_failed_shell_turn(
                         exit_code=result.exit_code,
                         timed_out=result.timed_out,
                         changed_tree=False,
                         engine_words=words,
-                        auth_state=worker_auth.read(
-                            settings.worker, settings.containment,
-                            declared_secret_names=config.declared_secret_names(
-                                cfg
-                            ),
-                        ).state,
+                        auth_state=asked.state,
+                        # **The JOIN run 4B lacked (0.7.0):** which credential
+                        # this turn spent against, typed, so the stop's next
+                        # move can name the variable to unset rather than
+                        # leaving the pre-spend line and the stop as two
+                        # facts nobody put in one sentence.
+                        key_env=asked.key_env,
+                        login_stored=asked.login_stored,
                     )
             break
 
@@ -1553,6 +1572,7 @@ def run(
     # when the final failure matched no face.
     found = _write_diagnosis(bundle, final)
     _write_worker_diagnosis(bundle, empty_turn)
+    _write_next_move(bundle, empty_turn)
     bundle.write_digests()  # LAST, so it covers the manifest and the summary
 
     return Outcome(
@@ -1592,6 +1612,44 @@ def _write_worker_diagnosis(
         **empty.as_json(),
     }
     path.write_text(
+        bundle.redactor.scrub(
+            json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_next_move(
+    bundle: Bundle, empty: diagnose.WorkerDiagnosis | None
+) -> None:
+    """Write `next-move.json`, or nothing at all (0.7.0, P0.1).
+
+    **A NEW sibling, because `wringer.workerdiagnosis.v3` is frozen** and
+    `additionalProperties: false` — the next move cannot ride in the record
+    it is about. Same contract as its two siblings: absent rather than null
+    when there is no worker diagnosis, never a verdict, and the composed
+    sentence is written beside the FACTS it was composed from so a reader
+    (`wring explain <loop dir>`, after the terminal is gone) can quote the
+    one renderer's output and check it against the facts.
+    """
+    if empty is None:
+        return
+    payload: dict[str, Any] = {
+        "schema_version": NEXT_MOVE_SCHEMA_VERSION,
+        "next_move": empty.next_move,
+        "face": empty.face,
+        "lane": empty.lane or "acp",
+    }
+    # Each present only when it was READ — the worker-diagnosis rule.
+    if empty.auth_state:
+        payload["auth_state"] = empty.auth_state
+    if empty.key_env:
+        payload["key_env"] = empty.key_env
+    if empty.login_stored is not None:
+        payload["login_stored"] = empty.login_stored
+    if empty.exit_code is not None:
+        payload["exit_code"] = empty.exit_code
+    (bundle.directory / NEXT_MOVE_FILENAME).write_text(
         bundle.redactor.scrub(
             json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
         ),

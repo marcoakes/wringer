@@ -86,6 +86,13 @@ class Step:
     # softening a question is how a person ends up answering a different one.
     # This says how to type, which is DRIVE's own business as the transport.
     answering: str | None = None
+    # **The next move, on a STOPPED step (0.7.0, P0.1).** Verbatim from the
+    # engine (`WorkerDiagnosis.next_move`, read off `wring run --json`) when
+    # it composed one, else the board's own `Saying.next_move` for the
+    # ending. Optional and ABSENT from the JSON when None, so every step
+    # written before it existed is byte-identical: a driver that does not
+    # know the key ignores it, the sibling-file rule one level up.
+    next_move: str | None = None
     detail: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -99,7 +106,9 @@ class Step:
             "id": self.id,
             "text": self.text,
         }
-        for name in ("question", "engine_words", "refusing_means", "answering"):
+        for name in (
+            "question", "engine_words", "refusing_means", "answering", "next_move"
+        ):
             value = getattr(self, name)
             if value is not None:
                 payload[name] = value
@@ -118,6 +127,10 @@ class Step:
             lines += ["", "  What the tool itself said:", f"  {self.engine_words}"]
         if self.question:
             lines += ["", self.question]
+        if self.next_move:
+            # After the question, on its own line: it ends in a command a
+            # person copies, so it is never folded into a paragraph.
+            lines += ["", f"Next: {self.next_move}"]
         if self.refusing_means:
             lines += ["", f"If you say no: {self.refusing_means}"]
         if self.answering:

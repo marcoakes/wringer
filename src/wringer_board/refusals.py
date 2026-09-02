@@ -90,10 +90,22 @@ FAMILIES = (
 
 @dataclass(frozen=True)
 class Saying:
-    """One sentence a PM reads, and the one question that unblocks it."""
+    """One sentence a PM reads, and the one question that unblocks it.
+
+    **`next_move` (0.7.0, P0.1) — for the loop-ending family, the one thing
+    to do next, ending in the command that continues.** Run 4B's operator
+    read "an attempt changed nothing at all" over a dead key and was left
+    with no move; every stop now names one. For a WORKER stop the engine
+    composes a sharper sentence from the turn's own facts
+    (`diagnose.WorkerDiagnosis.next_move`) and the drive quotes that in
+    place of this one; the sentence here is what a stop says when the
+    engine composed nothing. Empty for every other family: only a loop
+    ending is a stop the person continues from.
+    """
 
     sentence: str
     question: str
+    next_move: str = ""
 
 
 # --- the mapping ----------------------------------------------------------
@@ -216,24 +228,37 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "Does your earlier answer still hold for the requirement as it reads now?",
     ),
     # Loop endings. `graph.LOOP_REASONS`, NINE values.
+    # **Every loop ending carries a `next_move` (0.7.0).** Each names the one
+    # act and ends in the command that continues: `wringer-drive resume`
+    # (0.7.1's verb, printed here as the literal it will be). The two WORKER
+    # stops — `no_progress`, `worker_read_only` — say what a stop says when
+    # the engine composed nothing sharper; when it did, the drive quotes the
+    # engine's sentence instead, and this one is not shown beside it.
     (LOOP_ENDING, "converged"): Saying(
         "The work finished: the checks it was asked to satisfy are passing.",
         "Nothing is needed from you on this one.",
+        "Nothing to run; the drive carries on to the handover by itself.",
     ),
     (LOOP_ENDING, "max_iterations"): Saying(
         "The work stopped because it had used up the number of attempts it "
         "was allowed, not because it was finished.",
         "Should this be given more attempts, or is something else wrong?",
+        "If it deserves more attempts, raise `run.max_iterations` in the "
+        "project's Wringer config, then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "budget_exhausted"): Saying(
         "The work stopped because it reached the spending or time limit set "
         "for it, not because it was finished.",
         "Should this be given a larger budget, or is something else wrong?",
+        "If it deserves more time, raise `run.wall_clock` in the project's "
+        "Wringer config, then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "no_progress"): Saying(
         "The work stopped because an attempt changed nothing at all. Running "
         "it again unchanged would not help.",
         "Nothing is needed from you; an engineer has to look at why it is stuck.",
+        "An engineer reads the builder's own words in the worker log and "
+        "fixes what they name, then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "worker_read_only"): Saying(
         "The work stopped because the builder finished its turn cleanly and "
@@ -242,6 +267,10 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "Nothing is needed from you; an engineer should read what the "
         "builder said — a permission or sandbox wall looks exactly like "
         "this from the outside.",
+        "An engineer fixes the builder command's write policy (the tested "
+        "flags per vendor: "
+        "https://github.com/marcoakes/wringer/blob/main/docs/vendors.md), "
+        "then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "environment"): Saying(
         "The work never started: the very first check could not run at all, "
@@ -249,28 +278,37 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "attempt was made and nothing was changed.",
         "Nothing is needed from you; the machine the work runs on has to be "
         "set up first.",
+        "An engineer installs what the first check needs on this machine "
+        "(`wring doctor` names it), then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "oscillating"): Saying(
         "The work stopped because it kept hitting the same failure over and "
         "over, which means it is going round in circles rather than making "
         "progress.",
         "Nothing is needed from you; an engineer has to look at why it is stuck.",
+        "An engineer reads the loop's evidence for the failure that keeps "
+        "returning and fixes what it names, then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "authority_moved"): Saying(
         "The work stopped because the requirements it was working from changed "
         "underneath it. It will not carry on against a question that moved.",
         "Did you mean to change the requirements while this was running?",
+        "If the change was meant, approve the requirements as they now read "
+        "(`wringer-board approve`), then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "flaky_gate"): Saying(
         "The work stopped because one of the checks gives different answers on "
         "the same code, so nothing it said could be trusted.",
         "Nothing is needed from you; a check that cannot make up its mind is "
         "an engineer's problem.",
+        "An engineer fixes the check so it gives one answer on one tree, "
+        "then: `wringer-drive resume`.",
     ),
     (LOOP_ENDING, "interrupted"): Saying(
         "The work was stopped part-way — by a person, or by the machine it was "
         "running on.",
         "Should this be started again?",
+        "Start it again from where it stopped: `wringer-drive resume`.",
     ),
     # Vacuity verdicts. `schema/vacuity.schema.json`, four values.
     (VACUITY_VERDICT, "proven"): Saying(

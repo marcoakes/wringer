@@ -270,8 +270,8 @@ and not its first line. Then:
 
 - **Read one JSON object per line from stdout.** Each is a step:
   `{"schema_version": "wringer.drive.v1", "kind": ..., "id": ..., "text": ...}`
-  with `question`, `engine_words`, `refusing_means`, `detail` present when
-  they apply. Refuse shapes you do not recognise rather than guessing —
+  with `question`, `engine_words`, `refusing_means`, `next_move`, `detail`
+  present when they apply. Refuse shapes you do not recognise rather than guessing —
   `schema_version` is there so you can.
 
 - **Route on `kind` and `id`, never on prose.** The five kinds:
@@ -282,7 +282,7 @@ and not its first line. Then:
   | `ask` | show `text`, wait for the person's answer, write it back |
   | `confirm` | law 2: show `text`, `question`, `refusing_means`; the person decides; write back their `yes` or `no` |
   | `done` | show it; the run is over — tell them where the board is |
-  | `stopped` | show it; the run stopped and the text says why, in their language |
+  | `stopped` | show it; the run stopped and the text says why, in their language. When `next_move` is present it is the one thing to do next and ends in the command that continues (`wringer-drive resume`) — put it in front of the person verbatim, after the question |
 
 - **An answer is ONE line of plain text on stdin.** The person's words, ending
   in a newline. No JSON, no quoting, no id prefix — the `id` is for your own

@@ -455,3 +455,30 @@ def test_an_unmapped_value_is_None_rather_than_a_guess():
     """
     assert refusals.say(refusals.CRITERION_STATE, "something_new") is None
     assert refusals.say("a-family-that-does-not-exist", "evidenced") is None
+
+
+def test_EVERY_loop_ending_carries_a_next_move_that_ends_in_a_command():
+    """**0.7.0, P0.1 — the plan's second new law, held on the string table.**
+
+    Run 4B (2026-09-01): the operator read "an attempt changed nothing at
+    all" and was left with no move. Every loop ending's Saying now carries
+    `next_move`, and every one names the command that continues —
+    `wringer-drive resume` — except `converged`, which has nothing to run
+    and says so. No other family carries one: only a loop ending is a stop
+    a person continues from, and a `next_move` on a criterion state would be
+    this surface inventing a runbook.
+    """
+    for (family, value), saying in refusals.MAPPING.items():
+        if family != refusals.LOOP_ENDING:
+            assert saying.next_move == "", (
+                f"{family}/{value} carries a next move; only loop endings do"
+            )
+            continue
+        assert saying.next_move.strip(), f"{family}/{value} has no next move"
+        if value == "converged":
+            assert "Nothing to run" in saying.next_move
+            continue
+        assert saying.next_move.rstrip(".").endswith("`wringer-drive resume`"), (
+            f"{family}/{value}'s next move does not end in the command: "
+            f"{saying.next_move!r}"
+        )

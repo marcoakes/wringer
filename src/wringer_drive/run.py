@@ -157,14 +157,16 @@ def stop_for(family: str, value: str, engine_words: str = "") -> Step:
             text=f"This stopped for a reason this page has no wording for yet: {value}",
             engine_words=engine_words or None,
         )
-    # Branch 1: mapped. The board's sentence and its unblocking question,
-    # verbatim — this package writes neither.
+    # Branch 1: mapped. The board's sentence, its unblocking question and —
+    # for a loop ending — its next move, verbatim: this package writes none
+    # of the three.
     return Step(
         kind=STOPPED,
         id=f"stopped:{value}",
         text=saying.sentence,
         question=saying.question,
         engine_words=engine_words or None,
+        next_move=saying.next_move or None,
     )
 
 
@@ -1599,12 +1601,32 @@ def build_steps(repo: Path) -> list[Step]:
             text=ending.text,
             question=ending.question,
             engine_words=_worker_words(outcome) or ending.engine_words,
+            # **The next move (0.7.0, P0.1)**: the engine's own, when it
+            # composed one from the turn's facts — run 4B's "Unset it,
+            # then: wringer-drive resume", naming the variable — else the
+            # board's sentence for this ending. Never both: one renderer
+            # per fact, and the sharper one wins.
+            next_move=_engine_next_move(outcome) or ending.next_move,
             detail={
                 "iterations": outcome.get("iterations"),
                 "loop": outcome.get("loop_dir"),
             },
         ),
     ]
+
+
+def _engine_next_move(outcome: dict) -> str | None:
+    """The engine's next move for this ending, verbatim, or None.
+
+    Read off `wring run --json`'s `next_move` — the same sentence the
+    console printed and `next-move.json` carries, composed once by
+    `diagnose.WorkerDiagnosis.next_move`. Nothing is composed here; a
+    missing or empty key is None and the caller falls back to the board's.
+    """
+    found = outcome.get("next_move")
+    if not isinstance(found, str):
+        return None
+    return found.strip() or None
 
 
 def _worker_words(outcome: dict) -> str | None:

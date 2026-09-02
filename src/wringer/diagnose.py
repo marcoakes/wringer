@@ -266,6 +266,104 @@ REFUSED_REMEDIES_BY_AUTH_STATE = {
 }
 
 
+# --- the next move (0.7.0, P0.1) -------------------------------------------
+#
+# **A stop without a next move is a stop the product has not finished
+# writing.** Run 4B, 2026-09-01: the operator read "an attempt changed
+# nothing at all" over a `401 invalid_api_key`, while the pre-spend line had
+# already said which credential the turn would spend against and that it
+# displaced a working login. Two facts, each shown, joined by nobody. The
+# sentences below are the JOIN: `face` × `auth_state` × `lane` × the typed
+# credential facts (`key_env`, `login_stored`) — never the worker's text,
+# which is carried and not read (F6). Every sentence ends in the one command
+# that continues from here, and a shape no sentence fits says so in words
+# rather than printing nothing.
+
+#: The command every next move ends in. A literal, printed here and shipped
+#: by P0.2 (0.7.1): the drive's resume verb, which continues from the exact
+#: step and re-spends nothing it already has.
+RESUME_COMMAND = "wringer-drive resume"
+
+#: The honest blank. Printed for a (face, auth state, lane) shape no
+#: sentence below can honestly close — never silence, because silence is
+#: what run 4B's operator got.
+NEXT_MOVE_UNKNOWN = "no next move is known for this shape"
+
+#: The shell lane's failed turn, the key DISPLACING a stored login — run 4B's
+#: exact shape. The variable's NAME comes off the vendor's roster row via
+#: `worker_auth` (agents.py is the one home for it); the sentence claims
+#: only what the record shows: the turn spent against the key and failed.
+NEXT_KEY_DISPLACES_LOGIN = (
+    "The credential this turn spent against — {var} — {failed}, and it is "
+    "overriding a stored login that reports itself valid. Unset it, then: "
+    f"{RESUME_COMMAND}"
+)
+
+#: The key is the only credential, and the turn spent against it and failed.
+NEXT_KEY_ONLY = (
+    "The credential this turn spent against — {var} — {failed}, and there is "
+    "no stored login behind it. Store a valid key in {var} or log the agent "
+    "in (`wring doctor` names the command), then: "
+    f"{RESUME_COMMAND}"
+)
+
+#: The agent's own report of being signed out, no key set.
+NEXT_LOGIN_MISSING = (
+    "The agent reports it is not logged in and no key is set, so this turn "
+    "had nothing to spend against. Log it in (`wring doctor` names the "
+    f"command), then: {RESUME_COMMAND}"
+)
+
+#: The stored login spent and the turn failed; the agent still calls the
+#: login valid, so a login is not the missing piece. Composed only when
+#: the worker said something — the fix is whatever its words name.
+NEXT_LOGIN_HELD_SHELL = (
+    "This turn spent against the stored login and {failed}; the agent still "
+    "reports that login valid, so logging in again is not the move. Fix "
+    "what the worker's own words name (kept verbatim in the worker log), "
+    f"then: {RESUME_COMMAND}"
+)
+
+#: No credential fact points anywhere; the worker's words are the lead.
+NEXT_FROM_WORKERS_WORDS = (
+    "Fix what the worker's own words name (kept verbatim in the worker "
+    f"log), then: {RESUME_COMMAND}"
+)
+
+#: The shell lane's read-only turn (run 3, F8).
+NEXT_WRITE_POLICY = (
+    "Fix the declared command's write policy (tested flags: "
+    "https://github.com/marcoakes/wringer/blob/main/docs/vendors.md), then: "
+    f"{RESUME_COMMAND}"
+)
+
+#: The ACP lane's refused turn, by the agent's own auth answer. `wring
+#: doctor` owns the login command (`worker_auth._routes` is the one decision
+#: site), so the sentence points there rather than restating a route.
+NEXT_ACP_REFUSED_BY_AUTH_STATE = {
+    worker_auth.LOGGED_OUT: (
+        "Log the agent in — `wring doctor` names this machine's login "
+        f"command — then: {RESUME_COMMAND}"
+    ),
+    worker_auth.LOGGED_IN: (
+        "The agent still reports itself logged in, so logging in again is "
+        "not the move. Fix what the agent's own words name (kept verbatim "
+        f"in the worker log), then: {RESUME_COMMAND}"
+    ),
+}
+
+NEXT_ACP_REFUSED_UNREAD = (
+    "Run `wring doctor` to check the agent's login; fix what it and the "
+    f"agent's own words name, then: {RESUME_COMMAND}"
+)
+
+#: The ACP lane's clean-and-empty turn: the operator's channel, by name.
+NEXT_ACP_CHANGED_NOTHING = (
+    "Declare what the worker needs under `run.worker.acp.env_passthrough` "
+    f"in {config.CONFIG_FILENAME}, then: {RESUME_COMMAND}"
+)
+
+
 @dataclass(frozen=True)
 class WorkerDiagnosis:
     """Why a worker's turn may have produced nothing, from the turn's FACTS.
@@ -313,6 +411,58 @@ class WorkerDiagnosis:
     # for the same reason `lane` is: the record's shape is frozen and the
     # description already carries the number in words.
     exit_code: int | None = None
+    # **The typed credential facts, from `worker_auth.WorkerAuth` (0.7.0).**
+    # `key_env` names the vendor's key variable only when it was SET in the
+    # environment the turn inherited — it is then the credential the turn
+    # spent against, by the measured precedence; `login_stored` is the
+    # vendor probe's own answer about the stored login, None when nobody
+    # asked. Unserialised for `lane`'s reason: the record's shape is frozen.
+    # `next_move` is composed from these and never from `engine_words`.
+    key_env: str = ""
+    login_stored: bool | None = None
+
+    @property
+    def next_move(self) -> str:
+        """The one thing to do next, ending in a command — or the honest blank.
+
+        Composed from facts only: `face` × `lane` × `auth_state` × the
+        typed credential facts. The worker's words are never read here;
+        their PRESENCE is a fact (a sentence that says "fix what the words
+        name" over an empty log would be a pointer at nothing), and the
+        blank is what an absent lead composes to.
+        """
+        has_words = bool(self.engine_words.strip())
+        failed = (
+            f"failed the turn (exit {self.exit_code})"
+            if self.exit_code is not None
+            else "failed the turn"
+        )
+        if self.face == FACE_TURN_CHANGED_NOTHING:
+            return NEXT_WRITE_POLICY if self.lane == "shell" else (
+                NEXT_ACP_CHANGED_NOTHING
+            )
+        if self.face != FACE_TURN_REFUSED:
+            return NEXT_MOVE_UNKNOWN
+        if self.lane == "shell":
+            if self.key_env and self.login_stored is True:
+                return NEXT_KEY_DISPLACES_LOGIN.format(
+                    var=self.key_env, failed=failed
+                )
+            if self.key_env:
+                return NEXT_KEY_ONLY.format(var=self.key_env, failed=failed)
+            if self.auth_state == worker_auth.LOGGED_OUT:
+                return NEXT_LOGIN_MISSING
+            if self.auth_state == worker_auth.LOGGED_IN:
+                if has_words:
+                    return NEXT_LOGIN_HELD_SHELL.format(failed=failed)
+                return NEXT_MOVE_UNKNOWN
+            return NEXT_FROM_WORKERS_WORDS if has_words else NEXT_MOVE_UNKNOWN
+        found = NEXT_ACP_REFUSED_BY_AUTH_STATE.get(self.auth_state)
+        if found is None:
+            return NEXT_ACP_REFUSED_UNREAD
+        if self.auth_state == worker_auth.LOGGED_IN and not has_words:
+            return NEXT_MOVE_UNKNOWN
+        return found
 
     @property
     def description(self) -> str:
@@ -444,6 +594,8 @@ def diagnose_shell_turn(
     changed_tree: bool,
     engine_words: str = "",
     auth_state: str = "",
+    key_env: str = "",
+    login_stored: bool | None = None,
 ) -> WorkerDiagnosis | None:
     """A shell or `exec:` turn that ended cleanly having written nothing.
 
@@ -468,6 +620,8 @@ def diagnose_shell_turn(
         engine_words=engine_words,
         auth_state=auth_state,
         lane="shell",
+        key_env=key_env,
+        login_stored=login_stored,
     )
 
 
@@ -478,6 +632,8 @@ def diagnose_failed_shell_turn(
     changed_tree: bool,
     engine_words: str = "",
     auth_state: str = "",
+    key_env: str = "",
+    login_stored: bool | None = None,
 ) -> WorkerDiagnosis | None:
     """A shell or `exec:` turn that FAILED having written nothing (0.6.7).
 
@@ -501,6 +657,8 @@ def diagnose_failed_shell_turn(
         auth_state=auth_state,
         lane="shell",
         exit_code=exit_code,
+        key_env=key_env,
+        login_stored=login_stored,
     )
 
 
