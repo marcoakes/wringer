@@ -129,3 +129,155 @@ def test_the_bundle_writer_scrubs_whatever_it_is_handed(tmp_path):
     assert secret not in written, written
     assert written.count("[REDACTED]") == 2, written
 
+
+
+# --- 0.7.5: the tiers below the declared value ----------------------------
+#
+# Run 4B, 2026-09-01. Codex rejected a dead Platform key and its own `401`
+# echoed `sk-proj-`, a run of `*` and the key's LAST FOUR characters into the
+# worker log — 45 lines of one log carried that shape. The redactor owned
+# none of those bytes: none of them was the declared value. Two tiers below
+# the whole value now run on every write path: every MEASURED credential
+# shape from `agents.py`, and every prefix or suffix of a declared value that
+# is at least six characters long.
+
+
+def fragments_only(secret: str) -> redact.Redactor:
+    """A redactor with the value and NO shapes, so tier 3 is measured alone."""
+    return redact.Redactor(secrets=(secret,))
+
+
+def test_a_PREFIX_or_SUFFIX_of_six_or_more_characters_is_scrubbed():
+    """A key wrapped across two lines is two fragments, neither the value."""
+    secret = "sk-proj-Qm7Vx2Lp9Rt4Wn8Yb3Kc6Hd1Fg5Jz0iW0W"
+    redactor = fragments_only(secret)
+
+    split = f"line one {secret[:20]}\nline two {secret[20:]}\n"
+    assert redactor.scrub(split) == (
+        f"line one {redact.PLACEHOLDER}\nline two {redact.PLACEHOLDER}\n"
+    )
+    # Run 4B's echo, with the shape tier switched off: the eight-character
+    # head is a fragment and goes; the four-character tail is a word and
+    # stays. That remainder is what tier 2 exists for.
+    echoed = f"Incorrect API key provided: {secret[:8]}****...{secret[-4:]}"
+    assert redactor.scrub(echoed) == (
+        f"Incorrect API key provided: {redact.PLACEHOLDER}****...{secret[-4:]}"
+    )
+    # Greedy: the longest matching head is ONE placeholder, never a
+    # placeholder with the rest of the key hanging off it.
+    assert redactor.scrub(f"head {secret[:-1]} tail") == (
+        f"head {redact.PLACEHOLDER} tail"
+    )
+    assert redactor.scrub(f"tail {secret[1:]} head") == (
+        f"tail {redact.PLACEHOLDER} head"
+    )
+
+
+def test_a_fragment_SHORTER_than_six_is_a_word_and_SURVIVES():
+    """`sk-pr` is prose. The floor is the same six as the floor on a whole
+    value, and it is one constant so the two cannot drift apart."""
+    secret = "sk-proj-Qm7Vx2Lp9Rt4Wn8Yb3Kc6Hd1Fg5Jz0iW0W"
+    text = f"head {secret[:5]} tail {secret[-5:]} bare sk- and {secret[:3]}"
+
+    assert fragments_only(secret).scrub(text) == text
+    # ...and with the shape tier on as well, since `sk-` is where the
+    # vendor's shape begins.
+    with_shapes = redact.Redactor.from_config({}, {"MY_API_KEY": secret})
+    assert with_shapes.scrub(text) == text
+    assert redact.FRAGMENT_MIN_LENGTH == redact.MIN_SECRET_LENGTH == 6
+
+
+def test_a_value_TOO_SHORT_to_be_a_secret_yields_NO_fragment_rule():
+    """Five characters is below the floor, so there is nothing to take a
+    prefix of — scrubbing `abcd` because `abcde` was declared would be the
+    two-character-secret defect in a new coat."""
+    redactor = redact.Redactor(secrets=("abcde",))
+
+    assert redactor.scrub("xx abcd yy bcde zz") == "xx abcd yy bcde zz"
+
+
+def test_a_MEASURED_KEY_SHAPE_is_scrubbed_with_NOTHING_declared():
+    """Tier 2 does not need the key to have been declared: the echo of
+    somebody else's key, or a key a worker found in a file, is scrubbed on
+    its shape alone. The shapes are `agents.py`'s rows and nothing else."""
+    from wringer import agents
+
+    redactor = build({"PATH": "/usr/bin"})
+    assert redactor.secrets == ()
+    assert [p.pattern for p in redactor.shapes] == list(agents.key_shapes())
+    assert redactor.shapes, "the vendor table measured no shape at all"
+
+    echoed = "401 Unauthorized: Incorrect API key provided: sk-proj-****...iW0W."
+    assert redactor.scrub(echoed) == (
+        f"401 Unauthorized: Incorrect API key provided: {redact.PLACEHOLDER}"
+    )
+    assert redactor.scrub("masked sk-…iW0W here") == (
+        f"masked {redact.PLACEHOLDER} here"
+    )
+    assert redactor.scrub("whole sk-proj-NEVERDECLARED0000111122223333") == (
+        f"whole {redact.PLACEHOLDER}"
+    )
+    # A bare `Redactor()` is the "nothing declared, nothing known" object
+    # tests build on purpose, and it stays that way.
+    assert redact.Redactor().shapes == ()
+
+
+def test_ORDINARY_WORDS_survive_every_tier_BYTE_IDENTICAL():
+    """The forgery control. A log with nothing to scrub must come back
+    unchanged — through the text path AND the bytes path, which is where a
+    worker's log actually travels. Words that brush against the shape
+    (`task-`, `risk-`, `desk-`) are the ones a careless regex eats."""
+    secret = "sk-proj-Qm7Vx2Lp9Rt4Wn8Yb3Kc6Hd1Fg5Jz0iW0W"
+    redactor = redact.Redactor.from_config({}, {"MY_API_KEY": secret})
+    text = (
+        "task-1234 done; risk-based review; desk-99 asks-for sk- and sk-pr\n"
+        "no key here, 401 Unauthorized, invalid_api_key\n"
+    )
+    raw = text.encode() + b"\xff\xfe not utf-8 \x00 either\n"
+
+    assert redactor.scrub(text) == text
+    assert redactor.scrub_bytes(raw) == raw
+
+
+def test_BYTES_get_every_tier_the_text_path_has():
+    """One implementation. `scrub_bytes` used to be its own loop over the
+    values, so a tier added to `scrub` would have missed every worker log."""
+    secret = "sk-proj-Qm7Vx2Lp9Rt4Wn8Yb3Kc6Hd1Fg5Jz0iW0W"
+    redactor = redact.Redactor.from_config({}, {"MY_API_KEY": secret})
+    raw = (
+        b"\xff line one " + secret[:20].encode()
+        + b"\nline two " + secret[20:].encode()
+        + b"\nmasked sk-\xe2\x80\xa6iW0W and undeclared sk-proj-NEVERDECLARED0000\n"
+    )
+
+    scrubbed = redactor.scrub_bytes(raw)
+
+    placeholder = redact.PLACEHOLDER.encode()
+    assert scrubbed == (
+        b"\xff line one " + placeholder + b"\nline two " + placeholder
+        + b"\nmasked " + placeholder + b" and undeclared " + placeholder + b"\n"
+    )
+
+
+def test_the_RECORD_WRITER_gets_the_new_tiers_too(tmp_path):
+    """`evidence.write_record` is the one writer behind `worker-diagnosis.json`,
+    the manifests and the delivery record; it calls `scrub`, so it needs no
+    change — this pins that it did not grow a copy of its own."""
+    from wringer import evidence
+
+    secret = "sk-proj-Qm7Vx2Lp9Rt4Wn8Yb3Kc6Hd1Fg5Jz0iW0W"
+    redactor = redact.Redactor.from_config({}, {"MY_API_KEY": secret})
+    path = evidence.write_record(
+        tmp_path / "record.json",
+        {
+            "engine_words": f"said {secret[:3]}…{secret[-4:]}",
+            "lines": [secret[:20], secret[20:]],
+            "other": "sk-proj-NEVERDECLARED0000111122223333",
+        },
+        redactor,
+    )
+
+    written = path.read_text(encoding="utf-8")
+    assert written.count(redact.PLACEHOLDER) == 4, written
+    for start in range(len(secret) - 5):
+        assert secret[start : start + 6] not in written, written
