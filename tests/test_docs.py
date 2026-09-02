@@ -1712,6 +1712,41 @@ def test_every_redactor_reads_the_names_the_config_declares():
     )
 
 
+# --- the redaction ceiling, stated where a reader will meet it -------------
+#
+# 0.7.5, run 4B (2026-09-01). SECURITY.md said redaction "knows about values
+# that are in the environment of the run" — true, and after the two tiers
+# below the whole value it would have been an UNDERSTATEMENT that hid the
+# tiers' own limits (a five-character head survives; an interior run
+# survives; an unmeasured vendor's echo survives). A page that undersells
+# a boundary is as stale as one that oversells it (SECURITY.md's own dated
+# note of 2026-08-15 says so about containment), and the overclaim is one
+# careless edit away: "all secrets".
+
+
+def test_SECURITY_states_the_redaction_tiers_WITH_their_ceiling():
+    """The two tiers, the floor, the interior-run limit, the vendor table as
+    the shapes' only home, and the run that measured why — each named, and
+    no sentence claiming all secrets. Reverting the paragraph alone is red."""
+    require_checkout("SECURITY.md")
+    text = normalised((repo_root() / "SECURITY.md").read_text(encoding="utf-8"))
+    for needle in (
+        "prefix or suffix of a declared value",
+        "six or more characters",
+        "every measured credential shape",
+        "src/wringer/agents.py",
+        "INTERIOR run",
+        "run 4B",
+    ):
+        assert needle in text, f"SECURITY.md no longer states: {needle!r}"
+    overclaims = re.findall(
+        r"\b(?:scrubs|redacts|removes|catches|erases)\s+(?:all|every)\s+secrets?\b",
+        text,
+        re.IGNORECASE,
+    )
+    assert not overclaims, f"SECURITY.md claims more than the tiers do: {overclaims}"
+
+
 # --- enumerations of the network surface, wherever they live ---------------
 #
 # SPEC_START_V0 §3e-i named two documents that enumerate it exactly and

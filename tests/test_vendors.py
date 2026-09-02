@@ -374,3 +374,50 @@ def test_no_TABLE_CELL_makes_a_claim_this_page_cannot_back(forbidden: str):
                     f"{heading}: a cell claims {forbidden!r} — this page may "
                     f"only say what somebody ran: {row}"
                 )
+
+
+# --- what a vendor echoes on a rejected key: the shape is MEASURED ---------
+#
+# 0.7.5, run 4B (2026-09-01). `redact.py`'s shape tier scrubs whatever
+# `src/wringer/agents.py` says a vendor's credential looks like, whether or
+# not the key was declared — so a `key_shape` that nobody saw is a regex
+# eating prose, or one missing the echo it was written for. The page's echo
+# table is where the sighting is written down. This holds the two to one
+# vendor set and refuses a shape with no dated sighting, for the reason
+# `agents.py` gives in its own words: "inventing one is how the last auth
+# sentence in this repository came to be false".
+
+ECHO_TABLE = "## What a vendor echoes on a rejected credential"
+
+
+def test_EVERY_KEY_SHAPE_IN_AGENTS_PY_HAS_A_DATED_ECHO_ROW_AND_EVERY_ROW_A_VENDOR():
+    """One vendor set, by binary name, between the code's rows and the
+    page's; a non-empty `key_shape` needs a `YYYY-MM-DD` in its row; an empty
+    one needs the row to say it is not measured. Reverting the codex row's
+    dates alone is red; dropping a vendor's row alone is red."""
+    from wringer import agents
+
+    rows = _rows(ECHO_TABLE)
+    assert rows, "docs/vendors.md has no echo table at all"
+    by_binary = {}
+    for row in rows:
+        binary = re.match(r"`([^`]+)`", row[1])
+        assert binary, f"an echo row names no binary in backticks: {row}"
+        by_binary[binary.group(1)] = row
+    code_rows = {row.command: row for row in (*agents.AGENTS, *agents.SHELL_VENDORS)}
+    assert set(by_binary) == set(code_rows), (
+        f"the echo table covers {sorted(by_binary)} and agents.py "
+        f"{sorted(code_rows)} — one vendor set, or the page is guessing"
+    )
+    for command, code in code_rows.items():
+        row_text = " ".join(by_binary[command])
+        if code.key_shape:
+            assert re.search(r"\b\d{4}-\d{2}-\d{2}\b", row_text), (
+                f"{command} carries a key_shape and its echo row names no date "
+                f"anyone saw it: {row_text}"
+            )
+        else:
+            assert "not measured" in row_text and "`key_shape` is empty" in row_text, (
+                f"{command} has an empty key_shape and its echo row does not "
+                f"say so: {row_text}"
+            )

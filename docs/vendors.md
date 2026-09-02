@@ -252,6 +252,22 @@ never as a green. `codex doctor` was measured the same day and disqualified
 as a probe: it reports its auth row satisfied on the mere PRESENCE of an env
 key, and it opens sockets.
 
+## What a vendor echoes on a rejected credential
+
+What the worker's own log carries when the key is dead — the bytes a
+redactor that knows only the declared VALUE does not own. Each row is a
+shape somebody saw; `src/wringer/agents.py` carries the same shape as a
+`key_shape` regex, and `redact.py` scrubs every non-empty one from every
+write path whether or not the key was declared (SECURITY.md, "Two tiers
+below the whole value"). A vendor with no row here has an empty
+`key_shape`, and the shape tier does nothing for it.
+
+| vendor | binary | what it echoed | measured | where |
+|---|---|---|---|---|
+| openai | `codex` (codex-cli 0.149.0) | `401 Unauthorized: Incorrect API key provided: sk-proj-` + a run of `*` + the key's LAST FOUR characters + `.`, then `auth error code: invalid_api_key` | 2026-08-31 (run 3), 2026-09-01 (run 4B, 45 lines of one `worker.stderr.log`) | the operator's own run logs, not this repository; the shape — never a key — is carried here and as the `codex` row's `key_shape` in `src/wringer/agents.py` |
+| anthropic | `claude-agent-acp` | not measured — the org-pinned refusal of 2026-08-27 named no key. The row's `key_shape` covers the key's own `sk-ant-` form and claims nothing about an echo | — | — |
+| gemini | `gemini` | not measured; `key_shape` is empty | — | — |
+
 ## Measure it yourself
 
 **These two live in the source tree, not in the installed package.** `uv tool

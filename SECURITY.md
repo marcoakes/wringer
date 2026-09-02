@@ -94,14 +94,56 @@ commands and `evidence.jsonl`. This happens *before* the write, not as a
 cleanup pass: the raw value never reaches the file. That is why gate output
 travels through a pipe instead of straight to a file descriptor.
 
-**What redaction does not do.** It knows about values that are in the
-environment of the run. It cannot know about:
+**Two tiers below the whole value, since 0.7.5.** The same scrub, on the
+same write paths — a worker's logs, the diagnosis words that reach the stop
+line and `worker-diagnosis.json`, the delivery patch, every record — also
+replaces:
 
-- a credential your gate reads from a file (or a vault) and then prints;
+- **any run of six or more characters that is a prefix or suffix of a
+  declared value.** A key a worker wrapped across two lines is two such
+  fragments; a key a tool truncated is one. Six, because that is the floor
+  on a whole value and a five-character head (`sk-pr`) is prose;
+- **every measured credential shape**, whether or not such a value was
+  declared. The shapes are the rows of `src/wringer/agents.py` — the only
+  place a vendor's name may appear — and a shape is added only after
+  somebody has seen the vendor's key or its echo of one.
+
+*Dated 2026-09-02, from run 4B (2026-09-01).* On a clean machine a dead
+Platform key was rejected and the vendor's own `401` echoed the key's first
+eight characters, a run of `*` and its last four into `worker.stderr.log`,
+45 lines of one log; since 0.6.7 those words also travel to the stop line
+and the drive. None of those bytes was the declared value, so the redactor
+owned none of them. The fragment tier takes the head, the shape tier takes
+the echo whole, and the tests plant a key and run a fake worker that echoes
+it whole, masked and wrapped, then walk every file under `.wringer/` and the
+console for any six characters of it.
+
+**What redaction does not do.** It knows about values that are in the
+environment of the run, and about shapes somebody has measured. It cannot
+know about:
+
+- a credential your gate reads from a file (or a vault) and then prints,
+  unless its shape is one the vendor table has measured;
 - a secret shorter than 6 characters, which is deliberately ignored — a
   two-character "secret" would match half the log and destroy the evidence;
+- a fragment shorter than six characters, or an INTERIOR run of a value —
+  the middle of a key split across three lines is neither its prefix nor
+  its suffix and survives;
 - a token that appears only in a form the redactor never saw, e.g. base64 of
-  the real value.
+  the real value;
+- a vendor whose key shape nobody has measured. The rows say which — an
+  empty `key_shape` is a vendor the shape tier does nothing for.
+
+And one thing it does that you may not want: the fragment tier cannot tell
+a key's head from a word. A `*KEY*` name whose value is a path or a URL —
+`SSH_KEY_PATH=/Users/…`, say — has its first six characters (`/Users`)
+scrubbed wherever they appear in a log, because the redactor has no way to
+know that this declared value is not a credential. Name secrets precisely,
+or keep a path out of a name the patterns match.
+
+This is not "all secrets". It is the declared values, their six-character
+heads and tails, and the measured shapes; a masked echo of a key from a
+vendor not in the table is exactly as exposed as it was before.
 
 So the standing advice holds:
 
