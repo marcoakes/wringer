@@ -326,8 +326,13 @@ def test_json_keys_are_stable(
         # finished having done nothing. A shell worker is never diagnosed —
         # these two cases are both shell workers, so both are null.
         "worker_diagnosis",
+        # 0.7.1 (P0.1): the next move, beside the diagnosis and never inside
+        # it — that object is the frozen v3 shape. Null wherever the
+        # diagnosis is.
+        "next_move",
     }
     assert payload["worker_diagnosis"] is None
+    assert payload["next_move"] is None
     assert payload["status"] == expected_status
     assert payload["reason"] == expected_reason
     assert set(payload["final"]) == {

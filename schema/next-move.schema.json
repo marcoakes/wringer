@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/next-move.schema.json",
+  "title": "wringer.nextmove.v1",
+  "description": "THE NEXT MOVE, NEVER A VERDICT. What a person does after a worker's turn produced nothing — one sentence ending in the command that continues — composed by `diagnose.WorkerDiagnosis.next_move` from the turn's FACTS and written beside the facts it was composed from, so a reader can check the sentence against them. Nothing that reads this file may let it reach a verdict: not acceptance's receipts, not vacuity, not health. The same boundary `worker-diagnosis-v3.schema.json` carries, for the same reason.\n\nWHY IT EXISTS. Run 4B, 2026-09-01: a shell worker exited 1 on a dead key, the response carried `401 invalid_api_key`, the pre-spend line had already said which credential the turn would spend against and that it displaced a working stored login — and the operator read \"an attempt changed nothing at all\". Two facts, each shown, joined by nobody. The join is one sentence: which credential this turn spent against, what to do about it, and the command that continues. A stop without a next move is a stop the product has not finished writing.\n\nA SIBLING file in the loop bundle, beside `worker-diagnosis.json`, because `wringer.workerdiagnosis.v3` is published, frozen and `additionalProperties: false` (law 7: a byte change without a new schema_version is a silent break for every reader; a new file is always allowed). Written only when a worker diagnosis was, so ABSENT means the last turn did something — the same rule as its sibling — and `wring explain <loop directory>` quotes `next_move` from here after the terminal is gone.\n\nCOMPOSED FROM FACTS ONLY. `face` × `lane` × `auth_state` × the typed credential facts. The worker's own words are never read to compose it — F6: route on facts, hint on text, claim on neither — and a shape no sentence honestly fits records the literal `no next move is known for this shape`: an honest blank, never silence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "next_move", "face", "lane"],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.nextmove.v1"
+    },
+    "next_move": {
+      "description": "The one thing to do next, ending in the command that continues — the literal `wringer-drive resume` — or the exact honest blank `no next move is known for this shape`. Composed once, by `diagnose.WorkerDiagnosis.next_move`; the console, `wring run --json`, `wringer-drive` and `wring explain` all QUOTE this sentence and none composes a second.",
+      "type": "string",
+      "minLength": 1
+    },
+    "face": {
+      "description": "Which shape the worker's turn wore — the same closed enum as `worker-diagnosis-v3.schema.json`, derived from `diagnose.WORKER_FACES`, and equal to the sibling record's `face`.",
+      "enum": ["turn_changed_nothing", "turn_refused"]
+    },
+    "lane": {
+      "description": "Which worker form's facts composed the sentence. `acp`: the ACP session lane, whose ledger is the `worker-diagnosis.json` record's. `shell`: the shell / `exec:` lane of the 0.6.0 worker contract, whose whole testimony is its exit code and output. Recorded here because the sibling record cannot carry it (frozen), and a reader telling the lanes apart by which fields are present is guessing.",
+      "enum": ["acp", "shell"]
+    },
+    "auth_state": {
+      "description": "What the agent's own auth surface said when the stop was composed — the same value as the sibling record's `auth_state`, present only when the agent was asked. An OPEN string on the `wringer.loop.v2` `reason` precedent; known values are `logged_in`, `logged_out`, `unknown` and `not_applicable`.",
+      "type": "string",
+      "minLength": 1
+    },
+    "key_env": {
+      "description": "The NAME of the vendor's key variable, present only when it was SET in the environment the turn inherited — by the measured precedence (run 3 F7, ACP 2026-08-27) it is then the credential the turn spent against. A variable name from `agents.SHELL_VENDORS`, never a value; the bundle's redactor scrubs the file on the way to disk like every other write. Absent when no key was set, or when nobody asked.",
+      "type": "string",
+      "minLength": 1
+    },
+    "login_stored": {
+      "description": "What the vendor's own login probe said about the STORED login at the stop — true, false — present only when it was asked. With `key_env` present and this true, the sentence is run 4B's: the key is overriding a stored login that reports itself valid, and the move is to unset it.",
+      "type": "boolean"
+    },
+    "exit_code": {
+      "description": "The shell lane's exit code for a failed turn, the loop's own fact. Present only for the shell lane's `turn_refused`.",
+      "type": "integer"
+    }
+  }
+}

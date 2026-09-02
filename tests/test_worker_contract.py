@@ -26,7 +26,7 @@ from pathlib import Path
 import pytest
 from core_helpers import flat
 
-from wringer import bench, cli, config, diagnose, gates, loop
+from wringer import bench, cli, config, diagnose, gates, loop, worker_auth
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 VENDORS_PAGE = REPO_ROOT / "docs" / "vendors.md"
@@ -636,3 +636,299 @@ def test_the_failed_shell_diagnosis_routes_on_facts_never_text():
         exit_code=3, timed_out=False, changed_tree=False
     )
     assert "printed nothing to quote" in mute.description
+
+
+# --- 0.7.1, P0.1: every stop names its next move, and it is a command -------
+#
+# Run 4B, 2026-09-01: a shell worker exited 1 on a dead key, the pre-spend
+# line had already said which credential the turn would spend against and
+# that it displaced a working stored login, and the stop said "an attempt
+# changed nothing at all". Two facts, each shown, joined by nobody. The
+# tests below hold the JOIN: the stop names the variable, says what to do
+# with it, and ends in the command that continues.
+
+
+def key_over_login(directory: Path, name: str, failure: str) -> Path:
+    """A fake vendor CLI in run 4B's exact shape: its login probe answers
+    LOGGED IN, and every other invocation — the turn — prints the vendor's
+    refusal to stderr and exits 1, writing nothing. The key's displacement
+    of that login is the environment's fact (`monkeypatch.setenv`), not the
+    fake's."""
+    path = directory / name
+    path.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        "if sys.argv[1:3] == ['login', 'status']:\n"
+        "    print('Logged in using ChatGPT')\n"
+        "    raise SystemExit(0)\n"
+        f"print({failure!r}, file=sys.stderr)\n"
+        "raise SystemExit(1)\n",
+        encoding="utf-8",
+    )
+    path.chmod(path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    return path
+
+
+def a_run_4b_repo(repo: Path, monkeypatch, *, login_stored: bool = True) -> Path:
+    """Run 4B on the maintainer's bench: a codex worker, a key exported
+    beside a stored login the vendor calls valid (or, for the control, no
+    stored login at all), and a turn the vendor refuses."""
+    a_broken_repo(repo)
+    (repo / "bin").mkdir()
+    if login_stored:
+        key_over_login(repo / "bin", "codex", "ERROR: HTTP 401 invalid_api_key")
+    else:
+        signed_out = repo / "bin" / "codex"
+        signed_out.write_text(
+            f"#!{sys.executable}\n"
+            "import sys\n"
+            "if sys.argv[1:3] == ['login', 'status']:\n"
+            "    print('Not logged in')\n"
+            "    raise SystemExit(1)\n"
+            "print('ERROR: HTTP 401 invalid_api_key', file=sys.stderr)\n"
+            "raise SystemExit(1)\n",
+            encoding="utf-8",
+        )
+        signed_out.chmod(signed_out.stat().st_mode | stat.S_IEXEC | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{repo / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-proj-deadkey")
+    (repo / config.CONFIG_FILENAME).write_text(
+        GATE + "run:\n  worker: 'codex exec \"$(cat {brief})\"'\n"
+        "  worker_timeout: 30\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    return repo
+
+
+def test_RUN_4B_the_stop_names_the_displacing_key_and_the_resume_command(
+    repo, monkeypatch, capsys
+):
+    """The taken path, end to end on the console: the turn fails on the key,
+    the vendor still calls the stored login valid, and the stop says which
+    variable to unset and what to run next — the join run 4B lacked."""
+    a_run_4b_repo(repo, monkeypatch)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    out = capsys.readouterr().out
+    said = flat(out)
+
+    assert "Next: The credential this turn spent against — CODEX_API_KEY —" in said
+    assert "overriding a stored login that reports itself valid" in said
+    assert "Unset it, then: wringer-drive resume" in said
+    # ONE unwrapped line, because it ends in a command a person copies —
+    # and never composed from the worker's text: it does not repeat the
+    # vendor's own line, which the description already quotes.
+    next_line = next(row for row in out.splitlines() if row.startswith("Next:"))
+    assert "401" not in next_line
+    assert next_line.endswith("Unset it, then: wringer-drive resume")
+
+
+def test_RUN_4B_the_next_move_rides_a_NEW_sibling_beside_the_frozen_record(
+    repo, monkeypatch, capsys
+):
+    """`wringer.workerdiagnosis.v3` is frozen and closed, so the next move
+    and the facts it was composed from ride `next-move.json` — validated
+    here against its own published schema — and the frozen record stays
+    byte-valid: no new key reaches it."""
+    jsonschema = pytest.importorskip("jsonschema")
+    a_run_4b_repo(repo, monkeypatch)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    bundle = only_loop(repo)
+    recorded = json.loads(
+        (bundle / loop.NEXT_MOVE_FILENAME).read_text(encoding="utf-8")
+    )
+    schema = json.loads(
+        (REPO_ROOT / "schema" / "next-move.schema.json").read_text(encoding="utf-8")
+    )
+    jsonschema.validate(recorded, schema)
+    assert recorded["schema_version"] == loop.NEXT_MOVE_SCHEMA_VERSION
+    assert recorded["face"] == diagnose.FACE_TURN_REFUSED
+    assert recorded["lane"] == "shell"
+    assert recorded["key_env"] == "CODEX_API_KEY"
+    assert recorded["login_stored"] is True
+    assert recorded["exit_code"] == 1
+    assert "Unset it, then: wringer-drive resume" in recorded["next_move"]
+    assert "sk-proj-deadkey" not in (bundle / loop.NEXT_MOVE_FILENAME).read_text()
+    frozen = json.loads(
+        (bundle / loop.WORKER_DIAGNOSIS_FILENAME).read_text(encoding="utf-8")
+    )
+    assert "next_move" not in frozen
+    assert "key_env" not in frozen
+    assert "login_stored" not in frozen
+
+
+def test_RUN_4B_wring_run_JSON_carries_the_same_next_move_for_the_drive(
+    repo, monkeypatch, capsys
+):
+    """The drive reads `wring run --json`; the sentence it quotes has to be
+    the console's, byte for byte, and it rides BESIDE the frozen diagnosis
+    object rather than inside it."""
+    a_run_4b_repo(repo, monkeypatch)
+
+    assert cli.main(["run", "--json"]) == cli.EXIT_GATE_FAILED
+    payload = json.loads(capsys.readouterr().out)
+
+    assert "Unset it, then: wringer-drive resume" in payload["next_move"]
+    assert "CODEX_API_KEY" in payload["next_move"]
+    assert "next_move" not in payload["worker_diagnosis"]
+    recorded = json.loads(
+        (only_loop(repo) / loop.NEXT_MOVE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert recorded["next_move"] == payload["next_move"]
+
+
+def test_a_KEY_ONLY_failure_never_says_unset_it(repo, monkeypatch, capsys):
+    """Forgery control: with no stored login behind the key, "unset it" would
+    leave the worker with nothing to spend against. The move is to store a
+    valid key or log in — and it still ends in the command."""
+    a_run_4b_repo(repo, monkeypatch, login_stored=False)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    out = capsys.readouterr().out
+
+    next_line = next(row for row in out.splitlines() if row.startswith("Next:"))
+    assert "CODEX_API_KEY" in next_line
+    assert "no stored login behind it" in next_line
+    assert "Unset it" not in next_line
+    assert next_line.endswith("then: wringer-drive resume")
+
+
+def test_wring_explain_reads_the_stops_next_move_back_from_a_LOOP_directory(
+    repo, monkeypatch, capsys
+):
+    """The console prints the next move once and the terminal loses it.
+    `wring explain <loop dir>` quotes the recorded sentence — the same one,
+    verbatim — so the move survives the scrollback."""
+    a_run_4b_repo(repo, monkeypatch)
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    bundle = only_loop(repo)
+    recorded = json.loads(
+        (bundle / loop.NEXT_MOVE_FILENAME).read_text(encoding="utf-8")
+    )
+
+    assert cli.main(["explain", str(bundle)]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+
+    assert f"Next: {recorded['next_move']}" in said
+    assert "the worker changed nothing" in flat(said), "the ending is quoted"
+    assert "401 invalid_api_key" in flat(said), "the diagnosis is quoted"
+
+
+def test_wring_explain_on_a_loop_recorded_BEFORE_the_sibling_says_so(
+    repo, monkeypatch, capsys
+):
+    """A loop written by an older engine has the frozen record and no
+    `next-move.json`. The honest blank, in words — never silence."""
+    a_run_4b_repo(repo, monkeypatch)
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+    bundle = only_loop(repo)
+    (bundle / loop.NEXT_MOVE_FILENAME).unlink()
+
+    assert cli.main(["explain", str(bundle)]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+
+    assert "Next: this loop's record carries no next-move file" in said
+
+
+# --- the D0-style roster: every shape composes a move or the honest blank ---
+
+
+def every_worker_shape():
+    """Every (face, auth state, lane, credential facts, words) the engine
+    can hand `WorkerDiagnosis`, DERIVED from the rosters — a new face or a
+    new auth state joins this product the day it is declared."""
+    states = ("", *worker_auth.STATE_WORDS)
+    for face in diagnose.WORKER_FACES:
+        for state in states:
+            for lane in ("", "shell"):
+                for key_env in ("", "A_VENDOR_KEY"):
+                    for login_stored in (None, True, False):
+                        for words in ("", "the worker said this"):
+                            yield diagnose.WorkerDiagnosis(
+                                face=face,
+                                auth_state=state,
+                                lane=lane,
+                                key_env=key_env,
+                                login_stored=login_stored,
+                                engine_words=words,
+                                exit_code=1 if lane == "shell" and face
+                                == diagnose.FACE_TURN_REFUSED else None,
+                            )
+
+
+def test_EVERY_worker_shape_composes_a_next_move_or_the_exact_honest_blank():
+    """D0 turned on the next move: a shape the property has no sentence for
+    must say the literal blank, and a shape it has a sentence for must end
+    in the command. Nothing in between — a sentence with no command is a
+    stop the product has not finished writing (the plan's second new law)."""
+    for shape in every_worker_shape():
+        move = shape.next_move
+        assert move.strip(), f"{shape} composed nothing at all"
+        assert move == diagnose.NEXT_MOVE_UNKNOWN or move.endswith(
+            f"then: {diagnose.RESUME_COMMAND}"
+        ), f"{shape} composed a move with no command: {move!r}"
+
+
+def test_the_blank_is_never_composed_where_the_FACTS_point_somewhere():
+    """The other half of the roster, and the half a revert reddens: the
+    blank is honest only when no fact points anywhere. A set key names the
+    credential the turn spent against; a signed-out agent names the login;
+    a clean-and-empty turn names its lane's channel. Each has a move."""
+    for shape in every_worker_shape():
+        # A set key is a SHELL-lane fact: `worker_auth._shell_lane` is the
+        # one composer that types it, and the ACP lane's record never
+        # carries one to point with.
+        points = (
+            shape.face == diagnose.FACE_TURN_CHANGED_NOTHING
+            or (bool(shape.key_env) and shape.lane == "shell")
+            or shape.auth_state == worker_auth.LOGGED_OUT
+        )
+        if points:
+            assert shape.next_move != diagnose.NEXT_MOVE_UNKNOWN, (
+                f"{shape} has facts that point somewhere and composed the blank"
+            )
+        if (
+            shape.key_env
+            and shape.lane == "shell"
+            and shape.face == diagnose.FACE_TURN_REFUSED
+        ):
+            assert shape.key_env in shape.next_move, (
+                "the credential the turn spent against must be named"
+            )
+            displaced = shape.login_stored is True
+            assert ("Unset it" in shape.next_move) == displaced, shape
+
+
+def test_the_next_move_is_composed_from_FACTS_never_from_the_workers_text():
+    """F6, on the new sentence: two diagnoses whose facts agree compose the
+    same move whatever the worker printed; only the PRESENCE of words is a
+    fact, and it decides between a pointer at them and the blank."""
+    facts = dict(
+        face=diagnose.FACE_TURN_REFUSED, lane="shell", exit_code=1,
+        auth_state=worker_auth.UNKNOWN, key_env="A_VENDOR_KEY",
+        login_stored=True,
+    )
+    one = diagnose.WorkerDiagnosis(engine_words="401 invalid_api_key", **facts)
+    two = diagnose.WorkerDiagnosis(engine_words="rate limited, retry", **facts)
+    assert one.next_move == two.next_move
+    assert "401" not in one.next_move
+    assert "rate limited" not in two.next_move
+    # The words' presence: a pointer at them over an empty log is a pointer
+    # at nothing, so that shape composes the blank instead.
+    held = dict(
+        face=diagnose.FACE_TURN_REFUSED, lane="shell", exit_code=1,
+        auth_state=worker_auth.LOGGED_IN,
+    )
+    assert diagnose.WorkerDiagnosis(engine_words="x", **held).next_move.endswith(
+        diagnose.RESUME_COMMAND
+    )
+    assert (
+        diagnose.WorkerDiagnosis(engine_words="", **held).next_move
+        == diagnose.NEXT_MOVE_UNKNOWN
+    )

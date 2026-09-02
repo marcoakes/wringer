@@ -677,7 +677,9 @@ def build_parser() -> argparse.ArgumentParser:
         "run",
         nargs="?",
         metavar="RUN_DIR",
-        help="a run directory; defaults to the most recent one",
+        help="a run directory, or a loop directory (.wringer/loops/<id>) "
+        "to read a stop's cause and next move back; defaults to the most "
+        "recent run",
     )
     parser_explain.set_defaults(func=cmd_explain)
 
@@ -2097,6 +2099,12 @@ def cmd_run(args: argparse.Namespace) -> int:
                         if outcome.worker_diagnosis is not None
                         else None
                     ),
+                    # 0.7.1: the next move rides BESIDE the diagnosis
+                    # object, not inside it — that object is the frozen
+                    # `wringer.workerdiagnosis.v3` shape and must stay
+                    # byte-equal to the sibling file. Null when there is
+                    # no worker diagnosis, for `worker_diagnosis`'s reason.
+                    "next_move": _next_move_of(outcome),
                 }
             )
         )
@@ -2106,6 +2114,14 @@ def cmd_run(args: argparse.Namespace) -> int:
     if outcome.status == "interrupted":
         return EXIT_INTERRUPTED
     return EXIT_OK if outcome.converged else EXIT_GATE_FAILED
+
+
+def _next_move_of(outcome: loop.Outcome) -> str | None:
+    """The engine's next move for this ending, or None when no worker turn
+    was diagnosed — quoted from `WorkerDiagnosis.next_move`, never composed
+    here."""
+    found = outcome.worker_diagnosis
+    return found.next_move if found is not None else None
 
 
 def _report_worker_auth(found, as_json: bool) -> None:
@@ -2350,6 +2366,13 @@ def _report_worker_diagnosis(outcome: loop.Outcome) -> None:
         # reader has to be able to copy the command out of them.
         print("\nIt wrote no file. What the agent said:\n")
         print(said)
+    # **The next move, quoted from the one renderer (0.7.1, P0.1).** Run 4B's
+    # operator read the paragraph above over a dead key and had nowhere to
+    # go; `WorkerDiagnosis.next_move` composes the join — which credential
+    # this turn spent against, what to do about it, and the command that
+    # continues — and this line prints it. One line and unwrapped, because
+    # it ends in a command a person copies.
+    print(f"Next: {found.next_move}")
 
 
 def _report_loop(outcome: loop.Outcome, root: Path) -> None:
@@ -2911,6 +2934,15 @@ def cmd_resume(args: argparse.Namespace) -> int:
                         if outcome.final is not None
                         else None
                     ),
+                    # 0.7.1: a resumed loop's ending is a stop like any
+                    # other, and a stop carries its next move (P0.1). Same
+                    # two keys `wring run --json` carries, same nulls.
+                    "worker_diagnosis": (
+                        outcome.worker_diagnosis.as_json()
+                        if outcome.worker_diagnosis is not None
+                        else None
+                    ),
+                    "next_move": _next_move_of(outcome),
                 }
             )
         )
@@ -4702,6 +4734,16 @@ def cmd_explain(args: argparse.Namespace) -> int:
 
     try:
         manifest = evidence.read_manifest(run_dir)
+        if manifest.get("schema_version") in loop.SCHEMA_VERSIONS:
+            # **A LOOP directory (0.7.1, P0.1).** Measured before this was
+            # written: `wring explain .wringer/loops/<id>` read the loop's
+            # manifest as a run's, then failed on the missing
+            # `evidence.jsonl` — so the stop's next move, which the console
+            # printed once and the terminal then lost, could not be read
+            # back from the record at all. Told apart by the manifest's own
+            # schema version, never by the path.
+            _explain_loop(run_dir, manifest)
+            return EXIT_OK
         recorded = evidence.read_events(run_dir)
         rows = evidence.read_gate_results(run_dir)
     except evidence.EvidenceError as exc:
@@ -4710,6 +4752,65 @@ def cmd_explain(args: argparse.Namespace) -> int:
 
     _explain(run_dir, manifest, recorded, rows)
     return EXIT_OK
+
+
+def _read_sibling(path: Path) -> dict | None:
+    """An optional sibling record, or None when absent or unreadable.
+
+    Absence is the ordinary case for every sibling (`worker-diagnosis.json`,
+    `next-move.json`): a loop whose worker did something writes neither.
+    An unreadable one is reported as absent rather than raised over, because
+    `explain` is read after the fact and a half-explained loop beats none.
+    """
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _explain_loop(loop_dir: Path, manifest: dict) -> None:
+    """Say how a loop ended and what to do next, from its record alone.
+
+    Every sentence is QUOTED: the ending from `_LOOP_ENDINGS` (the console's
+    own table), the diagnosis from `worker-diagnosis.json` (composed once by
+    `diagnose.WorkerDiagnosis`), the next move from `next-move.json` (the
+    same object's `next_move`, written beside the facts it came from). A
+    loop recorded before `next-move.json` existed says so in words rather
+    than printing nothing — the honest blank, not silence.
+    """
+    result = manifest.get("result") or {}
+    status = str(result.get("status") or "unknown")
+    reason = str(result.get("reason") or "")
+    iterations = int(result.get("iterations") or 0)
+    print(f"Loop {loop_dir.name} — {status}")
+    ending = _LOOP_ENDINGS.get(reason, "Stopped after {n} iteration{s}.")
+    print(ending.format(n=iterations, s="" if iterations == 1 else "s"))
+
+    diagnosis = _read_sibling(loop_dir / loop.WORKER_DIAGNOSIS_FILENAME)
+    if diagnosis is not None:
+        print(
+            "\n! "
+            + textwrap.fill(
+                f"{diagnosis.get('description', '')}. "
+                f"{diagnosis.get('remedy', '')}.",
+                width=76,
+                subsequent_indent="  ",
+            )
+        )
+    recorded = _read_sibling(loop_dir / loop.NEXT_MOVE_FILENAME)
+    if recorded is not None and recorded.get("next_move"):
+        print(f"\nNext: {recorded['next_move']}")
+    elif diagnosis is not None:
+        print(
+            "\nNext: this loop's record carries no next-move file "
+            f"(`{loop.NEXT_MOVE_FILENAME}` is written since 0.7.1)"
+        )
+    try:
+        shown = loop_dir.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        shown = loop_dir.as_posix()
+    print(f"\nLoop evidence: {shown}/")
 
 
 def _explain(

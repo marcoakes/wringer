@@ -2187,3 +2187,113 @@ def test_an_EXISTING_show_section_is_never_rewritten_only_reported(project):
     assert [s.id for s in steps] == ["show-not-installable"]
     assert "reads-at-a-glance: echo hi" in steps[0].text
     assert path.read_text(encoding="utf-8") == original, "somebody's file was rewritten"
+
+
+# --- 0.7.1, P0.1: every stop carries its next move, and the engine's wins --
+
+
+def test_a_loop_ending_step_carries_the_boards_next_move_after_the_question():
+    """Run 4B's operator read the stop and had nowhere to go. A STOPPED step
+    for a loop ending now carries `next_move` — the board's own sentence for
+    the ending, verbatim — rendered after the question on its own line in
+    the terminal form, and as its own key in the JSON form. Absent, never
+    null, on a step that has none, so every older step is byte-identical."""
+    from wringer_board import refusals
+
+    saying = refusals.say(refusals.LOOP_ENDING, "max_iterations")
+    step = run_module.stop_for(refusals.LOOP_ENDING, "max_iterations")
+    assert step.next_move == saying.next_move
+    shown = step.as_terminal()
+    assert f"Next: {saying.next_move}" in shown
+    assert shown.index(saying.question) < shown.index("Next: ")
+    assert step.as_json()["next_move"] == saying.next_move
+
+    bare = run_module.stop_for(refusals.DELIVERY_REFUSAL, "gates_did_not_pass")
+    assert bare.next_move is None
+    assert "next_move" not in bare.as_json()
+    assert "Next:" not in bare.as_terminal()
+
+
+def test_the_engines_next_move_is_quoted_VERBATIM_and_never_composed_here():
+    """The engine composes the sharper sentence from the turn's own facts
+    (`WorkerDiagnosis.next_move`) and `wring run --json` carries it beside
+    the frozen diagnosis object. This package quotes it, byte for byte, and
+    falls back to the board's sentence only when the engine sent none."""
+    engine_said = (
+        "The credential this turn spent against — A_VENDOR_KEY — failed the "
+        "turn (exit 1), and it is overriding a stored login that reports "
+        "itself valid. Unset it, then: wringer-drive resume"
+    )
+    assert run_module._engine_next_move({"next_move": engine_said}) == engine_said
+    assert run_module._engine_next_move({"next_move": None}) is None
+    assert run_module._engine_next_move({"next_move": "   "}) is None
+    assert run_module._engine_next_move({}) is None
+
+
+def test_RUN_4B_the_drives_stop_step_names_the_key_and_the_resume_command(
+    tmp_path, monkeypatch
+):
+    """The taken path through the drive's own build step: a real `wring run
+    --json` against a codex fake in run 4B's shape (login probe says logged
+    in, the turn fails on the exported key), and the STOPPED step's text a
+    person reads ends in the variable to unset and the command to run."""
+    import os
+    import stat
+    import sys
+
+    pytest.importorskip("wringer.cli")
+    repo = tmp_path / "project"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+    for key, value in (
+        ("user.email", "pm@e.invalid"),
+        ("user.name", "PM"),
+        ("commit.gpgsign", "false"),
+    ):
+        subprocess.run(["git", "config", key, value], cwd=repo, check=True)
+    subprocess.run(
+        ["git", "commit", "-q", "--allow-empty", "-m", "initial"],
+        cwd=repo, check=True,
+    )
+    (repo / "calc.txt").write_text("BROKEN\n", encoding="utf-8")
+    (repo / "bin").mkdir()
+    fake = repo / "bin" / "codex"
+    fake.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        "if sys.argv[1:3] == ['login', 'status']:\n"
+        "    print('Logged in using ChatGPT')\n"
+        "    raise SystemExit(0)\n"
+        "print('ERROR: HTTP 401 invalid_api_key', file=sys.stderr)\n"
+        "raise SystemExit(1)\n",
+        encoding="utf-8",
+    )
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+    monkeypatch.setenv("PATH", f"{repo / 'bin'}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("CODEX_API_KEY", "sk-proj-deadkey")
+    (repo / ".wringer.yaml").write_text(
+        "version: 1\n"
+        "gates:\n"
+        "  - id: fixed\n"
+        '    run: "grep -q FIXED calc.txt"\n'
+        "run:\n"
+        "  worker: 'codex exec \"$(cat {brief})\"'\n"
+        "  worker_timeout: 30\n",
+        encoding="utf-8",
+    )
+
+    steps = run_module.build_steps(repo)
+
+    stopped = steps[-1]
+    assert stopped.kind == steps_module.STOPPED
+    assert stopped.id == "build:no_progress"
+    assert stopped.next_move is not None
+    assert "CODEX_API_KEY" in stopped.next_move
+    assert stopped.next_move.endswith("Unset it, then: wringer-drive resume")
+    shown = stopped.as_terminal()
+    assert "Next: The credential this turn spent against — CODEX_API_KEY" in shown
+    assert "sk-proj-deadkey" not in shown
+    # The board's own sentence for the ending is untouched beside it.
+    from wringer_board import refusals
+
+    assert stopped.text == refusals.say(refusals.LOOP_ENDING, "no_progress").sentence
