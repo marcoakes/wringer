@@ -2945,6 +2945,48 @@ def _shipped_handed_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path):
     return handed, clone
 
 
+def test_audit_delivery_LEAVES_a_worktree_the_clone_already_had_at_its_name(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. The audit's worktree name is derived from
+    the commit, and `fleet.make_worktree` force-removes whatever is at its
+    path: a registered worktree already there — a killed audit's, or a
+    second audit of the same delivery running in this clone right now — was
+    deleted with everything in it, under "your checkout is not touched".
+    Measured: four audits at once in one clone, three refused and any could
+    have removed the fourth's tree mid-check."""
+    from wringer import fleet
+
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    commit = json.loads(
+        (handed / deliver.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )["result"]["commit"]
+    theirs = clone / fleet.WORKTREES_DIRNAME / f"audit-{commit[:12]}"
+    theirs.parent.mkdir(parents=True)
+    subprocess.run(
+        ["git", "worktree", "add", "--detach", str(theirs), commit],
+        cwd=clone, check=True, capture_output=True,
+    )
+    (theirs / "mid-check.txt").write_text("in use", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+
+    assert code == cli.EXIT_OK, said.out + said.err
+    assert (theirs / "mid-check.txt").read_text(encoding="utf-8") == "in use", (
+        "the audit removed a worktree it did not create"
+    )
+    listing = git(clone, "worktree", "list", "--porcelain")
+    trees = [line for line in listing.splitlines() if line.startswith("worktree ")]
+    assert len(trees) == 2, listing
+    assert not [
+        p for p in theirs.parent.glob("audit-*") if p != theirs
+    ], "the audit left its own worktree behind"
+
+
 def test_audit_delivery_names_an_UNREADABLE_receipt_file_and_still_checks_the_rest(
     delivery_repo, monkeypatch, capsys, tmp_path
 ):

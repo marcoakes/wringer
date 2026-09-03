@@ -4702,7 +4702,18 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         for parent in (worktrees_dir, worktrees_dir.parent)
         if not parent.exists()
     ]
-    worktree = fleet.make_worktree(root, f"audit-{str(commit)[:12]}", ref=commit)
+    # **A worktree the clone already has at this name stays, whoever made
+    # it.** `fleet.make_worktree` force-removes whatever sits at its path —
+    # right for a fleet child reclaiming its own slot, wrong here: the name is
+    # derived from the commit, so a second audit of the same delivery in the
+    # same clone (a killed one's tree left registered; two running at once)
+    # found the first one's tree at that path and DELETED it, contents
+    # included, under the promise that the checkout is never touched. Bug
+    # review 0.7, 2026-09-02. A registered worktree in the way earns the
+    # next free name; a plain directory in the way is still git's refusal.
+    worktree = fleet.make_worktree(
+        root, _free_audit_slot(root, worktrees_dir, str(commit)[:12]), ref=commit
+    )
     if worktree is None:
         _tidy_empty(made_by_us)
         print(
@@ -4729,6 +4740,30 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         f"commit {str(commit)[:12]} of {root} (a read-only worktree, removed)",
         as_json,
     )
+
+
+def _free_audit_slot(root: Path, worktrees_dir: Path, sha12: str) -> str:
+    """`audit-<sha12>`, or the next `audit-<sha12>-N` not already a worktree.
+
+    Registered worktrees only: a plain directory squatting on the name is
+    left to git to refuse, exactly as before, so a refusal path that was
+    measured stays measurable.
+    """
+    from wringer import git
+
+    registered = {
+        Path(line[len("worktree "):]).resolve()
+        for line in (
+            git._git(["worktree", "list", "--porcelain"], cwd=root) or ""
+        ).splitlines()
+        if line.startswith("worktree ")
+    }
+    name = f"audit-{sha12}"
+    number = 1
+    while (worktrees_dir / name).resolve() in registered:
+        number += 1
+        name = f"audit-{sha12}-{number}"
+    return name
 
 
 def _tidy_empty(directories: list[Path]) -> None:
