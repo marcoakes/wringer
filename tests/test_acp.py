@@ -1440,6 +1440,38 @@ def test_the_JSON_front_door_carries_no_shape_of_a_key_the_agent_echoed(
     assert mentions(repo, secret[-4:]) == [], "the key's tail reached a file"
 
 
+def test_a_MASKED_KEY_in_a_PERMISSION_REQUEST_leaves_no_tail_in_the_ledger(
+    repo, monkeypatch, capsys
+):
+    """**Bug review 0.7, 2026-09-02 (display-and-redaction).** The review of
+    0.7.4 fixed `_handle`'s `session/update` site — `json.dumps` was
+    escaping the ellipsis of a vendor-masked key into `\\u2026` BEFORE the
+    redactor looked, so the measured shape stopped at the backslash and the
+    key's last four characters reached the log. The `session/request_permission`
+    site three branches down does the same `json.dumps`, with the default
+    `ensure_ascii`, and was not touched: a masked key in a tool call's title
+    reached `loop.jsonl` as `sk-\\u20268dd6`. Measured through the real
+    `wring run` with the fake agent asking permission for a tool it named
+    after the key."""
+    secret = "sk-proj-notarealcredential9f3e11c4a7028dd6"
+    monkeypatch.setenv("WRINGER_TEST_CREDENTIAL", secret)
+    setup(
+        repo,
+        "permissionleak",
+        env_passthrough="      env_passthrough: [WRINGER_TEST_CREDENTIAL]\n",
+    )
+    monkeypatch.chdir(repo)
+
+    cli.main(["run"])
+    capsys.readouterr()
+
+    granted = [e for e in events(repo) if e["type"] == "worker.permission"]
+    assert len(granted) == 1, "the premise: the permission request was recorded"
+    assert "write calc.py" in granted[0]["tool"]
+    assert secret[-4:] not in granted[0]["tool"], granted[0]["tool"]
+    assert mentions(repo, secret[-4:]) == [], "the key's tail reached a file"
+
+
 def test_a_failed_turn_keeps_what_the_agent_said_before_it_died(
     repo, monkeypatch, capsys
 ):
