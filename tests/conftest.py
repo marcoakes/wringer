@@ -246,3 +246,36 @@ def flat(text: str) -> str:
     its own tests.
     """
     return " ".join(text.split())
+
+
+# --- no test may ever launch a browser --------------------------------------
+#
+# 2026-09-03: an agent building P1.13 ("open the board at decision moments")
+# ran its tests against the real `webbrowser.open`, and Marc's browser opened
+# a window per test run — "a hundred windows". A browser launch is a human
+# act on a human's machine; a test that reaches one has escaped its fixture.
+# So the suite makes every launch a loud failure, session-wide, regardless of
+# which seam the product routes through.
+import webbrowser as _webbrowser
+
+
+def _no_browser(*args, **kwargs):
+    raise RuntimeError(
+        "a test tried to open a browser — route the opener through a seam the "
+        "test replaces (see wringer_drive.open_board); tests never launch one"
+    )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _tests_never_open_a_browser():
+    originals = {
+        name: getattr(_webbrowser, name)
+        for name in ("open", "open_new", "open_new_tab")
+    }
+    for name in originals:
+        setattr(_webbrowser, name, _no_browser)
+    try:
+        yield
+    finally:
+        for name, fn in originals.items():
+            setattr(_webbrowser, name, fn)
