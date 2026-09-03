@@ -2165,3 +2165,49 @@ def test_NO_TEST_FINDS_THIS_DIRECTORY_THROUGH_AN_INSTALLED_PACKAGE():
         "wheel — use `core_helpers.repo_root()`, which is derived from the "
         "test file and is therefore always the checkout being tested"
     )
+
+
+# --- wringer.choices.v1 -----------------------------------------------------
+#
+# SOURCE, not evidence, like the gate sidecar: offered answers beside the open
+# questions (0.8.4, P1.11), written by `wring spec --send` or by hand. Its own
+# file because `wringer.spec.v1` is frozen and its question items are closed.
+
+
+def test_a_rendered_CHOICES_file_matches_its_schema():
+    """The real file the real renderer writes, against the published schema —
+    and the schema refuses what the loader refuses: a `text` that is a bare
+    number, a single option, a fifth one."""
+    import yaml
+
+    from wringer import spec as spec_module
+
+    offered = {
+        "date-format": (
+            spec_module.Choice(
+                text="ISO dates, like 2026-09-03",
+                consequence="Spreadsheets sort them correctly.",
+                example="2026-09-03",
+            ),
+            spec_module.Choice(
+                text="yes: the format on screen",
+                consequence="Matches the page, sorts as text.",
+                example="3 Sep 2026",
+            ),
+        )
+    }
+    text = spec_module.render_choices(offered)
+    document = yaml.safe_load(text)
+    second = document["choices"]["date-format"][1]["text"]
+    assert second == "yes: the format on screen", "a scalar did not survive the YAML"
+    check(document, load("choices.schema.json"), spec_module.CHOICES_FILENAME)
+    built = validators()["choices.schema.json"]
+    errors = [f"{e.json_path} {e.message}" for e in built.iter_errors(document)]
+    assert not errors, "\n".join(errors)
+
+    numbered = yaml.safe_load(text)
+    numbered["choices"]["date-format"][0]["text"] = "2"
+    assert list(built.iter_errors(numbered)), "the schema accepted a bare-number text"
+    alone = yaml.safe_load(text)
+    alone["choices"]["date-format"] = alone["choices"]["date-format"][:1]
+    assert list(built.iter_errors(alone)), "the schema accepted a single option"

@@ -3354,7 +3354,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
             # Recovery, not consent: the documents being replaced are kept
             # beside the request that replaced them.
             for name in (
-                spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME
+                spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME,
+                spec.CHOICES_FILENAME,
             ):
                 source = root / name
                 if source.is_file():
@@ -3456,6 +3457,37 @@ def cmd_spec(args: argparse.Namespace) -> int:
                         "replaced. Approving the plan approves them.",
                         file=sys.stderr,
                     )
+        # **The offered answers, on the decisions pattern in every respect**
+        # (0.8.4, P1.11): a generated file may never outlive the questions it
+        # offers answers to, a hand-written one is a person's own, and an
+        # empty file is never written — absence is absence.
+        offers = root / spec.CHOICES_FILENAME
+        if (
+            previous is not None
+            and not draft.choices
+            and offers.is_file()
+            and spec.choices_is_generated(offers)
+        ):
+            offers.unlink()
+            print(
+                f"wring spec: this draft offered no choices, so the previous "
+                f"{spec.CHOICES_FILENAME} was removed rather than left offering "
+                "answers to questions that no longer exist.",
+                file=sys.stderr,
+            )
+        if draft.choices:
+            if offers.is_file() and not spec.choices_is_generated(offers):
+                print(
+                    f"wring spec: {spec.CHOICES_FILENAME} was written by "
+                    "hand, so it was left alone — the drafted choices are in "
+                    f"{_relative(bundle.directory, root)}/"
+                    f"{spec.RESPONSE_FILENAME} if you want them.",
+                    file=sys.stderr,
+                )
+            else:
+                offers.write_text(
+                    spec.render_choices(draft.choices), encoding="utf-8"
+                )
 
     if args.send and args.witness and drafted is not None:
         # The return value is deliberately dropped: `_author_witnesses` stores
@@ -3641,6 +3673,13 @@ def _report_spec(
         )
     print("\n  approved: false   ← nothing runs until you change this by hand")
     print(f"\nNext:\n  read {spec.SPEC_FILENAME}, answer its open questions,")
+    if (root / spec.CHOICES_FILENAME).is_file():
+        # Said only when the file is there: a draft that offered nothing
+        # prints exactly what it printed before choices existed.
+        print(
+            f"  ({spec.CHOICES_FILENAME} offers ways to answer some of them — "
+            "pick one, or write your own)"
+        )
     print("  set 'approved: true', then run: wring plan")
     print(f"\nDraft evidence: {_relative(bundle.directory, root)}/")
 

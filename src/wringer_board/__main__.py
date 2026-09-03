@@ -202,8 +202,14 @@ def _interview(args) -> int:
             )
             return 0
         if args.command == "answer":
-            path = interview.answer(repo, args.id, args.text)
+            # Resolved here too, only so the print can say what was recorded
+            # when a number was typed: `answer` resolves on its own, and a
+            # resolved text resolves to itself.
+            recorded = interview.resolve_answer(repo, args.id, args.text)
+            path = interview.answer(repo, args.id, recorded)
             print(f"wringer-board: answered {args.id!r} in {path.name}")
+            if recorded != args.text:
+                print(f"wringer-board: recorded, in the choice's own words: {recorded}")
             still = interview.unanswered(repo)
             if still:
                 names = ", ".join(q.id for q in still)
