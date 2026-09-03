@@ -215,6 +215,9 @@ class Board:
     # staleness — silence, never a verdict.
     staleness_moved: tuple[str, ...] | None = None
     loop_dir: Path | None = None
+    # **0.8.7 (P1.14).** The journey whose phases cite `run_dir` — an exact
+    # join, `journey_for_run` — or None, and the page then names none.
+    journey_id: str | None = None
     acceptance_version: str | None = None
     criteria: list[Criterion] = field(default_factory=list)
     limits: list[str] = field(default_factory=list)
@@ -387,6 +390,50 @@ def loop_for_run(repo: Path, run_dir: Path) -> Path | None:
             named = str(event.get("evidence_dir") or "")
             if named and Path(named).name == wanted:
                 return candidate
+    return None
+
+
+#: The drive's journey record (0.8.7, P1.14): `.wringer/journeys/<id>/journey.json`,
+#: `wringer.journey.v1`. Read here by shape, never through the drive — the
+#: board imports neither package's internals, and the join below is the
+#: same EXACT join `loop_for_run` makes, one level up.
+JOURNEYS_DIRNAME = Path(".wringer") / "journeys"
+JOURNEY_FILENAME = "journey.json"
+JOURNEY_SCHEMA_VERSION = "wringer.journey.v1"
+
+
+def journey_for_run(repo: Path, run_dir: Path) -> str | None:
+    """The journey whose phases cite this run, or None.
+
+    An EXACT join on a phase's `id` — the run's directory name, as the drive
+    recorded it off the engine's own `evidence_dir`. Runs 4 and 4B,
+    2026-09-01: the page named a run id and nothing said which afternoon's
+    work it belonged to. None when no journey cites it, and the page then
+    says nothing about a journey rather than naming the newest one: a
+    journey this run is not part of is not this run's journey.
+    """
+    root = repo / JOURNEYS_DIRNAME
+    if not root.is_dir():
+        return None
+    wanted = run_dir.name
+    for candidate in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
+        try:
+            record = json.loads(
+                (candidate / JOURNEY_FILENAME).read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            continue
+        if not isinstance(record, dict):
+            continue
+        if record.get("schema_version") != JOURNEY_SCHEMA_VERSION:
+            continue
+        phases = record.get("phases")
+        if not isinstance(phases, list):
+            continue
+        for phase in phases:
+            if isinstance(phase, dict) and phase.get("id") == wanted:
+                named = record.get("journey_id")
+                return named if isinstance(named, str) and named else None
     return None
 
 
@@ -810,6 +857,7 @@ def read(
             "repository, so there is nothing this board can honestly show."
         )
         return board
+    board.journey_id = journey_for_run(repo, board.run_dir)
 
     # **The engine computes it; the board renders it.** One import, one call,
     # no second implementation of the comparison — the same argument that puts

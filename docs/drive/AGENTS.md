@@ -389,6 +389,20 @@ and not its first line. Then:
   wringer-drive resume --emit json
   ```
 
+- **One journey id joins every id a run prints** (0.8.7). Each time a phase
+  is entered the stream carries one `show` step with id `journey` and text
+  `journey <id> · <phase>`, and `detail` holds `journey` and `phase`; relay
+  the text verbatim like any `show`. The drive writes the join itself, under
+  the project's `.wringer` directory (`journeys/<id>/journey.json`,
+  `wringer.journey.v1`): which spec bundle, loop, verification run and
+  delivery belong to which phase of this one run. Every existing id keeps
+  its name and place; `wring explain` on that directory walks the phases,
+  the board names the journey beside the run it renders, and `resume`
+  continues the journey the run stopped in rather than opening a second
+  one. It exists because on 2026-09-01 an operator saw a spec id, a loop id,
+  a run id and a delivery id on four surfaces with nothing saying they were
+  one afternoon's work.
+
 - **The first run in a fresh project asks three setup questions**, and each
   offers its documented example values in the question text. For the record,
   those values are:

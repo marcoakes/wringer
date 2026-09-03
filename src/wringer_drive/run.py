@@ -129,6 +129,11 @@ class Session:
 
     repo: Path
     steps: list[Step] = field(default_factory=list)
+    # The journey this run belongs to (0.8.7, P1.14) — allocated by the
+    # front door (`run` begins one, `resume` continues the one its
+    # checkpoint names) and quoted by every phase header. None only before a
+    # front door has set it.
+    journey_id: str | None = None
 
     def emit(self, step: Step) -> Step:
         self.steps.append(step)
@@ -693,8 +698,13 @@ def _show_worker_auth(session: object, announce: object, found: object) -> None:
 
 def draft_the_spec(
     session: Session, repo: Path, prd: Path, announce: object = None
-) -> None:
+) -> str | None:
     """`wring spec --send`, and the cost is said BEFORE the call.
+
+    Returns the engine's own id for the spec bundle it wrote
+    (`.wringer/specs/<id>`, read off `--json`'s `spec_dir`), or None when a
+    spec was reused or the engine named none — so the journey (0.8.7) can
+    cite the drafting the way it cites the loop and the delivery.
 
     Ruling 2a: step 3's `--send` is authorised by the operator having run the
     verb and been told a paid call is about to happen. That sentence is here,
@@ -739,7 +749,7 @@ def draft_the_spec(
         reused = session.emit(Step(kind=SHOW, id="spec-reused", text=said))
         if announce is not None:
             announce(reused)
-        return
+        return None
     drafting = session.emit(
         Step(
             kind=SHOW,
@@ -761,6 +771,11 @@ def draft_the_spec(
         raise Stop(
             stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
         )
+    try:
+        named = json.loads(done.stdout or "").get("spec_dir")
+    except (ValueError, AttributeError):
+        return None
+    return named.rstrip("/").rsplit("/", 1)[-1] if isinstance(named, str) else None
 
 
 # --- step 4: the interview --------------------------------------------------
@@ -1111,6 +1126,24 @@ def checkpoint_phase(repo: Path, phase: str) -> None:
     if phase not in PHASES:
         raise ValueError(f"unknown phase {phase!r}; one of {PHASES}")
     _write_resume(repo, phase=phase, last_question=None)
+
+
+def checkpoint_journey(repo: Path, journey_id: str) -> None:
+    """Record which journey (0.8.7, P1.14) this run belongs to, so a
+    `resume` continues it rather than starting a second one for the same
+    piece of work. Runs 4/4B, 2026-09-01: the operator saw four unrelated
+    ids for one afternoon's work; a resume that opened a fifth would be
+    the same defect one level up. The record is not a published schema
+    (`wringer.driveresume.v1` lives only here) and `read_resume` ignores a
+    key it does not know, so a record written before this key is read
+    exactly as before."""
+    _write_resume(repo, journey=str(journey_id))
+
+
+def recorded_journey(repo: Path) -> str | None:
+    """The journey the record names, or None."""
+    found = read_resume(repo).get("journey")
+    return found if isinstance(found, str) and found else None
 
 
 def stopped_where(phase: str | None, last_question: str | None) -> str | None:
@@ -2009,6 +2042,14 @@ def build_steps(repo: Path) -> list[Step]:
                 # The engine's own status, so the orchestrator advances the
                 # resume record on CONVERGED and on nothing else (P0.2).
                 "status": outcome.get("status"),
+                # The loop's final verification run, as the engine named it
+                # (`final.evidence_dir`), so the journey (0.8.7) can cite
+                # the run id the board joins on. None when the loop ended
+                # before a run was recorded.
+                "run": (outcome.get("final") or {}).get("evidence_dir"),
+                # And that run's own status, the engine's word, for the
+                # journey's `verify` entry to quote.
+                "run_status": (outcome.get("final") or {}).get("status"),
             },
         ),
     ]

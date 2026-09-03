@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from pathlib import Path
 
 from core_helpers import flat
@@ -189,3 +191,100 @@ def test_explain_of_a_corrupt_bundle_is_a_config_error(
 
     assert cli.main(["explain"]) == cli.EXIT_CONFIG
     assert "not valid JSON" in capsys.readouterr().err
+
+
+# --- a JOURNEY directory (0.8.7, P1.14) --------------------------------------
+#
+# Runs 4 and 4B, 2026-09-01: the operator saw a spec id, a loop id, a run id
+# and a delivery id for one afternoon's work, and no verb could read back
+# which belonged together. `wring explain <journey dir>` walks the drive's
+# record, told apart by its own file and its own schema version — the way
+# 0.7.1 taught `explain` loop directories, by the record and never the path.
+
+
+def write_journey(repo: Path, journey_id: str, *, version: str = "wringer.journey.v1"):
+    directory = repo / ".wringer" / "journeys" / journey_id
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "journey.json").write_text(
+        json.dumps(
+            {
+                "schema_version": version,
+                "journey_id": journey_id,
+                "started_at": "2026-09-01T10:00:00.000+01:00",
+                "phases": [
+                    {
+                        "phase": "draft", "kind": "draft",
+                        "id": "20260901-100001-5pec",
+                        "started_at": "2026-09-01T10:00:01.000+01:00",
+                        "ended_at": "2026-09-01T10:00:09.000+01:00",
+                        "outcome": "drafting",
+                    },
+                    {
+                        "phase": "build", "kind": "build",
+                        "id": "20260901-100100-100p",
+                        "started_at": "2026-09-01T10:01:00.000+01:00",
+                        "ended_at": "2026-09-01T10:05:00.000+01:00",
+                        "outcome": "converged",
+                    },
+                    {
+                        "phase": "verify", "kind": "verify",
+                        "id": "20260901-100400-4run",
+                        "started_at": "2026-09-01T10:05:00.000+01:00",
+                        "ended_at": "2026-09-01T10:05:00.000+01:00",
+                        "outcome": "passed",
+                    },
+                    {
+                        "phase": "deliver", "kind": "deliver", "id": None,
+                        "started_at": "2026-09-01T10:05:01.000+01:00",
+                        "ended_at": None,
+                        "outcome": None,
+                    },
+                ],
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    return directory
+
+
+def test_explain_WALKS_a_journey_directory_quoting_each_phase(
+    repo, monkeypatch, capsys
+):
+    directory = write_journey(repo, "20260901-095959-j0ur")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["explain", str(directory)]) == cli.EXIT_OK
+    raw = capsys.readouterr().out
+    out = flat(raw)
+
+    assert "Journey 20260901-095959-j0ur" in out
+    # ONE ROW per phase: phase, the bundle it cites, the outcome — asserted
+    # as the row, not as three words somewhere in the page. Red-watched
+    # 2026-09-03: `"open" in out` stayed green with the outcome column
+    # mutated to "completed", because the timestamps line says `-> open`.
+    for phase, cited, outcome in (
+        ("draft", "draft 20260901-100001-5pec", "drafting"),
+        ("build", "build 20260901-100100-100p", "converged"),
+        ("verify", "verify 20260901-100400-4run", "passed"),
+        # The open phase is OPEN — not completed, not guessed at.
+        ("deliver", "no bundle", "open"),
+    ):
+        assert re.search(rf"^  {phase}\s+{re.escape(cited)}\s+{outcome}$", raw, re.M), (
+            phase, raw
+        )
+    assert "completed" not in raw, raw
+    assert ".wringer/journeys/20260901-095959-j0ur/journey.json" in out
+
+
+def test_explain_of_a_journey_this_version_cannot_read_is_a_config_error(
+    repo, monkeypatch, capsys
+):
+    directory = write_journey(
+        repo, "20260901-095959-j0ur", version="wringer.journey.v9"
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["explain", str(directory)]) == cli.EXIT_CONFIG
+    err = flat(capsys.readouterr().err)
+    assert "journey.json" in err and "wringer.journey.v1" in err, err

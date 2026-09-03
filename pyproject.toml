@@ -115,6 +115,10 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # the REAL delivery, spec and drive fixtures other modules already build,
 # imported by name rather than copied.
 "tests/journey/*.py" = ["F811"]
+# Same again for the journey record (0.8.7): its tests drive the REAL
+# converged and failed-turn fixtures `test_drive_docs` and
+# `test_drive_resume_verb` already build, imported by name.
+"tests/drive/test_drive_journey.py" = ["F811"]
 
 # **E501 on the merged board source is DATED DEBT, stated rather than hidden.**
 #
