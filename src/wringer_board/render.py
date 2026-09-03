@@ -482,9 +482,23 @@ def _headline_html(board: Board, cards: list[Card]) -> str:
     return "\n".join(parts)
 
 
+def card_anchor(criterion_id: str) -> str:
+    """The one place a card's page anchor is spelled (0.8.6, P1.13).
+
+    `board.html#card-<criterion id>` is how a terminal step points a person
+    at ONE card, and the drive quotes this rather than composing its own —
+    two spellings of one anchor would be a link that opens the page at the
+    top and a sentence claiming it opened on the card. Runs 4 and 4B
+    (2026-09-01): the PM judged on a manual display and never saw which
+    card the handover was held on.
+    """
+    return f"card-{criterion_id}"
+
+
 def _card_html(card: Card) -> str:
     klass = _STATE_CLASS.get(card.state, "unknown")
-    parts = [f'<div class="card {klass}">']
+    anchor = html.escape(card_anchor(card.id), quote=True)
+    parts = [f'<div class="card {klass}" id="{anchor}">']
     parts.append(
         f'<h2><span class="state">{_esc(card.state)}</span>{_esc(card.title or card.id)}</h2>'
     )
