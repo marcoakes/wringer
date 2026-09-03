@@ -360,8 +360,9 @@ and not its first line. Then:
   anchor (`card-<id>`, or empty for the top). Point the person at exactly
   that — `file://<detail.board>#<detail.section>`. In json mode the drive
   never opens a browser itself: you are driving, and a window is not a step
-  you can relay. At a terminal the drive opens the page there by default;
-  `--no-open` keeps a person in the terminal.
+  you can relay. At a terminal — a person at both stdin and stdout — the
+  drive opens the page there by default; a piped or captured stdout never
+  opens it, and `--no-open` keeps a person in the terminal.
 
 - **The second yes is the DRIVE's, and only the drive's** (ruled 2026-09-01,
   run 4B). The drive renders the board and asks the informed second yes

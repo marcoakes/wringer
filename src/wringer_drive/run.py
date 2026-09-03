@@ -2245,7 +2245,13 @@ def board_step(board_path: Path, review: tuple[str, str] | None = None) -> Step:
     )
 
 
-def open_board(board_path: Path, section: str = "") -> None:
+def open_board(
+    board_path: Path,
+    section: str = "",
+    *,
+    mode: str = "text",
+    wanted: bool = True,
+) -> None:
     """THE ONE SEAM to the OS opener (0.8.6, P1.13) — a test replaces this.
 
     **Runs 4 and 4B, 2026-09-01:** the PM read "green" as "everything
@@ -2256,11 +2262,27 @@ def open_board(board_path: Path, section: str = "") -> None:
     agent is driving, and a browser window is not a step it can relay.
     `--no-open` keeps a person in the terminal.
 
+    **The gate lives HERE, where no caller can go around it (incident
+    2026-09-03).** An earlier build of this item gated only at the call site
+    and ran the suite against the real opener: every text-mode test that
+    reached the pen opened a window on the operator's machine — "a hundred
+    windows". A browser is a human act on a human's machine, so the stdlib
+    is reached only when a person is demonstrably at BOTH ends of the
+    conversation — `sys.stdout` AND `sys.stdin` are terminals — and the mode
+    is text, and `--no-open` is absent. A captured stdout (pytest, CI, a
+    pipe, an agent relaying steps) never opens anything, whatever a caller
+    asked for.
+
     The stdlib opener returns a boolean nobody can check against a screen,
     so no step CLAIMS the page opened: the step names the path and the
     section, and this is best-effort after it. A failure here changes
     nothing about the run.
     """
+    if mode != "text" or not wanted:
+        return
+    if not (sys.stdout.isatty() and sys.stdin.isatty()):
+        return
+
     import webbrowser
 
     target = board_path.resolve().as_uri() + (f"#{section}" if section else "")

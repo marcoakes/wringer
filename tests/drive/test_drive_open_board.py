@@ -113,9 +113,15 @@ TO_THE_HANDOVER = TO_THE_PEN + "yes\n"
 def opener_recorder(monkeypatch) -> list[tuple[Path, str]]:
     """Replace THE seam and record every call — the guard the plan names."""
     calls: list[tuple[Path, str]] = []
-    monkeypatch.setattr(
-        run_module, "open_board", lambda path, section="": calls.append((path, section))
-    )
+
+    def record(path, section="", *, mode="text", wanted=True):
+        # The call site only calls the seam in text mode with the page wanted;
+        # the seam re-checks both. Recording them keeps a call site that
+        # forgot its own gate visible here as well.
+        assert mode == "text" and wanted, (mode, wanted)
+        calls.append((path, section))
+
+    monkeypatch.setattr(run_module, "open_board", record)
     return calls
 
 
@@ -333,13 +339,45 @@ def test_the_resume_verb_carries_the_flag_to_the_same_sequence(
 
 
 # --- the seam itself ------------------------------------------------------------
+#
+# Every test below replaces the STDLIB (`webbrowser.open`) with a recorder, so
+# the seam's own body is what runs. `tests/conftest.py` already makes the real
+# stdlib raise for the whole session; a per-test recorder sits in front of it.
 
 
-def test_open_board_hands_the_stdlib_a_FILE_URI_with_the_anchor(tmp_path, monkeypatch):
+class _Terminal:
+    """A stream that answers `isatty()` with True and defers everything else.
+
+    pytest's captured stdout and the suite's `io.StringIO` stdin are NOT
+    terminals — which is the whole point of the gate — so a test that wants
+    to see the seam reach the stdlib has to stand a person at both ends."""
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def isatty(self) -> bool:
+        return True
+
+    def __getattr__(self, name):
+        return getattr(self._inner, name)
+
+
+def terminal(monkeypatch) -> None:
+    monkeypatch.setattr(sys, "stdout", _Terminal(sys.stdout))
+    monkeypatch.setattr(sys, "stdin", _Terminal(sys.stdin))
+
+
+def stdlib_recorder(monkeypatch) -> list[str]:
     import webbrowser
 
     opened: list[str] = []
     monkeypatch.setattr(webbrowser, "open", lambda url, *a, **k: opened.append(url))
+    return opened
+
+
+def test_open_board_hands_the_stdlib_a_FILE_URI_with_the_anchor(tmp_path, monkeypatch):
+    opened = stdlib_recorder(monkeypatch)
+    terminal(monkeypatch)
     page = tmp_path / "board.html"
     page.write_text("<p>x</p>", encoding="utf-8")
 
@@ -359,9 +397,93 @@ def test_an_opener_that_fails_changes_NOTHING_about_the_run(tmp_path, monkeypatc
         raise webbrowser.Error("no browser on this machine")
 
     monkeypatch.setattr(webbrowser, "open", refuse)
+    terminal(monkeypatch)
     page = tmp_path / "board.html"
     page.write_text("<p>x</p>", encoding="utf-8")
     assert run_module.open_board(page, "card-x") is None
+
+
+# --- the gate INSIDE the seam (incident 2026-09-03) ----------------------------
+#
+# An earlier build of this item gated only at the call site and ran the suite
+# against the real opener: every text-mode test that reached the pen opened a
+# window on the operator's machine. So the seam itself refuses unless a person
+# is at BOTH ends — `sys.stdout` and `sys.stdin` are terminals — and the mode
+# is text, and `--no-open` is absent. These call the seam DIRECTLY, going
+# around `_show_board`'s own gate, and watch the stdlib.
+
+
+def test_A_CAPTURED_STDOUT_NEVER_REACHES_THE_STDLIB_OPENER(tmp_path, monkeypatch):
+    """pytest's stdout is not a terminal, and nothing is faked here: this is
+    the suite's own condition, and CI's, and a pipe's, and an agent's."""
+    opened = stdlib_recorder(monkeypatch)
+    assert not sys.stdout.isatty(), "this test only means something under capture"
+    page = tmp_path / "board.html"
+    page.write_text("<p>x</p>", encoding="utf-8")
+
+    run_module.open_board(page, "card-reads-at-a-glance")
+    run_module.open_board(page, "")
+    assert opened == [], f"a captured stdout reached the stdlib opener: {opened}"
+
+
+def test_a_terminal_at_ONE_end_only_is_not_a_person(tmp_path, monkeypatch):
+    """stdout a terminal but stdin piped (`yes | wringer-drive run`), and the
+    reverse (`wringer-drive run | tee`): neither opens anything."""
+    opened = stdlib_recorder(monkeypatch)
+    page = tmp_path / "board.html"
+    page.write_text("<p>x</p>", encoding="utf-8")
+
+    monkeypatch.setattr(sys, "stdout", _Terminal(sys.stdout))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    run_module.open_board(page, "card-x")
+    assert opened == [], f"stdout-only terminal opened: {opened}"
+
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    monkeypatch.setattr(sys, "stdin", _Terminal(sys.__stdin__))
+    run_module.open_board(page, "card-x")
+    assert opened == [], f"stdin-only terminal opened: {opened}"
+
+
+def test_the_seam_itself_refuses_JSON_MODE_even_at_a_terminal(tmp_path, monkeypatch):
+    opened = stdlib_recorder(monkeypatch)
+    terminal(monkeypatch)
+    page = tmp_path / "board.html"
+    page.write_text("<p>x</p>", encoding="utf-8")
+
+    run_module.open_board(page, "card-x", mode="json")
+    assert opened == [], f"json mode reached the stdlib through the seam: {opened}"
+    run_module.open_board(page, "card-x", mode="text")
+    assert len(opened) == 1, "the same terminal, text mode: the gate is the mode"
+
+
+def test_the_seam_itself_refuses_NO_OPEN_even_at_a_terminal(tmp_path, monkeypatch):
+    opened = stdlib_recorder(monkeypatch)
+    terminal(monkeypatch)
+    page = tmp_path / "board.html"
+    page.write_text("<p>x</p>", encoding="utf-8")
+
+    run_module.open_board(page, "card-x", wanted=False)
+    assert opened == [], f"--no-open reached the stdlib through the seam: {opened}"
+    run_module.open_board(page, "card-x", wanted=True)
+    assert len(opened) == 1, "the same terminal, wanted: the gate is the flag"
+
+
+def test_THE_INCIDENT_a_text_mode_run_under_capture_reaches_no_browser(
+    project, tmp_path, capsys, monkeypatch
+):
+    """The seam is NOT replaced here — the real `open_board` runs inside the
+    real drive, in text mode, to the pen, exactly as the earlier build's tests
+    did on 2026-09-03. Only the stdlib is watched. Under capture the drive
+    must open nothing; a window per test run is the defect."""
+    opened = stdlib_recorder(monkeypatch)
+    code, steps = drive(
+        ["run", str(prd(tmp_path)), "--repo", str(project)], TO_THE_PEN, monkeypatch
+    )
+    capsys.readouterr()
+
+    assert code != 0
+    assert board_steps(steps), "the run never reached the board step"
+    assert opened == [], f"a captured run opened a browser: {opened}"
 
 
 def test_the_opener_is_named_in_EXACTLY_ONE_place_across_the_shipped_tree():

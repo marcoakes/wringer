@@ -522,13 +522,24 @@ def _show_board(
     `run_module.open_board`. Never in json mode: an agent is driving, a
     browser window is not a step it can relay, and the step's
     `detail.section` carries the same anchor for it to use.
+
+    Two gates, deliberately: this call site does not call the seam in json
+    mode or under `--no-open` (the plan's guard — json mode never calls it),
+    and the seam itself re-checks both AND that a person is at a terminal
+    (incident 2026-09-03), so a caller that forgets this line still opens
+    nothing on a captured stdout.
     """
     repo = session.repo
     step = run_module.board_step(run_module.render_board(repo), review)
     session.emit(step)
     _render([step], mode)
     if mode == "text" and open_pages:
-        run_module.open_board(Path(step.detail["board"]), step.detail["section"])
+        run_module.open_board(
+            Path(step.detail["board"]),
+            step.detail["section"],
+            mode=mode,
+            wanted=open_pages,
+        )
 
 
 def _drive(
