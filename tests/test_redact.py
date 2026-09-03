@@ -187,6 +187,33 @@ def test_a_fragment_SHORTER_than_six_is_a_word_and_SURVIVES():
     assert redact.FRAGMENT_MIN_LENGTH == redact.MIN_SECRET_LENGTH == 6
 
 
+def test_a_NON_ASCII_EDGED_secret_does_not_scrub_every_escaped_letter():
+    """**Bug review 0.7, 2026-09-02 (display-and-redaction).** D8 added the
+    JSON-encoded form of every value as a second whole value, and 0.7.4's
+    third tier then took six-character fragments of EVERY value in the set
+    — including the encoded one. A secret that begins or ends with a
+    non-ASCII character encodes that character as `\\u00e9`: six characters
+    exactly, one letter. So declaring `éclair-secret-9` scrubbed every
+    JSON-escaped `é` in every log — `"caf\\u00e9"` came back
+    `"caf[REDACTED]"` — and the redactor destroyed the evidence it exists
+    to protect. Measured on `Redactor.from_config`, the object every write
+    path builds."""
+    import json as json_module
+
+    redactor = redact.Redactor.from_config({}, {"MY_TOKEN": "éclair-secret-9"})
+    prose = json_module.dumps({"note": "café résumé", "raw": "café"})
+
+    assert redactor.scrub(prose) == prose
+    # The whole value, raw and encoded, still goes — D8 stands.
+    assert redactor.scrub(json_module.dumps({"k": "éclair-secret-9"})) == (
+        '{"k": "[REDACTED]"}'
+    )
+    assert redactor.scrub("raw éclair-secret-9 here") == "raw [REDACTED] here"
+    # ...and the same at the tail end.
+    redactor = redact.Redactor.from_config({}, {"MY_TOKEN": "secret-9-café"})
+    assert redactor.scrub(prose) == prose
+
+
 def test_a_value_TOO_SHORT_to_be_a_secret_yields_NO_fragment_rule():
     """Five characters is below the floor, so there is nothing to take a
     prefix of — scrubbing `abcd` because `abcde` was declared would be the
