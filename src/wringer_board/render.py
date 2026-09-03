@@ -905,6 +905,18 @@ def render(board: Board) -> str:
                 f"this page renders run <code>{_esc(board.run_dir.name)}</code> — "
                 "the newest record in the repository"
             )
+    # **The journey that run belongs to (0.8.7, P1.14)** — named only when
+    # a journey's own phases cite THIS run, the exact join `read.journey_for_run`
+    # makes. Runs 4 and 4B, 2026-09-01: a spec id, a loop id, a run id and a
+    # delivery id on four surfaces, and nothing joining them. Beside the run
+    # id because it is the same kind of string, and the newest journey in
+    # the repository is never named in its place.
+    if board.run_dir is not None and board.journey_id:
+        technical.append(
+            f"journey <code>{_esc(board.journey_id)}</code> — the drive run "
+            "whose record cites this run (<code>.wringer/journeys/"
+            f"{_esc(board.journey_id)}/journey.json</code>)"
+        )
     # **A guess about a gate NO REQUIREMENT OWNS.** Found by probing the
     # board's new card against the field case it was written for: in run 2's
     # example the gate that printed `ruff: command not found` was `lint`, and
