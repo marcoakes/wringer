@@ -4643,6 +4643,18 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
             file=sys.stderr,
         )
         return EXIT_CONFIG
+    # **The manifest is the one input this command trusts before any claim
+    # runs** — it names the tree every claim is then checked against — and
+    # the delivery's own `digests.json` was written LAST to cover exactly
+    # that file. Bug review 0.7, 2026-09-02: with `result.commit` edited to
+    # any commit the clone has, the audit stood a worktree on the wrong tree
+    # and printed ✓, digests unread. Absent is absent (a delivery from before
+    # digests, or one whose sibling did not travel, is checked as before);
+    # present and disagreeing is a refusal naming the file.
+    altered = _manifest_altered(delivery, manifest_path)
+    if altered:
+        print(f"wring audit: {altered}", file=sys.stderr)
+        return EXIT_CONFIG
     if not certificate.is_certificate(named):
         print(
             f"wring audit: {delivery} carries no "
@@ -4740,6 +4752,51 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         f"commit {str(commit)[:12]} of {root} (a read-only worktree, removed)",
         as_json,
     )
+
+
+def _manifest_altered(delivery: Path, manifest_path: Path) -> str | None:
+    """Why the manifest cannot be trusted, or None when it can.
+
+    Only the manifest's own row: `wring audit` on a delivery directory
+    answers the certificate's question by its claims, deliberately, and this
+    does not widen that into a whole-directory digest check — an auditor who
+    drops a note beside the files is not tampering. The manifest is different
+    because nothing downstream checks it: it chooses the tree.
+    """
+    from wringer import evidence
+
+    record = delivery / evidence.DIGESTS_FILENAME
+    if not record.is_file():
+        return None
+    try:
+        recorded = json.loads(record.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeDecodeError) as exc:
+        return (
+            f"{record} could not be read ({exc}), so the manifest that names "
+            "the delivered commit cannot be checked against it"
+        )
+    rows = recorded.get("files") if isinstance(recorded, dict) else None
+    row = rows.get(manifest_path.name) if isinstance(rows, dict) else None
+    if isinstance(row, dict):
+        row = row.get("sha256")
+    if row is None:
+        return (
+            f"{delivery}'s {evidence.DIGESTS_FILENAME} does not record its "
+            f"{manifest_path.name}, so the delivered commit it names cannot "
+            "be trusted"
+        )
+    try:
+        actual = evidence.entry_digest(manifest_path)
+    except OSError as exc:
+        return f"{manifest_path} could not be read ({exc})"
+    if actual != row:
+        return (
+            f"{manifest_path.name} in {delivery} does not match the digest "
+            "this delivery recorded for it — the manifest was altered after "
+            "the delivery was written, so the commit it names is not the "
+            "delivered one"
+        )
+    return None
 
 
 def _free_audit_slot(root: Path, worktrees_dir: Path, sha12: str) -> str:

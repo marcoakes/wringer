@@ -2945,6 +2945,36 @@ def _shipped_handed_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path):
     return handed, clone
 
 
+def test_audit_delivery_REFUSES_a_manifest_that_DISAGREES_with_its_own_digests(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. `--delivery` read `manifest.json` for the
+    delivered commit and never looked at the `digests.json` written last to
+    cover it — so `result.commit` edited to any commit the clone has (here:
+    the origin's `main`) stood the worktree on the wrong tree and the page
+    came back ✓, "checked against commit <not the delivery>"."""
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    manifest_path = handed / deliver.MANIFEST_FILENAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    elsewhere = git(clone, "rev-parse", "origin/main")
+    assert elsewhere != manifest["result"]["commit"]
+    manifest["result"]["commit"] = elsewhere
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG, said.out + said.err
+    assert said.out == "", said.out
+    assert "manifest.json" in said.err and "altered" in said.err, said.err
+    assert "Traceback" not in said.err
+    assert git(clone, "branch", "--show-current") == "main"
+    assert not (clone / ".wringer").exists()
+
+
 def test_audit_delivery_LEAVES_a_worktree_the_clone_already_had_at_its_name(
     delivery_repo, monkeypatch, capsys, tmp_path
 ):
