@@ -241,12 +241,27 @@ def shown(repo: Path, criterion_id: str) -> ShowResult:
     from datetime import UTC, datetime
 
     now = datetime.now(UTC).replace(microsecond=0).isoformat()
-    try:
-        from wringer import config as config_module
+    from wringer import config as config_module
 
-        cfg = config_module.load(repo / config_module.CONFIG_FILENAME)
-    except Exception:  # a repo with no config shows nothing, and says so
+    settings = repo / config_module.CONFIG_FILENAME
+    if not settings.is_file():  # a repo with no config shows nothing, and says so
         return ShowResult(state=MISSING, at=now)
+    try:
+        cfg = config_module.load(settings)
+    except Exception as exc:
+        # **Unreadable is not undeclared** (bug review 0.7, 2026-09-02). A
+        # file that cannot be parsed may well declare a `show:` for this
+        # very requirement; calling it MISSING told the person to add a
+        # line to a file that already had one. The pen refuses either way,
+        # and carries the parser's own words instead of a false reason.
+        return ShowResult(
+            state=FAILED,
+            text=(
+                f"[{config_module.CONFIG_FILENAME} could not be read, so no "
+                f"`show:` it declares can run: {exc}]"
+            ),
+            at=now,
+        )
     command = cfg.show.get(criterion_id)
     if not command:
         return ShowResult(state=MISSING, at=now)

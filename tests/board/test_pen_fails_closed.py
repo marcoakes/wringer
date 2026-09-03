@@ -129,6 +129,32 @@ def test_an_exit_ONE_show_is_a_failed_show_too(repo, capsys):
     assert not (repo / judge_module.JUDGEMENTS_FILENAME).exists()
 
 
+def test_a_show_the_CONFIG_CANNOT_BE_READ_for_is_not_called_UNDECLARED(
+    repo, capsys
+):
+    """**Bug review 0.7, 2026-09-02 (display-and-redaction).** `shown()`
+    swallowed every exception from `config.load` as MISSING, so a
+    `.wringer.yaml` that DECLARES a `show:` for this requirement but cannot
+    be parsed had the pen tell the person *"this repository declares no way
+    to render what this requirement is about"* — and point them at adding
+    a `show:` line to a file that already has one. Refusing is right; the
+    stated reason was false. The pen still refuses, and now carries the
+    parser's own words."""
+    (repo / ".wringer.yaml").write_text(
+        CONFIG_NO_SHOW + "show:\n  - not-a-mapping\n", encoding="utf-8"
+    )
+
+    code = main(["judge", str(repo), "--id", "heading-reads-as-mine",
+                 "--verdict", "met", "--note", "Looks right."])
+
+    assert code == 2
+    said = capsys.readouterr()
+    assert "NOTHING IS BEING SHOWN TO YOU" not in said.out, said.out
+    assert "declares no" not in said.out + said.err, said.out + said.err
+    assert "must be a mapping" in said.out, said.out
+    assert not (repo / judge_module.JUDGEMENTS_FILENAME).exists()
+
+
 def test_a_show_that_TIMES_OUT_refuses(repo, monkeypatch):
     monkeypatch.setattr(judge_module, "SHOW_TIMEOUT", 1)
     (repo / ".wringer.yaml").write_text(
