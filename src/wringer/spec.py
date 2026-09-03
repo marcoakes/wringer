@@ -2807,14 +2807,30 @@ def gate_diff(
     # `a/` and `b/` so `git apply` accepts it as-is. The human is the intended
     # applier, but a diff a machine cannot apply is a diff nobody checked.
     diff = "".join(
-        difflib.unified_diff(
-            before,
-            proposed,
-            fromfile=f"a/{config.CONFIG_FILENAME}",
-            tofile=f"b/{config.CONFIG_FILENAME}",
+        _git_applicable(
+            difflib.unified_diff(
+                before,
+                proposed,
+                fromfile=f"a/{config.CONFIG_FILENAME}",
+                tofile=f"b/{config.CONFIG_FILENAME}",
+            )
         )
     )
     return diff, fresh, already
+
+
+def _git_applicable(lines: Any) -> Any:
+    """`difflib` never writes git's `\\ No newline at end of file` marker.
+
+    A file whose last line has no newline (bug review 0.7, 2026-09-02) made
+    the `-` line and the first `+` line run together, and `git apply` —
+    the drive's installer — refused the whole diff as a corrupt patch. The
+    marker is what git's own diff writes there, and git reads it back.
+    """
+    for line in lines:
+        yield line
+        if not line.endswith("\n"):
+            yield "\n\\ No newline at end of file\n"
 
 
 def _append_gates(existing: str, addition: list[str]) -> str | None:
