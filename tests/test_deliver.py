@@ -2923,3 +2923,53 @@ def test_audit_delivery_REFUSES_by_name_when_git_cannot_add_the_worktree(
     assert (squatting / "junk").read_text(encoding="utf-8") == "x", (
         "the refusal path removed what was already there"
     )
+
+
+# --- bug review 0.7, 2026-09-02 (key: handover) ----------------------------
+
+
+def _shipped_handed_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path):
+    """A bound, red-first delivery SENT (so `receipts/` travels), copied
+    outside the repo, and a fresh clone of the origin to audit from."""
+    import shutil
+
+    from test_falsify_committed import _shipped
+
+    delivery_id = _shipped(delivery_repo, monkeypatch, capsys)
+    delivered = delivery_repo / deliver.DELIVERIES_DIRNAME / delivery_id
+    origin = git(delivery_repo, "remote", "get-url", "origin")
+    clone = tmp_path.parent / f"{tmp_path.name}-clone"
+    subprocess.run(["git", "clone", "-q", origin, str(clone)], check=True)
+    handed = tmp_path.parent / f"{tmp_path.name}-handed"
+    shutil.copytree(delivered, handed)
+    return handed, clone
+
+
+def test_audit_delivery_names_an_UNREADABLE_receipt_file_and_still_checks_the_rest(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. One receipt file this reader could not
+    open took the whole audit down: `wring: [Errno 13] Permission denied:
+    …/evidence.jsonl`, exit 2, no claim rendered. Closed on that claim, the
+    other claims still checked, nothing left in the clone."""
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file; the unreadable case cannot be built")
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    ledger = next((handed / deliver.RECEIPTS_DIRNAME).glob("*/evidence.jsonl"))
+    os.chmod(ledger, 0)
+    monkeypatch.chdir(clone)
+    try:
+        code = cli.main(["audit", "--delivery", str(handed)])
+        said = capsys.readouterr()
+    finally:
+        os.chmod(ledger, 0o644)
+
+    assert code == cli.EXIT_GATE_FAILED, said.out + said.err
+    assert "Errno" not in said.err and "Traceback" not in said.err, said.err
+    assert "could not be read" in said.out, said.out
+    assert "the counts match" in said.out, "the other claims were not rendered"
+    assert not (clone / ".wringer").exists()
