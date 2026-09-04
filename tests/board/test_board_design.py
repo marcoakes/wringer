@@ -351,9 +351,9 @@ def test_the_chrome_never_calls_the_whole_page_GREEN(repo):
     # left once every record-supplied id is removed — scoped by DERIVING the
     # ids from the fixture rather than by naming one, so a second fixture
     # criterion cannot quietly widen the exemption.
-    for criterion in read_module.read(_every_state(repo)).criteria:
-        body = body.replace(f'id="card-{criterion.id}"', "")
-        body = body.replace(f'id="{criterion.id}"', "")
+    for row in read_module.read(_every_state(repo)).criteria:
+        body = body.replace(f'id="card-{row.id}"', "")
+        body = body.replace(f'id="{row.id}"', "")
     assert not re.search(r"\bgreen\b", body, re.I), (
         re.search(r".{40}\bgreen\b.{40}", body, re.I | re.S).group(0)
     )

@@ -4,6 +4,50 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.3 — 2026-09-04
+
+**The board reads like a product (the PM artifact design pass).** Marc,
+2026-09-03: the artifacts "look crap; make them look really professional
+and nice". Measured first on a real delivered board: one narrow column of
+prose cards, no status a reader could take at a glance, and the counts
+buried in sentences.
+
+### Above the fold: identity, six states, four counts
+
+The header carries the run's identity, then an **outcome rail** of six
+segments in one fixed order — Built · Checks passing · Requirements proved
+· Human judgement · Ready to deliver · Delivered — each derived from ONE
+fact this page already holds, each carrying one of three glyphs. A fact
+that is not on disk says **"not known here"**, never a guess. Beneath it,
+four labelled count tiles: proved, needs a person, unproved, contradicted.
+On run 4B's real delivery the rail reads *Built ✓ · Checks passing ✓ ·
+Requirements proved ✗ (1 of 7) · Human judgement ✓ (1 of 1 judged met) ·
+Ready to deliver — · Delivered —*, which is the sentence "green means
+everything is proved" cannot survive.
+
+**No score and no percentage anywhere**, and the word "green" appears
+nowhere as a word about the whole — both pinned by guards.
+
+### Beneath it: a page that holds together
+
+A type scale in `rem`, an 8px rhythm, four semantic tones at AA contrast
+in light and dark (a `prefers-color-scheme` palette, so the page is not a
+white slab at night), and `overflow-wrap` on every monospace container so
+no id, path or command can push the page sideways. A person's lane is
+blue and an engineer's debts are neutral — the 2026-08-21 finding that put
+nine amber demands for attention on a page whose summary counted two.
+
+Twelve guards; four red-watched by reverting each alone: the rail's fixed
+order, an absent fact claiming to be met, a percentage reaching the
+chrome, and a monospace container losing its wrap rule.
+
+**A debt, recorded rather than hidden:** this rail is derived on the board's
+side. When the same six states reach `certificate.md`, `summary.md` and
+`mr.md` (P1.8), the derivation moves into the engine and the board quotes
+it — one renderer, as every other fact on this page already is.
+
+Schema versions: unchanged.
+
 ## 0.8.2 — 2026-09-04
 
 **The interview, easier to answer (P1.11).** Runs 4 and 4B put a drafter's
