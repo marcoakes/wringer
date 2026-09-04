@@ -882,6 +882,24 @@ def _drive(
 
     _show_board(session, mode, open_pages=open_pages, review=None)
 
+    # **The proof gap as a DECISION, before the handover's yes** (P1.9).
+    # Runs 4 and 4B delivered with five of seven requirements unproved:
+    # every surface said so and none of them asked. Asked against the board
+    # that was just rendered, so the person answers having seen it.
+    gap = run_module.proof_gap_step(repo)
+    if gap is not None:
+        session.emit(gap)
+        answer = _ask(gap, mode, repo).strip().lower()
+        if answer.startswith("strengthen"):
+            # The record keeps the gates phase, so `resume` re-enters where
+            # the checks are proposed rather than at the handover.
+            run_module.checkpoint_phase(repo, "gates")
+            raise run_module.Stop(run_module.strengthen_first_step(), exit_code=0)
+        if not answer.startswith("deliver"):
+            raise run_module.Stop(
+                run_module.proof_gap_unanswered_step(), exit_code=2
+            )
+
     sent = run_module.deliver(
         repo, answered_yes=_confirm(run_module.delivery_step(), mode, repo)
     )

@@ -1606,6 +1606,98 @@ def approve(repo: Path, *, answered_yes: bool) -> None:
 # --- step 9's second authorisation (ruling 2a) ------------------------------
 
 
+def proof_gap_step(repo: Path) -> Step | None:
+    """The unproved requirements, as a DECISION rather than a warning.
+
+    **P1.9, and runs 4 and 4B are the body count.** The operator delivered
+    with five of seven requirements unproved. Every surface said so — the
+    board, the certificate, the merge request — and none of them ASKED. A
+    warning read on the way past is not a decision; a person who would have
+    strengthened the evidence had to know to stop and do it.
+
+    Returns None when nothing is unproved, so a run with everything settled
+    meets no extra question. The proposals are the planner's own, read from
+    `wring plan --json` and never invented here: naming a check this package
+    made up would be the drive deciding what evidence is worth.
+    """
+    from wringer import accept, evidence
+
+    runs = repo / evidence.RUNS_DIRNAME
+    latest = evidence.latest_run(runs) if runs.is_dir() else None
+    if latest is None:
+        return None
+    recorded = accept.read(latest) or {}
+    counts = recorded.get("counts") or {}
+    unproved = int(counts.get(accept.UNEVIDENCED, 0) or 0)
+    if not unproved:
+        return None
+
+    rows = recorded.get("criteria") or []
+    unnamed = [
+        row for row in rows
+        if isinstance(row, dict) and row.get("state") == accept.UNEVIDENCED
+    ]
+    named = "\n".join(
+        f"  - {row.get('title') or row.get('criterion') or 'an unnamed requirement'}"
+        for row in unnamed
+    )
+
+    # What the planner would add, in its words. A proposal it does not make
+    # is said as its absence — never filled in from here.
+    try:
+        proposal = gate_proposal(repo)
+    except Stop:
+        proposal = {}
+    fresh = tuple(proposal.get("gates_proposed") or ())
+    if fresh:
+        offer = (
+            "If you strengthen it, the plan proposes: " + ", ".join(fresh) + "."
+        )
+    else:
+        offer = (
+            "The plan proposes no new check for these, so strengthening them "
+            "is an engineer's job rather than one more yes."
+        )
+
+    return Step(
+        kind=ASK,
+        id="proof-gap",
+        text=(
+            f"{unproved} requirement(s) have nothing proving them:\n{named}\n\n"
+            f"{offer}"
+        ),
+        question=(
+            "Deliver with them unproved, or strengthen the evidence first? "
+            "Type deliver or strengthen."
+        ),
+        detail={"unproved": unproved, "gates_proposed": list(fresh)},
+    )
+
+
+def strengthen_first_step() -> Step:
+    """The person chose evidence over speed. Nothing is sent, and the record
+    keeps the phase so `wringer-drive resume` re-enters at the checks."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:strengthen-first",
+        text="Nothing was sent. You chose to strengthen the evidence first, "
+        "so the run stops here with everything it built kept: the branch is "
+        "not created and nothing is pushed. Add the checks, then continue "
+        "with: wringer-drive resume",
+    )
+
+
+def proof_gap_unanswered_step() -> Step:
+    """An empty answer is not a choice. Offers never fall back."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:proof-gap-unanswered",
+        text="Nothing was sent, because the question about the unproved "
+        "requirements was not answered. Nothing is lost: continue with "
+        "wringer-drive resume and answer deliver or strengthen.",
+    )
+
+
 def delivery_step() -> Step:
     """**A SECOND authorisation, and approving the plan did not give it.**
 

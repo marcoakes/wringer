@@ -484,7 +484,8 @@ def test_a_converged_run_emits_the_board_TOO_and_ends_on_the_page(
     )
 
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch
+        project, tmp_path, "The ones on screen.\nyes\nyes\ndeliver\nyes\n",
+        monkeypatch
     )
     capsys.readouterr()
 
@@ -2260,7 +2261,8 @@ def test_the_drive_INSTALLS_a_proposed_display_with_the_gate_yes_and_asks_nothin
     subprocess.run(["git", "commit", "-qm", "human criterion"], cwd=project, check=True)
 
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch,
+        project, tmp_path, "The ones on screen.\nyes\nyes\ndeliver\nyes\n",
+        monkeypatch,
     )
     capsys.readouterr()
     ids = [step.id for step in steps]

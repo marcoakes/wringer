@@ -107,7 +107,10 @@ def prd(tmp_path: Path) -> Path:
 # the read-back confirm, the plan approval, the `show:` command for the human
 # requirement, then (only where the handover is reached) the second yes.
 TO_THE_PEN = "The ones on screen.\nyes\nyes\necho shown\n"
-TO_THE_HANDOVER = TO_THE_PEN + "yes\n"
+# `deliver` answers the proof-gap decision (P1.9, 0.8.7): this fixture
+# reaches the handover with a requirement nothing proves, so the drive
+# asks whether to deliver anyway or strengthen the evidence first.
+TO_THE_HANDOVER = TO_THE_PEN + "deliver\nyes\n"
 
 
 def opener_recorder(monkeypatch) -> list[tuple[Path, str]]:
