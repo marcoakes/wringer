@@ -4,6 +4,59 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.2 — 2026-09-04
+
+**The release procedure stops living in somebody's head.**
+
+Cutting a release is eleven edits across eight files, and until today it was
+done by hand with `sed` every time. That cost twice on the record: a
+repointing `sed` wrote the citation `AGENTS.md:-4`, which every citation
+guard ignored because the pattern requires digits (0.8.4); and a
+supported-versions row named a version that was never tagged while
+CONTRIBUTING claimed "all on PyPI" — wrong since 0.8.7, unnoticed until
+0.9.0. One defect twice: an edit applied to some pages and not others, with
+nothing checking the set was complete.
+
+`scripts/release.py` applies the whole ceiling or none of it. Every anchor is
+located first, in every file; one missing or ambiguous anchor and it refuses
+having written nothing, naming what it could not find. **A half-applied
+ceiling is worse than none** — it is a tree that looks released and is not,
+which is the state 0.9.0 had to be untangled out of.
+
+Two refusals are worth naming because they are silences rather than errors:
+a page that has stopped mentioning the released version is a refusal, not a
+no-op to skip past — that silence is how a page drifts out of the ceiling
+unnoticed; and an anchor matching twice is refused rather than replaced,
+because the second match is something that is not the ceiling.
+
+**The procedure itself is written down**, in AGENTS.md under *Cutting a
+release*: one release at a time behind the lock, the ceiling by script and
+never by hand, the tag held for every CI leg and tied to the pushed sha
+rather than `HEAD`, and the release commit's subject naming the version in
+its own tree. Each of the four has a body count behind it.
+
+**Its first real use found a bug in it.** Appending to CONTRIBUTING's tag
+list by replacing ``and `v<old>` `` swallowed the separator the tag BEFORE it
+needed, and produced ``…`v0.9.0` `v0.9.1` and `v0.9.2`…``. The count guard
+cannot see that: it collects versions with a regex, and a missing comma is
+still two versions. The guard written for it was then vacuous on its first
+red-watch — the anchor ate the SPACE as well, so the two tags end up with
+nothing at all between them, and a check requiring whitespace missed exactly
+the case it was written for.
+
+Nothing about the product changed. This is the machinery that ships it.
+
+*Also measured and left alone:* the one-journey guarantee. A resume
+continuing the journey it stopped in is already guarded, and reverting
+`journey.continue_or_begin` to always begin turns that guard red — so
+nothing here needed building. What was missing was a way to SEE a violation
+from outside, and that belongs in the blind-run sheet rather than in the
+product.
+
+Five red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.9.1 — 2026-09-04
 
 **Three claims the product could not back, found by checking the run-5

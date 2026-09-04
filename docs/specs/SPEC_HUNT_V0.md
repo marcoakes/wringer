@@ -853,7 +853,7 @@ genuinely last) so the record is digest-covered and `audit`/`attest` compose wit
 no new clause.
 
 **Through the `Bundle`, with the redactor, and that is not a detail.**
-`AGENTS.md:561-565`: *"If you add a file to the bundle, add it through the
+`AGENTS.md:600-605`: *"If you add a file to the bundle, add it through the
 `Bundle`, or you have quietly opted out of the one guarantee SECURITY.md
 makes."* `vacuity.py:152-157` records this repository having already shipped that
 defect. The whole payload is scrubbed, on `accept.write`'s pattern

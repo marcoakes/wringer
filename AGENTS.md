@@ -96,7 +96,7 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.9.1 shipped; unreleased work on `main`
+## Current state — v0.9.2 shipped; unreleased work on `main`
 
 **`v0.1.0` through `v0.4.7` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
@@ -332,6 +332,45 @@ Gate output is **captured, never teed**: streams go to the bundle's log
 files, and only a failing required gate gets a 20-line tail on the
 console. If you are tempted to add `--verbose`, read the spec's demo
 block first — the clean console is the product.
+
+### Cutting a release
+
+**Written down on 2026-09-04, after this procedure lived only in somebody's
+head and cost two hours.** Two release pipelines ran at once, the older
+one's `git add -A` swept up the newer one's version bump, and the commit
+that reached `main` announced `0.8.11` while carrying `0.9.0` — neither
+taggable, nothing published.
+
+```bash
+scripts/release.py 0.9.2 Fifty-three entry.md   # the ceiling: all 8 files or none
+./scripts/gate.sh                                # the bar, ~10 minutes
+git add -A && git commit -F message.txt          # subject MUST name the version
+git push origin main
+#   ...wait here for EVERY CI leg to be green...
+git tag -a v0.9.2 -F tag.txt <the pushed sha> && git push origin v0.9.2
+```
+
+Four rules, each with a body count behind it:
+
+1. **One release at a time.** `scripts/ship.sh` takes an exclusive lock
+   (`scripts/repo-lock.sh`) before the gate, not merely before the commit —
+   the gate is ten minutes and the window is open for all of it. Do not
+   start a second pipeline, and do not merge a branch while one is running:
+   `git merge` refuses on the dirty mid-bump tree.
+2. **`scripts/release.py` applies the ceiling, never `sed`.** Eleven edits
+   across eight files; one missing anchor and it refuses having written
+   nothing. Hand-editing is how `AGENTS.md:-4` and a phantom
+   supported-versions row both got in.
+3. **The tag waits for Linux CI.** A `v*` tag publishes to PyPI on push and
+   a tag is public for ever. Tag the pushed sha explicitly — never `HEAD`,
+   which may have moved.
+4. **The release commit's subject names the version in its own tree**, and
+   `tests/test_docs.py::test_the_release_commit_names_the_version_it_carries`
+   holds it there.
+
+A release that is cut and then abandoned is recorded as such: its CHANGELOG
+entry stays where it is, saying which release its work actually shipped in,
+and it gets no supported-versions row. `0.8.7` and `0.8.11` are both this.
 
 ## Module map (`src/wringer/`)
 
