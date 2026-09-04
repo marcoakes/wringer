@@ -111,10 +111,19 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # `test_deliver`'s fixtures rather than a second copy that would drift.
 "tests/test_one_delivery_one_story.py" = ["F811"]
 "tests/test_falsify_committed.py" = ["F811"]
+# Same false positive, same fixture family, same reason (0.8.6): the
+# readiness card's tests reuse the drive fixtures by import.
+"tests/drive/test_drive_readiness.py" = ["F811"]
+"tests/drive/test_drive_proof_gap.py" = ["F811"]
+"tests/drive/test_drive_assumptions.py" = ["F811"]
 # Same again for the printed-command registry (0.7.5): its rows run inside
 # the REAL delivery, spec and drive fixtures other modules already build,
 # imported by name rather than copied.
 "tests/journey/*.py" = ["F811"]
+# Same again for the journey record (0.8.7): its tests drive the REAL
+# converged and failed-turn fixtures `test_drive_docs` and
+# `test_drive_resume_verb` already build, imported by name.
+"tests/drive/test_drive_journey.py" = ["F811"]
 
 # **E501 on the merged board source is DATED DEBT, stated rather than hidden.**
 #

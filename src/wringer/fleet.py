@@ -760,6 +760,47 @@ def run(
     )
 
 
+def run_at(
+    root: Path, ref: str, command: str, timeout: int = 120
+) -> tuple[int, str] | None:
+    """Run one command in a read-only copy of the tree AT `ref`.
+
+    **P1.10, 0.8.9: what the thing looked like BEFORE.** A person asked to
+    judge "the summary reads at a glance" is shown the summary — and since
+    0.6.1 the pen refuses to record a verdict without showing it. What it
+    could not show was the summary they are comparing it against: the old
+    one, which exists only at the commit the work started from. So the same
+    declared command runs again in a detached worktree at that commit.
+
+    Returns `(exit code, output)`, or None when no worktree could be made —
+    a commit this repository does not have is an ABSENCE the caller states,
+    never an error and never a guess at what used to be there. The worktree
+    is removed in `finally`; the operator's checkout is never touched, which
+    is the same contract `wring audit --delivery` and the committed-range
+    falsification already keep.
+    """
+    import subprocess
+
+    worktree = make_worktree(root, f"before-{ref[:12]}", ref=ref)
+    if worktree is None:
+        return None
+    try:
+        done = subprocess.run(
+            command,
+            shell=True,
+            cwd=worktree,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return (-1, f"[the command could not be run there: {exc}]")
+    finally:
+        remove_worktree(root, worktree)
+    return (done.returncode, (done.stdout or "") + (done.stderr or ""))
+
+
 def make_worktree(root: Path, task_id: str, ref: str = "HEAD") -> Path | None:
     """Give a task its own checkout, so parallel children cannot collide.
 

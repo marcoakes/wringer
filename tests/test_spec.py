@@ -3171,3 +3171,209 @@ def test_a_display_that_is_not_a_command_is_refused_whole(repo, monkeypatch, cap
     assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
     assert not (repo / spec.SPEC_FILENAME).is_file(), "a half-refused reply was written"
     capsys.readouterr()
+
+
+# --- the drafter offers CHOICES per open question (0.8.4, P1.11) ------------
+#
+# Runs 4 and 4B, 2026-09-01: a drafter's question in front of a product
+# manager with nothing beside it but a blank line. The reply MAY now offer two
+# to four ways to answer each open question; they land in their own sidecar
+# (`wringer.spec.v1` is frozen and its question items are closed), and what the
+# interview records is always a choice's TEXT — never its number.
+
+CHOICES = {
+    "date-format": [
+        {
+            "text": "ISO dates, like 2026-09-03",
+            "consequence": "Spreadsheets sort them correctly without any setup.",
+            "example": "2026-09-03",
+        },
+        {
+            "text": "The format the reports page already shows",
+            "consequence": "The export matches the screen but sorts as text.",
+            "example": "3 Sep 2026",
+        },
+    ]
+}
+
+
+def choices_file(repo: Path) -> dict:
+    return yaml.safe_load(
+        (repo / spec.CHOICES_FILENAME).read_text(encoding="utf-8")
+    )
+
+
+def test_the_request_asks_for_CHOICES_per_open_question(repo, monkeypatch, capsys):
+    """The `gate_bindings` and `show_proposals` lesson a third time: a channel
+    the request never names is a channel the drafter never fills. Two facts,
+    asserted separately — the key's NAME alone survives deleting the rule."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--print-request"]) == cli.EXIT_OK
+
+    asked = json.loads(capsys.readouterr().out)["messages"][1]["content"]
+    assert "you MAY propose `choices`" in asked, "the instruction"
+    assert '"choices": {"<open question id from above>"' in asked, "the reply format"
+    assert "a list that hides the real answer is worse than a blank line" in asked, (
+        "the ceiling"
+    )
+    assert f"at most {spec.MAX_CHOICES_PER_QUESTION} per question" in asked
+
+
+def test_the_drafter_offers_CHOICES_and_they_land_in_their_OWN_file(
+    repo, monkeypatch, capsys
+):
+    """The sidecar, not the spec: `wringer.spec.v1` is frozen, so the drafted
+    spec carries no `choices` key anywhere, and the offers read back through
+    the engine's own loader as the exact words the drafter wrote."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply({**DRAFT, "choices": CHOICES}))
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    written = choices_file(repo)
+    assert written["schema_version"] == "wringer.choices.v1"
+    assert written["choices"] == CHOICES
+    assert "choices" not in drafted(repo), "the frozen spec grew a key"
+    assert "choices" not in yaml.dump(drafted(repo)["open_questions"])
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    back = spec.load_choices(repo, loaded.questions)
+    assert back == {
+        "date-format": tuple(spec.Choice(**c) for c in CHOICES["date-format"])
+    }
+    assert spec.choices_is_generated(repo / spec.CHOICES_FILENAME)
+    out = capsys.readouterr().out
+    assert spec.CHOICES_FILENAME in out and "pick one, or write your own" in out
+
+
+def test_a_reply_offering_NO_choices_writes_no_choices_file(repo, monkeypatch, capsys):
+    """The forgery control: absence is absence. No file, and the console says
+    nothing about one."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert not (repo / spec.CHOICES_FILENAME).exists()
+    assert spec.CHOICES_FILENAME not in capsys.readouterr().out
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert spec.load_choices(repo, loaded.questions) == {}
+
+
+def test_choices_for_an_UNKNOWN_question_are_dropped_with_a_note(
+    repo, monkeypatch, capsys
+):
+    """One stray key is not a reason to throw away a spec — the drafted path
+    drops and says so; a typed file naming a question nobody asked is
+    refused (`parse_choices_document` is strict)."""
+    setup_repo(repo)
+    fake_transport(
+        monkeypatch,
+        reply=reply({
+            **DRAFT,
+            "choices": {**CHOICES, "date-formt": CHOICES["date-format"]},
+        }),
+    )
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+
+    assert "date-formt" in flat(capsys.readouterr().err)
+    assert set(choices_file(repo)["choices"]) == {"date-format"}
+
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    with pytest.raises(spec.SpecError, match="date-formt"):
+        spec.parse_choices_document(
+            {"schema_version": "wringer.choices.v1",
+             "choices": {"date-formt": CHOICES["date-format"]}},
+            spec.CHOICES_FILENAME, loaded.questions,
+        )
+
+
+@pytest.mark.parametrize(
+    "bad, why",
+    [
+        (
+            [{"text": "2", "consequence": "Two.", "example": "2"},
+             {"text": "Three", "consequence": "Three.", "example": "3"}],
+            "bare number",
+        ),
+        (
+            [{"text": "ISO", "consequence": "a", "example": "b"}],
+            "one is a default wearing a list",
+        ),
+        (
+            [{"text": f"Option {n}", "consequence": "a", "example": "b"}
+             for n in "abcde"],
+            "more than",
+        ),
+        (
+            [{"text": "Same", "consequence": "a", "example": "b"},
+             {"text": "Same", "consequence": "c", "example": "d"}],
+            "repeats an earlier option",
+        ),
+        (
+            [{"text": "ISO", "consequence": "", "example": "b"},
+             {"text": "Screen", "consequence": "a", "example": "b"}],
+            "non-empty string",
+        ),
+    ],
+)
+def test_a_malformed_choice_list_is_REFUSED_WHOLE(repo, monkeypatch, capsys, bad, why):
+    """A `text` that is a bare number could not be told from a selection; one
+    option is a default; five is a form; two with the same words record the
+    same answer for different consequences. Each refused by name, and no
+    half-refused spec is written."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply({**DRAFT, "choices": {"date-format": bad}}))
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+
+    assert why in flat(capsys.readouterr().err)
+    assert not (repo / spec.SPEC_FILENAME).is_file(), "a half-refused reply was written"
+    assert not (repo / spec.CHOICES_FILENAME).exists()
+
+
+def test_a_redraft_offering_nothing_REMOVES_the_generated_choices_file(
+    repo, monkeypatch, capsys
+):
+    """The decisions precedent: a generated sidecar may never outlive the
+    questions it offers answers to."""
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply({**DRAFT, "choices": CHOICES}))
+    monkeypatch.chdir(repo)
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    assert (repo / spec.CHOICES_FILENAME).is_file()
+
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    assert not (repo / spec.CHOICES_FILENAME).exists()
+    assert "was removed" in flat(capsys.readouterr().err)
+
+
+def test_a_HAND_WRITTEN_choices_file_is_left_alone_by_a_redraft(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    monkeypatch.chdir(repo)
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    mine = (
+        "schema_version: wringer.choices.v1\n"
+        "choices:\n"
+        "  date-format:\n"
+        "    - text: Mine\n      consequence: My words.\n      example: mine\n"
+        "    - text: Also mine\n      consequence: My words.\n      example: mine\n"
+    )
+    (repo / spec.CHOICES_FILENAME).write_text(mine, encoding="utf-8")
+
+    fake_transport(monkeypatch, reply=reply({**DRAFT, "choices": CHOICES}))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+
+    assert (repo / spec.CHOICES_FILENAME).read_text(encoding="utf-8") == mine
+    assert "written by hand" in flat(capsys.readouterr().err)

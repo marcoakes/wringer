@@ -104,6 +104,12 @@ EXCLUDED = {
     "with conditional keys; the REAL written file is jsonschema-validated in "
     "tests/board/test_board_judge.py::test_the_written_file_matches_its_"
     "published_schema",
+    "journey.schema.json": "an inline-dict writer in the DRIVE, not the "
+    "engine (wringer_drive.journey — this guard derives from src/wringer/ "
+    "only, and the engine never writes a journey); the REAL written file is "
+    "jsonschema-validated in tests/drive/test_drive_journey.py::"
+    "test_the_written_journey_VALIDATES_against_its_published_schema "
+    "(0.8.7, P1.14)",
     "judgement-record.schema.json": "an inline-dict writer "
     "(accept.write_judgement_record) capturing another file verbatim; the "
     "REAL bundle sibling is jsonschema-validated in tests/board/"
@@ -113,6 +119,9 @@ EXCLUDED = {
     "gatespec.schema.json": "a person or the drafter writes this sidecar",
     "gatespec-v2.schema.json": "a person or the drafter writes this sidecar; "
     "the REAL rendered file is jsonschema-validated in tests/test_schema.py",
+    "choices.schema.json": "a person or the drafter writes this sidecar "
+    "(0.8.4); the REAL rendered file is jsonschema-validated in "
+    "tests/test_schema.py::test_a_rendered_CHOICES_file_matches_its_schema",
     "fleetscope.schema.json": "declared in .wringer.yaml by a person",
     # Inline-dict writers: the record is assembled in a function rather than
     # by a dataclass, often with conditional keys, so the field set is not a

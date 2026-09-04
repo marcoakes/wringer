@@ -96,6 +96,42 @@ VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
 
+# **The journey (0.8.7, P1.14): one identity over a drive's whole run.**
+# Written by `wringer-drive` — the ENGINE never writes one and never imports
+# the drive — into `.wringer/journeys/<id>/journey.json`. The names live
+# here because two engine readers (`wring explain <journey dir>` and the
+# board's join on a run id) and the drive's writer must agree on them, and
+# the drive may import the engine while the reverse is forbidden. Runs 4
+# and 4B, 2026-09-01: the operator saw a spec id, a loop id, a run id and a
+# delivery id — four unrelated-looking ids — for one afternoon's work, and
+# nothing joined them. The journey is a JOIN: every existing id stays where
+# it is and keeps its name; a phase in the journey cites it.
+JOURNEYS_DIRNAME = Path(".wringer") / "journeys"
+JOURNEY_FILENAME = "journey.json"
+JOURNEY_SCHEMA_VERSION = "wringer.journey.v1"
+#: The closed set of phase kinds `journey.schema.json` declares.
+JOURNEY_KINDS = ("draft", "build", "verify", "deliver", "audit", "falsify", "other")
+
+
+def read_journey(directory: Path) -> dict[str, Any] | None:
+    """The journey record in `directory`, or None.
+
+    None for absent, unreadable, not an object, or a schema version this
+    engine does not know — the `read_resume` rule: a record that cannot be
+    read is a record that does not exist, never a guess at what it meant.
+    """
+    try:
+        payload = json.loads(
+            (directory / JOURNEY_FILENAME).read_text(encoding="utf-8")
+        )
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("schema_version") != JOURNEY_SCHEMA_VERSION:
+        return None
+    return payload
+
 # --- reading an optional bundle record, in the three states it really has ---
 #
 # **D2, 2026-08-29: fail-closed wherever silence is favourable.**

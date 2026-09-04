@@ -788,3 +788,36 @@ def test_the_page_makes_no_request():
         "the board's own chrome would make a request: " + "; ".join(offenders)
     )
 
+
+
+# --- 0.8.6 (P1.13): every card carries its anchor -----------------------------
+
+
+def test_EVERY_CARD_CARRIES_ITS_ANCHOR_ID_in_the_boards_one_spelling(repo):
+    """**Runs 4 and 4B, 2026-09-01:** the PM judged on a manual display and
+    never saw which card the handover was held on — the stop named the
+    refusal and the page held the card, and nothing joined them. The drive
+    now points at `board.html#card-<id>`; a card without that id is a link
+    that opens the page at the top while the sentence claims a card.
+
+    `render.card_anchor` is the ONE spelling; the drive quotes it, and this
+    reads the rendered page for it on every card, in both card shapes."""
+    write_run(
+        repo,
+        "20260903-090000-aaaa",
+        [
+            criterion("csv", "Finance can download the figures", "evidenced",
+                      receipt={"kind": "failure", "run": "20260903-085900-bbbb"}),
+            criterion("glance", "The summary reads at a glance", "human",
+                      gate=None, cause="human-unanswered"),
+            criterion("fast", "It loads fast", "unevidenced",
+                      cause="gate-did-not-run"),
+        ],
+    )
+    page = html_of(repo)
+    for cid in ("csv", "glance", "fast"):
+        anchor = render_module.card_anchor(cid)
+        assert anchor == f"card-{cid}"
+        assert '<div class="card ' in page
+        assert f' id="{anchor}">' in page, f"no card carries id={anchor!r}"
+    assert page.count(' id="card-') == 3, "an id on something that is not a card"

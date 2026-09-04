@@ -129,6 +129,11 @@ class Session:
 
     repo: Path
     steps: list[Step] = field(default_factory=list)
+    # The journey this run belongs to (0.8.7, P1.14) — allocated by the
+    # front door (`run` begins one, `resume` continues the one its
+    # checkpoint names) and quoted by every phase header. None only before a
+    # front door has set it.
+    journey_id: str | None = None
 
     def emit(self, step: Step) -> Step:
         self.steps.append(step)
@@ -691,10 +696,94 @@ def _show_worker_auth(session: object, announce: object, found: object) -> None:
         announce(step)
 
 
+def readiness_step(repo: Path) -> Step:
+    """What this run will spend, and against which credential, BEFORE it does.
+
+    **Marc's brief, P1.7, and runs 4 and 4B behind it.** The operator drove a
+    build with a dead key exported over a working login and learned it at the
+    first worker turn — after the drafting call was paid for. Every fact
+    below was already on this machine before anything was spent; nothing here
+    is new knowledge, it is the knowledge arriving in time.
+
+    **Composed, never computed.** Each line quotes a surface that already
+    owns the fact: `wring doctor`'s own checks for the credentials, the
+    person's `.wringer.yaml` for the worker and the endpoint, and
+    `worker_auth`'s own sentence — the same one the pre-build step prints —
+    for the effective credential route. No prices: `wring health` does not
+    price a run and neither does this, and saying so is the claim ceiling.
+    """
+    from wringer import config, doctor
+
+    lines: list[str] = []
+    settings = None
+    path = repo / config.CONFIG_FILENAME
+    if path.is_file():
+        try:
+            settings = config.load(path)
+        except config.ConfigError:
+            settings = None
+
+    judge = getattr(settings, "judge", None) if settings else None
+    if judge is not None:
+        lines.append(
+            f"Drafting: {judge.model} at {judge.endpoint}, paid for with "
+            f"whatever {judge.api_key_env} names."
+        )
+    else:
+        lines.append(
+            "Drafting: this project declares no `judge:` section yet, so the "
+            "endpoint and model are the ones you answer with in a moment."
+        )
+
+    # The credential states, in doctor's own words — the surface that owns
+    # them. A check this machine skipped is not reported as a problem.
+    for check in doctor.run_checks(repo):
+        if check.name in ("drafting key", "worker credential", "worker auth"):
+            if check.status != doctor.SKIP:
+                lines.append(f"{check.name.capitalize()}: {check.detail}")
+
+    run = getattr(settings, "run", None) if settings else None
+    worker = getattr(run, "worker", None) if run else None
+    if worker is not None:
+        shape = worker if isinstance(worker, str) else "an ACP agent"
+        attempts = getattr(run, "max_iterations", None)
+        turns = (
+            f"up to {attempts} turn(s)" if attempts else "as many turns as it allows"
+        )
+        lines.append(f"Builder: {shape} — {turns}.")
+        lines.append(
+            "Paid steps ahead: one drafting call, then the builder's turns."
+        )
+    else:
+        lines.append(
+            "Builder: none declared yet — you name it at the interview, and "
+            "it is checked before it is paid for."
+        )
+        lines.append("Paid steps ahead: one drafting call to begin with.")
+
+    lines.append(
+        "If a credential fails: the build stops with the reason and the "
+        "command that continues it, and `wringer-drive resume` picks up "
+        "where it stopped without paying for the drafting again."
+    )
+    lines.append("Wringer does not price these.")
+
+    return Step(
+        kind=SHOW,
+        id="readiness",
+        text="Before anything is spent:\n\n" + "\n".join(f"- {one}" for one in lines),
+    )
+
+
 def draft_the_spec(
     session: Session, repo: Path, prd: Path, announce: object = None
-) -> None:
+) -> str | None:
     """`wring spec --send`, and the cost is said BEFORE the call.
+
+    Returns the engine's own id for the spec bundle it wrote
+    (`.wringer/specs/<id>`, read off `--json`'s `spec_dir`), or None when a
+    spec was reused or the engine named none — so the journey (0.8.7) can
+    cite the drafting the way it cites the loop and the delivery.
 
     Ruling 2a: step 3's `--send` is authorised by the operator having run the
     verb and been told a paid call is about to happen. That sentence is here,
@@ -739,7 +828,7 @@ def draft_the_spec(
         reused = session.emit(Step(kind=SHOW, id="spec-reused", text=said))
         if announce is not None:
             announce(reused)
-        return
+        return None
     drafting = session.emit(
         Step(
             kind=SHOW,
@@ -761,6 +850,11 @@ def draft_the_spec(
         raise Stop(
             stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
         )
+    try:
+        named = json.loads(done.stdout or "").get("spec_dir")
+    except (ValueError, AttributeError):
+        return None
+    return named.rstrip("/").rsplit("/", 1)[-1] if isinstance(named, str) else None
 
 
 # --- step 4: the interview --------------------------------------------------
@@ -773,18 +867,35 @@ def questions_to_ask(repo: Path) -> list[Step]:
     a question to sound friendlier: the drafter asked it because it could not
     answer it, and softening it is how a PM answers a different question from
     the one that was asked.
+
+    **Beneath the question, the offered answers, when there are any** (0.8.4,
+    P1.11): `wringer.choices.yaml`'s list for this question, rendered by the
+    board's ONE renderer and quoted here — numbered, each with its consequence
+    and example, ending "or type your own". The question stays the first line
+    and stays verbatim. A typed number is turned into the choice's words by
+    `interview.answer`, never here, so the drive and the board verb record the
+    same thing. A question with no choices renders exactly as it did before
+    this existed: its text alone, and no `choices` in `detail`.
     """
     from wringer_board import interview
 
-    return [
-        Step(
-            kind=ASK,
-            id=f"question:{q.id}",
-            text=q.question,
-            detail={"question_id": q.id},
-        )
-        for q in interview.unanswered(repo)
-    ]
+    try:
+        offered = interview.choices(repo)
+    except interview.InterviewError as exc:
+        raise Stop(stop_for("", "", engine_words=str(exc)), exc.exit_code) from exc
+
+    steps = []
+    for q in interview.unanswered(repo):
+        text = q.question
+        detail: dict = {"question_id": q.id}
+        if q.id in offered:
+            text = f"{q.question}\n\n{interview.render_choices(offered[q.id])}"
+            detail["choices"] = [
+                {"text": c.text, "consequence": c.consequence, "example": c.example}
+                for c in offered[q.id]
+            ]
+        steps.append(Step(kind=ASK, id=f"question:{q.id}", text=text, detail=detail))
+    return steps
 
 
 def record_answer(repo: Path, question_id: str, text: str) -> None:
@@ -1111,6 +1222,24 @@ def checkpoint_phase(repo: Path, phase: str) -> None:
     if phase not in PHASES:
         raise ValueError(f"unknown phase {phase!r}; one of {PHASES}")
     _write_resume(repo, phase=phase, last_question=None)
+
+
+def checkpoint_journey(repo: Path, journey_id: str) -> None:
+    """Record which journey (0.8.7, P1.14) this run belongs to, so a
+    `resume` continues it rather than starting a second one for the same
+    piece of work. Runs 4/4B, 2026-09-01: the operator saw four unrelated
+    ids for one afternoon's work; a resume that opened a fifth would be
+    the same defect one level up. The record is not a published schema
+    (`wringer.driveresume.v1` lives only here) and `read_resume` ignores a
+    key it does not know, so a record written before this key is read
+    exactly as before."""
+    _write_resume(repo, journey=str(journey_id))
+
+
+def recorded_journey(repo: Path) -> str | None:
+    """The journey the record names, or None."""
+    found = read_resume(repo).get("journey")
+    return found if isinstance(found, str) and found else None
 
 
 def stopped_where(phase: str | None, last_question: str | None) -> str | None:
@@ -1475,6 +1604,196 @@ def approve(repo: Path, *, answered_yes: bool) -> None:
 
 
 # --- step 9's second authorisation (ruling 2a) ------------------------------
+
+
+def assumption_cards(repo: Path) -> list[Step]:
+    """One card per decision the drafter took without asking, before approval.
+
+    **P1.12, and the plan block is where it went wrong.** Assumptions render
+    inside the plan under DECIDED WITHOUT ASKING YOU — a dense block a person
+    scrolls past on the way to the approval, which then approves all of it.
+    Each is now its own question, asked before the plan's yes, with the
+    decision, the reason, and the question it replaced.
+
+    Asked only for assumptions still standing: the board marks one SUPERSEDED
+    once the person has answered the question it displaced, and a resumed run
+    must not re-ask what was already settled.
+    """
+    from wringer_board import interview
+
+    try:
+        assumptions, _ = interview._decisions(repo)
+    except Exception:
+        # A sidecar this surface cannot read is the interview's to report,
+        # in its own words, at the plan. Never a card invented from nothing.
+        return []
+    answered = {
+        q.question.strip(): q.answer.strip()
+        for q in interview.questions(repo)
+        if q.answered
+    }
+    cards: list[Step] = []
+    for entry in assumptions:
+        aid = str(entry.get("id") or "").strip()
+        displaced = str(entry.get("instead_of_asking") or "").strip()
+        if not aid or (displaced and displaced in answered):
+            continue
+        cards.append(
+            Step(
+                kind=ASK,
+                id=f"assumption:{aid}",
+                text=(
+                    f"Decided without asking you: {entry.get('decision', '')}\n"
+                    f"Why: {entry.get('why', '')}\n"
+                    f"The question this stands in for: {displaced}"
+                ),
+                question=(
+                    "Accept it, or type what you decide instead. "
+                    "Type accept, or your own answer."
+                ),
+                detail={"assumption_id": aid},
+            )
+        )
+    return cards
+
+
+def record_assumption(repo: Path, assumption_id: str, text: str) -> Step:
+    """Keep a decision, or overrule it — through the board's own writer.
+
+    A change goes through `interview.revise`, which promotes the assumption
+    to an answered question and withdraws the approval, exactly as it does
+    when a person revises from the terminal. Nothing here writes the spec:
+    a second writer is the drift this seam exists to prevent.
+    """
+    from wringer_board import interview
+
+    said = text.strip()
+    if said.lower() == "accept":
+        return Step(
+            kind=SHOW,
+            id=f"assumption-kept:{assumption_id}",
+            text="Kept as decided. It stays in the plan, and the plan still "
+            "says it was decided without asking you.",
+            detail={"assumption_id": assumption_id},
+        )
+    try:
+        interview.revise(repo, assumption_id, said)
+    except interview.InterviewError as exc:
+        raise Stop(stop_for("", "", engine_words=str(exc)), exc.exit_code) from exc
+    return Step(
+        kind=SHOW,
+        id=f"assumption-changed:{assumption_id}",
+        text=f"Recorded as yours: {said}\n\nThe plan is re-rendered with your "
+        "answer in place of the decision, and your approval of the old plan "
+        "is withdrawn — you approve the new one in a moment.",
+        detail={"assumption_id": assumption_id},
+    )
+
+
+def assumption_unanswered_step(assumption_id: str) -> Step:
+    """An empty answer is not "accept". Offers never fall back — least of all
+    into approving a decision nobody was asked about."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:assumption-unanswered",
+        text=f"Nothing was built. A decision taken without asking you "
+        f"({assumption_id}) is still unanswered, and an empty answer is not "
+        "acceptance. Continue with wringer-drive resume and answer accept, "
+        "or say what you decide instead.",
+        detail={"assumption_id": assumption_id},
+    )
+
+
+def proof_gap_step(repo: Path) -> Step | None:
+    """The unproved requirements, as a DECISION rather than a warning.
+
+    **P1.9, and runs 4 and 4B are the body count.** The operator delivered
+    with five of seven requirements unproved. Every surface said so — the
+    board, the certificate, the merge request — and none of them ASKED. A
+    warning read on the way past is not a decision; a person who would have
+    strengthened the evidence had to know to stop and do it.
+
+    Returns None when nothing is unproved, so a run with everything settled
+    meets no extra question. The proposals are the planner's own, read from
+    `wring plan --json` and never invented here: naming a check this package
+    made up would be the drive deciding what evidence is worth.
+    """
+    from wringer import accept, evidence
+
+    runs = repo / evidence.RUNS_DIRNAME
+    latest = evidence.latest_run(runs) if runs.is_dir() else None
+    if latest is None:
+        return None
+    recorded = accept.read(latest) or {}
+    counts = recorded.get("counts") or {}
+    unproved = int(counts.get(accept.UNEVIDENCED, 0) or 0)
+    if not unproved:
+        return None
+
+    rows = recorded.get("criteria") or []
+    unnamed = [
+        row for row in rows
+        if isinstance(row, dict) and row.get("state") == accept.UNEVIDENCED
+    ]
+    named = "\n".join(
+        f"  - {row.get('title') or row.get('criterion') or 'an unnamed requirement'}"
+        for row in unnamed
+    )
+
+    # What the planner would add, in its words. A proposal it does not make
+    # is said as its absence — never filled in from here.
+    try:
+        proposal = gate_proposal(repo)
+    except Stop:
+        proposal = {}
+    fresh = tuple(proposal.get("gates_proposed") or ())
+    if fresh:
+        offer = (
+            "If you strengthen it, the plan proposes: " + ", ".join(fresh) + "."
+        )
+    else:
+        offer = (
+            "The plan proposes no new check for these, so strengthening them "
+            "is an engineer's job rather than one more yes."
+        )
+
+    return Step(
+        kind=ASK,
+        id="proof-gap",
+        text=(
+            f"{unproved} requirement(s) have nothing proving them:\n{named}\n\n"
+            f"{offer}"
+        ),
+        question=(
+            "Deliver with them unproved, or strengthen the evidence first? "
+            "Type deliver or strengthen."
+        ),
+        detail={"unproved": unproved, "gates_proposed": list(fresh)},
+    )
+
+
+def strengthen_first_step() -> Step:
+    """The person chose evidence over speed. Nothing is sent, and the record
+    keeps the phase so `wringer-drive resume` re-enters at the checks."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:strengthen-first",
+        text="Nothing was sent. You chose to strengthen the evidence first, "
+        "so the run stops here with everything it built kept: the branch is "
+        "not created and nothing is pushed. Add the checks, then continue "
+        "with: wringer-drive resume",
+    )
+
+
+def proof_gap_unanswered_step() -> Step:
+    """An empty answer is not a choice. Offers never fall back."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:proof-gap-unanswered",
+        text="Nothing was sent, because the question about the unproved "
+        "requirements was not answered. Nothing is lost: continue with "
+        "wringer-drive resume and answer deliver or strengthen.",
+    )
 
 
 def delivery_step() -> Step:
@@ -2009,6 +2328,14 @@ def build_steps(repo: Path) -> list[Step]:
                 # The engine's own status, so the orchestrator advances the
                 # resume record on CONVERGED and on nothing else (P0.2).
                 "status": outcome.get("status"),
+                # The loop's final verification run, as the engine named it
+                # (`final.evidence_dir`), so the journey (0.8.7) can cite
+                # the run id the board joins on. None when the loop ended
+                # before a run was recorded.
+                "run": (outcome.get("final") or {}).get("evidence_dir"),
+                # And that run's own status, the engine's word, for the
+                # journey's `verify` entry to quote.
+                "run_status": (outcome.get("final") or {}).get("status"),
             },
         ),
     ]
@@ -2190,14 +2517,106 @@ def render_board(repo: Path) -> Path:
     return repo / BOARD_FILENAME
 
 
-def board_step(board_path: Path) -> Step:
+def card_to_review(repo: Path) -> tuple[str, str] | None:
+    """The card the HOLD is about: the first requirement the page marks NEEDS YOU.
+
+    **Runs 4 and 4B, 2026-09-01.** The PM judged on a manual display and
+    never saw which card the handover was held on: the stop named the
+    refusal, the page held the card, and nothing joined the two. Read from
+    the board's own partition (`cards.BLOCKED_ON_PERSON`, the one the badge
+    and the count line are rendered from), never from the refusal's prose —
+    so the card the drive points at is the card the page marks. None when
+    no card needs a person or the evidence cannot be read: the page then
+    opens from the top, and the step says so.
+    """
+    from wringer_board import cards, read
+
+    try:
+        board = read.read(repo)
+        for criterion in board.criteria:
+            card = cards.card_for(board, criterion)
+            if card.state in cards.BLOCKED_ON_PERSON:
+                return card.id, card.title or card.id
+    except (OSError, ValueError, read.UnknownVersion):
+        return None
+    return None
+
+
+def board_step(board_path: Path, review: tuple[str, str] | None = None) -> Step:
+    """The page, AND WHERE ON IT TO LOOK — in both emit modes (0.8.6, P1.13).
+
+    The section is spelled once, by `render.card_anchor`, and quoted here;
+    `detail["section"]` carries the same anchor the opener is handed, so a
+    driver reading the JSON and a person reading the terminal are pointed
+    at the same card. Empty when the page opens from the top.
+    """
+    from wringer_board import render
+
+    name = board_path.name
+    if review is not None:
+        criterion_id, title = review
+        section = render.card_anchor(criterion_id)
+        where = f"Open {name}#{section} — the card to review is '{title}'."
+    else:
+        section = ""
+        where = (
+            f"Open {name} from the top — what is proved and what is judged, "
+            "before you decide."
+        )
     return Step(
         kind=SHOW,
         id="board",
         text=f"The page showing what is done, what is proved, and what still "
-        f"needs you is at {board_path.name}.",
-        detail={"board": str(board_path)},
+        f"needs you is at {name}. {where}",
+        detail={"board": str(board_path), "section": section},
     )
+
+
+def open_board(
+    board_path: Path,
+    section: str = "",
+    *,
+    mode: str = "text",
+    wanted: bool = True,
+) -> None:
+    """THE ONE SEAM to the OS opener (0.8.6, P1.13) — a test replaces this.
+
+    **Runs 4 and 4B, 2026-09-01:** the PM read "green" as "everything
+    proved" and judged on a manual display, because the page that says which
+    is which was a filename in a terminal line. In text mode the drive opens
+    it at the two decision moments — the HOLD, on the card to review, and
+    before the handover's second yes, from the top. Never in json mode: an
+    agent is driving, and a browser window is not a step it can relay.
+    `--no-open` keeps a person in the terminal.
+
+    **The gate lives HERE, where no caller can go around it (incident
+    2026-09-03).** An earlier build of this item gated only at the call site
+    and ran the suite against the real opener: every text-mode test that
+    reached the pen opened a window on the operator's machine — "a hundred
+    windows". A browser is a human act on a human's machine, so the stdlib
+    is reached only when a person is demonstrably at BOTH ends of the
+    conversation — `sys.stdout` AND `sys.stdin` are terminals — and the mode
+    is text, and `--no-open` is absent. A captured stdout (pytest, CI, a
+    pipe, an agent relaying steps) never opens anything, whatever a caller
+    asked for.
+
+    The stdlib opener returns a boolean nobody can check against a screen,
+    so no step CLAIMS the page opened: the step names the path and the
+    section, and this is best-effort after it. A failure here changes
+    nothing about the run.
+    """
+    if mode != "text" or not wanted:
+        return
+    if not (sys.stdout.isatty() and sys.stdin.isatty()):
+        return
+
+    import webbrowser
+
+    target = board_path.resolve().as_uri() + (f"#{section}" if section else "")
+    try:
+        webbrowser.open(target)
+    except (OSError, webbrowser.Error):
+        return
 
 
 def final_step(

@@ -296,7 +296,7 @@ and not its first line. Then:
   | kind | what you do |
   |---|---|
   | `show` | put `text` in front of the person, verbatim; write nothing back |
-  | `ask` | show `text`, wait for the person's answer, write it back |
+  | `ask` | show `text`, wait for the person's answer, write it back. An interview question may carry offered answers beneath it, numbered, each with what picking it means and an example, ending "or type your own answer" (`detail.choices` holds them as data). Show them with the question. A typed number selects that choice and what gets recorded is the choice's own words, never the number — the person's own words are recorded verbatim. You never pick for them |
   | `confirm` | law 2: show `text`, `question`, `refusing_means`; the person decides; write back their `yes` or `no` |
   | `done` | show it; the run is over — tell them where the board is |
   | `stopped` | show it; the run stopped and the text says why, in their language. When `next_move` is present it is the one thing to do next and ends in the command that continues (`wringer-drive resume`) — put it in front of the person verbatim, after the question |
@@ -353,6 +353,17 @@ and not its first line. Then:
   page says why, in their words. Do not re-run, re-answer, or work around a
   refusal on your own initiative.
 
+- **The `board` step names the path AND the section** (0.8.6). Its `text`
+  reads `Open board.html#card-<id> — the card to review is '<title>'` when a
+  requirement is waiting on the person, and `Open board.html from the top`
+  otherwise; `detail.board` is the absolute path and `detail.section` the
+  anchor (`card-<id>`, or empty for the top). Point the person at exactly
+  that — `file://<detail.board>#<detail.section>`. In json mode the drive
+  never opens a browser itself: you are driving, and a window is not a step
+  you can relay. At a terminal — a person at both stdin and stdout — the
+  drive opens the page there by default; a piped or captured stdout never
+  opens it, and `--no-open` keeps a person in the terminal.
+
 - **The second yes is the DRIVE's, and only the drive's** (ruled 2026-09-01,
   run 4B). The drive renders the board and asks the informed second yes
   before it sends. Bare `wring deliver` previews without sending, and `wring
@@ -388,6 +399,20 @@ and not its first line. Then:
   ```bash
   wringer-drive resume --emit json
   ```
+
+- **One journey id joins every id a run prints** (0.8.7). Each time a phase
+  is entered the stream carries one `show` step with id `journey` and text
+  `journey <id> · <phase>`, and `detail` holds `journey` and `phase`; relay
+  the text verbatim like any `show`. The drive writes the join itself, under
+  the project's `.wringer` directory (`journeys/<id>/journey.json`,
+  `wringer.journey.v1`): which spec bundle, loop, verification run and
+  delivery belong to which phase of this one run. Every existing id keeps
+  its name and place; `wring explain` on that directory walks the phases,
+  the board names the journey beside the run it renders, and `resume`
+  continues the journey the run stopped in rather than opening a second
+  one. It exists because on 2026-09-01 an operator saw a spec id, a loop id,
+  a run id and a delivery id on four surfaces with nothing saying they were
+  one afternoon's work.
 
 - **The first run in a fresh project asks three setup questions**, and each
   offers its documented example values in the question text. For the record,

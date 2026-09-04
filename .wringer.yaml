@@ -12,7 +12,7 @@ gates:
 
   - id: test
     run: pytest -q
-    timeout: 600
+    timeout: 1500
 
 # M3: the loop's worker and the delivery target for the self-shipped PR.
 # The worker is a script, not an agent, and the bundle records this command

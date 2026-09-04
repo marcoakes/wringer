@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/journey.schema.json",
+  "title": "wringer.journey.v1",
+  "description": "ONE JOURNEY IDENTITY, A JOIN AND NEVER A RENAME. `.wringer/journeys/<journey_id>/journey.json`, written by `wringer-drive` — the PM's operating surface — at the start and end of each phase it drives. Every phase cites the id the engine already gave that piece of work (`.wringer/specs/<id>`, `.wringer/loops/<id>`, `.wringer/runs/<id>`, `.wringer/deliveries/<id>`) and those ids do not move: the board joins on a run id to find its journey, `wring explain <journey dir>` walks the phases, and every drive phase entry prints `journey <id> · <phase>` once.\n\nWHY IT EXISTS. Runs 4 and 4B, 2026-09-01: one afternoon's work produced a spec id, a loop id, a run id and a delivery id, each shown on a different surface, and the operator saw four unrelated ids with nothing saying they were one piece of work. This file is the one place that says so.\n\nWHAT IT DOES NOT CLAIM. Timestamps are the DRIVE's clock at the moment it entered or learned of a phase — never the engine's own record, which each cited bundle carries itself. An `outcome` is the drive's own step id or the engine's own status string, quoted, never a verdict about the work: `converged` says the loop converged, not that the requirements are met. A phase with `id: null` is one for which no engine bundle exists (the interview, the approval). The ENGINE never writes this file and never reads it to decide anything — `wring deliver`, acceptance and vacuity ignore it entirely. Absent means no drive ran, or one whose record could not be written, and a write that fails costs a person nothing but this record (`wringer-drive`'s resume-record rule).\n\nFROZEN AT BIRTH (law 7): a new fact rides a new sibling file or a new schema version, never a field here.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "journey_id", "started_at", "phases"],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.journey.v1"
+    },
+    "journey_id": {
+      "description": "`evidence.new_run_id` at the drive's start — the same `YYYYMMDD-HHMMSS-<4 hex>` UTC shape every engine bundle uses, so a journey sorts beside the runs it cites. A `wringer-drive resume` CONTINUES the journey its checkpoint names rather than starting one: a resume is a continuation, not a new piece of work.",
+      "type": "string",
+      "pattern": "^[0-9]{8}-[0-9]{6}-[0-9a-f]{4}$"
+    },
+    "started_at": {
+      "description": "Local ISO-8601 with offset, milliseconds — `evidence.timestamp()` — when the drive began this journey.",
+      "type": "string",
+      "minLength": 1
+    },
+    "phases": {
+      "description": "In the order the drive entered them. A phase entered twice (a resumed build) appears twice; the record is a log, not a state.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["phase", "kind", "id", "started_at", "ended_at", "outcome"],
+        "properties": {
+          "phase": {
+            "description": "The drive's own phase name — one of `wringer_drive.run.PHASES` (`setup`, `draft`, `interview`, `read-back`, `approve`, `gates`, `show`, `build`, `deliver`), or `verify` for a verification run the build phase produced. An OPEN string on the `wringer.loop.v2` `reason` precedent, so a phase added to the drive later costs no schema version.",
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "description": "Which engine bundle family the phase's `id` names, so a reader can find the directory without guessing from the name. `other` for a phase that produces no bundle.",
+            "enum": ["draft", "build", "verify", "deliver", "audit", "falsify", "other"]
+          },
+          "id": {
+            "description": "The engine's existing id for this phase's work — the spec bundle for `draft`, the loop for `build`, the run for `verify`, the delivery for `deliver` — exactly as the engine named the directory. Null when the phase has no bundle, or when the drive never learned the id (a build that stopped before the engine printed one).",
+            "type": ["string", "null"]
+          },
+          "started_at": {
+            "description": "The drive's clock when it entered the phase (`evidence.timestamp()`). For a `verify` entry, when the drive LEARNED of the run, which is after the run finished — the run's own bundle carries the real times.",
+            "type": "string",
+            "minLength": 1
+          },
+          "ended_at": {
+            "description": "The drive's clock when the phase ended — the next phase began, the loop returned, the delivery returned, or the run stopped. Null while the phase is open, and null forever for a phase the drive was killed inside.",
+            "type": ["string", "null"]
+          },
+          "outcome": {
+            "description": "How the phase ended, quoted from the drive's own vocabulary and never composed here: `completed` when the next phase began; the engine's own loop `status` (`converged`, `stopped`) for `build`; the engine's own delivery `mode` for `deliver`; the drive's own step id (`stopped:not-delivered`, `build:no_progress`, `stopped:interrupted`) when a stop ended the phase. Null while the phase is open.",
+            "type": ["string", "null"]
+          }
+        }
+      }
+    }
+  }
+}

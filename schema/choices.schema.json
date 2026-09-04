@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/choices.schema.json",
+  "title": "Wringer offered answers",
+  "description": "A `wringer.choices.v1` document — `wringer.choices.yaml`, beside `wringer.spec.yaml`: for an open question that has a few obvious answers, two to four plain-language ways a person MIGHT answer it, each with the consequence of picking it and a tiny example (0.8.4, P1.11). Exists because runs 4 and 4B (2026-09-01) put a drafter's question in front of a product manager with nothing beside it but a blank line. OFFERS, NEVER ANSWERS: nothing here is recorded until a person picks one at the interview or types their own words, and what is recorded is always the choice's TEXT — a typed number selects a choice and the number itself is never written, because an index is an answer to a question that may be reworded later. A sibling file keyed by question id, because `wringer.spec.v1` is frozen and its question items are `additionalProperties: false`. Source, not evidence: nothing under `.wringer/` is written from it, no gate reads it, and it has no authority over anything. `wring spec --send` writes one from the drafted reply; a person may write the same file by hand and everything downstream is identical.",
+  "type": "object",
+  "required": [
+    "schema_version"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.choices.v1"
+    },
+    "choices": {
+      "description": "The id of an open question in `wringer.spec.yaml` to the choices offered for it. A key naming a question the spec does not ask is refused by the loader. Absent, never empty: a file offering nothing is not written.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "description": "Between two and four. One option is a default wearing a list, and offers never fall back to a default; more than four is a form, and the person the interview is for stops reading.",
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 4,
+        "items": {
+          "type": "object",
+          "required": [
+            "text",
+            "consequence",
+            "example"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "text": {
+              "description": "The option in plain language — what is RECORDED as the answer when a person picks it. Never a bare number: a typed number selects the Nth choice, so an option whose words are a number could not be told from a selection. Unique within its question.",
+              "type": "string",
+              "minLength": 1,
+              "pattern": "^(?![0-9]+$).+"
+            },
+            "consequence": {
+              "description": "One sentence: what picking this means for what gets built.",
+              "type": "string",
+              "minLength": 1
+            },
+            "example": {
+              "description": "A tiny concrete instance of this option, so the person can tell the options apart without imagining them.",
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}
