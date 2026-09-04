@@ -4906,32 +4906,50 @@ def test_the_release_commit_names_the_version_it_carries():
     ahead of every tag — a subject that announces a release must name the
     version the source actually carries.
 
-    Live only mid-bump, like every other tag-derived guard here: standing on
-    a release the subject is history, and a checkout with no tags cannot
-    answer at all.
+    **Read against HEAD's OWN tree, not the working tree — and the first
+    draft got that wrong, 2026-09-04.** It compared HEAD's subject to
+    `wringer.__version__` as imported, which is the version in the tree on
+    disk. That is the same thing only while nothing is uncommitted. Cutting
+    `0.9.1`, the bar ran with the bump applied and not yet committed: HEAD
+    was `0.9.0`'s release commit, correctly announcing `0.9.0`, and the
+    guard read the working tree's `0.9.1` and called it a collision. A guard
+    that goes red on every release the moment you run the bar before
+    committing is a guard people learn to route around.
+
+    The claim is about a COMMIT, so both halves come from that commit.
+
+    A checkout with no git, and the very first commit of a repository with
+    no version file yet, cannot answer and skip.
     """
     import subprocess
 
     require_checkout(".git")
-    if not mid_bump():
-        pytest.skip("this tree stands on a release; the subject is history")
 
-    from wringer import __version__
+    def git_show(what: str) -> str | None:
+        try:
+            done = subprocess.run(
+                ["git", "show", "-s", "--format=%s", "HEAD"]
+                if what == "subject"
+                else ["git", "show", "HEAD:src/wringer/__init__.py"],
+                cwd=repo_root(),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return done.stdout if done.returncode == 0 else None
 
-    try:
-        done = subprocess.run(
-            ["git", "log", "-1", "--format=%s"],
-            cwd=repo_root(),
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-    except (OSError, subprocess.SubprocessError):
-        pytest.skip("git cannot be run here, so the subject cannot be read")
-    if done.returncode != 0:
-        pytest.skip("git cannot read HEAD's subject in this checkout")
+    subject = git_show("subject")
+    source = git_show("source")
+    if subject is None or source is None:
+        pytest.skip("git cannot read HEAD here, so the claim cannot be checked")
 
-    problem = _release_subject_problem(done.stdout.strip(), __version__)
+    committed = re.search(r'__version__ = "(\d+\.\d+\.\d+)"', source)
+    if committed is None:
+        pytest.skip("HEAD carries no version literal to check the subject against")
+
+    problem = _release_subject_problem(subject.strip(), committed.group(1))
     assert problem is None, problem
 
 

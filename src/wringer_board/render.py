@@ -698,11 +698,24 @@ def _rail_html(board: Board, cards: list[Card]) -> str:
 
 
 def _tiles_html(cards: list[Card]) -> str:
-    """Four labelled counts, from the ONE partition the badges read.
+    """Three labelled counts from the ONE partition the badges read, and one
+    state this page cannot yet answer.
 
-    Never a gauge. `Contradicted` is 0 with its note until P2.20 supplies
-    the fact — nothing on this page has audited or falsified a claim, and
-    the tile says exactly that.
+    Never a gauge.
+
+    **`Contradicted` printed `0` beside the sentence "no audit or
+    falsification has disproved a claim", and that sentence was not derived
+    from anything — 2026-09-04.** No audit result and no falsification
+    result is read into this page; nothing anywhere sets the number. Had a
+    falsification disproved a claim, the tile would have gone on printing
+    `0` and gone on making the same assertion, on the one surface a
+    stakeholder reads as evidence.
+
+    A count of zero is a claim: it says *this was looked for and not found*.
+    So the tile carries the mark the rest of the product already uses for a
+    fact it has no record of, and says which record is missing. When the
+    fact exists the tile takes a number, and the difference between "none"
+    and "not looked at" stays visible until then.
     """
     done = sum(1 for c in cards if c.state in SETTLED)
     person = sum(1 for c in cards if c.state in BLOCKED_ON_PERSON)
@@ -717,9 +730,13 @@ def _tiles_html(cards: list[Card]) -> str:
         ("unproved", unproved, "Unproved", "no check has settled these yet"),
         (
             "contradicted",
-            0,
+            # The SAME glyph the rail uses for a fact with no record behind
+            # it, from the same table — two spellings of "nothing on record"
+            # on one page is how they drift apart.
+            GLYPHS[ABSENT],
             "Contradicted",
-            "no audit or falsification has disproved a claim",
+            "nothing on record: no audit or falsification result is read "
+            "into this page yet",
         ),
     )
     parts = ['<div class="tiles">']

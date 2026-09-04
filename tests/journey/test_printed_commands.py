@@ -1304,7 +1304,13 @@ REGISTRY: tuple[Printed, ...] = (
             "cli.py:_report_delivery", "deliver.py:plan (commands=…)",
             "wringer_drive/run.py:final_step (text and detail)",
         ),
-        patterns=(r"wring verify --falsify --delivery(?: <id>)?",),
+        patterns=(
+            # 0.9.1: the flag takes an id OR a delivery directory, the
+            # same argument `wring audit` takes — so the refusal for a
+            # missing record prints the directory form too.
+            r"wring verify --falsify --delivery"
+            r"(?: <id>| <path/to/the/delivery>)?",
+        ),
         promise="after --send, the committed range is measured: a "
         "falsification record with verdict 'measured'",
         capture=capture_falsify,

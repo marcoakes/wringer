@@ -252,11 +252,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser_verify.add_argument(
         "--delivery",
-        metavar="ID",
+        metavar="ID_OR_DIR",
         help=(
-            "with --falsify: break the COMMITTED change a delivery shipped, "
-            "resolved from .wringer/deliveries/ID — the range from its "
-            "recorded base to its recorded commit. Run 3 could falsify a "
+            "with --falsify: break the COMMITTED change a delivery shipped — "
+            "the range from its recorded base to its recorded commit. Takes "
+            "a delivery id, resolved from .wringer/deliveries/ID in this "
+            "project, OR a delivery directory copied anywhere — the same "
+            "argument the audit verb's own --delivery takes. Run 3 could falsify a "
             "delivered branch only by rebuilding it as an uncommitted patch "
             "by hand; this is that measurement as a command"
         ),
@@ -1809,6 +1811,33 @@ def _ignore_runs(root: Path) -> str | None:
     return ".gitignore"
 
 
+def _delivery_manifest(root: Path, named: str) -> Path:
+    """The manifest for `--delivery`, whether an id or a directory was given.
+
+    **`--delivery` meant two different things on two sibling verbs, and it
+    caught its own author out — 2026-09-04.** `wring audit --delivery` takes
+    a DIRECTORY and works from any clone; `wring verify --falsify
+    --delivery` took an ID and only resolved under the current repo's
+    `.wringer/`. Same product, same flag name, different type and different
+    reach — so a reader who copied the argument that worked for one verb got
+    a refusal from the other, and the refusal talked about a missing record
+    rather than the mismatch.
+
+    They accept the same things now. An id keeps resolving where it always
+    did; anything that names an existing directory is read where it stands,
+    which is what a copied delivery is. The id case is tried FIRST, so a
+    directory that happens to share a delivery's name cannot silently
+    displace the record under `.wringer/`.
+    """
+    by_id = root / deliver.DELIVERIES_DIRNAME / named / "manifest.json"
+    if by_id.is_file():
+        return by_id
+    given = Path(named).expanduser()
+    if given.is_dir():
+        return given / "manifest.json"
+    return by_id
+
+
 def _falsify_range(
     root: Path, delivery_id: str | None, base_ref: str | None
 ) -> tuple[str, str] | None:
@@ -1822,16 +1851,33 @@ def _falsify_range(
     prints WHICH resolution failed and returns None; the caller exits 2.
     """
     if delivery_id is not None:
-        manifest_path = (
-            root / deliver.DELIVERIES_DIRNAME / delivery_id / "manifest.json"
-        )
+        manifest_path = _delivery_manifest(root, delivery_id)
         try:
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, ValueError, UnicodeDecodeError):
+            # **The refusal used to describe the file and stop.** The drive
+            # prints this command at the end of a run, and the step before it
+            # in the run-5 sheet stands the reader in a fresh clone — where
+            # `.wringer/` does not exist, because it is not committed. "No
+            # readable delivery record at …" is true there and useless: the
+            # reader is not missing a record, they are standing somewhere
+            # else. Every stop carries a next move that is a command.
             print(
                 f"wring verify: no readable delivery record at "
                 f"{_relative(manifest_path, root)} — `wring deliver` writes "
-                "one per delivery, and the id is its directory name",
+                "one per delivery, and the id is its directory name.\n"
+                "\n"
+                "  A delivery record lives in the project the run happened "
+                "in, and `.wringer/` is not committed, so it is not in a "
+                "fresh clone. Either run this from that project:\n"
+                "\n"
+                f"    cd <the project> && wring verify --falsify --delivery "
+                f"{Path(delivery_id).name}\n"
+                "\n"
+                "  or point it straight at a delivery directory you have a "
+                "copy of:\n"
+                "\n"
+                "    wring verify --falsify --delivery <path/to/the/delivery>",
                 file=sys.stderr,
             )
             return None

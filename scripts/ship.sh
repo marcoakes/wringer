@@ -17,6 +17,14 @@ if [ -z "$MESSAGE" ] || [ ! -f "$MESSAGE" ]; then
     exit 2
 fi
 
+# **One writer at a time — 2026-09-04.** `git add -A` below stages whatever
+# is in the tree, including edits another pipeline is midway through making.
+# That is exactly how a release commit came to announce 0.8.11 while
+# carrying 0.9.0's version bump. The gate takes ten minutes; the window is
+# wide open without this.
+"$ROOT/scripts/repo-lock.sh" acquire ship || exit 1
+trap '"$ROOT/scripts/repo-lock.sh" release ship' EXIT INT TERM
+
 "$ROOT/scripts/check.sh" || {
     echo "refusing to ship: the gate is red" >&2
     exit 1

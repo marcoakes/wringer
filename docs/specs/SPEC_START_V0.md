@@ -95,7 +95,7 @@ as the next thing to configure and does not configure it.
   `judge.api_key_env` and `run.worker.acp.env_passthrough` keep their
   refusals verbatim (`config.py:400-408`, `611-619`, `782-790`).
 - **The value is folded into the redactor before anything runs**, the way
-  `cmd_judge` already does it (`cli.py:937`). Fold first, then act — the
+  `cmd_judge` already does it (`cli.py:939`). Fold first, then act — the
   order is the guarantee, and a test fails if it is swapped.
 - **The ACP log path must be scrubbed before this ships.** `acp.py:271`
   hands the child a raw file handle and `acp.py:322` writes updates with no
@@ -160,7 +160,7 @@ exit 2, never a guess and never a hang.**
 process listing, which §3a forbids in the same breath as the ledger and the
 bundle. Its non-interactive form is the environment variable — which is
 exactly how every other command in the program already receives a credential
-(`cli.py:937`, `1034`, `1445`, `1518`).
+(`cli.py:939`, `1034`, `1445`, `1518`).
 
 `stdin.isatty()` is the test, and stdin specifically — not stdout. A
 pipeline, a CI job and a recorder all present a non-interactive stdin while
@@ -243,7 +243,7 @@ It never installs anything, and it never assumes.**
 **This spec does not install.** Three reasons, the first decisive:
 
 1. **The program already promises the opposite, in shipped strings a user can
-   read.** `cli.py:937` — *"Wringer never installs an agent. Running your
+   read.** `cli.py:939` — *"Wringer never installs an agent. Running your
    package manager is a larger power than launching a build, and this command
    was not granted it."* — and the same promise at `loop.py:538` and
    `bench.py:415`. Falsifying live error messages to save one paste is the
@@ -390,7 +390,7 @@ condition under which it opens a socket: the user asked it to clone.
 2. **§3c-i stands — `wring start` does NOT install an agent.** Marc confirmed
    2026-08-06. It names the agent and prints the exact install command; the
    human runs it. The shipped error strings promising Wringer never installs
-   one (`cli.py:937`, `loop.py:538`, `bench.py:415` — see the dated note in
+   one (`cli.py:939`, `loop.py:538`, `bench.py:415` — see the dated note in
    §3 for the two citations these replaced and why) therefore stay
    true and must not be rewritten. `SPEC_ACP_V0.md:47-48`'s parenthetical is
    struck instead, per §8.

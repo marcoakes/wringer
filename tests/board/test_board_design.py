@@ -316,7 +316,7 @@ def test_the_rail_is_ABSENT_on_a_page_that_refuses(repo):
 def test_the_counts_strip_has_FOUR_LABELLED_COUNTS_from_the_one_partition(repo):
     page = _page(_every_state(repo))
     tiles = re.findall(
-        r'<div class="tile ([a-z]+)"><span class="num">(\d+)</span>'
+        r'<div class="tile ([a-z]+)"><span class="num">([^<]+)</span>'
         r'<span class="lab">([^<]+)</span>',
         page,
     )
@@ -326,12 +326,48 @@ def test_the_counts_strip_has_FOUR_LABELLED_COUNTS_from_the_one_partition(repo):
         ("unproved", "Unproved"),
         ("contradicted", "Contradicted"),
     ]
-    counts = {label: int(n) for _, n, label in tiles}
+    counts = {label: n for _, n, label in tiles}
     # Eight rows: 1 proved, 1 needs a person, and the other six unproved —
     # nothing checks it, not built, not reached, born green, untranslated,
     # and a broken receipt chain. Every row is in exactly one tile.
-    assert counts == {"Proved": 1, "Needs a person": 1, "Unproved": 6, "Contradicted": 0}
-    assert "no audit or falsification has disproved a claim" in page
+    assert {k: int(v) for k, v in counts.items() if k != "Contradicted"} == {
+        "Proved": 1,
+        "Needs a person": 1,
+        "Unproved": 6,
+    }
+
+
+def test_the_CONTRADICTED_tile_says_NOTHING_ON_RECORD_and_never_a_count(repo):
+    """**The tile asserted a fact nothing recorded — 2026-09-04.**
+
+    It printed `0` under the sentence *"no audit or falsification has
+    disproved a claim"*, and no audit result and no falsification result is
+    read into this page: nothing anywhere set the number. Had a
+    falsification disproved a claim, the tile would have printed `0` and
+    made the same assertion, on the surface a stakeholder reads as
+    evidence.
+
+    A zero is a claim — it says this was looked for and not found. So the
+    tile carries the rail's own ABSENT glyph and names the record that is
+    missing, and the page never says a claim survived a check it never ran.
+    """
+    page = _page(_every_state(repo))
+    tiles = dict(
+        (label, num)
+        for num, label in re.findall(
+            r'<span class="num">([^<]+)</span><span class="lab">([^<]+)</span>',
+            page,
+        )
+    )
+    assert tiles["Contradicted"] == render_module.GLYPHS[render_module.ABSENT], (
+        "the Contradicted tile is printing a count again, and no audit or "
+        "falsification result is read into this page to derive one from"
+    )
+    assert "no audit or falsification has disproved a claim" not in page, (
+        "the page still asserts that nothing disproved a claim — a sentence "
+        "derived from no record at all"
+    )
+    assert "nothing on record" in page
 
 
 # --- no score, no percentage, no "green" about the whole -------------------

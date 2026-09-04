@@ -22,6 +22,7 @@ only reason the delete is safe.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -142,6 +143,22 @@ def test_a_missing_name_aborts_rather_than_guessing():
     assert not out
 
 
+# A deleting script that does NOT use `scratch_dir`, with the reason it is
+# safe anyway — and the reason has to be MECHANICAL, because a sentence in a
+# dict is not a constraint. Each entry names the fixed root the script
+# deletes under, and the guard below checks the script really does root
+# every deletion there and really does refuse a name that could climb out.
+_NOT_A_SCRATCH_TREE: dict[str, str] = {
+    "repo-lock.sh": (
+        "the lock must live under .git/ — a lock in the working tree would "
+        "be swept into a commit by the very `git add -A` it makes safe — so "
+        "it cannot be a scratch tree. The same constraint is provided in "
+        "the same shape: one fixed root, and a <name> validated as a single "
+        "path segment before it is joined."
+    ),
+}
+
+
 def test_every_caller_uses_it():
     """A script that computes its own scratch path is outside this safety
     argument entirely, which is how the last five got it wrong."""
@@ -158,7 +175,45 @@ def test_every_caller_uses_it():
     assert deleters, "no deleting scripts found — this guard is not guarding"
     for path in deleters:
         text = path.read_text(encoding="utf-8")
+        if path.name in _NOT_A_SCRATCH_TREE:
+            continue
         assert "scratch_dir" in text, (
             f"{path.name} deletes recursively but does not use scratch_dir, "
-            "so nothing constrains what it deletes"
+            f"so nothing constrains what it deletes. If it genuinely cannot "
+            f"use one, add it to _NOT_A_SCRATCH_TREE WITH A REASON — and the "
+            f"exemption is checked, not taken on trust"
         )
+
+
+@pytest.mark.parametrize("name", sorted(_NOT_A_SCRATCH_TREE))
+def test_an_EXEMPT_deleter_still_ROOTS_and_VALIDATES_what_it_removes(name):
+    """**An exemption with a prose reason and nothing behind it is a hole.**
+
+    `repo-lock.sh` (0.9.1) cannot use a scratch tree — its lock has to be
+    under `.git/`, or `git add -A` would sweep a held lock into a commit,
+    which is the defect the lock exists to prevent wearing a hat. That is a
+    real reason, and on its own it buys nothing: what made `scratch_dir`
+    safe was a fixed root plus a name that cannot climb out of it, and the
+    exemption is only sound if the script provides both itself.
+
+    So the reason is checked. Every recursive delete in an exempt script
+    must be rooted at a variable, and the script must refuse a name carrying
+    a path separator — the `../..` walk-out `scratch_dir` refuses.
+    """
+    path = SCRATCH.parent / name
+    if not path.is_file():
+        pytest.skip(f"{name} is not part of this checkout")
+    text = path.read_text(encoding="utf-8")
+
+    removes = re.findall(r"rm -rf ([^\s;|&]+)", text)
+    assert removes, f"{name} is exempt from scratch_dir but deletes nothing"
+    for target in removes:
+        assert target.startswith(('"$', "$")), (
+            f"{name} runs `rm -rf {target}` against a literal path — an "
+            "exempt deleter must root every removal at a computed variable"
+        )
+
+    assert re.search(r"case\s+\"\$\w+\"\s+in", text) and "*/*" in text, (
+        f"{name} never refuses a <name> containing a path separator, so a "
+        "caller passing '../..' walks the delete out of its root"
+    )

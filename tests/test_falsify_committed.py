@@ -11,6 +11,8 @@ produces the table after the branch has been committed and pushed."*
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -246,6 +248,99 @@ def test_an_unknown_delivery_id_says_where_it_looked(
         ["verify", "--falsify", "--delivery", "20990101-000000-dead"]
     ) == cli.EXIT_CONFIG
     assert "no readable delivery record" in capsys.readouterr().err
+
+
+def test_the_refusal_for_a_MISSING_RECORD_ends_in_commands_to_run(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The stop described the file and left the reader there — 2026-09-04.**
+
+    The drive prints `wring verify --falsify --delivery <id>` at the end of a
+    run, and a reader who has moved to a fresh clone to audit the delivery
+    meets it there. `.wringer/` is not committed, so it is not in the clone:
+    "no readable delivery record at …" is TRUE and useless, because they are
+    not missing a record, they are standing somewhere else.
+
+    Every stop carries a next move that is a command, and this one has two —
+    go back to the project, or point at a copied delivery directory.
+    """
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(
+        ["verify", "--falsify", "--delivery", "20990101-000000-dead"]
+    ) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "is not committed" in said, (
+        "the refusal does not say why the record is absent in a fresh clone"
+    )
+    assert "cd <the project> && wring verify --falsify --delivery" in said
+    assert "wring verify --falsify --delivery <path/to/the/delivery>" in said
+
+
+def test_DELIVERY_takes_a_DIRECTORY_the_way_wring_audit_does(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """**One flag name meant two types on two sibling verbs — 2026-09-04.**
+
+    `wring audit --delivery` takes a DIRECTORY and runs from any clone.
+    `wring verify --falsify --delivery` took an ID and resolved only under
+    the current repo's `.wringer/`. A reader who copied the argument that
+    worked for one verb got a refusal from the other.
+
+    A copied delivery directory is exactly what the audit path hands people,
+    so falsify reads it where it stands.
+    """
+    delivery_id = _shipped(delivery_repo, monkeypatch, capsys)
+    copied = tmp_path / "carried-elsewhere"
+    shutil.copytree(
+        delivery_repo / ".wringer" / "deliveries" / delivery_id, copied
+    )
+    # **RELATIVE, and the first draft of this test was vacuous for want of
+    # it.** `Path("/a/b") / "/tmp/c"` discards the left side, so an ABSOLUTE
+    # directory already resolved by accident through the id branch — the
+    # test passed with the feature deleted. A relative path is the case only
+    # a real resolution can answer.
+    relative = os.path.relpath(copied, delivery_repo)
+    assert not os.path.isabs(relative)
+
+    before = _runs(delivery_repo)
+    assert cli.main(["verify", "--falsify", "--delivery", relative]) == cli.EXIT_OK
+    capsys.readouterr()
+    by_directory = _falsification_of(_runs(delivery_repo) - before)
+
+    before = _runs(delivery_repo)
+    assert cli.main(["verify", "--falsify", "--delivery", delivery_id]) == cli.EXIT_OK
+    capsys.readouterr()
+    by_id = _falsification_of(_runs(delivery_repo) - before)
+
+    assert by_directory["reason"] == by_id["reason"], (
+        "the same delivery measured a different range depending on whether "
+        "it was named by id or by the directory it lives in"
+    )
+    assert "committed range" in by_directory["reason"]
+
+
+def test_an_ID_BEATS_a_directory_of_the_same_name(
+    delivery_repo, monkeypatch, capsys
+):
+    """The id case is tried first, so a directory in the working directory
+    that happens to share a delivery's name cannot displace the record under
+    `.wringer/` — the resolution a reader typed an id for."""
+    delivery_id = _shipped(delivery_repo, monkeypatch, capsys)
+    decoy = delivery_repo / delivery_id
+    decoy.mkdir()
+    (decoy / "manifest.json").write_text(
+        json.dumps({"base": "main", "result": {"commit": "0" * 40}}),
+        encoding="utf-8",
+    )
+
+    before = _runs(delivery_repo)
+    assert cli.main(["verify", "--falsify", "--delivery", delivery_id]) == cli.EXIT_OK
+    capsys.readouterr()
+    measured = _falsification_of(_runs(delivery_repo) - before)
+    assert "0" * 12 not in measured["reason"], (
+        "the decoy directory displaced the real delivery record"
+    )
 
 
 def test_a_DRY_RUN_delivery_has_no_committed_change_and_says_so(

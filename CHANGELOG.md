@@ -4,6 +4,65 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.1 — 2026-09-04
+
+**Three claims the product could not back, found by checking the run-5
+sheet against the code it describes.**
+
+**The board asserted a fact nothing recorded.** The `Contradicted` tile
+printed `0` under the sentence *"no audit or falsification has disproved a
+claim"* — and no audit result and no falsification result is read into that
+page. Nothing anywhere set the number. Had a falsification disproved a
+claim, the tile would have gone on printing `0` and gone on making the same
+assertion, on the one surface a stakeholder reads as evidence. A count of
+zero is a claim: it says *this was looked for and not found*. The tile now
+carries the rail's own ABSENT glyph and names the record that is missing, so
+the difference between "none" and "not looked at" stays visible until the
+fact exists.
+
+**`--delivery` meant two different things on two sibling verbs.** `wring
+audit --delivery` takes a directory and runs from any clone; `wring verify
+--falsify --delivery` took an id and resolved only under the current repo's
+`.wringer/`. Same product, same flag, different type and different reach —
+so a reader who copied the argument that worked for one verb got a refusal
+from the other, and the refusal talked about a missing record rather than
+the mismatch. They accept the same things now, the id tried first so a
+same-named directory cannot displace the record. The refusal for a genuinely
+absent record says why `.wringer/` is not in a fresh clone and ends in the
+two commands that work.
+
+**Two release pipelines could still run at once.** 0.9.0 added the guard
+that catches the resulting commit; that is the autopsy. `scripts/ship.sh`
+now takes an exclusive lock before the gate — not merely before the commit,
+because the gate takes ten minutes and the window is open for all of it —
+and releases it on exit. A lock held by a process that is gone is broken
+rather than blocking every later release, and the break is announced.
+
+*The lock's first draft recorded its own pid, and the helper exits the
+instant it has taken the lock — so every lock was stale a millisecond after
+it was taken, and the next writer would have walked straight in. Its guard
+found that before it shipped.*
+
+**And 0.9.0's own new guard was wrong.** It read the release commit's
+subject against the version in the tree on disk, which is the same thing
+only while nothing is uncommitted — so running the bar with a bump applied
+and not yet committed reported every release as a collision. The claim is
+about a COMMIT, so both halves now come from that commit: HEAD's subject
+against the version in HEAD's own tree.
+
+`repo-lock.sh` also met the guard that every deleting script must use
+`scratch_dir`. It cannot — its lock has to be under `.git/`, or `git add -A`
+would sweep a held lock into a commit, which is this defect wearing a hat.
+It is exempt with a reason, and **the reason is checked rather than
+believed**: an exempt deleter must still root every removal at a computed
+variable and still refuse a name carrying a path separator.
+
+Ten red-watches, each reverting one thing alone, all red. Two were vacuous
+first pass: an absolute path already resolved by accident, because
+`Path("/a/b") / "/tmp/c"` discards the left side.
+
+Schema versions: unchanged.
+
 ## 0.9.0 — 2026-09-04
 
 **0.8.11 was never published.** Two release pipelines were in flight at the
