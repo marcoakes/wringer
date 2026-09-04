@@ -26,6 +26,7 @@ from wringer import (
     coverage,
     deliver,
     detect,
+    diagnose,
     doctor,
     evidence,
     fleet,
@@ -2441,6 +2442,14 @@ def _report_loop(outcome: loop.Outcome, root: Path) -> None:
     _report_converged_but_vacuous(outcome)
     _report_diagnosis(outcome, root)
     _report_worker_diagnosis(outcome)
+    if outcome.reason == "no_progress" and outcome.worker_diagnosis is None:
+        # **The honest blank where the diagnosis is absent** (bug review
+        # 0.7, 2026-09-02). A mute clean turn and a timed-out turn both
+        # stop `no_progress` with no diagnosis — rightly, neither shape can
+        # be named — and this console then printed no `Next:` at all: not
+        # the blank, silence, run 4B's shape. The literal is the one
+        # `WorkerDiagnosis.next_move` composes for a shape it cannot close.
+        print(f"Next: {diagnose.NEXT_MOVE_UNKNOWN}")
     print(f"Loop evidence: {_relative(outcome.directory, root)}/")
     if not outcome.converged and outcome.final is not None:
         print(f"Last verification: {verify.bundle_path(outcome.final.bundle, root)}/")
@@ -5252,6 +5261,11 @@ def _explain_loop(loop_dir: Path, manifest: dict) -> None:
             "\nNext: this loop's record carries no next-move file "
             f"(`{loop.NEXT_MOVE_FILENAME}` is written since 0.7.1)"
         )
+    elif reason == "no_progress":
+        # No diagnosis and no sibling: the turn was mute or timed out, a
+        # shape nothing names. The honest blank, never silence (bug review
+        # 0.7, 2026-09-02) — the same literal the console prints.
+        print(f"\nNext: {diagnose.NEXT_MOVE_UNKNOWN}")
     try:
         shown = loop_dir.relative_to(Path.cwd()).as_posix()
     except ValueError:
