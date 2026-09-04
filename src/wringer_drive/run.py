@@ -1606,6 +1606,104 @@ def approve(repo: Path, *, answered_yes: bool) -> None:
 # --- step 9's second authorisation (ruling 2a) ------------------------------
 
 
+def assumption_cards(repo: Path) -> list[Step]:
+    """One card per decision the drafter took without asking, before approval.
+
+    **P1.12, and the plan block is where it went wrong.** Assumptions render
+    inside the plan under DECIDED WITHOUT ASKING YOU — a dense block a person
+    scrolls past on the way to the approval, which then approves all of it.
+    Each is now its own question, asked before the plan's yes, with the
+    decision, the reason, and the question it replaced.
+
+    Asked only for assumptions still standing: the board marks one SUPERSEDED
+    once the person has answered the question it displaced, and a resumed run
+    must not re-ask what was already settled.
+    """
+    from wringer_board import interview
+
+    try:
+        assumptions, _ = interview._decisions(repo)
+    except Exception:
+        # A sidecar this surface cannot read is the interview's to report,
+        # in its own words, at the plan. Never a card invented from nothing.
+        return []
+    answered = {
+        q.question.strip(): q.answer.strip()
+        for q in interview.questions(repo)
+        if q.answered
+    }
+    cards: list[Step] = []
+    for entry in assumptions:
+        aid = str(entry.get("id") or "").strip()
+        displaced = str(entry.get("instead_of_asking") or "").strip()
+        if not aid or (displaced and displaced in answered):
+            continue
+        cards.append(
+            Step(
+                kind=ASK,
+                id=f"assumption:{aid}",
+                text=(
+                    f"Decided without asking you: {entry.get('decision', '')}\n"
+                    f"Why: {entry.get('why', '')}\n"
+                    f"The question this stands in for: {displaced}"
+                ),
+                question=(
+                    "Accept it, or type what you decide instead. "
+                    "Type accept, or your own answer."
+                ),
+                detail={"assumption_id": aid},
+            )
+        )
+    return cards
+
+
+def record_assumption(repo: Path, assumption_id: str, text: str) -> Step:
+    """Keep a decision, or overrule it — through the board's own writer.
+
+    A change goes through `interview.revise`, which promotes the assumption
+    to an answered question and withdraws the approval, exactly as it does
+    when a person revises from the terminal. Nothing here writes the spec:
+    a second writer is the drift this seam exists to prevent.
+    """
+    from wringer_board import interview
+
+    said = text.strip()
+    if said.lower() == "accept":
+        return Step(
+            kind=SHOW,
+            id=f"assumption-kept:{assumption_id}",
+            text="Kept as decided. It stays in the plan, and the plan still "
+            "says it was decided without asking you.",
+            detail={"assumption_id": assumption_id},
+        )
+    try:
+        interview.revise(repo, assumption_id, said)
+    except interview.InterviewError as exc:
+        raise Stop(stop_for("", "", engine_words=str(exc)), exc.exit_code) from exc
+    return Step(
+        kind=SHOW,
+        id=f"assumption-changed:{assumption_id}",
+        text=f"Recorded as yours: {said}\n\nThe plan is re-rendered with your "
+        "answer in place of the decision, and your approval of the old plan "
+        "is withdrawn — you approve the new one in a moment.",
+        detail={"assumption_id": assumption_id},
+    )
+
+
+def assumption_unanswered_step(assumption_id: str) -> Step:
+    """An empty answer is not "accept". Offers never fall back — least of all
+    into approving a decision nobody was asked about."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:assumption-unanswered",
+        text=f"Nothing was built. A decision taken without asking you "
+        f"({assumption_id}) is still unanswered, and an empty answer is not "
+        "acceptance. Continue with wringer-drive resume and answer accept, "
+        "or say what you decide instead.",
+        detail={"assumption_id": assumption_id},
+    )
+
+
 def proof_gap_step(repo: Path) -> Step | None:
     """The unproved requirements, as a DECISION rather than a warning.
 
