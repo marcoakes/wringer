@@ -1166,21 +1166,42 @@ def render(board: Board) -> str:
             totals = board.spend.get(lane)
             if not totals:
                 continue
+            # **`cost` is a `{amount, currency}` object, not an integer, and
+            # 0.9.3 is the release where this lane started carrying real
+            # records at all** — the previous formatter would have raised on
+            # the first one. Money is rendered because the record carries it;
+            # it is the AGENT'S figure, said so below in the engine's own
+            # words rather than a second sentence written here.
             counted = ", ".join(
                 f"{name.replace('_', ' ')}: {value:,}"
                 for name, value in sorted(totals.items())
+                if isinstance(value, int) and not isinstance(value, bool)
             )
-            rows.append(f"<li>{said[lane]} reported {_esc(counted)}.</li>")
+            line = f"{said[lane]} reported {counted}."
+            money = totals.get("cost")
+            if isinstance(money, dict) and money.get("amount") is not None:
+                line += (
+                    f" It said that cost {money.get('amount')} "
+                    f"{money.get('currency', '')}".rstrip()
+                    + "."
+                )
+            rows.append(f"<li>{_esc(line)}</li>")
         for lane in ("drafting", "worker"):
             if not board.spend.get(lane):
                 rows.append(
                     f"<li>{said[lane]} reported nothing this run — which is "
                     "not the same as having spent nothing.</li>"
                 )
+        # The engine's own sentence about what these numbers are worth,
+        # verbatim — `evidence.USAGE_LIMIT`, the same words the bench table
+        # carries. A second wording of one limit is two claims to keep true.
+        from wringer import evidence as evidence_module
+
         body.append(
             '<p class="spend">What this run recorded using, by lane. '
             "Wringer does not price them.</p>"
             f'<ul class="spend">{"".join(rows)}</ul>'
+            f'<p class="spend">{_esc(evidence_module.USAGE_LIMIT)}</p>'
         )
 
     # Ruling 9: the honest limits render VERBATIM, in the engine's own voice.

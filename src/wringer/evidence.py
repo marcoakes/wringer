@@ -96,6 +96,56 @@ VACUITY_FILENAME = "vacuity.json"
 VACUITY_DIRNAME = "vacuity"
 ACCEPTANCE_FILENAME = "acceptance.json"
 
+#: What the agent said it spent, written into a loop bundle by
+#: `loop.Bundle.write_usage`. `loop.USAGE_FILENAME` quotes this.
+USAGE_FILENAME = "usage.json"
+
+#: **What a usage record is worth, in one sentence, in one place.** `bench`
+#: printed it as `LIMITS[1]` and the board needed the same words beside the
+#: same numbers; two wordings of one limit is two claims to keep true. It
+#: lives beside the reader because it is a fact about the record, not about
+#: either surface.
+USAGE_LIMIT = (
+    "Usage and cost are the agent's own report, unverified. Absent means "
+    "unreported, never zero."
+)
+
+
+def read_usage(loop_dir: Path) -> dict | None:
+    """The totals the agent reported for this loop, or None if it reported
+    nothing. **The one reader of `usage.json`, because there were two.**
+
+    Absent stays absent all the way to whatever renders it: a zero here would
+    be a number Wringer made up about somebody else's spending.
+
+    **Found 2026-09-04, shipped broken in 0.9.0.** The board had a second
+    reader, and it looked for `prompt_tokens` / `completion_tokens` /
+    `total_tokens` at the top level of this file. `wringer.usage.v1` carries
+    none of them — it is `{schema_version, loop_id, reported_by, verified,
+    rows, totals}` with `additionalProperties: false` — so the board's worker
+    lane could never match a real record, and the page said *"the builder
+    reported nothing this run"* over a record saying 44,863 tokens and
+    0.729392 USD. The guard meant to hold that lane wrote a `usage.json`
+    shape no engine writes, so it passed against a fabrication while the
+    real path was dead.
+
+    **It lives here rather than in `loop`** because the board must be able to
+    quote it, and `tests/test_layer_seam.py` names `wringer.loop` as the
+    archetypal thing a renderer must not reach into. A record's reader
+    belongs with the records.
+    """
+    import json
+
+    path = loop_dir / USAGE_FILENAME
+    if not path.is_file():
+        return None
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    totals = recorded.get("totals") if isinstance(recorded, dict) else None
+    return totals if isinstance(totals, dict) else None
+
 # **The journey (0.8.7, P1.14): one identity over a drive's whole run.**
 # Written by `wringer-drive` — the ENGINE never writes one and never imports
 # the drive — into `.wringer/journeys/<id>/journey.json`. The names live

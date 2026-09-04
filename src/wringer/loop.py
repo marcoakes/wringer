@@ -103,7 +103,7 @@ SUMMARY_FILENAME = "summary.md"
 # identical problem the identical way: a new file, a new version, every
 # existing reader untouched, and the file simply ABSENT from every loop whose
 # agent reported nothing.
-USAGE_FILENAME = "usage.json"
+USAGE_FILENAME = evidence.USAGE_FILENAME
 USAGE_SCHEMA_VERSION = "wringer.usage.v1"
 ITERATIONS_DIRNAME = "iterations"
 BRIEF_FILENAME = "brief.md"

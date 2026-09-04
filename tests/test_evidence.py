@@ -581,6 +581,11 @@ def bundle_filename_constants() -> dict[str, str]:
 NOT_BUNDLE_FILES = {
     "JOURNEY_FILENAME": "the drive's journey record, written under "
     ".wringer/journeys/<id>/ and never into a run bundle (0.8.0, P1.14)",
+    "USAGE_FILENAME": "what the agent said it spent, written by "
+    "loop.Bundle.write_usage into a LOOP bundle under .wringer/loops/<id>/ "
+    "and never into a run bundle. The name lives here so the board can read "
+    "the record without importing wringer.loop, which the layer seam names "
+    "as the archetypal violation (0.9.3)",
 }
 
 

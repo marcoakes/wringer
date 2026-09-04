@@ -84,8 +84,7 @@ SUMMARY_FILENAME = "summary.md"
 LIMITS = (
     "One run per contender. Agents are stochastic; a difference within "
     "noise is noise.",
-    "Usage and cost are the agent's own report, unverified. Absent means "
-    "unreported, never zero.",
+    evidence.USAGE_LIMIT,
     "A green gate proves the gates went green, not that the fix is honest — "
     "read the diffs before believing any row.",
 )
@@ -897,16 +896,12 @@ def _final_run_of(loop_dir: Path, tree: Path, root: Path) -> str:
 def _usage_of(loop_dir: Path) -> dict[str, Any] | None:
     """The totals the agent reported, if it reported anything.
 
-    Absent stays absent all the way to the row: a zero here would be a number
-    Wringer made up about somebody else's spending.
+    **Quotes `loop.read_usage` since 0.9.3** rather than parsing the file a
+    second time. This copy was the correct one; the board grew a second,
+    wrong one, and the way that stops happening is that the fact has one
+    reader.
     """
-    path = loop_dir / loop.USAGE_FILENAME
-    if not path.is_file():
-        return None
-    try:
-        return json.loads(path.read_text(encoding="utf-8")).get("totals")
-    except (OSError, ValueError):
-        return None
+    return evidence.read_usage(loop_dir)
 
 
 def _relative(path: Path, root: Path) -> str:

@@ -4,6 +4,68 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.3 — 2026-09-04
+
+**The board's builder lane could never match a real record, and 0.9.0
+shipped it that way.**
+
+0.9.0 split the spending record into two lanes because blending them
+answered neither question. The drafting lane worked. The builder lane read
+`usage.json` itself, looking for `prompt_tokens` / `completion_tokens` /
+`total_tokens` at its top level — and `wringer.usage.v1` carries none of
+them. It is `{schema_version, loop_id, reported_by, verified, rows, totals}`
+with `additionalProperties: false`, and the numbers live under `totals` as
+`used`, `size`, `sessions` and `cost`.
+
+So the lane matched nothing, ever, and the page said **"The builder reported
+nothing this run — which is not the same as having spent nothing"** over a
+record saying 44,863 tokens and 0.729392 USD. A false negative about
+spending, on the surface a stakeholder reads.
+
+**Two guards stood over that lane and both passed**, because both wrote a
+`usage.json` shape no engine writes: one under `runs/`, where `write_usage`
+never writes at all. A fixture the engine could not have produced is not
+evidence about a reader of engine records — and it is worse than no guard,
+because it reports coverage that is not there.
+
+The record now has **one reader**, `evidence.read_usage`, quoted by `bench`
+(whose copy was the correct one) and by the board. It lives beside the
+records rather than in `loop`, because the layer seam names `wringer.loop`
+as the archetypal thing a renderer must not reach into.
+
+Three things follow:
+
+- the builder's line carries what the record carries, including the **cost
+  the agent reported**, which Wringer has never held a price table to
+  compute and does not now — the figure is the agent's, and
+  `evidence.USAGE_LIMIT` says so beside it in the engine's own words, the
+  same sentence `wring bench` prints;
+- the search under a run directory is gone: `write_usage` only ever writes
+  into a loop bundle, so that path could only find something no engine put
+  there;
+- **the board may no longer name that record at all.** The filename is the
+  guard. A second parse of a frozen record is invisible to a test whose
+  fixture was written by the same hand as the reader, which is exactly how
+  this survived a release.
+
+Both fixtures now carry a record validated against the frozen schema, in the
+test itself.
+
+The bar caught two more on the way through. `USAGE_FILENAME` reached the
+guard that every bundle filename this module names must be cleared from a
+reused `--output` directory — it is a LOOP bundle's file, so it is excluded
+with a reason, and the exclusion is proven by a real run rather than
+believed. And a redaction guard from the 0.7 bug review planted a key whose
+last four characters were `8dd6`: the assertion is that those four appear in
+no file, and a bundle is full of sha256 digests, so it passed alone and
+failed at random in the full suite. The same flake from the same cause was
+fixed in a sibling guard on 2026-09-03; this one still carried it. The
+planted tail is not hexadecimal now.
+
+Five red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.9.2 — 2026-09-04
 
 **The release procedure stops living in somebody's head.**

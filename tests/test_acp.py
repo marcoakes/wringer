@@ -1459,7 +1459,14 @@ def test_a_MASKED_KEY_in_a_PERMISSION_REQUEST_leaves_no_tail_in_the_ledger(
     reached `loop.jsonl` as `sk-\\u20268dd6`. Measured through the real
     `wring run` with the fake agent asking permission for a tool it named
     after the key."""
-    secret = "sk-proj-notarealcredential9f3e11c4a7028dd6"
+    # **A NON-HEX tail, and that is the whole reason for the spelling.** The
+    # assertion below is "these four characters appear in no file", and the
+    # bundle is full of sha256 digests: a hex tail like `8dd6` collides with
+    # one whenever the run's bytes happen to contain it, so this passed alone
+    # and failed in the full bar at random. The same flake, from the same
+    # cause, was fixed in a 0.7.4 guard on 2026-09-03; this one was still
+    # carrying it.
+    secret = "sk-proj-notarealcredential9f3e11c4a702ZQXW"
     monkeypatch.setenv("WRINGER_TEST_CREDENTIAL", secret)
     setup(
         repo,

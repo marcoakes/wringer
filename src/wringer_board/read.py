@@ -861,15 +861,28 @@ def _spend(
                     response.read_text(encoding="utf-8")).get("usage"))
             except Exception:  # noqa: BLE001 - a bad record is not a board error
                 continue
-    for directory in (run_dir, loop_dir):
-        if directory is None:
-            continue
-        usage = directory / "usage.json"
-        if usage.is_file():
-            try:
-                add("worker", json.loads(usage.read_text(encoding="utf-8")))
-            except Exception:  # noqa: BLE001
-                continue
+    # **The worker lane, through the engine's own reader — 0.9.3.**
+    #
+    # This read `usage.json` itself and looked for `prompt_tokens` /
+    # `completion_tokens` / `total_tokens` at the top level. `wringer.usage.v1`
+    # carries none of them, so the lane could NEVER match a real record: the
+    # page said "the builder reported nothing this run" over a record saying
+    # 44,863 tokens and 0.729392 USD. 0.9.0 shipped that, and its guard passed
+    # because the guard wrote a `usage.json` shape no engine writes.
+    #
+    # `run_dir` is gone from the search with it: `Bundle.write_usage` only
+    # ever writes into a loop bundle, so looking under a run directory could
+    # only ever find something no engine put there.
+    if loop_dir is not None:
+        from wringer import evidence as evidence_module
+
+        reported = evidence_module.read_usage(loop_dir)
+        if reported:
+            # The record's own fields, unrenamed and unsummed — including
+            # `cost` when the agent volunteered one. Wringer prices nothing;
+            # a figure the agent reported is the agent's claim, and the page
+            # says so beside it.
+            lanes["worker"] = dict(reported)
     return lanes
 
 

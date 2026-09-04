@@ -853,13 +853,24 @@ def test_EVERY_CARD_CARRIES_ITS_ANCHOR_ID_in_the_boards_one_spelling(repo):
 
 
 def test_THE_READER_PUTS_EACH_LANE_WHERE_ITS_RECORD_CAME_FROM(tmp_path):
-    """**The lane split, MEASURED from files rather than handed in** (P2.15).
-    The tests above construct a board with the lanes already separated, so
-    they cannot tell a reader that separates them from one that sums them —
-    a red-watch found exactly that. This drives `_spend` against the two
-    records a real run writes: the drafting reply under `.wringer/specs/`
-    and the loop's own `usage.json`."""
+    """**The lane split, measured from records the ENGINE'S OWN SCHEMA accepts.**
+
+    0.9.0 wrote this test with a `usage.json` of `{"prompt_tokens": …,
+    "completion_tokens": …}`. No engine writes that shape —
+    `wringer.usage.v1` is `{schema_version, loop_id, reported_by, verified,
+    rows, totals}` with `additionalProperties: false`, and that fixture fails
+    validation with seven errors. So the guard passed against a fabrication
+    while the real worker lane was structurally dead, and the board told
+    every reader "the builder reported nothing this run" over records saying
+    44,863 tokens and 0.729392 USD.
+
+    The fixture is validated against the frozen schema here, in the test. A
+    fixture the engine could not have written is not evidence about a reader
+    of engine records.
+    """
     import json
+
+    import jsonschema
 
     repo = tmp_path / "repo"
     spec_dir = repo / ".wringer" / "specs" / "20260904-000000-aaaa"
@@ -868,17 +879,46 @@ def test_THE_READER_PUTS_EACH_LANE_WHERE_ITS_RECORD_CAME_FROM(tmp_path):
         json.dumps({"usage": {"prompt_tokens": 2445, "completion_tokens": 6354}}),
         encoding="utf-8",
     )
+
     loop_dir = repo / ".wringer" / "loops" / "20260904-000000-bbbb"
     loop_dir.mkdir(parents=True)
-    (loop_dir / "usage.json").write_text(
-        json.dumps({"prompt_tokens": 397846, "completion_tokens": 6713}),
-        encoding="utf-8",
+    # Shaped on a REAL record:
+    # ~/wringer-example/project/.wringer/loops/20260827-163311-0c4c/usage.json
+    record = {
+        "schema_version": "wringer.usage.v1",
+        "loop_id": "20260904-000000-bbbb",
+        "reported_by": "agent",
+        "verified": False,
+        "rows": [
+            {
+                "iteration": 1,
+                "used": 44863,
+                "size": 1000000,
+                "cost": {"amount": 0.729392, "currency": "USD"},
+            }
+        ],
+        "totals": {
+            "used": 44863,
+            "size": 1000000,
+            "sessions": 1,
+            "cost": {"amount": 0.729392, "currency": "USD"},
+        },
+    }
+    schema_path = (
+        Path(__file__).resolve().parent.parent.parent / "schema" / "usage.schema.json"
     )
+    jsonschema.validate(
+        record, json.loads(schema_path.read_text(encoding="utf-8"))
+    )
+    (loop_dir / "usage.json").write_text(json.dumps(record), encoding="utf-8")
 
     lanes = read_module._spend(repo, None, loop_dir)
 
     assert lanes["drafting"] == {"prompt_tokens": 2445, "completion_tokens": 6354}
-    assert lanes["worker"] == {"prompt_tokens": 397846, "completion_tokens": 6713}
+    assert lanes["worker"] == record["totals"], (
+        "the worker lane does not carry what the record's own totals say — "
+        "the 0.9.0 defect, where the lane could never match a real record"
+    )
     assert lanes["drafting"] != lanes["worker"], "the two records became one"
 
     # A run whose worker reported nothing has a drafting lane and no worker

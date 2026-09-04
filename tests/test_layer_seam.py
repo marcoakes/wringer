@@ -243,3 +243,36 @@ def test_the_permitted_list_is_not_silently_widened():
         "seam widening and it should be argued for in the comment above, not "
         "slipped in beside a feature"
     )
+
+
+def test_the_board_reads_a_USAGE_RECORD_only_through_the_ENGINES_reader():
+    """**0.9.0's defect, made mechanical.**
+
+    The board parsed `usage.json` itself and looked for `prompt_tokens` /
+    `completion_tokens` / `total_tokens` at its top level. `wringer.usage.v1`
+    carries none of them, so the worker lane could never match a real record —
+    and the page said *"the builder reported nothing this run"* over records
+    saying 44,863 tokens and 0.729392 USD. Two guards stood over that lane and
+    both passed, because both wrote a `usage.json` shape no engine writes.
+
+    A second reader of a frozen record is the seam dissolving in the exact way
+    this file exists to prevent, and it is invisible to a test whose fixture
+    was written by the same hand as the reader. So the FILENAME is the guard:
+    the board may not name that record at all. It quotes
+    `evidence.read_usage`, or it does not read it.
+    """
+    named = {}
+    for path in sorted(BOARD.rglob("*.py")):
+        text = path.read_text(encoding="utf-8")
+        # Comments explaining the history are not a second reader.
+        code = "\n".join(
+            line for line in text.splitlines() if not line.lstrip().startswith("#")
+        )
+        if "usage.json" in code:
+            named[path.name] = "usage.json"
+    assert not named, (
+        f"the board names the usage record directly: {named}. "
+        "`wringer.usage.v1` is frozen and has ONE reader — "
+        "`evidence.read_usage`. A second parse of it is how the worker "
+        "lane came to be structurally dead for a whole release."
+    )

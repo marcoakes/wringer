@@ -493,8 +493,29 @@ def test_NOTHING_THE_PAGE_EMITS_IS_UNSTYLED_over_every_state(repo):
     `nowpasses` classes had no rule and nobody noticed for a month."""
     _every_state(repo)
     _delivery(repo, RUN)
-    (repo / ".wringer" / "runs" / RUN / "usage.json").write_text(
-        json.dumps({"prompt_tokens": 1, "completion_tokens": 2}), encoding="utf-8"
+    # **A record the ENGINE could have written, into the directory it writes
+    # into.** This wrote `{"prompt_tokens": …}` under `runs/`, and both halves
+    # were wrong: `wringer.usage.v1` has no such keys, and `write_usage` only
+    # ever writes into a LOOP bundle. It exercised the `spend` class against a
+    # shape nothing produces — which is how the worker lane stayed dead
+    # through 0.9.0 with two guards over it.
+    (repo / ".wringer" / "loops" / LOOP / "usage.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wringer.usage.v1",
+                "loop_id": LOOP,
+                "reported_by": "agent",
+                "verified": False,
+                "rows": [{"iteration": 1, "used": 44863, "size": 1000000}],
+                "totals": {
+                    "used": 44863,
+                    "size": 1000000,
+                    "sessions": 1,
+                    "cost": {"amount": 0.729392, "currency": "USD"},
+                },
+            }
+        ),
+        encoding="utf-8",
     )
     page = _page(repo)
     markup = re.sub(r"<style>.*?</style>", "", page, flags=re.S)
@@ -535,3 +556,54 @@ def test_THE_BOARD_FOLLOWS_THE_ENGINE_WHEN_THE_TWO_COULD_DIFFER(repo, monkeypatc
         "two-vocabularies drift this import exists to end"
     )
     assert "Human judgement complete" not in labels
+
+
+def test_the_BUILDER_LANE_prints_what_the_record_says_including_its_own_COST(repo):
+    """**0.9.3 — the lane that could never match a record.**
+
+    The board's worker lane looked for `prompt_tokens` at the top level of
+    `usage.json`. `wringer.usage.v1` has `totals: {used, size, sessions,
+    cost}` and nothing else, so the page said *"the builder reported nothing
+    this run"* over a record saying 44,863 tokens and 0.729392 USD.
+
+    Money renders because the RECORD carries it — Wringer prices nothing and
+    holds no price table; this is the agent's own figure. The engine's
+    sentence about what that is worth (`evidence.USAGE_LIMIT`) renders beside
+    it, verbatim, rather than a second wording invented here.
+    """
+    from wringer import evidence
+
+    _every_state(repo)
+    (repo / ".wringer" / "loops" / LOOP / "usage.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "wringer.usage.v1",
+                "loop_id": LOOP,
+                "reported_by": "agent",
+                "verified": False,
+                "rows": [{"iteration": 1, "used": 44863, "size": 1000000}],
+                "totals": {
+                    "used": 44863,
+                    "size": 1000000,
+                    "sessions": 1,
+                    "cost": {"amount": 0.729392, "currency": "USD"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    page = _page(repo)
+
+    assert "44,863" in page, (
+        "the builder's own reported tokens are not on the page — this is the "
+        "0.9.0 defect, where the lane could never match a real record"
+    )
+    assert "The builder reported nothing this run" not in page, (
+        "the page claims the builder reported nothing, over a record that "
+        "reports something"
+    )
+    assert "0.729392 USD" in page, "the cost the agent reported is not shown"
+    assert evidence.USAGE_LIMIT in page, (
+        "the page shows a cost without the engine's own sentence about what "
+        "an agent's self-report is worth"
+    )
