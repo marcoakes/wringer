@@ -4,6 +4,66 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.0 — 2026-09-04
+
+**The two spending lanes are separate facts, never one total (P2.15).**
+Window C opens on run 4B's finding 8.
+
+The drafting reply's tokens and the worker's were added into a single total,
+under a sentence saying *"the counts the model and the worker reported"* —
+and on that very delivery the worker was on the shell lane and reported
+nothing, so the number was the drafting call alone and the sentence was
+false. It is the coverage ruling in another costume: two questions, two
+numbers, and blending them answers neither.
+
+The reader now keeps them apart **by where the record came from** — the
+drafting reply under `.wringer/specs/`, the worker's own `usage.json` — and
+the page prints one line per lane. A lane that reported nothing is **said**
+to have reported nothing, which is not the same as having spent nothing. No
+price, as before: a number Wringer cannot check is a number it must not
+print.
+
+A red-watch found the first version of the guard vacuous — every test handed
+the board its lanes already separated, so nothing exercised the reader that
+separates them. It is driven from real records now.
+
+**Not yet in this release:** the shell lane's own usage (a vendor's `--json`
+output reports it; reading that is vendor knowledge and belongs in the one
+module vendor strings may live in), estimates before spend, elapsed time per
+phase, and configurable ceilings. Each is named rather than implied.
+
+Schema versions: unchanged.
+
+## 0.8.11 — 2026-09-04
+
+**The bug review's recovery lane.** The third probe drove the resume and
+stop paths against fixture repositories; three defects, each found by
+executing, each with a failing test before its fix.
+
+### A stop that said nothing, where the honest blank belongs
+
+A mute turn and a timed-out turn both stop `no_progress` with no diagnosis
+— rightly, since neither shape can be named — and the console then printed
+no `Next:` line at all. Not the honest blank this product promises: silence,
+which is exactly run 4B's shape. The console and the drive's stop now print
+the same literal the diagnosis composes for a shape it cannot close.
+
+### A repair that would have spent money
+
+A plan that is **gone** was reported as a plan that **changed** — a missing
+file has no digest, and no digest differs from any recorded one. The stop
+then told the person to approve it again with `wringer-drive run`, which,
+with no plan present, drafts one: a paid call, offered as a repair. It says
+`spec-missing` now, which is what is actually missing.
+
+A resume with a record plainly on disk also said "no run of wringer-drive
+has stopped in this project"; it names the missing document instead.
+
+And both absence checks now run **before** the preface: a card listing what
+is preserved and reused has no business preceding "the plan is gone".
+
+Schema versions: unchanged.
+
 ## 0.8.10 — 2026-09-04
 
 **The bug review of the 0.7 surfaces.** Three probes drove the real verbs

@@ -96,7 +96,7 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.8.10 shipped; unreleased work on `main`
+## Current state — v0.9.0 shipped; unreleased work on `main`
 
 **`v0.1.0` through `v0.4.7` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
