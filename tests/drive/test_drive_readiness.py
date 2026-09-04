@@ -8,12 +8,6 @@ already on the machine. This card is that knowledge arriving in time.
 
 from __future__ import annotations
 
-import io
-import sys
-from pathlib import Path
-
-import pytest
-
 from test_drive_resume_verb import (  # noqa: F401
     converging_build,
     counting_engine_calls,

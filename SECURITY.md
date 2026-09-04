@@ -1,6 +1,6 @@
 # Security
 
-Wringer is young software (`0.8.5`). Read this before running
+Wringer is young software (`0.8.6`). Read this before running
 `wring verify` in a repository you did not write.
 
 ## Reporting a vulnerability
@@ -474,7 +474,8 @@ backported to an older one.
 | Version | Supported |
 |---|---|
 | `main` | ✅ |
-| `0.8.5` (PyPI, current) | ✅ |
+| `0.8.6` (PyPI, current) | ✅ |
+| `0.8.5` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.4` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.3` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.2` (PyPI) | upgrade — `pip install -U wringer` |

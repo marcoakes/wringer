@@ -4,6 +4,40 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.6 — 2026-09-04
+
+**The readiness card, before anything is spent (P1.7).** Runs 4 and 4B,
+2026-09-01: the operator drove a build with a dead key exported over a
+working stored login and learned it at the first worker turn — after the
+drafting call had been paid for. Every fact needed to say so was already on
+the machine.
+
+`wringer-drive` now renders one card at the start of the draft phase,
+before the first paid call:
+
+- the drafting endpoint, model and the variable that pays for it;
+- the credential lines in `wring doctor`'s own words, verbatim — one surface
+  owns that fact, and a second wording of it is how run 4B's operator met
+  two different accounts of one credential;
+- the builder and how many turns it may take;
+- what is paid for next, in order;
+- what happens if a credential fails, and the command that continues
+  (`wringer-drive resume`, which does not pay for the drafting again).
+
+**It prices nothing and says so.** No currency, no estimate, no percentage —
+the same claim ceiling every other surface carries.
+
+Composed, never computed: every line quotes a surface that already owns the
+fact. A check this machine skipped is not reported as a problem. A project
+with nothing declared yet still gets an honest card that says the answers
+are coming and what they will cost.
+
+Five red-watches, each reverting one thing alone, all red — including the
+one that matters: the card is on screen while the drafting call count is
+still zero, counted rather than inferred.
+
+Schema versions: unchanged.
+
 ## 0.8.5 — 2026-09-04
 
 **The board quotes the engine's six states — the 0.8.3 debt, paid.** The
