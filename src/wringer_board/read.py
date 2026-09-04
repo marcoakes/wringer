@@ -85,6 +85,13 @@ KNOWN_VACUITY = ("wringer.vacuity.v1",)
 KNOWN_FLEET = ("wringer.fleet.v1",)
 KNOWN_HEALTH = ("wringer.health.v1",)
 KNOWN_REFUSAL = ("wringer.refusal.v1",)
+# **The delivery record** (`schema/delivery-manifest.schema.json`): read by
+# SHAPE, never through `wringer.deliver` — the seam forbids that import, and
+# a board that reaches into the delivery module has started reimplementing
+# it. `run_dir` names the run a delivery was made from; `mode` is `dry_run`
+# or `live`, and only a live one delivered anything.
+KNOWN_DELIVERY = ("wringer.delivery.v1",)
+DELIVERIES_DIRNAME = "deliveries"
 
 # Where the engine writes a refused delivery. **Never under
 # `.wringer/deliveries/`** — an entry there is what `wring attest` takes as its
@@ -262,6 +269,20 @@ class Board:
     # `wringer.diagnosis.v1` as the run wrote it, or None. A HINT: it changes
     # no card's state and no verdict, and the card that renders it says so.
     diagnosis: dict[str, Any] | None = None
+    # **The run's own overall result** — `manifest.json` → `result.status`,
+    # the string the engine wrote (`passed` / `failed`), or None when the run
+    # recorded none. Read from the manifest this reader already loads for
+    # `scoped_out`; carried for the outcome rail's "Checks passing" segment
+    # (pd-board, 2026-09-03), which says "not known here" on None rather
+    # than inferring a result from the cards.
+    run_status: str | None = None
+    # **The delivery record that names this run**, or None. `wringer.delivery.v1`
+    # read by shape (`delivery_for_run`), live mode only. Runs 4/4B,
+    # 2026-09-01: the PM read "green" as "everything proved" and had no
+    # segment telling them whether anything had actually been delivered.
+    # None is "no delivery record names this run", which the rail says in
+    # those words — never "not delivered".
+    delivery: dict[str, Any] | None = None
 
 
 def _load(path: Path) -> Any:
@@ -434,6 +455,39 @@ def journey_for_run(repo: Path, run_dir: Path) -> str | None:
             if isinstance(phase, dict) and phase.get("id") == wanted:
                 named = record.get("journey_id")
                 return named if isinstance(named, str) and named else None
+    return None
+
+
+def delivery_for_run(
+    repo: Path, run_dir: Path, unreadable: list[str] | None = None
+) -> dict[str, Any] | None:
+    """The LIVE delivery record whose `run_dir` names this run, or None.
+
+    An EXACT join on the run directory's name — the same join
+    `journey_for_run` and `loop_for_run` make. A dry run wrote a plan and
+    touched git not at all, so it is not a delivery and produces None. A
+    record in a version this board does not know is named in `unreadable`
+    (ruling 6: no best-effort parsing) and produces None. Newest first, so
+    a run delivered twice reports the latest record.
+    """
+    root = repo / ".wringer" / DELIVERIES_DIRNAME
+    if not root.is_dir():
+        return None
+    wanted = run_dir.name
+    for candidate in sorted((p for p in root.iterdir() if p.is_dir()), reverse=True):
+        payload, unknown = _known(_load(candidate / MANIFEST_FILENAME), KNOWN_DELIVERY)
+        if unknown is not None:
+            if unreadable is not None:
+                unreadable.append(f"delivery record: {unknown}")
+            continue
+        if payload is None:
+            continue
+        named = payload.get("run_dir")
+        if not isinstance(named, str) or Path(named).name != wanted:
+            continue
+        if payload.get("mode") != "live":
+            continue
+        return payload
     return None
 
 
@@ -962,6 +1016,9 @@ def read(
     board.scoped_out = [
         gate for gate in (manifest.get("scoped_out") or []) if isinstance(gate, str)
     ]
+    status = (manifest.get("result") or {}).get("status")
+    board.run_status = status if isinstance(status, str) and status else None
+    board.delivery = delivery_for_run(repo, board.run_dir, board.unreadable)
 
     # Read LAST, and only on the path that renders a page: the two refusals
     # above return a board whose only content is the refusal, and a round

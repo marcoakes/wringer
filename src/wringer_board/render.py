@@ -8,8 +8,19 @@ file is the existence proof this is enough.
 ids in the board's own chrome. Two deliberate exceptions, both on the card and
 both because removing them costs the PM information they need: the message the
 check printed, verbatim in a block attributed to the check, and the attempt
-ordinal with its timestamp. Everything else technical lives in one page-level
-collapsed block addressed to engineers.
+ordinal with its timestamp. A third, in the header (pd-board, 2026-09-03,
+P1.14): the journey and run identity in one small monospace line — runs 4/4B
+showed a PM four unrelated ids across four surfaces and nothing joining them,
+and the join is the one id worth a line above the fold. Everything else
+technical lives in one page-level collapsed block addressed to engineers.
+
+**The outcome rail and the counts strip** (pd-board, 2026-09-03). Runs 4/4B,
+2026-09-01: the PM read "green" as "everything proved". Six segments in a
+fixed order — Built · Checks passing · Requirements proved · Human judgement ·
+Ready to deliver · Delivered — each derived from ONE fact this reader already
+holds, each with one of three glyphs, and a segment whose fact is not on disk
+says "not known here". No score, no percentage, and the word "green" appears
+nowhere on the page as a word about the whole.
 
 **The Q1 ceiling, which no string here may exceed:** a witness proves the
 stated criterion could fail and was made to pass; it does not certify agreement
@@ -46,9 +57,12 @@ from wringer_board.cards import (
 from wringer_board.read import Board, UnknownVersion
 
 # **Derived over `cards.STATES`, so a new state cannot render unstyled.**
-# `notprovable` and `needsengineer` deliberately share the neutral debt
-# styling rather than the alarm colour `needsyou` carries: they are real debts
-# and they are not the reader's to discharge.
+# Four semantic tones and nothing else (pd-board, 2026-09-03): proved is
+# green, a person's lane (`needsyou`) is blue, everything unproved — not yet,
+# not reached, nothing checks it, needs an engineer — is amber, and the two
+# the board cannot read are neutral. `needsyou` no longer shares a colour
+# with the engineer's debts, which is what finding 12 (2026-08-21) was about:
+# nine amber demands for attention on a page whose summary counted two.
 _STATE_CLASS = {
     DONE: "done",
     NOT_YET: "notyet",
@@ -61,101 +75,167 @@ _STATE_CLASS = {
 }
 
 CSS = """
-:root{--ink:#16181d;--dim:#5c6370;--line:#e2e5ea;--bg:#fbfcfd;--card:#fff;
---done:#1a7f4b;--doneb:#e6f4ec;--red:#b3261e;--redb:#fdeceb;
---amber:#8a5a00;--amberb:#fdf3e2;--grey:#565d68;--greyb:#f1f3f5;}
-*{box-sizing:border-box}
+:root{--ink:#1b1f27;--dim:#5b6472;--line:#dfe3e8;--bg:#f4f6f8;--card:#fff;--well:#f7f8fa;
+--green:#166534;--greenb:#dcfce7;--blue:#1e40af;--blueb:#dbeafe;
+--amber:#854d0e;--amberb:#fef3c7;--red:#991b1b;--redb:#fee2e2;--grey:#4b5563;--greyb:#e9edf2;
+--done:var(--green);--doneb:var(--greenb)}
+@media (prefers-color-scheme:dark){:root{--ink:#e6e8ec;--dim:#a2a9b4;--line:#2a2f3a;
+--bg:#0f1115;--card:#171a21;--well:#1d212a;
+--green:#86efac;--greenb:#14301f;--blue:#93c5fd;--blueb:#172554;
+--amber:#fcd34d;--amberb:#3b2a08;--red:#fca5a5;--redb:#3f1515;--grey:#b3bac6;--greyb:#262b35}}
+*{box-sizing:border-box;min-width:0}
+html{color-scheme:light dark}
 body{margin:0;background:var(--bg);color:var(--ink);
-font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-.wrap{max-width:themax;margin:0 auto;padding:40px 24px 80px}
-h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
-.intent{color:var(--dim);margin:0 0 28px;max-width:60ch}
+font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:60rem;margin:0 auto;padding:2rem 1.5rem 5rem}
+h1{font-size:1.5rem;line-height:1.25;margin:0 0 .25rem;letter-spacing:-.01em;
+overflow-wrap:anywhere;text-wrap:balance}
+h2{font-size:1.25rem;line-height:1.3;margin:0 0 .75rem;letter-spacing:-.01em}
+p{margin:0 0 .5rem;max-width:72ch}
+code,pre,.said,.ident{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+overflow-wrap:anywhere}
+code{font-size:.875em;background:var(--well);border:1px solid var(--line);border-radius:4px;
+padding:0 .3em}
+pre{margin:0;white-space:pre-wrap}
+/* --- the header: title, identity, the outcome rail, the counts strip ------ */
+.top{margin:0 0 1.5rem}
+.ident{display:block;font-size:.8125rem;color:var(--dim);margin:0 0 1rem;max-width:none}
+.ident code{background:none;border:0;padding:0;font-size:1em}
+.rail{list-style:none;margin:0 0 .5rem;padding:0;display:grid;gap:.5rem;
+grid-template-columns:repeat(auto-fit,minmax(9.5rem,1fr))}
+.seg{border:1px solid var(--line);border-radius:6px;background:var(--card);
+padding:.625rem .75rem;display:grid;grid-template-columns:auto 1fr;column-gap:.5rem;
+align-items:start}
+.glyph{display:inline-block;width:1.375rem;height:1.375rem;line-height:1.375rem;text-align:center;
+border-radius:999px;font-weight:700;font-size:.875rem}
+.met .glyph{background:var(--greenb);color:var(--green)}
+.unmet .glyph{background:var(--redb);color:var(--red)}
+.absent .glyph{background:var(--greyb);color:var(--grey)}
+.lab{font-weight:600;font-size:.875rem;line-height:1.375rem}
+.note{grid-column:2;font-size:.8125rem;line-height:1.4;color:var(--dim);margin:.125rem 0 0}
+.tiles{display:grid;gap:.5rem;margin:0 0 .5rem;
+grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr))}
+.tile{border:1px solid var(--line);border-left:4px solid var(--grey);border-radius:6px;
+background:var(--card);padding:.625rem .75rem}
+.proved{border-left-color:var(--green)}
+.person{border-left-color:var(--blue)}
+.unproved{border-left-color:var(--amber)}
+.contradicted{border-left-color:var(--red)}
+.num{display:block;font-size:1.5rem;font-weight:700;line-height:1.2;font-variant-numeric:tabular-nums}
+.tile .lab{display:block;line-height:1.4}
+.tile .note{display:block}
+/* --- the PM material ------------------------------------------------------ */
+.intent{color:var(--dim);margin:0;max-width:72ch}
 .promise{border:1px solid var(--line);border-left:4px solid var(--done);
-background:var(--doneb);padding:14px 18px;border-radius:6px;margin:0 0 10px;font-weight:600}
+background:var(--doneb);padding:.75rem 1rem;border-radius:6px;margin:0 0 .5rem;font-weight:600;
+color:var(--ink)}
 .promise.withheld{border-left-color:var(--grey);background:var(--greyb);font-weight:400;color:var(--dim)}
-.counts{color:var(--dim);font-size:14px;margin:0 0 28px}
+.withheld{color:var(--dim)}
+.counts{color:var(--dim);font-size:.875rem;margin:0 0 1.5rem}
+.reqs{margin:0 0 1.5rem}
 .card{background:var(--card);border:1px solid var(--line);border-radius:8px;
-padding:18px 20px;margin:0 0 14px}
-.card h2{font-size:17px;margin:0 0 8px;font-weight:600;letter-spacing:-.01em}
-.state{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
-text-transform:uppercase;padding:3px 8px;border-radius:4px;margin:0 8px 0 0;vertical-align:2px}
-.done .state{background:var(--doneb);color:var(--done)}
-.notyet .state{background:var(--amberb);color:var(--amber)}
-.notreached .state,.unknown .state,.untranslated .state{background:var(--greyb);color:var(--grey)}
-.needsyou .state{background:var(--amberb);color:var(--amber)}
-/* Neutral, not amber. These are real debts and they are NOT the reader's to
-   discharge — badging them like the rows that need a person is what put nine
-   demands for attention on a page whose summary counted two. */
-.notprovable .state,.needsengineer .state{background:var(--greyb);color:var(--grey)}
-.badge{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
-text-transform:uppercase;padding:3px 8px;border-radius:4px;background:var(--redb);color:var(--red)}
-.ask{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line);
-font-weight:600;color:var(--ink)}
-.needsyou .ask{color:var(--amber)}
+padding:.875rem 1rem;margin:0 0 .5rem}
+.card h2{font-size:1.05rem;margin:0 0 .5rem;font-weight:600;line-height:1.35;letter-spacing:0;
+display:flex;flex-wrap:wrap;gap:.25rem .625rem;align-items:baseline}
+.state{display:inline-block;font-size:.6875rem;font-weight:700;letter-spacing:.06em;line-height:1.6;
+text-transform:uppercase;padding:.0625rem .5rem;border-radius:4px;white-space:nowrap}
+.done .state{background:var(--greenb);color:var(--green)}
+.needsyou .state{background:var(--blueb);color:var(--blue)}
+.notyet .state,.notreached .state,.notprovable .state,.needsengineer .state{
+background:var(--amberb);color:var(--amber)}
+.unknown .state,.untranslated .state{background:var(--greyb);color:var(--grey)}
+.badge{display:inline-block;font-size:.6875rem;font-weight:700;letter-spacing:.06em;line-height:1.6;
+text-transform:uppercase;padding:.0625rem .5rem;border-radius:4px;background:var(--redb);color:var(--red)}
+.ask{margin:.5rem 0 0;padding-top:.5rem;border-top:1px solid var(--line);font-weight:600;color:var(--ink)}
+.needsyou .ask{color:var(--blue)}
 .done .ask,.notreached .ask{font-weight:400;color:var(--dim)}
-.said{margin:12px 0 0;padding:10px 14px;background:#f7f8fa;border:1px solid var(--line);
-border-radius:5px;font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
-white-space:pre-wrap;overflow-x:auto}
-.said .who{display:block;font-family:inherit;font-size:11px;color:var(--dim);
-margin:0 0 6px;text-transform:uppercase;letter-spacing:.05em}
+.said{margin:.75rem 0 0;padding:.625rem .875rem;background:var(--well);border:1px solid var(--line);
+border-radius:5px;font-size:.8125rem;line-height:1.5;white-space:pre-wrap;color:var(--ink)}
+.said .who{display:block;font-family:inherit;font-size:.6875rem;color:var(--dim);
+margin:0 0 .375rem;text-transform:uppercase;letter-spacing:.05em}
 /* F14: the card's check output is collapsible, so it must inherit none of
-   the page-level disclosure chrome below — no 36px gap, no rule above it.
+   the page-level disclosure chrome below — no gap, no rule above it.
    Shut it is one line; open it is exactly the block it always was.
    No tag names in angle brackets here: a literal one inside a stylesheet
    comment makes every tag-counting reader of this page see an unclosed
    element, which is how the well-formedness guard first went red. */
-.card details.said{margin:12px 0 0;border-top:none;padding-top:10px;font-size:13px}
-.card details.said summary.who{margin:0;color:var(--dim);list-style:revert}
-.card details.said[open] summary.who{margin:0 0 6px}
+.card details.said{margin:.75rem 0 0;border-top:none;padding-top:.625rem;font-size:.8125rem}
+.card details.said summary.who{margin:0;color:var(--dim);list-style:revert;cursor:pointer}
+.card details.said[open] summary.who{margin:0 0 .375rem}
 /* **The scope sentence had NO rule at all** — found 2026-08-22 by a guard
    over every class the page emits. It sits INSIDE the monospace log block,
    so with no styling it rendered in the check's own typeface and read as one
    more line the check had printed. That is the opposite of what it is for:
    it is the board speaking ABOUT the log, and F14's structural answer leans
    on the reader meeting it as such at the moment they open the block. */
-.said .scope{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-font-size:13px;color:var(--dim);margin:10px 0 0;padding-top:8px;border-top:1px solid var(--line);
+.said .scope,.said .nowpasses{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+font-size:.8125rem;color:var(--dim);margin:.625rem 0 0;padding-top:.5rem;border-top:1px solid var(--line);
 white-space:normal}
-.wasred{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);
-border-left:4px solid var(--red);background:var(--redb);border-radius:5px;font-size:14px}
-.wasred b{color:var(--red)}
-.checknote{margin:12px 0 0;padding:10px 14px;border:1px solid var(--line);
-border-left:4px solid var(--amber);background:var(--amberb);border-radius:5px;font-size:14px}
-.checknote b{color:var(--amber);text-transform:uppercase;font-size:11px;letter-spacing:.06em;
-margin-right:6px}
-p{margin:0 0 6px}
-details{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;font-size:14px;color:var(--dim)}
-summary{cursor:pointer;color:var(--ink)}
-details li{margin-bottom:8px}
+.nowpasses{color:var(--ink)}
+.wasred{margin:.75rem 0 0;padding:.625rem .875rem;border:1px solid var(--line);
+border-left:4px solid var(--green);background:var(--greenb);border-radius:5px;font-size:.875rem;color:var(--ink)}
+.wasred b{color:var(--green)}
+.checknote{margin:.75rem 0 0;padding:.625rem .875rem;border:1px solid var(--line);
+border-left:4px solid var(--amber);background:var(--amberb);border-radius:5px;font-size:.875rem;color:var(--ink)}
+.checknote b{color:var(--amber);text-transform:uppercase;font-size:.6875rem;letter-spacing:.06em;
+margin-right:.375rem}
+/* The card's longer material — receipt, check output, notes, the environment
+   guess — behind one shut disclosure per row, so a scanning reader meets a
+   badge, a title and one sentence per requirement. Open in print. */
+.more{margin:.5rem 0 0;font-size:.875rem;color:var(--dim)}
+.more summary{cursor:pointer;color:var(--dim);font-size:.8125rem}
+.more[open] summary{margin:0 0 .25rem}
 .refusal{border:1px solid var(--red);border-left:4px solid var(--red);background:var(--redb);
-padding:18px 20px;border-radius:6px}
-.round{margin:0 0 28px;padding:2px 0 0;border-top:1px solid var(--line)}
-.round h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-color:var(--dim);margin:18px 0 12px}
-.round p{margin:0 0 10px;padding:0 0 0 14px;border-left:2px solid var(--line)}
-.round .untranslated{padding:0 0 0 14px;border-left:2px solid var(--grey);margin:0 0 10px}
-.round .said{margin-top:6px}
+padding:.875rem 1rem;border-radius:6px;margin:0 0 1rem;color:var(--ink)}
+.refusal p{max-width:none}
+.round{margin:0 0 1.5rem;padding:0}
+.round h2{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:0 0 .75rem}
+.round p{margin:0 0 .625rem;padding:0 0 0 .875rem;border-left:2px solid var(--line)}
+.round .untranslated{padding:0 0 0 .875rem;border-left:2px solid var(--grey);margin:0 0 .625rem}
+.round .said{margin-top:.375rem}
 /* **The short version.** Field report 2026-08-28, and the reader was the
    product manager this whole surface is for: *"you need a fucking PhD to
    understand what is going on here."* Everything below this block is true and
    was written for someone who already knows what bound, red-first and
    evidenced mean. This block assumes none of it. */
 .short{border:1px solid var(--line);border-radius:8px;background:var(--card);
-padding:22px 24px;margin:0 0 22px}
-.short h2{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
-color:var(--dim);margin:0 0 14px}
+padding:1rem 1.25rem;margin:0 0 1rem}
+.short h2{font-size:.8125rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+color:var(--dim);margin:0 0 .75rem}
 .short dl{margin:0}
-.short dt{font-weight:600;font-size:14px;margin:14px 0 2px}
+.short dt{font-weight:600;font-size:.9375rem;margin:.875rem 0 .125rem}
 .short dt:first-of-type{margin-top:0}
 .short dd{margin:0;color:var(--ink)}
-.short dd .why{color:var(--dim);font-size:14px}
-.short ul{margin:4px 0 0;padding-left:20px}
-.short li{margin:0 0 3px}
-.short .verdict{margin:18px 0 0;padding:12px 14px;border-radius:5px;font-weight:600;
+.short dd .why{color:var(--dim);font-size:.875rem}
+.short ul{margin:.25rem 0 0;padding-left:1.25rem}
+.short li{margin:0 0 .125rem}
+.short .verdict{margin:1rem 0 0;padding:.75rem .875rem;border-radius:5px;font-weight:600;max-width:none;
 background:var(--greyb);border-left:4px solid var(--grey)}
 .short .verdict.held{background:var(--amberb);border-left-color:var(--amber);color:var(--amber)}
-.short .verdict.clear{background:var(--doneb);border-left-color:var(--done);color:var(--done)}
-""".replace("themax", "760px")
+.held{color:var(--amber)}
+.short .verdict.clear{background:var(--greenb);border-left-color:var(--green);color:var(--green)}
+.clear{color:var(--green)}
+.verdict{font-weight:600}
+/* --- the tail: usage, limits, the requirements document, engineers ------- */
+.tail{margin-top:2rem;border-top:1px solid var(--line);padding-top:1rem;font-size:.875rem;color:var(--dim)}
+.spend{margin:0 0 .75rem}
+.tail details{margin:0 0 .75rem}
+.tail summary{cursor:pointer;color:var(--ink);font-weight:500}
+.tail details[open] summary{margin:0 0 .5rem}
+.tail li{margin-bottom:.5rem;overflow-wrap:anywhere}
+.tail ul{padding-left:1.25rem}
+@media (max-width:40rem){
+.wrap{padding:1.25rem 1rem 4rem}
+h1{font-size:1.25rem}
+.card{padding:.75rem .875rem}
+.short{padding:.875rem 1rem}}
+@media print{
+body{background:#fff;color:#000}
+.wrap{max-width:none;padding:0}
+.card,.seg,.tile,.short,.promise{break-inside:avoid}
+details::details-content{display:block;content-visibility:visible}}
+"""
 
 
 def _esc(text: str | None) -> str:
@@ -494,9 +574,148 @@ def card_anchor(criterion_id: str) -> str:
     """
     return f"card-{criterion_id}"
 
+# **The outcome rail** (pd-board, 2026-09-03; P1.8's six states, in P1.8's
+# order). Runs 4/4B, 2026-09-01: the PM read "green" as "everything proved",
+# because the page had no status a person reads at a glance — every card was
+# a paragraph and the counts lived in sentences. Six segments, this order,
+# and a test pins the order and the glyph set.
+RAIL_ORDER = (
+    "Built",
+    "Checks passing",
+    "Requirements proved",
+    "Human judgement",
+    "Ready to deliver",
+    "Delivered",
+)
+MET, UNMET, ABSENT = "met", "unmet", "absent"
+GLYPHS = {MET: "✓", UNMET: "✗", ABSENT: "—"}
+NOT_KNOWN = "not known here"
+
+
+def _rail_facts(board: Board, cards: list[Card]) -> list[tuple[str, str, str]]:
+    """`(label, tone, note)` per segment — each from ONE fact, never inferred.
+
+    A segment whose fact is not on disk is ABSENT and says so: no loop
+    bundle is not "not built", no delivery record is not "not delivered".
+    The Built and Ready segments read the SAME facts the short version reads
+    (`refusals.LOOP_ENDING`, `refusals.DELIVERY_REFUSAL`), so the two cannot
+    disagree about a run.
+    """
+    facts = {fact.family: fact.value for fact in board.facts}
+
+    ending = facts.get(refusals.LOOP_ENDING)
+    if ending is None:
+        built = (ABSENT, f"{NOT_KNOWN} — no build loop is recorded for this run")
+    elif ending == "converged":
+        built = (MET, "the build loop finished")
+    else:
+        built = (UNMET, "the build loop stopped before it finished")
+
+    if board.run_status == "passed":
+        checks = (MET, "every check in this run passed")
+    elif board.run_status == "failed":
+        checks = (UNMET, "a check in this run failed")
+    else:
+        checks = (ABSENT, f"{NOT_KNOWN} — this run recorded no overall result")
+
+    total = len(cards)
+    done = sum(1 for c in cards if c.state in SETTLED)
+    if total == 0:
+        proved = (ABSENT, f"{NOT_KNOWN} — this record lists no requirements")
+    else:
+        proved = (MET if done == total else UNMET, f"{done} of {total} proved")
+
+    humans = [c for c in board.criteria if c.state == "human"]
+    judged_met = sum(
+        1
+        for c in humans
+        if c.cause is None
+        and isinstance(c.judgement, dict)
+        and c.judgement.get("verdict") == "met"
+    )
+    if not humans:
+        judgement = (ABSENT, "no requirement needs a person's judgement")
+    else:
+        judgement = (
+            MET if judged_met == len(humans) else UNMET,
+            f"{judged_met} of {len(humans)} judged met",
+        )
+
+    refused = facts.get(refusals.DELIVERY_REFUSAL)
+    if refused is not None:
+        ready = (UNMET, "a delivery from this run was refused")
+    elif board.delivery is not None:
+        ready = (MET, "a delivery was made from this run")
+    else:
+        ready = (ABSENT, f"{NOT_KNOWN} — no delivery has been attempted for this run")
+
+    if board.delivery is not None:
+        result = board.delivery.get("result") or {}
+        pushed = isinstance(result, dict) and result.get("pushed") is True
+        delivered = (MET, "pushed" if pushed else "committed, not pushed")
+    else:
+        delivered = (ABSENT, f"{NOT_KNOWN} — no delivery record names this run")
+
+    tones = (built, checks, proved, judgement, ready, delivered)
+    return [
+        (label, tone, note)
+        for label, (tone, note) in zip(RAIL_ORDER, tones, strict=True)
+    ]
+
+
+def _rail_html(board: Board, cards: list[Card]) -> str:
+    parts = ['<ol class="rail">']
+    for label, tone, note in _rail_facts(board, cards):
+        parts.append(
+            f'<li class="seg {tone}"><span class="glyph">{GLYPHS[tone]}</span>'
+            f'<span class="lab">{_esc(label)}</span>'
+            f'<span class="note">{_esc(note)}</span></li>'
+        )
+    parts.append("</ol>")
+    return "".join(parts)
+
+
+def _tiles_html(cards: list[Card]) -> str:
+    """Four labelled counts, from the ONE partition the badges read.
+
+    Never a gauge. `Contradicted` is 0 with its note until P2.20 supplies
+    the fact — nothing on this page has audited or falsified a claim, and
+    the tile says exactly that.
+    """
+    done = sum(1 for c in cards if c.state in SETTLED)
+    person = sum(1 for c in cards if c.state in BLOCKED_ON_PERSON)
+    unproved = sum(
+        1
+        for c in cards
+        if c.state in BLOCKED_ON_ENGINEER + BLOCKED_ON_THE_WORK + INDETERMINATE
+    )
+    tiles = (
+        ("proved", done, "Proved", "each was recorded failing before the fix"),
+        ("person", person, "Needs a person", "only a person can settle these"),
+        ("unproved", unproved, "Unproved", "no check has settled these yet"),
+        (
+            "contradicted",
+            0,
+            "Contradicted",
+            "no audit or falsification has disproved a claim",
+        ),
+    )
+    parts = ['<div class="tiles">']
+    for klass, count, label, note in tiles:
+        parts.append(
+            f'<div class="tile {klass}"><span class="num">{count}</span>'
+            f'<span class="lab">{_esc(label)}</span>'
+            f'<span class="note">{_esc(note)}</span></div>'
+        )
+    parts.append("</div>")
+    return "".join(parts)
+
 
 def _card_html(card: Card) -> str:
     klass = _STATE_CLASS.get(card.state, "unknown")
+    # `id=` on the row, so the anchor the drive prints lands here (P1.13).
+    # ONE spelling, `card_anchor` — a raw id here would open the page at the
+    # top while the terminal step claimed it opened on the card.
     anchor = html.escape(card_anchor(card.id), quote=True)
     parts = [f'<div class="card {klass}" id="{anchor}">']
     parts.append(
@@ -518,6 +737,12 @@ def _card_html(card: Card) -> str:
     if card.engine_words:
         # Ruling 17: the engine's words verbatim, inside a visible state.
         parts.append(_engine_words(card.engine_words))
+    # **The longer material goes behind ONE shut disclosure per row** (pd-board,
+    # 2026-09-03): the receipt block, the check's output, the changed-check
+    # note and the environment guess. Measured on run 4B's delivered page in a
+    # 560px pane: every card was a paragraph, and a PM scanning for status met
+    # the log before the verdict. Nothing here is reworded; it moves.
+    more: list[str] = []
     if card.state == DONE:
         # **The hero.** Not the green — the green is ordinary. What sells is
         # that the same check is on the record having failed.
@@ -527,7 +752,7 @@ def _card_html(card: Card) -> str:
         # the whole surface was written in them. The fact is unchanged and the
         # sentence after it is untouched; only the words a non-engineer has to
         # already know are gone.
-        parts.append(
+        more.append(
             '<div class="wasred"><b>This was watched failing before it was '
             f"fixed.</b> {_esc(card.receipt or '')}</div>"
         )
@@ -581,7 +806,7 @@ def _card_html(card: Card) -> str:
         #
         # `wasred` stays outside and visible — that is the hero, and it is a
         # receipt rather than a log.
-        parts.append(
+        more.append(
             '<details class="said"><summary class="who">What the check for '
             "<b>this</b> requirement printed"
             + (" <b>BEFORE the work</b>" if card.state == DONE else "")
@@ -599,7 +824,7 @@ def _card_html(card: Card) -> str:
         # A changed check is a thing worth knowing before you trust a green;
         # in v0 it is not a thing that stops a handover, and the page must not
         # imply it is.
-        parts.append(f'<p class="checknote"><b>Note</b> {_esc(card.check_note)}</p>')
+        more.append(f'<p class="checknote"><b>Note</b> {_esc(card.check_note)}</p>')
     if card.check_environment:
         # **The same hint-tier shape, for the same reason** — field report
         # 2026-08-28, finding 4. A red the environment caused and a red the
@@ -608,7 +833,7 @@ def _card_html(card: Card) -> str:
         # "guess" is in this block rather than in a footnote: the whole
         # licence for reading a gate's output at all is that nothing read
         # there decides anything.
-        parts.append(
+        more.append(
             '<p class="checknote"><b>This red may not be about your work</b> '
             f"— it looks like the check {_esc(card.check_environment)}. That "
             "is a guess from what it printed. Nothing here was decided by it, "
@@ -624,6 +849,13 @@ def _card_html(card: Card) -> str:
         # LAST in the card on purpose: a reader takes in the state, then what
         # happened, then what is being asked of them.
         parts.append(f'<p class="ask">{_esc(card.question)}</p>')
+    if more:
+        # Shut by default — a test pins it — and open in print via the
+        # stylesheet. The summary names what is inside rather than "more".
+        parts.append(
+            '<details class="more"><summary>The evidence behind this '
+            "one</summary>" + "\n".join(more) + "</details>"
+        )
     parts.append("</div>")
     return "\n".join(parts)
 
@@ -726,7 +958,10 @@ def render(board: Board) -> str:
     cards = [card_for(board, criterion) for criterion in board.criteria]
     title = board.spec_title or "Requirements"
 
-    body: list[str] = [f"<h1>{_esc(title)}</h1>"]
+    # **One text node in the title, and the stylesheet keeps it to a line**
+    # (pd-board, 2026-09-03: run 4B's page opened with an h1 that ballooned
+    # to five lines in a 560px pane).
+    body: list[str] = ['<header class="top">', f"<h1>{_esc(title)}</h1>"]
 
     # **THE VERDICT FIRST, and the requirements document LAST.**
     #
@@ -739,8 +974,19 @@ def render(board: Board) -> str:
     # So the intent moves below the cards, and the first thing on the page is
     # the answer.
     if board.refusal:
+        body.append("</header>")
         body.append(f'<div class="refusal"><p>{_esc(board.refusal)}</p></div>')
         return _page(title, body)
+
+    # The identity line (P1.14): the journey this run belongs to, when one
+    # cites it, and the run — the same ids the engineers' block names, in
+    # one monospace line a PM can quote back.
+    if board.run_dir is not None:
+        ident = []
+        if board.journey_id:
+            ident.append(f"journey <code>{_esc(board.journey_id)}</code>")
+        ident.append(f"run <code>{_esc(board.run_dir.name)}</code>")
+        body.append(f'<span class="ident">{" · ".join(ident)}</span>')
 
     # **Ruling 12: OUT OF DATE, across the whole board and above everything
     # on it** (0.6.2). Recomputed at render time by the reader, against the
@@ -759,6 +1005,13 @@ def render(board: Board) -> str:
             "<code>wring verify</code> and re-render before trusting a "
             "single card.</p></div>"
         )
+
+    # The outcome rail and the counts strip close the header. Six facts a
+    # reader takes in at a glance, then four labelled counts; the short
+    # version below says the same things in sentences, deliberately.
+    body.append(_rail_html(board, cards))
+    body.append(_tiles_html(cards))
+    body.append("</header>")
 
     # **THE SHORT VERSION, above everything.** The promise below is a careful
     # sentence about a subset, and the counts below it are a tally — both are
@@ -837,7 +1090,15 @@ def render(board: Board) -> str:
 
     # **Declared order, never sorted by state** — which would be the surface
     # deciding which debts matter.
-    body.extend(_card_html(card) for card in cards)
+    if cards:
+        body.append('<section class="reqs"><h2>Each requirement</h2>')
+        body.extend(_card_html(card) for card in cards)
+        body.append("</section>")
+
+    # Everything from here down is the tail: usage, the engine's limits, the
+    # requirements document, and the engineers' block — one quiet group
+    # below the PM material, in the order they already had.
+    body.append('<footer class="tail">')
 
     # **Above the limits block, not below it** — field report 2026-08-22
     # finding 15. This paragraph is a sibling of the collapsed
@@ -987,6 +1248,7 @@ def render(board: Board) -> str:
         + "".join(f"<li>{line}</li>" for line in technical)
         + "</ul></details>"
     )
+    body.append("</footer>")
     body.append(_meta_island(board))
     return _page(title, body)
 
