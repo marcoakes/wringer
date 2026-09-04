@@ -282,15 +282,27 @@ def test_GAP_2_the_unproved_ones_are_told_apart_rather_than_lumped(tmp_path):
     them to write a check that already exists — which is why the wording is
     keyed on the cause and not on the state.
     """
+    # Navigated by the requirement's own detail block since 0.8.4, when the
+    # `###`-per-requirement wall became one table with the detail beneath it.
+    # The property is unchanged: the wording is keyed on the CAUSE.
     page = certificate.render(built(tmp_path))
-    unbound = page.split("The columns are in the order finance asked for")[1]
-    assert "Nothing tests this" in unbound.split("###")[0]
-    born = page.split("A large export does not time out")[1].split("###")[0]
+
+    def detail(title: str) -> str:
+        after = page.split(f"**{title}**")[-1]
+        return after.split("**")[0]
+
+    unbound = detail("The columns are in the order finance asked for")
+    assert "Nothing tests this" in unbound, unbound
+    born = detail("A large export does not time out")
     assert "only ever been green" in born, born
     assert "Nothing tests this" not in born, (
         "a check that exists and has never been red is being described as no "
         "check at all, which sends the reader to write one that already exists"
     )
+    # And the two are told apart in the table itself, by their state cell.
+    table = page.split("| State | Requirement | Evidence |")[1].split("\n\n")[0]
+    assert "| **NO CHECK PROVES THIS** | The columns are in the order" in table
+    assert "| **ITS CHECK HAS NEVER FAILED** | A large export" in table
 
 
 # --- gap 3: "doesn't say it was judged, by whom, or the note" --------------
@@ -306,8 +318,12 @@ def test_GAP_3_a_human_verdict_shows_who_what_their_words_and_when(tmp_path):
     program rendered a judgement note to anybody.
     """
     page = certificate.render(built(tmp_path))
-    judged = page.split("A reader can tell at a glance what to fix")[1]
+    # The judgement's own detail block, beneath the table (0.8.4).
+    judged = page.split("**A reader can tell at a glance what to fix**")[-1]
 
+    assert "judged it MET" in page.split("| State |")[1].split("\n\n")[0], (
+        "the table does not say who settled this one, or how"
+    )
     assert "MET" in judged
     assert FIXTURE_JUDGEMENT["by"] in judged, "the page does not say WHO judged"
     assert FIXTURE_JUDGEMENT["at"] in judged, "the page does not say WHEN"
@@ -1015,4 +1031,29 @@ def test_THE_CONSOLE_PRINTS_ITS_OWN_CEILING_AND_POINTS_AT_THE_REST(
     )
     assert "more sentences" in printed and "What this does not say" in printed, (
         "the console dropped sentences and did not say where they went"
+    )
+
+
+def test_A_SENTENCE_SHARED_BY_SEVERAL_ROWS_IS_SAID_ONCE(tmp_path):
+    """**Measured on run 4B's delivery (0.8.4).** Seven `###` headings, five
+    of them followed by the SAME paragraph — "Nothing tests this. It is not
+    failing — nobody is looking" — so the page's own repetition buried the
+    two rows that differed. A sentence more than one row shares becomes a
+    footnote those rows point at; a sentence only one row has stays with it.
+    """
+    payload = built(tmp_path)
+    rows = payload["requirements"]
+    shared = rows[1]["means"]
+    # Give a second row the SAME sentence, which is the shape that repeated.
+    rows[2] = dict(rows[2], means=shared, says=rows[1]["says"], check=None)
+    page = certificate.render(payload)
+
+    assert page.count(shared) == 1, (
+        "a sentence two rows share is printed twice; run 4B's page printed "
+        "one of them five times"
+    )
+    assert "[^1]:" in page, "the shared sentence is not a footnote"
+    table = page.split("| State | Requirement | Evidence |")[1].split("\n\n")[0]
+    assert table.count("[^1]") == 2, (
+        "both rows must point at the footnote that carries their sentence"
     )
