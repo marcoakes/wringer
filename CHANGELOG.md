@@ -4,6 +4,55 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.10 — 2026-09-04
+
+**The bug review of the 0.7 surfaces.** Three probes drove the real verbs
+against fixture repositories — the recovery lane, the handover lane, and
+displays and redaction — and every defect below was found by EXECUTING, not
+by reading. Each arrived with a failing test first, then the smallest fix,
+each red-watched by reverting it alone.
+
+### The audit could be pointed at the wrong tree and still say ✓
+
+`wring audit --delivery` read the delivery's `manifest.json` for the
+delivered commit and never consulted the `digests.json` written last to
+cover it. With `result.commit` edited to any commit the clone happens to
+have — measured with the origin's own `main` — the audit stood its worktree
+on the wrong tree and printed a tick beside "checked against commit". The
+manifest is now checked against the digests it travels with.
+
+Two more on that lane: a packed receipt holding one unreadable file killed
+the whole command with a bare errno instead of rendering that claim as
+broken and every other claim as normal; and the audit's worktree name is
+derived from the commit, so a second audit of the same delivery in the same
+clone deleted the first one's worktree and its contents — under the promise
+that your checkout is not touched.
+
+### A masked key still reached the ledger
+
+0.7.4's review fixed one JSON-encoding site so the redactor sees a vendor's
+masked key; the permission-request site three branches down did the same
+encoding with the default and was not touched. Measured through a real
+`wring run` with a fake agent: the ledger carried the key's tail. Fixed at
+the second site, with the guard now asserting the tail is nowhere.
+
+The opposite defect too: a secret whose first or last character is
+non-ASCII encodes as a six-character escape, and the fragment tier was
+scrubbing that escape wherever it appeared — declaring one such secret
+turned every `café` in every log into `caf[REDACTED]`. Encoded twins are
+scrubbed whole only.
+
+### Two smaller ones, both measured
+
+A `.wringer.yaml` with no trailing newline made the planner's gate diff
+unapplyable — `difflib` never writes git's own no-newline marker, so the
+drive's installer refused the patch as corrupt. And an unreadable config
+made the pen tell a person the repository declares no way to show their
+requirement, and to add a `show:` line to a file that already had one; it
+now says the parser's own words instead.
+
+Schema versions: unchanged.
+
 ## 0.8.9 — 2026-09-04
 
 **Before and after, so a person compares rather than remembers (P1.10) —
