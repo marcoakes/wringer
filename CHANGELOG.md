@@ -4,6 +4,37 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.1 — 2026-09-04
+
+**Also fixed:** a redaction guard planted a key whose last four characters
+were hexadecimal and asserted they reached no file — in a full-suite run
+they collided by chance with a sha256 digest, so the guard was red for a
+reason that was not a leak. The planted tail is non-hex now, and the
+assertion measures the leak it is about.
+
+**The board opens at decision moments (P1.13).** Runs 4 and 4B: the PM
+read "green" as "everything proved" and judged on a manual display,
+because the page that says which is which was a filename in a terminal
+line.
+
+At the HOLD the drive now points at `board.html#card-<id>` — the card the
+board itself marks NEEDS YOU — and says "the card to review is '<title>'";
+before the handover's second yes it points at the page from the top. Every
+card carries `id="card-<criterion id>"`, spelled once by the board's
+renderer and quoted by the drive. In text mode, at a terminal, the drive
+opens the page there by default through one seam; `--no-open` on `run` and
+`resume` keeps a person in the terminal. Never in json mode — an agent is
+driving, and the step's detail carries the anchor for it to relay.
+
+**The gate lives inside the seam** (incident 2026-09-03, when an agent's
+tests opened the operator's browser once per run): the browser is reached
+only when the mode is text, `--no-open` is absent, and both stdout and
+stdin are terminals — a captured or piped stdout (pytest, CI, an agent)
+never opens anything, whatever a caller asked for. The suite's own
+session-wide guard makes any escaped launch a loud failure.
+
+Schema versions: unchanged.
+
 ## 0.8.0 — 2026-09-04
 
 **One journey identity (P1.14) — window B of the world-class plan opens.**
