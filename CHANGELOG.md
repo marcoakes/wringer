@@ -4,6 +4,40 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.0 — 2026-09-04
+
+**One journey identity (P1.14) — window B of the world-class plan opens.**
+Runs 4 and 4B, 2026-09-01: an operator saw a spec id, a loop id, a run id
+and a delivery id on four surfaces with nothing saying they were one
+afternoon's work.
+
+`wringer-drive` now writes `.wringer/journeys/<id>/journey.json`
+(`wringer.journey.v1`, a new sibling schema frozen at birth): which spec
+bundle, loop, verification run and delivery belong to which phase of one
+run. Every existing id keeps its name and place — the journey is a join,
+never a rename. Each phase entry prints one header line, `journey <id> ·
+<phase>`, as its own `show` step; older steps are byte-identical. The board
+names `journey <id>` beside the run in its engineers' block — only when
+that journey's phases cite the rendered run, by an exact join on the run
+id. `wring explain <journey dir>` walks the phases, quoting the drive's own
+outcome words and marking an unfinished phase `open`. `wringer-drive
+resume` continues the journey the run stopped in rather than opening a
+second one. A journey that cannot be written costs the run nothing.
+
+Also in this release: the test suite makes any browser launch a loud
+failure, session-wide (a guard added after an agent's tests opened the
+operator's browser once per run on 2026-09-03); the bundle-clearing guard
+gained an exclusion list with proven reasons, because the engine now owns
+a filename the drive writes outside every bundle — the exclusion is
+measured against a real `wring verify` run rather than asserted; and the
+test gate's own timeout rose to 1500s, the suite having grown past a 600s
+ceiling.
+
+Guards: 23 red-watches, each reverted alone, all red; one was vacuous on
+first pass and now asserts the row.
+
+Schema versions: new sibling `wringer.journey.v1`; nothing existing moves.
+
 ## 0.7.5 — 2026-09-02
 
 **Every command the product prints is executed in CI, as printed (P0.5)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import webbrowser as _webbrowser
 from pathlib import Path
 
 import pytest
@@ -256,8 +257,6 @@ def flat(text: str) -> str:
 # act on a human's machine; a test that reaches one has escaped its fixture.
 # So the suite makes every launch a loud failure, session-wide, regardless of
 # which seam the product routes through.
-import webbrowser as _webbrowser
-
 
 def _no_browser(*args, **kwargs):
     raise RuntimeError(
