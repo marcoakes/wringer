@@ -248,7 +248,9 @@ class Board:
     # recorded, never a price — the standing ruling is that Wringer does not
     # keep a price table, because a number it cannot check is a number it must
     # not print. Absent when nothing recorded a usage, and absent is not zero.
-    spend: dict[str, int] = field(default_factory=dict)
+    #: Token counts BY LANE — `{"drafting": {...}, "worker": {...}}`,
+    #: each present only when that lane reported. Never summed (P2.15).
+    spend: dict[str, dict[str, int]] = field(default_factory=dict)
     # Artifacts that were on disk and declared a version this board does not
     # know. They produce NO fact — the board cannot know where a later version
     # put the field, and a value read from the wrong place is worse than a
@@ -819,34 +821,44 @@ def read_facts(
     board.facts = sorted(facts, key=lambda fact: order.get(fact.family, 99))
 
 
-def _spend(repo: Path, run_dir: Path | None, loop_dir: Path | None) -> dict[str, int]:
-    """Token counts this run's own records already carry.
+def _spend(
+    repo: Path, run_dir: Path | None, loop_dir: Path | None
+) -> dict[str, dict[str, int]]:
+    """Token counts this run's own records carry, **by lane, never summed**.
 
     **Facts, never a price.** Wringer keeps no price table — a number it
     cannot check is a number it must not print — so this reads what the
     drafting reply and the worker actually reported and adds nothing.
 
-    Absent when nothing recorded a usage, and ABSENT IS NOT ZERO: a run whose
-    worker reported no usage has not been shown to have spent nothing, and a
-    page saying "0 tokens" would be a claim the record does not support.
+    **The two lanes are separate facts** (P2.15, run 4B finding 8). They were
+    summed into one total under a sentence saying "the counts the model and
+    the worker reported" — and on run 4B's own delivery the worker was on the
+    shell lane and reported nothing, so the number was drafting alone and the
+    sentence was false. It is the coverage ruling in another costume: two
+    numbers, two questions, and blending them answers neither.
+
+    Absent when a lane recorded nothing, and ABSENT IS NOT ZERO: a run whose
+    worker reported no usage has not been shown to have spent nothing.
     """
     import json
 
-    totals: dict[str, int] = {}
+    lanes: dict[str, dict[str, int]] = {}
 
-    def add(payload: object) -> None:
+    def add(lane: str, payload: object) -> None:
         if not isinstance(payload, dict):
             return
         for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
             value = payload.get(key)
             if isinstance(value, int) and value >= 0:
+                totals = lanes.setdefault(lane, {})
                 totals[key] = totals.get(key, 0) + value
 
     specs = repo / ".wringer" / "specs"
     if specs.is_dir():
         for response in sorted(specs.glob("*/response.json")):
             try:
-                add(json.loads(response.read_text(encoding="utf-8")).get("usage"))
+                add("drafting", json.loads(
+                    response.read_text(encoding="utf-8")).get("usage"))
             except Exception:  # noqa: BLE001 - a bad record is not a board error
                 continue
     for directory in (run_dir, loop_dir):
@@ -855,10 +867,10 @@ def _spend(repo: Path, run_dir: Path | None, loop_dir: Path | None) -> dict[str,
         usage = directory / "usage.json"
         if usage.is_file():
             try:
-                add(json.loads(usage.read_text(encoding="utf-8")))
+                add("worker", json.loads(usage.read_text(encoding="utf-8")))
             except Exception:  # noqa: BLE001
                 continue
-    return totals
+    return lanes
 
 
 def read(

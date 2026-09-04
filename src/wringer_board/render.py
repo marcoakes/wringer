@@ -1136,14 +1136,34 @@ def render(board: Board) -> str:
     # usage: absent is not zero, and a page saying "0 tokens" would claim
     # more than the record supports.
     if board.spend:
-        counted = ", ".join(
-            f"{name.replace('_', ' ')}: {value:,}"
-            for name, value in sorted(board.spend.items())
-        )
+        # **One line per lane, and the lanes are never summed** (P2.15, run
+        # 4B finding 8). The sentence here said "the counts the model and the
+        # worker reported" over a single total — and on run 4B's delivery the
+        # worker was on the shell lane and reported nothing, so the number
+        # was the drafting call alone and the sentence was false. Two
+        # questions, two numbers; a lane that reported nothing is SAID to
+        # have reported nothing, which is not the same as spending nothing.
+        said = {"drafting": "Drafting", "worker": "The builder"}
+        rows = []
+        for lane in ("drafting", "worker"):
+            totals = board.spend.get(lane)
+            if not totals:
+                continue
+            counted = ", ".join(
+                f"{name.replace('_', ' ')}: {value:,}"
+                for name, value in sorted(totals.items())
+            )
+            rows.append(f"<li>{said[lane]} reported {_esc(counted)}.</li>")
+        for lane in ("drafting", "worker"):
+            if not board.spend.get(lane):
+                rows.append(
+                    f"<li>{said[lane]} reported nothing this run — which is "
+                    "not the same as having spent nothing.</li>"
+                )
         body.append(
-            '<p class="spend">What this run recorded using — '
-            f"{_esc(counted)}. These are the counts the model and the worker "
-            "reported; Wringer does not price them.</p>"
+            '<p class="spend">What this run recorded using, by lane. '
+            "Wringer does not price them.</p>"
+            f'<ul class="spend">{"".join(rows)}</ul>'
         )
 
     # Ruling 9: the honest limits render VERBATIM, in the engine's own voice.
