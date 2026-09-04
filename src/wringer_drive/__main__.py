@@ -663,6 +663,11 @@ def _drive(
     if due("draft"):
         run_module.checkpoint_phase(repo, "draft")
         _enter_phase(session, mode, "draft")
+        # **The readiness card, before the first paid call** (P1.7). Every
+        # fact on it was already on this machine; runs 4 and 4B spent a
+        # drafting call and a worker turn before the operator met any of it.
+        card = session.emit(run_module.readiness_step(repo))
+        _render([card], mode)
         spec_id = run_module.draft_the_spec(
             session, repo, inside, announce=lambda step: _render([step], mode)
         )
