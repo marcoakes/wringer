@@ -696,6 +696,85 @@ def _show_worker_auth(session: object, announce: object, found: object) -> None:
         announce(step)
 
 
+def readiness_step(repo: Path) -> Step:
+    """What this run will spend, and against which credential, BEFORE it does.
+
+    **Marc's brief, P1.7, and runs 4 and 4B behind it.** The operator drove a
+    build with a dead key exported over a working login and learned it at the
+    first worker turn — after the drafting call was paid for. Every fact
+    below was already on this machine before anything was spent; nothing here
+    is new knowledge, it is the knowledge arriving in time.
+
+    **Composed, never computed.** Each line quotes a surface that already
+    owns the fact: `wring doctor`'s own checks for the credentials, the
+    person's `.wringer.yaml` for the worker and the endpoint, and
+    `worker_auth`'s own sentence — the same one the pre-build step prints —
+    for the effective credential route. No prices: `wring health` does not
+    price a run and neither does this, and saying so is the claim ceiling.
+    """
+    from wringer import config, doctor
+
+    lines: list[str] = []
+    settings = None
+    path = repo / config.CONFIG_FILENAME
+    if path.is_file():
+        try:
+            settings = config.load(path)
+        except config.ConfigError:
+            settings = None
+
+    judge = getattr(settings, "judge", None) if settings else None
+    if judge is not None:
+        lines.append(
+            f"Drafting: {judge.model} at {judge.endpoint}, paid for with "
+            f"whatever {judge.api_key_env} names."
+        )
+    else:
+        lines.append(
+            "Drafting: this project declares no `judge:` section yet, so the "
+            "endpoint and model are the ones you answer with in a moment."
+        )
+
+    # The credential states, in doctor's own words — the surface that owns
+    # them. A check this machine skipped is not reported as a problem.
+    for check in doctor.run_checks(repo):
+        if check.name in ("drafting key", "worker credential", "worker auth"):
+            if check.status != doctor.SKIP:
+                lines.append(f"{check.name.capitalize()}: {check.detail}")
+
+    run = getattr(settings, "run", None) if settings else None
+    worker = getattr(run, "worker", None) if run else None
+    if worker is not None:
+        shape = worker if isinstance(worker, str) else "an ACP agent"
+        attempts = getattr(run, "max_iterations", None)
+        turns = (
+            f"up to {attempts} turn(s)" if attempts else "as many turns as it allows"
+        )
+        lines.append(f"Builder: {shape} — {turns}.")
+        lines.append(
+            "Paid steps ahead: one drafting call, then the builder's turns."
+        )
+    else:
+        lines.append(
+            "Builder: none declared yet — you name it at the interview, and "
+            "it is checked before it is paid for."
+        )
+        lines.append("Paid steps ahead: one drafting call to begin with.")
+
+    lines.append(
+        "If a credential fails: the build stops with the reason and the "
+        "command that continues it, and `wringer-drive resume` picks up "
+        "where it stopped without paying for the drafting again."
+    )
+    lines.append("Wringer does not price these.")
+
+    return Step(
+        kind=SHOW,
+        id="readiness",
+        text="Before anything is spent:\n\n" + "\n".join(f"- {one}" for one in lines),
+    )
+
+
 def draft_the_spec(
     session: Session, repo: Path, prd: Path, announce: object = None
 ) -> str | None:
