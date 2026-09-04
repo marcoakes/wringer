@@ -4,6 +4,36 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.9 — 2026-09-04
+
+**Before and after, so a person compares rather than remembers (P1.10) —
+window B is complete.** Marc's brief: the board should show the old summary
+beside the new one, *"far more useful to a PM than file counts"*. A person
+judging "the summary reads at a glance" is comparing it against something,
+and until now that something existed only in their memory of a terminal.
+
+The pen runs the SAME declared `show:` command at the commit the work
+started from and prints **BEFORE**, then **AFTER**. The base is the
+merge-base with the remote's default branch, or HEAD's parent — never HEAD
+itself, because a before and after that are one commit shows nothing and
+reads as "it did not change".
+
+**Absence is absence.** A command that fails at the base — its files did not
+exist there, which is the normal case for new work — and a commit this
+repository no longer has are both stated as *nothing to show there*, never
+as a failure the person must act on, and the AFTER still stands on its own.
+
+The worktree machinery is the engine's, which `wring audit --delivery` and
+the committed-range falsification already use; a second copy inside the
+board would be a second answer to "how do I read a tree at a commit without
+touching the operator's checkout". The import is admitted in the layer seam
+with its argument. A test asserts the operator's tree, branch and worktree
+list are exactly as they were.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.8.8 — 2026-09-04
 
 **0.8.7 was never published.** Its bar went red twice — a lint slip, then

@@ -12,8 +12,6 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from wringer_board import judge as judge_module
 
 
