@@ -4,6 +4,37 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.2 — 2026-09-04
+
+**The interview, easier to answer (P1.11).** Runs 4 and 4B put a drafter's
+question in front of a product manager with nothing beside it but a blank
+line. A question may now come with two to four plain-language ways to
+answer it, each with the consequence of picking it and a tiny example,
+rendered numbered beneath the question and ending "or type your own
+answer".
+
+`wringer.choices.yaml` (`wringer.choices.v1`, a new sibling schema frozen
+at birth) sits beside the spec, keyed by question id, because the spec's
+question items are closed. `wring spec --send` writes it from the drafted
+reply; a person may write the same file by hand and a hand-written one is
+never replaced by a redraft. The ceiling is a parse guard, not a sentence:
+two to four options per question; an option whose text is a bare number is
+refused (a typed number selects a choice); a repeated text is refused;
+choices for a question the spec does not ask are dropped with a note on
+the drafted path and refused from a typed file.
+
+**The record holds the choice's TEXT, never the number.** `wringer-board
+answer`, `revise` and the drive's interview all resolve through one
+function: a typed number against a choices question records that choice's
+words; a number naming no listed choice is refused with nothing written;
+free text, and any answer to a question without choices, is recorded
+verbatim. One renderer draws the list; the drive's ask step quotes it
+beneath the verbatim question. A question without choices renders
+byte-identically to before. An unreadable or unknown-version choices file
+is said, never rendered as a blank line.
+
+Schema versions: new sibling `wringer.choices.v1`; nothing existing moves.
+
 ## 0.8.1 — 2026-09-04
 
 **Also fixed:** a redaction guard planted a key whose last four characters
