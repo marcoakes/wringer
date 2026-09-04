@@ -4812,6 +4812,161 @@ def test_SECURITYs_supported_versions_table_names_every_release():
     )
 
 
+def test_CONTRIBUTING_names_exactly_the_releases_that_were_cut_but_never_published():
+    """**Written because the opening paragraph started claiming it, 2026-09-04.**
+
+    `0.8.7` was cut and never tagged. So was `0.8.11`, when two release
+    pipelines overlapped and the older one's `git add -A` swept up the
+    newer one's version bump. Through both, CONTRIBUTING's opening went on
+    saying every tag it listed was *"all on PyPI"* — a totality claim, kept
+    by hand, stale, on the first page a contributor reads. That is the H-3
+    defect class exactly.
+
+    Naming the exceptions in prose only moves the staleness one sentence
+    along, so the pair is derived rather than typed: the CHANGELOG's own
+    entries minus `git tag`.
+
+    **The version being released is excluded mid-bump**, for the reason the
+    tag-derived guards above all share — between the bump commit and the tag
+    its tag does not exist yet, by construction, and counting it would make
+    every release commit red.
+    """
+    require_checkout("CONTRIBUTING.md")
+    tagged = release_tags()
+    if tagged is None:
+        pytest.skip("this checkout has no tags, so the pair cannot be derived")
+
+    from wringer import __version__
+
+    root = repo_root()
+    changelog = (root / "CHANGELOG.md").read_text(encoding="utf-8")
+    released = set(re.findall(r"^## (\d+\.\d+\.\d+) — ", changelog, re.M))
+    unpublished = released - tagged - ({__version__} if mid_bump() else set())
+
+    opening = " ".join(
+        (root / "CONTRIBUTING.md").read_text(encoding="utf-8").split()
+    )
+    said = re.search(
+        r"all on PyPI bar (.+?), which were cut and never published", opening
+    )
+    assert said, (
+        "the sentence naming the releases that were never published has been "
+        "reworded, so this guard can no longer read it"
+    )
+    named = set(re.findall(r"`v(\d+\.\d+\.\d+)`", said.group(1)))
+    assert named == unpublished, (
+        f"CONTRIBUTING says {sorted(named)} were cut and never published; the "
+        f"CHANGELOG and the tags say {sorted(unpublished)}. Only in the page "
+        f"{sorted(named - unpublished)}; only in the record "
+        f"{sorted(unpublished - named)}"
+    )
+
+
+def _release_subject_problem(subject: str, version: str) -> str | None:
+    """What is wrong with a release commit's subject line, or None.
+
+    Versions are matched as whole tokens, never as substrings: `0.8.1` and
+    `0.8.11` are different releases, and the `## 0.4.1` guard that bound
+    `## 0.4.10` on 2026-08-27 is the reason this is spelled out rather than
+    written as `version in subject`.
+    """
+    if not subject.startswith("release:"):
+        return None
+    named = re.findall(r"\d+\.\d+\.\d+", subject)
+    if version in named:
+        return None
+    if not named:
+        return (
+            f"the release commit's subject names no version at all, while "
+            f"the source it carries is {version}: {subject!r}"
+        )
+    return (
+        f"the release commit announces {named} while the source it carries "
+        f"is {version} — the bump and the message are for different "
+        f"releases, and neither can be tagged from this commit: {subject!r}"
+    )
+
+
+def test_the_release_commit_names_the_version_it_carries():
+    """**Found by cutting `0.9.0`, 2026-09-04, and it cost a release.**
+
+    Two release pipelines were in flight at the same time. `0.8.11`'s
+    `git add -A` swept up `0.9.0`'s version bump before its own tag was cut,
+    and the commit that reached `main` carried the subject
+    `release: 0.8.11` with `__version__ = "0.9.0"` underneath it. Neither
+    version could be tagged from it, and nothing published.
+
+    What caught it was the supported-versions guard above — **by luck**. The
+    swallowed bump happened to leave a table row for a release no tag
+    matched. Two releases touching the same rows would have collided just as
+    hard and gone green, and the error it did give named a row rather than
+    the collision.
+
+    So the claim is checked where it is made. On a bump commit — a tree
+    ahead of every tag — a subject that announces a release must name the
+    version the source actually carries.
+
+    Live only mid-bump, like every other tag-derived guard here: standing on
+    a release the subject is history, and a checkout with no tags cannot
+    answer at all.
+    """
+    import subprocess
+
+    require_checkout(".git")
+    if not mid_bump():
+        pytest.skip("this tree stands on a release; the subject is history")
+
+    from wringer import __version__
+
+    try:
+        done = subprocess.run(
+            ["git", "log", "-1", "--format=%s"],
+            cwd=repo_root(),
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git cannot be run here, so the subject cannot be read")
+    if done.returncode != 0:
+        pytest.skip("git cannot read HEAD's subject in this checkout")
+
+    problem = _release_subject_problem(done.stdout.strip(), __version__)
+    assert problem is None, problem
+
+
+@pytest.mark.parametrize(
+    "subject,version,caught",
+    [
+        # The collision itself, verbatim from `be1fcd7`.
+        ("release: 0.8.11 — the bug review's recovery lane", "0.9.0", True),
+        # The substring trap in both directions.
+        ("release: 0.8.1 — an older cut", "0.8.11", True),
+        ("release: 0.8.11 — the newer cut", "0.8.1", True),
+        # A subject that announces a release and names none.
+        ("release: the spending lanes", "0.9.0", True),
+        # What a correct release commit looks like.
+        ("release: 0.9.0 — the two spending lanes", "0.9.0", False),
+        # Not a release commit at all; this guard has nothing to say.
+        ("merge: per-lane spending onto main", "0.9.0", False),
+        ("board: the two spending lanes are separate facts", "0.9.0", False),
+    ],
+)
+def test_the_release_subject_check_CATCHES_the_collision_that_produced_it(
+    subject, version, caught
+):
+    """The guard above reads one real commit, so on a good tree it would pass
+    with its check gutted. This drives the check itself on planted pairs —
+    the collision as it actually happened, and the substring trap that a
+    naive `in` would let through in both directions.
+    """
+    problem = _release_subject_problem(subject, version)
+    assert (problem is not None) == caught, (
+        f"{subject!r} against {version}: expected "
+        f"{'a problem' if caught else 'no problem'}, got {problem!r}"
+    )
+
+
 def _tests_defined_in_the_suite() -> set[str]:
     """Every `test_*` this suite defines, by name.
 

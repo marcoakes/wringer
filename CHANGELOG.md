@@ -6,6 +6,19 @@ package version and are listed per release.
 
 ## 0.9.0 — 2026-09-04
 
+**0.8.11 was never published.** Two release pipelines were in flight at the
+same time, and 0.8.11's `git add -A` swept up this release's version bump
+before its own tag was cut — so the commit on `main` carries 0.8.11's
+message and 0.9.0's version, and neither version could be tagged from it.
+Nothing was lost: every change is on `main`. The tag-derived guard on
+SECURITY.md's supported-versions table is what caught it, refusing a row for
+a release no tag matches — the same guard, and the same failure, that
+0.8.8's entry describes. Rather than tag a version nobody could install, the
+work described under 0.8.11 below ships here, in 0.9.0. The entry stays
+where it is because it describes what changed; only the version it arrives
+in has moved. **Releases are cut one at a time**: a pipeline that starts
+while another is still committing is how two of them become one.
+
 **The two spending lanes are separate facts, never one total (P2.15).**
 Window C opens on run 4B's finding 8.
 

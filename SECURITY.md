@@ -475,7 +475,6 @@ backported to an older one.
 |---|---|
 | `main` | ✅ |
 | `0.9.0` (PyPI, current) | ✅ |
-| `0.8.11` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.10` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.9` (PyPI) | upgrade — `pip install -U wringer` |
 | `0.8.8` (PyPI) | upgrade — `pip install -U wringer` |
