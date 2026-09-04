@@ -4,6 +4,57 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.4 — 2026-09-04
+
+**The window-C designs, acted on.** Six proposals were ground against the
+code and then attacked; every one came back unsound in some respect. Two
+were refusals, two needed a measurement first, two were buildable. This is
+what survived, and the refusals are recorded rather than quietly dropped.
+
+**The audit's verdict is a record now, not console output.** `wring audit`
+printed and exited, so nothing could read afterwards whether a claim had
+been checked and found wanting — which is exactly the fact the board's
+`Contradicted` tile has no source for, and why 0.9.1 had to render it as
+"nothing on record". `--output FILE` writes it, the shape `wring health` has
+had since it shipped, under `wringer.audit.v1` frozen at birth.
+
+Two things came out of giving that record a schema. `checked_against` was
+being stapled on by the CLI after the fact, so the record's shape lived in
+two places — it is the writer's own field now, and required: **an `ok` with
+no answer to "against what" is not a result.** And `Claim` grew its own
+writer, because a guard that holds a writer to its schema reads that
+writer's string literals, and two levels composed in one function look like
+one flat object to it.
+
+**Falsification is guidance now, not a list.** Survivors were one flat
+bullet each, and run 2's delivery had 23 of 24 survive: a 23-line list in
+which every line looks like every other. They are grouped by file,
+most-unnoticed first, with the lines under each. The partition is arithmetic
+over `path` and `survived`, both already recorded. **It says nothing about
+which check should have caught a mutant** — nothing maps a line to a gate,
+every bound gate runs against every mutant, and that sentence would be
+invented. The ordering is described as a count and never as a ranking.
+
+**The readiness card names all three ceilings.** It said "up to N turn(s)"
+and stopped, while `worker_timeout` and `wall_clock` sat on the same object
+it already held — and those two are what stop a turn running away. A repo
+that declares no wall clock is **said** to have declared none rather than
+being given a number Wringer invented.
+
+*Recorded as refusals, so they are not re-proposed:* an estimate of what a
+run will cost stays refused — `SPEC_INTENT_V0` names it a non-goal and
+nothing on disk relates one run's spend to the next. A separate delivery
+brief stays refused: `certificate.md` already is one. The confidence board's
+number still needs audit records to exist on disk before anyone decides what
+it counts; this release is what makes them possible.
+
+Six red-watches, each reverting one thing alone, all red. One was vacuous
+twice: a single-file fixture cannot tell ordering-by-count from
+ordering-by-name, and nor can two files whose names happen to sort the same
+way.
+
+Schema versions: `wringer.audit.v1` is new.
+
 ## 0.9.3 — 2026-09-04
 
 **The board's builder lane could never match a real record, and 0.9.0

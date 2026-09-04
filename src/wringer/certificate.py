@@ -739,6 +739,14 @@ class Claim:
     def mark(self) -> str:
         return _MARKS.get(self.outcome, "?")
 
+    def as_json(self) -> dict[str, Any]:
+        """**One writer per schema node (0.9.4).** Built inline inside
+        `Report.as_json` until the audit record got a schema — and the
+        roundtrip guard reads a writer's string literals, so two levels
+        composed in one function look like one flat object to it. Splitting
+        them is how each writer maps to exactly the node it fills."""
+        return {"what": self.what, "outcome": self.outcome, "detail": self.detail}
+
 
 @dataclass(frozen=True)
 class Report:
@@ -746,14 +754,26 @@ class Report:
     claims: list[Claim] = field(default_factory=list)
     limits: list[str] = field(default_factory=list)
 
-    def as_json(self) -> dict[str, Any]:
+    #: **The audit's verdict as a RECORD, versioned at birth (0.9.4).** It
+    #: was printed and thrown away: nothing downstream could read whether a
+    #: claim had been checked and found wanting, which is exactly the fact
+    #: the board's `Contradicted` tile has no source for. A record needs a
+    #: version the day it exists, or the first reader freezes its shape by
+    #: accident.
+    SCHEMA_VERSION = "wringer.audit.v1"
+
+    def as_json(self, checked_against: str) -> dict[str, Any]:
+        """The verdict as a record. **`checked_against` is a PARAMETER and
+        the schema requires it (0.9.4)**: an `ok` with no answer to "against
+        what" is not a result, and it was being stapled on by the CLI after
+        the fact — so the record's shape lived in two places and the guard
+        that holds a writer to its schema could not see the whole of it."""
         return {
+            "schema_version": self.SCHEMA_VERSION,
             "ok": self.ok,
-            "claims": [
-                {"what": c.what, "outcome": c.outcome, "detail": c.detail}
-                for c in self.claims
-            ],
+            "claims": [claim.as_json() for claim in self.claims],
             "limits": list(self.limits),
+            "checked_against": checked_against,
         }
 
 

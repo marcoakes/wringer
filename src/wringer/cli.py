@@ -624,6 +624,17 @@ def build_parser() -> argparse.ArgumentParser:
              "offline: no config, no network, no LLM",
     )
     parser_audit.add_argument(
+        "--output",
+        metavar="FILE",
+        help=(
+            "also write that same output to FILE — the JSON object under "
+            "--json, the human report otherwise. **The verdict was "
+            "unrecordable until 0.9.4**: audit printed and exited, so nothing "
+            "could read afterwards whether a claim had been checked and found "
+            "wanting"
+        ),
+    )
+    parser_audit.add_argument(
         "attestation",
         metavar="ATTESTATION_CERTIFICATE_OR_BUNDLE",
         # **An argument SHAPE, not a twentieth command.** Point it at an
@@ -4677,7 +4688,9 @@ def _certificate_root(named: Path) -> Path:
         return attest.root_for(named)
 
 
-def _audit_certificate(named: Path, as_json: bool) -> int:
+def _audit_certificate(
+    named: Path, as_json: bool, output: str | None = None
+) -> int:
     """`wring audit certificate.json` — the stranger's command.
 
     One line per claim, each marked ✓ / ✗ / −, and the third mark is not a
@@ -4697,10 +4710,14 @@ def _audit_certificate(named: Path, as_json: bool) -> int:
     # The certificate's own directory, so its SIBLINGS can be checked too —
     # `coverage.json` travels beside it and the page quotes its two sentences.
     report = certificate.check(payload, root, beside=named.parent)
-    return _report_certificate(named, payload, report, str(root), as_json)
+    return _report_certificate(
+        named, payload, report, str(root), as_json, output
+    )
 
 
-def _audit_delivery(delivery: Path, as_json: bool) -> int:
+def _audit_delivery(
+    delivery: Path, as_json: bool, output: str | None = None
+) -> int:
     """`wring audit --delivery <dir>` — the same check, from ANY clone.
 
     **Runs 4 and 4B, 2026-09-01: the printed audit instruction failed as
@@ -4845,6 +4862,7 @@ def _audit_delivery(delivery: Path, as_json: bool) -> int:
         report,
         f"commit {str(commit)[:12]} of {root} (a read-only worktree, removed)",
         as_json,
+        output,
     )
 
 
@@ -4931,12 +4949,28 @@ def _tidy_empty(directories: list[Path]) -> None:
             pass
 
 
+def _write_audit_record(output: str | None, body: str) -> None:
+    """`--output`, the same shape `wring health` has had since it shipped.
+
+    A failure to write is said and never fatal: the audit's ANSWER is on the
+    console already, and losing the copy must not turn a passing audit into a
+    failing command.
+    """
+    if not output:
+        return
+    try:
+        Path(output).write_text(body + "\n", encoding="utf-8")
+    except OSError as exc:
+        print(f"wring audit: cannot write {output}: {exc}", file=sys.stderr)
+
+
 def _report_certificate(
     named: Path,
     payload: dict,
     report: object,
     where: str,
     as_json: bool,
+    output: str | None = None,
 ) -> int:
     """THE renderer for a certificate audit — both entry points quote it.
 
@@ -4946,7 +4980,9 @@ def _report_certificate(
     from wringer import certificate
 
     if as_json:
-        print(json.dumps({**report.as_json(), "checked_against": where}))
+        body = json.dumps(report.as_json(where))
+        print(body)
+        _write_audit_record(output, body)
         return EXIT_OK if report.ok else EXIT_GATE_FAILED
 
     change = payload.get("change") or {}
@@ -4960,6 +4996,7 @@ def _report_certificate(
         print(f"  {claim.mark} {claim.what}")
         if claim.detail:
             print(f"      {claim.detail}")
+    _write_audit_record(output, json.dumps(report.as_json(where), indent=1))
     unchecked = sum(
         1 for claim in report.claims if claim.outcome == certificate.NOT_HERE
     )
@@ -5004,7 +5041,9 @@ def cmd_audit(args: argparse.Namespace) -> int:
         )
         return EXIT_CONFIG
     if args.delivery is not None:
-        return _audit_delivery(Path(args.delivery), args.json)
+        return _audit_delivery(
+            Path(args.delivery), args.json, getattr(args, 'output', None)
+        )
     if args.attestation is None:
         print(
             "wring audit: name what to check — an attestation.json, a "
@@ -5022,7 +5061,9 @@ def cmd_audit(args: argparse.Namespace) -> int:
     # document is telling the truth about the change in front of them.
     named = path / certificate.RECORD_FILENAME if path.is_dir() else path
     if certificate.is_certificate(named):
-        return _audit_certificate(named, args.json)
+        return _audit_certificate(
+            named, args.json, getattr(args, 'output', None)
+        )
 
     # **A bundle is checked as a bundle, before anything looks for an
     # attestation in it.** Order matters: a bundle directory used to become

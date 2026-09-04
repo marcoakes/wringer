@@ -3045,3 +3045,99 @@ def test_audit_delivery_names_an_UNREADABLE_receipt_file_and_still_checks_the_re
     assert "could not be read" in said.out, said.out
     assert "the counts match" in said.out, "the other claims were not rendered"
     assert not (clone / ".wringer").exists()
+
+
+def test_AUDIT_WRITES_ITS_VERDICT_when_output_names_a_file(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """**The verdict was unrecordable until 0.9.4.**
+
+    `wring audit` printed and exited. Nothing downstream could read
+    afterwards whether a claim had been checked and found wanting — which is
+    exactly the fact the board's `Contradicted` tile has no source for, and
+    why 0.9.1 had to render that tile as "nothing on record" rather than as
+    a count.
+
+    `--output` is the shape `wring health` has had since it shipped: the
+    same body the console got, written where you say. The record is
+    validated against its own published schema here, because a record whose
+    shape only its author knows is a record nobody else can read.
+    """
+    import jsonschema
+
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    record = _delivered(delivery_repo) / certificate.RECORD_FILENAME
+    written = tmp_path / "audit.json"
+    assert cli.main(
+        ["audit", str(record), "--json", "--output", str(written)]
+    ) == cli.EXIT_OK
+    capsys.readouterr()
+
+    assert written.is_file(), "--output named a file and nothing was written"
+    saved = json.loads(written.read_text(encoding="utf-8"))
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parent.parent / "schema" / "audit.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    jsonschema.validate(saved, schema)
+
+    assert saved["schema_version"] == "wringer.audit.v1"
+    assert saved["ok"] is True
+    assert saved["claims"], "a verdict with no claims is not a verdict"
+    assert saved["checked_against"], (
+        "an 'ok' with no answer to 'against what' is not a result"
+    )
+
+
+def test_AUDIT_RECORDS_A_FAILING_VERDICT_TOO_not_only_a_passing_one(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """The whole point of recording it. A verdict that only survives when it
+    says yes is a record of nothing: the reader downstream is looking for the
+    claim that did NOT hold."""
+    import jsonschema
+
+    from wringer import certificate
+
+    accepting_repo(delivery_repo, bound=False)
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    record = _delivered(delivery_repo) / certificate.RECORD_FILENAME
+    # The tamper the control test above already proves an audit catches: a
+    # requirement in the document that the repository never declared.
+    forged = json.loads(record.read_text(encoding="utf-8"))
+    forged["requirements"].append({
+        **forged["requirements"][0],
+        "id": "never-asked-for",
+        "title": "A requirement nobody wrote",
+    })
+    record.write_text(json.dumps(forged, indent=2), encoding="utf-8")
+
+    written = tmp_path / "audit.json"
+    assert cli.main(
+        ["audit", str(record), "--json", "--output", str(written)]
+    ) == cli.EXIT_GATE_FAILED
+    capsys.readouterr()
+
+    saved = json.loads(written.read_text(encoding="utf-8"))
+    jsonschema.validate(
+        saved,
+        json.loads(
+            (
+                Path(__file__).resolve().parent.parent / "schema" / "audit.schema.json"
+            ).read_text(encoding="utf-8")
+        ),
+    )
+    assert saved["ok"] is False, (
+        "the audit refused on the console and recorded a pass — the record "
+        "and the verdict disagree"
+    )

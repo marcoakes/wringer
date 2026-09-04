@@ -29,6 +29,7 @@ rather than reverse-engineer it — the point of
 | [`digests.schema.json`](digests.schema.json) | `wringer.digests.v1` — `digests.json`, a sha256 per file in a bundle |
 | [`untracked.schema.json`](untracked.schema.json) | `wringer.untracked.v1` — superseded by v2 below, still published and still valid; a bare sha256 per *untracked* file |
 | [`untracked-v2.schema.json`](untracked-v2.schema.json) | `wringer.untracked.v2` — `untracked.json`, git's *identity* (`"<mode>:<sha256>"`) per *untracked* path in the tree the gates ran against |
+| [`audit.schema.json`](audit.schema.json) | `wringer.audit.v1` — what `wring audit` decided, written when `--output` names a file. **The verdict was unrecordable until 0.9.4**: audit printed and exited, so nothing downstream could read whether a claim had been checked and found wanting. `checked_against` is required, because an `ok` with no answer to "against what" is not a result |
 | [`attestation.schema.json`](attestation.schema.json) | `wringer.attestation.v1` — `attestation.json`, the provenance claim `wring attest` writes and `wring audit` checks offline |
 | [`vacuity.schema.json`](vacuity.schema.json) | `wringer.vacuity.v1` — `vacuity.json`, what `wring verify --prove` found when it ran the gates against the *pre-change* tree |
 | [`fleet-manifest.schema.json`](fleet-manifest.schema.json) | `wringer.fleet.v1` — `manifest.json` of a `wring fleet` bundle |

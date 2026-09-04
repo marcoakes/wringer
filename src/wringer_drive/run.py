@@ -751,6 +751,29 @@ def readiness_step(repo: Path) -> Step:
             f"up to {attempts} turn(s)" if attempts else "as many turns as it allows"
         )
         lines.append(f"Builder: {shape} — {turns}.")
+        # **All THREE ceilings, because a card naming one of them understates
+        # what bounds the run — 0.9.4.** `max_iterations` was the only one
+        # here, and the two that actually stop a turn running away were not
+        # named at all: a person reading "up to 3 turn(s)" has been told how
+        # many turns, not how long any one of them may take.
+        #
+        # Each is read from the repo's own `.wringer.yaml` object, never
+        # recomputed, and `wall_clock` is OPTIONAL — a repo that declares
+        # none is SAID to have declared none rather than being given a
+        # number Wringer invented.
+        ceilings = []
+        timeout = getattr(run, "worker_timeout", None)
+        if timeout:
+            ceilings.append(f"each turn is cut off at {timeout}s")
+        wall = getattr(run, "wall_clock", None)
+        if wall:
+            ceilings.append(f"the whole build is cut off at {wall}s")
+        else:
+            ceilings.append(
+                "no whole-build wall clock is declared, so the bound is the "
+                "turns and their timeout"
+            )
+        lines.append("Ceilings: " + "; ".join(ceilings) + ".")
         lines.append(
             "Paid steps ahead: one drafting call, then the builder's turns."
         )

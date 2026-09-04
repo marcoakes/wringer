@@ -818,15 +818,43 @@ def lines(recorded: dict[str, Any] | None) -> list[str]:
             f"between the code as delivered and the code with that line "
             f"broken — and not a finding about the change."
         )
+        # **BY FILE, most-unnoticed first (P2.16, 0.9.4).** This was one flat
+        # bullet per survivor, and run 2's delivery had 23 of 24 survive: a
+        # 23-line list in which every line looks like every other, which is a
+        # loud fact rendered as something a PM scrolls past.
+        #
+        # The partition is arithmetic over `path` and `survived`, both of
+        # which every attempt already records. **Nothing here says which
+        # check SHOULD have caught a mutant** — no record maps a line to a
+        # gate, every bound gate runs against every mutant, and a sentence
+        # naming the responsible check would be invented. The ordering is
+        # described as what it is, a count, and never as "weakest": that
+        # would be a judgement the numbers do not license.
+        by_file: dict[str, list[dict]] = {}
+        attempted_per_file: dict[str, int] = {}
         for attempt in recorded.get("attempts") or []:
-            if not attempt.get("survived"):
-                continue
+            path = str(attempt.get("path"))
+            attempted_per_file[path] = attempted_per_file.get(path, 0) + 1
+            if attempt.get("survived"):
+                by_file.setdefault(path, []).append(attempt)
+
+        said.append(
+            "Where they went unnoticed, by file, most first — a count, not a "
+            "ranking, and it does not say which check should have caught them:"
+        )
+        for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
+            survivors = by_file[path]
             said.append(
-                f"  - `{attempt.get('path')}:{attempt.get('line')}` — "
-                f"{attempt.get('mutation')}, and "
-                f"{_named(recorded.get('gates')) } stayed green: "
-                f"`{attempt.get('became')}`"
+                f"  - `{path}` — {len(survivors)} of "
+                f"{attempted_per_file[path]} unnoticed"
             )
+            for attempt in survivors:
+                said.append(
+                    f"      - line {attempt.get('line')}: "
+                    f"{attempt.get('mutation')}, and "
+                    f"{_named(recorded.get('gates'))} stayed green: "
+                    f"`{attempt.get('became')}`"
+                )
     else:
         said.append(
             f"**{attempted} deliberate breakages of this change were "

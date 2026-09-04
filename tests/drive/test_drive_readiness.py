@@ -100,3 +100,41 @@ def test_A_PROJECT_WITH_NOTHING_DECLARED_STILL_SAYS_WHAT_HAPPENS(tmp_path):
     text = run_module.readiness_step(tmp_path).text
     assert "you answer with" in text or "you name it at the interview" in text
     assert "Paid steps ahead:" in text
+
+
+def test_THE_CARD_NAMES_ALL_THREE_CEILINGS_not_just_the_turn_count(
+    converging_build,
+):
+    """**A card naming one of three understates what bounds the run — 0.9.4.**
+
+    It said "up to N turn(s)" and stopped. `run.worker_timeout` and
+    `run.wall_clock` are attributes on the same object the card already
+    holds, and they are the two that actually stop a turn running away: a
+    person told how many turns has not been told how long any one of them
+    may take.
+
+    `wall_clock` is optional and has no default (`config.py`: "the loop is
+    already structurally bounded by iterations x worker_timeout"), so a repo
+    that declares none is SAID to have declared none — never given a number
+    Wringer invented.
+    """
+    from wringer import config
+
+    text = run_module.readiness_step(converging_build).text
+    settings = config.load(converging_build / config.CONFIG_FILENAME)
+
+    assert "Ceilings:" in text, "the card names no ceilings at all"
+    assert f"{settings.run.worker_timeout}s" in text, (
+        "the per-turn timeout is not on the card, and it is the ceiling that "
+        "stops one turn running away"
+    )
+    if settings.run.wall_clock:
+        assert f"{settings.run.wall_clock}s" in text
+    else:
+        assert "no whole-build wall clock is declared" in text, (
+            "an undeclared wall clock is passed over in silence, which reads "
+            "as though one is in force"
+        )
+    # Still no price, and still no invented number.
+    for forbidden in ("$", "£", "€", "%", "approximately", "roughly"):
+        assert forbidden not in text, forbidden

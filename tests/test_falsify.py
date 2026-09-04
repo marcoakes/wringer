@@ -375,14 +375,60 @@ def test_RULING_1_A_SURVIVOR_IS_A_FINDING_ABOUT_THE_CHECKS(both_sides, capsys):
 
 def test_a_survivor_is_NAMED_with_its_mutant(both_sides, capsys):
     """"3 survived" sends a reader nowhere. The file, the line, what it was,
-    what it became, and which checks did not notice."""
+    what it became, and which checks did not notice.
+
+    **The file and the line are separate facts since 0.9.4**, because the
+    survivors are grouped BY FILE — run 2's delivery had 23 of 24 survive,
+    and a flat list of 23 identical-looking bullets is a loud fact rendered
+    as something to scroll past. Every fact this test held before is still
+    held; they are just no longer concatenated.
+    """
     recorded = measured(both_sides)
     capsys.readouterr()
-    said = " ".join(falsify.lines(recorded))
+    lines = falsify.lines(recorded)
+    said = " ".join(lines)
 
-    assert "rules.py:8" in said
+    assert "`rules.py`" in said, "the file is not named"
+    assert "line 8" in said, "the line is not named"
     assert "'>=' -> '>'" in said
     assert "`check` stayed green" in said
+
+    # The file heading carries the count, and the line sits UNDER it — the
+    # ordering is what makes this guidance rather than a list.
+    heading = next(i for i, line in enumerate(lines) if "`rules.py`" in line)
+    detail = next(i for i, line in enumerate(lines) if "line 8" in line)
+    assert heading < detail, "the survivor is not grouped under its file"
+    assert "unnoticed" in lines[heading], lines[heading]
+
+
+def test_the_BY_FILE_PARTITION_orders_by_count_and_claims_nothing_about_gates(
+    both_sides, capsys
+):
+    """**P2.16, and the ceiling on it.**
+
+    Nothing anywhere maps a mutated line to the check that should have caught
+    it: `proves:` binds gate to criterion, and every bound gate runs against
+    every mutant. So the partition may order files by how many survived and
+    may not say which check is responsible, or which file is "weakest" — both
+    would be claims the record does not license.
+    """
+    recorded = measured(both_sides)
+    capsys.readouterr()
+    lines = falsify.lines(recorded)
+    said = " ".join(lines).lower()
+
+    assert "a count, not a ranking" in said, (
+        "the ordering does not say what it is, so a reader may take it for a "
+        "ranking of which checks are worst"
+    )
+    # The DENIAL is required; the words it denies are not forbidden inside it.
+    # A crude substring ban caught this guard's own subject sentence, which
+    # is the difference between refusing a claim and refusing a topic.
+    assert "does not say which check should have caught them" in said
+    for forbidden in ("weakest", "least defended", "worst", "%"):
+        assert forbidden not in said, forbidden
+
+    assert "`rules.py` — 1 of 2 unnoticed" in said or "1 of 2 unnoticed" in said
 
 
 def test_absent_is_absent(tmp_path):
@@ -797,3 +843,91 @@ def test_a_run_that_measured_NOTHING_says_nothing_about_falsification(
     payload = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert "falsification" not in payload, payload
 
+
+
+def _valid_falsification(attempts: list[dict]) -> dict:
+    """A record shaped as the engine writes one, VALIDATED against the
+    published schema before it is used.
+
+    **A fixture the engine could not have produced is worse than no guard**
+    — 0.9.3 lost a whole release to one, where the board's builder lane was
+    structurally dead behind two tests that both wrote an invented shape.
+    """
+    import json
+
+    import jsonschema
+
+    record = {
+        "schema_version": "wringer.falsification.v1",
+        "verdict": "measured",
+        "reason": "",
+        "gates": ["check"],
+        "counts": {
+            "attempted": len(attempts),
+            "caught": sum(1 for a in attempts if not a["survived"]),
+            "survived": sum(1 for a in attempts if a["survived"]),
+        },
+        "attempts": attempts,
+        "limits": list(falsify.LIMITS),
+        "duration_ms": 1,
+    }
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parent.parent
+            / "schema"
+            / "falsification-v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    jsonschema.validate(record, schema)
+    return record
+
+
+def test_TWO_FILES_are_ordered_MOST_UNNOTICED_FIRST():
+    """**The ordering, which one file cannot exercise — and nor can two badly
+    named ones.**
+
+    The guard above ran on a fixture with a single file, where ordering by
+    count and ordering by name are the same list, so reverting the sort left
+    it green. The second attempt used `loud.py` (3 survivors) and `quiet.py`
+    (1), and `l` sorts before `q` — so alphabetical order matched count order
+    and the watch was STILL vacuous.
+
+    These names are chosen so the two orderings disagree: `zebra.py` has the
+    most survivors and sorts last.
+    """
+    import re
+
+    def attempt(path: str, line: int, survived: bool) -> dict:
+        return {
+            "path": path,
+            "line": line,
+            "was": "a >= b",
+            "became": "a > b",
+            "mutation": "'>=' -> '>'",
+            "caught_by": [] if survived else ["check"],
+            "survived": survived,
+        }
+
+    recorded = _valid_falsification([
+        attempt("aardvark.py", 1, False),
+        attempt("aardvark.py", 2, True),
+        attempt("zebra.py", 1, True),
+        attempt("zebra.py", 2, True),
+        attempt("zebra.py", 3, True),
+    ])
+    lines = falsify.lines(recorded)
+
+    headings = [
+        m
+        for m in (
+            re.search(r"`([^`]+)` — (\d+) of (\d+) unnoticed", line)
+            for line in lines
+        )
+        if m
+    ]
+    assert [h.group(1) for h in headings] == ["zebra.py", "aardvark.py"], (
+        "the files are not ordered most-unnoticed first: "
+        f"{[h.group(0) for h in headings]}"
+    )
+    assert headings[0].group(2, 3) == ("3", "3")
+    assert headings[1].group(2, 3) == ("1", "2")
