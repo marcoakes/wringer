@@ -1263,6 +1263,36 @@ def test_a_DISPLAY_ONLY_sidecar_yields_a_diff_carrying_only_show(
     assert installed == {"reads-well": SHOW_COMMAND}
 
 
+def test_the_diff_APPLIES_when_the_config_has_NO_TRAILING_NEWLINE(
+    repo, monkeypatch, capsys
+):
+    """**Bug review 0.7, 2026-09-02 (display-and-redaction).** `gate_diff`
+    renders with `difflib.unified_diff`, which never emits git's
+    `\\ No newline at end of file` marker. A `.wringer.yaml` whose last line
+    has no newline — an editor setting, a `printf`, a hand edit — made the
+    diff's `-` line and the first `+` line run together (`-    run:
+    "true"+    run: "true"`), and `git apply` refused it as a corrupt patch
+    at line 13. The drive's gate yes goes through that same `git apply`, so
+    a person who said yes got nothing installed. The same for a last line
+    that is a comment, or spaces, without a newline."""
+    setup_repo(
+        repo,
+        SPEC.replace("gates:\n  - id: test\n    run: pytest -q\n", "gates: []\n"),
+        CONFIG.rstrip("\n"),
+    )
+    (repo / spec.GATESPEC_FILENAME).write_text(DISPLAY_ONLY_SIDECAR, encoding="utf-8")
+    monkeypatch.chdir(repo)
+
+    assert cli.main(["plan", "--json"]) == cli.EXIT_OK
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["show_proposed"] == ["reads-well"]
+
+    _apply(repo, payload["gate_diff"])
+    installed = config.load(repo / config.CONFIG_FILENAME)
+    assert installed.show == {"reads-well": SHOW_COMMAND}
+    assert [gate.id for gate in installed.gates] == ["check"]
+
+
 def test_displays_go_to_WORDS_when_the_gates_cannot_be_appended(
     repo, monkeypatch, capsys
 ):

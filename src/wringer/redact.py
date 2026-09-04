@@ -67,6 +67,12 @@ class Redactor:
     #: `from_config` fills it from `agents.key_shapes()`, the only place a
     #: vendor's key shape may be spelled.
     shapes: tuple[re.Pattern[str], ...] = ()
+    #: Forms scrubbed WHOLE and never fragmented — the JSON-encoded twin of
+    #: every declared value (D8). Kept apart from `secrets` since bug review
+    #: 0.7 (2026-09-02): a value that begins or ends with a non-ASCII
+    #: character encodes it as `\\u00e9` — six characters, one letter — so
+    #: fragmenting the encoded form scrubbed every escaped `é` in every log.
+    encoded: tuple[str, ...] = ()
 
     @classmethod
     def from_config(
@@ -102,13 +108,13 @@ class Redactor:
         # applies, not one the gate chose, so this is ours to undo.
         encoded = {
             json.dumps(value)[1:-1] for value in values
-        }
-        values |= {form for form in encoded if len(form) >= MIN_SECRET_LENGTH}
+        } - values
         # Longest first: if one secret contains another, replacing the short
         # one first would leave a recognisable tail of the long one behind.
         return cls(
             tuple(sorted(values, key=len, reverse=True)),
             shapes=known_shapes(),
+            encoded=tuple(sorted(encoded, key=len, reverse=True)),
         )
 
     def scrub(self, text: str) -> str:
@@ -116,7 +122,7 @@ class Redactor:
         # echo is one token to the shape and two fragments to the third
         # tier — scrubbing its head first would leave a shape the regex no
         # longer recognises, with the key's tail still on it.
-        for secret in self.secrets:
+        for secret in sorted((*self.secrets, *self.encoded), key=len, reverse=True):
             text = text.replace(secret, PLACEHOLDER)
         for shape in self.shapes:
             text = shape.sub(PLACEHOLDER, text)

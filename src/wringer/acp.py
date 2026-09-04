@@ -960,8 +960,15 @@ def _handle(
         # sitting at is not a safety control; the container and the
         # supervision invariants are. The ledger is what makes this
         # auditable rather than invisible.
+        # `ensure_ascii=False` for the same reason as the update site above
+        # (bug review 0.7, 2026-09-02): a masked key in a tool's title
+        # reached `loop.jsonl` as `sk-…8dd6` — escaped before the
+        # redactor looked, so the shape stopped at the backslash.
         tool = scrub(
-            json.dumps(params.get("toolCall") or params.get("tool") or {})
+            json.dumps(
+                params.get("toolCall") or params.get("tool") or {},
+                ensure_ascii=False,
+            )
         )[:200]
         turn.permissions.append({"tool": tool, "outcome": "auto_approved"})
         options = params.get("options") or []

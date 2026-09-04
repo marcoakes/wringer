@@ -313,8 +313,9 @@ def _judge(args, repo: Path) -> int:
             else "it could not be run"
         )
         print(
-            f"THE COMMAND FOR THIS REQUIREMENT FAILED ({exit_note}) — "
-            f"`{display.command}`.\n"
+            f"THE COMMAND FOR THIS REQUIREMENT FAILED ({exit_note})"
+            + (f" — `{display.command}`" if display.command else "")
+            + ".\n"
             "  What it printed is below, but it does NOT vouch for what you "
             "are judging,\n"
             "  and recording a verdict is REFUSED until the command "

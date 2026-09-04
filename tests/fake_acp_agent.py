@@ -519,6 +519,24 @@ def main() -> int:
                 usage(session_id, 1234, 200000,
                       {"amount": 0.0412, "currency": "USD"}, note)
 
+            if BEHAVIOUR == "permissionleak":
+                # Bug review 0.7 (2026-09-02): the key, masked the way a
+                # vendor masks it, inside the PERMISSION request's tool
+                # title — the one `_handle` site 0.7.4's `ensure_ascii`
+                # fix did not reach.
+                value = os.environ.get("WRINGER_TEST_CREDENTIAL", "")
+                masked = f"{value[:3]}…{value[-4:]}" if value else ""
+                outbound += 1
+                request(outbound, "session/request_permission", {
+                    "sessionId": session_id,
+                    "toolCall": {
+                        "title": f"write calc.py with {masked}", "kind": "edit",
+                    },
+                    "options": [
+                        {"optionId": "yes", "name": "Allow", "kind": "allow_once"},
+                    ],
+                })
+
             if BEHAVIOUR == "permission":
                 outbound += 1
                 request(outbound, "session/request_permission", {
