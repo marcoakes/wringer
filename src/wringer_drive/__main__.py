@@ -754,6 +754,28 @@ def _drive(
     if due("approve"):
         run_module.checkpoint_phase(repo, "approve")
         _enter_phase(session, mode, "approve")
+        # **The decisions taken without asking, as cards, BEFORE the plan**
+        # (P1.12). They render inside the plan too — a dense block a person
+        # scrolls past on the way to the yes that approves all of it. Asked
+        # first, one at a time, each with the question it replaced; a change
+        # goes through the board's own writer and the plan below is then
+        # rendered with the answer in place of the decision.
+        for card in run_module.assumption_cards(repo):
+            session.emit(card)
+            said = _ask(card, mode, repo)
+            if not said.strip():
+                raise run_module.Stop(
+                    run_module.assumption_unanswered_step(card.detail
+                                                          ["assumption_id"]),
+                    exit_code=2,
+                )
+            noted = session.emit(
+                run_module.record_assumption(
+                    repo, card.detail["assumption_id"], said
+                )
+            )
+            _render([noted], mode)
+
         plan = run_module.plan_step(repo)
         session.emit(plan)
         _render([plan], mode)
