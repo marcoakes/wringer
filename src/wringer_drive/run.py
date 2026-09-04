@@ -2231,14 +2231,106 @@ def render_board(repo: Path) -> Path:
     return repo / BOARD_FILENAME
 
 
-def board_step(board_path: Path) -> Step:
+def card_to_review(repo: Path) -> tuple[str, str] | None:
+    """The card the HOLD is about: the first requirement the page marks NEEDS YOU.
+
+    **Runs 4 and 4B, 2026-09-01.** The PM judged on a manual display and
+    never saw which card the handover was held on: the stop named the
+    refusal, the page held the card, and nothing joined the two. Read from
+    the board's own partition (`cards.BLOCKED_ON_PERSON`, the one the badge
+    and the count line are rendered from), never from the refusal's prose —
+    so the card the drive points at is the card the page marks. None when
+    no card needs a person or the evidence cannot be read: the page then
+    opens from the top, and the step says so.
+    """
+    from wringer_board import cards, read
+
+    try:
+        board = read.read(repo)
+        for criterion in board.criteria:
+            card = cards.card_for(board, criterion)
+            if card.state in cards.BLOCKED_ON_PERSON:
+                return card.id, card.title or card.id
+    except (OSError, ValueError, read.UnknownVersion):
+        return None
+    return None
+
+
+def board_step(board_path: Path, review: tuple[str, str] | None = None) -> Step:
+    """The page, AND WHERE ON IT TO LOOK — in both emit modes (0.8.6, P1.13).
+
+    The section is spelled once, by `render.card_anchor`, and quoted here;
+    `detail["section"]` carries the same anchor the opener is handed, so a
+    driver reading the JSON and a person reading the terminal are pointed
+    at the same card. Empty when the page opens from the top.
+    """
+    from wringer_board import render
+
+    name = board_path.name
+    if review is not None:
+        criterion_id, title = review
+        section = render.card_anchor(criterion_id)
+        where = f"Open {name}#{section} — the card to review is '{title}'."
+    else:
+        section = ""
+        where = (
+            f"Open {name} from the top — what is proved and what is judged, "
+            "before you decide."
+        )
     return Step(
         kind=SHOW,
         id="board",
         text=f"The page showing what is done, what is proved, and what still "
-        f"needs you is at {board_path.name}.",
-        detail={"board": str(board_path)},
+        f"needs you is at {name}. {where}",
+        detail={"board": str(board_path), "section": section},
     )
+
+
+def open_board(
+    board_path: Path,
+    section: str = "",
+    *,
+    mode: str = "text",
+    wanted: bool = True,
+) -> None:
+    """THE ONE SEAM to the OS opener (0.8.6, P1.13) — a test replaces this.
+
+    **Runs 4 and 4B, 2026-09-01:** the PM read "green" as "everything
+    proved" and judged on a manual display, because the page that says which
+    is which was a filename in a terminal line. In text mode the drive opens
+    it at the two decision moments — the HOLD, on the card to review, and
+    before the handover's second yes, from the top. Never in json mode: an
+    agent is driving, and a browser window is not a step it can relay.
+    `--no-open` keeps a person in the terminal.
+
+    **The gate lives HERE, where no caller can go around it (incident
+    2026-09-03).** An earlier build of this item gated only at the call site
+    and ran the suite against the real opener: every text-mode test that
+    reached the pen opened a window on the operator's machine — "a hundred
+    windows". A browser is a human act on a human's machine, so the stdlib
+    is reached only when a person is demonstrably at BOTH ends of the
+    conversation — `sys.stdout` AND `sys.stdin` are terminals — and the mode
+    is text, and `--no-open` is absent. A captured stdout (pytest, CI, a
+    pipe, an agent relaying steps) never opens anything, whatever a caller
+    asked for.
+
+    The stdlib opener returns a boolean nobody can check against a screen,
+    so no step CLAIMS the page opened: the step names the path and the
+    section, and this is best-effort after it. A failure here changes
+    nothing about the run.
+    """
+    if mode != "text" or not wanted:
+        return
+    if not (sys.stdout.isatty() and sys.stdin.isatty()):
+        return
+
+    import webbrowser
+
+    target = board_path.resolve().as_uri() + (f"#{section}" if section else "")
+    try:
+        webbrowser.open(target)
+    except (OSError, webbrowser.Error):
+        return
 
 
 def final_step(

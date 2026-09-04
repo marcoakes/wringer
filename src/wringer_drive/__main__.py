@@ -61,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="`json` emits one object per line for a coding agent to drive; "
         "`text` is for a person at a terminal. The same steps either way",
     )
+    _add_no_open(started)
     # **Deliberately absent, and this is where somebody would add it**: there
     # is no `--yes`, no `--auto`, no `--non-interactive` that answers the
     # approval. `test_there_is_no_flag_that_answers_the_approval` reads this
@@ -84,7 +85,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="`json` emits one object per line for a coding agent to drive; "
         "`text` is for a person at a terminal. The same steps either way",
     )
+    _add_no_open(resumed)
     return parser
+
+
+def _add_no_open(verb: argparse.ArgumentParser) -> None:
+    """0.8.6 (P1.13): the one flag both verbs share about the page.
+
+    Text mode opens the board in the person's browser at the two decision
+    moments — the pen and the handover — and this keeps them at the
+    terminal instead. It answers no question and installs nothing: the step
+    still names the path and the section, and the person still types the
+    yes. Absent in json mode's contract, where the opener never runs.
+    """
+    verb.add_argument(
+        "--no-open",
+        action="store_true",
+        help="do not open the board in a browser at the decision moments "
+        "(text mode only; json mode never opens it)",
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -429,7 +448,7 @@ def _run(session: run_module.Session, args) -> int:
 
     # `run` starts every phase, whatever the record says: its approval is
     # asked live on every run (the law in `run.py`'s resume section).
-    return _drive(session, mode, inside, start=None)
+    return _drive(session, mode, inside, start=None, open_pages=not args.no_open)
 
 
 def _resume(session: run_module.Session, args) -> int:
@@ -472,7 +491,9 @@ def _resume(session: run_module.Session, args) -> int:
         repo, run_module.recorded_journey(repo)
     )
     run_module.checkpoint_journey(repo, session.journey_id)
-    return _drive(session, mode, inside, start=facts.phase)
+    return _drive(
+        session, mode, inside, start=facts.phase, open_pages=not args.no_open
+    )
 
 
 def _gates(session: run_module.Session, mode: str) -> None:
@@ -527,7 +548,51 @@ def _gates(session: run_module.Session, mode: str) -> None:
         _render([blocked], mode)
 
 
-def _drive(session: run_module.Session, mode: str, inside: Path, start: str | None) -> int:
+def _show_board(
+    session: run_module.Session,
+    mode: str,
+    *,
+    open_pages: bool,
+    review: tuple[str, str] | None,
+) -> None:
+    """The board step at a DECISION MOMENT, and the page opened on it (0.8.6).
+
+    **Runs 4 and 4B, 2026-09-01:** the PM read "green" as "everything
+    proved" and judged on a manual display — the page that says which is
+    which was a filename in a terminal line they never opened. So at the two
+    moments a person decides something, the step names the path AND the
+    section, and in text mode the page is opened there through the one seam
+    `run_module.open_board`. Never in json mode: an agent is driving, a
+    browser window is not a step it can relay, and the step's
+    `detail.section` carries the same anchor for it to use.
+
+    Two gates, deliberately: this call site does not call the seam in json
+    mode or under `--no-open` (the plan's guard — json mode never calls it),
+    and the seam itself re-checks both AND that a person is at a terminal
+    (incident 2026-09-03), so a caller that forgets this line still opens
+    nothing on a captured stdout.
+    """
+    repo = session.repo
+    step = run_module.board_step(run_module.render_board(repo), review)
+    session.emit(step)
+    _render([step], mode)
+    if mode == "text" and open_pages:
+        run_module.open_board(
+            Path(step.detail["board"]),
+            step.detail["section"],
+            mode=mode,
+            wanted=open_pages,
+        )
+
+
+def _drive(
+    session: run_module.Session,
+    mode: str,
+    inside: Path,
+    start: str | None,
+    *,
+    open_pages: bool = True,
+) -> int:
     """THE ONE STEP SEQUENCE, with a starting point.
 
     `run` passes `start=None` and every phase is due. `resume` passes the
@@ -537,6 +602,9 @@ def _drive(session: run_module.Session, mode: str, inside: Path, start: str | No
     before this verb existed. Two front doors, one implementation: nothing
     here is duplicated per verb, and the resume record is written HERE at
     each phase's start, so a phase added later inherits the checkpoint.
+
+    `open_pages` is `--no-open` inverted: whether text mode opens the board
+    at the two decision moments (0.8.6). It changes no step and no answer.
     """
     from wringer_board import interview
 
@@ -790,16 +858,24 @@ def _drive(session: run_module.Session, mode: str, inside: Path, start: str | No
     # The journey enters `deliver` here, on every path — a refused handover
     # is still the delivery phase, ended by the refusal's own step id.
     _enter_phase(session, mode, "deliver")
+    # **The two decision moments (0.8.1, P1.13), and no third.** The refusal
+    # branch is the HOLD — when a requirement is waiting on a person, the
+    # page opens ON THAT CARD, the one the board itself marks NEEDS YOU
+    # (`card_to_review`), so the pen and the page agree about what is being
+    # judged. The converged branch is the handover: the page opens from the
+    # top, and the second yes is asked against it.
     try:
         run_module.delivery_plan(repo)
     except run_module.Stop:
-        session.emit(run_module.board_step(run_module.render_board(repo)))
-        _render(session.steps[-1:], mode)
+        _show_board(
+            session,
+            mode,
+            open_pages=open_pages,
+            review=run_module.card_to_review(repo),
+        )
         raise
 
-    board = run_module.board_step(run_module.render_board(repo))
-    session.emit(board)
-    _render([board], mode)
+    _show_board(session, mode, open_pages=open_pages, review=None)
 
     sent = run_module.deliver(
         repo, answered_yes=_confirm(run_module.delivery_step(), mode, repo)

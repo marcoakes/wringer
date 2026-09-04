@@ -353,6 +353,17 @@ and not its first line. Then:
   page says why, in their words. Do not re-run, re-answer, or work around a
   refusal on your own initiative.
 
+- **The `board` step names the path AND the section** (0.8.6). Its `text`
+  reads `Open board.html#card-<id> — the card to review is '<title>'` when a
+  requirement is waiting on the person, and `Open board.html from the top`
+  otherwise; `detail.board` is the absolute path and `detail.section` the
+  anchor (`card-<id>`, or empty for the top). Point the person at exactly
+  that — `file://<detail.board>#<detail.section>`. In json mode the drive
+  never opens a browser itself: you are driving, and a window is not a step
+  you can relay. At a terminal — a person at both stdin and stdout — the
+  drive opens the page there by default; a piped or captured stdout never
+  opens it, and `--no-open` keeps a person in the terminal.
+
 - **The second yes is the DRIVE's, and only the drive's** (ruled 2026-09-01,
   run 4B). The drive renders the board and asks the informed second yes
   before it sends. Bare `wring deliver` previews without sending, and `wring
