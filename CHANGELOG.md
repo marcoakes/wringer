@@ -4,6 +4,69 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.8 — 2026-09-04
+
+**0.8.7 was never published.** Its bar went red twice — a lint slip, then
+the version guards — and by the time they were fixed this release had
+been cut on top of it. Rather than tag a version nobody could install,
+the work described under 0.8.7 below ships here, in 0.8.8. The entry
+stays where it is because it describes what changed; only the version it
+arrives in has moved.
+
+**Decisions taken without asking are cards, not a block (P1.12).**
+Assumptions render inside the plan under DECIDED WITHOUT ASKING YOU — a
+dense block a person scrolls past on the way to the approval, which then
+approves all of it.
+
+Each is now its own question, asked before that yes: the decision, the
+reason, and the question it stood in for.
+
+- **Accept** keeps it and leaves the spec byte-identical — an accept that
+  quietly rewrote the plan would be the drive answering for the person.
+- **Anything else** goes through the board's own writer, which promotes the
+  assumption to an answered question and withdraws the approval, exactly as
+  it does from the terminal. There is no second writer of the spec.
+- **A decision already settled is never asked again** — the same rule the
+  board applies when it marks one superseded, so a resumed run does not
+  re-ask what was decided.
+- **An empty answer is not acceptance**: it stops and says how to come
+  back. Offers never fall back, least of all into approving a decision
+  nobody was asked about.
+- **A sidecar this surface cannot read** stays the interview's to report at
+  the plan, in its own words — never a card invented from nothing.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
+## 0.8.7 — 2026-09-04
+
+**The proof gap is a decision, not a warning (P1.9).** Runs 4 and 4B: the
+operator delivered with five of seven requirements unproved. The board said
+so, the certificate said so, the merge request said so — and none of them
+asked.
+
+Before the handover's yes, and against the board just rendered,
+`wringer-drive` now names the unproved requirements and asks: **deliver with
+them unproved, or strengthen the evidence first?**
+
+The offer of what to add is the planner's own, read from `wring plan
+--json`. Where it proposes nothing the question says so rather than
+inventing a check — a check this package made up would be the drive deciding
+what evidence is worth.
+
+- **strengthen** sends nothing, keeps everything built, and points the
+  record at the checks so `wringer-drive resume` re-enters there.
+- **An empty answer is not a choice**: it stops and says how to come back.
+  Offers never fall back.
+- **A run with nothing unproved meets no extra question at all** — a
+  decision asked when there is nothing to decide is a step people learn to
+  dismiss.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.8.6 — 2026-09-04
 
 **The readiness card, before anything is spent (P1.7).** Runs 4 and 4B,
