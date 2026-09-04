@@ -484,7 +484,8 @@ def test_a_converged_run_emits_the_board_TOO_and_ends_on_the_page(
     )
 
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch
+        project, tmp_path, "The ones on screen.\nyes\nyes\ndeliver\nyes\n",
+        monkeypatch
     )
     capsys.readouterr()
 
@@ -511,6 +512,12 @@ def test_both_endings_render_the_board_in_the_orchestrator_itself():
     (inside the `except run_module.Stop`) and on the converged one (after
     it). Both call sites are read out of the source with `ast`, so deleting
     either reddens this even if a live test happens not to reach that path.
+
+    *Amended 2026-09-03 (0.8.6):* both moments now go through
+    `__main__._show_board`, the helper that renders, emits and opens the
+    page, so a call to it counts as rendering — and the helper is read too,
+    because a helper that stopped calling `render_board` would otherwise
+    satisfy this by name alone.
     """
     source = (SRC / "__main__.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
@@ -519,16 +526,28 @@ def test_both_endings_render_the_board_in_the_orchestrator_itself():
         for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name == "_drive"
     )
+    show_fn = next(
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "_show_board"
+    )
+    assert any(
+        isinstance(call, ast.Call)
+        and getattr(call.func, "attr", None) == "render_board"
+        for call in ast.walk(show_fn)
+    ), "`_show_board` no longer renders the board, so calling it proves nothing"
 
     handlers = [n for n in ast.walk(run_fn) if isinstance(n, ast.ExceptHandler)]
     assert handlers, "`_drive` no longer catches a Stop around delivery"
 
-    def renders_board(node) -> bool:
-        return any(
-            isinstance(call, ast.Call)
-            and getattr(call.func, "attr", None) == "render_board"
-            for call in ast.walk(node)
+    def _is_render(call) -> bool:
+        return isinstance(call, ast.Call) and (
+            getattr(call.func, "attr", None) == "render_board"
+            or getattr(call.func, "id", None) == "_show_board"
         )
+
+    def renders_board(node) -> bool:
+        return any(_is_render(call) for call in ast.walk(node))
 
     inside = [h for h in handlers if renders_board(h)]
     assert inside, (
@@ -550,9 +569,7 @@ def test_both_endings_render_the_board_in_the_orchestrator_itself():
     outside = [
         call
         for call in ast.walk(run_fn)
-        if isinstance(call, ast.Call)
-        and getattr(call.func, "attr", None) == "render_board"
-        and call.lineno not in handler_lines
+        if _is_render(call) and call.lineno not in handler_lines
     ]
     assert outside, (
         "the board is rendered only on the refused branch — a converged run "
@@ -2244,7 +2261,8 @@ def test_the_drive_INSTALLS_a_proposed_display_with_the_gate_yes_and_asks_nothin
     subprocess.run(["git", "commit", "-qm", "human criterion"], cwd=project, check=True)
 
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch,
+        project, tmp_path, "The ones on screen.\nyes\nyes\ndeliver\nyes\n",
+        monkeypatch,
     )
     capsys.readouterr()
     ids = [step.id for step in steps]

@@ -569,8 +569,73 @@ def bundle_filename_constants() -> dict[str, str]:
         for name in dir(evidence)
         if name.endswith("_FILENAME")
         and isinstance(value := getattr(evidence, name), str)
+        and name not in NOT_BUNDLE_FILES
     }
 
+
+#: Names this module owns that are NOT bundle files — excluded from the
+#: clearing guard above WITH A REASON, and the exclusion is proven by
+#: `test_no_excluded_name_is_ever_written_into_a_bundle` below rather than
+#: taken on trust. The engine owns the name so the board can read the file
+#: without importing the drive (the layer seam); the drive owns the writing.
+NOT_BUNDLE_FILES = {
+    "JOURNEY_FILENAME": "the drive's journey record, written under "
+    ".wringer/journeys/<id>/ and never into a run bundle (0.8.0, P1.14)",
+}
+
+
+def test_every_excluded_name_says_WHY_it_is_not_a_bundle_file():
+    """An exclusion with no reason is a hole with a comment on it."""
+    for name, reason in NOT_BUNDLE_FILES.items():
+        assert hasattr(evidence, name), f"{name} is excluded and does not exist"
+        assert len(reason) > 30, f"{name} is excluded with no real reason"
+
+
+def test_no_excluded_name_is_ever_written_into_a_bundle(repo, monkeypatch):
+    """The exclusion, MEASURED against a REAL run rather than a planted one.
+
+    A name excluded from the clearing guard must genuinely never appear in a
+    bundle — otherwise the exclusion is exactly the hole that guard exists to
+    catch, wearing a reason. So this drives `wring verify` (which writes a
+    real bundle: manifest, ledger, digests, gate results) and the drive's own
+    journey writer, then reads what landed where.
+    """
+    from wringer import cli, config
+    from wringer_drive import journey
+
+    (repo / config.CONFIG_FILENAME).write_text(
+        'version: 1\ngates:\n  - id: t\n    run: "true"\n', encoding="utf-8"
+    )
+    monkeypatch.chdir(repo)
+    assert cli.main(["verify"]) == cli.EXIT_OK
+
+    journey_id = journey.begin(repo)
+    journey.enter(repo, journey_id, "build")
+    journey.close(repo, journey_id, "converged")
+
+    landed = {
+        path.name
+        for path in (repo / evidence.JOURNEYS_DIRNAME).rglob("*")
+        if path.is_file()
+    }
+    assert evidence.JOURNEY_FILENAME in landed, (
+        "the writer this exclusion is about wrote nothing, so the exclusion "
+        "proves nothing"
+    )
+    in_bundles = {
+        path.name
+        for path in (repo / evidence.RUNS_DIRNAME).rglob("*")
+        if path.is_file()
+    }
+    assert evidence.MANIFEST_FILENAME in in_bundles, (
+        "no real bundle was written, so this test could not see an excluded "
+        "name in one"
+    )
+    for name in NOT_BUNDLE_FILES:
+        assert getattr(evidence, name) not in in_bundles, (
+            f"{name} IS written into a bundle — it may not be excluded from "
+            "the clearing guard"
+        )
 
 def test_every_bundle_filename_the_module_names_is_cleared_from_a_reused_output(
     tmp_path: Path,

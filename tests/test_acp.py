@@ -1409,7 +1409,13 @@ def test_the_JSON_front_door_carries_no_shape_of_a_key_the_agent_echoed(
     front door as placeholders. Reverting that routing alone turns this
     red — the bundle stays clean either way, because the log writer scrubs
     again, so only the console can tell."""
-    secret = "sk-proj-notarealcredential9f3e11c4a7028dd6"
+    # **The tail is deliberately NOT hexadecimal** (2026-09-04). This test
+    # asserts the key's last four characters reach no file, and a bundle is
+    # full of sha256 digests and hex run ids — a hex tail collides with one
+    # by chance, which is exactly how this went red in a full-suite bar
+    # while passing alone. Non-hex letters cannot appear in a digest, so the
+    # assertion measures the leak it is about and nothing else.
+    secret = "sk-proj-notarealcredential9f3e11c4a70ZQXW"
     monkeypatch.setenv("WRINGER_TEST_CREDENTIAL", secret)
     setup(
         repo,

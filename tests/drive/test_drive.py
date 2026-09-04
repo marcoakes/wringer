@@ -2434,3 +2434,109 @@ def test_a_display_the_settings_CANNOT_TAKE_is_said_not_swallowed():
     assert step is not None and step.id == "show-proposal-not-installable"
     assert "reads-well" in step.text and "by hand" in step.text
     assert run_module.show_not_installable_step({"show_not_installable": []}) is None
+
+
+# --- the interview, easier to answer (0.8.4, P1.11) -------------------------
+#
+# Runs 4 and 4B, 2026-09-01: the drive put a drafter's question in front of
+# the operator with nothing beside it but a blank line. An ASK now quotes the
+# board's rendering of the offered answers beneath the question; a typed
+# number records the choice's TEXT, through the board's own writer.
+
+
+@pytest.fixture
+def choosing(project: Path) -> Path:
+    """The `project` fixture with the ENGINE's own rendered choices file."""
+    spec = pytest.importorskip("wringer.spec")
+    offered = {
+        "which-columns": (
+            spec.Choice(
+                text="Every column the page shows",
+                consequence="The export mirrors the screen exactly.",
+                example="Date, Customer, Amount, Status",
+            ),
+            spec.Choice(
+                text="Only the columns a finance team needs",
+                consequence="A shorter file; on-screen columns may be missing.",
+                example="Date, Amount",
+            ),
+        )
+    }
+    (project / "wringer.choices.yaml").write_text(
+        spec.render_choices(offered), encoding="utf-8"
+    )
+    subprocess.run(["git", "add", "-A"], cwd=project, check=True)
+    subprocess.run(["git", "commit", "-qm", "choices"], cwd=project, check=True)
+    return project
+
+
+def test_an_ASK_lists_the_OFFERED_CHOICES_beneath_the_verbatim_question(choosing):
+    from wringer_board import interview
+
+    (step,) = run_module.questions_to_ask(choosing)
+
+    assert step.text.startswith("Which columns?\n\n"), "the question is no longer line one"
+    offered = interview.choices(choosing)["which-columns"]
+    assert step.text == "Which columns?\n\n" + interview.render_choices(offered), (
+        "the drive rendered the choices itself instead of quoting the board"
+    )
+    assert "  1. Every column the page shows" in step.text
+    assert "  2. Only the columns a finance team needs" in step.text
+    assert "If you pick it:" in step.text and "For example:" in step.text
+    assert step.text.rstrip().endswith(interview.OR_TYPE_YOUR_OWN)
+    assert step.detail["choices"] == [
+        {"text": c.text, "consequence": c.consequence, "example": c.example}
+        for c in offered
+    ]
+    assert step.as_terminal().startswith(step.text), "the terminal dropped the list"
+
+
+def test_a_typed_NUMBER_at_the_interview_records_the_choices_TEXT(
+    choosing, tmp_path, capsys
+):
+    """"2" on stdin; the spec records the second offer's words, the read-back
+    shows those words, and the number appears in no answer."""
+    import io
+    import sys
+
+    sys.stdin = io.StringIO("2\nyes\nno\n")
+    try:
+        code = main(["run", str(prd(tmp_path)), "--repo", str(choosing)])
+    finally:
+        sys.stdin = sys.__stdin__
+    assert code == 0, "declining the plan is not an error"
+
+    spec = pytest.importorskip("wringer.spec")
+    loaded = spec.load(choosing / "wringer.spec.yaml")
+    answers = {q.id: q.answer for q in loaded.questions}
+    assert answers["which-columns"] == "Only the columns a finance team needs"
+    printed = capsys.readouterr()
+    said = printed.out + printed.err
+    assert "you answered:   Only the columns a finance team needs" in said
+    assert "you answered:   2\n" not in said
+
+
+def test_a_question_WITHOUT_choices_renders_EXACTLY_as_it_did_before(project):
+    """The forgery control: no file, and the ASK is the question alone — no
+    list, no "type your own", no `choices` in the detail or the JSON."""
+    from wringer_board import interview
+
+    (step,) = run_module.questions_to_ask(project)
+
+    assert step.text == "Which columns?"
+    assert step.detail == {"question_id": "which-columns"}
+    assert "choices" not in json.dumps(step.as_json())
+    assert interview.OR_TYPE_YOUR_OWN not in step.as_terminal()
+
+
+def test_an_UNREADABLE_choices_file_STOPS_the_interview_rather_than_asking_blank(
+    project,
+):
+    (project / "wringer.choices.yaml").write_text(
+        "schema_version: wringer.choices.v9\n", encoding="utf-8"
+    )
+
+    with pytest.raises(run_module.Stop) as stopped:
+        run_module.questions_to_ask(project)
+
+    assert "wringer.choices.v9" in (stopped.value.step.engine_words or "")

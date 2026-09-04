@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any
 
 from wringer import accept, detect, evidence
-from wringer import coverage as coverage_module
 from wringer.config import Gate
 from wringer.evidence import Bundle
 from wringer.gates import GateResult
@@ -58,11 +57,33 @@ def write(
     falsification: Any = None,
 ) -> Path:
     """Write `summary.md` into the bundle and return its path."""
-    lines = [
-        f"# wring verify — {bundle.run_id}",
+    # **The fact block and the rail** (0.8.4) — the same opening as
+    # `certificate.md` and `mr.md`, from one renderer. `summary.md` is
+    # written by `wring verify` BEFORE any delivery exists, so its last two
+    # states read "nothing on record" by construction; that is the claim
+    # ceiling, not a gap.
+    from wringer import outcome
+
+    # `<root>/.wringer/runs/<id>` — three parents up is the repository.
+    root = bundle.directory.parent.parent.parent
+    started = bundle.started_at.replace(microsecond=0).isoformat()
+    lines = [f"# wring verify — {bundle.run_id}", ""]
+    lines += outcome.fact_block({
+        outcome.REQUIREMENT: outcome.spec_title(root) or "this run",
+        outcome.RUN: f"`{bundle.run_id}`",
+        outcome.VERIFIED_AT: f"`{state.head_sha or 'unknown'}`"
+        if state is not None
+        else "—",
+        outcome.WRITTEN: started,
+    })
+    lines += [""]
+    lines += outcome.rail(outcome.derive(root, bundle.directory))
+    lines += [
         "",
         _repo_line(state),
-        f"- started: {bundle.started_at.replace(microsecond=0).isoformat()}",
+        # Kept verbatim beside the fact block: the bundle's own started line
+        # is what every reader of a bundle since v0.1 has looked for.
+        f"- started: {started}",
         _result_line(status, failed_gate),
     ]
     changes = _changes_line(state)
@@ -87,17 +108,14 @@ def write(
         # a bound gate that has never been red is not counted as having
         # no check. Without it the two adjacent sentences here said
         # 6 + 4 = 10 of 8.
-        lines += accept.disclosure(acceptance.counts(), acceptance.rows)
-    # **The coverage number, right under the states it explains** — the field
-    # case is run 2, where 5 of 8 requirements had no check at all and the
-    # defect that run existed to fix landed on one of the unwatched ones. The
-    # states above say what happened; this says how much of what was asked for
-    # anybody is watching, which is a different question and had no number.
-    #
-    # Two lines, never blended (SPEC_COVERAGE_V0, ruling MR1), and both from
-    # `coverage.lines` — the one renderer every surface quotes.
-    if coverage is not None:
-        lines += coverage_module.quoted(coverage)
+        # **The coverage sentences ride the SAME callout** (0.8.4): the field
+        # case is run 2, where 5 of 8 requirements had no check at all and
+        # the defect that run existed to fix landed on one of the unwatched
+        # ones. Two lines, never blended (SPEC_COVERAGE_V0, ruling MR1), and
+        # both still from `coverage.lines` — one renderer, one blockquote.
+        lines += accept.disclosure(
+            acceptance.counts(), acceptance.rows, coverage=coverage
+        )
     lines += [
         "",
         "| gate | status | duration | logs |",

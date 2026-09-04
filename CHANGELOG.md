@@ -4,6 +4,345 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.9 — 2026-09-04
+
+**Before and after, so a person compares rather than remembers (P1.10) —
+window B is complete.** Marc's brief: the board should show the old summary
+beside the new one, *"far more useful to a PM than file counts"*. A person
+judging "the summary reads at a glance" is comparing it against something,
+and until now that something existed only in their memory of a terminal.
+
+The pen runs the SAME declared `show:` command at the commit the work
+started from and prints **BEFORE**, then **AFTER**. The base is the
+merge-base with the remote's default branch, or HEAD's parent — never HEAD
+itself, because a before and after that are one commit shows nothing and
+reads as "it did not change".
+
+**Absence is absence.** A command that fails at the base — its files did not
+exist there, which is the normal case for new work — and a commit this
+repository no longer has are both stated as *nothing to show there*, never
+as a failure the person must act on, and the AFTER still stands on its own.
+
+The worktree machinery is the engine's, which `wring audit --delivery` and
+the committed-range falsification already use; a second copy inside the
+board would be a second answer to "how do I read a tree at a commit without
+touching the operator's checkout". The import is admitted in the layer seam
+with its argument. A test asserts the operator's tree, branch and worktree
+list are exactly as they were.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
+## 0.8.8 — 2026-09-04
+
+**0.8.7 was never published.** Its bar went red twice — a lint slip, then
+the version guards — and by the time they were fixed this release had
+been cut on top of it. Rather than tag a version nobody could install,
+the work described under 0.8.7 below ships here, in 0.8.8. The entry
+stays where it is because it describes what changed; only the version it
+arrives in has moved.
+
+**Decisions taken without asking are cards, not a block (P1.12).**
+Assumptions render inside the plan under DECIDED WITHOUT ASKING YOU — a
+dense block a person scrolls past on the way to the approval, which then
+approves all of it.
+
+Each is now its own question, asked before that yes: the decision, the
+reason, and the question it stood in for.
+
+- **Accept** keeps it and leaves the spec byte-identical — an accept that
+  quietly rewrote the plan would be the drive answering for the person.
+- **Anything else** goes through the board's own writer, which promotes the
+  assumption to an answered question and withdraws the approval, exactly as
+  it does from the terminal. There is no second writer of the spec.
+- **A decision already settled is never asked again** — the same rule the
+  board applies when it marks one superseded, so a resumed run does not
+  re-ask what was decided.
+- **An empty answer is not acceptance**: it stops and says how to come
+  back. Offers never fall back, least of all into approving a decision
+  nobody was asked about.
+- **A sidecar this surface cannot read** stays the interview's to report at
+  the plan, in its own words — never a card invented from nothing.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
+## 0.8.7 — 2026-09-04
+
+**The proof gap is a decision, not a warning (P1.9).** Runs 4 and 4B: the
+operator delivered with five of seven requirements unproved. The board said
+so, the certificate said so, the merge request said so — and none of them
+asked.
+
+Before the handover's yes, and against the board just rendered,
+`wringer-drive` now names the unproved requirements and asks: **deliver with
+them unproved, or strengthen the evidence first?**
+
+The offer of what to add is the planner's own, read from `wring plan
+--json`. Where it proposes nothing the question says so rather than
+inventing a check — a check this package made up would be the drive deciding
+what evidence is worth.
+
+- **strengthen** sends nothing, keeps everything built, and points the
+  record at the checks so `wringer-drive resume` re-enters there.
+- **An empty answer is not a choice**: it stops and says how to come back.
+  Offers never fall back.
+- **A run with nothing unproved meets no extra question at all** — a
+  decision asked when there is nothing to decide is a step people learn to
+  dismiss.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
+## 0.8.6 — 2026-09-04
+
+**The readiness card, before anything is spent (P1.7).** Runs 4 and 4B,
+2026-09-01: the operator drove a build with a dead key exported over a
+working stored login and learned it at the first worker turn — after the
+drafting call had been paid for. Every fact needed to say so was already on
+the machine.
+
+`wringer-drive` now renders one card at the start of the draft phase,
+before the first paid call:
+
+- the drafting endpoint, model and the variable that pays for it;
+- the credential lines in `wring doctor`'s own words, verbatim — one surface
+  owns that fact, and a second wording of it is how run 4B's operator met
+  two different accounts of one credential;
+- the builder and how many turns it may take;
+- what is paid for next, in order;
+- what happens if a credential fails, and the command that continues
+  (`wringer-drive resume`, which does not pay for the drafting again).
+
+**It prices nothing and says so.** No currency, no estimate, no percentage —
+the same claim ceiling every other surface carries.
+
+Composed, never computed: every line quotes a surface that already owns the
+fact. A check this machine skipped is not reported as a problem. A project
+with nothing declared yet still gets an honest card that says the answers
+are coming and what they will cost.
+
+Five red-watches, each reverting one thing alone, all red — including the
+one that matters: the card is on screen while the drafting call count is
+still zero, counted rather than inferred.
+
+Schema versions: unchanged.
+
+## 0.8.5 — 2026-09-04
+
+**The board quotes the engine's six states — the 0.8.3 debt, paid.** The
+board shipped the six PM states two releases before `certificate.md`,
+`summary.md` and `mr.md` got them from `wringer.outcome`, so for two
+releases one vocabulary had two spellings across four surfaces. That is the
+two-surfaces-one-fact drift this programme keeps finding, and it was
+recorded in 0.8.3's own release notes rather than hidden.
+
+The board now asks the engine for the words and the order. The per-segment
+truth values stay on the board's side, because the page reads a `Board` and
+the engine reads a repository — the vocabulary is what could drift, and it
+is what moved. The import is admitted in the layer seam with its argument,
+guarded like every other one there: inside the function, its failure
+caught, and a board installed without the engine prints the labels it
+shipped with rather than a claim it cannot support.
+
+A test that only compared the two lists could not tell "the board asks"
+from "the board keeps a copy that happens to agree" — a red-watch caught
+exactly that, so the engine's word is now changed at runtime and the page
+must follow it. Four red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
+## 0.8.4 — 2026-09-04
+
+**The certificate, the summary and the merge request read like one product.**
+Marc, 2026-09-03: the PM artifacts "look crap; make them look really
+professional and nice". Measured on run 4B's real delivery: `mr.md` opened on
+a counts sentence with the identity nowhere near it, then TWO stacked
+blockquotes, then "Every requirement" as seven headings of which five carried
+the same paragraph; `certificate.md` repeated the same blocks under three
+headings; `summary.md` carried the same two callouts over a gate table.
+
+### One opening, from one renderer
+
+All three now open the same way (`src/wringer/outcome.py`): a two-column
+fact block — Requirement · Run · Branch → base · Verified at · Written —
+then **the six PM states as one table row**: Built · Checks passing ·
+Requirements proved · Human judgement complete · Ready to deliver ·
+Delivered, each derived from ONE fact on record, with a legend saying that
+no state implies the next. Three values and no score: on record, on record
+against, and **nothing on record when the artifact was written**.
+`summary.md` is written before any delivery exists, so its last two states
+read as nothing recorded by construction — the claim ceiling, not a gap.
+
+### One callout, and a table where a wall was
+
+The warning and the coverage sentences share one blockquote: the warning is
+its lead, each coverage sentence its own bullet. Ruling MR1 still holds — a
+bullet separates two debts more strongly than the blank quote line did.
+
+"Every requirement" is a table (State · Requirement · Evidence) with detail
+beneath it only for rows that have any. A sentence more than one row shares
+is said **once**, as a footnote those rows point at; a row a person settled
+names who settled it and their verdict in the table itself.
+
+Two tests were re-navigated deliberately: they walked the per-requirement
+headings the table replaced, and their property is unchanged. `outcome.py`
+had no test file — a red-watch found that gap, and it has one now. Five
+red-watches, each reverting one thing alone, all red.
+
+**Also:** a citation-shaped reference with no readable line number
+(`AGENTS.md:-4`, written by a repointing script during this release) was
+invisible to every guard in `tests/test_spec_citations.py`, because the
+citation pattern requires digits and simply did not match. A malformed
+reference is now a failure of its own — narrowly, so a line range, a
+comma-separated list, a pytest node id and a symbol reference all stay
+legal.
+
+Schema versions: unchanged.
+
+## 0.8.3 — 2026-09-04
+
+**The board reads like a product (the PM artifact design pass).** Marc,
+2026-09-03: the artifacts "look crap; make them look really professional
+and nice". Measured first on a real delivered board: one narrow column of
+prose cards, no status a reader could take at a glance, and the counts
+buried in sentences.
+
+### Above the fold: identity, six states, four counts
+
+The header carries the run's identity, then an **outcome rail** of six
+segments in one fixed order — Built · Checks passing · Requirements proved
+· Human judgement · Ready to deliver · Delivered — each derived from ONE
+fact this page already holds, each carrying one of three glyphs. A fact
+that is not on disk says **"not known here"**, never a guess. Beneath it,
+four labelled count tiles: proved, needs a person, unproved, contradicted.
+On run 4B's real delivery the rail reads *Built ✓ · Checks passing ✓ ·
+Requirements proved ✗ (1 of 7) · Human judgement ✓ (1 of 1 judged met) ·
+Ready to deliver — · Delivered —*, which is the sentence "green means
+everything is proved" cannot survive.
+
+**No score and no percentage anywhere**, and the word "green" appears
+nowhere as a word about the whole — both pinned by guards.
+
+### Beneath it: a page that holds together
+
+A type scale in `rem`, an 8px rhythm, four semantic tones at AA contrast
+in light and dark (a `prefers-color-scheme` palette, so the page is not a
+white slab at night), and `overflow-wrap` on every monospace container so
+no id, path or command can push the page sideways. A person's lane is
+blue and an engineer's debts are neutral — the 2026-08-21 finding that put
+nine amber demands for attention on a page whose summary counted two.
+
+Twelve guards; four red-watched by reverting each alone: the rail's fixed
+order, an absent fact claiming to be met, a percentage reaching the
+chrome, and a monospace container losing its wrap rule.
+
+**A debt, recorded rather than hidden:** this rail is derived on the board's
+side. When the same six states reach `certificate.md`, `summary.md` and
+`mr.md` (P1.8), the derivation moves into the engine and the board quotes
+it — one renderer, as every other fact on this page already is.
+
+Schema versions: unchanged.
+
+## 0.8.2 — 2026-09-04
+
+**The interview, easier to answer (P1.11).** Runs 4 and 4B put a drafter's
+question in front of a product manager with nothing beside it but a blank
+line. A question may now come with two to four plain-language ways to
+answer it, each with the consequence of picking it and a tiny example,
+rendered numbered beneath the question and ending "or type your own
+answer".
+
+`wringer.choices.yaml` (`wringer.choices.v1`, a new sibling schema frozen
+at birth) sits beside the spec, keyed by question id, because the spec's
+question items are closed. `wring spec --send` writes it from the drafted
+reply; a person may write the same file by hand and a hand-written one is
+never replaced by a redraft. The ceiling is a parse guard, not a sentence:
+two to four options per question; an option whose text is a bare number is
+refused (a typed number selects a choice); a repeated text is refused;
+choices for a question the spec does not ask are dropped with a note on
+the drafted path and refused from a typed file.
+
+**The record holds the choice's TEXT, never the number.** `wringer-board
+answer`, `revise` and the drive's interview all resolve through one
+function: a typed number against a choices question records that choice's
+words; a number naming no listed choice is refused with nothing written;
+free text, and any answer to a question without choices, is recorded
+verbatim. One renderer draws the list; the drive's ask step quotes it
+beneath the verbatim question. A question without choices renders
+byte-identically to before. An unreadable or unknown-version choices file
+is said, never rendered as a blank line.
+
+Schema versions: new sibling `wringer.choices.v1`; nothing existing moves.
+
+## 0.8.1 — 2026-09-04
+
+**Also fixed:** a redaction guard planted a key whose last four characters
+were hexadecimal and asserted they reached no file — in a full-suite run
+they collided by chance with a sha256 digest, so the guard was red for a
+reason that was not a leak. The planted tail is non-hex now, and the
+assertion measures the leak it is about.
+
+**The board opens at decision moments (P1.13).** Runs 4 and 4B: the PM
+read "green" as "everything proved" and judged on a manual display,
+because the page that says which is which was a filename in a terminal
+line.
+
+At the HOLD the drive now points at `board.html#card-<id>` — the card the
+board itself marks NEEDS YOU — and says "the card to review is '<title>'";
+before the handover's second yes it points at the page from the top. Every
+card carries `id="card-<criterion id>"`, spelled once by the board's
+renderer and quoted by the drive. In text mode, at a terminal, the drive
+opens the page there by default through one seam; `--no-open` on `run` and
+`resume` keeps a person in the terminal. Never in json mode — an agent is
+driving, and the step's detail carries the anchor for it to relay.
+
+**The gate lives inside the seam** (incident 2026-09-03, when an agent's
+tests opened the operator's browser once per run): the browser is reached
+only when the mode is text, `--no-open` is absent, and both stdout and
+stdin are terminals — a captured or piped stdout (pytest, CI, an agent)
+never opens anything, whatever a caller asked for. The suite's own
+session-wide guard makes any escaped launch a loud failure.
+
+Schema versions: unchanged.
+
+## 0.8.0 — 2026-09-04
+
+**One journey identity (P1.14) — window B of the world-class plan opens.**
+Runs 4 and 4B, 2026-09-01: an operator saw a spec id, a loop id, a run id
+and a delivery id on four surfaces with nothing saying they were one
+afternoon's work.
+
+`wringer-drive` now writes `.wringer/journeys/<id>/journey.json`
+(`wringer.journey.v1`, a new sibling schema frozen at birth): which spec
+bundle, loop, verification run and delivery belong to which phase of one
+run. Every existing id keeps its name and place — the journey is a join,
+never a rename. Each phase entry prints one header line, `journey <id> ·
+<phase>`, as its own `show` step; older steps are byte-identical. The board
+names `journey <id>` beside the run in its engineers' block — only when
+that journey's phases cite the rendered run, by an exact join on the run
+id. `wring explain <journey dir>` walks the phases, quoting the drive's own
+outcome words and marking an unfinished phase `open`. `wringer-drive
+resume` continues the journey the run stopped in rather than opening a
+second one. A journey that cannot be written costs the run nothing.
+
+Also in this release: the test suite makes any browser launch a loud
+failure, session-wide (a guard added after an agent's tests opened the
+operator's browser once per run on 2026-09-03); the bundle-clearing guard
+gained an exclusion list with proven reasons, because the engine now owns
+a filename the drive writes outside every bundle — the exclusion is
+measured against a real `wring verify` run rather than asserted; and the
+test gate's own timeout rose to 1500s, the suite having grown past a 600s
+ceiling.
+
+Guards: 23 red-watches, each reverted alone, all red; one was vacuous on
+first pass and now asserts the row.
+
+Schema versions: new sibling `wringer.journey.v1`; nothing existing moves.
+
 ## 0.7.5 — 2026-09-02
 
 **Every command the product prints is executed in CI, as printed (P0.5)

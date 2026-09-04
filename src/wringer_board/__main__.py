@@ -202,8 +202,14 @@ def _interview(args) -> int:
             )
             return 0
         if args.command == "answer":
-            path = interview.answer(repo, args.id, args.text)
+            # Resolved here too, only so the print can say what was recorded
+            # when a number was typed: `answer` resolves on its own, and a
+            # resolved text resolves to itself.
+            recorded = interview.resolve_answer(repo, args.id, args.text)
+            path = interview.answer(repo, args.id, recorded)
             print(f"wringer-board: answered {args.id!r} in {path.name}")
+            if recorded != args.text:
+                print(f"wringer-board: recorded, in the choice's own words: {recorded}")
             still = interview.unanswered(repo)
             if still:
                 names = ", ".join(q.id for q in still)
@@ -321,7 +327,29 @@ def _judge(args, repo: Path) -> int:
             print(f"  | {line}")
         print()
     else:
-        print(f"This is what you are judging — from `{display.command}`:\n")
+        # **BEFORE, then AFTER** (P1.10, 0.8.9). Marc: the board should show
+        # the old summary beside the new one, "far more useful to a PM than
+        # file counts". The same declared command, run at the commit this
+        # work started from, so the person is comparing rather than
+        # remembering. A base that cannot be read is stated as absence and
+        # the AFTER still stands on its own.
+        base = judge_module.base_ref(repo)
+        before = (
+            judge_module.shown_before(repo, str(criterion.get("id", "")), base)
+            if base
+            else None
+        )
+        if before is not None and before.state == judge_module.SHOWN:
+            print(f"BEFORE — the same command at `{base[:12]}`:\n")
+            for line in before.text.splitlines():
+                print(f"  | {line}")
+            print()
+            print(f"AFTER — from `{display.command}`:\n")
+        elif before is not None:
+            print(f"BEFORE — {before.text}\n")
+            print(f"AFTER — from `{display.command}`:\n")
+        else:
+            print(f"This is what you are judging — from `{display.command}`:\n")
         for line in display.text.splitlines():
             print(f"  | {line}")
         print()

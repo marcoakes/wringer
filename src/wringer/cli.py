@@ -3354,7 +3354,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
             # Recovery, not consent: the documents being replaced are kept
             # beside the request that replaced them.
             for name in (
-                spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME
+                spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME,
+                spec.CHOICES_FILENAME,
             ):
                 source = root / name
                 if source.is_file():
@@ -3456,6 +3457,37 @@ def cmd_spec(args: argparse.Namespace) -> int:
                         "replaced. Approving the plan approves them.",
                         file=sys.stderr,
                     )
+        # **The offered answers, on the decisions pattern in every respect**
+        # (0.8.4, P1.11): a generated file may never outlive the questions it
+        # offers answers to, a hand-written one is a person's own, and an
+        # empty file is never written — absence is absence.
+        offers = root / spec.CHOICES_FILENAME
+        if (
+            previous is not None
+            and not draft.choices
+            and offers.is_file()
+            and spec.choices_is_generated(offers)
+        ):
+            offers.unlink()
+            print(
+                f"wring spec: this draft offered no choices, so the previous "
+                f"{spec.CHOICES_FILENAME} was removed rather than left offering "
+                "answers to questions that no longer exist.",
+                file=sys.stderr,
+            )
+        if draft.choices:
+            if offers.is_file() and not spec.choices_is_generated(offers):
+                print(
+                    f"wring spec: {spec.CHOICES_FILENAME} was written by "
+                    "hand, so it was left alone — the drafted choices are in "
+                    f"{_relative(bundle.directory, root)}/"
+                    f"{spec.RESPONSE_FILENAME} if you want them.",
+                    file=sys.stderr,
+                )
+            else:
+                offers.write_text(
+                    spec.render_choices(draft.choices), encoding="utf-8"
+                )
 
     if args.send and args.witness and drafted is not None:
         # The return value is deliberately dropped: `_author_witnesses` stores
@@ -3641,6 +3673,13 @@ def _report_spec(
         )
     print("\n  approved: false   ← nothing runs until you change this by hand")
     print(f"\nNext:\n  read {spec.SPEC_FILENAME}, answer its open questions,")
+    if (root / spec.CHOICES_FILENAME).is_file():
+        # Said only when the file is there: a draft that offered nothing
+        # prints exactly what it printed before choices existed.
+        print(
+            f"  ({spec.CHOICES_FILENAME} offers ways to answer some of them — "
+            "pick one, or write your own)"
+        )
     print("  set 'approved: true', then run: wring plan")
     print(f"\nDraft evidence: {_relative(bundle.directory, root)}/")
 
@@ -4991,6 +5030,25 @@ def cmd_explain(args: argparse.Namespace) -> int:
             return EXIT_CONFIG
         run_dir = found
 
+    if (run_dir / evidence.JOURNEY_FILENAME).is_file():
+        # **A JOURNEY directory (0.8.7, P1.14).** The drive's record of one
+        # piece of work — `.wringer/journeys/<id>` — carries no manifest,
+        # so it is told apart by its own file and then by that file's own
+        # schema version, never by the path. Runs 4 and 4B, 2026-09-01: the
+        # operator saw four unrelated ids for one afternoon's work, and no
+        # verb could read back which belonged together.
+        journey = evidence.read_journey(run_dir)
+        if journey is None:
+            print(
+                f"wring explain: {run_dir.as_posix()} holds a "
+                f"{evidence.JOURNEY_FILENAME} this version cannot read "
+                f"(it reads {evidence.JOURNEY_SCHEMA_VERSION})",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+        _explain_journey(run_dir, journey)
+        return EXIT_OK
+
     try:
         manifest = evidence.read_manifest(run_dir)
         if manifest.get("schema_version") in loop.SCHEMA_VERSIONS:
@@ -5026,6 +5084,43 @@ def _read_sibling(path: Path) -> dict | None:
     except (OSError, ValueError):
         return None
     return payload if isinstance(payload, dict) else None
+
+
+def _explain_journey(journey_dir: Path, journey: dict) -> None:
+    """Walk a journey's phases, quoting the record and deciding nothing.
+
+    One line per phase, in the order the drive entered them: the phase, the
+    engine id it cites (or a dash — no bundle exists for an interview), and
+    the outcome the drive recorded in its own words (`converged`,
+    `stopped:not-delivered`), or `open` for a phase with no end. The
+    timestamps are the DRIVE's clock, as the record says; each cited bundle
+    carries its own. Nothing here says whether the work is done — that is
+    the delivery's and the board's to say from the evidence.
+    """
+    print(f"Journey {journey.get('journey_id', journey_dir.name)}")
+    print(f"Started (the drive's clock): {journey.get('started_at', 'unknown')}")
+    phases = journey.get("phases") or []
+    if not phases:
+        print("\nNo phases recorded: the drive wrote this record and entered none.")
+    else:
+        print()
+        width = max(len(str(phase.get("phase", ""))) for phase in phases)
+        for phase in phases:
+            name = str(phase.get("phase", ""))
+            kind = str(phase.get("kind", "other"))
+            cited = phase.get("id")
+            ended = phase.get("ended_at")
+            outcome = phase.get("outcome")
+            cites = f"{kind} {cited}" if cited else "no bundle"
+            said = str(outcome) if ended is not None and outcome else "open"
+            print(f"  {name:<{width}}  {cites:<26}  {said}")
+            began = phase.get("started_at", "")
+            print(f"  {'':<{width}}  {began} -> {ended or 'open'}")
+    try:
+        shown = journey_dir.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        shown = journey_dir.as_posix()
+    print(f"\nJourney record: {shown}/{evidence.JOURNEY_FILENAME}")
 
 
 def _explain_loop(loop_dir: Path, manifest: dict) -> None:
