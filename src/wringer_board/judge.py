@@ -161,6 +161,98 @@ MISSING = "missing"
 FAILED = "failed"
 
 
+def base_ref(repo: Path) -> str:
+    """The commit this work started from, or "" when it cannot be known.
+
+    The merge-base with the remote's default branch when there is one, and
+    the first parent of HEAD otherwise — the same base `wring deliver`
+    reports for a delivery. Never HEAD itself: a before-and-after where both
+    sides are the same commit shows a person nothing and would read as "it
+    did not change".
+    """
+    import subprocess
+
+    def _git(*args: str) -> str:
+        try:
+            done = subprocess.run(
+                ["git", *args], cwd=repo, capture_output=True, text=True,
+                check=False, timeout=10,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return ""
+        return done.stdout.strip() if done.returncode == 0 else ""
+
+    head = _git("rev-parse", "HEAD")
+    if not head:
+        return ""
+    for candidate in ("origin/HEAD", "origin/main", "main"):
+        base = _git("merge-base", "HEAD", candidate)
+        if base and base != head:
+            return base
+    parent = _git("rev-parse", "HEAD~1")
+    return parent if parent and parent != head else ""
+
+
+def shown_before(repo: Path, criterion_id: str, base_ref: str) -> ShowResult:
+    """The SAME display, run at the commit the work started from (P1.10).
+
+    **Marc's brief:** *"the board should show the old noisy pipeline summary
+    beside the new skipped-step summary. That is far more useful to a PM than
+    file counts."* A person judging "the summary reads at a glance" is
+    comparing it against something, and until now that something existed only
+    in their memory of a terminal.
+
+    **Absence is absence.** A command that fails at the base — its files did
+    not exist there, the module would not import — is an honest ABSENT, not
+    an error and never a guess at what used to be printed. The same for a
+    commit this repository no longer has. The worktree is read-only and
+    removed afterwards; nothing here touches the operator's checkout.
+    """
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).replace(microsecond=0).isoformat()
+    try:
+        from wringer import config as config_module
+
+        cfg = config_module.load(repo / config_module.CONFIG_FILENAME)
+    except Exception:
+        return ShowResult(state=MISSING, at=now)
+    command = cfg.show.get(criterion_id)
+    if not command:
+        return ShowResult(state=MISSING, at=now)
+
+    from wringer import fleet
+
+    ran = fleet.run_at(repo, base_ref, command, timeout=SHOW_TIMEOUT)
+    if ran is None:
+        return ShowResult(
+            state=FAILED,
+            command=command,
+            text=(
+                f"[nothing to show at {base_ref[:12]}: this repository could "
+                "not make a copy of the tree there]"
+            ),
+            at=now,
+        )
+    code, text = ran
+    if code != 0:
+        return ShowResult(
+            state=FAILED,
+            command=command,
+            exit_code=code,
+            text=(
+                f"[nothing to show at {base_ref[:12]}: the command exited "
+                f"{code} there, which usually means the thing it displays did "
+                "not exist yet]"
+            ),
+            at=now,
+        )
+    return ShowResult(
+        state=SHOWN, command=command, exit_code=0, text=text, at=now,
+        head_sha=base_ref,
+    )
+
+
 def _tree_identity(repo: Path) -> tuple[str, bool | None]:
     """`(head_sha, dirty)` — the tree a display rendered against.
 

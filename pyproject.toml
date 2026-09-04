@@ -114,6 +114,8 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # Same false positive, same fixture family, same reason (0.8.6): the
 # readiness card's tests reuse the drive fixtures by import.
 "tests/drive/test_drive_readiness.py" = ["F811"]
+"tests/drive/test_drive_proof_gap.py" = ["F811"]
+"tests/drive/test_drive_assumptions.py" = ["F811"]
 # Same again for the printed-command registry (0.7.5): its rows run inside
 # the REAL delivery, spec and drive fixtures other modules already build,
 # imported by name rather than copied.

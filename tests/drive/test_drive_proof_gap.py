@@ -8,8 +8,6 @@ not a decision.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from test_drive_open_board import (  # noqa: F401
     TO_THE_PEN,
     converge_the_handover,

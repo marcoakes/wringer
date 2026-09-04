@@ -82,6 +82,7 @@ BOARD = SRC / "wringer_board"
 # its failure is caught, so a board with no engine present still loads and
 # falls back to the ordering it had.
 PERMITTED = {
+    "wringer.fleet",
     "wringer.outcome",
     "wringer.spec",
     "wringer.evidence",
@@ -192,6 +193,16 @@ def test_the_permitted_list_is_not_silently_widened():
     and simply has nothing to show — which it then says.
     """
     assert PERMITTED == {
+        # Admitted 2026-09-04 (P1.10): the pen shows a person the thing they
+        # are judging, and BEFORE/AFTER needs the same command run at the
+        # commit the work started from. The worktree machinery is the
+        # engine's — `wring audit --delivery` and the committed-range
+        # falsification already use it — and a second copy inside the board
+        # would be a second answer to "how do I read a tree at a commit
+        # without touching the operator's checkout". Guarded like every other
+        # admitted import: inside the function, failure caught, and a base
+        # that cannot be read renders as absence rather than a claim.
+        "wringer.fleet",
         # Admitted 2026-09-04, paying the debt 0.8.3 recorded in its own
         # release notes: the board shipped the six PM states two releases
         # before `certificate.md`, `summary.md` and `mr.md` got them from
