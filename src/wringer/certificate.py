@@ -977,7 +977,19 @@ def _packed_receipt(
         if rel == evidence.DIGESTS_FILENAME:
             continue
         recorded = rows.get(rel)
-        actual = hashlib_module.sha256(entry.read_bytes()).hexdigest()
+        try:
+            actual = hashlib_module.sha256(entry.read_bytes()).hexdigest()
+        except OSError as exc:
+            # Bug review 0.7, 2026-09-02: one unreadable receipt file took
+            # the whole audit down with a bare errno — no claims rendered,
+            # no worktree line, nothing named. Closed, on this claim, with
+            # every other claim still checked: a receipt this reader cannot
+            # open cannot show the failure it is cited for.
+            return None, (
+                f"`{rel}` in the packed receipt could not be read "
+                f"({exc.strerror or exc}), so the record it is cited for "
+                "cannot be checked"
+            )
         if recorded is None:
             return None, (
                 f"the packed receipt carries `{rel}`, which its own digest "

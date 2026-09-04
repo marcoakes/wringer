@@ -2923,3 +2923,125 @@ def test_audit_delivery_REFUSES_by_name_when_git_cannot_add_the_worktree(
     assert (squatting / "junk").read_text(encoding="utf-8") == "x", (
         "the refusal path removed what was already there"
     )
+
+
+# --- bug review 0.7, 2026-09-02 (key: handover) ----------------------------
+
+
+def _shipped_handed_and_cloned(delivery_repo, monkeypatch, capsys, tmp_path):
+    """A bound, red-first delivery SENT (so `receipts/` travels), copied
+    outside the repo, and a fresh clone of the origin to audit from."""
+    import shutil
+
+    from test_falsify_committed import _shipped
+
+    delivery_id = _shipped(delivery_repo, monkeypatch, capsys)
+    delivered = delivery_repo / deliver.DELIVERIES_DIRNAME / delivery_id
+    origin = git(delivery_repo, "remote", "get-url", "origin")
+    clone = tmp_path.parent / f"{tmp_path.name}-clone"
+    subprocess.run(["git", "clone", "-q", origin, str(clone)], check=True)
+    handed = tmp_path.parent / f"{tmp_path.name}-handed"
+    shutil.copytree(delivered, handed)
+    return handed, clone
+
+
+def test_audit_delivery_REFUSES_a_manifest_that_DISAGREES_with_its_own_digests(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. `--delivery` read `manifest.json` for the
+    delivered commit and never looked at the `digests.json` written last to
+    cover it — so `result.commit` edited to any commit the clone has (here:
+    the origin's `main`) stood the worktree on the wrong tree and the page
+    came back ✓, "checked against commit <not the delivery>"."""
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    manifest_path = handed / deliver.MANIFEST_FILENAME
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    elsewhere = git(clone, "rev-parse", "origin/main")
+    assert elsewhere != manifest["result"]["commit"]
+    manifest["result"]["commit"] = elsewhere
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+
+    assert code == cli.EXIT_CONFIG, said.out + said.err
+    assert said.out == "", said.out
+    assert "manifest.json" in said.err and "altered" in said.err, said.err
+    assert "Traceback" not in said.err
+    assert git(clone, "branch", "--show-current") == "main"
+    assert not (clone / ".wringer").exists()
+
+
+def test_audit_delivery_LEAVES_a_worktree_the_clone_already_had_at_its_name(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. The audit's worktree name is derived from
+    the commit, and `fleet.make_worktree` force-removes whatever is at its
+    path: a registered worktree already there — a killed audit's, or a
+    second audit of the same delivery running in this clone right now — was
+    deleted with everything in it, under "your checkout is not touched".
+    Measured: four audits at once in one clone, three refused and any could
+    have removed the fourth's tree mid-check."""
+    from wringer import fleet
+
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    commit = json.loads(
+        (handed / deliver.MANIFEST_FILENAME).read_text(encoding="utf-8")
+    )["result"]["commit"]
+    theirs = clone / fleet.WORKTREES_DIRNAME / f"audit-{commit[:12]}"
+    theirs.parent.mkdir(parents=True)
+    subprocess.run(
+        ["git", "worktree", "add", "--detach", str(theirs), commit],
+        cwd=clone, check=True, capture_output=True,
+    )
+    (theirs / "mid-check.txt").write_text("in use", encoding="utf-8")
+    monkeypatch.chdir(clone)
+
+    code = cli.main(["audit", "--delivery", str(handed)])
+    said = capsys.readouterr()
+
+    assert code == cli.EXIT_OK, said.out + said.err
+    assert (theirs / "mid-check.txt").read_text(encoding="utf-8") == "in use", (
+        "the audit removed a worktree it did not create"
+    )
+    listing = git(clone, "worktree", "list", "--porcelain")
+    trees = [line for line in listing.splitlines() if line.startswith("worktree ")]
+    assert len(trees) == 2, listing
+    assert not [
+        p for p in theirs.parent.glob("audit-*") if p != theirs
+    ], "the audit left its own worktree behind"
+
+
+def test_audit_delivery_names_an_UNREADABLE_receipt_file_and_still_checks_the_rest(
+    delivery_repo, monkeypatch, capsys, tmp_path
+):
+    """Bug review 0.7, 2026-09-02. One receipt file this reader could not
+    open took the whole audit down: `wring: [Errno 13] Permission denied:
+    …/evidence.jsonl`, exit 2, no claim rendered. Closed on that claim, the
+    other claims still checked, nothing left in the clone."""
+    import os
+
+    if os.geteuid() == 0:
+        pytest.skip("root reads every file; the unreadable case cannot be built")
+    handed, clone = _shipped_handed_and_cloned(
+        delivery_repo, monkeypatch, capsys, tmp_path
+    )
+    ledger = next((handed / deliver.RECEIPTS_DIRNAME).glob("*/evidence.jsonl"))
+    os.chmod(ledger, 0)
+    monkeypatch.chdir(clone)
+    try:
+        code = cli.main(["audit", "--delivery", str(handed)])
+        said = capsys.readouterr()
+    finally:
+        os.chmod(ledger, 0o644)
+
+    assert code == cli.EXIT_GATE_FAILED, said.out + said.err
+    assert "Errno" not in said.err and "Traceback" not in said.err, said.err
+    assert "could not be read" in said.out, said.out
+    assert "the counts match" in said.out, "the other claims were not rendered"
+    assert not (clone / ".wringer").exists()
