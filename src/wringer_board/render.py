@@ -579,11 +579,33 @@ def card_anchor(criterion_id: str) -> str:
 # because the page had no status a person reads at a glance — every card was
 # a paragraph and the counts lived in sentences. Six segments, this order,
 # and a test pins the order and the glyph set.
-RAIL_ORDER = (
+def _rail_order() -> tuple[str, ...]:
+    """The six labels, IN THE ENGINE'S ORDER and the engine's words (0.8.5).
+
+    **The debt 0.8.3 recorded, paid.** This page shipped its own copy of the
+    six states two releases before `certificate.md`, `summary.md` and
+    `mr.md` got them from `wringer.outcome` — so for two releases the board
+    and the artifacts each held a spelling of one vocabulary, which is the
+    two-surfaces-one-fact drift this whole programme keeps finding. The
+    board asks; a board with no engine present keeps the last-known words
+    and says nothing it cannot support, exactly as every other admitted
+    import here behaves.
+    """
+    try:
+        from wringer import outcome
+    except Exception:  # pragma: no cover - a board with no engine beside it
+        return _FALLBACK_ORDER
+    return tuple(outcome.WORDS[state] for state in outcome.STATES)
+
+
+#: What the labels were when this page was written, for a board installed
+#: without the engine. Never a second DEFINITION: the engine decides, and
+#: this is only what to print when nothing can be asked.
+_FALLBACK_ORDER = (
     "Built",
     "Checks passing",
     "Requirements proved",
-    "Human judgement",
+    "Human judgement complete",
     "Ready to deliver",
     "Delivered",
 )
@@ -659,7 +681,7 @@ def _rail_facts(board: Board, cards: list[Card]) -> list[tuple[str, str, str]]:
     tones = (built, checks, proved, judgement, ready, delivered)
     return [
         (label, tone, note)
-        for label, (tone, note) in zip(RAIL_ORDER, tones, strict=True)
+        for label, (tone, note) in zip(_rail_order(), tones, strict=True)
     ]
 
 

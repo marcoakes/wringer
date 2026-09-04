@@ -210,16 +210,27 @@ def test_the_outcome_rail_has_SIX_SEGMENTS_in_ONE_ORDER_with_THREE_GLYPHS(repo):
     the page separated built from checked from proved from judged from
     delivered. The order is the journey's own order and it is pinned.
     """
+    from wringer import outcome
+
     rail = _rail(_page(_every_state(repo)))
-    assert [label for label, _, _ in rail] == list(render_module.RAIL_ORDER)
-    assert list(render_module.RAIL_ORDER) == [
+    # **The engine's roster, not a second copy** (0.8.5, paying the debt
+    # 0.8.3 recorded): the board renders the words and the order
+    # `wringer.outcome` publishes, so this page and `certificate.md`,
+    # `summary.md` and `mr.md` cannot drift into two vocabularies.
+    engine_words = [outcome.WORDS[state] for state in outcome.STATES]
+    assert [label for label, _, _ in rail] == engine_words
+    assert engine_words == [
         "Built",
         "Checks passing",
         "Requirements proved",
-        "Human judgement",
+        "Human judgement complete",
         "Ready to deliver",
         "Delivered",
     ]
+    assert list(render_module._rail_order()) == engine_words
+    # And the fallback a board with no engine prints is the SAME list, so an
+    # engine-less page is stale at worst and never a different vocabulary.
+    assert list(render_module._FALLBACK_ORDER) == engine_words
     for label, tone, glyph in rail:
         assert glyph in ("✓", "✗", "—"), (label, glyph)
         assert render_module.GLYPHS[tone] == glyph, (label, tone, glyph)
@@ -235,7 +246,7 @@ def test_each_segment_is_ONE_FACT_and_absence_says_NOT_KNOWN_HERE(repo):
     assert rail["Checks passing"] == ("met", "✓")
     assert rail["Requirements proved"] == ("unmet", "✗")
     assert "1 of 8 proved" in page
-    assert rail["Human judgement"] == ("unmet", "✗")
+    assert rail["Human judgement complete"] == ("unmet", "✗")
     assert "0 of 1 judged met" in page
     assert rail["Ready to deliver"] == ("absent", "—")
     assert rail["Delivered"] == ("absent", "—")
@@ -464,3 +475,27 @@ def test_NOTHING_THE_PAGE_EMITS_IS_UNSTYLED_over_every_state(repo):
     assert "spend" in emitted and "nowpasses" in emitted
     unstyled = sorted(name for name in emitted if name not in styled)
     assert not unstyled, unstyled
+
+
+def test_THE_BOARD_FOLLOWS_THE_ENGINE_WHEN_THE_TWO_COULD_DIFFER(repo, monkeypatch):
+    """**The debt 0.8.3 recorded, proven paid (0.8.5).**
+
+    The board shipped its own copy of the six states two releases before the
+    markdown artifacts got them from `wringer.outcome`. Asserting the two
+    lists match cannot tell "the board asks" from "the board keeps a copy
+    that happens to agree" — the copy is exactly the drift. So the engine's
+    word is CHANGED here and the page must follow it.
+    """
+    from wringer import outcome
+
+    changed = dict(outcome.WORDS)
+    changed[outcome.JUDGEMENT_COMPLETE] = "A person has settled it"
+    monkeypatch.setattr(outcome, "WORDS", changed)
+
+    labels = [label for label, _, _ in _rail(_page(_every_state(repo)))]
+
+    assert "A person has settled it" in labels, (
+        "the board printed its own word for a state the engine renamed — the "
+        "two-vocabularies drift this import exists to end"
+    )
+    assert "Human judgement complete" not in labels
