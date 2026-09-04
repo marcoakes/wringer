@@ -266,7 +266,9 @@ def _judgement_sentences(rows: Any) -> list[str]:
     return ([""] + sentences) if sentences else []
 
 
-def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
+def disclosure(
+    counts: dict[str, int], rows: Any = None, coverage: Any = None
+) -> list[str]:
     """The acceptance headline, for the surfaces that TRAVEL. Markdown lines.
 
     **Field report 2026-08-26, finding 3.** A run reached delivered with
@@ -319,12 +321,14 @@ def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
                 "has never been recorded failing, so passing it shows nothing"
             )
         if clauses:
-            lines += [
-                "",
-                f"> ⚠ **{' — and '.join(clauses)}.** Every gate passing means "
+            lines += _one_callout(
+                f"⚠ **{' — and '.join(clauses)}.** Every gate passing means "
                 "the change is mergeable. It does not mean the thing that was "
                 "asked for was built, and these are the difference.",
-            ]
+                coverage,
+            )
+            return lines
+        lines += _one_callout(None, coverage)
         return lines
     if unevidenced:
         # **The cold reviewer's own sentence, 2026-08-27.** This warning used
@@ -333,17 +337,40 @@ def disclosure(counts: dict[str, int], rows: Any = None) -> list[str]:
         # no test proving them". The fix is the sentence, not a glossary: a
         # reader who has to be taught a word before the warning works has
         # already been failed by the warning.
-        lines += [
-            "",
-            f"> ⚠ **{unevidenced} of these {total} requirements "
+        lines += _one_callout(
+            f"⚠ **{unevidenced} of these {total} requirements "
             f"{'has' if unevidenced == 1 else 'have'} no check proving "
             f"{'it' if unevidenced == 1 else 'them'}: nothing in this run "
             f"shows {'it is' if unevidenced == 1 else 'they are'} met.** "
             "Every gate passing means the change is mergeable. It does not "
             "mean the thing that was asked for was built, and these are the "
             "difference.",
-        ]
+            coverage,
+        )
+        return lines
+    lines += _one_callout(None, coverage)
     return lines
+
+
+def _one_callout(warning: str | None, coverage: Any) -> list[str]:
+    """The warning and the coverage sentences in ONE blockquote (0.8.4).
+
+    **Marc, 2026-09-03: the artifacts "look crap".** Measured on run 4B's
+    delivery: this renderer's `> ⚠` warning and `coverage.quoted`'s
+    blockquote stacked as two callouts over one gate table, on `mr.md`, on
+    `summary.md` and on the certificate alike. The sentences are unchanged
+    and still come from their two renderers; the layout is one blockquote,
+    the warning as its lead and each coverage sentence as its own bullet.
+
+    **Ruling MR1 survives the change**: the two coverage numbers must never
+    read as one, and a bullet is a stronger separation than the blank `>`
+    line that carried it before — two debts still LOOK like two.
+    """
+    from wringer import coverage as coverage_module
+    from wringer import outcome
+
+    bullets = coverage_module.lines(coverage) if coverage is not None else []
+    return outcome.callout(warning, bullets)
 
 # Receipt kinds. `witness` is v2's, and it is the only addition to this
 # vocabulary — **the STATE vocabulary above is untouched**, which is the

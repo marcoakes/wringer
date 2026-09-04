@@ -46,7 +46,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from wringer import accept, coverage, evidence, falsify
+from wringer import accept, coverage, evidence, falsify, outcome
 
 SCHEMA_VERSION = "wringer.certificate.v1"
 RECORD_FILENAME = "certificate.json"
@@ -532,27 +532,68 @@ def requirement_lines(
     rows = payload.get("requirements") or []
     if not rows:
         return []
-    lines = []
+
+    # **A TABLE, and the repeated sentence said ONCE** (0.8.4). Marc,
+    # 2026-09-03: the artifacts "look crap". Measured on run 4B's delivery:
+    # seven `###` headings each followed by a paragraph, five of which were
+    # the SAME paragraph — "Nothing tests this. It is not failing — nobody is
+    # looking" — so the page's own repetition buried the two rows that
+    # differed. The state, the requirement and its evidence are one row each;
+    # a sentence shared by more than one row becomes a footnote those rows
+    # point at; the detail a row actually has follows beneath the table.
+    shared: dict[str, list[str]] = {}
+    for row in rows:
+        means = (row.get("means") or "").strip()
+        if means:
+            shared.setdefault(means, []).append(row.get("id") or "")
+    notes = [text for text, ids in shared.items() if len(ids) > 1]
+    marker = {text: index + 1 for index, text in enumerate(notes)}
+
+    lines = ["", "| State | Requirement | Evidence |", "|---|---|---|"]
+    detail: list[str] = []
     for row in rows:
         title = row.get("title") or row.get("id") or "an unnamed requirement"
-        lines += ["", f"### {row.get('says')} — {title}", "", row.get("means") or ""]
-        if not row.get("required"):
-            lines.append("")
-            lines.append("This one is optional: it never holds up a handover.")
+        says = row.get("says") or ""
+        means = (row.get("means") or "").strip()
+        cell = f"**{says}**"
+        if means in marker:
+            cell += f" [^{marker[means]}]"
+        evidence = []
         check = row.get("check")
         if check:
             command = row.get("command")
-            lines.append("")
-            lines.append(
-                f"- Checked by `{check}`"
-                + (f": `{command}`" if command else "")
+            evidence.append(
+                f"`{check}`" + (f": `{command}`" if command else "")
             )
         receipt = _receipt_line(row)
         if receipt:
-            lines.append(f"- Where it was seen failing: {receipt}")
-        lines += _judgement_lines(row, _judgement_entry_for(row, judgement_record))
+            evidence.append(f"seen failing: {receipt}")
+        # A row only a person can settle carries WHO settled it and their
+        # verdict in the table itself — the words and the date follow in the
+        # detail. A judged row whose evidence cell read "—" said nothing
+        # about the one act that settled it.
+        judgement = row.get("judgement")
+        if isinstance(judgement, dict) and judgement.get("verdict"):
+            who = judgement.get("by") or "somebody"
+            evidence.append(f"{who} judged it {judgement['verdict'].upper()}")
+        if not row.get("required"):
+            evidence.append("optional — never holds up a handover")
         if row.get("refuses"):
-            lines.append("- **This one is holding up the handover.**")
+            evidence.append("**holding up the handover**")
+        said = "; ".join(evidence) if evidence else "—"
+        lines.append(f"| {cell} | {title} | {said} |")
+
+        # Only a row that HAS more to say gets more said about it.
+        judged = _judgement_lines(row, _judgement_entry_for(row, judgement_record))
+        if judged or (means and means not in marker):
+            detail += ["", f"**{title}**"]
+            if means and means not in marker:
+                detail += ["", means]
+            detail += judged
+
+    for text, index in marker.items():
+        lines += ["", f"[^{index}]: {text}"]
+    lines += detail
     return lines
 
 
@@ -561,6 +602,7 @@ def render(
     measured: dict[str, Any] | None = None,
     broken: dict[str, Any] | None = None,
     judgement_record: dict[str, Any] | None = None,
+    states: dict[str, bool | None] | None = None,
 ) -> str:
     """`certificate.md` — the face, from the record and its siblings.
 
@@ -587,15 +629,22 @@ def render(
         "show. Written by `wring deliver` from the record of the run that "
         "verified this change.",
         "",
-        f"- branch: `{change.get('branch')}` onto `{change.get('base')}`",
-        f"- verified at commit: `{change.get('commit') or 'unknown'}`",
-        f"- files changed: {change.get('files_changed')}",
-        f"- run: `{run.get('id')}`",
-        f"- written: {payload.get('written_at')}",
-        "",
-        "## In one line",
-        "",
     ]
+    # **The fact block and the rail, the same on every artifact** (0.8.4).
+    # Marc, 2026-09-03: the artifacts "look crap". Measured on run 4B's
+    # delivery: five bullets of identity, then a counts sentence, then two
+    # stacked blockquotes, then a wall of headings. One table of facts, one
+    # row of states, then the prose.
+    lines += outcome.fact_block({
+        outcome.REQUIREMENT: title,
+        outcome.RUN: f"`{run.get('id')}`",
+        outcome.BRANCH: f"`{change.get('branch')}` → `{change.get('base')}`",
+        outcome.VERIFIED_AT: f"`{change.get('commit') or 'unknown'}`",
+        outcome.WRITTEN: str(payload.get("written_at") or "—"),
+    })
+    lines += ["", f"Files changed: {change.get('files_changed')}", ""]
+    lines += outcome.rail(states or {})
+    lines += ["", "## In one line", ""]
     lines += headline(payload)
     said = coverage.lines(coverage.of(measured))
     if said:

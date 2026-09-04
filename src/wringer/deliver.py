@@ -1558,9 +1558,27 @@ def _mr_body(
     The gate table and where the bundle is — **never raw gate logs**. A bundle
     may hold whatever a gate printed (SECURITY.md), and an MR body is public.
     """
-    from wringer import accept
+    from wringer import accept, outcome
 
-    lines = ["## What was verified"]
+    spec_title = outcome.spec_title(root) or "this change"
+
+    # **The fact block and the rail** (0.8.4) — the same table and the same
+    # row of six states the certificate and the bundle summary open with,
+    # from one renderer, so a reviewer meets one vocabulary. Marc,
+    # 2026-09-03: the artifacts "look crap"; run 4B's `mr.md` opened on a
+    # counts sentence with the identity nowhere near it.
+    lines = list(outcome.fact_block({
+        outcome.REQUIREMENT: spec_title,
+        outcome.RUN: f"`{run_dir.name}`",
+        outcome.BRANCH: f"`{branch}` → `{state.branch or 'the default branch'}`"
+        if branch
+        else "—",
+        outcome.VERIFIED_AT: f"`{state.head_sha or 'unknown'}`",
+        outcome.WRITTEN: "by `wring deliver`",
+    }))
+    lines += [""]
+    lines += outcome.rail(outcome.derive(root, run_dir, ready=True))
+    lines += ["", "## What was verified"]
     # **Above the table, because the table is the part that looks like
     # proof** — field report 2026-08-26, finding 3. This body used to open on
     # three green gate rows and the word `passed` for a run where six of eight
@@ -1570,14 +1588,15 @@ def _mr_body(
     # to whoever merges cannot drift.
     recorded = accept.read(run_dir) or {}
     lines += accept.disclosure(
-        recorded.get("counts") or {}, recorded.get("criteria")
+        recorded.get("counts") or {},
+        recorded.get("criteria"),
+        coverage=coverage.of(coverage.read(run_dir)),
     )
     # **The same two sentences the bundle's summary carries**, from the same
     # renderer, read out of the record the run wrote rather than recomputed
     # here. A merge request and a bundle summary that counted coverage
     # separately would be two answers to one question, which is the drift this
     # whole programme is about.
-    lines += coverage.quoted(coverage.of(coverage.read(run_dir)))
     lines.append("")
     try:
         rows = evidence.read_gate_results(run_dir)
