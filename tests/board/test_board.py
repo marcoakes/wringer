@@ -515,16 +515,45 @@ def test_the_board_says_what_the_run_RECORDED_using_and_never_a_price():
     a number it must not print — so the page reports the counts the model and
     the worker actually reported and adds nothing to them."""
     board = read_module.Board(
-        repo=Path("."), spend={"prompt_tokens": 2206, "completion_tokens": 4813}
+        repo=Path("."),
+        spend={"drafting": {"prompt_tokens": 2206, "completion_tokens": 4813}},
     )
     html = render_module.render(board)
 
     assert "What this run recorded using" in html
     assert "2,206" in html and "4,813" in html
     assert "does not price them" in html
-    tail = html.split("What this run recorded using")[1][:400]
+    tail = html.split("What this run recorded using")[1][:600]
     for money in ("$", "£", "€", "USD"):
         assert money not in tail, f"the board priced something: {money}"
+
+
+def test_THE_TWO_LANES_ARE_NEVER_SUMMED_AND_A_SILENT_ONE_IS_SAID():
+    """**Run 4B, finding 8 (P2.15).** The drafting reply and the worker were
+    added into one total under "the counts the model and the worker
+    reported" — and on that delivery the worker was on the shell lane and
+    reported nothing, so the number was the drafting call alone and the
+    sentence was false. Two questions, two numbers, and a lane that reported
+    nothing is SAID to have reported nothing."""
+    html = render_module.render(read_module.Board(
+        repo=Path("."),
+        spend={"drafting": {"total_tokens": 18970}},
+    ))
+
+    assert "Drafting reported" in html and "18,970" in html
+    assert "The builder reported nothing this run" in html
+    assert "not the same as having spent nothing" in html
+    assert "the model and the worker" not in html, (
+        "one sentence still claims both lanes over one number"
+    )
+
+    both = render_module.render(read_module.Board(
+        repo=Path("."),
+        spend={"drafting": {"total_tokens": 10},
+               "worker": {"total_tokens": 270318}},
+    ))
+    assert "270,318" in both and "10" in both
+    assert "270,328" not in both, "the two lanes were summed"
 
 
 def test_a_run_that_recorded_no_usage_says_NOTHING_rather_than_zero():
@@ -821,3 +850,39 @@ def test_EVERY_CARD_CARRIES_ITS_ANCHOR_ID_in_the_boards_one_spelling(repo):
         assert '<div class="card ' in page
         assert f' id="{anchor}">' in page, f"no card carries id={anchor!r}"
     assert page.count(' id="card-') == 3, "an id on something that is not a card"
+
+
+def test_THE_READER_PUTS_EACH_LANE_WHERE_ITS_RECORD_CAME_FROM(tmp_path):
+    """**The lane split, MEASURED from files rather than handed in** (P2.15).
+    The tests above construct a board with the lanes already separated, so
+    they cannot tell a reader that separates them from one that sums them —
+    a red-watch found exactly that. This drives `_spend` against the two
+    records a real run writes: the drafting reply under `.wringer/specs/`
+    and the loop's own `usage.json`."""
+    import json
+
+    repo = tmp_path / "repo"
+    spec_dir = repo / ".wringer" / "specs" / "20260904-000000-aaaa"
+    spec_dir.mkdir(parents=True)
+    (spec_dir / "response.json").write_text(
+        json.dumps({"usage": {"prompt_tokens": 2445, "completion_tokens": 6354}}),
+        encoding="utf-8",
+    )
+    loop_dir = repo / ".wringer" / "loops" / "20260904-000000-bbbb"
+    loop_dir.mkdir(parents=True)
+    (loop_dir / "usage.json").write_text(
+        json.dumps({"prompt_tokens": 397846, "completion_tokens": 6713}),
+        encoding="utf-8",
+    )
+
+    lanes = read_module._spend(repo, None, loop_dir)
+
+    assert lanes["drafting"] == {"prompt_tokens": 2445, "completion_tokens": 6354}
+    assert lanes["worker"] == {"prompt_tokens": 397846, "completion_tokens": 6713}
+    assert lanes["drafting"] != lanes["worker"], "the two records became one"
+
+    # A run whose worker reported nothing has a drafting lane and no worker
+    # lane — not a worker lane of zero, and not one total wearing both names.
+    only_drafting = read_module._spend(repo, None, None)
+    assert set(only_drafting) == {"drafting"}
+    assert only_drafting["drafting"]["prompt_tokens"] == 2445
