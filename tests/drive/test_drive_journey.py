@@ -72,7 +72,8 @@ def converged(project, tmp_path, capsys, monkeypatch):
         },
     )
     code, steps = drive(
-        project, tmp_path, "The ones on screen.\nyes\nyes\nyes\n", monkeypatch
+        project, tmp_path, "The ones on screen.\nyes\nyes\ndeliver\nyes\n",
+        monkeypatch
     )
     out = capsys.readouterr().out
     assert code == 0, f"the converged fixture no longer converges: {code}"
