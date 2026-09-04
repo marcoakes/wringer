@@ -119,6 +119,9 @@ EXCLUDED = {
     "gatespec.schema.json": "a person or the drafter writes this sidecar",
     "gatespec-v2.schema.json": "a person or the drafter writes this sidecar; "
     "the REAL rendered file is jsonschema-validated in tests/test_schema.py",
+    "choices.schema.json": "a person or the drafter writes this sidecar "
+    "(0.8.4); the REAL rendered file is jsonschema-validated in "
+    "tests/test_schema.py::test_a_rendered_CHOICES_file_matches_its_schema",
     "fleetscope.schema.json": "declared in .wringer.yaml by a person",
     # Inline-dict writers: the record is assembled in a function rather than
     # by a dataclass, often with conditional keys, so the field set is not a

@@ -58,6 +58,7 @@
     "judgements-v2.schema.json": "258d972b50252a7827b98f434ee44c69ca6fd5f0912af856d1278b0a9e4a265a",
     "judgement-record.schema.json": "267374711ed254338efe236817787ff7d85594cd229995bc1f88b620b691833d",
     "next-move.schema.json": "b3dac211571ee11adb9d00daa135798cfbd5b050acad7dbde8a20828108c7a34",
+    "choices.schema.json": "554db76d66e89ed615aa185b13541af9a3c512fc736e512e1e27912508dd7f38",
     "journey.schema.json": "a1727d1cb51cdd776acc133f244370deb6382dc824dd3555cd285ae3491a8b23"
   }
 }

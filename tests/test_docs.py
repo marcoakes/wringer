@@ -4507,6 +4507,11 @@ def test_the_release_count_in_CONTRIBUTING_matches_the_releases_it_lists():
         38: "Thirty-eight",
         39: "Thirty-nine",
         40: "Forty",
+        41: "Forty-one",
+        42: "Forty-two",
+        43: "Forty-three",
+        44: "Forty-four",
+        45: "Forty-five",
     }
     root = repo_root()
     contributing = (root / "CONTRIBUTING.md").read_text(encoding="utf-8")

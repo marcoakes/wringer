@@ -153,6 +153,39 @@ DECISIONS_MARKER = (
     "decided FOR you, which approving the plan approves"
 )
 
+# **The interview, easier to answer** (0.8.4, P1.11). Runs 4 and 4B,
+# 2026-09-01: the interview put a drafter's question in front of a product
+# manager with nothing beside it but a blank line, and the operator answered
+# what they could guess at. A question MAY now come with a few plain-language
+# ways to answer it, each with the consequence of picking it and a tiny
+# example. They are OFFERS: nothing is recorded until a person picks one or
+# types their own words, and what is recorded is always the choice's TEXT —
+# an index is an answer to a question that may be reworded later.
+#
+# A SEPARATE FILE, keyed by question id, for the reason the other two sidecars
+# are: `wringer.spec.v1` is frozen and its question items are
+# `additionalProperties: false` (schema/spec.schema.json), so a `choices:` key
+# on a question would change bytes every reader already froze against.
+CHOICES_FILENAME = "wringer.choices.yaml"
+CHOICES_SCHEMA_VERSION = "wringer.choices.v1"
+CHOICES_SCHEMA_VERSIONS = ("wringer.choices.v1",)
+# The same hand-written protection the other sidecars carry: a person may
+# write this file, and `--send` must never silently replace their offers with
+# a model's.
+CHOICES_MARKER = (
+    "# proposed by `wring spec` beside the open questions — ways a person MIGHT "
+    "answer, each with what it means. Nothing here is an answer until a person "
+    "picks one or types their own"
+)
+# The ceiling, as a guard rather than a sentence (the MAX_REQUIRED_QUESTIONS
+# lesson: prompts are not guards). A question with nine options is a form,
+# and the person the interview is for stops reading at four.
+MAX_CHOICES_PER_QUESTION = 4
+# One option is a default wearing a list. Offers never fall back to one.
+MIN_CHOICES_PER_QUESTION = 2
+_CHOICE_KEYS = {"text", "consequence", "example"}
+_BARE_INTEGER = re.compile(r"[0-9]+")
+
 # **AT MOST THREE REQUIRED QUESTIONS, as a guard rather than a sentence.**
 # The rule has lived in `render_request`'s prose since PM mode shipped, and
 # prompts are not guards: measured 2026-08-17, the drafter proposed a binding
@@ -296,6 +329,27 @@ class Draft:
     # the sidecar, rendered by `wring plan` into the same diff, run by nothing
     # until a person applies it (P0.3, 2026-09-02).
     show: dict[str, str] = field(default_factory=dict)
+    # Ways a person MIGHT answer each open question — question id to the
+    # offered choices (0.8.4, P1.11). Its own sidecar, `wringer.choices.yaml`,
+    # because the spec's question items are frozen and closed. Offers, never
+    # answers: the reply may not write an `answer`, and it may not write one
+    # by this route either.
+    choices: dict[str, tuple[Choice, ...]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class Choice:
+    """One offered way to answer an open question.
+
+    `text` is what gets RECORDED when a person picks it — by number at the
+    interview, or by typing the words. `consequence` is what picking it
+    means for the build, one sentence; `example` is a tiny concrete
+    instance. All three are the drafter's words, verbatim, on every surface.
+    """
+
+    text: str
+    consequence: str
+    example: str
 
 
 @dataclass(frozen=True)
@@ -1459,7 +1513,16 @@ def render_request(
         "today and run only what this repository already runs. Omit a "
         "criterion rather than guess at a command that would display it: a "
         "guess dressed as a recipe fails on the person's machine at the exact "
-        "moment they are asked to judge.\n\n"
+        "moment they are asked to judge.\n"
+        "9. **For an open question that has a few obvious answers, you MAY "
+        "propose `choices`**: two to "
+        f"{MAX_CHOICES_PER_QUESTION} plain-language options, each with ONE "
+        "sentence saying what picking it means for the build and a tiny "
+        "concrete example. They are offers, not answers — the person may "
+        "always type their own — so never write a leading one, never a "
+        "single one, and omit the question entirely when its answers cannot "
+        "be listed: a list that hides the real answer is worse than a blank "
+        "line.\n\n"
         "## Reply format\n"
         "Return ONLY a JSON object, no prose and no code fence:\n"
         "{\n"
@@ -1478,6 +1541,11 @@ def render_request(
         '"proves": "<criterion id from above>"}],\n'
         '  "show_proposals": {"<human criterion id from above>": "<shell '
         'command whose output shows it>"},\n'
+        '  "choices": {"<open question id from above>": [{"text": "<one '
+        'plain-language option>", "consequence": "<one sentence: what picking '
+        'it means>", "example": "<a tiny concrete example>"}]},   // '
+        "OPTIONAL, at most "
+        f"{MAX_CHOICES_PER_QUESTION} per question\n"
         '  "tasks": [{"id": "<slug>", "brief": "briefs/<slug>.md", '
         '"dir": ".", "objective": "<one paragraph, for the engineer>", '
         '"outcome": "<one sentence, for the person who asked>"}]\n'
@@ -1486,7 +1554,9 @@ def render_request(
         "be `required`. At least one task. `gates` are the repository's "
         "existing checks; `gate_bindings` are the per-criterion acceptance "
         "checks, and only these carry `proves`; `show_proposals` names only "
-        "`human` criteria and is omitted when there are none. An "
+        "`human` criteria and is omitted when there are none; `choices` names "
+        "only open questions above and is omitted when none has listable "
+        "answers. An "
         "`assumptions` id must not "
         "be the id of a question you are also asking — decide it or ask it, "
         "never both.\n\n"
@@ -1637,7 +1707,7 @@ def parse_response(
     unknown = sorted(
         set(drafted)
         - {"title", "open_questions", "criteria", "gates", "tasks",
-           "gate_bindings", "assumptions", "show_proposals"}
+           "gate_bindings", "assumptions", "show_proposals", "choices"}
     )
     if unknown:
         raise SpecError(
@@ -1753,16 +1823,23 @@ def parse_response(
     shows, show_notes = parse_show_proposals(
         drafted.get("show_proposals"), drafted_spec.criteria, "the drafted displays"
     )
+    # The same asymmetry again: a choice list for a question this reply did
+    # not ask is dropped with a note; a malformed one is refused whole.
+    choices, choice_notes = parse_choice_proposals(
+        drafted.get("choices"), drafted_spec.questions, "the drafted choices"
+    )
     return Draft(
         spec=drafted_spec,
         gates=proposed,
         assumptions=assumptions,
         outcomes=outcomes,
         show=shows,
+        choices=choices,
         notes=(
             *dropped,
             *notes,
             *show_notes,
+            *choice_notes,
             # Informational, and last: a gate already installed by an earlier
             # run is news the operator may want and is never a problem.
             *already,
@@ -2443,6 +2520,162 @@ def stale_criteria(
             "of them do"
         )
     return tuple(stale), tuple(guesses)
+
+
+# --- the choices sidecar: ways a person MIGHT answer (0.8.4, P1.11) --------
+
+
+def parse_choice_proposals(
+    raw: Any, questions: Any, where: str, *, strict: bool = False
+) -> tuple[dict[str, tuple[Choice, ...]], tuple[str, ...]]:
+    """Offered answers per open question — question id to a list of choices.
+
+    **Shape errors RAISE on every path**, because nothing downstream can do
+    anything with them and the request named the shape: a list under a
+    question id, each entry `text` / `consequence` / `example`, all three
+    non-empty, between `MIN_CHOICES_PER_QUESTION` and
+    `MAX_CHOICES_PER_QUESTION` of them. Two more shapes are refused by name,
+    each because the interview would otherwise record the wrong thing:
+
+    - **a `text` that is a bare number** — the interview reads a typed
+      number as "the Nth choice", so an option whose words ARE a number
+      could not be told from a selection of a different option;
+    - **two choices with the same `text`** — a person picking either would
+      have the same words recorded, and the consequences they read differ.
+
+    A list for a question nobody asked is DROPPED WITH A NOTE on the drafted
+    path (`strict=False`) — one stray key is not a reason to throw away a
+    spec — and refused to its author's face from a typed file.
+    """
+    if raw is None:
+        return {}, ()
+    if not isinstance(raw, dict):
+        raise SpecError(
+            f"{where}: 'choices' must be a mapping of question id to a list "
+            "of options"
+        )
+    known = {q.id for q in questions}
+    kept: dict[str, tuple[Choice, ...]] = {}
+    notes: list[str] = []
+    for key, value in raw.items():
+        if not isinstance(key, str) or not key.strip():
+            raise SpecError(f"{where}: 'choices' keys must be question ids")
+        qid = key.strip()
+        at = f"{where}: choices['{qid}']"
+        if not isinstance(value, list):
+            raise SpecError(f"{at} must be a list of options")
+        if not MIN_CHOICES_PER_QUESTION <= len(value) <= MAX_CHOICES_PER_QUESTION:
+            raise SpecError(
+                f"{at} offers {len(value)} option(s); between "
+                f"{MIN_CHOICES_PER_QUESTION} and {MAX_CHOICES_PER_QUESTION} "
+                "are allowed — one is a default wearing a list, and more than "
+                f"{MAX_CHOICES_PER_QUESTION} is a form"
+            )
+        entries: list[Choice] = []
+        for index, entry in enumerate(value):
+            here = f"{at}[{index}]"
+            if not isinstance(entry, dict):
+                raise SpecError(f"{here} must be a mapping")
+            unknown = sorted(set(entry) - _CHOICE_KEYS)
+            if unknown:
+                raise SpecError(f"{here}: unknown keys: {', '.join(unknown)}")
+            fields = {
+                name: _nonempty(entry.get(name), f"{here}: '{name}'")
+                for name in ("text", "consequence", "example")
+            }
+            if _BARE_INTEGER.fullmatch(fields["text"].strip()):
+                raise SpecError(
+                    f"{here}: 'text' is the bare number {fields['text']!r}. "
+                    "A typed number selects a choice at the interview, so an "
+                    "option whose words are a number could not be told from "
+                    "picking a different one — write it in words"
+                )
+            if any(fields["text"] == c.text for c in entries):
+                raise SpecError(
+                    f"{here}: 'text' {fields['text']!r} repeats an earlier "
+                    "option — two choices with the same words would record "
+                    "the same answer for different consequences"
+                )
+            entries.append(Choice(**fields))
+        if qid not in known:
+            message = (
+                f"{where}: the choices offered for '{qid}' were dropped — "
+                f"{SPEC_FILENAME} asks no open question with that id"
+            )
+            if strict:
+                raise SpecError(message)
+            notes.append(message)
+            continue
+        kept[qid] = tuple(entries)
+    return kept, tuple(notes)
+
+
+def render_choices(choices: dict[str, tuple[Choice, ...]]) -> str:
+    """`wringer.choices.yaml` — offers beside the open questions.
+
+    Every scalar through `_scalar`, like every other sidecar: an option
+    reading `yes`, `no` or `3 seconds` written bare would come back as a
+    bool, a bool, and a string that happened to survive — and the first two
+    would make the board's reader refuse the file.
+    """
+    lines = [CHOICES_MARKER, f"schema_version: {CHOICES_SCHEMA_VERSION}"]
+    if choices:
+        lines += ["", "choices:"]
+    for qid, offered in choices.items():
+        lines.append(f"  {_scalar(qid)}:")
+        for choice in offered:
+            lines += [
+                f"    - text: {_scalar(choice.text)}",
+                f"      consequence: {_scalar(choice.consequence)}",
+                f"      example: {_scalar(choice.example)}",
+            ]
+    return "\n".join(lines) + "\n"
+
+
+def parse_choices_document(
+    data: Any, where: str, questions: Any
+) -> dict[str, tuple[Choice, ...]]:
+    """Read `wringer.choices.yaml` — drafted or hand-written, same parser,
+    and strict: a typed file naming a question nobody asked is refused."""
+    if not isinstance(data, dict):
+        raise SpecError(f"{where}: top level must be a mapping")
+    unknown = sorted(set(data) - {"schema_version", "choices"})
+    if unknown:
+        raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
+    version = data.get("schema_version")
+    if version not in CHOICES_SCHEMA_VERSIONS:
+        raise SpecError(
+            f"{where}: 'schema_version: {CHOICES_SCHEMA_VERSION}' is "
+            f"required (got {version!r})"
+        )
+    kept, _notes = parse_choice_proposals(
+        data.get("choices"), questions, where, strict=True
+    )
+    return kept
+
+
+def load_choices(root: Path, questions: Any) -> dict[str, tuple[Choice, ...]]:
+    """The offered answers, or none because there is no file.
+
+    Absent is not an error — the file is optional everywhere and a hand-written
+    spec never grows one. Unreadable IS one, on the decisions precedent: a
+    broken file rendered as "no choices" would put a blank line in front of
+    the person where their options should have been, and say nothing.
+    """
+    path = root / CHOICES_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError, UnicodeDecodeError) as exc:
+        raise SpecError(f"{CHOICES_FILENAME} could not be read: {exc}") from exc
+    return parse_choices_document(data, CHOICES_FILENAME, questions)
+
+
+def choices_is_generated(path: Path) -> bool:
+    """Whether `wring spec` wrote this, or a person did — the marker test
+    every sidecar carries, so `--send` never replaces a person's offers."""
+    return _carries(path, CHOICES_MARKER)
 
 
 def decisions_is_generated(path: Path) -> bool:

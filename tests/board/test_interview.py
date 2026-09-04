@@ -1425,3 +1425,192 @@ def test_the_card_carries_the_answers_words_not_just_the_verdict():
     )
     assert f'Their words: "{note}"' in without.question
     assert "WITHOUT the product showing them" in without.question
+
+
+# --- the offered answers: `wringer.choices.yaml` (0.8.4, P1.11) -------------
+#
+# Runs 4 and 4B, 2026-09-01: a drafter's question with nothing beside it but
+# a blank line. The fixture is the ENGINE's own rendered file, never a
+# hand-typed lookalike — the seam lesson this module has learned twice.
+
+
+def engine_choices_file(directory: Path) -> Path:
+    spec = pytest.importorskip("wringer.spec")
+    offered = {
+        "which-columns": (
+            spec.Choice(
+                text="Every column the page shows",
+                consequence="The export mirrors the screen exactly.",
+                example="Date, Customer, Amount, Status",
+            ),
+            spec.Choice(
+                text="Only the columns a finance team needs",
+                consequence="A shorter file; on-screen columns may be missing.",
+                example="Date, Amount",
+            ),
+            spec.Choice(
+                text="Let the person choose at export time",
+                consequence="A picker is built before the export is.",
+                example="A checklist of columns above the Export button",
+            ),
+        )
+    }
+    path = directory / interview.CHOICES_FILENAME
+    path.write_text(spec.render_choices(offered), encoding="utf-8")
+    return path
+
+
+def recorded_answer(directory: Path, question_id: str) -> str:
+    spec = pytest.importorskip("wringer.spec")
+    loaded = spec.load(directory / "wringer.spec.yaml")
+    return {q.id: q.answer for q in loaded.questions}[question_id]
+
+
+def test_the_offered_choices_RENDER_numbered_with_consequence_and_example(tmp_path):
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+
+    offered = interview.choices(tmp_path)
+    assert list(offered) == ["which-columns"]
+    text = interview.render_choices(offered["which-columns"])
+    lines = text.splitlines()
+    assert lines[0] == "  1. Every column the page shows"
+    assert lines[1] == "     If you pick it: The export mirrors the screen exactly."
+    assert lines[2] == "     For example: Date, Customer, Amount, Status"
+    assert lines[3] == "  2. Only the columns a finance team needs"
+    assert lines[6] == "  3. Let the person choose at export time"
+    assert lines[-1] == f"  {interview.OR_TYPE_YOUR_OWN}"
+    assert "type your own" in interview.OR_TYPE_YOUR_OWN
+
+
+def test_a_typed_NUMBER_records_the_choices_TEXT_never_the_number(tmp_path):
+    """The plan's own sentence: an index is an answer to a question that may
+    be reworded later."""
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+
+    interview.answer(tmp_path, "which-columns", "2")
+
+    assert recorded_answer(tmp_path, "which-columns") == (
+        "Only the columns a finance team needs"
+    )
+    text = (tmp_path / "wringer.spec.yaml").read_text(encoding="utf-8")
+    assert "answer: 2\n" not in text and "answer: '2'" not in text
+
+
+def test_FREE_TEXT_beside_offered_choices_is_recorded_verbatim(tmp_path):
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+
+    interview.answer(tmp_path, "which-columns", "Date and Amount, then whatever is filtered")
+
+    assert recorded_answer(tmp_path, "which-columns") == (
+        "Date and Amount, then whatever is filtered"
+    )
+
+
+def test_a_number_naming_NO_offered_choice_is_refused_and_nothing_is_written(tmp_path):
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+    before = (tmp_path / "wringer.spec.yaml").read_bytes()
+
+    with pytest.raises(interview.InterviewError, match="numbered 1 to 3"):
+        interview.answer(tmp_path, "which-columns", "4")
+    with pytest.raises(interview.InterviewError, match="numbered 1 to 3"):
+        interview.answer(tmp_path, "which-columns", "0")
+
+    assert (tmp_path / "wringer.spec.yaml").read_bytes() == before
+
+
+def test_NO_recorded_answer_to_a_choices_question_is_ever_a_bare_integer(tmp_path):
+    """The guard the plan names: every number a person could type against a
+    choices question, and the record never holds one of them."""
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+    offered = interview.choices(tmp_path)["which-columns"]
+
+    for number in range(1, len(offered) + 1):
+        engine_spec_file(tmp_path)
+        interview.answer(tmp_path, "which-columns", str(number))
+        recorded = recorded_answer(tmp_path, "which-columns")
+        assert interview._BARE_INTEGER.fullmatch(recorded.strip()) is None, recorded
+        assert recorded == offered[number - 1].text
+
+
+def test_a_number_is_a_PLAIN_ANSWER_to_a_question_with_no_choices(tmp_path):
+    """"How many retries?" — "3" is an answer, not a selection. The mapping
+    exists only where a list was offered."""
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+
+    interview.answer(tmp_path, "filename", "3")
+
+    assert recorded_answer(tmp_path, "filename") == "3"
+
+
+def test_a_spec_WITHOUT_a_choices_file_records_a_number_verbatim(tmp_path):
+    """The forgery control: no file, no mapping, no refusal — the writer
+    behaves exactly as it did before choices existed."""
+    engine_spec_file(tmp_path)
+    assert interview.choices(tmp_path) == {}
+
+    interview.answer(tmp_path, "which-columns", "2")
+
+    assert recorded_answer(tmp_path, "which-columns") == "2"
+
+
+def test_revise_maps_a_number_the_same_way_answer_does(tmp_path):
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+    interview.answer(tmp_path, "which-columns", "1")
+
+    interview.revise(tmp_path, "which-columns", "3")
+
+    assert recorded_answer(tmp_path, "which-columns") == (
+        "Let the person choose at export time"
+    )
+
+
+def test_the_cli_answer_verb_says_the_words_it_recorded_for_a_number(tmp_path, capsys):
+    engine_spec_file(tmp_path)
+    engine_choices_file(tmp_path)
+
+    argv = ["answer", str(tmp_path), "--id", "which-columns", "--text", "2"]
+    assert main(argv) == 0
+
+    out = capsys.readouterr().out
+    assert "Only the columns a finance team needs" in out
+    assert recorded_answer(tmp_path, "which-columns") == (
+        "Only the columns a finance team needs"
+    )
+
+
+def test_a_choices_text_that_is_a_BARE_NUMBER_is_refused_by_the_reader(tmp_path):
+    """A hand-written file may say anything; this one would make "2" mean two
+    different things."""
+    engine_spec_file(tmp_path)
+    (tmp_path / interview.CHOICES_FILENAME).write_text(
+        "schema_version: wringer.choices.v1\n"
+        "choices:\n"
+        "  which-columns:\n"
+        "    - text: '2'\n      consequence: Two columns.\n      example: Date, Amount\n"
+        "    - text: All\n      consequence: All of them.\n      example: everything\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(interview.InterviewError, match="bare number"):
+        interview.choices(tmp_path)
+
+
+def test_an_UNREADABLE_or_UNKNOWN_VERSION_choices_file_is_said_not_rendered_blank(
+    tmp_path,
+):
+    engine_spec_file(tmp_path)
+    path = tmp_path / interview.CHOICES_FILENAME
+    path.write_text("schema_version: wringer.choices.v9\nchoices: {}\n", encoding="utf-8")
+    with pytest.raises(interview.InterviewError, match="wringer.choices.v9"):
+        interview.choices(tmp_path)
+
+    path.write_text("choices: [\n", encoding="utf-8")
+    with pytest.raises(interview.InterviewError, match="could not be read"):
+        interview.choices(tmp_path)

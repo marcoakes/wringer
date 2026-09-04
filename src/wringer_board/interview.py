@@ -139,6 +139,139 @@ def unanswered(repo: Path) -> list[Question]:
     return [q for q in questions(repo) if q.required and not q.answered]
 
 
+# --- the offered answers: `wringer.choices.yaml` (0.8.4, P1.11) -------------
+#
+# Runs 4 and 4B, 2026-09-01: the interview put a drafter's question in front
+# of a product manager with nothing beside it but a blank line. A question MAY
+# now come with a few plain-language ways to answer it, each with the
+# consequence of picking it and a tiny example. They are OFFERS: nothing is
+# recorded until a person picks one or types their own words, and what is
+# recorded is ALWAYS the choice's TEXT — a typed number selects the Nth choice
+# and the number itself is never written, because an index is an answer to a
+# question that may be reworded later.
+#
+# Its own file, keyed by question id, because `wringer.spec.v1` is frozen and
+# its question items are closed (schema/choices.schema.json says the rest).
+
+CHOICES_FILENAME = "wringer.choices.yaml"
+CHOICES_VERSIONS = ("wringer.choices.v1",)
+_BARE_INTEGER = re.compile(r"[0-9]+")
+#: The one line every choices block ends on. A list without it reads as a
+#: closed form, and the offers are never closed.
+OR_TYPE_YOUR_OWN = "or type your own answer"
+
+
+@dataclass(frozen=True)
+class Choice:
+    text: str
+    consequence: str
+    example: str
+
+
+def choices(repo: Path) -> dict[str, tuple[Choice, ...]]:
+    """Question id to the choices offered for it, or `{}` with no file.
+
+    **Absent is nothing; unreadable is a refusal** — the decisions precedent.
+    A broken file rendered as "no choices" would put a blank line in front of
+    the person where their options should have been, and say nothing. Shape
+    is checked here too, because a hand-written file is allowed and the
+    interview reads a typed number as "the Nth choice": a `text` that is
+    itself a bare number could not be told from a selection, so it is refused
+    by name rather than rendered.
+    """
+    import yaml
+
+    path = repo / CHOICES_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:  # noqa: BLE001
+        raise InterviewError(
+            f"{CHOICES_FILENAME} could not be read: {exc}. It holds the "
+            "answers offered beside the open questions, so the interview "
+            "will not run while it is unreadable — fix or remove it"
+        ) from exc
+    if not isinstance(data, dict):
+        raise InterviewError(f"{CHOICES_FILENAME} is not a mapping")
+    version = data.get("schema_version")
+    if version not in CHOICES_VERSIONS:
+        raise InterviewError(
+            f"{CHOICES_FILENAME} says 'schema_version: {version!r}', and this "
+            f"surface reads {' or '.join(CHOICES_VERSIONS)}. It will not guess"
+        )
+    offered = data.get("choices") or {}
+    if not isinstance(offered, dict):
+        raise InterviewError(f"{CHOICES_FILENAME}: 'choices' is not a mapping")
+    found: dict[str, tuple[Choice, ...]] = {}
+    for qid, entries in offered.items():
+        at = f"{CHOICES_FILENAME}: choices[{qid!r}]"
+        if not isinstance(entries, list) or not entries:
+            raise InterviewError(f"{at} is not a list of options")
+        kept: list[Choice] = []
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                raise InterviewError(f"{at}[{index}] is not a mapping")
+            values = {}
+            for name in ("text", "consequence", "example"):
+                value = entry.get(name)
+                if not isinstance(value, str) or not value.strip():
+                    raise InterviewError(f"{at}[{index}]: '{name}' is missing")
+                values[name] = value
+            if _BARE_INTEGER.fullmatch(values["text"].strip()):
+                raise InterviewError(
+                    f"{at}[{index}]: 'text' is the bare number "
+                    f"{values['text']!r}. A typed number selects a choice, so "
+                    "an option whose words are a number could not be told "
+                    "from picking a different one — write it in words"
+                )
+            kept.append(Choice(**values))
+        found[str(qid)] = tuple(kept)
+    return found
+
+
+def render_choices(offered: tuple[Choice, ...]) -> str:
+    """The ONE renderer for an offered list; every surface quotes it.
+
+    Numbered from 1, each with its consequence and its example on their own
+    lines, and always ending on `OR_TYPE_YOUR_OWN`: the list is an offer, not
+    a form. The words are the drafter's, verbatim.
+    """
+    lines: list[str] = []
+    for number, choice in enumerate(offered, start=1):
+        lines += [
+            f"  {number}. {choice.text}",
+            f"     If you pick it: {choice.consequence}",
+            f"     For example: {choice.example}",
+        ]
+    lines.append(f"  {OR_TYPE_YOUR_OWN}")
+    return "\n".join(lines)
+
+
+def resolve_answer(repo: Path, question_id: str, text: str) -> str:
+    """What gets RECORDED for `text` typed against `question_id`.
+
+    A bare number against a question with choices selects that choice and
+    returns its TEXT. Everything else — free text, or any answer to a
+    question with no choices — is returned exactly as typed: a person
+    answering "3" to "how many retries?" typed an answer, not a selection.
+    A number that names no listed choice is refused rather than recorded,
+    because recording it would write the one thing this file exists to keep
+    out of the record.
+    """
+    offered = choices(repo).get(question_id)
+    if not offered or not _BARE_INTEGER.fullmatch(text.strip()):
+        return text
+    number = int(text.strip())
+    if not 1 <= number <= len(offered):
+        raise InterviewError(
+            f"{text.strip()!r} names no offered answer to {question_id!r} — "
+            f"the choices are numbered 1 to {len(offered)}. Type one of those "
+            "numbers, or your own words. Nothing was recorded"
+        )
+    return offered[number - 1].text
+
+
 # --- capability 1: the conversation ----------------------------------------
 
 
@@ -148,6 +281,10 @@ def answer(repo: Path, question_id: str, text: str) -> Path:
     **It refuses to overwrite an existing answer.** A surface that silently
     replaces what a person already wrote is a surface that can lose it, and the
     remedy — edit the file — is the same act this verb performs.
+
+    **A typed number against a question with offered choices records the
+    choice's TEXT** (`resolve_answer`), here rather than at each caller, so
+    the board verb and the drive cannot disagree about what a "2" means.
     """
     if not text.strip():
         raise InterviewError(
@@ -155,6 +292,7 @@ def answer(repo: Path, question_id: str, text: str) -> Path:
             "somebody writes something under it; leaving it blank is the state "
             "it is already in"
         )
+    text = resolve_answer(repo, question_id, text)
     found = {q.id: q for q in questions(repo)}
     if question_id not in found:
         known = ", ".join(sorted(found)) or "none"
@@ -793,6 +931,9 @@ def revise(repo: Path, target_id: str, text: str) -> Path:
             "somebody writes something under it; leaving it blank is the state "
             "it is already in"
         )
+    # The same mapping `answer` applies: a person changing their mind to
+    # "2" means the second offer, and its words are what gets recorded.
+    text = resolve_answer(repo, target_id, text)
 
     path = _spec_path(repo)
     lines = _read(path).splitlines(keepends=True)

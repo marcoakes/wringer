@@ -788,18 +788,35 @@ def questions_to_ask(repo: Path) -> list[Step]:
     a question to sound friendlier: the drafter asked it because it could not
     answer it, and softening it is how a PM answers a different question from
     the one that was asked.
+
+    **Beneath the question, the offered answers, when there are any** (0.8.4,
+    P1.11): `wringer.choices.yaml`'s list for this question, rendered by the
+    board's ONE renderer and quoted here — numbered, each with its consequence
+    and example, ending "or type your own". The question stays the first line
+    and stays verbatim. A typed number is turned into the choice's words by
+    `interview.answer`, never here, so the drive and the board verb record the
+    same thing. A question with no choices renders exactly as it did before
+    this existed: its text alone, and no `choices` in `detail`.
     """
     from wringer_board import interview
 
-    return [
-        Step(
-            kind=ASK,
-            id=f"question:{q.id}",
-            text=q.question,
-            detail={"question_id": q.id},
-        )
-        for q in interview.unanswered(repo)
-    ]
+    try:
+        offered = interview.choices(repo)
+    except interview.InterviewError as exc:
+        raise Stop(stop_for("", "", engine_words=str(exc)), exc.exit_code) from exc
+
+    steps = []
+    for q in interview.unanswered(repo):
+        text = q.question
+        detail: dict = {"question_id": q.id}
+        if q.id in offered:
+            text = f"{q.question}\n\n{interview.render_choices(offered[q.id])}"
+            detail["choices"] = [
+                {"text": c.text, "consequence": c.consequence, "example": c.example}
+                for c in offered[q.id]
+            ]
+        steps.append(Step(kind=ASK, id=f"question:{q.id}", text=text, detail=detail))
+    return steps
 
 
 def record_answer(repo: Path, question_id: str, text: str) -> None:

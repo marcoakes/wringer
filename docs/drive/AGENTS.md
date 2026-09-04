@@ -296,7 +296,7 @@ and not its first line. Then:
   | kind | what you do |
   |---|---|
   | `show` | put `text` in front of the person, verbatim; write nothing back |
-  | `ask` | show `text`, wait for the person's answer, write it back |
+  | `ask` | show `text`, wait for the person's answer, write it back. An interview question may carry offered answers beneath it, numbered, each with what picking it means and an example, ending "or type your own answer" (`detail.choices` holds them as data). Show them with the question. A typed number selects that choice and what gets recorded is the choice's own words, never the number — the person's own words are recorded verbatim. You never pick for them |
   | `confirm` | law 2: show `text`, `question`, `refusing_means`; the person decides; write back their `yes` or `no` |
   | `done` | show it; the run is over — tell them where the board is |
   | `stopped` | show it; the run stopped and the text says why, in their language. When `next_move` is present it is the one thing to do next and ends in the command that continues (`wringer-drive resume`) — put it in front of the person verbatim, after the question |
