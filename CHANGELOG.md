@@ -4,6 +4,30 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.5 — 2026-09-04
+
+**The board quotes the engine's six states — the 0.8.3 debt, paid.** The
+board shipped the six PM states two releases before `certificate.md`,
+`summary.md` and `mr.md` got them from `wringer.outcome`, so for two
+releases one vocabulary had two spellings across four surfaces. That is the
+two-surfaces-one-fact drift this programme keeps finding, and it was
+recorded in 0.8.3's own release notes rather than hidden.
+
+The board now asks the engine for the words and the order. The per-segment
+truth values stay on the board's side, because the page reads a `Board` and
+the engine reads a repository — the vocabulary is what could drift, and it
+is what moved. The import is admitted in the layer seam with its argument,
+guarded like every other one there: inside the function, its failure
+caught, and a board installed without the engine prints the labels it
+shipped with rather than a claim it cannot support.
+
+A test that only compared the two lists could not tell "the board asks"
+from "the board keeps a copy that happens to agree" — a red-watch caught
+exactly that, so the engine's word is now changed at runtime and the page
+must follow it. Four red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.8.4 — 2026-09-04
 
 **The certificate, the summary and the merge request read like one product.**
