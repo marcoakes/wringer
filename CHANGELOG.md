@@ -4,6 +4,54 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.8.4 — 2026-09-04
+
+**The certificate, the summary and the merge request read like one product.**
+Marc, 2026-09-03: the PM artifacts "look crap; make them look really
+professional and nice". Measured on run 4B's real delivery: `mr.md` opened on
+a counts sentence with the identity nowhere near it, then TWO stacked
+blockquotes, then "Every requirement" as seven headings of which five carried
+the same paragraph; `certificate.md` repeated the same blocks under three
+headings; `summary.md` carried the same two callouts over a gate table.
+
+### One opening, from one renderer
+
+All three now open the same way (`src/wringer/outcome.py`): a two-column
+fact block — Requirement · Run · Branch → base · Verified at · Written —
+then **the six PM states as one table row**: Built · Checks passing ·
+Requirements proved · Human judgement complete · Ready to deliver ·
+Delivered, each derived from ONE fact on record, with a legend saying that
+no state implies the next. Three values and no score: on record, on record
+against, and **nothing on record when the artifact was written**.
+`summary.md` is written before any delivery exists, so its last two states
+read as nothing recorded by construction — the claim ceiling, not a gap.
+
+### One callout, and a table where a wall was
+
+The warning and the coverage sentences share one blockquote: the warning is
+its lead, each coverage sentence its own bullet. Ruling MR1 still holds — a
+bullet separates two debts more strongly than the blank quote line did.
+
+"Every requirement" is a table (State · Requirement · Evidence) with detail
+beneath it only for rows that have any. A sentence more than one row shares
+is said **once**, as a footnote those rows point at; a row a person settled
+names who settled it and their verdict in the table itself.
+
+Two tests were re-navigated deliberately: they walked the per-requirement
+headings the table replaced, and their property is unchanged. `outcome.py`
+had no test file — a red-watch found that gap, and it has one now. Five
+red-watches, each reverting one thing alone, all red.
+
+**Also:** a citation-shaped reference with no readable line number
+(`AGENTS.md:-4`, written by a repointing script during this release) was
+invisible to every guard in `tests/test_spec_citations.py`, because the
+citation pattern requires digits and simply did not match. A malformed
+reference is now a failure of its own — narrowly, so a line range, a
+comma-separated list, a pytest node id and a symbol reference all stay
+legal.
+
+Schema versions: unchanged.
+
 ## 0.8.3 — 2026-09-04
 
 **The board reads like a product (the PM artifact design pass).** Marc,

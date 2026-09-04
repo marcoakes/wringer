@@ -226,3 +226,35 @@ def test_A_QUOTE_BESIDE_A_CITATION_IS_INSIDE_THE_LINES_IT_CITES(spec: Path):
 # A guard that fires on correct usage is a guard somebody turns off, which is
 # worse than no guard. Recorded as uncovered rather than shipped as noise.
 # ---------------------------------------------------------------------------
+
+
+#: A reference that LOOKS like a citation but carries no readable line
+#: number. `AGENTS.md:-4` is the measured shape: a repointing script wrote it
+#: on 2026-09-04 and every guard in this file passed, because `CITATION`
+#: requires digits and simply did not match — so a broken pointer was
+#: invisible rather than caught. A citation nobody can follow is the failure
+#: this whole file exists to prevent, and silence is the worst way to have it.
+#: Deliberately NARROW. Three forms are readable and this repository uses
+#: all three on purpose: a line or range (`accept.py:146-150`), a
+#: comma-separated list (`sign.py:81,87`), a pytest node id
+#: (`test_docs.py::test_name`) and a SYMBOL (`deliver.py:_verdict`, which
+#: survives an edit above it). What is caught is a colon followed by none of
+#: those — the measured shape is `AGENTS.md:-4`, written by a repointing
+#: script on 2026-09-04 and invisible to every other guard in this file.
+MALFORMED = re.compile(
+    r"`([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:py|md|json|yaml|yml|sh|js|toml)):"
+    r"(?![:\d]|[A-Za-z_])([^`\n]*)`"
+)
+
+
+@pytest.mark.parametrize("spec", SPECS, ids=lambda p: p.name)
+def test_NO_CITATION_IS_MALFORMED_AND_THEREFORE_UNCHECKED(spec: Path):
+    """A citation the checker cannot parse must fail, not vanish."""
+    broken = [
+        f"`{name}:{rest}`"
+        for name, rest in MALFORMED.findall(spec.read_text(encoding="utf-8"))
+    ]
+    assert not broken, (
+        f"{spec.name} carries citation-shaped references with no readable "
+        f"line number, so every other guard here skipped them: {broken}"
+    )
