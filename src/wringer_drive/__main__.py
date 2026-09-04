@@ -469,21 +469,25 @@ def _resume(session: run_module.Session, args) -> int:
     if facts.spec_changed:
         raise run_module.Stop(run_module.spec_changed_step(), exit_code=1)
 
-    preface = session.emit(run_module.resume_preface(facts))
-    _render([preface], mode)
-
+    # **Absence is settled BEFORE the preface** (bug review 0.7, 2026-09-02):
+    # a card listing what is preserved and reused has no business preceding
+    # "the plan is gone" — it promises a continuation about to be refused.
+    #
     # The document the record's own `run` copied inside. Only the draft phase
     # reads it, and only while no spec exists; a resume that finds neither is
     # a run that never drafted and a document that has since gone.
     inside = repo / run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME
     if not facts.spec_present and not facts.prd_inside:
-        raise run_module.Stop(run_module.nothing_to_resume_step(), exit_code=2)
+        raise run_module.Stop(run_module.document_missing_step(), exit_code=2)
     # A record past drafting with no plan file to read: a named stop, never
     # a traceback out of the interview (review of 0.7.0, 2026-09-02).
     if not facts.spec_present and facts.phase is not None and (
         run_module.PHASES.index(facts.phase) > run_module.PHASES.index("draft")
     ):
         raise run_module.Stop(run_module.spec_missing_step(), exit_code=2)
+
+    preface = session.emit(run_module.resume_preface(facts))
+    _render([preface], mode)
     # A resume is a CONTINUATION (D4), so the resumed build's loop lands in
     # the journey the record names — a record from before journeys existed
     # names none, and the continuation then begins one.

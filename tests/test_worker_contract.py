@@ -932,3 +932,50 @@ def test_the_next_move_is_composed_from_FACTS_never_from_the_workers_text():
         diagnose.WorkerDiagnosis(engine_words="", **held).next_move
         == diagnose.NEXT_MOVE_UNKNOWN
     )
+
+
+# --- bug review 0.7, 2026-09-02 (key `recovery`): the stops that said nothing
+
+
+def _a_repo_whose_worker(repo: Path, monkeypatch, command: str) -> Path:
+    a_broken_repo(repo)
+    (repo / config.CONFIG_FILENAME).write_text(
+        GATE + f"run:\n  worker: {command!r}\n  worker_timeout: 1\n"
+        "  max_iterations: 2\n",
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(repo)
+    return repo
+
+
+@pytest.mark.parametrize(
+    "command",
+    [": {brief}", "sleep 5; : {brief}"],
+    ids=["mute-exit-0", "timed-out"],
+)
+def test_a_NO_PROGRESS_STOP_WITHOUT_A_DIAGNOSIS_PRINTS_THE_HONEST_BLANK_NOT_SILENCE(
+    repo, monkeypatch, capsys, command
+):
+    """Bug review 0.7, 2026-09-02: a mute clean turn (exit 0, no words, no
+    write) and a timed-out turn both stop `no_progress` with no worker
+    diagnosis — correctly, neither shape can be named — and then the
+    console printed NO `Next:` line at all, and `wring explain <loop dir>`
+    none either. Not the blank: silence, run 4B's shape. The law is "the
+    literal blank, never silence", and it has to hold where the diagnosis
+    is absent too — that is where silence lives."""
+    _a_repo_whose_worker(repo, monkeypatch, command)
+
+    assert cli.main(["run"]) == cli.EXIT_GATE_FAILED
+    out = capsys.readouterr().out
+    bundle = only_loop(repo)
+    manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["result"]["reason"] == "no_progress"
+    assert not (bundle / loop.WORKER_DIAGNOSIS_FILENAME).exists(), (
+        "this shape must stay undiagnosed — the fixture drifted"
+    )
+    next_lines = [row for row in out.splitlines() if row.startswith("Next:")]
+    assert next_lines == [f"Next: {diagnose.NEXT_MOVE_UNKNOWN}"], out
+
+    assert cli.main(["explain", str(bundle)]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+    assert f"Next: {diagnose.NEXT_MOVE_UNKNOWN}" in said, said

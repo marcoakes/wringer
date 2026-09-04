@@ -461,3 +461,54 @@ def test_RESUME_WITH_THE_SPEC_GONE_PAST_DRAFTING_STOPS_BY_NAME(
     assert code == 2
     assert steps[-1]["id"] == "stopped:spec-missing", [s["id"] for s in steps]
     assert "wringer-drive run" in steps[-1]["text"]
+
+
+# --- bug review 0.7, 2026-09-02 (key `recovery`): killed at every phase ------
+
+
+def test_RESUME_WITH_THE_SPEC_GONE_PAST_THE_APPROVAL_SAYS_GONE_NOT_CHANGED(
+    failing_build, tmp_path
+):
+    """Bug review 0.7, 2026-09-02: a run stopped at the build, then
+    `wringer.spec.yaml` deleted, then `resume` → `stopped:spec-changed`:
+    "the plan you approved has changed ... approve it again with
+    wringer-drive run, which shows the plan and asks". The plan is not
+    changed, it is GONE — and `run` on a project with no plan DRAFTS one,
+    which is a paid call the stop just said would only show and ask. The
+    spec-missing stop exists for exactly this and was reachable only from a
+    record at or before the interview."""
+    document = prd(tmp_path)
+    _stop_at_the_failed_turn(failing_build, document)
+    (failing_build / "wringer.spec.yaml").unlink()
+
+    code, steps = drive(["resume", "--repo", str(failing_build)], "")
+
+    assert [s["id"] for s in steps] == ["stopped:spec-missing"], steps
+    assert code == 2
+    assert "has changed" not in steps[-1]["text"]
+    assert "gone" in steps[-1]["text"]
+
+
+def test_RESUME_WITH_THE_DOCUMENT_GONE_BEFORE_A_PLAN_EXISTED_DOES_NOT_DENY_THE_RUN(
+    converging_build, tmp_path
+):
+    """Bug review 0.7, 2026-09-02: a run stopped while drafting (no plan
+    yet), then the copied document under `.wringer/drive/` deleted, then
+    `resume` said "no run of wringer-drive has stopped in this project".
+    One had; the record on disk says so. The stop names what is actually
+    missing — the document — and the only honest move."""
+    (converging_build / "wringer.spec.yaml").unlink()
+    subprocess.run(["git", "commit", "-qam", "no plan"], cwd=converging_build, check=True)
+    document = prd(tmp_path)
+    code, first = drive(["run", str(document), "--repo", str(converging_build)], "")
+    assert "drafting" in [s["id"] for s in first], [s["id"] for s in first]
+    assert run_module.read_resume(converging_build).get("phase") == "draft"
+    (converging_build / run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME).unlink()
+
+    code, steps = drive(["resume", "--repo", str(converging_build)], "")
+
+    assert code == 2
+    assert steps[-1]["id"] == "stopped:document-missing", [s["id"] for s in steps]
+    assert "no run of wringer-drive has stopped" not in steps[-1]["text"]
+    assert str(run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME) in steps[-1]["text"]
+    assert "wringer-drive run" in steps[-1]["text"], "the stop names no command to run next"

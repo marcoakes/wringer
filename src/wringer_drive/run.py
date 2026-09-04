@@ -1329,8 +1329,16 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
     # live, so the digest decides nothing there — refusing on it left a run
     # killed at the approval unable ever to reach it (measured).
     past_approve = phase in PHASES and PHASES.index(phase) > PHASES.index("approve")
+    # **A plan that is GONE is not a plan that changed** (bug review 0.7,
+    # 2026-09-02): with no file the digest is None and differs from any
+    # recorded one, and the stop then said "approve it again with
+    # wringer-drive run, which shows the plan and asks" — `run` with no
+    # plan DRAFTS one, a paid call. `spec_missing` is that stop's name.
     changed = (
-        past_approve and recorded is not None and recorded != spec_digest(repo)
+        past_approve
+        and spec_path.is_file()
+        and recorded is not None
+        and recorded != spec_digest(repo)
     )
     try:
         answers = tuple(q.id for q in interview.questions(repo) if q.answered)
@@ -1373,6 +1381,22 @@ def nothing_to_resume_step() -> Step:
         "this project, so there is no checkpoint to continue from. Nothing "
         "was built and nothing was spent. Start one with: wringer-drive run "
         "<your document>",
+    )
+
+
+def document_missing_step() -> Step:
+    """A run stopped before a plan existed and its copied document is gone
+    (bug review 0.7, 2026-09-02: this said "no run of wringer-drive has
+    stopped in this project" — one had, and the record on disk said so).
+    Names what is actually missing, and the only honest move."""
+    return Step(
+        kind=STOPPED,
+        id="stopped:document-missing",
+        text="A run stopped here before a plan was drafted, and the copy of "
+        f"your document it was working from ({DRIVE_DIRNAME / PRD_FILENAME}) "
+        "is gone — so there is nothing to draft from and nothing to continue. "
+        "Nothing was built and nothing was spent. Start again with: "
+        "wringer-drive run <your document>",
     )
 
 
