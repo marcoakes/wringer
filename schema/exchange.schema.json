@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/schema/exchange.schema.json",
+  "title": "wringer.exchange.v1",
+  "description": "What one drafting exchange DID, written beside its request and reply under .wringer/specs/<id>/ (0.9.10). The requirement ledger reads the drafter's own previous reply back, and every reply is on disk before it is parsed \u2014 so a reply the ledger REFUSED was the newest previous draft of that document, and drafting again with the same reply walked past the refusal the ledger had just made. This record is the missing fact: whether the exchange produced a plan. An exchange with no such record predates 0.9.10 and is read as a draft, so an old exchange keeps binding a redraft rather than silently ceasing to.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "spec_id",
+    "drafted",
+    "why"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.exchange.v1"
+    },
+    "spec_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "drafted": {
+      "description": "Whether this exchange produced a plan. False for a dry run, a refusal, a transport failure and a cut-off alike: none of them is a draft a later one can be held to.",
+      "type": "boolean"
+    },
+    "why": {
+      "description": "The engine's own sentence for what stopped it, verbatim, or empty when nothing did.",
+      "type": "string"
+    }
+  }
+}

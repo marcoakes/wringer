@@ -297,6 +297,12 @@ class Plan:
     # Where each requirement came from — the spec's sources sidecar, read at
     # plan time and quoted on both faces (0.9.8). LAST, with a default.
     sources: dict[str, str] = field(default_factory=dict)
+    #: The plan's own quoted document, so a face can check a source against it
+    #: rather than assert an origin nobody re-read (0.9.10).
+    document: str = ""
+    #: The engine's own sentence when the sidecar is present and unreadable —
+    #: which is not the same as absent, and is not silence.
+    sources_unreadable: str = ""
 
 
 def _relative_to_root(path: Path, root: Path) -> str:
@@ -1205,16 +1211,34 @@ def plan(
     )
     # The quoted sources, leniently: a delivery never fails over the sidecar
     # that says where a requirement came from. Absent is absent.
+    #
+    # **But unreadable is not absent (cold review, 2026-09-05).** This caught
+    # everything and rendered a broken sidecar exactly as a missing one: no
+    # origin line on any requirement, and no sentence saying why — while the
+    # plan surface REFUSES over the same file, in words. A reviewer could not
+    # tell "nothing was quoted" from "the file could not be read". The
+    # delivery still does not fail; it says so.
     spec_module = _spec_module()
+    sources: dict[str, str] = {}
+    sources_unreadable = ""
+    document = ""
     try:
-        sources = spec_module.load_sources(
-            root, spec_module.load(root / spec_module.SPEC_FILENAME).criteria
-        )
-    except Exception:  # noqa: BLE001
-        sources = {}
+        loaded = spec_module.load(root / spec_module.SPEC_FILENAME)
+    except Exception as exc:  # noqa: BLE001
+        loaded = None
+        sources_unreadable = f"{spec_module.SPEC_FILENAME} could not be read: {exc}"
+    if loaded is not None:
+        document = getattr(loaded, "intent", "") or ""
+        if (root / spec_module.SOURCES_FILENAME).is_file():
+            try:
+                sources = spec_module.load_sources(root, loaded.criteria)
+            except Exception as exc:  # noqa: BLE001
+                sources_unreadable = (
+                    f"{spec_module.SOURCES_FILENAME} could not be read: {exc}"
+                )
     mr = _mr_body(
         run_dir, root, state, len(carried), built, board, branch, settings.remote,
-        sources,
+        sources, document, sources_unreadable,
     )
     # **One story or nothing ships** (0.6.2, run 3 F13) — after every
     # carried surface exists and before anything is written or pushed.
@@ -1247,6 +1271,8 @@ def plan(
         falsification=broken,
         judgement_record=judged_record,
         sources=sources,
+        document=document,
+        sources_unreadable=sources_unreadable,
         run_summary=run_summary,
         receipts=receipts,
         commands=(
@@ -1567,6 +1593,8 @@ def _mr_body(
     branch: str | None = None,
     remote: str | None = None,
     sources: dict[str, str] | None = None,
+    document: str = "",
+    sources_unreadable: str = "",
 ) -> str:
     """The receipts, which is what the OKR actually promises.
 
@@ -1638,7 +1666,8 @@ def _mr_body(
     if built is not None:
         lines += ["", "## Every requirement"]
         lines += certificate.requirement_lines(
-            built, accept.read_judgement_record(run_dir), sources
+            built, accept.read_judgement_record(run_dir), sources,
+            document, sources_unreadable
         )
 
     verdict = _verdict(root, run_dir)
@@ -1872,6 +1901,8 @@ class Bundle:
                         planned.falsification,
                         planned.judgement_record,
                         sources=planned.sources,
+                        document=planned.document,
+                        sources_unreadable=planned.sources_unreadable,
                     )
                 ),
                 encoding="utf-8",

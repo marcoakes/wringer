@@ -935,6 +935,34 @@ def _normalise_quote(text: str) -> str:
     return " ".join(str(text).split())
 
 
+#: **What an exchange DID, as a record (0.9.10).** The ledger reads the
+#: drafter's own previous reply back, and every reply is on disk before it
+#: is parsed — so a reply the ledger REFUSED was the newest previous draft,
+#: and drafting again with the same reply walked straight past the refusal.
+#: This is the fact that was missing: whether the exchange produced a plan.
+OUTCOME_FILENAME = "outcome.json"
+OUTCOME_SCHEMA_VERSION = "wringer.exchange.v1"
+
+
+def exchange_drafted(exchange: Path) -> bool:
+    """Whether this exchange produced a plan. An exchange with no outcome
+    record is one written before 0.9.10; it is read as it always was, so an
+    old exchange keeps binding a redraft rather than silently ceasing to."""
+    path = exchange / OUTCOME_FILENAME
+    if not path.is_file():
+        return True
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return True
+    if (
+        not isinstance(recorded, dict)
+        or recorded.get("schema_version") != OUTCOME_SCHEMA_VERSION
+    ):
+        return True
+    return recorded.get("drafted") is True
+
+
 def lift_sources(
     drafted: dict, prd: str
 ) -> tuple[dict, dict[str, str], tuple[str, ...]]:
@@ -969,8 +997,21 @@ def lift_sources(
         source = entry.get("source")
         identifier = str(entry.get("id", ""))
         quote = _normalise_quote(source) if isinstance(source, str) else ""
-        if quote and identifier and quote in document:
+        if quote and identifier and quote in document and _is_a_sentence(quote):
             lifted[identifier] = quote
+        elif identifier and quote and quote in document:
+            # **A word is not a sentence (cold review, 2026-09-05).** The
+            # request asks for ONE SENTENCE COPIED VERBATIM, and the check was
+            # only that the bytes appear somewhere in the document — so
+            # `source: "CSV"` passed, the certificate rendered *From your
+            # document: "CSV"*, and the ledger then treated every criterion
+            # quoting that word as a rewording of every other.
+            notes.append(
+                f"criterion '{identifier}': its source is {_words(quote)} word(s) "
+                f"— {source!r} — which is in the document but is not the "
+                "sentence the requirement came from, so nothing was recorded "
+                "for it; the requirement stands, unquoted"
+            )
         elif identifier:
             notes.append(
                 f"criterion '{identifier}': the sentence given as its source "
@@ -980,6 +1021,23 @@ def lift_sources(
         rebuilt.append({k: v for k, v in entry.items() if k != "source"})
     cleaned["criteria"] = rebuilt
     return cleaned, lifted, tuple(notes)
+
+
+#: The floor for "one sentence": four words and twenty characters, both of
+#: which the shortest real requirement sentence clears ("The export must be
+#: CSV." is five words and twenty-three characters) and no fragment does.
+#: Deliberately not a sentence PARSER — a rule a reader can hold beats a
+#: cleverer one they cannot predict.
+SENTENCE_WORDS = 4
+SENTENCE_CHARACTERS = 20
+
+
+def _words(quote: str) -> int:
+    return len(quote.split())
+
+
+def _is_a_sentence(quote: str) -> bool:
+    return _words(quote) >= SENTENCE_WORDS and len(quote) >= SENTENCE_CHARACTERS
 
 
 def lift_outcomes(drafted: dict) -> tuple[dict, dict[str, str]]:
@@ -2102,15 +2160,35 @@ class PreviousDraft:
 
     criteria: tuple[tuple[str, str, bool, str | None], ...]
     question_ids: frozenset[str]
+    #: The exchange this came from, so a note can name it.
+    exchange: str = ""
 
 
 def previous_draft(
-    specs_root: Path, request: dict, exclude: Path | None = None
+    specs_root: Path,
+    request: dict,
+    exclude: Path | None = None,
+    unreadable: list[str] | None = None,
 ) -> PreviousDraft | None:
-    """The newest previous exchange for this same request, read leniently, or
-    None. "Same request" is the user message — the document and the file
-    listing — never the ceiling, so a retry with a raised ceiling is still a
-    redraft of the same document. Records only; refuses nothing."""
+    """The newest previous exchange for this same request that PRODUCED A
+    PLAN, read leniently, or None. "Same request" is the user message — the
+    document and the file listing — never the ceiling, so a retry with a
+    raised ceiling is still a redraft of the same document.
+
+    **A refused draft is not a draft (0.9.10).** `cmd_spec` writes
+    `response.json` before `parse_response` runs, so a reply this very
+    ledger refused is on disk as the newest previous exchange for this
+    document. Drafting again with the same reply then passed: the ledger
+    compared the new draft against the refused one, found nothing missing,
+    and wrote a plan without the requirement — the refusal defeated by the
+    retry its own sentence recommends. `exchange_drafted` reads each
+    exchange's own record of what it did.
+
+    Records only; refuses nothing. The one thing it does not do silently is
+    fail to read a draft that IS there: `unreadable` names it so the caller
+    can say the ledger did not apply, rather than falling through to an
+    older exchange, which is a guess about which draft binds.
+    """
     try:
         asked = request["messages"][1]["content"]
     except (KeyError, IndexError, TypeError):
@@ -2124,6 +2202,11 @@ def previous_draft(
             )
             if previous["messages"][1]["content"] != asked:
                 continue
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+            continue
+        if not exchange_drafted(exchange):
+            continue
+        try:
             reply = json.loads(
                 (exchange / RESPONSE_FILENAME).read_text(encoding="utf-8")
             )
@@ -2131,9 +2214,13 @@ def previous_draft(
             drafted = json.loads(_strip_fences(str(content)))
             criteria = drafted.get("criteria")
         except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
-            continue
+            if unreadable is not None:
+                unreadable.append(exchange.name)
+            return None
         if not isinstance(criteria, list):
-            continue
+            if unreadable is not None:
+                unreadable.append(exchange.name)
+            return None
         rows = tuple(
             (
                 str(c.get("id") or ""),
@@ -2153,7 +2240,9 @@ def previous_draft(
             for q in (drafted.get("open_questions") or [])
             if isinstance(q, dict) and q.get("id")
         )
-        return PreviousDraft(criteria=rows, question_ids=questions)
+        return PreviousDraft(
+            criteria=rows, question_ids=questions, exchange=exchange.name
+        )
     return None
 
 
@@ -2444,11 +2533,22 @@ def parse_response(
     account_notes: list[str] = []
     if previous is not None:
         current_ids = {str(getattr(c, "id", "")) for c in drafted_spec.criteria}
-        current_sources = set(sources.values())
+        # **One survivor answers for ONE previous requirement (0.9.10).** This
+        # was a SET: two previous criteria quoting the same sentence — which
+        # the request invites, one sentence often carrying two obligations —
+        # were both satisfied by one criterion that still quoted it, so a
+        # requirement could be dropped behind a quote that stayed.
+        unclaimed = list(sources.values())
+        # **Human criteria are held to the same test (0.9.10).** They were
+        # skipped here, deferring to the count rule above — which compares
+        # totals only, so swapping one human criterion for a different one
+        # passed both: the count matched and the ledger never looked. The
+        # count rule stays as the floor.
         for pid, ptitle, phuman, psource in previous.criteria:
-            if phuman or pid in current_ids:
+            if pid in current_ids:
                 continue
-            if psource and psource in current_sources:
+            if psource and psource in unclaimed:
+                unclaimed.remove(psource)
                 continue
             if answered_since:
                 account_notes.append(
@@ -2460,11 +2560,12 @@ def parse_response(
                 continue
             raise SpecError(
                 f"the previous draft of this same document had the requirement "
-                f"'{ptitle}' and this one does not, and nothing has been "
-                "answered since. A redraft may not drop a requirement on its "
-                "own: if it is no longer wanted, that is your answer to give, "
-                "not the drafter's. Nothing was written — drafting again costs "
-                "a fraction of a penny"
+                f"'{ptitle}'{' — one only you can judge —' if phuman else ''} "
+                f"and this one does not, and nothing has been answered since. "
+                "A redraft may not drop a requirement on its own: if it is no "
+                "longer wanted, that is your answer to give, not the "
+                "drafter's. Nothing was written — drafting again costs a "
+                "fraction of a penny"
             )
     # A display the drafter proposed for a criterion that is not `human`, or
     # that nobody declared, is DROPPED with a note on this path — the same
@@ -4039,6 +4140,23 @@ class Bundle:
                 f"Read `{SPEC_FILENAME}`, answer its open questions, and set "
                 "`approved: true` by hand. Then run `wring plan`.",
             ]
+        # **What this exchange DID, typed, beside the prose (0.9.10).** The
+        # ledger reads previous replies back and every reply is on disk
+        # before it is parsed, so without this a refused draft was the
+        # newest previous draft and the refusal could be walked past.
+        (self.directory / OUTCOME_FILENAME).write_text(
+            json.dumps(
+                {
+                    "schema_version": OUTCOME_SCHEMA_VERSION,
+                    "spec_id": self.spec_id,
+                    "drafted": drafted is not None,
+                    "why": why or "",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         path = self.directory / SUMMARY_FILENAME
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return path

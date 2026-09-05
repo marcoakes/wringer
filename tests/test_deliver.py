@@ -3157,6 +3157,18 @@ def test_THE_CERTIFICATE_AND_MR_say_where_a_requirement_came_from(
     from wringer import certificate, spec
 
     accepting_repo(delivery_repo, bound=False)
+    # **The document has to CONTAIN it (0.9.10).** This wrote the sidecar
+    # into a repository whose plan quotes "Ship the thing finance keeps
+    # asking for." and asserted the certificate says the sentence came from
+    # the document — proving the claim over a sentence in no document at
+    # all. The plan's own quoted intent is what the face is checked against.
+    (delivery_repo / "wringer.spec.yaml").write_text(
+        (delivery_repo / "wringer.spec.yaml").read_text(encoding="utf-8").replace(
+            "intent: Ship the thing finance keeps asking for.",
+            "intent: The report page needs a CSV download.",
+        ),
+        encoding="utf-8",
+    )
     # BEFORE the verify: the sidecar is a file in the tree, and a delivery
     # refuses a tree that moved since the run verified it — correctly. The
     # first draft of this test wrote it after, and deliver said "changed
@@ -3177,3 +3189,61 @@ def test_THE_CERTIFICATE_AND_MR_say_where_a_requirement_came_from(
     line = 'From your document: "The report page needs a CSV download."'
     assert line in face, "the certificate does not say where the requirement came from"
     assert line in mr, "the merge request does not say where the requirement came from"
+
+
+def test_THE_CERTIFICATE_does_not_claim_a_sentence_the_DOCUMENT_does_not_carry(
+    delivery_repo, monkeypatch, capsys
+):
+    """**The claim ceiling on an origin (0.9.10).** The sidecar's quote is
+    checked against the PRD when the plan is drafted; the document can be
+    edited afterwards and the sidecar can be hand-edited. "From your
+    document" is a claim about the document, so the face makes it only when
+    the sentence is still in the plan's own quoted copy — and says what it
+    has instead of dropping the row silently."""
+    from wringer import certificate, spec
+
+    accepting_repo(delivery_repo, bound=False)
+    (delivery_repo / spec.SOURCES_FILENAME).write_text(
+        f"schema_version: {spec.SOURCES_SCHEMA_VERSION}\n"
+        "sources:\n"
+        "  csv-downloads: A sentence that is in no document anywhere.\n",
+        encoding="utf-8",
+    )
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    face = (_delivered(delivery_repo) / certificate.FACE_FILENAME).read_text(
+        encoding="utf-8"
+    )
+    assert "From your document" not in face, (
+        "the certificate says the document carries a sentence it does not"
+    )
+    assert "Recorded as its source" in face
+    assert "not in the document this plan quotes" in face
+
+
+def test_THE_CERTIFICATE_says_when_the_SOURCES_FILE_could_not_be_read(
+    delivery_repo, monkeypatch, capsys
+):
+    """`deliver` caught everything and rendered a broken sidecar exactly as a
+    missing one, while the plan surface refuses over the same file in words.
+    A reviewer could not tell "nothing was quoted" from "unreadable"."""
+    from wringer import certificate, spec
+
+    accepting_repo(delivery_repo, bound=False)
+    (delivery_repo / spec.SOURCES_FILENAME).write_text(
+        "schema_version: wringer.sources.v1\nsources: [not, a, mapping]\n",
+        encoding="utf-8",
+    )
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK, capsys.readouterr().err
+    capsys.readouterr()
+
+    face = (_delivered(delivery_repo) / certificate.FACE_FILENAME).read_text(
+        encoding="utf-8"
+    )
+    assert spec.SOURCES_FILENAME in face, (
+        "the face is silent about a sidecar it could not read"
+    )
+    assert "Where these requirements came from is not shown" in face

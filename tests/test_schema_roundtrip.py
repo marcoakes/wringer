@@ -101,6 +101,9 @@ EXCLUDED = {
     "worker-diagnosis-v2.schema.json": "superseded by v3; kept for old bundles",
     # Person-authored INPUT formats. There is no writer to derive from —
     # a human writes these, and the schema is the contract they are held to.
+    "exchange.schema.json": "an inline-dict writer "
+    "(spec.Bundle.write_summary); the REAL written file is jsonschema-validated "
+    "in tests/test_spec.py (0.9.10)",
     "readiness.schema.json": "an inline-dict writer "
     "(wringer_drive.run.write_readiness); the REAL written file is "
     "jsonschema-validated in tests/journey/test_readiness_record.py (0.9.9)",

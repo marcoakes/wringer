@@ -3590,9 +3590,24 @@ def cmd_spec(args: argparse.Namespace) -> int:
         # reply is the ledger; the questions the person has answered since —
         # read off the spec on disk against what that reply asked — are the
         # one thing that may lawfully drop one.
+        unreadable: list[str] = []
         previous_reply = spec.previous_draft(
-            root / spec.SPECS_DIRNAME, request, exclude=bundle.directory
+            root / spec.SPECS_DIRNAME, request, exclude=bundle.directory,
+            unreadable=unreadable,
         )
+        for where in unreadable:
+            # Law 6 wants a refusal on an unreadable record; refusing HERE
+            # would refuse a draft that is itself fine over a file the person
+            # cannot repair, so the honest middle is to say the ledger did
+            # not apply and name what could not be read. The draft is still
+            # checked against everything else.
+            print(
+                f"wring spec: note: the previous draft of this document, at "
+                f"{where}, could not be read — so no requirement ledger was "
+                "applied to this draft, and a requirement dropped since then "
+                "would not have been caught here",
+                file=sys.stderr,
+            )
         answered_since: frozenset[str] = frozenset()
         if previous is not None and previous_reply is not None:
             answered_since = (

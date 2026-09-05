@@ -517,10 +517,24 @@ def _judgement_lines(
     return lines
 
 
+def _quoted_in(quote: str, document: str) -> bool:
+    """Whether a recorded source is still in the document, by the same
+    whitespace-normalised comparison `spec.lift_sources` used when it wrote
+    the sidecar. One rule, so the two surfaces cannot disagree about whether
+    a sentence is in a document."""
+    if not document:
+        return False
+    from wringer import spec as spec_module
+
+    return spec_module._normalise_quote(quote) in spec_module._normalise_quote(document)
+
+
 def requirement_lines(
     payload: dict[str, Any],
     judgement_record: dict[str, Any] | None = None,
     sources: dict[str, str] | None = None,
+    document: str = "",
+    sources_unreadable: str = "",
 ) -> list[str]:
     """Every requirement BY TITLE with its state — gaps 2 and 4, closed.
 
@@ -534,6 +548,16 @@ def requirement_lines(
     rows = payload.get("requirements") or []
     if not rows:
         return []
+    unreadable_note = (
+        [
+            "",
+            f"**Where these requirements came from is not shown**: "
+            f"{sources_unreadable}. Nothing here is a claim that nothing was "
+            "quoted — the file that would say was not readable.",
+        ]
+        if sources_unreadable
+        else []
+    )
 
     # **A TABLE, and the repeated sentence said ONCE** (0.8.4). Marc,
     # 2026-09-03: the artifacts "look crap". Measured on run 4B's delivery:
@@ -591,18 +615,33 @@ def requirement_lines(
         # sentence the drafter quoted and the engine found in the document —
         # rendered here and in the merge request through this one function,
         # so the two cannot describe a requirement's origin differently.
+        # **Checked against the document THIS page is about (0.9.10).** The
+        # sidecar's quote was checked against the PRD when the plan was
+        # drafted, and a document can be edited afterwards; the sidecar can
+        # be hand-edited too. "From your document" is a claim about the
+        # document, so it is made only when the sentence is still in the
+        # plan's own quoted copy of it, and the recorded-but-unfound case is
+        # SAID rather than dropped.
         origin = (sources or {}).get(str(row.get("id") or ""))
+        found = bool(origin) and _quoted_in(str(origin), document)
         if judged or origin or (means and means not in marker):
             detail += ["", f"**{title}**"]
-            if origin:
+            if origin and found:
                 detail += ["", f'From your document: "{origin}"']
+            elif origin:
+                detail += [
+                    "",
+                    f'Recorded as its source: "{origin}" — and that sentence '
+                    "is not in the document this plan quotes, so it is what "
+                    "was written down, not what your document says.",
+                ]
             if means and means not in marker:
                 detail += ["", means]
             detail += judged
 
     for text, index in marker.items():
         lines += ["", f"[^{index}]: {text}"]
-    lines += detail
+    lines += unreadable_note + detail
     return lines
 
 

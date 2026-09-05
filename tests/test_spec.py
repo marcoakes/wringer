@@ -4428,3 +4428,182 @@ def test_SECTIONS_a_cut_off_part_that_still_PARSES_is_never_reused(
     assert [c.id for c in spec.load(repo / spec.SPEC_FILENAME).criteria] == [
         c["id"] for c in DRAFT["criteria"]
     ]
+
+
+# --- 0.9.10: the ledger cannot be routed around ---------------------------
+
+
+def _ledger_repo(repo, monkeypatch, capsys, payload=None):
+    """A first draft on disk, written by the engine."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(payload or DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+
+
+def test_LEDGER_a_REFUSED_redraft_is_not_the_ledger_for_the_next_one(
+    repo, monkeypatch, capsys
+):
+    """**The P0 the refusal's own recommended retry walked through.**
+
+    `cmd_spec` writes `response.json` before `parse_response` runs, so the
+    reply this ledger just refused was on disk as the newest previous draft
+    of this document. Drafting again with the same reply compared the new
+    draft against the REFUSED one, found nothing missing, and wrote a plan
+    without the requirement: exit 0, stderr empty, the refusal defeated by
+    doing exactly what it said to do.
+    """
+    _ledger_repo(repo, monkeypatch, capsys)
+    dropped = DRAFT["criteria"][0]["title"]
+    thinner = _draft_without(DRAFT["criteria"][0]["id"])
+
+    fake_transport(monkeypatch, reply=reply(thinner))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    assert dropped in capsys.readouterr().err
+
+    # Again, with the same reply. The refused exchange is now the newest.
+    fake_transport(monkeypatch, reply=reply(thinner))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG, (
+        "a refused draft became the ledger, and the drop passed on the retry"
+    )
+    assert dropped in capsys.readouterr().err
+    kept = [c.title for c in spec.load(repo / spec.SPEC_FILENAME).criteria]
+    assert dropped in kept, "the requirement is gone from the plan on disk"
+
+
+def test_LEDGER_the_exchange_RECORDS_what_it_did_in_the_frozen_shape(
+    repo, monkeypatch, capsys
+):
+    import jsonschema
+
+    _ledger_repo(repo, monkeypatch, capsys)
+    schema = json.loads(
+        (
+            Path(__file__).resolve().parent.parent / "schema" / "exchange.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    recorded = json.loads(
+        (only_draft(repo) / spec.OUTCOME_FILENAME).read_text(encoding="utf-8")
+    )
+    jsonschema.validate(recorded, schema)
+    assert recorded["drafted"] is True
+    assert recorded["why"] == ""
+
+    fake_transport(monkeypatch, reply=reply(_draft_without(DRAFT["criteria"][0]["id"])))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+    refused = sorted(
+        (repo / spec.SPECS_DIRNAME).iterdir(),
+        key=lambda p: (p.stat().st_mtime, p.name),
+    )[-1]
+    recorded = json.loads((refused / spec.OUTCOME_FILENAME).read_text(encoding="utf-8"))
+    jsonschema.validate(recorded, schema)
+    assert recorded["drafted"] is False
+    assert recorded["why"], "a refusal recorded no reason"
+
+
+def test_LEDGER_two_requirements_sharing_ONE_quote_do_not_collapse(
+    repo, monkeypatch, capsys
+):
+    """One survivor answers for ONE previous requirement. The request asks
+    for one verbatim sentence per criterion and a sentence often carries two
+    obligations, so a set membership test let a drop hide behind a quote
+    that stayed."""
+    quoted = "It should cover the same rows the page is showing, respecting"
+    shared = json.loads(json.dumps(DRAFT))
+    for criterion in shared["criteria"][:2]:
+        criterion["source"] = quoted
+    _ledger_repo(repo, monkeypatch, capsys, shared)
+
+    thinner = json.loads(json.dumps(shared))
+    gone = thinner["criteria"].pop(0)
+    fake_transport(monkeypatch, reply=reply(thinner))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG, (
+        "a requirement was dropped behind a quote another one still carries"
+    )
+    assert gone["title"] in capsys.readouterr().err
+
+
+def test_LEDGER_a_HUMAN_requirement_swapped_for_another_is_refused(
+    repo, monkeypatch, capsys
+):
+    """The count rule compares totals and the ledger skipped human criteria,
+    so swapping one judgement for a different one passed both: the count
+    matched, and the thing the document reserved for a person was gone."""
+    first = json.loads(json.dumps(DRAFT))
+    first["criteria"][0]["human"] = True
+    _ledger_repo(repo, monkeypatch, capsys, first)
+
+    swapped = json.loads(json.dumps(DRAFT))
+    swapped["criteria"].pop(0)
+    swapped["criteria"][0]["human"] = True
+    fake_transport(monkeypatch, reply=reply(swapped))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert first["criteria"][0]["title"] in said, said
+    assert "one only you can judge" in said
+
+
+def test_LEDGER_an_UNREADABLE_previous_draft_is_SAID_not_silently_skipped(
+    repo, monkeypatch, capsys
+):
+    """It fell through to an older exchange — a guess about which draft binds
+    — and said nothing at all."""
+    _ledger_repo(repo, monkeypatch, capsys)
+    exchange = only_draft(repo)
+    (exchange / spec.RESPONSE_FILENAME).write_text("{not json", encoding="utf-8")
+
+    fake_transport(monkeypatch, reply=reply(_draft_without(DRAFT["criteria"][0]["id"])))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+    said = capsys.readouterr().err
+    assert exchange.name in said, said
+    assert "no requirement ledger was applied" in said
+
+
+def test_LEDGER_a_RAISED_CEILING_still_binds_and_a_CHANGED_DOCUMENT_does_not(
+    repo, monkeypatch, capsys
+):
+    """The ledger's own rule, which nothing tested: same document, any
+    ceiling, still a redraft — and raising the ceiling is the move the
+    cut-off stop recommends, which is when a drafter most often redrafts."""
+    _ledger_repo(repo, monkeypatch, capsys)
+    thinner = _draft_without(DRAFT["criteria"][0]["id"])
+
+    (repo / ".wringer.yaml").write_text(
+        CONFIG + "  max_output_tokens: 32000\n", encoding="utf-8"
+    )
+    fake_transport(monkeypatch, reply=reply(thinner))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG, (
+        "raising the ceiling unbound the ledger"
+    )
+    capsys.readouterr()
+
+    (repo / "PRD.md").write_text(PRD + "\n\nAlso: a totally new section.\n", encoding="utf-8")
+    fake_transport(monkeypatch, reply=reply(thinner))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+
+
+def test_LEDGER_a_FRAGMENT_is_not_the_sentence_a_requirement_came_from(
+    repo, monkeypatch, capsys
+):
+    """`source: "CSV"` was in the document, so it passed and the certificate
+    said *From your document: "CSV"* — and every criterion quoting that word
+    became a rewording of every other."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fragmented = json.loads(json.dumps(DRAFT))
+    fragmented["criteria"][0]["source"] = "CSV"
+    fake_transport(monkeypatch, reply=reply(fragmented))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    said = capsys.readouterr().err
+    assert "is not the sentence the requirement came from" in said, said
+    assert not (repo / spec.SOURCES_FILENAME).exists(), (
+        "a one-word fragment was recorded as where a requirement came from"
+    )
