@@ -4,6 +4,57 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.8 — 2026-09-05
+
+**Every requirement of the previous draft, accounted for — and the
+certificate says where each came from.** SOTA item 1's second slice, and
+the half of its first slice that 0.9.7 named for here.
+
+**A redraft may not drop a requirement on its own.** 0.9.5 held the COUNT
+of human criteria; any other requirement could still vanish from a redraft
+and the plan look complete. Each requirement of the previous draft — the
+drafter's own previous reply to the same document, never the document
+itself — must now be **kept** (same id) or **reworded** (the same sentence of
+the document quoted under a new id, since ids are the drafter's and change
+between drafts). Otherwise it was dropped, and there is exactly one
+way that is lawful: **the person answered a question the previous draft
+asked.** If they did, the drop is a note by title — *"you answered
+`date-format` since, so the drafter may have dropped it on your answer;
+check the plan before approving"* — never silent. If they answered
+nothing, the drafter dropped it on its own, and that is refused by title:
+*"if it is no longer wanted, that is your answer to give, not the
+drafter's."*
+
+"An answer intervened" is read off the spec on disk against the questions
+the previous reply asked, because the request carries no answers — they
+are merged into the redrafted spec after parsing. A retry with a raised
+ceiling is the same document and still a redraft; a changed document is
+not bound. The first draft has no ledger and is untouched.
+
+**The certificate and the merge request quote the source.** Under each
+requirement that has one: *"From your document: …"* — through the one
+`requirement_lines` renderer both faces already quote, so the two cannot
+describe a requirement's origin differently. Read at plan time from the
+sources sidecar, leniently: a delivery never fails over the file that says
+where a requirement came from.
+
+**No "decided" path, and the first draft had one.** It let an
+assumption naming the dropped requirement excuse the drop. The parser
+validates an assumption's `criteria` against the reply it arrives in, so a
+reference to a requirement that is gone is dropped with a note and the path
+could never fire — measured on the first run. That is the law already: an
+assumption may shape a requirement's wording; it may never remove one. An
+assumption is not an answer.
+
+*Named for later rather than built here:* approval refusing on an
+unaccounted row needs nothing — an unaccounted redraft is refused at draft
+time and there is no plan to approve; the coverage critic (item 12) is the
+question about the document's sentences no criterion claims, and it asks.
+
+Six red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.9.7 — 2026-09-05
 
 **Where each requirement came from, in the person's own words — and an

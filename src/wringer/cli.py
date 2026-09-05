@@ -3403,6 +3403,19 @@ def cmd_spec(args: argparse.Namespace) -> int:
             return EXIT_CONFIG
 
         bundle.write_response(body)
+        # Every previous requirement accounted for (0.9.8): the previous
+        # reply is the ledger; the questions the person has answered since —
+        # read off the spec on disk against what that reply asked — are the
+        # one thing that may lawfully drop one.
+        previous_reply = spec.previous_draft(
+            root / spec.SPECS_DIRNAME, request, exclude=bundle.directory
+        )
+        answered_since: frozenset[str] = frozenset()
+        if previous is not None and previous_reply is not None:
+            answered_since = (
+                frozenset(q.id for q in previous.questions if q.answered)
+                & previous_reply.question_ids
+            )
         try:
             draft = spec.parse_response(
                 body,
@@ -3415,6 +3428,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 previous_human=spec.previous_human_criteria(
                     root / spec.SPECS_DIRNAME, request, exclude=bundle.directory
                 ),
+                previous=previous_reply,
+                answered_since=answered_since,
             )
             drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:

@@ -3849,3 +3849,120 @@ def test_ITEM_1_the_PLAN_shows_the_quote_and_SAYS_when_there_is_none(
     assert text.count("(no sentence of your document was quoted for this)") == 2, (
         "the two unquoted requirements are not said to be unquoted"
     )
+
+
+# --- 0.9.8, SOTA item 1 slice 2: every previous requirement accounted for --
+
+
+def _draft_without(criterion_id: str) -> dict:
+    payload = json.loads(json.dumps(DRAFT))
+    payload["criteria"] = [c for c in payload["criteria"] if c["id"] != criterion_id]
+    payload["tasks"] = [
+        {**t, "criteria": [c for c in t.get("criteria", []) if c != criterion_id]}
+        if "criteria" in t else t
+        for t in payload["tasks"]
+    ]
+    return payload
+
+
+def _first_draft(repo, monkeypatch, capsys, payload=None):
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(payload or DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+
+def test_SLICE_2_a_redraft_that_DROPS_a_requirement_with_nothing_answered_is_refused(
+    repo, monkeypatch, capsys
+):
+    """0.9.5 held the count of human criteria; any other requirement could
+    still vanish from a redraft and the plan look complete. Now every
+    previous requirement is kept, reworded or decided — or the drop is the
+    person's, by an answer. Nothing answered, nothing dropped."""
+    _first_draft(repo, monkeypatch, capsys)
+    fake_transport(monkeypatch, reply=reply(_draft_without("export-button-exists")))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "A CSV export button appears on the reports page" in said, said
+    assert "nothing has been answered since" in said
+    assert "that is your answer to give" in said
+
+
+def test_SLICE_2_a_drop_AFTER_the_person_answered_is_a_NOTE_not_a_refusal(
+    repo, monkeypatch, capsys
+):
+    """The one event that may lawfully remove a requirement: the person
+    answered a question the previous draft asked. The drop is said, by
+    title, for them to check — never silent, never refused."""
+    _first_draft(repo, monkeypatch, capsys)
+    from wringer_board import interview
+
+    interview.answer(repo, "date-format", "ISO dates")
+    fake_transport(monkeypatch, reply=reply(_draft_without("export-button-exists")))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    said = capsys.readouterr()
+    console = said.out + said.err
+    assert "A CSV export button appears on the reports page" in console
+    assert "you answered date-format since" in console
+    assert "check the plan before approving" in console
+
+
+def test_SLICE_2_a_REWORDED_requirement_with_the_same_source_is_kept(
+    repo, monkeypatch, capsys
+):
+    """Ids are the drafter's and change between drafts. The same sentence of
+    the document, quoted under a new id, is the same requirement."""
+    first = json.loads(json.dumps(DRAFT))
+    first["criteria"][1]["source"] = QUOTED  # respects-filters
+    _first_draft(repo, monkeypatch, capsys, first)
+
+    second = _draft_without("respects-filters")
+    second["criteria"].append({
+        "id": "filtered-rows-only",
+        "title": "Only the rows the filter shows are exported",
+        "required": True,
+        "human": False,
+        "source": QUOTED,
+    })
+    fake_transport(monkeypatch, reply=reply(second))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+
+
+def test_SLICE_2_an_ASSUMPTION_naming_a_dropped_requirement_does_NOT_excuse_the_drop(
+    repo, monkeypatch, capsys
+):
+    """**Measured, then made the rule.** The first draft of this slice let an
+    assumption that named the dropped requirement count as "decided" — and
+    `parse_assumptions` validates an assumption's `criteria` against THIS
+    reply's criteria, so a reference to a requirement that is gone is
+    dropped with a note and the path could never fire. That is the law
+    already: an assumption may shape a requirement's wording; it may never
+    remove one. An assumption is not an answer, and the drop is refused."""
+    _first_draft(repo, monkeypatch, capsys)
+    second = _draft_without("export-button-exists")
+    second["assumptions"] = [{
+        "id": "a-button",
+        "decision": "The export is a menu item, not a button.",
+        "why": "The page already has a menu.",
+        "instead_of_asking": "Button or menu item?",
+        "criteria": ["export-button-exists"],
+    }]
+    fake_transport(monkeypatch, reply=reply(second))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "A CSV export button appears on the reports page" in said
+    assert "that is your answer to give" in said
+
+
+def test_SLICE_2_the_FIRST_draft_has_no_ledger_and_is_untouched(
+    repo, monkeypatch, capsys
+):
+    """No previous exchange, nothing to account for — the plain path 0.9.4
+    and every test above it already walk."""
+    _first_draft(repo, monkeypatch, capsys, _draft_without("export-button-exists"))
+    assert (repo / spec.SPEC_FILENAME).exists()

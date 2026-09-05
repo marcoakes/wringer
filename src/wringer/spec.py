@@ -1819,6 +1819,75 @@ def repeated_cut_off(
     return None
 
 
+@dataclass(frozen=True)
+class PreviousDraft:
+    """The drafter's own previous reply to this same document — the ledger a
+    redraft is held to (0.9.8, SOTA item 1 slice 2).
+
+    `criteria` is `(id, title, human, source)` per criterion the previous
+    reply declared, `source` being the sentence it quoted (or None).
+    `question_ids` is every open question it asked, so a caller can tell
+    whether the person has answered one since — the one event that may
+    lawfully remove a requirement.
+    """
+
+    criteria: tuple[tuple[str, str, bool, str | None], ...]
+    question_ids: frozenset[str]
+
+
+def previous_draft(
+    specs_root: Path, request: dict, exclude: Path | None = None
+) -> PreviousDraft | None:
+    """The newest previous exchange for this same request, read leniently, or
+    None. "Same request" is the user message — the document and the file
+    listing — never the ceiling, so a retry with a raised ceiling is still a
+    redraft of the same document. Records only; refuses nothing."""
+    try:
+        asked = request["messages"][1]["content"]
+    except (KeyError, IndexError, TypeError):
+        return None
+    for exchange in _exchanges_newest_first(specs_root):
+        if exclude is not None and exchange == exclude:
+            continue
+        try:
+            previous = json.loads(
+                (exchange / REQUEST_FILENAME).read_text(encoding="utf-8")
+            )
+            if previous["messages"][1]["content"] != asked:
+                continue
+            reply = json.loads(
+                (exchange / RESPONSE_FILENAME).read_text(encoding="utf-8")
+            )
+            content = reply["choices"][0]["message"]["content"]
+            drafted = json.loads(_strip_fences(str(content)))
+            criteria = drafted.get("criteria")
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+            continue
+        if not isinstance(criteria, list):
+            continue
+        rows = tuple(
+            (
+                str(c.get("id") or ""),
+                str(c.get("title") or ""),
+                c.get("human") is True,
+                (
+                    _normalise_quote(c["source"])
+                    if isinstance(c.get("source"), str)
+                    else None
+                ),
+            )
+            for c in criteria
+            if isinstance(c, dict) and c.get("id")
+        )
+        questions = frozenset(
+            str(q.get("id"))
+            for q in (drafted.get("open_questions") or [])
+            if isinstance(q, dict) and q.get("id")
+        )
+        return PreviousDraft(criteria=rows, question_ids=questions)
+    return None
+
+
 def previous_human_criteria(
     specs_root: Path, request: dict, exclude: Path | None = None
 ) -> tuple[tuple[str, str], ...]:
@@ -1887,6 +1956,8 @@ def parse_response(
     declared: Any = (),
     files: Any = (),
     previous_human: tuple[tuple[str, str], ...] = (),
+    previous: PreviousDraft | None = None,
+    answered_since: frozenset[str] = frozenset(),
 ) -> Draft:
     """Turn a model reply into a validated spec and its proposed gates, or
     refuse the whole reply.
@@ -2086,6 +2157,50 @@ def parse_response(
         drafted_spec.questions,
         drafted_spec.criteria,
     )
+
+    # **Every requirement of the previous draft, accounted for (0.9.8, SOTA
+    # item 1 slice 2).** 0.9.5 held the COUNT of human criteria; a redraft
+    # could still quietly drop any other requirement and look complete. Each
+    # previous requirement must now be KEPT (same id) or REWORDED (the same
+    # sentence of the document quoted) — or else dropped only on the
+    # person's own answer: if they answered a question the previous draft
+    # asked, the drop is noted for them to check; if they answered nothing,
+    # the drafter dropped it on its own, and that is refused by title. Human
+    # criteria are the count rule's above; this covers the rest. The ledger
+    # is the drafter's own previous words, never the document.
+    #
+    # **No "decided" path, and the first draft had one.** It let an
+    # assumption naming the dropped requirement excuse the drop — and
+    # `parse_assumptions` validates an assumption's `criteria` against THIS
+    # reply's criteria, so a reference to a requirement that is gone is
+    # dropped with a note and the path was unreachable. That is the law
+    # already: an assumption may shape a requirement's wording; it may never
+    # remove one. Measured, then removed.
+    account_notes: list[str] = []
+    if previous is not None:
+        current_ids = {str(getattr(c, "id", "")) for c in drafted_spec.criteria}
+        current_sources = set(sources.values())
+        for pid, ptitle, phuman, psource in previous.criteria:
+            if phuman or pid in current_ids:
+                continue
+            if psource and psource in current_sources:
+                continue
+            if answered_since:
+                account_notes.append(
+                    f"requirement '{ptitle}' from the previous draft is not in "
+                    f"this one; you answered {', '.join(sorted(answered_since))} "
+                    "since, so the drafter may have dropped it on your answer "
+                    "— check the plan before approving"
+                )
+                continue
+            raise SpecError(
+                f"the previous draft of this same document had the requirement "
+                f"'{ptitle}' and this one does not, and nothing has been "
+                "answered since. A redraft may not drop a requirement on its "
+                "own: if it is no longer wanted, that is your answer to give, "
+                "not the drafter's. Nothing was written — drafting again costs "
+                "a fraction of a penny"
+            )
     # A display the drafter proposed for a criterion that is not `human`, or
     # that nobody declared, is DROPPED with a note on this path — the same
     # asymmetry as a duplicate binding: a model's proposal survives with its
@@ -2110,6 +2225,7 @@ def parse_response(
             *dropped,
             *notes,
             *source_notes,
+            *account_notes,
             *show_notes,
             *choice_notes,
             # Informational, and last: a gate already installed by an earlier

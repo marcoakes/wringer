@@ -518,7 +518,9 @@ def _judgement_lines(
 
 
 def requirement_lines(
-    payload: dict[str, Any], judgement_record: dict[str, Any] | None = None
+    payload: dict[str, Any],
+    judgement_record: dict[str, Any] | None = None,
+    sources: dict[str, str] | None = None,
 ) -> list[str]:
     """Every requirement BY TITLE with its state — gaps 2 and 4, closed.
 
@@ -585,8 +587,15 @@ def requirement_lines(
 
         # Only a row that HAS more to say gets more said about it.
         judged = _judgement_lines(row, _judgement_entry_for(row, judgement_record))
-        if judged or (means and means not in marker):
+        # **Where it came from, in the person's own words (0.9.8).** The
+        # sentence the drafter quoted and the engine found in the document —
+        # rendered here and in the merge request through this one function,
+        # so the two cannot describe a requirement's origin differently.
+        origin = (sources or {}).get(str(row.get("id") or ""))
+        if judged or origin or (means and means not in marker):
             detail += ["", f"**{title}**"]
+            if origin:
+                detail += ["", f'From your document: "{origin}"']
             if means and means not in marker:
                 detail += ["", means]
             detail += judged
@@ -603,6 +612,7 @@ def render(
     broken: dict[str, Any] | None = None,
     judgement_record: dict[str, Any] | None = None,
     states: dict[str, bool | None] | None = None,
+    sources: dict[str, str] | None = None,
 ) -> str:
     """`certificate.md` — the face, from the record and its siblings.
 
@@ -661,7 +671,7 @@ def render(
             one if one.startswith("  -") else f"- {one}" for one in said
         ]
     lines += ["", "## Every requirement"]
-    lines += requirement_lines(payload, judgement_record)
+    lines += requirement_lines(payload, judgement_record, sources)
 
     # **Two groups, and the plain one leads.** The record's own ceiling
     # sentences are carried VERBATIM — they are the engine's careful words

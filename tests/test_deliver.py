@@ -3141,3 +3141,39 @@ def test_AUDIT_RECORDS_A_FAILING_VERDICT_TOO_not_only_a_passing_one(
         "the audit refused on the console and recorded a pass — the record "
         "and the verdict disagree"
     )
+
+
+# --- 0.9.8: the certificate and the merge request quote the source --------
+
+
+def test_THE_CERTIFICATE_AND_MR_say_where_a_requirement_came_from(
+    delivery_repo, monkeypatch, capsys
+):
+    """Through the one `requirement_lines` renderer both faces quote, so the
+    two cannot describe a requirement's origin differently. The sidecar is
+    hand-written here: a person may write it and everything downstream is
+    identical, and a hand-written record is a real input, not a fabricated
+    engine output."""
+    from wringer import certificate, spec
+
+    accepting_repo(delivery_repo, bound=False)
+    # BEFORE the verify: the sidecar is a file in the tree, and a delivery
+    # refuses a tree that moved since the run verified it — correctly. The
+    # first draft of this test wrote it after, and deliver said "changed
+    # since: wringer.sources.yaml".
+    (delivery_repo / spec.SOURCES_FILENAME).write_text(
+        f"schema_version: {spec.SOURCES_SCHEMA_VERSION}\n"
+        "sources:\n"
+        "  csv-downloads: The report page needs a CSV download.\n",
+        encoding="utf-8",
+    )
+    verified(delivery_repo, monkeypatch, capsys)
+    assert cli.main(["deliver"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    delivered = _delivered(delivery_repo)
+    face = (delivered / certificate.FACE_FILENAME).read_text(encoding="utf-8")
+    mr = (delivered / deliver.MR_FILENAME).read_text(encoding="utf-8")
+    line = 'From your document: "The report page needs a CSV download."'
+    assert line in face, "the certificate does not say where the requirement came from"
+    assert line in mr, "the merge request does not say where the requirement came from"

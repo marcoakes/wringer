@@ -294,6 +294,9 @@ class Plan:
     # sibling that travels beside the certificate rather than a key
     # inside it, for the same reason.
     falsification: dict[str, Any] | None = None
+    # Where each requirement came from — the spec's sources sidecar, read at
+    # plan time and quoted on both faces (0.9.8). LAST, with a default.
+    sources: dict[str, str] = field(default_factory=dict)
 
 
 def _relative_to_root(path: Path, root: Path) -> str:
@@ -1200,8 +1203,18 @@ def plan(
     patch = (git.diff(root, state.head_sha) or "") + git.diff_untracked(
         root, untracked
     )
+    # The quoted sources, leniently: a delivery never fails over the sidecar
+    # that says where a requirement came from. Absent is absent.
+    spec_module = _spec_module()
+    try:
+        sources = spec_module.load_sources(
+            root, spec_module.load(root / spec_module.SPEC_FILENAME).criteria
+        )
+    except Exception:  # noqa: BLE001
+        sources = {}
     mr = _mr_body(
-        run_dir, root, state, len(carried), built, board, branch, settings.remote
+        run_dir, root, state, len(carried), built, board, branch, settings.remote,
+        sources,
     )
     # **One story or nothing ships** (0.6.2, run 3 F13) — after every
     # carried surface exists and before anything is written or pushed.
@@ -1233,6 +1246,7 @@ def plan(
         coverage=measured,
         falsification=broken,
         judgement_record=judged_record,
+        sources=sources,
         run_summary=run_summary,
         receipts=receipts,
         commands=(
@@ -1552,6 +1566,7 @@ def _mr_body(
     board: str | None = None,
     branch: str | None = None,
     remote: str | None = None,
+    sources: dict[str, str] | None = None,
 ) -> str:
     """The receipts, which is what the OKR actually promises.
 
@@ -1623,7 +1638,7 @@ def _mr_body(
     if built is not None:
         lines += ["", "## Every requirement"]
         lines += certificate.requirement_lines(
-            built, accept.read_judgement_record(run_dir)
+            built, accept.read_judgement_record(run_dir), sources
         )
 
     verdict = _verdict(root, run_dir)
@@ -1856,6 +1871,7 @@ class Bundle:
                         planned.coverage,
                         planned.falsification,
                         planned.judgement_record,
+                        sources=planned.sources,
                     )
                 ),
                 encoding="utf-8",
