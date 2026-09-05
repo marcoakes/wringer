@@ -3602,3 +3602,113 @@ def test_RUN_5_the_obligation_set_is_the_drafters_own_words_never_the_PRD(
     assert spec.previous_human_criteria(specs, request) == (), (
         "a previous exchange for a DIFFERENT request bound this one"
     )
+
+
+# --- 0.9.6, SOTA item 4: the no-progress spending guard ---------------------
+
+
+def _exchanges(repo: Path) -> list[Path]:
+    return sorted((repo / spec.SPECS_DIRNAME).iterdir())
+
+
+def test_ITEM_4_an_identical_request_whose_reply_was_cut_off_is_NOT_SENT_AGAIN(
+    repo, monkeypatch, capsys
+):
+    """**Run 5's second paid call, refused before the socket opens.** The
+    documented resume sent the same request with the same ceiling and paid
+    the same again to be cut off in the same place. The guard compares the
+    scrubbed request that is on disk; the same bytes with a `length` reply
+    behind them is a repeat of a known failure, and it costs nothing to say
+    so."""
+    from wringer import diagnose
+
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+    first = _exchanges(repo)[-1].name
+
+    sent = fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+
+    assert not sent, "the request was sent again — the guard spent the money"
+    assert "refusing to spend" in said
+    assert first in said, "the refusal does not name the exchange it repeats"
+    assert "Nothing has changed" in said
+    assert diagnose.RESUME_COMMAND in said
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+    # The refused exchange is the one WITHOUT a reply — told apart by
+    # content, because two exchanges in one second sort by a random suffix.
+    refused = next(
+        e for e in _exchanges(repo) if not (e / spec.RESPONSE_FILENAME).exists()
+    )
+    summary = (refused / spec.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert "Why: this exact request" in summary
+    assert first in summary
+
+
+def test_ITEM_4_a_RAISED_CEILING_is_a_changed_request_and_is_sent(
+    repo, monkeypatch, capsys
+):
+    """The control, and the whole point of comparing bytes rather than
+    documents: raising `max_output_tokens` changes the request, which is
+    exactly the change that makes a retry worth paying for."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    (repo / ".wringer.yaml").write_text(
+        CONFIG + "  max_output_tokens: 32000\n", encoding="utf-8"
+    )
+    sent = fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    assert sent, "a changed request was refused as a repeat"
+    assert sent["request"]["max_tokens"] == 32000
+    assert (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_ITEM_4_the_guards_OWN_refusal_does_not_hide_the_cut_off_it_refused_over(
+    repo, monkeypatch, capsys
+):
+    """A refused-before-send exchange has a request and no reply. Walking
+    newest-first and stopping at it would find no `length` and let the third
+    attempt spend. An exchange with no reply is skipped, so the cut-off
+    behind it still decides."""
+    import os
+
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+    # **Told apart by CONTENT, never by name order.** Two exchanges in one
+    # second sort by a random suffix, so "the first is the cut-off one" was
+    # a coin flip — the very defect the guard's walk had, one level up in
+    # its own test. The cut-off exchange is the one with a reply on disk.
+    both = _exchanges(repo)
+    assert len(both) == 2
+    cut_off = next(e for e in both if (e / spec.RESPONSE_FILENAME).exists())
+    refused = next(e for e in both if e != cut_off)
+    assert not (refused / spec.RESPONSE_FILENAME).exists(), "the premise"
+
+    # **The order is STAMPED, because two exchanges in one second are
+    # otherwise ordered by a random suffix — and this watch was vacuous
+    # until it was.** The refused exchange must be the newer one, so the
+    # walk meets it first and the no-reply skip is what this exercises.
+    os.utime(cut_off, (1_000_000, 1_000_000))
+    os.utime(refused, (2_000_000, 2_000_000))
+
+    sent = fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+    assert not sent, "the guard's own refusal hid the cut-off behind it"
+    assert len(_exchanges(repo)) == 3

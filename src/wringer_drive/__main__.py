@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
         # long build stalls `.gitignore` has been appended to and
         # `.wringer.yaml` has had the gate diff applied. "Nothing of yours is
         # touched" was not true at that point.
-        session.emit(
+        interrupted = session.emit(
             steps.Step(
                 kind=steps.STOPPED,
                 id="stopped:interrupted",
@@ -143,10 +143,19 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
         _close_journey(session, "stopped:interrupted")
+        run_module.write_stop(
+            session.repo, session.journey_id, interrupted, session.steps
+        )
         return 4
     except run_module.Stop as stop:
         session.emit(stop.step)
         _close_journey(session, stop.step.id)
+        # **The stop as a record (0.9.6, SOTA item 3)** — written after the
+        # journey's phase is closed, so the record and the phase's outcome
+        # agree about how this ended.
+        run_module.write_stop(
+            session.repo, session.journey_id, stop.step, session.steps
+        )
         # **Which channel the ENDING goes to, and why it differs by mode.**
         #
         # At a terminal, a failure belongs on the error channel: that is what

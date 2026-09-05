@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/schema/stop.schema.json",
+  "title": "wringer.stop.v1",
+  "description": "The stop as a RECORD, written by wringer-drive into the journey's directory at every stop (0.9.6, SOTA item 3). Run 5's stops lived in terminal scrollback and three partial records, and nothing could read them back. Every field is QUOTED from something that already existed: the step's own text and engine words, the resume preface's derivation of what is preserved and whether the next action spends, and the step's next move. Nothing here is composed for the record.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "journey_id",
+    "step_id",
+    "what",
+    "why",
+    "preserved",
+    "next_spends",
+    "next_move",
+    "next_move_from",
+    "recorded_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.stop.v1"
+    },
+    "journey_id": {
+      "description": "The journey this stop ended, and the directory the record lives in.",
+      "type": "string",
+      "minLength": 1
+    },
+    "step_id": {
+      "description": "The drive's own id for the stop \u2014 `stopped:<value>`, or `stopped` for an engine refusal with no named value. What a driver routes on.",
+      "type": "string",
+      "minLength": 1
+    },
+    "what": {
+      "description": "The stop's text, verbatim \u2014 the sentence a person read.",
+      "type": "string",
+      "minLength": 1
+    },
+    "why": {
+      "description": "The engine's own words, verbatim, when the stop carried them; null when it did not. Never a summary.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "preserved": {
+      "description": "What is on disk and survives the stop, in the resume preface's own words \u2014 the same derivation, quoted. Empty when the checkpoint recorded nothing yet.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "next_spends": {
+      "description": "Whether the next thing a resume would do is a PAID call \u2014 a drafting call or a build turn. From the resume preface's derivation, never guessed; null when there is no checkpoint to derive it from.",
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "next_move": {
+      "description": "The command that moves forward, verbatim from the step \u2014 the engine's when it composed one, else the board's sentence for the ending. null when the step carried none: the honest blank, never a sentence invented for the record.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "next_move_from": {
+      "description": "The id of the step `next_move` was quoted from \u2014 the raised step when it carried one, else the most recent earlier stopped step that did (the drive raises `stopped:gates_did_not_pass` after emitting `build:max_iterations`, and it is the build step that carries the command). null when no step carried one.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recorded_at": {
+      "description": "When the record was written, the drive's clock.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

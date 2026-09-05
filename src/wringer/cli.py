@@ -3360,6 +3360,28 @@ def cmd_spec(args: argparse.Namespace) -> int:
     drafted: spec.Spec | None = None
     proposed: tuple[config.Gate, ...] = ()
     if args.send:
+        # **The no-progress spending guard (0.9.6, SOTA item 4).** Run 5's
+        # documented resume sent the same request with the same ceiling and
+        # paid the same again to be cut off in the same place. Compared on
+        # the scrubbed request `write_request` just wrote, so what is
+        # compared is what is on disk.
+        repeated = spec.repeated_cut_off(
+            root / spec.SPECS_DIRNAME,
+            evidence.deep_scrub(redactor, request),
+            exclude=bundle.directory,
+        )
+        if repeated is not None:
+            why = (
+                f"this exact request, with this exact ceiling, was already "
+                f"sent at {repeated} and the reply was cut off for length. "
+                "Nothing has changed, so sending it again would spend the "
+                f"same to be cut off in the same place. {spec.cut_off_next_move()}"
+            )
+            bundle.write_summary(
+                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None, why=why
+            )
+            print(f"wring spec: refusing to spend — {why}", file=sys.stderr)
+            return EXIT_CONFIG
         try:
             body = judge.send(
                 request,
@@ -5338,11 +5360,45 @@ def _explain_journey(journey_dir: Path, journey: dict) -> None:
             print(f"  {name:<{width}}  {cites:<26}  {said}")
             began = phase.get("started_at", "")
             print(f"  {'':<{width}}  {began} -> {ended or 'open'}")
+    # **The stop, read back (0.9.6, SOTA item 3).** A journey that stopped
+    # carries `stop.json`: what happened, why, what is preserved, whether
+    # the next action spends, and the next move — every field quoted from
+    # the step the drive emitted and the resume preface's own derivation.
+    stop = _read_stop(journey_dir)
+    if stop is not None:
+        print(f"\nStopped: {stop.get('what') or '(no words recorded)'}")
+        if stop.get("why"):
+            print(f"Why: {stop['why']}")
+        preserved = stop.get("preserved") or []
+        print(f"Preserved: {'; '.join(preserved) if preserved else 'nothing yet'}")
+        spends = stop.get("next_spends")
+        spends_said = (
+            "yes" if spends is True else "no" if spends is False else "not known here"
+        )
+        print(f"Next step spends money: {spends_said}")
+        print(f"Next: {stop.get('next_move') or 'not known here'}")
     try:
         shown = journey_dir.relative_to(Path.cwd()).as_posix()
     except ValueError:
         shown = journey_dir.as_posix()
     print(f"\nJourney record: {shown}/{evidence.JOURNEY_FILENAME}")
+
+
+def _read_stop(journey_dir: Path) -> dict | None:
+    """`stop.json` in a journey directory, by its own declared version, or
+    None. A record this version cannot read is None rather than a guess."""
+    path = journey_dir / evidence.STOP_FILENAME
+    if not path.is_file():
+        return None
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(recorded, dict):
+        return None
+    if recorded.get("schema_version") != evidence.STOP_SCHEMA_VERSION:
+        return None
+    return recorded
 
 
 def _explain_loop(loop_dir: Path, manifest: dict) -> None:

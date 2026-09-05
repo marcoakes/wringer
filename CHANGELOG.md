@@ -4,6 +4,68 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.6 — 2026-09-05
+
+**The SOTA plan's first release: nothing is paid for twice, and every stop
+is a record.** Items 4 and 3 of the plan, in that order because the guard
+is the cheapest thing that bounds everything after it.
+
+**An identical request whose reply was already cut off is not sent
+again.** Run 5's documented resume sent the same request with the same
+ceiling and paid the same again to be cut off in the same place; nothing
+had changed and nothing checked. Before a drafting call, the scrubbed
+request about to be sent is compared — byte for byte, document, file
+listing, model and ceiling — with every exchange on disk. If the newest
+identical exchange that has a reply was cut off for length, the call is
+refused, naming that exchange, and the stop ends in the same sentence the
+cut-off itself ends in: raise the ceiling, then resume. Raising the
+ceiling changes the bytes, which is exactly the change that makes a retry
+worth paying for. An identical exchange with no reply — a transport
+failure, or a refusal by this very guard — is skipped, so one refusal
+cannot hide the cut-off it refused over.
+
+It asserts only what is on disk: the same bytes were sent and the vendor
+said `length`. It predicts nothing about a different request, and it never
+picks a smaller response on the operator's behalf — that is a design
+choice a person should see, and it is item 2's.
+
+**Every stop writes `stop.json`** into the journey's directory —
+`wringer.stop.v1`, frozen at birth. What happened, why, what is preserved,
+whether the next action spends money, and the next move. Every field is
+quoted from something that already existed: the step's own text and
+engine words; *preserved* and *next spends* from the resume preface's
+derivation, which is now one function (`resume_lines`) the preface and the
+record share rather than two that could disagree; the next move from the
+step. `wring explain <journey dir>` reads it back after the phases.
+
+**And the first draft of that writer was wrong, by measurement.** It
+recorded the raised step's next move — and the drive raises
+`stopped:gates_did_not_pass` *after* emitting `build:max_iterations`, and
+it is the build step that carries *"raise `run.max_iterations` … then:
+`wringer-drive resume`"*. The record said `null` under a console that had
+just printed a command. It now carries the last next move the console
+printed for the run and names the step it was quoted from
+(`next_move_from`), so a reader can see that the sentence is the build
+step's. Still never composed: `null` when no step carried one.
+
+Before the journey exists there is no directory for the record, and the
+stops that can happen then recur identically on the next run; nothing is
+written and nothing is raised.
+
+**A red-watch found a coin flip.** The guard walked exchanges "newest
+first" by name, and exchange ids tie to the second with a random suffix —
+so which of two exchanges in one second was "newest" was luck, and the
+watch over the no-reply skip passed with the skip gutted. The same defect
+as AC-03's run ids, one directory over, with the same answer
+`evidence.latest_run` gives: the filesystem's clock first, the name only to
+break a tie. 0.9.5's redraft invariant walked the same way and is fixed
+with it.
+
+Eight red-watches, each reverting one thing alone, all red — one vacuous
+first pass, for that reason.
+
+Schema versions: `wringer.stop.v1` is new.
+
 ## 0.9.5 — 2026-09-05
 
 **Run 5's first blind attempt at 0.9.4 ended on the first paid call, and

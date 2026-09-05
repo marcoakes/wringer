@@ -101,6 +101,9 @@ EXCLUDED = {
     "worker-diagnosis-v2.schema.json": "superseded by v3; kept for old bundles",
     # Person-authored INPUT formats. There is no writer to derive from —
     # a human writes these, and the schema is the contract they are held to.
+    "stop.schema.json": "an inline-dict writer (wringer_drive.run.write_stop) "
+    "beside the step it quotes; the REAL written file is jsonschema-validated "
+    "in tests/journey/test_stop_record.py (0.9.6, SOTA item 3)",
     "next-move.schema.json": "an inline-dict writer (loop._write_next_move) "
     "beside the diagnosis it quotes; the REAL written file is "
     "jsonschema-validated in tests/test_worker_contract.py (0.7.1, the "

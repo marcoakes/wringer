@@ -1670,6 +1670,80 @@ def _drop_unknown_reply_keys(drafted: dict) -> tuple[dict, tuple[str, ...]]:
     return cleaned, tuple(notes)
 
 
+def _exchanges_newest_first(specs_root: Path) -> list[Path]:
+    """Every exchange directory, newest first — by modification time, then
+    by name.
+
+    **By name alone was a coin flip, found by a red-watch on 2026-09-05.**
+    Exchange ids are `YYYYMMDD-HHMMSS-xxxx`, and two exchanges in one second
+    are ordered by their random suffix — so "the newest identical request"
+    was sometimes the older one, and a guard over the newer one passed with
+    its walk gutted, by luck. The same defect as AC-03's run ids, one
+    directory over, and the same answer `evidence.latest_run` gives: the
+    filesystem's clock first, the name only to break a tie.
+    """
+    if not specs_root.is_dir():
+        return []
+    found = [path for path in specs_root.iterdir() if path.is_dir()]
+    return sorted(found, key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+
+
+def cut_off_next_move() -> str:
+    """The move after a reply cut off for length — ONE sentence, quoted by the
+    parse refusal and by the no-progress guard, so the two cannot drift."""
+    from wringer import diagnose
+
+    return (
+        f"Raise `judge.max_output_tokens` in {config.CONFIG_FILENAME} above "
+        f"what it is now, then: {diagnose.RESUME_COMMAND}"
+    )
+
+
+def repeated_cut_off(
+    specs_root: Path, sent: dict, exclude: Path | None = None
+) -> str | None:
+    """The exchange id of an identical request whose reply was already cut
+    off for length, or None. **The no-progress spending guard (0.9.6, SOTA
+    item 4).**
+
+    Run 5, 2026-09-05: the first drafting call was cut off at the ceiling;
+    the documented resume then sent the SAME request with the SAME ceiling
+    and paid the same again to be cut off in the same place. Nothing had
+    changed, and nothing checked.
+
+    "Identical" is the whole scrubbed request — document, file listing,
+    model, ceiling. Raising `max_tokens` changes the bytes, which is exactly
+    the change that makes a retry worth paying for. The newest identical
+    exchange that HAS a reply decides: cut off → refuse; anything else → not
+    a repeat of a known failure. An identical exchange with no reply (a
+    transport failure, or a refusal by this very guard) is skipped, so one
+    refusal cannot hide the cut-off it refused over.
+
+    Asserts only what is on disk: the same bytes were sent, and the vendor
+    said `length`. It predicts nothing about a different request.
+    """
+    for exchange in _exchanges_newest_first(specs_root):
+        if exclude is not None and exchange == exclude:
+            continue
+        try:
+            previous = json.loads(
+                (exchange / REQUEST_FILENAME).read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            continue
+        if previous != sent:
+            continue
+        try:
+            reply = json.loads(
+                (exchange / RESPONSE_FILENAME).read_text(encoding="utf-8")
+            )
+            finish = reply["choices"][0].get("finish_reason")
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+            continue
+        return exchange.name if finish == "length" else None
+    return None
+
+
 def previous_human_criteria(
     specs_root: Path, request: dict, exclude: Path | None = None
 ) -> tuple[tuple[str, str], ...]:
@@ -1705,9 +1779,7 @@ def previous_human_criteria(
         asked = request["messages"][1]["content"]
     except (KeyError, IndexError, TypeError):
         return ()
-    if not specs_root.is_dir():
-        return ()
-    for exchange in sorted(specs_root.iterdir(), reverse=True):
+    for exchange in _exchanges_newest_first(specs_root):
         if exclude is not None and exchange == exclude:
             continue
         try:
@@ -1774,8 +1846,6 @@ def parse_response(
     # ceiling — a reply that stops at N tokens with reason `length` hit a
     # ceiling of N. Nothing here guesses how much room it needed.
     if isinstance(choice, dict) and choice.get("finish_reason") == "length":
-        from wringer import diagnose
-
         usage = body.get("usage") if isinstance(body, dict) else None
         spent = usage.get("completion_tokens") if isinstance(usage, dict) else None
         at = f" at {spent:,} tokens" if isinstance(spent, int) else ""
@@ -1783,9 +1853,7 @@ def parse_response(
             f"the reply was CUT OFF{at} — the endpoint stopped it for length, "
             "mid-document, so it is not malformed, it is unfinished, and "
             "sending the same request again will spend the same amount to be "
-            "cut off in the same place. Raise `judge.max_output_tokens` in "
-            f"{config.CONFIG_FILENAME} above what it is now, then: "
-            f"{diagnose.RESUME_COMMAND}"
+            f"cut off in the same place. {cut_off_next_move()}"
         )
 
     try:

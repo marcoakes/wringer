@@ -1459,21 +1459,18 @@ def spec_changed_step() -> Step:
     )
 
 
-def resume_preface(facts: ResumeFacts) -> Step:
-    """ONE step, three labelled lines, every item read off the record.
+def resume_lines(facts: ResumeFacts) -> tuple[list[str], list[str], str, bool]:
+    """`(preserved, reused, spend, spends)` — the resume preface's three lines
+    as data, plus whether the next paid thing IS a paid thing.
 
-    *Preserved* is what is on disk. *Reused* is what this run will not ask
-    for or pay for again, derived from the PHASE — a plan is "not re-approved"
-    only when the approve phase completed, so a run killed at the approval is
-    told the approval is coming. *Will spend* is the next paid thing, and it
-    is never a drafting call while a spec exists.
+    **Extracted, not copied (0.9.6, SOTA item 3).** The stop record needs
+    "what was preserved" and "whether the next action spends", and those
+    are exactly what the preface already derives. A second derivation for
+    the record is how the record and the preface come to disagree about
+    the same run.
     """
     from wringer import spec
 
-    where = (
-        stopped_where(facts.phase, facts.last_question)
-        or "before the record named a step"
-    )
     past = {
         phase: facts.phase is not None and PHASES.index(facts.phase) > PHASES.index(phase)
         for phase in PHASES
@@ -1512,8 +1509,10 @@ def resume_preface(facts: ResumeFacts) -> Step:
         spend = "one drafting call to the model endpoint, which reads your document"
         if facts.max_iterations is not None:
             spend += f", then the build (up to {facts.max_iterations} attempt(s))"
+        spends = True
     elif past["build"]:
         spend = "nothing paid — the handover is what remains, and it asks first"
+        spends = False
     else:
         attempts = (
             f"up to {facts.max_iterations} attempt(s)"
@@ -1521,6 +1520,94 @@ def resume_preface(facts: ResumeFacts) -> Step:
             else "as many attempts as the project allows"
         )
         spend = f"the build: your coding agent's turns, {attempts}; no drafting"
+        spends = True
+    return preserved, reused, spend, spends
+
+
+def write_stop(
+    repo: Path,
+    journey_id: str | None,
+    step: Step,
+    earlier: list[Step] | tuple[Step, ...] = (),
+) -> Path | None:
+    """`stop.json` in the journey's directory — the stop as a RECORD.
+
+    **Every stop a first-class product object (0.9.6, SOTA item 3).** Run
+    5's stops lived in terminal scrollback and three different partial
+    records; `wring explain` could read none of them back. This writes one
+    shape at every `Stop`, and every field is quoted: `what` and `why` are
+    the step's own text and engine words; `preserved` and `next_spends` are
+    the resume preface's derivation, through `resume_lines`.
+
+    **`next_move` is the last one the console printed for this run, and
+    `next_move_from` names the step it was quoted from — measured, not
+    assumed.** The drive raises `stopped:gates_did_not_pass` AFTER emitting
+    `build:max_iterations`, and it is the build step that carries *"raise
+    `run.max_iterations` … then: wringer-drive resume"*. The raised step has
+    none. Recording only the raised step's field wrote `null` under a
+    console that had just printed a command — the first draft of this did
+    exactly that. So the raised step's move is taken when it has one, else
+    the most recent earlier STOPPED step's; `null` only when no step carried
+    one. Never a sentence composed here.
+
+    Before the journey exists there is no directory for it to live in, and
+    the stops that can happen then (`stopped:no-prd`, `stopped:not-a-repo`)
+    recur identically on the next `run`, so None is returned and nothing is
+    written. A write failure is swallowed: the stop is already on the
+    console, and a record that fails must not turn one stop into two.
+    """
+    from wringer import evidence
+    from wringer_drive import journey
+
+    if journey_id is None:
+        return None
+    facts = resume_facts(repo)
+    if facts is not None:
+        preserved, _, _, spends = resume_lines(facts)
+    else:
+        preserved, spends = [], None
+    moved_from: Step | None = step if step.next_move else None
+    if moved_from is None:
+        moved_from = next(
+            (s for s in reversed(list(earlier)) if s.kind == STOPPED and s.next_move),
+            None,
+        )
+    record = {
+        "schema_version": evidence.STOP_SCHEMA_VERSION,
+        "journey_id": journey_id,
+        "step_id": step.id,
+        "what": step.text,
+        "why": step.engine_words,
+        "preserved": preserved,
+        "next_spends": spends,
+        "next_move": moved_from.next_move if moved_from else None,
+        "next_move_from": moved_from.id if moved_from else None,
+        "recorded_at": evidence.timestamp(),
+    }
+    path = journey.journeys_root(repo) / journey_id / evidence.STOP_FILENAME
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return None
+    return path
+
+
+def resume_preface(facts: ResumeFacts) -> Step:
+    """ONE step, three labelled lines, every item read off the record.
+
+    *Preserved* is what is on disk. *Reused* is what this run will not ask
+    for or pay for again, derived from the PHASE — a plan is "not re-approved"
+    only when the approve phase completed, so a run killed at the approval is
+    told the approval is coming. *Will spend* is the next paid thing, and it
+    is never a drafting call while a spec exists. The three lists come from
+    `resume_lines`, the one derivation the stop record shares.
+    """
+    where = (
+        stopped_where(facts.phase, facts.last_question)
+        or "before the record named a step"
+    )
+    preserved, reused, spend, _ = resume_lines(facts)
 
     text = (
         f"This project has a run that stopped {where}, and this continues it "
