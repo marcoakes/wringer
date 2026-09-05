@@ -279,12 +279,15 @@ DECLARED_DEFAULTS = {
     # forbids it structurally — so this names where the
     # ENGINE should look and nothing more.
     "api_key_env": "WRINGER_API_KEY",
-    # The engine's own default is 1024, which TRUNCATES the
+    # The engine's own default was 1024, which TRUNCATES the
     # reply for any real PRD — measured, twice, against a
-    # live endpoint before this number was written down.
-    # A truncated draft is not a smaller draft: `wring spec`
-    # refuses the whole reply and writes nothing.
-    "max_output_tokens": 8000,
+    # live endpoint before 8000 was written down. Then run 5
+    # (2026-09-05) measured 8000 too tight: the blind phase
+    # ended on a reply cut off at exactly 8,000 tokens, twice,
+    # and the accepted draft was 7,398. A truncated draft is
+    # not a smaller draft: `wring spec` refuses the whole reply
+    # and writes nothing. This agrees with the engine's default.
+    "max_output_tokens": 16000,
     # The engine's own default is 120 seconds, and a real
     # PRD's drafting call does not reliably fit in it —
     # measured on 2026-08-19, three drives of one document

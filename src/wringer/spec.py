@@ -1670,8 +1670,76 @@ def _drop_unknown_reply_keys(drafted: dict) -> tuple[dict, tuple[str, ...]]:
     return cleaned, tuple(notes)
 
 
+def previous_human_criteria(
+    specs_root: Path, request: dict, exclude: Path | None = None
+) -> tuple[tuple[str, str], ...]:
+    """What the drafter's OWN previous answer to this same question said a
+    person had to judge — `(id, title)` per `human: true` criterion — or
+    nothing at all.
+
+    **Run 5, 2026-09-05: the drafter routed around a refusal by deleting the
+    criterion it was refused on.** Draft 3 declared "A reader can tell at a
+    glance which single thing to go and fix" as `human: true`; an assumption
+    then decided it, and `parse_assumptions` correctly refused — only a
+    person settles a `human` criterion. Draft 4, same document, same request,
+    carried no `human` criterion at all. It passed every check, reached the
+    interview, and the one judgement the document reserved for a person had
+    become no requirement whatsoever.
+
+    This is the obligation set for the next draft, and it is deliberately
+    NOT derived from the PRD — that would be this package deciding what a
+    document requires, which is the "never invent a requirement" law from
+    the other side. It is the drafter's own previous words, on the same
+    request, and nothing more.
+
+    **"The same request" is checked, not assumed.** The user message carries
+    the document and the file listing; a previous exchange whose user
+    message differs was answering a different question, and its judgements
+    do not bind this one. A person who edits the PRD to remove the need for
+    a judgement is not held to a draft of the old text.
+
+    Lenient throughout: an exchange with no reply, an unparseable reply, or
+    no `criteria` contributes nothing. This reads records; it never refuses.
+    """
+    try:
+        asked = request["messages"][1]["content"]
+    except (KeyError, IndexError, TypeError):
+        return ()
+    if not specs_root.is_dir():
+        return ()
+    for exchange in sorted(specs_root.iterdir(), reverse=True):
+        if exclude is not None and exchange == exclude:
+            continue
+        try:
+            previous = json.loads(
+                (exchange / REQUEST_FILENAME).read_text(encoding="utf-8")
+            )
+            if previous["messages"][1]["content"] != asked:
+                continue
+            reply = json.loads(
+                (exchange / RESPONSE_FILENAME).read_text(encoding="utf-8")
+            )
+            content = reply["choices"][0]["message"]["content"]
+            drafted = json.loads(_strip_fences(str(content)))
+            criteria = drafted.get("criteria")
+        except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+            continue
+        if not isinstance(criteria, list):
+            continue
+        return tuple(
+            (str(c.get("id") or ""), str(c.get("title") or ""))
+            for c in criteria
+            if isinstance(c, dict) and c.get("human") is True
+        )
+    return ()
+
+
 def parse_response(
-    body: Any, prd: str, declared: Any = (), files: Any = ()
+    body: Any,
+    prd: str,
+    declared: Any = (),
+    files: Any = (),
+    previous_human: tuple[tuple[str, str], ...] = (),
 ) -> Draft:
     """Turn a model reply into a validated spec and its proposed gates, or
     refuse the whole reply.
@@ -1684,12 +1752,42 @@ def parse_response(
     set it.
     """
     try:
-        content = body["choices"][0]["message"]["content"]
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
     except (KeyError, IndexError, TypeError):
         raise SpecError(
             "the reply had no message content — nothing was drafted, and "
             "nothing was written"
         ) from None
+
+    # **A reply cut off at the ceiling is named as such, BEFORE it is parsed
+    # — run 5, 2026-09-05.** The blind phase ended here: the reply stopped at
+    # exactly 8,000 completion tokens with `finish_reason: length`, inside a
+    # string, and this function said only "not the JSON object the request
+    # asked for". True, and useless — the operator ran the documented resume,
+    # which made a second paid call that failed identically, because nothing
+    # had told them the reply was CUT OFF rather than malformed, or what to
+    # change so the next one is not. Every stop carries a next move that is
+    # a command; this one had none.
+    #
+    # The vendor's own word for it is the fact, and the count beside it is the
+    # ceiling — a reply that stops at N tokens with reason `length` hit a
+    # ceiling of N. Nothing here guesses how much room it needed.
+    if isinstance(choice, dict) and choice.get("finish_reason") == "length":
+        from wringer import diagnose
+
+        usage = body.get("usage") if isinstance(body, dict) else None
+        spent = usage.get("completion_tokens") if isinstance(usage, dict) else None
+        at = f" at {spent:,} tokens" if isinstance(spent, int) else ""
+        raise SpecError(
+            f"the reply was CUT OFF{at} — the endpoint stopped it for length, "
+            "mid-document, so it is not malformed, it is unfinished, and "
+            "sending the same request again will spend the same amount to be "
+            "cut off in the same place. Raise `judge.max_output_tokens` in "
+            f"{config.CONFIG_FILENAME} above what it is now, then: "
+            f"{diagnose.RESUME_COMMAND}"
+        )
+
     try:
         drafted = json.loads(_strip_fences(str(content)))
     except (ValueError, json.JSONDecodeError) as exc:
@@ -1757,6 +1855,32 @@ def parse_response(
         },
         "the drafted spec",
     )
+    # **A redraft may not decide that FEWER things need a person than the
+    # draft it replaces** (run 5, 2026-09-05). The obligation set is the
+    # drafter's own previous reply to this same request — see
+    # `previous_human_criteria` — and this is the one place the drafter's
+    # judgement is held to its own earlier judgement. Dropping the criterion
+    # is exactly how the last refusal was routed around: the assumption that
+    # decided a `human` criterion was refused, and the next draft simply had
+    # no such criterion to decide. Counted, not matched by id — ids are the
+    # drafter's and change between drafts — and the previous titles are
+    # named so a person can see which judgement went missing.
+    judged_now = sum(
+        1 for criterion in drafted_spec.criteria if getattr(criterion, "human", False)
+    )
+    if previous_human and judged_now < len(previous_human):
+        gone = "; ".join(f"'{title}'" for _, title in previous_human if title)
+        raise SpecError(
+            f"the previous draft of this same document judged that "
+            f"{len(previous_human)} requirement(s) needed a person to settle "
+            f"them — {gone} — and this draft judges that {judged_now} do. A "
+            "redraft may not decide that fewer things need a person than the "
+            "draft it replaces: that is the one judgement no draft may make on "
+            "a person's behalf, and leaving the criterion out is how the last "
+            "refusal was got around. Nothing was written — drafting again "
+            "costs a fraction of a penny"
+        )
+
     # **The question cap, checked HERE and deliberately not earlier.**
     # `drafted_spec.questions` are validated `Question` objects, so `required`
     # is a real bool and every message `_parse_questions` exists to give has
@@ -3242,7 +3366,13 @@ class Bundle:
         return path
 
     def write_summary(
-        self, mode: str, prd: str, endpoint: str, model: str, drafted: Spec | None
+        self,
+        mode: str,
+        prd: str,
+        endpoint: str,
+        model: str,
+        drafted: Spec | None,
+        why: str | None = None,
     ) -> Path:
         lines = [
             f"# wring spec — {self.spec_id}",
@@ -3262,14 +3392,23 @@ class Bundle:
         elif drafted is None:
             # A live run that produced nothing is NOT a dry run, and a summary
             # that said so would be a false claim in an evidence artifact.
+            #
+            # **The cause travels with the record (run 5, 2026-09-05).** This
+            # said "The error is on the console" — and the console is the one
+            # place a stop cannot be read back from. `wring explain` on this
+            # directory then had nothing to say, and the field report had to
+            # reconstruct the failure from `response.json` by hand.
             lines += [
                 "",
                 "**Nothing was drafted, and no spec file was written.** The "
                 "request was sent and the exchange did not produce a usable "
                 f"`{SCHEMA_VERSION}` document — see `{REQUEST_FILENAME}` and, "
-                f"if a reply arrived at all, `{RESPONSE_FILENAME}`. The error "
-                "is on the console.",
+                f"if a reply arrived at all, `{RESPONSE_FILENAME}`.",
             ]
+            if why:
+                lines += ["", f"Why: {why}"]
+            else:
+                lines += ["", "The error is on the console."]
         else:
             lines += [
                 f"- drafted: `{SPEC_FILENAME}` — **approved: false**",

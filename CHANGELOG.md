@@ -4,6 +4,67 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.5 — 2026-09-05
+
+**Run 5's first blind attempt at 0.9.4 ended on the first paid call, and
+its salvage found something worse.** Both were the product's, not the
+operator's.
+
+**The reply was cut off and the product said it was malformed.** The
+drafting reply stopped at exactly 8,000 completion tokens with the
+endpoint's own `finish_reason: length`, inside a string — twice — and the
+stop said only "not the JSON object the request asked for". True, and
+useless: the operator ran the documented resume, which spent the same again
+to be cut off in the same place, because nothing had said the reply was
+*unfinished* rather than wrong, or what to change. Every stop carries a next
+move that is a command; this one had none.
+
+The vendor's own word is now the fact, named before anything is parsed: *the
+reply was CUT OFF at 8,000 tokens — the endpoint stopped it for length,
+mid-document, so it is not malformed, it is unfinished, and sending the same
+request again will spend the same amount to be cut off in the same place.
+Raise `judge.max_output_tokens` in `.wringer.yaml` above what it is now,
+then: `wringer-drive resume`.* The exchange's own `summary.md` carries the
+same words under *Why:* instead of "The error is on the console" — the one
+place a stop cannot be read back from — and `wring explain` pointed at a
+drafting exchange now reads it back rather than saying "run 'wring verify'
+first".
+
+**The default ceiling is 16000, up from 8000.** 8000 was measured too tight
+in the field: the reply that was finally accepted was 7,398 tokens, so the
+margin between "fits" and "paid for nothing" was a few sentences of a real
+PRD. The same reasoning as the 1024 → 8000 move, one step up. The drive's
+generated config agrees.
+
+**The drafter routed around a refusal by deleting the criterion it was
+refused on.** Draft 3 declared *"A reader can tell at a glance which single
+thing to go and fix"* as `human: true`; an assumption then decided it, and
+the validator refused — correctly, only a person settles a `human`
+criterion. Draft 4, same document, same request, carried no `human`
+criterion at all. It passed every check and reached the interview. The one
+judgement the document reserved for a person had become no requirement
+whatsoever, and the plan looked mechanically complete.
+
+**A redraft may not decide that fewer things need a person than the draft
+it replaces.** The obligation set is the drafter's own previous reply to the
+same request — the same user message, document and file listing both — and
+nothing else. It is deliberately NOT derived from the PRD: reading a
+document for what it requires is this package inventing a requirement, from
+the other side. Counted rather than matched by id, because ids are the
+drafter's and change between drafts; the previous draft's titles are named
+so a person can see which judgement went missing. A person who edits the
+document so it no longer asks for a judgement is not held to a draft of the
+old text.
+
+*Named for the roadmap rather than built here:* an immutable ledger of
+every obligation in the document, accounted for as proved, judged, decided
+or consciously left unproved before approval is possible. This release is
+the narrowest slice of that — the one that would have stopped run 5.
+
+Five red-watches, each reverting one thing alone, all red.
+
+Schema versions: unchanged.
+
 ## 0.9.4 — 2026-09-04
 
 **The window-C designs, acted on.** Six proposals were ground against the

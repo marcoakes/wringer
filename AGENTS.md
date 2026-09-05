@@ -96,7 +96,7 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.9.4 shipped; unreleased work on `main`
+## Current state — v0.9.5 shipped; unreleased work on `main`
 
 **`v0.1.0` through `v0.4.7` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
@@ -342,12 +342,12 @@ that reached `main` announced `0.8.11` while carrying `0.9.0` — neither
 taggable, nothing published.
 
 ```bash
-scripts/release.py 0.9.4 Fifty-three entry.md   # the ceiling: all 8 files or none
+scripts/release.py 0.9.5 Fifty-three entry.md   # the ceiling: all 8 files or none
 ./scripts/gate.sh                                # the bar, ~10 minutes
 git add -A && git commit -F message.txt          # subject MUST name the version
 git push origin main
 #   ...wait here for EVERY CI leg to be green...
-git tag -a v0.9.4 -F tag.txt <the pushed sha> && git push origin v0.9.4
+git tag -a v0.9.5 -F tag.txt <the pushed sha> && git push origin v0.9.5
 ```
 
 Four rules, each with a body count behind it:

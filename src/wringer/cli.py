@@ -3369,7 +3369,8 @@ def cmd_spec(args: argparse.Namespace) -> int:
             )
         except judge.TransportFailed as exc:
             bundle.write_summary(
-                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None
+                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
+                why=f"the endpoint could not be used: {exc}",
             )
             print(
                 f"wring spec: the endpoint could not be used: {exc}. The "
@@ -3381,11 +3382,23 @@ def cmd_spec(args: argparse.Namespace) -> int:
 
         bundle.write_response(body)
         try:
-            draft = spec.parse_response(body, prd, cfg.gates, tracked)
+            draft = spec.parse_response(
+                body,
+                prd,
+                cfg.gates,
+                tracked,
+                # The drafter's OWN previous answer to this same request, so a
+                # redraft cannot judge that fewer things need a person than
+                # the draft it replaces (run 5, 2026-09-05).
+                previous_human=spec.previous_human_criteria(
+                    root / spec.SPECS_DIRNAME, request, exclude=bundle.directory
+                ),
+            )
             drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:
             bundle.write_summary(
-                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None
+                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
+                why=str(exc),
             )
             print(
                 f"wring spec: {exc}. The reply is on disk at "
@@ -5217,6 +5230,27 @@ def cmd_explain(args: argparse.Namespace) -> int:
             )
             return EXIT_CONFIG
         run_dir = found
+
+    if (run_dir / spec.REQUEST_FILENAME).is_file() and not (
+        run_dir / evidence.MANIFEST_FILENAME
+    ).is_file():
+        # **A DRAFTING EXCHANGE (0.9.5, run 5).** `.wringer/specs/<id>` — a
+        # request, maybe a reply, and a summary. Run 5's operator pointed
+        # this verb at the stop that ended their blind phase and it said
+        # "no runs under .wringer/runs — run 'wring verify' first": true of
+        # a run that never got that far, and no help at all. The summary
+        # carries the cause since 0.9.5, and this reads it back.
+        summary = run_dir / spec.SUMMARY_FILENAME
+        if not summary.is_file():
+            print(
+                f"wring explain: {run_dir.as_posix()} holds a drafting request "
+                f"but no {spec.SUMMARY_FILENAME} — the exchange was cut off "
+                "before anything was recorded about how it ended",
+                file=sys.stderr,
+            )
+            return EXIT_CONFIG
+        print(summary.read_text(encoding="utf-8").rstrip())
+        return EXIT_OK
 
     if (run_dir / evidence.JOURNEY_FILENAME).is_file():
         # **A JOURNEY directory (0.8.7, P1.14).** The drive's record of one

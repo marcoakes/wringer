@@ -3377,3 +3377,228 @@ def test_a_HAND_WRITTEN_choices_file_is_left_alone_by_a_redraft(
 
     assert (repo / spec.CHOICES_FILENAME).read_text(encoding="utf-8") == mine
     assert "written by hand" in flat(capsys.readouterr().err)
+
+
+# --- run 5, 2026-09-05: the two P0s from the first blind attempt at 0.9.4 ---
+
+
+def _cut_off(payload: dict, at: int = 8000) -> dict:
+    """A reply the endpoint stopped for length, the way run 5's arrived: the
+    JSON ends inside a string, `finish_reason` says why, and `usage` says
+    where. Shaped on `.wringer/specs/20260905-075039-bf48/response.json`."""
+    body = json.dumps(payload)
+    return {
+        "choices": [
+            {"message": {"content": body[: len(body) // 2]}, "finish_reason": "length"}
+        ],
+        "usage": {
+            "prompt_tokens": 2915,
+            "completion_tokens": at,
+            "total_tokens": 2915 + at,
+        },
+    }
+
+
+def test_RUN_5_a_reply_CUT_OFF_at_the_ceiling_is_refused_by_name_and_ends_in_a_command(
+    repo, monkeypatch, capsys
+):
+    """**The blind phase ended here.** The reply stopped at exactly 8,000
+    completion tokens with `finish_reason: length`, mid-string, and the stop
+    said only "not the JSON object the request asked for". True and useless:
+    the operator ran the documented resume, which spent the same again to be
+    cut off in the same place, because nothing had said the reply was CUT
+    OFF rather than malformed or what to change.
+
+    Every stop carries a next move that is a command. This one names the
+    vendor's own reason, the count it stopped at, the setting to raise, and
+    the command to run — and the exchange's own record carries the same
+    words, so it can be read back after the terminal is gone.
+    """
+    from wringer import diagnose
+
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+
+    assert "CUT OFF at 8,000 tokens" in said, said
+    assert "not malformed, it is unfinished" in said
+    assert "judge.max_output_tokens" in said
+    assert said.rstrip().endswith(
+        f"{diagnose.RESUME_COMMAND}. The reply is on disk at "
+        f".wringer/specs/{only_draft(repo).name}/{spec.RESPONSE_FILENAME}."
+    ) or diagnose.RESUME_COMMAND in said
+    assert "not the JSON object" not in said, (
+        "the generic parse refusal spoke instead of the truncation one"
+    )
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+    summary = (only_draft(repo) / spec.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert "Why: the reply was CUT OFF at 8,000 tokens" in summary
+    assert "The error is on the console" not in summary, (
+        "the record still points at the one place a stop cannot be read back "
+        "from"
+    )
+
+
+def test_RUN_5_explain_READS_A_DRAFTING_EXCHANGE_and_says_why_it_ended(
+    repo, monkeypatch, capsys
+):
+    """`wring explain` pointed at the stop that ended the blind phase said
+    "no runs — run 'wring verify' first". A drafting exchange is told apart
+    by its own files, never by its path, like the journey and loop branches
+    beside it, and the summary it reads carries the cause since 0.9.5."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    assert cli.main(["explain", str(only_draft(repo))]) == cli.EXIT_OK
+    out = capsys.readouterr().out
+    assert "Nothing was drafted" in out
+    assert "CUT OFF at 8,000 tokens" in out
+    assert "run 'wring verify' first" not in out
+
+
+def _assumption_deciding(criterion_id: str) -> dict:
+    return {
+        "id": "a-readability",
+        "decision": "Headings use the finance team's usual abbreviations.",
+        "why": "It is what the existing reports do.",
+        "instead_of_asking": "Which heading style should the export use?",
+        "criteria": [criterion_id],
+    }
+
+
+def _second_draft(*, drop_human: bool) -> dict:
+    payload = json.loads(json.dumps(DRAFT))
+    if drop_human:
+        payload["criteria"] = [c for c in payload["criteria"] if not c["human"]]
+        payload["tasks"] = [
+            {**t, "criteria": [c for c in t.get("criteria", []) if c != "reads-well"]}
+            if "criteria" in t else t
+            for t in payload["tasks"]
+        ]
+    return payload
+
+
+def test_RUN_5_a_REDRAFT_may_not_drop_a_human_criterion_the_previous_draft_declared(
+    repo, monkeypatch, capsys
+):
+    """**The drafter routed around a refusal by deleting the criterion it was
+    refused on.** Draft 3 declared "at a glance" as `human: true`; an
+    assumption decided it, and `parse_assumptions` refused, correctly. Draft
+    4, same document, same request, had no `human` criterion at all — and
+    passed every check. The one judgement the document reserved for a person
+    had become no requirement whatsoever.
+
+    Driven through the real verb twice, so the previous draft is a real
+    exchange on disk and not a fixture written by the same hand as the
+    reader. The obligation set is the drafter's own previous words; nothing
+    here reads the PRD for requirements.
+    """
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    first = json.loads(json.dumps(DRAFT))
+    first["assumptions"] = [_assumption_deciding("reads-well")]
+    fake_transport(monkeypatch, reply=reply(first))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    refused = capsys.readouterr().err
+    assert "marked 'human: true'" in refused, "the premise: the first draft was refused"
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+    fake_transport(monkeypatch, reply=reply(_second_draft(drop_human=True)))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+
+    assert "judged that 1 requirement(s) needed a person" in said, said
+    assert "The column headings read the way a finance team expects" in said, (
+        "the refusal does not name the judgement that went missing"
+    )
+    assert "this draft judges that 0 do" in said
+    assert "may not decide that fewer things need a person" in said
+    assert not (repo / spec.SPEC_FILENAME).exists(), (
+        "a plan with the human judgement deleted was written out"
+    )
+
+
+def test_RUN_5_a_redraft_that_KEEPS_the_human_criterion_is_accepted(
+    repo, monkeypatch, capsys
+):
+    """The control: the same second draft with the judgement still in it is
+    the redraft the first refusal was asking for, and it goes through."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    first = json.loads(json.dumps(DRAFT))
+    first["assumptions"] = [_assumption_deciding("reads-well")]
+    fake_transport(monkeypatch, reply=reply(first))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    fake_transport(monkeypatch, reply=reply(_second_draft(drop_human=False)))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    assert (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_RUN_5_a_CHANGED_document_is_not_bound_by_the_previous_draft(
+    repo, monkeypatch, capsys
+):
+    """A person who edits the PRD so it no longer asks for a judgement is not
+    held to a draft of the old text. "The same request" is checked on the
+    user message — document and file listing — never assumed."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+
+    first = json.loads(json.dumps(DRAFT))
+    first["assumptions"] = [_assumption_deciding("reads-well")]
+    fake_transport(monkeypatch, reply=reply(first))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    (repo / "PRD.md").write_text(
+        PRD + "\nThe headings are whatever the database calls the columns.\n",
+        encoding="utf-8",
+    )
+    fake_transport(monkeypatch, reply=reply(_second_draft(drop_human=True)))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    assert (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_RUN_5_the_obligation_set_is_the_drafters_own_words_never_the_PRD(
+    repo, tmp_path
+):
+    """`previous_human_criteria` reads records and refuses nothing: no
+    exchanges, an unreadable reply, a reply with no criteria — each
+    contributes nothing, and the PRD is never opened."""
+    request = spec.render_request(PRD, "m", 16000)
+    specs = repo / spec.SPECS_DIRNAME
+    assert spec.previous_human_criteria(specs, request) == ()
+
+    specs.mkdir(parents=True)
+    broken = specs / "20260905-000000-aaaa"
+    broken.mkdir()
+    (broken / spec.REQUEST_FILENAME).write_text(json.dumps(request), encoding="utf-8")
+    (broken / spec.RESPONSE_FILENAME).write_text("not json", encoding="utf-8")
+    assert spec.previous_human_criteria(specs, request) == ()
+
+    other = specs / "20260905-000001-bbbb"
+    other.mkdir()
+    (other / spec.REQUEST_FILENAME).write_text(
+        json.dumps(spec.render_request(PRD + "\nchanged\n", "m", 16000)),
+        encoding="utf-8",
+    )
+    (other / spec.RESPONSE_FILENAME).write_text(
+        json.dumps(reply(DRAFT)), encoding="utf-8"
+    )
+    assert spec.previous_human_criteria(specs, request) == (), (
+        "a previous exchange for a DIFFERENT request bound this one"
+    )

@@ -258,7 +258,15 @@ DEFAULT_JUDGE_TIMEOUT_SECONDS = 120
 # Shared with `wring judge`, deliberately: one ceiling, not a per-caller
 # thicket. It bounds a reply's LENGTH and nothing about a verdict's content,
 # and no test pinned the old number as a fact about the world.
-DEFAULT_MAX_OUTPUT_TOKENS = 8000
+#
+# **16000 since 2026-09-05, and 8000 was measured too tight in the field.**
+# Run 5's blind phase ended on the first drafting call: the reply stopped at
+# exactly 8,000 completion tokens with `finish_reason: length`, mid-string,
+# twice in a row. The draft that was finally accepted was 7,398 tokens — the
+# margin between "fits" and "unusable" was a few sentences of a real PRD.
+# The same reasoning as the 1024 → 8000 move applies again, one step up: a
+# truncated reply is not a shorter spec, it is a paid call that wrote nothing.
+DEFAULT_MAX_OUTPUT_TOKENS = 16000
 
 # Hosts a cleartext endpoint may name. Anywhere else must be https, because
 # a rubric and a diff are not things to put on the wire in the clear.
