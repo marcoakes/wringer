@@ -3456,7 +3456,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
             # beside the request that replaced them.
             for name in (
                 spec.SPEC_FILENAME, spec.DECISIONS_FILENAME, spec.GATESPEC_FILENAME,
-                spec.CHOICES_FILENAME,
+                spec.CHOICES_FILENAME, spec.SOURCES_FILENAME,
             ):
                 source = root / name
                 if source.is_file():
@@ -3588,6 +3588,38 @@ def cmd_spec(args: argparse.Namespace) -> int:
             else:
                 offers.write_text(
                     spec.render_choices(draft.choices), encoding="utf-8"
+                )
+
+        # **Where each requirement came from (0.9.7, SOTA item 1).** The
+        # choices block's shape exactly: a generated file is replaced or
+        # removed by a redraft, a hand-written one is a person's own, and an
+        # empty file is never written.
+        quoted = root / spec.SOURCES_FILENAME
+        if (
+            previous is not None
+            and not draft.sources
+            and quoted.is_file()
+            and spec.sources_is_generated(quoted)
+        ):
+            quoted.unlink()
+            print(
+                f"wring spec: this draft quoted no sources, so the previous "
+                f"{spec.SOURCES_FILENAME} was removed rather than left naming "
+                "sentences for requirements that no longer exist.",
+                file=sys.stderr,
+            )
+        if draft.sources:
+            if quoted.is_file() and not spec.sources_is_generated(quoted):
+                print(
+                    f"wring spec: {spec.SOURCES_FILENAME} was written by hand, "
+                    "so it was left alone — the drafted sources are in "
+                    f"{_relative(bundle.directory, root)}/"
+                    f"{spec.RESPONSE_FILENAME} if you want them.",
+                    file=sys.stderr,
+                )
+            else:
+                quoted.write_text(
+                    spec.render_sources(draft.sources), encoding="utf-8"
                 )
 
     if args.send and args.witness and drafted is not None:

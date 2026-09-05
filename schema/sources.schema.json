@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/sources.schema.json",
+  "title": "Wringer requirement sources",
+  "description": "A `wringer.sources.v1` document \u2014 `wringer.sources.yaml`, beside `wringer.spec.yaml`: for each requirement, ONE sentence of the person's own document that it was drafted from, quoted verbatim (0.9.7, SOTA item 1, slice 1). Every sentence here was found byte-present in the document (whitespace-normalised, never fuzzy) by the engine before it was written; a drafter's quote that was not there is a note on the console and is never written, because writing it would tell the person their document says something it does not. Measured 2026-09-05: drafters quote 3 requirements in 39, so this is asked for best-effort and its absence is rendered in words \u2014 never a refusal of a paid draft. A sibling file keyed by criterion id, because `wringer.spec.v1` is frozen and its criterion items are `additionalProperties: false`. Source, not evidence: it says where a requirement came from and decides nothing. A person may write the same file by hand and everything downstream is identical.",
+  "type": "object",
+  "required": [
+    "schema_version"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.sources.v1"
+    },
+    "sources": {
+      "description": "The id of a criterion in `wringer.spec.yaml` to the sentence it came from. A key naming a criterion the spec does not have is refused by the loader. Absent, never empty: a file quoting nothing is not written.",
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+        "maxLength": 64
+      },
+      "additionalProperties": {
+        "description": "One sentence, verbatim from the document, whitespace-normalised.",
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    }
+  }
+}

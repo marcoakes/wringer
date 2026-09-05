@@ -167,6 +167,22 @@ DECISIONS_MARKER = (
 # `additionalProperties: false` (schema/spec.schema.json), so a `choices:` key
 # on a question would change bytes every reader already froze against.
 CHOICES_FILENAME = "wringer.choices.yaml"
+#: **Where each requirement came from, in the document's own words (0.9.7,
+#: SOTA item 1, slice 1).** A sidecar keyed by criterion id, beside the spec,
+#: because `wringer.spec.v1` is frozen and its criterion items are closed.
+#: Every value is a sentence the drafter quoted and this package found
+#: byte-present in the document; a quote that is not there is a NOTE and is
+#: never written. Measured 2026-09-05: drafters quote 3 criteria in 39, so
+#: this is asked for best-effort and refuses nothing — the ledger's weight
+#: rests on the previous draft's own criteria, not on this file.
+SOURCES_FILENAME = "wringer.sources.yaml"
+SOURCES_SCHEMA_VERSION = "wringer.sources.v1"
+SOURCES_SCHEMA_VERSIONS = ("wringer.sources.v1",)
+SOURCES_MARKER = (
+    "# written by `wring spec` beside the requirements — for each one, the "
+    "sentence of your document it was drafted from, quoted and checked to be "
+    "there. Nothing here decides anything; it says where a requirement came from"
+)
 CHOICES_SCHEMA_VERSION = "wringer.choices.v1"
 CHOICES_SCHEMA_VERSIONS = ("wringer.choices.v1",)
 # The same hand-written protection the other sidecars carry: a person may
@@ -335,6 +351,11 @@ class Draft:
     # answers: the reply may not write an `answer`, and it may not write one
     # by this route either.
     choices: dict[str, tuple[Choice, ...]] = field(default_factory=dict)
+    # Where each requirement came from — criterion id to a sentence of the
+    # document, VERIFIED byte-present before it lands here (0.9.7). Its own
+    # sidecar for the same reason as every other: the criterion items of
+    # `wringer.spec.v1` are frozen and closed.
+    sources: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -908,6 +929,57 @@ def parse_assumptions(
         seen.add(identifier)
         kept.append(assumption)
     return tuple(kept), tuple(notes)
+
+
+def _normalise_quote(text: str) -> str:
+    return " ".join(str(text).split())
+
+
+def lift_sources(
+    drafted: dict, prd: str
+) -> tuple[dict, dict[str, str], tuple[str, ...]]:
+    """Take each criterion's `source` off the reply, keeping only the ones
+    that are IN the document.
+
+    **Before `_drop_unknown_reply_keys`, like `outcome`, and `_CRITERION_KEYS`
+    does not gain it** — the loader every on-disk spec faces must not accept
+    a key the frozen schema refuses.
+
+    **Checked against the document's bytes, whitespace-normalised and never
+    fuzzy.** A quote that is there is where the requirement came from, in
+    the person's own words. A quote that is not there is the drafter's
+    paraphrase wearing quotation marks, and writing it beside the requirement
+    would tell the person their document says something it does not — so it
+    is a note naming the criterion, and nothing is written for it. Never a
+    refusal: measured 2026-09-05, drafters quote 3 criteria in 39, and a
+    refusal here would refuse nearly every paid draft.
+    """
+    lifted: dict[str, str] = {}
+    notes: list[str] = []
+    cleaned = dict(drafted)
+    criteria = drafted.get("criteria")
+    if not isinstance(criteria, list):
+        return cleaned, lifted, ()
+    document = _normalise_quote(prd)
+    rebuilt: list[Any] = []
+    for entry in criteria:
+        if not isinstance(entry, dict) or "source" not in entry:
+            rebuilt.append(entry)
+            continue
+        source = entry.get("source")
+        identifier = str(entry.get("id", ""))
+        quote = _normalise_quote(source) if isinstance(source, str) else ""
+        if quote and identifier and quote in document:
+            lifted[identifier] = quote
+        elif identifier:
+            notes.append(
+                f"criterion '{identifier}': the sentence given as its source "
+                "is not in the document, so nothing was recorded for it — the "
+                "requirement stands; where it came from is unquoted"
+            )
+        rebuilt.append({k: v for k, v in entry.items() if k != "source"})
+    cleaned["criteria"] = rebuilt
+    return cleaned, lifted, tuple(notes)
 
 
 def lift_outcomes(drafted: dict) -> tuple[dict, dict[str, str]]:
@@ -1535,7 +1607,10 @@ def render_request(
         '"<the question you would have asked>", "criteria": ["<ids of the '
         'criteria below whose WORDING this decision shaped>"]}],\n'
         '  "criteria": [{"id": "<slug>", "title": "<one line>", '
-        '"guidance": "<how to check it>", "required": true, "human": false}],\n'
+        '"guidance": "<how to check it>", "required": true, "human": false, '
+        '"source": "<ONE sentence copied VERBATIM from the document that this '
+        'requirement comes from — or leave the key out; never paraphrase '
+        'here>"}],\n'
         '  "gates": [{"id": "<slug>", "run": "<shell command>"}],\n'
         '  "gate_bindings": [{"id": "<slug>", "run": "<shell command>", '
         '"proves": "<criterion id from above>"}],\n'
@@ -1904,6 +1979,9 @@ def parse_response(
     # BEFORE the drop-walk: `outcome` is not in `_TASK_KEYS` and must not be,
     # so the walk below would eat it with a note.
     drafted, outcomes, outcome_notes = lift_outcomes(drafted)
+    # Same ordering, same reason: `source` is not a criterion key the frozen
+    # schema knows, and the drop-walk would eat it with a note.
+    drafted, sources, source_notes = lift_sources(drafted, prd)
 
     drafted, dropped = _drop_unknown_reply_keys(drafted)
 
@@ -2027,9 +2105,11 @@ def parse_response(
         outcomes=outcomes,
         show=shows,
         choices=choices,
+        sources=sources,
         notes=(
             *dropped,
             *notes,
+            *source_notes,
             *show_notes,
             *choice_notes,
             # Informational, and last: a gate already installed by an earlier
@@ -2822,6 +2902,65 @@ def render_choices(choices: dict[str, tuple[Choice, ...]]) -> str:
                 f"      example: {_scalar(choice.example)}",
             ]
     return "\n".join(lines) + "\n"
+
+
+def render_sources(sources: dict[str, str]) -> str:
+    """`wringer.sources.yaml` — where each requirement came from, quoted."""
+    lines = [SOURCES_MARKER, f"schema_version: {SOURCES_SCHEMA_VERSION}"]
+    if sources:
+        lines += ["", "sources:"]
+    for cid, sentence in sources.items():
+        lines.append(f"  {_scalar(cid)}: {_scalar(sentence)}")
+    return "\n".join(lines) + "\n"
+
+
+def parse_sources_document(data: Any, where: str, criteria: Any) -> dict[str, str]:
+    """Read `wringer.sources.yaml` — drafted or hand-written, same parser,
+    and strict: a file naming a criterion the spec does not have is refused,
+    and a source that is not one sentence of text is refused."""
+    if not isinstance(data, dict):
+        raise SpecError(f"{where}: top level must be a mapping")
+    unknown = sorted(set(data) - {"schema_version", "sources"})
+    if unknown:
+        raise SpecError(f"{where}: unknown keys: {', '.join(unknown)}")
+    version = data.get("schema_version")
+    if version not in SOURCES_SCHEMA_VERSIONS:
+        raise SpecError(
+            f"{where}: 'schema_version: {SOURCES_SCHEMA_VERSION}' is "
+            f"required (got {version!r})"
+        )
+    known = {str(getattr(c, "id", "")) for c in criteria}
+    raw = data.get("sources") or {}
+    if not isinstance(raw, dict):
+        raise SpecError(
+            f"{where}: 'sources' must be a mapping of criterion id to sentence"
+        )
+    kept: dict[str, str] = {}
+    for cid, sentence in raw.items():
+        if str(cid) not in known:
+            raise SpecError(f"{where}: '{cid}' is not a criterion in the spec")
+        if not isinstance(sentence, str) or not sentence.strip():
+            raise SpecError(f"{where}: '{cid}' must quote one sentence")
+        kept[str(cid)] = sentence.strip()
+    return kept
+
+
+def load_sources(root: Path, criteria: Any) -> dict[str, str]:
+    """The quoted sources, or none because there is no file. Absent is not an
+    error; unreadable is, on the decisions precedent."""
+    path = root / SOURCES_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError, UnicodeDecodeError) as exc:
+        raise SpecError(f"{SOURCES_FILENAME} could not be read: {exc}") from exc
+    return parse_sources_document(data, SOURCES_FILENAME, criteria)
+
+
+def sources_is_generated(path: Path) -> bool:
+    """Whether `wring spec` wrote this, or a person did."""
+    return _carries(path, SOURCES_MARKER)
 
 
 def parse_choices_document(

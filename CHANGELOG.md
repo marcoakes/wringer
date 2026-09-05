@@ -4,6 +4,64 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.7 — 2026-09-05
+
+**Where each requirement came from, in the person's own words — and an
+approval that covers every document it was given against.** SOTA items 1
+(slice 1) and 8, both specified from measurements rather than intent.
+
+**`wringer.sources.yaml`.** The drafter is asked, for each requirement, to
+quote ONE sentence of the document it was drafted from — verbatim, never a
+paraphrase, or to leave it out. The engine checks each quote is
+byte-present in the document (whitespace-normalised, and nothing else is
+normalised: a line break inside the sentence is the document's wrapping,
+one changed word is a different sentence) and writes the ones that are into
+a sidecar keyed by criterion id, beside the spec, because `wringer.spec.v1`
+is frozen and its criterion items are closed. The plan a person approves
+from now says, under each requirement, *"From your document: …"* — or *"no
+sentence of your document was quoted for this"*, in words, never implied.
+
+**Best-effort, and never a refusal — measured.** Before anyone paid for a
+`source` field, the five parseable drafts on disk with their PRD beside
+them were checked: **3 requirements in 39** share any verbatim six-word
+window with the document, and two of the three are the same "at a glance"
+human criterion. Drafters paraphrase. A refusal here would refuse nearly
+every paid draft, so a quote that is not in the document is a **note**
+naming the requirement and nothing is written for it — writing a paraphrase
+beside the requirement would tell the person their document says something
+it does not. The ledger's weight therefore rests where 0.9.5 put it: on the
+previous draft's own criteria, which need no quotes.
+
+**The approval is bound to every document a person read at it.** Its
+digest was the spec file alone, so a decision, choice or source edited
+after approval survived into a resumed run under an approval given against
+other words. The record now carries one digest per document — the spec,
+the decisions, the choices, the sources — and a resume that finds any of
+them changed stops, **naming which**: a person told only "the plan changed"
+would open the spec and find it untouched. A record written before this
+carries only the spec's digest and is read exactly as before.
+
+**The config is deliberately NOT in that set, and the first draft had its
+`show:` section in.** On the first run an ordinary resume stopped as "the
+plan you approved has changed" — because the drive itself writes
+`.wringer.yaml` after the yes, the gate diff at the gates step and the
+displays at the show step, each under its own consent. **Measured, not
+reasoned**: planting a hash of the config back in reproduces the stop;
+planting the gate sidecar back in does not, so the sidecar's removal from
+the set is on principle and the config's is on evidence. What the drive
+changes lawfully after an approval is not the plan changing. And the same
+scope keeps 0.9.5's own next move — raise the config's ceiling, then
+resume — from being a trap of this package's own making.
+
+*Named for 0.9.8 rather than built here:* the certificate's copy of the
+quote beside each requirement, and slice 2 — every criterion of the
+previous draft accounted for in the redraft as kept, reworded, decided or
+dropped by an answer, with approval refused on an unaccounted row.
+
+Eight red-watches, each reverting one thing alone, all red.
+
+Schema versions: `wringer.sources.v1` is new.
+
 ## 0.9.6 — 2026-09-05
 
 **The SOTA plan's first release: nothing is paid for twice, and every stop

@@ -512,3 +512,83 @@ def test_RESUME_WITH_THE_DOCUMENT_GONE_BEFORE_A_PLAN_EXISTED_DOES_NOT_DENY_THE_R
     assert "no run of wringer-drive has stopped" not in steps[-1]["text"]
     assert str(run_module.DRIVE_DIRNAME / run_module.PRD_FILENAME) in steps[-1]["text"]
     assert "wringer-drive run" in steps[-1]["text"], "the stop names no command to run next"
+
+
+# --- 0.9.7, SOTA item 8: the approval bound to every document it covers ----
+
+
+def test_ITEM_8_a_NEW_SIDECAR_after_approval_withdraws_it_and_the_stop_NAMES_it(
+    failing_build, tmp_path
+):
+    """The digest was the spec file alone, so a decision, binding, choice or
+    source edited after approval survived into a resumed run under an
+    approval given against other words. Every document now, and the stop
+    says which one — a person told only "the plan changed" would open the
+    spec and find it untouched."""
+    document = prd(tmp_path)
+    _stop_at_the_failed_turn(failing_build, document)
+    (failing_build / "wringer.sources.yaml").write_text(
+        "schema_version: wringer.sources.v1\n"
+        "sources:\n"
+        "  exports-csv: We need the weekly report as a CSV.\n",
+        encoding="utf-8",
+    )
+
+    code, steps = drive(["resume", "--repo", str(failing_build)], "")
+
+    assert code == 1
+    assert [step["id"] for step in steps] == ["stopped:spec-changed"], steps
+    text = steps[-1]["text"]
+    assert "wringer.sources.yaml" in text, "the stop does not name the document"
+    assert "wringer.spec.yaml is not" not in text, "the stop blames the wrong file"
+
+
+def test_ITEM_8_a_CONFIG_edit_does_NOT_withdraw_approval(failing_build, tmp_path):
+    """**The trap this exists to avoid.** 0.9.5's own next move tells a
+    person to raise `judge.max_output_tokens` in `.wringer.yaml` and resume.
+    Hashing that file would make the resume say "the plan you approved has
+    changed". The config is not the plan — and neither is what the drive
+    itself writes after the yes (the installed gates, the recorded
+    displays), each of which has its own consent step."""
+    document = prd(tmp_path)
+    _stop_at_the_failed_turn(failing_build, document)
+    config = failing_build / ".wringer.yaml"
+    config.write_text(
+        config.read_text(encoding="utf-8") + "# raised the ceiling, as told\n",
+        encoding="utf-8",
+    )
+
+    code, steps = drive(["resume", "--repo", str(failing_build)], "")
+
+    assert steps[0]["id"] == "resume-preface", [s["id"] for s in steps]
+    assert "stopped:spec-changed" not in [s["id"] for s in steps]
+
+
+def test_ITEM_8_a_record_WITHOUT_the_document_map_still_compares_the_spec(
+    converging_build, tmp_path
+):
+    """A record written before 0.9.7 carries only the spec's digest. It is
+    read exactly as before: the spec decides, and no document is named."""
+    import json as _json
+
+    document = prd(tmp_path)
+    code, first = drive(["run", str(document), "--repo", str(converging_build)],
+                        "The ones on screen.\nyes\n")
+    assert code == 2 and first[-1]["id"] == "stopped:nobody-there"
+    run_module.checkpoint_phase(converging_build, "build")
+    older = run_module.read_resume(converging_build)
+    older["approved_spec_sha256"] = run_module.spec_digest(converging_build)
+    older.pop("approved_documents", None)
+    run_module.resume_path(converging_build).write_text(
+        _json.dumps(older), encoding="utf-8"
+    )
+
+    facts = run_module.resume_facts(converging_build)
+    assert facts.spec_changed is False and facts.changed_documents == ()
+
+    spec_path = converging_build / "wringer.spec.yaml"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8") + "# a comment\n", encoding="utf-8"
+    )
+    facts = run_module.resume_facts(converging_build)
+    assert facts.spec_changed is True and facts.changed_documents == ()

@@ -3712,3 +3712,140 @@ def test_ITEM_4_the_guards_OWN_refusal_does_not_hide_the_cut_off_it_refused_over
     capsys.readouterr()
     assert not sent, "the guard's own refusal hid the cut-off behind it"
     assert len(_exchanges(repo)) == 3
+
+
+# --- 0.9.7, SOTA item 1 slice 1: where each requirement came from -----------
+
+
+def _with_source(criterion_id: str, sentence: str) -> dict:
+    payload = json.loads(json.dumps(DRAFT))
+    for criterion in payload["criteria"]:
+        if criterion["id"] == criterion_id:
+            criterion["source"] = sentence
+    return payload
+
+
+# A sentence of PRD, VERBATIM — and it spans a line break in the document,
+# so a byte-exact match would miss it and only whitespace-normalisation finds
+# it. That is the one normalisation the check allows.
+QUOTED = (
+    "It should cover the same rows the page is showing, respecting whatever "
+    "filter is applied."
+)
+
+
+def test_ITEM_1_a_source_that_IS_in_the_document_is_written_beside_the_requirement(
+    repo, monkeypatch, capsys
+):
+    """The drafter quotes; the engine checks the quote is there; the sidecar
+    carries it. The plan and the certificate can then say where a
+    requirement came from in the person's own words."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(_with_source("respects-filters", QUOTED)))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    sidecar = repo / spec.SOURCES_FILENAME
+    assert sidecar.is_file(), "a verified quote was not written"
+    assert spec.sources_is_generated(sidecar)
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert spec.load_sources(repo, loaded.criteria) == {"respects-filters": QUOTED}
+    # The spec itself is untouched by the key: the frozen schema never sees it.
+    assert "source" not in (repo / spec.SPEC_FILENAME).read_text(encoding="utf-8")
+
+
+def test_ITEM_1_a_source_NOT_in_the_document_is_a_NOTE_and_is_never_written(
+    repo, monkeypatch, capsys
+):
+    """**Never a refusal, measured**: drafters quote 3 requirements in 39, so
+    refusing here refuses nearly every paid draft. And never written: a
+    paraphrase beside the requirement would tell the person their document
+    says something it does not."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    paraphrase = "It should cover the same rows the page shows."
+    fake_transport(
+        monkeypatch, reply=reply(_with_source("respects-filters", paraphrase))
+    )
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    said = capsys.readouterr()
+    console = said.out + said.err
+
+    assert (repo / spec.SPEC_FILENAME).exists(), "the draft was refused over a quote"
+    assert not (repo / spec.SOURCES_FILENAME).exists(), (
+        "a sentence that is not in the document was written as its source"
+    )
+    assert "respects-filters" in console and "is not in the document" in console, (
+        "the unquoted requirement was not named on the console"
+    )
+
+
+def test_ITEM_1_whitespace_is_normalised_and_nothing_else_is(repo, monkeypatch, capsys):
+    """A line break inside the sentence is the document's wrapping, not a
+    different sentence; one changed word IS a different sentence."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    wrapped = QUOTED.replace("respecting", "\n   respecting")
+    fake_transport(monkeypatch, reply=reply(_with_source("respects-filters", wrapped)))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert (repo / spec.SOURCES_FILENAME).is_file()
+
+    (repo / spec.SPEC_FILENAME).unlink()
+    (repo / spec.SOURCES_FILENAME).unlink()
+    one_word_off = QUOTED.replace("filter", "filters")
+    fake_transport(
+        monkeypatch, reply=reply(_with_source("respects-filters", one_word_off))
+    )
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert not (repo / spec.SOURCES_FILENAME).exists(), (
+        "a near-quote was accepted as a quote"
+    )
+
+
+def test_ITEM_1_a_HAND_WRITTEN_sources_file_is_left_alone_by_a_redraft(
+    repo, monkeypatch, capsys
+):
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+    own = repo / spec.SOURCES_FILENAME
+    own.write_text(
+        f"schema_version: {spec.SOURCES_SCHEMA_VERSION}\n"
+        "sources:\n"
+        f"  export-button-exists: {QUOTED!r}\n",
+        encoding="utf-8",
+    )
+    before = own.read_text(encoding="utf-8")
+
+    fake_transport(monkeypatch, reply=reply(_with_source("respects-filters", QUOTED)))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK
+    said = capsys.readouterr().err
+    assert own.read_text(encoding="utf-8") == before, "a person's file was replaced"
+    assert "written by hand" in said
+
+
+def test_ITEM_1_the_PLAN_shows_the_quote_and_SAYS_when_there_is_none(
+    repo, monkeypatch, capsys
+):
+    """The surface a person approves from: where a requirement came from, in
+    their own words, and an honest sentence where nothing was quoted."""
+    from wringer_board import interview
+
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(_with_source("respects-filters", QUOTED)))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    text = interview.plan(repo)
+    assert f'From your document: "{QUOTED}"' in text
+    assert text.count("(no sentence of your document was quoted for this)") == 2, (
+        "the two unquoted requirements are not said to be unquoted"
+    )

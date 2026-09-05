@@ -2174,6 +2174,21 @@ def test_NO_TEST_FINDS_THIS_DIRECTORY_THROUGH_AN_INSTALLED_PACKAGE():
 # file because `wringer.spec.v1` is frozen and its question items are closed.
 
 
+def test_a_rendered_SOURCES_file_matches_its_schema():
+    """The real file the real renderer writes, against the published schema
+    (0.9.7): a sentence with a colon and quotes in it survives the YAML."""
+    import yaml
+
+    from wringer import spec as spec_module
+
+    text = spec_module.render_sources(
+        {"csv": 'Finance said: "we need the numbers as a spreadsheet".'}
+    )
+    document = yaml.safe_load(text)
+    assert document["sources"]["csv"].startswith("Finance said:")
+    check(document, load("sources.schema.json"), spec_module.SOURCES_FILENAME)
+
+
 def test_a_rendered_CHOICES_file_matches_its_schema():
     """The real file the real renderer writes, against the published schema —
     and the schema refuses what the loader refuses: a `text` that is a bare

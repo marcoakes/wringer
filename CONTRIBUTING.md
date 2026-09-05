@@ -1,9 +1,9 @@
 # Contributing to Wringer
 
-Thanks for landing here this early. **Fifty-seven releases have shipped** —
+Thanks for landing here this early. **Fifty-eight releases have shipped** —
 `v0.1.0` on July 31, 2026, then `v0.2.0`, `v0.3.0`, `v0.4.0`, `v0.4.1`,
 `v0.4.2`, `v0.4.3`, `v0.4.4`, `v0.4.5`, `v0.4.6`, `v0.4.7`, `v0.4.8`,
-`v0.4.9`, `v0.4.10`, `v0.4.11`, `v0.4.12`, `v0.5.0`, `v0.5.2`, `v0.5.3`, `v0.5.4`, `v0.5.5`, `v0.5.6`, `v0.5.7`, `v0.5.8`, `v0.6.0`, `v0.6.1`, `v0.6.2`, `v0.6.3`, `v0.6.4`, `v0.6.5`, `v0.6.6`, `v0.6.7`, `v0.7.0`, `v0.7.1`, `v0.7.2`, `v0.7.3`, `v0.7.4`, `v0.7.5`, `v0.8.0`, `v0.8.1`, `v0.8.2`, `v0.8.3`, `v0.8.4`, `v0.8.5`, `v0.8.6`, `v0.8.7`, `v0.8.8`, `v0.8.9`, `v0.8.10`, `v0.8.11`, `v0.9.0`, `v0.9.1`, `v0.9.2`, `v0.9.3`, `v0.9.4`, `v0.9.5` and `v0.9.6` — all on PyPI bar `v0.8.7` and `v0.8.11`, which were cut and never published, and whose work ships in `v0.8.8` and `v0.9.0` instead — with `v0.9.6` the current one. Which two those are is not kept by hand: `test_CONTRIBUTING_names_exactly_the_releases_that_were_cut_but_never_published` derives the pair from the CHANGELOG's own entries and the repository's tags. Since `0.4.0` it is ONE
+`v0.4.9`, `v0.4.10`, `v0.4.11`, `v0.4.12`, `v0.5.0`, `v0.5.2`, `v0.5.3`, `v0.5.4`, `v0.5.5`, `v0.5.6`, `v0.5.7`, `v0.5.8`, `v0.6.0`, `v0.6.1`, `v0.6.2`, `v0.6.3`, `v0.6.4`, `v0.6.5`, `v0.6.6`, `v0.6.7`, `v0.7.0`, `v0.7.1`, `v0.7.2`, `v0.7.3`, `v0.7.4`, `v0.7.5`, `v0.8.0`, `v0.8.1`, `v0.8.2`, `v0.8.3`, `v0.8.4`, `v0.8.5`, `v0.8.6`, `v0.8.7`, `v0.8.8`, `v0.8.9`, `v0.8.10`, `v0.8.11`, `v0.9.0`, `v0.9.1`, `v0.9.2`, `v0.9.3`, `v0.9.4`, `v0.9.5`, `v0.9.6` and `v0.9.7` — all on PyPI bar `v0.8.7` and `v0.8.11`, which were cut and never published, and whose work ships in `v0.8.8` and `v0.9.0` instead — with `v0.9.7` the current one. Which two those are is not kept by hand: `test_CONTRIBUTING_names_exactly_the_releases_that_were_cut_but_never_published` derives the pair from the CHANGELOG's own entries and the repository's tags. Since `0.4.0` it is ONE
 distribution: `uv tool install wringer` gets the engine, the board and the
 drive verb together. The ["One Loop" MVP](ROADMAP.md) it was building toward — a
 GitHub issue in, a verified merge request with evidence out — landed with

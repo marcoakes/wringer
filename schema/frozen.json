@@ -51,6 +51,7 @@
   "next-move.schema.json": "b3dac211571ee11adb9d00daa135798cfbd5b050acad7dbde8a20828108c7a34",
   "refusal.schema.json": "80f0a038170b3d0d6da481663e58fe2d0c40c0ec1d7dec7bbbf48d2b88661096",
   "rubric.schema.json": "ea555570060f143c7ab48b6ba03aa5a7ebcd8fd9be4512f1ef3c4511c8803a42",
+  "sources.schema.json": "5078aac372454920705c5fa1076fcd8eb46f87a89c4031a81ef5d77ee2d819d1",
   "spec.schema.json": "e33906faa571c4ca198de74581efcec768c93e2297a718bf7de2ddc39e99e747",
   "stability.schema.json": "06724f20e7a5dd1a549ffae55f7b6ee7eb6f2e088df38d4b936b3e6812de50c4",
   "stop.schema.json": "7a5e1313bd7e01b4013100ef7154af4d6b34735c4793943ae8b92028f3af14c6",

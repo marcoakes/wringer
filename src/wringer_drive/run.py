@@ -1287,6 +1287,64 @@ def phase_is_due(start: str | None, phase: str) -> bool:
     return PHASES.index(phase) >= PHASES.index(start)
 
 
+#: The documents a person READ at the approval, in one fixed order — and
+#: only those. **Measured on the first run (0.9.7):** the config's `show:`
+#: section was in this set, and an ordinary run stopped on resume as "the
+#: plan you approved has changed" — because the DRIVE writes `.wringer.yaml`
+#: after the approval (the gate diff at the gates step, the displays at the
+#: show step), each under its own consent. Planting a hash of the config
+#: back in reproduces the stop; planting the gate sidecar back does not.
+#: What the drive changes lawfully after a yes is not the plan changing, so
+#: the config is not hashed at all — which also keeps 0.9.5's own next move
+#: ("raise the ceiling, then resume") from being a trap.
+APPROVED_DOCUMENTS = (
+    "wringer.spec.yaml",
+    "wringer.decisions.yaml",
+    "wringer.choices.yaml",
+    "wringer.sources.yaml",
+)
+
+
+def plan_documents(repo: Path) -> dict[str, str | None]:
+    """sha256 per document the approval covers; None where a file is absent.
+
+    **Item 8 (0.9.7): any change to what was approved withdraws the
+    approval — and names itself.** The digest was the spec file alone, so
+    an edited decision, choice or source survived into a resumed run under
+    an approval given against other words.
+    """
+    import hashlib
+
+    from wringer import spec
+
+    assert APPROVED_DOCUMENTS == (
+        spec.SPEC_FILENAME,
+        spec.DECISIONS_FILENAME,
+        spec.CHOICES_FILENAME,
+        spec.SOURCES_FILENAME,
+    ), "the approved set drifted from the engine's own filenames"
+    digests: dict[str, str | None] = {}
+    for name in APPROVED_DOCUMENTS:
+        try:
+            digests[name] = hashlib.sha256((repo / name).read_bytes()).hexdigest()
+        except OSError:
+            digests[name] = None
+    return digests
+
+
+def changed_documents(
+    recorded: dict[str, str | None] | None, repo: Path
+) -> tuple[str, ...]:
+    """The documents whose bytes differ from what the approval was given
+    against, by name, in the fixed order — or none."""
+    if not isinstance(recorded, dict):
+        return ()
+    current = plan_documents(repo)
+    return tuple(
+        name for name, digest in recorded.items() if current.get(name) != digest
+    )
+
+
 def spec_digest(repo: Path) -> str | None:
     """sha256 of the spec file's bytes, or None when there is no spec.
 
@@ -1308,7 +1366,11 @@ def spec_digest(repo: Path) -> str | None:
 def record_approved_spec(repo: Path) -> None:
     """The bytes the approval was given against — written the moment the
     approval is, and compared by `resume` before anything is reused."""
-    _write_resume(repo, approved_spec_sha256=spec_digest(repo))
+    _write_resume(
+        repo,
+        approved_spec_sha256=spec_digest(repo),
+        approved_documents=plan_documents(repo),
+    )
 
 
 @dataclass(frozen=True)
@@ -1331,6 +1393,11 @@ class ResumeFacts:
     gates: tuple[str, ...]
     shows: tuple[str, ...]
     max_iterations: int | None
+    # Which documents differ from the approval (0.9.7), by name — empty when
+    # the record predates per-document digests and only the spec was
+    # compared. LAST, with a default: a caller built for the older shape
+    # still constructs one, the way a record written before is still read.
+    changed_documents: tuple[str, ...] = ()
 
 
 def resume_facts(repo: Path) -> ResumeFacts | None:
@@ -1360,12 +1427,28 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
     # recorded one, and the stop then said "approve it again with
     # wringer-drive run, which shows the plan and asks" — `run` with no
     # plan DRAFTS one, a paid call. `spec_missing` is that stop's name.
-    changed = (
-        past_approve
-        and spec_path.is_file()
-        and recorded is not None
-        and recorded != spec_digest(repo)
+    # **Per document since 0.9.7**, when the record carries the map; the
+    # single-spec comparison stays for records written before it did.
+    # **A GONE plan is not a CHANGED plan** — 0.8.11's finding, and the
+    # per-document comparison reintroduced it on its first run: with the
+    # spec deleted, its recorded digest differed from "absent" and the stop
+    # said "changed", whose offered repair would DRAFT. `spec_missing` is
+    # that stop's name, and it is decided before any digest is compared.
+    documents = record.get("approved_documents")
+    differing = (
+        changed_documents(documents, repo)
+        if past_approve and spec_path.is_file()
+        else ()
     )
+    if isinstance(documents, dict):
+        changed = bool(differing)
+    else:
+        changed = (
+            past_approve
+            and spec_path.is_file()
+            and recorded is not None
+            and recorded != spec_digest(repo)
+        )
     try:
         answers = tuple(q.id for q in interview.questions(repo) if q.answered)
     except interview.InterviewError:
@@ -1389,6 +1472,7 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
         spec_present=spec_path.is_file(),
         spec_approved=approved,
         spec_changed=changed,
+        changed_documents=differing,
         answers=answers,
         gates=gates,
         shows=shows,
@@ -1442,20 +1526,26 @@ def spec_missing_step() -> Step:
     )
 
 
-def spec_changed_step() -> Step:
+def spec_changed_step(changed: tuple[str, ...] = ()) -> Step:
     """The approval was for other words. The staleness law the judgement
     already obeys, applied to the plan: a changed spec is re-approved by a
-    person, never carried by a record."""
+    person, never carried by a record.
+
+    **Names WHICH document (0.9.7, item 8).** The approval covers the spec
+    and every sidecar beside it; a person told only "the plan changed" would
+    open the spec and find it untouched.
+    """
     from wringer import spec
 
+    named = ", ".join(changed) if changed else spec.SPEC_FILENAME
     return Step(
         kind=STOPPED,
         id="stopped:spec-changed",
-        text=f"The plan you approved has changed since — {spec.SPEC_FILENAME} "
-        "is not byte-for-byte the file that approval was given against, so "
-        "nothing is built from it and nothing was spent. Approve it again "
-        "with wringer-drive run <your document>, which shows the plan and "
-        "asks.",
+        text=f"The plan you approved has changed since — {named} "
+        f"{'are' if len(changed) > 1 else 'is'} not byte-for-byte what that "
+        "approval was given against, so nothing is built from it and nothing "
+        "was spent. Approve it again with wringer-drive run <your document>, "
+        "which shows the plan and asks.",
     )
 
 

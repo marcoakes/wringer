@@ -476,7 +476,9 @@ def _resume(session: run_module.Session, args) -> int:
     if facts is None:
         raise run_module.Stop(run_module.nothing_to_resume_step(), exit_code=2)
     if facts.spec_changed:
-        raise run_module.Stop(run_module.spec_changed_step(), exit_code=1)
+        raise run_module.Stop(
+            run_module.spec_changed_step(facts.changed_documents), exit_code=1
+        )
 
     # **Absence is settled BEFORE the preface** (bug review 0.7, 2026-09-02):
     # a card listing what is preserved and reused has no business preceding

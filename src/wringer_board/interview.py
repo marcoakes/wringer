@@ -673,6 +673,7 @@ def plan(repo: Path) -> str:
                 "",
             ]
     declared_show = _declared_show(repo)
+    quoted = _sources(repo)
     lines += ["HOW EACH PIECE WILL BE PROVED", ""]
     for criterion in data.get("criteria") or []:
         if not isinstance(criterion, dict):
@@ -712,7 +713,15 @@ def plan(repo: Path) -> str:
                 "NOTHING CHECKS THIS YET. It will be reported as unevidenced "
                 "and it will not be claimed as done"
             )
-        lines += [f"  {title}", f"    {need} — {how}", ""]
+        # **Where it came from, in the person's own words (0.9.7).** The
+        # quote is the drafter's, verified byte-present in the document by
+        # the engine before it was written; absence is said, never implied.
+        origin = (
+            f'    From your document: "{quoted[cid]}"'
+            if cid in quoted
+            else "    (no sentence of your document was quoted for this)"
+        )
+        lines += [f"  {title}", f"    {need} — {how}", origin, ""]
 
     lines += _ending_block(data, bound)
 
@@ -741,6 +750,27 @@ DECISIONS_FILENAME = "wringer.decisions.yaml"
 # accepted only the newest would turn "a new file, never a changed one" into a
 # break by a different route.
 DECISIONS_VERSIONS = ("wringer.decisions.v1", "wringer.decisions.v2")
+
+
+def _sources(repo: Path) -> dict[str, str]:
+    """Where each requirement came from, by criterion id — the quoted
+    sentence of the document (0.9.7). Absent is not an error; unreadable is,
+    on the decisions precedent, because "no sentence was quoted" is a false
+    and reassuring thing to say over a broken file."""
+    from wringer import spec as spec_module
+
+    path = repo / spec_module.SOURCES_FILENAME
+    if not path.is_file():
+        return {}
+    try:
+        loaded = spec_module.load(_spec_path(repo))
+        return spec_module.load_sources(repo, loaded.criteria)
+    except spec_module.SpecError as exc:
+        raise InterviewError(
+            f"{spec_module.SOURCES_FILENAME} could not be read: {exc}. It says "
+            "where each requirement came from, so the plan will not render "
+            "while it is unreadable — fix or remove it"
+        ) from exc
 
 
 def _decisions(repo: Path) -> tuple[list[dict], dict[str, str]]:
