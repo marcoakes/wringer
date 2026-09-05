@@ -681,7 +681,15 @@ def _drive(
         # **The readiness card, before the first paid call** (P1.7). Every
         # fact on it was already on this machine; runs 4 and 4B spent a
         # drafting call and a worker turn before the operator met any of it.
-        card = session.emit(run_module.readiness_step(repo))
+        # ONE doctor run and ONE credential reading for the whole card: the
+        # word, the record and doctor's own sentence beneath them all come
+        # from the same answer, so one page cannot contradict itself.
+        from wringer import doctor as doctor_module
+
+        checks = tuple(doctor_module.run_checks(repo))
+        lanes = run_module.readiness_words(repo, checks)
+        run_module.write_readiness(repo, session.journey_id, lanes)
+        card = session.emit(run_module.readiness_step(repo, lanes, checks))
         _render([card], mode)
         spec_id = run_module.draft_the_spec(
             session, repo, inside, announce=lambda step: _render([step], mode)

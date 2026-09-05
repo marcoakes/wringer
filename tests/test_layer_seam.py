@@ -276,3 +276,37 @@ def test_the_board_reads_a_USAGE_RECORD_only_through_the_ENGINES_reader():
         "`evidence.read_usage`. A second parse of it is how the worker "
         "lane came to be structurally dead for a whole release."
     )
+
+
+def test_no_MODULE_DEFINES_ONE_NAME_TWICE():
+    """**One name, one definition — found the hard way, 2026-09-05.**
+
+    0.9.9 added a `_read_sibling(path, version)` to `wringer.cli`, which
+    already had a `_read_sibling(path)`. Python kept the later one, and
+    `wring explain` on a loop directory raised a TypeError over the worker's
+    own diagnosis instead of printing it. Ruff's F811 does not catch it: the
+    first definition is *used* between the two, so the name is not "unused"
+    when it is redefined.
+
+    Names under a `try:`/`except ImportError:` or an `if TYPE_CHECKING:` are
+    deliberate alternatives, not redefinitions, so only module-level
+    siblings are compared.
+    """
+    import ast
+
+    source = Path(__file__).resolve().parent.parent / "src"
+    twice: list[str] = []
+    for module in sorted(source.rglob("*.py")):
+        tree = ast.parse(module.read_text(encoding="utf-8"))
+        seen: dict[str, int] = {}
+        for node in tree.body:
+            kinds = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+            if not isinstance(node, kinds):
+                continue
+            if node.name in seen:
+                twice.append(
+                    f"{module.relative_to(source)}: {node.name} at lines "
+                    f"{seen[node.name]} and {node.lineno}"
+                )
+            seen[node.name] = node.lineno
+    assert not twice, "\n".join(twice)

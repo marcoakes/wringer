@@ -165,6 +165,13 @@ JOURNEY_FILENAME = "journey.json"
 #: dir>` reads it. The engine never writes one.
 STOP_FILENAME = "stop.json"
 STOP_SCHEMA_VERSION = "wringer.stop.v1"
+#: **Each credential lane in one word, as a record (0.9.9, SOTA item 5).**
+#: Written by the drive beside the journey before anything is spent; the
+#: readiness card quotes it. "Ready" must never mean "a variable was found
+#: and we hope" — so a lane whose credential nobody has verified is SAID
+#: to be unverified, in the record and on the card.
+READINESS_FILENAME = "readiness.json"
+READINESS_SCHEMA_VERSION = "wringer.readiness.v1"
 JOURNEY_SCHEMA_VERSION = "wringer.journey.v1"
 #: The closed set of phase kinds `journey.schema.json` declares.
 JOURNEY_KINDS = ("draft", "build", "verify", "deliver", "audit", "falsify", "other")

@@ -4,6 +4,110 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.9 — 2026-09-05
+
+**P0 closes: the plan drafted in three calls that are reused rather than
+paid for twice, and each credential lane in one word before anything is
+spent.** SOTA items 2 and 5, the last two of the five to close before
+anything else — and everything a six-lens cold read of them, and of 0.9.8,
+could find, folded in before they shipped.
+
+**Three calls of a third each, and a checkpoint that is read back.**
+Measured over twelve real replies on disk: `criteria`, `tasks` and
+`assumptions` each carry a quarter to two-fifths of a reply. Run 5's blind
+phase ended on one reply cut off at the ceiling, twice, at 42,823 tokens
+for zero build. The plan is now drafted as the requirements first and
+alone; then the decisions, choices, bindings, displays and gates, given the
+requirements; then the tasks, given both. Each call's request and reply are
+written to disk as `request-N.json` and `response-N.json` **before the next
+call is made**, and — the part that makes the promise true — **the next
+attempt reads them back.** A call whose question is unchanged is not sent
+again: reuse is matched on what was asked, not on the ceiling, so raising
+`max_output_tokens` and resuming, which is exactly what the stop tells a
+person to do and which changes every call's bytes, re-sends the call that
+was cut off and reuses the calls that were not. The first draft of this
+told the person the earlier calls "are not spent again" while nothing read
+them back and its own guard asserted the re-spend. It also made the
+per-call no-progress guard work: a request whose head embeds the previous
+replies only matches when those replies are the same bytes, and reused
+replies are.
+
+The three are assembled into one `response.json` in a single reply's shape,
+so every existing reader keeps working, and that record says only what it
+was told: `assembled_from` names the calls this exchange sent, `reused_from`
+names the exchange that already paid for each one it did not, `usage` is
+the sum of the calls it sent alone — left out entirely, with
+`usage_missing_from` naming the gap, if a call reported none — and
+`finish_reason` is `stop` only when every call said so. A call that comes
+back without what it owns (no criteria, no tasks) stops the draft there
+rather than buying the two after it. A key drafted in the wrong call is
+handed to the call that owns it as a proposal, because the note said the
+owning call "is asked for it" and it was asked blind — which lost a
+decision taken under rule 1 and left DECIDED WITHOUT ASKING YOU empty. And
+the single call's no-progress guard now guards the single call: it used to
+run over a request sectioned mode never sends, so after a monolithic
+cut-off, turning sections on at the same ceiling — the remedy — was refused
+with "nothing has changed".
+
+**What a stopped draft leaves behind is now legible.** `summary.md` names
+the calls that were made and the files that hold them, instead of pointing
+a reader at a request nobody sent and a reply that does not exist. Every
+new refusal ends in a command that can be run as printed. And the board can
+see a draft that stopped: it summed the drafting lane from assembled
+replies only, so a cut-off — this release's own default mode, and run 5's
+own failure — left three paid replies on disk under a page that said *"the
+drafter reported nothing this run"*. A figure that is short now says so.
+
+**Opt-in, and the drive opts in.** `judge.draft_in_sections` is off by
+default in the engine: the single reply is what every field run so far has
+measured. The drive's generated config turns it on, because the drive is
+the surface a cut-off reply cost run 5 its blind phase on. The next blind
+run measures the sectioned path; the engine's default moves when it has.
+
+**Each credential lane in one word, as a record.** `readiness.json` beside
+the journey, written before the drafting call and quoted by the readiness
+card's first two lines — derived from `WorkerAuth`'s own typed facts and
+doctor's own check, never from their prose — so "Ready" can never mean "a
+variable was found and we hope it works". `verified` is the vendor's own
+free answer that it is logged in with nothing displacing that login, and
+only that: a present key is not a valid one, **and neither is a login the
+vendor says it made with one.** That last clause is this release's sharpest
+correction. The ACP lane never composes `key_env`, so a declared key
+crossing into the probe — the org-pinned Mac's shape, captured in this
+repository on 2026-08-22 and named in doctor's own fix text as an answer
+that arrives while every session is refused — was answered `loggedIn: true,
+authMethod: api_key` and worded `verified`. It is now `declared-unverified`,
+or `displaced` where a stored login is known.
+
+A sixth word joins for the same reason the fifth did: `unmeasured`, for a
+probe that could not be run or could not be read, a containment, a CLI that
+is not on PATH, a config that would not parse. `declared-unverified` says a
+variable is set and `unavailable` says the vendor refused; over a lane
+nobody managed to ask, both are false sentences, and an unreadable config
+was being recorded as *"not-applicable — no builder is declared yet"* about
+a worker nothing had read. The drafting lane is still never `verified`,
+because Wringer never probes that endpoint for free. The whole card now
+comes from ONE doctor run and ONE credential reading, so one page cannot
+contradict itself; `wring explain` reads the record back, and fails closed
+in words on one it cannot read rather than raising a traceback.
+
+The word matrix is driven over the engine's own returns — a real executable
+answering under the vendor's name — because the first version of it
+asserted five combinations by hand, four of which no lane emits, and the
+one shape that mattered had no row at all.
+
+*What stays Marc's:* the full key/login matrix on both machine classes,
+measured per vendor before any row in `agents.py` may claim it.
+
+Red-watches, each reverting one thing alone, all red. A new structural
+guard refuses two definitions of one name in a module: this release shipped
+two `_read_sibling`s into the same file, Python kept the later one, and
+`wring explain` on a loop directory raised a TypeError over the worker's
+own diagnosis — ruff's own rule cannot see it, because the first is used
+between the two.
+
+Schema versions: `wringer.readiness.v1` is new.
+
 ## 0.9.8 — 2026-09-05
 
 **Every requirement of the previous draft, accounted for — and the

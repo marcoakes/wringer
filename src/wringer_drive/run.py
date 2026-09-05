@@ -288,6 +288,17 @@ DECLARED_DEFAULTS = {
     # not a smaller draft: `wring spec` refuses the whole reply
     # and writes nothing. This agrees with the engine's default.
     "max_output_tokens": 16000,
+    # **Three calls of a third each, not one of everything (0.9.9,
+    # SOTA item 2).** Measured 2026-09-05 over twelve real
+    # replies: criteria, tasks and assumptions each carry a
+    # quarter to two-fifths of a reply. Run 5's blind phase
+    # ended on one reply cut off at the ceiling, twice, at
+    # 42,823 tokens for zero build. Drafted in sections, a
+    # cut-off costs the section it hit and every valid section
+    # before it is already on disk. The engine's own default is
+    # off until this has been through a blind run; the drive is
+    # where it bit, so the drive opts in.
+    "draft_in_sections": True,
     # The engine's own default is 120 seconds, and a real
     # PRD's drafting call does not reliably fit in it —
     # measured on 2026-08-19, three drives of one document
@@ -497,6 +508,7 @@ def generate_workspace(session: Session, repo: Path, answers: dict) -> None:
         + f"  api_key_env: {DECLARED_DEFAULTS['api_key_env']}\n"
         + f"  max_output_tokens: {DECLARED_DEFAULTS['max_output_tokens']}\n"
         + f"  timeout: {DECLARED_DEFAULTS['timeout']}\n"
+        + f"  draft_in_sections: {str(DECLARED_DEFAULTS['draft_in_sections']).lower()}\n"
         + "\n"
         + "run:\n"
         + _worker_block(answers["worker"])
@@ -699,7 +711,177 @@ def _show_worker_auth(session: object, announce: object, found: object) -> None:
         announce(step)
 
 
-def readiness_step(repo: Path) -> Step:
+#: The words a credential lane may be, and nothing else. Four are Marc's
+#: (SOTA item 5); the fifth is the engine's own `not_applicable`, kept for
+#: the shape it already names — a shell worker with no login surface on the
+#: roster — because calling that "unavailable" would be a false sentence
+#: about a command that needs no credential.
+VERIFIED = "verified"
+DISPLACED = "displaced"
+DECLARED_UNVERIFIED = "declared-unverified"
+UNAVAILABLE = "unavailable"
+NOT_APPLICABLE = "not-applicable"
+#: The sixth word, and the second the engine adds for the same reason as
+#: `not-applicable`: nobody could tell. A probe that timed out, a worker
+#: inside a containment, a CLI that is not on PATH, a config that could not
+#: be read — with no key set, `declared-unverified` says a variable is set
+#: and `unavailable` says the vendor refused, and both are false sentences
+#: about a lane nobody managed to ask.
+UNMEASURED = "unmeasured"
+LANE_WORDS = (
+    VERIFIED, DISPLACED, DECLARED_UNVERIFIED, UNAVAILABLE, NOT_APPLICABLE, UNMEASURED,
+)
+
+
+def worker_lane_word(auth: object) -> str:
+    """ONE word for the builder's credential, from `WorkerAuth`'s typed
+    facts — `state`, `key_env`, `login_stored` — and never from its prose.
+
+    `verified` is the vendor's OWN free answer that it is logged in, with
+    no key displacing that login — and only that: a successful
+    `authenticate` proves nothing (2026-08-24), and a present key is not a
+    valid one. `displaced` is run 4B's trap: a key in the environment over
+    a stored login, which takes precedence and is the one thing that breaks
+    the only route that works on an org-pinned machine. `declared-unverified`
+    is a variable that is set and nothing that has said it works. `unavailable`
+    is the agent's own word that it is logged out, with no key to fall back
+    on.
+    """
+    from wringer import worker_auth
+
+    state = getattr(auth, "state", worker_auth.UNKNOWN)
+    login_stored = getattr(auth, "login_stored", None)
+    # **A key is a key however the lane found it (cold review, 2026-09-05).**
+    # `key_env` is only ever composed on the shell lane. On the ACP lane the
+    # declared key crosses into the probe's environment and the vendor
+    # answers `authMethod: api_key` — its own word that the key is what
+    # authenticated it. Reading only `key_env` there let a login that IS a
+    # key be worded `verified`, which is the one thing the word excludes;
+    # this repository's own captures record that answer arriving while every
+    # session was refused.
+    method = str(getattr(auth, "method", "") or "")
+    by_key = bool(getattr(auth, "key_env", "")) or method == "api_key"
+    if state == worker_auth.NOT_APPLICABLE and not by_key:
+        return NOT_APPLICABLE
+    if by_key and login_stored:
+        return DISPLACED
+    if state == worker_auth.LOGGED_IN and not by_key:
+        return VERIFIED
+    if by_key:
+        return DECLARED_UNVERIFIED
+    if state == worker_auth.LOGGED_OUT:
+        return UNAVAILABLE
+    # Nothing set, and the vendor never said no: nobody could tell.
+    return UNAVAILABLE if login_stored is False else UNMEASURED
+
+
+def drafting_lane_word(check: object) -> str:
+    """ONE word for the drafting credential, from doctor's own check. Never
+    `verified`: Wringer never probes the drafting endpoint for free, so the
+    most it can honestly say about a set variable is that it is set."""
+    from wringer import doctor
+
+    status = getattr(check, "status", None)
+    if status == doctor.OK:
+        return DECLARED_UNVERIFIED
+    return UNAVAILABLE
+
+
+def readiness_words(
+    repo: Path, checks: tuple | None = None
+) -> dict[str, dict[str, object]]:
+    """Both lanes, each as `{word, detail}` — ONE derivation, quoted by the
+    card and written to the record so the two cannot disagree.
+
+    `checks` is doctor's own list when the caller already has it: the card
+    prints doctor's `Worker auth:` sentence under the word, and running
+    doctor twice on one page is two probes that can answer differently — the
+    fault this file's own comment at `require_worker` names.
+    """
+    from wringer import config, doctor, worker_auth
+
+    lanes: dict[str, dict[str, object]] = {
+        "drafting": {"word": UNAVAILABLE, "detail": "no drafting key check ran"},
+        "worker": {"word": NOT_APPLICABLE, "detail": "no builder is declared yet"},
+    }
+    for check in doctor.run_checks(repo) if checks is None else checks:
+        if check.name == "drafting key" and check.status != doctor.SKIP:
+            lanes["drafting"] = {
+                "word": drafting_lane_word(check), "detail": check.detail
+            }
+    path = repo / config.CONFIG_FILENAME
+    try:
+        settings = config.load(path) if path.is_file() else None
+    except config.ConfigError as exc:
+        # **Say what was found (cold review, 2026-09-05).** This left the
+        # lane at its default — `not-applicable`, "no builder is declared
+        # yet" — which is a claim about a worker nothing here ever read, and
+        # `wring explain` read it back for the life of the journey.
+        lanes["worker"] = {
+            "word": UNMEASURED,
+            "detail": f"{config.CONFIG_FILENAME} could not be read: {exc}",
+        }
+        return lanes
+    run = getattr(settings, "run", None) if settings else None
+    if run is not None and getattr(run, "worker", None) is not None:
+        try:
+            auth = worker_auth.read(
+                run.worker,
+                run.containment,
+                declared_secret_names=config.declared_secret_names(settings),
+            )
+        except Exception as exc:  # noqa: BLE001 — the card never breaks over a probe
+            lanes["worker"] = {
+                "word": UNMEASURED,
+                "detail": f"asking the builder about its credential failed: {exc}",
+            }
+            return lanes
+        lanes["worker"] = {
+            "word": worker_lane_word(auth),
+            "detail": auth.detail,
+            "key_env": auth.key_env or None,
+            "login_stored": auth.login_stored,
+        }
+    return lanes
+
+
+def write_readiness(
+    repo: Path, journey_id: str | None, lanes: dict[str, dict[str, object]]
+) -> Path | None:
+    """`readiness.json` beside the journey, before anything is spent. None
+    before a journey exists; a write failure is swallowed, as the stop
+    record's is — the card is already on the console."""
+    from wringer import evidence
+    from wringer_drive import journey
+
+    if journey_id is None:
+        return None
+    record = {
+        "schema_version": evidence.READINESS_SCHEMA_VERSION,
+        "journey_id": journey_id,
+        "drafting": {"word": lanes["drafting"]["word"], "detail": lanes["drafting"]["detail"]},
+        "worker": {
+            "word": lanes["worker"]["word"],
+            "detail": lanes["worker"]["detail"],
+            "key_env": lanes["worker"].get("key_env"),
+            "login_stored": lanes["worker"].get("login_stored"),
+        },
+        "recorded_at": evidence.timestamp(),
+    }
+    path = journey.journeys_root(repo) / journey_id / evidence.READINESS_FILENAME
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return None
+    return path
+
+
+def readiness_step(
+    repo: Path,
+    lanes: dict[str, dict[str, object]] | None = None,
+    checks: tuple | None = None,
+) -> Step:
     """What this run will spend, and against which credential, BEFORE it does.
 
     **Marc's brief, P1.7, and runs 4 and 4B behind it.** The operator drove a
@@ -718,6 +900,22 @@ def readiness_step(repo: Path) -> Step:
     from wringer import config, doctor
 
     lines: list[str] = []
+    # **The two lanes' words first (0.9.9, SOTA item 5)** — the same
+    # derivation the record carries, so "Ready" can never mean "a variable
+    # was found and we hope it works": a lane nobody has verified is said
+    # to be unverified, above everything else on the card.
+    if checks is None:
+        checks = tuple(doctor.run_checks(repo))
+    if lanes is None:
+        lanes = readiness_words(repo, checks)
+    lines.append(
+        f"Drafting credential: {lanes['drafting']['word']} — "
+        f"{lanes['drafting']['detail']}"
+    )
+    lines.append(
+        f"Builder credential: {lanes['worker']['word']} — "
+        f"{lanes['worker']['detail']}"
+    )
     settings = None
     path = repo / config.CONFIG_FILENAME
     if path.is_file():
@@ -739,8 +937,10 @@ def readiness_step(repo: Path) -> Step:
         )
 
     # The credential states, in doctor's own words — the surface that owns
-    # them. A check this machine skipped is not reported as a problem.
-    for check in doctor.run_checks(repo):
+    # them. A check this machine skipped is not reported as a problem. The
+    # SAME answers the word above was derived from: doctor ran twice on this
+    # one page, and two probes can say two things about one credential.
+    for check in checks:
         if check.name in ("drafting key", "worker credential", "worker auth"):
             if check.status != doctor.SKIP:
                 lines.append(f"{check.name.capitalize()}: {check.detail}")

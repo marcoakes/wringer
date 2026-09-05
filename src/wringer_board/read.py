@@ -853,14 +853,41 @@ def _spend(
                 totals = lanes.setdefault(lane, {})
                 totals[key] = totals.get(key, 0) + value
 
+    def short(lane: str, files: object) -> None:
+        """Name the calls whose reply reported no usage, so a figure that is
+        SHORT is not rendered as the total (claim ceiling on money)."""
+        if not isinstance(files, list):
+            return
+        named = [one for one in files if isinstance(one, str)]
+        if named:
+            totals = lanes.setdefault(lane, {})
+            totals.setdefault("unreported_parts", []).extend(named)  # type: ignore[arg-type]
+
     specs = repo / ".wringer" / "specs"
     if specs.is_dir():
-        for response in sorted(specs.glob("*/response.json")):
-            try:
-                add("drafting", json.loads(
-                    response.read_text(encoding="utf-8")).get("usage"))
-            except Exception:  # noqa: BLE001 - a bad record is not a board error
+        for exchange in sorted(one for one in specs.iterdir() if one.is_dir()):
+            assembled = exchange / "response.json"
+            if assembled.is_file():
+                # The assembled reply already sums the calls THIS exchange
+                # sent, and names the calls it reused from another exchange
+                # (which counts them). Reading it alone counts each call once.
+                try:
+                    recorded = json.loads(assembled.read_text(encoding="utf-8"))
+                except Exception:  # noqa: BLE001 - a bad record is not a board error
+                    continue
+                add("drafting", recorded.get("usage"))
+                short("drafting", recorded.get("usage_missing_from"))
                 continue
+            # **A draft that stopped mid-sections still spent (0.9.9).** No
+            # assembled reply is written when a call is cut off, refused or
+            # unreachable — and the calls that did answer are on disk, paid
+            # for. The lane said "reported nothing" over them.
+            for part in sorted(exchange.glob("response-*.json")):
+                try:
+                    add("drafting", json.loads(
+                        part.read_text(encoding="utf-8")).get("usage"))
+                except Exception:  # noqa: BLE001 - a bad record is not a board error
+                    continue
     # **The worker lane, through the engine's own reader — 0.9.3.**
     #
     # This read `usage.json` itself and looked for `prompt_tokens` /

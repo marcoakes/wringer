@@ -926,3 +926,73 @@ def test_THE_READER_PUTS_EACH_LANE_WHERE_ITS_RECORD_CAME_FROM(tmp_path):
     only_drafting = read_module._spend(repo, None, None)
     assert set(only_drafting) == {"drafting"}
     assert only_drafting["drafting"]["prompt_tokens"] == 2445
+
+
+def test_the_drafting_lane_SEES_a_draft_that_stopped_mid_sections(tmp_path, monkeypatch, capsys):
+    """**Run 5's own failure, made visible again (cold review, 2026-09-05).**
+
+    A sectioned draft writes the assembled `response.json` only once every
+    call has answered. `_spend` globbed that file alone, so a cut-off — the
+    drive's default mode since 0.9.9, and the exact shape run 5 stopped on —
+    left three paid replies on disk under a board that said "the drafter
+    reported nothing this run". A monolithic cut-off WAS counted before
+    0.9.9, so this was a regression on the scenario the release exists for.
+
+    The exchange here is written by the engine itself, through `wring spec`.
+    """
+    import json
+
+    from test_spec import (
+        DRAFT,
+        SECTIONED_CONFIG,
+        _section_replies,
+        cli,
+        fake_transport,
+        setup_repo,
+    )
+
+    repo = tmp_path / "cut-off"
+    repo.mkdir()
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, replies=_section_replies(DRAFT, cut_off_at=3))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    exchange = next((repo / ".wringer" / "specs").iterdir())
+    assert not (exchange / "response.json").exists(), "the fixture is not a stop"
+    paid = [
+        json.loads((exchange / f"response-{n}.json").read_text(encoding="utf-8"))
+        for n in (1, 2, 3)
+    ]
+    want: dict[str, int] = {}
+    for body in paid:
+        for key, value in (body.get("usage") or {}).items():
+            want[key] = want.get(key, 0) + value
+    assert want, "the engine wrote no usage to sum"
+
+    lanes = read_module._spend(repo, None, None)
+    assert lanes.get("drafting") == want, (
+        "three paid calls are on disk and the board's drafting lane cannot "
+        "see them"
+    )
+
+
+def test_a_lane_whose_figure_is_SHORT_says_so(tmp_path):
+    """Claim ceiling on money: a smaller number standing in for an unknown is
+    the thing to refuse, so the record's own `usage_missing_from` reaches the
+    page rather than quietly shrinking the total."""
+    import json
+
+    repo = tmp_path / "short"
+    exchange = repo / ".wringer" / "specs" / "20260905-000000-shrt"
+    exchange.mkdir(parents=True)
+    (exchange / "response.json").write_text(
+        json.dumps({
+            "usage": {"prompt_tokens": 400},
+            "usage_missing_from": ["response-2.json"],
+        }),
+        encoding="utf-8",
+    )
+    lanes = read_module._spend(repo, None, None)
+    assert lanes["drafting"]["unreported_parts"] == ["response-2.json"]

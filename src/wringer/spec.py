@@ -1463,12 +1463,224 @@ def repository_files(root: Path) -> tuple[str, ...]:
     return tuple(sorted(name for name in names if name))
 
 
+#: **The three calls, in the order they must be made (0.9.9, SOTA item 2)**
+#: — the requirements first and alone, then the decisions and bindings
+#: given the requirements, then the tasks given both. Measured 2026-09-05:
+#: `criteria`, `tasks` and `assumptions` each carry a quarter to two-fifths
+#: of a reply, so these are three calls of roughly a third each. Every key
+#: a reply may carry is in exactly one section; the union is the whole.
+SECTIONS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("requirements", ("title", "open_questions", "criteria")),
+    (
+        "decisions",
+        ("assumptions", "choices", "gate_bindings", "show_proposals", "gates"),
+    ),
+    ("tasks", ("tasks",)),
+)
+REPLY_KEYS = frozenset(key for _, keys in SECTIONS for key in keys)
+#: What a call must come back WITH, or the draft is already dead and the
+#: calls after it are not paid for. Cold review 2026-09-05: a call 1 that
+#: returned only a title still bought calls 2 and 3, which drafted bindings
+#: for criteria that did not exist, before the parser refused the lot.
+SECTION_REQUIRED: dict[str, tuple[str, ...]] = {
+    "requirements": ("criteria",),
+    "tasks": ("tasks",),
+}
+
+
+def owning_section(key: str) -> str | None:
+    """Which call owns a reply key, or None if no call asks for it."""
+    for section, keys in SECTIONS:
+        if key in keys:
+            return section
+    return None
+
+
+def section_keys(name: str) -> tuple[str, ...]:
+    for section, keys in SECTIONS:
+        if section == name:
+            return keys
+    raise ValueError(f"unknown section {name!r}")
+
+
+def section_dict(body: Any, name: str) -> tuple[dict, tuple[str, ...], dict]:
+    """One section's reply as `(kept, notes, carried)`.
+
+    `kept` is only the keys this call owns. `carried` is what it drafted for
+    a call still to come — **handed to that call as a proposal**, because
+    the note used to say "the section that owns it is asked for it" and the
+    owning call was asked blind. The prompt's own rule 1 tells the drafter
+    to decide and record the decision in `assumptions` while it writes the
+    criteria; `assumptions` is call 2's. Dropping them on the floor lost the
+    decision and left DECIDED WITHOUT ASKING YOU empty (cold review,
+    2026-09-05). A key whose owning call has already been made, or that no
+    call asks for, is dropped — and the note says which of the two it was
+    (R3's asymmetry: a model's proposal survives with its losses said)."""
+    try:
+        content = body["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError):
+        raise SpecError(
+            f"the reply for the {name} section had no message content — "
+            "nothing was drafted, and nothing was written"
+        ) from None
+    try:
+        drafted = json.loads(_strip_fences(str(content)))
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise SpecError(
+            f"the reply for the {name} section was not the JSON object the "
+            f"request asked for ({exc}) — nothing was written"
+        ) from exc
+    if not isinstance(drafted, dict):
+        raise SpecError(
+            f"the reply for the {name} section was JSON but not an object — "
+            "nothing was written"
+        )
+    keep = set(section_keys(name))
+    order = [section for section, _ in SECTIONS]
+    here = order.index(name)
+    kept: dict = {}
+    carried: dict = {}
+    notes: list[str] = []
+    for key in sorted(drafted):
+        if key in keep:
+            kept[key] = drafted[key]
+            continue
+        owner = owning_section(key)
+        if owner is None:
+            notes.append(
+                f"the {name} call also drafted '{key}', which no call asks "
+                "for — dropped"
+            )
+        elif order.index(owner) > here:
+            carried[key] = drafted[key]
+            notes.append(
+                f"the {name} call also drafted '{key}', which the {owner} "
+                "call owns — carried there as a proposal, not used here"
+            )
+        else:
+            notes.append(
+                f"the {name} call also drafted '{key}', which the {owner} "
+                "call owns and that call has already been made — dropped"
+            )
+    return kept, tuple(notes), carried
+
+
+def _without_ceiling(request: dict) -> dict:
+    """A request minus its token ceiling — what makes two calls the SAME
+    QUESTION. Raising the ceiling changes the request (which is why the
+    no-progress guard compares the whole of it) but not what was asked, so a
+    reply that already answered it in full is still that reply's answer."""
+    return {key: value for key, value in request.items() if key != "max_tokens"}
+
+
+def reusable_section(
+    specs_root: Path, sent: dict, part: int, exclude: Path | None = None
+) -> tuple[str, dict] | None:
+    """A completed reply to this exact question, already paid for, as
+    `(exchange id, body)` — or None.
+
+    **A checkpoint that is never read back is not a saving (cold review,
+    2026-09-05).** 0.9.9's cut-off stop told the person the calls before the
+    cut-off "are not spent again"; nothing read them back, so the next
+    attempt paid for every one of them, and the repository's own test
+    asserted that re-spend. This is the read-back: the newest exchange that
+    was asked the SAME question for this part decides, and its reply is
+    reused only if it arrived whole. A cut-off part is not reusable — that
+    is the no-progress guard's business, and it compares the ceiling too, so
+    raising the ceiling re-sends the call that was cut off and reuses the
+    calls that were not.
+    """
+    want = _without_ceiling(sent)
+    for exchange in _exchanges_newest_first(specs_root):
+        if exclude is not None and exchange == exclude:
+            continue
+        try:
+            previous = json.loads(
+                (exchange / f"request-{part}.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError):
+            continue
+        if not isinstance(previous, dict) or _without_ceiling(previous) != want:
+            continue
+        try:
+            body = json.loads(
+                (exchange / f"response-{part}.json").read_text(encoding="utf-8")
+            )
+            choice = body["choices"][0]
+        except (OSError, ValueError, KeyError, IndexError, TypeError):
+            return None
+        if not isinstance(choice, dict) or choice.get("finish_reason") == "length":
+            return None
+        return exchange.name, body
+    return None
+
+
+def assembled_body(
+    parts: list[tuple[int, dict]],
+    assembled: dict,
+    reused: tuple[tuple[int, str], ...] = (),
+) -> dict:
+    """ONE reply from three, in the shape a single reply has — so every
+    reader of `response.json` (the parser, the ledger, the no-progress
+    guard, the board's drafting lane) keeps working unchanged.
+
+    Says what it is, and says nothing it was not told. `assembled_from`
+    names the parts THIS exchange sent; `reused_from` names the exchange
+    that already paid for each part it did not send. `usage` is the sum of
+    the sent parts alone — money is counted where it was spent, once — and
+    if any sent part reported no usage the key is left out entirely and
+    `usage_missing_from` names it, because a smaller number standing in for
+    an unknown is the claim ceiling broken on a spend figure. `finish_reason`
+    is only `stop` when every sent part said so; otherwise the parts' own
+    words are recorded under `finish_reasons` and nothing is invented.
+    """
+    usage: dict[str, int] = {}
+    missing: list[str] = []
+    reasons: dict[str, object] = {}
+    for number, part in parts:
+        recorded = part.get("usage") if isinstance(part, dict) else None
+        counted = isinstance(recorded, dict) and any(
+            isinstance(value, int) for value in recorded.values()
+        )
+        if counted:
+            for key, value in recorded.items():
+                if isinstance(value, int):
+                    usage[key] = usage.get(key, 0) + value
+        else:
+            missing.append(f"response-{number}.json")
+        try:
+            reasons[str(number)] = part["choices"][0].get("finish_reason")
+        except (KeyError, IndexError, TypeError, AttributeError):
+            reasons[str(number)] = None
+    choice: dict = {"message": {"content": json.dumps(assembled)}}
+    body: dict = {
+        "choices": [choice],
+        "assembled_from": [f"response-{n}.json" for n, _ in parts],
+    }
+    if parts and all(value == "stop" for value in reasons.values()):
+        choice["finish_reason"] = "stop"
+    else:
+        body["finish_reasons"] = reasons
+    if missing:
+        body["usage_missing_from"] = missing
+    else:
+        body["usage"] = usage
+    if reused:
+        body["reused_from"] = {
+            str(number): f"{where}/response-{number}.json" for number, where in reused
+        }
+    return body
+
+
 def render_request(
     prd: str,
     model: str,
     max_output_tokens: int,
     declared: tuple[config.Gate, ...] = (),
     files: tuple[str, ...] = (),
+    section: str | None = None,
+    drafted_so_far: dict | None = None,
+    carried: dict | None = None,
 ) -> dict:
     """The exact chat-completions body.
 
@@ -1666,6 +1878,40 @@ def render_request(
     #
     # Old `request.json` files keep their `temperature` and stay readable:
     # nothing reads the key back out, and no schema governs this body.
+    if section is not None:
+        # **One section of the object above, with everything already drafted
+        # in front of the drafter (0.9.9).** The rules and the full shape
+        # stay — a drafter that cannot see the whole writes tasks for
+        # criteria it never saw — and the call is narrowed at the end: return
+        # only these keys, reference the ids already drafted, and nothing
+        # else. The head above is byte-identical to the single call's, which
+        # is what lets the ledger and the guard compare requests.
+        keys = ", ".join(f'"{key}"' for key in section_keys(section))
+        user += (
+            f"\n## This call\n"
+            f"Return ONLY these keys of the object above: {keys}. Leave every "
+            "other key out entirely; the sections that own them are asked for "
+            "separately.\n"
+        )
+        if drafted_so_far:
+            user += (
+                "\n## Already drafted, in earlier calls for this same "
+                "document\n"
+                "Reference these ids exactly; do not restate or redraft them:\n"
+                f"{json.dumps(drafted_so_far, indent=1)}\n"
+            )
+        if carried:
+            # An earlier call answered rule 1 while it wrote the criteria and
+            # returned a key this call owns. It is a proposal, not a
+            # decision, and this call is the one that decides — but it must
+            # SEE it, or the decision that shaped the wording is lost.
+            user += (
+                "\n## Proposed by an earlier call, for a key you own\n"
+                "An earlier call returned these although it was not asked "
+                "for them. Keep, change or replace them — they are "
+                "proposals, not decisions:\n"
+                f"{json.dumps(carried, indent=1)}\n"
+            )
     return {
         "model": model,
         "max_tokens": max_output_tokens,
@@ -1774,8 +2020,26 @@ def cut_off_next_move() -> str:
     )
 
 
+def retry_next_move() -> str:
+    """The command a person runs when the thing to change is not the ceiling
+    — an endpoint that could not be reached, a reply that was not JSON. Law:
+    every stop ends in a command that can be run as printed."""
+    from wringer import diagnose
+
+    return f"When it is ready to try again: {diagnose.RESUME_COMMAND}"
+
+
+def _highest_part(exchange: Path) -> int | None:
+    parts = sorted(
+        int(p.stem.rsplit("-", 1)[1])
+        for p in exchange.glob("response-*.json")
+        if p.stem.rsplit("-", 1)[1].isdigit()
+    )
+    return parts[-1] if parts else None
+
+
 def repeated_cut_off(
-    specs_root: Path, sent: dict, exclude: Path | None = None
+    specs_root: Path, sent: dict, exclude: Path | None = None, part: int | None = None
 ) -> str | None:
     """The exchange id of an identical request whose reply was already cut
     off for length, or None. **The no-progress spending guard (0.9.6, SOTA
@@ -1800,9 +2064,14 @@ def repeated_cut_off(
     for exchange in _exchanges_newest_first(specs_root):
         if exclude is not None and exchange == exclude:
             continue
+        # **Sectioned exchanges (0.9.9)**: a part is compared with the same
+        # part of the previous exchange — a cut-off in call 3 is repeated
+        # only by the same call 3, and calls 1 and 2 were never the problem.
+        request_name = REQUEST_FILENAME if part is None else f"request-{part}.json"
+        response_name = RESPONSE_FILENAME if part is None else f"response-{part}.json"
         try:
             previous = json.loads(
-                (exchange / REQUEST_FILENAME).read_text(encoding="utf-8")
+                (exchange / request_name).read_text(encoding="utf-8")
             )
         except (OSError, ValueError):
             continue
@@ -1810,7 +2079,7 @@ def repeated_cut_off(
             continue
         try:
             reply = json.loads(
-                (exchange / RESPONSE_FILENAME).read_text(encoding="utf-8")
+                (exchange / response_name).read_text(encoding="utf-8")
             )
             finish = reply["choices"][0].get("finish_reason")
         except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
@@ -2016,11 +2285,7 @@ def parse_response(
     # reply carrying `approved` is a reply that tried to work the interlock,
     # and the honest answer to that is a refusal a human reads, not a silent
     # discard.
-    unknown = sorted(
-        set(drafted)
-        - {"title", "open_questions", "criteria", "gates", "tasks",
-           "gate_bindings", "assumptions", "show_proposals", "choices"}
-    )
+    unknown = sorted(set(drafted) - set(REPLY_KEYS))
     if unknown:
         raise SpecError(
             f"the reply carried keys the request did not ask for: "
@@ -3676,14 +3941,18 @@ class Bundle:
             return cls(directory, spec_id, started_at, redactor or Redactor())
         raise SpecError(f"could not allocate a directory under {specs_root}")
 
-    def write_request(self, request: dict) -> Path:
-        path = self.directory / REQUEST_FILENAME
+    def write_request(self, request: dict, part: int | None = None) -> Path:
+        path = self.directory / (
+            REQUEST_FILENAME if part is None else f"request-{part}.json"
+        )
         scrubbed = evidence.deep_scrub(self.redactor, request)
         path.write_text(json.dumps(scrubbed, indent=2) + "\n", encoding="utf-8")
         return path
 
-    def write_response(self, body: Any) -> Path:
-        path = self.directory / RESPONSE_FILENAME
+    def write_response(self, body: Any, part: int | None = None) -> Path:
+        path = self.directory / (
+            RESPONSE_FILENAME if part is None else f"response-{part}.json"
+        )
         scrubbed = evidence.deep_scrub(self.redactor, body)
         path.write_text(json.dumps(scrubbed, indent=2) + "\n", encoding="utf-8")
         return path
@@ -3696,6 +3965,7 @@ class Bundle:
         model: str,
         drafted: Spec | None,
         why: str | None = None,
+        sections: tuple[str, ...] = (),
     ) -> Path:
         lines = [
             f"# wring spec — {self.spec_id}",
@@ -3721,13 +3991,37 @@ class Bundle:
             # place a stop cannot be read back from. `wring explain` on this
             # directory then had nothing to say, and the field report had to
             # reconstruct the failure from `response.json` by hand.
-            lines += [
-                "",
-                "**Nothing was drafted, and no spec file was written.** The "
-                "request was sent and the exchange did not produce a usable "
-                f"`{SCHEMA_VERSION}` document — see `{REQUEST_FILENAME}` and, "
-                f"if a reply arrived at all, `{RESPONSE_FILENAME}`.",
-            ]
+            if sections:
+                # **Point at what was actually exchanged.** In a sectioned
+                # draft `request.json` is the single-call head, kept so the
+                # ledger and the plain guard can compare documents, and it is
+                # never sent; the calls are `request-N.json` and the replies
+                # that arrived are `response-N.json`. The old sentence sent a
+                # field report to a request nobody sent and a reply that does
+                # not exist, while three paid replies sat unnamed beside it.
+                lines += [
+                    "",
+                    "**Nothing was drafted, and no spec file was written.** "
+                    "This document was drafted in sections. What happened, "
+                    "call by call:",
+                    "",
+                ]
+                lines += [f"- {one}" for one in sections]
+                lines += [
+                    "",
+                    f"`{REQUEST_FILENAME}` is the single-call head, kept so a "
+                    "redraft can be matched to this document; it was not sent, "
+                    f"and there is no `{RESPONSE_FILENAME}` because the draft "
+                    "was not assembled.",
+                ]
+            else:
+                lines += [
+                    "",
+                    "**Nothing was drafted, and no spec file was written.** The "
+                    "request was sent and the exchange did not produce a usable "
+                    f"`{SCHEMA_VERSION}` document — see `{REQUEST_FILENAME}` "
+                    f"and, if a reply arrived at all, `{RESPONSE_FILENAME}`.",
+                ]
             if why:
                 lines += ["", f"Why: {why}"]
             else:

@@ -1822,6 +1822,170 @@ def _ignore_runs(root: Path) -> str | None:
     return ".gitignore"
 
 
+def _draft_in_sections(args, cfg, root, bundle, redactor, prd, tracked):
+    """The three calls of SOTA item 2 (0.9.9), each checkpointed on disk and
+    REUSED by the next attempt.
+
+    Returns the ASSEMBLED reply in a single reply's shape, or None having
+    printed the stop. A reply cut off in call 3 costs call 3: the calls
+    before it are read back from the exchange that paid for them and are not
+    sent again — including when the person raises the ceiling, which is the
+    move the stop tells them to make and which changes every call's bytes.
+    The no-progress guard runs before each call that is really sent, against
+    that call's own request.
+    """
+    from wringer import evidence, judge, spec
+
+    mode = "live"
+    specs_root = root / spec.SPECS_DIRNAME
+    total = len(spec.SECTIONS)
+    assembled: dict = {}
+    carried: dict = {}
+    sent_parts: list[tuple[int, dict]] = []
+    reused: list[tuple[int, str]] = []
+    trail: list[str] = []
+
+    def stop(why: str, printed: str | None = None) -> None:
+        bundle.write_summary(
+            mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
+            why=why, sections=tuple(trail),
+        )
+        print(printed or f"wring spec: {why}", file=sys.stderr)
+
+    for number, (name, _keys) in enumerate(spec.SECTIONS, start=1):
+        where = f"{_relative(bundle.directory, root)}"
+        request = spec.render_request(
+            prd, cfg.judge.model, cfg.judge.max_output_tokens, cfg.gates, tracked,
+            section=name, drafted_so_far=assembled or None, carried=carried or None,
+        )
+        scrubbed = evidence.deep_scrub(redactor, request)
+        # **Read the checkpoint back before paying for it again.**
+        already = spec.reusable_section(
+            specs_root, scrubbed, part=number, exclude=bundle.directory
+        )
+        if already is not None:
+            paid_at, body = already
+            try:
+                section, notes, dropped = spec.section_dict(body, name)
+            except spec.SpecError:
+                section = None
+            if section is not None:
+                assembled.update(section)
+                carried.update(dropped)
+                reused.append((number, paid_at))
+                trail.append(
+                    f"call {number} of {total} ({name}) — **reused** from "
+                    f"`{paid_at}/response-{number}.json`, not sent again"
+                )
+                print(
+                    f"wring spec: call {number} of {total} ({name}) was already "
+                    f"answered for this same document at {paid_at} — reusing "
+                    "that reply, and not paying for it again",
+                    file=sys.stderr,
+                )
+                continue
+        bundle.write_request(request, part=number)
+        repeated = spec.repeated_cut_off(
+            specs_root, scrubbed, exclude=bundle.directory, part=number
+        )
+        if repeated is not None:
+            why = (
+                f"call {number} of {total} ({name}) — this exact request, with "
+                f"this exact ceiling, was already sent at {repeated} and the "
+                "reply was cut off for length. Nothing has changed, so sending "
+                "it again would spend the same to be cut off in the same "
+                f"place. {spec.cut_off_next_move()}"
+            )
+            trail.append(f"call {number} of {total} ({name}) — refused: {why}")
+            stop(why, printed=f"wring spec: refusing to spend — {why}")
+            return None
+        try:
+            body = judge.send(
+                request,
+                cfg.judge.endpoint,
+                cfg.judge.timeout,
+                os.environ.get(cfg.judge.api_key_env or ""),
+            )
+        except judge.TransportFailed as exc:
+            kept = len(reused) + len(sent_parts)
+            why = (
+                f"call {number} of {total} ({name}): the endpoint could not be "
+                f"used: {exc}. The request is on disk at "
+                f"{where}/request-{number}.json, and the {kept} call(s) before "
+                f"it are kept and will not be sent again. "
+                f"{spec.retry_next_move()}"
+            )
+            trail.append(
+                f"call {number} of {total} ({name}) — sent, and the endpoint "
+                f"could not be used: {exc}"
+            )
+            stop(why)
+            return None
+        bundle.write_response(body, part=number)
+        sent_parts.append((number, body))
+        choice = (body.get("choices") or [{}])[0] if isinstance(body, dict) else {}
+        if isinstance(choice, dict) and choice.get("finish_reason") == "length":
+            usage = body.get("usage") if isinstance(body, dict) else None
+            spent = usage.get("completion_tokens") if isinstance(usage, dict) else None
+            at = f" at {spent:,} tokens" if isinstance(spent, int) else ""
+            why = (
+                f"call {number} of {total} ({name}) was CUT OFF{at} — the "
+                "endpoint stopped it for length, mid-document. The "
+                f"{number - 1} call(s) before it are on disk and will be "
+                "reused rather than paid for again, at this ceiling or a "
+                f"higher one. {spec.cut_off_next_move()}"
+            )
+            trail.append(
+                f"call {number} of {total} ({name}) — sent, and the reply was "
+                f"CUT OFF{at}: `response-{number}.json`"
+            )
+            stop(why)
+            return None
+        try:
+            section, notes, dropped = spec.section_dict(body, name)
+        except spec.SpecError as exc:
+            why = (
+                f"{exc}. The reply is on disk at {where}/response-{number}.json. "
+                f"{spec.retry_next_move()}"
+            )
+            trail.append(
+                f"call {number} of {total} ({name}) — sent, and the reply could "
+                f"not be read: `response-{number}.json`"
+            )
+            stop(why)
+            return None
+        for note in notes:
+            print(f"wring spec: note: {note}", file=sys.stderr)
+        # **A call that came back without what it owns kills the draft here.**
+        # Calls 2 and 3 used to be paid for after a call 1 that returned only
+        # a title: bindings were drafted for criteria that did not exist, and
+        # the parser refused the lot at the end (cold review, 2026-09-05).
+        empty = [
+            key for key in spec.SECTION_REQUIRED.get(name, ()) if not section.get(key)
+        ]
+        if empty:
+            why = (
+                f"call {number} of {total} ({name}) came back without "
+                f"{', '.join(empty)}, which nothing else can supply — so the "
+                f"{total - number} call(s) after it were not sent. The reply "
+                f"is on disk at {where}/response-{number}.json. "
+                f"{spec.retry_next_move()}"
+            )
+            trail.append(
+                f"call {number} of {total} ({name}) — sent, and came back "
+                f"without {', '.join(empty)}: `response-{number}.json`"
+            )
+            stop(why)
+            return None
+        assembled.update(section)
+        carried.update(dropped)
+        trail.append(
+            f"call {number} of {total} ({name}) — sent, and answered: "
+            f"`request-{number}.json` / `response-{number}.json`"
+        )
+    return spec.assembled_body(sent_parts, assembled, reused=tuple(reused))
+
+
 def _delivery_manifest(root: Path, named: str) -> Path:
     """The manifest for `--delivery`, whether an id or a directory was given.
 
@@ -3354,53 +3518,72 @@ def cmd_spec(args: argparse.Namespace) -> int:
         _fail("spec", exc)
         return EXIT_CONFIG
 
+    # Written in both modes. In a sectioned draft this is the single-call
+    # HEAD and not bytes anyone sent: the ledger (`previous_draft`) and the
+    # plain-mode guard match documents through it, and the summary says so
+    # rather than pointing a reader at it as the request.
     bundle.write_request(request)
 
     mode = "live" if args.send else "dry_run"
     drafted: spec.Spec | None = None
     proposed: tuple[config.Gate, ...] = ()
     if args.send:
-        # **The no-progress spending guard (0.9.6, SOTA item 4).** Run 5's
-        # documented resume sent the same request with the same ceiling and
-        # paid the same again to be cut off in the same place. Compared on
-        # the scrubbed request `write_request` just wrote, so what is
-        # compared is what is on disk.
-        repeated = spec.repeated_cut_off(
-            root / spec.SPECS_DIRNAME,
-            evidence.deep_scrub(redactor, request),
-            exclude=bundle.directory,
-        )
-        if repeated is not None:
-            why = (
-                f"this exact request, with this exact ceiling, was already "
-                f"sent at {repeated} and the reply was cut off for length. "
-                "Nothing has changed, so sending it again would spend the "
-                f"same to be cut off in the same place. {spec.cut_off_next_move()}"
+        if cfg.judge.draft_in_sections:
+            body = _draft_in_sections(args, cfg, root, bundle, redactor, prd, tracked)
+            if body is None:
+                return EXIT_CONFIG
+        else:
+            # **The no-progress spending guard (0.9.6, SOTA item 4).** Run 5's
+            # documented resume sent the same request with the same ceiling and
+            # paid the same again to be cut off in the same place. Compared on
+            # the scrubbed request `write_request` just wrote, so what is
+            # compared is what is on disk.
+            #
+            # **It guards the call it is about (cold review, 2026-09-05).** It
+            # used to run before the branch, over a request that a sectioned
+            # draft never sends — so after a monolithic cut-off, turning
+            # `draft_in_sections` on at the same ceiling was refused with
+            # "nothing has changed" and told to raise the ceiling instead. The
+            # person was blocked from the remedy by the guard that exists to
+            # send them to one. Sectioned drafting guards each call inside
+            # `_draft_in_sections`, against that call's own request.
+            repeated = spec.repeated_cut_off(
+                root / spec.SPECS_DIRNAME,
+                evidence.deep_scrub(redactor, request),
+                exclude=bundle.directory,
             )
-            bundle.write_summary(
-                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None, why=why
-            )
-            print(f"wring spec: refusing to spend — {why}", file=sys.stderr)
-            return EXIT_CONFIG
-        try:
-            body = judge.send(
-                request,
-                cfg.judge.endpoint,
-                cfg.judge.timeout,
-                os.environ.get(cfg.judge.api_key_env or ""),
-            )
-        except judge.TransportFailed as exc:
-            bundle.write_summary(
-                mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
-                why=f"the endpoint could not be used: {exc}",
-            )
-            print(
-                f"wring spec: the endpoint could not be used: {exc}. The "
-                f"request is on disk at "
-                f"{_relative(bundle.directory, root)}/{spec.REQUEST_FILENAME}.",
-                file=sys.stderr,
-            )
-            return EXIT_CONFIG
+            if repeated is not None:
+                why = (
+                    f"this exact request, with this exact ceiling, was already "
+                    f"sent at {repeated} and the reply was cut off for length. "
+                    "Nothing has changed, so sending it again would spend the "
+                    f"same to be cut off in the same place. "
+                    f"{spec.cut_off_next_move()}"
+                )
+                bundle.write_summary(
+                    mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None, why=why
+                )
+                print(f"wring spec: refusing to spend — {why}", file=sys.stderr)
+                return EXIT_CONFIG
+            try:
+                body = judge.send(
+                    request,
+                    cfg.judge.endpoint,
+                    cfg.judge.timeout,
+                    os.environ.get(cfg.judge.api_key_env or ""),
+                )
+            except judge.TransportFailed as exc:
+                bundle.write_summary(
+                    mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
+                    why=f"the endpoint could not be used: {exc}",
+                )
+                print(
+                    f"wring spec: the endpoint could not be used: {exc}. The "
+                    f"request is on disk at "
+                    f"{_relative(bundle.directory, root)}/{spec.REQUEST_FILENAME}.",
+                    file=sys.stderr,
+                )
+                return EXIT_CONFIG
 
         bundle.write_response(body)
         # Every previous requirement accounted for (0.9.8): the previous
@@ -5411,6 +5594,32 @@ def _explain_journey(journey_dir: Path, journey: dict) -> None:
     # carries `stop.json`: what happened, why, what is preserved, whether
     # the next action spends, and the next move — every field quoted from
     # the step the drive emitted and the resume preface's own derivation.
+    readiness = _read_journey_sibling(
+        journey_dir / evidence.READINESS_FILENAME, evidence.READINESS_SCHEMA_VERSION
+    )
+    if readiness is not None:
+        # Fail closed on a record that is present and not the shape this
+        # version reads: `_read_sibling` proves the version, not the lanes,
+        # and indexing them raised a traceback over a hand-edited file.
+        lanes = [readiness.get("drafting"), readiness.get("worker")]
+        if all(isinstance(one, dict) for one in lanes):
+            print(
+                f"\nBefore anything was spent — drafting credential: "
+                f"{readiness['drafting'].get('word')}; builder credential: "
+                f"{readiness['worker'].get('word')}"
+            )
+        else:
+            print(
+                f"\n{evidence.READINESS_FILENAME} is present but is not in the "
+                f"shape {evidence.READINESS_SCHEMA_VERSION} reads — it names no "
+                "credential lane, so nothing is quoted from it here."
+            )
+    elif (journey_dir / evidence.READINESS_FILENAME).is_file():
+        print(
+            f"\n{evidence.READINESS_FILENAME} is present and could not be read "
+            f"as {evidence.READINESS_SCHEMA_VERSION} — what was known about the "
+            "credentials before this journey spent anything is not available."
+        )
     stop = _read_stop(journey_dir)
     if stop is not None:
         print(f"\nStopped: {stop.get('what') or '(no words recorded)'}")
@@ -5429,6 +5638,25 @@ def _explain_journey(journey_dir: Path, journey: dict) -> None:
     except ValueError:
         shown = journey_dir.as_posix()
     print(f"\nJourney record: {shown}/{evidence.JOURNEY_FILENAME}")
+
+
+def _read_journey_sibling(path: Path, version: str) -> dict | None:
+    """A journey sibling by its own declared version, or None — never a guess.
+
+    **Named apart from the loop's `_read_sibling` (cold review, 2026-09-05).**
+    0.9.9 defined a second function of that name in this module and Python
+    kept the later one, so `wring explain` on a LOOP directory raised a
+    TypeError over the worker's own diagnosis. Two readers, two names.
+    """
+    if not path.is_file():
+        return None
+    try:
+        recorded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(recorded, dict) or recorded.get("schema_version") != version:
+        return None
+    return recorded
 
 
 def _read_stop(journey_dir: Path) -> dict | None:

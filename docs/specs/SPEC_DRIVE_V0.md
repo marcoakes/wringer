@@ -159,6 +159,33 @@ step 7 and claimed the diff is "rendered by the S3 surface", which it is not:
 checked** — the stale-sentence class, inside a spec whose §1 names that class
 as this programme's seven-time defect.
 
+### What a journey leaves on disk
+
+`.wringer/journeys/<id>/` — the drive's own records, beside the run bundles
+and never inside one:
+
+```
+journey.json      # `wringer.journey.v1` — the run this journey is, and its
+                  # steps (0.8.0)
+readiness.json    # `wringer.readiness.v1` — each credential lane in ONE
+                  # word, written BEFORE anything is spent and quoted by the
+                  # readiness card (0.9.9). `verified` is the vendor's own
+                  # free answer that it is logged in with nothing displacing
+                  # that login, and only that; `displaced` is a key over a
+                  # stored login; `declared-unverified` is a key that is set
+                  # and nothing that has said it works; `unavailable` is the
+                  # vendor's own no; `not-applicable` is a shell worker with
+                  # no login surface on the roster; `unmeasured` is a lane
+                  # nobody managed to ask. The drafting lane is never
+                  # `verified` — Wringer does not probe that endpoint for
+                  # free, so the most it can say of a set variable is that
+                  # it is set.
+stop.json         # `wringer.stop.v1` — where the journey stopped, what was
+                  # preserved, and the next move as printed (0.9.6)
+```
+
+`wring explain <journey dir>` reads all three back.
+
 ---
 
 ## §3a — The licence, WIDENED — and this is the only place it is

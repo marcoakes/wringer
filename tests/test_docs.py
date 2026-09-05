@@ -5151,3 +5151,50 @@ def test_the_DISPLAY_PROPOSAL_ruling_is_written_where_show_is_specified():
     assert "Ruling MR3" in page, "SPEC_COVERAGE_V0.md lost the display-proposal ruling"
     assert "proposed, never installed" in page
     assert "the same yes" in page
+
+
+def test_every_JUDGE_CONFIG_KEY_is_named_where_the_judge_section_is_specified():
+    """**Derived from the loader, so a key cannot ship undocumented.**
+
+    Cold review 2026-09-05: `draft_in_sections` was accepted by
+    `config._parse_judge`, written into every config `wringer-drive`
+    generates, and named on no page — a PM reading the file the tool wrote
+    for them could grep the whole repository and find nothing.
+    """
+    from wringer import config
+
+    page = (repo_root() / "docs" / "specs" / "SPEC_JUDGE_V0.md").read_text(
+        encoding="utf-8"
+    )
+    section = page.split("## 3. Config")[1].split("\n## ")[0]
+    # **The BLOCK, not the section.** Prose beside it naming a key is not the
+    # block a reader copies, and the first version of this guard was vacuous
+    # for exactly that reason: deleting the key's line left the paragraph
+    # underneath it and the guard stayed green.
+    block = section.split("```yaml")[1].split("```")[0]
+    missing = sorted(key for key in config._JUDGE_KEYS if f"{key}:" not in block)
+    assert not missing, (
+        f"{', '.join(missing)} — accepted by the judge section's loader and "
+        "absent from the config block a reader copies"
+    )
+
+
+def test_every_JOURNEY_RECORD_the_engine_names_is_described_in_the_drive_spec():
+    """The same, for the files a journey leaves behind. `stop.json` shipped
+    in 0.9.6 and `readiness.json` in 0.9.9, and until this guard neither was
+    described outside `schema/`."""
+    from wringer import evidence
+
+    page = (repo_root() / "docs" / "specs" / "SPEC_DRIVE_V0.md").read_text(
+        encoding="utf-8"
+    )
+    journey_records = ("JOURNEY_FILENAME", "READINESS_FILENAME", "STOP_FILENAME")
+    missing = sorted(
+        getattr(evidence, name)
+        for name in journey_records
+        if getattr(evidence, name) not in page
+    )
+    assert not missing, (
+        f"{', '.join(missing)} — written beside every journey and described "
+        "in the spec that owns the drive"
+    )

@@ -240,6 +240,7 @@ _JUDGE_KEYS = {
     "api_key_env",
     "timeout",
     "max_output_tokens",
+    "draft_in_sections",
 }
 
 # `wring judge` defaults (docs/specs/SPEC_JUDGE_V0.md §3). endpoint, model and rubric
@@ -586,6 +587,12 @@ class Judge:
     api_key_env: str | None = None
     timeout: int = DEFAULT_JUDGE_TIMEOUT_SECONDS
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS
+    # **Draft the plan in three calls rather than one (0.9.9, SOTA item 2).**
+    # Off by default in the engine: the monolithic reply is what every field
+    # run so far has measured, and sectioned drafting has been through none.
+    # The drive's generated config turns it on, because the drive is the
+    # surface a cut-off reply cost run 5 its whole blind phase on.
+    draft_in_sections: bool = False
 
 
 @dataclass(frozen=True)
@@ -1585,7 +1592,18 @@ def _parse_judge(raw: Any, source: str) -> Judge | None:
             raw, "max_output_tokens", DEFAULT_MAX_OUTPUT_TOKENS, source,
             section="judge",
         ),
+        draft_in_sections=_sections_flag(raw, source),
     )
+
+
+def _sections_flag(raw: dict, source: str) -> bool:
+    flag = raw.get("draft_in_sections", False)
+    if not isinstance(flag, bool):
+        raise ConfigError(
+            f"{source}: 'judge.draft_in_sections' must be true or false "
+            f"(got {flag!r})"
+        )
+    return flag
 
 
 def _validate_endpoint(endpoint: str, source: str, key: str = "judge.endpoint") -> None:

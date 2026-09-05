@@ -105,7 +105,40 @@ judge:
   api_key_env: OPENAI_API_KEY   # optional — the NAME of a variable, never a key
   timeout: 120                  # optional, default 120, integer >= 1
   max_output_tokens: 8000       # optional, default 8000, integer >= 1
+  draft_in_sections: false      # optional, default false — `wring spec` only
 ```
+
+**`draft_in_sections` (0.9.9).** `wring spec --send` drafts the plan in one
+call by default. With this on it drafts in three — the requirements, then
+the decisions and bindings given the requirements, then the tasks given both
+— and each call's request and reply are written to disk **before the next
+call is made**. A reply cut off at the ceiling then costs that call: the
+calls before it are read back from the exchange that paid for them and are
+not sent again, including when the ceiling is raised, which is the move the
+stop recommends and which changes every call's bytes.
+
+The exchange under `.wringer/specs/<id>/` then holds:
+
+```
+request.json      # the single-call head. In sectioned mode it is NOT sent:
+                  # it is what a redraft is matched against, so the ledger
+                  # and the plain guard compare documents, and `summary.md`
+                  # says so rather than pointing a reader at it.
+request-N.json    # the bytes of call N, as sent
+response-N.json   # call N's reply, as it arrived
+response.json     # the three assembled into one reply's shape, written only
+                  # when every call answered. `assembled_from` names the
+                  # calls this exchange sent, `reused_from` names the
+                  # exchange that already paid for each call it did not, and
+                  # `usage` is the sum of the calls it sent alone — omitted
+                  # entirely, with `usage_missing_from` naming the gap, if a
+                  # call reported none.
+```
+
+The engine's default stays off until sectioned drafting has been through a
+blind run; `wringer-drive` writes it on in the config it generates, because
+the drive is the surface a cut-off reply cost a run its whole blind phase
+on (run 5, 2026-09-05).
 
 > **AMENDED 2026-08-19.** This default was `1024` when the spec was written
 > and is `8000` now. The change is recorded here rather than in a note beside

@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/schema/readiness.schema.json",
+  "title": "wringer.readiness.v1",
+  "description": "Each credential lane in one word, as a record, written by wringer-drive beside the journey BEFORE anything is spent (0.9.9, SOTA item 5). Run 5 (2026-09-05) confirmed the readiness card's prose was honest about a displaced login; this makes the classification a typed fact the card quotes and a reader can check, so that 'Ready' can never mean 'a variable was found and we hope it works'. Derived from WorkerAuth's typed facts and doctor's drafting-key check \u2014 never from their prose. The drafting lane is never `verified`: Wringer never probes the drafting endpoint for free.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "journey_id",
+    "drafting",
+    "worker",
+    "recorded_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.readiness.v1"
+    },
+    "journey_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "drafting": {
+      "type": "object",
+      "required": [
+        "word",
+        "detail"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "word": {
+          "description": "ONE of the words a lane may be. `verified` is the vendor's own free answer that it is logged in with no key displacing that login \u2014 and only that; a present key is not a valid one, and neither is a login the vendor says it made WITH a key (`authMethod: api_key`). `displaced` is a key over a stored login (run 4B's trap). `declared-unverified` is a key that is set \u2014 in the environment, or named by the vendor as what authenticated it \u2014 and nothing that has said it works. `unavailable` is the vendor's own word that it is logged out, with no key to fall back on. `not-applicable` is the engine's own word for a shell worker with no login surface on the roster. `unmeasured` is the second word the engine adds for the same reason: a probe that could not be run or could not be read, a containment, a config that would not parse \u2014 nobody could tell, and a silence must not read as a declaration or a refusal.",
+          "enum": [
+            "verified",
+            "displaced",
+            "declared-unverified",
+            "unavailable",
+            "not-applicable",
+            "unmeasured"
+          ]
+        },
+        "detail": {
+          "description": "The engine's own sentence for the lane \u2014 doctor's check or the worker's auth reading \u2014 verbatim.",
+          "type": "string"
+        }
+      }
+    },
+    "worker": {
+      "type": "object",
+      "required": [
+        "word",
+        "detail",
+        "key_env",
+        "login_stored"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "word": {
+          "description": "ONE of the words a lane may be. `verified` is the vendor's own free answer that it is logged in with no key displacing that login \u2014 and only that; a present key is not a valid one, and neither is a login the vendor says it made WITH a key (`authMethod: api_key`). `displaced` is a key over a stored login (run 4B's trap). `declared-unverified` is a key that is set \u2014 in the environment, or named by the vendor as what authenticated it \u2014 and nothing that has said it works. `unavailable` is the vendor's own word that it is logged out, with no key to fall back on. `not-applicable` is the engine's own word for a shell worker with no login surface on the roster. `unmeasured` is the second word the engine adds for the same reason: a probe that could not be run or could not be read, a containment, a config that would not parse \u2014 nobody could tell, and a silence must not read as a declaration or a refusal.",
+          "enum": [
+            "verified",
+            "displaced",
+            "declared-unverified",
+            "unavailable",
+            "not-applicable",
+            "unmeasured"
+          ]
+        },
+        "detail": {
+          "description": "The engine's own sentence for the lane \u2014 doctor's check or the worker's auth reading \u2014 verbatim.",
+          "type": "string"
+        },
+        "key_env": {
+          "description": "The vendor's key variable, named only when it is SET. Never its value.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "login_stored": {
+          "description": "Whether the agent reports a stored login; null when it could not say.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "recorded_at": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

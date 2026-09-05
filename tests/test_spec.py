@@ -96,18 +96,27 @@ def setup_repo(repo: Path, prd: str = PRD, config_text: str = CONFIG) -> None:
     (repo / ".wringer.yaml").write_text(config_text, encoding="utf-8")
 
 
-def fake_transport(monkeypatch, reply=None, fail=None):
-    """Stand in for the one function in Wringer that opens a socket."""
+def fake_transport(monkeypatch, reply=None, fail=None, replies=None):
+    """Stand in for the one function in Wringer that opens a socket.
+
+    `replies` (0.9.9) is a SEQUENCE for sectioned drafting: one reply per
+    call, in order; `sent["requests"]` keeps every request in the order it
+    went out, so a test can hold what each call was asked."""
     from wringer import judge
 
     sent = {}
+    queue = list(replies) if replies is not None else None
 
     def fake_send(request, endpoint, timeout, api_key):
         sent.update(
             request=request, endpoint=endpoint, timeout=timeout, api_key=api_key
         )
+        sent.setdefault("requests", []).append(request)
         if fail is not None:
             raise judge.TransportFailed(fail)
+        if queue is not None:
+            assert queue, "more calls were made than replies were scripted"
+            return queue.pop(0)
         return reply
 
     monkeypatch.setattr(judge, "send", fake_send)
@@ -3966,3 +3975,456 @@ def test_SLICE_2_the_FIRST_draft_has_no_ledger_and_is_untouched(
     and every test above it already walk."""
     _first_draft(repo, monkeypatch, capsys, _draft_without("export-button-exists"))
     assert (repo / spec.SPEC_FILENAME).exists()
+
+
+# --- 0.9.9, SOTA item 2: the plan drafted in three checkpointed calls -------
+
+SECTIONED_CONFIG = CONFIG + "  draft_in_sections: true\n"
+
+
+def _section_replies(payload: dict, cut_off_at: int | None = None) -> list[dict]:
+    """The one DRAFT split into the three section replies the calls would
+    return — the same bytes, sectioned. `cut_off_at` makes that call arrive
+    cut off for length instead."""
+    out = []
+    for number, (_name, keys) in enumerate(spec.SECTIONS, start=1):
+        part = {k: payload[k] for k in keys if k in payload}
+        if cut_off_at == number:
+            out.append(_cut_off(part))
+        else:
+            body = reply(part)
+            body["choices"][0]["finish_reason"] = "stop"
+            body["usage"] = {
+                "prompt_tokens": 100 * number, "completion_tokens": 10 * number
+            }
+            out.append(body)
+    return out
+
+
+def test_SECTIONS_three_calls_checkpoint_each_and_assemble_ONE_reply(
+    repo, monkeypatch, capsys
+):
+    """**Run 5's 42,823 tokens for zero build become impossible.** Three
+    calls, each written to disk as `request-N.json` / `response-N.json`
+    before the next is made, and one assembled `response.json` in a single
+    reply's shape so every existing reader keeps working. The spec written
+    is the same spec the single call writes."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    sent = fake_transport(monkeypatch, replies=_section_replies(DRAFT))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+
+    assert len(sent["requests"]) == 3, "three calls were promised"
+    exchange = only_draft(repo)
+    for n in (1, 2, 3):
+        assert (exchange / f"request-{n}.json").is_file()
+        assert (exchange / f"response-{n}.json").is_file()
+    assembled = json.loads(
+        (exchange / spec.RESPONSE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert assembled["assembled_from"] == [
+        "response-1.json", "response-2.json", "response-3.json"
+    ]
+    # The sum of one lane's own three calls, said to be that.
+    assert assembled["usage"] == {"prompt_tokens": 600, "completion_tokens": 60}
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert [c.id for c in loaded.criteria] == [c["id"] for c in DRAFT["criteria"]]
+    assert [t.id for t in loaded.tasks] == [t["id"] for t in DRAFT["tasks"]]
+
+    # Each call was asked for ONLY its keys, and later calls saw the earlier
+    # sections — the head of every request is the single call's, byte for byte.
+    first, second, third = (r["messages"][1]["content"] for r in sent["requests"])
+    assert '"title", "open_questions", "criteria"' in first
+    assert "Already drafted" not in first
+    assert "Already drafted" in second and DRAFT["criteria"][0]["id"] in second
+    assert '"tasks"' in third and "Already drafted" in third
+    # The single call, built the way `wring spec` builds it — the PRD read
+    # by the CLI's own reader, the same gates and the same tracked-file
+    # listing — so the comparison is byte for byte.
+    from wringer import config, redact
+
+    cfg = config.load(repo / config.CONFIG_FILENAME)
+    redactor = redact.Redactor.from_config(
+        cfg.evidence, extra_names=config.declared_secret_names(cfg)
+    )
+    single = spec.render_request(
+        spec.read_prd(repo / "PRD.md", repo, redactor),
+        cfg.judge.model, cfg.judge.max_output_tokens, cfg.gates,
+        spec.repository_files(repo),
+    )["messages"][1]["content"]
+    assert first.startswith(single), (
+        "the head of a section call drifted from the single call's"
+    )
+
+
+def test_SECTIONS_a_cut_off_in_call_3_costs_call_3_and_keeps_calls_1_and_2(
+    repo, monkeypatch, capsys
+):
+    """The checkpoint promise: the two valid sections are on disk, the stop
+    names the call that was cut off and how many are kept, no assembled
+    reply is written, and the guard on the next attempt compares call 3's
+    request — not call 1's."""
+    from wringer import diagnose
+
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, replies=_section_replies(DRAFT, cut_off_at=3))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "call 3 of 3 (tasks) was CUT OFF" in said, said
+    assert "The 2 call(s) before it are on disk" in said
+    assert diagnose.RESUME_COMMAND in said
+
+    exchange = only_draft(repo)
+    assert (exchange / "response-1.json").is_file()
+    assert (exchange / "response-2.json").is_file()
+    assert (exchange / "response-3.json").is_file()
+    assert not (exchange / spec.RESPONSE_FILENAME).exists(), (
+        "an assembled reply was written for a cut-off draft"
+    )
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+    # **The same request again spends NOTHING.** Calls 1 and 2 are read back
+    # from the exchange that paid for them, and call 3 is refused before its
+    # socket opens. Cold review 2026-09-05: this asserted `== 2` — the stop
+    # promised the two calls were not spent again and the guard asserted that
+    # they were.
+    sent = fake_transport(monkeypatch, replies=_section_replies(DRAFT, cut_off_at=3))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "call 3 of 3 (tasks) — this exact request" in said, said
+    assert "call 1 of 3 (requirements) was already answered" in said, said
+    assert len(sent.get("requests", [])) == 0, "a call was paid for twice"
+
+
+def test_SECTIONS_a_key_drafted_in_the_wrong_call_is_CARRIED_to_the_call_that_owns_it(
+    repo, monkeypatch, capsys
+):
+    """R3's asymmetry, per section — and the note now tells the truth.
+
+    **Cold review, 2026-09-05.** The note said "the section that owns it is
+    asked for it" while the key went in the bin, so a decision the drafter
+    took under rule 1 while writing the criteria never reached the call that
+    owns `assumptions`, and DECIDED WITHOUT ASKING YOU came out empty. The
+    overstep is now handed to the owning call as a proposal."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    first = json.loads(replies[0]["choices"][0]["message"]["content"])
+    first["tasks"] = [{"id": "premature", "brief": "x", "dir": ".", "objective": "y"}]
+    replies[0]["choices"][0]["message"]["content"] = json.dumps(first)
+    sent = fake_transport(monkeypatch, replies=replies)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    said = capsys.readouterr().err
+    assert "the requirements call also drafted 'tasks', which the tasks call" in said
+    assert "carried there as a proposal" in said
+    loaded = spec.load(repo / spec.SPEC_FILENAME)
+    assert [t.id for t in loaded.tasks] == [t["id"] for t in DRAFT["tasks"]]
+    # It reaches the call that owns it, and as a PROPOSAL — never as one of
+    # the ids the earlier calls settled.
+    third = sent["requests"][2]["messages"][1]["content"]
+    assert "Proposed by an earlier call" in third
+    assert "premature" in third.split("Proposed by an earlier call")[1]
+    assert "premature" not in third.split("Proposed by an earlier call")[0], (
+        "a proposal was shown as already drafted"
+    )
+
+
+def test_SECTIONS_are_OFF_unless_the_config_says_so(repo, monkeypatch, capsys):
+    """The engine's default is the single reply every field run has
+    measured; sectioned drafting has been through none. The drive opts in."""
+    from wringer import config
+    from wringer_drive import run as run_module
+
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    sent = fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+    assert len(sent["requests"]) == 1
+    assert config.load(repo / ".wringer.yaml").judge.draft_in_sections is False
+    assert run_module.DECLARED_DEFAULTS["draft_in_sections"] is True
+
+
+def test_SECTIONS_the_flag_must_be_a_boolean(repo):
+    from wringer import config
+
+    setup_repo(repo, config_text=CONFIG + "  draft_in_sections: yes please\n")
+    with pytest.raises(config.ConfigError, match="draft_in_sections"):
+        config.load(repo / ".wringer.yaml")
+
+
+# --- the cold read of 0.9.9, 2026-09-05: what the sections really spend ----
+
+
+def test_SECTIONS_a_RAISED_ceiling_re_sends_only_the_call_that_was_cut_off(
+    repo, monkeypatch, capsys
+):
+    """**The stop's promise, kept through the move the stop recommends.**
+    `cut_off_next_move()` says raise the ceiling and resume — which changes
+    every call's bytes. Reuse is matched on the QUESTION, not the ceiling, so
+    calls 1 and 2 are read back and only call 3 is paid for again."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, replies=_section_replies(DRAFT, cut_off_at=3))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    (repo / ".wringer.yaml").write_text(
+        SECTIONED_CONFIG.replace("max_output_tokens: 16000", "max_output_tokens: 32000")
+        if "max_output_tokens: 16000" in SECTIONED_CONFIG
+        else SECTIONED_CONFIG + "  max_output_tokens: 32000\n",
+        encoding="utf-8",
+    )
+    sent = fake_transport(monkeypatch, replies=[_section_replies(DRAFT)[2]])
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    said = capsys.readouterr().err
+    assert len(sent["requests"]) == 1, "a call that was already answered was paid for"
+    assert "call 1 of 3 (requirements) was already answered" in said
+    assert "call 2 of 3 (decisions) was already answered" in said
+
+    exchange = sorted(
+        (repo / spec.SPECS_DIRNAME).iterdir(), key=lambda p: (p.stat().st_mtime, p.name)
+    )[-1]
+    assembled = json.loads(
+        (exchange / spec.RESPONSE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert assembled["assembled_from"] == ["response-3.json"]
+    assert set(assembled["reused_from"]) == {"1", "2"}
+    # The money is counted where it was spent, once: this exchange paid for
+    # call 3 alone.
+    assert assembled["usage"] == {"prompt_tokens": 300, "completion_tokens": 30}
+    assert [c.id for c in spec.load(repo / spec.SPEC_FILENAME).criteria] == [
+        c["id"] for c in DRAFT["criteria"]
+    ]
+
+
+def test_SECTIONS_a_call_that_comes_back_without_what_it_owns_stops_the_draft(
+    repo, monkeypatch, capsys
+):
+    """Calls 2 and 3 used to be paid for after a call 1 that returned only a
+    title: bindings drafted against criteria that did not exist, and the
+    parser refused the lot at the end."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    replies[0]["choices"][0]["message"]["content"] = json.dumps({"title": "CSV export"})
+    sent = fake_transport(monkeypatch, replies=replies)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "came back without criteria" in said, said
+    assert "the 2 call(s) after it were not sent" in said
+    assert "response-1.json" in said
+    assert len(sent["requests"]) == 1, "a dead draft bought two more calls"
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_SECTIONS_a_part_with_no_usage_leaves_the_total_OUT_and_names_the_gap(
+    repo, monkeypatch, capsys
+):
+    """Claim ceiling on a spend figure: a smaller number standing in for an
+    unknown is worse than no number. Absent is absent."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    replies[1].pop("usage")
+    fake_transport(monkeypatch, replies=replies)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+    assembled = json.loads(
+        (only_draft(repo) / spec.RESPONSE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert "usage" not in assembled, "two parts' tokens were rendered as three parts'"
+    assert assembled["usage_missing_from"] == ["response-2.json"]
+
+
+def test_SECTIONS_a_part_with_no_finish_reason_is_not_recorded_as_a_clean_stop(
+    repo, monkeypatch, capsys
+):
+    """The assembled reply may not put a word in the vendor's mouth: the
+    no-progress guard reads `finish_reason` back off this file."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    replies[2]["choices"][0].pop("finish_reason")
+    fake_transport(monkeypatch, replies=replies)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+    assembled = json.loads(
+        (only_draft(repo) / spec.RESPONSE_FILENAME).read_text(encoding="utf-8")
+    )
+    assert "finish_reason" not in assembled["choices"][0]
+    assert assembled["finish_reasons"] == {"1": "stop", "2": "stop", "3": None}
+
+
+def test_SECTIONS_turning_sections_ON_is_not_refused_by_the_single_calls_guard(
+    repo, monkeypatch, capsys
+):
+    """**The remedy may not be blocked by the guard that recommends it.**
+    After a monolithic cut-off, `draft_in_sections: true` at the same ceiling
+    was refused with "nothing has changed" — and the change was the whole
+    point."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=_cut_off(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    (repo / ".wringer.yaml").write_text(SECTIONED_CONFIG, encoding="utf-8")
+    sent = fake_transport(monkeypatch, replies=_section_replies(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    capsys.readouterr()
+    assert len(sent["requests"]) == 3, "the single call's guard refused the sections"
+    assert (repo / spec.SPEC_FILENAME).is_file()
+
+
+def test_SECTIONS_the_SUMMARY_names_the_calls_that_were_made_not_the_head(
+    repo, monkeypatch, capsys
+):
+    """What `wring explain` reads back after a sectioned stop. It used to say
+    "the request was sent ... see request.json and response.json": a request
+    nobody sent, and a file that does not exist, while three paid replies sat
+    unnamed beside it."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, replies=_section_replies(DRAFT, cut_off_at=3))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    capsys.readouterr()
+
+    summary = (only_draft(repo) / spec.SUMMARY_FILENAME).read_text(encoding="utf-8")
+    assert "response-3.json" in summary
+    assert "request-1.json" in summary
+    assert "The request was sent" not in summary
+    assert "it was not sent" in summary
+
+
+def test_SECTIONS_a_reply_that_is_not_JSON_names_the_file_and_a_next_move(
+    repo, monkeypatch, capsys
+):
+    """Law: every stop ends in a command that can be run as printed."""
+    from wringer import diagnose
+
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    replies[1]["choices"][0]["message"]["content"] = "I am afraid I cannot do that."
+    fake_transport(monkeypatch, replies=replies)
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "the decisions section was not the JSON object" in said, said
+    assert "response-2.json" in said
+    assert diagnose.RESUME_COMMAND in said
+
+
+def test_SECTIONS_a_transport_failure_names_the_kept_calls_and_a_next_move(
+    repo, monkeypatch, capsys
+):
+    from wringer import diagnose, judge
+
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    replies = _section_replies(DRAFT)
+    calls = {"n": 0}
+
+    def fake_send(request, endpoint, timeout, api_key):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise judge.TransportFailed("name or service not known")
+        return replies[calls["n"] - 1]
+
+    monkeypatch.setattr(judge, "send", fake_send)
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "the endpoint could not be used" in said, said
+    assert "request-2.json" in said
+    assert "the 1 call(s) before it are kept" in said
+    assert diagnose.RESUME_COMMAND in said
+
+
+def test_SECTIONS_the_parser_and_the_sections_share_ONE_key_set():
+    """One renderer per fact, for a key set too. A key in `SECTIONS` that the
+    parser refuses means every call is told to draft something the assembled
+    reply is then refused over — a whole paid draft lost to a drift.
+
+    Both directions, over every key: a reply carrying ALL of them is never
+    refused for carrying them (the drift that loses a paid draft), and a key
+    the parser accepts always has a call that asks for it (the drift that
+    drops one with a note saying another call owns it)."""
+    every = reply({key: DRAFT.get(key, []) for key in sorted(spec.REPLY_KEYS)})
+    try:
+        spec.parse_response(every, PRD, (), ())
+    except spec.SpecError as exc:
+        assert "keys the request did not ask for" not in str(exc), (
+            f"the parser refuses a key some call is told to draft: {exc}"
+        )
+    with pytest.raises(spec.SpecError, match="keys the request did not ask for"):
+        spec.parse_response(reply({**DRAFT, "nonsense": 1}), PRD, (), ())
+    for key in spec.REPLY_KEYS:
+        assert spec.owning_section(key) is not None
+
+
+def test_SECTIONS_a_cut_off_part_that_still_PARSES_is_never_reused(
+    repo, monkeypatch, capsys
+):
+    """**The reuse test the parse failure was hiding.** A reply the endpoint
+    stopped for length usually ends mid-string, so reusing it fails on the
+    JSON and the call is sent anyway — which made the `finish_reason` check
+    in `reusable_section` look load-bearing when it was not. A section can be
+    cut off with its object closed (the ceiling landing after the last brace
+    of a SHORT section, with more the model meant to add), and then the
+    truncated answer would be reused as a complete one. The vendor's word is
+    what decides, not whether the bytes happen to parse."""
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+
+    replies = _section_replies(DRAFT)
+    # Call 1, cut off, and valid JSON: one criterion where the draft has more.
+    short = {
+        "title": DRAFT["title"],
+        "open_questions": DRAFT["open_questions"],
+        "criteria": DRAFT["criteria"][:1],
+    }
+    replies[0] = {
+        "choices": [
+            {"message": {"content": json.dumps(short)}, "finish_reason": "length"}
+        ],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 8000},
+    }
+    fake_transport(monkeypatch, replies=replies)
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    assert "call 1 of 3 (requirements) was CUT OFF" in capsys.readouterr().err
+
+    # The retry, at a higher ceiling so the guard does not decide it: call 1
+    # must be SENT, not read back off the truncated reply.
+    (repo / ".wringer.yaml").write_text(
+        SECTIONED_CONFIG + "  max_output_tokens: 32000\n", encoding="utf-8"
+    )
+    sent = fake_transport(monkeypatch, replies=_section_replies(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    said = capsys.readouterr().err
+    assert "call 1 of 3 (requirements) was already answered" not in said, said
+    assert len(sent["requests"]) == 3, "a cut-off reply was reused as an answer"
+    assert [c.id for c in spec.load(repo / spec.SPEC_FILENAME).criteria] == [
+        c["id"] for c in DRAFT["criteria"]
+    ]

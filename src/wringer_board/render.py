@@ -1178,6 +1178,15 @@ def render(board: Board) -> str:
                 if isinstance(value, int) and not isinstance(value, bool)
             )
             line = f"{said[lane]} reported {counted}."
+            # A figure that is short says so: one call of a sectioned draft
+            # reporting no usage must not silently shrink the run's spend.
+            unreported = totals.get("unreported_parts")
+            if isinstance(unreported, list) and unreported:
+                line += (
+                    f" That is short: {len(unreported)} reply "
+                    f"({', '.join(str(one) for one in unreported)}) "
+                    "reported no usage at all."
+                )
             money = totals.get("cost")
             if isinstance(money, dict) and money.get("amount") is not None:
                 line += (

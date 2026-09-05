@@ -49,6 +49,7 @@
   "loop-manifest.schema.json": "3b8ae52bf300abec63c1b0ec446e35288f6cab165712f02725d19a32e7d719c8",
   "manifest.schema.json": "b94f5666f326536697383a70dba54996c43f86477ace5e0701b0ae5090665fcc",
   "next-move.schema.json": "b3dac211571ee11adb9d00daa135798cfbd5b050acad7dbde8a20828108c7a34",
+  "readiness.schema.json": "be2aa588c1f7259edb5011ecf1dc696715de93114fc56f1e5830872c904dbcf3",
   "refusal.schema.json": "80f0a038170b3d0d6da481663e58fe2d0c40c0ec1d7dec7bbbf48d2b88661096",
   "rubric.schema.json": "ea555570060f143c7ab48b6ba03aa5a7ebcd8fd9be4512f1ef3c4511c8803a42",
   "sources.schema.json": "5078aac372454920705c5fa1076fcd8eb46f87a89c4031a81ef5d77ee2d819d1",

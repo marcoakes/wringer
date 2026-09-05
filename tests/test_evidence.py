@@ -579,6 +579,9 @@ def bundle_filename_constants() -> dict[str, str]:
 #: taken on trust. The engine owns the name so the board can read the file
 #: without importing the drive (the layer seam); the drive owns the writing.
 NOT_BUNDLE_FILES = {
+    "READINESS_FILENAME": "the drive's readiness record, written beside the "
+    "journey record under .wringer/journeys/<id>/ before anything is spent, "
+    "never into a run bundle (0.9.9, SOTA item 5)",
     "STOP_FILENAME": "the drive's stop record, written beside the journey "
     "record under .wringer/journeys/<id>/ and never into a run bundle (0.9.6, "
     "SOTA item 3)",

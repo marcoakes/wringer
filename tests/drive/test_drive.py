@@ -1812,7 +1812,9 @@ def test_the_setup_step_names_where_the_key_has_to_be(project, tmp_path, capsys)
 
 
 @pytest.mark.parametrize(
-    "key", ["rubric", "api_key_env", "max_output_tokens", "branch", "timeout"]
+    "key",
+    ["rubric", "api_key_env", "max_output_tokens", "branch", "timeout",
+     "draft_in_sections"],
 )
 def test_every_declared_default_reaches_the_generated_file(
     key, project, tmp_path, capsys
@@ -1835,8 +1837,16 @@ def test_every_declared_default_reaches_the_generated_file(
     capsys.readouterr()
 
     written = (project / config.CONFIG_FILENAME).read_text(encoding="utf-8")
-    value = str(run_module.DECLARED_DEFAULTS[key])
-    assert value in written, (
+    declared = run_module.DECLARED_DEFAULTS[key]
+    # A YAML boolean is written lowercase; everything else as Python spells it.
+    value = str(declared).lower() if isinstance(declared, bool) else str(declared)
+    # **The KEY beside its value (cold review, 2026-09-05).** A bare
+    # substring made this vacuous for `draft_in_sections`: every generated
+    # config already contains the word "true" — the template's own
+    # `optional: true`, and the worker this test types at the prompt is
+    # literally `true` — so deleting the line from `generate_workspace` left
+    # the guard green over a default that had stopped existing.
+    assert f"{key}: {value}" in written or f'{key}: "{value}"' in written, (
         f"DRIVE declares {key}={value} and never writes it into the config it "
         f"generates, so the default it decided on does not exist"
     )
