@@ -63,6 +63,7 @@ build/
 # suite writes are build output; `corpus.json` is REGENERATED from whatever
 # records are on the machine, so it is a measurement, not a source.
 ts/node_modules/
+ts/packages/*/node_modules/
 ts/.scratch/
 ts/corpus.json
 ts/bun.lock
