@@ -298,3 +298,53 @@ jobs:
           tags: ghcr.io/${{ github.repository }}:main
           cache-from: type=gha
 
+
+  # **The port's contract — phase 0 of the Bun port (2026-09-06).**
+  #
+  # `ts/` holds a TypeScript reader for every frozen record, generated from
+  # `schema/`. It ports no engine behaviour; it is the seam a later surface
+  # stands on, and it is only worth having if it is proved against records
+  # the engine really wrote. So this job builds a corpus with the PYTHON
+  # validator first and then reads the same bytes with the TypeScript one:
+  # two languages, one corpus, one schema. A record that declares a version
+  # it does not satisfy fails the export, before bun runs at all.
+  records-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the engine, for its own validator
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install the contract's dependencies
+        working-directory: ts
+        run: bun install --frozen-lockfile
+
+      - name: The generated types are what the schemas say
+        working-directory: ts
+        run: bun run scripts/generate-types.ts --check
+
+      # A fresh checkout has no `.wringer/`, so the corpus is built from the
+      # records this very workflow's verify job would write plus the fixtures
+      # the suite ships. Running the engine on itself is what produces them.
+      - name: Produce records to read
+        run: |
+          python -m pytest tests/test_records_contract.py -q
+          wring verify || true
+
+      - name: Build the corpus, validated in python
+        run: python scripts/export-records.py --validate
+
+      - name: Read the same bytes in typescript
+        working-directory: ts
+        run: bun test

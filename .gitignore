@@ -58,3 +58,11 @@ uv.lock
 
 # `python -m build` output. Never committed; the release workflow builds it fresh.
 build/
+
+# The port's contract (ts/). `node_modules` and the scratch the contract
+# suite writes are build output; `corpus.json` is REGENERATED from whatever
+# records are on the machine, so it is a measurement, not a source.
+ts/node_modules/
+ts/.scratch/
+ts/corpus.json
+ts/bun.lock
