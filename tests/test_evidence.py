@@ -582,6 +582,9 @@ NOT_BUNDLE_FILES = {
     "READINESS_FILENAME": "the drive's readiness record, written beside the "
     "journey record under .wringer/journeys/<id>/ before anything is spent, "
     "never into a run bundle (0.9.9, SOTA item 5)",
+    "READINESS_HISTORY_FILENAME": "every credential reading this journey "
+    "took, appended beside the journey record under .wringer/journeys/<id>/ "
+    "and never into a run bundle (run 5B, F3)",
     "STOP_FILENAME": "the drive's stop record, written beside the journey "
     "record under .wringer/journeys/<id>/ and never into a run bundle (0.9.6, "
     "SOTA item 3)",

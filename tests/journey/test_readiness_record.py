@@ -318,3 +318,144 @@ def test_explain_FAILS_CLOSED_on_a_readiness_record_it_cannot_read(ctx, capsys):
     said = capsys.readouterr().out
     assert evidence.READINESS_FILENAME in said
     assert "could not be read" in said
+
+
+def _project_declaring(tmp_path, name: str, judge_extra: str = ""):
+    from wringer import config as config_module
+
+    project = tmp_path / name
+    project.mkdir()
+    (project / config_module.CONFIG_FILENAME).write_text(
+        "version: 1\ngates:\n  - id: check\n    run: \"true\"\n"
+        "judge:\n  endpoint: http://127.0.0.1:1/v1/chat/completions\n"
+        "  model: cheap-model\n  rubric: wringer.rubric.yaml\n"
+        + judge_extra
+        + 'run:\n  worker: ": {brief}"\n',
+        encoding="utf-8",
+    )
+    return project
+
+
+def test_RUN_5B_the_card_counts_the_drafting_calls_the_CONFIG_will_make(tmp_path):
+    """**Run 5B, 2026-09-06, F2.** The card said "Paid steps ahead: one
+    drafting call" while the config the drive itself writes turns sectioned
+    drafting on, and three requests went out. A card whose whole purpose is
+    to say what a run will spend before it spends it may not undercount the
+    unit that is billed.
+
+    The flag here is the one `generate_workspace` writes — asserted below,
+    so this cannot pass over a shape the drive never produces."""
+    assert run_module.DECLARED_DEFAULTS["draft_in_sections"] is True
+    project = _project_declaring(
+        tmp_path, "sectioned", "  draft_in_sections: true\n"
+    )
+    card = run_module.readiness_step(project)
+    assert "3 drafting calls (requirements, decisions, tasks)" in card.text, card.text
+    assert "one drafting call" not in card.text
+
+
+def test_RUN_5B_the_card_says_ONE_call_when_the_config_asks_for_one(tmp_path):
+    """The other half, so the count is derived rather than swapped for a new
+    literal: a project whose judge does not draft in sections is told one."""
+    card = run_module.readiness_step(_project_declaring(tmp_path, "single"))
+    assert "Paid steps ahead: one drafting call" in card.text, card.text
+
+
+def test_RUN_5B_the_FIRST_reading_is_never_overwritten_and_every_one_is_kept(ctx):
+    """**Run 5B, 2026-09-06, F3.** `resume` continues the same journey and
+    re-enters the draft phase, and `write_readiness` overwrote its record.
+    The card shown before the first paid draft said `declared-unverified` on
+    a key-only machine; a stored login reappeared; the journey's record was
+    rewritten to `displaced`. The later reading was true, and it went over
+    the only copy of what the person was shown BEFORE they spent — which is
+    what that file is for, in its own schema's words.
+
+    Both are facts, so both are kept.
+    """
+    import jsonschema
+
+    journey_dir, first, _ = _driven(ctx)
+    record = journey_dir / evidence.READINESS_FILENAME
+    history = journey_dir / evidence.READINESS_HISTORY_FILENAME
+    assert history.is_file(), "no history was written beside the record"
+
+    lanes = {
+        "drafting": {"word": run_module.UNAVAILABLE, "detail": "the key went away"},
+        "worker": {"word": run_module.DISPLACED, "detail": "a login came back"},
+    }
+    run_module.write_readiness(
+        ctx.state["project"], journey_dir.name, lanes
+    )
+
+    kept = json.loads(record.read_text(encoding="utf-8"))
+    assert kept == first, (
+        "the record of what was known before the first spend was overwritten"
+    )
+
+    readings = [
+        json.loads(line)
+        for line in history.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(readings) == 2, readings
+    for one in readings:
+        jsonschema.validate(one, SCHEMA)
+    assert readings[0] == first
+    assert readings[-1]["worker"]["word"] == run_module.DISPLACED
+
+
+def test_RUN_5B_explain_says_BOTH_what_was_shown_and_what_changed(ctx, capsys):
+    """One surface, both facts: the reading before the spend, and any later
+    reading that said something different. A reading that says the same
+    thing is not repeated back as news."""
+    from wringer import cli
+
+    journey_dir, first, _ = _driven(ctx)
+    ctx.monkeypatch.chdir(ctx.state["project"])
+
+    # A second reading that agrees adds nothing to say.
+    run_module.write_readiness(
+        ctx.state["project"],
+        journey_dir.name,
+        {
+            "drafting": dict(first["drafting"]),
+            "worker": dict(first["worker"]),
+        },
+    )
+    assert cli.main(["explain", str(journey_dir)]) == cli.EXIT_OK
+    assert "Later," not in capsys.readouterr().out
+
+    # One that disagrees is said, beside the first rather than over it.
+    run_module.write_readiness(
+        ctx.state["project"],
+        journey_dir.name,
+        {
+            "drafting": {"word": run_module.UNAVAILABLE, "detail": "gone"},
+            "worker": {"word": run_module.DISPLACED, "detail": "a login came back"},
+        },
+    )
+    assert cli.main(["explain", str(journey_dir)]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+    assert (
+        f"Before anything was spent — drafting credential: "
+        f"{first['drafting']['word']}"
+    ) in said, said
+    assert "Later," in said and run_module.DISPLACED in said
+
+
+def test_RUN_5B_an_unreadable_history_line_is_COUNTED_not_dropped(ctx, capsys):
+    """Law 7: a line this version cannot read is named, never skipped in
+    silence."""
+    from wringer import cli
+
+    journey_dir, _, _ = _driven(ctx)
+    history = journey_dir / evidence.READINESS_HISTORY_FILENAME
+    with history.open("a", encoding="utf-8") as handle:
+        handle.write("{not json\n")
+        handle.write(json.dumps({"schema_version": "wringer.readiness.v0"}) + "\n")
+
+    ctx.monkeypatch.chdir(ctx.state["project"])
+    assert cli.main(["explain", str(journey_dir)]) == cli.EXIT_OK
+    said = capsys.readouterr().out
+    assert evidence.READINESS_HISTORY_FILENAME in said
+    assert "2 line(s) could not be read" in said, said

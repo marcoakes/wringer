@@ -172,6 +172,14 @@ STOP_SCHEMA_VERSION = "wringer.stop.v1"
 #: to be unverified, in the record and on the card.
 READINESS_FILENAME = "readiness.json"
 READINESS_SCHEMA_VERSION = "wringer.readiness.v1"
+#: **Every reading, in the order they were taken (run 5B, F3).** The record
+#: above is the FIRST one — what was on screen before the first spend — and
+#: it is not overwritten. A journey RESUMED into the draft phase reads the
+#: credentials again, and on run 5B's machine the answer changed under the
+#: operator: a stored login came back beneath a key. One
+#: `wringer.readiness.v1` object per line, append-only, the SAME frozen
+#: shape — a sibling file, never a new key in a frozen record.
+READINESS_HISTORY_FILENAME = "readiness-history.jsonl"
 JOURNEY_SCHEMA_VERSION = "wringer.journey.v1"
 #: The closed set of phase kinds `journey.schema.json` declares.
 JOURNEY_KINDS = ("draft", "build", "verify", "deliver", "audit", "falsify", "other")

@@ -1986,6 +1986,24 @@ def _draft_in_sections(args, cfg, root, bundle, redactor, prd, tracked):
     return spec.assembled_body(sent_parts, assembled, reused=tuple(reused))
 
 
+def _spec_stopped(args, why: str, next_move: str) -> int:
+    """One place a `wring spec` refusal is said, so the console and the
+    machine-readable object cannot disagree about the move.
+
+    **Run 5B, 2026-09-06, F1.** The refusal that ended the blind phase was
+    correct and unusable: it printed prose and returned an exit code, the
+    drive wrapped stderr into a stop with no next move, and `stop.json`
+    recorded `next_move: null`. A product manager four minutes into their
+    first run had nothing to run.
+    """
+    print(f"wring spec: {why} {next_move}".rstrip(), file=sys.stderr)
+    if getattr(args, "json", False):
+        # On stdout, where the drive reads it, and only on a refusal — the
+        # success object is unchanged.
+        print(json.dumps({"stopped": True, "why": why, "next_move": next_move}))
+    return EXIT_CONFIG
+
+
 def _delivery_manifest(root: Path, named: str) -> Path:
     """The manifest for `--delivery`, whether an id or a directory was given.
 
@@ -3458,7 +3476,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
         print(
             f"wring spec: refusing to overwrite {spec.SPEC_FILENAME} — it may "
             "already carry your approval and your answers.\n\n"
-            "  wring spec --send --redraft PRD.md\n\n"
+            f"  {spec.redraft_next_move(args.prd)}\n\n"
             "drafts again and KEEPS every answer you have given, carrying each "
             "one under the question you actually answered. Deleting the file "
             "loses them.",
@@ -3563,8 +3581,7 @@ def cmd_spec(args: argparse.Namespace) -> int:
                 bundle.write_summary(
                     mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None, why=why
                 )
-                print(f"wring spec: refusing to spend — {why}", file=sys.stderr)
-                return EXIT_CONFIG
+                return _spec_stopped(args, f"refusing to spend — {why}", "")
             try:
                 body = judge.send(
                     request,
@@ -3573,17 +3590,16 @@ def cmd_spec(args: argparse.Namespace) -> int:
                     os.environ.get(cfg.judge.api_key_env or ""),
                 )
             except judge.TransportFailed as exc:
+                why = (
+                    f"the endpoint could not be used: {exc}. The request is on "
+                    f"disk at "
+                    f"{_relative(bundle.directory, root)}/{spec.REQUEST_FILENAME}."
+                )
                 bundle.write_summary(
                     mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
-                    why=f"the endpoint could not be used: {exc}",
+                    why=why,
                 )
-                print(
-                    f"wring spec: the endpoint could not be used: {exc}. The "
-                    f"request is on disk at "
-                    f"{_relative(bundle.directory, root)}/{spec.REQUEST_FILENAME}.",
-                    file=sys.stderr,
-                )
-                return EXIT_CONFIG
+                return _spec_stopped(args, why, spec.retry_next_move())
 
         bundle.write_response(body)
         # Every previous requirement accounted for (0.9.8): the previous
@@ -3631,16 +3647,19 @@ def cmd_spec(args: argparse.Namespace) -> int:
             )
             drafted, proposed = draft.spec, draft.gates
         except spec.SpecError as exc:
+            why = (
+                f"{exc}. The reply is on disk at "
+                f"{_relative(bundle.directory, root)}/{spec.RESPONSE_FILENAME}."
+            )
             bundle.write_summary(
                 mode, args.prd, cfg.judge.endpoint, cfg.judge.model, None,
-                why=str(exc),
+                why=why,
             )
-            print(
-                f"wring spec: {exc}. The reply is on disk at "
-                f"{_relative(bundle.directory, root)}/{spec.RESPONSE_FILENAME}.",
-                file=sys.stderr,
-            )
-            return EXIT_CONFIG
+            # **Drafting again IS the move here, and the drafter usually asks
+            # rather than decides on the second attempt** — the refusal's own
+            # prose says so. Until run 5B it said so without naming the
+            # command, and the run ended there.
+            return _spec_stopped(args, why, spec.redraft_next_move(args.prd))
 
         carried: tuple[str, ...] = ()
         if previous is not None:
@@ -3658,13 +3677,13 @@ def cmd_spec(args: argparse.Namespace) -> int:
                     _yaml.safe_load(spec.render(drafted)), "the re-drafted spec"
                 )
             except spec.SpecError as exc:
-                print(
-                    f"wring spec: keeping your answers would produce a spec "
-                    f"this tool refuses ({exc}). {spec.SPEC_FILENAME} was NOT "
-                    "changed and your answers are still in it.",
-                    file=sys.stderr,
+                return _spec_stopped(
+                    args,
+                    f"keeping your answers would produce a spec this tool "
+                    f"refuses ({exc}). {spec.SPEC_FILENAME} was NOT changed "
+                    "and your answers are still in it.",
+                    spec.redraft_next_move(args.prd),
                 )
-                return EXIT_CONFIG
             # Recovery, not consent: the documents being replaced are kept
             # beside the request that replaced them.
             for name in (
@@ -5635,6 +5654,32 @@ def _explain_journey(journey_dir: Path, journey: dict) -> None:
             f"as {evidence.READINESS_SCHEMA_VERSION} — what was known about the "
             "credentials before this journey spent anything is not available."
         )
+    # **The readings after the first (run 5B, F3).** The line above never
+    # moves: it is what was on screen before the first spend. A journey
+    # resumed into the draft phase reads the credentials again, and on run
+    # 5B's machine the answer changed under the operator. Both are facts and
+    # both are said.
+    readings, unreadable_lines = _readiness_readings(journey_dir)
+    later = [
+        one
+        for one in readings[1:]
+        if readings
+        and (one["drafting"].get("word"), one["worker"].get("word"))
+        != (readings[0]["drafting"].get("word"), readings[0]["worker"].get("word"))
+    ]
+    for one in later:
+        print(
+            f"Later, at {one.get('recorded_at', 'an unrecorded time')} — "
+            f"drafting credential: {one['drafting'].get('word')}; builder "
+            f"credential: {one['worker'].get('word')}"
+        )
+    if unreadable_lines:
+        print(
+            f"{evidence.READINESS_HISTORY_FILENAME}: "
+            f"{len(unreadable_lines)} line(s) could not be read as "
+            f"{evidence.READINESS_SCHEMA_VERSION} and are not counted above "
+            f"(line {', '.join(str(n) for n in unreadable_lines)})."
+        )
     stop = _read_stop(journey_dir)
     if stop is not None:
         print(f"\nStopped: {stop.get('what') or '(no words recorded)'}")
@@ -5653,6 +5698,43 @@ def _explain_journey(journey_dir: Path, journey: dict) -> None:
     except ValueError:
         shown = journey_dir.as_posix()
     print(f"\nJourney record: {shown}/{evidence.JOURNEY_FILENAME}")
+
+
+def _readiness_readings(journey_dir: Path) -> tuple[list[dict], list[int]]:
+    """Every reading in `readiness-history.jsonl`, and the numbers of the
+    lines that are not `wringer.readiness.v1`.
+
+    Never a guess and never a silent drop: a line this version cannot read
+    is counted and named by the caller (law 7). `([], [])` means the file is
+    absent, which the caller tells apart from unreadable by asking the path.
+    """
+    path = journey_dir / evidence.READINESS_HISTORY_FILENAME
+    if not path.is_file():
+        return [], []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return [], [0]
+    readings: list[dict] = []
+    unreadable: list[int] = []
+    for number, line in enumerate(lines, start=1):
+        if not line.strip():
+            continue
+        try:
+            one = json.loads(line)
+        except ValueError:
+            unreadable.append(number)
+            continue
+        if (
+            isinstance(one, dict)
+            and one.get("schema_version") == evidence.READINESS_SCHEMA_VERSION
+            and isinstance(one.get("drafting"), dict)
+            and isinstance(one.get("worker"), dict)
+        ):
+            readings.append(one)
+        else:
+            unreadable.append(number)
+    return readings, unreadable
 
 
 def _read_journey_sibling(path: Path, version: str) -> dict | None:

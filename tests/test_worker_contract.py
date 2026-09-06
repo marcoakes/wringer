@@ -979,3 +979,64 @@ def test_a_NO_PROGRESS_STOP_WITHOUT_A_DIAGNOSIS_PRINTS_THE_HONEST_BLANK_NOT_SILE
     assert cli.main(["explain", str(bundle)]) == cli.EXIT_OK
     said = capsys.readouterr().out
     assert f"Next: {diagnose.NEXT_MOVE_UNKNOWN}" in said, said
+
+
+def test_RUN_5B_the_stop_leads_with_the_CAUSAL_line_not_a_progress_note():
+    """**Run 5B, 2026-09-06, F8.** The Codex CLI was too old for the model.
+    The causal message — a 400 saying it needs a newer version — was in
+    `worker.stdout.log`. The stop's headline quoted the stderr fragment
+    `Reading additional input from stdin...` as the worker's own last words.
+
+    Two things were wrong and both are fixed here. The quoted block joined
+    the two streams with a bare newline, so nothing said which was which;
+    and the headline took the FIRST line of that block, which contradicts
+    the convention `gates.cite` measured and documents — the first line of a
+    failure is a traceback header or a progress note, and the line nearest
+    the end is the one that says what went wrong.
+    """
+    from wringer import diagnose
+
+    found = diagnose.WorkerDiagnosis(
+        face=diagnose.FACE_TURN_REFUSED,
+        engine_words=(
+            f"{diagnose.STDERR_LABEL}\n"
+            "Reading additional input from stdin...\n\n"
+            f"{diagnose.STDOUT_LABEL}\n"
+            '{"type":"error","message":"400 This model requires a newer '
+            'version of Codex"}'
+        ),
+        auth_state="unknown",
+        lane="shell",
+        exit_code=1,
+    )
+    said = found.description
+
+    assert "requires a newer version of Codex" in said, said
+    assert "Reading additional input from stdin" not in said, (
+        "the stop still leads with a progress note over the causal line"
+    )
+    assert diagnose.STDERR_LABEL not in said, (
+        "the stop quotes a label as though the worker had said it"
+    )
+
+
+def test_RUN_5B_each_stream_is_SAID_to_be_its_own_in_the_quoted_block():
+    """The block a reader sees names which stream each half came from.
+    Nothing here decides which line matters — that is the classification
+    this module refuses — it says where each came from and shows both."""
+    from wringer import diagnose
+
+    assert diagnose.STDERR_LABEL != diagnose.STDOUT_LABEL
+    assert "error stream" in diagnose.STDERR_LABEL
+    assert "output stream" in diagnose.STDOUT_LABEL
+    assert set(diagnose.STREAM_LABELS) == {
+        diagnose.STDERR_LABEL, diagnose.STDOUT_LABEL
+    }
+
+    source = (
+        Path(__file__).resolve().parent.parent / "src" / "wringer" / "loop.py"
+    ).read_text(encoding="utf-8")
+    assert "diagnose.STDERR_LABEL" in source and "diagnose.STDOUT_LABEL" in source, (
+        "the loop labels the streams with its own strings, so the two can "
+        "drift and the skip in `description` would stop skipping"
+    )

@@ -1380,11 +1380,22 @@ def run(
                 ):
                     from wringer import worker_auth
 
-                    words = "\n".join(
-                        part
-                        for part in (
-                            _tail(result.stderr_path),
-                            _tail(result.stdout_path),
+                    # **Each stream said to be its own (run 5B, F8).** Both
+                    # tails were already quoted, joined by a bare newline, and
+                    # the stop called the result "its own last words". Codex
+                    # writes progress to the error stream and its events to
+                    # the output stream, so the sentence a reader met first
+                    # was `Reading additional input from stdin...` while the
+                    # causal `400 ... requires a newer version of Codex` sat
+                    # below it, unattributed. Nothing here decides which line
+                    # matters — that would be the classification this file
+                    # refuses — it says which stream each came from and lets
+                    # the reader see both.
+                    words = "\n\n".join(
+                        f"{label}\n{part}"
+                        for label, part in (
+                            (diagnose.STDERR_LABEL, _tail(result.stderr_path)),
+                            (diagnose.STDOUT_LABEL, _tail(result.stdout_path)),
                         )
                         if part
                     )

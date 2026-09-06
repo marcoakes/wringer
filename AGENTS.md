@@ -96,7 +96,7 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.9.10 shipped; unreleased work on `main`
+## Current state — v0.9.11 shipped; unreleased work on `main`
 
 **`v0.1.0` through `v0.4.7` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
@@ -342,10 +342,10 @@ that reached `main` announced `0.8.11` while carrying `0.9.0` — neither
 taggable, nothing published.
 
 ```bash
-scripts/release.py 0.9.10 Fifty-three entry.md   # the ceiling: all 8 files or none
+scripts/release.py 0.9.11 Fifty-three entry.md   # the ceiling: all 8 files or none
 ./scripts/ship.sh message.txt                    # lock, gate, commit, push
 #   ...wait here for EVERY CI leg to be green...
-git tag -a v0.9.10 -F tag.txt <the pushed sha> && git push origin v0.9.10
+git tag -a v0.9.11 -F tag.txt <the pushed sha> && git push origin v0.9.11
 ```
 
 Four rules, each with a body count behind it:
@@ -360,10 +360,10 @@ Four rules, each with a body count behind it:
 
    **The lock is only as good as its reach — 2026-09-06.** Two hand-driven
    chains, neither going through `ship.sh`, were both waiting on the same
-   green-bar file. Both woke when it appeared: the first committed `0.9.10`
+   green-bar file. Both woke when it appeared: the first committed `0.9.11`
    and pushed, the second ran seconds later against a tree that by then held
-   `0.9.10`'s work, and `git add -A` put it on `main` under the subject
-   `release: 0.9.10`. The version file still said `0.9.10`, so rule 4's guard
+   `0.9.11`'s work, and `git add -A` put it on `main` under the subject
+   `release: 0.9.11`. The version file still said `0.9.11`, so rule 4's guard
    was satisfied and `main` went red. **Commit a release through
    `ship.sh` and nothing else**, however convenient a one-liner looks.
 2. **`scripts/release.py` applies the ceiling, never `sed`.** Eleven edits

@@ -4661,3 +4661,134 @@ def test_LEDGER_one_new_criterion_excuses_ONE_rewording_not_two(
         "one new criterion was allowed to answer for two previous requirements"
     )
     assert first["criteria"][1]["title"] in capsys.readouterr().err
+
+
+# --- run 5B, 2026-09-06: a refusal a person can act on --------------------
+
+
+def _decides_a_human_criterion() -> dict:
+    """The reply that ended run 5B's blind phase, in this fixture's shape: an
+    assumption whose `criteria` back-reference names a `human: true`
+    requirement. `parse_assumptions` refuses it, correctly — only a person
+    settles that one."""
+    payload = json.loads(json.dumps(DRAFT))
+    payload["assumptions"] = [{
+        "id": "reads-well-is-fine",
+        "decision": "The summary reads well enough as drafted.",
+        "why": "The wording follows the report page's existing headings.",
+        "instead_of_asking": "Does the summary read well at a glance?",
+        "criteria": ["reads-well"],
+    }]
+    return payload
+
+
+def test_RUN_5B_the_refusal_that_ended_the_blind_phase_ENDS_IN_A_COMMAND(
+    repo, monkeypatch, capsys
+):
+    """**Run 5B, F1 — four minutes in, and nothing to run.**
+
+    Wringer did the right thing: an assumption may not settle a requirement
+    marked for a person. Then it printed prose and exited, `stop.json`
+    recorded `next_move: null`, and `wring explain` said "Next: not known
+    here". The blind verdict ended there, on a refusal that was correct.
+    """
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(_decides_a_human_criterion()))
+
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "only a person can settle it" in said, said
+    assert "wring spec PRD.md --send --redraft" in said, (
+        "the refusal that ended a blind run still ends in prose alone"
+    )
+    assert not (repo / spec.SPEC_FILENAME).exists()
+
+
+def test_RUN_5B_the_refusal_puts_its_move_on_STDOUT_for_the_drive(
+    repo, monkeypatch, capsys
+):
+    """The drive reads `wring spec --json`'s stdout. On a refusal there was
+    nothing there at all, so the drive had nothing to quote and the stop it
+    built carried `next_move: null`."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(_decides_a_human_criterion()))
+
+    assert cli.main(["spec", "PRD.md", "--send", "--json"]) == cli.EXIT_CONFIG
+    printed = capsys.readouterr()
+    recorded = json.loads(printed.out)
+    assert recorded["stopped"] is True
+    assert recorded["next_move"] == "wring spec PRD.md --send --redraft"
+    assert "only a person can settle it" in recorded["why"]
+
+
+def test_RUN_5B_a_printed_redraft_names_the_DOCUMENT_IT_WAS_GIVEN(
+    repo, monkeypatch, capsys
+):
+    """**Run 5B, F4.** The overwrite refusal printed `PRD.md` as a literal.
+    The drive starts `wring spec` on its own copy at `.wringer/drive/prd.md`,
+    so the command failed as printed and the operator had to work the path
+    out for themselves — a hand repair, which under the blind protocol is a
+    finding on its own."""
+    setup_repo(repo)
+    monkeypatch.chdir(repo)
+    fake_transport(monkeypatch, reply=reply(DRAFT))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK
+    capsys.readouterr()
+
+    inside = repo / ".wringer" / "drive"
+    inside.mkdir(parents=True, exist_ok=True)
+    (inside / "prd.md").write_text(PRD, encoding="utf-8")
+    assert cli.main(["spec", ".wringer/drive/prd.md", "--send"]) == cli.EXIT_CONFIG
+    said = capsys.readouterr().err
+    assert "wring spec .wringer/drive/prd.md --send --redraft" in said, said
+    assert "--redraft PRD.md" not in said, "the refusal still prints a literal"
+
+
+def test_RUN_5B_a_REFUSED_reply_is_not_reused_so_the_redraft_can_break_out(
+    repo, monkeypatch, capsys
+):
+    """**Run 5B, 2026-09-06, F5 — the dead end.**
+
+    Reuse makes a redraft of an unchanged document byte-identical, which is
+    the right protection against paying twice. When the reply is one the
+    parser REFUSES, it also reproduced the identical refusal at zero cost
+    for ever: the person was locked in until they hand-edited the document.
+    The command the refusal now prints would have led straight back to the
+    same wall.
+
+    A stopped draft's finished calls are still reused — that is 0.9.9 and it
+    is tested above. The two are told apart by what is on disk: an assembled
+    `response.json` means every call answered and the whole reply was then
+    refused.
+    """
+    setup_repo(repo, config_text=SECTIONED_CONFIG)
+    monkeypatch.chdir(repo)
+    refused = _decides_a_human_criterion()
+    sent = fake_transport(monkeypatch, replies=_section_replies(refused))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_CONFIG
+    assert len(sent["requests"]) == 3
+    capsys.readouterr()
+
+    exchange = only_draft(repo)
+    assert (exchange / spec.RESPONSE_FILENAME).is_file(), (
+        "the fixture is not an assembled-then-refused draft"
+    )
+    assert json.loads(
+        (exchange / spec.OUTCOME_FILENAME).read_text(encoding="utf-8")
+    )["drafted"] is False
+
+    # Asked again, the drafter is asked again — this time it asks rather
+    # than decides, which is what the refusal says it usually does.
+    asking = json.loads(json.dumps(DRAFT))
+    sent = fake_transport(monkeypatch, replies=_section_replies(asking))
+    assert cli.main(["spec", "PRD.md", "--send"]) == cli.EXIT_OK, (
+        capsys.readouterr().err
+    )
+    said = capsys.readouterr().err
+    assert len(sent["requests"]) == 3, (
+        "the refused reply was reused, so the redraft could only repeat it"
+    )
+    assert "was already answered" not in said, said
+    assert (repo / spec.SPEC_FILENAME).is_file()

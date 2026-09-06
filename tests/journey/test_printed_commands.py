@@ -1585,10 +1585,16 @@ REGISTRY: tuple[Printed, ...] = (
     Printed(
         family="spec:--send --redraft",
         printed_by=("cli.py:cmd_spec (refusing to overwrite)",),
-        patterns=(r"wring spec --send --redraft PRD\.md",),
+        # **The document first, and it is the document this run was given
+        # (run 5B, F4).** The pattern used to pin `--send --redraft PRD.md`,
+        # a literal. The drive starts `wring spec` on its own copy at
+        # `.wringer/drive/prd.md`, so the command failed as printed and the
+        # operator had to work the path out — a hand repair, which under the
+        # blind protocol ends the verdict.
+        patterns=(r"wring spec \S+ --send --redraft",),
         promise="drafts again over the existing spec, keeping the answers",
         capture=capture_redraft_refusal,
-        extract=r"^\s+(wring spec --send --redraft \S+)\s*$",
+        extract=r"^\s+(wring spec \S+ --send --redraft)\s*$",
         execute=execute_redraft,
     ),
     Printed(

@@ -143,7 +143,9 @@ class Session:
 # --- the three branches a stop can take (ruling 3) --------------------------
 
 
-def stop_for(family: str, value: str, engine_words: str = "") -> Step:
+def stop_for(
+    family: str, value: str, engine_words: str = "", next_move: str = ""
+) -> Step:
     """A stop the board has a sentence for, or honestly does not.
 
     **Three branches, and the third is the one the drafted spec forgot**: a CLI
@@ -154,12 +156,16 @@ def stop_for(family: str, value: str, engine_words: str = "") -> Step:
     from wringer_board import refusals
 
     if not value:
-        # Branch 3: no named value. The engine's own words, said to be its own.
+        # Branch 3: no named value. The engine's own words, said to be its own
+        # — and the engine's own next move when it sent one (run 5B, F1). The
+        # drafting refusals reach here, and until 0.9.11 they arrived with
+        # nothing to run.
         return Step(
             kind=STOPPED,
             id="stopped",
             text="This stopped, and here is exactly what the tool said.",
             engine_words=engine_words or "(the tool printed nothing)",
+            next_move=next_move or None,
         )
 
     saying = refusals.say(family, value)
@@ -471,8 +477,15 @@ def generate_workspace(session: Session, repo: Path, answers: dict) -> None:
 
     done = run_command(repo, [engine("wring"), "init"])
     if done.returncode != 0:
+        # **The engine's own move, quoted (run 5B, F1).** `wring spec --json`
+        # puts it on stdout when it refuses; nothing is composed here.
         raise Stop(
-            stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
+            stop_for(
+                "", "",
+                engine_words=(done.stderr or "").strip(),
+                next_move=_engine_move_of(done.stdout),
+            ),
+            done.returncode,
         )
 
     # Ruling 5, with the mechanism NAMED rather than wished for: `wring init`
@@ -787,6 +800,25 @@ def drafting_lane_word(check: object) -> str:
     return UNAVAILABLE
 
 
+def _drafting_calls_ahead(judge: object | None) -> str:
+    """How many calls the drafting step will really make, from the config it
+    will run under.
+
+    **Run 5B, 2026-09-06, F2.** This was the literal "one drafting call"
+    while the config the drive itself writes turns sectioned drafting on,
+    and three requests went out. A card whose whole purpose is to say what
+    a run will spend before it spends it may not undercount the unit that
+    is billed.
+    """
+    from wringer import spec
+
+    if getattr(judge, "draft_in_sections", False):
+        total = len(spec.SECTIONS)
+        named = ", ".join(name for name, _keys in spec.SECTIONS)
+        return f"{total} drafting calls ({named}), each reading your document"
+    return "one drafting call"
+
+
 def readiness_words(
     repo: Path, checks: tuple | None = None
 ) -> dict[str, dict[str, object]]:
@@ -848,9 +880,22 @@ def readiness_words(
 def write_readiness(
     repo: Path, journey_id: str | None, lanes: dict[str, dict[str, object]]
 ) -> Path | None:
-    """`readiness.json` beside the journey, before anything is spent. None
-    before a journey exists; a write failure is swallowed, as the stop
-    record's is — the card is already on the console."""
+    """`readiness.json` beside the journey, before anything is spent, and
+    written ONCE. None before a journey exists; a write failure is
+    swallowed, as the stop record's is — the card is already on the console.
+
+    **Run 5B, 2026-09-06, F3.** `resume` continues the same journey and
+    re-enters the draft phase, and this overwrote the record. The card shown
+    before the first paid draft said `declared-unverified` on a key-only
+    machine; a stored login reappeared; the journey's record was rewritten
+    to `displaced`. The later reading was true, and it went over the only
+    copy of what the person was shown before they spent — which is what this
+    file is for, in its own schema's words.
+
+    So the first reading stays where `wring explain` quotes it, and every
+    reading, that one included, is appended to `readiness-history.jsonl`
+    beside it.
+    """
     from wringer import evidence
     from wringer_drive import journey
 
@@ -868,10 +913,18 @@ def write_readiness(
         },
         "recorded_at": evidence.timestamp(),
     }
-    path = journey.journeys_root(repo) / journey_id / evidence.READINESS_FILENAME
+    directory = journey.journeys_root(repo) / journey_id
+    path = directory / evidence.READINESS_FILENAME
     try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+        directory.mkdir(parents=True, exist_ok=True)
+        # The history first, so it can never be a subset of the record beside
+        # it: a crash between the two leaves the reading recorded, not lost.
+        with (directory / evidence.READINESS_HISTORY_FILENAME).open(
+            "a", encoding="utf-8"
+        ) as history:
+            history.write(json.dumps(record) + "\n")
+        if not path.exists():
+            path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     except OSError:
         return None
     return path
@@ -978,14 +1031,17 @@ def readiness_step(
             )
         lines.append("Ceilings: " + "; ".join(ceilings) + ".")
         lines.append(
-            "Paid steps ahead: one drafting call, then the builder's turns."
+            f"Paid steps ahead: {_drafting_calls_ahead(judge)}, then the "
+            "builder's turns."
         )
     else:
         lines.append(
             "Builder: none declared yet — you name it at the interview, and "
             "it is checked before it is paid for."
         )
-        lines.append("Paid steps ahead: one drafting call to begin with.")
+        lines.append(
+            f"Paid steps ahead: {_drafting_calls_ahead(None)} to begin with."
+        )
 
     lines.append(
         "If a credential fails: the build stops with the reason and the "
@@ -1073,8 +1129,15 @@ def draft_the_spec(
         [engine("wring"), "spec", str(prd.relative_to(repo)), "--send", "--json"],
     )
     if done.returncode != 0:
+        # **The engine's own move, quoted (run 5B, F1).** `wring spec --json`
+        # puts it on stdout when it refuses; nothing is composed here.
         raise Stop(
-            stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
+            stop_for(
+                "", "",
+                engine_words=(done.stderr or "").strip(),
+                next_move=_engine_move_of(done.stdout),
+            ),
+            done.returncode,
         )
     try:
         named = json.loads(done.stdout or "").get("spec_dir")
@@ -1084,6 +1147,22 @@ def draft_the_spec(
 
 
 # --- step 4: the interview --------------------------------------------------
+
+
+def _engine_move_of(stdout: str | None) -> str:
+    """The `next_move` a refusing engine verb put on stdout, or nothing.
+
+    Quoted, never composed: an engine that sent no move leaves the stop
+    saying so, which is the honest state and is what the board's own
+    sentence is for."""
+    try:
+        found = json.loads(stdout or "")
+    except (ValueError, TypeError):
+        return ""
+    if not isinstance(found, dict):
+        return ""
+    move = found.get("next_move")
+    return move.strip() if isinstance(move, str) else ""
 
 
 def questions_to_ask(repo: Path) -> list[Step]:
@@ -1487,6 +1566,56 @@ def phase_is_due(start: str | None, phase: str) -> bool:
     return PHASES.index(phase) >= PHASES.index(start)
 
 
+def interview_reopened_step(repo: Path, phase: str | None) -> Step | None:
+    """The interview is due again when a required question is unanswered,
+    whatever the record's phase says. None when it is not.
+
+    **Run 5B, 2026-09-06, F6(b).** A redraft reworded a required question
+    after the record had moved on. `phase_is_due` is POSITIONAL, so the
+    interview was not due, nothing asked the question, and the run walked
+    the person to an approval over a plan whose own text said the question
+    was unanswered. The operator had to find `wringer-board answer`
+    themselves.
+
+    Position is not the whole precondition. Every phase after the interview
+    stands on its EXIT CONDITION — that no required question is open — and a
+    phase whose exit condition has been undone is due again. This is the
+    only phase that can be undone from outside the drive: approval is asked
+    live every run, and the gates and shows are asked only for what is
+    missing.
+
+    Answers that survived are not re-asked — `questions_to_ask` asks only
+    what is unanswered — so nothing is drafted and nothing is spent. An
+    unreadable spec returns None: a rewind invented from bytes this could
+    not read would be worse than the skip it replaces.
+    """
+    from wringer_board import interview
+
+    if phase not in PHASES or PHASES.index(phase) <= PHASES.index("interview"):
+        return None
+    try:
+        remaining = interview.unanswered(repo)
+    except interview.InterviewError:
+        return None
+    if not remaining:
+        return None
+    return Step(
+        kind=SHOW,
+        id="interview-reopened",
+        text=f"{len(remaining)} required question(s) in the plan are "
+        "unanswered: " + ", ".join(q.id for q in remaining) + ". The record "
+        f"says this run stopped at the {phase} step, and a plan cannot be "
+        "approved while a required question is open — so this continues from "
+        "the interview instead. Answers already recorded are not asked "
+        "again, and nothing is drafted or spent.",
+        detail={
+            "recorded_phase": phase,
+            "resuming_from": "interview",
+            "unanswered": [q.id for q in remaining],
+        },
+    )
+
+
 #: The documents a person READ at the approval, in one fixed order — and
 #: only those. **Measured on the first run (0.9.7):** the config's `show:`
 #: section was in this set, and an ordinary run stopped on resume as "the
@@ -1598,6 +1727,13 @@ class ResumeFacts:
     # compared. LAST, with a default: a caller built for the older shape
     # still constructs one, the way a record written before is still read.
     changed_documents: tuple[str, ...] = ()
+    # **The decisions taken without asking that are STILL STANDING (run 5B,
+    # F7)**, by id — exactly what the approval will put again. Accepting a
+    # card writes nothing anywhere, by ruling 2a: approving the plan
+    # approves them, and the approval is asked live every run. So the
+    # honest move is to SAY they come back, never to record a yes and
+    # replay it. LAST, with a default, for `changed_documents`' own reason.
+    standing_assumptions: tuple[str, ...] = ()
 
 
 def resume_facts(repo: Path) -> ResumeFacts | None:
@@ -1653,6 +1789,19 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
         answers = tuple(q.id for q in interview.questions(repo) if q.answered)
     except interview.InterviewError:
         answers = ()
+    # Which cards a resumed run would put again, through `assumption_cards` —
+    # the one renderer of which assumptions still stand, so the preface and
+    # the approval cannot disagree about the same run. Its OWN try: folding
+    # it into the block above would let a sidecar failure blank `answers`
+    # that had already been read, which is a silent narrowing.
+    try:
+        standing = tuple(
+            str(card.detail.get("assumption_id"))
+            for card in assumption_cards(repo)
+            if card.detail and card.detail.get("assumption_id")
+        )
+    except Exception:  # noqa: BLE001 — the interview reports this in its words
+        standing = ()
     gates: tuple[str, ...] = ()
     shows: tuple[str, ...] = ()
     attempts: int | None = None
@@ -1673,6 +1822,7 @@ def resume_facts(repo: Path) -> ResumeFacts | None:
         spec_approved=approved,
         spec_changed=changed,
         changed_documents=differing,
+        standing_assumptions=standing,
         answers=answers,
         gates=gates,
         shows=shows,
@@ -1884,7 +2034,8 @@ def write_stop(
 
 
 def resume_preface(facts: ResumeFacts) -> Step:
-    """ONE step, three labelled lines, every item read off the record.
+    """ONE step, three labelled lines — four when something is asked
+    again — every item read off the record.
 
     *Preserved* is what is on disk. *Reused* is what this run will not ask
     for or pay for again, derived from the PHASE — a plan is "not re-approved"
@@ -1898,13 +2049,31 @@ def resume_preface(facts: ResumeFacts) -> Step:
         or "before the record named a step"
     )
     preserved, reused, spend, _ = resume_lines(facts)
+    # **Asked again (run 5B, F7).** The preface said "your answers (not asked
+    # again)" — true of the interview, which asks only what is unanswered —
+    # and then the approval put every assumption card again. Both are
+    # correct: an acceptance is recorded nowhere, because approving the plan
+    # is what approves the decisions, and a recorded yes replayed on a
+    # resume would be a human act simulated. What was wrong was a preface
+    # that let a person expect otherwise.
+    asked_again: tuple[str, ...] = (
+        facts.standing_assumptions if phase_is_due(facts.phase, "approve") else ()
+    )
+    again = ""
+    if asked_again:
+        again = (
+            f"\nAsked again: {len(asked_again)} decision(s) taken without "
+            f"asking you and still standing ({', '.join(asked_again)}) — "
+            "accepting one is not recorded anywhere, so each is put to you "
+            "again with the approval it belongs to."
+        )
 
     text = (
         f"This project has a run that stopped {where}, and this continues it "
         "from there.\n\n"
         f"Preserved: {'; '.join(preserved) or 'nothing yet'}\n"
         f"Reused: {'; '.join(reused) or 'nothing yet'}\n"
-        f"Will spend: {spend}"
+        f"Will spend: {spend}" + again
     )
     return Step(
         kind=SHOW,
@@ -1915,6 +2084,7 @@ def resume_preface(facts: ResumeFacts) -> Step:
             "last_question": facts.last_question,
             "preserved": preserved,
             "reused": reused,
+            "asked_again": list(asked_again),
             "will_spend": spend,
         },
     )
@@ -2110,9 +2280,21 @@ def record_assumption(repo: Path, assumption_id: str, text: str) -> Step:
     return Step(
         kind=SHOW,
         id=f"assumption-changed:{assumption_id}",
-        text=f"Recorded as yours: {said}\n\nThe plan is re-rendered with your "
-        "answer in place of the decision, and your approval of the old plan "
-        "is withdrawn — you approve the new one in a moment.",
+        # **Run 5B, 2026-09-06, F6(a).** This said the plan was "re-rendered
+        # with your answer in place of the decision". Nothing does that, and
+        # `schema/decisions-v2.schema.json` forbids it in capitals: WRINGER
+        # NEVER RE-WORDS A CRITERION ITSELF. What really happens is that the
+        # answer becomes an answered open question and the approval is
+        # withdrawn. The operator read the claim, saw a task still saying
+        # what had just been overruled, and could not tell a lie from a bug.
+        text=f"Recorded as yours: {said}\n\nYour answer is now an answered "
+        "question in the plan, and your approval of the old plan is "
+        "withdrawn — you approve the new one in a moment.\n\nWhat was "
+        "already worded from that decision is NOT rewritten. Wringer never "
+        "re-words a task or a requirement; choosing the words is the part "
+        "that is yours. Read them against your answer before you approve — "
+        "silence here is not evidence that none of them still say what was "
+        "decided for you.",
         detail={"assumption_id": assumption_id},
     )
 
@@ -2696,8 +2878,15 @@ def install_gates(repo: Path, proposal: dict, *, answered_yes: bool) -> bool:
         check=False,
     )
     if done.returncode != 0:
+        # **The engine's own move, quoted (run 5B, F1).** `wring spec --json`
+        # puts it on stdout when it refuses; nothing is composed here.
         raise Stop(
-            stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
+            stop_for(
+                "", "",
+                engine_words=(done.stderr or "").strip(),
+                next_move=_engine_move_of(done.stdout),
+            ),
+            done.returncode,
         )
     return True
 
@@ -2938,8 +3127,15 @@ def render_board(repo: Path) -> Path:
         [engine("wringer-board"), "render", str(repo), "-o", BOARD_FILENAME],
     )
     if done.returncode != 0:
+        # **The engine's own move, quoted (run 5B, F1).** `wring spec --json`
+        # puts it on stdout when it refuses; nothing is composed here.
         raise Stop(
-            stop_for("", "", engine_words=(done.stderr or "").strip()), done.returncode
+            stop_for(
+                "", "",
+                engine_words=(done.stderr or "").strip(),
+                next_move=_engine_move_of(done.stdout),
+            ),
+            done.returncode,
         )
     return repo / BOARD_FILENAME
 

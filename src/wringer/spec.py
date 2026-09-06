@@ -1652,6 +1652,22 @@ def reusable_section(
     for exchange in _exchanges_newest_first(specs_root):
         if exclude is not None and exchange == exclude:
             continue
+        # **A reply the parser REFUSED is not an answer to reuse (run 5B,
+        # F5).** Reuse made a redraft byte-identical, so a draft refused for
+        # an assumption that settled a `human: true` requirement reproduced
+        # the identical refusal at zero cost, for ever, and the command the
+        # refusal now prints would lead straight back to the same wall. The
+        # refusal's own prose is the way out — *the drafter is free to ask
+        # instead of deciding, and usually does* — and it can only take it
+        # if it is asked again.
+        #
+        # Told apart from a draft that STOPPED mid-sections, whose finished
+        # calls must still be reused (0.9.9), by what is on disk: an
+        # assembled `response.json` means every call answered and the whole
+        # reply was then refused. No `response.json` means the run stopped
+        # before assembly, and its finished parts were never judged.
+        if (exchange / RESPONSE_FILENAME).is_file() and not exchange_drafted(exchange):
+            return None
         try:
             previous = json.loads(
                 (exchange / f"request-{part}.json").read_text(encoding="utf-8")
@@ -2076,6 +2092,18 @@ def cut_off_next_move() -> str:
         f"Raise `judge.max_output_tokens` in {config.CONFIG_FILENAME} above "
         f"what it is now, then: {diagnose.RESUME_COMMAND}"
     )
+
+
+def redraft_next_move(prd: str) -> str:
+    """The command that drafts again and keeps every answer already given.
+
+    **One renderer, and it names the document THIS run is about (run 5B,
+    F4).** The overwrite refusal printed `wring spec --send --redraft
+    PRD.md` as a literal. The drive had been started with `../PRD.md` and
+    keeps its copy at `.wringer/drive/prd.md`, so the command failed as
+    printed and the operator had to work out the path themselves.
+    """
+    return f"wring spec {prd} --send --redraft"
 
 
 def retry_next_move() -> str:

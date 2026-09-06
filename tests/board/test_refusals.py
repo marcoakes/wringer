@@ -464,14 +464,23 @@ def test_EVERY_loop_ending_carries_a_next_move_that_ends_in_a_command():
     all" and was left with no move. Every loop ending's Saying now carries
     `next_move`, and every one names the command that continues —
     `wringer-drive resume` — except `converged`, which has nothing to run
-    and says so. No other family carries one: only a loop ending is a stop
-    a person continues from, and a `next_move` on a criterion state would be
-    this surface inventing a runbook.
+    and says so.
+
+    **The "no other family" half of this was wrong, and run 5B measured it
+    (2026-09-06, F9).** A blind run reached the HOLD: the delivery refused
+    because a requirement was waiting for a person, the refusal's own
+    sentence said to run `wringer-board judge`, and `stop.json` recorded
+    `next_move: null` because the command was prose in another field. The
+    console printed no `Next:` line. The delivery-refusal family is now
+    held to its own rule in the test below; a criterion state still carries
+    none, because a state is not a stop.
     """
     for (family, value), saying in refusals.MAPPING.items():
+        if family == refusals.DELIVERY_REFUSAL:
+            continue
         if family != refusals.LOOP_ENDING:
             assert saying.next_move == "", (
-                f"{family}/{value} carries a next move; only loop endings do"
+                f"{family}/{value} carries a next move; only a stop has one"
             )
             continue
         assert saying.next_move.strip(), f"{family}/{value} has no next move"
@@ -481,4 +490,54 @@ def test_EVERY_loop_ending_carries_a_next_move_that_ends_in_a_command():
         assert saying.next_move.rstrip(".").endswith("`wringer-drive resume`"), (
             f"{family}/{value}'s next move does not end in the command: "
             f"{saying.next_move!r}"
+        )
+
+
+def test_EVERY_delivery_refusal_carries_a_move_or_SAYS_why_it_cannot():
+    """**Run 5B, 2026-09-06, F9 — the HOLD had a command and no field.**
+
+    The delivery refusal that holds a handover for a person's judgement
+    named `wringer-board judge` in its sentence, and `stop.json` recorded
+    `next_move: null`. The command reached the person only if they read the
+    prose; the record carried nothing, and the console's `Next:` line was
+    empty.
+
+    So every delivery refusal is now one of two things, and this holds the
+    table and the exclusion set to each other so a refusal added later
+    cannot be neither. A refusal only an engineer can resolve is a real
+    thing — `no_git_identity` is machine setup, not a step in the run — and
+    it is NAMED as one, with its reason, rather than being an absence a
+    reader has to interpret.
+    """
+    rows = {
+        value: saying
+        for (family, value), saying in refusals.MAPPING.items()
+        if family == refusals.DELIVERY_REFUSAL
+    }
+    excluded = refusals.NO_MOVE_FOR_A_PERSON
+
+    both = sorted(v for v, s in rows.items() if s.next_move and v in excluded)
+    assert not both, f"carries a move AND is excluded from having one: {both}"
+
+    neither = sorted(v for v, s in rows.items() if not s.next_move and v not in excluded)
+    assert not neither, (
+        f"delivery refusals with no next move and no reason for having none: "
+        f"{neither} — add the command, or name it in NO_MOVE_FOR_A_PERSON "
+        "with why a person cannot resolve it"
+    )
+
+    stray = sorted(set(excluded) - set(rows))
+    assert not stray, f"excluded but not a delivery refusal: {stray}"
+
+    for value, reason in excluded.items():
+        assert len(reason.split()) >= 4, (
+            f"{value}'s reason for having no move is not a sentence: {reason!r}"
+        )
+
+    for value, saying in rows.items():
+        if not saying.next_move:
+            continue
+        assert saying.next_move.split()[0] in ("wring", "wringer-board", "wringer-drive"), (
+            f"delivery-refusal/{value}'s next move is not a command this "
+            f"product ships: {saying.next_move!r}"
         )

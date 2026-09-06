@@ -92,15 +92,24 @@ FAMILIES = (
 class Saying:
     """One sentence a PM reads, and the one question that unblocks it.
 
-    **`next_move` (0.7.1, P0.1) — for the loop-ending family, the one thing
-    to do next, ending in the command that continues.** Run 4B's operator
+    **`next_move` (0.7.1, P0.1) — the one thing to do next, ending in the
+    command that continues.** Run 4B's operator
     read "an attempt changed nothing at all" over a dead key and was left
     with no move; every stop now names one. For a WORKER stop the engine
     composes a sharper sentence from the turn's own facts
     (`diagnose.WorkerDiagnosis.next_move`) and the drive quotes that in
     place of this one; the sentence here is what a stop says when the
-    engine composed nothing. Empty for every other family: only a loop
-    ending is a stop the person continues from.
+    engine composed nothing.
+
+    **It is NOT only for loop endings — run 5B, 2026-09-06, F9.** That was
+    the rule until a blind run reached the HOLD: the delivery refused
+    because a requirement was waiting for a person, the sentence said to run
+    `wringer-board judge`, and `stop.json` recorded `next_move: null`
+    because the command was prose in another field. The console printed no
+    `Next:` line at all. A delivery refusal a person resolves now carries
+    the field; one only an engineer can resolve is named in
+    `NO_MOVE_FOR_A_PERSON` below, with its reason, and the totality is
+    guarded.
     """
 
     sentence: str
@@ -112,6 +121,47 @@ class Saying:
 #
 # Read it as a table, because that is what it is. Each row is the whole of what
 # this board is permitted to say about that value.
+
+#: **Delivery refusals no PM can resolve, and why — run 5B, F9.**
+#: Every other delivery refusal carries a `next_move`, and
+#: `tests/board/test_refusals.py` holds this set and the table to each
+#: other, so a refusal added later cannot arrive with neither. The reason is
+#: recorded here rather than inferred from the absence, because an absence
+#: is exactly what this window found being read as "nothing to do".
+NO_MOVE_FOR_A_PERSON: dict[str, str] = {
+    "unfinished_git_operation": "a half-finished merge or rebase in the "
+    "repository; finishing or abandoning it is an engineer's judgement",
+    "no_git_identity": "git has no name or email on this machine, which is "
+    "machine setup, not a step in this run",
+    "remote_unreachable": "a network or access problem outside this tool",
+    "untracked_record_unreadable": "an evidence record this tool wrote and "
+    "cannot read back; an engineer has to look at it",
+    "acceptance_record_unreadable": "the same, for the acceptance record",
+    "vacuity_record_unreadable": "the same, for the vacuity record",
+    "untracked_record_unknown_version": "the record was written by a "
+    "different version of this tool",
+    "files_unreadable_at_verify": "a file in the change could not be read",
+    "unsupported_file_type": "a file type this tool will not carry, which "
+    "needs a decision about the file",
+    "case_alias_collision": "two paths that differ only by case; renaming "
+    "one is an engineer's call",
+    "gates_vacuous": "a check that cannot tell the difference; writing a "
+    "better check is the work, not a command",
+    "signature_required": "commit signing is not set up on this machine",
+    "default_branch_unknown": "the project's main branch cannot be "
+    "determined, which is repository configuration",
+    "gates_did_not_pass": "the work is not finished; the build continues on "
+    "its own and this refusal is that state, not a step",
+    "nothing_to_deliver": "no work was done, so there is nothing to run",
+    "branch_is_base": "the delivery branch is configured to the base branch",
+    "branch_is_default": "the delivery branch is the default branch, which "
+    "is the safety rule working",
+    "branch_is_current": "the delivery branch is the one already checked out",
+    "branch_exists": "the delivery branch name is taken",
+    "authority_moved": "the requirements changed mid-run; only the person "
+    "who changed them can say whether they meant to, and the question above "
+    "is that question rather than a command",
+}
 
 MAPPING: dict[tuple[str, str], Saying] = {
     # Criterion states. `schema/acceptance.schema.json`'s enum, five values.
@@ -452,23 +502,29 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "could not be reached.",
         "Nothing is needed from you; this is usually a network or access problem.",
     ),
+    # The five that say "it has to be re-checked" name the command that
+    # re-checks it. A PM can run `wring verify`; it spends nothing at an
+    # endpoint and it is what refreshes every paper from one run.
     (DELIVERY_REFUSAL, "head_moved"): Saying(
         "The handover is being held because the project moved underneath "
         "this work while it was being checked, so the proof is about a "
         "different version.",
         "Nothing is needed from you; it has to be re-checked against the "
         "current version.",
+        "wring verify",
     ),
     (DELIVERY_REFUSAL, "tree_moved"): Saying(
         "The handover is being held because the files changed after they "
         "were checked, so the proof no longer describes what would be "
         "handed over.",
         "Nothing is needed from you; it has to be re-checked.",
+        "wring verify",
     ),
     (DELIVERY_REFUSAL, "tracked_contents_differ"): Saying(
         "The handover is being held because a file's contents differ from "
         "what was checked.",
         "Nothing is needed from you; it has to be re-checked.",
+        "wring verify",
     ),
     (DELIVERY_REFUSAL, "untracked_record_unreadable"): Saying(
         "The handover is being held because the record of newly added files "
@@ -506,6 +562,7 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "The handover is being held because a newly added file changed "
         "after it was checked.",
         "Nothing is needed from you; it has to be re-checked.",
+        "wring verify",
     ),
     (DELIVERY_REFUSAL, "case_alias_collision"): Saying(
         "The handover is being held because two files differ only in "
@@ -532,6 +589,7 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "The handover is being held because at least one requirement cannot "
         "show its proof.",
         "See the cards above — each one holding this up says what it needs.",
+        "wringer-board judge",
     ),
     (DELIVERY_REFUSAL, "default_branch_unknown"): Saying(
         "The handover is being held because it cannot tell which branch is "
@@ -575,6 +633,7 @@ MAPPING: dict[tuple[str, str], Saying] = {
         "over a bundle that tells two stories would be worse than waiting.",
         "Nothing is needed from you; re-running the checks refreshes every "
         "paper from one run, and an engineer can do that.",
+        "wring verify",
     ),
     # **Said BEFORE the person answers, which is the whole reason it exists.**
     # Ruling 18 holds: this does not soften anything and it does not decide.

@@ -169,6 +169,18 @@ SHELL_TURN_READ_ONLY = (
 #: a timestamped directory. The same structural silence as the ACP lane's
 #: refused turn of 2026-08-21: no shape for the ending, so nothing to carry.
 #: The worker's own words lead, verbatim; the exit code is the loop's fact.
+#: **Which stream each quoted block came from (run 5B, F8).** The loop
+#: quotes the tail of both, and until these labels existed it joined them
+#: with a bare newline. Codex writes progress to the error stream and its
+#: events to the output stream, so a reader met `Reading additional input
+#: from stdin...` as "its own last words" while the causal `400 ... requires
+#: a newer version of Codex` sat below it, unattributed. Defined here rather
+#: than in `loop` because `diagnose` must skip them when it picks the line
+#: to lead with, and `loop` already imports this module.
+STDERR_LABEL = "what it wrote to its error stream:"
+STDOUT_LABEL = "what it wrote to its output stream:"
+STREAM_LABELS = (STDERR_LABEL, STDOUT_LABEL)
+
 SHELL_TURN_FAILED = (
     "the worker's turn failed (exit {code}) and wrote nothing — its own last "
     "words, verbatim: `{line}`"
@@ -469,14 +481,22 @@ class WorkerDiagnosis:
         if self.lane == "shell" and self.face == FACE_TURN_CHANGED_NOTHING:
             return SHELL_TURN_READ_ONLY
         if self.lane == "shell" and self.face == FACE_TURN_REFUSED:
-            line = next(
-                (
-                    row.strip()
-                    for row in self.engine_words.splitlines()
-                    if row.strip() and not row.startswith("[...")
-                ),
-                "",
-            )
+            # **The LAST line, and never a label (run 5B, F8).** This took
+            # the first, which contradicts the convention `gates.cite`
+            # measured two modules away and documents: the first line of a
+            # failure is `Traceback (most recent call last):` or a progress
+            # note, true and useless, and the line nearest the end is the one
+            # that says what went wrong. Run 5B met `Reading additional input
+            # from stdin...` as the worker's own last words while the causal
+            # 400 sat further down the same quoted block.
+            said = [
+                row.strip()
+                for row in self.engine_words.splitlines()
+                if row.strip()
+                and not row.startswith("[...")
+                and row.strip() not in STREAM_LABELS
+            ]
+            line = said[-1] if said else ""
             code = self.exit_code if self.exit_code is not None else "?"
             if line:
                 return SHELL_TURN_FAILED.format(code=code, line=line)

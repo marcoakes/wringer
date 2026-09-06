@@ -499,6 +499,19 @@ def _resume(session: run_module.Session, args) -> int:
 
     preface = session.emit(run_module.resume_preface(facts))
     _render([preface], mode)
+    # **Where the record says it STOPPED and where this STARTS are two
+    # facts (run 5B, F6b).** A redraft can leave a required question open
+    # after the record has moved past the interview; a positional start then
+    # never asks it and walks the person to an approval the engine refuses.
+    # `facts` is not mutated — the preface renders the record's own truth,
+    # and a rewound `facts.phase` would make it say the run stopped
+    # somewhere it did not. The rewind is its own step, and it is never
+    # silent.
+    start = facts.phase
+    reopened = run_module.interview_reopened_step(repo, start)
+    if reopened is not None:
+        _render([session.emit(reopened)], mode)
+        start = "interview"
     # A resume is a CONTINUATION (D4), so the resumed build's loop lands in
     # the journey the record names — a record from before journeys existed
     # names none, and the continuation then begins one.
@@ -507,7 +520,7 @@ def _resume(session: run_module.Session, args) -> int:
     )
     run_module.checkpoint_journey(repo, session.journey_id)
     return _drive(
-        session, mode, inside, start=facts.phase, open_pages=not args.no_open
+        session, mode, inside, start=start, open_pages=not args.no_open
     )
 
 

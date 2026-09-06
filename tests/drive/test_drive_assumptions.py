@@ -126,3 +126,34 @@ def test_THE_CARDS_COME_BEFORE_THE_PLAN_AND_ITS_YES(project, tmp_path,
     ids = [step.id for step in steps]
     assert "assumption:date-format" in ids, ids
     assert ids.index("assumption:date-format") < ids.index("plan"), ids
+
+
+def test_RUN_5B_an_OVERRULE_never_claims_the_wording_changed(project):
+    """**Run 5B, 2026-09-06, F6(a).** The overrule said the plan was
+    "re-rendered with your answer in place of the decision". Nothing does
+    that, and `schema/decisions-v2.schema.json` forbids it in capitals:
+    WRINGER NEVER RE-WORDS A CRITERION ITSELF, because choosing the words is
+    the person's act. The operator read the claim, saw a task still saying
+    what they had just overruled, and could not tell a lie from a bug.
+
+    What really happens is that the answer becomes an answered question and
+    the approval is withdrawn. Both are said, and so is the thing that does
+    NOT happen — because a reader who is not told will assume it did.
+    """
+    _with_a_decision(project)
+    before = (project / "wringer.spec.yaml").read_text(encoding="utf-8")
+    tasks_before = before.split("tasks:")[1] if "tasks:" in before else ""
+
+    said = run_module.record_assumption(project, "date-format", "Use DD/MM/YYYY.")
+
+    assert "re-rendered" not in said.text, said.text
+    assert "in place of the decision" not in said.text, said.text
+    assert "is NOT rewritten" in said.text, said.text
+    assert "Read them against your answer before you approve" in said.text
+
+    after = (project / "wringer.spec.yaml").read_text(encoding="utf-8")
+    tasks_after = after.split("tasks:")[1] if "tasks:" in after else ""
+    assert tasks_after == tasks_before, (
+        "the tasks changed, so the old sentence was true after all and this "
+        "test is guarding the wrong thing"
+    )

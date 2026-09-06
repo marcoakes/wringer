@@ -592,3 +592,190 @@ def test_ITEM_8_a_record_WITHOUT_the_document_map_still_compares_the_spec(
     )
     facts = run_module.resume_facts(converging_build)
     assert facts.spec_changed is True and facts.changed_documents == ()
+
+
+def test_RUN_5B_the_preface_says_the_ASSUMPTION_CARDS_come_back(tmp_path):
+    """**Run 5B, 2026-09-06, F7.** The preface said "your answers (not asked
+    again)" and the resumed run then put every assumption card again.
+
+    Both halves were correct. The interview asks only what is unanswered, so
+    answers really are not re-asked; and an ACCEPTANCE is recorded nowhere,
+    because approving the plan is what approves the decisions (ruling 2a) —
+    replaying a recorded yes on a resume would be a human act simulated.
+    What was wrong was a preface that let a person expect otherwise. So the
+    fix is a fourth line, not a fifth record.
+    """
+    facts = run_module.ResumeFacts(
+        last_question=None,
+        phase="interview",
+        prd_inside=True,
+        spec_present=True,
+        spec_approved=False,
+        spec_changed=False,
+        answers=("date-format",),
+        gates=(),
+        shows=(),
+        max_iterations=None,
+        standing_assumptions=("a-delimiter", "a-encoding"),
+    )
+    step = run_module.resume_preface(facts)
+
+    assert "Asked again: 2 decision(s) taken without asking you" in step.text, step.text
+    assert "a-delimiter, a-encoding" in step.text
+    assert "put to you again with the approval" in step.text
+    assert step.detail["asked_again"] == ["a-delimiter", "a-encoding"]
+
+    # And it is SILENT when the approval is behind us: a line that always
+    # appears stops being read.
+    settled = run_module.resume_preface(
+        run_module.ResumeFacts(
+            last_question=None, phase="build", prd_inside=True, spec_present=True,
+            spec_approved=True, spec_changed=False, answers=(), gates=(), shows=(),
+            max_iterations=None, standing_assumptions=("a-delimiter",),
+        )
+    )
+    assert "Asked again" not in settled.text, settled.text
+    assert settled.detail["asked_again"] == []
+
+
+def test_RUN_5B_a_reopened_question_REWINDS_the_resume_and_says_so(tmp_path):
+    """**Run 5B, 2026-09-06, F6(b).** A redraft reworded a required question
+    after the record had moved past the interview. `phase_is_due` is
+    positional, so nothing asked it, and the run walked the person to an
+    approval over a plan whose own text said the question was unanswered.
+    They had to find `wringer-board answer` themselves.
+
+    A phase whose EXIT CONDITION has been undone is due again, and the
+    rewind is a step of its own rather than a silent jump backwards.
+    """
+    from wringer import spec as spec_module
+
+    repo = tmp_path / "reopened"
+    repo.mkdir()
+    (repo / spec_module.SPEC_FILENAME).write_text(
+        "schema_version: wringer.spec.v1\napproved: false\n"
+        "title: A thing\nintent: Ship it.\n"
+        "open_questions:\n"
+        "  - id: date-format\n    question: Which date format?\n"
+        "    required: true\n"
+        "criteria:\n  - id: c1\n    title: It works\n    required: true\n"
+        "tasks:\n  - id: t1\n    brief: Do it\n    objective: Done.\n",
+        encoding="utf-8",
+    )
+
+    step = run_module.interview_reopened_step(repo, "approve")
+    assert step is not None, "an unanswered required question did not reopen"
+    assert step.id == "interview-reopened"
+    assert "date-format" in step.text
+    assert step.detail["recorded_phase"] == "approve"
+    assert step.detail["resuming_from"] == "interview"
+    assert "nothing is drafted or spent" in step.text
+
+    # Answered: nothing is reopened, and the resume starts where it stopped.
+    answered = (repo / spec_module.SPEC_FILENAME).read_text(encoding="utf-8").replace(
+        "    required: true\n", "    required: true\n    answer: ISO 8601\n", 1
+    )
+    (repo / spec_module.SPEC_FILENAME).write_text(answered, encoding="utf-8")
+    assert run_module.interview_reopened_step(repo, "approve") is None
+
+    # And a record that never reached the interview is not rewound INTO it.
+    assert run_module.interview_reopened_step(repo, "draft") is None
+
+
+def test_RUN_5B_the_drive_carries_the_engines_move_into_the_stop(tmp_path):
+    """**Run 5B, F1, the drive's half.** `wring spec --json` now puts its
+    next move on stdout when it refuses. Nothing was reading it: the drive
+    wrapped stderr into a branch-3 stop and `stop.json` recorded
+    `next_move: null`, which is what `wring explain` read back as "Next: not
+    known here"."""
+    import json as _json
+
+    quoted = run_module._engine_move_of(
+        _json.dumps({"stopped": True, "why": "no", "next_move": "wring spec X --send --redraft"})
+    )
+    assert quoted == "wring spec X --send --redraft"
+
+    step = run_module.stop_for("", "", engine_words="it said no", next_move=quoted)
+    assert step.next_move == quoted, (
+        "the drive built a stop that drops the move the engine sent"
+    )
+
+    # And a verb that sends nothing leaves the stop exactly as it was.
+    assert run_module._engine_move_of("") == ""
+    assert run_module._engine_move_of("not json at all") == ""
+    assert run_module.stop_for("", "", engine_words="x").next_move is None
+
+
+def test_RUN_5B_draft_the_spec_puts_the_engines_move_on_the_stop_it_raises(
+    tmp_path, monkeypatch
+):
+    """The call site, not just the helper. Run 5B's stop came out of
+    `draft_the_spec`, which wrapped stderr and dropped stdout on the floor —
+    so a guard that only exercises `_engine_move_of` would stay green while
+    the drive threw the move away."""
+    import subprocess as _subprocess
+
+    repo = tmp_path / "refusing"
+    repo.mkdir()
+    (repo / "PRD.md").write_text("We need a CSV.\n", encoding="utf-8")
+    move = "wring spec PRD.md --send --redraft"
+
+    def refusing(_repo, argv, **kwargs):
+        return _subprocess.CompletedProcess(
+            argv, 2,
+            stdout=json.dumps({"stopped": True, "why": "no", "next_move": move}),
+            stderr="wring spec: only a person can settle it",
+        )
+
+    monkeypatch.setattr(run_module, "run_command", refusing)
+    session = run_module.Session(repo=repo)
+    with pytest.raises(run_module.Stop) as stopped:
+        run_module.draft_the_spec(session, repo, repo / "PRD.md")
+
+    assert stopped.value.step.next_move == move, (
+        "the drive dropped the move the engine sent, which is the whole of "
+        "run 5B's first finding"
+    )
+    assert "only a person can settle it" in stopped.value.step.engine_words
+
+
+def test_RUN_5B_a_REOPENED_interview_actually_rewinds_the_running_verb(
+    converging_build,
+):
+    """**Run 5B, F6(b), through the real verb.** The step that says the
+    interview is due again is only worth having if the resume acts on it.
+    Run 5B's operator watched a resume walk past a required question that
+    the plan's own text said was unanswered, straight to the approval."""
+    from wringer import spec as spec_module
+
+    repo = converging_build
+    plan = repo / spec_module.SPEC_FILENAME
+    assert plan.is_file(), "the fixture has no plan to reopen"
+
+    # A redraft that reworded a required question: the record says the run
+    # got as far as `approve`, and the plan has an open question again.
+    text = plan.read_text(encoding="utf-8")
+    text = text.replace("approved: true", "approved: false")
+    text = text.replace(
+        "open_questions:",
+        "open_questions:\n  - id: reworded-since\n"
+        "    question: Which delimiter, now that the format changed?\n"
+        "    required: true",
+        1,
+    )
+    plan.write_text(text, encoding="utf-8")
+    run_module.checkpoint_phase(repo, "approve")
+
+    code, steps = drive(["resume", "--repo", str(repo)], "")
+    ids = [step["id"] for step in steps]
+
+    assert "interview-reopened" in ids, (
+        f"the resume walked past an unanswered required question: {ids}"
+    )
+    reopened = next(s for s in steps if s["id"] == "interview-reopened")
+    assert "reworded-since" in reopened["text"]
+    assert reopened["detail"]["recorded_phase"] == "approve"
+    assert reopened["detail"]["resuming_from"] == "interview"
+    # And it really went back: the rewind is announced before the approval
+    # the record had already reached.
+    assert "approve" not in ids[: ids.index("interview-reopened")], ids

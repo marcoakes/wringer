@@ -388,7 +388,9 @@ and not its first line. Then:
   checkpoint says where it was. It emits one `resume-preface` step first,
   with three labelled lines — `Preserved:` (what is on disk), `Reused:`
   (what will not be asked or paid for again, by name), `Will spend:` (the
-  next paid thing) — then joins at the phase that stopped: recorded answers,
+  next paid thing) — and a fourth, `Asked again:`, whenever a decision taken
+  without asking you is still standing and the approval is still to come.
+  It then joins at the phase that stopped: recorded answers,
   an approved plan and installed checks are reused and never re-asked, and
   no drafting call is made while a spec exists. A run killed AT a question
   is asked that question again. If `wringer.spec.yaml` changed since the

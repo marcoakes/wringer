@@ -180,11 +180,19 @@ readiness.json    # `wringer.readiness.v1` — each credential lane in ONE
                   # `verified` — Wringer does not probe that endpoint for
                   # free, so the most it can say of a set variable is that
                   # it is set.
+readiness-history.jsonl
+                  # every reading, one `wringer.readiness.v1` object per
+                  # line, append-only (run 5B, F3). `readiness.json` is the
+                  # FIRST reading and is never overwritten; a resume
+                  # re-enters the draft phase and reads the credentials
+                  # again, and on run 5B's machine the answer changed under
+                  # the operator. The record keeps what was shown before the
+                  # first spend; this file keeps what was true afterwards.
 stop.json         # `wringer.stop.v1` — where the journey stopped, what was
                   # preserved, and the next move as printed (0.9.6)
 ```
 
-`wring explain <journey dir>` reads all three back.
+`wring explain <journey dir>` reads all four back.
 
 ---
 

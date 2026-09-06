@@ -4,6 +4,109 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.11 — 2026-09-06
+
+**Run 5B's findings, and the ruling underneath the worst of them.** Codex
+took 0.9.10 into a clean-machine blind run and the formal phase ended four
+minutes in, at a stop that was RIGHT and unusable. `wring spec` refused a
+draft whose assumption settled a requirement marked for a person — exactly
+what it should do — and then said nothing anyone could run. `stop.json`
+recorded `next_move: null`. `wring explain` said *Next: not known here*.
+Under the blind protocol the verdict ends at the first hand repair, so it
+ended there, on a refusal that was correct.
+
+**The cause was one ruling, made in 0.7.1 and now measured wrong:** *only a
+loop ending is a stop the person continues from.* Every other family was
+built with an empty `next_move` on purpose — the drafting refusals, and all
+twenty-six delivery refusals including the HOLD, where the board's own
+sentence said to run `wringer-board judge` while the record carried
+nothing. A refused draft is a stop a person continues from. So is a
+handover held for a person's judgement.
+
+So every `wring spec` refusal now ends in a command and puts it on stdout
+under `--json`, where the drive reads it into the step and the record; all
+four places the drive turns a failed engine verb into a stop quote what the
+engine sent; and a delivery refusal either carries a command or is named in
+`NO_MOVE_FOR_A_PERSON` with the reason a person cannot resolve it, held to
+the table by a totality guard. Six of the twenty-six carry one. The twenty
+that say *"an engineer has to"* mean it, and now say why.
+
+**And the command it prints is the document you gave it.** The overwrite
+refusal printed `wring spec --send --redraft PRD.md` as a literal. The
+drive starts `wring spec` on its own copy at `.wringer/drive/prd.md`, so
+the command failed as printed and the operator had to work the path out —
+itself a hand repair under the protocol. The printed-command registry
+follows the printed form rather than pinning the old one.
+
+**A refused reply is no longer reusable.** 0.9.9's reuse made a redraft of
+an unchanged document byte-identical, which is the right protection against
+paying twice — and it reproduced the identical refusal at zero cost for
+ever. The command above would have led straight back to the same wall. A
+draft that was assembled and then refused is not an answer to reuse; a
+draft that STOPPED mid-sections still reuses its finished calls, and the
+two are told apart by what is on disk.
+
+**What the card promises is what the run spends.** It said *"one drafting
+call"* while the config the drive itself writes turns sectioned drafting
+on, and three requests went out. The count is derived from the config it
+will run under.
+
+**What was known before the spend stops moving.** `resume` continues the
+same journey and re-enters the draft phase, and `write_readiness`
+overwrote its record: the card shown before the first paid draft said
+`declared-unverified` on a key-only machine, a stored login came back, and
+the journey's record was rewritten to `displaced`. The later reading was
+true, and it went over the only copy of what the person was shown *before*
+they spent. Both are facts, so both are kept — `readiness.json` is the
+first reading and is never overwritten, every reading is appended to
+`readiness-history.jsonl` beside it in the same frozen shape, and
+`wring explain` says what changed and names any line it could not read.
+
+**An overrule says what it did and what it did not do.** It claimed the
+plan was *"re-rendered with your answer in place of the decision"*. Nothing
+does that, and `schema/decisions-v2.schema.json` forbids it in capitals:
+Wringer never re-words a requirement, because choosing the words is the
+person's act. The operator read the claim, saw a task still saying what
+they had just overruled, and could not tell a lie from a bug.
+
+**A phase whose exit condition has been undone is due again.** A redraft
+reworded a required question after the record had moved past the interview.
+`phase_is_due` is positional, so nothing asked it, and the resume walked
+the person to an approval over a plan whose own text said the question was
+open. The rewind is now a step of its own and is never silent.
+
+**And the preface stops promising what it cannot deliver.** It said *"your
+answers (not asked again)"* and the approval then put every assumption card
+again. Both halves were correct — the interview asks only what is
+unanswered, and an acceptance is recorded nowhere because approving the
+plan is what approves the decisions. Recording a yes and replaying it would
+be a human act simulated. What was wrong was a preface that let a person
+expect otherwise, so there is a fourth line: **Asked again**.
+
+**The worker's own last words are the causal ones.** A Codex CLI too old
+for the model wrote its progress to the error stream and its 400 to the
+output stream. Both were already quoted, joined by a bare newline, and the
+headline took the FIRST line — which contradicts the convention
+`gates.cite` measured and documents: the first line of a failure is a
+traceback header or a progress note, and the line nearest the end is the
+one that says what went wrong. Each stream is now said to be its own, and
+the headline takes the last line rather than the first.
+
+Eighteen red-watches, each reverting one thing alone, all red. Three came
+back vacuous on the first pass and each was a real hole: the drive's call
+site, the resume's wiring, and the printed-command registry were all
+guarded one level away from the thing that would break. The harness itself
+gained a fix — a clocked write can leave pytest's assertion-rewrite cache
+holding bytecode compiled from the plant, so a restored file reported a red
+that was not there.
+
+*Not fixed, and named:* the generated proof plan covered one requirement of
+ten automatically. That is drafting quality, not a defect with a line to
+change, and it is what run 6 is for.
+
+Schema versions: none change. `readiness-history.jsonl` is a sibling
+carrying `wringer.readiness.v1` objects, one per line.
+
 ## 0.9.10 — 2026-09-05
 
 **The requirement ledger cannot be routed around, and the delivery faces
