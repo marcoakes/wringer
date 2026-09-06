@@ -96,7 +96,7 @@ network in anything that proves.
 
 Where they disagree about v0.1, the spec wins.
 
-## Current state — v0.9.9 shipped; unreleased work on `main`
+## Current state — v0.9.10 shipped; unreleased work on `main`
 
 **`v0.1.0` through `v0.4.7` are tagged and on PyPI**
 (`uv tool install wringer` — one distribution, four executables, since 0.4.0). `wring init`, `wring verify` and `wring explain` were
@@ -342,21 +342,30 @@ that reached `main` announced `0.8.11` while carrying `0.9.0` — neither
 taggable, nothing published.
 
 ```bash
-scripts/release.py 0.9.9 Fifty-three entry.md   # the ceiling: all 8 files or none
-./scripts/gate.sh                                # the bar, ~10 minutes
-git add -A && git commit -F message.txt          # subject MUST name the version
-git push origin main
+scripts/release.py 0.9.10 Fifty-three entry.md   # the ceiling: all 8 files or none
+./scripts/ship.sh message.txt                    # lock, gate, commit, push
 #   ...wait here for EVERY CI leg to be green...
-git tag -a v0.9.9 -F tag.txt <the pushed sha> && git push origin v0.9.9
+git tag -a v0.9.10 -F tag.txt <the pushed sha> && git push origin v0.9.10
 ```
 
 Four rules, each with a body count behind it:
 
-1. **One release at a time.** `scripts/ship.sh` takes an exclusive lock
-   (`scripts/repo-lock.sh`) before the gate, not merely before the commit —
-   the gate is ten minutes and the window is open for all of it. Do not
-   start a second pipeline, and do not merge a branch while one is running:
-   `git merge` refuses on the dirty mid-bump tree.
+1. **One release at a time, through `scripts/ship.sh`.** It takes an
+   exclusive lock (`scripts/repo-lock.sh`) before the gate, not merely
+   before the commit — the gate is ten minutes and the window is open for
+   all of it — and it refuses a message announcing the version the commit
+   already on the branch announced. Do not start a second pipeline, and do
+   not merge a branch while one is running: `git merge` refuses on the
+   dirty mid-bump tree.
+
+   **The lock is only as good as its reach — 2026-09-06.** Two hand-driven
+   chains, neither going through `ship.sh`, were both waiting on the same
+   green-bar file. Both woke when it appeared: the first committed `0.9.10`
+   and pushed, the second ran seconds later against a tree that by then held
+   `0.9.10`'s work, and `git add -A` put it on `main` under the subject
+   `release: 0.9.10`. The version file still said `0.9.10`, so rule 4's guard
+   was satisfied and `main` went red. **Commit a release through
+   `ship.sh` and nothing else**, however convenient a one-liner looks.
 2. **`scripts/release.py` applies the ceiling, never `sed`.** Eleven edits
    across eight files; one missing anchor and it refuses having written
    nothing. Hand-editing is how `AGENTS.md:-4` and a phantom

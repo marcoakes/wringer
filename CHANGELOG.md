@@ -4,6 +4,91 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 0.9.10 — 2026-09-05
+
+**The requirement ledger cannot be routed around, and the delivery faces
+stop asserting an origin nobody re-read.** Five ways past 0.9.8's ledger,
+found by a six-lens cold read of it, and the two claims its own surfaces
+were making without checking.
+
+**A refused draft is not a draft.** The worst of them: `wring spec` writes
+`response.json` before the reply is parsed, so a reply the ledger had just
+REFUSED sat on disk as the newest previous draft of that document. Drafting
+again with the same reply compared the new draft against the refused one,
+found nothing missing, and wrote a plan without the requirement — exit 0,
+nothing said, the refusal defeated by doing exactly what its own sentence
+recommends. Each exchange now records what it did (`outcome.json`,
+`wringer.exchange.v1`, written beside the request and the reply) and the
+ledger reads only exchanges that produced a plan. An exchange with no such
+record predates this release and is read as a draft, so an old exchange
+keeps binding a redraft rather than silently ceasing to.
+
+**One survivor answers for one previous requirement.** The "reworded, same
+sentence quoted" test was set membership, so two previous criteria quoting
+one sentence — which the request invites, since one sentence often carries
+two obligations — were both satisfied by a single criterion that still
+quoted it. A requirement could be dropped behind a quote that stayed.
+
+**A judgement swapped for another judgement is a drop.** Human criteria
+were skipped by the ledger, deferring to 0.9.5's count rule, which compares
+totals only. Dropping "Design signs off the export button" while adding
+"Legal approves the wording" passed both: one for one, and the ledger never
+looked. They are now held to the same kept-or-reworded-or-answered test,
+with the count rule as the floor beneath it, and the refusal says which of
+them was one only a person can judge.
+
+**A previous draft that cannot be read is said, not skipped.** It fell
+through to an older exchange — a guess about which draft binds — in
+silence. The draft still proceeds, because refusing it would refuse work
+that is itself fine over a file nobody can repair; what it may not do is
+leave the person thinking a ledger applied when none did.
+
+**A word is not a sentence.** The request asks for one sentence copied
+verbatim and the check was only that the bytes appear somewhere in the
+document, so `source: "CSV"` passed, the certificate rendered *From your
+document: "CSV"*, and the ledger then treated every criterion quoting that
+word as a rewording of every other. Four words and twenty characters is the
+floor — which the shortest real requirement sentence clears and no fragment
+does — and a fragment is noted rather than recorded.
+
+**And the faces check what they assert.** *"From your document"* is a claim
+about the document, and it was made from a sidecar checked against the PRD
+at drafting time, over a document that may have been edited since — the
+test guarding it wrote a sidecar into a repository with no document at all.
+The claim is now made only when the sentence is still in the plan's own
+quoted copy of the document, and the recorded-but-unfound case is said
+rather than dropped. A sidecar that is present and unreadable is named on
+the certificate and the merge request, instead of rendering exactly as an
+absent one while the plan surface refuses over the same file in words.
+
+**And the release procedure closes the hole this release fell into.** While
+0.9.9 was being cut, two hand-driven commit chains were waiting on the same
+green-bar file. Both woke when it appeared: the first committed 0.9.9 and
+pushed it, and the second — running seconds later, against a tree that by
+then held this release's work — ran `git add -A` and put that work on `main`
+under the subject `release: 0.9.9`. The version file still said 0.9.9, so
+the guard that checks a subject against its own tree was satisfied, and the
+branch went red until this commit. `v0.9.9` was tagged at the commit that
+actually carries 0.9.9, not at the intruder, and nothing wrong was ever
+published. Neither chain went through `scripts/ship.sh`, which holds the
+one-writer lock; it now also refuses a message announcing the version the
+commit already on the branch announced, and the runbook says to commit a
+release through it and nothing else.
+
+**And one guard that had been green by luck.** `scripts/check.sh` runs the
+suite with `pytest -n auto`, which gives each worker its own process — and
+the D0 guard, which refuses a release when a declared refusal is one no test
+has ever constructed, ran in every one of them over that worker's own shard.
+A worker that was not given the pen's tests saw `show_failed` constructed by
+nobody and failed the whole session with every test passing. It surfaced
+here because this release's new tests moved the shard boundaries; it had
+been passing on how the work happened to be divided, which is not a guard.
+Each worker now writes what it recorded and the controller takes the union.
+
+Red-watches, each reverting one thing alone, all red.
+
+Schema versions: `wringer.exchange.v1` is new.
+
 ## 0.9.9 — 2026-09-05
 
 **P0 closes: the plan drafted in three calls that are reused rather than

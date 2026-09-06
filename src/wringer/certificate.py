@@ -652,6 +652,8 @@ def render(
     judgement_record: dict[str, Any] | None = None,
     states: dict[str, bool | None] | None = None,
     sources: dict[str, str] | None = None,
+    document: str = "",
+    sources_unreadable: str = "",
 ) -> str:
     """`certificate.md` — the face, from the record and its siblings.
 
@@ -710,7 +712,9 @@ def render(
             one if one.startswith("  -") else f"- {one}" for one in said
         ]
     lines += ["", "## Every requirement"]
-    lines += requirement_lines(payload, judgement_record, sources)
+    lines += requirement_lines(
+        payload, judgement_record, sources, document, sources_unreadable
+    )
 
     # **Two groups, and the plain one leads.** The record's own ceiling
     # sentences are carried VERBATIM — they are the engine's careful words

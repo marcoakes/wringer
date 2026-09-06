@@ -2538,7 +2538,13 @@ def parse_response(
         # the request invites, one sentence often carrying two obligations —
         # were both satisfied by one criterion that still quoted it, so a
         # requirement could be dropped behind a quote that stayed.
-        unclaimed = list(sources.values())
+        #
+        # A criterion kept BY ID already accounts for itself, so its quote is
+        # not also available to excuse a drop. What is left is the quotes of
+        # criteria this draft added — and a requirement coming back under a
+        # new id with the same sentence is exactly what "reworded" means.
+        kept_ids = {pid for pid, _t, _h, _s in previous.criteria if pid in current_ids}
+        unclaimed = [quote for cid, quote in sources.items() if cid not in kept_ids]
         # **Human criteria are held to the same test (0.9.10).** They were
         # skipped here, deferring to the count rule above — which compares
         # totals only, so swapping one human criterion for a different one

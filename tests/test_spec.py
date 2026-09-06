@@ -4581,7 +4581,9 @@ def test_LEDGER_a_RAISED_CEILING_still_binds_and_a_CHANGED_DOCUMENT_does_not(
     )
     capsys.readouterr()
 
-    (repo / "PRD.md").write_text(PRD + "\n\nAlso: a totally new section.\n", encoding="utf-8")
+    (repo / "PRD.md").write_text(
+        PRD + "\n\nAlso: a totally new section.\n", encoding="utf-8"
+    )
     fake_transport(monkeypatch, reply=reply(thinner))
     assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_OK, (
         capsys.readouterr().err
@@ -4607,3 +4609,55 @@ def test_LEDGER_a_FRAGMENT_is_not_the_sentence_a_requirement_came_from(
     assert not (repo / spec.SOURCES_FILENAME).exists(), (
         "a one-word fragment was recorded as where a requirement came from"
     )
+
+
+def test_LEDGER_an_exchange_from_BEFORE_this_release_still_binds_a_redraft(
+    repo, monkeypatch, capsys
+):
+    """The compatibility half of the outcome record, which had no guard.
+
+    Exchanges written before 0.9.10 carry no `outcome.json`. Reading their
+    silence as "this drafted nothing" would unbind every draft made before
+    the upgrade — the ledger would quietly stop holding anyone to the plan
+    they already have, which is worse than the hole it was closing."""
+    _ledger_repo(repo, monkeypatch, capsys)
+    (only_draft(repo) / spec.OUTCOME_FILENAME).unlink()
+
+    dropped = DRAFT["criteria"][0]["title"]
+    fake_transport(monkeypatch, reply=reply(_draft_without(DRAFT["criteria"][0]["id"])))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG, (
+        "a draft written before this release stopped binding its own redraft"
+    )
+    assert dropped in capsys.readouterr().err
+
+
+def test_LEDGER_one_new_criterion_excuses_ONE_rewording_not_two(
+    repo, monkeypatch, capsys
+):
+    """The consuming half of the one-to-one rule. Two previous requirements
+    quoting one sentence, both replaced by a single new criterion quoting it:
+    the first is a rewording, and the second is a requirement that is simply
+    gone."""
+    quoted = "It should cover the same rows the page is showing, respecting"
+    first = json.loads(json.dumps(DRAFT))
+    for criterion in first["criteria"][:2]:
+        criterion["source"] = quoted
+    _ledger_repo(repo, monkeypatch, capsys, first)
+
+    merged = json.loads(json.dumps(DRAFT))
+    merged["criteria"] = [
+        {
+            "id": "one-new-thing",
+            "title": "Both of those, together",
+            "required": True,
+            "source": quoted,
+        }
+    ] + merged["criteria"][2:]
+    for task in merged.get("tasks", []):
+        task.pop("proves", None)
+    merged.pop("gate_bindings", None)
+    fake_transport(monkeypatch, reply=reply(merged))
+    assert cli.main(["spec", "PRD.md", "--send", "--redraft"]) == cli.EXIT_CONFIG, (
+        "one new criterion was allowed to answer for two previous requirements"
+    )
+    assert first["criteria"][1]["title"] in capsys.readouterr().err

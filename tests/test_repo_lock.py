@@ -174,3 +174,75 @@ def test_SHIP_takes_the_lock_BEFORE_it_stages_anything():
         "ship.sh never releases the lock, so one interrupted ship blocks "
         "every later one"
     )
+
+
+def test_SHIP_REFUSES_a_message_announcing_the_version_ALREADY_on_the_branch(tmp_path):
+    """**The 0.9.9 collision, 2026-09-06 — the lock's reach, not the lock.**
+
+    Two hand-driven chains were both waiting on the same green-bar state
+    file. When it appeared, both woke: the first committed 0.9.9 and pushed
+    it; the second ran seconds later against a tree that by then held the
+    NEXT release's work, and `git add -A` put 0.9.10's code on `main` under
+    the subject `release: 0.9.9`. The version file still said 0.9.9, so the
+    guard that compares a subject against its own tree was satisfied, and
+    `main` went red. Neither chain went through `ship.sh`, which is the
+    reason to make `ship.sh` the only door and to have it check this.
+
+    Driven against a REAL repository, with the real script.
+    """
+    import subprocess
+
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", *argv], cwd=repo, capture_output=True, text=True
+        )
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "T")
+    (repo / "one.txt").write_text("first\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-q", "-m", "release: 0.9.9 — the real one")
+
+    ship = repo_root() / "scripts" / "ship.sh"
+    (repo / "scripts").mkdir()
+    (repo / "scripts" / "ship.sh").write_text(
+        ship.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (repo / "scripts" / "ship.sh").chmod(0o755)
+    # The gate and the lock are not what is under test here; both are proved
+    # above. Stand in for them so the subject check is what decides.
+    (repo / "scripts" / "check.sh").write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    (repo / "scripts" / "check.sh").chmod(0o755)
+    (repo / "scripts" / "repo-lock.sh").write_text(
+        "#!/bin/sh\nexit 0\n", encoding="utf-8"
+    )
+    (repo / "scripts" / "repo-lock.sh").chmod(0o755)
+
+    message = repo / "message.txt"
+    message.write_text("release: 0.9.9 — the intruder\n", encoding="utf-8")
+    (repo / "two.txt").write_text("the NEXT release's work\n", encoding="utf-8")
+
+    done = subprocess.run(
+        [str(repo / "scripts" / "ship.sh"), str(message)],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert done.returncode != 0, "the second 0.9.9 was allowed onto the branch"
+    assert "already on this branch announces" in done.stderr, done.stderr
+    assert git("log", "-1", "--format=%s").stdout.strip() == (
+        "release: 0.9.9 — the real one"
+    ), "the intruder was committed anyway"
+
+    # And the next version is not refused for being a release.
+    message.write_text("release: 0.9.10 — the next one\n", encoding="utf-8")
+    done = subprocess.run(
+        [str(repo / "scripts" / "ship.sh"), str(message)],
+        cwd=repo, capture_output=True, text=True,
+    )
+    assert "already on this branch announces" not in done.stderr, done.stderr
+    assert git("log", "-1", "--format=%s").stdout.strip().startswith(
+        "release: 0.9.10"
+    ), done.stderr

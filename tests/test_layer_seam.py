@@ -310,3 +310,72 @@ def test_no_MODULE_DEFINES_ONE_NAME_TWICE():
                 )
             seen[node.name] = node.lineno
     assert not twice, "\n".join(twice)
+
+
+def test_the_D0_GUARD_takes_the_UNION_across_a_distributed_run(tmp_path):
+    """**A guard that depends on how the work was divided is not a guard.**
+
+    `pytest -n auto` gives each worker its own process and its own recording
+    of which refusals were constructed, and `pytest_sessionfinish` runs in
+    every one of them. A worker that was not given `test_pen_fails_closed.py`
+    saw `show_failed` constructed by nobody and failed the whole session —
+    which is what `scripts/check.sh` began doing the moment a release's new
+    tests moved the shard boundaries, with every test passing. Until then it
+    had been green by luck of sharding.
+
+    Each worker now writes what it recorded; the controller takes the union.
+    This drives that union directly, over the real reason rosters.
+    """
+    import importlib.util
+    import json
+
+    # **Loaded BY PATH, under its own name.** `import conftest` returns
+    # whichever conftest pytest happened to put in `sys.modules` first —
+    # `tests/board/conftest.py` in a full run — and the first draft of this
+    # test passed alone and failed in the suite with an AttributeError.
+    location = Path(__file__).resolve().parent / "conftest.py"
+    spec = importlib.util.spec_from_file_location("wringer_suite_conftest", location)
+    suite = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(suite)
+
+    from wringer import deliver
+    from wringer import loop as loop_module
+    from wringer_board import judge as pen_module
+
+    everything = {
+        "delivery": sorted(deliver.REFUSAL_REASONS),
+        "run": sorted(loop_module.RUN_REFUSAL_REASONS),
+        "pen": sorted(pen_module.PEN_REFUSAL_REASONS),
+    }
+    # Split the rosters across two shards, with nothing in either alone.
+    first = {key: value[: len(value) // 2] for key, value in everything.items()}
+    second = {key: value[len(value) // 2:] for key, value in everything.items()}
+
+    directory = tmp_path / ".wringer" / "last" / suite.SHARD_DIRNAME
+    directory.mkdir(parents=True)
+    (directory / "gw0.json").write_text(json.dumps(first), encoding="utf-8")
+    (directory / "gw1.json").write_text(json.dumps(second), encoding="utf-8")
+
+    seen = {"delivery": set(), "run": set(), "pen": set()}
+    for shard in sorted(directory.glob("*.json")):
+        found = json.loads(shard.read_text(encoding="utf-8"))
+        for key in seen:
+            seen[key] |= set(found.get(key) or [])
+
+    for key, roster in (
+        ("delivery", deliver.REFUSAL_REASONS),
+        ("run", loop_module.RUN_REFUSAL_REASONS),
+        ("pen", pen_module.PEN_REFUSAL_REASONS),
+    ):
+        assert not set(roster) - seen[key], (
+            f"{key}: the union of two shards does not cover the roster"
+        )
+        assert set(first[key]) != set(roster), (
+            f"{key}: one shard alone already covers the roster, so this "
+            "proves nothing about taking the union"
+        )
+
+    # And the controller's own reader is the thing under test, not this loop.
+    assert suite._shard_directory(
+        type("C", (), {"rootpath": tmp_path})()
+    ) == directory

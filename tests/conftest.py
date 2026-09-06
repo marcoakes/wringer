@@ -75,12 +75,53 @@ def _record_every_refusal_constructed():
         pen_module.PenRefused.__init__ = original_pen
 
 
+#: Where a distributed run leaves its shards' recordings (0.9.10). One file
+#: per process, so the controller can take the union.
+SHARD_DIRNAME = "constructed-refusals"
+
+
+def _shard_directory(config) -> Path:
+    return Path(config.rootpath) / ".wringer" / "last" / SHARD_DIRNAME
+
+
+def _worker_id(config) -> str | None:
+    """This process's xdist worker id, or None when it is not a worker."""
+    recorded = getattr(config, "workerinput", None)
+    if isinstance(recorded, dict):
+        return str(recorded.get("workerid") or "worker")
+    return None
+
+
+def pytest_sessionstart(session):
+    """Clear the shard directory before a distributed run leaves its files."""
+    if _worker_id(session.config) is not None:
+        return
+    directory = _shard_directory(session.config)
+    try:
+        for stale in directory.glob("*.json"):
+            stale.unlink()
+    except OSError:  # pragma: no cover - a missing directory is the normal case
+        pass
+
+
 def pytest_sessionfinish(session, exitstatus):
     """Assert the recorded set equals `deliver.REFUSAL_REASONS`, or say why not.
 
     Only on a WHOLE run: a filtered one has not had the chance, and failing it
     would train everyone to ignore this. `--co` (collect-only) never
     constructs anything either.
+
+    **And only on a run that can SEE the whole of it (0.9.10).** Under
+    `pytest -n auto` each worker is its own process with its own recording,
+    and this hook runs in every one of them. A worker that did not happen to
+    be given `test_pen_fails_closed.py` sees `show_failed` constructed by
+    nobody and fails the session — which is what `scripts/check.sh` started
+    doing the moment a release's new tests shifted the shard boundaries. The
+    guard was passing by luck of sharding, and a guard that depends on how
+    work was divided is not a guard.
+
+    So a worker writes what it recorded and asserts nothing; the controller
+    takes the union of every shard's file plus its own and asserts on that.
     """
     if exitstatus not in (0, 1):
         return
@@ -93,20 +134,44 @@ def pytest_sessionfinish(session, exitstatus):
     )
     if filtered:
         return
-    missing = sorted(set(deliver.REFUSAL_REASONS) - CONSTRUCTED_REFUSALS)
-    stray = sorted(CONSTRUCTED_REFUSALS - set(deliver.REFUSAL_REASONS))
-    missing_run = sorted(
-        set(loop_module.RUN_REFUSAL_REASONS) - CONSTRUCTED_RUN_REFUSALS
-    )
-    stray_run = sorted(
-        CONSTRUCTED_RUN_REFUSALS - set(loop_module.RUN_REFUSAL_REASONS)
-    )
-    missing_pen = sorted(
-        set(pen_module.PEN_REFUSAL_REASONS) - CONSTRUCTED_PEN_REFUSALS
-    )
-    stray_pen = sorted(
-        CONSTRUCTED_PEN_REFUSALS - set(pen_module.PEN_REFUSAL_REASONS)
-    )
+
+    import json
+
+    worker = _worker_id(session.config)
+    directory = _shard_directory(session.config)
+    recorded = {
+        "delivery": sorted(CONSTRUCTED_REFUSALS),
+        "run": sorted(CONSTRUCTED_RUN_REFUSALS),
+        "pen": sorted(CONSTRUCTED_PEN_REFUSALS),
+    }
+    if worker is not None:
+        try:
+            directory.mkdir(parents=True, exist_ok=True)
+            (directory / f"{worker}.json").write_text(
+                json.dumps(recorded), encoding="utf-8"
+            )
+        except OSError:  # pragma: no cover - the controller reports the gap
+            pass
+        return
+
+    delivery_seen = set(CONSTRUCTED_REFUSALS)
+    run_seen = set(CONSTRUCTED_RUN_REFUSALS)
+    pen_seen = set(CONSTRUCTED_PEN_REFUSALS)
+    for shard in sorted(directory.glob("*.json")):
+        try:
+            found = json.loads(shard.read_text(encoding="utf-8"))
+        except (OSError, ValueError):  # pragma: no cover
+            continue
+        delivery_seen |= set(found.get("delivery") or [])
+        run_seen |= set(found.get("run") or [])
+        pen_seen |= set(found.get("pen") or [])
+
+    missing = sorted(set(deliver.REFUSAL_REASONS) - delivery_seen)
+    stray = sorted(delivery_seen - set(deliver.REFUSAL_REASONS))
+    missing_run = sorted(set(loop_module.RUN_REFUSAL_REASONS) - run_seen)
+    stray_run = sorted(run_seen - set(loop_module.RUN_REFUSAL_REASONS))
+    missing_pen = sorted(set(pen_module.PEN_REFUSAL_REASONS) - pen_seen)
+    stray_pen = sorted(pen_seen - set(pen_module.PEN_REFUSAL_REASONS))
     if (
         not missing and not stray and not missing_run and not stray_run
         and not missing_pen and not stray_pen
