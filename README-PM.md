@@ -1,62 +1,55 @@
 # Wringer for product managers
 
-**You write down what you want. You approve a plan. Work happens. One page
-tells you what was built and shows the proof — and refuses to hand over
-anything it cannot prove.**
+Write what you want built. Give the run a clear scope and budget. The result
+must distinguish what was built, what was checked, what was proved, and what
+still needs your judgement.
 
-You do not need to install anything or read any of the engineering
-documentation to follow this. The five-step guide starts from nothing:
-**[START-HERE.md](https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md)**
+Wringer coordinates the agents and preserves the evidence. The agents write the product code. It cannot guarantee that a model understands an incomplete request or will finish every job.
 
-> **What is NOT yet proved, and it is the part that matters most here.** On
-> 2026-08-19 six readers were handed one of these pages cold. Three said the
-> work was "partly" done, three said "not finished", and **none said
-> finished.** Every one produced a list of words they had to guess at. So
-> "a product manager can use this" is a claim this project has built towards
-> and has **not earned**. The evidence is kept rather than omitted:
-> [docs/coldread/](https://github.com/marcoakes/wringer/tree/main/docs/coldread).
+This checkpoint's contained journey has a validated status report and portable
+delivery records, not an integrated HTML board. Ask your operator to show
+`wringer-drive status --state CONTROLLER_STATE` and explain the recorded next
+action; `--json` provides the detailed candidate, checks, reviews and usage.
+The human display/review and delivery commands in [QUICKSTART.md](QUICKSTART.md)
+continue that same journey. A page presenting these contained records remains
+an open product gap, not a feature inferred from an older board.
 
----
+## What you should not have to do repeatedly
 
-> There is a five-step guide that starts from nothing and ends with a page
-> showing what was built and what proves it:
-> [**docs/drive/START-HERE.md**](https://github.com/marcoakes/wringer/blob/main/docs/drive/START-HERE.md)
+You should not need to re-enter the same keys, approve each routine engineering choice, or start the whole drafting process again after one invalid response. A bounded authority record and durable run state exist to make those ordinary steps resumable.
 
-## The same thing again, with no jargon in it at all
+That is different from giving unlimited permission. Publishing a change, changing the agreed scope, weakening isolation and recording something only a person can judge are not routine background decisions.
 
-> You write down what you want built, in your own words. Before any work
-> starts, you see your list back in plain sentences: each thing you asked
-> for, and beside it, how it will be checked when someone claims it is done.
-> Nothing begins until you have said "yes, that is what I meant" to each.
-> The work then happens without you. When you come back there is one page:
-> every item marked done shows its check passing now *and* a record of the
-> same check failing before the work, so a tick means "this did not work
-> before and works now," not "nobody noticed a problem." Anything that could
-> not be proved says so plainly, and the handover waits for you instead of
-> going out anyway. And when something marked done is not what you meant, you
-> say so on that page: your correction becomes a new item with its own check,
-> shown failing today, so the next round of work cannot quietly undo it.
+## What the separate standalone board means
 
-That paragraph is the product. **Most of the machinery under it is built and
-has been driven end to end, and since 2026-08-17 so is the surface a
-non-technical person would touch**: one verb — `wringer-drive run PRD.md` —
-carries a prose file through every step above to a rendered page, measured at
-**27.5 seconds** (`docs/drive/docs/pm-mode-2026-08-17.md`). The table below
-still says which parts are built and which are direction rather than leaving
-you to find out.
+The existing HTML board reads standalone repository-verification records. It
+does not read or approve a contained journey. Within that separate format it
+keeps six separate facts:
 
-**What is not yet proved is the part that matters most here**: no stranger has
-read one of those pages and said what it means. Until that happens, "a product
-manager can use this" is a claim this repository has built towards and has not
-earned, and nothing in it says otherwise.
+1. **Built:** a completed build is recorded for the relevant run; otherwise it says what is missing.
+2. **Checks passing:** the declared checks passed in this verification.
+3. **Requirements proved:** the evidence supports the requirements as written.
+4. **Human judgement complete:** the required observations have been recorded by a person.
+5. **Ready to deliver:** the required evidence and decisions are satisfied.
+6. **Delivered:** a recorded delivery names the committed change.
 
+There is no single percentage to confuse those facts. “Checks passing” is not shorthand for “everything I asked for is done.” Open a requirement to see its original words, check, receipt or human note.
 
----
+## Where your attention matters
 
-## The honest state
+Review whether the requirements still mean what you asked for. If a requirement needs a person's eye, look at the displayed result and record your own observation. Review the ready handover before authorizing publication.
 
-See **[EVIDENCE.md](EVIDENCE.md)** for what this project has been shown to do
-and what it has not — including the one experiment designed to be decisive,
-which lost, and why a bigger version of it would lose the same way.
+The contained pen requires a successful display of the exact candidate. If the
+display fails, the observation cannot be recorded by using the standalone
+board's independent-inspection option. No PM delegation supplies a person's
+actual observation.
 
-The engineering front page is **[README.md](README.md)**.
+The delivery includes instructions for someone else to audit it from a fresh clone. This is how the result travels without depending on the builder's explanation or workstation.
+
+## Start here
+
+Ask your operator or coding agent to follow [INSTALL.md](INSTALL.md), then [SETUP.md](SETUP.md). These pages describe the one Bun product and the required isolated execution environment. Existing keys can be reused; setup should not turn into an account-registration exercise on every run.
+
+[QUICKSTART.md](QUICKSTART.md) includes a no-spend developer demonstration. It uses deterministic fixtures; a successful demo is not a live-model success claim. Real Apple Container/gVisor isolation and fresh-machine journeys remain separately measured acceptance work, tracked in [ROADMAP.md](ROADMAP.md).
+
+Earlier reports and cold reads remain historical evidence of the problems this product must fix. They are not the current installation guide or proof that a new user will find today's experience clear.

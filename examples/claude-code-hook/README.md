@@ -1,3 +1,18 @@
+# Historical host-agent hook — retired, not an installation recipe
+
+Archived during the Bun replacement (2026-09-07). `wring_hook.py` has been
+retired from the working tree and remains in Git history. The original recipe,
+settings and measurements below are preserved only for the historical version;
+do not copy the settings or install the missing hook in a new project.
+
+The current product uses the bounded contained plan route in
+[QUICKSTART.md](../../QUICKSTART.md) and [HEADLESS.md](../../docs/native/HEADLESS.md).
+Its ACP agents run in declared isolated environments. This old host-side hook is
+not an alternative execution boundary. See [MIGRATION.md](../../docs/MIGRATION.md)
+for the retirement record.
+
+---
+
 # The agent loop, in about thirty lines of config
 
 A [Claude Code](https://claude.com/claude-code) hook that runs `wring verify`

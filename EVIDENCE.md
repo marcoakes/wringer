@@ -1,3 +1,18 @@
+# Historical evidence index — retired Python implementation
+
+Archived as a historical reference during the Bun replacement (2026-09-07).
+The measurements, failures and limitations below remain as recorded for their
+original versions. They do not establish the behavior, live isolation or release
+readiness of the current Bun product. Commands and installation advice in this
+archive are not current instructions; some referenced implementation paths have
+been retired from the working tree and remain in Git history.
+
+For the current product, start with [README.md](README.md),
+[installation](INSTALL.md), [the threat model](THREAT_MODEL.md), and
+[the remaining release gates](ROADMAP.md).
+
+---
+
 # What Wringer has been shown to do, and what it has not
 
 This file exists because the honesty was scattered across a 7,000-word README,

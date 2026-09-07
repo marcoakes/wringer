@@ -39,13 +39,8 @@ __pycache__/
 # personal Claude Code settings (permission allowlist) — not the team's
 .claude/settings.local.json
 
-# uv's resolver lock. This project publishes a library, not an application:
-# `pyproject.toml` declares the ranges that are the contract, and a pinned
-# resolution of one machine's transitive tree is not one. It has been
-# untracked three times (8738240, 80b7822, and this) and re-added three times
-# by a `git add -A`, which is why it is ignored now rather than untracked a
-# fourth time — the instruction "commit with explicit pathspecs" is a habit
-# and this is a mechanism.
+# Retired Python resolver artifacts are not part of the Bun application.
+# Keep local leftovers ignored; the active bun.lock is committed below.
 uv.lock
 
 # editor/os
@@ -56,14 +51,11 @@ uv.lock
 # ...except the committed demo bundle, whose gate logs ARE the demonstration
 !.wringer.example/**/*.log
 
-# `python -m build` output. Never committed; the release workflow builds it fresh.
+# Historical nested build output, not part of the active native distribution.
 build/
 
-# The port's contract (ts/). `node_modules` and the scratch the contract
-# suite writes are build output; `corpus.json` is REGENERATED from whatever
-# records are on the machine, so it is a measurement, not a source.
-ts/node_modules/
-ts/packages/*/node_modules/
-ts/.scratch/
-ts/corpus.json
-ts/bun.lock
+# Bun workspace dependencies and local remnants of the retired staging layout.
+node_modules/
+/ts/
+/packages/board/run5b-preview.html
+# bun.lock is committed: the harness is an application, not a library.

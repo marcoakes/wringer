@@ -1,241 +1,57 @@
-# Roadmap — the engine is built; the queue is the surface
+# Roadmap: one Bun product, a measured end-to-end result
 
-*Adopted 2026-07-29 after external design review. This document governs
-execution order. The [full build plan](docs/ARCHITECTURE-NORTHSTAR.md)
-remains the architectural north star — we are shipping it inside-out:
-the differentiated core first (loop contracts, deterministic gates,
-worker/judge isolation), the undifferentiated plumbing (multi-cloud
-adapters, gateway planes, policy hooks) deferred until the loop exists
-and pulled by demand rather than pushed by plan.*
+The goal remains: a product manager supplies a serious specification and repositories, and returns to working software with reviewable evidence. Wringer coordinates the work; ACP agents author the product code. Improving a refusal is useful, but it is not the same as completing that journey.
 
-**Hard deadline: `v0.1.0`, first installable release, September 30, 2026.**
-Met on July 31, two months early. The 90-day arc below is history and is
-kept because the rail probes it; **the live queue is the next section.**
+This is the execution roadmap for the Bun product at the repository root. Earlier release dates, status rails and Python implementation plans are historical, not the current release checklist.
 
-## The queue, 2026-08-16
+## Present baseline
 
-*Ordered by a standing rule with an expiry date: until the requirements board
-is finished, work on the surface a product manager touches outranks any new
-cycle that only sharpens an existing refusal. Truth corrections, security
-fixes and the first-run environment gate are the standing exceptions. The rule
-expires the day the board's own definition of done is met, because a permanent
-thumb on the scale is the same disease with the opposite sign.*
+The codebase includes native records, contained workflow/authority state,
+delivery/audit/falsification, and standalone local verification, board/pen and
+historical health. The standalone board does not yet render contained journey
+state; use `wringer-drive status --state DIRECTORY` for that record format.
+Deterministic integration fixtures exercise both successful and unsuccessful
+flows without real keys or model spend.
 
-**Nothing in this table is drawn green anywhere, and nothing in it is
-claimed as existing.** Each row is a cycle: a spec, one independent review
-that is instructed to refute it, then the build.
+Public graph access is read-only: `wring graph show`, `status` and `explain`.
+`wring fleet` and `wring bench` execution refuse with a contained-plan migration
+route. Retained graph/fleet implementation APIs are internal/historical, not
+supported host-worker execution alternatives.
 
-| | cycle | what it closes | state |
-|---|---|---|---|
-| **1** | Truth corrections, the repository remap, the refusal-legibility core cycle, and board slices S2/S3 | the repository says what is being built; delivery's refusals get names, so a page can render them in plain language | **this window** |
-| **2** | **The artifact slot** ([docs/specs/SPEC_BOARD_V0.md](docs/specs/SPEC_BOARD_V0.md) §10) | a gate can leave a picture behind — digested and attested like every other file in a bundle — so a requirement about a screen can show the screen. One engine change, alone in the core repo | queued |
-| **3** | **The drive cycle** — `R-ENV`/F6 first ([docs/specs/SPEC_ENV_V0.md](docs/specs/SPEC_ENV_V0.md)), then `SPEC_DRIVE_V0` | the operating gap. Today reaching the first moment means installing a CLI, shaping a config and typing commands. One verb takes a prose file and drives the existing chain, with setup generated rather than hand-written. **Easy never means unguarded**: no auto-approval, no `--yes`, refusals still render. F6 goes first because a fresh repo dying on a missing dependency in minute three kills exactly this path | **BUILT 2026-08-17** — `wringer-drive`, steps 0–10, 27.5s measured ([docs/drive/docs/pm-mode-2026-08-17.md](docs/drive/docs/pm-mode-2026-08-17.md)). **Published since 0.4.0** — it ships inside the `wringer` distribution, so `uv tool install wringer` gets it. Strangers HAVE read a board it produced: six, cold, on 2026-08-19, and none of them said the work was finished ([docs/coldread/](docs/coldread)) |
-| **4** | **The launch cycle** | Demo R filmed, both quickstart numbers measured, a one-page threat model, and the PR-check surface. The launch moment is spent once | queued |
-| **5** | The board's close-out | the cold read — a stranger opens the page and says what it means — and the remaining definition-of-done items | queued |
+These capabilities do not establish live-provider convergence, fresh-machine usability or runtime isolation. A language rewrite does not settle any of those questions.
 
-**Banked, and named rather than forgotten:** multi-attempt evidence
-(independent attempts as independent evidence); criteria conflict detection,
-which is a required input to a future amendment of the interview spec and is
-deliberately built nowhere today; precedent search over prior gates for gate
-authoring; graph-ledger corruption tests; the flaky-witness limit; and F5,
-multi-repo — the goal says "repositories" and the code clones one.
+## Required execution architecture
 
-**What is NOT queued, and will not be:** a judge that gates, scores or appears
-in a claim; evidence-aware caching; mutation testing as a merge gate; a
-twentieth top-level command; any growth of the frozen attestation surface.
-Each was considered, and each is refused with its reasons recorded.
+The active integration work is one production path:
 
-## Where this actually is
+1. Strict YAML and constrained TypeScript resolve to the same canonical execution plan.
+2. A plan pins repositories and separates planner, worker and judge ACP declarations.
+3. Each role runs in a fresh Apple Container or gVisor-backed Kubernetes environment. Repositories are cloned inside; there are no host checkout/home mounts.
+4. Declared network, credentials, resources, turn/time budgets and cleanup are established before work.
+5. The controller freezes plan and authority, records the journey, and never falls back to host shell/direct provider HTTP when the boundary is unavailable.
 
-<div align="center">
+Compatibility readers preserve old evidence. Compatibility execution is not a second supported product or a substitute for this architecture.
 
-<img src="docs/roadmap.svg" alt="Wringer roadmap: a generated rail of milestones, each drawn green or red from a probe run against this checkout" width="900">
+## Exit criteria, not release adjectives
 
-</div>
+| Gate | Evidence required |
+| --- | --- |
+| One install story | Root Bun install/check/build works in a fresh checkout; `dist/` runs without Python; every shipped documentation link and printed recovery command resolves. |
+| Declarative plans | YAML/TypeScript equivalence; no arbitrary import/expression execution; unknown keys, ambiguous values, mutable references and secret values refused. |
+| Real ACP roles | Initialize/session/prompt/cancel exercised against a real declared agent; authentication state described from observations; distinct role identities retained. |
+| Apple Container | Live filesystem/network/resource/cancellation/cleanup checks on the named macOS/runtime/image; no host mounts or local fallback. |
+| gVisor Kubernetes | Live RuntimeClass, cluster policy, secret scoping, role separation and cleanup checks; ordinary container execution cannot masquerade as gVisor. |
+| Durable autonomy | One authority survives resumes and revisions; completed work reused; all uncertain reservations remain charged; no invented human verdict or automatic publication. |
+| One delivery story | Board, certificate, summary and MR agree; portable passing/red receipts; audit in a fresh clone; falsification measures the printed committed range. |
+| Usable first run | A person outside the implementation team can follow only product pages and printed commands; capture every stop and any hand repair. |
+| Release readiness | Full tests, packaging and published-interface checks pass for the exact candidate commit; open limitations remain explicit in release notes. |
 
-**Read the count off the picture, not off this sentence.** It said "nine of
-ten shipped" for weeks after the rail had grown to eighteen nodes, which is a
-hand-kept number doing what hand-kept numbers do. `v0.1.0` cleared its own
-release bar on July 31 — two months early — so the deadline above is met and
-the arc kept going: the loop, the fleet, the judge, the box, the ACP seam,
-the front door, issue→MR, provenance, the guided launch, bench, graphs and
-health. The rail then grew a second block (F1–F6) that measures the FACTORY
-rather than the feature list, because every node in the first block was green
-while a PM's spec was no closer to becoming working software.
+Protocol/manifest fixtures and live platform tests must be reported separately. A missing runtime is a named unrun test, not a reason to mark the isolation gate complete. A deterministic agent is not a live-model acceptance run.
 
-| # | milestone | what it shipped |
-|---|---|---|
-| 1 | **v0.1** | `wring init` · `verify` · `explain` — the standalone evidence compiler |
-| 2 | **v0.2** | `run` · `resume` · `fleet` · `judge` — the loop, supervised |
-| 3 | **ship** | `v0.1.0` and `v0.2.0` on PyPI, published by OIDC; no token was ever held |
-| 4 | **P0** | the OCI image, `wring doctor`, and SETUP.md as a runbook an agent follows |
-| 5 | **P1** | the ACP worker seam — Wringer is the client, never the agent |
-| 6 | **P2** | `wring spec` · `plan` — a PRD in, a spec a human approves |
-| 7 | **P3** | `wring get` · `issue` · `deliver` — the amended law 6 and its five refusals |
-| 8 | **P4** | `wring start` — the guided launch, and the credential ruling |
-| 9 | **P5** | `wring attest` · `audit` · `verify --prove` — provenance and vacuity |
-| 10 | **P6** | `wring bench` — same job, N workers, one comparison, and no winner |
-| 11 | **P7** | `wring graph` — loops composed into a resumable, evidence-driven workflow |
-| 12 | **P8** | `wring health` — can each gate still fail? read across the whole record |
-| 13 | **F1** | a parked graph stops charging a human for thinking |
-| 14 | **F2** | gate authoring — a criterion becomes a proposed gate, red before anyone builds |
-| 15 | **F3** | brief quality — measured, and what the worker is actually told |
-| 16 | **F4** | the chain driven end to end on a real feature, reaching `wring deliver` |
-| — | **F5** | multi-repo — **not built**: "repositories" is plural in the goal and singular in the code |
-| — | **F6** | environment ≠ repair — **not built**: a missing dependency is not a job for a worker |
+## After the required path holds
 
-The F block is the one that matters, and it is newer than the rest. Nodes 1–12
-are Wringer getting better at REFUSING; the goal is a PM's spec becoming
-working software, and `~/Claude/WRINGER_FACTORY.md` is where the ordering
-between them is decided.
+Measure recovery rate, discarded/reused work, correctness against independent task-specific checks, operator interruptions and audit completeness. Report both drafting and building usage when available; do not manufacture prices or crown a benchmark winner from speed alone.
 
-**What happened after the rail, and it is not on the rail because most of it
-is not a milestone.** Between 2026-08-13 and 2026-08-16 the programme ran a
-trust arc to its end: the worker was put in a box it cannot open from the
-inside ([docs/specs/SPEC_CONTAIN_V0.md](docs/specs/SPEC_CONTAIN_V0.md)); the standard provenance
-format is emitted beside the bundle; and the widest claim this project ever
-made was pre-registered, tested against thirteen real upstream bug fixes,
-**lost**, and withdrawn automatically the same day
-([`docs/corpus-2026-08-16.md`](docs/corpus-2026-08-16.md),
-[`docs/witness-programme.md`](docs/witness-programme.md)). No release rode on
-it at the time, and tags stopped at `v0.3.0`. **They no longer do** — `v0.4.0`,
-`v0.4.1` and `v0.4.2` shipped afterwards for other reasons; see the CHANGELOG.
+Expand integrations only after their authority, credentials, cancellation and evidence contracts have conformance tests. Add convenience without weakening the separation between what was built, what passed, what was proved, what a person judged and what was delivered.
 
-That loss is why the queue above points where it does. All four of its misses
-were the same limit — a written requirement under-describing what someone
-actually meant — measured in a setting where **nobody who held the intent was
-present to ask.** The fix is not a better instrument derived from the same
-requirement; it is putting the person who owns the intent back in the loop and
-making their judgement cheap to record. That is the surface, and it is the
-queue.
-
-**That picture is generated, not drawn.** Every node carries a probe — the
-commands it claims must be registered in the parser, the files it claims must
-be committed, the tags it claims must exist — and `tests/test_docs.py` runs
-those same probes, so a milestone that stops being true fails the suite rather
-than ageing quietly on an image. A roadmap is the easiest document in a
-repository to lie with, and this is a repository whose product is evidence.
-
-```bash
-python3 scripts/roadmap_render.py docs/roadmap.svg 2026-08-10
-```
-
-The date is an argument rather than `date.today()`: a file that rewrites
-itself on every run has a diff nobody can read.
-
-**Outside the rail, and Marc's own:** the launch assets — a demo GIF and the
-Show HN write-up of the eight-hour unsupervised-fleet incident that produced
-[docs/specs/SPEC_SUPERVISION_V0.md](docs/specs/SPEC_SUPERVISION_V0.md). Neither is blocked on code.
-
-## The 90-day arc — history, kept because the rail probes it
-
-*Everything in this section describes work that shipped. It is preserved
-rather than rewritten so the picture above has something to be checked
-against; the live queue is at the top of this file.*
-
-### Days 1–30 — v0.1.0, the standalone evidence compiler
-
-⚠️ **Superseded in detail by [docs/specs/SPEC_VERIFY_V0.md](docs/specs/SPEC_VERIFY_V0.md)**
-(third external review, 2026-07-30) — the binding implementation
-contract. The essence: **`wring verify` ships first as a standalone
-evidence compiler**, before `wring run`, before the graph IR, before
-judges, before agents. One command that proves whether a change is
-mergeable and leaves behind evidence a human or agent can inspect.
-
-- `wring init` — detect project commands, write `.wringer.yaml`.
-- `wring verify` — run declared gates in order, write the evidence bundle
-  (`manifest.json`, `evidence.jsonl`, `summary.md`, `diff.patch`, gate
-  logs). Exit codes are contract. `--json` for agent consumption.
-- `wring explain` — compact non-LLM diagnosis of the latest failed run.
-- Five-day build order + the "Definition of PROVEN" release bar (CI runs
-  `wring verify` on this repo; a sanitized demo bundle is committed; the
-  README transcript is real) — all in the spec.
-
-**The release bar is one line from true** — everything except the PyPI
-publish is done and committed (see the spec's
-[Definition of PROVEN](docs/specs/SPEC_VERIFY_V0.md#definition-of-proven--the-repo-must-show-its-own-receipts)).
-**v0.1.0 tags when that last line is true** — well before
-the Sept 30 outer deadline if the bolts land clean.
-
-**After v0.1.0 (v0.2, inside the 90 days) — the loop closes around it:**
-
-- `wring run` = a loop that keeps calling `wring verify` until the evidence
-  says stop. Minimal single-loop IR (`loop:repair`), in-memory engine.
-- Worker binding = **your existing coding agent via subprocess** (Claude
-  Code first; Codex/Gemini CLI next; ACP as the formal wire later).
-- One rubric judge via any OpenAI-compatible endpoint (Ollama works);
-  dry-run mode keeps demos and CI at zero LLM spend.
-- Issue → branch + MR + evidence delivery.
-
-Cut from this slice: graph orchestration, fan-out/fan-in, human interrupt
-nodes, all cloud adapters, Cedar/OPA, AGENTS.md autogen, skills registry.
-
-### Days 31–60 — durable execution & anti-thrash
-
-⚠️ **Governed by [docs/specs/SPEC_SUPERVISION_V0.md](docs/specs/SPEC_SUPERVISION_V0.md)**
-(adopted 2026-07-31 after a live incident during Wringer's own development
-proved the failure modes) — binding invariants for every execution
-primitive: bounded retries with escalation, failure-signature breakers,
-deadlines everywhere, progress measured in evidence, resume from the
-ledger, honest partial success. Slices: S1 breaker + wall-clock in the
-loop, S2 `wring resume`, S3 `wring fleet` (hundreds of queued tasks,
-bounded concurrency, self-healing ladder, parked-work queue).
-
-- Event-sourced engine: the append-only ledgers Wringer already writes,
-  replayed — crash on iteration 4 of 6, `wring resume` continues exactly
-  there. (SQLite deferred until the JSONL ledgers prove insufficient.)
-- Anti-thrash: failure-signature hashing + oscillation detection (a
-  signature seen before in the loop trips the breaker), plateau detection
-  (shipped in v0.2 slice 1 as the fingerprint).
-- Cost ledger per loop/run (`cost.jsonl` beside the evidence bundle) —
-  recording what is known, declaring what is not.
-- OpenTelemetry GenAI spans for worker and judge — "audit trail as
-  byproduct" made real.
-
-### Days 61–90 — the "graph of loops" demo
-
-- `@wringer/ir` v0.2 — a linear chain of loops: scope → plan → repair →
-  deliver, with typed edges and explicit feedback paths.
-- One `human` interrupt node: pause + webhook/Slack message, resume via
-  `wring approve <run-id>`.
-- **The credibility moment: Wringer ships a Wringer PR.** Dogfooded,
-  with the full evidence bundle and cost ledger in the PR description.
-- 5-minute demo video: issue → scope → plan → 3 repair iterations with
-  gate failures → human approval → merged MR with evidence.
-
-## OKRs
-
-**Q3 2026:** Wringer reliably turns a GitHub issue into a passing MR for
-**Python repos** under **$2.00** in LLM spend. *(`v0.1.0` shipped on July 31,
-two months inside its own deadline. The cost half of this objective has never
-been measured on real issues at that price — the one corpus pass that ran real
-agents came in far above it, and no claim is made here until something is
-filmed.)*
-
-**Q4 2026:** TypeScript target repos + the **Temporal** runtime adapter.
-
-## Rulings that changed from the v1.0 plan
-
-- **One hero runtime adapter, not five.** Temporal first — open source,
-  widely deployed, and its durable-execution model matches the
-  event-sourced engine. AgentCore / Agent Engine / Foundry / Anthropic
-  Managed Agents adapters are deferred until the conformance suite exists
-  and someone actually asks; the plan's §5 layout keeps their seats.
-- **Phases 3–7 of the plan's §6 are deferred**, not deleted — gateway
-  plane, policy hooks, context autogen, skills registry, self-evolution
-  all wait behind a working, dogfooded loop.
-- **v0 implementation is Python** (third review, 2026-07-30: ubiquitous,
-  inspectable, `pipx`-installable, right audience — see
-  [docs/specs/SPEC_VERIFY_V0.md](docs/specs/SPEC_VERIFY_V0.md)). This supersedes the
-  earlier TypeScript-first ruling for v0.1; the TS monorepo remains the
-  plan's shape for the later graph engine — revisit at v0.2. Python
-  repos are also the first *target* ecosystem (Q3 OKR).
-
-## Risks
-
-| Risk | Mitigation |
-|---|---|
-| Incumbents (LangGraph, Agent Framework) absorb loop contracts | Ship first; the moat is the verification-first implementation — gates before judges, physical worker/judge isolation |
-| No contributors show up | The loop-contract schema is a standalone spec (RFC issues open now); schema adoption wins standards gravity even without the engine |
-| Multi-cloud adapters too costly | Deferred; local + Temporal covers most of the durable-execution need |
-| LLM costs make demos expensive | Dry-run mode + local models (Ollama) for development |
+Historical experiments and the [first rewrite report](docs/native/IMPLEMENTATION_REPORT.md) explain why these gates exist. They are not evidence that the gates above have already passed.

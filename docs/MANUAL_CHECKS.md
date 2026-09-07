@@ -1,3 +1,18 @@
+# Historical manual checks — measurements for retired versions
+
+Archived during the Bun replacement (2026-09-07). The sequences, coverage table,
+host assumptions and conclusions below are preserved for the versions and dates
+they name. They are not current Bun setup instructions, and passing an old
+Docker/Podman/Apple sequence does not validate the new ACP and Apple/gVisor
+adapters. Referenced retired scripts remain available in Git history.
+
+Current prerequisites and release gates are in [SETUP.md](../SETUP.md),
+[SECURITY.md](../SECURITY.md), [THREAT_MODEL.md](../THREAT_MODEL.md), and
+[ROADMAP.md](../ROADMAP.md). Record new live-platform measurements against the
+actual current commit; do not reinterpret these historical rows as new passes.
+
+---
+
 # Manual checks — what CI structurally cannot run
 
 Some of this project's claims cannot be tested by any workflow, on any

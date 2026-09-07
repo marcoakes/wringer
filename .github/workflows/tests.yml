@@ -1,350 +1,60 @@
 name: tests
-
 on:
   push:
     branches: [main]
   pull_request:
-
+permissions:
+  contents: read
 jobs:
-  # Wringer verifies Wringer. The gates in .wringer.yaml are the law, and the
-  # bundle is uploaded so a reviewer can read what was proven instead of
-  # trusting a green tick. This job replaces the separate lint job: ruff and
-  # pytest are the two gates the config declares.
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
-      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
-      # default fetches neither — so the probe answered "not shipped" here
-      # and "shipped" on any developer's machine. The roadmap guard could not
-      # see the disagreement until it stopped being a tautology (2026-08-08);
-      # the fix is to give CI the evidence, not to weaken the probe.
-      #
-      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
-      # full history unambiguously brings the tags, and this repo is small
-      # enough that the extra seconds are not worth a subtlety I cannot test
-      # from here.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev]'
-      - run: wring verify
-      - name: Upload the evidence bundle
-        if: always() # a failed run's evidence is the evidence worth having
-        uses: actions/upload-artifact@v4
-        with:
-          name: wringer-evidence
-          path: .wringer/runs/
-
-  # **The action, run against this repository — H-7 of the Fable rulings of
-  # 2026-08-17.** Until this job existed, `action.yml` was committed, pushed,
-  # publicly referenceable as `uses: marcoakes/wringer@main`, and had NEVER
-  # BEEN EXECUTED by anything. It was checked statically — the YAML parses,
-  # every flag exists against the real parser, `--send` is absent, the recipe
-  # guard covers it — and never once run.
-  #
-  # That made it a published claim with no execution evidence, in a repository
-  # whose entire argument is that those are the dangerous kind. This job is the
-  # answer, and it makes the action SELF-EVIDENCING: `uses: ./` is the same
-  # composite action a stranger references by name, resolved from the checkout.
-  #
-  # It also exercises the first-run-reads-thin story for real. A fresh checkout
-  # holds no bundles, so `wring health` has nothing to read and the vitality
-  # table says `untested` rather than "probably fine" — which is the behaviour
-  # the action's own header spends a paragraph explaining and which nobody had
-  # watched happen.
-  #
-  # **The `experimental` label in `action.yml`'s description leaves only in the
-  # commit where this job is green.**
-  action:
-    runs-on: ubuntu-latest
-    steps:
-      # **`fetch-depth: 0`, for the same reason the `verify` job carries it.**
-      # `roadmap_render.py`'s `ship` milestone is probed on `v0.1.0` and
-      # `v0.2.0` being in `git tag`, and checkout's default fetches neither —
-      # so `test_every_milestone_the_roadmap_draws_green_is_really_shipped`
-      # reports `ship: probe=False drawn=True` and the whole `test` gate fails.
-      #
-      # That guard was written on 2026-08-08 after this exact disagreement
-      # between CI and a developer's machine, and it caught this job the first
-      # time it ran a full suite. It is doing its job; the shallow checkout was
-      # mine.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      # **The repository's OWN dev dependencies, before the action runs.**
-      #
-      # The first run of this job was RED, and it was red for a real reason:
-      # `.wringer.yaml` declares `ruff check …` and `pytest -q` as its gates,
-      # and the action installs WRINGER, not the tools a repository's gates
-      # happen to need. `wring verify` therefore died on
-      # `/bin/sh: ruff: command not found`.
-      #
-      # That is not a defect in the action and installing them here is not
-      # cheating the test: it is the real shape of a consumer's workflow, which
-      # sets up its own project and then hands the gate-running to Wringer.
-      # The limitation it revealed is now stated in `action.yml`'s own header,
-      # because a stranger whose gates need a linter will hit it on their first
-      # run and deserves to have been told.
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev]'
-      - id: wringer
-        uses: ./
-        continue-on-error: true
-      # **The diagnostic, as ANNOTATIONS.** This repository's Actions logs are
-      # 403 unauthenticated and there is no `gh` on the maintainer's machine,
-      # so a red job here is otherwise undiagnosable from outside. Annotations
-      # ARE public, and sequence G already uses exactly this route to make an
-      # attack run readable without a token.
-      #
-      # `continue-on-error` above lets this step run and THEN the job fails on
-      # the action's own exit code below, so the colour is still the gates'
-      # answer and nothing is swallowed.
-      - name: Say what the action actually did
-        if: always()
-        run: |
-          echo "::notice::verify-exit-code=${{ steps.wringer.outputs.verify-exit-code }}"
-          echo "::notice::evidence-dir=${{ steps.wringer.outputs.evidence-dir }}"
-          echo "::notice::wring=$(command -v wring || echo ABSENT) ruff=$(command -v ruff || echo ABSENT) pytest=$(command -v pytest || echo ABSENT)"
-          bundle="${{ steps.wringer.outputs.evidence-dir }}"
-          if [ -n "$bundle" ] && [ -d "$bundle/gates" ]; then
-            for d in "$bundle"/gates/*/; do
-              name=$(basename "$d")
-              code=$(python3 -c "import json,sys;print(json.load(open('$d/result.json'))['exit_code'])" 2>/dev/null || echo "?")
-              echo "::notice::gate $name exit=$code"
-              if [ "$code" != "0" ]; then
-                # pytest writes failures to STDOUT, so stderr alone reported an
-                # empty string and said nothing. Both, and the summary lines
-                # that name the failing tests.
-                echo "::error::gate $name stderr: $(tail -c 300 "$d/stderr.log" 2>/dev/null | tr '\n' ' ')"
-                grep -E "^(FAILED|ERROR) " "$d/stdout.log" 2>/dev/null | head -8 | while read -r line; do
-                  echo "::error::gate $name :: $line"
-                done
-                echo "::error::gate $name tail: $(tail -c 500 "$d/stdout.log" 2>/dev/null | tr '\n' ' ')"
-              fi
-            done
-          else
-            echo "::error::no evidence bundle at '$bundle' — wring verify wrote nothing"
-          fi
-      - name: The gates decide this job too
-        if: always()
-        run: exit "${{ steps.wringer.outputs.verify-exit-code || 1 }}"
-
-  # SETUP.md's own commands, executed. Four of the 2026-08-05 field report's
-  # findings (R2-01, R2-03, R2-04, R2-06) are guarded only by this script,
-  # and until it ran here it bit only when a human remembered to run it —
-  # which is the same "a step whose gate had never been executed" shape both
-  # field reports keep finding. It needs no container runtime: the steps that
-  # do are step 7's, and it skips them by design.
-  setup-runbook:
-    runs-on: ${{ matrix.os }}
+  bun:
+    name: Bun / ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Both, because the runbook's install advice is macOS-specific and
-        # its git and doctor behaviour is not.
         os: [ubuntu-latest, macos-latest]
-    steps:
-      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
-      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
-      # default fetches neither — so the probe answered "not shipped" here
-      # and "shipped" on any developer's machine. The roadmap guard could not
-      # see the disagreement until it stopped being a tautology (2026-08-08);
-      # the fix is to give CI the evidence, not to weaken the probe.
-      #
-      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
-      # full history unambiguously brings the tags, and this repo is small
-      # enough that the extra seconds are not worth a subtlety I cannot test
-      # from here.
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev]'
-      - name: Run SETUP.md's own commands
-        run: sh scripts/setup-selftest.sh
-
-  # `verify` proves the tool on one interpreter; this proves the code on every
-  # supported one, and on both operating systems v0.1 claims to support.
-  pytest:
     runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, python-version: "3.11" }
-          - { os: ubuntu-latest, python-version: "3.12" }
-          - { os: ubuntu-latest, python-version: "3.13" }
-          # the maintainer develops on macOS; the timeout path is POSIX-specific
-          - { os: macos-latest, python-version: "3.12" }
+    timeout-minutes: 25
     steps:
-      # Tags, not just the tip. `roadmap_render.py`'s `ship` milestone is
-      # probed on `v0.1.0` and `v0.2.0` being in `git tag`, and checkout's
-      # default fetches neither — so the probe answered "not shipped" here
-      # and "shipped" on any developer's machine. The roadmap guard could not
-      # see the disagreement until it stopped being a tautology (2026-08-08);
-      # the fix is to give CI the evidence, not to weaken the probe.
-      #
-      # `fetch-depth: 0` rather than `fetch-tags: true` on the default depth:
-      # full history unambiguously brings the tags, and this repo is small
-      # enough that the extra seconds are not worth a subtlety I cannot test
-      # from here.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - run: pip install -e '.[dev]'
-      # **`uv` is a test fixture here, not a convenience.**
-      # `test_no_setup_script_can_say_READY_past_a_MISSING_CODING_AGENT` builds
-      # a stripped PATH holding everything `setup.sh` legitimately needs except
-      # the coding agent, so that the agent check is the only thing that can
-      # fire. `docs/drive/examples/pipeline/setup.sh` preflights `uv`, which is
-      # not on a stock ubuntu runner — so the script stopped on its own
-      # prerequisite line and main went red on 2026-08-22 for a defect that was
-      # not there. The guard now says so and skips rather than failing; without
-      # this step it would say so on every CI run and measure nothing.
-      - uses: astral-sh/setup-uv@v5
-      # Logs on this repo are not readable without auth (403 on the API, a
-      # login wall on the web), and a failure annotation carries only "exit
-      # code 1". So a red build cannot be READ, only reproduced — which cost
-      # three builds' worth of guessing. `::error::` messages DO surface
-      # publicly via /check-runs/<id>/annotations, so put the summary there.
-      - name: Run pytest
-        run: |
-          set -o pipefail
-          pytest -q 2>&1 | tee /tmp/pytest.log && exit 0
-          echo "::error title=pytest failed::$(
-            grep -E '^(FAILED|ERROR|E  )' /tmp/pytest.log | head -20 |
-            tr '\n' '%' | sed 's/%/%0A/g')"
-          exit 1
-
-  # The Dockerfile's proof. Nobody on the maintainer's Mac can build it —
-  # there is no container runtime there — so this job IS the verification,
-  # and it does more than build: it runs the image against a scratch repo and
-  # checks that `wring doctor` and `wring verify` actually work inside it.
-  # An image that builds but cannot verify anything is not evidence of much.
-  image:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Build the image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: wringer:ci
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: The image can diagnose and verify
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/probe && cd /tmp/probe
-          git init -q -b main .
-          git config user.email ci@example.invalid
-          git config user.name ci
-          printf 'def add(a, b):\n    return a + b\n' > calc.py
-          printf 'version: 1\ngates:\n  - id: check\n    run: "grep -q return calc.py"\n' > .wringer.yaml
-          git add -A && git commit -qm probe
-
-          # --user matters and is not CI ceremony: the image runs as uid
-          # 1000, a bind-mounted directory keeps its HOST ownership, and
-          # Wringer must WRITE its evidence into that mount. Without this the
-          # workspace is read-only to the container and `wring doctor`
-          # correctly reports a blocking problem. Docker Desktop on macOS
-          # papers over this with uid mapping; Linux does not, so this is the
-          # documented Linux recipe, exercised rather than asserted.
-          RUN_IN="docker run --rm --user $(id -u):$(id -g) -e HOME=/tmp \
-            -v /tmp/probe:/workspace wringer:ci"
-
-          # ENTRYPOINT is `wring`, so the subcommand is the whole argument.
-          $RUN_IN --version
-          $RUN_IN doctor
-          $RUN_IN verify
-          test -d /tmp/probe/.wringer/runs || {
-            echo "the container produced no evidence bundle"; exit 1; }
-          echo "the image verified a repo and left a bundle on the host"
-
-      - name: Publish to ghcr (main only)
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Push
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository }}:main
-          cache-from: type=gha
-
-
-  # **The port's contract — phase 0 of the Bun port (2026-09-06).**
-  #
-  # `ts/` holds a TypeScript reader for every frozen record, generated from
-  # `schema/`. It ports no engine behaviour; it is the seam a later surface
-  # stands on, and it is only worth having if it is proved against records
-  # the engine really wrote. So this job builds a corpus with the PYTHON
-  # validator first and then reads the same bytes with the TypeScript one:
-  # two languages, one corpus, one schema. A record that declares a version
-  # it does not satisfy fails the export, before bun runs at all.
-  records-contract:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install the engine, for its own validator
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
-
-      - name: Install the contract's dependencies
-        working-directory: ts
-        run: bun install --frozen-lockfile
-
-      - name: The generated types are what the schemas say
-        working-directory: ts
-        run: bun run scripts/generate-types.ts --check
-
-      # A fresh checkout has no `.wringer/`, so the corpus is built from the
-      # records this very workflow's verify job would write plus the fixtures
-      # the suite ships. Running the engine on itself is what produces them.
-      - name: Produce records to read
-        run: |
-          python -m pytest tests/test_records_contract.py -q
-          wring verify || true
-
-      - name: Build the corpus, validated in python
-        run: python scripts/export-records.py --validate
-
-      - name: Read the same bytes in typescript
-        working-directory: ts
-        run: bun test
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - run: bun run validate
+      - name: Preserve successful and failed measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidence-${{ matrix.os }}
+          path: |
+            .wringer/native-validation-*/
+            .wringer/native-distribution-*/result.json
+            .wringer/native-demo-*/result.json
+            .wringer/native-demo-*/transcript.md
+          if-no-files-found: error
+          include-hidden-files: true
+  action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - uses: ./
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: action-evidence
+          path: .wringer/runs/
+          include-hidden-files: true
+          if-no-files-found: error

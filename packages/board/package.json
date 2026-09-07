@@ -1,0 +1,8 @@
+{
+  "name": "@wringer/board",
+  "version":"1.0.0-alpha.2",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@wringer/records": "workspace:*", "yaml": "2.8.1" }
+}

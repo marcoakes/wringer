@@ -1,3 +1,18 @@
+# Historical drive guide — do not use for current setup
+
+Archived during the Bun replacement (2026-09-07). The material below describes
+the retired Python/direct-HTTP drive and preserves its original claims and
+measurements. Its installation commands, interactive protocol, worker setup and
+linked examples are historical, not an alternative production execution route.
+Some referenced scripts now exist only in Git history.
+
+Use the current [product guide](../../README.md),
+[installation](../../INSTALL.md), [setup](../../SETUP.md), and
+[bounded unattended operation](../native/HEADLESS.md). The current driver accepts
+a validated execution plan and explicit authority and uses isolated ACP roles.
+
+---
+
 # wringer-drive
 
 **One verb. A document in, a page out.**

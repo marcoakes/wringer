@@ -1,5 +1,12 @@
 # The benchmark harness
 
+> Historical benchmark record, archived 7 September 2026. The Python benchmark
+> drivers and their paid shell launcher are retired with the Python harness;
+> they remain recoverable at Git baseline `7b79c58`. The commands and measurements
+> below describe that earlier implementation and are not current instructions.
+> Held-out target tests and committed result data remain unchanged. Start with
+> the current [Bun product](../README.md) and its [release gates](../ROADMAP.md).
+
 **This runs Wringer. It is not Wringer.** It lives outside `src/wringer/` on
 purpose and is pruned from the distribution: nothing here is importable from the
 package, and the package does not need it.

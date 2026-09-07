@@ -1,0 +1,8 @@
+{
+  "name": "@wringer/engine",
+  "version":"1.0.0-alpha.2",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": "./src/index.ts",
+  "dependencies": {"yaml": "2.8.1", "@wringer/records": "workspace:*", "@wringer/runtime":"workspace:*"}
+}

@@ -1,0 +1,8 @@
+{
+  "name": "@wringer/delivery",
+  "version":"1.0.0-alpha.2",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": {"@wringer/records":"workspace:*", "@wringer/engine":"workspace:*", "@wringer/board":"workspace:*", "@wringer/plan":"workspace:*", "@wringer/runtime":"workspace:*", "@wringer/workflow":"workspace:*"}
+}

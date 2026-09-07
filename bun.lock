@@ -1,0 +1,159 @@
+{
+  "lockfileVersion": 2,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "@wringer/workspace",
+      "dependencies": {
+        "ajv": "^8.17.1",
+        "ajv-formats": "^3.0.1",
+      },
+      "devDependencies": {
+        "@types/bun": "1.4.1",
+        "typescript": "^5.6.0",
+      },
+    },
+    "packages/acp": {
+      "name": "@wringer/acp",
+      "version": "1.0.0-alpha.2",
+    },
+    "packages/board": {
+      "name": "@wringer/board",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/records": "workspace:*",
+        "yaml": "2.8.1",
+      },
+    },
+    "packages/cli": {
+      "name": "@wringer/cli",
+      "version": "1.0.0-alpha.2",
+      "bin": {
+        "wring": "src/cli.ts",
+        "wringer-board": "src/board-cli.ts",
+        "wringer-drive": "src/drive-cli.ts",
+      },
+      "dependencies": {
+        "@wringer/board": "workspace:*",
+        "@wringer/delivery": "workspace:*",
+        "@wringer/engine": "workspace:*",
+        "@wringer/plan": "workspace:*",
+        "@wringer/records": "workspace:*",
+        "@wringer/runtime": "workspace:*",
+        "@wringer/scheduler": "workspace:*",
+        "@wringer/workflow": "workspace:*",
+      },
+    },
+    "packages/delivery": {
+      "name": "@wringer/delivery",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/board": "workspace:*",
+        "@wringer/engine": "workspace:*",
+        "@wringer/plan": "workspace:*",
+        "@wringer/records": "workspace:*",
+        "@wringer/runtime": "workspace:*",
+        "@wringer/workflow": "workspace:*",
+      },
+    },
+    "packages/engine": {
+      "name": "@wringer/engine",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/records": "workspace:*",
+        "@wringer/runtime": "workspace:*",
+        "yaml": "2.8.1",
+      },
+    },
+    "packages/plan": {
+      "name": "@wringer/plan",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/acp": "workspace:*",
+        "@wringer/engine": "workspace:*",
+        "@wringer/runtime": "workspace:*",
+        "typescript": "^5.6.0",
+      },
+    },
+    "packages/records": {
+      "name": "@wringer/records",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "ajv": "^8.17.1",
+      },
+    },
+    "packages/runtime": {
+      "name": "@wringer/runtime",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/acp": "workspace:*",
+      },
+    },
+    "packages/scheduler": {
+      "name": "@wringer/scheduler",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/delivery": "workspace:*",
+        "@wringer/engine": "workspace:*",
+        "@wringer/records": "workspace:*",
+      },
+    },
+    "packages/workflow": {
+      "name": "@wringer/workflow",
+      "version": "1.0.0-alpha.2",
+      "dependencies": {
+        "@wringer/engine": "workspace:*",
+        "@wringer/plan": "workspace:*",
+        "@wringer/records": "workspace:*",
+        "@wringer/runtime": "workspace:*",
+        "ajv": "^8.17.1",
+        "ajv-formats": "^3.0.1",
+      },
+    },
+  },
+  "packages": {
+    "@types/bun": ["@types/bun@1.4.1", "", { "dependencies": { "bun-types": "1.4.1" } }, "sha512-0AVGiTXGajf1rgKom3N+c5L7CBxuoyyv1i44M0nX4UDK0G/fnRAMiri93nHuVPIb429KKtAgj7HatVmmOjeQLA=="],
+
+    "@types/node": ["@types/node@26.4.1", "", { "dependencies": { "undici-types": "~8.3.0" } }, "sha512-k97ENvZWtvA6yqz5/FS6a7duDgOPEeOQOc2iKS/nY6mX6qJUKtLnWzQS+Xj6tXweyj6ZcTAK2Qecetnvi9nCLA=="],
+
+    "@wringer/acp": ["@wringer/acp@workspace:packages/acp"],
+
+    "@wringer/board": ["@wringer/board@workspace:packages/board"],
+
+    "@wringer/cli": ["@wringer/cli@workspace:packages/cli"],
+
+    "@wringer/delivery": ["@wringer/delivery@workspace:packages/delivery"],
+
+    "@wringer/engine": ["@wringer/engine@workspace:packages/engine"],
+
+    "@wringer/plan": ["@wringer/plan@workspace:packages/plan"],
+
+    "@wringer/records": ["@wringer/records@workspace:packages/records"],
+
+    "@wringer/runtime": ["@wringer/runtime@workspace:packages/runtime"],
+
+    "@wringer/scheduler": ["@wringer/scheduler@workspace:packages/scheduler"],
+
+    "@wringer/workflow": ["@wringer/workflow@workspace:packages/workflow"],
+
+    "ajv": ["ajv@8.20.0", "", { "dependencies": { "fast-deep-equal": "^3.1.3", "fast-uri": "^3.0.1", "json-schema-traverse": "^1.0.0", "require-from-string": "^2.0.2" } }, "sha512-Thbli+OlOj+iMPYFBVBfJ3OmCAnaSyNn4M1vz9T6Gka5Jt9ba/HIR56joy65tY6kx/FCF5VXNB819Y7/GUrBGA=="],
+
+    "ajv-formats": ["ajv-formats@3.0.1", "", { "dependencies": { "ajv": "^8.0.0" } }, "sha512-8iUql50EUR+uUcdRQ3HDqa6EVyo3docL8g5WJ3FNcWmu62IbkGUue/pEyLBW8VGKKucTPgqeks4fIU1DA4yowQ=="],
+
+    "bun-types": ["bun-types@1.4.1", "", { "dependencies": { "@types/node": "*" } }, "sha512-loKuVrAFZKfEv+JvWkHRS9GW5IqLuLRjVXN9p+vZvBN86O5hf/pBZQ5hSoyipsrMmWObZBDvWnlmKvjKTM0PdA=="],
+
+    "fast-deep-equal": ["fast-deep-equal@3.1.3", "", {}, "sha512-f3qQ9oQy9j2AhBe/H9VC91wLmKBCCU/gDOnKNAYG5hswO7BLKj09Hc5HYNz9cGI++xlpDCIgDaitVs03ATR84Q=="],
+
+    "fast-uri": ["fast-uri@3.1.7", "", {}, "sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg=="],
+
+    "json-schema-traverse": ["json-schema-traverse@1.0.0", "", {}, "sha512-NM8/P9n3XjXhIZn1lLhkFaACTOURQXjWhV4BA/RnOv8xvgqtqpAX9IO4mRQxSx1Rlo4tqzeqb0sOlruaOy3dug=="],
+
+    "require-from-string": ["require-from-string@2.0.2", "", {}, "sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw=="],
+
+    "typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "undici-types": ["undici-types@8.3.0", "", {}, "sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ=="],
+
+    "yaml": ["yaml@2.8.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-lcYcMxX2PO9XMGvAJkJ3OsNMw+/7FKes7/hgerGUYWIoWu5j/+YQqcZr5JnPZWzOsEBgMbSbiSTn/dv/69Mkpw=="],
+  }
+}

@@ -1,3 +1,9 @@
+# HISTORICAL ONLY — retired Python workflow, archived 2026-09-07.
+# Do not copy or execute this recipe for the Bun product. Its original commands
+# and claims are preserved as history, not re-verified behavior. See the root
+# action.yml and .github/workflows/tests.yml for the current trusted-local Bun
+# verification action; INSTALL.md and QUICKSTART.md are the active front doors.
+# The copy/install instructions below apply only to the historical version.
 
 # Wringer on an AI-authored pull request.
 #

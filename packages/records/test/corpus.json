@@ -1,0 +1,396 @@
+{
+  "schema_count": 54,
+  "versionless_schemas": [
+    "bench-event-v2.schema.json",
+    "bench-event.schema.json",
+    "evidence-event.schema.json",
+    "fleet-event.schema.json",
+    "gate-result.schema.json",
+    "graph-event.schema.json",
+    "judge-request.schema.json",
+    "loop-event-v2.schema.json",
+    "loop-event.schema.json"
+  ],
+  "roots": [
+    ".wringer.example"
+  ],
+  "records": [
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/digests.json",
+      "schema": "digests.schema.json",
+      "version": "wringer.digests.v1"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/manifest.json",
+      "schema": "delivery-manifest.schema.json",
+      "version": "wringer.delivery.v1"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/digests.json",
+      "schema": "digests.schema.json",
+      "version": "wringer.digests.v1"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/manifest.json",
+      "schema": "graph-manifest.schema.json",
+      "version": "wringer.graph.v1"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/digests.json",
+      "schema": "digests.schema.json",
+      "version": "wringer.digests.v1"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/manifest.json",
+      "schema": "loop-manifest.schema.json",
+      "version": "wringer.loop.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/manifest.json",
+      "schema": "manifest.schema.json",
+      "version": "wringer.evidence.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/digests.json",
+      "schema": "digests.schema.json",
+      "version": "wringer.digests.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/manifest.json",
+      "schema": "manifest.schema.json",
+      "version": "wringer.evidence.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/untracked.json",
+      "schema": "untracked-v2.schema.json",
+      "version": "wringer.untracked.v2"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/digests.json",
+      "schema": "digests.schema.json",
+      "version": "wringer.digests.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/manifest.json",
+      "schema": "manifest.schema.json",
+      "version": "wringer.evidence.v1"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/untracked.json",
+      "schema": "untracked-v2.schema.json",
+      "version": "wringer.untracked.v2"
+    }
+  ],
+  "skipped": [
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/deliveries/20260809-134416-59b1/delivery.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 7,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 8,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 9,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 10,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 11,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 12,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 13,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 14,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 15,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 16,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 17,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.jsonl",
+      "line": 18,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/nodes/build/loop.ref.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/nodes/ship/deliver.ref.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/state.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 7,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/loops/20260809-132737-762c/loop.jsonl",
+      "line": 8,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/evidence.jsonl",
+      "line": 7,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/gates/001_lint/result.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260730-231645-a57c/gates/002_test/result.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/evidence.jsonl",
+      "line": 7,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/gates/001_lint/result.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-132737-4355/gates/002_test/result.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 1,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 2,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 3,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 4,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 5,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 6,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/evidence.jsonl",
+      "line": 7,
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/gates/001_lint/result.json",
+      "why": "declares no version this schema set knows"
+    },
+    {
+      "path": ".wringer.example/runs/20260809-133147-2c91/gates/002_test/result.json",
+      "why": "declares no version this schema set knows"
+    }
+  ],
+  "mismatched": [
+    {
+      "path": ".wringer.example/graphs/20260809-132737-f2f9/graph.resolved.json",
+      "line": null,
+      "schema": "graph-manifest.schema.json",
+      "version": "wringer.graph.v1",
+      "why": "'graph_run_id' is a required property"
+    }
+  ]
+}

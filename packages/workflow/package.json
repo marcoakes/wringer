@@ -1,0 +1,8 @@
+{
+  "name": "@wringer/workflow",
+  "version":"1.0.0-alpha.2",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "dependencies": { "@wringer/engine": "workspace:*", "@wringer/records": "workspace:*", "@wringer/plan": "workspace:*", "@wringer/runtime": "workspace:*", "ajv": "^8.17.1", "ajv-formats": "^3.0.1" }
+}

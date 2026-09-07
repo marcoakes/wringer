@@ -1,0 +1,69 @@
+# Compile-only template. Replace repository commit, image digest and tool versions
+# with measured values. The deny network intentionally permits no live provider.
+# Agent executables/adapters must already exist in the pinned runtime image.
+version: 1
+name: A bounded total
+intent: Return the total as 5.
+repository:
+  url: https://github.com/OWNER/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+runtime:
+  kind: apple-container
+  image: example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  cpus: 2
+  memoryMiB: 4096
+  network:
+    policy: deny
+  env: [CODEX_API_KEY, ANTHROPIC_API_KEY]
+agents:
+  worker:
+    protocol: acp
+    command: codex-acp
+    env: [CODEX_API_KEY]
+  judge:
+    protocol: acp
+    command: claude-agent-acp
+    env: [ANTHROPIC_API_KEY]
+environment:
+  context: [README.md]
+  tools:
+    - name: bun
+      version: 'REPLACE_WITH_MEASURED_VERSION'
+      probe: [bun, --version]
+  # These empty output directories are prepared before acceptance parents lock.
+  # The deny policy still needs dependencies available in the image/cache.
+  writable_directories: [node_modules]
+  setup:
+    - id: dependencies
+      argv: [bun, install, --frozen-lockfile]
+      cwd: .
+      timeout_seconds: 120
+  baseline:
+    - id: baseline
+      argv: [bun, test]
+      cwd: .
+      timeout_seconds: 120
+scope:
+  writable: [src]
+acceptance:
+  criteria:
+    - id: total
+      title: The returned total is five
+      quote: Return the total as 5.
+      kind: check
+      required: true
+  checks:
+    - id: total-check
+      argv: [bun, test, tests/acceptance.test.ts]
+      cwd: .
+      timeout_seconds: 120
+      criteria: [total]
+      files: [tests/acceptance.test.ts, package.json, bun.lock]
+  protected_paths: [tests]
+budget:
+  max_sessions: 8
+  max_worker_turns: 4
+  max_judge_turns: 4
+  max_planner_turns: 0
+  wall_clock_seconds: 3600
+  session_timeout_seconds: 900

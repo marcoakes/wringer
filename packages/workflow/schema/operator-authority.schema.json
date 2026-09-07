@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wringer.operator-authority.v1",
+  "title": "Repository-scoped routine operator authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "repo", "actor", "granted_at", "actions", "budget"],
+  "properties": {
+    "schema_version": { "const": "wringer.operator-authority.v1" },
+    "repo": { "type": "string", "minLength": 1 },
+    "actor": { "type": "string", "minLength": 1 },
+    "granted_at": { "type": "string", "format": "date-time" },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "actions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["draft", "resolve-questions", "accept-assumptions", "approve-plan", "install-gates", "build"] } },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_draft_calls", "max_repair_attempts", "max_worker_turns"],
+      "properties": {
+        "max_draft_calls": { "type": "integer", "minimum": 1 },
+        "max_repair_attempts": { "type": "integer", "minimum": 0 },
+        "max_worker_turns": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

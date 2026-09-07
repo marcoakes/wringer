@@ -1,3 +1,19 @@
+# Historical agent runbook — not an active operating contract
+
+Archived during the Bun replacement (2026-09-07). Everything below this notice
+documents the retired Python/direct-HTTP drive, including its repeated approval
+protocol, host-worker behavior and dated credential findings. Preserve those
+facts as history; do not execute its installation/worker recipes or treat its
+instructions as current authority for this repository or product.
+
+The active repository instructions are [the root AGENTS.md](../../AGENTS.md).
+For the current product, use [README.md](../../README.md),
+[SETUP.md](../../SETUP.md), and [HEADLESS.md](../native/HEADLESS.md).
+Current execution uses a bounded plan and explicit authority with isolated ACP
+roles; it does not restore this archived host execution or per-step interview.
+
+---
+
 # AGENTS.md — the runbook for the coding agent driving Wringer
 
 You are a coding agent — Claude Code, Kimi, Codex, or another — and a person

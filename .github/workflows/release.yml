@@ -1,244 +1,73 @@
 name: release
-
-# Publish to PyPI when a v* tag is pushed — with NO stored credential.
-#
-# PyPI Trusted Publishing exchanges GitHub's OIDC token for a short-lived
-# upload token at the moment of publish. There is no secret in this repo, none
-# in the maintainer's keychain, and none to rotate or leak. That matters more
-# here than in most projects: this is the harness whose whole pitch is that it
-# never handles a credential, and a long-lived PyPI token sitting in a repo
-# secret would be the one place it did.
-#
-# ONE-TIME SETUP, on pypi.org (Marc, once):
-#   Your projects -> wringer -> Manage -> Publishing -> Add a new publisher
-#     Owner:            marcoakes
-#     Repository:       wringer
-#     Workflow name:    release.yml
-#     Environment:      pypi
-#   Then create the `pypi` environment under this repo's Settings ->
-#   Environments. Protection rules there are worth setting: a required
-#   reviewer means a tag alone cannot publish without a human clicking.
-#
-# After that, publishing 0.2.0 is: git push origin v0.2.0 (or re-push the tag,
-# or run this workflow by hand against it).
-
+# Explicit release dispatch only. Pushing main does not publish a package.
+# Python/PyPI publishing is retired; original releases remain historical.
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to build and publish, e.g. v0.2.0"
+        description: Existing v-prefixed tag matching package.json
         required: true
-
+permissions:
+  contents: read
 jobs:
-  # The tag is a claim about the Definition of PROVEN. Check it before
-  # publishing rather than trusting that whoever tagged had run the suite —
-  # which is the same argument this whole project makes about agents.
-  verify:
-    runs-on: ubuntu-latest
-    steps:
-      # Full history, for the same reason tests.yml has it: `roadmap_render`'s
-      # `ship` milestone is probed on v0.1.0 and v0.2.0 being in `git tag`, and
-      # a tag checkout at the default depth brings only the tag being built.
-      # The v0.3.0 tag failed here on exactly that — the fix had landed in
-      # tests.yml and not in this file, and the guard that was supposed to
-      # catch it named one workflow by hand. It now discovers every workflow
-      # that runs pytest.
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-          fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev]'
-      - name: The suite must be green at the tag
-        run: |
-          set -o pipefail
-          pytest -q 2>&1 | tee /tmp/pytest.log && exit 0
-          # `E  ` too, the way tests.yml has it. Without those continuation
-          # lines the annotation carries the test's NAME and not the assertion
-          # — which is what happened when the v0.3.0 tag failed here: the
-          # public annotation said "docs/roadmap.svg disagrees with this
-          # checkout" and stopped before naming the milestone. The whole
-          # reason these annotations exist is that the logs are login-walled,
-          # so the release path must be at least as legible as the test path.
-          echo "::error title=pytest failed at the tag::$(
-            grep -E '^(FAILED|ERROR|E  )' /tmp/pytest.log | head -20 |
-            tr '\n' '%' | sed 's/%/%0A/g')"
-          exit 1
-      - name: Wringer verifies Wringer
-        run: wring verify
-
-      # The tag must describe the code. A v0.2.0 tag on a tree that says it is
-      # 0.3.0 is exactly the class of mismatch this repo refuses everywhere
-      # else, so it is refused here too.
-      - name: The tag and the package version must agree
-        # Through `env:`, not interpolated into the script. A workflow_dispatch
-        # input is attacker-influenced text and GitHub substitutes it BEFORE
-        # the shell parses the line, so a refname containing a quote would
-        # have been executed rather than compared. The other steps in this
-        # file already do it this way; this one was the exception.
-        env:
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          PKG="v$(python -c 'import wringer; print(wringer.__version__)')"
-          echo "tag=$TAG package=$PKG"
-          if [ "$TAG" != "$PKG" ]; then
-            echo "::error title=version mismatch::tag $TAG but package $PKG"
-            exit 1
-          fi
-
   build:
-    needs: verify
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: macos-14
+            platform: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-      - uses: actions/setup-python@v5
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
         with:
-          python-version: "3.12"
-      - run: pip install build
-      - run: python -m build
-      # Prove the artifact before it leaves: install the built WHEEL into a
-      # clean venv and run the command. `pip install wringer` is what a
-      # stranger gets, and it is the only thing worth checking here.
-      # The command list is DERIVED from the installed package's own parser,
-      # not hardcoded. The previous version enumerated thirteen commands and
-      # stayed at thirteen while start, attest, audit and graph shipped — so
-      # it kept passing while probing an ever-smaller fraction of the wheel,
-      # and printed a count that was false for two releases. A hand-kept list
-      # in a gate is the exact stale-claim class this repo hunts everywhere
-      # else; the parser is the one source that cannot drift from the wheel
-      # it came from.
-      - name: The wheel installs and runs
-        run: |
-          python -m venv /tmp/probe
-          /tmp/probe/bin/pip install --quiet dist/*.whl
-          /tmp/probe/bin/wring --version
-          COMMANDS=$(/tmp/probe/bin/python -c '
-          from wringer import cli
-          names = [
-              name
-              for action in cli.build_parser()._actions
-              if getattr(action, "choices", None)
-              for name in action.choices
-          ]
-          assert len(names) >= 13, names
-          print(" ".join(names))
-          ')
-          echo "probing: $COMMANDS"
-          for c in $COMMANDS; do
-            /tmp/probe/bin/wring "$c" --help > /dev/null || {
-              echo "::error title=broken command::$c"; exit 1; }
-          done
-
-      # The sdist shipped 23 test modules without conftest.py, so its suite
-      # could not run at all: 276 errors, almost every one "fixture 'repo'
-      # not found". Ship a runnable suite or ship none — MANIFEST.in now
-      # grafts tests/, and this refuses to publish if that stops being true.
-      - name: The sdist carries a suite that can actually run
-        run: |
-          for required in tests/conftest.py tests/fake_acp_agent.py; do
-            tar -tzf dist/*.tar.gz | grep -q "/$required$" || {
-              echo "::error title=sdist is missing $required::its test suite cannot run"
-              exit 1; }
-          done
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/release.ts check-tag
+        env:
+          WRINGER_RELEASE_TAG: ${{ inputs.tag }}
+      - run: bun run validate
+      - run: bun scripts/release.ts package
+        env:
+          WRINGER_RELEASE_PLATFORM: ${{ matrix.platform }}
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
-
-  publish:
+          name: release-${{ matrix.platform }}
+          path: dist/release/*
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-evidence-${{ matrix.platform }}
+          path: .wringer/native-validation-*/
+          include-hidden-files: true
+  publish-draft:
     needs: build
     runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      # The only permission that matters: mint an OIDC token for PyPI to
-      # exchange. No secret is read, because there is none.
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-      # Pinned to a commit, not to a branch. `@release/v1` is a MUTABLE ref,
-      # and this job holds `id-token: write` — whoever can move that branch
-      # can mint a PyPI token in this repository's name. The version comment
-      # is for humans; the sha is what runs.
-      - uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc  # v1.12.4
-        with:
-          # A re-run after a half-failed release must not die here. Identical
-          # files are skipped; different bytes at the same version are still
-          # rejected by PyPI itself, so the loud failure that matters survives.
-          skip-existing: true
-
-  # The versioned OCI tag. SETUP.md promised these "with the 0.2.0 release"
-  # and nothing published one — only tests.yml pushes an image, and only the
-  # moving `:main`. That made the runbook's promise false rather than pending,
-  # which is the claim-without-a-gate class this repo keeps finding. A test
-  # now couples the two, so the doc and this job cannot drift apart again.
-  #
-  # Deliberately no moving convenience tag. README and SETUP both say one does
-  # not exist, and a tag that quietly appeared would make them wrong in the
-  # other direction. This image exists to be pinned.
-  image:
-    needs: publish
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Push the versioned image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ghcr.io/${{ github.repository }}:${{ github.event.inputs.tag || github.ref_name }}
-          cache-from: type=gha
-
-  github-release:
-    needs: publish
-    runs-on: ubuntu-latest
+    environment: release
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: dist
-          path: dist/
-      - name: Draft the release from the tag and the CHANGELOG
+          pattern: release-*
+          path: artifacts
+      - name: Prepare a draft release, never overwrite an existing published one
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
         run: |
-          # The annotated tag's own message is the release note; CHANGELOG.md
-          # carries the long form. Neither is regenerated here — a release
-          # note written by CI is a note nobody wrote.
-          git fetch --tags --force
-          git tag -l --format='%(contents)' "$TAG" > /tmp/notes.md
-          # Idempotent, so a re-run heals a half-finished release. Without
-          # this, a failure here after PyPI had accepted the upload left the
-          # index ahead of GitHub with no path back: re-running the workflow
-          # re-ran `publish`, which failed on the duplicate upload, which
-          # blocked this job again. `skip-existing` above is the other half.
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            echo "release $TAG already exists — uploading any missing files"
-            gh release upload "$TAG" dist/* --clobber
-          else
-            gh release create "$TAG" dist/* \
-              --title "$TAG" --notes-file /tmp/notes.md --verify-tag
-          fi
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes artifacts/release-linux-x64/*.tar.gz artifacts/release-linux-x64/*.sha256 artifacts/release-darwin-arm64/*.tar.gz artifacts/release-darwin-arm64/*.sha256

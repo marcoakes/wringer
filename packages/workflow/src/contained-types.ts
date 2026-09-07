@@ -1,0 +1,106 @@
+import type { EnvironmentMap, ExecutionAuthority, ExecutionPlan, RepositoryRef } from "@wringer/plan";
+import type { RoleExecutor, RoleExecutionResult, RepositorySource } from "@wringer/runtime";
+export interface CandidateSource {
+    source: RepositorySource;
+    tree: string;
+    changedPaths: string[];
+}
+export interface ContainedCheckResult {
+    id: string;
+    status: "passed" | "failed" | "unavailable";
+    exitCode: number | null;
+    /** Controller-pinned complete declared check-file/dependency input identity. */
+    checkInputsSha256: string;
+    outputSha256: string;
+}
+export interface CandidateVerification {
+    schema_version: "wringer.contained-verification.v1";
+    status: "passed" | "failed" | "unavailable";
+    candidateCommit: string;
+    candidateTree: string;
+    acceptanceSha256: string;
+    runtimeId: string;
+    image: string;
+    checks: ContainedCheckResult[];
+    regressions?: {
+        id: string;
+        status: "passed" | "failed" | "unavailable";
+        exitCode: number | null;
+        outputSha256: string;
+    }[];
+    evidenceRef: string;
+}
+export interface ContainedJourneyServices {
+    /** No agent program runs here; prepare an existing commit/bundle transport. */
+    prepareSource: (source: RepositoryRef) => Promise<RepositorySource>;
+    /** Idempotent for effectId. Apply runtime-captured patch, never worker narrative. */
+    captureCandidate: (result: RoleExecutionResult, base: RepositorySource, effectId: string) => Promise<CandidateSource>;
+    /** Pinned original acceptance inputs in a fresh independent runtime. */
+    verifyCandidate: (request: {
+        plan: ExecutionPlan;
+        source: RepositorySource;
+        phase: "baseline" | "candidate";
+        effectId: string;
+        signal?: AbortSignal;
+    }) => Promise<CandidateVerification>;
+}
+export interface CandidateHumanJudgement {
+    criterionId: string;
+    candidateTree: string;
+    acceptanceSha256: string;
+    verdict: "met" | "not_met";
+    by: string;
+    note: string;
+    display: {
+        candidateTree: string;
+        status: "shown";
+        receiptSha256: string;
+    };
+}
+export interface ContainedJourneyOptions {
+    controllerDir: string;
+    plan: ExecutionPlan;
+    authority: ExecutionAuthority;
+    environment: EnvironmentMap;
+    services: ContainedJourneyServices;
+    executeRole?: RoleExecutor;
+    /** Acknowledges possible duplicate spend. Past uncertain reservations remain charged. */
+    retryUncertain?: boolean;
+    /** Explicitly permits a new bounded session after a known stopped/invalid role result. */
+    retryStopped?: boolean;
+    humanJudgements?: CandidateHumanJudgement[];
+    signal?: AbortSignal;
+    onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
+}
+export interface ContainedJourneyStop {
+    reason: string;
+    message: string;
+    next_move: string;
+    cwd: string;
+}
+export interface ContainedJudgeFinding {
+    id: string;
+    met: boolean | null;
+    reason: string;
+}
+export interface ContainedJourneyResult {
+    schema_version: "wringer.contained-journey-result.v1";
+    journeyId: string;
+    status: "review-ready" | "human-hold" | "stopped";
+    candidate: CandidateSource | null;
+    verification: CandidateVerification | null;
+    judge: {
+        criteria: ContainedJudgeFinding[];
+        note: string;
+        runtimeId: string;
+        sessionId: string;
+    } | null;
+    stop: ContainedJourneyStop | null;
+    recordDir: string;
+    sessions: number;
+    tokens: {
+        input: number | null;
+        output: number | null;
+    };
+    humanJudgements: CandidateHumanJudgement[];
+}

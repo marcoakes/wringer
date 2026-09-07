@@ -1,3 +1,18 @@
+# Historical GitHub Actions recipe — do not copy into a new workflow
+
+Archived during the Bun replacement (2026-09-07). The recipe and original
+measurements below describe the retired Python distribution. Its install commands,
+CLI assumptions and `tests/test_docs.py` references are not current instructions.
+The historical body is preserved, not re-verified against this rewrite.
+
+For the current Bun verification action, inspect [the root action](../../action.yml)
+and its exercised [workflow](../../.github/workflows/tests.yml), and follow
+[INSTALL.md](../../INSTALL.md). That action runs explicitly trusted-local checks;
+it does not run coding agents, prove containment or publish a change. The contained
+agent journey is described in [QUICKSTART.md](../../QUICKSTART.md).
+
+---
+
 # Wringer on a pull request
 
 Copy [`wringer.yml`](wringer.yml) to `.github/workflows/wringer.yml`.

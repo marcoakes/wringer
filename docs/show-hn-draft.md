@@ -1,3 +1,17 @@
+# Historical, unpublished launch draft — not current product claims
+
+Archived during the Bun replacement (2026-09-07). This draft describes the
+retired Python distribution and is retained without rewriting its dated facts.
+Do not publish it or follow its installation/release instructions as though they
+describe the current product. A new announcement requires fresh evidence and
+separate publication authority.
+
+See the current [README.md](../README.md), [INSTALL.md](../INSTALL.md), and
+[ROADMAP.md](../ROADMAP.md). No public Bun package release or passed live-runtime
+journey is implied by this archived draft.
+
+---
+
 # Show HN draft — for Marc to edit and post
 
 *Written 2026-08-03. **Not posted.** Posting is Marc's, and so is the final

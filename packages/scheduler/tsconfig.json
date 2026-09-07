@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "../..",
+    "paths": {
+      "@wringer/engine": ["packages/engine/src/index.ts"],
+      "@wringer/board": ["packages/board/src/index.ts"],
+      "@wringer/records": ["packages/records/src/index.ts"],
+      "@wringer/delivery": ["packages/delivery/src/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"]
+}
