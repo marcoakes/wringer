@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/forge-intent-v2.schema.json",
+  "title": "forge-intent-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "delivery_id",
+    "forge",
+    "repository",
+    "expected_head_commit",
+    "source_branch",
+    "target_branch",
+    "title",
+    "body_path",
+    "body_sha256",
+    "request"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.forge-intent.v2"
+    },
+    "delivery_id": {
+      "type": "string"
+    },
+    "forge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "endpoint",
+        "repo",
+        "token_env"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "github",
+            "gitlab"
+          ]
+        },
+        "endpoint": {
+          "type": "string"
+        },
+        "repo": {
+          "type": "string"
+        },
+        "token_env": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        }
+      }
+    },
+    "repository": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expected_head_commit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_branch": {
+      "type": "string"
+    },
+    "target_branch": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "body_path": {
+      "type": "string"
+    },
+    "body_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "method",
+        "url",
+        "body"
+      ],
+      "properties": {
+        "method": {
+          "const": "POST"
+        },
+        "url": {
+          "type": "string"
+        },
+        "body": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}

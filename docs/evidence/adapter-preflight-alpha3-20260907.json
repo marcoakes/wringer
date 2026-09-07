@@ -1,0 +1,64 @@
+{
+  "schema_version": "wringer.adapter-session-checkpoint.v1",
+  "source_commit": "3981e9a42f023be2855501c3b07020179d84f4df",
+  "purpose": "Operator provisioning only; separate from the untouched PM task and blind journey",
+  "status": "protocol-ready",
+  "credential_availability": [
+    {
+      "name": "CODEX_API_KEY",
+      "available": true,
+      "source": "keychain"
+    },
+    {
+      "name": "ANTHROPIC_API_KEY",
+      "available": true,
+      "source": "keychain"
+    }
+  ],
+  "roles": [
+    {
+      "role": "planner",
+      "adapter": {
+        "name": "@agentclientprotocol/claude-agent-acp",
+        "title": "Claude Agent",
+        "version": "0.65.0"
+      },
+      "session_opened": true,
+      "method_attempted": null,
+      "auth_line": "planner ACP preflight: session opened. No successful explicit authentication method was observed. Declared role credential/environment names: ANTHROPIC_API_KEY. Provider-key validity and effective credential are not attested by ACP session creation. No model prompt sent; usage is not inferred.",
+      "prompt_sent": false,
+      "provider_credential_validated": false
+    },
+    {
+      "role": "worker",
+      "adapter": {
+        "name": "@agentclientprotocol/codex-acp",
+        "title": "Codex",
+        "version": "1.10.0"
+      },
+      "session_opened": true,
+      "method_attempted": "api-key",
+      "auth_line": "worker ACP preflight: session opened. Declared noninteractive authentication method returned successfully. Declared role credential/environment names: CODEX_API_KEY. Provider-key validity and effective credential are not attested by ACP session creation. No model prompt sent; usage is not inferred.",
+      "prompt_sent": false,
+      "provider_credential_validated": false
+    },
+    {
+      "role": "judge",
+      "adapter": {
+        "name": "@agentclientprotocol/claude-agent-acp",
+        "title": "Claude Agent",
+        "version": "0.65.0"
+      },
+      "session_opened": true,
+      "method_attempted": null,
+      "auth_line": "judge ACP preflight: session opened. No successful explicit authentication method was observed. Declared role credential/environment names: ANTHROPIC_API_KEY. Provider-key validity and effective credential are not attested by ACP session creation. No model prompt sent; usage is not inferred.",
+      "prompt_sent": false,
+      "provider_credential_validated": false
+    }
+  ],
+  "limits": [
+    "No model prompt sent; effective provider key, quota, billing and convergence are not attested.",
+    "Host login directories were not copied; only declared role names were forwarded.",
+    "No model override was selected; effective adapter defaults were not established by this protocol-only check."
+  ]
+}

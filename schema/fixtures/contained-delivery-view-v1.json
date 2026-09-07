@@ -1,0 +1,93 @@
+{
+  "schema_version": "wringer.contained-delivery-view.v1",
+  "journeyId": "fixture-journey",
+  "deliveryId": "contained-aaaaaaaaaaaaaaaaaaaaaaaa",
+  "name": "Explicitly synthetic contract fixture",
+  "status": "review-ready",
+  "source": {
+    "url": "https://example.invalid/fixture.git",
+    "baseCommit": "1111111111111111111111111111111111111111",
+    "codeCommit": "2222222222222222222222222222222222222222",
+    "tree": "3333333333333333333333333333333333333333"
+  },
+  "planSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "acceptanceSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "journalHeadSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "counts": {
+    "checks": 1,
+    "proved": 1,
+    "human": 1
+  },
+  "checks": [
+    {
+      "id": "total",
+      "before": {
+        "status": "failed",
+        "exitCode": 1,
+        "receipt": "receipts/baseline/observations.json"
+      },
+      "after": {
+        "status": "passed",
+        "exitCode": 0,
+        "receipt": "receipts/candidate/observations.json"
+      },
+      "inputsSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "criteria": [
+    {
+      "id": "total",
+      "title": "The total is five",
+      "kind": "check",
+      "required": true,
+      "state": "met",
+      "checkIds": [
+        "total"
+      ],
+      "note": "Synthetic independently reviewed fixture.",
+      "by": null
+    },
+    {
+      "id": "readable",
+      "title": "The display is readable",
+      "kind": "human",
+      "required": true,
+      "state": "met",
+      "checkIds": [],
+      "note": "This fixture preserves my exact words.",
+      "by": "Fixture operator"
+    }
+  ],
+  "usage": {
+    "sessions": 2,
+    "reportedSessions": 0,
+    "inputTokens": null,
+    "outputTokens": null,
+    "costUsd": null
+  },
+  "agents": [
+    {
+      "effectId": "worker-fixture",
+      "role": "worker",
+      "command": "fixture-acp",
+      "protocolVersion": 1,
+      "image": "fixture.invalid/runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "agentInfo": null,
+      "model": null
+    },
+    {
+      "effectId": "judge-fixture",
+      "role": "judge",
+      "command": "fixture-acp",
+      "protocolVersion": 1,
+      "image": "fixture.invalid/runtime@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "agentInfo": null,
+      "model": null
+    }
+  ],
+  "auditCommand": "wringer-drive audit --bundle .wringer/deliveries/contained-aaaaaaaaaaaaaaaaaaaaaaaa",
+  "falsifyCommand": "wringer-drive falsify --bundle .wringer/deliveries/contained-aaaaaaaaaaaaaaaaaaaaaaaa",
+  "limits": [
+    "Synthetic contract fixture, not a delivery or measured runtime."
+  ]
+}

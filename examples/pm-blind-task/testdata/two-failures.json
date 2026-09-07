@@ -1,0 +1,8 @@
+[
+  { "id": "load-stock", "needs": [], "operation": "fail", "value": "The stock import is unavailable." },
+  { "id": "load-orders", "needs": [], "operation": "fail", "value": "The order import could not be read." },
+  { "id": "clean-orders", "needs": ["load-orders"], "operation": "uppercase" },
+  { "id": "publish-stock", "needs": ["load-stock"], "operation": "uppercase" },
+  { "id": "merge-imports", "needs": ["publish-stock", "clean-orders", "load-orders"], "operation": "join" },
+  { "id": "daily-notice", "needs": [], "operation": "literal", "value": "The independent daily notice was sent." }
+]

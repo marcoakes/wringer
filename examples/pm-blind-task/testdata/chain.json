@@ -1,0 +1,7 @@
+[
+  { "id": "load-orders", "needs": [], "operation": "fail", "value": "The order import could not be read." },
+  { "id": "clean-orders", "needs": ["load-orders"], "operation": "uppercase" },
+  { "id": "publish-orders", "needs": ["clean-orders"], "operation": "join" },
+  { "id": "load-stock", "needs": [], "operation": "literal", "value": "stock is current" },
+  { "id": "publish-stock", "needs": ["load-stock"], "operation": "uppercase" }
+]

@@ -17,6 +17,9 @@ export interface MergeRequestOptions {
     sourceBranch: string;
     targetBranch: string;
     title: string;
+    /** Exact pushed evidence commit and repository; required before any send. */
+    expectedHeadCommit?: string;
+    publicationRemote?: string;
     /** Mutable publication lifecycle must stay outside the sealed delivery bundle. */
     stateDirectory?: string;
     send?: boolean;
@@ -26,12 +29,15 @@ export interface MergeRequestOptions {
     resumeCommand?: string;
 }
 export interface MergeRequestPublication {
-    schema_version: "wringer.forge-publication.v1";
-    status: "prepared" | "published" | "recovered" | "blocked" | "uncertain";
+    schema_version: "wringer.forge-publication.v2";
+    status: "prepared" | "published" | "recovered" | "closed" | "merged" | "blocked" | "uncertain";
     state_directory: string;
     request_sha256: string;
     url?: string;
     number?: number;
+    hosted_state?: "open" | "closed" | "merged";
+    head_commit?: string;
+    repository?: string;
     reason?: string;
     next_move: string;
 }
@@ -57,6 +63,22 @@ export function parseForgeConfiguration(value: unknown): ForgeConfiguration {
     if (value.kind === "github" && value.repo.split("/").length !== 2)
         throw new Error("GitHub repository must be owner/name");
     return { kind: value.kind, repo: value.repo, token_env: value.token_env, endpoint: endpoint(value.endpoint).href.replace(/\/$/, "") };
+}
+/** Bind transport and API identities without contacting either service. */
+export function assertForgeRepositoryBinding(remote: string, input: ForgeConfiguration): string {
+    const forge = parseForgeConfiguration(input), apiHost = new URL(forge.endpoint).hostname;
+    const expectedHost = forge.kind === "github" && apiHost === "api.github.com" ? "github.com" : apiHost;
+    let url: URL;
+    try {
+        const scp = /^git@([A-Za-z0-9.-]+):([^\s]+)$/.exec(remote);
+        url = new URL(scp ? `ssh://git@${scp[1]}/${scp[2]}` : remote);
+    } catch { throw new Error("Hosted publication requires an explicit HTTPS/SSH repository URL matching the forge"); }
+    if (!["https:", "ssh:"].includes(url.protocol) || url.password || url.search || url.hash || url.protocol === "https:" && url.username || url.hostname !== expectedHost)
+        throw new Error("Publication remote does not identify the configured forge repository");
+    const path = decodeURIComponent(url.pathname).replace(/^\//, "").replace(/\.git$/, "");
+    if ((forge.kind === "github" ? path.toLowerCase() : path) !== (forge.kind === "github" ? forge.repo.toLowerCase() : forge.repo))
+        throw new Error("Publication remote does not identify the configured forge repository");
+    return `${expectedHost}/${forge.kind === "github" ? forge.repo.toLowerCase() : forge.repo}`;
 }
 function branch(value: string) {
     if (!value || value.startsWith("-") || value.startsWith("/") || value.endsWith("/") || value.endsWith(".") || value.includes("..") || value.includes("@{") || /[\s~^:?*\[\\\x00-\x1f\x7f]/.test(value) || value.split("/").some(p => !p || p.startsWith(".") || p.endsWith(".lock")))
@@ -90,7 +112,13 @@ function publication(row: unknown, forge: ForgeConfiguration, options: MergeRequ
         throw new Error("Forge review-request URL does not identify the configured repository and request number");
     if (row.title !== options.title || (forge.kind === "github" ? row.body : row.description) !== body)
         throw new Error("A review request exists for this branch, but its title/body differ from the immutable delivery request; it was not overwritten");
-    return { number, url: url.href };
+    const head = forge.kind === "github" ? row.head?.sha : row.sha;
+    if (!options.expectedHeadCommit || head !== options.expectedHeadCommit)
+        throw new Error("Hosted review head does not equal the exact delivered evidence commit");
+    const state = forge.kind === "github" ? row.merged === true || typeof row.merged_at === "string" ? "merged" : row.state : row.state === "opened" ? "open" : row.state;
+    if (!["open", "closed", "merged"].includes(state))
+        throw new Error("Hosted review request has no supported observed state");
+    return { number, url: url.href, hosted_state: state as "open" | "closed" | "merged", head_commit: head as string, repository: assertForgeRepositoryBinding(options.publicationRemote!, forge) };
 }
 async function immutable(path: string, value: unknown) {
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
@@ -138,6 +166,9 @@ async function lock(path: string) {
 export async function publishMergeRequest(repo: string, options: MergeRequestOptions): Promise<MergeRequestPublication> {
     repo = await realpath(repo);
     const forge = parseForgeConfiguration(options.forge);
+    const repository = options.publicationRemote ? assertForgeRepositoryBinding(options.publicationRemote, forge) : null;
+    if (options.expectedHeadCommit !== undefined && !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(options.expectedHeadCommit))
+        throw new Error("Publication requires a full exact evidence commit");
     branch(options.sourceBranch);
     branch(options.targetBranch);
     if (options.sourceBranch === options.targetBranch || !options.title?.trim() || options.title.length > 256 || /[\r\n\x00]/.test(options.title))
@@ -160,12 +191,12 @@ export async function publishMergeRequest(repo: string, options: MergeRequestOpt
         throw new Error("Delivery mr.md is empty");
     const environment = options.environment ?? process.env, redactor = new Redactor([forge.token_env], environment);
     const mapped = api(forge, options, body);
-    const intent = { schema_version: "wringer.forge-intent.v1", delivery_id: options.deliveryId, forge, source_branch: options.sourceBranch, target_branch: options.targetBranch, title: options.title, body_path: relative(resolve(repo), bodyPath), body_sha256: digest(body), request: { method: "POST", url: mapped.collection, body: mapped.payload } };
+    const intent = { schema_version: "wringer.forge-intent.v2", delivery_id: options.deliveryId, forge, repository, expected_head_commit: options.expectedHeadCommit ?? null, source_branch: options.sourceBranch, target_branch: options.targetBranch, title: options.title, body_path: relative(resolve(repo), bodyPath), body_sha256: digest(body), request: { method: "POST", url: mapped.collection, body: mapped.payload } };
     if (redactor.scrub(JSON.stringify(intent)) !== JSON.stringify(intent))
         throw new Error("Publication request matches a secret value; remove it from the source document/configuration before publishing");
     const requestHash = digest(stable(intent));
     const answer = async (status: MergeRequestPublication["status"], extra: Partial<MergeRequestPublication> = {}): Promise<MergeRequestPublication> => {
-        const result: MergeRequestPublication = { schema_version: "wringer.forge-publication.v1", status, state_directory: directory, request_sha256: requestHash, next_move: options.resumeCommand ?? "wring deliver --help", ...extra };
+        const result: MergeRequestPublication = { schema_version: "wringer.forge-publication.v2", status, state_directory: directory, request_sha256: requestHash, next_move: options.resumeCommand ?? "wring deliver --help", ...extra };
         await immutable(await inside(directory, `outcomes/${stamp()}.json`), redactor.deep({ ...result, at: new Date().toISOString() }));
         return redactor.deep(result) as MergeRequestPublication;
     };
@@ -198,6 +229,8 @@ export async function publishMergeRequest(repo: string, options: MergeRequestOpt
         }
         if (!options.send)
             return await answer("prepared", { reason: "Review-request bytes are prepared. No network request was made; explicit send is required." });
+        if (!repository || !options.expectedHeadCommit)
+            return await answer("blocked", { reason: "Publication lacks its exact evidence commit or canonical remote binding. Prepare a bound delivery before sending; no request was made." });
         if (options.signal?.aborted)
             return await answer("blocked", { reason: "Publication was cancelled before any network request." });
         const token = environment[forge.token_env];
@@ -296,10 +329,7 @@ export async function publishMergeRequest(repo: string, options: MergeRequestOpt
                 return { status: phase === "create" ? "uncertain" : "failed", reason, data: null, complete: false };
             }
         };
-        const matches: {
-            url: string;
-            number: number;
-        }[] = [];
+        const matches: NonNullable<ReturnType<typeof publication>>[] = [];
         let lookupComplete = false;
         for (let page = 1; page <= 10; page++) {
             const found = await request("lookup", mapped.lookup(page));
@@ -325,11 +355,11 @@ export async function publishMergeRequest(repo: string, options: MergeRequestOpt
         if (matches.length > 1)
             return await answer("blocked", { reason: "More than one review request matches this source/target branch; resolve the duplicate explicitly." });
         if (matches[0])
-            return await answer("recovered", matches[0]);
+            return await answer(matches[0].hosted_state === "open" ? "recovered" : matches[0].hosted_state, { ...matches[0], ...(matches[0].hosted_state !== "open" ? { reason: `The exact hosted request is ${matches[0].hosted_state}; it is not an open review-ready request. No duplicate was created.` } : {}) });
         if (previousUnknownPost)
             return await answer("uncertain", { reason: "A prior create may have succeeded, but no matching review request is visible yet. Rerun the same explicit send to query again; no second POST will be sent." });
         const created = await request("create", mapped.collection, mapped.payload);
-        return await (created.status === "published" ? answer("published", created.created) : answer(created.status === "uncertain" ? "uncertain" : "blocked", { reason: created.reason }));
+        return await (created.status === "published" ? answer(created.created!.hosted_state === "open" ? "published" : created.created!.hosted_state, created.created) : answer(created.status === "uncertain" ? "uncertain" : "blocked", { reason: created.reason }));
     }
     finally {
         await release();

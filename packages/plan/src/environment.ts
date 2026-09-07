@@ -93,3 +93,35 @@ export async function assertEnvironmentFresh(repo: string, map: EnvironmentMap):
     if (tree !== map.source_tree)
         throw new Error("Environment map source tree is stale");
 }
+
+/** Incorporate controller observations without re-reading or executing repository code. */
+export function ingestEnvironmentObservations(map: EnvironmentMap, rawPlan: ExecutionPlan, observations: EnvironmentObservation[]): EnvironmentMap {
+    const plan = validateExecutionPlan(rawPlan), { map_sha256, ...data } = map;
+    if (map_sha256 !== hashValue(data) || map.inventory_sha256 !== hashValue(map.files) || map.plan_sha256 !== plan.plan_sha256 || hashValue(map.repository) !== hashValue(plan.repository))
+        throw new Error("Observations cannot update an altered or stale environment map");
+    if (hashValue(map.tools.map(({ observation, ...tool }) => tool)) !== hashValue(plan.environment.tools) || hashValue(map.baseline.map(row => row.declaration)) !== hashValue(plan.environment.baseline) || hashValue(map.protected_paths) !== hashValue(plan.acceptance.protected_paths) || hashValue(map.writable_paths) !== hashValue(plan.scope.writable))
+        throw new Error("Environment declarations differ from the approved tool, baseline or scope policy");
+    if (!Array.isArray(observations) || observations.length > 4096 || new Set(observations.map(o => `${o.kind}:${o.id}`)).size !== observations.length)
+        throw new Error("Environment observations must have bounded unique identities");
+    const redactor = new Redactor(undefined, process.env, (plan.runtime.env ?? []).map(name => process.env[name]).filter((v): v is string => !!v));
+    const index = new Map<string, EnvironmentObservation>();
+    if (redactor.scrub(JSON.stringify(data)) !== JSON.stringify(data))
+        throw new Error("Environment map contains a detected credential; no altered map was retained");
+    for (const row of observations) {
+        const declaration = row.kind === "tool" ? plan.environment.tools.find(t => t.name === row.id)?.probe : row.kind === "baseline" ? plan.environment.baseline.find(c => c.id === row.id) : undefined;
+        if (!declaration || row.command_sha256 !== hashValue(declaration) || row.source_commit !== plan.repository.commit || row.image !== plan.runtime.image || typeof row.runtime_id !== "string" || !row.runtime_id.trim() || typeof row.output !== "string" || Buffer.byteLength(row.output) > 1024 * 1024)
+            throw new Error("Environment observation lacks exact source, command, runtime or bounded output identity");
+        if (!["passed", "failed", "unavailable"].includes(row.status) || (row.status === "unavailable" ? row.exit_code !== null : !Number.isInteger(row.exit_code) || (row.status === "passed") !== (row.exit_code === 0)) || (row.status === "failed" && [124, 126, 127, 137, 143].includes(row.exit_code!)))
+            throw new Error("Environment observation status contradicts measured command availability");
+        index.set(`${row.kind}:${row.id}`, redactor.deep(row));
+    }
+    const updated = { ...data, tools: map.tools.map(t => ({ ...t, observation: index.get(`tool:${t.name}`) ?? t.observation })), baseline: map.baseline.map(b => ({ ...b, observation: index.get(`baseline:${b.declaration.id}`) ?? b.observation })) };
+    return freezeData({ ...updated, map_sha256: hashValue(updated) });
+}
+
+/** Probe success and declared-version agreement are distinct facts. */
+export function environmentReadiness(map: EnvironmentMap, plan: ExecutionPlan) {
+    ingestEnvironmentObservations(map, plan, [...map.tools.flatMap(t => t.observation ? [t.observation] : []), ...map.baseline.flatMap(b => b.observation ? [b.observation] : [])]);
+    const tools = map.tools.map(t => ({ name: t.name, declaredVersion: t.version, observedVersion: t.observation?.output.trim() ?? null, status: !t.observation ? "unmeasured" : t.observation.status !== "passed" ? "unavailable" : t.observation.output.trim() !== t.version ? "mismatch" : "ready" }));
+    return { ready: tools.every(t => t.status === "ready"), tools, baseline: map.baseline.map(b => ({ id: b.declaration.id, status: b.observation?.status ?? "unmeasured" })), limits: ["Version agreement compares the complete trimmed probe output with the declared version, not an inferred semver range.", "Baseline failures remain measured failures; they are not a successful test result."] };
+}

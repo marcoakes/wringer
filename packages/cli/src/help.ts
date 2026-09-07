@@ -18,6 +18,8 @@ Delegate a bounded engineering outcome; inspect the change and its evidence.
   wring plan PLAN.yaml               Compile a declarative plan without executing it
   wring run PLAN.yaml --authority FILE [--state DIRECTORY]
   wring resume --state DIRECTORY     Resume contained ACP work within its authority
+  wringer-drive board --state DIR    Open the live PM workspace for that same run
+  wringer-drive doctor --plan FILE   Check the contained run's prerequisites
   wringer-drive --help               Authority, review and contained delivery commands
 
 Standalone trusted-local verification and historical evidence:
@@ -46,12 +48,20 @@ The DSL configures; Bun orchestrates; ACP carries work; agent runtimes execute;
 Apple container or gVisor/Kubernetes contains each repository clone.
 
   wringer-drive plan PLAN.yaml                 Validate and show the exact plan; no spend
+  wringer-drive propose TEMPLATE --intent PRD.md --actor NAME --expires ISO --state DIR --output PLAN.json
   wringer-drive authority PLAN.yaml --actor NAME --expires ISO --output authority.json
   wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
+  wringer-drive board --state DIRECTORY        Live, private localhost PM workspace
+      [--port 0] [--output NEW_FILE.html]       An output file is a read-only snapshot
+  wringer-drive doctor --plan PLAN.yaml        Reuse existing keys; report prerequisites
+  wringer-drive doctor --state DIRECTORY --probe-agents
+                                              Open ACP sessions without a model prompt
   wringer-drive show --state DIRECTORY --criterion ID
   wringer-drive review --state DIRECTORY --criterion ID --display UUID --verdict met --by NAME --note TEXT
+  wringer-drive request-revision --state DIRECTORY --by NAME --note TEXT
+  wringer-drive recover-command --state DIRECTORY --command UUID --acknowledge-uncertain
   wringer-drive deliver --state DIRECTORY --remote URL_OR_BARE_PATH --source-branch REVIEW --target-branch BASE
   wringer-drive deliver [the same options] --send
   wringer-drive audit --bundle PATH            Audit a carried contained delivery offline
@@ -65,6 +75,14 @@ must be pinned. Existing credentials cross only through declared environment nam
 Routine authority excludes publication and human judgement. Resume does not reset
 budgets. --retry-stopped explicitly retries a known stopped role within remaining
 limits; --retry-uncertain acknowledges possible duplicate spend after interruption.
+--retry-verification retries a known unavailable check; --retry-judge retries an
+unsettled judge. Each reserves a new attempt within the original ceilings.
+Propose delegates bounded planning to the declared ACP planner; its output is
+unapproved and cannot grant itself execution authority. A planning call may spend.
+The board uses the same guarded actions as the CLI, never an alternate authority.
+Its private URL grants local control: do not share it. Keep its server running.
+Recovery releases an application lock only after its owner is provably dead;
+orphan runtimes and domain reservations remain uncertain. Nothing is replayed.
 No sandbox bypass. Old direct-HTTP drafting and host coding launchers are retired.
 No automatic model, endpoint, key, human verdict, merge or deployment is selected.
 Delivery prepares by default. --send explicitly authorizes branch publication;
@@ -77,14 +95,19 @@ failed control is inconclusive, not a pass or a complete software-quality score.
 `;
 export const BOARD_HELP = `wringer-board · one set of facts, every surface
 
+  wringer-board serve --state DIRECTORY [--port 0]  Live contained PM workspace
+  wringer-board render --state DIRECTORY --output NEW_FILE.html
+                                                   Read-only contained snapshot
+
+Standalone/historical record format (not a contained-run recovery path):
   wringer-board render [--run RUN] [--output PATH]    Write a self-contained HTML board
   wringer-board serve [--port 8765]                  Read-only, localhost-only board
   wringer-board show --criterion ID                 Run the declared display; record its receipt
   wringer-board judge --criterion ID                Show first and print the exact recording command
   wringer-board judge --criterion ID --display UUID --verdict met --by NAME --note 'MY OBSERVATION'
 
-These commands inspect standalone/legacy verification records. For the contained
-journey use wringer-drive status, show and review --state DIRECTORY. Legacy
+Commands without --state inspect standalone/legacy verification records. For the
+contained journey use the live workspace or wringer-drive --help. Legacy
 interview answer/decide/approve records do not grant contained execution authority.
 
 The pen refuses after a failed/missing display. A person who independently saw the

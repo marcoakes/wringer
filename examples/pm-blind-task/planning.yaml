@@ -1,0 +1,62 @@
+# Source-only operator template for the committed PM blind task.
+# Replace the commit, runtime image, approved network and adapter/model settings
+# before the blind phase. Placeholder values do not establish a live-ready run.
+version: 1
+name: Stop wasting work after an import fails
+intent: Replaced with the original PRD by the propose command.
+repository:
+  url: https://github.com/marcoakes/wringer.git
+  # Must be an actually pushed commit containing this whole example unchanged.
+  commit: '0000000000000000000000000000000000000000'
+runtime:
+  kind: apple-container
+  image: example.invalid/REPLACE/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  cpus: 2
+  memoryMiB: 4096
+  # Replace with the approved measured provider CIDRs/ports and DNS, not /0.
+  network:
+    policy: deny
+  env: [CODEX_API_KEY, ANTHROPIC_API_KEY]
+agents:
+  # Explicit task allocation, not a universal recommendation or a model choice.
+  # These commands must exist in the pinned image; use measured adapter settings.
+  planner:
+    protocol: acp
+    command: claude-agent-acp
+    env: [ANTHROPIC_API_KEY]
+  worker:
+    protocol: acp
+    command: codex-acp
+    env: [CODEX_API_KEY]
+    authMethod: api-key
+  judge:
+    protocol: acp
+    command: claude-agent-acp
+    env: [ANTHROPIC_API_KEY]
+environment:
+  context:
+    - examples/pm-blind-task/README.md
+    - examples/pm-blind-task/PRD.md
+    - examples/pm-blind-task/acceptance.json
+  tools:
+    - name: bun
+      version: '1.4.2'
+      probe: [bun, --version]
+  # The target has no npm dependencies or install scripts. Do not run root tests
+  # or install the harness dependencies merely to exercise this isolated task.
+  setup: []
+  baseline:
+    - id: pipeline-regressions
+      argv: [bun, examples/pm-blind-task/checks/baseline.check.ts]
+      cwd: .
+      timeout_seconds: 15
+  writable_directories: []
+scope:
+  writable: [examples/pm-blind-task/src]
+budget:
+  max_sessions: 8
+  max_worker_turns: 4
+  max_judge_turns: 3
+  max_planner_turns: 1
+  wall_clock_seconds: 1800
+  session_timeout_seconds: 300

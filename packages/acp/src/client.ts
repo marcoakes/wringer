@@ -1,10 +1,18 @@
-import { AcpError, type AcpTransport, type AcpTurnOptions, type AcpTurnResult } from "./types";
+import { AcpError, type AcpTransport, type AcpTurnOptions, type AcpTurnResult, type AcpProbeOptions, type AcpSessionProbeResult } from "./types";
 import packageInfo from "../../../package.json";
 const mapping = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 const validId = (id: unknown) => typeof id === "string" || typeof id === "number" && Number.isSafeInteger(id);
 const interactive = (method: Record<string, any>) => method.type === "terminal" || method.type === "terminal-auth" || JSON.stringify(method._meta ?? {}).match(/terminal.auth|"command"|"args"/i) !== null;
 /** ACP v1 JSON-RPC over a runtime-owned byte stream. This client never implements an agent. */
 export async function runAcpTurn(transport: AcpTransport, options: AcpTurnOptions): Promise<AcpTurnResult> {
+    return runSession(transport, options, false);
+}
+/** No task prompt and no approved tool effects. ACP session creation does not validate a provider key. */
+export async function probeAcpSession(transport: AcpTransport, options: AcpProbeOptions): Promise<AcpSessionProbeResult> {
+    const result = await runSession(transport, { ...options, prompt: "", allowedToolKinds: [] }, true);
+    return { ...result, promptSent: false, modelWorkRequested: false, providerCredentialValidated: false };
+}
+async function runSession(transport: AcpTransport, options: AcpTurnOptions, probeOnly: boolean): Promise<AcpTurnResult> {
     if (!options.cwd.startsWith("/") || !Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)
         throw new AcpError("ACP needs an absolute sandbox cwd and a positive timeout", "invalid-options");
     const redact = options.redact ?? ((text: string) => text), maxMessage = options.maxMessageBytes ?? 2 * 1024 * 1024, maxOutput = options.maxOutputBytes ?? 4 * 1024 * 1024;
@@ -15,7 +23,8 @@ export async function runAcpTurn(transport: AcpTransport, options: AcpTurnOption
         resolve: (value: any) => void;
         reject: (error: Error) => void;
     }>();
-    const event = (type: string, fields: Record<string, unknown> = {}) => { const row = JSON.parse(redact(JSON.stringify({ type, at: new Date().toISOString(), ...fields }))); events.push(row); eventQueue = eventQueue.then(async () => { await options.onEvent?.(row); }); };
+    const scrub = (value: any): any => typeof value === "string" ? redact(value) : Array.isArray(value) ? value.map(scrub) : mapping(value) ? Object.fromEntries(Object.entries(value).map(([key, item]) => [redact(key), scrub(item)])) : value;
+    const event = (type: string, fields: Record<string, unknown> = {}) => { const row = scrub({ type, at: new Date().toISOString(), ...fields }); events.push(row); eventQueue = eventQueue.then(async () => { await options.onEvent?.(row); }); };
     function fail(error: AcpError) { if (failure || finished)
         return; failure = error; for (const request of pending.values())
         request.reject(error); pending.clear(); }
@@ -187,12 +196,26 @@ export async function runAcpTurn(transport: AcpTransport, options: AcpTurnOption
         }
         if (cancelled)
             throw new AcpError("Agent turn cancelled before prompt", timedOut ? "timeout" : "cancelled");
-        const response = await request("session/prompt", { sessionId, prompt: [{ type: "text", text: options.prompt }] });
-        if (!mapping(response) || !["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"].includes(response.stopReason))
-            throw new AcpError("Agent prompt returned no supported stop reason");
-        stopReason = cancelled ? (timedOut ? "timeout" : "cancelled") : response.stopReason;
-        status = cancelled || ["cancelled", "refusal", "max_tokens", "max_turn_requests"].includes(stopReason) ? "stopped" : "completed";
-        event("acp.turn.finished", { sessionId, stopReason, status });
+        if (probeOnly) {
+            stopReason = "session-opened";
+            status = "completed";
+            event("acp.preflight.finished", { sessionId, promptSent: false, modelWorkRequested: false, providerCredentialValidated: false });
+        } else {
+            const names = options.credentialNames ?? [];
+            if (!Array.isArray(names) || names.some(name => typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))) throw new AcpError("Credential observations must contain environment names only");
+            event("acp.prompt.preflight", { role: options.role, sessionId, credentialNames: names, methodAttempted, providerCredentialValidated: false, effectiveCredential: "not-attested", promptSent: false,
+                words: `${options.role}-auth: ACP session opened. ${names.length ? `Runtime-selected credential/environment names: ${names.join(", ")}.` : "No role credential/environment variables were selected."} ${methodAttempted ? `Explicit authentication method ${methodAttempted} returned.` : "No successful explicit authentication method was observed."} Effective provider credential and key validity remain unverified; session creation is not provider authorization. No model prompt has yet been sent.` });
+            // The pre-spend observation must reach the controller before the
+            // side effect, including when its recorder is asynchronous.
+            await eventQueue;
+            if (cancelled) throw new AcpError("Agent turn cancelled after preflight", timedOut ? "timeout" : "cancelled");
+            const response = await request("session/prompt", { sessionId, prompt: [{ type: "text", text: options.prompt }] });
+            if (!mapping(response) || !["end_turn", "max_tokens", "max_turn_requests", "refusal", "cancelled"].includes(response.stopReason))
+                throw new AcpError("Agent prompt returned no supported stop reason");
+            stopReason = cancelled ? (timedOut ? "timeout" : "cancelled") : response.stopReason;
+            status = cancelled || ["cancelled", "refusal", "max_tokens", "max_turn_requests"].includes(stopReason) ? "stopped" : "completed";
+            event("acp.turn.finished", { sessionId, stopReason, status });
+        }
         if (capabilities.sessionCapabilities?.close)
             await request("session/close", { sessionId });
     }
@@ -213,5 +236,5 @@ export async function runAcpTurn(transport: AcpTransport, options: AcpTurnOption
         await transport.terminate();
         await eventQueue;
     }
-    return JSON.parse(redact(JSON.stringify({ status, text: output, sessionId, stopReason, protocolVersion, agentInfo, capabilities, authMethods, authentication: { methodAttempted, sessionOpened: sessionId !== null }, events, stderr })));
+    return scrub({ status, text: output, sessionId, stopReason, protocolVersion, agentInfo, capabilities, authMethods, authentication: { methodAttempted, sessionOpened: sessionId !== null }, events, stderr });
 }

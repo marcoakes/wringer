@@ -1,0 +1,47 @@
+# Build context: repository root. No base digest is invented or silently selected.
+# Supply inspected multi-platform digests for Bun 1.4.2 and Node 24 (Debian).
+ARG BUN_BASE_IMAGE
+ARG NODE_BASE_IMAGE
+FROM ${BUN_BASE_IMAGE} AS bun-runtime
+FROM ${NODE_BASE_IMAGE}
+ARG BUN_BASE_IMAGE
+ARG NODE_BASE_IMAGE
+COPY --from=bun-runtime /usr/local/bin/bun /usr/local/bin/bun
+USER 0
+RUN printf '%s' "$BUN_BASE_IMAGE" | grep -Eq '^(docker.io/)?oven/bun(:[a-zA-Z0-9.-]+)?@sha256:[a-f0-9]{64}$' \
+    && printf '%s' "$NODE_BASE_IMAGE" | grep -Eq '^((docker.io/)?library/)?node(:[a-zA-Z0-9.-]+)?@sha256:[a-f0-9]{64}$' \
+    && test "$(bun --version)" = 1.4.2 \
+    && node -e 'if (Number(process.versions.node.split(".")[0]) !== 24) process.exit(1)' \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git util-linux coreutils procps iptables \
+    && for tool in git setpriv timeout pkill pgrep iptables ip6tables bun node; do command -v "$tool"; done \
+    && (getent passwd 1000 >/dev/null || useradd --uid 1000 --create-home agent) \
+    && mkdir -p /opt/wringer-agents /opt/wringer-smoke /home/agent /workspace /input \
+    && chown 1000:1000 /home/agent \
+    && chmod 755 /workspace /input /home/agent
+WORKDIR /opt/wringer-agents
+COPY runtime/package.json ./package.json
+# Lifecycle scripts are not needed by these published JS/platform-binary packages.
+# bun.lock and dpkg inventory are retained IN the built image: transitive/OS pins
+# are not claimed reproducible until this first build's inventory is reviewed.
+RUN bun install --ignore-scripts --save-text-lockfile \
+    && test -s bun.lock \
+    && node -e 'const fs = require("node:fs"); for (const [name, version] of Object.entries(require("./package.json").dependencies)) { if (JSON.parse(fs.readFileSync("node_modules/" + name + "/package.json", "utf8")).version !== version) throw Error("Dependency version mismatch: " + name); }' \
+    && ln -s /opt/wringer-agents/node_modules/.bin/codex-acp /usr/local/bin/codex-acp \
+    && ln -s /opt/wringer-agents/node_modules/.bin/claude-agent-acp /usr/local/bin/claude-agent-acp \
+    && ln -s /opt/wringer-agents/node_modules/.bin/codex /usr/local/bin/codex \
+    && codex --version \
+    && dpkg-query -W > /opt/wringer-agents/os-packages.txt \
+    && bun --version > /opt/wringer-agents/bun-version.txt \
+    && node --version > /opt/wringer-agents/node-version.txt \
+    && printf '%s\n' "$BUN_BASE_IMAGE" > /opt/wringer-agents/bun-base-image.txt \
+    && printf '%s\n' "$NODE_BASE_IMAGE" > /opt/wringer-agents/node-base-image.txt
+COPY runtime/smoke-acp.ts /opt/wringer-smoke/acp.ts
+COPY runtime/network-probe.ts /opt/wringer-smoke/network-probe.ts
+COPY runtime/probe.ts /opt/wringer-smoke/probe.ts
+# Neither adapter nor an agent login is started at build time. The controller
+# intentionally starts as root inside the boundary, then drops to uid 1000.
+ENV NO_BROWSER=1
+WORKDIR /workspace
+ENTRYPOINT ["/bin/sh"]
+CMD ["-c", "exec sleep 3600"]

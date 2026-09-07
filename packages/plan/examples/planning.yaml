@@ -1,0 +1,56 @@
+# Planning-only structure example, not a provisioned live configuration.
+# Copy to TEMPLATE.yaml, fill every REPLACE field and actual Git/image digest,
+# and select measured ACP commands/arguments, credential names and network policy.
+# `propose --intent PRD.md` replaces intent below with the original file bytes.
+# No acceptance section: the bounded planner proposes it from committed checks.
+# This is NOT an execution plan for `plan`, `authority`, `run` or `doctor --plan`.
+version: 1
+name: REPLACE_WITH_TASK_NAME
+intent: Replaced by the original PRD passed with --intent.
+repository:
+  url: https://example.invalid/REPLACE/REPOSITORY.git
+  commit: '0000000000000000000000000000000000000000'
+runtime:
+  kind: apple-container
+  image: example.invalid/REPLACE/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000
+  cpus: 2
+  memoryMiB: 4096
+  # Deliberately no provider connectivity; replace with an approved measured
+  # allowlist of IPv4 CIDRs/ports and explicit DNS before a live planning call.
+  network:
+    policy: deny
+  # Environment-variable names only, restricted again per role below.
+  env: []
+agents:
+  planner:
+    protocol: acp
+    command: REPLACE_WITH_PLANNER_ACP
+    args: []
+    env: []
+  worker:
+    protocol: acp
+    command: REPLACE_WITH_WORKER_ACP
+    args: []
+    env: []
+  judge:
+    protocol: acp
+    command: REPLACE_WITH_JUDGE_ACP
+    args: []
+    env: []
+environment:
+  # These paths, versions, commands and writable output directories must describe
+  # the chosen committed target. Empty arrays mean none declared, not discovered.
+  context: [README.md]
+  tools: []
+  setup: []
+  baseline: []
+  writable_directories: []
+scope:
+  writable: [src]
+budget:
+  max_sessions: 8
+  max_worker_turns: 4
+  max_judge_turns: 4
+  max_planner_turns: 2
+  wall_clock_seconds: 3600
+  session_timeout_seconds: 900

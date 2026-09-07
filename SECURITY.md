@@ -50,6 +50,23 @@ Known secret values are redacted before evidence writes. This is not a guarantee
 
 `wringer-headless` is an alias for the same contained driver and requires the same plan and authority. It does not launch a host Codex process, change an agent's global approval configuration, or override host-managed policy. The earlier direct-Codex helper is retired. See [HEADLESS.md](docs/native/HEADLESS.md).
 
+## Local PM workspace
+
+`wringer-drive board --state DIRECTORY` binds only to `127.0.0.1`. A fresh random
+bearer capability unlocks the private API; the public HTML contains no run facts.
+The browser removes the token fragment and retains it in memory, not persistent
+storage. Use the page's Refresh record control; a full browser reload requires
+reopening the original private link. Anyone holding that link has the operator's
+bounded local-control capability. Do not share it or record it in a public capture.
+
+The API validates Host and Origin, rejects cross-site requests, accepts only
+typed JSON commands and compares the expected journal revision and candidate.
+It is not a multi-user authentication or collaborative tenancy service. Each
+action has durable idempotency and exclusive controller ownership. Recovery
+requires explicit acknowledgement of a provably dead owner; it does not erase
+domain reservations, kill unobserved runtimes or retry paid/remote effects.
+UI-provided actor names are not cryptographically authenticated identities.
+
 ## What evidence proves
 
 Digests, chained ledgers and cross-file checks detect inconsistencies and modification relative to the carried record. They do not authenticate the operator or prevent an owner from replacing every file and recomputing every hash.

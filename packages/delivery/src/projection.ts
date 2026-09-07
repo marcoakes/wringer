@@ -1,0 +1,56 @@
+/** Frozen delivery views. This module is pure and imports no board/orchestration services. */
+import { createHash } from "node:crypto";
+import type { ExecutionPlan } from "@wringer/plan";
+export interface ContainedDeliveryProjection {
+    schema_version: "wringer.contained-delivery-view.v1";
+    journeyId: string;
+    deliveryId: string;
+    name: string;
+    status: "review-ready";
+    source: { url: string; baseCommit: string; codeCommit: string; tree: string };
+    planSha256: string;
+    acceptanceSha256: string;
+    journalHeadSha256: string;
+    counts: { checks: number; proved: number; human: number };
+    checks: { id: string; before: { status: string; exitCode: number | null; receipt: string }; after: { status: string; exitCode: number | null; receipt: string }; inputsSha256: string }[];
+    criteria: { id: string; title: string; kind: "check" | "human"; required: boolean; state: "met" | "not-met" | "unknown"; checkIds: string[]; note: string | null; by: string | null }[];
+    usage: { sessions: number; reportedSessions: number; inputTokens: number | null; outputTokens: number | null; costUsd: null };
+    agents: { effectId: string; role: string; command: string; protocolVersion: number | null; image: string; agentInfo: Record<string, unknown> | null; model: null }[];
+    auditCommand: string;
+    falsifyCommand: string;
+    limits: string[];
+}
+export const containedViewContracts = Object.freeze({ view: "wringer.contained-delivery-view.v1", certificate: "wringer.contained-certificate.v1", documents: "wringer.contained-documents.v2", board: "wringer.contained-board.v1" });
+const canonical = (value: any): string => value === null || typeof value !== "object" ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonical(value[k])}`).join(",")}}`;
+export const containedProjectionDigest = (view: ContainedDeliveryProjection) => createHash("sha256").update(canonical(view)).digest("hex");
+/** Inputs must come from the validated controller or portable audit, never an unverified mutable view. */
+export function deriveContainedDeliveryProjection(plan: ExecutionPlan, manifest: any, human: any[], roles: any[]): ContainedDeliveryProjection {
+    const reported = (key: "inputTokens" | "outputTokens") => roles.every(r => Number.isSafeInteger(r.result?.usage?.[key]) && r.result.usage[key] >= 0) ? roles.reduce((n, r) => n + r.result.usage[key], 0) : null;
+    return {
+        schema_version: "wringer.contained-delivery-view.v1", journeyId: manifest.journeyId, deliveryId: manifest.id, name: plan.name, status: "review-ready", source: { ...manifest.source }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, journalHeadSha256: manifest.journal.headSha256, counts: { ...manifest.counts },
+        checks: plan.acceptance.checks.map(c => {
+            const before = manifest.baseline.checks.find((r: any) => r.id === c.id), after = manifest.verification.checks.find((r: any) => r.id === c.id);
+            return { id: c.id, before: { status: before.status, exitCode: before.exitCode, receipt: `${manifest.baseline.evidenceRef}/observations.json` }, after: { status: after.status, exitCode: after.exitCode, receipt: `${manifest.verification.evidenceRef}/observations.json` }, inputsSha256: after.checkInputsSha256 };
+        }),
+        criteria: plan.acceptance.criteria.map(c => {
+            const judgement = human.find(r => r.judgement.criterionId === c.id)?.judgement, finding = manifest.judge?.criteria?.find((r: any) => r.id === c.id), checkIds = plan.acceptance.checks.filter(r => r.criteria.includes(c.id)).map(r => r.id);
+            const green = checkIds.length > 0 && checkIds.every(id => manifest.verification.checks.find((r: any) => r.id === id)?.status === "passed");
+            return { id: c.id, title: c.title, kind: c.kind, required: c.required, state: c.kind === "human" ? judgement ? judgement.verdict === "met" ? "met" as const : "not-met" as const : "unknown" as const : finding?.met === true && green ? "met" as const : finding?.met === false || !green ? "not-met" as const : "unknown" as const, checkIds, note: c.kind === "human" ? judgement?.note ?? null : finding?.reason ?? null, by: c.kind === "human" ? judgement?.by ?? null : null };
+        }),
+        usage: { sessions: roles.length, reportedSessions: roles.filter(r => Number.isSafeInteger(r.result?.usage?.inputTokens) && r.result.usage.inputTokens >= 0 && Number.isSafeInteger(r.result?.usage?.outputTokens) && r.result.usage.outputTokens >= 0).length, inputTokens: reported("inputTokens"), outputTokens: reported("outputTokens"), costUsd: null }, agents: roles.map(r => ({ effectId: r.id, role: r.role, command: r.request.agent.command, protocolVersion: r.result?.protocolVersion ?? null, image: r.request.runtime.image, agentInfo: r.result?.agentInfo ?? null, model: null })), auditCommand: manifest.auditCommand, falsifyCommand: manifest.falsify.command,
+        limits: [...manifest.limits, "Usage is reported by agent adapters. Missing token counts and unmeasured monetary cost remain unknown; this is not a billing statement."]
+    };
+}
+export function renderContainedCertificate(view: ContainedDeliveryProjection) {
+    return { schema_version: "wringer.contained-certificate.v1" as const, viewSha256: containedProjectionDigest(view), view, limits: ["This certificate copies audited delivery facts; it does not independently assess the work or authenticate a person's identity."] };
+}
+const escape = (value: unknown) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+/** Immutable v1 HTML contract. Evolve with a new renderer identifier, never edit old bundle semantics. */
+export function renderContainedBoard(view: ContainedDeliveryProjection): string {
+    return `<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'"><title>${escape(view.name)}</title><style>body{font:16px system-ui;max-width:1100px;margin:3rem auto;padding:0 1rem;color:#17202a}table{border-collapse:collapse;width:100%}th,td{text-align:left;border-bottom:1px solid #ccd;padding:.6rem;vertical-align:top}code,pre{overflow-wrap:anywhere;white-space:pre-wrap}.muted{color:#596773}</style></head><body><h1>${escape(view.name)}</h1><p>Review-ready candidate; publication is a separate recorded action.</p><p>Journey: <code>${escape(view.journeyId)}</code><br>Delivery: <code>${escape(view.deliveryId)}</code><br>Candidate: <code>${escape(view.source.codeCommit)}</code><br>Tree: <code>${escape(view.source.tree)}</code></p><p>Checks: ${view.counts.checks}; red-first receipts: ${view.counts.proved}; human answers: ${view.counts.human}.</p><table><thead><tr><th>Criterion</th><th>Evidence</th><th>State</th><th>Recorded note</th></tr></thead><tbody>${view.criteria.map(c => `<tr><td>${escape(c.title)}<br><code>${escape(c.id)}</code>${c.required ? " · required" : " · optional"}</td><td>${escape(c.kind === "human" ? "Human display and judgement" : c.checkIds.join(", "))}</td><td>${escape(c.state)}</td><td>${escape(c.note ?? "Not recorded")}${c.by === null ? "" : ` — ${escape(c.by)}`}</td></tr>`).join("")}</tbody></table><h2>Usage</h2><p>${view.usage.sessions} sessions; ${view.usage.reportedSessions} complete token reports. Input tokens: ${view.usage.inputTokens ?? "unknown"}; output tokens: ${view.usage.outputTokens ?? "unknown"}; cost: unknown.</p><h2>Independent audit</h2><p>From the root of a fresh clone of the delivered review branch:</p><pre>${escape(view.auditCommand)}\n${escape(view.falsifyCommand)}</pre><h2>Limits</h2>${view.limits.map(l => `<p class="muted">${escape(l)}</p>`).join("")}</body></html>\n`;
+}
+/** Immutable documents v2: every published fact comes from the same view. */
+export function renderContainedDocuments(view: ContainedDeliveryProjection, falsifyReason: string) {
+    const notes = view.criteria.filter(c => c.kind === "human" && c.by !== null).map(c => `- ${c.id}: ${c.note} — ${c.by}`).join("\n"), facts = `Journey: ${view.journeyId}\nDelivery: ${view.deliveryId}\nCandidate commit: ${view.source.codeCommit}\nTree: ${view.source.tree}\nChecks: ${view.counts.checks}; red-first receipts: ${view.counts.proved}; human answers: ${view.counts.human}.\n\n${notes}\n\nUsage: ${view.usage.sessions} sessions; ${view.usage.reportedSessions} complete reports. Input tokens: ${view.usage.inputTokens ?? "unknown"}; output tokens: ${view.usage.outputTokens ?? "unknown"}; cost: unknown.`;
+    return { "summary.md": `# ${view.name}\n\n${facts}\n\n${view.limits.join("\n\n")}\n`, "mr.md": `# ${view.name}\n\n${facts}\n\nFrom the ROOT of a fresh clone of the delivered review branch, run exactly:\n\n\`\`\`sh\n${view.auditCommand}\n\`\`\`\n\nThen challenge the committed source range from that same clone root:\n\n\`\`\`sh\n${view.falsifyCommand}\n\`\`\`\n\n${falsifyReason}\n\nThe bundle includes candidate.bundle, plan.json, authority.json, environment.json, manifest.json, projection.json, view.json, certificate.json, board.html, summary.md, mr.md, digests.json, and every journal/, roles/, receipts/ and human/ file named by the digest inventory. The audit is offline; no original controller directory or provider account is required.\n\n${view.limits.join("\n\n")}\n` };
+}

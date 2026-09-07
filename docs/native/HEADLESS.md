@@ -36,6 +36,14 @@ authoritative journal without starting another agent session. A printed
 `--retry-uncertain` is a separate acknowledgement that an interrupted agent
 request may already have spent; it is not an automatic retry policy.
 
+`--retry-verification` explicitly reserves a new attempt after a known unavailable
+verification; `--retry-judge` re-enters an unsettled independent review. Neither
+resets the whole-journey ceilings. When a dead board process retained application
+ownership, the workspace prints `recover-command` with the real command UUID and
+`--acknowledge-uncertain`. That command releases only the application lock after
+checking the owner is dead. Orphan runtimes and domain reservations remain;
+follow the subsequently offered domain recovery action, never delete state.
+
 The equivalent alias is:
 
 ```sh
@@ -46,8 +54,14 @@ For developers running the source helper, use `bun run scripts/headless.ts` foll
 
 ## Finish the same contained journey
 
-Use the recorded controller state throughout. The standalone `wringer-board`
-and `wring doctor` readers do not read contained journey state.
+Use the recorded controller state throughout. Open the live PM workspace with
+`wringer-drive board --state CONTROLLER_STATE` (also `wringer-board serve
+--state CONTROLLER_STATE`). It offers the same guarded application actions as
+the CLI: show, review, request revision, bounded recovery, preview and separately
+confirmed publication. A stale/disconnected board cannot approve old source.
+The private URL grants local control; do not share it. A static `--output` file
+has no active controls. `wringer-drive doctor --state CONTROLLER_STATE` reads
+this run's last verification; bare `wring doctor` remains the legacy reader.
 
 If a human criterion is waiting, the person must inspect its real display:
 
@@ -106,6 +120,13 @@ not a full mutation analysis or correctness proof. Do not apply standalone
 
 Plans name environment variables or runtime-managed secret references, never key values. Retrieve an existing key into the launching environment only if the selected agent/runtime needs that variable. Do not re-store it merely because a run stopped.
 
+On macOS the controller automatically reads an existing `wringer` account item
+when a declared role needs `CODEX_API_KEY` / `OPENAI_API_KEY` (service
+`openai-api-key`) or `ANTHROPIC_API_KEY` (service `anthropic-api-key`). An existing
+launching-shell value takes precedence. Values stay in memory and are not
+printed, stored in plans or replaced. Run `wringer-drive doctor --plan PLAN.yaml`
+to see availability and its source without exposing the value.
+
 For an operator who already uses macOS Keychain services `anthropic-api-key` or `openai-api-key` under account `wringer`, these retrieval commands read existing items; they do not create or replace them:
 
 ```sh
@@ -115,7 +136,33 @@ export CODEX_API_KEY="$(security find-generic-password -s openai-api-key -a wrin
 
 Use only the variable actually supported by your declared ACP agent and list it in the allowed runtime/agent environment. These examples are not a claim that every adapter accepts those names. They select no model and do not authenticate an agent. On Kubernetes, use the declared secret-reference route when required by runtime policy. Never place secret values in YAML, arguments, captures or chat.
 
+For the pinned `@agentclientprotocol/codex-acp` 1.10.0 adapter, a key-only
+agent declaration also needs `authMethod: api-key`. The adapter reads
+`CODEX_API_KEY` during that non-interactive handshake; it creates no host login.
+For `claude-agent-acp` 0.65.0 with `ANTHROPIC_API_KEY`, leave `authMethod`
+omitted: its SDK reads the environment key and it does not implement an
+`api-key` ACP authentication method. A completed handshake or opened session
+does not prove either provider will accept or bill the key. These are
+[Codex adapter](https://github.com/agentclientprotocol/codex-acp/blob/v1.10.0/src/CodexAcpClient.ts#L177)
+and [Claude adapter](https://github.com/agentclientprotocol/claude-agent-acp/blob/v0.65.0/src/acp-agent.ts#L1633)
+version-specific settings, not a universal ACP authentication convention.
+
 macOS may still ask whether a process may access a protected Keychain item. Wringer cannot override that decision, provider authentication, cluster administration, or host-managed policy. Provision the permitted access once rather than turning each stopped run into another key-entry exercise.
+
+Only if the item is genuinely missing, use macOS's hidden password prompt. Type
+the following command, press Return, then enter the key at the password prompt;
+do not type the prompt's words as a shell command. Do not add `-U` to overwrite
+an existing item or paste the key onto the command line:
+
+```sh
+security add-generic-password -s anthropic-api-key -a wringer -w
+security add-generic-password -s openai-api-key -a wringer -w
+```
+
+The vendor-specific variable must be supported by the selected adapter; neither
+key presence nor ACP session creation proves effective provider authentication.
+`wringer-drive doctor --plan PLAN.yaml --probe-agents` opens contained ACP
+sessions **without sending a model prompt** and reports that precise limit.
 
 ## What remains a real stop
 

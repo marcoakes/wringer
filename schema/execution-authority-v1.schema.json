@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/execution-authority-v1.schema.json",
+  "title": "Native execution authority v1",
+  "description": "Frozen structural contract. Source/digest equality, authority ceilings, scope containment, policy semantics and observed truth require the native semantic validators in addition to this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "actor",
+    "repository",
+    "plan_sha256",
+    "acceptance_sha256",
+    "actions",
+    "budget",
+    "granted_at",
+    "expires_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.execution-authority.v1"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1048576
+    },
+    "repository": {
+      "$ref": "#/$defs/repository"
+    },
+    "plan_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "acceptance_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4096,
+      "items": {
+        "enum": [
+          "plan",
+          "build",
+          "verify",
+          "judge",
+          "deliver"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "budget": {
+      "$ref": "#/$defs/budget"
+    },
+    "granted_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "$defs": {
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "commit"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "pattern": "^(https|ssh)://[^\\s]+$"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_sessions",
+        "max_worker_turns",
+        "max_judge_turns",
+        "max_planner_turns",
+        "wall_clock_seconds",
+        "session_timeout_seconds"
+      ],
+      "properties": {
+        "max_sessions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_worker_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_judge_turns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "max_planner_turns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 86400
+        },
+        "wall_clock_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        },
+        "session_timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 86400
+        }
+      }
+    }
+  }
+}

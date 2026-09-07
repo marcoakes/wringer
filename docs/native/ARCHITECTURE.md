@@ -47,7 +47,19 @@ Planner, worker and judge responses remain agent reports. Independent controller
 
 ## Evidence and delivery
 
-Built, passing checks, proved requirements, human judgement, readiness and delivery remain separate facts. Standalone verification's board, summary, certificate and MR consume shared derivations. An independent later verification does not inherit a completed build unless lineage is established; matching journey context can be displayed separately. Contained journeys use their own validated status, delivery manifest and Markdown projections; the standalone board does not yet render that state.
+Built, passing checks, proved requirements, human judgement, readiness and delivery
+remain separate facts. `packages/application` is the shared command boundary for
+the CLI and live PM workspace: durable idempotency, expected journal revision and
+candidate identity accompany every browser action. The localhost API has an
+ephemeral bearer token, strict Host/Origin checks, no cross-origin access and no
+private facts in its unauthenticated HTML. The board is a projection, never a
+second authority or an agent execution loop.
+
+Contained delivery v2 carries one validated `view.json`; its certificate, board,
+summary and MR are derived from that shared portable fact model. Old delivery v1
+remains on its frozen audit/render path. An independent later verification does
+not inherit a completed build unless lineage is established. Display/approval
+binds the candidate tree; a revision withdraws earlier readiness.
 
 Checks carry commands, exit/time observations and frozen source/check identities. A historical failure must resolve to the same relevant check; an environment failure is not an assertion receipt. Known secrets are scrubbed before evidence writes, but unknown/transformed secrets and sensitive business data remain risks.
 

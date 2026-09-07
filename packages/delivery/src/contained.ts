@@ -6,7 +6,10 @@ import { processDriver } from "@wringer/runtime";
 import { readValidatedContainedState, withContainedJourneyLock } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import { inside, files, seal, checkSeal, quote } from "./io";
-import { publishMergeRequest, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
+import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
+import { containedViewContracts, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedDocuments, type ContainedDeliveryProjection } from "./projection";
+import { openReader } from "@wringer/records";
+import { schemaDirectory } from "@wringer/engine";
 export interface ContainedPublication {
     remote: string;
     sourceBranch: string;
@@ -19,6 +22,8 @@ export interface ContainedDeliveryOptions {
     send?: boolean;
     signal?: AbortSignal;
     resumeCommand?: string;
+    expectedRevision?: string;
+    expectedCandidateTree?: string;
 }
 export interface ContainedDeliveryResult {
     schema_version: "wringer.contained-publication.v1";
@@ -54,8 +59,10 @@ export interface ContainedAudit {
 }
 const object = (v: unknown): v is Record<string, any> => !!v && typeof v === "object" && !Array.isArray(v);
 const digestPattern = /^[a-f0-9]{64}$/, gitPattern = /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/;
-const falsificationRoute = (bundlePath: string) => ({ status: "available" as const, command: `wringer-drive falsify --bundle ${bundlePath}`, reason: "A separate bounded committed-source mutation challenge is available. No mutation result is claimed before that command runs; an unavailable contained runtime is recorded as inconclusive." });
-const limitations = ["This is a tamper-evident record of controller observations, not a fresh execution of acceptance checks or proof against a malicious controller.", "ACP prompts, worker narrative, thought streams and private provider traces are omitted. The source journal was validated before a separately hashed portable semantic projection was made; source digest commitments are provenance, not a claim that omitted bytes can be replayed here.", "Container declarations and recorded runtime identities do not substitute for the live platform isolation release gate.", "The candidate bundle carries exact committed Git history. An evidence commit contains this bundle; its own hash is returned by publication, not self-embedded in its contents.", "The separate contained falsification command challenges supported changed source lines only. It is not a correctness proof; caught, surviving and unavailable mutations are reported separately."];
+const legacyFalsificationRouteV1 = (bundlePath: string) => ({ status: "available" as const, command: `wringer-drive falsify --bundle ${bundlePath}`, reason: "A separate bounded committed-source mutation challenge is available. No mutation result is claimed before that command runs; an unavailable contained runtime is recorded as inconclusive." });
+const falsificationRoute = legacyFalsificationRouteV1;
+const legacyLimitationsV1 = ["This is a tamper-evident record of controller observations, not a fresh execution of acceptance checks or proof against a malicious controller.", "ACP prompts, worker narrative, thought streams and private provider traces are omitted. The source journal was validated before a separately hashed portable semantic projection was made; source digest commitments are provenance, not a claim that omitted bytes can be replayed here.", "Container declarations and recorded runtime identities do not substitute for the live platform isolation release gate.", "The candidate bundle carries exact committed Git history. An evidence commit contains this bundle; its own hash is returned by publication, not self-embedded in its contents.", "The separate contained falsification command challenges supported changed source lines only. It is not a correctness proof; caught, surviving and unavailable mutations are reported separately."];
+const limitations = [...legacyLimitationsV1];
 const gitEnv = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "Wringer evidence", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer evidence", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
 async function git(store: string, args: string[], options: {
     input?: string | Uint8Array;
@@ -108,6 +115,8 @@ async function validatePublication(publication: ContainedPublication) {
         throw new Error("Contained delivery only publishes a distinct nondefault review branch");
     if (typeof publication.remote !== "string" || !publication.remote)
         throw new Error("An explicit publication repository URL is required");
+    if (publication.forge)
+        assertForgeRepositoryBinding(publication.remote, publication.forge);
     if (publication.remote.startsWith("/")) {
         const stat = await lstat(publication.remote);
         if (!stat.isDirectory() || stat.isSymbolicLink() || (await git(publication.remote, ["rev-parse", "--is-bare-repository"])).stdout.trim() !== "true")
@@ -130,7 +139,7 @@ function provenance(p: any) {
     return { schema_version: p.schema_version, runtimeId: p.runtimeId, role: p.role, kind: p.kind, image: p.image, repository: ref(p.repository)!, clonedInside: true, hostMounts: [], repositoryAccess: p.repositoryAccess, declared: p.declared, observed: p.observed, limits: p.limits };
 }
 function verification(v: any) { return v ? { ...v, evidenceRef: `receipts/${safeId(v.runtimeId, "verification runtime")}` } : null; }
-function portableState(state: any) { return { schema_version: state.schema_version, id: state.id, planSha256: state.planSha256, authoritySha256: state.authoritySha256, environmentSha256: state.environmentSha256, startedAt: state.startedAt, source: ref(state.source), stage: state.stage, iteration: state.iteration, plannerComplete: state.plannerComplete, workerEffect: state.workerEffect, judgeEffect: state.judgeEffect, runtimeIds: state.runtimeIds, effects: state.effects.map((e: any) => ({ id: e.id, role: e.role, status: e.status, requestSha256: e.requestSha256, requestIdentity: e.requestIdentity, ...(e.resultSha256 ? { resultSha256: e.resultSha256 } : {}), ...(e.invalidReason ? { invalidReasonOmitted: true } : {}) })), baseline: verification(state.baseline), verification: verification(state.verification), candidate: state.candidate ? { source: ref(state.candidate.source), tree: state.candidate.tree, changedPaths: state.candidate.changedPaths } : null, judge: state.judge, humanJudgements: state.humanJudgements }; }
+function portableState(state: any) { return { schema_version: state.schema_version, id: state.id, planSha256: state.planSha256, authoritySha256: state.authoritySha256, environmentSha256: state.environmentSha256, startedAt: state.startedAt, source: ref(state.source), stage: state.stage, iteration: state.iteration, plannerComplete: state.plannerComplete, workerEffect: state.workerEffect, judgeEffect: state.judgeEffect, runtimeIds: state.runtimeIds, effects: state.effects.map((e: any) => ({ id: e.id, role: e.role, status: e.status, requestSha256: e.requestSha256, requestIdentity: e.requestIdentity, ...(e.disposition ? { disposition: e.disposition } : {}), ...(e.resultSha256 ? { resultSha256: e.resultSha256 } : {}), ...(e.invalidReason ? { invalidReasonOmitted: true } : {}) })), ...(state.verificationAttempts ? { verificationAttempts: state.verificationAttempts.map((a: any) => ({ ...a, ...(a.result ? { result: verification(a.result) } : {}) })) } : {}), baseline: verification(state.baseline), verification: verification(state.verification), candidate: state.candidate ? { source: ref(state.candidate.source), tree: state.candidate.tree, changedPaths: state.candidate.changedPaths } : null, judge: state.judge, humanJudgements: state.humanJudgements }; }
 function clean(value: unknown, redactor: Redactor, label: string) {
     const wire = JSON.stringify(value);
     if (redactor.scrub(wire) !== wire || /-----BEGIN [^-]*PRIVATE KEY-----/.test(wire))
@@ -225,9 +234,10 @@ async function verifySource(store: string, manifest: any, plan: ExecutionPlan, e
     }
     return actual;
 }
-function documents(plan: ExecutionPlan, manifest: any, human: any[]) {
+/** Frozen v1 renderer: retained so changes to current product wording cannot invalidate old deliveries. */
+export function legacyContainedDocumentsV1(plan: ExecutionPlan, manifest: any, human: any[]) {
     const notes = human.map(row => `- ${row.judgement.criterionId}: ${row.judgement.note} — ${row.judgement.by}`).join("\n"), id = manifest.id;
-    return { "summary.md": `# ${plan.name}\n\nDelivery: ${id}\nCandidate: ${manifest.source.codeCommit}\nTree: ${manifest.source.tree}\nChecks: ${manifest.counts.checks}; red-first receipts: ${manifest.counts.proved}; human answers: ${manifest.counts.human}.\n\n${notes}\n\n${limitations.join("\n\n")}\n`, "mr.md": `# ${plan.name}\n\nDelivery: ${id}\nCandidate commit: ${manifest.source.codeCommit}\nChecks: ${manifest.counts.checks}; red-first receipts: ${manifest.counts.proved}; human answers: ${manifest.counts.human}.\n\n${notes}\n\nFrom the ROOT of a fresh clone of the delivered review branch, run exactly:\n\n\`\`\`sh\n${manifest.auditCommand}\n\`\`\`\n\nThen challenge the committed source range in the declared isolated verifier, from that same clone root:\n\n\`\`\`sh\n${manifest.falsify.command}\n\`\`\`\n\n${manifest.falsify.reason}\n\nThe bundle includes candidate.bundle, plan.json, authority.json, environment.json, manifest.json, projection.json, summary.md, mr.md, digests.json, and every journal/, roles/, receipts/ and human/ file named by the digest inventory. The audit is offline; no original controller directory or provider account is required.\n\n${limitations.join("\n\n")}\n` };
+    return { "summary.md": `# ${plan.name}\n\nDelivery: ${id}\nCandidate: ${manifest.source.codeCommit}\nTree: ${manifest.source.tree}\nChecks: ${manifest.counts.checks}; red-first receipts: ${manifest.counts.proved}; human answers: ${manifest.counts.human}.\n\n${notes}\n\n${legacyLimitationsV1.join("\n\n")}\n`, "mr.md": `# ${plan.name}\n\nDelivery: ${id}\nCandidate commit: ${manifest.source.codeCommit}\nChecks: ${manifest.counts.checks}; red-first receipts: ${manifest.counts.proved}; human answers: ${manifest.counts.human}.\n\n${notes}\n\nFrom the ROOT of a fresh clone of the delivered review branch, run exactly:\n\n\`\`\`sh\n${manifest.auditCommand}\n\`\`\`\n\nThen challenge the committed source range in the declared isolated verifier, from that same clone root:\n\n\`\`\`sh\n${manifest.falsify.command}\n\`\`\`\n\n${manifest.falsify.reason}\n\nThe bundle includes candidate.bundle, plan.json, authority.json, environment.json, manifest.json, projection.json, summary.md, mr.md, digests.json, and every journal/, roles/, receipts/ and human/ file named by the digest inventory. The audit is offline; no original controller directory or provider account is required.\n\n${legacyLimitationsV1.join("\n\n")}\n` };
 }
 function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: string): boolean {
     const show = plan.acceptance.criteria.find(c => c.id === criterionId)?.show;
@@ -236,7 +246,7 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), show.id];
     return canonicalJson(measured.results.map((r: any) => r.id)) === canonicalJson(expected) && measured.results.every((r: any) => r.code === 0 && typeof r.stdout === "string" && typeof r.stderr === "string" && Buffer.byteLength(r.stdout + r.stderr) <= 1024 * 1024) && canonicalJson(measured.provenance?.observed?.writableDirectories ?? []) === canonicalJson(plan.environment.writable_directories);
 }
-function expectedInventory(manifest: any, receiptIds: string[]): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
+function expectedInventory(manifest: any, receiptIds: string[]): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(manifest.schema_version === "wringer.contained-delivery.v2" ? ["view.json", "certificate.json", "board.html"] : []), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
 /** Portable, controller-validated delivery. No product worktree or repository program runs on the host. */
 export async function deliverContained(options: ContainedDeliveryOptions): Promise<ContainedDeliveryResult> {
     const stateDir = await realpath(options.stateDir);
@@ -246,9 +256,11 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     options.signal?.throwIfAborted();
     await validatePublication(options.publication);
     const stateDir = await realpath(options.stateDir), validated = await readValidatedContainedState(stateDir), { plan, authority, environment, state, result, events } = validated;
+    if (options.expectedRevision !== undefined && options.expectedRevision !== events.at(-1)!.sha256 || options.expectedCandidateTree !== undefined && options.expectedCandidateTree !== state.candidate?.tree)
+        throw new Error("Delivery selection is stale; reload the current journal and candidate before authorizing publication");
     if (state.stage !== "ready" || result.status !== "review-ready" || !state.candidate || !state.verification || !state.baseline)
         throw new Error("Delivery requires a validated terminal review-ready journal, not a mutable result view");
-    const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), id = `contained-${hashValue({ journey: state.id, head: events.at(-1)!.sha256, source: options.publication.sourceBranch, target: options.publication.targetBranch }).slice(0, 24)}`, directory = join(stateDir, "deliveries", id), bundleDir = join(directory, "bundle"), store = join(directory, "objects.git"), bundlePath = `.wringer/deliveries/${id}`;
+    const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), id = `contained-${hashValue({ version: 2, journey: state.id, head: events.at(-1)!.sha256, source: options.publication.sourceBranch, target: options.publication.targetBranch }).slice(0, 24)}`, directory = join(stateDir, "deliveries", id), bundleDir = join(directory, "bundle"), store = join(directory, "objects.git"), bundlePath = `.wringer/deliveries/${id}`;
     const falsify = falsificationRoute(bundlePath);
     await inside(stateDir, relative(stateDir, bundleDir));
     await inside(stateDir, relative(stateDir, store));
@@ -272,7 +284,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     await cloneBundle(carried, store, state.candidate.source.commit, options.signal);
     const observations = new Map<string, any>(), verifications = new Map<string, any>();
     for (const event of events)
-        for (const v of [event.state.baseline, event.state.verification])
+        for (const v of [event.state.baseline, event.state.verification, ...((event.state as any).verificationAttempts ?? []).map((a: any) => a.result)])
             if (v && !verifications.has(v.runtimeId)) {
                 const observed = await observation(stateDir, v, plan);
                 validateObservations(v, observed, plan);
@@ -285,14 +297,14 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     for (const effect of state.effects) {
         const roleResult = effect.result;
         const request = await read(stateDir, `.wringer/contained/effects/${safeId(effect.id, "effect")}/request.json`);
-        const row = { id: effect.id, role: effect.role, status: effect.status, sourceRequestSha256: effect.requestSha256, sourceResultSha256: effect.resultSha256 ?? null, request: { role: request.role, repo: ref(request.repo), runtime: request.runtime, agent: request.agent, budget: request.budget }, result: roleResult ? { status: roleResult.status, sessionId: roleResult.sessionId, stopReason: roleResult.stopReason, protocolVersion: roleResult.protocolVersion, authentication: roleResult.authentication, usage: roleResult.usage ?? null, provenance: provenance(roleResult.provenance), ...(effect.id === state.judgeEffect ? { finding: state.judge } : {}) } : null };
+        const row = { id: effect.id, role: effect.role, status: effect.status, ...((effect as any).disposition ? { disposition: (effect as any).disposition } : {}), sourceRequestSha256: effect.requestSha256, sourceResultSha256: effect.resultSha256 ?? null, request: { role: request.role, repo: ref(request.repo), runtime: request.runtime, agent: request.agent, budget: request.budget, ...(request.scope !== undefined ? { scope: request.scope } : {}) }, result: roleResult ? { status: roleResult.status, sessionId: roleResult.sessionId, stopReason: roleResult.stopReason, protocolVersion: roleResult.protocolVersion, authentication: roleResult.authentication, usage: roleResult.usage ?? null, provenance: provenance(roleResult.provenance), ...(effect.id === state.judgeEffect ? { finding: state.judge } : {}) } : null };
         roleRows.push(row);
         await immutable(join(bundleDir, `roles/${effect.id}.json`), clean(row, redactor, "Role receipt"));
     }
     let previous = "0".repeat(64);
     const projected: any[] = [];
     for (const original of events) {
-        const row = { schema_version: "wringer.contained-delivery-event.v1", sequence: original.sequence, previous, at: original.at, type: original.type, source_event_sha256: original.sha256, state: portableState(original.state) };
+        const row = { schema_version: "wringer.contained-delivery-event.v2", sequence: original.sequence, previous, at: original.at, type: original.type, source_event_sha256: original.sha256, state: portableState(original.state) };
         const projectedEvent = { ...row, sha256: hashValue(row) };
         previous = projectedEvent.sha256;
         projected.push(projectedEvent);
@@ -321,15 +333,16 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         human.push(projection);
         await immutable(join(bundleDir, `human/${safeId(judgement.criterionId, "human criterion")}.json`), clean(projection, redactor, "Human display"));
     }
-    const manifest = { schema_version: "wringer.contained-delivery.v1", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: limitations };
+    const manifest = { schema_version: "wringer.contained-delivery.v2", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: limitations, contracts: containedViewContracts };
+    const view = deriveContainedDeliveryProjection(plan, manifest, human, roleRows), versionedManifest = { ...manifest, viewSha256: containedProjectionDigest(view) };
     await verifySource(store, manifest, plan, environment, observations);
     // Scan reachable source blobs before publishing the exact bundle; never rewrite product bytes to redact.
     const objects = (await git(store, ["rev-list", "--objects", "--all"])).stdout.split("\n").filter(Boolean).map(line => line.split(" ")[0]!);
     const raw = (await git(store, ["cat-file", "--batch"], { input: objects.join("\n") + "\n" })).stdout;
     clean(raw, redactor, "Committed source history");
-    for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": manifest, "projection.json": { schema_version: "wringer.contained-projection.v1", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, limits: limitations } }))
+    for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": versionedManifest, "view.json": view, "certificate.json": renderContainedCertificate(view), "projection.json": { schema_version: "wringer.contained-projection.v2", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, viewSha256: versionedManifest.viewSha256, limits: limitations } }))
         await immutable(join(bundleDir, name), clean(value, redactor, name));
-    for (const [name, body] of Object.entries(documents(plan, manifest, human)))
+    for (const [name, body] of Object.entries({ ...renderContainedDocuments(view, manifest.falsify.reason), "board.html": renderContainedBoard(view) }))
         await immutable(join(bundleDir, name), body);
     same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(manifest, [...verifications.keys()]).filter(name => name !== "digests.json"), "Portable evidence inventory");
     await seal(bundleDir);
@@ -349,7 +362,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     await git(store, ["update-ref", `refs/heads/${options.publication.sourceBranch}`, evidenceCommit]);
     const output: ContainedDeliveryResult = { schema_version: "wringer.contained-publication.v1", status: "prepared", deliveryId: id, bundleDir, codeCommit: manifest.source.codeCommit, evidenceCommit, sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch, auditCommand: manifest.auditCommand, pushed: false, falsify };
     await immutable(join(directory, "prepared.json"), { ...output, transportSha256: hashValue(options.publication) });
-    const forgeOptions = options.publication.forge ? { forge: options.publication.forge, deliveryId: id, bodyPath: relative(stateDir, join(bundleDir, "mr.md")), stateDirectory: relative(stateDir, join(directory, "forge")), sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch, title: plan.name, signal: options.signal, resumeCommand: options.resumeCommand } : null;
+    const forgeOptions = options.publication.forge ? { forge: options.publication.forge, deliveryId: id, bodyPath: relative(stateDir, join(bundleDir, "mr.md")), stateDirectory: relative(stateDir, join(directory, "forge")), sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch, title: plan.name, expectedHeadCommit: evidenceCommit, publicationRemote: options.publication.remote, signal: options.signal, resumeCommand: options.resumeCommand } : null;
     if (forgeOptions)
         output.forge = await publishMergeRequest(stateDir, { ...forgeOptions, send: false });
     if (options.send) {
@@ -379,12 +392,29 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     return output;
 }
 /** Independent offline reader: all claimed source objects, receipts and projected events must travel. */
-export async function auditContained(bundleDir: string): Promise<ContainedAudit> {
+export async function auditContained(bundleDir: string): Promise<ContainedAudit> { return (await inspectContainedDelivery(bundleDir)).report; }
+/** Facts returned only after one complete audit of the same captured records. */
+export async function readContainedDeliveryProjection(bundleDir: string): Promise<ContainedDeliveryProjection> {
+    const { report, view } = await inspectContainedDelivery(bundleDir);
+    if (report.status !== "passed" || !view) throw new Error(`Contained delivery projection is not auditable: ${report.claims.map(c => c.reason).join("; ")}`);
+    return view;
+}
+async function inspectContainedDelivery(bundleDir: string): Promise<{ report: ContainedAudit; view: ContainedDeliveryProjection | null }> {
     const report: ContainedAudit = { schema_version: "wringer.contained-audit.v1", status: "failed", deliveryId: null, codeCommit: null, checks: 0, human: 0, claims: [], limits: limitations };
+    let view: ContainedDeliveryProjection | null = null;
     try {
         await checkSeal(bundleDir);
         const manifest = await read(bundleDir, "manifest.json"), plan = validateExecutionPlan(await read(bundleDir, "plan.json")), authority = await read(bundleDir, "authority.json"), environment = await read(bundleDir, "environment.json");
-        if (manifest.schema_version !== "wringer.contained-delivery.v1" || manifest.planSha256 !== plan.plan_sha256 || manifest.acceptanceSha256 !== plan.acceptance_sha256 || manifest.authoritySha256 !== hashValue(authority) || manifest.environmentSha256 !== environment.map_sha256 || manifest.source.baseCommit !== plan.repository.commit || manifest.source.url !== plan.repository.url)
+        const v2 = manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
+        if (v2) {
+            const checked = await contractReader.validate(manifest, "contained-delivery-v2.schema.json");
+            if (!checked.ok) throw new Error(`Frozen delivery manifest: ${checked.said}`);
+            for (const [value, schema] of [[plan, "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
+                const result = await contractReader.validate(value, schema);
+                if (!result.ok) throw new Error(`Frozen ${schema}: ${result.said}`);
+            }
+        }
+        if (!v2 && manifest.schema_version !== "wringer.contained-delivery.v1" || manifest.planSha256 !== plan.plan_sha256 || manifest.acceptanceSha256 !== plan.acceptance_sha256 || manifest.authoritySha256 !== hashValue(authority) || manifest.environmentSha256 !== environment.map_sha256 || manifest.source.baseCommit !== plan.repository.commit || manifest.source.url !== plan.repository.url)
             throw new Error("Delivery authority/source identities disagree");
         const { map_sha256, ...environmentData } = environment;
         if (map_sha256 !== hashValue(environmentData) || environment.inventory_sha256 !== hashValue(environment.files) || environment.plan_sha256 !== plan.plan_sha256)
@@ -394,13 +424,21 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
         const names = await readdir(await inside(bundleDir, "journal"));
         if (names.length !== manifest.journal.eventCount)
             throw new Error("Portable journal inventory changed");
-        let previous = "0".repeat(64), last: any, redSequence = 0, firstWorker = Infinity;
-        const knownEffects = new Map<string, any>(), receiptRefs = new Map<string, any>();
+        let previous = "0".repeat(64), last: any, redSequence = 0, firstWorker = Infinity, previousTime = -Infinity;
+        const knownEffects = new Map<string, any>(), receiptRefs = new Map<string, any>(), knownVerifications = new Map<string, any>(), knownSources = new Set([plan.repository.commit]);
         for (const [index, name] of names.sort().entries()) {
             if (name !== `${String(index + 1).padStart(6, "0")}.json`)
                 throw new Error("Portable journal sequence changed");
             const event = await read(bundleDir, `journal/${name}`), { sha256, ...body } = event;
-            if (event.schema_version !== "wringer.contained-delivery-event.v1" || event.sequence !== index + 1 || event.previous !== previous || sha256 !== hashValue(body) || !digestPattern.test(event.source_event_sha256))
+            if (v2) {
+                const checked = await contractReader.validate(event, "contained-delivery-event-v2.schema.json");
+                if (!checked.ok) throw new Error(`Frozen portable event: ${checked.said}`);
+            }
+            const eventTime = typeof event.at === "string" ? Date.parse(event.at) : NaN;
+            if (!Number.isFinite(eventTime) || eventTime < previousTime || new Date(eventTime).toISOString() !== event.at)
+                throw new Error("Portable journal has an invalid or non-monotonic timestamp");
+            previousTime = eventTime;
+            if (event.schema_version !== (v2 ? "wringer.contained-delivery-event.v2" : "wringer.contained-delivery-event.v1") || event.sequence !== index + 1 || event.previous !== previous || sha256 !== hashValue(body) || !digestPattern.test(event.source_event_sha256))
                 throw new Error("Portable journal hash chain failed");
             previous = sha256;
             last = event;
@@ -408,6 +446,7 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
                 validateExecutionAuthority(authority, plan, new Date(event.at));
             if (event.state.planSha256 !== plan.plan_sha256 || event.state.authoritySha256 !== hashValue(authority) || event.state.environmentSha256 !== environment.map_sha256 || event.state.id !== manifest.journeyId)
                 throw new Error("Journal authority identity changed");
+            if (event.state.candidate) knownSources.add(event.state.candidate.source.commit);
             if (!Array.isArray(event.state.effects) || new Set(event.state.effects.map((e: any) => e.id)).size !== event.state.effects.length || event.state.effects.length < knownEffects.size)
                 throw new Error("Journal lost or duplicated charged effects");
             for (const effect of event.state.effects) {
@@ -415,6 +454,7 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
                 safeId(effect.id, "effect");
                 if (!["worker", "judge", "planner"].includes(effect.role) || !["reserved", "completed", "uncertain"].includes(effect.status) || !digestPattern.test(effect.requestSha256) || !digestPattern.test(effect.requestIdentity))
                     throw new Error("Malformed journal effect");
+                if (effect.disposition !== undefined && !["accepted", "stopped", "invalid", "unsettled"].includes(effect.disposition)) throw new Error("Malformed role task disposition");
                 if (!prior) {
                     validateExecutionAuthority(authority, plan, new Date(event.at));
                     if (event.type !== "agent-reserved" || !authority.actions.includes(effect.role === "worker" ? "build" : effect.role === "judge" ? "judge" : "plan"))
@@ -430,7 +470,26 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
             for (const role of ["worker", "judge", "planner"] as const)
                 if (event.state.effects.filter((e: any) => e.role === role).length > authority.budget[role === "worker" ? "max_worker_turns" : role === "judge" ? "max_judge_turns" : "max_planner_turns"])
                     throw new Error("Journal exceeded the role budget");
-            for (const v of [event.state.baseline, event.state.verification])
+            const attempts = event.state.verificationAttempts ?? [];
+            if (!Array.isArray(attempts) || attempts.length > authority.budget.max_sessions || attempts.length < knownVerifications.size || new Set(attempts.map((a: any) => a.id)).size !== attempts.length)
+                throw new Error("Portable journal lost or exceeded its verifier reservation ceiling");
+            for (const attempt of attempts) {
+                safeId(attempt.id, "verifier attempt");
+                if (!["baseline", "candidate"].includes(attempt.phase) || !["reserved", "completed", "uncertain"].includes(attempt.status) || !knownSources.has(attempt.sourceCommit) || attempt.requestSha256 !== hashValue({ plan: plan.plan_sha256, source: { url: plan.repository.url, commit: attempt.sourceCommit }, phase: attempt.phase }))
+                    throw new Error("Portable verifier reservation lost its exact source/request binding");
+                const prior = knownVerifications.get(attempt.id);
+                if (!prior) {
+                    validateExecutionAuthority(authority, plan, new Date(event.at));
+                    if (event.type !== "verification-reserved" || attempt.status !== "reserved" || !authority.actions.includes("verify")) throw new Error("Verifier lacks its authorized pre-execution reservation");
+                } else if (prior.requestSha256 !== attempt.requestSha256 || prior.sourceCommit !== attempt.sourceCommit || prior.phase !== attempt.phase || prior.status === "completed" && canonicalJson(prior) !== canonicalJson(attempt)) {
+                    throw new Error("Portable verifier reservation or completed result changed");
+                }
+                if (attempt.status === "completed" ? !attempt.result || attempt.disposition !== attempt.result.status || attempt.result.candidateCommit !== attempt.sourceCommit : attempt.result !== undefined || attempt.disposition !== undefined)
+                    throw new Error("Verifier disposition contradicts its durable observation");
+                knownVerifications.set(attempt.id, attempt);
+            }
+            for (const id of knownVerifications.keys()) if (!attempts.some((a: any) => a.id === id)) throw new Error("Portable journal discarded a charged verifier attempt");
+            for (const v of [event.state.baseline, event.state.verification, ...(event.state.verificationAttempts ?? []).map((a: any) => a.result)])
                 if (v) {
                     const prior = receiptRefs.get(v.runtimeId);
                     if (prior)
@@ -450,6 +509,8 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
             throw new Error("Terminal candidate tree changed");
         same(last.state.baseline, manifest.baseline, "Baseline");
         same(last.state.verification, manifest.verification, "Candidate verification");
+        if (knownVerifications.size) for (const [phase, value] of [["baseline", manifest.baseline], ["candidate", manifest.verification]])
+            if (![...knownVerifications.values()].some(a => a.phase === phase && a.result && canonicalJson(a.result) === canonicalJson(value))) throw new Error("Terminal verification is not a completed reserved attempt");
         same(last.state.judge, manifest.judge, "Judge");
         const observations = new Map<string, any>(), runtimeIds = new Set<string>(), sessionIds = new Set<string>();
         for (const name of await readdir(await inside(bundleDir, "receipts"))) {
@@ -483,14 +544,24 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
             const role = await read(bundleDir, `roles/${safeId(id, "role effect")}.json`);
             roles.push(role);
             const effect = last.state.effects.find((e: any) => e.id === id);
-            if (!effect || effect.role !== role.role || effect.status !== role.status || effect.requestSha256 !== role.sourceRequestSha256 || (effect.resultSha256 ?? null) !== role.sourceResultSha256)
+            if (!effect || effect.role !== role.role || effect.status !== role.status || (effect.disposition ?? null) !== (role.disposition ?? null) || effect.requestSha256 !== role.sourceRequestSha256 || (effect.resultSha256 ?? null) !== role.sourceResultSha256)
                 throw new Error("Role receipt differs from the terminal journal");
             same(role.request.agent, plan.agents[role.role as "worker" | "judge" | "planner"], "Approved role agent");
             same(role.request.runtime, plan.runtime, "Approved role runtime");
+            if (v2 && role.role === "worker") {
+                if (!object(role.request.scope)) throw new Error("Approved worker write scope is missing from the portable role receipt");
+                same(role.request.scope, { writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories }, "Approved worker write scope");
+            }
+            if (v2 && role.role !== "worker" && role.request.scope !== undefined)
+                throw new Error("Read-only role cannot carry worker write authority");
             if (role.request.role !== role.role || role.request.repo.url !== plan.repository.url || role.request.budget.maxTurns !== 1 || !Number.isSafeInteger(role.request.budget.timeoutMs) || role.request.budget.timeoutMs < 1 || role.request.budget.timeoutMs > authority.budget.session_timeout_seconds * 1000)
                 throw new Error("Role request exceeds approved source/budget policy");
             if (role.result) {
                 const p = provenance(role.result.provenance);
+                if (v2) {
+                    const result = await contractReader.validate(p, "runtime-v1.schema.json");
+                    if (!result.ok) throw new Error(`Frozen role runtime: ${result.said}`);
+                }
                 if (runtimeIds.has(p.runtimeId) || p.image !== plan.runtime.image || p.kind !== plan.runtime.kind || p.role !== role.role || p.repository.commit !== role.request.repo.commit)
                     throw new Error("Worker/judge/verifier isolation identities overlap or changed");
                 runtimeIds.add(p.runtimeId);
@@ -517,9 +588,9 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
                     throw new Error("Judge did not establish a required criterion");
         }
         const humanRows: any[] = [];
-        for (const criterion of plan.acceptance.criteria.filter(c => c.kind === "human" && c.required)) {
+        for (const criterion of plan.acceptance.criteria.filter(c => c.kind === "human" && (c.required || v2 && manifest.humanCriteria.includes(c.id)))) {
             const row = await read(bundleDir, `human/${safeId(criterion.id, "criterion")}.json`), j = row.judgement, d = row.display;
-            if (j.criterionId !== criterion.id || j.verdict !== "met" || !j.by?.trim() || typeof j.note !== "string" || j.candidateTree !== manifest.source.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !d.success || d.candidateTree !== manifest.source.tree || d.criterionId !== criterion.id || d.acceptanceSha256 !== plan.acceptance_sha256 || d.measured?.sourceChanged || d.measured?.sourceTree !== manifest.source.tree || !displayRowsValid(d.measured, plan, criterion.id) || row.source_display_sha256 !== j.display?.receiptSha256 || hashValue(d) !== row.source_display_sha256)
+            if (j.criterionId !== criterion.id || !["met", "not_met"].includes(j.verdict) || criterion.required && j.verdict !== "met" || !j.by?.trim() || typeof j.note !== "string" || j.candidateTree !== manifest.source.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !d.success || d.candidateTree !== manifest.source.tree || d.criterionId !== criterion.id || d.acceptanceSha256 !== plan.acceptance_sha256 || d.measured?.sourceChanged || d.measured?.sourceTree !== manifest.source.tree || !displayRowsValid(d.measured, plan, criterion.id) || row.source_display_sha256 !== j.display?.receiptSha256 || hashValue(d) !== row.source_display_sha256)
                 throw new Error("Human verdict is not bound to the shown candidate");
             same(last.state.humanJudgements.find((r: any) => r.criterionId === criterion.id), j, "Human judgement");
             const p = provenance(d.measured.provenance);
@@ -538,11 +609,29 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
         same(manifest.humanCriteria, humanRows.map(row => row.judgement.criterionId), "Human inventory");
         if (manifest.evidencePath !== `.wringer/deliveries/${safeId(manifest.id, "delivery")}` || manifest.auditCommand !== `wringer-drive audit --bundle ${manifest.evidencePath}`)
             throw new Error("Printed audit route differs from the delivered bundle");
-        same(manifest.falsify, falsificationRoute(manifest.evidencePath), "Printed falsification route");
-        for (const [name, body] of Object.entries(documents(plan, manifest, humanRows)))
+        same(manifest.falsify, (v2 ? falsificationRoute : legacyFalsificationRouteV1)(manifest.evidencePath), "Printed falsification route");
+        view = deriveContainedDeliveryProjection(plan, manifest, humanRows, roles);
+        if (v2) {
+            same(manifest.contracts, containedViewContracts, "Delivery view contract versions");
+            if (manifest.viewSha256 !== containedProjectionDigest(view)) throw new Error("Delivery view digest differs from its evidence");
+            same(await read(bundleDir, "view.json"), view, "Delivery view");
+            same(await read(bundleDir, "certificate.json"), renderContainedCertificate(view), "Certificate");
+            for (const [value, schema] of [[manifest, "contained-delivery-v2.schema.json"], [view, "contained-delivery-view-v1.schema.json"], [renderContainedCertificate(view), "contained-certificate-v1.schema.json"]] as const) {
+                const checked = await contractReader.validate(value, schema);
+                if (!checked.ok) throw new Error(`Frozen delivery contract: ${checked.said}`);
+            }
+            if (await readFile(await inside(bundleDir, "board.html"), "utf8") !== renderContainedBoard(view)) throw new Error("Delivered board differs from its audited view");
+        }
+        for (const [name, body] of Object.entries(v2 ? renderContainedDocuments(view, manifest.falsify.reason) : legacyContainedDocumentsV1(plan, manifest, humanRows)))
             if (await readFile(await inside(bundleDir, name), "utf8") !== body)
                 throw new Error("Summary/MR wording disagrees with the source, counts or human notes");
         const projection = await read(bundleDir, "projection.json");
+        if (projection.schema_version !== (v2 ? "wringer.contained-projection.v2" : "wringer.contained-projection.v1") || v2 && projection.viewSha256 !== manifest.viewSha256)
+            throw new Error("Portable projection version or view binding changed");
+        if (v2) {
+            const checked = await contractReader.validate(projection, "contained-projection-v2.schema.json");
+            if (!checked.ok) throw new Error(`Frozen portable projection: ${checked.said}`);
+        }
         if (projection.sourceJournalHeadSha256 !== manifest.journal.sourceHeadSha256 || projection.portableJournalHeadSha256 !== manifest.journal.headSha256)
             throw new Error("Portable projection provenance differs from its journal");
         report.checks = plan.acceptance.checks.length;
@@ -552,5 +641,5 @@ export async function auditContained(bundleDir: string): Promise<ContainedAudit>
     catch (error) {
         report.claims.push({ id: "delivery-integrity", status: "failed", reason: new Redactor().scrub(String(error)) });
     }
-    return report;
+    return { report, view: report.status === "passed" ? view : null };
 }

@@ -123,6 +123,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
 async function evidence(a: Args, repo: string, context: DispatchContext): Promise<Answer> {
     if (flag(a, "help"))
         return { text: BOARD_HELP };
+    if (a.flags.has("state") && ["", "serve", "render"].includes(a.command)) return containedDrive({ ...a, command: "board" }, repo, context);
     positionals(a, 0);
     context.signal?.throwIfAborted();
     switch (a.command || "render") {

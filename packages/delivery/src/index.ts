@@ -5,4 +5,5 @@ export * from "./publish";
 export * from "./forge";
 export * from "./contained";
 export * from "./contained-falsify";
+export * from "./projection";
 export { Refusal, quote } from "./io";

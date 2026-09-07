@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { PassThrough } from "node:stream";
-import { runAcpTurn, type AcpTransport } from "../src/index";
+import { runAcpTurn, probeAcpSession, type AcpTransport } from "../src/index";
 function server(handler: (packet: any, send: (value: any) => void) => void) {
     const input = new PassThrough(), output = new PassThrough(), errors = new PassThrough(), seen: any[] = [];
     let stopped = 0, buffer = "";
@@ -34,6 +34,24 @@ test("ACP negotiates v1, streams final text, never exposes host fs/terminal", as
     expect(fixture.stopped()).toBe(1);
     expect(fixture.seen[0].params.clientCapabilities).toEqual({});
     expect(fixture.seen[1].params).toEqual({ cwd: "/workspace/repo", mcpServers: [] });
+});
+test("a truthful credential observation reaches the controller before any model prompt", async () => {
+    let observed = false, preflight: any;
+    const fixture = server((packet, send) => { lifecycle(packet, send); if (packet.method === "session/prompt") { expect(observed).toBe(true); send(reply(packet, { stopReason: "end_turn" })); } });
+    const result = await runAcpTurn(fixture.transport, { ...options, credentialNames: ["CODEX_API_KEY"], onEvent: async event => {
+        if (event.type === "acp.prompt.preflight") { await new Promise(resolve => setTimeout(resolve, 5)); preflight = event; observed = true; }
+    } });
+    expect(result.status).toBe("completed");
+    expect(preflight.credentialNames).toEqual(["CODEX_API_KEY"]);
+    expect(preflight.providerCredentialValidated).toBe(false);
+    expect(preflight.effectiveCredential).toBe("not-attested");
+    expect(preflight.promptSent).toBe(false);
+    expect(preflight.words).toContain("worker-auth: ACP session opened");
+    expect(preflight.words).toContain("key validity remain unverified");
+    const abort = new AbortController(), cancelled = server(lifecycle);
+    const stop = await runAcpTurn(cancelled.transport, { ...options, signal: abort.signal, onEvent: event => { if (event.type === "acp.prompt.preflight") abort.abort(); } });
+    expect(stop.stopReason).toBe("cancelled");
+    expect(cancelled.seen.some(packet => packet.method === "session/prompt")).toBe(false);
 });
 test("ACP headless permissions select declared allow_once only, judge edits denied", async () => {
     let prompt: any;
@@ -97,3 +115,58 @@ test("interactive auth metadata never runs and auth metadata redacts before retu
     expect(JSON.stringify(result)).not.toContain(secret);
 });
 test("oversized unterminated messages stop before spending a prompt", async () => { const fixture = server(() => fixture.transport.output.emit("data", Buffer.from("a".repeat(300)))); const result = await runAcpTurn(fixture.transport, { ...options, maxMessageBytes: 100 }); expect(result.stopReason).toBe("message-limit"); expect(fixture.seen).toHaveLength(1); });
+
+test("preflight negotiates auth/session/mode and denies all tool effects without a prompt", async () => {
+    let modePacket: any;
+    const fixture = server((packet, send) => {
+        if (packet.method === "initialize") send(reply(packet, { protocolVersion: 1, agentCapabilities: { sessionCapabilities: { close: true } }, authMethods: [{ id: "key", name: "Environment key" }] }));
+        else if (packet.method === "authenticate") send(reply(packet, {}));
+        else if (packet.method === "session/new") send(reply(packet, { sessionId: "session-one", modes: { availableModes: [{ id: "headless" }] } }));
+        else if (packet.method === "session/set_mode") {
+            modePacket = packet;
+            send({ jsonrpc: "2.0", id: "probe-tool", method: "session/request_permission", params: { sessionId: "session-one", toolCall: { toolCallId: "tool", kind: "read" }, options: [{ optionId: "yes", kind: "allow_once" }, { optionId: "no", kind: "reject_once" }] } });
+        } else if (packet.id === "probe-tool") send(reply(modePacket, {}));
+        else if (packet.method === "session/close") send(reply(packet, {}));
+        else if (packet.method === "session/prompt") throw new Error("Preflight must never send a model prompt");
+    });
+    const result = await probeAcpSession(fixture.transport, { ...options, authMethod: "key", mode: "headless" });
+    expect(result.status).toBe("completed");
+    expect(result.stopReason).toBe("session-opened");
+    expect(result.promptSent).toBe(false);
+    expect(result.modelWorkRequested).toBe(false);
+    expect(result.providerCredentialValidated).toBe(false);
+    expect(result.usage).toBeUndefined();
+    expect(result.authentication).toEqual({ methodAttempted: "key", sessionOpened: true });
+    expect(fixture.seen.find(packet => packet.id === "probe-tool").result.outcome.optionId).toBe("no");
+    expect(fixture.seen.filter(packet => packet.method).map(packet => packet.method)).toEqual(["initialize", "authenticate", "session/new", "session/set_mode", "session/close"]);
+    expect(fixture.stopped()).toBe(1);
+});
+
+test("preflight reports invalid key, interactive auth and unsupported protocol without task prompts", async () => {
+    for (const mode of ["invalid-key", "interactive", "unsupported"]) {
+        const fixture = server((packet, send) => {
+            if (packet.method === "initialize") send(reply(packet, { protocolVersion: mode === "unsupported" ? 999 : 1, agentCapabilities: {}, authMethods: [{ id: "key", ...(mode === "interactive" ? { type: "terminal", _meta: { command: "must-not-run" } } : {}) }] }));
+            else if (packet.method === "authenticate") send(reply(packet, {}));
+            else if (packet.method === "session/new") send({ jsonrpc: "2.0", id: packet.id, error: { code: -32000, message: "Authentication required" } });
+        });
+        const result = await probeAcpSession(fixture.transport, { ...options, authMethod: "key" });
+        expect(result.authentication.sessionOpened).toBe(false);
+        expect(result.providerCredentialValidated).toBe(false);
+        expect(result.stopReason).toBe(mode === "invalid-key" ? "authentication-required" : mode === "interactive" ? "interactive-auth-required" : "unsupported-protocol");
+        expect(fixture.seen.some(packet => packet.method === "session/prompt")).toBe(false);
+        expect(fixture.stopped()).toBe(1);
+    }
+});
+
+test("preflight cancellation has a deadline and decoded metadata redaction precedes persistence", async () => {
+    const quiet = server(() => {}), start = Date.now();
+    const stopped = await probeAcpSession(quiet.transport, { ...options, timeoutMs: 20 });
+    expect(stopped.stopReason).toBe("timeout");
+    expect(Date.now() - start).toBeLessThan(1000);
+    expect(quiet.stopped()).toBe(1);
+    const secret = 'synthetic-"quote"-\\-value', events: any[] = [];
+    const fixture = server((packet, send) => { if (packet.method === "initialize") send(reply(packet, { protocolVersion: 1, agentCapabilities: {}, authMethods: [{ id: "key", name: secret }] })); else if (packet.method === "session/new") send(reply(packet, { sessionId: "session-one" })); });
+    const result = await probeAcpSession(fixture.transport, { ...options, redact: text => text.replaceAll(secret, "[REDACTED]"), onEvent: event => { events.push(event); } });
+    expect(result.authMethods[0]!.name).toBe("[REDACTED]");
+    expect(events.find(event => event.type === "acp.initialized").authMethods[0].name).toBe("[REDACTED]");
+});

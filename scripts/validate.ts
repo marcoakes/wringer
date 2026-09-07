@@ -18,6 +18,7 @@ const stages: [
     ["portable-python-corpus", [process.execPath, "test", "packages/records/test", "packages/board/test", "packages/scheduler/test/health.test.ts"], workspace],
     ["standalone-build", [process.execPath, "scripts/build.ts"], workspace],
     ["standalone-contract", [process.execPath, "scripts/distribution.ts"], workspace],
+    ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
     ["local-delivery-fixture", [process.execPath, "scripts/demo.ts"], workspace],
     ["compiled-version", [join(workspace, "dist/wring"), "--version"], repo],
     ["compiled-board", [join(workspace, "dist/wringer-board"), "--help"], repo],

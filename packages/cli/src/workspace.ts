@@ -1,0 +1,90 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { randomBytes, timingSafeEqual } from "node:crypto";
+import { renderPmWorkspace, validatePmWorkspace, type PmWorkspace } from "@wringer/board";
+import { readController, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, type ApplicationOptions } from "@wringer/application";
+import { Redactor } from "@wringer/engine";
+import type { Answer } from "./app";
+
+/** Derive presentation from validated controller facts; no UI record can grant readiness. */
+export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
+    const history = await readController(state, false, true), query = await controllerStatus(state), { plan } = history;
+    // A concurrent transition is retried by the next polling read, never merged into a hybrid view.
+    if (history.events.at(-1)?.sha256 !== query.revision) throw new Error("The run advanced during this read. Refreshing the current record is safe.");
+    const result = query.result, publication = await latestWorkspacePublication(state), operation = await activeWorkspaceCommand(state);
+    if ((await controllerStatus(state)).revision !== query.revision) throw new Error("The run advanced while its delivery was audited. Refresh before acting.");
+    const criteria: PmWorkspace["criteria"] = plan.acceptance.criteria.map(criterion => {
+        const checkIds = plan.acceptance.checks.filter(check => check.criteria.includes(criterion.id)).map(check => check.id);
+        const human = result.humanJudgements.find(row => row.criterionId === criterion.id && row.candidateTree === result.candidate?.tree && row.acceptanceSha256 === plan.acceptance_sha256);
+        const judgement = result.judge?.criteria.find(row => row.id === criterion.id);
+        const checks = checkIds.map(id => result.verification?.checks.find(c => c.id === id));
+        const valid = !!result.candidate && result.verification?.candidateTree === result.candidate.tree;
+        const state = criterion.kind === "human" ? human?.verdict === "met" ? "met" : human?.verdict === "not_met" ? "not-met" : "unknown" : valid && checks.length > 0 && checks.every(c => c?.status === "passed") && judgement?.met === true ? "met" : valid && (checks.some(c => c?.status === "failed") || judgement?.met === false) ? "not-met" : "unknown";
+        return { id: criterion.id, title: criterion.title, kind: criterion.kind, required: criterion.required, state, checkIds, note: criterion.kind === "human" ? human?.note ?? null : judgement?.reason ?? null, by: criterion.kind === "human" ? human?.by ?? null : judgement ? "Independent agent review" : null };
+    });
+    const outcome = (row: { status: string; exitCode: number | null } | undefined) => ({ status: row?.status ?? "not-recorded", exitCode: row?.exitCode ?? null });
+    const deliveryAction = query.actions.find(a => a.id === "deliver")!;
+    const currentPublication = publication && publication.codeCommit === result.candidate?.source.commit ? publication : null;
+    const value: PmWorkspace = {
+        schema_version: "wringer.pm-workspace.v1", name: plan.name, intent: plan.intent, journeyId: query.journeyId, revision: query.revision, status: operation ? operation.status === "running" ? "running" : "stopped" : query.status, stage: query.stage,
+        candidate: result.candidate ? { commit: result.candidate.source.commit, tree: result.candidate.tree, changedPaths: result.candidate.changedPaths } : null,
+        criteria, checks: plan.acceptance.checks.map(check => ({ id: check.id, before: outcome(history.state.baseline?.checks.find(c => c.id === check.id)), after: outcome(result.verification?.checks.find(c => c.id === check.id)) })),
+        usage: { sessions: query.budget.sessions.reserved, ceiling: query.budget.sessions.ceiling, inputTokens: query.budget.tokens.input, outputTokens: query.budget.tokens.output, costUsd: null },
+        actions: [...query.actions.filter(a => a.id !== "deliver"), { ...deliveryAction, id: "prepare-delivery" }, { ...deliveryAction, id: "publish" }].map(a => operation ? { ...a, enabled: false, reason: operation.message } : a),
+        stop: operation?.status === "uncertain" ? { reason: "operation-uncertain", message: operation.message } : query.stop ? { reason: query.stop.reason, message: query.stop.message } : null,
+        updatedAt: history.events.at(-1)!.at,
+        limits: ["This workspace derives the validated controller journal. A button is not additional authority.", "A check and an independent agent judgement support a declared requirement; neither guarantees that every intended behaviour was specified.", `Verifier attempts: ${query.budget.verificationAttempts.reserved}/${query.budget.verificationAttempts.ceiling}; unresolved: ${query.budget.verificationAttempts.unknown}.`, `Whole-journey wall-clock ceiling: ${query.budget.wallClock.ceilingSeconds} seconds${query.budget.wallClock.expired ? " (expired)" : ""}.`, "Host login directories are not shared with agents. Provider cost is not inferred from absent billing observations."],
+        ...(currentPublication ? { publication: { status: currentPublication.forge?.status ?? (currentPublication.pushed ? "branch-pushed" : "prepared"), ...(currentPublication.forge?.url ? { url: currentPublication.forge.url } : {}), deliveryId: currentPublication.deliveryId, bundleDir: currentPublication.bundleDir } } : {}),
+    };
+    return validatePmWorkspace(new Redactor(plan.runtime.env).deep(value));
+}
+/** Public HTML contains no repository facts. The fragment credential unlocks the API only. */
+function bootstrap(): PmWorkspace {
+    return { schema_version: "wringer.pm-workspace.v1", name: "Wringer delivery workspace", intent: "Connect with the private link printed by your controller.", journeyId: "connection-pending", revision: "connection-pending", status: "unconnected", stage: "unconnected", candidate: null, criteria: [], checks: [], usage: { sessions: 0, ceiling: 0, inputTokens: null, outputTokens: null, costUsd: null }, actions: [], stop: null, updatedAt: new Date(0).toISOString(), limits: ["No run data has been loaded. This public shell cannot authorize any action."] };
+}
+export async function createPmWorkspaceServer(stateDirectory: string, options: ApplicationOptions & { port?: number } = {}) {
+    const state = resolve(stateDirectory);
+    await readPmWorkspace(state);
+    const token = randomBytes(32).toString("hex"), secret = Buffer.from(`Bearer ${token}`), nonce = randomBytes(20).toString("base64");
+    const shell = renderPmWorkspace(bootstrap(), { live: true, nonce });
+    const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
+    const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
+    let origin = "";
+    const server = Bun.serve({ hostname: "127.0.0.1", port: options.port ?? 0, development: false, maxRequestBodySize: 64 * 1024, async fetch(request) {
+        const url = new URL(request.url);
+        if (!origin || url.origin !== origin || request.headers.get("host") !== new URL(origin).host) return json({ error: "Unrecognized local controller origin" }, 403);
+        if (request.method === "GET" && url.pathname === "/" && !url.search) return new Response(shell, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+        const supplied = Buffer.from(request.headers.get("authorization") ?? "");
+        if (supplied.length !== secret.length || !timingSafeEqual(supplied, secret)) return json({ error: "This private controller requires its current access token" }, 401);
+        const requestOrigin = request.headers.get("origin");
+        if (requestOrigin && requestOrigin !== origin || request.method !== "GET" && requestOrigin !== origin) return json({ error: "Cross-origin actions are not allowed" }, 403);
+        if (request.headers.get("sec-fetch-site") === "cross-site") return json({ error: "Cross-site access is not allowed" }, 403);
+        try {
+            if (request.method === "GET" && url.pathname === "/api/state") return json(await readPmWorkspace(state));
+            if (request.method === "GET" && /^\/api\/commands\/[a-f0-9-]{36}$/.test(url.pathname)) return json(await readWorkspaceCommand(state, url.pathname.split("/").at(-1)!));
+            if (request.method === "POST" && url.pathname === "/api/commands") {
+                if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use an explicit JSON command" }, 415);
+                const text = await request.text();
+                if (Buffer.byteLength(text) > 64 * 1024) return json({ error: "Command exceeds its size limit" }, 413);
+                return json(await queueWorkspaceCommand(state, JSON.parse(text), options), 202);
+            }
+            return json({ error: "Not found" }, 404);
+        } catch (error) {
+            return json({ error: new Redactor().scrub(error instanceof Error ? error.message : String(error)) }, 409);
+        }
+    } });
+    origin = server.url.origin;
+    options.signal?.addEventListener("abort", () => { void server.stop(true); }, { once: true });
+    return { server, url: `${origin}/#token=${token}`, origin };
+}
+export async function containedWorkspace(state: string, options: { port: number; output?: string; signal?: AbortSignal }): Promise<Answer> {
+    if (options.port > 65535) throw new Error("Invalid local workspace port");
+    if (options.output) {
+        const view = await readPmWorkspace(state);
+        await mkdir(dirname(options.output), { recursive: true });
+        await writeFile(options.output, renderPmWorkspace(view, { live: false }), { flag: "wx", mode: 0o600 });
+        return { value: { path: options.output, view }, text: `Saved read-only workspace: ${options.output}\nJourney: ${view.journeyId}\nThis snapshot cannot approve, run or publish anything.` };
+    }
+    const workspace = await createPmWorkspaceServer(state, options);
+    return { value: { url: workspace.url }, text: `Private PM workspace: ${workspace.url}\nKeep this link private. It can act only on this controller's bounded run.\nKeys stay in the controller; nothing is published without a separate confirmation.\nKeep this process running. Press Ctrl-C to stop the workspace and cancel its active work.` };
+}

@@ -4,6 +4,37 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.3 — PM workspace and guarded recovery (source checkpoint)
+
+- Shared application commands connect the contained CLI and live localhost PM
+  workspace: durable request identity, journal/candidate guards and explicit
+  crash recovery. Browser controls do not grant wider authority.
+- Decision-first board, source-bound human pen, revision requests, separate
+  delivery preparation/publication, honest unknown cost and active-run doctor.
+- Measured environment setup/tools/baselines and bounded ACP planning proposals;
+  existing Keychain credentials reused without replacement.
+- Worker filesystem restrictions, read-only verification, stronger platform
+  admission checks and credential/agent-session preflight without model prompts.
+- Authority expiry caps active discovery/verification/agent work and is checked
+  again after startup, immediately before a paid prompt; reservations survive
+  interruption and do not replenish themselves.
+- Portable delivery v2 shares one fact projection across certificate, board,
+  summary and MR. Legacy v1 remains compatible. Forge identity/state checks and
+  committed-mutant falsification are tightened.
+- Compiled public-command integration, browser/API security, cross-process crash
+  tests, runtime image source and separately labelled real-platform smoke runner.
+
+This is not a public binary/image release or a passing PM blind verdict. Real
+platform, provider and observer results are reported separately; the protocol
+and prerequisites are in `docs/PM_BLIND_TEST.md`.
+
+## 1.0.0-alpha.2 — Root Bun replacement — 2026-09-07
+
+The existing repository moved to one root Bun/TypeScript control plane with
+contained ACP roles and portable delivery. Python harness packaging/runtime was
+retired, not retained as a fallback. The dated implementation report preserves
+that checkpoint's measurements and limitations.
+
 ## 0.9.11 — 2026-09-06
 
 **Run 5B's findings, and the ruling underneath the worst of them.** Codex

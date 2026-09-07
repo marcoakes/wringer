@@ -51,19 +51,47 @@ The production boundary is a fresh Apple Container or gVisor-backed Kubernetes r
 
 Live platform enforcement is a separate acceptance gate. Command/manifest fixtures do not prove a real runtime's filesystem, network, credential, resource or cleanup behavior.
 
+Before model work, check the real plan's prerequisites and optionally open its
+declared ACP sessions without sending a model prompt:
+
+```sh
+wringer-drive doctor --plan PLAN.yaml
+wringer-drive doctor --plan PLAN.yaml --probe-agents
+```
+
+Existing declared keys are reused from the launching environment or the named
+macOS Keychain items. The [credential recipe](HEADLESS.md#reuse-the-credentials-you-already-have)
+names both storage services; do not replace existing keys. Session creation
+does not prove provider key validity or effective credential selection.
+
+If a bounded template declares a planner and nonzero planning budget, it can
+propose acceptance from your PRD before execution approval:
+
+```sh
+wringer-drive propose TEMPLATE.yaml --intent PRD.md --actor 'YOUR NAME' --expires 'EXPIRY_IN_ISO_8601' --state PLANNING_STATE --output PROPOSED_PLAN.json
+```
+
+This command may spend on the declared planner. It cannot expand the template's
+fixed scope/runtime/budget, author product code or grant execution authority.
+Review the proposed plan or genuine questions, then take its printed next step.
+
 ## Read and review the contained result
 
 Retain the controller state path selected for the run:
 
 ```sh
 wringer-drive status --state CONTROLLER_STATE
+wringer-drive board --state CONTROLLER_STATE
 ```
 
 This validates the authoritative journal and reports the state and next action.
 Add `--json` for candidate/check/review details and recorded session/token usage;
-the frozen plan and authority retain the ceilings. The standalone HTML board
-does not yet render contained journey records. Missing observations remain
-missing, not zero or pass.
+the frozen plan and authority retain the ceilings. The live board reads the same
+journal and offers guarded review, revision, recovery and delivery actions.
+Open its private localhost URL and keep the server running; never share its
+control token. `--output NEW_FILE.html` creates a read-only snapshot. Missing
+observations remain missing, not zero or pass. Displays currently present the
+declared command's text output, not an embedded application preview.
 
 When a human criterion is waiting, run its declared display and use the real
 receipt ID printed by that command:

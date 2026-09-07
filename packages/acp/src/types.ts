@@ -28,6 +28,8 @@ export interface AcpTurnOptions {
     authMethod?: string;
     mode?: string;
     allowedToolKinds?: string[];
+    /** Names actually selected by the containing runtime; never credential values. */
+    credentialNames?: string[];
     maxMessageBytes?: number;
     maxOutputBytes?: number;
     redact?: (value: string) => string;
@@ -52,6 +54,12 @@ export interface AcpTurnResult {
     };
     events: Record<string, unknown>[];
     stderr: string;
+}
+export type AcpProbeOptions = Omit<AcpTurnOptions, "prompt" | "allowedToolKinds">;
+export interface AcpSessionProbeResult extends AcpTurnResult {
+    promptSent: false;
+    modelWorkRequested: false;
+    providerCredentialValidated: false;
 }
 export class AcpError extends Error {
     constructor(message: string, readonly code = "protocol-error", readonly data?: unknown) { super(message); this.name = "AcpError"; }

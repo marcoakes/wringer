@@ -34,6 +34,8 @@ jobs:
           path: |
             .wringer/native-validation-*/
             .wringer/native-distribution-*/result.json
+            .wringer/contained-distribution-*/result.json
+            .wringer/contained-distribution-*/transcript.json
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
           if-no-files-found: error

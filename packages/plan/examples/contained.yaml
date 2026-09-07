@@ -20,6 +20,7 @@ agents:
     protocol: acp
     command: codex-acp
     env: [CODEX_API_KEY]
+    authMethod: api-key
   judge:
     protocol: acp
     command: claude-agent-acp

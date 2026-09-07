@@ -2,7 +2,8 @@ import { describe, expect, test } from "bun:test";
 import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compileDeclaration, compileExecutionPlan, canonicalPlanJson, createExecutionAuthority, validateExecutionAuthority, validateExecutionPlan, discoverEnvironment, assertEnvironmentFresh, hashValue } from "../src";
+import { compileDeclaration, compileExecutionPlan, canonicalPlanJson, compilePlanningRequest, createExecutionAuthority, validateExecutionAuthority, validateExecutionPlan, loadExecutionPlan, discoverEnvironment, assertEnvironmentFresh, hashValue } from "../src";
+import { parseYaml } from "@wringer/engine";
 const source = await readFile(new URL("../examples/contained.yaml", import.meta.url), "utf8");
 const declaration = () => { const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...rest } = compileExecutionPlan(source, { format: "yaml" }); return { version: 1, ...rest }; };
 async function git(repo: string, ...args: string[]) {
@@ -18,6 +19,35 @@ describe("canonical production plans", () => {
         const ts = compileExecutionPlan(`import { definePlan } from '@wringer/plan';\nexport default definePlan(${JSON.stringify(declaration())});`, { format: "typescript" });
         expect(canonicalPlanJson(ts)).toBe(canonicalPlanJson(yaml));
         expect(Object.isFrozen(ts.acceptance.criteria)).toBe(true);
+    });
+    test("canonical planner output loads directly without weakening digest or schema validation", async () => {
+        const plan = compileExecutionPlan(source, { format: "yaml" }), wire = canonicalPlanJson(plan), directory = await mkdtemp(join(tmpdir(), "wringer-canonical-plan-")), path = join(directory, "proposed-plan.json");
+        await writeFile(path, wire);
+        expect(await loadExecutionPlan(path)).toEqual(plan);
+        expect(compileExecutionPlan(wire, { format: "yaml" })).toEqual(plan);
+        expect(Object.isFrozen((await loadExecutionPlan(path)).acceptance)).toBe(true);
+        const reordered = Object.fromEntries(Object.entries(JSON.parse(wire)).reverse());
+        expect(compileExecutionPlan(JSON.stringify(reordered), { format: "yaml" })).toEqual(plan);
+        for (const mutated of [
+            { ...plan, intent: "A substituted requirement." },
+            { ...plan, plan_sha256: "f".repeat(64) },
+            { ...plan, acceptance_sha256: "f".repeat(64) },
+            { ...plan, runtime: { ...plan.runtime, network: { policy: "allowlist", allow: [{ cidr: "1.2.3.4/32", ports: [443] }] } } },
+            { ...plan, schema_version: "wringer.execution-plan.v999" },
+            { ...plan, version: 1 },
+        ]) {
+            await writeFile(path, JSON.stringify(mutated));
+            await expect(loadExecutionPlan(path)).rejects.toThrow();
+        }
+        expect(() => compileExecutionPlan(wire.replace('"schema_version":', '"schema_version":"wringer.execution-plan.v1","schema_version":'), { format: "yaml" })).toThrow();
+    });
+    test("the planning starter declares a bounded planner and no pretend acceptance", async () => {
+        const text = await readFile(new URL("../examples/planning.yaml", import.meta.url), "utf8"), request = compilePlanningRequest(parseYaml(text));
+        expect(request.agents.planner?.protocol).toBe("acp");
+        expect(request.budget.max_planner_turns).toBeGreaterThan(0);
+        expect(request).not.toHaveProperty("acceptance");
+        expect(request.runtime.network.policy).toBe("deny");
+        expect(() => compileExecutionPlan(text, { format: "yaml" })).toThrow();
     });
     test("executable TS, imports, callbacks, aliases and prototype keys are never evaluated", () => {
         for (const malicious of [
@@ -60,6 +90,8 @@ describe("canonical production plans", () => {
         expect(() => validateExecutionAuthority({ ...authority, budget: { ...authority.budget, max_sessions: 999 } }, plan, at)).toThrow("ceiling");
         expect(() => validateExecutionAuthority({ ...authority, actions: ["human-judge"] }, plan, at)).toThrow();
         expect(() => validateExecutionAuthority(authority, plan, new Date("2026-09-06T12:00:00Z"))).toThrow();
+        expect(() => validateExecutionAuthority(authority, plan, new Date("not-a-time"))).toThrow("finite observation time");
+        expect(() => validateExecutionAuthority(authority, plan, new Date(NaN))).toThrow("finite observation time");
         expect(() => validateExecutionPlan({ ...plan, intent: "Changed source" })).toThrow();
     });
     test("verifier output policy is canonical, budget-owned and disjoint from protected input", () => {

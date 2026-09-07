@@ -4,3 +4,6 @@ export * from "./driver";
 export * from "./adapters";
 export * from "./execute";
 export * from "./source";
+export * from "./filesystem";
+export * from "./observations";
+export * from "./redact";

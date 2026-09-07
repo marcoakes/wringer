@@ -4,9 +4,9 @@ Turn a product specification into a checked change, with evidence someone else c
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.2` is a prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.3` is a prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
-Read the [current acceptance and status report](docs/REWRITE_REPORT_2026-09-07.md)
+Read the [current PM preparation and status report](docs/PM_READINESS_2026-09-07.md)
 for this checkpoint's measured results and remaining gaps.
 
 [Install](INSTALL.md) · [Quickstart](QUICKSTART.md) · [For product managers](README-PM.md) · [Unattended operation](docs/native/HEADLESS.md) · [Security](SECURITY.md) · [Roadmap](ROADMAP.md)
@@ -43,7 +43,12 @@ Built · Checks passing · Requirements proved · Human judgement complete · Re
 
 A passing suite is not a completed product. A machine requirement needs a declared check and resolvable evidence; missing evidence is not zero and is not a pass. A human requirement stays human. Delivery is a separate, explicit decision.
 
-The contained journey reports its validated state through `wringer-drive status --state DIRECTORY` and carries its checks, source identities, review records and red-first receipts into delivery. Its `mr.md` names the exact offline audit command and where to run it. The standalone board, summary and certificate share requirement wording for the older verification record format; that board does not yet render contained journey state.
+Open `wringer-drive board --state DIRECTORY` for the live PM workspace. It reads
+the validated journal and offers source-bound review, revision and delivery
+actions through the same application layer as the CLI. The delivery's board,
+certificate, summary and MR derive from one carried fact record. Its `mr.md`
+names the exact offline audit command and where to run it. Older standalone
+verification records keep their separate, read-only-compatible views.
 
 ## Three product pillars
 

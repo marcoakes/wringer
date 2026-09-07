@@ -36,13 +36,20 @@ export interface ContainedJourneyServices {
     /** Idempotent for effectId. Apply runtime-captured patch, never worker narrative. */
     captureCandidate: (result: RoleExecutionResult, base: RepositorySource, effectId: string) => Promise<CandidateSource>;
     /** Pinned original acceptance inputs in a fresh independent runtime. */
-    verifyCandidate: (request: {
-        plan: ExecutionPlan;
-        source: RepositorySource;
-        phase: "baseline" | "candidate";
-        effectId: string;
-        signal?: AbortSignal;
-    }) => Promise<CandidateVerification>;
+    verifyCandidate: (request: ContainedVerificationRequest) => Promise<CandidateVerification>;
+    /** Read retained observations only. Must never allocate or execute a runtime. */
+    reconcileVerification?: (request: ContainedVerificationRequest) => Promise<CandidateVerification | null>;
+}
+export interface ContainedVerificationRequest {
+    plan: ExecutionPlan;
+    source: RepositorySource;
+    phase: "baseline" | "candidate";
+    effectId: string;
+    signal?: AbortSignal;
+}
+export interface ContainedRevisionGuard {
+    expectedRevision?: string;
+    expectedCandidateTree?: string | null;
 }
 export interface CandidateHumanJudgement {
     criterionId: string;
@@ -57,7 +64,7 @@ export interface CandidateHumanJudgement {
         receiptSha256: string;
     };
 }
-export interface ContainedJourneyOptions {
+export interface ContainedJourneyOptions extends ContainedRevisionGuard {
     controllerDir: string;
     plan: ExecutionPlan;
     authority: ExecutionAuthority;
@@ -68,6 +75,10 @@ export interface ContainedJourneyOptions {
     retryUncertain?: boolean;
     /** Explicitly permits a new bounded session after a known stopped/invalid role result. */
     retryStopped?: boolean;
+    /** New independent attempt after a durably observed unavailable verifier. */
+    retryVerification?: boolean;
+    /** New judge session after a completed but explicitly unsettled task. */
+    retryJudge?: boolean;
     humanJudgements?: CandidateHumanJudgement[];
     signal?: AbortSignal;
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;

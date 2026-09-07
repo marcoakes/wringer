@@ -217,7 +217,12 @@ export function compileExecutionPlan(source: string, options: {
 }): ExecutionPlan {
     if (Buffer.byteLength(source) > 1024 * 1024)
         throw new Error("Plan source exceeds 1 MiB");
-    return compileDeclaration(options.format === "typescript" ? parsePlanTypeScript(source, options.sourceName) : parseYaml(source, options.sourceName ?? "execution plan"));
+    const value = options.format === "typescript" ? parsePlanTypeScript(source, options.sourceName) : parseYaml(source, options.sourceName ?? "execution plan");
+    // Proposals are frozen canonical records, not a second declaration format.
+    // Revalidate their complete digests; never strip hashes to accept tampering.
+    if (value && typeof value === "object" && !Array.isArray(value) && "schema_version" in value)
+        return validateExecutionPlan(value);
+    return compileDeclaration(value);
 }
 export async function loadExecutionPlan(path: string): Promise<ExecutionPlan> {
     const stat = await lstat(path);
@@ -228,6 +233,8 @@ export async function loadExecutionPlan(path: string): Promise<ExecutionPlan> {
 export const canonicalPlanJson = (plan: ExecutionPlan) => canonicalJson(validateExecutionPlan(plan)) + "\n";
 export const executionPlanDigest = (plan: ExecutionPlan) => validateExecutionPlan(plan).plan_sha256;
 export function validateExecutionAuthority(value: unknown, plan: ExecutionPlan, at = new Date()): ExecutionAuthority {
+    if (!(at instanceof Date) || !Number.isFinite(at.getTime()))
+        throw new Error("Authority validation requires a finite observation time");
     const authorityWire = canonicalJson(value), secrets = (plan.runtime.env ?? []).map(name => process.env[name]).filter((v): v is string => !!v);
     if (new Redactor(undefined, process.env, secrets).scrub(authorityWire) !== authorityWire)
         throw new Error("Authority contains a detected credential; values belong only in the runtime secret channel");

@@ -1,1 +1,1 @@
-{"name":"@wringer/scheduler","version":"1.0.0-alpha.2","private":true,"type":"module","main":"src/index.ts","dependencies":{"@wringer/engine":"workspace:*","@wringer/delivery":"workspace:*","@wringer/records":"workspace:*"}}
+{"name":"@wringer/scheduler","version":"1.0.0-alpha.3","private":true,"type":"module","main":"src/index.ts","dependencies":{"@wringer/engine":"workspace:*","@wringer/delivery":"workspace:*","@wringer/records":"workspace:*"}}

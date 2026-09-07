@@ -41,9 +41,19 @@ Use the same controller directory, not the isolated target clone:
 
 ```sh
 wringer-drive status --state CONTROLLER_STATE
+wringer-drive board --state CONTROLLER_STATE
 ```
 
-Status validates the authoritative journal before showing the recorded state and next action. Add `--json` for candidate, verification, review and usage details. Preserve the source identity and named records. The standalone HTML board does not yet render this contained state; running it in the controller directory does not turn it into a contained board.
+Status validates the authoritative journal before showing the recorded state and
+next action. The board prints a private localhost URL; open it and keep the
+server running. It shows the outcome, requirements, check evidence, your decision,
+usage and next permitted action. A disconnected or stale view cannot approve an
+old candidate. The token in that URL grants local control: do not share it.
+Use `--output NEW_FILE.html` for a read-only snapshot instead.
+
+The board's display is the declared command's **text output**, not an embedded
+web application. Choose a display that actually supports the human criterion;
+printing a URL is not evidence that someone inspected that application.
 
 For a requirement reserved for a person, use the exact human criterion ID from your plan and the recorded stop:
 
@@ -110,3 +120,23 @@ The older verification record format remains supported separately: `wring init`,
 Preserve the command, exit status, whole stop and named evidence path. Follow the printed recovery route. Resume should reuse recorded work and its original ceilings; an uncertain request is not silently sent again. Replacing a key, weakening isolation, editing an approval, or claiming a human saw something is not routine recovery.
 
 See [unattended operation](docs/native/HEADLESS.md) for one-time authority and [security](SECURITY.md) for execution boundaries.
+
+## Optional planning from your PRD
+
+If your bounded template declares an ACP planner and a nonzero planning budget,
+delegate the acceptance proposal before granting execution authority:
+
+Start from the [planning template](packages/plan/examples/planning.yaml), also
+shipped at `dist/docs/examples/planning.yaml`. It is compile-only: fill its real
+repository, image, role, network and budget choices first. The execution template
+does not declare a planner and cannot be used unchanged for this command.
+
+```sh
+wringer-drive propose TEMPLATE.yaml --intent PRD.md --actor 'YOUR NAME' --expires 'EXPIRY_IN_ISO_8601' --state PLANNING_STATE --output PROPOSED_PLAN.json
+```
+
+This explicit command authorizes planning only and may spend on that agent.
+The planner can propose acceptance or ask a genuine product question; it cannot
+expand the fixed repository, scope, runtime or budget. Review the proposed plan
+before following its printed authority command. Check-authoring that requires
+new protected source files is not silently performed by the controller.

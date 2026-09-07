@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/forge-publication-v2.schema.json",
+  "title": "forge-publication-v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "state_directory",
+    "request_sha256",
+    "next_move"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.forge-publication.v2"
+    },
+    "status": {
+      "enum": [
+        "prepared",
+        "published",
+        "recovered",
+        "closed",
+        "merged",
+        "blocked",
+        "uncertain"
+      ]
+    },
+    "state_directory": {
+      "type": "string"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "url": {
+      "type": "string"
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "hosted_state": {
+      "enum": [
+        "open",
+        "closed",
+        "merged"
+      ]
+    },
+    "head_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "repository": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "next_move": {
+      "type": "string"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "published",
+              "recovered",
+              "closed",
+              "merged"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "required": [
+          "url",
+          "number",
+          "hosted_state",
+          "head_commit",
+          "repository"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "published",
+              "recovered"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hosted_state": {
+            "const": "open"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "closed"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hosted_state": {
+            "const": "closed"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "merged"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "hosted_state": {
+            "const": "merged"
+          }
+        }
+      }
+    }
+  ]
+}

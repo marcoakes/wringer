@@ -208,7 +208,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
             await git(repo, ["update-ref", `refs/heads/${branch}`, evidenceCommit, codeCommit]);
             await git(repo, ["push", remote, `refs/heads/${branch}:refs/heads/${branch}`]);
         }
-        const publication = config.forge ? await publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId: id, bodyPath: join(directory, "mr.md"), sourceBranch: branch, targetBranch: baseName, title, send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(id)} --send` }) : undefined;
+        const publication = config.forge ? await publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId: id, bodyPath: join(directory, "mr.md"), sourceBranch: branch, targetBranch: baseName, title, expectedHeadCommit: evidenceCommit ?? undefined, publicationRemote: await git(repo, ["remote", "get-url", remote]), send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(id)} --send` }) : undefined;
         return { delivery_id: id, directory, branch, commit: codeCommit, evidence_commit: evidenceCommit, pushed, mode: options.send ? "live" : "dry_run", audit_command: auditCommand, falsify_command: falsifyCommand, ...(publication ? { publication } : {}), next_move: publication && !["published", "recovered", "prepared"].includes(publication.status) ? publication.next_move : options.send ? `cd ${quote(repo)} && ${falsifyCommand}` : `wring deliver --repo ${quote(repo)} --send` };
     }
     catch (error) {

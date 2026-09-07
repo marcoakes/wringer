@@ -7,7 +7,7 @@ import { processDriver, runContainedCommands, type ContainedCommandRequest, type
 import { Redactor } from "@wringer/engine";
 import { auditContained } from "./contained";
 import { mutationPlan, type Mutation } from "./falsify";
-import { inside, files, seal, quote } from "./io";
+import { inside, files, seal } from "./io";
 export interface ContainedFalsifyOptions {
     bundleDir: string;
     outputDir?: string;
@@ -16,7 +16,7 @@ export interface ContainedFalsifyOptions {
     signal?: AbortSignal;
 }
 export interface ContainedFalsification {
-    schema_version: "wringer.contained-falsification.v1";
+    schema_version: "wringer.contained-falsification.v2";
     id: string;
     deliveryId: string;
     measuredAt: string;
@@ -51,6 +51,7 @@ export interface ContainedFalsification {
         caughtBy: string[];
         receipt: string | null;
         reason: string;
+        source?: { commit: string; tree: string; bundle: string; bundleSha256: string };
     }[];
     counts: {
         supported: number;
@@ -64,13 +65,13 @@ export interface ContainedFalsification {
 }
 const limits = [
     "A bounded lexical mutation challenge, not a correctness proof or a complete mutation score. Unsupported languages, operators and equivalent mutants are not resolved.",
-    "Only supported added/changed committed source lines are challenged; the unchanged pinned acceptance inputs and regression commands run in a new isolated clone for every control and mutant.",
+    "Only supported added/changed committed source lines are challenged. Each mutant is materialized as a controller-owned Git child commit and carried bundle, then cloned read-only; no check command is granted permission to mutate source.",
     "A timeout, missing command, failed setup, failed mutation-integrity check or unavailable runtime is not a caught mutant. No worker or judge is called and no agent answer determines the result.",
     "Platform provenance is recorded; these receipts do not substitute for the live Apple-container/gVisor isolation release gate. Execution may require the declared image and network policy; no host fallback exists.",
 ];
-const env = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0" };
-async function git(store: string, args: string[], signal?: AbortSignal) {
-    const result = await processDriver.command(["git", "--no-replace-objects", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=always", "--git-dir", store, ...args], { signal, env, timeoutMs: 60000 });
+const env = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "Wringer falsification", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer falsification", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
+async function git(store: string, args: string[], signal?: AbortSignal, input?: string, timeoutMs = 60000) {
+    const result = await processDriver.command(["git", "--no-replace-objects", "-c", "core.hooksPath=/dev/null", "-c", "core.fsmonitor=false", "-c", "commit.gpgsign=false", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=always", "--git-dir", store, ...args], { signal, env, input, timeoutMs });
     if (result.code !== 0)
         throw new Error(`Falsification source operation failed: ${new Redactor().scrub(result.stderr)}`);
     return result.stdout;
@@ -89,21 +90,9 @@ function sanitize(value: unknown, redactor: Redactor): unknown {
         return Object.fromEntries(Object.entries(value).map(([key, item]) => [redactor.scrub(key), sanitize(item, redactor)]));
     return value;
 }
-function commands(plan: ExecutionPlan, remaining: number, mutation?: {
-    candidate: Mutation;
-    original: string;
-    altered: string;
-}): ContainedCommandRequest["commands"] {
+function commands(plan: ExecutionPlan, remaining: number): ContainedCommandRequest["commands"] {
     const rows: ContainedCommandRequest["commands"] = plan.environment.setup.map(c => ({ id: `setup/${c.id}`, argv: c.argv, cwd: c.cwd, timeoutMs: Math.min(remaining, c.timeout_seconds * 1000) }));
-    if (mutation) {
-        const { candidate, original, altered } = mutation, target = quote(`./${candidate.path}`), before = hashBytes(original), after = hashBytes(altered);
-        rows.push({ id: "mutation/apply", cwd: ".", timeoutMs: Math.min(remaining, 10000), argv: ["/bin/sh", "-c", `set -eu; test "$(sha256sum ${target} | cut -d ' ' -f 1)" = ${quote(before)}; printf %s ${quote(altered)} > ${target}; test "$(sha256sum ${target} | cut -d ' ' -f 1)" = ${quote(after)}`] });
-    }
     rows.push(...plan.environment.baseline.map(c => ({ id: `baseline/${c.id}`, argv: c.argv, cwd: c.cwd, timeoutMs: Math.min(remaining, c.timeout_seconds * 1000) })), ...plan.acceptance.checks.map(c => ({ id: `acceptance/${c.id}`, argv: c.argv, cwd: c.cwd, timeoutMs: Math.min(remaining, c.timeout_seconds * 1000) })));
-    if (mutation) {
-        const target = quote(`./${mutation.candidate.path}`);
-        rows.push({ id: "mutation/integrity", cwd: ".", timeoutMs: Math.min(remaining, 10000), argv: ["/bin/sh", "-c", `set -eu; test "$(sha256sum ${target} | cut -d ' ' -f 1)" = ${quote(hashBytes(mutation.altered))}; test "$(git -c core.quotePath=false diff --name-only --no-renames)" = ${quote(mutation.candidate.path)}; test -z "$(git ls-files --others -- . ${plan.environment.writable_directories.map(directory => quote(`:(exclude,literal)${directory}`)).join(" ")})"`] });
-    }
     return rows;
 }
 /** Mechanical challenges of exact committed source, exclusively through the configured contained verifier. */
@@ -146,27 +135,51 @@ export async function falsifyContained(options: ContainedFalsifyOptions, service
     await git(store, ["fetch", "--no-tags", bundlePath, `${manifest.source.codeCommit}:refs/heads/candidate`], options.signal);
     const diff = await git(store, ["diff", "--no-ext-diff", "--no-textconv", "--unified=0", manifest.source.baseCommit, manifest.source.codeCommit, "--"], options.signal), protectedFiles = [...new Set([...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(c => c.files)])], protectedInput = (await readFile(join(carried, manifest.verification.evidenceRef, "observations.json"), "utf8")), inputSha = JSON.parse(protectedInput).checkInputsSha256;
     const candidates = mutationPlan(diff).filter(c => !protectedFiles.some(p => p === "." || c.path === p || c.path.startsWith(p + "/")) && plan.scope.writable.some(p => p === "." || c.path === p || c.path.startsWith(p + "/")) && !c.path.startsWith("/") && !c.path.split("/").some(p => p === ".." || p === ".git") && !/[\x00-\x1f\x7f]/.test(c.path));
-    const record: ContainedFalsification = { schema_version: "wringer.contained-falsification.v1", id: randomUUID(), deliveryId: manifest.id, measuredAt: new Date().toISOString(), status: "inconclusive", reason: "No complete measurement was made.", anchor: { baseCommit: manifest.source.baseCommit, codeCommit: manifest.source.codeCommit, candidateTree: manifest.source.tree, committedRange: `${manifest.source.baseCommit}..${manifest.source.codeCommit}`, diffSha256: hashBytes(diff), candidateBundleSha256: hashBytes(await readFile(bundlePath)), deliveryManifestSha256: hashBytes(await readFile(join(carried, "manifest.json"))), acceptanceSha256: plan.acceptance_sha256 }, budget: { maxAttempts: max, wallSeconds: wall }, control: { status: "unavailable", receipt: null, reason: "Not attempted." }, attempts: [], counts: { supported: candidates.length, attempted: 0, caught: 0, survived: 0, unavailable: 0, unattempted: candidates.length }, limits };
+    const record: ContainedFalsification = { schema_version: "wringer.contained-falsification.v2", id: randomUUID(), deliveryId: manifest.id, measuredAt: new Date().toISOString(), status: "inconclusive", reason: "No complete measurement was made.", anchor: { baseCommit: manifest.source.baseCommit, codeCommit: manifest.source.codeCommit, candidateTree: manifest.source.tree, committedRange: `${manifest.source.baseCommit}..${manifest.source.codeCommit}`, diffSha256: hashBytes(diff), candidateBundleSha256: hashBytes(await readFile(bundlePath)), deliveryManifestSha256: hashBytes(await readFile(join(carried, "manifest.json"))), acceptanceSha256: plan.acceptance_sha256 }, budget: { maxAttempts: max, wallSeconds: wall }, control: { status: "unavailable", receipt: null, reason: "Not attempted." }, attempts: [], counts: { supported: candidates.length, attempted: 0, caught: 0, survived: 0, unavailable: 0, unattempted: candidates.length }, limits };
     const save = async (name: string, value: unknown) => { const file = await inside(directory, name); await mkdir(resolve(file, ".."), { recursive: true, mode: 0o700 }); await writeFile(file, JSON.stringify(sanitize(value, redactor), null, 2) + "\n", { flag: "wx", mode: 0o600 }); };
     await save("anchor.json", record.anchor);
     const started = performance.now(), runtimeIds = new Set<string>(), execute = services.executeCommands ?? runContainedCommands, remaining = () => Math.max(0, wall * 1000 - (performance.now() - started));
-    const measure = async (name: string, mutation?: {
-        candidate: Mutation;
-        original: string;
-        altered: string;
-    }) => {
+    const boundedGit = async (args: string[], input?: string) => {
+        if (remaining() < 1 || options.signal?.aborted) throw new Error("Wall-clock ceiling or cancellation stopped mutant materialization");
+        return git(store, args, options.signal, input, remaining());
+    };
+    const materialize = async (name: string, candidate: Mutation, mode: string, originalBlob: string, original: string, altered: string) => {
+        const mutationIdentity = hashValue({ codeCommit: manifest.source.codeCommit, path: candidate.path, line: candidate.line, beforeSha256: hashBytes(original), afterSha256: hashBytes(altered) });
+        await save(`reservations/${name}-source.json`, { schema_version: "wringer.contained-mutant-reservation.v1", mutationIdentity, codeCommit: manifest.source.codeCommit, path: candidate.path, line: candidate.line });
+        await boundedGit(["read-tree", manifest.source.codeCommit]);
+        const blob = (await boundedGit(["hash-object", "-w", "--stdin"], altered)).trim();
+        await boundedGit(["update-index", "--add", "--cacheinfo", `${mode},${blob},${candidate.path}`]);
+        const tree = (await boundedGit(["write-tree"])).trim();
+        const changed = (await boundedGit(["diff", "--name-only", "-z", manifest.source.codeCommit, tree, "--"])).split("\0").filter(Boolean);
+        if (changed.length !== 1 || changed[0] !== candidate.path) throw new Error("Materialized mutant changes more than its exact declared source path");
+        const originalChecks = await boundedGit(["--literal-pathspecs", "ls-tree", "-r", "-z", manifest.source.codeCommit, "--", ...protectedFiles]);
+        const mutantChecks = await boundedGit(["--literal-pathspecs", "ls-tree", "-r", "-z", tree, "--", ...protectedFiles]);
+        if (originalChecks !== mutantChecks) throw new Error("Materialized mutant changed protected acceptance inputs");
+        const commit = (await boundedGit(["commit-tree", tree, "-p", manifest.source.codeCommit, "-m", `Bounded source mutation ${mutationIdentity}`])).trim();
+        const ref = `refs/heads/wringer-falsify-${name}`;
+        await boundedGit(["update-ref", ref, commit]);
+        const relativeBundle = `mutants/${name}.bundle`, path = await inside(directory, relativeBundle);
+        await mkdir(resolve(path, ".."), { recursive: true, mode: 0o700 });
+        await boundedGit(["bundle", "create", path, ref]);
+        if ((await lstat(path)).size > 64 * 1024 * 1024) throw new Error("Materialized mutant bundle exceeds the 64 MiB ceiling");
+        const result = { commit, tree, bundle: relativeBundle, bundleSha256: hashBytes(await readFile(path)) };
+        await save(`mutants/${name}.json`, { schema_version: "wringer.contained-mutant.v1", mutationIdentity, parentCommit: manifest.source.codeCommit, originalBlob, mutantBlob: blob, path: candidate.path, line: candidate.line, beforeSha256: hashBytes(original), afterSha256: hashBytes(altered), ...result });
+        return result;
+    };
+    const measure = async (name: string, mutated?: NonNullable<ContainedFalsification["attempts"][number]["source"]>) => {
         if (remaining() < 1 || options.signal?.aborted)
             throw new Error("Wall-clock ceiling or cancellation stopped measurement");
-        const request: ContainedCommandRequest = { repo: { url: manifest.source.url, commit: manifest.source.codeCommit, bundlePath }, runtime: plan.runtime, acceptanceSource: { url: plan.repository.url, commit: plan.repository.commit, bundlePath }, protectedFiles, writableDirectories: plan.environment.writable_directories, commands: commands(plan, remaining(), mutation), timeoutMs: remaining(), signal: options.signal };
+        const measuredCommit = mutated?.commit ?? manifest.source.codeCommit, measuredTree = mutated?.tree ?? manifest.source.tree;
+        const request: ContainedCommandRequest = { repo: { url: manifest.source.url, commit: measuredCommit, bundlePath: mutated ? await inside(directory, mutated.bundle) : bundlePath }, runtime: plan.runtime, acceptanceSource: { url: plan.repository.url, commit: plan.repository.commit, bundlePath }, protectedFiles, writableDirectories: plan.environment.writable_directories, commands: commands(plan, remaining()), timeoutMs: remaining(), signal: options.signal };
         const { signal: _signal, ...serializableRequest } = request;
         const requestSha256 = hashValue({ ...serializableRequest, repo: { url: request.repo.url, commit: request.repo.commit }, acceptanceSource: { url: request.acceptanceSource!.url, commit: request.acceptanceSource!.commit } });
-        await save(`reservations/${name}.json`, { schema_version: "wringer.contained-falsify-reservation.v1", at: new Date().toISOString(), requestSha256, anchorSha256: hashValue(record.anchor), timeoutMs: request.timeoutMs, commandIds: request.commands.map(c => c.id) });
+        await save(`reservations/${name}.json`, { schema_version: "wringer.contained-falsify-reservation.v2", at: new Date().toISOString(), requestSha256, anchorSha256: hashValue(record.anchor), source: { commit: measuredCommit, tree: measuredTree, bundleSha256: mutated?.bundleSha256 ?? record.anchor.candidateBundleSha256 }, timeoutMs: request.timeoutMs, commandIds: request.commands.map(c => c.id) });
         const measured = await execute(request), p = measured.provenance;
         if (!Array.isArray(measured.results) || measured.results.some(r => typeof r.stdout !== "string" || typeof r.stderr !== "string" || Buffer.byteLength(r.stdout + r.stderr) > 1024 * 1024))
             throw new Error("A command observation exceeded the 1 MiB portable ceiling; no truncated result is claimed");
         const receipt = `receipts/${name}.json`;
         await save(receipt, { schema_version: "wringer.contained-falsify-observation.v1", requestSha256, measured: portable(measured, redactor) });
-        if (p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository.commit !== manifest.source.codeCommit || !p.clonedInside || p.hostMounts.length || !p.runtimeId || runtimeIds.has(p.runtimeId) || measured.sourceTree !== manifest.source.tree || measured.checkInputsSha256 !== inputSha)
+        if (p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository.url !== manifest.source.url || p.repository.commit !== measuredCommit || p.repositoryAccess !== "read-only" || !p.clonedInside || p.hostMounts.length || !p.runtimeId || runtimeIds.has(p.runtimeId) || measured.sourceTree !== measuredTree || measured.checkInputsSha256 !== inputSha)
             throw new Error("Verifier source/input/runtime identity is unavailable or was reused");
         if (JSON.stringify(p.observed.writableDirectories ?? []) !== JSON.stringify(plan.environment.writable_directories))
             throw new Error("Verifier writable-output policy changed");
@@ -176,8 +189,8 @@ export async function falsifyContained(options: ContainedFalsifyOptions, service
         const infrastructure = measured.results.find(r => timedOut(r.code) || (r.id.startsWith("setup/") || r.id.startsWith("mutation/")) && r.code !== 0);
         if (infrastructure)
             throw new Error(`Infrastructure or mutation integrity failed at ${infrastructure.id} (exit ${infrastructure.code}); no caught mutant is claimed`);
-        if (mutation ? !measured.sourceChanged : measured.sourceChanged)
-            throw new Error(mutation ? "Mutation was not observed in the candidate clone" : "The unmutated control changed repository source");
+        if (measured.sourceChanged !== false)
+            throw new Error("Read-only verification changed its committed source; no caught mutant is claimed");
         return { receipt, caught: measured.results.filter(r => (r.id.startsWith("acceptance/") || r.id.startsWith("baseline/")) && r.code !== 0).map(r => r.id) };
     };
     if (!candidates.length) {
@@ -201,24 +214,25 @@ export async function falsifyContained(options: ContainedFalsifyOptions, service
                     break;
                 const index = record.attempts.length, row: ContainedFalsification["attempts"][number] = { path: candidate.path, line: candidate.line, mutation: candidate.mutation, beforeSha256: null, afterSha256: null, status: "unavailable", caughtBy: [], receipt: null, reason: "" };
                 try {
-                    const entry = await git(store, ["--literal-pathspecs", "ls-tree", manifest.source.codeCommit, "--", candidate.path], options.signal);
+                    const entry = await boundedGit(["--literal-pathspecs", "ls-tree", manifest.source.codeCommit, "--", candidate.path]);
                     if (!/^100(?:644|755) blob [a-f0-9]+\t/.test(entry))
                         throw new Error("Mutation target is not a regular committed blob");
                     const blob = / blob ([a-f0-9]+)\t/.exec(entry)![1]!;
-                    if (Number((await git(store, ["cat-file", "-s", blob], options.signal)).trim()) > 32768)
+                    if (Number((await boundedGit(["cat-file", "-s", blob])).trim()) > 32768)
                         throw new Error("Mutation target exceeds the bounded 32 KiB lexical rewrite limit");
-                    const original = await git(store, ["cat-file", "blob", blob], options.signal), lines = original.split("\n");
+                    const original = await boundedGit(["cat-file", "blob", blob]), lines = original.split("\n");
                     if (original.includes("\0") || lines[candidate.line - 1] !== candidate.was)
                         throw new Error("Mutation does not match the exact committed text line");
                     lines[candidate.line - 1] = candidate.became;
                     const altered = lines.join("\n");
                     row.beforeSha256 = hashBytes(original);
                     row.afterSha256 = hashBytes(altered);
-                    const result = await measure(`attempt-${index}`, { candidate, original, altered });
+                    row.source = await materialize(`attempt-${index}`, candidate, entry.split(" ")[0]!, blob, original, altered);
+                    const result = await measure(`attempt-${index}`, row.source);
                     row.receipt = result.receipt;
                     row.caughtBy = result.caught;
                     row.status = result.caught.length ? "caught" : "survived";
-                    row.reason = result.caught.length ? "Original pinned checks rejected the source mutation." : "The source mutation remained in place and every pinned check passed.";
+                    row.reason = result.caught.length ? "Original pinned checks rejected the independently committed, read-only mutant." : "Every pinned check passed against the independently committed, read-only mutant.";
                 }
                 catch (error) {
                     row.reason = redactor.scrub(String(error));
@@ -240,5 +254,5 @@ export async function falsifyContained(options: ContainedFalsifyOptions, service
 }
 export function renderContainedFalsification(record: ContainedFalsification): string {
     const cell = (value: unknown) => String(value).replaceAll("|", "\\|").replace(/[\r\n]+/g, " ");
-    return [`Falsification: ${record.status}`, `Delivery: ${record.deliveryId}`, `Committed range: ${record.anchor.committedRange}`, `Measured at commit: ${record.anchor.codeCommit}`, `Reason: ${record.reason}`, "", "| Source line | Mutation | Result | Caught by / reason |", "| --- | --- | --- | --- |", ...record.attempts.map(a => `| ${cell(a.path)}:${a.line} | ${cell(a.mutation)} | ${a.status} | ${cell(a.caughtBy.join(", ") || a.reason)} |`), "", `Caught: ${record.counts.caught}; survived: ${record.counts.survived}; unavailable: ${record.counts.unavailable}; unattempted: ${record.counts.unattempted}.`, ...record.limits].join("\n");
+    return [`Falsification: ${record.status}`, `Delivery: ${record.deliveryId}`, `Committed range: ${record.anchor.committedRange}`, `Measured at commit: ${record.anchor.codeCommit}`, `Reason: ${record.reason}`, "", "| Source line | Mutation | Mutant commit | Result | Caught by / reason |", "| --- | --- | --- | --- | --- |", ...record.attempts.map(a => `| ${cell(a.path)}:${a.line} | ${cell(a.mutation)} | ${a.source?.commit ?? "not materialized"} | ${a.status} | ${cell(a.caughtBy.join(", ") || a.reason)} |`), "", `Caught: ${record.counts.caught}; survived: ${record.counts.survived}; unavailable: ${record.counts.unavailable}; unattempted: ${record.counts.unattempted}.`, ...record.limits].join("\n");
 }

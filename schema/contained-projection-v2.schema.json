@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/contained-projection-v2.schema.json",
+  "title": "Contained semantic projection v2",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "omitted", "sourceJournalHeadSha256", "portableJournalHeadSha256", "viewSha256", "limits"],
+  "properties": {
+    "schema_version": {"const": "wringer.contained-projection.v2"},
+    "omitted": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "sourceJournalHeadSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "portableJournalHeadSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "viewSha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "limits": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  }
+}

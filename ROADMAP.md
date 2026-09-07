@@ -8,8 +8,10 @@ This is the execution roadmap for the Bun product at the repository root. Earlie
 
 The codebase includes native records, contained workflow/authority state,
 delivery/audit/falsification, and standalone local verification, board/pen and
-historical health. The standalone board does not yet render contained journey
-state; use `wringer-drive status --state DIRECTORY` for that record format.
+historical health. `wringer-drive board --state DIRECTORY` is the live PM
+workspace; the same run can be inspected through `status`. CLI and board share
+guarded application commands, and contained delivery v2 carries a shared fact
+projection for its board, certificate, summary and MR.
 Deterministic integration fixtures exercise both successful and unsuccessful
 flows without real keys or model spend.
 
@@ -55,3 +57,6 @@ Measure recovery rate, discarded/reused work, correctness against independent ta
 Expand integrations only after their authority, credentials, cancellation and evidence contracts have conformance tests. Add convenience without weakening the separation between what was built, what passed, what was proved, what a person judged and what was delivered.
 
 Historical experiments and the [first rewrite report](docs/native/IMPLEMENTATION_REPORT.md) explain why these gates exist. They are not evidence that the gates above have already passed.
+
+The [next PM blind-test protocol](docs/PM_BLIND_TEST.md) keeps provisioning,
+simulated contracts, real containment and the observer's verdict separate.

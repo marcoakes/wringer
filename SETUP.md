@@ -62,10 +62,19 @@ Keep the preflight record. It should identify the pinned repository, selected ru
 ```sh
 wring --version
 wringer-drive --help
-wring doctor
+wringer-drive doctor --plan PLAN.yaml
+wringer-drive doctor --plan PLAN.yaml --probe-agents
 ```
 
-The repository-oriented doctor is useful for local configuration and saved verification records. It is not, by itself, proof that a remote runtime or an ACP session is operational. Keep the isolated journey's runtime and agent records as well.
+The contained doctor reuses existing keys and records source-bound ACP session
+observations when requested. No model prompt is sent; this does not prove a key
+is valid with the provider or that an agent will converge. After a run, use
+`wringer-drive doctor --state CONTROLLER_STATE` to read its actual last verify.
+The separate bare `wring doctor` reads older standalone records.
+
+For a locally built pinned ACP image and the no-model platform safety probes,
+follow [the runtime guide](runtime/README.md). A successful protocol fixture is
+not a substitute for running that safety probe on the actual platform.
 
 ## 6. Let the run work; intervene where authority ends
 

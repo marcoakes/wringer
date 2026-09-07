@@ -688,6 +688,216 @@ export type Concurrency = {
 };
 
 /**
+ * Contained certificate v1
+ *
+ * Generated from `schema/contained-certificate-v1.schema.json`. Do not edit.
+ */
+export type ContainedCertificateV1 = {
+  "schema_version": "wringer.contained-certificate.v1";
+  "viewSha256": string;
+  "view": {
+    "schema_version": "wringer.contained-delivery-view.v1";
+  };
+  "limits": string[];
+};
+
+/**
+ * Contained delivery event v2
+ *
+ * Generated from `schema/contained-delivery-event-v2.schema.json`. Do not edit.
+ */
+export type ContainedDeliveryEventV2 = {
+  "schema_version": "wringer.contained-delivery-event.v2";
+  "sequence": number;
+  "previous": string;
+  "at": string;
+  "type": string;
+  "source_event_sha256": string;
+  "state": {
+    "schema_version": "wringer.contained-journey.v1";
+    "id": string;
+    "planSha256": string;
+    "authoritySha256": string;
+    "environmentSha256": string;
+    "startedAt": string;
+    "source": {
+      "url": string;
+      "commit": string;
+    } | null;
+    "stage": "prepare" | "baseline" | "planner" | "worker" | "capture" | "verify" | "judge" | "human" | "ready";
+    "iteration": number;
+    "plannerComplete": boolean;
+    "workerEffect": string | null;
+    "judgeEffect": string | null;
+    "runtimeIds": string[];
+    "effects": {
+      "id": string;
+      "role": "worker" | "judge" | "planner";
+      "status": "reserved" | "completed" | "uncertain";
+      "requestSha256": string;
+      "requestIdentity": string;
+      "resultSha256"?: string;
+      "disposition"?: "accepted" | "stopped" | "invalid" | "unsettled";
+      "invalidReasonOmitted"?: true;
+    }[];
+    "verificationAttempts"?: {
+      "id": string;
+      "phase": "baseline" | "candidate";
+      "sourceCommit": string;
+      "requestSha256": string;
+      "status": "reserved" | "completed" | "uncertain";
+      "disposition"?: "passed" | "failed" | "unavailable";
+      "result"?: Record<string, unknown>;
+    }[];
+    "baseline": Record<string, unknown> | null;
+    "verification": Record<string, unknown> | null;
+    "candidate": {
+      "source": {
+        "url": string;
+        "commit": string;
+      };
+      "tree": string;
+      "changedPaths": string[];
+    } | null;
+    "judge": Record<string, unknown> | null;
+    "humanJudgements": Record<string, unknown>[];
+  };
+  "sha256": string;
+};
+
+/**
+ * Contained delivery manifest v2
+ *
+ * Generated from `schema/contained-delivery-v2.schema.json`. Do not edit.
+ */
+export type ContainedDeliveryV2 = {
+  "schema_version": "wringer.contained-delivery.v2";
+  "id": string;
+  "journeyId": string;
+  "createdAt": string;
+  "source": {
+    "url": string;
+    "baseCommit": unknown;
+    "codeCommit": unknown;
+    "tree": unknown;
+  };
+  "planSha256": unknown;
+  "acceptanceSha256": unknown;
+  "authoritySha256": unknown;
+  "environmentSha256": unknown;
+  "viewSha256": unknown;
+  "journal": {
+    "eventCount": number;
+    "headSha256": unknown;
+    "sourceHeadSha256": unknown;
+  };
+  "baseline": unknown;
+  "verification": unknown;
+  "roles": string[];
+  "humanCriteria": string[];
+  "judge": Record<string, unknown> | null;
+  "counts": {
+    "checks": number;
+    "proved": number;
+    "human": number;
+  };
+  "publication": {
+    "sourceBranch": string;
+    "targetBranch": string;
+  };
+  "evidencePath": string;
+  "auditCommand": string;
+  "falsify": {
+    "status": "available";
+    "command": string;
+    "reason": string;
+  };
+  "contracts": {
+    "view": "wringer.contained-delivery-view.v1";
+    "certificate": "wringer.contained-certificate.v1";
+    "documents": "wringer.contained-documents.v2";
+    "board": "wringer.contained-board.v1";
+  };
+  "limits": string[];
+};
+
+/**
+ * Contained delivery view v1
+ *
+ * Generated from `schema/contained-delivery-view-v1.schema.json`. Do not edit.
+ */
+export type ContainedDeliveryViewV1 = {
+  "schema_version": "wringer.contained-delivery-view.v1";
+  "journeyId": string;
+  "deliveryId": string;
+  "name": string;
+  "status": "review-ready";
+  "source": {
+    "url": string;
+    "baseCommit": unknown;
+    "codeCommit": unknown;
+    "tree": unknown;
+  };
+  "planSha256": unknown;
+  "acceptanceSha256": unknown;
+  "journalHeadSha256": unknown;
+  "counts": {
+    "checks": number;
+    "proved": number;
+    "human": number;
+  };
+  "checks": {
+    "id": string;
+    "before": unknown;
+    "after": unknown;
+    "inputsSha256": unknown;
+  }[];
+  "criteria": {
+    "id": string;
+    "title": string;
+    "kind": "check" | "human";
+    "required": boolean;
+    "state": "met" | "not-met" | "unknown";
+    "checkIds": string[];
+    "note": string | null;
+    "by": string | null;
+  }[];
+  "usage": {
+    "sessions": number;
+    "reportedSessions": number;
+    "inputTokens": number | null;
+    "outputTokens": number | null;
+    "costUsd": null;
+  };
+  "agents": {
+    "effectId": string;
+    "role": "planner" | "worker" | "judge";
+    "command": string;
+    "protocolVersion": number | null;
+    "image": string;
+    "agentInfo": Record<string, unknown> | null;
+    "model": null;
+  }[];
+  "auditCommand": string;
+  "falsifyCommand": string;
+  "limits": string[];
+};
+
+/**
+ * Contained semantic projection v2
+ *
+ * Generated from `schema/contained-projection-v2.schema.json`. Do not edit.
+ */
+export type ContainedProjectionV2 = {
+  "schema_version": "wringer.contained-projection.v2";
+  "omitted": string[];
+  "sourceJournalHeadSha256": string;
+  "portableJournalHeadSha256": string;
+  "viewSha256": string;
+  "limits": string[];
+};
+
+/**
  * Wringer coverage
  *
  * Generated from `schema/coverage-v1.schema.json`. Do not edit.
@@ -863,6 +1073,48 @@ export type Digests = {
 };
 
 /**
+ * Native source-linked environment map v1
+ *
+ * Generated from `schema/environment-map-v1.schema.json`. Do not edit.
+ */
+export type EnvironmentMapV1 = {
+  "schema_version": "wringer.environment-map.v1";
+  "repository": unknown;
+  "plan_sha256": string;
+  "source_tree": string;
+  "inventory_sha256": string;
+  "files": {
+    "path": string;
+    "mode": "100644" | "100755" | "120000" | "160000";
+    "blob": string;
+  }[];
+  "context": {
+    "path": unknown;
+    "blob": string;
+    "text": string;
+    "sha256": string;
+  }[];
+  "components": {
+    "path": string;
+    "files": number;
+  }[];
+  "tools": {
+    "name": string;
+    "version": string;
+    "probe": string[];
+    "observation": unknown | null;
+  }[];
+  "baseline": {
+    "declaration": unknown;
+    "observation": unknown | null;
+  }[];
+  "protected_paths": unknown[];
+  "writable_paths": unknown[];
+  "limits": string[];
+  "map_sha256": string;
+};
+
+/**
  * Wringer evidence event
  *
  * Generated from `schema/evidence-event.schema.json`. Do not edit.
@@ -924,6 +1176,50 @@ export type Exchange = {
   "drafted": boolean;
   /** The engine's own sentence for what stopped it, verbatim, or empty when nothing did. */
   "why": string;
+};
+
+/**
+ * Native execution authority v1
+ *
+ * Generated from `schema/execution-authority-v1.schema.json`. Do not edit.
+ */
+export type ExecutionAuthorityV1 = {
+  "schema_version": "wringer.execution-authority.v1";
+  "actor": string;
+  "repository": unknown;
+  "plan_sha256": string;
+  "acceptance_sha256": string;
+  "actions": "plan" | "build" | "verify" | "judge" | "deliver"[];
+  "budget": unknown;
+  "granted_at": string;
+  "expires_at": string;
+};
+
+/**
+ * Native execution plan v1
+ *
+ * Generated from `schema/execution-plan-v1.schema.json`. Do not edit.
+ */
+export type ExecutionPlanV1 = {
+  "schema_version": "wringer.execution-plan.v1";
+  "name": string;
+  "intent": string;
+  "intent_sha256": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner"?: unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "acceptance": unknown;
+  "acceptance_sha256": string;
+  "budget": unknown;
+  "plan_sha256": string;
 };
 
 /**
@@ -1210,6 +1506,54 @@ export type Fleetscope = {
   }[];
   /** Bound criteria no task claimed. LEGAL and loud: nothing refuses here, because the operator's final unscoped `wring verify` runs their gates anyway — and if nobody built them those gates go red there, acceptance records it, and `wring deliver` refuses exactly as it does today. Listed so the gap is visible before the fleet runs rather than discovered after it. */
   "unclaimed_criteria": string[];
+};
+
+/**
+ * forge-intent-v2
+ *
+ * Generated from `schema/forge-intent-v2.schema.json`. Do not edit.
+ */
+export type ForgeIntentV2 = {
+  "schema_version": "wringer.forge-intent.v2";
+  "delivery_id": string;
+  "forge": {
+    "kind": "github" | "gitlab";
+    "endpoint": string;
+    "repo": string;
+    "token_env": string;
+  };
+  "repository": string | null;
+  "expected_head_commit": string | null;
+  "source_branch": string;
+  "target_branch": string;
+  "title": string;
+  "body_path": string;
+  "body_sha256": string;
+  "request": {
+    "method": "POST";
+    "url": string;
+    "body": Record<string, unknown>;
+  };
+};
+
+/**
+ * forge-publication-v2
+ *
+ * Generated from `schema/forge-publication-v2.schema.json`. Do not edit.
+ */
+export type ForgePublicationV2 = {
+  "schema_version": "wringer.forge-publication.v2";
+  "status": "prepared" | "published" | "recovered" | "closed" | "merged" | "blocked" | "uncertain";
+  "state_directory": string;
+  "request_sha256": string;
+  "url"?: string;
+  "number"?: number;
+  "hosted_state"?: "open" | "closed" | "merged";
+  "head_commit"?: string;
+  "repository"?: string;
+  "reason"?: string;
+  "next_move": string;
+  "at"?: string;
 };
 
 /**
@@ -1921,6 +2265,30 @@ export type Rubric = {
 };
 
 /**
+ * Contained runtime provenance v1
+ *
+ * Generated from `schema/runtime-v1.schema.json`. Do not edit.
+ */
+export type RuntimeV1 = {
+  "schema_version": "wringer.runtime.v1";
+  "runtimeId": string;
+  "role": "planner" | "worker" | "judge" | "verifier";
+  "kind": "apple-container" | "gvisor-kubernetes";
+  "image": string;
+  "repository": {
+    "url": string;
+    "commit": string;
+    "bundlePath"?: string;
+  };
+  "clonedInside": true;
+  "hostMounts": unknown[];
+  "repositoryAccess": "read-only" | "read-write";
+  "declared": unknown;
+  "observed": Record<string, unknown>;
+  "limits": string[];
+};
+
+/**
  * Wringer requirement sources
  *
  * Generated from `schema/sources.schema.json`. Do not edit.
@@ -2330,20 +2698,30 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "checks.schema.json": "wringer.checks.v1",
   "choices.schema.json": "wringer.choices.v1",
   "concurrency.schema.json": "wringer.concurrency.v1",
+  "contained-certificate-v1.schema.json": "wringer.contained-certificate.v1",
+  "contained-delivery-event-v2.schema.json": "wringer.contained-delivery-event.v2",
+  "contained-delivery-v2.schema.json": "wringer.contained-delivery.v2",
+  "contained-delivery-view-v1.schema.json": "wringer.contained-delivery-view.v1",
+  "contained-projection-v2.schema.json": "wringer.contained-projection.v2",
   "coverage-v1.schema.json": "wringer.coverage.v1",
   "decisions-v2.schema.json": "wringer.decisions.v2",
   "decisions.schema.json": "wringer.decisions.v1",
   "delivery-manifest.schema.json": "wringer.delivery.v1",
   "diagnosis.schema.json": "wringer.diagnosis.v1",
   "digests.schema.json": "wringer.digests.v1",
+  "environment-map-v1.schema.json": "wringer.environment-map.v1",
   "evidence-event.schema.json": null,
   "exchange.schema.json": "wringer.exchange.v1",
+  "execution-authority-v1.schema.json": "wringer.execution-authority.v1",
+  "execution-plan-v1.schema.json": "wringer.execution-plan.v1",
   "execution-v2.schema.json": "wringer.execution.v2",
   "execution.schema.json": "wringer.execution.v1",
   "falsification-v1.schema.json": "wringer.falsification.v1",
   "fleet-event.schema.json": null,
   "fleet-manifest.schema.json": "wringer.fleet.v1",
   "fleetscope.schema.json": "wringer.fleetscope.v1",
+  "forge-intent-v2.schema.json": "wringer.forge-intent.v2",
+  "forge-publication-v2.schema.json": "wringer.forge-publication.v2",
   "gate-artifacts.schema.json": "wringer.gate-artifacts.v1",
   "gate-result.schema.json": null,
   "gatespec-v2.schema.json": "wringer.gatespec.v2",
@@ -2366,6 +2744,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
   "rubric.schema.json": "wringer.rubric.v1",
+  "runtime-v1.schema.json": "wringer.runtime.v1",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
@@ -2395,18 +2774,28 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.checks.v1": "checks.schema.json",
   "wringer.choices.v1": "choices.schema.json",
   "wringer.concurrency.v1": "concurrency.schema.json",
+  "wringer.contained-certificate.v1": "contained-certificate-v1.schema.json",
+  "wringer.contained-delivery-event.v2": "contained-delivery-event-v2.schema.json",
+  "wringer.contained-delivery.v2": "contained-delivery-v2.schema.json",
+  "wringer.contained-delivery-view.v1": "contained-delivery-view-v1.schema.json",
+  "wringer.contained-projection.v2": "contained-projection-v2.schema.json",
   "wringer.coverage.v1": "coverage-v1.schema.json",
   "wringer.decisions.v2": "decisions-v2.schema.json",
   "wringer.decisions.v1": "decisions.schema.json",
   "wringer.delivery.v1": "delivery-manifest.schema.json",
   "wringer.diagnosis.v1": "diagnosis.schema.json",
   "wringer.digests.v1": "digests.schema.json",
+  "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
+  "wringer.execution-authority.v1": "execution-authority-v1.schema.json",
+  "wringer.execution-plan.v1": "execution-plan-v1.schema.json",
   "wringer.execution.v2": "execution-v2.schema.json",
   "wringer.execution.v1": "execution.schema.json",
   "wringer.falsification.v1": "falsification-v1.schema.json",
   "wringer.fleet.v1": "fleet-manifest.schema.json",
   "wringer.fleetscope.v1": "fleetscope.schema.json",
+  "wringer.forge-intent.v2": "forge-intent-v2.schema.json",
+  "wringer.forge-publication.v2": "forge-publication-v2.schema.json",
   "wringer.gate-artifacts.v1": "gate-artifacts.schema.json",
   "wringer.gatespec.v2": "gatespec-v2.schema.json",
   "wringer.gatespec.v1": "gatespec.schema.json",
@@ -2424,6 +2813,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
   "wringer.rubric.v1": "rubric.schema.json",
+  "wringer.runtime.v1": "runtime-v1.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",

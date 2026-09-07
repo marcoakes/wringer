@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, lstat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { canonicalJson, hashValue, validateExecutionPlan, validateExecutionAuthority } from "@wringer/plan";
+import { canonicalJson, hashValue, validateExecutionPlan, validateExecutionAuthority, ingestEnvironmentObservations } from "@wringer/plan";
 import type { ExecutionPlan, ExecutionAuthority, EnvironmentMap, AgentRole } from "@wringer/plan";
 import { executeAgentRole } from "@wringer/runtime";
 import type { RoleExecutionResult, RoleExecutionRequest, RepositorySource } from "@wringer/runtime";
 import { atomicWrite, command, digest, immutableJson, locked, now, readJson, scrubValue, withSecrets, quoteShell, safePath } from "./storage";
-import type { CandidateSource, CandidateVerification, ContainedJourneyOptions, ContainedJourneyResult, ContainedJudgeFinding, CandidateHumanJudgement, ContainedJourneyStop } from "./contained-types";
+import { containedDiscoveryStartedAt } from "./discovery";
+import type { CandidateSource, CandidateVerification, ContainedJourneyOptions, ContainedJourneyResult, ContainedJudgeFinding, CandidateHumanJudgement, ContainedJourneyStop, ContainedRevisionGuard, ContainedVerificationRequest } from "./contained-types";
 const ROOT = ".wringer/contained";
 interface Effect {
     id: string;
@@ -17,6 +18,17 @@ interface Effect {
     result?: RoleExecutionResult;
     resultSha256?: string;
     invalidReason?: string;
+    /** Accepted means a valid role output, never acceptance of the entire candidate. */
+    disposition?: "accepted" | "stopped" | "invalid" | "unsettled";
+}
+interface VerificationAttempt {
+    id: string;
+    phase: "baseline" | "candidate";
+    sourceCommit: string;
+    requestSha256: string;
+    status: "reserved" | "completed" | "uncertain";
+    disposition?: CandidateVerification["status"];
+    result?: CandidateVerification;
 }
 interface State {
     schema_version: "wringer.contained-journey.v1";
@@ -39,6 +51,8 @@ interface State {
     feedback: string;
     humanJudgements: CandidateHumanJudgement[];
     runtimeIds: string[];
+    /** Optional only for historical journeys predating verifier reservations. */
+    verificationAttempts?: VerificationAttempt[];
 }
 interface Journal {
     schema_version: "wringer.contained-event.v1";
@@ -63,7 +77,12 @@ class JourneyStop extends Error {
 }
 function refuse(reason: string, message: string, next = "wringer-drive resume --help"): never { throw new JourneyStop(reason, message, next); }
 const hashPattern = /^[a-f0-9]{64}$/;
+function assertPromptPreflight(event: Record<string, unknown>, role: AgentRole) {
+    if (event.type !== "acp.prompt.preflight" || event.role !== role || typeof event.sessionId !== "string" || !event.sessionId || event.sessionId.length > 4096 || !Array.isArray(event.credentialNames) || event.credentialNames.some(name => typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) || !(event.methodAttempted === null || typeof event.methodAttempted === "string") || event.providerCredentialValidated !== false || event.effectiveCredential !== "not-attested" || event.promptSent !== false || typeof event.words !== "string" || !event.words || Buffer.byteLength(event.words) > 16384 || typeof event.at !== "string" || !Number.isFinite(Date.parse(event.at)))
+        throw new Error("ACP prompt preflight is malformed or makes an unsupported credential claim; no prompt is authorized");
+}
 function assertMap(environment: EnvironmentMap, plan: ExecutionPlan) {
+    ingestEnvironmentObservations(environment, plan, [...environment.tools.flatMap(t => t.observation ? [t.observation] : []), ...environment.baseline.flatMap(b => b.observation ? [b.observation] : [])]);
     const { map_sha256, ...data } = environment;
     if (environment.schema_version !== "wringer.environment-map.v1" || map_sha256 !== hashValue(data) || environment.inventory_sha256 !== hashValue(environment.files) || environment.plan_sha256 !== plan.plan_sha256 || canonicalJson(environment.repository) !== canonicalJson(plan.repository))
         throw new Error("Environment map is stale, altered or bound to a different plan/source");
@@ -78,6 +97,12 @@ function assertMap(environment: EnvironmentMap, plan: ExecutionPlan) {
             throw new Error(`Pinned acceptance input ${path} is missing or is not a regular source blob`);
 }
 function sourceEqual(a: RepositorySource, b: RepositorySource) { return a.url === b.url && a.commit === b.commit; }
+function assertRevision(history: Journal[], state: State | undefined, guard: ContainedRevisionGuard) {
+    if (guard.expectedRevision !== undefined && guard.expectedRevision !== (history.at(-1)?.sha256 ?? "0".repeat(64)))
+        throw new Error("Journey revision changed; refresh the current state before sending this command");
+    if (guard.expectedCandidateTree !== undefined && guard.expectedCandidateTree !== (state?.candidate?.tree ?? null))
+        throw new Error("Candidate changed; this command cannot act on an unreviewed replacement");
+}
 function mapForAgent(map: EnvironmentMap) {
     let remaining = 128 * 1024;
     const context = map.context.map(item => {
@@ -111,6 +136,8 @@ function checkVerification(value: CandidateVerification, source: RepositorySourc
             throw new Error("Verification check has no original input/output identity");
         if (!["passed", "failed", "unavailable"].includes(row.status) || !(row.status === "unavailable" ? row.exitCode === null : Number.isInteger(row.exitCode) && (row.status === "passed" ? row.exitCode === 0 : row.exitCode !== 0)))
             throw new Error("Verification check status contradicts its observed exit");
+        if (row.status === "failed" && [124, 126, 127, 137, 143].includes(row.exitCode!))
+            throw new Error("Infrastructure termination or unavailable command cannot establish a red acceptance receipt");
     }
     const regressions = value.regressions ?? [];
     if (plan.environment.baseline.length && !value.regressions)
@@ -118,9 +145,12 @@ function checkVerification(value: CandidateVerification, source: RepositorySourc
     if (value.regressions !== undefined) {
         if (!Array.isArray(regressions) || regressions.length !== plan.environment.baseline.length || new Set(regressions.map(r => r.id)).size !== regressions.length)
             throw new Error("Regression observations must contain each declared baseline command exactly once");
-        for (const row of regressions)
+        for (const row of regressions) {
             if (!plan.environment.baseline.some(c => c.id === row.id) || !hashPattern.test(row.outputSha256) || !["passed", "failed", "unavailable"].includes(row.status) || !(row.status === "unavailable" ? row.exitCode === null : Number.isInteger(row.exitCode) && (row.status === "passed" ? row.exitCode === 0 : row.exitCode !== 0)))
                 throw new Error("Regression observation is unknown or contradicts its observed exit");
+            if (row.status === "failed" && [124, 126, 127, 137, 143].includes(row.exitCode!))
+                throw new Error("Regression infrastructure termination must remain unavailable, not a tested failure");
+        }
     }
     const all = [...value.checks, ...regressions];
     const aggregate = all.some(c => c.status === "unavailable") ? "unavailable" : all.some(c => c.status === "failed") ? "failed" : "passed";
@@ -157,7 +187,7 @@ async function readJournal(controller: string): Promise<Journal[]> {
             throw new Error("Unknown file in authoritative journey event namespace");
         const event = await boundedRecord<Journal>(controller, `${ROOT}/events/${name}`);
         const { sha256, ...data } = event;
-        if (event.schema_version !== "wringer.contained-event.v1" || event.sequence !== events.length + 1 || name !== `${String(event.sequence).padStart(6, "0")}.json` || event.previous !== previous || sha256 !== hashValue(data) || !Number.isFinite(Date.parse(event.at)))
+        if (event.schema_version !== "wringer.contained-event.v1" || event.sequence !== events.length + 1 || name !== `${String(event.sequence).padStart(6, "0")}.json` || event.previous !== previous || sha256 !== hashValue(data) || !Number.isFinite(Date.parse(event.at)) || (events.length > 0 && Date.parse(event.at) < Date.parse(events.at(-1)!.at)))
             throw new Error("Journey event history is damaged; no external effect will be replayed");
         events.push(event);
         previous = sha256;
@@ -175,7 +205,7 @@ async function boundedRecord<T>(controller: string, path: string): Promise<T> {
 }
 /** Read-only historical validation. Expiry is checked at reservation, not at audit time.
  * Hash chains detect changed retained evidence; they are not signatures against a hostile controller owner. */
-export async function readValidatedContainedState(stateDir: string): Promise<ValidatedContainedState> {
+export async function readValidatedContainedState(stateDir: string, options: { allowStaleView?: boolean } = {}): Promise<ValidatedContainedState> {
     const controller = resolve(stateDir), events = await readJournal(controller);
     if (!events.length)
         throw new Error("No authoritative contained journey has been recorded");
@@ -184,7 +214,7 @@ export async function readValidatedContainedState(stateDir: string): Promise<Val
     const authority = validateExecutionAuthority(await boundedRecord(controller, `${ROOT}/authority.json`), plan, new Date(state.startedAt));
     const environment = await boundedRecord<EnvironmentMap>(controller, `${ROOT}/environment.json`);
     assertMap(environment, plan);
-    const authoritySha256 = hashValue(authority), seenEffects = new Map<string, Effect>();
+    const authoritySha256 = hashValue(authority), seenEffects = new Map<string, Effect>(), seenVerifications = new Map<string, VerificationAttempt>();
     const validId = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
     const stages = ["prepare", "planner", "baseline", "worker", "capture", "verify", "judge", "human", "ready"];
     const sources = new Set([plan.repository.commit]);
@@ -204,6 +234,8 @@ export async function readValidatedContainedState(stateDir: string): Promise<Val
         for (const effect of snapshot.effects) {
             if (!effect || !validId.test(effect.id) || ids.has(effect.id) || !["planner", "worker", "judge"].includes(effect.role) || !["reserved", "completed", "uncertain"].includes(effect.status) || !hashPattern.test(effect.requestSha256) || !hashPattern.test(effect.requestIdentity))
                 throw new Error("Malformed ACP effect identity in journal");
+            if (effect.disposition !== undefined && !["accepted", "stopped", "invalid", "unsettled"].includes(effect.disposition))
+                throw new Error("Unknown ACP task disposition");
             ids.add(effect.id);
             const prior = seenEffects.get(effect.id);
             if (prior && (prior.role !== effect.role || prior.requestSha256 !== effect.requestSha256 || prior.requestIdentity !== effect.requestIdentity || (prior.status === "completed" && (effect.status !== "completed" || effect.resultSha256 !== prior.resultSha256))))
@@ -222,15 +254,48 @@ export async function readValidatedContainedState(stateDir: string): Promise<Val
         for (const role of ["planner", "worker", "judge"] as const)
             if (snapshot.effects.filter(e => e.role === role).length > authority.budget[role === "worker" ? "max_worker_turns" : role === "judge" ? "max_judge_turns" : "max_planner_turns"])
                 throw new Error("Journey exceeded its whole-role budget");
+        const attempts = snapshot.verificationAttempts ?? [];
+        if (!Array.isArray(attempts) || attempts.length > authority.budget.max_sessions || attempts.length < seenVerifications.size || new Set(attempts.map(a => a.id)).size !== attempts.length)
+            throw new Error("Journey lost or exceeded its reserved verification-attempt ceiling");
+        for (const attempt of attempts) {
+            if (!validId.test(attempt.id) || !["baseline", "candidate"].includes(attempt.phase) || !["reserved", "completed", "uncertain"].includes(attempt.status) || !sources.has(attempt.sourceCommit) || attempt.requestSha256 !== hashValue({ plan: plan.plan_sha256, source: { url: plan.repository.url, commit: attempt.sourceCommit }, phase: attempt.phase }))
+                throw new Error("Malformed source-bound verification reservation");
+            const prior = seenVerifications.get(attempt.id);
+            if (!prior) {
+                validateExecutionAuthority(authority, plan, new Date(event.at));
+                if (event.type !== "verification-reserved" || !authority.actions.includes("verify") || attempt.status !== "reserved")
+                    throw new Error("Verification has no authorized pre-execution reservation");
+            } else if (prior.requestSha256 !== attempt.requestSha256 || prior.sourceCommit !== attempt.sourceCommit || prior.phase !== attempt.phase || (prior.status === "completed" && canonicalJson(prior) !== canonicalJson(attempt))) {
+                throw new Error("A retained verification attempt was replaced or its completed observation changed");
+            }
+            if (attempt.status === "completed" ? !attempt.result || attempt.disposition !== attempt.result.status : attempt.result !== undefined || attempt.disposition !== undefined)
+                throw new Error("Verification task disposition contradicts durable completion");
+            seenVerifications.set(attempt.id, attempt);
+        }
+        for (const id of seenVerifications.keys())
+            if (!attempts.some(a => a.id === id))
+                throw new Error("Journey discarded a reserved verification attempt");
     }
     const runtimes = new Set<string>(), sessions = new Set<string>();
+    const preflights = new Map<string, any>();
+    for (const anchor of events.filter(event => event.type === "agent-preflight-recorded")) {
+        const details = anchor.details as Record<string, unknown>, effect = anchor.state.effects.find(e => e.id === details?.effectId);
+        if (!effect || effect.status !== "reserved" || details.role !== effect.role || typeof details.receiptSha256 !== "string" || !hashPattern.test(details.receiptSha256) || preflights.has(effect.id)) throw new Error("Agent preflight has no unique reserved effect identity");
+        const receipt = await boundedRecord<any>(controller, `${ROOT}/effects/${effect.id}/preflight.json`), { sha256, ...body } = receipt;
+        if (receipt.schema_version !== "wringer.contained-agent-preflight.v1" || sha256 !== details.receiptSha256 || sha256 !== hashValue(body) || receipt.effectId !== effect.id || receipt.role !== effect.role || receipt.requestSha256 !== effect.requestSha256 || !Number.isFinite(Date.parse(receipt.at)) || Date.parse(receipt.at) > Date.parse(anchor.at)) throw new Error("Agent preflight receipt differs from its reserved request or journal digest");
+        assertPromptPreflight(receipt.event, effect.role);
+        preflights.set(effect.id, receipt);
+    }
     for (const effect of state.effects) {
         const request = await boundedRecord<RoleExecutionRequest>(controller, `${ROOT}/effects/${effect.id}/request.json`);
         if (hashValue(request) !== effect.requestSha256 || hashValue({ ...request, budget: { maxTurns: 1 } }) !== effect.requestIdentity || request.role !== effect.role || canonicalJson(request.agent) !== canonicalJson(plan.agents[effect.role]) || canonicalJson(request.runtime) !== canonicalJson(plan.runtime) || request.repo?.url !== plan.repository.url || !sources.has(request.repo.commit) || request.budget?.maxTurns !== 1 || !Number.isSafeInteger(request.budget.timeoutMs) || request.budget.timeoutMs < 1 || request.budget.timeoutMs > authority.budget.session_timeout_seconds * 1000)
             throw new Error("Retained ACP request differs from its pre-spend digest or approved role/source policy");
+        if (request.scope !== undefined && (request.role !== "worker" || canonicalJson(request.scope) !== canonicalJson({ writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories })))
+            throw new Error("Worker write capability differs from the approved scope");
         if (effect.status !== "completed")
             continue;
         const result = await boundedRecord<RoleExecutionResult>(controller, `${ROOT}/effects/${effect.id}/result.json`), p = result.provenance;
+        if (preflights.has(effect.id) && result.sessionId && preflights.get(effect.id).event.sessionId !== result.sessionId) throw new Error("Completed agent session differs from its before-prompt preflight");
         if (hashValue(result) !== effect.resultSha256 || (effect.result !== undefined && hashValue(effect.result) !== effect.resultSha256))
             throw new Error("Retained ACP result differs from its completion digest");
         if (!p || p.role !== effect.role || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || !sourceEqual(p.repository, request.repo) || p.repositoryAccess !== (effect.role === "worker" ? "read-write" : "read-only") || !p.runtimeId || runtimes.has(p.runtimeId) || !state.runtimeIds.includes(p.runtimeId) || (result.sessionId && sessions.has(result.sessionId)))
@@ -241,6 +306,19 @@ export async function readValidatedContainedState(stateDir: string): Promise<Val
         if (result.sessionId)
             sessions.add(result.sessionId);
         effect.result = result;
+    }
+    const verificationRuntimes = new Set<string>();
+    for (const attempt of state.verificationAttempts ?? []) {
+        if (!attempt.result) continue;
+        checkVerification(attempt.result, { url: plan.repository.url, commit: attempt.sourceCommit }, plan, [...runtimes, ...verificationRuntimes]);
+        if (!state.runtimeIds.includes(attempt.result.runtimeId))
+            throw new Error("Verification attempt runtime was removed from isolation accounting");
+        verificationRuntimes.add(attempt.result.runtimeId);
+    }
+    if (state.verificationAttempts?.length) {
+        for (const [phase, value] of [["baseline", state.baseline], ["candidate", state.verification]] as const)
+            if (value && !state.verificationAttempts.some(a => a.phase === phase && a.result && canonicalJson(a.result) === canonicalJson(value)))
+                throw new Error("Current verification view is not backed by a retained attempt");
     }
     if (state.baseline) {
         checkVerification(state.baseline, plan.repository, plan, [...runtimes]);
@@ -277,22 +355,64 @@ export async function readValidatedContainedState(stateDir: string): Promise<Val
         }
     }
     const usage = (key: "inputTokens" | "outputTokens") => state.effects.every(e => e.status === "completed" && Number.isSafeInteger(e.result?.usage?.[key]) && e.result!.usage![key]! >= 0) ? state.effects.reduce((sum, e) => sum + e.result!.usage![key]!, 0) : null;
-    const result = await boundedRecord<ContainedJourneyResult>(controller, `${ROOT}/result.json`);
-    const { recordDir, ...view } = result;
     const expected = { schema_version: "wringer.contained-journey-result.v1", journeyId: state.id, status, candidate: state.candidate, verification: state.verification, judge: state.judge, stop, sessions: state.effects.length, tokens: { input: usage("inputTokens"), output: usage("outputTokens") }, humanJudgements: state.humanJudgements };
-    if (canonicalJson(view) !== canonicalJson(expected))
-        throw new Error("Recorded result view disagrees with the authoritative journey history; resume to regenerate the view before using it");
-    return { plan, authority, environment, state, result: { ...result, recordDir: join(controller, ROOT) }, events };
+    if (!options.allowStaleView) {
+        const { recordDir, ...view } = await boundedRecord<ContainedJourneyResult>(controller, `${ROOT}/result.json`);
+        if (canonicalJson(view) !== canonicalJson(expected))
+            throw new Error("Recorded result view disagrees with the authoritative journey history; resume to regenerate the view before using it");
+    }
+    return { plan, authority, environment, state, result: { ...expected, schema_version: "wringer.contained-journey-result.v1", recordDir: join(controller, ROOT) }, events };
 }
 /** Serialize all approval-changing or publication operations with the journey. */
 export function withContainedJourneyLock<T>(stateDir: string, action: () => Promise<T>): Promise<T> {
     return locked(resolve(stateDir), "contained-journey", action);
 }
+/** Explicit feedback authorizes only a next bounded repair under existing build authority.
+ * Human rejection remains in history; it is never silently rewritten as approval. */
+export async function requestContainedRevision(stateDir: string, request: ContainedRevisionGuard & {
+    feedback: string;
+    by: string;
+}): Promise<ContainedJourneyResult> {
+    const controller = resolve(stateDir);
+    return withContainedJourneyLock(controller, async () => {
+        const history = await readValidatedContainedState(controller), { state, plan, authority } = history;
+        assertRevision(history.events, state, request);
+        validateExecutionAuthority(authority, plan);
+        if (!authority.actions.includes("build") || !state.candidate || !["human", "ready", "judge"].includes(state.stage) || state.verification?.status !== "passed")
+            throw new Error("Revision requires a verified candidate at review and existing build authority");
+        if (state.effects.length >= authority.budget.max_sessions || state.effects.filter(e => e.role === "worker").length >= authority.budget.max_worker_turns || Date.now() - Date.parse(state.startedAt) >= authority.budget.wall_clock_seconds * 1000)
+            throw new Error("Revision cannot enlarge the exhausted whole-journey worker/session/time budget");
+        if (typeof request.feedback !== "string" || !request.feedback.trim() || Buffer.byteLength(request.feedback) > 16384 || typeof request.by !== "string" || !request.by.trim() || request.by.length > 200)
+            throw new Error("Revision requires bounded reviewer identity and substantive feedback");
+        return withSecrets((plan.runtime.env ?? []).map(name => process.env[name]), async () => {
+            const feedback = scrubValue({ by: request.by, feedback: request.feedback, candidateTree: state.candidate!.tree, previousHumanJudgements: state.humanJudgements, previousJudge: state.judge });
+            state.feedback = canonicalJson({ revisionRequested: feedback });
+            state.iteration++;
+            state.workerEffect = null;
+            state.judgeEffect = null;
+            state.judge = null;
+            state.verification = null;
+            state.humanJudgements = [];
+            state.stage = "worker";
+            const stop: ContainedJourneyStop = { reason: "revision-requested", message: "Reviewer feedback is recorded. Resume starts a new bounded worker attempt; previous acceptance is withdrawn.", cwd: controller, next_move: command(controller, `wringer-drive resume --state ${quoteShell(controller)}`) };
+            let sequence = history.events.length, previous = history.events.at(-1)!.sha256;
+            for (const [type, details] of [["revision-requested", feedback], ["journey-stopped", stop]] as const) {
+                const data = scrubValue({ schema_version: "wringer.contained-event.v1" as const, sequence: ++sequence, previous, at: now(), type, details, state: { ...state, effects: state.effects.map(({ result, ...effect }) => effect) } });
+                const event = { ...data, sha256: hashValue(data) };
+                await immutableJson(controller, `${ROOT}/events/${String(sequence).padStart(6, "0")}.json`, event);
+                previous = event.sha256;
+            }
+            const result: ContainedJourneyResult = { ...history.result, status: "stopped", stop, judge: null, verification: null, humanJudgements: [] };
+            await atomicWrite(controller, `${ROOT}/result.json`, JSON.stringify(result, null, 2) + "\n");
+            return result;
+        });
+    });
+}
 /** A human command records evidence and immediately withdraws previous readiness.
  * It cannot build, verify, judge or publish; resume evaluates the new observation. */
 export async function recordContainedHumanJudgement(stateDir: string, judgement: CandidateHumanJudgement & {
     displayId: string;
-}): Promise<{
+}, guard: ContainedRevisionGuard = {}): Promise<{
     judgement: CandidateHumanJudgement & {
         displayId: string;
     };
@@ -301,6 +421,7 @@ export async function recordContainedHumanJudgement(stateDir: string, judgement:
     const controller = resolve(stateDir);
     return withContainedJourneyLock(controller, async () => {
         const history = await readValidatedContainedState(controller), { plan, state, authority } = history;
+        assertRevision(history.events, state, guard);
         validateExecutionAuthority(authority, plan);
         if (!["human", "ready"].includes(state.stage) || !state.candidate || state.verification?.status !== "passed")
             throw new Error("A human review requires the current independently verified candidate at its human hold");
@@ -355,7 +476,10 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
     await immutableJson(controller, `${ROOT}/environment.json`, options.environment);
     const history = await readJournal(controller);
     let state = history.at(-1)?.state, sequence = history.length, previous = history.at(-1)?.sha256 ?? "0".repeat(64);
-    state ??= { schema_version: "wringer.contained-journey.v1", id: randomUUID(), planSha256: plan.plan_sha256, authoritySha256, environmentSha256, startedAt: now(), source: null, effects: [], baseline: null, candidate: null, verification: null, judge: null, plannerComplete: false, iteration: 0, stage: "prepare", workerEffect: null, judgeEffect: null, feedback: "", humanJudgements: [], runtimeIds: [] };
+    assertRevision(history, state, options);
+    if (history.length)
+        state = (await readValidatedContainedState(controller, { allowStaleView: true })).state;
+    state ??= { schema_version: "wringer.contained-journey.v1", id: randomUUID(), planSha256: plan.plan_sha256, authoritySha256, environmentSha256, startedAt: await containedDiscoveryStartedAt(controller, plan, authority) ?? now(), source: null, effects: [], baseline: null, candidate: null, verification: null, judge: null, plannerComplete: false, iteration: 0, stage: "prepare", workerEffect: null, judgeEffect: null, feedback: "", humanJudgements: [], runtimeIds: [] };
     if (state.schema_version !== "wringer.contained-journey.v1" || state.planSha256 !== plan.plan_sha256 || state.authoritySha256 !== authoritySha256 || state.environmentSha256 !== environmentSha256)
         throw new Error("Journey approval, source map or plan identity changed; prior authority cannot follow a revised contract");
     for (const effect of state.effects) {
@@ -386,7 +510,8 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         await save("journey-approved", { planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256, environmentSha256 });
     if (!Array.isArray(state.runtimeIds))
         throw new Error("Journey lacks runtime-isolation accounting; no independent boundary can be inferred");
-    const remaining = authority.budget.wall_clock_seconds * 1000 - (Date.now() - Date.parse(state.startedAt));
+    const authorizedUntil = Math.min(Date.parse(authority.expires_at), Date.parse(state.startedAt) + authority.budget.wall_clock_seconds * 1000);
+    const remaining = authorizedUntil - Date.now();
     if (remaining > 0) {
         const deadline = AbortSignal.timeout(remaining);
         options = { ...options, signal: options.signal ? AbortSignal.any([options.signal, deadline]) : deadline };
@@ -409,7 +534,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
             throw new Error(`No ${role} ACP agent was declared`);
         if (Buffer.byteLength(prompt) > 512 * 1024)
             refuse("agent-context-too-large", "The explicit intent/acceptance/context packet exceeds 512 KiB. Scope the plan or select fewer context files; no requirement was silently truncated.", "wringer-drive plan --help");
-        const request = scrubValue({ role, repo: source, runtime: plan.runtime, agent, prompt, budget: { maxTurns: 1, timeoutMs: Math.min(authority.budget.session_timeout_seconds * 1000, authority.budget.wall_clock_seconds * 1000 - (Date.now() - Date.parse(state!.startedAt))) } });
+        const request = scrubValue({ role, repo: source, runtime: plan.runtime, agent, prompt, ...(role === "worker" ? { scope: { writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories } } : {}), budget: { maxTurns: 1, timeoutMs: Math.max(1, Math.min(authority.budget.session_timeout_seconds * 1000, authorizedUntil - Date.now())) } });
         const identity = hashValue({ ...request, budget: { maxTurns: 1 } });
         let effect = existingId ? state!.effects.find(e => e.id === existingId) : undefined;
         const complete = async (result: RoleExecutionResult, recovered = false): Promise<Effect> => {
@@ -426,6 +551,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
             effect!.result = result;
             effect!.resultSha256 = hashValue(result);
             effect!.status = "completed";
+            effect!.disposition = result.status === "completed" ? undefined : "stopped";
             state!.runtimeIds.push(p.runtimeId);
             await save(recovered ? "agent-result-reconciled" : "agent-completed", { effectId: effect!.id, role, status: result.status, runtimeId: p.runtimeId, sessionId: result.sessionId, usage: result.usage ?? null });
             return effect!;
@@ -440,7 +566,8 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
             if (effect.status === "completed") {
                 if (!result || hashValue(result) !== effect.resultSha256 || hashValue(effect.result) !== effect.resultSha256)
                     throw new Error("Retained ACP result differs from its completion digest");
-                if (!options.retryStopped || (!effect.invalidReason && effect.result?.status === "completed"))
+                const retryUnsettledJudge = role === "judge" && options.retryJudge && effect.disposition === "unsettled";
+                if (!retryUnsettledJudge && (!options.retryStopped || (!effect.invalidReason && effect.result?.status === "completed")))
                     return effect;
             }
             else {
@@ -457,22 +584,101 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         state!.effects.push(effect);
         if (role === "worker")
             state!.workerEffect = effect.id;
-        if (role === "judge")
+        if (role === "judge") {
             state!.judgeEffect = effect.id;
+            state!.judge = null;
+        }
         await immutableJson(controller, `${ROOT}/effects/${effect.id}/request.json`, request);
         await save("agent-reserved", { effectId: effect.id, role, reservedTurns: 1 });
         try {
-            const timeout = AbortSignal.timeout(request.budget.timeoutMs);
-            const result = scrubValue(await (options.executeRole ?? executeAgentRole)({ ...request, signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout, onEvent: async (event: Record<string, unknown>) => { try {
-                    await options.onEvent?.(scrubValue({ type: "agent-progress", effectId: effect!.id, role, event }));
+            ensure();
+            const timeout = AbortSignal.timeout(Math.max(1, Math.min(request.budget.timeoutMs, authorizedUntil - Date.now())));
+            let preflightObserved = false, preflightSessionId: string | undefined;
+            const result = scrubValue(await (options.executeRole ?? executeAgentRole)({ ...request, signal: options.signal ? AbortSignal.any([options.signal, timeout]) : timeout, onEvent: async (event: Record<string, unknown>) => {
+                const observed = scrubValue(event);
+                if (event.type === "acp.prompt.preflight") {
+                    ensure();
+                    assertPromptPreflight(observed, role);
+                    if (preflightObserved) throw new Error("ACP emitted more than one preflight for a one-prompt effect");
+                    preflightObserved = true;
+                    preflightSessionId = observed.sessionId as string;
+                    const body = scrubValue({ schema_version: "wringer.contained-agent-preflight.v1", effectId: effect!.id, requestSha256: effect!.requestSha256, role, at: now(), event: observed }), receipt = { ...body, sha256: hashValue(body) };
+                    // ACP awaits this callback before session/prompt. This is
+                    // authoritative persistence, not an optional progress view:
+                    // any recording failure MUST propagate back before spend.
+                    await immutableJson(controller, `${ROOT}/effects/${effect!.id}/preflight.json`, receipt);
+                    if (hashValue(await boundedRecord(controller, `${ROOT}/effects/${effect!.id}/preflight.json`)) !== hashValue(receipt)) throw new Error("Retained preflight bytes differ from the before-prompt observation");
+                    await save("agent-preflight-recorded", { effectId: effect!.id, role, receiptSha256: receipt.sha256 });
                 }
-                catch { /* Progress is a view, never an authority transition. */ } } } as RoleExecutionRequest));
+                try {
+                    await options.onEvent?.(scrubValue({ type: "agent-progress", effectId: effect!.id, role, event: observed }));
+                }
+                catch { /* Progress is a view, never an authority transition. */ }
+                // Persistence and optional observers can take time. This is the
+                // last awaited controller boundary before ACP sends its prompt.
+                if (event.type === "acp.prompt.preflight") ensure();
+            } } as RoleExecutionRequest));
+            if (preflightSessionId && result.sessionId && preflightSessionId !== result.sessionId) throw new Error("Agent result does not identify the observed before-prompt session");
             return await complete(result);
         }
         catch (error) {
             effect.status = "uncertain";
             await save("agent-uncertain", { effectId: effect.id, role, error: String(error) });
             refuse("effect-uncertain", `ACP effect ${effect.id} did not produce a validated durable result: ${String(error)}. Its budget remains charged.`, `${resumeCommand} --retry-uncertain`);
+        }
+    };
+    const runVerification = async (phase: "baseline" | "candidate", source: RepositorySource): Promise<CandidateVerification> => {
+        ensure();
+        requireAction("verify");
+        const requestSha256 = hashValue({ plan: plan.plan_sha256, source: { url: source.url, commit: source.commit }, phase });
+        const attempts = state!.verificationAttempts ??= [];
+        let attempt = attempts.findLast(a => a.requestSha256 === requestSha256);
+        const observe = async (observed: CandidateVerification, reconciled = false) => {
+            const value = checkVerification(scrubValue(observed), source, plan, state!.runtimeIds);
+            attempt!.result = value;
+            attempt!.disposition = value.status;
+            attempt!.status = "completed";
+            state!.runtimeIds.push(value.runtimeId);
+            if (phase === "baseline") state!.baseline = value;
+            else state!.verification = value;
+            await save(reconciled ? "verification-reconciled" : "verification-observed", { attemptId: attempt!.id, phase, disposition: value.status });
+            return value;
+        };
+        if (attempt) {
+            if (attempt.status === "completed") {
+                if (!attempt.result) throw new Error("Completed verification lost its observation");
+                if (attempt.disposition !== "unavailable" || !options.retryVerification) return attempt.result;
+            } else {
+                const request: ContainedVerificationRequest = { plan, source, phase, effectId: attempt.id, signal: options.signal };
+                const carried = await options.services.reconcileVerification?.(request);
+                if (carried) return observe(carried, true);
+                if (!options.retryUncertain)
+                    refuse("verification-uncertain", `Verification attempt ${attempt.id} has no validated completion. Its reservation remains charged; it will not execute again on ordinary resume.`, `${resumeCommand} --retry-uncertain`);
+            }
+        } else if (!attempts.length) {
+            // Historical journeys have receipts but no attempt ledger. Do not invent
+            // a pre-execution reservation or repeat their known observation.
+            const retained = phase === "baseline" ? state!.baseline : state!.verification;
+            if (retained && retained.candidateCommit === source.commit) {
+                if (retained.status !== "unavailable" || !options.retryVerification) return retained;
+                refuse("legacy-verification-retry", "This historical run has no verifier reservations. Start a newly approved journey to retry; its old observation remains intact.", "wringer-drive plan --help");
+            }
+        }
+        if (attempts.length >= authority.budget.max_sessions)
+            refuse("verification-budget-exhausted", `The whole-journey verification ceiling (${authority.budget.max_sessions} attempts) is exhausted. Failed and uncertain attempts remain reserved.`);
+        attempt = { id: randomUUID(), phase, sourceCommit: source.commit, requestSha256, status: "reserved" };
+        attempts.push(attempt);
+        await save("verification-reserved", { attemptId: attempt.id, phase, sourceCommit: source.commit, ceiling: authority.budget.max_sessions });
+        try {
+            ensure();
+            const deadline = AbortSignal.timeout(Math.max(1, Math.min(authority.budget.session_timeout_seconds * 1000, authorizedUntil - Date.now())));
+            const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
+            return await observe(await options.services.verifyCandidate({ plan, source, phase, effectId: attempt.id, signal }));
+        } catch (error) {
+            if (attempt.status === "completed") throw error;
+            attempt.status = "uncertain";
+            await save("verification-uncertain", { attemptId: attempt.id, phase, error: String(error) });
+            refuse("verification-uncertain", `Verification attempt ${attempt.id} did not produce a validated durable observation: ${String(error)}. Its reservation remains charged.`, `${resumeCommand} --retry-uncertain`);
         }
     };
     let stopped: ContainedJourneyStop | null = null, status: ContainedJourneyResult["status"] = "stopped";
@@ -506,25 +712,22 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 }
                 catch (error) {
                     effect.invalidReason = String(error);
+                    effect.disposition = "invalid";
                     await save("planner-output-invalid", { effectId: effect.id, error: String(error) });
                     refuse("planner-invalid-reply", String(error), `${resumeCommand} --retry-stopped`);
                 }
                 if (review.omissions.length || review.questions.length)
                     refuse("intent-needs-decision", "The independent planner found uncovered intent or a genuine decision. Revise the explicit contract and approve its new digest; routine authority cannot silently change it.", "wringer-drive plan --help");
                 state.plannerComplete = true;
+                effect.disposition = "accepted";
                 state.stage = "baseline";
                 await save("planner-reviewed", { review });
                 continue;
             }
             if (state.stage === "baseline") {
-                requireAction("verify");
-                const observed = scrubValue(await options.services.verifyCandidate({ plan, source: state.source!, phase: "baseline", effectId: `${state.id}-baseline`, signal: options.signal }));
-                const replay = state.baseline !== null && canonicalJson(observed) === canonicalJson(state.baseline);
-                state.baseline = checkVerification(observed, state.source!, plan, replay ? state.runtimeIds.filter(id => id !== state.baseline!.runtimeId) : state.runtimeIds);
-                if (!replay)
-                    state.runtimeIds.push(state.baseline.runtimeId);
+                state.baseline = await runVerification("baseline", state.source!);
                 if (state.baseline.status === "unavailable")
-                    refuse("baseline-unavailable", "The pinned acceptance commands could not execute. Environment failure is not a red receipt.", resumeCommand);
+                    refuse("baseline-unavailable", "The pinned acceptance commands could not execute. Environment failure is not a red receipt. A new attempt requires explicit bounded retry.", `${resumeCommand} --retry-verification`);
                 if (state.baseline.checks.some(c => c.status !== "failed"))
                     refuse("acceptance-born-green", "An acceptance check already passes before implementation. Strengthen the original contract; no worker turn has started.", "wringer-drive plan --help");
                 state.stage = "worker";
@@ -544,6 +747,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
             if (state.stage === "capture") {
                 const effect = state.effects.find(e => e.id === state.workerEffect)!;
                 state.candidate = validateCandidate(scrubValue(await options.services.captureCandidate(effect.result!, state.candidate?.source ?? state.source!, effect.id)), plan);
+                effect.disposition = "accepted";
                 state.verification = null;
                 state.judge = null;
                 state.humanJudgements = [];
@@ -552,12 +756,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 continue;
             }
             if (state.stage === "verify") {
-                requireAction("verify");
-                const observed = scrubValue(await options.services.verifyCandidate({ plan, source: state.candidate!.source, phase: "candidate", effectId: `${state.id}-verify-${state.iteration}`, signal: options.signal }));
-                const replay = state.verification !== null && canonicalJson(observed) === canonicalJson(state.verification);
-                state.verification = checkVerification(observed, state.candidate!.source, plan, replay ? state.runtimeIds.filter(id => id !== state.verification!.runtimeId) : state.runtimeIds);
-                if (!replay)
-                    state.runtimeIds.push(state.verification.runtimeId);
+                state.verification = await runVerification("candidate", state.candidate!.source);
                 if (state.verification.candidateTree !== state.candidate!.tree)
                     throw new Error("Verifier inspected a different candidate tree");
                 for (const check of state.verification.checks)
@@ -565,7 +764,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                         refuse("acceptance-inputs-changed", "Candidate verification used different acceptance inputs from the original red receipt.");
                 await save("candidate-verified", { verification: state.verification });
                 if (state.verification.status === "unavailable")
-                    refuse("verification-unavailable", "Independent verification could not execute; no model may override it.", resumeCommand);
+                    refuse("verification-unavailable", "Independent verification could not execute; no model may override it. A new attempt requires explicit bounded retry.", `${resumeCommand} --retry-verification`);
                 if (state.verification.status === "failed") {
                     state.feedback = canonicalJson({ verification: state.verification });
                     state.iteration++;
@@ -594,15 +793,18 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 }
                 catch (error) {
                     effect.invalidReason = String(error);
+                    effect.disposition = "invalid";
                     await save("judge-output-invalid", { effectId: effect.id, error: String(error) });
                     refuse("judge-invalid-reply", String(error), `${resumeCommand} --retry-stopped`);
                 }
                 state.judge = { ...findings, runtimeId: effect.result!.provenance.runtimeId, sessionId: effect.result!.sessionId! };
+                effect.disposition = findings.criteria.some(c => c.met === null && plan.acceptance.criteria.find(r => r.id === c.id)!.required) ? "unsettled" : "accepted";
                 await save("candidate-judged", { judge: state.judge });
                 if (findings.criteria.some(c => c.met === null && plan.acceptance.criteria.find(r => r.id === c.id)!.required))
-                    refuse("judge-unsettled", "Independent judge could not establish a required criterion. This is not acceptance.", resumeCommand);
+                    refuse("judge-unsettled", "Independent judge could not establish a required criterion. Transport completed, but its task is unsettled; a new judge attempt requires explicit bounded retry.", `${resumeCommand} --retry-judge`);
                 if (findings.criteria.some(c => c.met === false && plan.acceptance.criteria.find(r => r.id === c.id)!.required)) {
                     state.feedback = canonicalJson({ judge: findings });
+                    state.judge = null;
                     state.iteration++;
                     state.workerEffect = null;
                     state.judgeEffect = null;

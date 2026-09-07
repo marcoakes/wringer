@@ -28,5 +28,6 @@ await cp(join(root, "schema"), join(out, "schema"), { recursive: true });
 await cp(join(root, "docs/native"), join(out, "docs"), { recursive: true });
 await mkdir(join(out, "docs/examples"), { recursive: true });
 await cp(join(root, "packages/plan/examples/contained.yaml"), join(out, "docs/examples/contained.yaml"));
+await cp(join(root, "packages/plan/examples/planning.yaml"), join(out, "docs/examples/planning.yaml"));
 await writeFile(join(out, "BUILD.json"), JSON.stringify({ version, runtime: `Bun ${Bun.version}`, platform: process.platform, arch: process.arch, built_at: new Date().toISOString(), python_runtime: false, embedded_schemas: true }, null, 2) + "\n");
 console.log(`Native distribution: ${out}`);

@@ -25,5 +25,5 @@ export async function publishDelivery(repo: string, deliveryId: string, options:
         throw new Refusal("Remote delivery branch changed; it was not republished.", "wring audit --help");
     await git(repo, ["merge-base", "--is-ancestor", anchor.code_commit, localTip]);
     const target = config.deliver?.base || (await git(repo, ["symbolic-ref", `refs/remotes/${manifest.remote}/HEAD`])).replace(`refs/remotes/${manifest.remote}/`, "");
-    return publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId, bodyPath: join(directory, "mr.md"), sourceBranch: manifest.branch, targetBranch: target, title: (await Bun.file(join(directory, "commit.txt")).text()).trim(), send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(deliveryId)} --send` });
+    return publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId, bodyPath: join(directory, "mr.md"), sourceBranch: manifest.branch, targetBranch: target, title: (await Bun.file(join(directory, "commit.txt")).text()).trim(), expectedHeadCommit: localTip, publicationRemote: await git(repo, ["remote", "get-url", manifest.remote]), send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(deliveryId)} --send` });
 }

@@ -2,6 +2,9 @@ import { isIP } from "node:net";
 import { RuntimeError, type RuntimePolicy, type RepositorySource } from "./types";
 const object = (value: unknown): value is Record<string, any> => !!value && typeof value === "object" && !Array.isArray(value);
 const envName = /^[A-Za-z_][A-Za-z0-9_]*$/;
+// These names alter the privileged runtime client, shell/Git control plane, or host sockets.
+// Agent credential forwarding must not become executable configuration forwarding.
+const controlEnvironment = /^(?:PATH|HOME|USER|LOGNAME|SHELL|ENV|BASH_ENV|ZDOTDIR|CDPATH|IFS|NODE_OPTIONS|BUN_OPTIONS|PYTHON.*|RUBYOPT|RUBYLIB|PERL5OPT|PERL5LIB|KUBECONFIG|CONTAINER_.*|SSH_AUTH_SOCK|SSH_AGENT_PID|XDG_RUNTIME_DIR|TMPDIR|LD_.*|DYLD_.*|GIT_.*)$/;
 export const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 export function parseWritableDirectories(value: unknown, protectedFiles: string[] = []): string[] {
     if (!Array.isArray(value) || value.length > 64)
@@ -38,6 +41,10 @@ export function parseRuntimePolicy(value: unknown): RuntimePolicy {
         throw new RuntimeError("Repository policy cannot select a host executable; only the standard container/kubectl runtime client is allowed");
     if (value.env !== undefined && (!Array.isArray(value.env) || value.env.some((name: unknown) => typeof name !== "string" || !envName.test(name))))
         throw new RuntimeError("Runtime env must contain environment-variable names only");
+    if (value.env?.some((name: string) => controlEnvironment.test(name)))
+        throw new RuntimeError("Runtime env cannot forward host/runtime/shell/Git control variables; declare credential or application variable names only", "credential-scope-invalid");
+    if (value.env && new Set(value.env).size !== value.env.length)
+        throw new RuntimeError("Runtime env contains duplicate names");
     const network = value.network;
     if (!object(network) || !["deny", "allowlist"].includes(network.policy))
         throw new RuntimeError("Declare network policy deny or allowlist");

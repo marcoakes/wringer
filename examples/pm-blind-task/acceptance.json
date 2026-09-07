@@ -1,0 +1,173 @@
+{
+  "criteria": [
+    {
+      "id": "blocked-work",
+      "title": "Blocked steps are never attempted, including through a dependency chain",
+      "quote": "The runner must not attempt a step if any of its prerequisites failed or was\nskipped. This applies through the entire dependency chain.",
+      "kind": "check",
+      "required": true
+    },
+    {
+      "id": "independent-work",
+      "title": "Unrelated useful work continues while the blocked branch is skipped",
+      "quote": "Work on unrelated\nbranches must continue.",
+      "kind": "check",
+      "required": true
+    },
+    {
+      "id": "root-causes",
+      "title": "Each skipped step names its actual distinct original failures",
+      "quote": "Every skipped step must name all of the original failed steps that blocked it,\nonce each and in a stable order. Use alphabetical step-id order when more than\none original failure applies.",
+      "kind": "check",
+      "required": true
+    },
+    {
+      "id": "honest-summary",
+      "title": "The completed unsuccessful report distinguishes failed and skipped work",
+      "quote": "The summary must distinguish steps that failed from steps that were never\nattempted. It must name the underlying failures beside each skipped step and\nreport how many steps were actually attempted. The run must finish with an\nunsuccessful overall result if any step failed or was skipped, without crashing.",
+      "kind": "check",
+      "required": true
+    },
+    {
+      "id": "readable-report",
+      "title": "The displayed reports make the original imports to fix clear to a person",
+      "quote": "A person reading the two displayed reports can quickly tell which original\nimports need fixing, without treating a skipped downstream step as a new failure.",
+      "kind": "human",
+      "required": true,
+      "show": {
+        "id": "pipeline-report",
+        "argv": [
+          "bun",
+          "examples/pm-blind-task/display.ts"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 15
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "pipeline-direct",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "direct"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "blocked-work"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    },
+    {
+      "id": "pipeline-transitive",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "transitive"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "blocked-work"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    },
+    {
+      "id": "pipeline-branches",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "branches"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "independent-work"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    },
+    {
+      "id": "pipeline-attribution",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "attribution"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "root-causes"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    },
+    {
+      "id": "pipeline-multiple",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "multiple"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "root-causes"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    },
+    {
+      "id": "pipeline-summary",
+      "argv": [
+        "bun",
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "summary"
+      ],
+      "cwd": ".",
+      "timeout_seconds": 15,
+      "criteria": [
+        "honest-summary"
+      ],
+      "files": [
+        "examples/pm-blind-task/checks/skip-downstream.check.ts",
+        "examples/pm-blind-task/checks/support.ts",
+        "examples/pm-blind-task/testdata/chain.json",
+        "examples/pm-blind-task/testdata/two-failures.json"
+      ]
+    }
+  ],
+  "protected_paths": [
+    "examples/pm-blind-task/checks",
+    "examples/pm-blind-task/testdata",
+    "examples/pm-blind-task/display.ts",
+    "examples/pm-blind-task/PRD.md",
+    "examples/pm-blind-task/README.md",
+    "examples/pm-blind-task/acceptance.json",
+    "examples/pm-blind-task/planning.yaml"
+  ]
+}

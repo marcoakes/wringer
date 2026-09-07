@@ -70,6 +70,7 @@ Keep live platform tests and their exact prerequisites visible as release gates.
 - `packages/delivery`: source/evidence anchoring, audit, falsification and forge.
 - `packages/board`: derived facts and their human-readable views.
 - `packages/scheduler`: bounded graph/fleet orchestration.
+- `packages/application`: shared CLI/PM commands, controller queries and guarded effects.
 - `packages/cli`: thin command routing and the human pen.
 
 ## Contracts and evidence

@@ -202,6 +202,17 @@ export async function locked<T>(repo: string, name: string, task: () => Promise<
             await unlink(path);
     }
 }
+/** Read-only ownership observation. A retained phase alone never proves a live process. */
+export async function workflowLockStatus(repo: string, name: string): Promise<"held" | "absent" | "stale" | "unknown"> {
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new Error("Invalid workflow lock name");
+    try {
+        const path = await safePath(repo, `${WORKFLOW_DIR}/${name}.lock`), stat = await lstat(path);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 4096) return "unknown";
+        const owner = JSON.parse(await readFile(path, "utf8"));
+        if (!Number.isSafeInteger(owner.pid) || owner.pid < 1 || !Number.isFinite(Date.parse(owner.started_at))) return "unknown";
+        try { process.kill(owner.pid, 0); return "held"; } catch (error) { return (error as NodeJS.ErrnoException).code === "ESRCH" ? "stale" : "held"; }
+    } catch (error) { return (error as NodeJS.ErrnoException).code === "ENOENT" ? "absent" : "unknown"; }
+}
 export function parseObject(text: string, label: string): Record<string, unknown> {
     const parsed: unknown = parseYaml(text, label);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))

@@ -37,6 +37,14 @@ export interface KubernetesPolicy extends BasePolicy {
     }>;
 }
 export type RuntimePolicy = ApplePolicy | KubernetesPolicy;
+export interface WorkerScope {
+    /** Exact existing repository files/directories; a directory permits its descendants. */
+    writable: string[];
+    /** Controller-pinned acceptance/policy paths, including check dependencies. */
+    protected: string[];
+    /** Explicit empty, untracked dependency/build directories, not delivered source. */
+    writableDirectories?: string[];
+}
 export interface RoleExecutionRequest {
     role: AgentRole;
     repo: RepositorySource;
@@ -48,6 +56,8 @@ export interface RoleExecutionRequest {
         timeoutMs: number;
     };
     allowedToolKinds?: string[];
+    /** Mandatory for worker allocation; never inferred from the agent prompt. */
+    scope?: WorkerScope;
     signal?: AbortSignal;
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
 }
@@ -73,6 +83,15 @@ export interface RoleExecutionResult extends AcpTurnResult {
         patch: string;
         sha256: string;
     };
+}
+export interface AgentPreflightResult extends RoleExecutionResult {
+    promptSent: false;
+    modelWorkRequested: false;
+    providerCredentialValidated: false;
+    effectiveCredential: "not-attested";
+    credentialNames: string[];
+    authMethodReturned: boolean;
+    authLine: string;
 }
 export interface CommandResult {
     code: number;

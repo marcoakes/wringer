@@ -12,8 +12,8 @@ async function fixture(kind: "github" | "gitlab" = "github") {
     const repo = join(scratch, String(++serial));
     await mkdir(join(repo, ".wringer/deliveries/delivery-1"), { recursive: true });
     await Bun.write(join(repo, ".wringer/deliveries/delivery-1/mr.md"), body);
-    const options: MergeRequestOptions = { forge: { kind, endpoint: kind === "github" ? "https://api.github.com" : "https://gitlab.example/api/v4", repo: kind === "github" ? "owner/project" : "group/subgroup/project", token_env: "FIXTURE_FORGE_TOKEN" }, deliveryId: "delivery-1", bodyPath: ".wringer/deliveries/delivery-1/mr.md", sourceBranch: "wringer/change-1", targetBranch: "main", title: "A checked change", environment: { FIXTURE_FORGE_TOKEN: secret } };
-    const row = (patch = {}) => kind === "github" ? { number: 42, html_url: "https://github.com/owner/project/pull/42", title: options.title, body, head: { ref: options.sourceBranch, repo: { full_name: options.forge.repo } }, base: { ref: options.targetBranch, repo: { full_name: options.forge.repo } }, ...patch } : { iid: 42, web_url: "https://gitlab.example/group/subgroup/project/-/merge_requests/42", title: options.title, description: body, source_branch: options.sourceBranch, target_branch: options.targetBranch, source_project_id: 100, target_project_id: 100, ...patch };
+    const options: MergeRequestOptions = { forge: { kind, endpoint: kind === "github" ? "https://api.github.com" : "https://gitlab.example/api/v4", repo: kind === "github" ? "owner/project" : "group/subgroup/project", token_env: "FIXTURE_FORGE_TOKEN" }, deliveryId: "delivery-1", bodyPath: ".wringer/deliveries/delivery-1/mr.md", sourceBranch: "wringer/change-1", targetBranch: "main", title: "A checked change", expectedHeadCommit: "a".repeat(40), publicationRemote: kind === "github" ? "https://github.com/owner/project.git" : "ssh://git@gitlab.example/group/subgroup/project.git", environment: { FIXTURE_FORGE_TOKEN: secret } };
+    const row = (patch = {}) => kind === "github" ? { number: 42, html_url: "https://github.com/owner/project/pull/42", title: options.title, body, state: "open", head: { ref: options.sourceBranch, sha: options.expectedHeadCommit, repo: { full_name: options.forge.repo } }, base: { ref: options.targetBranch, repo: { full_name: options.forge.repo } }, ...patch } : { iid: 42, web_url: "https://gitlab.example/group/subgroup/project/-/merge_requests/42", title: options.title, description: body, state: "opened", sha: options.expectedHeadCommit, source_branch: options.sourceBranch, target_branch: options.targetBranch, source_project_id: 100, target_project_id: 100, ...patch };
     return { repo, options, row };
 }
 const reply = (data: unknown, status = 200, headers?: Record<string, string>) => new Response(JSON.stringify(data), { status, headers });
@@ -110,6 +110,35 @@ test("changed immutable intent and existing different MR content are not silentl
     const mismatch = await publishMergeRequest(f.repo, { ...f.options, send: true, transport: transport((_url, init) => { expect(init.method).toBe("GET"); return reply([f.row({ body: "Different handover" })]); }) });
     expect(mismatch.status).toBe("blocked");
     expect(mismatch.reason).toContain("not overwritten");
+});
+for (const kind of ["github", "gitlab"] as const) {
+    test(`${kind} distinguishes closed/merged requests without duplicate creation`, async () => {
+        for (const state of ["closed", "merged"] as const) {
+            const f = await fixture(kind);
+            const result = await publishMergeRequest(f.repo, { ...f.options, send: true, transport: transport((_url, init) => {
+                expect(init.method).toBe("GET");
+                return reply([f.row(kind === "github" && state === "merged" ? { state: "closed", merged_at: "2026-01-01T00:00:00Z" } : { state })]);
+            }) });
+            expect(result.status).toBe(state);
+            expect(result.hosted_state).toBe(state);
+            expect(result.head_commit).toBe(f.options.expectedHeadCommit);
+        }
+    });
+    test(`${kind} refuses a same-branch request pointing at another commit`, async () => {
+        const f = await fixture(kind), wrong = f.row();
+        if (kind === "github") (wrong as any).head.sha = "b".repeat(40); else (wrong as any).sha = "b".repeat(40);
+        const result = await publishMergeRequest(f.repo, { ...f.options, send: true, transport: transport((_url, init) => { expect(init.method).toBe("GET"); return reply([wrong]); }) });
+        expect(result.status).toBe("blocked");
+        expect(result.reason).toContain("exact delivered evidence commit");
+    });
+}
+test("different Git/forge repositories and missing commit bindings cannot send", async () => {
+    const f = await fixture(); let calls = 0;
+    const t = transport(() => { calls++; return reply([]); });
+    await expect(publishMergeRequest(f.repo, { ...f.options, send: true, publicationRemote: "https://github.com/other/project.git", transport: t })).rejects.toThrow("configured forge repository");
+    const result = await publishMergeRequest(f.repo, { ...f.options, expectedHeadCommit: undefined, send: true, transport: t });
+    expect(result.status).toBe("blocked");
+    expect(calls).toBe(0);
 });
 test("missing credential, cancellation and malformed declarations make no request", async () => {
     const f = await fixture();

@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue } from "@wringer/plan";
+import { PassThrough } from "node:stream";
+import { runAcpTurn } from "../../acp/src";
+import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue, planningRequestFromPlan, createPlanningAuthority, validatePlanningAuthority, environmentReadiness, ingestEnvironmentObservations } from "@wringer/plan";
 import type { ExecutionPlan, EnvironmentMap } from "@wringer/plan";
 import type { RoleExecutionRequest, RoleExecutionResult } from "@wringer/runtime";
-import { runContainedJourney, readValidatedContainedState, draftSpec } from "../src";
+import { runContainedJourney, readValidatedContainedState, queryContainedJourney, requestContainedRevision, proposeContainedPlan, runContainedDiscovery, draftSpec } from "../src";
 import type { ContainedJourneyOptions, ContainedJourneyServices, CandidateVerification } from "../src";
 const template = await readFile(new URL("../../plan/examples/contained.yaml", import.meta.url), "utf8");
 function planFixture(options: {
@@ -84,6 +86,158 @@ async function fixture(settings: {
     return { options, requests, serviceCalls };
 }
 describe("contained ACP production journey", () => {
+    function controlledClock() {
+        const NativeDate = globalThis.Date;
+        let instant = NativeDate.now();
+        globalThis.Date = class extends NativeDate {
+            constructor(value?: string | number) { super(value === undefined ? instant : value); }
+            static override now() { return instant; }
+        } as DateConstructor;
+        return { advanceTo: (time: number) => { instant = time; }, restore: () => { globalThis.Date = NativeDate; } };
+    }
+    /** Actual ACP client; only the agent byte stream is an in-memory fixture. */
+    function delayedAcp(opened: () => void) {
+        const input = new PassThrough(), output = new PassThrough(), errors = new PassThrough();
+        let buffer = "", prompts = 0;
+        input.on("data", chunk => {
+            buffer += chunk;
+            let end: number;
+            while ((end = buffer.indexOf("\n")) >= 0) {
+                const packet = JSON.parse(buffer.slice(0, end)); buffer = buffer.slice(end + 1);
+                const reply = (result: unknown) => output.write(JSON.stringify({ jsonrpc: "2.0", id: packet.id, result }) + "\n");
+                if (packet.method === "initialize") reply({ protocolVersion: 1, agentCapabilities: {}, authMethods: [] });
+                if (packet.method === "session/new") { opened(); reply({ sessionId: randomUUID() }); }
+                if (packet.method === "session/prompt") { prompts++; reply({ stopReason: "end_turn" }); }
+            }
+        });
+        return { prompts: () => prompts, execute: (request: RoleExecutionRequest) => runAcpTurn({ input, output, errors, exited: new Promise(() => {}), async terminate() { input.destroy(); output.destroy(); errors.destroy(); } }, { role: request.role, cwd: "/workspace/repo", prompt: request.prompt, timeoutMs: request.budget.timeoutMs, signal: request.signal, onEvent: request.onEvent }) };
+    }
+    test("authority expiry during ACP startup or preflight persistence prevents the actual prompt and keeps the reservation", async () => {
+        for (const delayAt of ["session", "observer"] as const) {
+            const clock = controlledClock();
+            try {
+                const f = await fixture(), expires = Date.now() + 10000;
+                f.options.authority = { ...f.options.authority, expires_at: new Date(expires).toISOString() };
+                const acp = delayedAcp(() => { if (delayAt === "session") clock.advanceTo(expires + 1); });
+                let offeredTimeout = Infinity;
+                f.options.executeRole = async request => { offeredTimeout = request.budget.timeoutMs; await acp.execute(request); throw new Error("Fixture has no completed role result"); };
+                if (delayAt === "observer") f.options.onEvent = async event => { if (event.type === "agent-progress" && (event.event as any)?.type === "acp.prompt.preflight") clock.advanceTo(expires + 1); };
+                const result = await runContainedJourney(f.options);
+                expect(acp.prompts()).toBe(0); expect(offeredTimeout).toBeLessThanOrEqual(10000);
+                expect(result.stop?.reason).toBe("effect-uncertain"); expect(result.sessions).toBe(1);
+                const history = await readValidatedContainedState(f.options.controllerDir);
+                expect(history.state.effects).toHaveLength(1); expect(history.state.effects[0]!.status).toBe("uncertain");
+                await expect(runContainedJourney(f.options)).rejects.toThrow("Authority is not currently valid");
+                expect(acp.prompts()).toBe(0);
+            } finally { clock.restore(); }
+        }
+    });
+    test("planning expiry during session opening prevents the actual ACP prompt and retains its charged attempt", async () => {
+        const clock = controlledClock();
+        try {
+            const f = await fixture({ planner: true }), request = planningRequestFromPlan(f.options.plan, f.options.plan.intent), expires = Date.now() + 10000;
+            const authority = createPlanningAuthority(request, { actor: "Expiry fixture", expiresAt: new Date(expires).toISOString() });
+            const acp = delayedAcp(() => clock.advanceTo(expires + 1)); let offeredTimeout = Infinity;
+            const options = { controllerDir: f.options.controllerDir, request, authority, source: request.repository, executeRole: async (r: RoleExecutionRequest): Promise<RoleExecutionResult> => { offeredTimeout = r.budget.timeoutMs; await acp.execute(r); throw new Error("Fixture has no completed planning result"); } };
+            const result = await proposeContainedPlan(options);
+            expect(acp.prompts()).toBe(0); expect(offeredTimeout).toBeLessThanOrEqual(10000);
+            expect(result.status).toBe("stopped"); expect(result.attempts).toBe(1); expect(result.stopReason).toContain("planner-uncertain");
+            const names = await readdir(join(f.options.controllerDir, ".wringer/planning/events")), last = JSON.parse(await readFile(join(f.options.controllerDir, ".wringer/planning/events", names.sort().at(-1)!), "utf8"));
+            expect(last.state.attempts).toHaveLength(1); expect(last.state.attempts[0].status).toBe("uncertain");
+            await expect(proposeContainedPlan(options)).rejects.toThrow("authority is invalid"); expect(acp.prompts()).toBe(0);
+        } finally { clock.restore(); }
+    });
+    test("authority expiry actively cancels independent verification and discovery without releasing their reservations", async () => {
+        for (const phase of ["verification", "discovery"] as const) {
+            const clock = controlledClock();
+            try {
+                const f = await fixture(), expires = Date.now() + 80;
+                f.options.authority = { ...f.options.authority, expires_at: new Date(expires).toISOString() };
+                let expired = false;
+                const waitForExpiry = async (signal?: AbortSignal): Promise<never> => {
+                    await new Promise<void>((done, reject) => {
+                        const fail = setTimeout(() => reject(new Error("Fixture: expiry did not cancel active work")), 600);
+                        const stop = () => { clearTimeout(fail); expired = true; done(); };
+                        if (signal?.aborted) stop(); else signal?.addEventListener("abort", stop, { once: true });
+                    });
+                    clock.advanceTo(expires + 1);
+                    throw new Error("Fixture observed authority-expiry interruption");
+                };
+                if (phase === "verification") {
+                    f.options.services.verifyCandidate = ({ signal }) => waitForExpiry(signal);
+                    const result = await runContainedJourney(f.options);
+                    expect(expired).toBe(true); expect(result.stop?.reason).toBe("verification-uncertain"); expect(f.requests).toHaveLength(0);
+                    const history = await readValidatedContainedState(f.options.controllerDir);
+                    expect(history.state.verificationAttempts).toHaveLength(1); expect(history.state.verificationAttempts![0]!.status).toBe("uncertain");
+                } else {
+                    const result = await runContainedDiscovery({ controllerDir: f.options.controllerDir, plan: f.options.plan, authority: f.options.authority, environment: f.options.environment, measure: ({ signal }) => waitForExpiry(signal) });
+                    expect(expired).toBe(true); expect(result.status).toBe("uncertain"); expect(result.attempts).toBe(1);
+                    expect(await readdir(join(f.options.controllerDir, ".wringer/discovery/attempts"))).toEqual(["000001"]);
+                }
+            } finally { clock.restore(); }
+        }
+    });
+    const preflightEvent = (request: RoleExecutionRequest) => ({ type: "acp.prompt.preflight", at: new Date().toISOString(), role: request.role, sessionId: randomUUID(), credentialNames: ["FIXTURE_API_KEY"], methodAttempted: null, providerCredentialValidated: false, effectiveCredential: "not-attested", promptSent: false, words: `${request.role}-auth: ACP session opened. Effective provider credential and key validity remain unverified. No model prompt has yet been sent.` });
+    const effectDirectory = async (controller: string, request: RoleExecutionRequest) => {
+        const { signal: _signal, onEvent: _onEvent, ...retained } = request, root = join(controller, ".wringer/contained/effects");
+        for (const id of await readdir(root)) if (hashValue(JSON.parse(await readFile(join(root, id, "request.json"), "utf8"))) === hashValue(retained)) return join(root, id);
+        throw new Error("Fixture could not resolve the already reserved request");
+    };
+    test("before-prompt authentication observations are durable without a UI and bound to the effect", async () => {
+        const f = await fixture(), execute = f.options.executeRole!; let simulatedPrompts = 0;
+        f.options.executeRole = async request => {
+            const event = preflightEvent(request), directory = await effectDirectory(f.options.controllerDir, request);
+            await request.onEvent!(event);
+            const receipt = JSON.parse(await readFile(join(directory, "preflight.json"), "utf8")), { sha256, ...body } = receipt;
+            expect(receipt.event).toEqual(event); expect(receipt.sha256).toBe(hashValue(body));
+            expect(receipt.effectId).toBe(directory.split("/").at(-1)); expect(receipt.event.providerCredentialValidated).toBe(false); expect(receipt.event.promptSent).toBe(false);
+            const names = await readdir(join(f.options.controllerDir, ".wringer/contained/events")), anchor = JSON.parse(await readFile(join(f.options.controllerDir, ".wringer/contained/events", names.sort().at(-1)!), "utf8"));
+            expect(anchor.type).toBe("agent-preflight-recorded"); expect(anchor.details.receiptSha256).toBe(sha256);
+            simulatedPrompts++;
+            return { ...await execute(request), sessionId: event.sessionId };
+        };
+        expect((await runContainedJourney(f.options)).status).toBe("review-ready"); expect(simulatedPrompts).toBe(2);
+        const history = await readValidatedContainedState(f.options.controllerDir);
+        expect(history.events.filter(e => e.type === "agent-preflight-recorded")).toHaveLength(2);
+        const path = join(f.options.controllerDir, ".wringer/contained/effects", history.state.effects[0]!.id, "preflight.json"), receipt = JSON.parse(await readFile(path, "utf8"));
+        receipt.event.words = "Altered claim"; await writeFile(path, JSON.stringify(receipt));
+        await expect(readValidatedContainedState(f.options.controllerDir)).rejects.toThrow("preflight receipt");
+    });
+    test("preflight persistence failures stop before a simulated prompt rather than being swallowed as observer errors", async () => {
+        const f = await fixture(); let simulatedPrompts = 0;
+        f.options.executeRole = async request => {
+            const directory = await effectDirectory(f.options.controllerDir, request);
+            await mkdir(join(directory, "preflight.json")); // A precise local persistence failure, not a live agent.
+            await request.onEvent!(preflightEvent(request));
+            simulatedPrompts++;
+            throw new Error("Unreachable simulated prompt");
+        };
+        const result = await runContainedJourney(f.options);
+        expect(result.stop?.reason).toBe("effect-uncertain"); expect(simulatedPrompts).toBe(0); expect(result.sessions).toBe(1);
+        expect((await readValidatedContainedState(f.options.controllerDir)).events.some(e => e.type === "agent-preflight-recorded")).toBe(false);
+    });
+    test("a preflight receipt survives interrupted execution and resuming never invents a successful prompt", async () => {
+        const f = await fixture(); let starts = 0;
+        f.options.executeRole = async request => { starts++; await request.onEvent!(preflightEvent(request)); throw new Error("Fixture interrupted before final reply"); };
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("effect-uncertain");
+        const history = await readValidatedContainedState(f.options.controllerDir), effect = history.state.effects[0]!;
+        expect(effect.status).toBe("uncertain");
+        const path = join(f.options.controllerDir, ".wringer/contained/effects", effect.id, "preflight.json"), before = await readFile(path, "utf8");
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("effect-uncertain"); expect(starts).toBe(1); expect(await readFile(path, "utf8")).toBe(before);
+    });
+    test("optional progress-view failure cannot prevent an already retained preflight from reaching its prompt", async () => {
+        const f = await fixture(), execute = f.options.executeRole!;
+        f.options.onEvent = async () => { throw new Error("Disconnected optional view"); };
+        f.options.executeRole = async request => { const event = preflightEvent(request); await request.onEvent!(event); return { ...await execute(request), sessionId: event.sessionId }; };
+        expect((await runContainedJourney(f.options)).status).toBe("review-ready");
+        expect((await readValidatedContainedState(f.options.controllerDir)).events.filter(e => e.type === "agent-preflight-recorded")).toHaveLength(2);
+    });
+    test("synthetic executors that emit no authentication observation receive no fabricated preflight receipt", async () => {
+        const f = await fixture(); await runContainedJourney(f.options);
+        const history = await readValidatedContainedState(f.options.controllerDir);
+        expect(history.events.some(e => e.type === "agent-preflight-recorded")).toBe(false);
+        for (const effect of history.state.effects) expect(await readdir(join(f.options.controllerDir, ".wringer/contained/effects", effect.id))).not.toContain("preflight.json");
+    });
     test("red → worker → independent verification → judge → ready, then zero model replay", async () => {
         const f = await fixture();
         const result = await runContainedJourney(f.options);
@@ -208,6 +362,114 @@ describe("contained ACP production journey", () => {
         expect(ready.status).toBe("review-ready");
         expect(ready.sessions).toBe(4);
     });
+    test("known unavailable verification requires explicit new attempt and keeps both receipts", async () => {
+        for (const phase of ["baseline", "candidate"] as const) {
+            const f = await fixture(), verify = f.options.services.verifyCandidate;
+            let unavailable = true;
+            f.options.services.verifyCandidate = async request => {
+                const result = await verify(request);
+                if (request.phase !== phase || !unavailable) return result;
+                unavailable = false;
+                return { ...result, status: "unavailable", checks: result.checks.map(c => ({ ...c, status: "unavailable", exitCode: null })) };
+            };
+            const first = await runContainedJourney(f.options);
+            expect(first.stop?.reason).toBe(phase === "baseline" ? "baseline-unavailable" : "verification-unavailable");
+            expect(first.stop?.next_move).toContain("--retry-verification");
+            const calls = f.serviceCalls.filter(c => c.kind === phase).length;
+            await runContainedJourney(f.options);
+            expect(f.serviceCalls.filter(c => c.kind === phase)).toHaveLength(calls);
+            expect((await runContainedJourney({ ...f.options, retryVerification: true })).status).toBe("review-ready");
+            const history = await readValidatedContainedState(f.options.controllerDir);
+            const attempts = history.state.verificationAttempts!.filter(a => a.phase === phase);
+            expect(attempts.map(a => a.disposition)).toEqual(["unavailable", phase === "baseline" ? "failed" : "passed"]);
+            expect(attempts[0]!.id).not.toBe(attempts[1]!.id);
+            expect(f.requests.filter(r => r.role === "worker")).toHaveLength(1);
+        }
+    });
+    test("uncertain verifier is reserved before execution and ordinary resume reconciles only", async () => {
+        const f = await fixture(), verify = f.options.services.verifyCandidate;
+        let carried: CandidateVerification | null = null, fail = true;
+        f.options.services.verifyCandidate = async request => {
+            const history = await queryContainedJourney(f.options.controllerDir);
+            expect(history.budget.verificationAttempts.unknown).toBe(1);
+            const result = await verify(request);
+            if (fail) { fail = false; carried = result; throw new Error("Lost response after durable supervisor observation"); }
+            return result;
+        };
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("verification-uncertain");
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("verification-uncertain");
+        expect(f.serviceCalls.filter(c => c.kind === "baseline")).toHaveLength(1);
+        f.options.services.reconcileVerification = async () => carried;
+        expect((await runContainedJourney(f.options)).status).toBe("review-ready");
+        expect(f.serviceCalls.filter(c => c.kind === "baseline")).toHaveLength(1);
+        expect((await readValidatedContainedState(f.options.controllerDir)).state.verificationAttempts).toHaveLength(2);
+    });
+    test("verification retry ceiling includes previous failures and uncertainty", async () => {
+        const f = await fixture(), verify = f.options.services.verifyCandidate;
+        f.options.authority = { ...f.options.authority, budget: { ...f.options.authority.budget, max_sessions: 1 } };
+        f.options.services.verifyCandidate = async request => {
+            const result = await verify(request);
+            return { ...result, status: "unavailable", checks: result.checks.map(c => ({ ...c, status: "unavailable", exitCode: null })) };
+        };
+        await runContainedJourney(f.options);
+        expect((await runContainedJourney({ ...f.options, retryVerification: true })).stop?.reason).toBe("verification-budget-exhausted");
+        expect(f.requests).toHaveLength(0);
+        expect(f.serviceCalls.filter(c => c.kind === "baseline")).toHaveLength(1);
+        expect((await queryContainedJourney(f.options.controllerDir)).budget.verificationAttempts).toEqual({ reserved: 1, ceiling: 1, unknown: 0 });
+    });
+    test("completed judge with null criterion is unsettled and retry is bounded and explicit", async () => {
+        const f = await fixture(), execute = f.options.executeRole!;
+        let unsettled = true;
+        f.options.executeRole = async request => {
+            const result = await execute(request);
+            if (request.role === "judge" && unsettled) {
+                unsettled = false;
+                const reply = JSON.parse(result.text);
+                reply.criteria[0].met = null;
+                return { ...result, text: JSON.stringify(reply) };
+            }
+            return result;
+        };
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("judge-unsettled");
+        const query = await queryContainedJourney(f.options.controllerDir);
+        expect(query.effects.at(-1)).toMatchObject({ role: "judge", transport: "completed", disposition: "unsettled" });
+        expect(query.actions.find(a => a.id === "retry-judge")?.enabled).toBe(true);
+        await runContainedJourney({ ...f.options, retryStopped: true });
+        expect(f.requests).toHaveLength(2);
+        expect((await runContainedJourney({ ...f.options, retryJudge: true })).status).toBe("review-ready");
+        const state = await readValidatedContainedState(f.options.controllerDir);
+        expect(state.state.effects.filter(e => e.role === "judge").map(e => e.disposition)).toEqual(["unsettled", "accepted"]);
+        expect(f.requests.filter(r => r.role === "worker")).toHaveLength(1);
+    });
+    test("review revision binds current state, preserves feedback and uses a new bounded worker", async () => {
+        const f = await fixture();
+        const first = await runContainedJourney(f.options), query = await queryContainedJourney(f.options.controllerDir);
+        await expect(requestContainedRevision(f.options.controllerDir, { feedback: "The result misses this case", by: "Reviewer", expectedRevision: "0".repeat(64), expectedCandidateTree: first.candidate!.tree })).rejects.toThrow("revision changed");
+        expect((await queryContainedJourney(f.options.controllerDir)).revision).toBe(query.revision);
+        const revised = await requestContainedRevision(f.options.controllerDir, { feedback: "Keep the first result but make the error useful", by: "Reviewer", expectedRevision: query.revision, expectedCandidateTree: first.candidate!.tree });
+        expect(revised.stop?.reason).toBe("revision-requested");
+        expect(revised.verification).toBeNull();
+        await expect(runContainedJourney({ ...f.options, expectedRevision: query.revision })).rejects.toThrow("revision changed");
+        expect(f.requests).toHaveLength(2);
+        const ready = await runContainedJourney(f.options);
+        expect(ready.status).toBe("review-ready");
+        expect(ready.candidate!.tree).not.toBe(first.candidate!.tree);
+        expect(f.requests.filter(r => r.role === "worker")[1]!.prompt).toContain("make the error useful");
+        const history = await readValidatedContainedState(f.options.controllerDir);
+        expect(history.events.some(e => e.type === "revision-requested")).toBe(true);
+        expect(history.state.verificationAttempts).toHaveLength(3);
+    });
+    test("command infrastructure exits cannot be accepted as red receipts", async () => {
+        for (const exitCode of [124, 126, 127, 137, 143]) {
+            const f = await fixture(), verify = f.options.services.verifyCandidate;
+            f.options.services.verifyCandidate = async request => {
+                const result = await verify(request);
+                return { ...result, checks: result.checks.map(c => ({ ...c, exitCode })) };
+            };
+            expect((await runContainedJourney(f.options)).stop?.message).toContain("cannot establish a red");
+            expect(f.requests).toHaveLength(0);
+        }
+    });
     test("exact retained request/result identities are checked even after readiness", async () => {
         const f = await fixture();
         await runContainedJourney(f.options);
@@ -257,5 +519,80 @@ describe("contained ACP production journey", () => {
         expect((await runContainedJourney(ungranted.options)).stop!.reason).toBe("authority-missing");
         expect(ungranted.requests).toHaveLength(0);
         expect(draftSpec({ endpoint: "https://provider.example.invalid" })).rejects.toThrow("retired");
+    });
+    test("ACP planning returns an unapproved source-linked proposal and never starts workers", async () => {
+        const f = await fixture({ planner: true }), request = planningRequestFromPlan(f.options.plan, f.options.plan.intent);
+        const authority = createPlanningAuthority(request, { actor: "Planning operator", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+        expect(() => validatePlanningAuthority(authority, request, new Date(NaN))).toThrow("authority is invalid");
+        const options = { controllerDir: f.options.controllerDir, request, authority, source: request.repository, executeRole: async (r: RoleExecutionRequest) => ({ ...await f.options.executeRole!(r), text: JSON.stringify({ acceptance: f.options.plan.acceptance, questions: [], note: "Existing check sources inspected by fixture planner" }) }) };
+        const proposal = await proposeContainedPlan(options);
+        expect(proposal.status).toBe("proposal");
+        expect(proposal.approved).toBe(false);
+        expect(proposal.plan!.intent).toBe(request.intent);
+        expect(proposal.plan!.runtime).toEqual(request.runtime);
+        expect(proposal.plan!.scope).toEqual(request.scope);
+        expect(f.requests.map(r => r.role)).toEqual(["planner"]);
+        expect((await proposeContainedPlan(options)).plan!.plan_sha256).toBe(proposal.plan!.plan_sha256);
+        expect(f.requests).toHaveLength(1);
+        await expect(proposeContainedPlan({ ...options, authority: { ...authority, actions: ["build"] as any } })).rejects.toThrow();
+    });
+    test("planning rejects self-approval/policy changes and does not replay uncertain sessions", async () => {
+        for (const failure of ["policy", "uncertain"] as const) {
+            const f = await fixture({ planner: true }), request = planningRequestFromPlan(f.options.plan, f.options.plan.intent), authority = createPlanningAuthority(request, { actor: "Fixture", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+            let calls = 0;
+            const options = { controllerDir: f.options.controllerDir, request, authority, source: request.repository, executeRole: async (r: RoleExecutionRequest) => {
+                calls++;
+                if (failure === "uncertain") throw new Error("Connection lost after possible spend");
+                return { ...await f.options.executeRole!(r), text: JSON.stringify({ acceptance: f.options.plan.acceptance, questions: [], note: "self-approved", approved: true, runtime: { kind: "local" } }) };
+            } };
+            const stopped = await proposeContainedPlan(options);
+            expect(stopped.status).toBe("stopped");
+            expect(stopped.plan).toBeNull();
+            expect(stopped.stopReason).toContain(failure === "policy" ? "invalid-reply" : "uncertain");
+            await proposeContainedPlan(options);
+            expect(calls).toBe(1);
+            expect((await proposeContainedPlan({ ...options, retryUncertain: true, retryStopped: true })).stopReason).toContain("budget-exhausted");
+            expect(calls).toBe(1);
+        }
+    });
+    test("planning questions remain a genuine decision, not an invented acceptance contract", async () => {
+        const f = await fixture({ planner: true }), request = planningRequestFromPlan(f.options.plan, f.options.plan.intent), authority = createPlanningAuthority(request, { actor: "Fixture", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+        const result = await proposeContainedPlan({ controllerDir: f.options.controllerDir, request, authority, source: request.repository, executeRole: async r => ({ ...await f.options.executeRole!(r), text: JSON.stringify({ questions: ["The acceptance check file is absent; approve its creation first."], note: "No imaginary check path was proposed" }) }) });
+        expect(result.status).toBe("needs-decision");
+        expect(result.questions).toHaveLength(1);
+        expect(result.plan).toBeNull();
+        expect(result.approved).toBe(false);
+    });
+    test("discovery measures declared versions once and charges its preparation wall clock", async () => {
+        const f = await fixture();
+        let calls = 0;
+        const observations = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: t.version + "\n", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image, command_sha256: hashValue(t.probe) }));
+        const options = { controllerDir: f.options.controllerDir, plan: f.options.plan, authority: f.options.authority, environment: f.options.environment, measure: async () => { calls++; return { observations, preparation: { status: "passed" as const } }; } };
+        expect(environmentReadiness(options.environment, options.plan).ready).toBe(false);
+        const first = await runContainedDiscovery(options);
+        expect(first.status).toBe("measured");
+        expect(environmentReadiness(first.environment, options.plan).ready).toBe(true);
+        expect((await runContainedDiscovery(options)).environment.map_sha256).toBe(first.environment.map_sha256);
+        expect(calls).toBe(1);
+        expect((await runContainedJourney({ ...f.options, environment: first.environment })).status).toBe("review-ready");
+        expect((await readValidatedContainedState(f.options.controllerDir)).state.startedAt).toBe(first.startedAt);
+        expect(() => ingestEnvironmentObservations(options.environment, options.plan, [{ ...observations[0]!, source_commit: "0".repeat(40) }])).toThrow("exact source");
+    });
+    test("discovery retains unavailable and uncertain attempts and never silently retries", async () => {
+        const f = await fixture();
+        let calls = 0;
+        const rows = f.options.plan.environment.tools.map(t => ({ kind: "tool" as const, id: t.name, status: "passed" as const, exit_code: 0, output: "wrong version", source_commit: f.options.plan.repository.commit, runtime_id: "fixture-discovery", image: f.options.plan.runtime.image, command_sha256: hashValue(t.probe) }));
+        const options = { controllerDir: f.options.controllerDir, plan: f.options.plan, authority: f.options.authority, environment: f.options.environment, measure: async () => { calls++; return { observations: rows, preparation: { status: "passed" as const } }; } };
+        expect((await runContainedDiscovery(options)).status).toBe("unavailable");
+        await runContainedDiscovery(options);
+        expect(calls).toBe(1);
+        options.measure = async () => { calls++; throw new Error("Lost verifier transport"); };
+        expect((await runContainedDiscovery({ ...options, retryUnavailable: true })).status).toBe("uncertain");
+        expect((await runContainedDiscovery(options)).status).toBe("uncertain");
+        expect(calls).toBe(2);
+        const result = await runContainedDiscovery({ ...options, reconcile: async () => ({ observations: rows.map(r => ({ ...r, output: f.options.plan.environment.tools.find(t => t.name === r.id)!.version })), preparation: { status: "passed" } }) });
+        expect(result.status).toBe("measured");
+        expect(result.attempts).toBe(2);
+        expect(calls).toBe(2);
     });
 });

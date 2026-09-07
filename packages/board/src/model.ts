@@ -200,13 +200,13 @@ export function deriveNextAction(model: BoardModel): NextAction {
     if (model.facts.delivered && model.delivery)
         return { title: "Audit and falsify the delivered change", description: "From the root of a fresh clone on the delivered branch, audit the carried evidence, then falsify the committed source change. Neither command spends on a model.", command: `wring audit --delivery ${shellQuote(model.delivery.id)} --repo .\nwring verify --falsify --delivery ${shellQuote(model.delivery.id)} --repo .`, owner: "operator", spends: false };
     if (model.facts.requirements?.requiredUnproved)
-        return { title: "Finish the missing proof", description: `${model.facts.requirements.requiredUnproved} required requirement(s) still need a check with a recorded failure and a passing result. The worker owns this work.`, command: "wring run", owner: "worker", spends: true };
+        return { title: "Finish the missing proof", description: `${model.facts.requirements.requiredUnproved} required requirement(s) still need a check with a recorded failure and a passing result. This standalone record cannot authorize an agent. Declare a contained plan to delegate the repair.`, command: "wringer-drive plan --help", owner: "operator", spends: false };
     const human = model.requirements.find(r => r.required && r.human && (!r.judgement || r.judgement.stale || r.judgement.verdict !== "met"));
     if (human)
         return { title: "A person needs to see the result", description: human.title, command: `wringer-board judge --id ${shellQuote(human.id)}`, owner: "person", spends: false };
     if (model.facts.readyToDeliver)
         return { title: "Review the delivery", description: "The evidence is ready for a delivery preview.", command: "wring deliver", owner: "operator", spends: false };
     if (model.run && !model.facts.checksPassing)
-        return { title: "Bring the checks to green", description: "The failed checks contain the next concrete build work.", command: "wring run", owner: "worker", spends: true };
+        return { title: "Bring the checks to green", description: "The failed checks contain the next concrete build work. This standalone record cannot start a coding agent; declare a bounded contained plan to delegate the repair.", command: "wringer-drive plan --help", owner: "operator", spends: false };
     return model.nextAction;
 }
