@@ -21,6 +21,9 @@ package version and are listed per release.
   Marc's authorship and historical contribution credits.
 - Packaged guides retain their relative links and original artwork; missing public
   references fail the build, while private captures become explicit omissions.
+- Referenced source/tests are inert text, package checks use explicit directory
+  paths, and validation builds before testing; the first Action regression and
+  its corrective measurements remain in the implementation report.
 - **Limits:** explicit cooperative-local preview, not same-user tamper resistance
   or verified human presence. Protected mode and strict cash limits refuse.
   No named-client live PM journey, outsider install or public release is claimed.

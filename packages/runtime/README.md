@@ -73,7 +73,7 @@ partial attempt is retained, and the same immutable request can rebuild in fresh
 attempt storage without another agent call. Different requests cannot reuse the
 reservation. Legacy partial captures without an identity still refuse.
 
-`bun test packages/runtime/test` covers adversarial policy/read-back inputs using
+`bun test ./packages/runtime/test` covers adversarial policy/read-back inputs using
 an injected driver, real local Git capture interruption/recovery, and real ACP
 subprocess cancellation. The executable ownership/rename adversary runs only in a
 Linux uid-0 environment with `setpriv`; it is explicitly skipped on macOS.

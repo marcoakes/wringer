@@ -14,10 +14,11 @@ const stages: [
     string
 ][] = [
     ["workspace-links", [process.execPath, "install", "--frozen-lockfile", "--offline"], workspace],
-    ["assistant-check", [process.execPath, "test", "packages/mcp/test", "packages/application/test/assistant.test.ts", "packages/application/test/assistant-runner.test.ts", "packages/application/test/assistant-journey.test.ts", "packages/cli/test/assistant-cli.test.ts", "packages/cli/test/assistant-console.test.ts", "packages/cli/test/assistant-transport.test.ts", "packages/cli/test/assistant-lifecycle.test.ts", "packages/cli/test/distribution-docs.test.ts"], workspace],
-    ["native-check", [process.execPath, "run", "check"], workspace],
-    ["portable-python-corpus", [process.execPath, "test", "packages/records/test", "packages/board/test", "packages/scheduler/test/health.test.ts"], workspace],
+    // Exercise checks with a built distribution present, as the public Action does.
     ["standalone-build", [process.execPath, "scripts/build.ts"], workspace],
+    ["assistant-check", [process.execPath, "test", "./packages/mcp/test", "./packages/application/test/assistant.test.ts", "./packages/application/test/assistant-runner.test.ts", "./packages/application/test/assistant-journey.test.ts", "./packages/cli/test/assistant-cli.test.ts", "./packages/cli/test/assistant-console.test.ts", "./packages/cli/test/assistant-transport.test.ts", "./packages/cli/test/assistant-lifecycle.test.ts", "./packages/cli/test/distribution-docs.test.ts", "./packages/cli/test/test-discovery.test.ts"], workspace],
+    ["native-check", [process.execPath, "run", "check"], workspace],
+    ["portable-python-corpus", [process.execPath, "test", "./packages/records/test", "./packages/board/test", "./packages/scheduler/test/health.test.ts"], workspace],
     ["standalone-contract", [process.execPath, "scripts/distribution.ts"], workspace],
     ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
     ["local-delivery-fixture", [process.execPath, "scripts/demo.ts"], workspace],

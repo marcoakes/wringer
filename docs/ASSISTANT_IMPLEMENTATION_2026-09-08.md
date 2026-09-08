@@ -70,6 +70,35 @@ guide locations remain redirects to the maintained source-relative pages.
 Local fixtures do not establish live provider, containment or genuine
 human-presence claims. Remote CI measures the eventual pushed commit separately.
 
+### First remote checkpoint and build-order regression
+
+Commit `a26fdcc21cae1f71cf9af0f6e115828aa809009f` was pushed to main with Codex
+authorship. Its [first remote run](https://github.com/marcoakes/wringer/actions/runs/34246330391)
+passed the full Linux and macOS validation jobs but **failed the separate
+GitHub Action job**. The failure is retained, not labelled a clean release.
+
+The Action builds before checking. Documentation carried referenced source
+tests under `dist/packages`, and `bun test packages` interpreted its argument as
+a path-substring filter. It discovered those incomplete reference copies too:
+528 passes, two skips, ten failures (including nine missing-module errors).
+The original validation order had checked before building, so it missed this.
+
+The correction explicitly targets `./packages`, makes executable source
+references inert text copies, and checks with a built distribution already
+present. Dedicated regressions preserve the failing discovery control and
+verify the exact package root, reference-link mapping and safe migration of
+previously generated copies. Follow-up results are separate from the failed
+first run.
+
+Corrective local validation at `2026-09-08T16:56:04.139Z` passed the build-first
+distribution, **105 focused tests with 1,529 assertions**, and the compiled
+assistant lifecycle. The 63-file, 185-link documentation bundle still resolves.
+Old executable reference copies were removed only when the prior generated
+manifest and exact file hashes matched; their source originals remain intact.
+The correction does not skip failing package tests or turn the first CI run
+green retrospectively. Its exact pushed commit must receive its own remote
+checks.
+
 - First full validation: **515 passed, 1 skipped, 5 failed**. All five failures
   were new console fixtures passing macOS's symlinked temporary-directory alias
   into a deliberately non-symlink controller boundary. The fixtures now use

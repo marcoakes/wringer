@@ -62,7 +62,7 @@ Unsupported legacy modes are explicit: worker fallback ladders and fleet scope
 files are refused. This implementation does not claim those modes work.
 
 ```sh
-bun test packages/scheduler/test
+bun test ./packages/scheduler/test
 ```
 
 Tests use real Git repositories, deterministic local worker processes and real

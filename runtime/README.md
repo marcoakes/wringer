@@ -169,8 +169,8 @@ full PM blind journey remain separate gates.
 Unit/protocol tests run without containers or provider keys:
 
 ```sh
-bun test packages/runtime/test/runtime-smoke.test.ts
-bun test packages/runtime/test/runtime-smoke-local.test.ts
+bun test ./packages/runtime/test/runtime-smoke.test.ts
+bun test ./packages/runtime/test/runtime-smoke-local.test.ts
 ```
 
 The local-helper unit suite uses synthetic interface/listener observations; it

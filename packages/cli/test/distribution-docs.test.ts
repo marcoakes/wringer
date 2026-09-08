@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { access, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { copyDistributionDocs, validateDistributionDocs } from "../../../scripts/distribution-docs";
@@ -14,6 +14,56 @@ async function fixture() {
 }
 
 describe("packaged documentation closure", () => {
+    test("code, tests and active configuration are inert references with rewritten links, never auto-discovered tests", async () => {
+        const f = await fixture();
+        const refs = ["packages/canary.test.ts", "packages/component.tsx", "scripts/build.js", "scripts/run.mjs", "scripts/run.cjs", "scripts/run.sh", "scripts/run.py", "package.json", "bunfig.toml"];
+        await f.put("START.md", refs.map(path => `[${path}](${path})`).join("\n") + "\n[Template](plan.yaml)");
+        for (const path of refs) await f.put(path, 'throw new Error("DOC_REFERENCE_EXECUTED")');
+        await f.put("plan.yaml", "version: 1\n");
+        const manifest = await copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] });
+        const page = await readFile(join(f.output, "START.md"), "utf8");
+        for (const path of refs) {
+            expect(page).toContain(`](${path}.txt)`);
+            expect(manifest.files.find(file => file.path === `${path}.txt`)?.sourcePath).toBe(path);
+            await expect(access(join(f.output, path))).rejects.toThrow();
+        }
+        expect(page).toContain("](plan.yaml)");
+        const child = Bun.spawn([process.execPath, "test", "packages"], { cwd: f.output, stdout: "pipe", stderr: "pipe" });
+        const [stdout, stderr, exit] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
+        expect(exit).toBe(1); // Bun's explicit no-tests-found outcome.
+        expect(stdout + stderr).not.toContain("DOC_REFERENCE_EXECUTED");
+        expect(stdout + stderr).toContain("did not match any test files");
+        await validateDistributionDocs(f.output);
+    });
+
+    test("incremental rebuild removes only unchanged old manifest-owned executable references", async () => {
+        for (const disposition of ["unchanged", "altered", "missing"]) {
+            const f = await fixture(), path = "packages/old.test.ts";
+            await f.put("START.md", `[Reference](${path})`); await f.put(path, "// original source\n");
+            const manifest = await copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] });
+            // Recreate the previous builder's exact manifest-owned executable
+            // copy, not an arbitrary file guessed from its suffix.
+            const entry = manifest.files.find(file => file.path === `${path}.txt`)!;
+            entry.path = path; delete entry.sourcePath;
+            await rename(join(f.output, `${path}.txt`), join(f.output, path));
+            await writeFile(join(f.output, "DOCUMENTATION.json"), JSON.stringify(manifest));
+            await writeFile(join(f.output, "unrecorded.test.ts"), "// unrelated user file\n");
+            if (disposition === "missing") await rm(join(f.output, path)); // Retrying a partially completed older migration.
+            if (disposition === "altered") {
+                await writeFile(join(f.output, path), "// user changed this generated copy\n");
+                await expect(copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] })).rejects.toThrow("Previously generated reference changed");
+                expect(await readFile(join(f.output, path), "utf8")).toBe("// user changed this generated copy\n");
+            } else {
+                await copyDistributionDocs(f.source, f.output, { entrypoints: ["START.md"], nativeGuides: [] });
+                await expect(access(join(f.output, path))).rejects.toThrow();
+                expect(await readFile(join(f.output, `${path}.txt`), "utf8")).toBe("// original source\n");
+                await validateDistributionDocs(f.output);
+            }
+            expect(await readFile(join(f.output, "unrecorded.test.ts"), "utf8")).toBe("// unrelated user file\n");
+            expect(await readFile(join(f.source, path), "utf8")).toBe("// original source\n");
+        }
+    });
+
     test("copies transitive pages, encoded links and HTML media, preserves cycles, and generates nonduplicated legacy redirects", async () => {
         const f = await fixture();
         await f.put("START.md", '# Start\n\n[Next](docs/My%20guide.md?view=local#the%20heading)\n<img src="docs/banner.webp" alt="Original artwork">\n');
@@ -87,6 +137,10 @@ describe("packaged documentation closure", () => {
         expect(checked.namedOmissions).toBeGreaterThan(0);
         for (const path of ["INSTALL.md", "SETUP.md", "THREAT_MODEL.md", "docs/native/HEADLESS.md", "docs/PM_ASSISTANT_ENTRY_PLAN.md", "docs/ASSISTANT_IMPLEMENTATION_2026-09-08.md", "docs/banner.webp"]) expect(manifest.files.some(file => file.path === path)).toBe(true);
         expect(manifest.files.every(file => !file.path.startsWith(".wringer/") && !file.path.startsWith(".codex/"))).toBe(true);
+        const testReferences = manifest.files.filter(file => file.sourcePath?.endsWith(".test.ts"));
+        expect(testReferences.length).toBeGreaterThan(0);
+        expect(testReferences.every(file => file.path.endsWith(".test.ts.txt"))).toBe(true);
+        expect(manifest.files.every(file => !/\.(?:ts|tsx|js|jsx|mjs|cjs|sh|py)$/.test(file.path))).toBe(true);
         expect(await readFile(join(output, "docs/banner.webp"))).toEqual(await readFile(join(source, "docs/banner.webp")));
         expect(await readFile(join(output, "README.md"), "utf8")).toContain("Created and directed by [Marc Oakes]");
     });

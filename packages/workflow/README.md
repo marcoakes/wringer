@@ -66,7 +66,7 @@ that a requirement captures all the user's meaning. A planner review is explicit
 fallible. The initial production interface requires a declared acceptance plan;
 it does not silently invent or approve one from arbitrary prose.
 
-`bun test packages/workflow/test/contained.test.ts` exercises the production
+`bun test ./packages/workflow/test/contained.test.ts` exercises the production
 state machine with synthetic ACP/runtime outcomes, no paid calls. These fixtures
 do not measure live adapters, provider authentication or real containment.
 `test/legacy` preserves historical alpha tests but is outside production imports.

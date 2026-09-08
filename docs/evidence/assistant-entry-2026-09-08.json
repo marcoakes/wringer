@@ -403,5 +403,66 @@
     "action": "moved four known retired Python package archives out of the active dist directory to the private local capture; no deletion",
     "recoverable": true,
     "sha256_verified_unchanged": true
+  },
+  "first_remote_validation": {
+    "commit": "a26fdcc21cae1f71cf9af0f6e115828aa809009f",
+    "url": "https://github.com/marcoakes/wringer/actions/runs/34246330391",
+    "conclusion": "failure",
+    "jobs": {
+      "Bun / ubuntu-latest": "success",
+      "Bun / macos-latest": "success",
+      "action": "failure"
+    },
+    "failed_action_gate": {
+      "name": "tests",
+      "command": "bun test packages",
+      "passed": 528,
+      "skipped": 2,
+      "failed": 10,
+      "errors": 9,
+      "assertions": 4671,
+      "stderr_sha256": "96f9c41f74e205119c620c828c04ab151a5dac8562a95cb4b932d721db0feb32"
+    },
+    "reason": "A substring test filter discovered executable reference copies under dist/packages after the Action built the distribution. The previous native validation checked before build.",
+    "preserved": true
+  },
+  "corrective_local_validation": {
+    "started_utc": "2026-09-08T16:56:04.139Z",
+    "command": "bun scripts/validate.ts standalone-build assistant-check compiled-assistant-lifecycle",
+    "status": "passed",
+    "tests": {
+      "passed": 105,
+      "failed": 0,
+      "assertions": 1529
+    },
+    "stages": [
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1522
+      },
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 8028
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4310
+      }
+    ],
+    "documentation": {
+      "files": 63,
+      "links": 185,
+      "named_private_omissions": 10,
+      "executable_references": "inert .txt files with original sourcePath retained",
+      "old_generated_copies": "only unchanged manifest-owned copies retired; source originals preserved; interrupted migration retryable"
+    },
+    "test_discovery": "explicit ./packages directory paths; intentional substring-filter failure retained as a regression control",
+    "validation_order": "build precedes package checks, matching the Action boundary"
   }
 }

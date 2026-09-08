@@ -55,7 +55,7 @@ command, separate usage lanes and the recorded journey. HTML has a restrictive
 content policy, no external fonts or assets, and escaped record content.
 
 ```sh
-bun test packages/board/test
+bun test ./packages/board/test
 ```
 
 The tests include a read-only check against the original Run 5B capture when it is

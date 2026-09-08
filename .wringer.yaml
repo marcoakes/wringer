@@ -9,7 +9,7 @@ gates:
     run: bun run typecheck
     timeout: 120
   - id: tests
-    run: bun test packages
+    run: bun test ./packages
     timeout: 600
 deliver:
   branch: "wringer/{run}"

@@ -16,7 +16,7 @@ Run from the repository root. Use the root lockfile and scripts; do not create a
 For a targeted test during development:
 
 ```sh
-bun test packages/board/test
+bun test ./packages/board/test
 ```
 
 Use the package you changed, then run the full check before handoff. A passing targeted test is not a passing CI run. Keep unexpected output and classify environment failures separately from product-check failures.
