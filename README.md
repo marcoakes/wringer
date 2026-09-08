@@ -1,3 +1,9 @@
+<div align="center">
+
+<img src="docs/banner.webp" alt="A vintage wringer washing machine, cranked by hand. Two things feed into the rollers from the left: a git diff with a stream of tangled code, and a handwritten note reading 'I want a button that... downloads as a spreadsheet...'. A red tag on the roller says RED FIRST, and drops marked with red crosses drip into the tub below. Out of the right comes a perforated page headed EVERY GREEN WAS RED FIRST, carrying three cards — DONE — PROVED, NOT YET, NEEDS YOU — on a stack of fanfold paper stamped EVIDENCED. In the corner a terminal shows 'wring deliver' ticking off approved by you, red first, evidence, then REFUSED: 1 -- needs you." width="900">
+
+</div>
+
 # Wringer
 
 Turn a product specification into a checked change, with evidence someone else can inspect.
@@ -82,6 +88,8 @@ The source change commit and the later commit carrying the evidence are differen
 `wring init`, `wring verify`, `wringer-board`, `wring doctor`, and `wring deliver` remain available for repository-local verification and its existing record format. These are separate from contained journey state. Local checks and displays execute trusted repository commands on the host; using them is not a way to resume or approve a contained run. See `wring --help` and `wringer-board --help` before choosing this route.
 
 ## Development and history
+
+Created and directed by [Marc Oakes](https://github.com/marcoakes). The current Bun/TypeScript rewrite and PM workspace were built with **OpenAI Codex** ([rewrite](https://github.com/marcoakes/wringer/commit/3981e9a42f023be2855501c3b07020179d84f4df), [PM workspace](https://github.com/marcoakes/wringer/commit/2f08ca6b4927a70e96d6c36af82ad1b02b2dafb8)). Earlier work with Claude remains credited in Git history.
 
 [Contributing](CONTRIBUTING.md) describes the root workspace and verification discipline. [Architecture](docs/native/ARCHITECTURE.md) describes package ownership and authority boundaries. Historical specifications, reports and release notes remain useful evidence, but their old installation commands and completion claims are not current setup instructions. The [first rewrite report](docs/native/IMPLEMENTATION_REPORT.md) is explicitly historical.
 

@@ -43,4 +43,15 @@ The board, summary, certificate and MR must share derivations. Missing usage is 
 
 Keep changes reviewable and describe what actually ran. Conventional commit subjects are useful; an unrun test must be named as unrun. Security reports use [SECURITY.md](SECURITY.md), not public issues containing exploit details or secrets.
 
+### Authorship and AI assistance
+
+Credit the people and tools that actually contributed. For Codex-assisted work,
+include `Co-authored-by: Codex <codex@openai.com>` after a blank line in the commit
+message, unless Codex is already the commit author. Retain the human contributor's
+credit and use their verified GitHub-associated email or GitHub-provided no-reply
+address when account attribution is intended. Do not copy another agent's credit
+into a commit it did not help produce, or rewrite historical attribution to make
+the current tool appear responsible for earlier work. Repository ownership,
+human decisions and AI assistance are distinct facts.
+
 Historical specs and reports explain earlier rulings and failure modes. Their old packaging commands, module paths and status tables are not the current build contract. Apache-2.0 applies; see [LICENSE](LICENSE).
