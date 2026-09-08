@@ -53,6 +53,10 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
+  wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
+  wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
+  wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
+  wringer-drive new-grant --state DIRECTORY    Preview separate execution approval; no spend
   wringer-drive board --state DIRECTORY        Live, private localhost PM workspace
       [--port 0] [--output NEW_FILE.html]       An output file is a read-only snapshot
   wringer-drive doctor --plan PLAN.yaml        Reuse existing keys; report prerequisites
@@ -77,6 +81,10 @@ budgets. --retry-stopped explicitly retries a known stopped role within remainin
 limits; --retry-uncertain acknowledges possible duplicate spend after interruption.
 --retry-verification retries a known unavailable check; --retry-judge retries an
 unsettled judge. Each reserves a new attempt within the original ceilings.
+An exhausted grant cannot be retried. new-grant and planning-new-grant first show
+the exact confirmation options without allocating work. A confirmed new grant
+uses a fresh state; old reservations, failures and unknown spend remain intact.
+--retry-uncertain is only applicable to a genuinely interrupted current attempt.
 Propose delegates bounded planning to the declared ACP planner; its output is
 unapproved and cannot grant itself execution authority. A planning call may spend.
 The board uses the same guarded actions as the CLI, never an alternate authority.

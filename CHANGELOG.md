@@ -4,6 +4,23 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.4 — blind-test repairs (source checkpoint, not a public release)
+
+- Preserve the [alpha.3 blind FAIL and separate salvage](docs/PM_BLIND_REPORT_2026-09-08.md).
+  No frozen run, original human verdict or unknown bill was rewritten.
+- Read strict JSON, a first JSON fence or a first balanced object from ACP
+  replies; retain extraction evidence and still validate the role's contract.
+- Expose planning questions and notes, distinguish exhausted and interrupted
+  attempts, and offer explicit fresh grants without resetting old reservations.
+- Stop completed-but-unchanged worker turns and reported provider authentication
+  rejection before automatic redispatch; retain provider diagnostics and honest
+  tool-telemetry limits. Transport completion is not successful implementation.
+- Share human-display eligibility between CLI and board. Name running stages,
+  show passed checks separately from pending review, and disable impossible
+  continuation with an explanation. Born-green stops name checks and receipts.
+- New regression fixtures exercise the reported failures without provider spend.
+  The next live test remains gated on a valid Codex credential and frozen build.
+
 ## 1.0.0-alpha.3 — PM workspace and guarded recovery (source checkpoint)
 
 - Shared application commands connect the contained CLI and live localhost PM

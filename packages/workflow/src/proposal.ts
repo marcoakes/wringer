@@ -5,7 +5,8 @@ import { canonicalJson, hashValue, compilePlanningProposal, validatePlanningAuth
 import type { ExecutionPlan, PlanningAuthority, PlanningRequest } from "@wringer/plan";
 import { executeAgentRole } from "@wringer/runtime";
 import type { RepositorySource, RoleExecutionRequest, RoleExecutionResult, RoleExecutor } from "@wringer/runtime";
-import { atomicWrite, immutableJson, locked, now, readJson, safePath, scrubValue, withSecrets } from "./storage";
+import { atomicWrite, immutableJson, locked, now, readJson, safePath, scrubValue, withSecrets, workflowLockStatus } from "./storage";
+import { parseAcpJsonReply, type AcpJsonReplyEvidence } from "./json-reply";
 
 const ROOT = ".wringer/planning";
 interface Attempt { id: string; requestSha256: string; status: "reserved" | "completed" | "uncertain"; resultSha256?: string; disposition?: "proposal" | "needs-decision" | "stopped" | "invalid" }
@@ -38,8 +39,97 @@ async function retained<T>(dir: string, path: string): Promise<T | null> {
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 64 * 1024 * 1024) throw new Error("Planning record is not a bounded regular file");
     return readJson<T>(dir, path);
 }
+async function loadPlanningHistory(controller: string, request: PlanningRequest, authority: PlanningAuthority) {
+    const names = await readdir(await safePath(controller, `${ROOT}/events`)).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return []; throw e; });
+    if (names.length > 10000) throw new Error("Planning event history exceeds its bound");
+    let previous = "0".repeat(64), sequence = 0, state: PlanningState = { schema_version: "wringer.planning-state.v1", requestSha256: request.request_sha256, authoritySha256: hashValue(authority), startedAt: now(), attempts: [] };
+    const seen = new Map<string, Attempt>();
+    let initialStartedAt: string | null = null, previousAt: number | null = null;
+    for (const name of names.sort()) {
+        const event = await retained<Event>(controller, `${ROOT}/events/${name}`);
+        if (!event) throw new Error("Planning event disappeared");
+        const { sha256, ...data } = event;
+        if (name !== `${String(++sequence).padStart(6, "0")}.json` || event.schema_version !== "wringer.planning-event.v1" || event.sequence !== sequence || event.previous !== previous || sha256 !== hashValue(data) || !Number.isFinite(Date.parse(event.at))) throw new Error("Planning journal is damaged; no spend will be replayed");
+        state = event.state;
+        initialStartedAt ??= state.startedAt;
+        if (state.startedAt !== initialStartedAt || previousAt !== null && Date.parse(event.at) < previousAt) throw new Error("Planning history changed its original clock or event ordering");
+        previousAt = Date.parse(event.at);
+        if (state.schema_version !== "wringer.planning-state.v1" || state.requestSha256 !== request.request_sha256 || state.authoritySha256 !== hashValue(authority) || !Number.isFinite(Date.parse(state.startedAt)) || Date.parse(event.at) < Date.parse(state.startedAt) || state.attempts.length > Math.min(request.budget.max_sessions, request.budget.max_planner_turns) || new Set(state.attempts.map(a => a.id)).size !== state.attempts.length) throw new Error("Planning state violates its immutable request or whole-journey budget");
+        for (const attempt of state.attempts) {
+            const prior = seen.get(attempt.id);
+            if (!/^[a-f0-9-]{36}$/.test(attempt.id) || !/^[a-f0-9]{64}$/.test(attempt.requestSha256) || !["reserved", "completed", "uncertain"].includes(attempt.status) || (prior && (prior.requestSha256 !== attempt.requestSha256 || prior.status === "completed" && (attempt.status !== "completed" || prior.resultSha256 !== attempt.resultSha256)))) throw new Error("Planning attempt changed its reserved identity or completed result");
+            if (!prior) {
+                validatePlanningAuthority(authority, request, new Date(event.at));
+                if (event.type !== "planner-reserved" || attempt.status !== "reserved") throw new Error("Planning session lacks a pre-spend reservation");
+            }
+            seen.set(attempt.id, attempt);
+        }
+        if ([...seen.keys()].some(id => !state.attempts.some(a => a.id === id))) throw new Error("Planning history discarded a charged attempt");
+        previous = sha256;
+    }
+    return { state, previous, sequence };
+}
+type ProposalOutcome = Omit<ContainedPlanProposal, "schema_version" | "requestSha256" | "approved" | "attempts">;
+function interpretPlanningReply(request: PlanningRequest, text: string): { outcome: ProposalOutcome; evidence: AcpJsonReplyEvidence } {
+    const parsed = parseAcpJsonReply(text), answer = parsed.value;
+    if (Object.keys(answer).some(k => !["acceptance", "questions", "note"].includes(k)) || !Array.isArray(answer.questions) || answer.questions.length > 100 || answer.questions.some((q: unknown) => typeof q !== "string" || !q.trim() || q.length > 2000) || typeof answer.note !== "string" || answer.note.length > 16384) throw new Error("Planner must return bounded acceptance, questions and note only");
+    if (answer.questions.length) return { outcome: { status: "needs-decision", plan: null, questions: answer.questions, note: answer.note, stopReason: null }, evidence: parsed.evidence };
+    return { outcome: { status: "proposal", plan: compilePlanningProposal(request, answer.acceptance), questions: [], note: answer.note, stopReason: null }, evidence: parsed.evidence };
+}
+function acceptedBoundary(result: RoleExecutionResult, request: PlanningRequest): boolean {
+    const p = result.provenance;
+    return !!p && p.role === "planner" && p.repositoryAccess === "read-only" && p.kind === request.runtime.kind && p.image === request.runtime.image && p.repository?.url === request.repository.url && p.repository.commit === request.repository.commit && p.clonedInside === true && Array.isArray(p.hostMounts) && p.hostMounts.length === 0 && !!p.runtimeId && (result.status !== "completed" || !!result.sessionId && result.authentication?.sessionOpened === true && Number.isInteger(result.protocolVersion));
+}
+export interface ContainedPlanningView {
+    schema_version: "wringer.planning-view.v1";
+    request: PlanningRequest;
+    authority: PlanningAuthority;
+    revision: string;
+    activity: "running" | "parked" | "unknown";
+    proposal: ContainedPlanProposal;
+    parsing: AcpJsonReplyEvidence | null;
+    budget: { reserved: number; ceiling: number; remaining: number; authorityExpired: boolean; wallClockExpired: boolean };
+    recovery: { retryStopped: boolean; retryUncertain: boolean; newGrantRequired: boolean };
+}
+/** Read-only reconstruction from immutable request/result sidecars and the journal; does not allocate runtimes, read keys, or trust proposal.json. */
+export async function inspectContainedPlanning(controllerDir: string): Promise<ContainedPlanningView> {
+    const controller = resolve(controllerDir), request = validatePlanningRequest(await retained(controller, `${ROOT}/request.json`));
+    const rawAuthority = await retained<PlanningAuthority>(controller, `${ROOT}/authority.json`);
+    const authority = validatePlanningAuthority(rawAuthority, request, new Date(rawAuthority?.granted_at ?? ""));
+    const { state, previous } = await loadPlanningHistory(controller, request, authority);
+    const latest = state.attempts.at(-1), runtimes = new Set<string>(), sessions = new Set<string>();
+    let result: RoleExecutionResult | null = null;
+    for (const attempt of state.attempts) {
+        const sent = await retained<RoleExecutionRequest>(controller, `${ROOT}/attempts/${attempt.id}/request.json`);
+        if (!sent || hashValue(sent) !== attempt.requestSha256 || sent.role !== "planner" || canonicalJson(sent.agent) !== canonicalJson(request.agents.planner) || canonicalJson(sent.runtime) !== canonicalJson(request.runtime) || sent.repo?.url !== request.repository.url || sent.repo.commit !== request.repository.commit || sent.scope !== undefined || sent.budget?.maxTurns !== 1 || !Number.isSafeInteger(sent.budget.timeoutMs) || sent.budget.timeoutMs < 1 || sent.budget.timeoutMs > request.budget.session_timeout_seconds * 1000) throw new Error("Retained planning request differs from its reservation or role policy");
+        const observed = await retained<RoleExecutionResult>(controller, `${ROOT}/attempts/${attempt.id}/result.json`);
+        if (attempt.status === "completed" && (!observed || hashValue(observed) !== attempt.resultSha256)) throw new Error("Planning result differs from its completion digest");
+        if (observed) {
+            if (!acceptedBoundary(observed, request) || runtimes.has(observed.provenance.runtimeId) || observed.sessionId && sessions.has(observed.sessionId)) throw new Error("Planning result boundary or separate runtime/session identity cannot be established");
+            const extraction = await retained(controller, `${ROOT}/attempts/${attempt.id}/json-reply.json`);
+            if (extraction && canonicalJson(extraction) !== canonicalJson({ ...parseAcpJsonReply(observed.text).evidence, resultSha256: hashValue(observed) })) throw new Error("Planning parsing receipt differs from the retained result");
+            runtimes.add(observed.provenance.runtimeId);
+            if (observed.sessionId) sessions.add(observed.sessionId);
+        }
+        if (attempt.id === latest?.id) result = observed;
+    }
+    let outcome: ProposalOutcome = { status: "stopped", plan: null, questions: [], note: "No execution approval was created.", stopReason: latest ? "planner-uncertain: this reserved attempt may have spent" : "planning-not-started" }, parsing: AcpJsonReplyEvidence | null = null;
+    if (result?.status === "completed") {
+        try { const interpreted = interpretPlanningReply(request, result.text); outcome = interpreted.outcome; parsing = interpreted.evidence; }
+        catch (error) { outcome.stopReason = `planner-invalid-reply: ${String(error)}`; }
+    } else if (result) outcome.stopReason = `planner-stopped: ${result.stopReason}`;
+    const ceiling = Math.min(request.budget.max_sessions, request.budget.max_planner_turns), remaining = Math.max(0, ceiling - state.attempts.length);
+    const authorityExpired = Date.now() >= Date.parse(authority.expires_at), wallClockExpired = Date.now() >= Date.parse(state.startedAt) + request.budget.wall_clock_seconds * 1000;
+    const lock = await workflowLockStatus(controller, "contained-planning"), activity = lock === "held" ? "running" : lock === "unknown" ? "unknown" : "parked";
+    const available = activity === "parked" && remaining > 0 && !authorityExpired && !wallClockExpired;
+    if (activity === "running" && !result) outcome.stopReason = "planning-in-progress: a live controller owns the reserved attempt; no retry is eligible";
+    const retryUncertain = !!latest && latest.status !== "completed" && !result;
+    const retryStopped = !!latest && latest.status === "completed" && outcome.status === "stopped";
+    return { schema_version: "wringer.planning-view.v1", request, authority, revision: previous, activity, proposal: { schema_version: "wringer.plan-proposal.v1", requestSha256: request.request_sha256, approved: false, ...outcome, attempts: state.attempts.length }, parsing, budget: { reserved: state.attempts.length, ceiling, remaining, authorityExpired, wallClockExpired }, recovery: { retryStopped: available && retryStopped, retryUncertain: available && retryUncertain, newGrantRequired: activity === "parked" && (outcome.status === "needs-decision" || outcome.status === "stopped" && !available) } };
+}
 /** A single ACP role proposes acceptance. No model/tool loop, build authority or product-code writer exists here. */
 export async function proposeContainedPlan(options: ContainedPlanProposalOptions): Promise<ContainedPlanProposal> {
+    if (options.retryUncertain && options.retryStopped) throw new Error("Choose one eligible retry flag; --retry-uncertain and --retry-stopped cannot be combined");
     const controller = resolve(options.controllerDir), request = validatePlanningRequest(options.request), authority = validatePlanningAuthority(options.authority, request);
     if (options.source.url !== request.repository.url || options.source.commit !== request.repository.commit)
         throw new Error("Planning source differs from the explicitly authorized repository revision");
@@ -47,33 +137,7 @@ export async function proposeContainedPlan(options: ContainedPlanProposalOptions
     return withSecrets((request.runtime.env ?? []).map(name => process.env[name]), () => locked(controller, "contained-planning", async () => {
         await immutableJson(controller, `${ROOT}/request.json`, request);
         await immutableJson(controller, `${ROOT}/authority.json`, authority);
-        const names = await readdir(await safePath(controller, `${ROOT}/events`)).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return []; throw e; });
-        if (names.length > 10000) throw new Error("Planning event history exceeds its bound");
-        let previous = "0".repeat(64), sequence = 0, state: PlanningState = { schema_version: "wringer.planning-state.v1", requestSha256: request.request_sha256, authoritySha256: hashValue(authority), startedAt: now(), attempts: [] };
-        const seen = new Map<string, Attempt>();
-        let initialStartedAt: string | null = null, previousAt: number | null = null;
-        for (const name of names.sort()) {
-            const event = await retained<Event>(controller, `${ROOT}/events/${name}`);
-            if (!event) throw new Error("Planning event disappeared");
-            const { sha256, ...data } = event;
-            if (name !== `${String(++sequence).padStart(6, "0")}.json` || event.schema_version !== "wringer.planning-event.v1" || event.sequence !== sequence || event.previous !== previous || sha256 !== hashValue(data) || !Number.isFinite(Date.parse(event.at))) throw new Error("Planning journal is damaged; no spend will be replayed");
-            state = event.state;
-            initialStartedAt ??= state.startedAt;
-            if (state.startedAt !== initialStartedAt || previousAt !== null && Date.parse(event.at) < previousAt) throw new Error("Planning history changed its original clock or event ordering");
-            previousAt = Date.parse(event.at);
-            if (state.schema_version !== "wringer.planning-state.v1" || state.requestSha256 !== request.request_sha256 || state.authoritySha256 !== hashValue(authority) || !Number.isFinite(Date.parse(state.startedAt)) || Date.parse(event.at) < Date.parse(state.startedAt) || state.attempts.length > Math.min(request.budget.max_sessions, request.budget.max_planner_turns) || new Set(state.attempts.map(a => a.id)).size !== state.attempts.length) throw new Error("Planning state violates its immutable request or whole-journey budget");
-            for (const attempt of state.attempts) {
-                const prior = seen.get(attempt.id);
-                if (!/^[a-f0-9-]{36}$/.test(attempt.id) || !/^[a-f0-9]{64}$/.test(attempt.requestSha256) || !["reserved", "completed", "uncertain"].includes(attempt.status) || (prior && (prior.requestSha256 !== attempt.requestSha256 || prior.status === "completed" && (attempt.status !== "completed" || prior.resultSha256 !== attempt.resultSha256)))) throw new Error("Planning attempt changed its reserved identity or completed result");
-                if (!prior) {
-                    validatePlanningAuthority(authority, request, new Date(event.at));
-                    if (event.type !== "planner-reserved" || attempt.status !== "reserved") throw new Error("Planning session lacks a pre-spend reservation");
-                }
-                seen.set(attempt.id, attempt);
-            }
-            if ([...seen.keys()].some(id => !state.attempts.some(a => a.id === id))) throw new Error("Planning history discarded a charged attempt");
-            previous = sha256;
-        }
+        let { state, previous, sequence } = await loadPlanningHistory(controller, request, authority);
         const save = async (type: string) => {
             const data = scrubValue({ schema_version: "wringer.planning-event.v1" as const, sequence: ++sequence, previous, at: now(), type, state });
             const event = { ...data, sha256: hashValue(data) };
@@ -102,9 +166,15 @@ export async function proposeContainedPlan(options: ContainedPlanProposalOptions
             }
             if (prior.id === attempt?.id) result = observed;
         }
+        if (options.retryUncertain && (!attempt || attempt.status === "completed" || result)) throw new Error("--retry-uncertain requires a genuinely unresolved planning reservation; no new session was started");
+        let knownStopped = result?.status !== "completed" && !!result;
+        if (result?.status === "completed") {
+            try { interpretPlanningReply(request, result.text); } catch { knownStopped = true; }
+        }
+        if (options.retryStopped && (!attempt || attempt.status !== "completed" || !knownStopped)) throw new Error("--retry-stopped requires a known invalid or stopped planning attempt; no new session was started");
         if (attempt && (attempt.status !== "completed" && !result) && !options.retryUncertain)
             return stop("planner-uncertain: this attempt may have spent; explicit retryUncertain is required and its reservation remains charged");
-        const retryKnown = attempt?.status === "completed" && ["invalid", "stopped"].includes(attempt.disposition ?? "") && options.retryStopped;
+        const retryKnown = attempt?.status === "completed" && knownStopped && options.retryStopped;
         if (!attempt || retryKnown || (attempt.status !== "completed" && !result && options.retryUncertain)) {
             if (result?.provenance?.runtimeId) priorRuntimes.add(result.provenance.runtimeId);
             if (result?.sessionId) priorSessions.add(result.sessionId);
@@ -142,7 +212,7 @@ export async function proposeContainedPlan(options: ContainedPlanProposalOptions
         }
         if (!attempt || !result) return stop("planner-result-unavailable");
         const p = result.provenance;
-        if (!p || p.role !== "planner" || p.repositoryAccess !== "read-only" || p.kind !== request.runtime.kind || p.image !== request.runtime.image || p.repository.url !== request.repository.url || p.repository.commit !== request.repository.commit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || !p.runtimeId || result.status === "completed" && (!result.sessionId || !result.authentication?.sessionOpened || !Number.isInteger(result.protocolVersion))) {
+        if (!acceptedBoundary(result, request)) {
             if (attempt.status !== "completed") { attempt.status = "uncertain"; await save("planner-boundary-unestablished"); }
             return stop("planner-boundary-unestablished: no accepted contained ACP result");
         }
@@ -159,18 +229,17 @@ export async function proposeContainedPlan(options: ContainedPlanProposalOptions
             return stop(`planner-stopped: ${result.stopReason}`);
         }
         try {
-            if (Buffer.byteLength(result.text) > 1024 * 1024) throw new Error("Planning response exceeds 1 MiB");
-            const answer = JSON.parse(result.text);
-            if (!answer || Object.keys(answer).some(k => !["acceptance", "questions", "note"].includes(k)) || !Array.isArray(answer.questions) || answer.questions.length > 100 || answer.questions.some((q: unknown) => typeof q !== "string" || !q.trim() || q.length > 2000) || typeof answer.note !== "string" || answer.note.length > 16384) throw new Error("Planner must return bounded acceptance, questions and note only");
-            if (answer.questions.length) {
+            const parsed = parseAcpJsonReply(result.text);
+            await immutableJson(controller, `${ROOT}/attempts/${attempt.id}/json-reply.json`, { ...parsed.evidence, resultSha256: attempt.resultSha256 });
+            const { outcome, evidence } = interpretPlanningReply(request, result.text);
+            if (outcome.status === "needs-decision") {
                 attempt.disposition = "needs-decision";
                 await save("planning-needs-decision");
-                return finish({ status: "needs-decision", plan: null, questions: answer.questions, note: answer.note, stopReason: null });
+                return finish(outcome);
             }
-            const plan = compilePlanningProposal(request, answer.acceptance);
             attempt.disposition = "proposal";
             await save("plan-proposed-unapproved");
-            return finish({ status: "proposal", plan, questions: [], note: answer.note, stopReason: null });
+            return finish(outcome);
         } catch (error) {
             attempt.disposition = "invalid";
             await save("planning-output-invalid");

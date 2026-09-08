@@ -1,0 +1,61 @@
+{
+  "kind": "wringer-pm-blind-repair-validation",
+  "date": "2026-09-08",
+  "version": "1.0.0-alpha.4",
+  "runtime": "Bun 1.4.2",
+  "platform": "macOS",
+  "source": {
+    "baseline_commit": "b5679591a203b7d9b3ca3ef3657fcf30bf1b3da6",
+    "measurement": "The staged repair working tree subsequently committed with this record; GitHub CI measures the pushed commit separately."
+  },
+  "frozen_blind_result": {
+    "version": "1.0.0-alpha.3",
+    "commit": "2f08ca6b4927a70e96d6c36af82ad1b02b2dafb8",
+    "condition": "pre-provisioned machine, fresh run; not clean machine",
+    "verdict": "FAIL at planning",
+    "unchanged": true
+  },
+  "local_validation": {
+    "started_utc": "2026-09-08T10:45:06.400Z",
+    "entrypoint": "bun scripts/validate.ts",
+    "status": "passed",
+    "tests": { "passed": 427, "skipped": 1, "failed": 0, "assertions": 3215 },
+    "skip_reason": "Real Linux DAC test is platform-specific; this measurement ran on macOS.",
+    "stages": [
+      { "name": "workspace-links", "exit_code": 0, "timed_out": false, "duration_ms": 38 },
+      { "name": "native-check", "exit_code": 0, "timed_out": false, "duration_ms": 251967 },
+      { "name": "portable-python-corpus", "exit_code": 0, "timed_out": false, "duration_ms": 4723 },
+      { "name": "standalone-build", "exit_code": 0, "timed_out": false, "duration_ms": 860 },
+      { "name": "standalone-contract", "exit_code": 0, "timed_out": false, "duration_ms": 5061 },
+      { "name": "compiled-contained-contract", "exit_code": 0, "timed_out": false, "duration_ms": 37171 },
+      { "name": "local-delivery-fixture", "exit_code": 0, "timed_out": false, "duration_ms": 5858 },
+      { "name": "compiled-version", "exit_code": 0, "timed_out": false, "duration_ms": 115 },
+      { "name": "compiled-board", "exit_code": 0, "timed_out": false, "duration_ms": 114 },
+      { "name": "compiled-drive", "exit_code": 0, "timed_out": false, "duration_ms": 114 }
+    ]
+  },
+  "retained_failures": [
+    { "kind": "regression-red", "scope": "five new whole-journey blind regressions", "passed": 0, "failed": 5, "subsequent_focused_result": "5 passed, 31 assertions" },
+    { "kind": "environment", "scope": "initial sandboxed full check", "passed": 386, "skipped": 1, "failed": 29, "reason": "Local listener creation blocked at ephemeral port 0 (EADDRINUSE)", "subsequent_focused_result": "33 passed after localhost permission; final full validation passed" },
+    { "kind": "launcher", "reason": "bun run validate inherited a PATH without bun; absolute-runtime scripts/validate.ts used next" }
+  ],
+  "original_planning_reply": {
+    "bytes": 10698,
+    "sha256": "3c34cd8be5d36d6be7387d07f565e454a513933151ee4f6c21849164e3402dc6",
+    "recovered_questions": 5,
+    "fixture": "packages/workflow/test/fixtures/planner-reply-03.txt",
+    "provenance": "packages/workflow/test/fixtures/planner-reply-03.provenance.json"
+  },
+  "repair_provider_prompts": 0,
+  "credentials_changed": false,
+  "live_rerun": "not run; valid Codex credential remains an operator prerequisite",
+  "assistant_integration": "planned only; implementation remains unauthorized",
+  "limits": [
+    "Fixtures are not live containment, agent convergence or a passed human PM test.",
+    "The observer's credential finding was not independently refreshed in this repair window.",
+    "Provider cost remains unknown; missing tool telemetry cannot establish zero calls.",
+    "Answering planning questions requires revised intent and a separate explicit grant, not an in-place interview editor.",
+    "No public release, tag, registry publication or deployment occurred.",
+    "Raw local validation logs stay in the operator's private capture; this portable summary carries no machine-specific evidence paths or secrets."
+  ]
+}

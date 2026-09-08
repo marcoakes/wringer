@@ -1,7 +1,7 @@
 import { mkdir, lstat, readFile, writeFile, link, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createExecutionAuthority, discoverEnvironment, hashValue, validateExecutionAuthority, validateExecutionPlan, type ExecutionPlan, type ExecutionAuthority, type EnvironmentMap } from "@wringer/plan";
-import { runContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, queryContainedJourney, type CandidateHumanJudgement, type ContainedJourneyOptions } from "@wringer/workflow";
+import { runContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, queryContainedJourney, assertContainedHumanReviewEligible, type CandidateHumanJudgement, type ContainedJourneyOptions } from "@wringer/workflow";
 import type { PreparedRepositorySource } from "@wringer/runtime";
 import { Redactor } from "@wringer/engine";
 import { containedServices, prepareContainedSource, showContainedCandidate, type ContainedServiceOptions } from "./services";
@@ -115,6 +115,7 @@ function guardHistory(history: Awaited<ReturnType<typeof readController>>, guard
 export async function showControllerCandidate(state: string, criterionId: string, options: ApplicationOptions = {}) {
     const history = await readController(state, true), { plan, result: latest } = history;
     guardHistory(history, options);
+    assertContainedHumanReviewEligible(history, criterionId);
     if (!plan.acceptance.criteria.some(c => c.id === criterionId && c.kind === "human")) throw new Error("Name a declared human acceptance criterion");
     if (!latest.candidate || !latest.verification || latest.verification.status !== "passed" || latest.verification.candidateTree !== latest.candidate.tree) throw new Error("There is no verified candidate to show or judge");
     const remaining = Math.min(Date.parse(history.authority.expires_at), Date.parse(history.state.startedAt) + history.authority.budget.wall_clock_seconds * 1000) - Date.now();
@@ -132,6 +133,7 @@ export async function showControllerCandidate(state: string, criterionId: string
 export async function reviewControllerCandidate(state: string, input: CandidateGuard & { criterionId: string; displayId: string; verdict: "met" | "not_met"; by: string; note: string }) {
     const history = await readController(state, true), { plan, result: latest } = history;
     guardHistory(history, input);
+    assertContainedHumanReviewEligible(history, input.criterionId);
     if (!plan.acceptance.criteria.some(c => c.id === input.criterionId && c.kind === "human")) throw new Error("Name a declared human acceptance criterion");
     if (!latest.candidate || latest.verification?.status !== "passed") throw new Error("There is no verified candidate to judge");
     if (!/^[a-f0-9-]{36}$/.test(input.displayId)) throw new Error("Invalid display receipt id");

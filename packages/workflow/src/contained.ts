@@ -7,6 +7,8 @@ import { executeAgentRole } from "@wringer/runtime";
 import type { RoleExecutionResult, RoleExecutionRequest, RepositorySource } from "@wringer/runtime";
 import { atomicWrite, command, digest, immutableJson, locked, now, readJson, scrubValue, withSecrets, quoteShell, safePath } from "./storage";
 import { containedDiscoveryStartedAt } from "./discovery";
+import { parseAcpJsonReply, type AcpJsonReplyEvidence } from "./json-reply";
+import { diagnoseWorkerOutcome, type WorkerOutcomeStop } from "./worker-outcome";
 import type { CandidateSource, CandidateVerification, ContainedJourneyOptions, ContainedJourneyResult, ContainedJudgeFinding, CandidateHumanJudgement, ContainedJourneyStop, ContainedRevisionGuard, ContainedVerificationRequest } from "./contained-types";
 const ROOT = ".wringer/contained";
 interface Effect {
@@ -164,7 +166,7 @@ function judgeReply(text: string, plan: ExecutionPlan): {
 } {
     if (Buffer.byteLength(text) > 1024 * 1024)
         throw new Error("Judge final answer exceeds 1 MiB");
-    const answer = JSON.parse(text.trim().replace(/^```json\s*\n/, "").replace(/\n```$/, ""));
+    const answer = parseAcpJsonReply(text).value;
     if (!answer || Object.keys(answer).some(key => !["criteria", "note"].includes(key)) || !Array.isArray(answer.criteria) || typeof answer.note !== "string")
         throw new Error("Judge final answer must be JSON {criteria:[{id,met,reason}],note}");
     const machine = plan.acceptance.criteria.filter(c => c.kind === "check");
@@ -173,7 +175,15 @@ function judgeReply(text: string, plan: ExecutionPlan): {
     for (const c of answer.criteria)
         if (!c || Object.keys(c).some(key => !["id", "met", "reason"].includes(key)) || !machine.some(r => r.id === c.id) || ![true, false, null].includes(c.met) || typeof c.reason !== "string" || c.reason.length > 2000)
             throw new Error("Judge scored a human/unknown criterion or returned an invalid finding");
-    return answer;
+    return answer as { criteria: ContainedJudgeFinding[]; note: string };
+}
+function plannerReply(text: string): { omissions: { quote: string; reason: string }[]; questions: string[]; note: string } {
+    const answer = parseAcpJsonReply(text).value;
+    if (Object.keys(answer).some(key => !["omissions", "questions", "note"].includes(key)) || !Array.isArray(answer.omissions) || answer.omissions.length > 128 || !Array.isArray(answer.questions) || answer.questions.length > 64 || typeof answer.note !== "string" || answer.note.length > 16000)
+        throw new Error("Planner reply must contain only bounded omissions, questions and note fields");
+    if (answer.questions.some(q => typeof q !== "string" || !q.trim() || q.length > 4000) || answer.omissions.some(o => !o || Object.keys(o).some(key => !["quote", "reason"].includes(key)) || typeof o.quote !== "string" || !o.quote.trim() || o.quote.length > 8000 || typeof o.reason !== "string" || !o.reason.trim() || o.reason.length > 4000))
+        throw new Error("Planner reply contains an invalid question or omission");
+    return answer as ReturnType<typeof plannerReply>;
 }
 async function readJournal(controller: string): Promise<Journal[]> {
     const entries = await readdir(await safePath(controller, `${ROOT}/events`)).catch((error: NodeJS.ErrnoException) => { if (error.code === "ENOENT")
@@ -306,6 +316,23 @@ export async function readValidatedContainedState(stateDir: string, options: { a
         if (result.sessionId)
             sessions.add(result.sessionId);
         effect.result = result;
+    }
+    // Additive receipts leave historical result/journal contracts unchanged. Every
+    // interpreted reply and diagnostic remains bound to the retained raw result.
+    for (const anchor of events.filter(e => e.type === "agent-reply-parsed" || e.type === "worker-outcome-stopped")) {
+        const details = anchor.details as any, effect = state.effects.find(e => e.id === details?.effectId);
+        if (!effect?.result || !hashPattern.test(details.receiptSha256)) throw new Error("Agent interpretation has no completed result identity");
+        const parsing = anchor.type === "agent-reply-parsed";
+        const receipt = await boundedRecord<any>(controller, `${ROOT}/effects/${effect.id}/${parsing ? "parsing" : "outcome"}.json`);
+        if (hashValue(receipt) !== details.receiptSha256 || receipt.effectId !== effect.id || receipt.resultSha256 !== effect.resultSha256 || receipt.role !== effect.role)
+            throw new Error("Agent interpretation receipt differs from its result or journal digest");
+        if (parsing) {
+            if (receipt.schema_version !== "wringer.contained-reply-parsing.v1" || !["planner", "judge"].includes(effect.role) || canonicalJson(receipt.parsing) !== canonicalJson(parseAcpJsonReply(effect.result.text).evidence)) throw new Error("Agent parsing receipt differs from the exact retained reply");
+        } else {
+            const before = anchor.state.candidate?.tree ?? anchor.state.baseline?.candidateTree ?? environment.source_tree;
+            const diagnosis = diagnoseWorkerOutcome({ result: effect.result, beforeTree: receipt.beforeTree, afterTree: receipt.afterTree });
+            if (!diagnosis || receipt.schema_version !== "wringer.contained-worker-outcome.v1" || effect.role !== "worker" || receipt.beforeTree !== null && receipt.beforeTree !== before || canonicalJson(receipt.diagnosis) !== canonicalJson(diagnosis)) throw new Error("Worker outcome receipt differs from its retained observation");
+        }
     }
     const verificationRuntimes = new Set<string>();
     for (const attempt of state.verificationAttempts ?? []) {
@@ -517,6 +544,31 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         options = { ...options, signal: options.signal ? AbortSignal.any([options.signal, deadline]) : deadline };
     }
     const resumeCommand = `wringer-drive resume --state ${quoteShell(controller)} --authority ${quoteShell(join(controller, ROOT, "authority.json"))}`;
+    const newGrantCommand = `wringer-drive new-grant --state ${quoteShell(controller)}`;
+    const inspectCommand = `wringer-drive status --state ${quoteShell(controller)}`;
+    const roleRemaining = (role: AgentRole) => authority.actions.includes(role === "worker" ? "build" : role === "planner" ? "plan" : "judge") && state!.effects.length < authority.budget.max_sessions && state!.effects.filter(e => e.role === role).length < authority.budget[role === "worker" ? "max_worker_turns" : role === "judge" ? "max_judge_turns" : "max_planner_turns"];
+    const activeRole = (): AgentRole => state!.stage === "planner" ? "planner" : state!.stage === "judge" ? "judge" : "worker";
+    const activeEffect = () => state!.stage === "planner" ? state!.effects.findLast(e => e.role === "planner") : ["worker", "capture", "judge"].includes(state!.stage) ? state!.effects.find(e => e.id === (state!.stage === "judge" ? state!.judgeEffect : state!.workerEffect)) : undefined;
+    const uncertainAttempt = () => {
+        const phase = state!.stage === "baseline" ? "baseline" : state!.stage === "verify" ? "candidate" : null;
+        const source = phase === "baseline" ? state!.source : state!.candidate?.source;
+        const attempt = state!.verificationAttempts?.findLast(a => a.phase === phase && a.sourceCommit === source?.commit);
+        return attempt && attempt.status !== "completed";
+    };
+    const recordParsing = async (effect: Effect, parsing: AcpJsonReplyEvidence) => {
+        const receipt = { schema_version: "wringer.contained-reply-parsing.v1", effectId: effect.id, role: effect.role, resultSha256: effect.resultSha256, parsing };
+        await immutableJson(controller, `${ROOT}/effects/${effect.id}/parsing.json`, receipt);
+        await save("agent-reply-parsed", { effectId: effect.id, receiptSha256: hashValue(receipt) });
+    };
+    const stopWorker = async (effect: Effect, diagnosis: WorkerOutcomeStop, beforeTree: string | null = null, afterTree: string | null = null): Promise<never> => {
+        const receipt = { schema_version: "wringer.contained-worker-outcome.v1", effectId: effect.id, role: effect.role, resultSha256: effect.resultSha256, beforeTree, afterTree, diagnosis };
+        await immutableJson(controller, `${ROOT}/effects/${effect.id}/outcome.json`, receipt);
+        effect.invalidReason = diagnosis.code;
+        effect.disposition = "stopped";
+        state!.stage = "worker";
+        await save("worker-outcome-stopped", { effectId: effect.id, receiptSha256: hashValue(receipt), ...diagnosis });
+        refuse(diagnosis.code, diagnosis.message, diagnosis.code === "worker-auth-rejected" ? inspectCommand : `${resumeCommand} --retry-stopped`);
+    };
     const ensure = () => {
         if (Date.now() - Date.parse(state!.startedAt) >= authority.budget.wall_clock_seconds * 1000)
             refuse("wall-clock-exhausted", "The whole-journey wall clock is exhausted, including downtime. No new work is authorized.");
@@ -684,6 +736,9 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
     let stopped: ContainedJourneyStop | null = null, status: ContainedJourneyResult["status"] = "stopped";
     try {
         ensure();
+        const active = activeEffect();
+        if (options.retryUncertain && !(active && active.status !== "completed") && !uncertainAttempt())
+            refuse("retry-not-applicable", "Nothing in the current step was interrupted or left uncertain. No retry was reserved; inspect the recorded stop or explicitly approve a new grant.", roleRemaining(activeRole()) ? inspectCommand : newGrantCommand);
         if (["ready", "human"].includes(state.stage) && options.humanJudgements !== undefined && canonicalJson(options.humanJudgements) !== canonicalJson(state.humanJudgements)) {
             state.humanJudgements = scrubValue(options.humanJudgements);
             state.stage = "human";
@@ -704,20 +759,21 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 const effect = await runRole("planner", state.source!, `Independently inspect this source-linked intent and acceptance contract. Do not modify source or decide a human criterion. Return JSON {omissions:[{quote,reason}],questions:[string],note:string}. Omissions must quote the original intent. This is a fallible review, not proof.\n${canonicalJson({ intent: plan.intent, acceptance: plan.acceptance, environment: mapForAgent(options.environment) })}`, existing?.id ?? null);
                 if (effect.result!.status !== "completed")
                     refuse("planner-stopped", effect.result!.stopReason, `${resumeCommand} --retry-stopped`);
-                let review: any;
+                let review: ReturnType<typeof plannerReply>;
                 try {
-                    review = JSON.parse(effect.result!.text);
-                    if (!review || !Array.isArray(review.omissions) || !Array.isArray(review.questions) || typeof review.note !== "string")
-                        throw new Error("Planner did not return a bounded coverage review");
+                    review = plannerReply(effect.result!.text);
+                    await recordParsing(effect, parseAcpJsonReply(effect.result!.text).evidence);
                 }
                 catch (error) {
                     effect.invalidReason = String(error);
                     effect.disposition = "invalid";
                     await save("planner-output-invalid", { effectId: effect.id, error: String(error) });
-                    refuse("planner-invalid-reply", String(error), `${resumeCommand} --retry-stopped`);
+                    refuse("planner-invalid-reply", `The planning reply could not be read as a valid review. Its original reply and diagnostic are retained at ${ROOT}/effects/${effect.id}/result.json. ${String(error)}`, `${resumeCommand} --retry-stopped`);
                 }
-                if (review.omissions.length || review.questions.length)
-                    refuse("intent-needs-decision", "The independent planner found uncovered intent or a genuine decision. Revise the explicit contract and approve its new digest; routine authority cannot silently change it.", "wringer-drive plan --help");
+                if (review.omissions.length || review.questions.length) {
+                    await save("planner-decisions-requested", { effectId: effect.id, review });
+                    refuse("intent-needs-decision", `The independent planner needs a decision. ${review.note}\n${review.questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}\n${review.omissions.map(o => `Uncovered intent: ${o.quote} — ${o.reason}`).join("\n")}\nRevise the explicit contract and approve its new digest; this grant cannot silently change it.`, newGrantCommand);
+                }
                 state.plannerComplete = true;
                 effect.disposition = "accepted";
                 state.stage = "baseline";
@@ -729,7 +785,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 if (state.baseline.status === "unavailable")
                     refuse("baseline-unavailable", "The pinned acceptance commands could not execute. Environment failure is not a red receipt. A new attempt requires explicit bounded retry.", `${resumeCommand} --retry-verification`);
                 if (state.baseline.checks.some(c => c.status !== "failed"))
-                    refuse("acceptance-born-green", "An acceptance check already passes before implementation. Strengthen the original contract; no worker turn has started.", "wringer-drive plan --help");
+                    refuse("acceptance-born-green", `These acceptance checks already pass before implementation: ${state.baseline.checks.filter(c => c.status !== "failed").map(c => c.id).join(", ")}. Retained receipts: ${state.baseline.evidenceRef}. An existing regression belongs in the baseline; a new requirement needs a check that fails for its missing behaviour. Revise and approve the contract; no worker turn has started.`, newGrantCommand);
                 state.stage = "worker";
                 await save("acceptance-red", { verification: state.baseline });
                 continue;
@@ -740,13 +796,19 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 const effect = await runRole("worker", source, prompt, state.workerEffect);
                 if (effect.result!.status !== "completed")
                     refuse("worker-stopped", effect.result!.stopReason, `${resumeCommand} --retry-stopped`);
+                const diagnosis = diagnoseWorkerOutcome({ result: effect.result! });
+                if (diagnosis) await stopWorker(effect, diagnosis);
                 state.stage = "capture";
                 await save("worker-finished", { effectId: effect.id });
                 continue;
             }
             if (state.stage === "capture") {
                 const effect = state.effects.find(e => e.id === state.workerEffect)!;
-                state.candidate = validateCandidate(scrubValue(await options.services.captureCandidate(effect.result!, state.candidate?.source ?? state.source!, effect.id)), plan);
+                const candidate = validateCandidate(scrubValue(await options.services.captureCandidate(effect.result!, state.candidate?.source ?? state.source!, effect.id)), plan);
+                const beforeTree = state.candidate?.tree ?? state.baseline!.candidateTree;
+                const diagnosis = diagnoseWorkerOutcome({ result: effect.result!, beforeTree, afterTree: candidate.tree });
+                if (diagnosis) await stopWorker(effect, diagnosis, beforeTree, candidate.tree);
+                state.candidate = candidate;
                 effect.disposition = "accepted";
                 state.verification = null;
                 state.judge = null;
@@ -790,12 +852,13 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                 };
                 try {
                     findings = judgeReply(effect.result!.text, plan);
+                    await recordParsing(effect, parseAcpJsonReply(effect.result!.text).evidence);
                 }
                 catch (error) {
                     effect.invalidReason = String(error);
                     effect.disposition = "invalid";
                     await save("judge-output-invalid", { effectId: effect.id, error: String(error) });
-                    refuse("judge-invalid-reply", String(error), `${resumeCommand} --retry-stopped`);
+                    refuse("judge-invalid-reply", `The independent review could not be read as a valid verdict. The verified candidate is unchanged; the original reply and diagnostic are retained at ${ROOT}/effects/${effect.id}/result.json. ${String(error)}`, `${resumeCommand} --retry-stopped`);
                 }
                 state.judge = { ...findings, runtimeId: effect.result!.provenance.runtimeId, sessionId: effect.result!.sessionId! };
                 effect.disposition = findings.criteria.some(c => c.met === null && plan.acceptance.criteria.find(r => r.id === c.id)!.required) ? "unsettled" : "accepted";
@@ -842,7 +905,11 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         status = "review-ready";
     }
     catch (error) {
-        const stop = error instanceof JourneyStop ? error : new JourneyStop("controller-error", String(error), resumeCommand);
+        let stop = error instanceof JourneyStop ? error : new JourneyStop("controller-error", String(error), inspectCommand);
+        const exhausted = Date.now() >= authorizedUntil || stop.reason.endsWith("budget-exhausted") || stop.reason === "wall-clock-exhausted";
+        const retryBudgetMissing = /--retry-(stopped|judge|uncertain)/.test(stop.next) && !(uncertainAttempt() ? (state.verificationAttempts?.length ?? 0) < authority.budget.max_sessions : roleRemaining(activeRole())) || stop.next.includes("--retry-verification") && (state.verificationAttempts?.length ?? 0) >= authority.budget.max_sessions;
+        if (exhausted || retryBudgetMissing)
+            stop = new JourneyStop(stop.reason, `${stop.message}\nThis grant has no remaining authority for another attempt at this step. Its reservations and unknown cost stay recorded; inspect the explicit new-grant route to approve separate work.`, newGrantCommand);
         stopped = { reason: stop.reason, message: scrubValue(stop.message), cwd: controller, next_move: command(controller, stop.next) };
         await save("journey-stopped", stopped);
     }

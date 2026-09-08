@@ -71,8 +71,20 @@ Before implementation begins:
 5. Obtain Marc's explicit go-ahead on the revised plan. Record the decision and
    its date here. No date-based or automatic commencement is authorized.
 
-Feedback report: **pending**. Revised scope: **pending**. Authorization to
-implement: **not granted**.
+Feedback report: **received, 2026-09-08 — blind FAIL at planning**. See the
+[frozen result and separate repair window](PM_BLIND_REPORT_2026-09-08.md).
+The blocking findings are reply interpretation, impossible recovery routes,
+repeated credential failures and inconsistent human-review eligibility. These
+are core control-plane defects, not problems to conceal with a conversational
+wrapper. Their regression repairs and a separately frozen rerun precede this
+integration. The next live rerun has not passed.
+
+Revised scope: the proposed entry-point acceptance must additionally prove
+question/note fidelity, only currently eligible actions, a single stopped worker
+attempt on provider rejection, and no invitation for a human verdict before its
+guard can record it. Transport completion must never be described as successful
+work. Original grant reservations and unknown cost survive reconnect and retry.
+Authorization to implement this assistant integration: **not granted**.
 
 ## 3. What exists, and what is new
 

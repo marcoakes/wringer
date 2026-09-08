@@ -44,6 +44,34 @@ ownership, the workspace prints `recover-command` with the real command UUID and
 checking the owner is dead. Orphan runtimes and domain reservations remain;
 follow the subsequently offered domain recovery action, never delete state.
 
+### When the grant is spent, or planning has questions
+
+`wringer-drive status --state CONTROLLER_STATE` also understands planning-only
+state. `planning-status` and `planning-questions` show the retained questions,
+note and remaining planning allowance without keys, a container or a model call.
+A stopped grant is not renewed by `resume`, and `--retry-uncertain` refuses when
+no current attempt is genuinely unresolved.
+
+The following previews are read-only (replace the state placeholders):
+
+```sh
+wringer-drive planning-new-grant --state PLANNING_STATE
+wringer-drive new-grant --state CONTROLLER_STATE
+```
+
+Each explains the next explicit approval and retains the old history and cost
+unknowns. Planning questions need answers in a revised intent file before a new
+planning grant. Confirmation may start another paid planning attempt. A confirmed
+execution grant creates fresh state but does not itself start agents; its later
+run starts from the originally approved baseline, not an implied free continuation
+of the prior candidate. A changed contract requires compiling and approving its
+new digest. Neither route supplies human judgement or publication approval.
+
+An authentication-rejected worker or unchanged source stops automatic retries.
+Inspect the recorded provider diagnostic and existing credential setup before
+an explicit bounded retry. An absent tool-call event does not prove zero tools
+ran, and successful ACP transport does not prove successful development.
+
 The equivalent alias is:
 
 ```sh

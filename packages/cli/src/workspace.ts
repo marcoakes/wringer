@@ -1,13 +1,41 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { renderPmWorkspace, validatePmWorkspace, type PmWorkspace } from "@wringer/board";
-import { readController, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, type ApplicationOptions } from "@wringer/application";
+import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, type ApplicationOptions } from "@wringer/application";
+import { inspectContainedPlanning } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import type { Answer } from "./app";
 
+async function planningOnly(state: string): Promise<boolean> {
+    const exists = async (path: string) => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return false; throw error; });
+    // A damaged execution record must fail its own reader, not fall back to a
+    // more permissive planning view.
+    return !await exists(join(state, ".wringer/contained/plan.json")) && await exists(join(state, ".wringer/planning/request.json"));
+}
+/** Planning views expose recorded questions, never execution command authority. */
+export async function assertPmWorkspaceCommandAccess(state: string): Promise<void> {
+    if (await planningOnly(state)) throw new Error("This is a read-only planning workspace. Execution commands and command records are unavailable; use the printed planning status or new-grant preview route.");
+}
+async function readPlanningWorkspace(state: string): Promise<PmWorkspace> {
+    const view = await inspectContainedPlanning(state), { request, proposal, budget } = view;
+    const names = await readdir(join(state, ".wringer/planning/events")), last = names.sort().at(-1);
+    const event = last ? await readControllerFile(join(state, ".wringer/planning/events", last)) : null;
+    if (event && (event.sha256 !== view.revision || !Number.isFinite(Date.parse(event.at)))) throw new Error("Planning advanced during this read. Refresh the recorded proposal.");
+    const quoted = `'${resolve(state).replaceAll("'", "'\\''")}'`;
+    const routes = [`Read-only status: wringer-drive planning-status --state ${quoted}`, ...(view.recovery.newGrantRequired ? [`Separate new-grant preview (does not approve or spend): wringer-drive planning-new-grant --state ${quoted}`] : [])];
+    const message = [proposal.questions.length ? `Questions requiring a decision:\n${proposal.questions.map((question, index) => `${index + 1}. ${question}`).join("\n")}` : "No planning questions are recorded.", `Original planner note:\n${proposal.note}`, ...(proposal.stopReason ? [`Recorded planning stop:\n${proposal.stopReason}`] : []), ...(proposal.plan ? [`Proposed execution plan (unapproved):\n${JSON.stringify(proposal.plan, null, 2)}`] : []), ...routes].join("\n\n");
+    return validatePmWorkspace(new Redactor(request.runtime.env).deep({
+        schema_version: "wringer.pm-workspace.v1", name: request.name, intent: request.intent, journeyId: `planning-${request.request_sha256}`, revision: view.revision,
+        status: view.activity === "running" ? "planning-running" : view.activity === "unknown" ? "planning-uncertain" : `planning-${proposal.status}`, stage: "planning", candidate: null, criteria: [], checks: [], actions: [],
+        usage: { sessions: budget.reserved, ceiling: budget.ceiling, inputTokens: null, outputTokens: null, costUsd: null },
+        stop: { reason: `planning-${proposal.status}`, message }, updatedAt: event?.at ?? view.authority.granted_at,
+        limits: ["Read-only planning record. No execution plan or human verdict is approved by this page.", `Planning sessions reserved: ${budget.reserved}/${budget.ceiling}; remaining: ${budget.remaining}.`, `Planning approval expired: ${budget.authorityExpired ? "yes" : "no"}; original planning clock exhausted: ${budget.wallClockExpired ? "yes" : "no"}.`, "Reading these questions does not start a model, reset a budget or create a new grant. Unknown token usage and cost remain unknown."],
+    }));
+}
 /** Derive presentation from validated controller facts; no UI record can grant readiness. */
 export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
+    if (await planningOnly(state)) return readPlanningWorkspace(state);
     const history = await readController(state, false, true), query = await controllerStatus(state), { plan } = history;
     // A concurrent transition is retried by the next polling read, never merged into a hybrid view.
     if (history.events.at(-1)?.sha256 !== query.revision) throw new Error("The run advanced during this read. Refreshing the current record is safe.");
@@ -31,7 +59,7 @@ export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
         criteria, checks: plan.acceptance.checks.map(check => ({ id: check.id, before: outcome(history.state.baseline?.checks.find(c => c.id === check.id)), after: outcome(result.verification?.checks.find(c => c.id === check.id)) })),
         usage: { sessions: query.budget.sessions.reserved, ceiling: query.budget.sessions.ceiling, inputTokens: query.budget.tokens.input, outputTokens: query.budget.tokens.output, costUsd: null },
         actions: [...query.actions.filter(a => a.id !== "deliver"), { ...deliveryAction, id: "prepare-delivery" }, { ...deliveryAction, id: "publish" }].map(a => operation ? { ...a, enabled: false, reason: operation.message } : a),
-        stop: operation?.status === "uncertain" ? { reason: "operation-uncertain", message: operation.message } : query.stop ? { reason: query.stop.reason, message: query.stop.message } : null,
+        stop: operation?.status === "uncertain" ? { reason: "operation-uncertain", message: operation.message } : query.stop ? { reason: query.stop.reason, message: `${query.stop.message}\n\nRecorded next route:\n${query.stop.next_move}` } : null,
         updatedAt: history.events.at(-1)!.at,
         limits: ["This workspace derives the validated controller journal. A button is not additional authority.", "A check and an independent agent judgement support a declared requirement; neither guarantees that every intended behaviour was specified.", `Verifier attempts: ${query.budget.verificationAttempts.reserved}/${query.budget.verificationAttempts.ceiling}; unresolved: ${query.budget.verificationAttempts.unknown}.`, `Whole-journey wall-clock ceiling: ${query.budget.wallClock.ceilingSeconds} seconds${query.budget.wallClock.expired ? " (expired)" : ""}.`, "Host login directories are not shared with agents. Provider cost is not inferred from absent billing observations."],
         ...(currentPublication ? { publication: { status: currentPublication.forge?.status ?? (currentPublication.pushed ? "branch-pushed" : "prepared"), ...(currentPublication.forge?.url ? { url: currentPublication.forge.url } : {}), deliveryId: currentPublication.deliveryId, bundleDir: currentPublication.bundleDir } } : {}),
@@ -61,8 +89,12 @@ export async function createPmWorkspaceServer(stateDirectory: string, options: A
         if (request.headers.get("sec-fetch-site") === "cross-site") return json({ error: "Cross-site access is not allowed" }, 403);
         try {
             if (request.method === "GET" && url.pathname === "/api/state") return json(await readPmWorkspace(state));
-            if (request.method === "GET" && /^\/api\/commands\/[a-f0-9-]{36}$/.test(url.pathname)) return json(await readWorkspaceCommand(state, url.pathname.split("/").at(-1)!));
+            if (request.method === "GET" && /^\/api\/commands\/[a-f0-9-]{36}$/.test(url.pathname)) {
+                await assertPmWorkspaceCommandAccess(state);
+                return json(await readWorkspaceCommand(state, url.pathname.split("/").at(-1)!));
+            }
             if (request.method === "POST" && url.pathname === "/api/commands") {
+                await assertPmWorkspaceCommandAccess(state);
                 if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use an explicit JSON command" }, 415);
                 const text = await request.text();
                 if (Buffer.byteLength(text) > 64 * 1024) return json({ error: "Command exceeds its size limit" }, 413);

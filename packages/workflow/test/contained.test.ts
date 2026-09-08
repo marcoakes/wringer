@@ -86,6 +86,95 @@ async function fixture(settings: {
     return { options, requests, serviceCalls };
 }
 describe("contained ACP production journey", () => {
+    test("blind regression: prose-wrapped execution planner and judge replies retain parse evidence", async () => {
+        const f = await fixture({ planner: true, human: true }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => {
+            const result = await execute(request);
+            return request.role === "worker" ? result : { ...result, text: `Here is my review.\n\n\`\`\`json\n${result.text}\n\`\`\`\nReview complete.` };
+        };
+        const result = await runContainedJourney(f.options);
+        expect(result.status).toBe("human-hold");
+        expect(result.sessions).toBe(3);
+        const history = await readValidatedContainedState(f.options.controllerDir);
+        const parsed = history.events.filter(e => e.type === "agent-reply-parsed");
+        expect(parsed).toHaveLength(2);
+        for (const event of parsed) {
+            const details = event.details as { effectId: string; receiptSha256: string };
+            const receipt = JSON.parse(await readFile(join(f.options.controllerDir, ".wringer/contained/effects", details.effectId, "parsing.json"), "utf8"));
+            expect(receipt.parsing.path).toBe("json-fence");
+            expect(hashValue(receipt)).toBe(details.receiptSha256);
+        }
+    });
+    test("blind regression: a completed worker reporting HTTP 401 reserves one turn, never four", async () => {
+        const f = await fixture({ workerTurns: 4, failedVerifications: 4 }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), text: 'unexpected status 401 Unauthorized: {"error":{"message":"Incorrect API key provided: [REDACTED]","type":"invalid_request_error","code":"invalid_api_key"}}, url: https://api.openai.com/v1/responses' });
+        f.options.services.captureCandidate = async (_result, source) => ({ source, tree: f.options.environment.source_tree, changedPaths: [] });
+        const stopped = await runContainedJourney(f.options);
+        expect(stopped.stop?.reason).toBe("worker-auth-rejected");
+        expect(stopped.stop?.message).toContain("401");
+        expect(stopped.sessions).toBe(1);
+        expect(f.serviceCalls.filter(c => c.kind === "candidate")).toHaveLength(0);
+        expect((await runContainedJourney(f.options)).sessions).toBe(1);
+        expect((await readValidatedContainedState(f.options.controllerDir)).events.some(e => e.type === "worker-outcome-stopped")).toBe(true);
+    });
+    test("blind regression: unchanged worker source stops before verification and explicit retry alone spends again", async () => {
+        const f = await fixture();
+        f.options.services.captureCandidate = async (_result, source) => ({ source, tree: f.options.environment.source_tree, changedPaths: [] });
+        const first = await runContainedJourney(f.options);
+        expect(first.stop?.reason).toBe("worker-no-change");
+        expect(first.sessions).toBe(1);
+        expect(first.candidate).toBeNull();
+        expect((await runContainedJourney(f.options)).sessions).toBe(1);
+        expect((await runContainedJourney({ ...f.options, retryStopped: true })).sessions).toBe(2);
+        expect(f.serviceCalls.filter(c => c.kind === "candidate")).toHaveLength(0);
+    });
+    test("blind regression: exhausted retries offer a new grant, not a knowingly impossible retry", async () => {
+        const f = await fixture({ planner: true }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), text: "No JSON reply" });
+        const first = await runContainedJourney(f.options);
+        expect(first.stop?.reason).toBe("planner-invalid-reply");
+        expect(first.stop?.message).toContain("grant");
+        expect(first.stop?.next_move).toContain("new-grant --state");
+        expect(first.stop?.next_move).not.toContain("--retry-stopped");
+        const retry = await runContainedJourney({ ...f.options, retryUncertain: true });
+        expect(retry.stop?.reason).toBe("retry-not-applicable");
+        expect(retry.stop?.next_move).toContain("new-grant --state");
+        expect(retry.sessions).toBe(1);
+    });
+    test("blind regression: a mistyped uncertain retry cannot hide an active stopped task from the board", async () => {
+        const f = await fixture(), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), ...(request.role === "judge" ? { text: "Bad review fixture" } : {}) });
+        await runContainedJourney(f.options);
+        const result = await runContainedJourney({ ...f.options, retryUncertain: true });
+        expect(result.stop?.reason).toBe("retry-not-applicable");
+        const query = await queryContainedJourney(f.options.controllerDir);
+        expect(query.actions.find(a => a.id === "resume")?.enabled).toBe(false);
+        expect(query.actions.find(a => a.id === "retry-uncertain")?.enabled).toBe(false);
+        expect(query.actions.find(a => a.id === "retry-stopped")?.enabled).toBe(true);
+        expect(result.sessions).toBe(2);
+    });
+    test("blind regression: a planner's real questions cannot be answered by Continue", async () => {
+        const f = await fixture({ planner: true }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), text: JSON.stringify({ omissions: [], questions: ["Which value should a skipped step carry?"], note: "A product choice remains." }) });
+        const result = await runContainedJourney(f.options);
+        expect(result.stop?.reason).toBe("intent-needs-decision");
+        expect(result.stop?.message).toContain("Which value");
+        expect((await queryContainedJourney(f.options.controllerDir)).actions.find(a => a.id === "resume")?.enabled).toBe(false);
+        expect((await runContainedJourney(f.options)).sessions).toBe(1);
+    });
+    test("blind regression: born-green names the passing check and retained receipt", async () => {
+        const f = await fixture(), verify = f.options.services.verifyCandidate;
+        f.options.services.verifyCandidate = async request => {
+            const result = await verify(request);
+            return { ...result, status: "passed", checks: result.checks.map(c => ({ ...c, status: "passed", exitCode: 0 })) };
+        };
+        const result = await runContainedJourney(f.options);
+        expect(result.stop?.reason).toBe("acceptance-born-green");
+        expect(result.stop?.message).toContain(f.options.plan.acceptance.checks[0]!.id);
+        expect(result.stop?.message).toContain("fixture/");
+        expect(result.stop?.next_move).toContain("new-grant --state");
+        expect(result.sessions).toBe(0);
+    });
     function controlledClock() {
         const NativeDate = globalThis.Date;
         let instant = NativeDate.now();
@@ -551,7 +640,8 @@ describe("contained ACP production journey", () => {
             expect(stopped.stopReason).toContain(failure === "policy" ? "invalid-reply" : "uncertain");
             await proposeContainedPlan(options);
             expect(calls).toBe(1);
-            expect((await proposeContainedPlan({ ...options, retryUncertain: true, retryStopped: true })).stopReason).toContain("budget-exhausted");
+            await expect(proposeContainedPlan({ ...options, retryUncertain: true, retryStopped: true })).rejects.toThrow("Choose one eligible retry flag");
+            expect((await proposeContainedPlan({ ...options, ...(failure === "uncertain" ? { retryUncertain: true } : { retryStopped: true }) })).stopReason).toContain("budget-exhausted");
             expect(calls).toBe(1);
         }
     });

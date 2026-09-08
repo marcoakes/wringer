@@ -1,7 +1,8 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadExecutionPlan, canonicalPlanJson, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority } from "@wringer/plan";
-import { requestContainedRevision, queryContainedJourney } from "@wringer/workflow";
+import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility } from "@wringer/workflow";
 import { deliverContained, auditContained, falsifyContained } from "@wringer/delivery";
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
 import { Redactor } from "@wringer/engine";
@@ -19,6 +20,14 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         const { proposalCommand } = await import("./intake");
         return proposalCommand(a, repo, context);
     }
+    if (["planning-status", "planning-questions", "planning-new-grant"].includes(a.command)) {
+        const { planningStatusCommand, planningNewGrantCommand } = await import("./intake");
+        return a.command === "planning-new-grant" ? planningNewGrantCommand(a, repo, context) : planningStatusCommand(a, repo, context);
+    }
+    if (a.command === "new-grant") {
+        const { newGrantCommand } = await import("./new-grant");
+        return newGrantCommand(a, repo, context);
+    }
     if (a.command === "plan") {
         positionals(a, 1); allowed(a, []);
         const plan = await loadExecutionPlan(resolve(repo, a.words[0]!));
@@ -34,7 +43,12 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
     }
     if (a.command === "status") {
         positionals(a, 0); allowed(a, ["state"]);
-        const state = statePath(repo, a), { result: value } = await readController(state), query = await queryContainedJourney(state);
+        const state = statePath(repo, a);
+        if (!existsSync(join(state, ".wringer/contained/events")) && existsSync(join(state, ".wringer/planning/events"))) {
+            const { planningStatusCommand } = await import("./intake");
+            return planningStatusCommand(a, repo, context);
+        }
+        const { result: value } = await readController(state), query = await queryContainedJourney(state);
         const next = value.status === "human-hold" || value.status === "review-ready" ? nextBoard(state) : value.stop?.next_move ?? nextResume(state);
         return { value: { ...value, revision: query.revision, actions: query.actions, budget: query.budget }, text: `${value.status}. The recorded view agrees with the validated authoritative journal.\n${value.stop?.message ?? ""}\nNext: ${next}`, exit: value.status === "review-ready" ? 0 : 3 };
     }
@@ -80,12 +94,13 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         const state = statePath(repo, a), criterionId = required(a, "criterion");
         if (a.command === "show") {
             const { receipt, output } = await showControllerCandidate(state, criterionId, context);
-            const next = receipt.success ? `wringer-drive review --state ${quote(state)} --criterion ${quote(criterionId)} --display ${receipt.id} --verdict met --by 'YOUR NAME' --note 'YOUR OWN OBSERVATION'` : `wringer-drive show --state ${quote(state)} --criterion ${quote(criterionId)}`;
-            return { value: receipt, text: `${output}\nDisplay ${receipt.success ? "completed" : "failed"}; no judgement was recorded.\nNext: ${next}`, exit: receipt.success ? 0 : 3 };
+            const eligibility = containedHumanReviewEligibility(await readController(state), criterionId);
+            const next = !eligibility.enabled ? `wringer-drive new-grant --state ${quote(state)}` : receipt.success ? `wringer-drive review --state ${quote(state)} --criterion ${quote(criterionId)} --display ${receipt.id} --verdict met --by 'YOUR NAME' --note 'YOUR OWN OBSERVATION'` : `wringer-drive show --state ${quote(state)} --criterion ${quote(criterionId)}`;
+            return { value: receipt, text: `${output}\nDisplay ${receipt.success ? "completed" : "failed"}; no judgement was recorded.${eligibility.enabled ? "\nChoose met or not_met and supply your own name and observation; the example below is not a verdict." : `\n${eligibility.reason}`}\nNext: ${next}`, exit: receipt.success && eligibility.enabled ? 0 : 3 };
         }
         const verdict = required(a, "verdict"); if (!["met", "not_met"].includes(verdict)) throw new Error("Verdict must be met or not_met");
         const recorded = await reviewControllerCandidate(state, { criterionId, displayId: required(a, "display"), verdict: verdict as "met" | "not_met", by: required(a, "by"), note: required(a, "note") });
-        return { value: recorded.judgement, text: `Judgement recorded in ${recorded.judgement.by}'s words: ${recorded.judgement.note}\nHuman hold: previous readiness is withdrawn until all current observations are evaluated.\nNext: ${nextResume(state)}` };
+        return { value: recorded.judgement, text: `Judgement recorded in ${recorded.judgement.by}'s words: ${recorded.judgement.note}\nHuman hold: previous readiness is withdrawn until all current observations are evaluated.\nNext: ${nextBoard(state)}` };
     }
     if (a.command === "request-revision") {
         positionals(a, 0); allowed(a, ["state", "by", "note"]);

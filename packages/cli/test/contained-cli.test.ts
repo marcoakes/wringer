@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileDeclaration, compileExecutionPlan, createExecutionAuthority, discoverEnvironment, hashValue, type ExecutionPlan } from "@wringer/plan";
-import { runContainedJourney, readValidatedContainedState, type ContainedJourneyResult, type CandidateVerification } from "@wringer/workflow";
+import { runContainedJourney, readValidatedContainedState, queryContainedJourney, type ContainedJourneyResult, type CandidateVerification } from "@wringer/workflow";
 import type { PreparedRepositorySource, RoleExecutionRequest, RoleExecutionResult, ContainedCommandResult } from "@wringer/runtime";
 import { dispatch } from "../src/app";
 import { containedServices } from "../src/contained-services";
@@ -76,7 +76,7 @@ async function noRuntime(f: Fixture, ...args: string[]) {
     const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
     return { value: JSON.parse(stdout), stderr, code };
 }
-async function seededHold(f: Fixture): Promise<ContainedJourneyResult> {
+async function seededHold(f: Fixture, invalidJudge = false): Promise<ContainedJourneyResult> {
     await f.seed();
     const candidate = { source: { ...f.prepared, commit: "b".repeat(40) }, tree: "c".repeat(40), changedPaths: ["src/value.ts"] };
     return runContainedJourney({
@@ -86,7 +86,7 @@ async function seededHold(f: Fixture): Promise<ContainedJourneyResult> {
             captureCandidate: async () => candidate,
             verifyCandidate: async (request) => ({ schema_version: "wringer.contained-verification.v1", status: request.phase === "baseline" ? "failed" : "passed", candidateCommit: request.source.commit, candidateTree: request.phase === "baseline" ? f.tree : candidate.tree, acceptanceSha256: f.plan.acceptance_sha256, runtimeId: randomUUID(), image: f.plan.runtime.image, checks: f.plan.acceptance.checks.map(c => ({ id: c.id, status: request.phase === "baseline" ? "failed" : "passed", exitCode: request.phase === "baseline" ? 1 : 0, checkInputsSha256: "d".repeat(64), outputSha256: "e".repeat(64) })), regressions: f.plan.environment.baseline.map(c => ({ id: c.id, status: "passed", exitCode: 0, outputSha256: "e".repeat(64) })), evidenceRef: `synthetic-fixture/${request.effectId}` }) as CandidateVerification,
         },
-        executeRole: async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => ({ status: "completed", text: request.role === "worker" ? "Synthetic worker response" : JSON.stringify({ criteria: f.plan.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met: true, reason: "Synthetic independent review" })), note: "No live agent was exercised" }), sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "contained-cli-fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, usage: { inputTokens: 10, outputTokens: 5 }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["Synthetic result; no live containment or provider"] } }),
+        executeRole: async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => ({ status: "completed", text: request.role === "worker" ? "Synthetic worker response" : invalidJudge ? "Invalid fixture reply" : JSON.stringify({ criteria: f.plan.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met: true, reason: "Synthetic independent review" })), note: "No live agent was exercised" }), sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "contained-cli-fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, usage: { inputTokens: 10, outputTokens: 5 }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["Synthetic result; no live containment or provider"] } }),
     });
 }
 async function displayReceipt(f: Fixture, hold: ContainedJourneyResult, overrides: Record<string, unknown> = {}) {
@@ -98,6 +98,28 @@ async function displayReceipt(f: Fixture, hold: ContainedJourneyResult, override
     return value;
 }
 describe("contained public CLI integration (no live runtime)", () => {
+    test("blind regression: CLI show and board refuse a judge-stopped fixture before any display", async () => {
+        const f = await fixture(true), stopped = await seededHold(f, true);
+        expect(stopped.stop?.reason).toBe("judge-invalid-reply");
+        const query = await queryContainedJourney(f.state);
+        expect(query.actions.find(a => a.id === "show")?.enabled).toBe(false);
+        await expect(call(f, "show", "--state", f.state, "--criterion", "readable")).rejects.toThrow("at its human hold");
+        expect(await Bun.file(join(f.state, "displays")).exists()).toBe(false);
+        expect((await readValidatedContainedState(f.state)).result.sessions).toBe(stopped.sessions);
+    });
+    test("blind regression: public new-grant route previews then creates only a separate bounded grant", async () => {
+        const f = await fixture(), stopped = await seededHold(f, true);
+        const prior = await readFile(join(f.state, ".wringer/contained/result.json"), "utf8");
+        const preview = await call(f, "new-grant", "--state", f.state);
+        expect((preview.value as any).status).toBe("preview");
+        expect(preview.exit ?? 0).toBe(0);
+        const fresh = join(f.root, "fresh-grant");
+        const created = await call(f, "new-grant", "--state", f.state, "--confirm-new-grant", "--actor", "Fixture PM", "--expires", new Date(Date.now() + 3600000).toISOString(), "--output", fresh);
+        expect((created.value as any).authority.budget).toEqual(f.authority.budget);
+        expect((await readdir(fresh)).sort()).toEqual(["authority.json", "plan.json"]);
+        expect(await readFile(join(f.state, ".wringer/contained/result.json"), "utf8")).toBe(prior);
+        expect((await readValidatedContainedState(f.state)).result.sessions).toBe(stopped.sessions);
+    });
     test("plan compiles against a bare source map without agents, auth or host repository execution", async () => {
         const f = await fixture(), answer = await call(f, "plan", "plan.yaml");
         expect((answer.value as ExecutionPlan).plan_sha256).toBe(f.plan.plan_sha256);

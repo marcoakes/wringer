@@ -8,4 +8,5 @@ export type { ValidatedContainedState } from "./contained";
 export * from "./contained-types";
 export * from "./contained-query";
 export * from "./proposal";
+export * from "./json-reply";
 export * from "./discovery";

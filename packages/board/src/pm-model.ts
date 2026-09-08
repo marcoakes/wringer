@@ -35,8 +35,17 @@ export function validatePmWorkspace(value: unknown): PmWorkspace {
 /** Plain-language status never infers a hosted review from a Git push. */
 export function pmOutcome(state: PmWorkspace): { title: string; description: string; tone: string; label: string } {
     if (state.status === "unconnected") return { title: "Connecting to your workspace.", description: "Your private link is required before any run details or actions are available.", tone: "quiet", label: "No run loaded" };
+    if (state.stage === "planning") {
+        if (state.status === "planning-running") return { title: "Planning is underway.", description: "The bounded planning attempt is active. This page only reads its recorded state; no second attempt is started by refreshing.", tone: "quiet", label: "Planning in progress" };
+        if (state.status === "planning-needs-decision") return { title: "Answer the planning questions first.", description: "Read every retained question and the original note below. No build or human acceptance is recorded; revising the intent and approving any new spending remain separate decisions.", tone: "attention", label: "Planning decisions needed" };
+        if (state.status === "planning-proposal") return { title: "Review the unapproved proposal.", description: "A proposed execution plan is recorded below. It is not approved, and no build, human verdict or delivery has been inferred from it.", tone: "quiet", label: "Unapproved proposal" };
+        return { title: "Planning stopped before a usable proposal.", description: "Inspect the retained planning note, reason and read-only recovery routes below. This page cannot retry, approve new spending or record a human verdict.", tone: "attention", label: state.status === "planning-uncertain" ? "Planning ownership uncertain" : "Planning stopped" };
+    }
     if (state.stop?.reason === "operation-uncertain") return { title: "The previous action needs reconciliation.", description: state.stop.message, tone: "attention", label: "Outcome uncertain" };
-    if (state.status === "running") return { title: "Work is underway.", description: "The controller is carrying out the current bounded step. Follow its evidence here; no second action is needed while it runs.", tone: "quiet", label: "In progress" };
+    if (state.status === "running") {
+        const stage = ({ prepare: "Preparing the pinned source", planner: "Reviewing the brief and acceptance plan", baseline: "Checking the starting point", worker: "Building the requested change", capture: "Collecting the changed source", verify: "Checking the candidate", judge: "Independent review of the candidate", human: "Recording the human-review step", ready: "Preparing the ready handover" } as Record<string, string>)[state.stage] ?? "Carrying out the current bounded step";
+        return { title: "Work is underway.", description: `${stage}. Follow the recorded evidence here; no second action is needed while this step runs.`, tone: "quiet", label: "In progress" };
+    }
     let hosted = false;
     try { const url = new URL(state.publication?.url ?? ""); hosted = url.protocol === "https:" && !url.username && !url.password; } catch {}
     if (state.publication && ["published", "recovered"].includes(state.publication.status) && hosted)
@@ -51,12 +60,30 @@ export function pmOutcome(state: PmWorkspace): { title: string; description: str
         return { title: "Prepared, awaiting your publication decision.", description: "The delivery exists locally. Nothing is inferred about a remote branch or hosted review request until publication is recorded.", tone: "quiet", label: "Delivery prepared" };
     if ((state.status === "human-hold" || state.stage === "human") && state.criteria.filter(c => c.required).every(c => c.state === "met"))
         return { title: "Your review is recorded.", description: "Continue the same run to evaluate its current evidence and readiness. No new human verdict is needed for this unchanged candidate.", tone: "quiet", label: "Ready to recheck" };
+    if ((state.status === "human-hold" || state.stage === "human") && state.criteria.some(c => c.kind === "human" && c.required && c.state === "not-met"))
+        return { title: "Your review asks for more work.", description: "The negative judgement is recorded for this candidate. Request a revision within the remaining authority; Continue cannot turn that observation into acceptance.", tone: "attention", label: "Human requirement not met" };
     if (state.status === "human-hold" || state.stage === "human")
         return { title: "A real decision needs your eyes.", description: "See the recorded result, then say whether it meets the requirement. Your judgement stays in your own words.", tone: "attention", label: "Your review needed" };
     if (state.status === "review-ready" || state.stage === "ready")
         return { title: "Ready to hand over.", description: "Required evidence is complete. Prepare the delivery, inspect it, then make a separate decision to publish.", tone: "good", label: "Ready for delivery" };
-    if (state.stop)
-        return { title: "Work is paused. Here’s the next step.", description: state.stop.message, tone: "attention", label: "Needs attention" };
+    if (state.stage === "judge" && state.checks.length > 0 && state.checks.every(c => c.after.status === "passed"))
+        return { title: "Checks passed. Review is still pending.", description: "Independent review has not established the required result. Human review remains unavailable until that step finishes; passing checks alone are not acceptance.", tone: "attention", label: "Independent review pending" };
+    if (state.stop) {
+        const summaries: Record<string, { title: string; description: string }> = {
+            "acceptance-born-green": { title: "These checks already passed before the change.", description: "They do not establish a failing starting point for the requested change. Inspect the named checks and original baseline receipt in the recorded stop evidence." },
+            "agent-budget-exhausted": { title: "The approved attempts are used up.", description: "This run cannot continue the next agent step within its remaining role/session limits. The recorded result and unmet or unevaluated requirements remain visible; Continue cannot increase the budget." },
+            "verification-budget-exhausted": { title: "The approved check attempts are used up.", description: "The verifier cannot run another attempt under this approval. Existing observations remain evidence; a new budget is a separate decision." },
+            "wall-clock-exhausted": { title: "The approved time has run out.", description: "The original journey clock includes interruptions and downtime. No new work is authorized by refreshing or continuing this run." },
+            "worker-auth-rejected": { title: "The coding agent could not authenticate.", description: "Check the existing credential setup before another explicit attempt. No successful build is inferred from an authentication failure." },
+            "worker-no-change": { title: "The coding agent returned no changed source.", description: "No product change was captured from this attempt. Inspect the retained result before choosing a bounded retry; a completed response is not a completed build." },
+            "worker-stopped": { title: "The coding agent stopped before finishing.", description: "Inspect the recorded reason and any remaining retry allowance. This stop is not a successful build, and ordinary Continue will not silently replay the attempt." },
+            "judge-invalid-reply": { title: "Independent review could not be read.", description: "The review reply did not match the required findings format. The retained reply and parsing evidence are available below; no judgement was inferred from it." },
+            "planner-invalid-reply": { title: "The planning reply could not be read.", description: "The planning reply did not match the required format. Inspect the retained reply and parsing evidence before an explicit bounded retry." },
+            "judge-stopped": { title: "Independent review stopped before finishing.", description: "No accepted independent review was established. Inspect the recorded stop evidence and remaining retry allowance before asking for human judgement." },
+        };
+        const summary = summaries[state.stop.reason];
+        return { title: summary?.title ?? "Work is paused. Inspect the recorded stop.", description: summary?.description ?? "The controller stopped before establishing the next outcome. The original reason and evidence are preserved below; only the eligible recovery actions can continue this run.", tone: "attention", label: "Needs attention" };
+    }
     if (!state.candidate)
         return { title: "A clear brief. A bounded journey.", description: "The controller will preserve the original requirements, the working budget, and the evidence from each step.", tone: "quiet", label: "Getting started" };
     return { title: "The change is taking shape.", description: "A candidate exists. Checks, independent review and any human decisions remain separate steps.", tone: "quiet", label: "Work in progress" };

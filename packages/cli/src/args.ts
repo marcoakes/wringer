@@ -4,7 +4,7 @@ export interface Args {
     flags: Map<string, string | boolean | string[]>;
 }
 export const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'";
-const booleans = new Set(["help", "version", "json", "send", "serial", "prove", "falsify", "headless", "accept", "dry-run", "without-display", "no-open", "ephemeral", "apply", "yes", "retry-uncertain", "retry-stopped", "retry-verification", "retry-judge", "probe-agents", "acknowledge-uncertain", "strict"]);
+const booleans = new Set(["help", "version", "json", "send", "serial", "prove", "falsify", "headless", "accept", "dry-run", "without-display", "no-open", "ephemeral", "apply", "yes", "retry-uncertain", "retry-stopped", "retry-verification", "retry-judge", "probe-agents", "acknowledge-uncertain", "confirm-new-grant", "strict"]);
 export function parseArgs(argv: string[]): Args {
     const flags = new Map<string, string | boolean | string[]>(), words: string[] = [];
     for (let i = 0; i < argv.length; i++) {

@@ -10,7 +10,9 @@ Turn a product specification into a checked change, with evidence someone else c
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.3` is a prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.4` is a prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+
+The [September 8 PM blind test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). This checkpoint repairs the measured reply, recovery and review problems; it is not a claim that the next live PM test has passed.
 
 Read the [current PM preparation and status report](docs/PM_READINESS_2026-09-07.md)
 for this checkpoint's measured results and remaining gaps.

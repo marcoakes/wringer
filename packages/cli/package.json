@@ -1,5 +1,5 @@
 {
-  "name":"@wringer/cli", "version":"1.0.0-alpha.3", "type":"module", "private":true,
+  "name":"@wringer/cli", "version":"1.0.0-alpha.4", "type":"module", "private":true,
   "bin":{"wring":"src/cli.ts","wringer-board":"src/board-cli.ts","wringer-drive":"src/drive-cli.ts"},
   "dependencies":{"@wringer/application":"workspace:*","@wringer/engine":"workspace:*","@wringer/records":"workspace:*","@wringer/board":"workspace:*","@wringer/workflow":"workspace:*","@wringer/delivery":"workspace:*","@wringer/scheduler":"workspace:*","@wringer/plan":"workspace:*","@wringer/runtime":"workspace:*"}
 }

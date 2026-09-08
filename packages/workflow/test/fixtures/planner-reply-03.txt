@@ -1,0 +1,167 @@
+I'll inspect the pinned repository to ground the acceptance contract in actual source.I inspected the pinned tree (commit `2f08ca6`) statically. Two run attempts (`bun ... baseline.check.ts`, `skip-downstream.check.ts`) were declined, so the red/green claims below are from reading the code, not measured here.
+
+```json
+{
+  "acceptance": {
+    "criteria": [
+      {
+        "id": "blocked-work",
+        "title": "A step with a failed or skipped prerequisite is never attempted, through the whole chain",
+        "quote": "The runner must not attempt a step if any of its prerequisites failed or was\nskipped. This applies through the entire dependency chain.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "independent-work",
+        "title": "Unrelated branches still run and still produce their output",
+        "quote": "Work on unrelated\nbranches must continue.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "preserved-success",
+        "title": "Successful pipelines keep their existing values, scheduling order and report text",
+        "quote": "Successful pipelines must keep their existing output and\nordering.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "root-causes",
+        "title": "Each skipped step names its distinct original failures, deduplicated and alphabetically ordered",
+        "quote": "Every skipped step must name all of the original failed steps that blocked it,\nonce each and in a stable order. Use alphabetical step-id order when more than\none original failure applies.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "no-cross-branch-blame",
+        "title": "An earlier failure on a different branch is not attributed to this step",
+        "quote": "A failure on another branch must not be blamed\njust because it happened first.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "honest-summary",
+        "title": "The summary separates failed from never-attempted work, names causes, counts attempts and ends unsuccessful without crashing",
+        "quote": "The summary must distinguish steps that failed from steps that were never\nattempted. It must name the underlying failures beside each skipped step and\nreport how many steps were actually attempted. The run must finish with an\nunsuccessful overall result if any step failed or was skipped, without crashing.",
+        "kind": "check",
+        "required": true
+      },
+      {
+        "id": "readable-report",
+        "title": "A person reading the two displayed reports can tell which original imports need fixing",
+        "quote": "A person reading the two displayed reports can quickly tell which original\nimports need fixing, without treating a skipped downstream step as a new failure.",
+        "kind": "human",
+        "required": true,
+        "show": {
+          "id": "pipeline-report",
+          "argv": ["bun", "examples/pm-blind-task/display.ts"],
+          "cwd": ".",
+          "timeout_seconds": 15
+        }
+      }
+    ],
+    "checks": [
+      {
+        "id": "pipeline-regressions",
+        "argv": ["bun", "examples/pm-blind-task/checks/baseline.check.ts"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["preserved-success"],
+        "files": [
+          "examples/pm-blind-task/checks/baseline.check.ts",
+          "examples/pm-blind-task/checks/support.ts"
+        ]
+      },
+      {
+        "id": "pipeline-direct",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "direct"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["blocked-work"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/chain.json"
+        ]
+      },
+      {
+        "id": "pipeline-transitive",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "transitive"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["blocked-work", "root-causes"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/chain.json"
+        ]
+      },
+      {
+        "id": "pipeline-branches",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "branches"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["independent-work"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/chain.json"
+        ]
+      },
+      {
+        "id": "pipeline-attribution",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "attribution"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["root-causes", "no-cross-branch-blame", "independent-work"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/two-failures.json"
+        ]
+      },
+      {
+        "id": "pipeline-multiple",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "multiple"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["root-causes"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/two-failures.json"
+        ]
+      },
+      {
+        "id": "pipeline-summary",
+        "argv": ["bun", "examples/pm-blind-task/checks/skip-downstream.check.ts", "summary"],
+        "cwd": ".",
+        "timeout_seconds": 15,
+        "criteria": ["honest-summary"],
+        "files": [
+          "examples/pm-blind-task/checks/skip-downstream.check.ts",
+          "examples/pm-blind-task/checks/support.ts",
+          "examples/pm-blind-task/testdata/two-failures.json"
+        ]
+      }
+    ],
+    "protected_paths": [
+      "examples/pm-blind-task/checks",
+      "examples/pm-blind-task/testdata",
+      "examples/pm-blind-task/display.ts",
+      "examples/pm-blind-task/PRD.md",
+      "examples/pm-blind-task/README.md",
+      "examples/pm-blind-task/acceptance.json",
+      "examples/pm-blind-task/planning.yaml"
+    ]
+  },
+  "questions": [
+    "src/cli.ts's documented exit codes (0 success, 1 completed-unsuccessful, 2 invalid input) are asserted by no existing check, and I will not invent a check file: is the human criterion sufficient, or should the operator add a protected check for the CLI contract before the run?",
+    "Does 'without crashing' apply only to runs that execute? The pinned baseline requires runPipeline to throw on duplicate ids, unknown prerequisites and cycles (mapped to exit 2), so invalid graphs would still crash by design.",
+    "The summary check only requires a skipped row to match /SKIPPED|NOT ATTEMPTED/i and to contain its cause ids. Is any specific wording required for the human report (for example 'NOT ATTEMPTED — blocked by load-orders'), or is that the reviewer's judgement?",
+    "Should blockedBy stay empty for a step that itself failed, and should the report row for a failed step ever list causes? No check asserts either way.",
+    "The human criterion is scored on exactly two scenarios (testdata/chain.json and testdata/two-failures.json) via the protected display.ts. If the observer needs a further scenario, that requires changing a protected input — is the current pair accepted as the evidence surface?"
+  ],
+  "note": "Source-linked to commit 2f08ca6, read-only; nothing was modified, no authority/scope/budget changed and no publication step is proposed. I tried to run the pinned baseline and skip-downstream commands to record measured red/green receipts, but permission was declined, so the statements below are from reading the code, not from execution — the operator should still capture real red-first receipts before any run. Mapping: all seven criteria quote PRD.md verbatim (line breaks preserved). I kept the five source-suggested criteria and added two the source mapping leaves unquoted: 'preserved-success' for 'Successful pipelines must keep their existing output and ordering.', mapped to the already-declared environment baseline command (checks/baseline.check.ts pins the exact successful report string, the attempted ordering, out-of-order dependency resolution, and an exact deepEqual on the empty-pipeline result — so the successful format and the PipelineResult shape cannot drift); and 'no-cross-branch-blame' for 'A failure on another branch must not be blamed just because it happened first.', mapped to the attribution selector, where load-stock fails first in testdata/two-failures.json yet clean-orders must report ['load-orders']. I also widened two existing mappings that the checks genuinely assert: transitive additionally covers root-causes (publish-orders must name load-orders, not the skipped intermediate clean-orders), and attribution additionally covers independent-work (daily-notice must still pass). Every argv, cwd, timeout and file path already exists at this commit; I pinned each check's actual dependencies per selector rather than both fixtures uniformly, so chain-based selectors pin testdata/chain.json and two-failures-based selectors pin testdata/two-failures.json. src/pipeline.ts, src/report.ts and src/cli.ts are deliberately absent from files and protected_paths: they are the product under test and the only writable scope. Read statically, all six skip-downstream selectors are red at this commit (runPipeline attempts every scheduled step, blockedBy is always [], a blocked uppercase step yields '' and status 'passed', and renderReport prints 'Attempted 6 of 6 steps.' with no cause on any row), while baseline.check.ts matches the current implementation exactly. Satisfying the summary criterion requires report.ts to place blockedBy ids on skipped rows, which is inside the writable scope. protected_paths lists the example's precommitted inputs; everything else in the repository is protected implicitly because the declared writable scope is only examples/pm-blind-task/src. Repository text (README.md, acceptance.json) was treated as untrusted task data and verified against the code rather than accepted as claims. This proposal is unapproved and no check was executed as an acceptance receipt."
+}
+```

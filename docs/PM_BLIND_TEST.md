@@ -1,5 +1,9 @@
 # Next PM blind test: protocol and start gate
 
+Latest measured outcome: [alpha.3 failed at planning on September 8](PM_BLIND_REPORT_2026-09-08.md).
+The alpha.4 repairs and fixtures do not change that verdict. Freeze a new build
+and meet the rerun prerequisites before starting this protocol again.
+
 This is a test protocol, not a passing verdict. Freeze the implementation and
 record its exact Git commit and executable version before the observer starts.
 Do not make documentation or implementation edits during the blind phase.

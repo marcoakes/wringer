@@ -1,0 +1,7 @@
+{
+  "source": "PM blind run, capture 03-planner-reply-verbatim.txt",
+  "source_bytes": 10698,
+  "source_sha256": "3c34cd8be5d36d6be7387d07f565e454a513933151ee4f6c21849164e3402dc6",
+  "redactions": [],
+  "review": "Inspected for credentials and private absolute paths before retaining; no redaction required. Fixture final newline is excluded when checking source identity. This is an observed reply, not proof of its claims."
+}
