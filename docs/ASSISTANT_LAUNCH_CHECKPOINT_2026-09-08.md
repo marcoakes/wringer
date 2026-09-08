@@ -192,6 +192,18 @@ the signing-policy path made eleven. Its assertion was corrected, and the
 subsequent complete run passed. Earlier rehearsal-development failures also
 remain in local captures; none is relabelled an independent blind-test finding.
 
-Publication and exact-commit remote CI: **pending at this commit's preparation**.
-Their observed identities and outcomes will be appended after the push. These
-local results do not establish a complete launch or successful independent run.
+Published implementation: **`8bf615f262f79ae606512abebb19f7449878fd5a`**, alpha.6,
+pushed to the existing `main` branch. The exact-commit
+[GitHub workflow](https://github.com/marcoakes/wringer/actions/runs/34266424488)
+completed successfully on 2026-09-08: **Bun / ubuntu-latest**, **Bun /
+macos-latest**, and **action** all passed. Both platform validations included the
+scripted launch rehearsal; macOS also built and probed the native helper. The
+[portable remote record](evidence/assistant-launch-remote-ci-2026-09-08.json)
+retains the job identities and observed start/completion times.
+
+This evidence-only follow-up publishes observations made after that push; it
+does not claim its own commit hash in advance. The working implementation is
+published and tested. **The protected product launch and independent live PM
+journey are still incomplete**, for the engineering and live prerequisites
+listed above. No release tag, package publication, key change or model call was
+made by this checkpoint.

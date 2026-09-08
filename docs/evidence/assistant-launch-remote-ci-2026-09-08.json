@@ -1,0 +1,80 @@
+{
+  "schema_version": "wringer.remote-checkpoint-evidence.v1",
+  "version": "1.0.0-alpha.6",
+  "sourceCommit": "8bf615f262f79ae606512abebb19f7449878fd5a",
+  "workflow": {
+    "url": "https://github.com/marcoakes/wringer/actions/runs/34266424488",
+    "status": "completed",
+    "conclusion": "success",
+    "createdAt": "2026-09-08T19:00:37Z",
+    "updatedAt": "2026-09-08T19:08:50Z"
+  },
+  "jobs": [
+    {
+      "name": "action",
+      "url": "https://github.com/marcoakes/wringer/actions/runs/34266424488/job/102196821311",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T19:00:39Z",
+      "completedAt": "2026-09-08T19:04:20Z",
+      "validation": [
+        {
+          "name": "Run ./",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T19:00:43Z",
+          "completedAt": "2026-09-08T19:04:16Z"
+        }
+      ]
+    },
+    {
+      "name": "Bun / ubuntu-latest",
+      "url": "https://github.com/marcoakes/wringer/actions/runs/34266424488/job/102196821729",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T19:00:40Z",
+      "completedAt": "2026-09-08T19:06:06Z",
+      "validation": [
+        {
+          "name": "Run bun run validate",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T19:00:47Z",
+          "completedAt": "2026-09-08T19:06:01Z"
+        },
+        {
+          "name": "Preserve successful and failed measurements",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T19:06:01Z",
+          "completedAt": "2026-09-08T19:06:03Z"
+        }
+      ]
+    },
+    {
+      "name": "Bun / macos-latest",
+      "url": "https://github.com/marcoakes/wringer/actions/runs/34266424488/job/102196821850",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-09-08T19:00:44Z",
+      "completedAt": "2026-09-08T19:08:49Z",
+      "validation": [
+        {
+          "name": "Run bun run validate",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T19:00:53Z",
+          "completedAt": "2026-09-08T19:08:42Z"
+        },
+        {
+          "name": "Preserve successful and failed measurements",
+          "conclusion": "success",
+          "startedAt": "2026-09-08T19:08:42Z",
+          "completedAt": "2026-09-08T19:08:44Z"
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Observed hosted CI for this exact implementation commit, not a live agent, protected deployment or independent PM result.",
+    "macOS CI builds and probes the native confirmation helper; it does not enroll a person, install the controller or sign a real approval.",
+    "Scripted role execution, publication to a disposable local bare origin, and unknown billing remain labelled fixture conditions.",
+    "Subsequent evidence-only commits publish this observation; no self-referential hash or inferred check result is used."
+  ]
+}
