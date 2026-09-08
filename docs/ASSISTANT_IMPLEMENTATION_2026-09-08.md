@@ -3,6 +3,12 @@
 Date: 2026-09-08. Implementation authorized by Marc Oakes, on the existing main
 line. Base: `b02a55dbdab352811b5fa0998a3b9468a3b6d0a1` (alpha.4).
 
+Verified implementation checkpoint: [`e9ff91b`](https://github.com/marcoakes/wringer/commit/e9ff91b8a16a6643c73e5108a23a294c46701f66),
+pushed to main. [Remote checks](https://github.com/marcoakes/wringer/actions/runs/34255076639):
+**Linux PASS, macOS PASS, GitHub Action PASS**. Compiled self-verification:
+**533 tests passed, one platform-specific skip, no failures**. These are
+engineering results, not a successful live PM verdict.
+
 ## Outcome
 
 The assistant entry point is implemented as a **cooperative-local engineering
@@ -96,8 +102,12 @@ assistant lifecycle. The 63-file, 185-link documentation bundle still resolves.
 Old executable reference copies were removed only when the prior generated
 manifest and exact file hashes matched; their source originals remain intact.
 The correction does not skip failing package tests or turn the first CI run
-green retrospectively. Its exact pushed commit must receive its own remote
-checks.
+green retrospectively. The corrective commit's own remote checks passed on both
+platforms and through the Action. A separate local invocation of its compiled
+`wring verify` passed contracts, types and tests: **533 passed, one Linux-only
+skip, zero failures, 4,753 assertions**. Its record binds commit `e9ff91b` and
+run `20260908-170905-3d71597c`; requirements, human judgement and delivery remain
+unassessed, not inferred from those passing checks.
 
 - First full validation: **515 passed, 1 skipped, 5 failed**. All five failures
   were new console fixtures passing macOS's symlinked temporary-directory alias
@@ -145,6 +155,13 @@ and are no longer mixed with this Bun build. They are not public evidence.
 5. **Public launch:** no package/tag/image release, external GitHub About/topics
    change or named-client support announcement was made. Marketing on the repo
    describes the preview and places limitations beside its entry point.
+6. **Existing standalone wording defect:** the final checks-only self-run exposed
+   a CLI next-step message saying to record the first check despite three recorded
+   passing checks. Read-only diagnosis traced it to the earlier standalone board's
+   missing "passing checks, requirements not assessed" branch, unchanged by this
+   upgrade. The check facts and saved summary are valid; the assistant PM workspace
+   uses a different projection. This presentation defect is recorded, not repaired
+   or hidden by a fabricated requirements assessment.
 
 Strict-money mode is deliberately unavailable, not a launch promise. Sleep and
 reboot consume time/expiry but no automatic OS login service is installed. The

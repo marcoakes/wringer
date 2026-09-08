@@ -583,7 +583,7 @@ signing is a separate delivery-assurance workstream; it is not solved by MCP.
 - [ ] Delivery and every public projection agree; fresh-clone audit resolves.
 - [x] Original artwork, creator credit and truthful historical attribution retained.
 - [x] Repository front-door marketing updated together as an engineering preview, with supported claims and limitations; external metadata remains gated.
-- [ ] Exact implementation commit pushed; local validation and remote CI observed.
+- [x] Implementation commit `e9ff91b` pushed; local compiled self-verification and all three remote checks observed passing (see implementation report).
 - [ ] Public release separately approved; later client support remains unclaimed.
 
 ## References

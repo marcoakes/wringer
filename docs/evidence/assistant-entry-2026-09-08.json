@@ -464,5 +464,59 @@
     },
     "test_discovery": "explicit ./packages directory paths; intentional substring-filter failure retained as a regression control",
     "validation_order": "build precedes package checks, matching the Action boundary"
-  }
+  },
+  "final_implementation_validation": {
+    "commit": "e9ff91b8a16a6643c73e5108a23a294c46701f66",
+    "remote": {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/34255076639",
+      "conclusion": "success",
+      "jobs": {
+        "Bun / macos-latest": "success",
+        "Bun / ubuntu-latest": "success",
+        "action": "success"
+      }
+    },
+    "compiled_self_verification": {
+      "run_id": "20260908-170905-3d71597c",
+      "command": "dist/wring verify --output PRIVATE_NEW_CAPTURE",
+      "status": "passed",
+      "gates": [
+        {
+          "id": "contracts",
+          "exit_code": 0,
+          "duration_ms": 115
+        },
+        {
+          "id": "types",
+          "exit_code": 0,
+          "duration_ms": 2575
+        },
+        {
+          "id": "tests",
+          "exit_code": 0,
+          "duration_ms": 257346
+        }
+      ],
+      "tests": {
+        "passed": 533,
+        "skipped": 1,
+        "failed": 0,
+        "assertions": 4753
+      },
+      "test_stderr_sha256": "5cadf0f1c7b6b84dde4fd0941f20017fc6bdd78526a72f44012309faee4245f7",
+      "skip_reason": "Real Linux DAC test is platform-specific; this measurement ran on macOS.",
+      "requirements": "not assessed",
+      "human_judgement": "not assessed",
+      "delivery": "not assessed"
+    }
+  },
+  "known_remaining_findings": [
+    {
+      "scope": "pre-existing standalone CLI board next-action wording",
+      "finding": "A checks-only run with passing checks and no requirements assessment renders the initial Record the first check/no verification record placeholder.",
+      "cause": "deriveNextAction lacks that state; relevant files are unchanged by this upgrade.",
+      "impact": "Misleading next-step text; actual check facts and saved summary remain valid. The assistant PM workspace uses a different projection and is unaffected.",
+      "status": "reported; not repaired in this assistant entry checkpoint"
+    }
+  ]
 }
