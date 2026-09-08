@@ -2,15 +2,23 @@
 
 ## End-to-end product, engineering and marketing implementation plan
 
-**Status: PROPOSED — DO NOT IMPLEMENT.**
+**Status: IMPLEMENTATION AUTHORIZED — engineering preview, not a public launch.**
 
 Date: 2026-09-08. Product owner: Marc Oakes.
 
-This document records the next proposed direction. Implementation is held until
-the pending PM blind-run feedback has been received, reviewed and incorporated,
-and Marc explicitly authorizes the revised work. It is not permission to start
-coding, install a connector, change account settings, spend on model calls or
-publish the proposed marketing claims.
+Marc explicitly authorized implementing this plan end to end on 2026-09-08,
+after receiving the PM blind-run feedback and the alpha.4 repair checkpoint.
+Routine engineering work proceeds on main. That authorization does not grant
+account changes, privileged OS provisioning, new model spending, a public
+release or unsupported marketing claims.
+
+The first implementation is an explicitly selected **cooperative-local
+engineering preview**. A protected controller and a human-presence boundary
+have not been demonstrated; protected mode must refuse, not silently fall back.
+The preview makes the assistant-facing workflow available for laboratory
+evaluation while keeping those security and live-PM release gates open. See
+[the current entry point](../ASSISTANT_START.md), [security scope](ASSISTANT_SECURITY.md)
+and [compatibility and claim gates](ASSISTANT_COMPATIBILITY.md).
 
 The frozen blind-test product remains `1.0.0-alpha.3` at commit
 `2f08ca6b4927a70e96d6c36af82ad1b02b2dafb8`. Repository inspection for this plan
@@ -19,8 +27,8 @@ the README banner and attribution, not product behavior. Do not change the
 frozen executable, task, starting pages, controller state or verdict to fit this
 proposal. This document is an engineering plan, not an observer's start sheet.
 
-Publishing this plan is not launching the feature. All deliverables below are
-pending unless explicitly identified as existing foundations.
+Publishing this plan or an engineering checkpoint is not launching the feature.
+The checklist below distinguishes implementation from measured release evidence.
 
 ## 1. The product decision
 
@@ -56,7 +64,7 @@ These are acceptance targets, not statements of measured performance.
 
 ## 2. First gate: incorporate the blind-run feedback
 
-Before implementation begins:
+The pre-implementation gate required:
 
 1. Finish and retain the pending run under the existing
    [blind-test protocol](PM_BLIND_TEST.md). Keep any salvage separate.
@@ -76,15 +84,19 @@ Feedback report: **received, 2026-09-08 — blind FAIL at planning**. See the
 The blocking findings are reply interpretation, impossible recovery routes,
 repeated credential failures and inconsistent human-review eligibility. These
 are core control-plane defects, not problems to conceal with a conversational
-wrapper. Their regression repairs and a separately frozen rerun precede this
-integration. The next live rerun has not passed.
+wrapper. Their regression repairs were published as alpha.4 at
+`b02a55dbdab352811b5fa0998a3b9468a3b6d0a1`; its local validation recorded 427
+passes, one skip and no failures, with remote checks passing. The next live rerun
+has not passed. Marc's subsequent authorization opens engineering work without
+turning that missing live evidence into a pass.
 
 Revised scope: the proposed entry-point acceptance must additionally prove
 question/note fidelity, only currently eligible actions, a single stopped worker
 attempt on provider rejection, and no invitation for a human verdict before its
 guard can record it. Transport completion must never be described as successful
 work. Original grant reservations and unknown cost survive reconnect and retry.
-Authorization to implement this assistant integration: **not granted**.
+Authorization to implement this assistant integration: **granted by Marc,
+2026-09-08**. The existing alpha.3 blind FAIL remains unchanged.
 
 ## 3. What exists, and what is new
 
@@ -113,9 +125,11 @@ Relevant implementation seams:
 - [Current headless contract](native/HEADLESS.md) and
   [current PM guide](../README-PM.md).
 
-There is no app-facing MCP server today. An existing CLI route does not prove
-native client integration, and a durable journal does not by itself keep a
-foreground process running when its parent app exits.
+The app-facing MCP adapter and independent local runner are the new work in this
+checkpoint. An existing CLI route does not prove native client integration, and
+a durable journal does not by itself keep a foreground process running when its
+parent app exits. Consult the [compatibility record](ASSISTANT_COMPATIBILITY.md)
+for the evidence level, not the presence of an implementation file.
 
 ## 4. The complete intended PM journey
 
@@ -178,7 +192,8 @@ the contained workflow.
 - `packages/records` / `schema` — additive, versioned job, capability, approval
   and optional spend records. Never reinterpret a frozen schema in place.
 
-Package and tool names here are proposed interfaces, not commands to run now.
+This section records the design contract. Use [ASSISTANT_START.md](../ASSISTANT_START.md)
+and the built command's help for the implementation's actual entry route.
 
 ## 6. The assistant-facing contract
 
@@ -371,9 +386,10 @@ backend version and effective model/authentication observations separate.
 
 ## 11. Front-and-centre marketing and product language
 
-This is the intended primary proposition, not a small integration note at the
-bottom of a technical README. Publish it only when the relevant release gates
-below pass. Until then, this section is draft copy.
+This is the primary proposition, not a small integration note at the bottom of
+a technical README. Engineering-preview copy may describe the implementation
+with its limits immediately beside the entry point. Stronger claims and public
+launch copy remain gated on the evidence below.
 
 ### Proposed primary copy
 
@@ -441,9 +457,30 @@ Wringer controls the approved workflow and records the evidence for handover.
 
 ## 12. Implementation work packages and stop gates
 
-No package below has started. Implement approved changes on the existing main
-line in reviewable checkpoints; preserve the frozen test commit and all earlier
-evidence. No force-push, Python fallback or second product tree.
+Implementation is authorized on the existing main line in reviewable
+checkpoints. Preserve the frozen test commit and all earlier evidence. No
+force-push, Python fallback or second product tree. P0 is complete; P1–P5 are
+implemented engineering work with the checkpoint's local validation
+record, while protected-mode proof, outsider setup and live evaluation remain
+separately measured gates. A cooperative-local preview does not satisfy
+P1's demonstrated OS/human boundary or P6–P8's release requirements.
+
+Current scope is recorded in the
+[alpha.5 implementation report](ASSISTANT_IMPLEMENTATION_2026-09-08.md); its
+actual results, not this design table, establish validation. The first route is
+a source-built `wringer-assistant` with a Codex STDIO connection recipe. Setup
+pins one operator-selected source/profile and optional destination. The PM
+does not configure routine jobs, but unassisted initial provisioning, automatic
+advancement to later source commits and fresh delivery-branch allocation are
+not implemented claims.
+
+| Work package | Engineering-preview status | Still outside this checkpoint's claim |
+| --- | --- | --- |
+| P1 | Narrow tool contract, capability separation and [threat-model addendum](ASSISTANT_SECURITY.md) implemented | Protected OS identity and genuine human-presence enforcement; protected mode refuses |
+| P2–P5 | Local owner, guarded application jobs, inert intake, operator console, existing review board, session/time limits and honest unknown costs implemented | Complete validation is recorded separately; no live-provider or strict-cash proof implied |
+| P6 | One source-build route and named-entry connection recipe documented; no whole-client configuration rewrite | Independent outsider installation and complete named-client PM journey |
+| P7 | New [assistant evaluation protocol](PM_ASSISTANT_BLIND_TEST.md) prepared | A real observed PM run, live containment/agent evidence and public-safe dossier |
+| P8 | README, PM, install, quickstart and headless entry points coordinated as an explicitly limited preview; original artwork and credits retained | GitHub About/topics, public release and named-client support announcements await separate approval and claim review |
 
 | Package | Deliverables | Exit evidence |
 | --- | --- | --- |
@@ -534,18 +571,18 @@ signing is a separate delivery-assurance workstream; it is not solved by MCP.
 
 ## 15. Completion checklist
 
-- [ ] Pending blind-run report and Marc's feedback incorporated.
-- [ ] Revised implementation explicitly authorized.
-- [ ] One front-end contract and one guided installation path selected.
+- [x] Blind-run report and Marc's feedback incorporated; alpha.3 FAIL retained.
+- [x] Revised implementation explicitly authorized by Marc on 2026-09-08.
+- [x] One front-end contract and one guided source-build/connection path selected; outsider setup remains unmeasured.
 - [ ] Protected authority and genuine human confirmation boundary demonstrated.
-- [ ] Existing Bun/application/ACP/runtime architecture reused without a bypass.
-- [ ] Durable jobs, disconnect, cancellation and uncertain recovery measured.
-- [ ] Session/time controls and two-lane unknown/known usage represented honestly.
-- [ ] Strict-money mode either proven for a named route or explicitly unavailable.
+- [x] Existing Bun/application/ACP/runtime architecture reused; cooperative-local host trust is explicit, not protected-mode proof.
+- [x] Durable jobs, disconnect, cancellation and uncertain recovery measured in deterministic and real process-failure fixtures.
+- [x] Session/time controls and two-lane unknown/known usage represented honestly.
+- [x] Strict-money mode explicitly unavailable and requests for it refused.
 - [ ] First client/version passes a complete independent PM journey.
 - [ ] Delivery and every public projection agree; fresh-clone audit resolves.
-- [ ] Original artwork, creator credit and truthful historical attribution retained.
-- [ ] Front-door marketing updated together, with supported claims and limitations.
+- [x] Original artwork, creator credit and truthful historical attribution retained.
+- [x] Repository front-door marketing updated together as an engineering preview, with supported claims and limitations; external metadata remains gated.
 - [ ] Exact implementation commit pushed; local validation and remote CI observed.
 - [ ] Public release separately approved; later client support remains unclaimed.
 

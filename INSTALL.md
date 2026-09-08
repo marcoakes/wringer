@@ -2,6 +2,11 @@
 
 The active implementation is the Bun workspace at the repository root. Build this checkout; do not use historical Python package-install instructions for the current product.
 
+To use a coding app as the conversational front door, build once below, then
+follow [ASSISTANT_START.md](ASSISTANT_START.md). That route is an explicit
+cooperative-local engineering preview, not a protected or fully measured
+named-client integration. It does not require entering existing keys again.
+
 ## Prerequisites
 
 - Bun 1.4.2, Git and Node.js on `PATH`. The source verification/demo fixtures

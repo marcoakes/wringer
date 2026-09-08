@@ -4,6 +4,29 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.5 — assistant-led engineering preview (source checkpoint)
+
+- New `wringer-assistant` executable and ten narrow MCP tools: inert proposals,
+  exact approved starts, recorded status/evidence, bounded corrections and
+  cancellation. No assistant approval, human verdict, publication or key tool.
+- Independent local execution owner, persist-before-ack queue, duplicate request
+  identity, explicit orphan recovery and evidence-derived reconciliation.
+  Reconnecting never resets the original execution grant or unknown charges.
+- Private operator approval console and the existing source-bound PM review and
+  handover workspace. Assistant and board requirement facts share one projector.
+- One inspected Codex connection recipe, with a per-server routine-tool allowlist
+  and optional automatic approval for those tools only. No client configuration,
+  global permission settings, login or provider key is automatically changed.
+- Decision-first starting pages and marketing proposition, preserving the banner,
+  Marc's authorship and historical contribution credits.
+- Packaged guides retain their relative links and original artwork; missing public
+  references fail the build, while private captures become explicit omissions.
+- **Limits:** explicit cooperative-local preview, not same-user tamper resistance
+  or verified human presence. Protected mode and strict cash limits refuse.
+  No named-client live PM journey, outsider install or public release is claimed.
+  The original alpha.3 blind FAIL remains unchanged. See the
+  [implementation evidence and open gates](docs/ASSISTANT_IMPLEMENTATION_2026-09-08.md).
+
 ## 1.0.0-alpha.4 — blind-test repairs (source checkpoint, not a public release)
 
 - Preserve the [alpha.3 blind FAIL and separate salvage](docs/PM_BLIND_REPORT_2026-09-08.md).

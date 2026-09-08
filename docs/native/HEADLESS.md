@@ -1,5 +1,13 @@
 # One bounded run without repeated permission questions
 
+For the assistant-led entry point, start with
+[ASSISTANT_START.md](../../ASSISTANT_START.md). Its engineering preview uses a
+local execution owner separate from the MCP conversation; closing that
+conversation is not a new grant. This does not imply automatic restart at login,
+operation during machine sleep, a measured named-client journey or protection
+from another program with the same OS permissions. Protected assistant mode is
+unavailable, not silently replaced by cooperative-local execution.
+
 `wringer-drive` is the production controller. `wringer-headless` is an alias for that same contained driver, with the same plan, authority and runtime requirements. It is not a host-Codex launcher and does not provide a weaker route around isolation.
 
 There are still distinct boundaries: the operator's authority for this job, the runtime's enforced access, and the agent's own authentication/permission behavior. A request to work unattended does not erase any of them.

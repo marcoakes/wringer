@@ -36,6 +36,8 @@ jobs:
             .wringer/native-distribution-*/result.json
             .wringer/contained-distribution-*/result.json
             .wringer/contained-distribution-*/transcript.json
+            .wringer/assistant-smoke-*/result.json
+            .wringer/assistant-smoke-*/transcript.json
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
           if-no-files-found: error

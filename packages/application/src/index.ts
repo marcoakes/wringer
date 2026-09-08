@@ -3,3 +3,7 @@ export * from "./controller";
 export * from "./commands";
 export * from "./credentials";
 export * from "./discovery";
+export * from "./assistant-runner";
+export * from "./assistant";
+export * from "./assistant-store";
+export * from "./requirements";

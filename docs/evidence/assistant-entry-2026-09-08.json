@@ -1,0 +1,407 @@
+{
+  "kind": "wringer-assistant-entry-validation",
+  "date": "2026-09-08",
+  "version": "1.0.0-alpha.5",
+  "runtime": "Bun 1.4.2",
+  "platform": "macOS arm64",
+  "source": {
+    "baseline_commit": "b02a55dbdab352811b5fa0998a3b9468a3b6d0a1",
+    "measurement": "Assistant implementation working tree subsequently committed with this record. Documentation packaging validation is separately recorded; GitHub CI measures the exact pushed commit."
+  },
+  "local_validation": {
+    "started_utc": "2026-09-08T15:24:55.258Z",
+    "command": "bun scripts/validate.ts",
+    "status": "passed",
+    "tests": {
+      "passed": 523,
+      "skipped": 1,
+      "failed": 0,
+      "assertions": 4635
+    },
+    "skip_reason": "Real Linux DAC test is platform-specific; this measurement ran on macOS.",
+    "assistant_subset": {
+      "passed": 95,
+      "failed": 0,
+      "assertions": 1411
+    },
+    "stages": [
+      {
+        "name": "workspace-links",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 32,
+        "logs": {
+          "stdout": {
+            "bytes": 94,
+            "sha256": "39b4a48220014b4fbbbd84e1671d5504704dda6d1be06b5c21e64299b6358b01"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 7819,
+        "logs": {
+          "stdout": {
+            "bytes": 28,
+            "sha256": "6043908c8d26d62698476b88f737f39d5d3e91008d4155a81730902f5a37479c"
+          },
+          "stderr": {
+            "bytes": 13485,
+            "sha256": "b648cca7f879bb7f8ad1f0d1e2d432bd451777cab3d0ecf55e8805acf522caf4"
+          }
+        }
+      },
+      {
+        "name": "native-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 245140,
+        "logs": {
+          "stdout": {
+            "bytes": 76,
+            "sha256": "5c887a8d34a047ecb4a42ce874b290e004bc5242f8c4b5e7d71627f5f164f726"
+          },
+          "stderr": {
+            "bytes": 63324,
+            "sha256": "9500faa93748585f5ff5a0a642359a2dc7799005f1d9565621f09702faa238e6"
+          }
+        }
+      },
+      {
+        "name": "portable-python-corpus",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4583,
+        "logs": {
+          "stdout": {
+            "bytes": 28,
+            "sha256": "6043908c8d26d62698476b88f737f39d5d3e91008d4155a81730902f5a37479c"
+          },
+          "stderr": {
+            "bytes": 8143,
+            "sha256": "00d17ba1a74b0f26300abb2290327e5a1ebebf60bf9b22c96cb09c37baba7a3b"
+          }
+        }
+      },
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1349,
+        "logs": {
+          "stdout": {
+            "bytes": 253,
+            "sha256": "58e8e7c12bf8651196538311a48cd01977ca214dc0afa93360e164e6807fe372"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "standalone-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5231,
+        "logs": {
+          "stdout": {
+            "bytes": 151,
+            "sha256": "be6829eea00b0f64725d763b6b2974e6896f4f0c3ec36a4ae220edaf5c181fdd"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-contained-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 35262,
+        "logs": {
+          "stdout": {
+            "bytes": 260,
+            "sha256": "490bcf108b9ac3cc31e0c6b47fb495c8fe819ded5a699dd84cb658dd5520897f"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "local-delivery-fixture",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 6130,
+        "logs": {
+          "stdout": {
+            "bytes": 553,
+            "sha256": "d0e0c1c3c8ba1261f573ad739ee86cc690068cba7a53ea8d3bad6aa298057573"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-version",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 114,
+        "logs": {
+          "stdout": {
+            "bytes": 41,
+            "sha256": "2b3e9e0d7adc13d7191a2271d78f290f1d63abe3c14a17fcb10880d894549c6a"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-board",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 115,
+        "logs": {
+          "stdout": {
+            "bytes": 1275,
+            "sha256": "a456a94250a1f6b1d0557514ab864d9d168581690651a1d2cd104848b6665629"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-drive",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 113,
+        "logs": {
+          "stdout": {
+            "bytes": 4436,
+            "sha256": "01d98b4285fcafc7ee9fa7646dc8c5a9a82a7df1b305485eaafe42d220770b70"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-assistant",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1778,
+        "logs": {
+          "stdout": {
+            "bytes": 1863,
+            "sha256": "915401732f027924daf8cbfbb950bf34a321078b39d0647760f45a7c0fe1913c"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3064,
+        "logs": {
+          "stdout": {
+            "bytes": 825,
+            "sha256": "acf3ad2fa5490d3e20c1a264d970c86d0fc27af7ce89a4f40f968d3dd4bc980f"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      }
+    ]
+  },
+  "compiled_assistant_fixture": {
+    "status": "passed",
+    "fixture": "compiled-assistant-connection-lifecycle",
+    "workspaceId": "a29923e7-b70a-4058-a7e4-07c02b54a455",
+    "jobId": "8f4c85cb-f9fa-01de-fb4a-569cb56ef947",
+    "paidCalls": 0,
+    "approvedJobs": 0,
+    "realClientMeasured": false,
+    "realContainmentMeasured": false,
+    "humanJudgement": "none",
+    "checks": [
+      "protected-default-refusal",
+      "idempotent-init",
+      "compiled-independent-owner",
+      "stdio-connect-disconnect",
+      "unapproved-start-refusal",
+      "no-human-pen-tool",
+      "operator-capability-denial",
+      "duplicate-owner-reattach",
+      "connection-recipe-read-only",
+      "explicit-stop-restart",
+      "revision-and-usage-preserved",
+      "revoke"
+    ],
+    "wallMs": 2915
+  },
+  "retained_failures": [
+    {
+      "started_utc": "2026-09-08T15:09:11.450Z",
+      "passed": 515,
+      "skipped": 1,
+      "failed": 5,
+      "stages": [
+        {
+          "name": "workspace-links",
+          "exit_code": 0,
+          "timed_out": false,
+          "duration_ms": 60
+        },
+        {
+          "name": "native-check",
+          "exit_code": 1,
+          "timed_out": false,
+          "duration_ms": 245697
+        }
+      ],
+      "stderr_sha256": "b27915e27f7900569dbba1a2d81fb170a721ea008d33007feb30519ac966b84f",
+      "reason": "Five console fixtures supplied macOS's symlinked temporary-directory alias to a no-symlink controller boundary. Fixture paths were canonicalized; the product boundary remained unchanged."
+    }
+  ],
+  "managed_live_model_calls": 0,
+  "credentials_changed": false,
+  "coding_app_cost": "unknown; separate account usage is not measured as free",
+  "protected_mode": "unavailable; refuses rather than silently falling back",
+  "named_client_pm_journey": "not measured",
+  "public_release": "not authorized or performed",
+  "limits": [
+    "Deterministic MCP and contained-journal fixtures are not live provider, real containment, protected human presence or named-client compatibility evidence.",
+    "The local owner is independent of MCP but no automatic login/reboot service was installed.",
+    "The cooperative-local interface does not protect operator authority against a same-user coding app with independent shell/filesystem/browser access.",
+    "Session/time ceilings are not monetary limits; strict-cash requests refuse.",
+    "Raw validation logs remain in the local capture; log digests identify them but do not make missing logs independently auditable. Remote CI separately retains its own measurements.",
+    "The alpha.3 blind FAIL remains unchanged."
+  ],
+  "packaging_validation": {
+    "started_utc": "2026-09-08T15:37:48.007Z",
+    "command": "bun scripts/validate.ts assistant-check standalone-build standalone-contract compiled-contained-contract compiled-assistant-lifecycle",
+    "status": "passed",
+    "assistant_and_documentation_tests": {
+      "passed": 101,
+      "failed": 0,
+      "assertions": 1451
+    },
+    "stages": [
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 7885,
+        "logs": {
+          "stdout": {
+            "bytes": 28,
+            "sha256": "6043908c8d26d62698476b88f737f39d5d3e91008d4155a81730902f5a37479c"
+          },
+          "stderr": {
+            "bytes": 14422,
+            "sha256": "58b518f9c2625b8e770dd3b0d3144ac22543903ab644c2e614916eaf32e8864c"
+          }
+        }
+      },
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1472,
+        "logs": {
+          "stdout": {
+            "bytes": 348,
+            "sha256": "6b5c6ff0d16f9ebd04088331ef32a4df66578fa1ccaed890c5984e415e42500e"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "standalone-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5678,
+        "logs": {
+          "stdout": {
+            "bytes": 151,
+            "sha256": "4ff475a8a88d2d0091635009425edbe5e44a6243a75e48534d4d11ba66467f12"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-contained-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 35376,
+        "logs": {
+          "stdout": {
+            "bytes": 260,
+            "sha256": "c965d36985c205f8af0475883357c5162e5cc26e4a9b778ea44d529f7a58b61d"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4937,
+        "logs": {
+          "stdout": {
+            "bytes": 825,
+            "sha256": "6a1a57b07f44b2171fd65c3ed5a155557ced08dc847d6ff5dd705b9df24f9b93"
+          },
+          "stderr": {
+            "bytes": 0,
+            "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          }
+        }
+      }
+    ],
+    "documentation": {
+      "files": 63,
+      "links": 185,
+      "named_private_omissions": 10,
+      "private_content_copied": false,
+      "source_build_commands": "Run in the original complete Git checkout, not in packaged reference copies"
+    },
+    "typecheck": "passed after packaging change"
+  },
+  "local_housekeeping": {
+    "action": "moved four known retired Python package archives out of the active dist directory to the private local capture; no deletion",
+    "recoverable": true,
+    "sha256_verified_unchanged": true
+  }
+}

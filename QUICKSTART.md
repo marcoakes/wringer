@@ -2,6 +2,12 @@
 
 Start with [installation](INSTALL.md). These commands use the compiled `dist/` build on your current shell's `PATH`.
 
+**Want your coding app to handle the mechanics?** Use
+[the assistant entry point](ASSISTANT_START.md) after installation. It is an
+explicit cooperative-local engineering preview with separate human decisions
+and visible security/compatibility limits. The commands below remain the direct
+operator route over the same application services.
+
 ## See the product without spending on a model
 
 From the Wringer source checkout root:

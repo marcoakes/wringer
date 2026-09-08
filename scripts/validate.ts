@@ -14,6 +14,7 @@ const stages: [
     string
 ][] = [
     ["workspace-links", [process.execPath, "install", "--frozen-lockfile", "--offline"], workspace],
+    ["assistant-check", [process.execPath, "test", "packages/mcp/test", "packages/application/test/assistant.test.ts", "packages/application/test/assistant-runner.test.ts", "packages/application/test/assistant-journey.test.ts", "packages/cli/test/assistant-cli.test.ts", "packages/cli/test/assistant-console.test.ts", "packages/cli/test/assistant-transport.test.ts", "packages/cli/test/assistant-lifecycle.test.ts", "packages/cli/test/distribution-docs.test.ts"], workspace],
     ["native-check", [process.execPath, "run", "check"], workspace],
     ["portable-python-corpus", [process.execPath, "test", "packages/records/test", "packages/board/test", "packages/scheduler/test/health.test.ts"], workspace],
     ["standalone-build", [process.execPath, "scripts/build.ts"], workspace],
@@ -23,6 +24,8 @@ const stages: [
     ["compiled-version", [join(workspace, "dist/wring"), "--version"], repo],
     ["compiled-board", [join(workspace, "dist/wringer-board"), "--help"], repo],
     ["compiled-drive", [join(workspace, "dist/wringer-drive"), "--help"], repo],
+    ["compiled-assistant", [join(workspace, "dist/wringer-assistant"), "--help"], repo],
+    ["compiled-assistant-lifecycle", [process.execPath, "scripts/assistant-distribution.ts"], workspace],
 ];
 const results: unknown[] = [];
 const selected = process.argv.slice(2);

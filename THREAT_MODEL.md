@@ -4,6 +4,13 @@ This page complements [SECURITY.md](SECURITY.md). It describes the current Bun p
 
 Protected assets include the operator's host, private source, credentials, approved intent, remaining budget, human observations, repository history and the integrity of the evidence given to a reviewer.
 
+The new coding-app entry point has an additional adversary: the outer assistant
+may itself have shell, filesystem and browser access on the controller's host.
+The [assistant security addendum](docs/ASSISTANT_SECURITY.md) is binding for that
+surface. Its cooperative-local preview restricts the MCP contract, not the
+same-user operating-system authority. Protected mode must refuse until the
+separate controller and genuine human-confirmation boundary are demonstrated.
+
 ## Adversaries and boundaries
 
 | Risk | Mechanism | Residual risk / evidence boundary |

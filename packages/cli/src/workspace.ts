@@ -2,7 +2,7 @@ import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { renderPmWorkspace, validatePmWorkspace, type PmWorkspace } from "@wringer/board";
-import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, type ApplicationOptions } from "@wringer/application";
+import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, projectRequirements, type ApplicationOptions } from "@wringer/application";
 import { inspectContainedPlanning } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import type { Answer } from "./app";
@@ -41,15 +41,7 @@ export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
     if (history.events.at(-1)?.sha256 !== query.revision) throw new Error("The run advanced during this read. Refreshing the current record is safe.");
     const result = query.result, publication = await latestWorkspacePublication(state), operation = await activeWorkspaceCommand(state);
     if ((await controllerStatus(state)).revision !== query.revision) throw new Error("The run advanced while its delivery was audited. Refresh before acting.");
-    const criteria: PmWorkspace["criteria"] = plan.acceptance.criteria.map(criterion => {
-        const checkIds = plan.acceptance.checks.filter(check => check.criteria.includes(criterion.id)).map(check => check.id);
-        const human = result.humanJudgements.find(row => row.criterionId === criterion.id && row.candidateTree === result.candidate?.tree && row.acceptanceSha256 === plan.acceptance_sha256);
-        const judgement = result.judge?.criteria.find(row => row.id === criterion.id);
-        const checks = checkIds.map(id => result.verification?.checks.find(c => c.id === id));
-        const valid = !!result.candidate && result.verification?.candidateTree === result.candidate.tree;
-        const state = criterion.kind === "human" ? human?.verdict === "met" ? "met" : human?.verdict === "not_met" ? "not-met" : "unknown" : valid && checks.length > 0 && checks.every(c => c?.status === "passed") && judgement?.met === true ? "met" : valid && (checks.some(c => c?.status === "failed") || judgement?.met === false) ? "not-met" : "unknown";
-        return { id: criterion.id, title: criterion.title, kind: criterion.kind, required: criterion.required, state, checkIds, note: criterion.kind === "human" ? human?.note ?? null : judgement?.reason ?? null, by: criterion.kind === "human" ? human?.by ?? null : judgement ? "Independent agent review" : null };
-    });
+    const criteria: PmWorkspace["criteria"] = projectRequirements(plan, result);
     const outcome = (row: { status: string; exitCode: number | null } | undefined) => ({ status: row?.status ?? "not-recorded", exitCode: row?.exitCode ?? null });
     const deliveryAction = query.actions.find(a => a.id === "deliver")!;
     const currentPublication = publication && publication.codeCommit === result.candidate?.source.commit ? publication : null;
@@ -70,7 +62,7 @@ export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
 function bootstrap(): PmWorkspace {
     return { schema_version: "wringer.pm-workspace.v1", name: "Wringer delivery workspace", intent: "Connect with the private link printed by your controller.", journeyId: "connection-pending", revision: "connection-pending", status: "unconnected", stage: "unconnected", candidate: null, criteria: [], checks: [], usage: { sessions: 0, ceiling: 0, inputTokens: null, outputTokens: null, costUsd: null }, actions: [], stop: null, updatedAt: new Date(0).toISOString(), limits: ["No run data has been loaded. This public shell cannot authorize any action."] };
 }
-export async function createPmWorkspaceServer(stateDirectory: string, options: ApplicationOptions & { port?: number } = {}) {
+export async function createPmWorkspaceServer(stateDirectory: string, options: ApplicationOptions & { port?: number; beforeCommand?: () => Promise<void> } = {}) {
     const state = resolve(stateDirectory);
     await readPmWorkspace(state);
     const token = randomBytes(32).toString("hex"), secret = Buffer.from(`Bearer ${token}`), nonce = randomBytes(20).toString("base64");
@@ -98,6 +90,7 @@ export async function createPmWorkspaceServer(stateDirectory: string, options: A
                 if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use an explicit JSON command" }, 415);
                 const text = await request.text();
                 if (Buffer.byteLength(text) > 64 * 1024) return json({ error: "Command exceeds its size limit" }, 413);
+                await options.beforeCommand?.();
                 return json(await queueWorkspaceCommand(state, JSON.parse(text), options), 202);
             }
             return json({ error: "Not found" }, 404);

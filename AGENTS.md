@@ -50,8 +50,8 @@ bun run build
 bun run validate
 ```
 
-The compiled entrypoints are `dist/wring`, `dist/wringer-drive` and
-`dist/wringer-board`. Python is not required to build or execute them. A target
+The compiled entrypoints are `dist/wring`, `dist/wringer-drive`,
+`dist/wringer-board` and `dist/wringer-assistant`. Python is not required to build or execute them. A target
 repository's own checks still require its declared toolchain.
 
 `bun run check` checks generated record types, strict TypeScript and executable
@@ -71,6 +71,7 @@ Keep live platform tests and their exact prerequisites visible as release gates.
 - `packages/board`: derived facts and their human-readable views.
 - `packages/scheduler`: bounded graph/fleet orchestration.
 - `packages/application`: shared CLI/PM commands, controller queries and guarded effects.
+- `packages/mcp`: bounded assistant protocol tools; no approval, publication or agent reasoning loop.
 - `packages/cli`: thin command routing and the human pen.
 
 ## Contracts and evidence

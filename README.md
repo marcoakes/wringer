@@ -6,18 +6,31 @@
 
 # Wringer
 
-Turn a product specification into a checked change, with evidence someone else can inspect.
+## Keep your AI coding app. Put the work through Wringer.
+
+Your assistant handles the conversation. Wringer coordinates the approved work,
+runs the checks and records what is—and is not—ready to hand over. The agents
+write the product code. You make the human decisions.
+
+**[Start from your coding app →](ASSISTANT_START.md)**
+
+**Engineering preview:** the assistant entry point currently requires explicit
+cooperative-local setup by an operator. It is not a protected boundary against
+an assistant with the same computer access. Protected mode refuses; a complete
+live PM journey through a named coding app is not yet claimed. See the
+[compatibility record and limits](docs/ASSISTANT_COMPATIBILITY.md) beside this
+starting route. Session/time limits are not a cash guarantee.
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.4` is a prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.5` is an assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
-The [September 8 PM blind test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). This checkpoint repairs the measured reply, recovery and review problems; it is not a claim that the next live PM test has passed.
+The [September 8 PM blind test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). Alpha.4 repaired its measured reply, recovery and review problems. This checkpoint adds the assistant entry point; neither checkpoint claims that the next live PM test has passed.
 
-Read the [current PM preparation and status report](docs/PM_READINESS_2026-09-07.md)
-for this checkpoint's measured results and remaining gaps.
+Read the [assistant implementation report](docs/ASSISTANT_IMPLEMENTATION_2026-09-08.md)
+for this checkpoint's measured results and remaining gates.
 
-[Install](INSTALL.md) · [Quickstart](QUICKSTART.md) · [For product managers](README-PM.md) · [Unattended operation](docs/native/HEADLESS.md) · [Security](SECURITY.md) · [Roadmap](ROADMAP.md)
+[Assistant entry point](ASSISTANT_START.md) · [Install](INSTALL.md) · [Quickstart](QUICKSTART.md) · [For product managers](README-PM.md) · [Unattended operation](docs/native/HEADLESS.md) · [Security](SECURITY.md) · [Roadmap](ROADMAP.md)
 
 ## Start from source
 
@@ -33,7 +46,7 @@ bun run build
 ./dist/wring --help
 ```
 
-Keep the generated `dist/` directory together. It contains `wring`, `wringer-drive`, `wringer-board`, the `wringer-headless` alias for the same isolated driver, and accompanying records/documentation assets. Compiled executables do not require a separate Bun installation; the repositories and agents they run still need their own tools.
+Keep the generated `dist/` directory together. It contains `wring`, `wringer-drive`, `wringer-board`, `wringer-assistant`, the `wringer-headless` alias for the same isolated driver, and accompanying records/documentation assets. Compiled executables do not require a separate Bun installation; the repositories and agents they run still need their own tools.
 
 These are source-build instructions. No package-registry release, downloaded binary, container image, or hosted service is implied by this page.
 
@@ -65,6 +78,11 @@ verification records keep their separate, read-only-compatible views.
 - **Mechanical enforcement.** Scope, permissions, role isolation, budgets and acceptance are enforced outside worker write authority. An agent cannot approve its own policy changes.
 
 ACP connects the separately declared agents. Production roles use fresh Apple Container or gVisor-backed Kubernetes environments, with repositories cloned inside. Authorize routine work once within finite ceilings; resume preserves completed work and unresolved spend rather than buying a fresh budget.
+
+MCP is the narrow wire from the PM's coding app to Wringer; ACP is the separate
+wire from Wringer to the contained agents. The outer assistant does not become
+the worker, the independent judge or the human pen. The cooperative-local
+preview's host trust limits are explained in the [assistant threat model](docs/ASSISTANT_SECURITY.md).
 
 ## Implemented behavior and remaining acceptance work
 

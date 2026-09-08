@@ -18,7 +18,7 @@ afterEach(async () => {
     for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 const template = await readFile(new URL("../../plan/examples/contained.yaml", import.meta.url), "utf8");
-async function fixture() {
+async function fixture(beforeCommand?: () => Promise<void>) {
     const state = await mkdtemp(join(tmpdir(), "wringer-workspace-http-"));
     roots.push(state);
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...raw } = compileExecutionPlan(template, { format: "yaml" });
@@ -54,7 +54,7 @@ async function fixture() {
     });
     expect(result.status).toBe("human-hold");
     expect(roleCalls).toBe(2);
-    const workspace = await createPmWorkspaceServer(state, { port: 0, executeRole: async () => { throw new Error("HTTP security tests must not invoke an agent"); }, runCommands: async () => { throw new Error("HTTP security tests must not execute repository code"); } });
+    const workspace = await createPmWorkspaceServer(state, { port: 0, beforeCommand, executeRole: async () => { throw new Error("HTTP security tests must not invoke an agent"); }, runCommands: async () => { throw new Error("HTTP security tests must not execute repository code"); } });
     servers.push(workspace.server);
     const token = new URLSearchParams(new URL(workspace.url).hash.slice(1)).get("token")!;
     const auth = { authorization: `Bearer ${token}` };
@@ -63,6 +63,21 @@ async function fixture() {
 }
 
 describe("private PM workspace HTTP boundary", () => {
+    test("an owning assistant job can close an already-open board's mutation authority while retaining read-only evidence", async () => {
+        let guardCalls = 0;
+        const f = await fixture(async () => { guardCalls++; throw new Error("This job was cancelled; no further execution or publication is allowed."); });
+        const before = await f.events();
+        expect((await fetch(`${f.origin}/api/state`, { headers: f.auth })).status).toBe(200);
+        expect(guardCalls).toBe(0);
+        const command = { idempotencyKey: randomUUID(), expectedRevision: (await controllerStatus(f.state)).revision, expectedCandidateTree: f.result.candidate!.tree, action: "resume", payload: {} };
+        const response = await fetch(`${f.origin}/api/commands`, { method: "POST", headers: { ...f.auth, origin: f.origin, "content-type": "application/json" }, body: JSON.stringify(command) });
+        expect(response.status).toBe(409);
+        expect(await response.text()).toContain("This job was cancelled");
+        expect(guardCalls).toBe(1);
+        expect(await f.events()).toEqual(before);
+        expect(f.roleCalls()).toBe(2);
+    });
+
     test("the public bootstrap is generic, credential-free and protected by restrictive browser headers", async () => {
         const f = await fixture(), before = await f.events();
         const response = await fetch(f.origin + "/"), html = await response.text();

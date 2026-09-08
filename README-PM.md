@@ -1,8 +1,28 @@
 # Wringer for product managers
 
-Write what you want built. Give the run a clear scope and budget. The result
-must distinguish what was built, what was checked, what was proved, and what
-still needs your judgement.
+## Keep your AI coding app. Put the work through Wringer.
+
+Describe the result you want in the coding app you already use. Your assistant
+handles the mechanics; Wringer keeps the approved work and evidence together;
+you decide whether the result is ready to hand over.
+
+**[Start here](ASSISTANT_START.md).** The assistant entry point is an engineering
+preview for a cooperative-local evaluation. An operator must set it up once.
+It is not yet a protected delegation product or a passed independent PM test.
+[What is and is not measured](docs/ASSISTANT_COMPATIBILITY.md) is part of the
+starting page, not fine print after an approval.
+
+Once the preview is connected, the delegation request is:
+
+> Use Wringer for this request and repository. Show me the proposed work,
+> assumptions and session/time limits before starting. Keep routine work inside
+> what I approve. Bring me back for a real result to inspect, any changed scope
+> and a separate handover decision. Do not record human judgements for me.
+
+This request is not an approval and does not connect an unconfigured app. The
+result must distinguish what was built, what was checked, what was proved, and
+what still needs your judgement. Your coding app's usage is separate from the
+contained agents' usage; unknown billing is never £0.
 
 Wringer coordinates the agents and preserves the evidence. The agents write the product code. It cannot guarantee that a model understands an incomplete request or will finish every job.
 
@@ -69,7 +89,11 @@ resume or approve this contained journey.
 
 ## Start here
 
-Ask your operator or coding agent to follow [INSTALL.md](INSTALL.md), then [SETUP.md](SETUP.md). These pages describe the one Bun product and the required isolated execution environment. Existing keys can be reused; setup should not turn into an account-registration exercise on every run.
+For assistant-led evaluation, give your operator or coding agent
+[ASSISTANT_START.md](ASSISTANT_START.md). For direct operator-led execution,
+follow [INSTALL.md](INSTALL.md), then [SETUP.md](SETUP.md). Both use the same Bun
+product and required isolated worker environment. Existing keys can be reused;
+connecting the assistant is not a reason to replace them or copy them into chat.
 
 [QUICKSTART.md](QUICKSTART.md) includes a no-spend developer demonstration. It uses deterministic fixtures; a successful demo is not a live-model success claim. Real Apple Container/gVisor isolation and fresh-machine journeys remain separately measured acceptance work, tracked in [ROADMAP.md](ROADMAP.md).
 
