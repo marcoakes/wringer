@@ -4,7 +4,7 @@ import { compileDeclaration, validateExecutionPlan, createExecutionAuthority, va
 import { Redactor } from "@wringer/engine";
 import { withContainedJourneyLock } from "@wringer/workflow";
 import { controllerStatus, readController, startController, type ApplicationOptions } from "./controller";
-import { queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, parseWorkspaceCommand, type WorkspaceCommand } from "./commands";
+import { queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, parseWorkspaceCommand, workspacePublicationBlocksHandover, type WorkspaceCommand } from "./commands";
 import { createAssistantRunner, AssistantDispatchRefused, type AssistantRunnerRequest } from "./assistant-runner";
 import { assistantId, assistantPath, assistantExists, assistantInventory, createAssistantDirectory, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
 import { projectRequirements } from "./requirements";
@@ -200,15 +200,30 @@ export async function createAssistantService(root: string, options: { dependenci
         insist(args.expectedRevision === view.revision && args.expectedCandidateTree === view.candidateTree, "stale-request", "The job changed. Read its current state before acting; no work was replayed.");
         return view;
     }
+    async function handoverAlreadySentOrUncertain(p: AssistantProposal, view: Awaited<ReturnType<typeof current>>) {
+        const value = view.query ? await deps.publication(state(p.id)) : null;
+        return !!value && value.codeCommit === view.query?.result.candidate?.source.commit && workspacePublicationBlocksHandover(value);
+    }
     async function status(jobId: string) {
         const p = await proposal(root, jobId, workspace), view = await current(p), operations = await runner.list(jobId);
+        // Read the same audited publication source as the PM workspace. A ready
+        // candidate alone is not a sent branch or an open hosted request.
+        const recordedPublication = view.query ? await deps.publication(state(jobId)) : null;
+        const publication = recordedPublication && recordedPublication.codeCommit === view.query?.result.candidate?.source.commit ? recordedPublication : null;
+        if (view.query) insist((await deps.status(state(jobId))).revision === view.revision, "state-advanced", "The run advanced while its handover was read. Refresh the current state before acting.");
+        const publicationStatus = publication ? publication.forge?.status ?? (publication.pushed ? "branch-pushed" : "prepared") : null;
+        const handoverBlocked = workspacePublicationBlocksHandover(publication);
         const busy = operations.some(op => ["accepted", "running", "cancel-requested", "uncertain"].includes(op.status));
         const cancelled = await lifecycleMarker(root, p, "cancelled");
         const outOfDate = !!view.approval && Date.parse(view.approval.authority.expires_at) <= Date.now();
-        const effectiveStatus = cancelled ? "cancelled" : operations.some(op => op.status === "uncertain") ? "uncertain" : busy ? "running" : view.query?.status ?? (view.started ? "setup-stopped" : view.approval ? outOfDate ? "approval-out-of-date" : "approved" : p.questions.length ? "needs-decision" : "awaiting-approval");
-        const actions = view.query?.actions.filter(a => continuation.has(a.id) || a.id === "request-revision" || a.id === "deliver").map(a => ({ action: a.id === "deliver" ? "prepare_handover" : a.id, enabled: a.enabled && !busy && !cancelled && !outOfDate && (a.id !== "deliver" || !!view.approval?.destination), reason: cancelled ? "Cancellation is recorded; future work is stopped." : busy ? "Observe the accepted operation; do not submit overlapping work." : outOfDate ? "Approval is out of date." : a.id === "deliver" && !view.approval?.destination ? "The operator has not selected a handover destination." : a.reason })) ?? [{ action: "start", enabled: !!view.approval && !view.started && !busy && !cancelled && !outOfDate, reason: view.approval ? "Only this exact approved job may start; its ceilings cannot reset." : "The operator must approve the exact proposal first." }];
+        const effectiveStatus = cancelled ? "cancelled" : operations.some(op => op.status === "uncertain") ? "uncertain" : busy ? "running" : publicationStatus && publicationStatus !== "prepared" ? publicationStatus : view.query?.status ?? (view.started ? "setup-stopped" : view.approval ? outOfDate ? "approval-out-of-date" : "approved" : p.questions.length ? "needs-decision" : "awaiting-approval");
+        const actions = view.query?.actions.filter(a => continuation.has(a.id) || a.id === "request-revision" || a.id === "deliver").map(a => ({ action: a.id === "deliver" ? "prepare_handover" : a.id, enabled: a.enabled && !busy && !cancelled && !outOfDate && (a.id !== "deliver" || !!view.approval?.destination && !handoverBlocked), reason: cancelled ? "Cancellation is recorded; future work is stopped." : busy ? "Observe the accepted operation; do not submit overlapping work." : outOfDate ? "Approval is out of date." : a.id === "deliver" && handoverBlocked ? "This handover was sent or its publication is uncertain. Inspect the existing record; do not prepare or send it again." : a.id === "deliver" && !view.approval?.destination ? "The operator has not selected a handover destination." : a.reason })) ?? [{ action: "start", enabled: !!view.approval && !view.started && !busy && !cancelled && !outOfDate, reason: view.approval ? "Only this exact approved job may start; its ceilings cannot reset." : "The operator must approve the exact proposal first." }];
         const nextAction = cancelled ? "Work is cancelled. Inspect retained evidence."
             : busy ? "Work is running or uncertain. Inspect its recorded operation; do not restart it."
+            : publicationStatus === "uncertain" ? "The handover outcome is uncertain. Inspect the existing publication record; do not send it again."
+            : publicationStatus === "blocked" ? "Handover is blocked. Inspect the recorded reason before any separate recovery."
+            : publicationStatus === "branch-pushed" ? "The branch was sent. Audit its handover record from a fresh clone. No hosted review request or merge is implied."
+            : publicationStatus && ["published", "recovered", "closed", "merged"].includes(publicationStatus) ? `The hosted handover is ${publicationStatus === "recovered" ? "recorded as open" : publicationStatus}. Inspect its recorded link and audit the handover evidence.`
             : !view.approval ? p.questions.length ? "Answer the recorded questions; submit a revised unapproved proposal." : "Review and approve the plan in the operator console."
             : view.query?.stop?.message ?? (outOfDate ? "Approval is out of date. No new work is allowed."
                 : view.query?.stage === "human" ? "Inspect the result in the PM review workspace."
@@ -218,7 +233,7 @@ export async function createAssistantService(root: string, options: { dependenci
             schema_version: SCHEMA, jobId, workspaceId: workspace.id,
             revision: view.revision, candidateTree: view.candidateTree,
             outcome: effectiveStatus, stage: view.query?.stage ?? "intake",
-            uncertainty: operations.some(op => op.status === "uncertain") || !!view.query?.effects.some(e => ["reserved", "uncertain"].includes(e.transport)),
+            uncertainty: publicationStatus === "uncertain" || operations.some(op => op.status === "uncertain") || !!view.query?.effects.some(e => ["reserved", "uncertain"].includes(e.transport)),
             nextAction, questions: p.questions, assumptions: p.assumptions,
             requirements: view.query && p.plan ? projectRequirements(p.plan, view.query.result) : [],
             candidate: view.query?.result.candidate ? {
@@ -231,6 +246,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 operationId: op.id, status: op.status, message: op.error ?? null,
                 reconciliation: op.reconciliation ?? null,
             })),
+            publication: publication ? { status: publicationStatus, deliveryId: publication.deliveryId, codeCommit: publication.codeCommit, evidenceCommit: publication.evidenceCommit, sourceBranch: publication.sourceBranch, targetBranch: publication.targetBranch, auditCommand: publication.auditCommand, ...(publication.forge?.url ? { url: publication.forge.url } : {}) } : null,
             usage: {
                 codingApp: { cost: null, tokens: null, note: "Coding-app usage: not available to Wringer" },
                 development: {
@@ -261,6 +277,7 @@ export async function createAssistantService(root: string, options: { dependenci
         insist(request.kind === "command" && view.query, "not-started", "This job has no recorded execution state");
         const action = args.action;
         insist(continuation.has(action) || ["request-revision", "prepare-delivery"].includes(action), "forbidden-action", "This assistant cannot perform that decision");
+        if (action === "prepare-delivery") insist(!await handoverAlreadySentOrUncertain(p, view), "handover-already-recorded", "This handover was sent or its publication is uncertain. Inspect the existing record; no preparation was repeated.");
         insist(view.query.actions.find(row => row.id === (action === "prepare-delivery" ? "deliver" : action))?.enabled, "not-ready", "This action is not eligible in the recorded state");
         const payload = action === "request-revision" ? { by: "Assistant-requested correction", note: text(args.note, "correction note") } : action === "prepare-delivery" ? a.destination : {};
         insist(payload, "destination-missing", "The operator must select the destination; the assistant cannot invent one");
@@ -346,7 +363,10 @@ export async function createAssistantService(root: string, options: { dependenci
             const open = (await runner.list(jobId)).some(op => ["accepted", "running", "cancel-requested", "uncertain"].includes(op.status));
             insist(!open, "operation-active", "Observe the existing operation before submitting another one. Unknown work is not replayed.");
             if (name === "wringer.start") insist(!view.started, "already-started", "This job already started; inspect its current state.");
-            else insist(view.query?.actions.find(a => a.id === (action === "prepare-delivery" ? "deliver" : action))?.enabled && (action !== "prepare-delivery" || view.approval.destination), "not-ready", "The action is not currently eligible or its operator-selected destination is missing.");
+            else {
+                insist(view.query?.actions.find(a => a.id === (action === "prepare-delivery" ? "deliver" : action))?.enabled && (action !== "prepare-delivery" || view.approval.destination), "not-ready", "The action is not currently eligible or its operator-selected destination is missing.");
+                if (action === "prepare-delivery") insist(!await handoverAlreadySentOrUncertain(p, view), "handover-already-recorded", "This handover was sent or its publication is uncertain. Inspect the existing record; no preparation was repeated.");
+            }
             const accepted = await runner.enqueue(request);
             return { schema_version: SCHEMA, jobId, operationId: id, outcome: accepted.status, revision: view.revision, candidateTree: view.candidateTree, uncertainty: accepted.status === "uncertain", note: "Operation recorded. Read status to observe the outcome; acceptance is not successful work." };
         } catch (error) {

@@ -1,0 +1,246 @@
+{
+  "schema_version": "wringer.engineering-checkpoint-evidence.v1",
+  "version": "1.0.0-alpha.6",
+  "date": "2026-09-08",
+  "conditions": {
+    "platform": "darwin-arm64",
+    "bun": "1.4.2",
+    "sourceBase": "3aea7b71c2b139cbab283b6639df484d63a28ee5",
+    "workingTree": "modified",
+    "phase": "engineering-validation-not-blind-test",
+    "sandbox": "broader listener-dependent validation ran outside the coding sandbox"
+  },
+  "broadValidation": {
+    "capture": "native-validation-2026-09-08T18-41-50-164Z",
+    "stages": [
+      {
+        "name": "workspace-links",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 55
+      },
+      {
+        "name": "standalone-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1533
+      },
+      {
+        "name": "native-confirmation-build",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 2927
+      },
+      {
+        "name": "native-confirmation-probe",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 505
+      },
+      {
+        "name": "assistant-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 8216
+      },
+      {
+        "name": "native-check",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 269779
+      },
+      {
+        "name": "portable-python-corpus",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4692
+      },
+      {
+        "name": "standalone-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4951
+      },
+      {
+        "name": "compiled-contained-contract",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 37466
+      },
+      {
+        "name": "local-delivery-fixture",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 5819
+      },
+      {
+        "name": "compiled-version",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 116
+      },
+      {
+        "name": "compiled-board",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 116
+      },
+      {
+        "name": "compiled-drive",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 115
+      },
+      {
+        "name": "compiled-assistant",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 1758
+      },
+      {
+        "name": "compiled-assistant-lifecycle",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3086
+      },
+      {
+        "name": "assistant-launch-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 64338
+      }
+    ],
+    "testSuite": {
+      "passed": 576,
+      "skipped": 1,
+      "failed": 0,
+      "assertions": 5059,
+      "files": 62,
+      "skip": "Linux-only DAC isolation measurement on macOS"
+    }
+  },
+  "postValidationChanges": {
+    "note": "The broad pass precedes the final maintenance read-only correction, Git content-filter and submodule refusals, and documentation closeout.",
+    "focused": {
+      "passed": 32,
+      "failed": 0,
+      "assertions": 260,
+      "files": 4
+    },
+    "typecheck": "passed",
+    "distributionBuild": "passed"
+  },
+  "retainedFailures": [
+    {
+      "capture": "native-validation-2026-09-08T18-15-09-781Z",
+      "phase": "assistant-check",
+      "passed": 99,
+      "failed": 7,
+      "reason": "Local listeners unavailable in coding sandbox; later outside-sandbox run passed. Not a provider or PM measurement."
+    },
+    {
+      "capture": "native-validation-2026-09-08T18-19-05-492Z",
+      "phase": "native-check",
+      "passed": 575,
+      "skipped": 1,
+      "failed": 1,
+      "reason": "Deployment test expected ten protected paths after signing-policy addition made eleven. Assertion corrected; subsequent full run passed."
+    }
+  ],
+  "rehearsal": {
+    "schema_version": "wringer.assistant-launch-rehearsal.v1",
+    "status": "passed",
+    "fixture": true,
+    "implementation": {
+      "baseCommit": "3aea7b71c2b139cbab283b6639df484d63a28ee5",
+      "workingTree": "modified",
+      "rehearsalSha256": "12d6487fea5ae86aecfd6f1675b483cbdce14764bbef46adf3b9d26b8aed9195",
+      "auditBinarySha256": "070cf6373b9fab16cc5efa590059d7d00bfb1577faca4ede364bb562afa14b4d"
+    },
+    "startedAt": "2026-09-08T18:47:31.503Z",
+    "finishedAt": "2026-09-08T18:48:35.655Z",
+    "wallMs": 64152,
+    "jobId": "c0de19b6-6ae9-0c5b-5705-0cfc735891b9",
+    "journeyId": "dfeec433-28cf-4546-9229-b2e2b836fdc1",
+    "deliveryId": "contained-123a45e569bcddf43f28933d",
+    "candidateCommit": "54b48b1e4a5abbc927bab9fa3b94d49b6e8a4857",
+    "candidateTree": "ead0c8f4780104072ef3ff6b1dbd88b4a837b1a1",
+    "evidenceCommit": "3cd48bc7203b9c610b24ffd2727ffa02bcdfae99",
+    "checks": [
+      "proposal holds without approving or spending",
+      "unapproved start refuses",
+      "lost response stays uncertain despite completed domain work",
+      "owner recreation and reconnect do not replay uncertain work",
+      "reconciliation preserves original role reservations",
+      "assistant and PM board agree at first hold",
+      "red-first evidence precedes green result",
+      "handover refuses before the human requirement",
+      "assistant cannot invoke record_human_verdict",
+      "assistant cannot invoke publish",
+      "assistant cannot invoke increase_budget",
+      "negative original words remain negative",
+      "correction runs within the same finite job allowance",
+      "correction changes source, retains feedback and does not inherit positive acceptance",
+      "duplicate correction observes without replay",
+      "exhausted correction allowance refuses",
+      "display is bound to the corrected source",
+      "scripted positive review reaches ready without another agent",
+      "handover preparation completes",
+      "prepared handover and withheld send do not publish",
+      "separate scripted send publishes only the review branch",
+      "assistant and PM board report the actual branch publication and next audit action",
+      "sent handover disables fresh preparation in the assistant",
+      "sent handover disables both PM publication buttons",
+      "fresh handover request after publication refuses without another operation",
+      "live readers and carried delivery share the corrected candidate",
+      "all carried views preserve delivery identity and original positive note",
+      "assistant board certificate and carried text agree on requirements and counts",
+      "private role narratives and controller paths are not carried",
+      "both usage lanes retain unknown bill values",
+      "unavailable live breakage measurement stays inconclusive"
+    ],
+    "roleSessions": [
+      {
+        "role": "worker",
+        "runtimeId": "1bf3fcd6-12a4-4ac9-abfa-89851f92e452"
+      },
+      {
+        "role": "judge",
+        "runtimeId": "80538aec-5994-40f7-b5d6-ca5074f57aad"
+      },
+      {
+        "role": "worker",
+        "runtimeId": "821903ef-9cce-4c37-b3e8-c5d0a738374b"
+      },
+      {
+        "role": "judge",
+        "runtimeId": "6777b057-4457-46a4-a1c5-769521bb80c8"
+      }
+    ],
+    "providerCalls": 0,
+    "credentialReads": 0,
+    "independentPmMeasured": false,
+    "realClientMeasured": false,
+    "realContainmentMeasured": false,
+    "humanDecisions": "scripted-test-fixtures-only",
+    "freshCloneAudit": {
+      "exitCode": 0,
+      "command": "wringer-drive audit --bundle .wringer/deliveries/contained-123a45e569bcddf43f28933d"
+    },
+    "breakageTest": "inconclusive-runtime-unavailable",
+    "limits": [
+      "Engineering rehearsal, not a PM blind-test result or observed genuine human approval.",
+      "Role replies, check outcomes, runtime provenance and display observations are synthetic; real client, model convergence and containment are unmeasured.",
+      "Uses cooperative-local fixture state, not a demonstrated protected controller boundary.",
+      "No provider API calls or credential reads; usage fields remain unknown where the production records have no billing evidence.",
+      "Publication changes only a newly created local bare test origin, not a hosted forge, merge or deployment.",
+      "Recovery models a lost completed response and an explicit owner recreation, not an OS kill, reboot or sleep measurement."
+    ]
+  },
+  "limits": [
+    "This is modified-worktree engineering evidence, not validation of a frozen release SHA.",
+    "All rehearsal human decisions and runtime/model results are labelled fixtures, not actual operator presence or provider convergence.",
+    "No protected launch, external hosted publication, independent PM test, cash guarantee or real breakage pass is established.",
+    "Final published commit and remote CI must be read from the checkpoint report; not inferred from these local captures."
+  ]
+}

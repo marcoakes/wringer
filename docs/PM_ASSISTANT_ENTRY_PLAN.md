@@ -30,6 +30,11 @@ proposal. This document is an engineering plan, not an observer's start sheet.
 Publishing this plan or an engineering checkpoint is not launching the feature.
 The checklist below distinguishes implementation from measured release evidence.
 
+The [launch closeout checkpoint](ASSISTANT_LAUNCH_CHECKPOINT_2026-09-08.md)
+records the next engineering work, complete scripted rehearsal, live no-model
+credential observations and remaining protected-service integration. It does
+not mark the independent PM or protected-platform gates complete.
+
 ## 1. The product decision
 
 A PM should use the AI coding app they already know as Wringer's conversational

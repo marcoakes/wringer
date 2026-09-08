@@ -6,7 +6,8 @@ import { fileURLToPath } from "node:url";
 import { createExecutionAuthority } from "@wringer/plan";
 import { deliverContained } from "@wringer/delivery";
 import { controllerStatus, resumeController, reviewControllerCandidate } from "../src/controller";
-import { latestWorkspacePublication } from "../src/commands";
+import { latestWorkspacePublication, queueWorkspaceCommand } from "../src/commands";
+import { readPmWorkspace } from "../../cli/src/workspace";
 
 // Real controller, bare Git publication and offline audit. The existing fixture
 // driver explicitly synthesizes agent/check/display observations: no live agent,
@@ -38,5 +39,15 @@ test("a direct delivery through the shared domain appears on the workspace witho
         expect(observed?.evidenceCommit).toBe(prepared.evidenceCommit);
         expect(observed?.pushed).toBe(true);
         expect(await readdir(join(state, ".wringer"))).not.toContain("application");
+        const board = await readPmWorkspace(state);
+        expect(board.publication?.status).toBe("branch-pushed");
+        for (const action of ["prepare-delivery", "publish"]) {
+            expect(board.actions.find(row => row.id === action)?.enabled).toBe(false);
+            expect(board.actions.find(row => row.id === action)?.reason).toContain("already been sent");
+        }
+        const guard = { expectedRevision: board.revision, expectedCandidateTree: board.candidate?.tree ?? null };
+        await expect(queueWorkspaceCommand(state, { ...guard, idempotencyKey: crypto.randomUUID(), action: "prepare-delivery", payload: publication })).rejects.toThrow("already been sent");
+        await expect(queueWorkspaceCommand(state, { ...guard, idempotencyKey: crypto.randomUUID(), action: "publish", payload: { preparedId: crypto.randomUUID() } })).rejects.toThrow("already been sent");
+        expect(await latestWorkspacePublication(state)).toEqual(observed);
     } finally { await rm(directory, { recursive: true, force: true }); }
 }, 90000);

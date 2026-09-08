@@ -7,3 +7,6 @@ export * from "./assistant-runner";
 export * from "./assistant";
 export * from "./assistant-store";
 export * from "./requirements";
+export * from "./protected-confirmation";
+export * from "./protected-deployment";
+export * from "./provider-readiness";

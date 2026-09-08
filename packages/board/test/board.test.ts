@@ -48,6 +48,24 @@ describe("honest shared evidence", () => {
         expect(renderHtml(b)).toContain("Missing evidence is not a zero");
         expect(renderMarkdown(b)).toContain("Requirements: not assessed.");
     });
+    test("passing standalone checks without a requirements assessment are not called missing verification", async () => {
+        const f = await fixture();
+        for (const name of ["acceptance.json", "wringer.spec.yaml", "wringer.sources.yaml"])
+            await rm(join(f.repo, f.green, name));
+        const b = await loadBoard(f.repo, f.green);
+        expect(b.facts.checks).toEqual({ passed: 1, failed: 0, total: 1 });
+        expect(b.facts.requirements).toBeNull();
+        expect(b.facts.readyToDeliver).toBeNull();
+        expect(b.nextAction.title).toBe("Review the recorded checks");
+        expect(b.nextAction.spends).toBe(false);
+        expect(b.nextAction.command).toBe("wringer-drive plan --help");
+        for (const rendered of [renderHtml(b), renderMarkdown(b)]) {
+            expect(rendered).toContain("1 recorded check(s) passed");
+            expect(rendered).not.toContain("Record the first check");
+            expect(rendered).not.toContain("There is no verification record");
+            expect(rendered).toContain("does not establish readiness for handover");
+        }
+    });
     test("a receipt that names a passing record cannot prove a failure", async () => {
         const f = await fixture();
         f.acceptance.criteria[0]!.receipt.bundle = f.green;

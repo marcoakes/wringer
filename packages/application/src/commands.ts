@@ -192,6 +192,17 @@ export async function latestWorkspacePublication(stateDirectory: string, depende
     found.sort((a, b) => Number(b.pushed) - Number(a.pushed) || a.deliveryId.localeCompare(b.deliveryId));
     return found[0] ?? null;
 }
+/** A branch already sent is still sent when its hosted request later blocks.
+ * Apply only to the current candidate's audited domain publication, never a
+ * command-result cache or an unrelated earlier candidate. A definitely unsent
+ * preparation remains eligible for its separate explicit publication decision. */
+export function workspacePublicationBlocksHandover(publication: Pick<ContainedDeliveryResult, "pushed" | "forge"> | null): boolean {
+    return publication !== null && (publication.pushed || !!publication.forge && ["uncertain", "published", "recovered", "closed", "merged"].includes(publication.forge.status));
+}
+export const WORKSPACE_HANDOVER_RECORDED = "This candidate has already been sent, or its publication outcome is uncertain. Inspect the recorded handover; a new preparation or send is not allowed from this workspace.";
+async function assertFreshHandover(state: string, command: WorkspaceCommand, deps: WorkspaceCommandDependencies) {
+    if (["prepare-delivery", "publish"].includes(command.action) && workspacePublicationBlocksHandover(await latestWorkspacePublication(state, deps))) throw new Error(WORKSPACE_HANDOVER_RECORDED);
+}
 async function execute(state: string, command: WorkspaceCommand, options: ApplicationOptions): Promise<unknown> {
     const query = await controllerStatus(state), history = await readController(state, true, true), payload = command.payload;
     if (query.revision !== command.expectedRevision || query.candidateTree !== command.expectedCandidateTree) throw new Error("The run changed. Refresh and inspect the current result before acting.");
@@ -232,6 +243,9 @@ export async function queueWorkspaceCommand(stateDirectory: string, input: unkno
     const requestPath = await safePath(state, join(directory, "request.json"));
     try { await lstat(requestPath); const request = await requestRecord(state, command.idempotencyKey); if (request.sha256 !== hashValue(command)) throw new Error("This request ID already names a different command"); return readWorkspaceCommand(state, command.idempotencyKey); }
     catch (e: any) { if (e.code !== "ENOENT") throw e; }
+    // Identical retained commands above are observations, even after publication.
+    // Only a fresh operation is refused, before another request is persisted.
+    await assertFreshHandover(state, command, deps);
     const history = await deps.readController(state, false, true), clean = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(history.plan.runtime.env ?? [])]);
     if (clean.scrub(JSON.stringify(command)) !== JSON.stringify(command)) throw new Error("Command contains a detected credential; it was not recorded");
     const owner: Owner = { schema_version: "wringer.workspace-operation.v1", commandId: command.idempotencyKey, requestSha256: hashValue(command), pid: process.pid, token: crypto.randomUUID(), at: new Date().toISOString() };
@@ -249,6 +263,9 @@ export async function queueWorkspaceCommand(stateDirectory: string, input: unkno
         try {
             const query = await deps.controllerStatus(state), current = await deps.readController(state, true, true);
             if (query.revision !== command.expectedRevision || query.candidateTree !== command.expectedCandidateTree || current.events.at(-1)?.sha256 !== command.expectedRevision || (current.result.candidate?.tree ?? null) !== command.expectedCandidateTree) throw new Error("The run changed. Refresh before acting.");
+            // Revalidate after claiming the application operation lock: another
+            // publication may have completed between admission and dispatch.
+            await assertFreshHandover(state, command, deps);
             const action = ["prepare-delivery", "publish"].includes(command.action) ? "deliver" : command.action, offered = query.actions.find(a => a.id === action);
             if (!offered?.enabled) throw new Error(offered?.reason ?? "Action is unavailable in this state");
             if (["show", "review"].includes(command.action) && !current.plan.acceptance.criteria.some(c => c.id === command.payload.criterionId && c.kind === "human")) throw new Error("Name a declared human criterion");

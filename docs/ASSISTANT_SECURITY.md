@@ -4,6 +4,12 @@ Status: cooperative-local engineering preview. Protected delegation and a
 trusted human-presence mechanism are **not established**. This addendum extends
 the [threat model](../THREAT_MODEL.md), not the controller's authority.
 
+The [launch checkpoint](ASSISTANT_LAUNCH_CHECKPOINT_2026-09-08.md) adds deployment
+inspection, exact-decision/replay primitives and a compiled native macOS adapter.
+They do not activate protected mode: real service integration, protected
+credential/runtime ownership, trusted enrollment and actual-client denial
+measurements remain open. A software signature test is not human-presence proof.
+
 ## Three different boundaries
 
 | Boundary | What it controls | What it does not establish |

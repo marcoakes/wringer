@@ -29,6 +29,7 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
     const workspace = (await initializeAssistant(root, { plan: profile, cooperativeLocal: true, destination: settings.destination })).workspace;
     const capability = await issueAssistantCapability(root, settings.expiresAt ?? new Date(Date.now() + 60000).toISOString());
     const counters = { starts: 0, commands: 0, status: 0, publications: 0 };
+    const publicationState: { value: Awaited<ReturnType<AssistantDependencies["publication"]>> } = { value: null };
     const result: ContainedJourneyResult = { schema_version: "wringer.contained-journey-result.v1", journeyId: "synthetic-fixture", status: "stopped", candidate: null, verification: null, judge: null, stop: null, recordDir: "synthetic-fixture-only", sessions: 0, tokens: { input: null, output: null }, humanJudgements: [] };
     const query: any = { revision: "b".repeat(64), candidateTree: null, status: "stopped", stage: "worker", stop: { reason: "worker-auth-rejected", message: "Fixture provider rejected authentication. No repeated attempt was made." }, effects: [], actions: [ { id: "resume", enabled: false, reason: "A provider rejected authentication." }, { id: "request-revision", enabled: true, reason: "A correction is available under existing limits." }, { id: "deliver", enabled: true, reason: "Fixture handover can be prepared." } ], budget: { reserved: 1, remaining: 7 }, result };
     const dependencies: AssistantDependencies = {
@@ -44,7 +45,7 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
         status: async () => { counters.status++; return structuredClone(query); },
         queueCommand: async (_state, command) => { counters.commands++; query.revision = "d".repeat(64); return { commandId: parseWorkspaceCommand(command).idempotencyKey, status: "completed", result: { fixture: true } }; },
         readCommand: async (_state, id) => ({ commandId: id, status: "completed", result: { fixture: true } }),
-        publication: async () => { counters.publications++; return null; },
+        publication: async () => { counters.publications++; return publicationState.value; },
     };
     const service = await createAssistantService(root, { dependencies }); services.push(service);
     const call = (name: string, args: unknown, token = capability.token) => service.call(token, `wringer.${name}`, args) as Promise<any>;
@@ -57,10 +58,29 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
         const view = await call("get_status", { jobId });
         return { jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: view.revision, expectedCandidateTree: view.candidateTree, ...extra };
     };
-    return { root, profile, workspace, capability, service, counters, query, call, propose, approve, mutation };
+    return { root, profile, workspace, capability, service, counters, query, publicationState, call, propose, approve, mutation };
 }
 
 describe("assistant application narrow authority and inert intake", () => {
+    test("current audited publication drives next action; fresh handover refuses but duplicate observation survives", async () => {
+        const f = await fixture({ startJournal: true, destination: { remote: "https://example.com/team/test.git", sourceBranch: "delivery/test", targetBranch: "main" } }), proposed = await f.propose(); await f.approve(proposed.jobId);
+        const input = await f.mutation(proposed.jobId); await f.call("start", input); await f.service.runner.start(); await until(() => f.service.runner.read(input.idempotencyKey), x => x.status === "completed");
+        f.query.result.candidate = { source: { commit: "c".repeat(40) }, tree: "e".repeat(40), changedPaths: ["src/example.ts"] };
+        f.query.candidateTree = "e".repeat(40); f.query.status = "review-ready"; f.query.stage = "complete"; f.query.stop = null;
+        f.publicationState.value = { schema_version: "wringer.contained-publication.v1", status: "delivered", deliveryId: "contained-" + "f".repeat(24), bundleDir: "deliveries/test/bundle", codeCommit: "c".repeat(40), evidenceCommit: "d".repeat(40), sourceBranch: "delivery/test", targetBranch: "main", auditCommand: "wringer-drive audit --bundle deliveries/test/bundle", pushed: true, falsify: { status: "available", command: "fixture", reason: "not run" } };
+        let view = await f.call("get_status", { jobId: proposed.jobId });
+        expect(view.outcome).toBe("branch-pushed"); expect(view.nextAction).toContain("fresh clone"); expect(view.nextAction).toContain("No hosted"); expect(view.publication.deliveryId).toBe(f.publicationState.value.deliveryId); expect(view.uncertainty).toBe(false);
+        expect(view.actions.find((x: any) => x.action === "prepare_handover").enabled).toBe(false);
+        const before = (await f.service.runner.list()).length;
+        expect((await f.call("prepare_handover", await f.mutation(proposed.jobId))).code).toBe("handover-already-recorded"); expect((await f.service.runner.list()).length).toBe(before);
+        expect((await f.call("start", input)).outcome).toBe("completed"); expect(f.counters.starts).toBe(1);
+        f.publicationState.value.forge = { status: "uncertain" } as any;
+        view = await f.call("get_status", { jobId: proposed.jobId }); expect(view.outcome).toBe("uncertain"); expect(view.uncertainty).toBe(true); expect(view.nextAction).toContain("do not send");
+        f.publicationState.value.forge = { status: "published", url: "https://example.com/team/test/pull/1" } as any;
+        view = await f.call("get_status", { jobId: proposed.jobId }); expect(view.outcome).toBe("published"); expect(view.publication.url).toBe("https://example.com/team/test/pull/1");
+        f.publicationState.value.codeCommit = "1".repeat(40);
+        view = await f.call("get_status", { jobId: proposed.jobId }); expect(view.publication).toBeNull(); expect(view.outcome).toBe("review-ready"); expect(view.actions.find((x: any) => x.action === "prepare_handover").enabled).toBe(true);
+    });
     test("protected mode refuses; local preview must be explicit and private", async () => {
         const root = await scratch();
         await expect(initializeAssistant(root, { plan: plan(), cooperativeLocal: false })).rejects.toThrow("Protected assistant mode is not available");

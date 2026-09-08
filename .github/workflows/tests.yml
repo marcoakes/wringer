@@ -38,6 +38,10 @@ jobs:
             .wringer/contained-distribution-*/transcript.json
             .wringer/assistant-smoke-*/result.json
             .wringer/assistant-smoke-*/transcript.json
+            .wringer/assistant-launch-rehearsal-*/result.json
+            .wringer/assistant-launch-rehearsal-*/transcript.json
+            .wringer/assistant-launch-rehearsal-*/assistant.json
+            .wringer/assistant-launch-rehearsal-*/pm-workspace.json
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
           if-no-files-found: error

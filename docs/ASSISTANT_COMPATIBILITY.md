@@ -60,6 +60,14 @@ The [alpha.5 implementation report](ASSISTANT_IMPLEMENTATION_2026-09-08.md)
 records the actual engineering validation and remaining gates. Its fixture
 results must not be substituted for the client observations above.
 
+The [alpha.6 launch checkpoint](ASSISTANT_LAUNCH_CHECKPOINT_2026-09-08.md) adds
+read-only setup diagnosis, preparation from an existing measured profile,
+instructions-only maintenance, handover consistency/replay guards and a complete
+scripted delivery rehearsal. Codex connection inspection checks the named
+command, transport, environment and tool settings; it does not measure client
+behavior. Profile preparation does not select a vendor/runtime policy for an
+outsider. Protected service integration and real PM/client proof remain open.
+
 Next evidence must be attached under its own frozen build and
 [assistant test protocol](PM_ASSISTANT_BLIND_TEST.md). A builder-operated fixture
 can be called a fixture. A cooperative-local PM evaluation can be called that.

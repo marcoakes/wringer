@@ -4,7 +4,7 @@ import { join, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { hashValue } from "@wringer/plan";
 import { sha256 } from "@wringer/engine";
-import { activeWorkspaceCommand, hasActiveWorkspaceCommand, latestWorkspacePublication, parseWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, recoverWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandDependencies } from "../src/commands";
+import { activeWorkspaceCommand, hasActiveWorkspaceCommand, latestWorkspacePublication, workspacePublicationBlocksHandover, parseWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, recoverWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandDependencies } from "../src/commands";
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -162,6 +162,55 @@ async function publicationFixture(state: string, forge?: any, recordCommand = tr
     return { request, prepared, directory, bundle, options, saved, view };
 }
 describe("publication comes from audited domain evidence", () => {
+    test("handover policy keeps sent branches and uncertain hosted outcomes distinct from unsent preparations", () => {
+        expect(workspacePublicationBlocksHandover(null)).toBe(false);
+        expect(workspacePublicationBlocksHandover({ pushed: false })).toBe(false);
+        for (const status of ["prepared", "blocked"]) expect(workspacePublicationBlocksHandover({ pushed: false, forge: { status } as any })).toBe(false);
+        for (const status of ["prepared", "blocked", "uncertain", "published", "recovered", "closed", "merged"])
+            expect(workspacePublicationBlocksHandover({ pushed: true, forge: { status } as any })).toBe(true);
+        for (const status of ["uncertain", "published", "recovered", "closed", "merged"])
+            expect(workspacePublicationBlocksHandover({ pushed: false, forge: { status } as any })).toBe(true);
+    });
+    test("a fresh handover is refused from audited sent evidence, while the retained identical request remains readable", async () => {
+        const state = await scratch(), fixture = await publicationFixture(state, undefined, false); let calls = 0;
+        await json(join(fixture.directory, `outcomes/${hashValue(fixture.prepared)}.json`), fixture.prepared);
+        const options = { ...fixture.options, execute: async () => { calls++; return { prepared: true }; } };
+        await queueWorkspaceCommand(state, fixture.request, {}, options);
+        expect((await settled(state, fixture.request)).status).toBe("completed");
+        const pushed = { ...fixture.prepared, status: "delivered", pushed: true };
+        await json(join(fixture.directory, `outcomes/${hashValue(pushed)}.json`), pushed);
+        expect((await queueWorkspaceCommand(state, fixture.request, {}, options)).status).toBe("completed");
+        for (const request of [command("prepare-delivery", fixture.request.payload), command("publish", { preparedId: fixture.request.idempotencyKey })]) {
+            await expect(queueWorkspaceCommand(state, request, {}, options)).rejects.toThrow("already been sent");
+            expect(await Bun.file(join(state, `.wringer/application/commands/${request.idempotencyKey}/request.json`)).exists()).toBe(false);
+        }
+        expect(calls).toBe(1);
+    });
+    test("publication completing after admission is rechecked under the application lock before dispatch", async () => {
+        const state = await scratch(), fixture = await publicationFixture(state, undefined, false); let calls = 0;
+        await json(join(fixture.directory, `outcomes/${hashValue(fixture.prepared)}.json`), fixture.prepared);
+        const pushed = { ...fixture.prepared, status: "delivered", pushed: true };
+        const options = { ...fixture.options, controllerStatus: async () => {
+            expect(await hasActiveWorkspaceCommand(state)).toBe(true);
+            await json(join(fixture.directory, `outcomes/${hashValue(pushed)}.json`), pushed);
+            return fixture.options.controllerStatus(state);
+        }, execute: async () => { calls++; return {}; } };
+        await queueWorkspaceCommand(state, fixture.request, {}, options);
+        const stopped = await settled(state, fixture.request);
+        expect(stopped.status).toBe("failed"); expect(stopped.error).toContain("already been sent");
+        expect((await queueWorkspaceCommand(state, fixture.request, {}, options)).status).toBe("failed");
+        expect(calls).toBe(0);
+    });
+    test("an earlier candidate's publication cannot block a later candidate with new recorded authority", async () => {
+        const state = await scratch(), fixture = await publicationFixture(state, undefined, false), nextRevision = "7".repeat(64), nextTree = "8".repeat(40), nextCommit = "9".repeat(40); let calls = 0;
+        const pushed = { ...fixture.prepared, status: "delivered", pushed: true };
+        await json(join(fixture.directory, `outcomes/${hashValue(pushed)}.json`), pushed);
+        const options = { ...fixture.options, readController: async () => ({ ...await fixture.options.readController(state), events: [{ sha256: nextRevision }], result: { status: "review-ready", candidate: { tree: nextTree, source: { commit: nextCommit } } } }) as any, controllerStatus: async () => ({ revision: nextRevision, candidateTree: nextTree, actions: [{ id: "deliver", enabled: true }] }) as any, execute: async () => { calls++; return {}; } };
+        const request = { ...command("prepare-delivery", fixture.request.payload), expectedRevision: nextRevision, expectedCandidateTree: nextTree };
+        expect(await latestWorkspacePublication(state, options)).toBeNull();
+        await queueWorkspaceCommand(state, request, {}, options);
+        expect((await settled(state, request)).status).toBe("completed"); expect(calls).toBe(1);
+    });
     test("direct CLI delivery appears without any application command or preparation cache", async () => {
         const state = await scratch(), fixture = await publicationFixture(state, undefined, false);
         expect(await readdir(state)).toEqual(["deliveries"]);

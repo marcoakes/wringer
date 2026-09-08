@@ -2,7 +2,7 @@ import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { renderPmWorkspace, validatePmWorkspace, type PmWorkspace } from "@wringer/board";
-import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, activeWorkspaceCommand, projectRequirements, type ApplicationOptions } from "@wringer/application";
+import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, workspacePublicationBlocksHandover, WORKSPACE_HANDOVER_RECORDED, activeWorkspaceCommand, projectRequirements, type ApplicationOptions } from "@wringer/application";
 import { inspectContainedPlanning } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import type { Answer } from "./app";
@@ -45,12 +45,13 @@ export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
     const outcome = (row: { status: string; exitCode: number | null } | undefined) => ({ status: row?.status ?? "not-recorded", exitCode: row?.exitCode ?? null });
     const deliveryAction = query.actions.find(a => a.id === "deliver")!;
     const currentPublication = publication && publication.codeCommit === result.candidate?.source.commit ? publication : null;
+    const handoverRecorded = workspacePublicationBlocksHandover(currentPublication);
     const value: PmWorkspace = {
         schema_version: "wringer.pm-workspace.v1", name: plan.name, intent: plan.intent, journeyId: query.journeyId, revision: query.revision, status: operation ? operation.status === "running" ? "running" : "stopped" : query.status, stage: query.stage,
         candidate: result.candidate ? { commit: result.candidate.source.commit, tree: result.candidate.tree, changedPaths: result.candidate.changedPaths } : null,
         criteria, checks: plan.acceptance.checks.map(check => ({ id: check.id, before: outcome(history.state.baseline?.checks.find(c => c.id === check.id)), after: outcome(result.verification?.checks.find(c => c.id === check.id)) })),
         usage: { sessions: query.budget.sessions.reserved, ceiling: query.budget.sessions.ceiling, inputTokens: query.budget.tokens.input, outputTokens: query.budget.tokens.output, costUsd: null },
-        actions: [...query.actions.filter(a => a.id !== "deliver"), { ...deliveryAction, id: "prepare-delivery" }, { ...deliveryAction, id: "publish" }].map(a => operation ? { ...a, enabled: false, reason: operation.message } : a),
+        actions: [...query.actions.filter(a => a.id !== "deliver"), { ...deliveryAction, id: "prepare-delivery" }, { ...deliveryAction, id: "publish" }].map(a => operation ? { ...a, enabled: false, reason: operation.message } : handoverRecorded && ["prepare-delivery", "publish"].includes(a.id) ? { ...a, enabled: false, reason: WORKSPACE_HANDOVER_RECORDED } : a),
         stop: operation?.status === "uncertain" ? { reason: "operation-uncertain", message: operation.message } : query.stop ? { reason: query.stop.reason, message: `${query.stop.message}\n\nRecorded next route:\n${query.stop.next_move}` } : null,
         updatedAt: history.events.at(-1)!.at,
         limits: ["This workspace derives the validated controller journal. A button is not additional authority.", "A check and an independent agent judgement support a declared requirement; neither guarantees that every intended behaviour was specified.", `Verifier attempts: ${query.budget.verificationAttempts.reserved}/${query.budget.verificationAttempts.ceiling}; unresolved: ${query.budget.verificationAttempts.unknown}.`, `Whole-journey wall-clock ceiling: ${query.budget.wallClock.ceilingSeconds} seconds${query.budget.wallClock.expired ? " (expired)" : ""}.`, "Host login directories are not shared with agents. Provider cost is not inferred from absent billing observations."],

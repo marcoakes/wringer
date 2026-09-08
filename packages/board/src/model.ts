@@ -206,6 +206,8 @@ export function deriveNextAction(model: BoardModel): NextAction {
         return { title: "A person needs to see the result", description: human.title, command: `wringer-board judge --id ${shellQuote(human.id)}`, owner: "person", spends: false };
     if (model.facts.readyToDeliver)
         return { title: "Review the delivery", description: "The evidence is ready for a delivery preview.", command: "wring deliver", owner: "operator", spends: false };
+    if (model.run && model.facts.checksPassing === true && model.facts.requirements === null)
+        return { title: "Review the recorded checks", description: `${model.facts.checks?.passed ?? 0} recorded check(s) passed. Requirements have not been assessed, so this record does not establish readiness for handover. Declare a contained plan to connect requirements to the next bounded piece of work.`, command: "wringer-drive plan --help", owner: "operator", spends: false };
     if (model.run && !model.facts.checksPassing)
         return { title: "Bring the checks to green", description: "The failed checks contain the next concrete build work. This standalone record cannot start a coding agent; declare a bounded contained plan to delegate the repair.", command: "wringer-drive plan --help", owner: "operator", spends: false };
     return model.nextAction;

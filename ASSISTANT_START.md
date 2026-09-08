@@ -65,6 +65,39 @@ From the built Wringer checkout, inspect the interface:
 ./dist/wringer-assistant --help
 ```
 
+Before initialization, inspect the selected profile without starting an owner,
+reading password values or making a provider request:
+
+```sh
+./dist/wringer-assistant setup --root ABS_CONTROLLER --plan ABS_PLAN --cooperative-local
+```
+
+Replace those placeholders with your absolute paths. The result distinguishes
+observed prerequisites from things still unmeasured; **inspection complete is
+not ready to spend**. Add `--check-keychain` only to check existing vendor entry
+metadata. It does not retrieve a password, validate a key or replace an entry.
+
+If you already have a matching, measured profile and want to pin it to the
+selected checkout, your assistant can prepare the new file without editing its
+hashes by hand:
+
+```sh
+./dist/wringer-assistant prepare --from-plan ABS_EXISTING_PROFILE --repo ABS_REPO --image DIGEST_QUALIFIED_IMAGE --output ABS_NEW_PROFILE --root ABS_CONTROLLER
+```
+
+The output's parent directory must exist. The source checkout must be clean;
+the image must be its explicitly inspected digest-qualified reference. This
+preserves the chosen requirements, checks, roles, network policy and finite
+limits, while measuring the local source commit. Use `--source-url` only for a
+separately selected HTTPS/SSH source. Remote possession of the commit and image
+availability are still unmeasured. Existing different files are never overwritten.
+Repository-defined Git content filters and submodules cause refusal before
+host-side status can run filters or inspect nested repositories; use a separately
+reviewed inert profile and contained source verification for those repositories.
+
+This prepares a selected profile, not an unassisted vendor wizard or a new
+spending grant. Initial runtime/policy selection remains an operator task.
+
 Select the handover destination **before initialization** if this evaluation
 will include delivery. Save a JSON file with these fields, replacing this
 illustrative remote and branches with the actual operator-approved choices:
@@ -207,6 +240,16 @@ printed connection instructions. Do not overwrite a different MCP entry or
 silently migrate an in-flight job to a new plan. An unsupported stored version
 must be diagnosed rather than erased.
 
+These commands print the relevant maintenance steps without performing them:
+
+```sh
+./dist/wringer-assistant upgrade --root ABS_CONTROLLER
+./dist/wringer-assistant uninstall --root ABS_CONTROLLER
+```
+
+They do not remove keys, client settings, executables or evidence. A missing
+controller is an error, not permission to create or erase one.
+
 ## What to record in a test
 
 Record the exact build, client/version, machine condition, profile, setup steps,
@@ -217,3 +260,5 @@ Use the [assistant PM test protocol](docs/PM_ASSISTANT_BLIND_TEST.md). A protoco
 fixture, CLI demonstration or builder-operated run is useful engineering
 evidence—not a stranger's successful PM test. The original
 [alpha.3 blind FAIL](docs/PM_BLIND_REPORT_2026-09-08.md) remains unchanged.
+The [alpha.6 launch checkpoint](docs/ASSISTANT_LAUNCH_CHECKPOINT_2026-09-08.md)
+records the scripted rehearsal, measured prerequisites and still-open gates.

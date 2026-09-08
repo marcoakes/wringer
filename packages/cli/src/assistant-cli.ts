@@ -1,18 +1,19 @@
 #!/usr/bin/env bun
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
-import { lstat, open, readFile, rename, unlink } from "node:fs/promises";
+import { open, rename, unlink } from "node:fs/promises";
 import { isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadExecutionPlan } from "@wringer/plan";
 import { VERSION, Redactor } from "@wringer/engine";
-import { ASSISTANT_WARNING, createAssistantService, initializeAssistant, issueAssistantCapability, revokeAssistantCapabilities, recoverAssistantRunner, assistantPath, assistantExists, writeAssistantRecord, readAssistantRecord } from "@wringer/application";
+import { ASSISTANT_WARNING, createAssistantService, readAssistantWorkspace, initializeAssistant, issueAssistantCapability, revokeAssistantCapabilities, recoverAssistantRunner, assistantPath, assistantExists, writeAssistantRecord, readAssistantRecord } from "@wringer/application";
 import { ASSISTANT_TOOL_NAMES, runMcpStdio, parseMcpJson } from "@wringer/mcp";
 import { parseArgs, flag, required, string, positionals, quote, type Args } from "./args";
 import type { Answer } from "./app";
 import { createAssistantConsole } from "./assistant-console";
 import { createAssistantTransport, readAssistantConnection, parseAssistantConnection, validateAssistantEndpoint, callAssistantConnection, type AssistantConnection } from "./assistant-transport";
+import { assistantMaintenanceRecipe, inspectAssistantSetup, prepareAssistantProfile, renderAssistantSetup } from "./assistant-setup";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 export interface AssistantCliOptions { cwd?: string; signal?: AbortSignal; write?: (text: string) => void }
@@ -24,6 +25,8 @@ Keep your AI coding app. Put the work through Wringer.
 ${ASSISTANT_WARNING}
 
 Operator setup:
+  setup --root ABS_DIRECTORY [--plan ABS_PLAN] [--cooperative-local] [--check-keychain]
+  prepare --from-plan ABS_PLAN --repo ABS_REPO --image DIGEST_REF --output ABS_JSON --root ABS_DIRECTORY [--source-url HTTPS_OR_SSH_URL]
   init --root ABS_DIRECTORY --plan ABS_PLAN --cooperative-local [--destination ABS_JSON]
   start --root ABS_DIRECTORY --cooperative-local
   serve --root ABS_DIRECTORY --cooperative-local
@@ -33,6 +36,8 @@ Operator setup:
   recover --root ABS_DIRECTORY --acknowledge-uncertain
   reconcile --root ABS_DIRECTORY --job JOB_ID --operation OPERATION_ID --acknowledge-uncertain
   revoke --root ABS_DIRECTORY
+  upgrade --root ABS_DIRECTORY        Print upgrade instructions only
+  uninstall --root ABS_DIRECTORY      Print evidence-preserving removal instructions only
 
 Restricted client entry point:
   mcp --connection ABS_CONNECTION_JSON
@@ -42,6 +47,10 @@ a login item or reboot/sleep service. Closing chat does not cancel accepted work
 The MCP entry point never starts the owner. Restart and recovery are explicit.
 
 init imports an inert contained profile; it does not approve a job or run a model.
+setup is a read-only inspection, not a ready-to-spend verdict. --check-keychain
+checks entry metadata only, never password values. Existing keys are preserved.
+prepare pins a matching existing profile to measured clean Git HEAD and an
+explicit image digest; it never invents checks or approves execution.
 The operator console records execution approval. Human review and sending need
 their own source-bound decisions. The assistant cannot grant either authority.
 
@@ -56,7 +65,7 @@ Codex connection reference: https://learn.chatgpt.com/docs/extend/mcp?surface=cl
 `;
 
 function parse(argv: string[]): Args {
-    const local = new Set(["cooperative-local", "operator", "renew"]), flags = new Set<string>(), rest: string[] = [];
+    const local = new Set(["cooperative-local", "operator", "renew", "check-keychain"]), flags = new Set<string>(), rest: string[] = [];
     for (const arg of argv) {
         const key = arg.startsWith("--") ? arg.slice(2).split("=")[0]! : "";
         if (!local.has(key)) { rest.push(arg); continue; }
@@ -168,12 +177,19 @@ export async function serveAssistant(root: string, options: AssistantCliOptions 
 
 export async function readCodexConnection(configPath: string, command: string[]): Promise<{ state: "absent" | "matching" | "different" | "unreadable"; note: string }> {
     try {
-        const stat = await lstat(configPath);
-        if (!stat.isFile() || stat.size > 2 * 1024 * 1024) return { state: "unreadable", note: "The client configuration is not a bounded regular file. Nothing was changed." };
-        const config = Bun.TOML.parse(await readFile(configPath, "utf8")) as any, entry = config.mcp_servers?.wringer;
+        const file = await open(configPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+        let config: any;
+        try { const stat = await file.stat(); if (!stat.isFile() || stat.size > 2 * 1024 * 1024) return { state: "unreadable", note: "The client configuration is not a bounded regular file. Nothing was changed." }; config = Bun.TOML.parse(await file.readFile("utf8")); }
+        finally { await file.close(); }
+        const entry = config.mcp_servers?.wringer;
         if (!entry) return { state: "absent", note: "No named Wringer entry was found. The printed add command changes only that entry if you choose to run it." };
         const same = entry.command === command[0] && JSON.stringify(entry.args ?? []) === JSON.stringify(command.slice(1));
-        return same && entry.enabled !== false ? { state: "matching", note: "The named Wringer command already matches. No duplicate entry or configuration change is needed." } : { state: "different", note: "A named Wringer entry already exists but differs or is disabled. Inspect only that entry before any change; do not run add over it blindly." };
+        const changedTransport = ["url", "cwd", "experimental_environment", "bearer_token_env_var", "http_headers", "env"].some(key => entry[key] !== undefined);
+        const environmentForwarding = entry.env_vars !== undefined && (!Array.isArray(entry.env_vars) || entry.env_vars.length !== 0);
+        const missingTools = entry.enabled_tools !== undefined && (!Array.isArray(entry.enabled_tools) || ASSISTANT_TOOL_NAMES.some(name => !entry.enabled_tools.includes(name)) || entry.enabled_tools.some((name: unknown) => !ASSISTANT_TOOL_NAMES.includes(name as any)));
+        const disabledTools = entry.disabled_tools !== undefined && (!Array.isArray(entry.disabled_tools) || entry.disabled_tools.length !== 0);
+        const invalidTimeout = ["startup_timeout_sec", "tool_timeout_sec"].some(key => entry[key] !== undefined && (typeof entry[key] !== "number" || !Number.isFinite(entry[key]) || entry[key] <= 0));
+        return same && (entry.enabled === undefined || entry.enabled === true) && !changedTransport && !environmentForwarding && !missingTools && !disabledTools && !invalidTimeout ? { state: "matching", note: "The named Wringer command and inspected transport/tool settings match. No duplicate entry is needed. Client policy may still require approvals; no complete PM journey is implied." } : { state: "different", note: "A named Wringer entry already exists but its command, transport, environment or tool settings differ or disable part of the workflow. Inspect only that entry before any change; do not run add over it blindly. No existing values were echoed." };
     } catch (e: any) { return e.code === "ENOENT" ? { state: "absent", note: "No user configuration file was found. The printed command is optional; no configuration was created." } : { state: "unreadable", note: "Client configuration could not be read safely. Nothing was changed; inspect the existing configuration before adding anything." }; }
 }
 
@@ -205,6 +221,22 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
     if (flag(a, "version")) return { text: `Wringer assistant ${VERSION} (Bun ${Bun.version})` };
     if (!a.command || flag(a, "help")) return { text: ASSISTANT_HELP };
     options.signal?.throwIfAborted();
+    if (a.command === "setup") {
+        allowed(a, ["root", "plan", "cooperative-local", "check-keychain"]);
+        const value = await inspectAssistantSetup({ root: absolute(a, "root"), planPath: a.flags.has("plan") ? absolute(a, "plan") : undefined, cooperativeLocal: flag(a, "cooperative-local"), checkKeychain: flag(a, "check-keychain"), command: assistantExecutableCommand(), signal: options.signal });
+        return { value, text: renderAssistantSetup(value), exit: value.outcome === "needs-attention" ? 3 : 0 };
+    }
+    if (a.command === "prepare") {
+        allowed(a, ["root", "from-plan", "repo", "source-url", "image", "output"]);
+        const value = await prepareAssistantProfile({ root: absolute(a, "root"), fromPlan: absolute(a, "from-plan"), repo: absolute(a, "repo"), sourceUrl: string(a, "source-url"), image: required(a, "image"), output: absolute(a, "output"), command: assistantExecutableCommand(), signal: options.signal });
+        return { value, text: value.text };
+    }
+    if (a.command === "upgrade" || a.command === "uninstall") {
+        allowed(a, ["root"]);
+        const root = absolute(a, "root"); await readAssistantWorkspace(root);
+        const value = assistantMaintenanceRecipe(root, assistantExecutableCommand(), a.command);
+        return { value, text: value.text };
+    }
     if (a.command === "mcp") {
         allowed(a, ["connection"]); const path = absolute(a, "connection"); await readAssistantConnection(path);
         await runMcpStdio({ version: VERSION, call: (name, args) => callAssistantConnection(path, name, args) });
