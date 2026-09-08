@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
@@ -32,6 +32,28 @@ describe("assistant setup inspects names and declarations, never invents live re
         expect(result.credentials.map(row => row.source)).toEqual(["not-inspected", "not-inspected"]);
         expect(result.nextActions.find(action => action.id === "credential-metadata")?.command).toContain("--check-keychain");
         expect(renderAssistantSetup(result)).toContain("denies network"); await expect(lstat(root)).rejects.toThrow();
+    });
+    test("setup rejects a shared controller using the same metadata policy as init without repairing it", async () => {
+        const dir = await scratch(), root = join(dir, "controller"), plan = await measuredPlan(), planPath = join(dir, "plan.json");
+        await writeFile(planPath, canonicalPlanJson(plan)); await mkdir(root, { mode: 0o755 }); await chmod(root, 0o755);
+        const options = { root, planPath, command, cooperativeLocal: true }, before = await lstat(root), blocked = await inspectAssistantSetup(options, dependencies());
+        expect(blocked.outcome).toBe("needs-attention"); expect(blocked.checks.find(check => check.id === "controller-directory")?.status).toBe("needs-attention");
+        expect(blocked.nextActions.find(action => action.id === "controller-permissions")?.command).toBe(`chmod 700 '${root}'`);
+        expect((await lstat(root)).mode).toBe(before.mode); await expect(lstat(join(root, "workspace.json"))).rejects.toThrow();
+        await expect(initializeAssistant(root, { plan, cooperativeLocal: true })).rejects.toThrow("private directory");
+        await chmod(root, 0o700);
+        const ready = await inspectAssistantSetup(options, dependencies()); expect(ready.checks.find(check => check.id === "controller-directory")?.status).toBe("observed");
+        expect((await initializeAssistant(root, { plan, cooperativeLocal: true })).created).toBeTrue();
+    });
+    test("setup reports file and symlink controller paths without modifying their targets", async () => {
+        const dir = await scratch(), file = join(dir, "not-a-directory"), alias = join(dir, "alias");
+        await writeFile(file, "KEEP"); await symlink(file, alias);
+        for (const root of [file, alias]) {
+            const report = await inspectAssistantSetup({ root, command, cooperativeLocal: true }, dependencies());
+            expect(report.checks.find(check => check.id === "controller-directory")?.status).toBe("needs-attention");
+            expect(report.nextActions.some(action => action.id === "controller-permissions")).toBeFalse();
+        }
+        expect(await readFile(file, "utf8")).toBe("KEEP"); expect((await lstat(alias)).isSymbolicLink()).toBeTrue();
     });
     test("environment names and existing Keychain entry metadata remain unvalidated, with no value reads", async () => {
         const calls: string[] = [], plan = await measuredPlan();

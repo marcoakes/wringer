@@ -129,6 +129,29 @@ describe("assistant operator console HTTP boundary", () => {
         expect(f.dispatches()).toBe(0);
     });
 
+    test("a private-link exchange survives refresh without a bearer and logout revokes only that browser", async () => {
+        const f = await fixture();
+        const exchange = await f.post("/api/session", {}, { "x-wringer-console": "1" });
+        expect(exchange.status).toBe(200);
+        const setCookie = exchange.headers.get("set-cookie")!, cookie = setCookie.split(";", 1)[0]!;
+        expect(setCookie).toContain("HttpOnly"); expect(setCookie).not.toContain(f.token);
+        expect(JSON.stringify(await exchange.json())).not.toContain(f.token);
+        const browser = { cookie, "x-wringer-console": "1", "sec-fetch-site": "same-origin" };
+        for (let refresh = 0; refresh < 2; refresh++) {
+            const response = await fetch(f.console.origin + "/api/jobs", { headers: browser });
+            expect(response.status).toBe(200); expect((await response.json()).jobs[0].proposal.intent).toBe(f.plan.intent);
+        }
+        expect((await fetch(f.console.origin + "/api/jobs", { headers: { cookie } })).status).toBe(403);
+        expect((await fetch(f.console.origin + "/api/jobs", { headers: { ...browser, origin: "https://attacker.example" } })).status).toBe(403);
+        expect((await fetch(f.console.origin + "/api/approve", { method: "POST", headers: { ...browser, "content-type": "application/json" }, body: JSON.stringify(f.body) })).status).toBe(403);
+        expect((await fetch(f.console.origin + "/api/session", { method: "POST", headers: { ...browser, origin: f.console.origin, "content-type": "application/json" }, body: "{}" })).status).toBe(403);
+        const lock = await fetch(f.console.origin + "/api/logout", { method: "POST", headers: { ...browser, origin: f.console.origin, "content-type": "application/json" }, body: "{}" });
+        expect(lock.status).toBe(200); expect(lock.headers.get("set-cookie")).toContain("Max-Age=0");
+        expect((await fetch(f.console.origin + "/api/jobs", { headers: browser })).status).toBe(401);
+        expect((await fetch(f.console.origin + "/api/jobs", { headers: f.auth })).status).toBe(200);
+        expect((await f.service.status(f.jobId)).outcome).toBe("awaiting-approval"); expect(f.dispatches()).toBe(0);
+    });
+
     test("private jobs show original words, exact proposal revision, two usage lanes and no approval token", async () => {
         const f = await fixture(["Should the total include the archived rows?"]);
         const response = await fetch(f.console.origin + "/api/jobs", { headers: f.auth });

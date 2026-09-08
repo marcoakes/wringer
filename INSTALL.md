@@ -54,6 +54,21 @@ bun run demo
 
 This is a deterministic developer exercise, not a live-model test. Keep the printed transcript and evidence paths if it fails. Do not paste API keys into a bug report.
 
+For maintainers running the complete release validation, also install its pinned
+test browser once, then run the validation envelope:
+
+```sh
+bun node_modules/playwright/cli.js install --with-deps chromium
+bun run validate
+```
+
+This browser is only for automated engineering tests. It is not an execution
+runtime or a prerequisite for a PM opening the local workspace in their own
+browser. The scripted rehearsal clicks the real approval, review and publication
+forms; it makes no provider calls. A missing test browser fails validation rather
+than silently skipping the UI check. Browser binaries are downloaded separately
+from normal product installation; see [Playwright's browser instructions](https://playwright.dev/docs/browsers).
+
 ## Before a real product run
 
 Follow [SETUP.md](SETUP.md). Production execution requires the declared ACP agents and an established isolated runtime. A compiled CLI and a present credential do not establish either.

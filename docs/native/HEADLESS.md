@@ -185,15 +185,39 @@ version-specific settings, not a universal ACP authentication convention.
 
 macOS may still ask whether a process may access a protected Keychain item. Wringer cannot override that decision, provider authentication, cluster administration, or host-managed policy. Provision the permitted access once rather than turning each stopped run into another key-entry exercise.
 
-Only if the item is genuinely missing, use macOS's hidden password prompt. Type
-the following command, press Return, then enter the key at the password prompt;
-do not type the prompt's words as a shell command. Do not add `-U` to overwrite
-an existing item or paste the key onto the command line:
+Do **not** use `security add-generic-password ... -w` with no value to enter a
+new long API key. Blind test 2 reported that this hidden prompt truncated the
+project key to 128 characters. The earlier recipe on this page was wrong for
+that run. Supplying the key as a command argument is not our replacement: it can
+expose the value in process arguments, even if shell history hides it.
 
-```sh
-security add-generic-password -s anthropic-api-key -a wringer -w
-security add-generic-password -s openai-api-key -a wringer -w
+If an item is genuinely missing, provision a generic password through macOS
+Keychain Access: service/item name `anthropic-api-key` or `openai-api-key`, account
+`wringer`, and the complete key in the password field. Do not replace an existing
+item just to retry a run. This is one-time operator setup, not a coding-app tool;
+keep the password display hidden and out of screen captures. Keychain Access and
+the Passwords app are different surfaces; see [Apple's Keychain Access guide](https://support.apple.com/guide/keychain-access/welcome/mac).
+
+For a temporary launching-shell value instead of storage, an operator can use
+this **zsh** hidden prompt in a private Terminal. Choose only the needed vendor;
+enter the value when prompted, never in the coding app's chat or command text:
+
+```zsh
+set +x
+if read -rs 'CODEX_API_KEY?OpenAI API key (hidden): '; then
+  export CODEX_API_KEY
+else
+  unset CODEX_API_KEY
+fi
+printf '\n'
 ```
+
+For Anthropic, replace both occurrences of `CODEX_API_KEY` above and the `unset`
+name with `ANTHROPIC_API_KEY`, and use that vendor's key. This stores nothing in
+Keychain and applies only to that shell and its children. Launch the owner from
+that shell; another already-running owner does not inherit the value. Neither
+route has been re-measured with a new real key during this repair pass; existing
+working keys were left untouched.
 
 The vendor-specific variable must be supported by the selected adapter; neither
 key presence nor ACP session creation proves effective provider authentication.

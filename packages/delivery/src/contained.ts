@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile, lstat, readdir, realpath, mkdtemp } from "node:fs/promises";
+import { mkdir, readFile, writeFile, lstat, readdir, realpath, mkdtemp, rm } from "node:fs/promises";
 import { join, relative, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
@@ -10,6 +10,7 @@ import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfigurat
 import { containedViewContracts, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedDocuments, type ContainedDeliveryProjection } from "./projection";
 import { openReader } from "@wringer/records";
 import { schemaDirectory } from "@wringer/engine";
+import { inspectCandidateHistory } from "./source-inspection";
 export interface ContainedPublication {
     remote: string;
     sourceBranch: string;
@@ -260,10 +261,9 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         throw new Error("Delivery selection is stale; reload the current journal and candidate before authorizing publication");
     if (state.stage !== "ready" || result.status !== "review-ready" || !state.candidate || !state.verification || !state.baseline)
         throw new Error("Delivery requires a validated terminal review-ready journal, not a mutable result view");
-    const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), id = `contained-${hashValue({ version: 2, journey: state.id, head: events.at(-1)!.sha256, source: options.publication.sourceBranch, target: options.publication.targetBranch }).slice(0, 24)}`, directory = join(stateDir, "deliveries", id), bundleDir = join(directory, "bundle"), store = join(directory, "objects.git"), bundlePath = `.wringer/deliveries/${id}`;
+    const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]), id = `contained-${hashValue({ version: 2, journey: state.id, head: events.at(-1)!.sha256, source: options.publication.sourceBranch, target: options.publication.targetBranch }).slice(0, 24)}`, directory = join(stateDir, "deliveries", id), bundleDir = join(directory, "bundle"), bundlePath = `.wringer/deliveries/${id}`;
     const falsify = falsificationRoute(bundlePath);
     await inside(stateDir, relative(stateDir, bundleDir));
-    await inside(stateDir, relative(stateDir, store));
     await mkdir(bundleDir, { recursive: true, mode: 0o700 });
     await inside(stateDir, relative(stateDir, bundleDir));
     if (typeof state.candidate.source.bundlePath !== "string")
@@ -281,6 +281,11 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         if (e.code !== "EEXIST" || hashBytes(await readFile(carried)) !== hashBytes(await readFile(candidateBundle)))
             throw e;
     }
+    // Each attempt gets an isolated bare index. A killed earlier Git command
+    // cannot leave a lock/ref/index that blocks retry or changes this attempt.
+    // The immutable carried bundle and all evidence remain at the same paths.
+    const scratch = await mkdtemp(join(directory, "preparation-")), store = join(scratch, "objects.git");
+    try {
     await cloneBundle(carried, store, state.candidate.source.commit, options.signal);
     const observations = new Map<string, any>(), verifications = new Map<string, any>();
     for (const event of events)
@@ -336,10 +341,10 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     const manifest = { schema_version: "wringer.contained-delivery.v2", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: limitations, contracts: containedViewContracts };
     const view = deriveContainedDeliveryProjection(plan, manifest, human, roleRows), versionedManifest = { ...manifest, viewSha256: containedProjectionDigest(view) };
     await verifySource(store, manifest, plan, environment, observations);
-    // Scan reachable source blobs before publishing the exact bundle; never rewrite product bytes to redact.
-    const objects = (await git(store, ["rev-list", "--objects", "--all"])).stdout.split("\n").filter(Boolean).map(line => line.split(" ")[0]!);
-    const raw = (await git(store, ["cat-file", "--batch"], { input: objects.join("\n") + "\n" })).stdout;
-    clean(raw, redactor, "Committed source history");
+    // Inspect exact candidate history, never unrelated or later evidence refs.
+    // Inflation is streamed under independent finite inspection bounds;
+    // ordinary runtime-command capture keeps its existing 64 MiB ceiling.
+    await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal });
     for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": versionedManifest, "view.json": view, "certificate.json": renderContainedCertificate(view), "projection.json": { schema_version: "wringer.contained-projection.v2", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, viewSha256: versionedManifest.viewSha256, limits: limitations } }))
         await immutable(join(bundleDir, name), clean(value, redactor, name));
     for (const [name, body] of Object.entries({ ...renderContainedDocuments(view, manifest.falsify.reason), "board.html": renderContainedBoard(view) }))
@@ -390,6 +395,12 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         output.forge = await publishMergeRequest(stateDir, { ...forgeOptions, send: true });
     await immutable(join(directory, "outcomes", `${hashValue(output)}.json`), output);
     return output;
+    } finally {
+        // Only this call's generated scratch; never a previous attempt, bundle,
+        // journal, source repository or evidence record. Process operations have
+        // settled/terminated before control reaches this cleanup.
+        await rm(scratch, { recursive: true, force: true });
+    }
 }
 /** Independent offline reader: all claimed source objects, receipts and projected events must travel. */
 export async function auditContained(bundleDir: string): Promise<ContainedAudit> { return (await inspectContainedDelivery(bundleDir)).report; }

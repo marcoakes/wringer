@@ -47,6 +47,7 @@ Run from the repository root with the Bun version declared in package.json:
 bun install --frozen-lockfile
 bun run check
 bun run build
+bun node_modules/playwright/cli.js install --with-deps chromium
 bun run validate
 ```
 
@@ -57,6 +58,11 @@ repository's own checks still require its declared toolchain.
 `bun run check` checks generated record types, strict TypeScript and executable
 tests. `bun run validate` also exercises compiled distribution and local delivery
 fixtures. Fixtures do not prove live agent convergence or real containment.
+Full validation uses a pinned Chromium test browser to operate the actual PM
+forms. Install it once as above; a missing browser must not become a silent skip.
+Scripted browser clicks are engineering evidence, never an independent person's
+approval or a PM blind-test pass. Do not upload browser cookies, private links,
+raw browser traces or controller connection records with public test artifacts.
 Keep live platform tests and their exact prerequisites visible as release gates.
 
 ## Package boundaries

@@ -6,10 +6,12 @@ import { chmod, copyFile, mkdir, readFile, realpath, symlink, writeFile } from "
 import { join, resolve } from "node:path";
 import { compileDeclaration, discoverEnvironment, hashBytes, hashValue, type ExecutionPlan } from "../packages/plan/src";
 import { prepareRepositorySource, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../packages/runtime/src";
-import { initializeAssistant, issueAssistantCapability, approveAssistantProposal, createAssistantService, assistantControllerState } from "../packages/application/src/assistant";
+import { initializeAssistant, issueAssistantCapability, createAssistantService, assistantControllerState } from "../packages/application/src/assistant";
 import { immutableControllerFile, startController } from "../packages/application/src/controller";
-import { queueWorkspaceCommand, readWorkspaceCommand, type WorkspaceCommand } from "../packages/application/src/commands";
+import { readWorkspaceCommand, type WorkspaceCommand } from "../packages/application/src/commands";
 import { readPmWorkspace } from "../packages/cli/src/workspace";
+import { createAssistantConsole } from "../packages/cli/src/assistant-console";
+import { launchPmBrowser } from "./pm-browser";
 import { createMcpSession } from "../packages/mcp/src/server";
 import { readValidatedContainedState } from "../packages/workflow/src";
 import { readContainedDeliveryProjection } from "../packages/delivery/src";
@@ -41,7 +43,9 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     const environment = { PATH: `${bin}:/usr/bin:/bin`, HOME: fixtureHome, GIT_CONFIG_GLOBAL: "/dev/null", GIT_CONFIG_NOSYSTEM: "1", GIT_TERMINAL_PROMPT: "0", LANG: "C.UTF-8" };
     const transcript: unknown[] = [], checks: string[] = [], roles: { role: string; runtimeId: string }[] = [];
     let service: Awaited<ReturnType<typeof createAssistantService>> | undefined, failed = true;
-    const sanitize = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll(root, "FIXTURE").replaceAll(repository, "WRINGER_CHECKOUT"));
+    let consoleServer: Awaited<ReturnType<typeof createAssistantConsole>> | undefined;
+    let browser: Awaited<ReturnType<typeof launchPmBrowser>> | undefined;
+    const sanitize = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll(root, "FIXTURE").replaceAll(repository, "WRINGER_CHECKOUT").replace(/#token=[a-f0-9]+/g, "#token=REDACTED"));
     const record = async (entry: unknown) => { transcript.push(sanitize(entry)); await writeFile(join(root, "transcript.json"), JSON.stringify({ fixture: true, startedAt, limits, transcript }, null, 2) + "\n"); };
     const check = async (name: string, value: unknown) => { assert(value, name); checks.push(name); await record({ check: name, status: "passed" }); };
     async function command(label: string, argv: string[], cwd = root, expected = 0) {
@@ -54,7 +58,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     try {
         const checkpoint = (await git(["-C", repository, "rev-parse", "HEAD"])).trim();
         const workingTree = (await git(["-C", repository, "status", "--porcelain"])).trim();
-        const implementation = { baseCommit: checkpoint, workingTree: workingTree ? "modified" : "clean", rehearsalSha256: hashBytes(await readFile(import.meta.path)), auditBinarySha256: hashBytes(await readFile(join(bin, "wring"))) };
+        const implementation = { baseCommit: checkpoint, workingTree: workingTree ? "modified" : "clean", rehearsalSha256: hashBytes(await readFile(import.meta.path)), browserFixtureSha256: hashBytes(await readFile(join(import.meta.dir, "pm-browser.ts"))), auditBinarySha256: hashBytes(await readFile(join(bin, "wring"))) };
         await record({ implementation, note: "A modified worktree is not described as a frozen release candidate; the exact script and compiled audit bytes are identified separately." });
         await git(["init", "--initial-branch=main", source]); await git(["init", "--bare", "--initial-branch=main", origin]);
         await git(["-C", source, "config", "user.name", "Scripted launch rehearsal"]); await git(["-C", source, "config", "user.email", "fixture@example.invalid"]);
@@ -68,14 +72,16 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const destination = { remote: origin, sourceBranch: "wringer/assistant-launch-fixture", targetBranch: "main" };
         const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true });
         const capability = await issueAssistantCapability(controller, new Date(Date.now() + 600000).toISOString());
-        let workerTurns = 0, loseStartReply = true;
+        let workerTurns = 0, loseStartReply = true, failNextDisplay = false;
         const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
         const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
             const pinned = request.repo as PreparedRepositorySource;
             const tree = (await git(["--git-dir", pinned.objectStore, "rev-parse", `${pinned.commit}^{tree}`])).trim();
             const contents = await git(["--git-dir", pinned.objectStore, "show", `${pinned.commit}:src/value.js`]);
             const originalInputs = await git(["--git-dir", pinned.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", plan.repository.commit, "--", "check.sh"]);
-            return { provenance: provenance("verifier", pinned, request.runtime), sourceChanged: false, sourceTree: tree, checkInputsSha256: hashBytes(originalInputs), results: request.commands.map(c => ({ id: c.id, code: c.id.startsWith("acceptance/") && !contents.includes("expected = true;") ? 1 : 0, stdout: c.id === "show" ? contents : "SYNTHETIC check observation of the pinned source blob\n", stderr: "", durationMs: 1 })) };
+            const failShow = failNextDisplay && request.commands.some(c => c.id === "show");
+            if (failShow) failNextDisplay = false;
+            return { provenance: provenance("verifier", pinned, request.runtime), sourceChanged: false, sourceTree: tree, checkInputsSha256: hashBytes(originalInputs), results: request.commands.map(c => ({ id: c.id, code: c.id === "show" && failShow || c.id.startsWith("acceptance/") && !contents.includes("expected = true;") ? 1 : 0, stdout: c.id === "show" ? failShow ? "SCRIPTED failed display: no current result shown" : contents : "SYNTHETIC check observation of the pinned source blob\n", stderr: "", durationMs: 1 })) };
         };
         const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => {
             const p = provenance(request.role as "worker" | "judge", request.repo); roles.push({ role: request.role, runtimeId: p.runtimeId });
@@ -118,7 +124,10 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await check("unapproved start refuses", (await call("start", guard(proposed))).code === "not-approved");
         const approval = await call("get_approval_request", { jobId });
         await record({ surface: "SCRIPTED operator approval, not a human", actor, jobId, revision: approval.revision, budget: plan.budget });
-        await approveAssistantProposal(controller, { jobId, expectedRevision: approval.revision, actor, expiresAt: new Date(Date.now() + 600000).toISOString(), confirmExecution: true });
+        consoleServer = await createAssistantConsole(service, { application });
+        browser = await launchPmBrowser(root, record);
+        await browser.approve(consoleServer.url, actor);
+        await check("real browser approves the actual form after console reload and reopen", (await status()).outcome !== "awaiting-approval");
         const start = guard(await status()); await call("start", start); await service.runner.start();
         async function settled(id: string) {
             const deadline = Date.now() + 60000;
@@ -126,7 +135,8 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
             throw new Error(`Operation ${id} did not settle within the fixture deadline`);
         }
         await check("lost response stays uncertain despite completed domain work", (await settled(start.idempotencyKey)).status === "uncertain" && (await status()).outcome === "uncertain");
-        await service.runner.stop(1000); service = await createService(); call = await connect();
+        await consoleServer.stop(); await service.runner.stop(1000); service = await createService(); call = await connect();
+        consoleServer = await createAssistantConsole(service, { application });
         await check("owner recreation and reconnect do not replay uncertain work", (await call("start", start)).outcome === "uncertain" && roles.length === 2);
         const reconciled = await service.reconcile(jobId, start.idempotencyKey, true); await record({ surface: "SCRIPTED operator reconciliation", reconciled }); await service.runner.start();
         await check("reconciliation preserves original role reservations", reconciled.status === "completed" && (await status()).usage.development.measured.sessions.reserved === 2);
@@ -138,16 +148,20 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
             const refused = await service.call(capability.token, `wringer.${name}`, { jobId }); await record({ surface: "forbidden assistant capability probe", name, refused });
             await check(`assistant cannot invoke ${name}`, refused.outcome === "refused");
         }
-        async function operator(action: WorkspaceCommand["action"], payload: WorkspaceCommand["payload"]) {
-            const current = await status(), input: WorkspaceCommand = { idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree, action, payload };
-            await record({ surface: "SCRIPTED operator command, not a human", input });
-            await queueWorkspaceCommand(state, input, application);
+        async function operator(action: WorkspaceCommand["action"]) {
+            const input = await browser!.command(action, page => page.locator(`[data-command="${action}"]`).click());
             const deadline = Date.now() + 60000;
             while (Date.now() < deadline) { const outcome = await readWorkspaceCommand(state, input.idempotencyKey); if (outcome.status !== "running") { await record({ surface: "operator command outcome", outcome }); assert(outcome.status === "completed", `${action}: ${outcome.error}`); return outcome.result as any; } await Bun.sleep(25); }
             throw new Error(`Operator ${action} did not settle`);
         }
-        const firstDisplay = await operator("show", { criterionId: "readable" });
-        await operator("review", { criterionId: "readable", displayId: firstDisplay.receipt.id, verdict: "not_met", by: actor, note: negativeNote });
+        await browser.openReview(consoleServer.url);
+        failNextDisplay = true;
+        const failedDisplay = await operator("show");
+        await browser.assertFailedDisplay();
+        await check("real browser refuses a verdict after failed showing", failedDisplay.receipt.success === false && (await readPmWorkspace(state)).criteria.find(c => c.id === "readable")?.state === "unknown");
+        const firstDisplay = await operator("show");
+        await browser.reviewForm("not_met", actor, negativeNote);
+        await operator("review");
         await check("negative original words remain negative", (await readPmWorkspace(state)).criteria.find(c => c.id === "readable")?.note === negativeNote && (await status()).outcome !== "review-ready");
         const revisionRequest = { ...guard(await status()), note: correction }; await call("request_revision", revisionRequest);
         await check("correction runs within the same finite job allowance", (await settled(revisionRequest.idempotencyKey)).status === "completed" && roles.length === 4);
@@ -155,19 +169,30 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await check("correction changes source, retains feedback and does not inherit positive acceptance", corrected.candidateTree !== first.candidateTree && history.events.some(e => e.type === "revision-requested" && (e.details as any).feedback === correction) && correctedBoard.criteria.find(c => c.id === "readable")?.state !== "met");
         await check("duplicate correction observes without replay", (await call("request_revision", revisionRequest)).outcome === "completed" && roles.length === 4);
         await check("exhausted correction allowance refuses", (await call("request_revision", { ...guard(corrected), note: "SCRIPTED extra attempt must not run" })).outcome === "refused" && roles.length === 4);
-        const shown = await operator("show", { criterionId: "readable" });
+        await browser.refresh();
+        await check("changed source does not inherit a browser verdict or note", !await browser.page.locator("#review-yes").isChecked() && !await browser.page.locator("#review-no").isChecked() && await browser.page.locator("#review-note").inputValue() === "");
+        const shown = await operator("show");
         await check("display is bound to the corrected source", shown.receipt.candidateTree === corrected.candidateTree && shown.output.includes("Expected value is ready"));
-        await operator("review", { criterionId: "readable", displayId: shown.receipt.id, verdict: "met", by: actor, note: positiveNote });
+        await browser.reviewForm("met", actor, positiveNote);
+        await operator("review");
         const ready = await status();
         await check("scripted positive review reaches ready without another agent", ready.outcome === "review-ready" && roles.length === 4);
         const handover = guard(ready); await call("prepare_handover", handover);
         const preparation = await settled(handover.idempotencyKey);
         await check("handover preparation completes", preparation.status === "completed");
-        const prepared = (await readWorkspaceCommand(state, handover.idempotencyKey)).result as any;
+        const assistantPrepared = (await readWorkspaceCommand(state, handover.idempotencyKey)).result as any;
+        await browser.refresh();
+        await browser.page.locator("#delivery-remote").fill(destination.remote);
+        await browser.page.locator("#delivery-source").fill(destination.sourceBranch);
+        await browser.page.locator("#delivery-target").fill(destination.targetBranch);
+        const prepared = await operator("prepare-delivery");
+        await check("browser preparation after assistant preparation retains delivery identity", prepared.delivery.deliveryId === assistantPrepared.delivery.deliveryId);
         const beforeSend = await git(["--git-dir", origin, "for-each-ref", "--format=%(refname)", "refs/heads"]);
         await record({ surface: "SCRIPTED handover refusal", decision: "Do not publish yet", note: "Withholding the separate send command is the refusal; no synthetic API approval was inferred." });
         await check("prepared handover and withheld send do not publish", prepared.delivery.pushed === false && beforeSend.trim() === "refs/heads/main");
-        const delivered = await operator("publish", { preparedId: handover.idempotencyKey });
+        await check("browser publication waits for a separate explicit confirmation", await browser.page.locator('[data-command="publish"]').isDisabled() && !await browser.page.locator("#publication-consent").isChecked());
+        await browser.page.locator("#publication-consent").check();
+        const delivered = await operator("publish");
         await check("separate scripted send publishes only the review branch", delivered.pushed === true && (await git(["--git-dir", origin, "rev-parse", "main"])).trim() === baseCommit);
         const clone = join(root, "fresh-clone"); await git(["clone", "--branch", destination.sourceBranch, origin, clone]);
         const audit = await command("literal carried audit command from fresh clone root", ["/bin/sh", "-c", delivered.auditCommand], clone);
@@ -190,7 +215,9 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const falsify = await command("literal breakage command truthfully unavailable without fixture runtime", ["/bin/sh", "-c", delivered.falsify.command], clone, 3);
         await check("unavailable live breakage measurement stays inconclusive", /inconclusive|unavailable/i.test(falsify.stdout));
         await writeFile(join(root, "assistant.json"), JSON.stringify(sanitize(assistant), null, 2) + "\n"); await writeFile(join(root, "pm-workspace.json"), JSON.stringify(sanitize(board), null, 2) + "\n");
-        const result = { schema_version: "wringer.assistant-launch-rehearsal.v1", status: "passed", fixture: true, implementation, startedAt, finishedAt: new Date().toISOString(), wallMs: Date.now() - began, jobId, journeyId: board.journeyId, deliveryId: delivered.deliveryId, candidateCommit: delivered.codeCommit, candidateTree: board.candidate?.tree, evidenceCommit: delivered.evidenceCommit, checks, roleSessions: roles, providerCalls: 0, credentialReads: 0, independentPmMeasured: false, realClientMeasured: false, realContainmentMeasured: false, humanDecisions: "scripted-test-fixtures-only", freshCloneAudit: { exitCode: audit.exit_code, command: delivered.auditCommand }, breakageTest: "inconclusive-runtime-unavailable", limits };
+        await browser.finish(consoleServer.origin + "/");
+        await check("real browser can lock its console and reload without decision authority", true);
+        const result = { schema_version: "wringer.assistant-launch-rehearsal.v1", status: "passed", fixture: true, implementation, startedAt, finishedAt: new Date().toISOString(), wallMs: Date.now() - began, jobId, journeyId: board.journeyId, deliveryId: delivered.deliveryId, candidateCommit: delivered.codeCommit, candidateTree: board.candidate?.tree, evidenceCommit: delivered.evidenceCommit, checks, roleSessions: roles, providerCalls: 0, credentialReads: 0, realBrowserMeasured: true, independentPmMeasured: false, realClientMeasured: false, realContainmentMeasured: false, humanDecisions: "scripted-test-fixtures-only", freshCloneAudit: { exitCode: audit.exit_code, command: delivered.auditCommand }, breakageTest: "inconclusive-runtime-unavailable", limits };
         await writeFile(join(root, "result.json"), JSON.stringify(result, null, 2) + "\n");
         failed = false;
         return { directory: root, ...result };
@@ -199,6 +226,8 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await writeFile(join(root, "result.json"), JSON.stringify({ status: "failed", fixture: true, startedAt, wallMs: Date.now() - began, checks, limits }, null, 2) + "\n");
         throw new Error(`Assistant launch rehearsal failed; retained evidence: ${root}`, { cause: error });
     } finally {
+        if (browser) await browser.close();
+        if (consoleServer) await consoleServer.stop();
         if (service) await service.runner.stop(1000);
         await record({ finishedAt: new Date().toISOString(), failed, ownerStopped: true });
     }

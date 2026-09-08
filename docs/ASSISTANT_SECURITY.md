@@ -61,6 +61,31 @@ or claim that a cooperative-local demonstration satisfies this security gate.
 These are implemented contract requirements to test, not claims that every
 hostile string can be detected or every dependency is safe.
 
+## Browser continuity is not additional authority
+
+The private operator fragment is exchanged for an owner-specific browser
+session and removed from the address bar. No provider key is involved. A
+server-generated cookie is HttpOnly, SameSite=Strict and limited to API paths;
+its random value is hashed in the owner's bounded in-memory session table.
+No capability is stored in localStorage or sessionStorage. Read/decision
+requests require same-origin metadata and a custom header; modifying requests
+also require the exact Origin. Cross-origin preflights are not authorized.
+
+Access lasts at most eight hours for that running owner, without renewal by
+polling or an existing session. Explicit lock removes that browser session;
+owner replacement invalidates the old in-memory sessions. There are at most
+32 sessions per surface. Console and review workspace locks apply to their own
+surface, not every open window or the execution job. Expired work approval,
+source/revision changes and cancellation still refuse through the existing
+controller checks, regardless of a connected browser.
+
+**HTTP cookies do not isolate localhost ports.** Unique server cookie names
+avoid accidental collisions, but are not protection against another local
+process, a malicious localhost service, browser extensions or the same OS
+user. These loopback HTTP surfaces remain an explicit cooperative-local
+preview. Keep private links and browser session material out of assistant
+transcripts, shared screenshots, traces and public validation artifacts.
+
 ## Durable ownership is not infinite authority
 
 The local owner persists accepted operations and their identities independently

@@ -5,7 +5,7 @@ import { loadExecutionPlan, canonicalPlanJson, validateExecutionPlan, createExec
 import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility } from "@wringer/workflow";
 import { deliverContained, auditContained, falsifyContained } from "@wringer/delivery";
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
-import { Redactor } from "@wringer/engine";
+import { EngineError, Redactor } from "@wringer/engine";
 import { allowed, flag, number, positionals, required, string, quote, type Args } from "./args";
 import { DRIVE_HELP } from "./help";
 import type { Answer, DispatchContext } from "./app";
@@ -84,7 +84,16 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         const state = statePath(repo, a); await readController(state);
         const publication = { remote: required(a, "remote"), sourceBranch: required(a, "source-branch"), targetBranch: required(a, "target-branch"), ...(a.flags.has("forge-config") ? { forge: await readControllerFile(resolve(repo, required(a, "forge-config"))) } : {}) };
         const resumeCommand = `wringer-drive deliver --state ${quote(state)} --remote ${quote(publication.remote)} --source-branch ${quote(publication.sourceBranch)} --target-branch ${quote(publication.targetBranch)}${a.flags.has("forge-config") ? ` --forge-config ${quote(resolve(repo, required(a, "forge-config")))}` : ""} --send`;
-        const value = await deliverContained({ stateDir: state, publication, send: flag(a, "send"), signal: context.signal, resumeCommand });
+        let value: Awaited<ReturnType<typeof deliverContained>>;
+        try {
+            value = await deliverContained({ stateDir: state, publication, send: flag(a, "send"), signal: context.signal, resumeCommand });
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            // Read this same record, never automatically replay an uncertain send.
+            // Preserve a more specific domain recovery route when supplied.
+            const next = error instanceof EngineError ? error.next_move : undefined;
+            throw new EngineError(`${message}\nDelivery did not return a completed result. Retained evidence has not been discarded; inspect this run before retrying. An interrupted send may have reached the destination.`, context.signal?.aborted ? 4 : 3, next ?? `wringer-drive status --state ${quote(state)}`);
+        }
         const forgeBlocked = value.forge && !["prepared", "published", "recovered"].includes(value.forge.status);
         const next = forgeBlocked ? value.forge!.next_move : value.pushed ? `From the root of a fresh clone of ${quote(value.sourceBranch)}, run ${value.auditCommand}` : resumeCommand;
         return { value, text: `${value.status}: ${value.deliveryId}\nCandidate: ${value.codeCommit}\nEvidence commit: ${value.evidenceCommit}\nBundle: ${value.bundleDir}\n${value.pushed ? "The exact evidence branch was pushed." : "Nothing was pushed. Publication needs the separate --send decision."}${value.forge ? `\nReview request: ${value.forge.status}${value.forge.url ? ` — ${value.forge.url}` : ""}${value.forge.reason ? ` — ${value.forge.reason}` : ""}` : ""}\nFalsification: ${value.falsify.reason}\nAfter publication, from the fresh review-branch clone root: ${value.falsify.command}\nNext: ${next}`, exit: forgeBlocked ? 3 : 0 };

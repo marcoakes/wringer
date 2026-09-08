@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { link, open, realpath, unlink } from "node:fs/promises";
+import { link, lstat, open, realpath, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
 import { VERSION } from "@wringer/engine";
@@ -76,6 +76,18 @@ export async function inspectAssistantSetup(options: AssistantSetupOptions, depe
     const root = resolve(options.root), command = options.command.map(quote).join(" "), checks: AssistantSetupCheck[] = [], nextActions: AssistantSetupAction[] = [];
     const add = (id: string, status: Status, detail: string) => checks.push({ id, status, detail });
     options.signal?.throwIfAborted();
+    try {
+        await assistantPath(root, ".");
+        const info = await lstat(root);
+        // Match createAssistantDirectory's admission predicate without calling
+        // its mkdir/fsync path or changing the selected directory's permissions.
+        const owned = info.uid === process.getuid?.(), privateDirectory = info.isDirectory() && (info.mode & 0o077) === 0 && owned;
+        add("controller-directory", privateDirectory ? "observed" : "needs-attention", privateDirectory ? "The existing controller is an operator-owned private directory, matching initialization's metadata policy. No permissions or files were changed." : "Initialization would refuse this controller: it must be an operator-owned private directory (mode 0700), not a file or a shared/readable folder. Setup made no permission changes.");
+        if (!privateDirectory && info.isDirectory() && owned) nextActions.push({ id: "controller-permissions", label: "Make this selected controller folder private", command: `chmod 700 ${quote(root)}`, note: "This is an explicit operator repair for this exact folder, not an action performed by setup. It changes no key or controller record. Repeat setup afterwards." });
+    } catch (error: any) {
+        if (error.code === "ENOENT") add("controller-directory", "unmeasured", "The controller does not exist yet. Initialization will create it privately (mode 0700); setup did not create it or its parents.");
+        else add("controller-directory", "needs-attention", "The controller path could not be inspected safely, or contains a symlink. Choose an operator-controlled real directory outside the target repository. No directory was created or changed.");
+    }
     add("authority-boundary", options.cooperativeLocal ? "unmeasured" : "needs-attention", options.cooperativeLocal
         ? "Cooperative-local evaluation explicitly selected. This does not protect controller authority or prove human presence against another unrestricted app under this OS account."
         : "Protected delegation is not established. Setup will not select cooperative-local mode for you. An operator may explicitly choose --cooperative-local for a labelled laboratory evaluation.");

@@ -1,11 +1,12 @@
 import { lstat, mkdir, readdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { renderPmWorkspace, validatePmWorkspace, type PmWorkspace } from "@wringer/board";
 import { readController, readControllerFile, controllerStatus, queueWorkspaceCommand, readWorkspaceCommand, latestWorkspacePublication, workspacePublicationBlocksHandover, WORKSPACE_HANDOVER_RECORDED, activeWorkspaceCommand, projectRequirements, type ApplicationOptions } from "@wringer/application";
 import { inspectContainedPlanning } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import type { Answer } from "./app";
+import { createOperatorBrowserSessions } from "./operator-browser-session";
 
 async function planningOnly(state: string): Promise<boolean> {
     const exists = async (path: string) => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return false; throw error; });
@@ -63,23 +64,21 @@ export async function readPmWorkspace(state: string): Promise<PmWorkspace> {
 function bootstrap(): PmWorkspace {
     return { schema_version: "wringer.pm-workspace.v1", name: "Wringer delivery workspace", intent: "Connect with the private link printed by your controller.", journeyId: "connection-pending", revision: "connection-pending", status: "unconnected", stage: "unconnected", candidate: null, criteria: [], checks: [], usage: { sessions: 0, ceiling: 0, inputTokens: null, outputTokens: null, costUsd: null }, actions: [], stop: null, updatedAt: new Date(0).toISOString(), limits: ["No run data has been loaded. This public shell cannot authorize any action."] };
 }
-export async function createPmWorkspaceServer(stateDirectory: string, options: ApplicationOptions & { port?: number; beforeCommand?: () => Promise<void> } = {}) {
+export async function createPmWorkspaceServer(stateDirectory: string, options: ApplicationOptions & { port?: number; beforeCommand?: () => Promise<void>; returnToConsole?: string } = {}) {
     const state = resolve(stateDirectory);
     await readPmWorkspace(state);
-    const token = randomBytes(32).toString("hex"), secret = Buffer.from(`Bearer ${token}`), nonce = randomBytes(20).toString("base64");
-    const shell = renderPmWorkspace(bootstrap(), { live: true, nonce });
+    const token = randomBytes(32).toString("hex"), nonce = randomBytes(20).toString("base64");
+    const shell = renderPmWorkspace(bootstrap(), { live: true, nonce, browserSession: true, ...(options.returnToConsole ? { returnToConsole: options.returnToConsole } : {}) });
     const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
     const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
+    const sessions = createOperatorBrowserSessions(token, headers);
     let origin = "";
     const server = Bun.serve({ hostname: "127.0.0.1", port: options.port ?? 0, development: false, maxRequestBodySize: 64 * 1024, async fetch(request) {
         const url = new URL(request.url);
         if (!origin || url.origin !== origin || request.headers.get("host") !== new URL(origin).host) return json({ error: "Unrecognized local controller origin" }, 403);
         if (request.method === "GET" && url.pathname === "/" && !url.search) return new Response(shell, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
-        const supplied = Buffer.from(request.headers.get("authorization") ?? "");
-        if (supplied.length !== secret.length || !timingSafeEqual(supplied, secret)) return json({ error: "This private controller requires its current access token" }, 401);
-        const requestOrigin = request.headers.get("origin");
-        if (requestOrigin && requestOrigin !== origin || request.method !== "GET" && requestOrigin !== origin) return json({ error: "Cross-origin actions are not allowed" }, 403);
-        if (request.headers.get("sec-fetch-site") === "cross-site") return json({ error: "Cross-site access is not allowed" }, 403);
+        const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
+        const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
             if (request.method === "GET" && url.pathname === "/api/state") return json(await readPmWorkspace(state));
             if (request.method === "GET" && /^\/api\/commands\/[a-f0-9-]{36}$/.test(url.pathname)) {
@@ -100,7 +99,7 @@ export async function createPmWorkspaceServer(stateDirectory: string, options: A
         }
     } });
     origin = server.url.origin;
-    options.signal?.addEventListener("abort", () => { void server.stop(true); }, { once: true });
+    options.signal?.addEventListener("abort", () => { sessions.clear(); void server.stop(true); }, { once: true });
     return { server, url: `${origin}/#token=${token}`, origin };
 }
 export async function containedWorkspace(state: string, options: { port: number; output?: string; signal?: AbortSignal }): Promise<Answer> {

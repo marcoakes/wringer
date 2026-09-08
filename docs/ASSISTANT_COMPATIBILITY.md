@@ -9,7 +9,7 @@ blind test.
 
 | Candidate | Current status | Evidence required before calling it supported |
 | --- | --- | --- |
-| Codex | First documented STDIO connection candidate; complete PM journey unmeasured | Exact app/CLI version, generated connection, setup, tool permissions, disconnect/reconnect, real review, delivery and audit |
+| Codex | CLI 0.153.4 connected and reached live worker/judge completion in blind test 2; review failed and handover was not completed | Repaired full PM journey, including human review, delivery and fresh-clone audit; desktop app remains separately unmeasured |
 | Claude Code | Unmeasured front end | Independent measurements of the same journey; Claude as an ACP worker is not this measurement |
 | Kimi | Exact front-end product/version and connection route unmeasured | Establish the actual client and supported transport, then measure the complete journey |
 
@@ -42,7 +42,7 @@ commit. Do not infer a test pass from this list of intended measurements.
 | “Runs through sleep and reboot” | No automatic login/reboot service is installed; downtime consumes elapsed-time/expiry limits |
 | “Never exceeds your cash budget” | Session/time limits do not bound every provider charge; unsupported strict-cash requests refuse |
 | “Free coordination” or “lower total cost” | The coding app uses its own account; unknown billing prevents an exact savings claim |
-| “A successful blind test” | The original alpha.3 blind run failed; repairs and laboratory tests are separate evidence |
+| “A successful blind test” | Alpha.3 failed at planning; alpha.6 failed at human review and salvage stopped at preparation; repairs and laboratory tests are separate evidence |
 | “Safe production containment everywhere” | Real Apple Container and gVisor enforcement each require their own platform evidence |
 
 “The local execution owner is independent of the MCP connection” describes the
@@ -67,6 +67,12 @@ scripted delivery rehearsal. Codex connection inspection checks the named
 command, transport, environment and tool settings; it does not measure client
 behavior. Profile preparation does not select a vendor/runtime policy for an
 outsider. Protected service integration and real PM/client proof remain open.
+
+The [alpha.6 blind test 2](PM_BLIND_REPORT_2026-09-08_2.md) recorded real Codex
+worker and Claude judge completion, but the PM could not record Yes through the
+browser. Salvage could not prepare handover. [Alpha.7's repair record](PM_BLIND2_REPAIR_2026-09-08.md)
+adds actual browser form regressions and bounded large-history delivery scanning;
+it is not a successful live-client end-to-end measurement.
 
 Next evidence must be attached under its own frozen build and
 [assistant test protocol](PM_ASSISTANT_BLIND_TEST.md). A builder-operated fixture

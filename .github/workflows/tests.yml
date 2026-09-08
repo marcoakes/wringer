@@ -25,6 +25,8 @@ jobs:
         with:
           node-version: '24'
       - run: bun install --frozen-lockfile
+      - name: Install the pinned engineering-test browser (not a product runtime)
+        run: bun node_modules/playwright/cli.js install --with-deps chromium
       - run: bun run validate
       - name: Preserve successful and failed measurements
         if: always()
@@ -42,6 +44,7 @@ jobs:
             .wringer/assistant-launch-rehearsal-*/transcript.json
             .wringer/assistant-launch-rehearsal-*/assistant.json
             .wringer/assistant-launch-rehearsal-*/pm-workspace.json
+            .wringer/assistant-launch-rehearsal-*/browser-*.png
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
           if-no-files-found: error

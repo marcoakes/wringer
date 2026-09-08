@@ -247,6 +247,14 @@ describe("contained public CLI integration (no live runtime)", () => {
         expect(audit.exit).toBe(3);
         expect((audit.value as any).status).toBe("failed");
         await expect(call(f, "deliver", "--state", f.state, "--remote", "https://example.invalid/fixture/repository.git", "--source-branch", "review/fixture", "--target-branch", "main")).rejects.toThrow("review-ready");
+        try {
+            await call(f, "deliver", "--state", f.state, "--remote", "https://example.invalid/fixture/repository.git", "--source-branch", "review/fixture", "--target-branch", "main");
+            throw new Error("Delivery unexpectedly returned");
+        } catch (error: any) {
+            expect(error.next_move).toBe(`wringer-drive status --state '${f.state}'`);
+            expect(error.message).toContain("Retained evidence has not been discarded");
+            expect(error.next_move).not.toContain("--send");
+        }
         expect((await readValidatedContainedState(f.state)).result.sessions).toBe(hold.sessions);
     });
     test("cancellation refuses before creating controller state", async () => {

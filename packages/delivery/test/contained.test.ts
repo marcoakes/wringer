@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { mkdtemp, mkdir, writeFile, readFile, readdir, cp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, readdir, cp, rm, unlink, lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -18,7 +18,7 @@ async function command(argv: string[], input?: string) {
         throw new Error(result.stderr);
     return result.stdout;
 }
-async function fixture(human = false, mutable = false, dependencySetup = false) {
+async function fixture(human = false, mutable = false, dependencySetup = false, historicalBytes = 0) {
     const root = await mkdtemp(join(tmpdir(), "wringer-contained-delivery-")), repo = join(root, "repo"), origin = join(root, "origin.git"), stateDir = join(root, "controller");
     await command(["git", "init", "--initial-branch=main", repo]);
     await command(["git", "init", "--bare", "--initial-branch=main", origin]);
@@ -29,6 +29,14 @@ async function fixture(human = false, mutable = false, dependencySetup = false) 
     if (mutable)
         await writeFile(join(repo, "product.js"), "export const expected = false;\n");
     await writeFile(join(repo, "check.sh"), mutable ? "test \"$(sed -n '1p' product.js)\" = 'export const expected = true;'\n" : "test \"$(cat product.txt)\" = after\n");
+    if (historicalBytes) {
+        for (const byte of [120, 121]) {
+            await writeFile(join(repo, "historical.dat"), Buffer.alloc(historicalBytes, byte));
+            await command(["git", "-C", repo, "add", "historical.dat"]);
+            await command(["git", "-C", repo, "commit", "-m", `Inflated-history fixture ${byte}`]);
+        }
+        await unlink(join(repo, "historical.dat"));
+    }
     await command(["git", "-C", repo, "add", "."]);
     await command(["git", "-C", repo, "commit", "-m", "baseline"]);
     await command(["git", "-C", repo, "push", origin, "main"]);
@@ -107,6 +115,38 @@ test("contained delivery prepares without publishing, then fresh-clone audit res
     expect(view.usage.inputTokens).toBeNull();
     expect(await readFile(join(directory, "board.html"), "utf8")).toBe(renderContainedBoard(view));
 }, 60000);
+test("compressed-small but over-64-MiB inflated history prepares, retries, sends and audits from a fresh clone", async () => {
+    const f = await fixture(true, false, false, 40 * 1024 * 1024);
+    try {
+        expect((await lstat(f.result.candidate!.source.bundlePath!)).size).toBeLessThan(64 * 1024 * 1024);
+        const before = (await command(["git", "--git-dir", f.origin, "show-ref"])).trim();
+        const aborted = new AbortController(); aborted.abort();
+        await expect(deliverContained({ stateDir: f.stateDir, publication: f.publication, signal: aborted.signal })).rejects.toThrow();
+        expect((await command(["git", "--git-dir", f.origin, "show-ref"])).trim()).toBe(before);
+        const midFlight = new AbortController(), interrupted = deliverContained({ stateDir: f.stateDir, publication: f.publication, signal: midFlight.signal });
+        void interrupted.catch(() => {});
+        let partial = "";
+        for (let count = 0; count < 2000 && !partial; count++) {
+            for (const name of await readdir(join(f.stateDir, "deliveries")).catch(() => [])) {
+                const path = join(f.stateDir, "deliveries", name, "bundle", "candidate.bundle");
+                if (await lstat(path).then(info => info.isFile() && info.size > 0, () => false)) { partial = path; break; }
+            }
+            if (!partial) await Bun.sleep(5);
+        }
+        midFlight.abort(); await expect(interrupted).rejects.toThrow(); expect(partial).not.toBe("");
+        const retained = hashBytes(await readFile(partial));
+        const prepared = await deliverContained({ stateDir: f.stateDir, publication: f.publication });
+        expect(hashBytes(await readFile(partial))).toBe(retained);
+        const repeated = await deliverContained({ stateDir: f.stateDir, publication: f.publication });
+        expect(repeated.deliveryId).toBe(prepared.deliveryId); expect(repeated.evidenceCommit).toBe(prepared.evidenceCommit);
+        const delivered = await deliverContained({ stateDir: f.stateDir, publication: f.publication, send: true });
+        expect(delivered.evidenceCommit).toBe(prepared.evidenceCommit);
+        const clone = join(f.root, "large-fresh"); await command(["git", "clone", "--branch", f.publication.sourceBranch, f.origin, clone]);
+        const report = await auditContained(join(clone, ".wringer/deliveries", delivered.deliveryId));
+        expect(report.status).toBe("passed"); expect(report.claims.every(claim => claim.status === "checked")).toBe(true);
+        expect(report.human).toBe(1); expect(report.checks).toBe(1);
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+}, 120000);
 test("mutable terminal view or omitted verification observation cannot authorize delivery", async () => {
     const f = await fixture(), view = join(f.stateDir, ".wringer/contained/result.json"), original = await readFile(view, "utf8");
     await writeFile(view, original.replace('"review-ready"', '"stopped"'));
