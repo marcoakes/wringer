@@ -34,6 +34,7 @@ const stages: [
     ["compiled-assistant-lifecycle", [process.execPath, "scripts/assistant-distribution.ts"], workspace],
     // No-spend scripted engineering proof, never a live-client or PM blind-test claim.
     ["assistant-launch-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts"], workspace],
+    ["guided-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--guided"], workspace],
 ];
 const results: unknown[] = [];
 const selected = process.argv.slice(2);

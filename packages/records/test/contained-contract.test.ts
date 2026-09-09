@@ -1,6 +1,12 @@
 import { test, expect } from "bun:test";
 import { openReader } from "../src/read";
 const root = new URL("../../..", import.meta.url).pathname.replace(/\/$/, "");
+test("explicit human decisions carry a real choice and null, not an invented comment", async () => {
+    const reader = await openReader(`${root}/schema`), row = { schema_version: "wringer.contained-human-decision.v1", criterionId: "readable", candidateTree: "c".repeat(40), acceptanceSha256: "a".repeat(64), verdict: "met", by: "Initial operator", note: null, displayId: crypto.randomUUID(), display: { candidateTree: "c".repeat(40), status: "shown", receiptSha256: "d".repeat(64) }, attribution: "initial-execution-approval", authoritySha256: "e".repeat(64) };
+    expect((await reader.validate(row, "contained-human-decision-v1.schema.json")).ok).toBe(true);
+    expect((await reader.validate({ ...row, note: "An original comment" }, "contained-human-decision-v1.schema.json")).ok).toBe(true);
+    for (const change of [{ note: undefined }, { note: "" }, { verdict: "yes" }, { attribution: "authenticated-human" }, { displayId: null }, { authoritySha256: null }, { approvedSpend: true }]) expect((await reader.validate({ ...row, ...change }, "contained-human-decision-v1.schema.json")).ok).toBe(false);
+});
 test("contained view contract preserves explicit unknowns and rejects extra or invented facts", async () => {
     const reader = await openReader(`${root}/schema`), path = `${root}/schema/fixtures/contained-delivery-view-v1.json`;
     expect((await reader.read(path)).ok).toBe(true);

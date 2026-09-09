@@ -62,6 +62,38 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
 }
 
 describe("assistant application narrow authority and inert intake", () => {
+    test("the construction-only routine coordinator still requires exact approval and restricts runtime tool names", async () => {
+        const f = await fixture(), proposed = await f.propose(), input = await f.mutation(proposed.jobId);
+        expect((await f.service.requestRoutine("wringer.start", input)).code).toBe("not-approved");
+        for (const tool of ["wringer.propose", "wringer.cancel", "wringer.get_status", "wringer.publish"]) expect((await f.service.requestRoutine(tool as any, input)).outcome).toBe("refused");
+        expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0); expect(await f.service.runner.list()).toEqual([]);
+        await f.approve(proposed.jobId);
+        expect((await f.service.requestRoutine("wringer.start", input)).code).toBe("stale-request");
+        const accepted = await f.service.requestRoutine("wringer.start", await f.mutation(proposed.jobId));
+        expect(accepted.outcome).toBe("accepted"); expect(f.counters.starts).toBe(0);
+    });
+    test("bounded waiting observes unchanged state without execution and rejects non-string cursors or extra powers", async () => {
+        const f = await fixture(), proposed = await f.propose(), current = await f.call("get_status", { jobId: proposed.jobId });
+        const before = await readdir(f.root), began = Date.now();
+        const timed = await f.call("wait_for_update", { jobId: proposed.jobId, afterEventId: current.eventId, timeoutSeconds: 1 });
+        expect(timed.changed).toBe(false); expect(timed.eventId).toBe(current.eventId); expect(Date.now() - began).toBeGreaterThanOrEqual(950); expect(Date.now() - began).toBeLessThan(3000);
+        expect(timed.note).toContain("Read-only"); expect(await readdir(f.root)).toEqual(before);
+        for (const extra of [{ timeoutSeconds: -1 }, { timeoutSeconds: 26 }, { timeoutSeconds: 0.5 }, { afterEventId: [current.eventId] }, { afterEventId: null }, { execute: true }]) expect((await f.call("wait_for_update", { jobId: proposed.jobId, afterEventId: current.eventId, timeoutSeconds: 0, ...extra })).outcome).toBe("refused");
+        expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0); expect(await f.service.runner.list()).toEqual([]);
+    });
+    test("a pending wait rechecks revoked credentials and only the changed presentation is returned", async () => {
+        const f = await fixture(), proposed = await f.propose(); let eventId = "d".repeat(64);
+        f.service.setPresentation(async () => ({ phase: "approval", nextAction: "Review the request", eventId, pageUrl: `http://127.0.0.1:4321/job/${proposed.jobId}` }));
+        const current = await f.call("get_status", { jobId: proposed.jobId });
+        expect(current.eventId).toBe(eventId); expect(current.decision.pageUrl).not.toContain(f.capability.token);
+        const updated = f.call("wait_for_update", { jobId: proposed.jobId, afterEventId: eventId, timeoutSeconds: 2 });
+        await Bun.sleep(30); eventId = "e".repeat(64);
+        expect((await updated).changed).toBe(true);
+        const revoked = f.call("wait_for_update", { jobId: proposed.jobId, afterEventId: eventId, timeoutSeconds: 2 });
+        await Bun.sleep(30); await revokeAssistantCapabilities(f.root);
+        expect((await revoked).code).toBe("capability-refused");
+        expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0); expect(await f.service.runner.list()).toEqual([]);
+    });
     test("current audited publication drives next action; fresh handover refuses but duplicate observation survives", async () => {
         const f = await fixture({ startJournal: true, destination: { remote: "https://example.com/team/test.git", sourceBranch: "delivery/test", targetBranch: "main" } }), proposed = await f.propose(); await f.approve(proposed.jobId);
         const input = await f.mutation(proposed.jobId); await f.call("start", input); await f.service.runner.start(); await until(() => f.service.runner.read(input.idempotencyKey), x => x.status === "completed");

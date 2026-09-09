@@ -8,6 +8,7 @@ const valid: Record<string, Record<string, unknown>> = {
     "wringer.get_approval_request": { jobId: "job_123" },
     "wringer.start": guard(),
     "wringer.get_status": {},
+    "wringer.wait_for_update": { jobId: "job_123", afterEventId: "a".repeat(64), timeoutSeconds: 25 },
     "wringer.get_evidence": { jobId: "job_123", evidenceId: "summary", offset: 0, limit: 8192 },
     "wringer.request_revision": { ...guard(), note: "Please preserve my wording — exactly." },
     "wringer.continue": { ...guard(), action: "resume" },
@@ -16,9 +17,9 @@ const valid: Record<string, Record<string, unknown>> = {
 };
 
 describe("narrow assistant tool contract", () => {
-    test("exactly ten tools; no human pen, publication, credentials, scope or arbitrary execution route", () => {
+    test("exactly eleven tools; no human pen, publication, credentials, scope or arbitrary execution route", () => {
         expect(ASSISTANT_TOOLS.map(t => t.name)).toEqual([...ASSISTANT_TOOL_NAMES]);
-        expect(ASSISTANT_TOOLS).toHaveLength(10);
+        expect(ASSISTANT_TOOLS).toHaveLength(11);
         for (const name of ["wringer.approve", "wringer.record_human_verdict", "wringer.publish", "wringer.execute", "wringer.get_key", "wringer.grant_authority", "wringer.increase_budget", "wringer.read_file", "wringer.retry_uncertain", "constructor"]) {
             expect(() => parseAssistantToolCall(name, {})).toThrow(AssistantToolValidationError);
         }

@@ -158,7 +158,7 @@ export async function serveAssistant(root: string, options: AssistantCliOptions 
         const owner = (await service.runner.start()).owner;
         if (!owner) throw new Error("The local runner did not acquire ownership.");
         ownedToken = owner.token;
-        console = await createAssistantConsole(service, { isStopping: () => closing });
+        console = await createAssistantConsole(service, { isStopping: () => closing, guided: true });
         transport = createAssistantTransport(service, { instanceId: owner.token, onStop: stop, isStopping: () => closing });
         let token: string;
         if (await assistantExists(service.root, "connection.json")) token = (await readAssistantConnection(join(service.root, "connection.json"))).token;
@@ -199,7 +199,7 @@ export function codexConnectionRecipe(connectionPath: string, command = assistan
         argv,
         addCommand: `codex mcp add wringer -- ${argv.map(quote).join(" ")}`,
         inspectCommand: "codex mcp list",
-        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 20\n# Optional: approve routine calls for this restricted server only.\n# Do not change global shell or browser permissions.\ndefault_tools_approval_mode = "auto"\n`,
+        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 40\n# Optional: approve routine calls for this restricted server only.\n# Do not change global shell or browser permissions.\ndefault_tools_approval_mode = "auto"\n`,
         disconnectCommand: "codex mcp remove wringer",
     };
 }

@@ -3,14 +3,15 @@ import { join, relative, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
 import { hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
 import { processDriver } from "@wringer/runtime";
-import { readValidatedContainedState, withContainedJourneyLock } from "@wringer/workflow";
+import { readValidatedContainedState, withContainedJourneyLock, validContainedHumanAttribution } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import { inside, files, seal, checkSeal, quote } from "./io";
 import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
-import { containedViewContracts, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedDocuments, type ContainedDeliveryProjection } from "./projection";
+import { containedViewContracts, containedViewContractsV3, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedDocuments, renderContainedDocumentsV3, type ContainedDeliveryProjection } from "./projection";
 import { openReader } from "@wringer/records";
 import { schemaDirectory } from "@wringer/engine";
 import { inspectCandidateHistory } from "./source-inspection";
+import { approveSourceFindings, readSourceDecisionBatch, readSourceApprovals, sourceReviewReceipt, sourceReviewMarker, sourceReviewDigest, validateSourceReviewReceipt, SOURCE_REVIEW_LIMITATIONS, type SourceReviewDecision, type SourceReviewReceipt } from "./source-review";
 export interface ContainedPublication {
     remote: string;
     sourceBranch: string;
@@ -247,7 +248,31 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), show.id];
     return canonicalJson(measured.results.map((r: any) => r.id)) === canonicalJson(expected) && measured.results.every((r: any) => r.code === 0 && typeof r.stdout === "string" && typeof r.stderr === "string" && Buffer.byteLength(r.stdout + r.stderr) <= 1024 * 1024) && canonicalJson(measured.provenance?.observed?.writableDirectories ?? []) === canonicalJson(plan.environment.writable_directories);
 }
-function expectedInventory(manifest: any, receiptIds: string[]): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(manifest.schema_version === "wringer.contained-delivery.v2" ? ["view.json", "certificate.json", "board.html"] : []), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
+function expectedInventory(manifest: any, receiptIds: string[]): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
+/** Direct operator CLI only; no provider call, publication or MCP approval. */
+export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; signal?: AbortSignal }) {
+    const stateDir = await realpath(options.stateDir);
+    return withContainedJourneyLock(stateDir, async () => {
+        const { state, plan } = await readValidatedContainedState(stateDir), candidate = state.candidate;
+        if (!candidate?.source.bundlePath) throw new Error("Source review needs an exact captured candidate bundle");
+        const bundle = await recordedPath(stateDir, candidate.source.bundlePath), info = await lstat(bundle);
+        if (!info.isFile() || info.size > 64 * 1024 * 1024) throw new Error("Source review requires a bounded captured candidate bundle");
+        const scratch = await mkdtemp(join(tmpdir(), "wringer-source-review-")), store = join(scratch, "objects.git");
+        try {
+            await cloneBundle(bundle, store, candidate.source.commit, options.signal);
+            const redactor = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*", ...(plan.runtime.env ?? [])]);
+            const inspected = await inspectCandidateHistory(store, candidate.source.commit, redactor, { collectFindings: true, signal: options.signal }), inventory = inspected.inventory!;
+            if (options.decision || options.decisionFile) {
+                if (!options.policyDirectory) throw new Error("Source review decisions require an explicit --policy-dir outside the target repository");
+                if (options.decision && options.decisionFile) throw new Error("Choose one exact decision or one finite decision file, not both");
+                const decisions = options.decision ? [options.decision] : await readSourceDecisionBatch(options.decisionFile!, stateDir, options.policyDirectory, inventory);
+                await approveSourceFindings(stateDir, inventory, { directory: options.policyDirectory, sourceUrl: plan.repository.url, sourcePaths: [store, dirname(bundle)], decisions, redactor });
+            }
+            const approvals = await readSourceApprovals(stateDir, inventory);
+            return { ...inspected, approvals, pending: inventory.findings.filter(f => !approvals.some(a => a.finding.id === f.id)), limitations: SOURCE_REVIEW_LIMITATIONS };
+        } finally { await rm(scratch, { recursive: true, force: true }); }
+    });
+}
 /** Portable, controller-validated delivery. No product worktree or repository program runs on the host. */
 export async function deliverContained(options: ContainedDeliveryOptions): Promise<ContainedDeliveryResult> {
     const stateDir = await realpath(options.stateDir);
@@ -339,17 +364,21 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         await immutable(join(bundleDir, `human/${safeId(judgement.criterionId, "human criterion")}.json`), clean(projection, redactor, "Human display"));
     }
     const manifest = { schema_version: "wringer.contained-delivery.v2", id, journeyId: state.id, createdAt: events.at(-1)!.at, source: { url: plan.repository.url, baseCommit: plan.repository.commit, codeCommit: state.candidate.source.commit, tree: state.candidate.tree }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, authoritySha256: hashValue(authority), environmentSha256: environment.map_sha256, journal: { eventCount: projected.length, headSha256: previous, sourceHeadSha256: events.at(-1)!.sha256 }, baseline: verification(state.baseline), verification: verification(state.verification), roles: roleRows.map(r => r.id), humanCriteria: human.map(r => r.judgement.criterionId), judge: state.judge, counts: { checks: plan.acceptance.checks.length, proved: plan.acceptance.checks.length, human: human.length }, publication: { sourceBranch: options.publication.sourceBranch, targetBranch: options.publication.targetBranch }, evidencePath: bundlePath, auditCommand: `wringer-drive audit --bundle ${bundlePath}`, falsify, limits: limitations, contracts: containedViewContracts };
-    const view = deriveContainedDeliveryProjection(plan, manifest, human, roleRows), versionedManifest = { ...manifest, viewSha256: containedProjectionDigest(view) };
     await verifySource(store, manifest, plan, environment, observations);
     // Inspect exact candidate history, never unrelated or later evidence refs.
     // Inflation is streamed under independent finite inspection bounds;
     // ordinary runtime-command capture keeps its existing 64 MiB ceiling.
-    await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal });
+    const sourceInspection = await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal, collectFindings: true });
+    const sourceReceipt = await sourceReviewReceipt(stateDir, sourceInspection.inventory!);
+    const v3 = !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
+    const currentManifest = { ...manifest, ...(v3 ? { schema_version: "wringer.contained-delivery.v3", contracts: containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), limits: sourceReceipt ? [...limitations, sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : limitations };
+    const view = deriveContainedDeliveryProjection(plan, currentManifest, human, roleRows), versionedManifest = { ...currentManifest, viewSha256: containedProjectionDigest(view) };
+    if (sourceReceipt) await immutable(join(bundleDir, "source-inspection.json"), clean(sourceReceipt, redactor, "Source review receipt"));
     for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": versionedManifest, "view.json": view, "certificate.json": renderContainedCertificate(view), "projection.json": { schema_version: "wringer.contained-projection.v2", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, viewSha256: versionedManifest.viewSha256, limits: limitations } }))
         await immutable(join(bundleDir, name), clean(value, redactor, name));
-    for (const [name, body] of Object.entries({ ...renderContainedDocuments(view, manifest.falsify.reason), "board.html": renderContainedBoard(view) }))
+    for (const [name, body] of Object.entries({ ...(v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : renderContainedDocuments(view, manifest.falsify.reason)), "board.html": v3 ? renderContainedBoardV2(view) : renderContainedBoard(view) }))
         await immutable(join(bundleDir, name), body);
-    same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(manifest, [...verifications.keys()]).filter(name => name !== "digests.json"), "Portable evidence inventory");
+    same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(currentManifest, [...verifications.keys()]).filter(name => name !== "digests.json"), "Portable evidence inventory");
     await seal(bundleDir);
     const audit = await auditContained(bundleDir);
     if (audit.status !== "passed")
@@ -416,9 +445,9 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
     try {
         await checkSeal(bundleDir);
         const manifest = await read(bundleDir, "manifest.json"), plan = validateExecutionPlan(await read(bundleDir, "plan.json")), authority = await read(bundleDir, "authority.json"), environment = await read(bundleDir, "environment.json");
-        const v2 = manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
+        const v3 = manifest.schema_version === "wringer.contained-delivery.v3", v2 = v3 || manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
         if (v2) {
-            const checked = await contractReader.validate(manifest, "contained-delivery-v2.schema.json");
+            const checked = await contractReader.validate(manifest, v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json");
             if (!checked.ok) throw new Error(`Frozen delivery manifest: ${checked.said}`);
             for (const [value, schema] of [[plan, "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
                 const result = await contractReader.validate(value, schema);
@@ -601,7 +630,8 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         const humanRows: any[] = [];
         for (const criterion of plan.acceptance.criteria.filter(c => c.kind === "human" && (c.required || v2 && manifest.humanCriteria.includes(c.id)))) {
             const row = await read(bundleDir, `human/${safeId(criterion.id, "criterion")}.json`), j = row.judgement, d = row.display;
-            if (j.criterionId !== criterion.id || !["met", "not_met"].includes(j.verdict) || criterion.required && j.verdict !== "met" || !j.by?.trim() || typeof j.note !== "string" || j.candidateTree !== manifest.source.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !d.success || d.candidateTree !== manifest.source.tree || d.criterionId !== criterion.id || d.acceptanceSha256 !== plan.acceptance_sha256 || d.measured?.sourceChanged || d.measured?.sourceTree !== manifest.source.tree || !displayRowsValid(d.measured, plan, criterion.id) || row.source_display_sha256 !== j.display?.receiptSha256 || hashValue(d) !== row.source_display_sha256)
+            if (j.schema_version === "wringer.contained-human-decision.v1" && j.displayId !== d.id) throw new Error("Explicit human decision names a different display identity");
+            if (j.criterionId !== criterion.id || !["met", "not_met"].includes(j.verdict) || criterion.required && j.verdict !== "met" || !validContainedHumanAttribution(j, authority) || j.candidateTree !== manifest.source.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !d.success || d.candidateTree !== manifest.source.tree || d.criterionId !== criterion.id || d.acceptanceSha256 !== plan.acceptance_sha256 || d.measured?.sourceChanged || d.measured?.sourceTree !== manifest.source.tree || !displayRowsValid(d.measured, plan, criterion.id) || row.source_display_sha256 !== j.display?.receiptSha256 || hashValue(d) !== row.source_display_sha256)
                 throw new Error("Human verdict is not bound to the shown candidate");
             same(last.state.humanJudgements.find((r: any) => r.criterionId === criterion.id), j, "Human judgement");
             const p = provenance(d.measured.provenance);
@@ -613,8 +643,23 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             report.human++;
         }
         const scratch = await mkdtemp(join(tmpdir(), "wringer-contained-audit-")), store = join(scratch, "objects.git");
-        await cloneBundle(await inside(bundleDir, "candidate.bundle"), store, manifest.source.codeCommit);
-        await verifySource(store, manifest, plan, environment, observations);
+        let reviewedSource: SourceReviewReceipt | null = null;
+        try {
+            await cloneBundle(await inside(bundleDir, "candidate.bundle"), store, manifest.source.codeCommit);
+            await verifySource(store, manifest, plan, environment, observations);
+            if (v3) {
+                const declared = sourceReviewDigest(manifest.limits);
+                // Derive disclosure requirements from the carried bytes, not
+                // from a sender's optional claim that no exceptions exist.
+                const measured = await inspectCandidateHistory(store, manifest.source.codeCommit, new Redactor([], {}), { collectFindings: true });
+                if (manifest.sourceReview) {
+                    reviewedSource = await read(bundleDir, "source-inspection.json");
+                    validateSourceReviewReceipt(reviewedSource, measured.inventory!);
+                    if (manifest.sourceReview.receipt !== "source-inspection.json" || manifest.sourceReview.sha256 !== hashValue(reviewedSource) || declared !== manifest.sourceReview.sha256 || manifest.sourceReview.findings !== reviewedSource.approvals.length || !manifest.limits.includes(sourceReviewMarker(reviewedSource))) throw new Error("Source review receipt lost its manifest commitment");
+                    report.limits = [...report.limits, ...SOURCE_REVIEW_LIMITATIONS];
+                } else if (declared || measured.inventory!.findings.length) throw new Error("Carried source findings or a source review declaration have no committed exception receipt");
+            }
+        } finally { await rm(scratch, { recursive: true, force: true }); }
         if (manifest.counts.checks !== plan.acceptance.checks.length || manifest.counts.proved !== manifest.baseline.checks.length || manifest.counts.human !== report.human)
             throw new Error("Delivery counts disagree with carried receipts");
         same(manifest.humanCriteria, humanRows.map(row => row.judgement.criterionId), "Human inventory");
@@ -623,17 +668,17 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         same(manifest.falsify, (v2 ? falsificationRoute : legacyFalsificationRouteV1)(manifest.evidencePath), "Printed falsification route");
         view = deriveContainedDeliveryProjection(plan, manifest, humanRows, roles);
         if (v2) {
-            same(manifest.contracts, containedViewContracts, "Delivery view contract versions");
+            same(manifest.contracts, v3 ? containedViewContractsV3 : containedViewContracts, "Delivery view contract versions");
             if (manifest.viewSha256 !== containedProjectionDigest(view)) throw new Error("Delivery view digest differs from its evidence");
             same(await read(bundleDir, "view.json"), view, "Delivery view");
             same(await read(bundleDir, "certificate.json"), renderContainedCertificate(view), "Certificate");
-            for (const [value, schema] of [[manifest, "contained-delivery-v2.schema.json"], [view, "contained-delivery-view-v1.schema.json"], [renderContainedCertificate(view), "contained-certificate-v1.schema.json"]] as const) {
+            for (const [value, schema] of [[manifest, v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json"], [view, "contained-delivery-view-v1.schema.json"], [renderContainedCertificate(view), "contained-certificate-v1.schema.json"]] as const) {
                 const checked = await contractReader.validate(value, schema);
                 if (!checked.ok) throw new Error(`Frozen delivery contract: ${checked.said}`);
             }
-            if (await readFile(await inside(bundleDir, "board.html"), "utf8") !== renderContainedBoard(view)) throw new Error("Delivered board differs from its audited view");
+            if (await readFile(await inside(bundleDir, "board.html"), "utf8") !== (v3 ? renderContainedBoardV2(view) : renderContainedBoard(view))) throw new Error("Delivered board differs from its audited view");
         }
-        for (const [name, body] of Object.entries(v2 ? renderContainedDocuments(view, manifest.falsify.reason) : legacyContainedDocumentsV1(plan, manifest, humanRows)))
+        for (const [name, body] of Object.entries(v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : v2 ? renderContainedDocuments(view, manifest.falsify.reason) : legacyContainedDocumentsV1(plan, manifest, humanRows)))
             if (await readFile(await inside(bundleDir, name), "utf8") !== body)
                 throw new Error("Summary/MR wording disagrees with the source, counts or human notes");
         const projection = await read(bundleDir, "projection.json");
@@ -647,6 +692,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             throw new Error("Portable projection provenance differs from its journal");
         report.checks = plan.acceptance.checks.length;
         report.claims = [{ id: "portable-journal-and-authority", status: "checked", reason: "Complete carried projection chain and historical authority validated." }, { id: "candidate-source", status: "checked", reason: "Complete Git bundle resolves the exact candidate, baseline, protected inputs and permitted changes." }, { id: "red-first-and-green", status: "checked", reason: "Every original check genuinely failed before worker reservation and passed independently on the candidate." }, { id: "independent-judge-and-human", status: "checked", reason: "Distinct role/session/runtime identities and candidate-bound judgements resolve." }];
+        if (reviewedSource) report.claims.push({ id: "source-credential-shape-review", status: "checked", reason: `Recomputed the complete candidate-history shape inventory: ${reviewedSource.approvals.length} exact object/rule/match-byte digests have carried operator decisions. This does not authenticate the actor, recheck private controller secrets or prove these examples harmless.` });
         report.status = "passed";
     }
     catch (error) {

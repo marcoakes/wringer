@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { loadExecutionPlan, canonicalPlanJson, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority } from "@wringer/plan";
 import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility } from "@wringer/workflow";
-import { deliverContained, auditContained, falsifyContained } from "@wringer/delivery";
+import { deliverContained, auditContained, falsifyContained, reviewContainedSource } from "@wringer/delivery";
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
 import { EngineError, Redactor } from "@wringer/engine";
 import { allowed, flag, number, positionals, required, string, quote, type Args } from "./args";
@@ -72,6 +72,19 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         positionals(a, 0); allowed(a, ["bundle"]);
         const value = await auditContained(resolve(repo, required(a, "bundle")));
         return { value, text: `Contained delivery audit ${value.status}: ${value.deliveryId ?? "unreadable delivery"}\n${value.claims.map(row => `${row.status}: ${row.id} — ${row.reason}`).join("\n")}\n${value.limits.join("\n")}`, exit: value.status === "passed" ? 0 : 3 };
+    }
+    if (a.command === "source-review") {
+        positionals(a, 0); allowed(a, ["state", "policy-dir", "inventory", "finding", "actor", "actor-kind", "reason", "decisions"]);
+        const state = statePath(repo, a), batch = a.flags.has("decisions"), deciding = a.flags.has("finding") || batch;
+        if (batch && ["finding", "inventory", "actor", "actor-kind", "reason"].some(key => a.flags.has(key))) throw new Error("Batch decisions carry their exact inventory, per-item actor and reason; do not mix batch and single-decision flags");
+        if (!deciding && ["inventory", "actor", "actor-kind", "reason", "policy-dir"].some(key => a.flags.has(key))) throw new Error("First inspect with source-review --state DIRECTORY; a decision must name exactly one --finding, inventory, actor, actor-kind, reason and external policy-dir");
+        const actorKind = deciding && !batch ? required(a, "actor-kind") : "operator";
+        if (!["operator", "delegated-agent"].includes(actorKind)) throw new Error("Source review actor-kind must be operator or delegated-agent; an agent decision must not be called a human judgement");
+        const value = await reviewContainedSource({ stateDir: state, signal: context.signal, ...(deciding ? { policyDirectory: resolve(repo, required(a, "policy-dir")), ...(batch ? { decisionFile: resolve(repo, required(a, "decisions")) } : { decision: { findingId: required(a, "finding"), inventorySha256: required(a, "inventory"), actor: required(a, "actor"), actorKind: actorKind as "operator" | "delegated-agent", reason: required(a, "reason") } }) } : {}) });
+        const inventory = value.inventory!, pending = new Set(value.pending.map(f => f.id));
+        const rows = inventory.findings.map(f => `${pending.has(f.id) ? "NEEDS REVIEW" : "REVIEWED EXCEPTION"} ${f.id}\n  Object: ${f.objectId} (${f.objectType}); rule: ${f.rule}; matching-byte SHA256: ${f.matchSha256}`);
+        const next = value.pending.length ? `wringer-drive source-review --state ${quote(state)} --inventory ${inventory.sha256} --finding ${value.pending[0]!.id} --policy-dir '/ABSOLUTE/OPERATOR/DIRECTORY/OUTSIDE/TARGET-REPO' --actor 'YOUR NAME OR DELEGATED AGENT' --actor-kind operator --reason 'WHY THIS EXACT MATCH IS A NON-SECRET EXAMPLE'` : `wringer-drive status --state ${quote(state)}`;
+        return { value, text: `Source history review: ${inventory.findings.length} credential-shaped findings; ${value.pending.length} need a decision.\nCandidate: ${inventory.candidateCommit}\nInventory: ${inventory.sha256}\n${rows.join("\n")}\nNo matching values or raw context are printed. Never approve an unknown token as a harmless example. Configured secret values cannot be exempted. A delegated agent must use --actor-kind delegated-agent; this is not a human acceptance decision.\n${value.limitations.join("\n")}\nNext: ${next}`, exit: value.pending.length ? 3 : 0 };
     }
     if (a.command === "falsify") {
         positionals(a, 0); allowed(a, ["bundle", "output", "max-attempts", "wall-seconds"]);

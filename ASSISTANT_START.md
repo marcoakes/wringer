@@ -1,8 +1,9 @@
 # Keep your AI coding app. Put the work through Wringer.
 
 Your assistant helps you describe the work and follow progress. Wringer owns
-the bounded run, checks and evidence. You make the human review and handover
-decisions.
+the bounded run, checks and evidence. One private job page carries the proposal,
+progress, actual result, your review and a separate Send decision. You do not
+need to assemble those steps from different dashboards.
 
 **This is an engineering preview, not a protected delegation product.** It
 requires an operator to select a real contained execution profile once and
@@ -27,19 +28,49 @@ Then give your connected assistant the repository and this request:
 
 Your assistant can propose work, read status and evidence, request a correction,
 and ask for eligible continuation. It cannot use the MCP contract to approve a
-plan, increase limits, submit a human verdict or publish a change. The operator
-console and source-bound review workspace are separate decision surfaces. In
-this preview those surfaces rely on cooperation, not authenticated human
+plan, increase limits, submit a human verdict or publish a change. The private
+job page keeps these human decisions together. In this preview the page relies
+on cooperation, not authenticated human
 presence: do not treat a recorded name as proof of who clicked.
 
 Expect these decisions, not permission for every engineering step:
 
 1. **Approve the work:** exact request, requirements, source, scope and finite
-   session/time limits. Missing facts must stay visible.
-2. **Review or correct:** inspect the actual displayed candidate. Write your own
-   observation; a changed candidate needs a fresh observation.
-3. **Approve handover:** confirm the exact destination and branch separately.
-   Preparing a handover is not sending it; sending is not merging or deploying.
+   session/time limits. Missing facts and assumptions stay visible. Enter your
+   name once; approved work then starts without another routine Start click.
+2. **Review or correct:** Wringer opens the declared result on the same page.
+   Inspect it, then choose **Yes, this is right** or **Request correction**.
+   A comment is optional for Yes: the click is recorded as a decision, never
+   turned into words you did not write. A correction needs your own description.
+   Failed, missing or old displays cannot authorize a decision. A changed result
+   needs a fresh review.
+3. **Send:** Wringer prepares the accepted result without publishing it. Inspect
+   the destination and review branch selected during setup, then separately
+   choose **Send**. You do not re-enter that destination. Sending is not merging
+   or deploying.
+
+The result is the declared command's actual recorded text output, not an
+embedded browser running the built application. Its content must genuinely
+support your judgement. Wringer does not invent a second report or claim a URL
+was inspected just because it was printed.
+
+After sending, the same page shows the recorded handover and copyable
+fresh-clone audit instructions. A public review-request link is shown only if
+one was actually created; it is not a hosted audit service. Never share the
+private operator link as the reviewer's handover.
+
+### Getting your attention
+
+Use the job page's notification button to opt into browser notifications.
+They work only while that page is open and the browser permits them; they do
+not wake a closed coding app or a sleeping machine. The message contains no
+project details or private control link.
+
+A connected assistant can use `wringer.wait_for_update` to wait for a meaningful
+change for up to 25 seconds per call (zero is an immediate check). This is a
+bounded read-only MCP tool, not an MCP push notification or an always-on chat
+service. Neither page refresh nor waiting calls a development model. The
+assistant's own calls may still consume its coding-app account usage.
 
 When Wringer stops, ask what happened and what is currently allowed. Refreshing
 or reconnecting does not renew approval or buy a new attempt. An uncertain
@@ -262,3 +293,8 @@ evidence—not a stranger's successful PM test. The original
 [alpha.3 blind FAIL](docs/PM_BLIND_REPORT_2026-09-08.md) remains unchanged.
 The [alpha.6 launch checkpoint](docs/ASSISTANT_LAUNCH_CHECKPOINT_2026-09-08.md)
 records the scripted rehearsal, measured prerequisites and still-open gates.
+The [guided PM experience checkpoint](docs/PM_GUIDED_EXPERIENCE_2026-09-08.md)
+records the newer single-page flow under its own validation status. The
+[second blind FAIL](docs/PM_BLIND_REPORT_2026-09-08_2.md) is also preserved:
+UI repairs do not by themselves prove that its historical handover blocker is
+resolved or that a real PM has completed the repaired journey.

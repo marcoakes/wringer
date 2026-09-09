@@ -6,4 +6,7 @@ export * from "./forge";
 export * from "./contained";
 export * from "./contained-falsify";
 export * from "./projection";
+export * from "./source-inspection";
+export * from "./source-review";
+export * from "./source-findings";
 export { Refusal, quote } from "./io";

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Explicit contained human decision with optional original comment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "criterionId", "candidateTree", "acceptanceSha256", "verdict", "by", "note", "displayId", "display", "attribution", "authoritySha256"],
+  "properties": {
+    "schema_version": { "const": "wringer.contained-human-decision.v1" },
+    "criterionId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$" },
+    "candidateTree": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+    "acceptanceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "verdict": { "enum": ["met", "not_met"] },
+    "by": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "note": { "type": ["string", "null"], "minLength": 1, "maxLength": 16384, "description": "Original authored comment, or null when the person supplied no comment. Never synthesized from the verdict." },
+    "displayId": { "type": "string", "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" },
+    "display": {
+      "type": "object", "additionalProperties": false,
+      "required": ["candidateTree", "status", "receiptSha256"],
+      "properties": {
+        "candidateTree": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+        "status": { "const": "shown" },
+        "receiptSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "attribution": { "const": "initial-execution-approval", "description": "Attributed to the actor retained in the initial bounded execution approval. Cooperative-local, not authenticated human identity." },
+    "authoritySha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

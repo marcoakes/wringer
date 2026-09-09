@@ -4,12 +4,13 @@ import { hashValue } from "@wringer/plan";
 import { requestContainedRevision } from "@wringer/workflow";
 import { deliverContained, readContainedDeliveryProjection, parseForgeConfiguration, assertForgeRepositoryBinding, type ContainedDeliveryResult } from "@wringer/delivery";
 import { Redactor, sha256 } from "@wringer/engine";
-import { readController, controllerStatus, resumeController, showControllerCandidate, reviewControllerCandidate, type ApplicationOptions } from "./controller";
+import { readController, controllerStatus, resumeController, showControllerCandidate, reviewControllerCandidate, reviewControllerDecisions, type HumanDecisionInput, type ApplicationOptions } from "./controller";
 
-export type WorkspaceAction = "resume" | "retry-verification" | "retry-judge" | "retry-stopped" | "retry-uncertain" | "show" | "review" | "request-revision" | "prepare-delivery" | "publish";
+export type WorkspaceAction = "resume" | "retry-verification" | "retry-judge" | "retry-stopped" | "retry-uncertain" | "show" | "review" | "review-decision" | "review-decisions" | "request-revision" | "prepare-delivery" | "publish";
 export interface WorkspaceCommand { idempotencyKey: string; expectedRevision: string; expectedCandidateTree: string | null; action: WorkspaceAction; payload: Record<string, unknown>; }
 export interface WorkspaceCommandResult { commandId: string; status: "running" | "completed" | "failed" | "uncertain"; result?: unknown; error?: string; }
-const actions = new Set<WorkspaceAction>(["resume", "retry-verification", "retry-judge", "retry-stopped", "retry-uncertain", "show", "review", "request-revision", "prepare-delivery", "publish"]);
+const actions = new Set<WorkspaceAction>(["resume", "retry-verification", "retry-judge", "retry-stopped", "retry-uncertain", "show", "review", "review-decision", "review-decisions", "request-revision", "prepare-delivery", "publish"]);
+const queryAction = (action: WorkspaceAction) => ["prepare-delivery", "publish"].includes(action) ? "deliver" : ["review-decision", "review-decisions"].includes(action) ? "review" : action;
 const idPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const running = new Map<string, Promise<void>>();
 const lockName = ".wringer/application/operation.lock";
@@ -22,12 +23,21 @@ export function parseWorkspaceCommand(input: unknown): WorkspaceCommand {
     if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Expected a command object");
     const value = input as Record<string, any>;
     if (Object.keys(value).some(k => !["idempotencyKey", "expectedRevision", "expectedCandidateTree", "action", "payload"].includes(k)) || typeof value.idempotencyKey !== "string" || !idPattern.test(value.idempotencyKey) || typeof value.expectedRevision !== "string" || !/^[a-f0-9]{64}$/.test(value.expectedRevision) || !(value.expectedCandidateTree === null || typeof value.expectedCandidateTree === "string" && /^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(value.expectedCandidateTree)) || typeof value.action !== "string" || !actions.has(value.action as WorkspaceAction) || !value.payload || typeof value.payload !== "object" || Array.isArray(value.payload)) throw new Error("Command needs an exact revision, candidate, action and unique request ID");
-    const allowed: Record<WorkspaceAction, string[]> = { resume: [], "retry-verification": [], "retry-judge": [], "retry-stopped": [], "retry-uncertain": [], show: ["criterionId"], review: ["criterionId", "displayId", "verdict", "by", "note"], "request-revision": ["by", "note"], "prepare-delivery": ["remote", "sourceBranch", "targetBranch", "forge"], publish: ["preparedId"] };
+    const allowed: Record<WorkspaceAction, string[]> = { resume: [], "retry-verification": [], "retry-judge": [], "retry-stopped": [], "retry-uncertain": [], show: ["criterionId"], review: ["criterionId", "displayId", "verdict", "by", "note"], "review-decision": ["criterionId", "displayId", "verdict", "note"], "review-decisions": ["decisions"], "request-revision": ["by", "note"], "prepare-delivery": ["remote", "sourceBranch", "targetBranch", "forge"], publish: ["preparedId"] };
     if (Object.keys(value.payload).some(k => !allowed[value.action as WorkspaceAction].includes(k))) throw new Error("Unexpected command argument; arbitrary paths and shell commands are not accepted");
     const p = value.payload;
     if (["show", "review"].includes(value.action) && !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(field(p, "criterionId", 181))) throw new Error("Name a declared criterion ID");
     if (["review", "request-revision"].includes(value.action)) { field(p, "by", 200); field(p, "note"); }
     if (value.action === "review" && (!idPattern.test(field(p, "displayId", 36)) || !["met", "not_met"].includes(field(p, "verdict", 7)))) throw new Error("A display ID and explicit met/not_met verdict are required");
+    if (["review-decision", "review-decisions"].includes(value.action)) {
+        const decisions = value.action === "review-decision" ? [p] : p.decisions;
+        if (!Array.isArray(decisions) || decisions.length < 1 || decisions.length > 64) throw new Error("Name 1–64 displayed human requirements");
+        for (const d of decisions) {
+            if (!d || typeof d !== "object" || Array.isArray(d) || Object.keys(d).some(k => !["criterionId", "displayId", "verdict", "note"].includes(k)) || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(field(d, "criterionId", 181)) || !idPattern.test(field(d, "displayId", 36)) || !["met", "not_met"].includes(field(d, "verdict", 7))) throw new Error("Each displayed requirement needs an explicit met/not_met decision; identity is retained from the initial approval");
+            if (d.note !== undefined) field(d, "note");
+        }
+        if (new Set(decisions.map(d => d.criterionId)).size !== decisions.length) throw new Error("A requirement can occur only once in a grouped decision");
+    }
     if (value.action === "publish" && !idPattern.test(field(p, "preparedId", 36))) throw new Error("A preparation command ID is required");
     if (value.action === "prepare-delivery") {
         for (const key of ["remote", "sourceBranch", "targetBranch"]) field(p, key, 2048);
@@ -36,7 +46,9 @@ export function parseWorkspaceCommand(input: unknown): WorkspaceCommand {
         if (p.forge !== undefined) { parseForgeConfiguration(p.forge); assertForgeRepositoryBinding(p.remote, p.forge); }
         else if (!p.remote.startsWith("/")) { const u = new URL(p.remote); if (!["https:", "ssh:"].includes(u.protocol) || u.password || u.search || u.hash || u.protocol === "https:" && u.username) throw new Error("Publication needs a credential-free HTTPS/SSH URL or explicit local bare repository"); }
     }
-    const copy = JSON.parse(JSON.stringify(value)); Object.freeze(copy.payload); return Object.freeze(copy) as WorkspaceCommand;
+    const copy = JSON.parse(JSON.stringify(value));
+    if (copy.action === "review-decisions") { copy.payload.decisions.forEach(Object.freeze); Object.freeze(copy.payload.decisions); }
+    Object.freeze(copy.payload); return Object.freeze(copy) as WorkspaceCommand;
 }
 /** Construction-time fixtures only. None of these dependencies can be selected in HTTP JSON. */
 export interface WorkspaceCommandDependencies {
@@ -138,7 +150,7 @@ async function authoritativePublication(state: string, saved: any, deps: Workspa
     const manifest = await readControllerFile(await safePath(state, join(bundle, "manifest.json")));
     // The portable journal deliberately has a different hash chain from the
     // private controller. Bind both identities; never compare them as if equal.
-    if (manifest.schema_version !== "wringer.contained-delivery.v2" || manifest.viewSha256 !== hashValue(view) || manifest.journal?.sourceHeadSha256 !== saved.revision || manifest.journal?.headSha256 !== view.journalHeadSha256 || view.deliveryId !== saved.deliveryId || view.source.tree !== saved.candidateTree) throw new Error("Audited delivery does not match the prepared journal and candidate");
+    if (!["wringer.contained-delivery.v2", "wringer.contained-delivery.v3"].includes(manifest.schema_version) || manifest.viewSha256 !== hashValue(view) || manifest.journal?.sourceHeadSha256 !== saved.revision || manifest.journal?.headSha256 !== view.journalHeadSha256 || view.deliveryId !== saved.deliveryId || view.source.tree !== saved.candidateTree) throw new Error("Audited delivery does not match the prepared journal and candidate");
     const prepared = await readControllerFile(await safePath(state, join(directory, "prepared.json")));
     const transport = saved.transportSha256 ?? hashValue(saved.publication);
     if (!/^[a-f0-9]{64}$/.test(transport) || prepared.schema_version !== "wringer.contained-publication.v1" || prepared.status !== "prepared" || prepared.pushed !== false || prepared.deliveryId !== saved.deliveryId || prepared.bundleDir !== bundle || prepared.codeCommit !== view.source.codeCommit || prepared.evidenceCommit !== saved.evidenceCommit || prepared.sourceBranch !== saved.publication.sourceBranch || prepared.targetBranch !== saved.publication.targetBranch || prepared.transportSha256 !== transport || prepared.auditCommand !== view.auditCommand || prepared.falsify?.command !== view.falsifyCommand) throw new Error("Retained publication does not match the audited source and explicit transport");
@@ -206,7 +218,7 @@ async function assertFreshHandover(state: string, command: WorkspaceCommand, dep
 async function execute(state: string, command: WorkspaceCommand, options: ApplicationOptions): Promise<unknown> {
     const query = await controllerStatus(state), history = await readController(state, true, true), payload = command.payload;
     if (query.revision !== command.expectedRevision || query.candidateTree !== command.expectedCandidateTree) throw new Error("The run changed. Refresh and inspect the current result before acting.");
-    const action = command.action === "prepare-delivery" || command.action === "publish" ? "deliver" : command.action;
+    const action = queryAction(command.action);
     if (!query.actions.find(a => a.id === action)?.enabled) throw new Error(query.actions.find(a => a.id === action)?.reason ?? "Action is unavailable in this state");
     const guard = { expectedRevision: command.expectedRevision, expectedCandidateTree: command.expectedCandidateTree };
     if (["resume", "retry-verification", "retry-judge", "retry-stopped", "retry-uncertain"].includes(command.action)) return resumeController(state, { ...options, ...guard, retryVerification: command.action === "retry-verification", retryJudge: command.action === "retry-judge", retryStopped: command.action === "retry-stopped", retryUncertain: command.action === "retry-uncertain" });
@@ -217,6 +229,13 @@ async function execute(state: string, command: WorkspaceCommand, options: Applic
         const current = await ownMutation(state, history.events.length, command, "human-review-recorded");
         const result = verdict === "met" ? await resumeController(state, { ...options, expectedRevision: current.events.at(-1)!.sha256, expectedCandidateTree: command.expectedCandidateTree }) : current.result;
         return { judgement: recorded.judgement, result };
+    }
+    if (command.action === "review-decision" || command.action === "review-decisions") {
+        const decisions = (command.action === "review-decision" ? [payload] : payload.decisions) as HumanDecisionInput[];
+        const recorded = await reviewControllerDecisions(state, { ...guard, decisions });
+        const current = await ownMutation(state, history.events.length, command, "human-decisions-recorded");
+        const result = decisions.every(d => d.verdict === "met") ? await resumeController(state, { ...options, expectedRevision: current.events.at(-1)!.sha256, expectedCandidateTree: command.expectedCandidateTree }) : current.result;
+        return { judgements: recorded.judgements, ...(command.action === "review-decision" ? { judgement: recorded.judgements[0] } : {}), result };
     }
     if (command.action === "request-revision") {
         await requestContainedRevision(state, { ...guard, by: field(payload, "by"), feedback: field(payload, "note") });
@@ -266,9 +285,13 @@ export async function queueWorkspaceCommand(stateDirectory: string, input: unkno
             // Revalidate after claiming the application operation lock: another
             // publication may have completed between admission and dispatch.
             await assertFreshHandover(state, command, deps);
-            const action = ["prepare-delivery", "publish"].includes(command.action) ? "deliver" : command.action, offered = query.actions.find(a => a.id === action);
+            const action = queryAction(command.action), offered = query.actions.find(a => a.id === action);
             if (!offered?.enabled) throw new Error(offered?.reason ?? "Action is unavailable in this state");
             if (["show", "review"].includes(command.action) && !current.plan.acceptance.criteria.some(c => c.id === command.payload.criterionId && c.kind === "human")) throw new Error("Name a declared human criterion");
+            if (["review-decision", "review-decisions"].includes(command.action)) {
+                const decisions = (command.action === "review-decision" ? [command.payload] : command.payload.decisions) as HumanDecisionInput[];
+                if (decisions.some(d => !current.plan.acceptance.criteria.some(c => c.id === d.criterionId && c.kind === "human"))) throw new Error("Name declared human requirements");
+            }
             if (command.action === "publish") await boundPreparation(state, field(command.payload, "preparedId"), command, deps);
             options.signal?.throwIfAborted();
             began = true;

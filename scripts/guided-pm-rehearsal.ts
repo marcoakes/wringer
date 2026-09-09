@@ -1,0 +1,105 @@
+/** Browser-operated fixture: real product forms, Git and audit, synthetic
+ * worker/judge/check/display observations. Never a genuine person's verdict. */
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { Page } from "playwright";
+import { hashValue } from "../packages/plan/src";
+import { latestWorkspacePublication } from "../packages/application/src/commands";
+import { readController } from "../packages/application/src/controller";
+import { readPmWorkspace } from "../packages/cli/src/workspace";
+import { readContainedDeliveryProjection } from "../packages/delivery/src";
+
+export async function runGuidedPmJourney(input: {
+    page: Page; url: string; root: string; state: string; jobId: string; actor: string; origin: string; baseCommit: string;
+    roleCount: () => number; call: (name: string, args: unknown) => Promise<any>;
+    record: (entry: unknown) => Promise<void>; check: (name: string, value: unknown) => Promise<void>;
+    git: (args: string[]) => Promise<string>;
+    command: (label: string, argv: string[], cwd?: string, expected?: number) => Promise<any>;
+}) {
+    const { page, record, check, root, state, jobId, actor, call, git, command } = input;
+    const began = Date.now(), errors: string[] = [], decisions: { action: string; body: unknown }[] = [];
+    let adversarialProbe = false;
+    page.setDefaultTimeout(20000);
+    page.on("pageerror", e => errors.push(e.message));
+    page.on("response", response => {
+        if (new URL(response.url()).pathname.startsWith("/api/job/") && !response.ok()) void response.json().then(body => record({ browserDecisionRefusal: body, status: response.status() })).catch(() => {});
+    });
+    page.on("request", request => {
+        const path = new URL(request.url()).pathname;
+        if (!adversarialProbe && request.method() === "POST" && path.startsWith("/api/job/")) decisions.push({ action: path.split("/").at(-1)!, body: request.postDataJSON() });
+    });
+    const waitPhase = (phase: string) => page.locator(`#${phase}-panel`).waitFor({ state: "visible", timeout: 90000 });
+    const shot = async (name: string) => { await page.screenshot({ path: join(root, `browser-guided-${name}.png`), fullPage: true }); await record({ browserScreenshot: `browser-guided-${name}.png`, fixture: true }); };
+    await page.goto(input.url);
+    await waitPhase("approval");
+    const route = new URL(page.url());
+    await check("guided page removes private fragment", !route.hash);
+    await page.reload(); await waitPhase("approval");
+    const waiting = await call("get_status", { jobId });
+    const noChange = await call("wait_for_update", { jobId, afterEventId: waiting.eventId, timeoutSeconds: 0 });
+    await check("bounded assistant wait observes without approving or spending", noChange.changed === false && input.roleCount() === 0);
+    await page.locator("#approval-actor").fill(actor);
+    await shot("approval");
+    await page.locator("#approve-job").click();
+    await waitPhase("review");
+    const first = await readPmWorkspace(state), before = await call("get_status", { jobId });
+    await check("one approval automatically reaches the actual displayed human hold", input.roleCount() === 2 && first.checks.every(c => c.before.status === "failed" && c.after.status === "passed") && first.criteria.some(c => c.kind === "human" && c.state === "unknown"));
+    await check("coding app receives a credential-free ready pointer", before.decision?.phase === "review" && before.decision?.pageUrl?.startsWith(route.origin) && !before.decision.pageUrl.includes("token") && before.decision.eventId === before.eventId);
+    await check("the PM stayed on one origin and sees actual fixture output", new URL(page.url()).origin === route.origin && (await page.locator("#reports").innerText()).includes("export const expected = true"));
+    await check("legacy terminal-style review mechanics are absent", await page.locator("#review-by, #criterion, #delivery-remote, #publication-consent, [data-command=show]").count() === 0);
+    adversarialProbe = true;
+    const rejected = await page.evaluate(async jobId => {
+        const headers = { "X-Wringer-Console": "1", "Content-Type": "application/json" };
+        const view = await (await fetch(`/api/job?jobId=${jobId}`, { headers })).json();
+        const response = await fetch("/api/job/decision", { method: "POST", headers, body: JSON.stringify({ jobId, expectedRevision: view.readyRevision, expectedCandidateTree: view.candidateTree, verdict: "met", displayIds: ["11111111-1111-1111-1111-111111111111"] }) });
+        return response.status;
+    }, jobId);
+    adversarialProbe = false;
+    await check("actual HTTP review refuses an invented display without recording Yes", rejected === 409 && (await readPmWorkspace(state)).criteria.filter(c => c.kind === "human").every(c => c.state === "unknown"));
+    await shot("first-result");
+    await page.locator("#request-correction").click();
+    const correction = "SCRIPTED correction: keep the correct value and replace the cryptic label with Expected value is ready.";
+    await page.locator("#correction-note").fill(correction);
+    await page.locator("#submit-correction").click();
+    await page.waitForFunction(() => document.getElementById("reports")?.textContent?.includes("Expected value is ready"), {}, { timeout: 90000 });
+    await waitPhase("review");
+    const history = await readController(state), corrected = await readPmWorkspace(state);
+    await check("one correction preserves original words and uses only the remaining allowance", input.roleCount() === 4 && history.events.some(e => e.type === "revision-requested" && (e.details as any).feedback === correction) && corrected.candidate?.tree !== first.candidate?.tree);
+    await check("new result has no prefilled approval or comment", (await page.locator("#review-note").inputValue()) === "" && corrected.criteria.find(c => c.kind === "human")?.state !== "met");
+    await page.setViewportSize({ width: 390, height: 844 });
+    await check("guided page fits mobile without horizontal overflow", await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await shot("review-mobile");
+    await page.setViewportSize({ width: 1360, height: 1000 });
+    await shot("review-desktop");
+    await page.locator("#accept-result").click();
+    await waitPhase("send");
+    const ready = await readPmWorkspace(state), prepared = await latestWorkspacePublication(state);
+    await check("one Yes records a decision without inventing a personal note", ready.criteria.filter(c => c.kind === "human" && c.required).every(c => c.state === "met" && c.note === null && c.by === actor));
+    await check("acceptance automatically prepares but never sends", prepared?.pushed === false && (await git(["--git-dir", input.origin, "for-each-ref", "--format=%(refname)", "refs/heads"])).trim() === "refs/heads/main");
+    await page.reload(); await waitPhase("send");
+    await check("reopening send preserves its decision and does not publish", (await latestWorkspacePublication(state))?.pushed === false);
+    await shot("send");
+    await page.locator("#send-job").click();
+    await waitPhase("handover");
+    const delivered = await latestWorkspacePublication(state);
+    if (!delivered) throw new Error("No carried publication was recorded");
+    await check("one separate Send publishes only the intended review branch", delivered.pushed === true && (await git(["--git-dir", input.origin, "rev-parse", "main"])).trim() === input.baseCommit);
+    await check("PM-visible happy-path post-build decisions are Yes then Send", decisions.filter(d => ["decision", "send"].includes(d.action)).length === 2 && decisions.filter(d => d.action === "approve").length === 1 && decisions.filter(d => d.action === "correction").length === 1);
+    const clone = join(root, "guided-fresh-clone"); await git(["clone", "--branch", delivered.sourceBranch, input.origin, clone]);
+    const audit = await command("guided literal carried audit in fresh clone", ["/bin/sh", "-c", delivered.auditCommand], clone);
+    const bundle = join(clone, ".wringer/deliveries", delivered.deliveryId), view = await readContainedDeliveryProjection(bundle);
+    const certificate = JSON.parse(await readFile(join(bundle, "certificate.json"), "utf8"));
+    const documents = await Promise.all(["mr.md", "summary.md", "board.html"].map(name => readFile(join(bundle, name), "utf8")));
+    await check("carried views and certificate preserve decision identity and no-comment truth", hashValue(certificate.view) === hashValue(view) && view.criteria.filter(c => c.kind === "human").every(c => c.note === null && c.by === actor) && documents.every(text => text.includes(delivered.deliveryId) && !text.includes("null —") && !text.includes("PRIVATE_FIXTURE")));
+    await check("handover page offers the real carried audit command", (await page.locator("#audit-command").innerText()).trim() === delivered.auditCommand);
+    const falsify = await command("guided literal breakage command without fixture runtime", ["/bin/sh", "-c", delivered.falsify.command], clone, 3);
+    await check("unavailable live breakage remains inconclusive", /inconclusive|unavailable/i.test(falsify.stdout));
+    await shot("handover");
+    await page.locator("#lock-job-page").click(); await page.reload();
+    await page.waitForFunction(() => /locked|private.*link|connect/i.test(document.getElementById("job-message")?.textContent ?? ""));
+    await check("guided browser has no script errors", errors.length === 0);
+    await record({ surface: "guided Chromium SCRIPTED operator journey", decisions, routeStayedOnOneOrigin: true, roleSessions: input.roleCount(), wallMs: Date.now() - began, providerCalls: 0, credentialReads: 0 });
+    const result = { schema_version: "wringer.guided-pm-rehearsal.v1", status: "passed", fixture: true, jobId, deliveryId: delivered.deliveryId, candidateCommit: delivered.codeCommit, evidenceCommit: delivered.evidenceCommit, browserDecisions: decisions.map(d => d.action), browserInteractionMs: Date.now() - began, providerCalls: 0, credentialReads: 0, independentPmMeasured: false, realContainmentMeasured: false, realClientMeasured: false, freshCloneAuditExit: audit.exit_code, breakageTest: "inconclusive-runtime-unavailable" };
+    await writeFile(join(root, "guided-result.json"), JSON.stringify(result, null, 2) + "\n");
+    return result;
+}

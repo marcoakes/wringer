@@ -12,7 +12,7 @@ import { projectRequirements } from "./requirements";
 export const ASSISTANT_BOUNDARY = "cooperative-local" as const;
 export const ASSISTANT_WARNING = "Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.";
 const SCHEMA = "wringer.assistant-response.v1";
-const allowedTools = new Set(["wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
+const allowedTools = new Set(["wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const mutationTools = new Set(["wringer.start", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const continuation = new Set(["resume", "retry-verification", "retry-judge", "retry-stopped"]);
 const clean = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]);
@@ -189,6 +189,9 @@ export async function createAssistantService(root: string, options: { dependenci
     const workspace = await readAssistantWorkspace(root), deps = { ...realDependencies, ...options.dependencies };
     const state = (jobId: string) => assistantControllerState(root, jobId);
     const runner = await createAssistantRunner(await assistantPath(root, "runner"), { execute: dispatch });
+    const ownerAccess = Symbol("construction-only routine coordinator");
+    let presentation: ((jobId: string) => Promise<{ phase: string; nextAction: string; eventId: string; pageUrl: string }>) | undefined;
+    let waiting = 0;
     async function current(p: AssistantProposal) {
         const a = await approval(root, p), started = await lifecycleMarker(root, p, "started");
         const hasJournal = await assistantExists(root, `jobs/${p.id}/controller/.wringer/contained/plan.json`);
@@ -295,14 +298,14 @@ export async function createAssistantService(root: string, options: { dependenci
             throw error;
         }
     }
-    async function call(token: string, name: string, raw: unknown): Promise<Record<string, unknown>> {
+    async function call(token: string | symbol, name: string, raw: unknown): Promise<Record<string, unknown>> {
         try {
-            await authorize(root, token);
-            insist(!JSON.stringify(raw).includes(token), "secret-refused", "Connection credentials cannot be included in a request or retained evidence.");
+            if (token !== ownerAccess) await authorize(root, token as string);
+            insist(typeof token !== "string" || !JSON.stringify(raw).includes(token), "secret-refused", "Connection credentials cannot be included in a request or retained evidence.");
             insist(allowedTools.has(name), "forbidden-tool", "This connection cannot approve, judge, publish, change limits, read credentials or execute arbitrary commands.");
             if (raw && typeof raw === "object" && Object.hasOwn(raw, "strictCashLimit")) throw new AssistantRefusal("strict-cash-unavailable", "Strict cash limits are unavailable. No work started; a monetary request is not downgraded to session limits.");
             const common = ["jobId", "idempotencyKey", "expectedRevision", "expectedCandidateTree"];
-            const fields: Record<string, string[]> = { "wringer.inspect_setup": ["workspaceId"], "wringer.propose": ["workspaceId", "idempotencyKey", "intent", "plan", "assumptions", "questions"], "wringer.get_status": ["jobId"], "wringer.get_approval_request": ["jobId"], "wringer.get_evidence": ["jobId", "evidenceId", "offset", "limit"], "wringer.start": common, "wringer.cancel": common, "wringer.request_revision": [...common, "note"], "wringer.continue": [...common, "action"], "wringer.prepare_handover": common };
+            const fields: Record<string, string[]> = { "wringer.inspect_setup": ["workspaceId"], "wringer.propose": ["workspaceId", "idempotencyKey", "intent", "plan", "assumptions", "questions"], "wringer.get_status": ["jobId"], "wringer.wait_for_update": ["jobId", "afterEventId", "timeoutSeconds"], "wringer.get_approval_request": ["jobId"], "wringer.get_evidence": ["jobId", "evidenceId", "offset", "limit"], "wringer.start": common, "wringer.cancel": common, "wringer.request_revision": [...common, "note"], "wringer.continue": [...common, "action"], "wringer.prepare_handover": common };
             const args = exact(raw, fields[name]!);
             if (name === "wringer.inspect_setup") {
                 insist(!args.workspaceId || args.workspaceId === workspace.id, "workspace-refused", "Only the operator-selected workspace is available");
@@ -318,7 +321,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 const p: AssistantProposal = { schema_version: "wringer.assistant-proposal.v1", id: jobId, workspaceId: workspace.id, requestId, intent, plan, assumptions, questions };
                 insist(clean.scrub(JSON.stringify(p)) === JSON.stringify(p), "secret-refused", "Detected credentials cannot be recorded in proposals");
                 await writeAssistantRecord(root, jobFile(jobId, "proposal"), p);
-                return await status(jobId);
+                return await presentedStatus(jobId);
             }
             if (name === "wringer.get_status" && args.jobId === undefined) {
                 const ids = await assistantInventory(root, "jobs");
@@ -327,7 +330,22 @@ export async function createAssistantService(root: string, options: { dependenci
                 return { schema_version: SCHEMA, outcome: "observed", workspaceId: workspace.id, jobs: jobs.map(v => ({ jobId: v.jobId, revision: v.revision, candidateTree: v.candidateTree, outcome: v.outcome, nextAction: v.nextAction, operations: v.operations })) };
             }
             const jobId = assistantId(args.jobId), p = await proposal(root, jobId, workspace);
-            if (name === "wringer.get_status") return await status(jobId);
+            if (name === "wringer.get_status") return await presentedStatus(jobId);
+            if (name === "wringer.wait_for_update") {
+                const seconds = args.timeoutSeconds ?? 25;
+                insist(Number.isInteger(seconds) && seconds >= 0 && seconds <= 25 && (args.afterEventId === undefined || typeof args.afterEventId === "string" && /^[a-f0-9]{64}$/.test(args.afterEventId)), "wait-bounds", "Wait at most 25 seconds using the last returned eventId; waiting does not start work.");
+                insist(waiting < 16, "wait-limit", "Too many pending waits; reuse the existing observation.");
+                waiting++;
+                try {
+                    const end = Date.now() + seconds * 1000;
+                    while (true) {
+                        if (typeof token === "string") await authorize(root, token);
+                        const value = await presentedStatus(jobId);
+                        if (value.eventId !== args.afterEventId || Date.now() >= end) return { ...value, changed: value.eventId !== args.afterEventId, note: "Read-only bounded wait. This is not an OS notification, a new spending grant or permission for the assistant to make a human decision." };
+                        await new Promise(resolve => setTimeout(resolve, Math.min(1000, Math.max(1, end - Date.now()))));
+                    }
+                } finally { waiting--; }
+            }
             if (name === "wringer.get_approval_request") return { schema_version: SCHEMA, jobId, revision: hashValue(p), outcome: (await approval(root, p)) ? "already-approved" : p.questions.length ? "needs-decision" : "awaiting-approval", intent: p.intent, plan: p.plan, assumptions: p.assumptions, questions: p.questions, destination: workspace.destination, note: "Use the operator's private console. No approval token or human/publication authority is supplied to this assistant.", limitation: ASSISTANT_WARNING };
             if (name === "wringer.get_evidence") {
                 insist(["request", "proposal", "current-report", "handover"].includes(args.evidenceId), "evidence-refused", "Use a listed evidence handle, not a path");
@@ -373,6 +391,11 @@ export async function createAssistantService(root: string, options: { dependenci
             return { schema_version: SCHEMA, outcome: "refused", isError: true, code: error instanceof AssistantRefusal ? error.code : "invalid-or-unavailable", message: error instanceof AssistantRefusal ? error.message : "The input or retained state could not be validated. No authority was added and no ambiguous operation was replayed. Inspect the operator console.", boundary: ASSISTANT_BOUNDARY };
         }
     }
+    async function presentedStatus(jobId: string) {
+        const value = await status(jobId), decision = presentation ? await presentation(jobId) : null;
+        const eventId = decision?.eventId ?? hashValue({ outcome: value.outcome, revision: value.revision, candidateTree: value.candidateTree, publication: value.publication });
+        return { ...value, eventId, ...(decision ? { decision } : {}) };
+    }
     /** Operator-only reconciliation: never accept a caller's assertion that work
      * succeeded. The durable domain must establish a terminal outcome first. */
     async function reconcile(jobId: string, operationId: string, acknowledgeUncertain: boolean) {
@@ -401,5 +424,16 @@ export async function createAssistantService(root: string, options: { dependenci
             return runner.reconcile(operationId, { acknowledgeUncertain: true, disposition, evidenceSha256: hashValue(evidence) });
         });
     }
-    return { call, runner, status, root, workspace, reconcile, async list() { return Promise.all((await assistantInventory(root, "jobs")).map(id => status(assistantId(id)))); }, async inspectProposal(jobId: string) { return proposal(root, jobId, workspace); }, async assertJobActive(jobId: string) { const p = await proposal(root, jobId, workspace); insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job was cancelled; no further execution or publication is allowed."); } };
+    return {
+        call: (token: string, name: string, raw: unknown) => call(token, name, raw), runner, status, root, workspace, reconcile,
+        // This construction-only seam reuses exact application approval, source,
+        // budget and idempotency checks. It grants no operator decision tools.
+        requestRoutine: (name: "wringer.start" | "wringer.continue" | "wringer.prepare_handover", raw: unknown) => {
+            if (!["wringer.start", "wringer.continue", "wringer.prepare_handover"].includes(name)) return Promise.resolve({ outcome: "refused", code: "routine-tool", message: "The convenience scheduler may only start, continue or prepare already-approved work." });
+            return call(ownerAccess, name, raw);
+        },
+        setPresentation(reader: typeof presentation) { presentation = reader; },
+        async inspectApproval(jobId: string) { return approval(root, await proposal(root, jobId, workspace)); },
+        async list() { return Promise.all((await assistantInventory(root, "jobs")).map(id => status(assistantId(id)))); }, async inspectProposal(jobId: string) { return proposal(root, jobId, workspace); }, async assertJobActive(jobId: string) { const p = await proposal(root, jobId, workspace); insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job was cancelled; no further execution or publication is allowed."); },
+    };
 }

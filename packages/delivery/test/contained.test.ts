@@ -6,8 +6,8 @@ import { randomUUID } from "node:crypto";
 import { compileDeclaration, createExecutionAuthority, discoverEnvironment, hashValue, hashBytes } from "@wringer/plan";
 import { prepareRepositorySource, captureCandidate, processDriver, type RoleExecutionResult, type RoleExecutionRequest, type ContainedCommandRequest } from "@wringer/runtime";
 import { runContainedJourney, type ContainedJourneyServices, type CandidateVerification } from "@wringer/workflow";
-import { deliverContained, auditContained, readContainedDeliveryProjection, legacyContainedDocumentsV1 } from "../src/contained";
-import { containedProjectionDigest, deriveContainedDeliveryProjection, renderContainedCertificate, renderContainedBoard, renderContainedDocuments } from "../src/projection";
+import { deliverContained, auditContained, readContainedDeliveryProjection, legacyContainedDocumentsV1, reviewContainedSource } from "../src/contained";
+import { containedProjectionDigest, deriveContainedDeliveryProjection, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedDocuments, renderContainedDocumentsV3 } from "../src/projection";
 import { falsifyContained } from "../src/contained-falsify";
 import { seal, files } from "../src/io";
 const image = `fixture.invalid/agent@sha256:${"a".repeat(64)}`;
@@ -18,7 +18,7 @@ async function command(argv: string[], input?: string) {
         throw new Error(result.stderr);
     return result.stdout;
 }
-async function fixture(human = false, mutable = false, dependencySetup = false, historicalBytes = 0) {
+async function fixture(human = false, mutable = false, dependencySetup = false, historicalBytes = 0, sourceExamples = false, optionalComment = false) {
     const root = await mkdtemp(join(tmpdir(), "wringer-contained-delivery-")), repo = join(root, "repo"), origin = join(root, "origin.git"), stateDir = join(root, "controller");
     await command(["git", "init", "--initial-branch=main", repo]);
     await command(["git", "init", "--bare", "--initial-branch=main", origin]);
@@ -36,6 +36,12 @@ async function fixture(human = false, mutable = false, dependencySetup = false, 
             await command(["git", "-C", repo, "commit", "-m", `Inflated-history fixture ${byte}`]);
         }
         await unlink(join(repo, "historical.dat"));
+    }
+    if (sourceExamples) {
+        await writeFile(join(repo, "old-example.txt"), "sk-" + "fixture-not-a-real-secret");
+        await command(["git", "-C", repo, "add", "old-example.txt"]); await command(["git", "-C", repo, "commit", "-m", "Historical source-review example"]);
+        await unlink(join(repo, "old-example.txt"));
+        await writeFile(join(repo, "current-example.txt"), "ghp_" + "F".repeat(25));
     }
     await command(["git", "-C", repo, "add", "."]);
     await command(["git", "-C", repo, "commit", "-m", "baseline"]);
@@ -70,7 +76,7 @@ async function fixture(human = false, mutable = false, dependencySetup = false, 
         const displayId = randomUUID(), body = { schema_version: "wringer.contained-display.v1", id: displayId, criterionId: "readable", candidateTree: result.candidate!.tree, acceptanceSha256: plan.acceptance_sha256, at: new Date().toISOString(), success: true, measured: { provenance: provenance("verifier", result.candidate!.source, randomUUID()), sourceChanged: false, sourceTree: result.candidate!.tree, checkInputsSha256: hashBytes(originalInputs), results: [...setupRows(), { id: "show", code: 0, stdout: "after\n", stderr: "", durationMs: 1 }] } };
         await mkdir(join(stateDir, "displays"));
         await writeFile(join(stateDir, "displays", `${displayId}.json`), JSON.stringify({ ...body, sha256: hashValue(body) }));
-        result = await runContainedJourney({ ...options, humanJudgements: [{ criterionId: "readable", candidateTree: result.candidate!.tree, acceptanceSha256: plan.acceptance_sha256, verdict: "met", by: "Real fixture operator", note: "Yes — this is the display I reviewed.", display: { candidateTree: result.candidate!.tree, status: "shown", receiptSha256: hashValue(body) } }] });
+        result = await runContainedJourney({ ...options, humanJudgements: optionalComment ? [{ schema_version: "wringer.contained-human-decision.v1", criterionId: "readable", candidateTree: result.candidate!.tree, acceptanceSha256: plan.acceptance_sha256, verdict: "met", by: authority.actor, note: null, displayId, attribution: "initial-execution-approval", authoritySha256: hashValue(authority), display: { candidateTree: result.candidate!.tree, status: "shown", receiptSha256: hashValue(body) } }] : [{ criterionId: "readable", candidateTree: result.candidate!.tree, acceptanceSha256: plan.acceptance_sha256, verdict: "met", by: "Real fixture operator", note: "Yes — this is the display I reviewed.", display: { candidateTree: result.candidate!.tree, status: "shown", receiptSha256: hashValue(body) } }] });
     }
     expect(result.status).toBe("review-ready");
     return { root, repo, origin, stateDir, plan, result, publication: { remote: origin, sourceBranch: "wringer/contained-test", targetBranch: "main" } };
@@ -145,6 +151,51 @@ test("compressed-small but over-64-MiB inflated history prepares, retries, sends
         const report = await auditContained(join(clone, ".wringer/deliveries", delivered.deliveryId));
         expect(report.status).toBe("passed"); expect(report.claims.every(claim => claim.status === "checked")).toBe(true);
         expect(report.human).toBe(1); expect(report.checks).toBe(1);
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+}, 120000);
+test("source examples require exact operator reviews, remain non-overridable for configured secrets, and carry an auditable exception record", async () => {
+    const f = await fixture(true, false, false, 0, true, true);
+    try {
+        await expect(deliverContained({ stateDir: f.stateDir, publication: f.publication })).rejects.toThrow("source-review --state");
+        const { dispatch } = await import("../../cli/src/app");
+        const publicInventory = await dispatch(["source-review", "--state", f.stateDir, "--repo", f.root], "wringer-drive");
+        expect(publicInventory.exit).toBe(3); expect(publicInventory.text).toContain("matching-byte SHA256"); expect(publicInventory.text).not.toContain("sk-" + "fixture-not-a-real-secret");
+        const scan = await reviewContainedSource({ stateDir: f.stateDir }); expect(scan.pending).toHaveLength(2);
+        for (const finding of scan.pending) await dispatch(["source-review", "--state", f.stateDir, "--repo", f.root, "--policy-dir", join(f.root, "operator-policy"), "--finding", finding.id, "--inventory", scan.inventory!.sha256, "--actor", "Codex / delegated PM fixture", "--actor-kind", "delegated-agent", "--reason", "This exact isolated fixture object contains an intentionally synthetic example, not an actual credential."], "wringer-drive");
+        expect((await reviewContainedSource({ stateDir: f.stateDir })).pending).toHaveLength(0);
+        const prior = process.env.WRINGER_SOURCE_REVIEW_TEST_SECRET;
+        try { process.env.WRINGER_SOURCE_REVIEW_TEST_SECRET = "sk-" + "fixture-not-a-real-secret"; await expect(deliverContained({ stateDir: f.stateDir, publication: f.publication })).rejects.toThrow("detected credential"); }
+        finally { if (prior === undefined) delete process.env.WRINGER_SOURCE_REVIEW_TEST_SECRET; else process.env.WRINGER_SOURCE_REVIEW_TEST_SECRET = prior; }
+        const prepared = await deliverContained({ stateDir: f.stateDir, publication: f.publication });
+        const delivered = await deliverContained({ stateDir: f.stateDir, publication: f.publication, send: true });
+        expect(delivered.evidenceCommit).toBe(prepared.evidenceCommit);
+        const fresh = join(f.root, "fresh-review"); await command(["git", "clone", "--branch", f.publication.sourceBranch, f.origin, fresh]);
+        const bundle = join(fresh, ".wringer/deliveries", delivered.deliveryId), audited = await auditContained(bundle);
+        expect(audited.status).toBe("passed"); expect(audited.claims.some(c => c.id === "source-credential-shape-review" && c.status === "checked")).toBe(true);
+        expect(audited.limits.join(" ")).toContain("cannot repeat that check");
+        const manifest = JSON.parse(await readFile(join(bundle, "manifest.json"), "utf8")); expect(manifest.schema_version).toBe("wringer.contained-delivery.v3"); expect(manifest.sourceReview.findings).toBe(2);
+        const view = JSON.parse(await readFile(join(bundle, "view.json"), "utf8")); expect(view.criteria.find((c: any) => c.kind === "human").note).toBeNull();
+        expect(await readFile(join(bundle, "summary.md"), "utf8")).toContain("Decision recorded; no comment supplied");
+        expect(await readFile(join(bundle, "board.html"), "utf8")).toContain("Decision recorded; no comment supplied");
+        const receiptPath = join(bundle, "source-inspection.json"), receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+        expect(receipt.approvals.every((a: any) => a.actorKind === "delegated-agent")).toBe(true);
+        expect(await readFile(join(bundle, "mr.md"), "utf8")).toContain("not a secret-free claim");
+        // A coherently re-rendered/resealed v3 bundle cannot hide its exception
+        // requirement by removing the sender's declaration and carried receipt.
+        const omitted = join(f.root, "omitted-source-disclosure"); await cp(bundle, omitted, { recursive: true });
+        const omittedManifest = structuredClone(manifest), omittedView = structuredClone(view);
+        omittedManifest.sourceReview = null;
+        omittedManifest.limits = omittedManifest.limits.filter((line: string) => !line.startsWith("Source credential-shape exceptions:"));
+        omittedView.limits = omittedView.limits.filter((line: string) => !line.startsWith("Source credential-shape exceptions:"));
+        omittedManifest.viewSha256 = containedProjectionDigest(omittedView);
+        const omittedProjection = JSON.parse(await readFile(join(omitted, "projection.json"), "utf8")); omittedProjection.viewSha256 = omittedManifest.viewSha256;
+        for (const [name, value] of Object.entries({ "manifest.json": omittedManifest, "view.json": omittedView, "certificate.json": renderContainedCertificate(omittedView), "projection.json": omittedProjection })) await writeFile(join(omitted, name), JSON.stringify(value));
+        for (const [name, value] of Object.entries({ ...renderContainedDocumentsV3(omittedView, omittedManifest.falsify.reason), "board.html": renderContainedBoardV2(omittedView) })) await writeFile(join(omitted, name), value);
+        await unlink(join(omitted, "source-inspection.json")); await seal(omitted);
+        const omissionAudit = await auditContained(omitted); expect(omissionAudit.status).toBe("failed");
+        expect(omissionAudit.claims.some(claim => claim.reason.includes("no committed exception receipt"))).toBe(true);
+        receipt.approvals[0].reason = "Changed source decision without a valid operator record"; await writeFile(receiptPath, JSON.stringify(receipt)); await seal(bundle);
+        expect((await auditContained(bundle)).status).toBe("failed");
     } finally { await rm(f.root, { recursive: true, force: true }); }
 }, 120000);
 test("mutable terminal view or omitted verification observation cannot authorize delivery", async () => {

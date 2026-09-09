@@ -26,14 +26,16 @@ contained agents' usage; unknown billing is never £0.
 
 Wringer coordinates the agents and preserves the evidence. The agents write the product code. It cannot guarantee that a model understands an incomplete request or will finish every job.
 
-The live PM workspace puts your next decision first. Ask your operator to open
-`wringer-drive board --state CONTROLLER_STATE`, then use the private local URL
-it prints. The workspace follows the same durable run as the command line;
-refreshing the page does not buy a new run or reset the budget.
+The assistant's private job page puts your next decision first and keeps the
+whole job in one place. Your operator opens it during setup; reopening or
+refreshing it does not buy a new run or reset the budget. Enter your name when
+approving the bounded work, not again at each later decision. That recorded
+name is not proof of authenticated human presence in this cooperative preview.
 
-You can inspect the original request, current outcome, changed files, acceptance
-and check evidence, session usage and outstanding decisions. Expand details when
-you need the technical receipts. Unknown cost is labelled unknown, not £0.
+You see the original request, requirements, scope, actual displayed result and
+the decision needed now. Technical evidence stays in expandable details.
+Coding-app and managed-development costs are separate; missing billing is
+labelled unknown, not £0.
 
 ## What you should not have to do repeatedly
 
@@ -56,7 +58,10 @@ There is no single percentage to confuse those facts. “Checks passing” is no
 
 ## Where your attention matters
 
-Review whether the requirements still mean what you asked for. If a requirement needs a person's eye, look at the displayed result and record your own observation. Review the ready handover before authorizing publication.
+Review whether the requirements still mean what you asked for. Approving them
+also approves the shown source, scope and finite session/time limits. Routine
+work starts automatically inside that allowance; it does not grant a cash cap
+or publication permission.
 
 The contained pen requires a successful display of the exact candidate. If the
 display fails, the observation cannot be recorded by using the standalone
@@ -65,27 +70,47 @@ actual observation.
 
 The delivery includes instructions for someone else to audit it from a fresh clone. This is how the result travels without depending on the builder's explanation or workstation.
 
-In the workspace, use **Show the result** before recording your own verdict and
-note. The display is currently the declared command's text output, not a browser
-preview of the built application. If that output cannot support the judgement,
-do not approve it: that is a display limitation to fix in the plan.
+Wringer opens the actual result for you. The display is the declared command's
+text output, not a browser preview of the built application. If that output
+cannot support the judgement, do not approve it: that is a display limitation
+to fix in the plan. A failed, missing or old display cannot enable Yes.
 
-Use **Request a revision** to describe what should change. The request becomes
-part of the record; the worker may continue within the remaining authority.
+Choose **Yes, this is right** after reviewing the displayed requirements and
+result. You may add a comment, but you do not have to invent a sentence to make
+the button work. Wringer records the decision separately from any genuine
+words you supplied.
+
+Use **Request correction** to describe what should change in your own words.
+The request becomes part of the record; the worker may continue within the remaining authority.
 Changing the candidate withdraws its previous human acceptance. You do not need
 to give routine engineering permission again, but you do need to review the new
 result before a source-bound human requirement can pass.
 
-Delivery has two decisions: prepare the handover, then confirm publication to the
-named repository and review branch. A pushed branch is not automatically a hosted
-pull request, and neither means merged or deployed. The board uses those exact
-distinctions. An uncertain operation stays visible; clicking repeatedly does not
+After acceptance, Wringer prepares the handover without another routine click.
+You then inspect the preset destination and branch and separately choose
+**Send this reviewed change**. Acceptance does not authorize sending. A pushed
+branch is not automatically a hosted pull request, and neither means merged or
+deployed. An uncertain operation stays visible; clicking repeatedly does not
 start duplicate work. A stale or disconnected page disables decisions.
 
-Keep the server running while you use it. Its private URL grants local control,
+The sent result supplies the actual handover and copyable fresh-clone audit
+instructions. A public review-request link appears only if one was created.
+That link is not a hosted audit service and the private job page is not a
+reviewer link. The recipient follows the carried instructions to audit the
+delivery; seeing those instructions does not mean the audit has run.
+
+You can opt into browser notifications while this page is open. A connected
+assistant can also wait for a meaningful update through a bounded read-only
+tool. Neither is native push to a closed coding app. You can leave the page
+running without asking a model to narrate every poll.
+
+Keep the local execution owner running while you use it. Its private URL grants local control,
 so do not send it to others. A saved HTML snapshot is read-only. The older
 standalone board remains available without `--state`, but is not a route to
-resume or approve this contained journey.
+resume or approve this contained journey. The direct operator workspace,
+`wringer-drive board --state CONTROLLER_STATE`, remains a separate advanced
+route with explicit showing and preparation controls; it is not a required
+detour from the assistant's job page.
 
 ## Start here
 

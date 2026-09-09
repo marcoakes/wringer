@@ -2,6 +2,8 @@ import { StringDecoder } from "node:string_decoder";
 import type { Readable } from "node:stream";
 import { processDriver, type RuntimeDriver } from "@wringer/runtime";
 import { Redactor } from "@wringer/engine";
+import { hashValue } from "@wringer/plan";
+import { SourceFindingInspector, SOURCE_FINDING_LIMITS, type SourceFinding } from "./source-findings";
 
 export interface SourceInspectionLimits { objects: number; objectBytes: number; totalBytes: number; timeoutMs: number }
 export const SOURCE_INSPECTION_LIMITS: Readonly<SourceInspectionLimits> = Object.freeze({ objects: 500_000, objectBytes: 512 * 1024 * 1024, totalBytes: 2 * 1024 * 1024 * 1024, timeoutMs: 300_000 });
@@ -27,7 +29,7 @@ export class StreamingSourceSecretInspector {
     private headerMode: "search" | "type" | "dashes" = "search";
     private headerTail = "";
     private headerDashes = 0;
-    constructor(private readonly redactor: Redactor) {
+    constructor(private readonly redactor: Redactor, private readonly shapes = true) {
         if (redactor.values.some(value => value.length > 65536)) fail("A configured secret exceeds the bounded source-inspection matcher; inspection refused without reading or publishing source.", "source-inspection-limit");
         this.overlap = Math.max(1024, ...redactor.values.map(value => value.length + 2));
         const parts = new Set<string>();
@@ -48,7 +50,7 @@ export class StreamingSourceSecretInspector {
         }
     }
     private inspect(value: string, final: boolean) {
-        this.privateHeader(value);
+        if (this.shapes) this.privateHeader(value);
         if (this.pendingGithub) {
             const ending = /[^A-Za-z0-9]/.exec(value);
             if (ending) { this.pendingGithub = false; if (ending[0] !== "_") secret(); }
@@ -57,6 +59,10 @@ export class StreamingSourceSecretInspector {
         const text = this.preceding + this.tail + value;
         for (const known of this.redactor.values) if (text.includes(known)) secret();
         if (this.fragments) this.matched(this.fragments, text, final);
+        if (!this.shapes) {
+            const cut = Math.max(0, text.length - this.overlap);
+            this.preceding = cut ? text[cut - 1]! : ""; this.tail = text.slice(cut); this.dropped ||= cut > 0; return;
+        }
         // Once a variable-length token has reached its minimum, extending it
         // cannot remove its eventual word boundary in this finite object.
         this.matched(/\bsk-(?:proj-|ant-)?[A-Za-z0-9_-]{12,}\b/g, text, final, true);
@@ -127,6 +133,9 @@ class Bytes {
 }
 export interface SourceInspectionOptions {
     signal?: AbortSignal;
+    /** Enumerate all shape findings, but configured secrets/fragments still
+     * refuse immediately and can never become approvable exceptions. */
+    collectFindings?: boolean;
     /** Test/stricter-policy seam. It can only reduce the production ceilings. */
     limits?: Partial<typeof SOURCE_INSPECTION_LIMITS>;
     driver?: Pick<RuntimeDriver, "connect">;
@@ -140,6 +149,7 @@ export async function inspectCandidateHistory(store: string, candidate: string, 
     new StreamingSourceSecretInspector(redactor);
     const driver = options.driver ?? processDriver, transports: Awaited<ReturnType<RuntimeDriver["connect"]>>[] = [];
     let failure: SourceInspectionRefusal | null = null, objects = 0, bytes = 0;
+    const findings = new Map<string, SourceFinding>();
     const stop = (error: SourceInspectionRefusal) => { failure ??= error; for (const transport of transports) void transport.terminate(); };
     const check = () => { if (failure) throw failure; };
     const abort = () => stop(new SourceInspectionRefusal("Source inspection was interrupted. Nothing was published; retry preparation of this same candidate to rerun only local inspection.", "source-inspection-cancelled"));
@@ -167,17 +177,22 @@ export async function inspectCandidateHistory(store: string, candidate: string, 
             if (objects === 1 && (oid !== candidate || match[2] !== "commit")) fail("Source inventory is not anchored to the exact candidate commit");
             const size = Number(match[3]);
             if (!Number.isSafeInteger(size) || size > limits.objectBytes || size > limits.totalBytes - bytes) fail(`Source inspection exceeds its ${limits.objectBytes}-byte object or ${limits.totalBytes}-byte inflated-history ceiling; no oversized object was skipped and nothing was published.`, "source-inspection-limit");
-            const inspector = new StreamingSourceSecretInspector(redactor);
+            const inspector = new StreamingSourceSecretInspector(redactor, !options.collectFindings);
+            const findingInspector = options.collectFindings ? new SourceFindingInspector(oid, match[2]!, finding => {
+                findings.set(finding.id, finding);
+                if (findings.size > SOURCE_FINDING_LIMITS.findings) fail("Source inspection exceeds 10000 distinct credential-shaped findings; no partial inventory permits review or handover", "source-inspection-limit");
+            }) : null;
             let remaining = size;
-            while (remaining) { const chunk = await data.chunk(Math.min(remaining, 65536)); if (!chunk) fail("Git object body ended early; partial source inspection was refused"); inspector.write(chunk); remaining -= chunk.length; bytes += chunk.length; }
-            inspector.finish();
+            while (remaining) { const chunk = await data.chunk(Math.min(remaining, 65536)); if (!chunk) fail("Git object body ended early; partial source inspection was refused"); inspector.write(chunk); findingInspector?.write(chunk); remaining -= chunk.length; bytes += chunk.length; }
+            inspector.finish(); findingInspector?.finish();
             const delimiter = await data.chunk(1); if (!delimiter || delimiter[0] !== 10) fail("Git object framing is invalid; partial source inspection was refused");
         }
         contents.input.end();
         if (await data.chunk(1)) fail("Git returned extra object bytes outside the candidate inventory");
         const results = await Promise.all(transports.map(transport => transport.exited)); check();
         if (!objects || results.some(result => result.code !== 0)) fail("Git could not complete exact candidate-history inspection; no partial result authorizes publication");
-        return { schema_version: "wringer.source-inspection.v1" as const, candidateCommit: candidate, objects, inflatedBytes: bytes, limits, status: "passed" as const };
+        const findingInventory = { schema_version: "wringer.source-findings.v1" as const, candidateCommit: candidate, findings: [...findings.values()].sort((a, b) => a.id.localeCompare(b.id)) };
+        return { schema_version: "wringer.source-inspection.v1" as const, candidateCommit: candidate, objects, inflatedBytes: bytes, limits, status: "passed" as const, ...(options.collectFindings ? { inventory: { ...findingInventory, sha256: hashValue(findingInventory) } } : {}) };
     } catch (error) {
         if (failure) throw failure;
         if (error instanceof SourceInspectionRefusal) throw error;

@@ -4,6 +4,8 @@ import { Redactor } from "@wringer/engine";
 import { ASSISTANT_WARNING, AssistantRefusal, approveAssistantProposal, assistantControllerState, type createAssistantService } from "../../application/src/assistant";
 import { createPmWorkspaceServer } from "./workspace";
 import { createOperatorBrowserSessions, OPERATOR_BROWSER_SESSION_LIMIT } from "./operator-browser-session";
+import { renderPmJobWorkspace } from "@wringer/board";
+import { createAssistantJobFlow } from "./assistant-job";
 import type { ApplicationOptions } from "@wringer/application";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -114,12 +116,13 @@ export function renderAssistantConsole(nonce: string) {
 }
 
 /** Separate operator bearer. Never expose this URL through service.call/MCP. */
-export async function createAssistantConsole(service: Service, options: { port?: number; isStopping?: () => boolean; application?: ApplicationOptions } = {}) {
+export async function createAssistantConsole(service: Service, options: { port?: number; isStopping?: () => boolean; application?: ApplicationOptions; guided?: boolean } = {}) {
     const token = randomBytes(32).toString("hex"), nonce = randomBytes(20).toString("base64");
     let stopped = false;
     const isStopping = () => stopped || options.isStopping?.() === true;
     const assertAccepting = () => { if (isStopping()) throw new Error("The local owner is stopping. No new approval or review action is accepted; retained evidence remains readable."); };
-    const shell = renderAssistantConsole(nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
+    const shell = options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
+    const flow = options.guided ? createAssistantJobFlow(service, { ...options.application, isStopping, beforeCommand: jobId => beforeReviewCommand(jobId) }) : null;
     const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
     const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
     const sessions = createOperatorBrowserSessions(token, headers);
@@ -134,11 +137,19 @@ export async function createAssistantConsole(service: Service, options: { port?:
     const server = Bun.serve({ hostname: "127.0.0.1", port: options.port ?? 0, development: false, maxRequestBodySize: 16 * 1024, async fetch(request) {
         const url = new URL(request.url);
         if (!origin || url.origin !== origin || request.headers.get("host") !== new URL(origin).host) return json({ error: "Unrecognized local operator origin" }, 403);
-        if (request.method === "GET" && url.pathname === "/" && !url.search) return new Response(shell, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
+        if (request.method === "GET" && url.pathname === "/" && (!url.search || !!flow && [...url.searchParams.keys()].every(key => key === "jobId") && uuid.test(url.searchParams.get("jobId") ?? ""))) return new Response(shell, { headers: { ...headers, "Content-Type": "text/html; charset=utf-8" } });
         const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
         const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
+            if (flow && request.method === "GET" && url.pathname === "/api/job" && [...url.searchParams.keys()].every(key => key === "jobId") && uuid.test(url.searchParams.get("jobId") ?? "")) return json(await flow.read(url.searchParams.get("jobId")!));
+            if (flow && request.method === "POST" && /^\/api\/job\/(approve|decision|correction|send|retry)$/.test(url.pathname) && !url.search) {
+                assertAccepting();
+                if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use an explicit decision from this page." }, 415);
+                const raw = await request.text(); if (Buffer.byteLength(raw) > 16 * 1024) return json({ error: "Decision exceeds its size limit" }, 413);
+                return json(await flow.post(url.pathname.split("/").at(-1)!, JSON.parse(raw)), 202);
+            }
             if (request.method === "GET" && url.pathname === "/api/jobs" && !url.search) {
+                if (flow) return json({ jobs: await Promise.all((await service.list()).map(async status => ({ jobId: status.jobId, name: (await service.inspectProposal(status.jobId)).plan?.name ?? "Your requested work", phase: status.outcome, nextAction: status.nextAction }))) });
                 const jobs = await Promise.all((await service.list()).map(async status => {
                     const proposal = await service.inspectProposal(status.jobId);
                     return { status: isStopping() ? { ...status, nextAction: "The local owner is stopping. Read retained evidence; no new decision or execution is accepted." } : status, proposal, proposalRevision: hashValue(proposal), destination: service.workspace.destination, canApprove: !isStopping() && status.outcome === "awaiting-approval" && !!proposal.plan && !proposal.questions.length, canReview: !isStopping() && status.stage !== "intake" && status.outcome !== "cancelled" };
@@ -178,8 +189,10 @@ export async function createAssistantConsole(service: Service, options: { port?:
         }
     } });
     origin = server.url.origin;
+    if (flow) service.setPresentation(async jobId => { const view = await flow.read(jobId); return { phase: view.phase, nextAction: view.nextAction, eventId: view.readyRevision, pageUrl: `${origin}/?jobId=${encodeURIComponent(jobId)}` }; });
     return { server, origin, url: `${origin}/#token=${token}`, async stop() {
         stopped = true;
+        flow?.stop(); if (flow) service.setPresentation(undefined);
         sessions.clear();
         for (const review of reviews.values()) review.supervision.stop();
         await server.stop(true);

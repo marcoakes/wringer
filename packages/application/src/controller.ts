@@ -1,7 +1,7 @@
 import { mkdir, lstat, readFile, writeFile, link, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createExecutionAuthority, discoverEnvironment, hashValue, validateExecutionAuthority, validateExecutionPlan, type ExecutionPlan, type ExecutionAuthority, type EnvironmentMap } from "@wringer/plan";
-import { runContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, queryContainedJourney, assertContainedHumanReviewEligible, type CandidateHumanJudgement, type ContainedJourneyOptions } from "@wringer/workflow";
+import { runContainedJourney, readValidatedContainedState, recordContainedHumanJudgement, recordContainedHumanDecisions, queryContainedJourney, assertContainedHumanReviewEligible, type LegacyCandidateHumanJudgement, type CandidateHumanDecision, type ContainedJourneyOptions } from "@wringer/workflow";
 import type { PreparedRepositorySource } from "@wringer/runtime";
 import { Redactor } from "@wringer/engine";
 import { containedServices, prepareContainedSource, showContainedCandidate, type ContainedServiceOptions } from "./services";
@@ -143,6 +143,27 @@ export async function reviewControllerCandidate(state: string, input: CandidateG
     assertDisplay(receipt, plan, input.criterionId, latest.candidate.tree, latest.candidate.source.commit);
     const redactor = new Redactor(plan.runtime.env);
     if (redactor.scrub(input.by) !== input.by || redactor.scrub(input.note) !== input.note) throw new Error("The review appears to contain a credential. Remove it before recording; your words were not changed or saved.");
-    const judgement: CandidateHumanJudgement & { displayId: string } = { criterionId: input.criterionId, candidateTree: latest.candidate.tree, acceptanceSha256: plan.acceptance_sha256, verdict: input.verdict, by: input.by, note: input.note, displayId: input.displayId, display: { candidateTree: latest.candidate.tree, status: "shown" as const, receiptSha256: sha256 } };
+    const judgement: LegacyCandidateHumanJudgement & { displayId: string } = { criterionId: input.criterionId, candidateTree: latest.candidate.tree, acceptanceSha256: plan.acceptance_sha256, verdict: input.verdict, by: input.by, note: input.note, displayId: input.displayId, display: { candidateTree: latest.candidate.tree, status: "shown" as const, receiptSha256: sha256 } };
     return recordContainedHumanJudgement(state, judgement, input);
+}
+export interface HumanDecisionInput { criterionId: string; displayId: string; verdict: "met" | "not_met"; note?: string; }
+/** Explicit operator choices only. The actor is retained approval provenance,
+ * never an assistant-supplied identity and never a claim of human authentication. */
+export async function reviewControllerDecisions(state: string, input: CandidateGuard & { decisions: HumanDecisionInput[] }) {
+    input = structuredClone(input);
+    const history = await readController(state, true), { plan, authority, result: latest } = history;
+    guardHistory(history, input);
+    if (!Array.isArray(input.decisions) || input.decisions.length < 1 || input.decisions.length > 64 || new Set(input.decisions.map(d => d?.criterionId)).size !== input.decisions.length) throw new Error("Name 1–64 distinct displayed human requirements");
+    if (!latest.candidate || latest.verification?.status !== "passed") throw new Error("There is no verified candidate to judge");
+    const rows: CandidateHumanDecision[] = [], redactor = new Redactor(plan.runtime.env);
+    for (const decision of input.decisions) {
+        if (!decision || Object.keys(decision).some(k => !["criterionId", "displayId", "verdict", "note"].includes(k)) || typeof decision.criterionId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(decision.criterionId) || typeof decision.displayId !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(decision.displayId) || !["met", "not_met"].includes(decision.verdict) || decision.note !== undefined && (typeof decision.note !== "string" || !decision.note.trim() || decision.note.includes("\0") || Buffer.byteLength(decision.note) > 16384)) throw new Error("Choose met or not_met for a displayed requirement; an optional comment must contain only your bounded original words");
+        assertContainedHumanReviewEligible(history, decision.criterionId);
+        if (redactor.scrub(authority.actor) !== authority.actor || decision.note !== undefined && redactor.scrub(decision.note) !== decision.note) throw new Error("The decision appears to contain a credential. No words were changed or recorded.");
+        const receipt = await readControllerFile(join(state, "displays", `${decision.displayId}.json`)), { sha256, ...body } = receipt;
+        if (receipt.id !== decision.displayId || sha256 !== hashValue(body) || !receipt.success || receipt.candidateTree !== latest.candidate.tree || receipt.acceptanceSha256 !== plan.acceptance_sha256 || receipt.criterionId !== decision.criterionId) throw new Error("Display failed, changed or describes another candidate; no decisions recorded");
+        assertDisplay(receipt, plan, decision.criterionId, latest.candidate.tree, latest.candidate.source.commit);
+        rows.push({ schema_version: "wringer.contained-human-decision.v1", criterionId: decision.criterionId, candidateTree: latest.candidate.tree, acceptanceSha256: plan.acceptance_sha256, verdict: decision.verdict, by: authority.actor, note: decision.note ?? null, displayId: decision.displayId, display: { candidateTree: latest.candidate.tree, status: "shown", receiptSha256: sha256 }, attribution: "initial-execution-approval", authoritySha256: hashValue(authority) });
+    }
+    return recordContainedHumanDecisions(state, rows, input);
 }

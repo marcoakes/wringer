@@ -42,6 +42,8 @@ commit. Do not infer a test pass from this list of intended measurements.
 | “Runs through sleep and reboot” | No automatic login/reboot service is installed; downtime consumes elapsed-time/expiry limits |
 | “Never exceeds your cash budget” | Session/time limits do not bound every provider charge; unsupported strict-cash requests refuse |
 | “Free coordination” or “lower total cost” | The coding app uses its own account; unknown billing prevents an exact savings claim |
+| “Push notifications in every coding app” | The page offers opt-in browser notifications while open; the MCP wait tool is bounded read-only polling, not protocol push |
+| “A hosted audit link for every delivery” | The result carries fresh-clone audit instructions; a public review-request URL exists only when that publication is recorded |
 | “A successful blind test” | Alpha.3 failed at planning; alpha.6 failed at human review and salvage stopped at preparation; repairs and laboratory tests are separate evidence |
 | “Safe production containment everywhere” | Real Apple Container and gVisor enforcement each require their own platform evidence |
 
@@ -73,6 +75,14 @@ worker and Claude judge completion, but the PM could not record Yes through the
 browser. Salvage could not prepare handover. [Alpha.7's repair record](PM_BLIND2_REPAIR_2026-09-08.md)
 adds actual browser form regressions and bounded large-history delivery scanning;
 it is not a successful live-client end-to-end measurement.
+
+The [guided PM experience checkpoint](PM_GUIDED_EXPERIENCE_2026-09-08.md)
+tracks a single private job page, automatic showing/preparation under existing
+authority, one source-bound result decision with an optional authored comment,
+and a separate Send action to the preset destination. Its implementation and
+scripted browser evidence do not clear the named-client, protected-mode or
+independent-PM gates. Historical source-inspection findings are not globally
+approved by simplifying this interface.
 
 Next evidence must be attached under its own frozen build and
 [assistant test protocol](PM_ASSISTANT_BLIND_TEST.md). A builder-operated fixture

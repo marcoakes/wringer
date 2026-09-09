@@ -2,13 +2,22 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { chmod, link, mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { createAssistantRequestHandler, parseAssistantConnection, readAssistantConnection, validateAssistantEndpoint, type AssistantConnection } from "../src/assistant-transport";
+import { callAssistantConnection, createAssistantTransport, createAssistantRequestHandler, parseAssistantConnection, readAssistantConnection, validateAssistantEndpoint, type AssistantConnection } from "../src/assistant-transport";
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 async function scratch() { const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-assistant-transport-"))); roots.push(root); return root; }
 const host = "127.0.0.1:34127", endpoint = `http://${host}/call`, token = "a".repeat(64), admin = "b".repeat(64);
 const connection = (): AssistantConnection => ({ schema_version: "wringer.assistant-connection.v1", endpoint, token });
+test("bounded wait survives the real transport beyond its ordinary request and idle deadlines", async () => {
+    const root = await scratch(), path = join(root, "connection.json"), began = Date.now(); let calls = 0;
+    const transport = createAssistantTransport({ call: async (_token, name) => { expect(name).toBe("wringer.wait_for_update"); calls++; await new Promise(resolve => setTimeout(resolve, 17000)); return { outcome: "observed", changed: false }; } }, { instanceId: "wait-fixture" });
+    try {
+        await writeFile(path, JSON.stringify({ ...connection(), endpoint: transport.endpoint }), { mode: 0o600 });
+        expect(await callAssistantConnection(path, "wringer.wait_for_update", { jobId: "test-job", timeoutSeconds: 17 })).toEqual({ outcome: "observed", changed: false });
+        expect(calls).toBe(1); expect(Date.now() - began).toBeGreaterThanOrEqual(17000);
+    } finally { transport.stop(); }
+}, 25000);
 function fixture() {
     const calls: unknown[] = []; let stops = 0;
     const handler = createAssistantRequestHandler({ call: async (credential, name, args) => { calls.push({ credential, name, args }); return { outcome: "observed", cost: null, private: credential }; } }, { host: () => host, adminToken: admin, instanceId: "fixture", onStop: () => { stops++; } });

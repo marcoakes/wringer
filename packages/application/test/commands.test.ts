@@ -30,6 +30,15 @@ async function settled(state: string, request: WorkspaceCommand) {
 async function deadPid() { const child = Bun.spawn([process.execPath, "-e", "process.exit(0)"], { stdout: "ignore", stderr: "ignore" }); await child.exited; return child.pid; }
 
 describe("workspace command ownership and immutable request identity", () => {
+    test("explicit decisions allow no comment, preserve original words and reject invented identity or ambiguous batches", () => {
+        const decision = { criterionId: "human", displayId: crypto.randomUUID(), verdict: "met" };
+        expect(parseWorkspaceCommand(command("review-decision", decision)).payload).toEqual(decision);
+        const note = "  My exact original words.\nIncluding this line.  ";
+        expect(parseWorkspaceCommand(command("review-decisions", { decisions: [{ ...decision, note }] })).payload.decisions).toEqual([{ ...decision, note }]);
+        for (const payload of [{ ...decision, by: "Invented person" }, { ...decision, note: null }, { ...decision, note: " " }, { ...decision, verdict: "yes" }, { ...decision, displayId: "missing" }]) expect(() => parseWorkspaceCommand(command("review-decision", payload))).toThrow();
+        for (const decisions of [[], [decision, decision], [{ ...decision, by: "Invented" }], Array.from({ length: 65 }, (_, i) => ({ ...decision, criterionId: `h${i}` }))]) expect(() => parseWorkspaceCommand(command("review-decisions", { decisions }))).toThrow();
+        expect(() => parseWorkspaceCommand(command("review", decision))).toThrow();
+    });
     test("rejects arbitrary inputs and requires explicit complete decisions", () => {
         for (const input of [ { ...command(), path: "/tmp/file" }, command("resume", { executeRole: "code" }), command("show", { criterionId: "../outside" }), command("review", { criterionId: "human" }), command("publish", { preparedId: "../x" }), command("prepare-delivery", { remote: "https://user:secret@example.com/repo", sourceBranch: "review", targetBranch: "main" }), command("prepare-delivery", { remote: "/tmp/origin.git", sourceBranch: "main", targetBranch: "main" }) ]) expect(() => parseWorkspaceCommand(input)).toThrow();
         const original = command("request-revision", { by: "Pat", note: "Please make the heading readable." }), copy = parseWorkspaceCommand(original); original.payload.note = "Changed later";

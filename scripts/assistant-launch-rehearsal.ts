@@ -12,6 +12,7 @@ import { readWorkspaceCommand, type WorkspaceCommand } from "../packages/applica
 import { readPmWorkspace } from "../packages/cli/src/workspace";
 import { createAssistantConsole } from "../packages/cli/src/assistant-console";
 import { launchPmBrowser } from "./pm-browser";
+import { runGuidedPmJourney } from "./guided-pm-rehearsal";
 import { createMcpSession } from "../packages/mcp/src/server";
 import { readValidatedContainedState } from "../packages/workflow/src";
 import { readContainedDeliveryProjection } from "../packages/delivery/src";
@@ -21,7 +22,7 @@ const actor = "SCRIPTED TEST FIXTURE (not an independent person)";
 const negativeNote = "SCRIPTED negative review: the value is correct, but the label is still hard to understand.";
 const correction = "SCRIPTED correction: keep the correct value and replace the cryptic label with Expected value is ready.";
 const positiveNote = "SCRIPTED positive review: Expected value is ready is clear in this synthetic display; this is not a real person's verdict.";
-const limits = [
+const baseLimits = [
     "Engineering rehearsal, not a PM blind-test result or observed genuine human approval.",
     "Role replies, check outcomes, runtime provenance and display observations are synthetic; real client, model convergence and containment are unmeasured.",
     "Uses cooperative-local fixture state, not a demonstrated protected controller boundary.",
@@ -32,7 +33,8 @@ const limits = [
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
 const htmlText = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
-export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, "..")) {
+export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, ".."), guided = false) {
+    const limits = guided ? [...baseLimits.slice(0, -1), "Authenticated page reload and locking are exercised; OS kill, reboot and sleep recovery are not measured in this guided fixture."] : baseLimits;
     const began = Date.now(), startedAt = new Date(began).toISOString();
     const directory = join(repository, ".wringer", `assistant-launch-rehearsal-${crypto.randomUUID()}`);
     await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -58,7 +60,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     try {
         const checkpoint = (await git(["-C", repository, "rev-parse", "HEAD"])).trim();
         const workingTree = (await git(["-C", repository, "status", "--porcelain"])).trim();
-        const implementation = { baseCommit: checkpoint, workingTree: workingTree ? "modified" : "clean", rehearsalSha256: hashBytes(await readFile(import.meta.path)), browserFixtureSha256: hashBytes(await readFile(join(import.meta.dir, "pm-browser.ts"))), auditBinarySha256: hashBytes(await readFile(join(bin, "wring"))) };
+        const implementation = { baseCommit: checkpoint, workingTree: workingTree ? "modified" : "clean", rehearsalSha256: hashBytes(await readFile(import.meta.path)), browserFixtureSha256: hashBytes(await readFile(join(import.meta.dir, "pm-browser.ts"))), ...(guided ? { guidedFixtureSha256: hashBytes(await readFile(join(import.meta.dir, "guided-pm-rehearsal.ts"))) } : {}), auditBinarySha256: hashBytes(await readFile(join(bin, "wring"))) };
         await record({ implementation, note: "A modified worktree is not described as a frozen release candidate; the exact script and compiled audit bytes are identified separately." });
         await git(["init", "--initial-branch=main", source]); await git(["init", "--bare", "--initial-branch=main", origin]);
         await git(["-C", source, "config", "user.name", "Scripted launch rehearsal"]); await git(["-C", source, "config", "user.email", "fixture@example.invalid"]);
@@ -72,7 +74,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const destination = { remote: origin, sourceBranch: "wringer/assistant-launch-fixture", targetBranch: "main" };
         const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true });
         const capability = await issueAssistantCapability(controller, new Date(Date.now() + 600000).toISOString());
-        let workerTurns = 0, loseStartReply = true, failNextDisplay = false;
+        let workerTurns = 0, loseStartReply = !guided, failNextDisplay = false;
         const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
         const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
             const pinned = request.repo as PreparedRepositorySource;
@@ -124,6 +126,13 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await check("unapproved start refuses", (await call("start", guard(proposed))).code === "not-approved");
         const approval = await call("get_approval_request", { jobId });
         await record({ surface: "SCRIPTED operator approval, not a human", actor, jobId, revision: approval.revision, budget: plan.budget });
+        if (guided) {
+            consoleServer = await createAssistantConsole(service, { application, guided: true });
+            browser = await launchPmBrowser(root, record); await service.runner.start();
+            const result = await runGuidedPmJourney({ page: browser.page, url: consoleServer.url, root, state, jobId, actor, origin, baseCommit, roleCount: () => roles.length, call, record, check, git, command });
+            await writeFile(join(root, "result.json"), JSON.stringify({ ...result, implementation, checks, limits }, null, 2) + "\n");
+            failed = false; return { directory: root, ...result, checks, implementation, limits };
+        }
         consoleServer = await createAssistantConsole(service, { application });
         browser = await launchPmBrowser(root, record);
         await browser.approve(consoleServer.url, actor);
@@ -222,6 +231,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         failed = false;
         return { directory: root, ...result };
     } catch (error) {
+        if (guided && browser) { await browser.page.screenshot({ path: join(root, "browser-guided-stop.png"), fullPage: true }).catch(() => {}); await record({ browserStopText: await browser.page.locator("#job-message").innerText().catch(() => "unavailable") }); }
         await record({ stop: error instanceof Error ? error.message : String(error) });
         await writeFile(join(root, "result.json"), JSON.stringify({ status: "failed", fixture: true, startedAt, wallMs: Date.now() - began, checks, limits }, null, 2) + "\n");
         throw new Error(`Assistant launch rehearsal failed; retained evidence: ${root}`, { cause: error });
@@ -232,4 +242,4 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await record({ finishedAt: new Date().toISOString(), failed, ownerStopped: true });
     }
 }
-if (import.meta.main) console.log(JSON.stringify(await runAssistantLaunchRehearsal(), null, 2));
+if (import.meta.main) console.log(JSON.stringify(await runAssistantLaunchRehearsal(undefined, process.argv.includes("--guided")), null, 2));

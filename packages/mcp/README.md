@@ -2,7 +2,7 @@
 
 This package is the narrow MCP front door, not an agent runtime or execution
 owner. It uses the existing application services through an injected callback.
-The ten tools are defined once in `src/contract.ts`; their JSON Schemas also
+The eleven tools are defined once in `src/contract.ts`; their JSON Schemas also
 validate every tool call. Approval, the human pen, publication, credentials,
 arbitrary files and arbitrary execution are not assistant tools.
 
@@ -17,6 +17,11 @@ versions receive the latest supported version; the client decides whether to
 disconnect. Tools are unavailable until the initialized notification. The
 adapter does not advertise HTTP, sampling, resources, MCP tasks or any native
 coding-app compatibility that has not been measured.
+
+`wringer.wait_for_update` waits read-only for at most 25 seconds using the last
+returned `eventId`. Meaningful changes can carry a credential-free decision-page
+link for an already-connected operator browser. Waiting grants no authority,
+never starts work, and is not a native notification or MCP push subscription.
 
 Requests are bounded to 256 KiB, 64 JSON nesting levels and 16 simultaneous
 callbacks. Duplicate object keys (including escaped duplicates), non-finite

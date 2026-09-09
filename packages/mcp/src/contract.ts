@@ -2,7 +2,7 @@ import Ajv from "ajv";
 
 export const ASSISTANT_TOOL_NAMES = [
     "wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status",
-    "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover",
+    "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover",
 ] as const;
 export type AssistantToolName = typeof ASSISTANT_TOOL_NAMES[number];
 export type AssistantToolArguments = Record<string, unknown>;
@@ -55,6 +55,11 @@ export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
         name: "wringer.get_status", title: "Read progress and next action",
         description: "Read retained facts, remaining execution limits and currently eligible actions. With no jobId, list this capability's jobs to reconnect. Unknown usage stays unknown. Status never dispatches model work; ask again when useful, not in a continuous model polling loop.",
         inputSchema: objectSchema({ jobId: handle }, []), annotations: readonlyAnnotations,
+    },
+    {
+        name: "wringer.wait_for_update", title: "Wait for a meaningful update",
+        description: "Wait read-only for up to 25 seconds for a changed job/decision event, using the eventId returned by status or the previous wait. Returns immediately on change; does not start work, grant authority or notify a closed coding app. Prefer this to repeated model-driven status polling. When a real human decision is ready, tell the person once and point to the credential-free decision page if supplied; never make their decision.",
+        inputSchema: objectSchema({ jobId: handle, afterEventId: { type: "string", pattern: "^[a-f0-9]{64}$" }, timeoutSeconds: { type: "integer", minimum: 0, maximum: 25 } }, ["jobId"]), annotations: readonlyAnnotations,
     },
     {
         name: "wringer.get_evidence", title: "Inspect a piece of evidence",

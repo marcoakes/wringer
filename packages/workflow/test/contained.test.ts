@@ -8,11 +8,12 @@ import { runAcpTurn } from "../../acp/src";
 import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue, planningRequestFromPlan, createPlanningAuthority, validatePlanningAuthority, environmentReadiness, ingestEnvironmentObservations } from "@wringer/plan";
 import type { ExecutionPlan, EnvironmentMap } from "@wringer/plan";
 import type { RoleExecutionRequest, RoleExecutionResult } from "@wringer/runtime";
-import { runContainedJourney, readValidatedContainedState, queryContainedJourney, requestContainedRevision, proposeContainedPlan, runContainedDiscovery, draftSpec } from "../src";
+import { runContainedJourney, readValidatedContainedState, queryContainedJourney, requestContainedRevision, proposeContainedPlan, runContainedDiscovery, draftSpec, recordContainedHumanDecisions, recordContainedHumanJudgement, validContainedHumanAttribution, type CandidateHumanDecision } from "../src";
 import type { ContainedJourneyOptions, ContainedJourneyServices, CandidateVerification } from "../src";
 const template = await readFile(new URL("../../plan/examples/contained.yaml", import.meta.url), "utf8");
 function planFixture(options: {
     human?: boolean;
+    secondHuman?: boolean;
     workerTurns?: number;
     planner?: boolean;
 } = {}): ExecutionPlan {
@@ -27,6 +28,7 @@ function planFixture(options: {
     if (options.human) {
         d.intent += " The display is readable.";
         d.acceptance.criteria.push({ id: "readable", title: "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable", argv: ["bun", "run", "demo"], cwd: ".", timeout_seconds: 60 } });
+        if (options.secondHuman) d.acceptance.criteria.push({ id: "readable-again", title: "Another explicit observation", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable-again", argv: ["bun", "run", "demo"], cwd: ".", timeout_seconds: 60 } });
     }
     return compileDeclaration({ version: 1, ...d });
 }
@@ -37,6 +39,7 @@ function environment(plan: ExecutionPlan): EnvironmentMap {
 }
 async function fixture(settings: {
     human?: boolean;
+    secondHuman?: boolean;
     workerTurns?: number;
     planner?: boolean;
     failedVerifications?: number;
@@ -86,6 +89,60 @@ async function fixture(settings: {
     return { options, requests, serviceCalls };
 }
 describe("contained ACP production journey", () => {
+    async function decision(f: Awaited<ReturnType<typeof fixture>>, criterionId = "readable", success = true): Promise<CandidateHumanDecision> {
+        const history = await readValidatedContainedState(f.options.controllerDir), { plan, authority, state } = history, candidate = state.candidate!, criterion = plan.acceptance.criteria.find(c => c.id === criterionId)!;
+        const id = randomUUID(), body = { schema_version: "wringer.contained-display.v1", id, criterionId, candidateTree: candidate.tree, acceptanceSha256: plan.acceptance_sha256, at: new Date().toISOString(), success,
+            measured: { sourceChanged: false, sourceTree: candidate.tree, results: [...plan.environment.setup.map(c => `setup/${c.id}`), criterion.show!.id].map(id => ({ id, code: success ? 0 : 1, stdout: "Synthetic display", stderr: "" })), provenance: { role: "verifier", kind: plan.runtime.kind, image: plan.runtime.image, repository: candidate.source, clonedInside: true, hostMounts: [], observed: { writableDirectories: plan.environment.writable_directories } } } };
+        const sha256 = hashValue(body);
+        await mkdir(join(f.options.controllerDir, "displays"), { recursive: true });
+        await writeFile(join(f.options.controllerDir, "displays", `${id}.json`), JSON.stringify({ ...body, sha256 }));
+        return { schema_version: "wringer.contained-human-decision.v1", criterionId, candidateTree: candidate.tree, acceptanceSha256: plan.acceptance_sha256, verdict: "met", by: authority.actor, note: null, displayId: id, display: { candidateTree: candidate.tree, status: "shown", receiptSha256: sha256 }, attribution: "initial-execution-approval", authoritySha256: hashValue(authority) };
+    }
+    test("one explicit batch accepts exactly the displayed requirements without inventing notes or more spend", async () => {
+        const f = await fixture({ human: true, secondHuman: true }); await runContainedJourney(f.options);
+        const first = await decision(f), second = await decision(f, "readable-again"), original = "  My own observation.\nNothing added.  "; second.note = original;
+        const before = await readValidatedContainedState(f.options.controllerDir), calls = f.requests.length;
+        const recorded = await recordContainedHumanDecisions(f.options.controllerDir, [first, second], { expectedRevision: before.events.at(-1)!.sha256, expectedCandidateTree: first.candidateTree });
+        expect(recorded.judgements.map(j => j.note)).toEqual([null, original]);
+        const after = await readValidatedContainedState(f.options.controllerDir);
+        expect(after.events.length - before.events.length).toBe(2);
+        expect(after.events.at(-2)?.type).toBe("human-decisions-recorded");
+        expect(after.result.status).toBe("human-hold");
+        const ready = await runContainedJourney(f.options);
+        expect(ready.status).toBe("review-ready"); expect(ready.humanJudgements[0]?.note).toBeNull(); expect(f.requests.length).toBe(calls);
+        expect((await readValidatedContainedState(f.options.controllerDir)).result.humanJudgements).toEqual(recorded.judgements);
+    });
+    test("a missing, failed, stale or forged member rejects every decision in a batch", async () => {
+        const f = await fixture({ human: true, secondHuman: true }); await runContainedJourney(f.options);
+        const first = await decision(f), second = await decision(f, "readable-again"), failed = await decision(f, "readable-again", false), before = await readValidatedContainedState(f.options.controllerDir);
+        const copiedId = randomUUID();
+        await writeFile(join(f.options.controllerDir, "displays", `${copiedId}.json`), await readFile(join(f.options.controllerDir, "displays", `${second.displayId}.json`)));
+        for (const wrong of [{ ...second, displayId: randomUUID() }, { ...second, displayId: copiedId }, failed, { ...second, candidateTree: "d".repeat(40) }, { ...second, by: "Somebody else" }, { ...second, authoritySha256: "a".repeat(64) }, { ...second, note: "" }, { ...second, schema_version: "future" }]) {
+            await expect(recordContainedHumanDecisions(f.options.controllerDir, [first, wrong as CandidateHumanDecision])).rejects.toThrow();
+            const after = await readValidatedContainedState(f.options.controllerDir);
+            expect(after.events.at(-1)?.sha256).toBe(before.events.at(-1)?.sha256); expect(after.result.humanJudgements).toEqual([]);
+        }
+        await expect(recordContainedHumanDecisions(f.options.controllerDir, [first, first])).rejects.toThrow("distinct");
+        await expect(recordContainedHumanDecisions(f.options.controllerDir, [first, second], { expectedRevision: "a".repeat(64) })).rejects.toThrow();
+        const prior = process.env.WRINGER_TEST_DECISION_SECRET;
+        process.env.WRINGER_TEST_DECISION_SECRET = "synthetic-review-credential-1592653589";
+        try {
+            await expect(recordContainedHumanDecisions(f.options.controllerDir, [first, { ...second, note: process.env.WRINGER_TEST_DECISION_SECRET }])).rejects.toThrow("credential");
+            expect((await readValidatedContainedState(f.options.controllerDir)).events.at(-1)?.sha256).toBe(before.events.at(-1)?.sha256);
+        } finally { if (prior === undefined) delete process.env.WRINGER_TEST_DECISION_SECRET; else process.env.WRINGER_TEST_DECISION_SECRET = prior; }
+    });
+    test("a negative decision without a comment stays a genuine refusal; legacy noted observations still work", async () => {
+        const f = await fixture({ human: true }); await runContainedJourney(f.options);
+        const row = await decision(f); row.verdict = "not_met";
+        const rejected = await recordContainedHumanDecisions(f.options.controllerDir, [row]);
+        expect(rejected.result.stop?.reason).toBe("human-said-no"); expect(rejected.judgements[0]?.note).toBeNull();
+        expect((await runContainedJourney(f.options)).status).toBe("human-hold");
+        const { schema_version, attribution, authoritySha256, ...legacy } = row;
+        const noted = { ...legacy, verdict: "met" as const, by: "Legacy named reviewer", note: "My historical original note" };
+        expect(validContainedHumanAttribution(noted, f.options.authority)).toBe(true);
+        await recordContainedHumanJudgement(f.options.controllerDir, noted);
+        expect((await runContainedJourney(f.options)).status).toBe("review-ready");
+    });
     test("blind regression: prose-wrapped execution planner and judge replies retain parse evidence", async () => {
         const f = await fixture({ planner: true, human: true }), execute = f.options.executeRole!;
         f.options.executeRole = async request => {

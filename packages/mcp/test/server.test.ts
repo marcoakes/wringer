@@ -31,7 +31,7 @@ describe("MCP lifecycle and narrow dispatch", () => {
         expect(result(await session.receive(init()))?.protocolVersion).toBe(MCP_PROTOCOL_VERSIONS[0]);
         expect(error(await session.receive(frame(3, "tools/list")))?.code).toBe(-32000);
         expect(await session.receive(initialized)).toBeNull();
-        expect((result(await session.receive(frame(4, "tools/list")))?.tools as unknown[]).length).toBe(10);
+        expect((result(await session.receive(frame(4, "tools/list")))?.tools as unknown[]).length).toBe(11);
         expect(error(await session.receive(frame(5, "initialize", {})))?.code).toBe(-32600);
     });
     test("tool shape errors differ from malformed protocol, unknown tools and honest stopped work", async () => {

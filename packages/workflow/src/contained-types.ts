@@ -51,7 +51,7 @@ export interface ContainedRevisionGuard {
     expectedRevision?: string;
     expectedCandidateTree?: string | null;
 }
-export interface CandidateHumanJudgement {
+export interface LegacyCandidateHumanJudgement {
     criterionId: string;
     candidateTree: string;
     acceptanceSha256: string;
@@ -64,6 +64,15 @@ export interface CandidateHumanJudgement {
         receiptSha256: string;
     };
 }
+/** An explicit choice is evidence in its own right; absence of prose is not prose. */
+export interface CandidateHumanDecision extends Omit<LegacyCandidateHumanJudgement, "note"> {
+    schema_version: "wringer.contained-human-decision.v1";
+    note: string | null;
+    displayId: string;
+    attribution: "initial-execution-approval";
+    authoritySha256: string;
+}
+export type CandidateHumanJudgement = LegacyCandidateHumanJudgement | CandidateHumanDecision;
 export interface ContainedJourneyOptions extends ContainedRevisionGuard {
     controllerDir: string;
     plan: ExecutionPlan;

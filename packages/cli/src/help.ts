@@ -68,6 +68,17 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive recover-command --state DIRECTORY --command UUID --acknowledge-uncertain
   wringer-drive deliver --state DIRECTORY --remote URL_OR_BARE_PATH --source-branch REVIEW --target-branch BASE
   wringer-drive deliver [the same options] --send
+  wringer-drive source-review --state DIR      Inventory all source credential-shaped matches; no values printed
+      --inventory SHA256 --finding SHA256 --policy-dir EXTERNAL_OPERATOR_DIRECTORY
+      --actor NAME --actor-kind operator|delegated-agent --reason TEXT
+                                              Record one exact non-secret example decision; no wildcard exemptions
+      --policy-dir EXTERNAL_OPERATOR_DIRECTORY --decisions PRIVATE_JSON
+                                              Finite exact-ID decisions, each with its own actor/reason; no approve-all
+      PRIVATE_JSON is a mode-600 file within that separate operator directory:
+      {"schema_version":"wringer.source-review-decisions.v1","candidateCommit":"EXACT_COMMIT",
+       "inventorySha256":"EXACT_INVENTORY_DIGEST","decisions":[{"findingId":"EXACT_FINDING_ID",
+       "inventorySha256":"EXACT_INVENTORY_DIGEST","actor":"OPERATOR_OR_AGENT_NAME",
+       "actorKind":"delegated-agent","reason":"YOUR_EVIDENCE_FOR_THIS_EXACT_NON_SECRET_EXAMPLE"}]}
   wringer-drive audit --bundle PATH            Audit a carried contained delivery offline
   wringer-drive falsify --bundle PATH          Challenge the committed range in isolation
       [--output DIRECTORY] [--max-attempts 24] [--wall-seconds 60]

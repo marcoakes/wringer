@@ -10,7 +10,8 @@
 
 Your assistant handles the conversation. Wringer coordinates the approved work,
 runs the checks and records what is—and is not—ready to hand over. The agents
-write the product code. You make the human decisions.
+write the product code. You return to one job page: inspect the actual result,
+choose Yes or request a correction, then separately Send the reviewed change.
 
 **[Start from your coding app →](ASSISTANT_START.md)**
 
@@ -23,12 +24,15 @@ starting route. Session/time limits are not a cash guarantee.
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.7` is an assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.8` is an assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
 The first [September 8 PM test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). [Blind test 2](docs/PM_BLIND_REPORT_2026-09-08_2.md) built successfully but failed at human review; salvage stopped during handover. [Alpha.7 repairs those measured problems](docs/PM_BLIND2_REPAIR_2026-09-08.md), with a real-browser engineering rehearsal. Neither failed verdict is rewritten as a pass; a new live PM result remains required.
 
 Read the [assistant implementation report](docs/ASSISTANT_IMPLEMENTATION_2026-09-08.md)
-for this checkpoint's measured results and remaining gates.
+for the earlier engineering checkpoint. The [guided PM experience record](docs/PM_GUIDED_EXPERIENCE_2026-09-08.md)
+tracks the new single-page flow and its own validation status. Browser
+notifications are opt-in while the page is open; native coding-app push and a
+hosted reviewer audit service are not claimed.
 
 [Assistant entry point](ASSISTANT_START.md) · [Install](INSTALL.md) · [Quickstart](QUICKSTART.md) · [For product managers](README-PM.md) · [Unattended operation](docs/native/HEADLESS.md) · [Security](SECURITY.md) · [Roadmap](ROADMAP.md)
 
@@ -64,9 +68,11 @@ Built · Checks passing · Requirements proved · Human judgement complete · Re
 
 A passing suite is not a completed product. A machine requirement needs a declared check and resolvable evidence; missing evidence is not zero and is not a pass. A human requirement stays human. Delivery is a separate, explicit decision.
 
-Open `wringer-drive board --state DIRECTORY` for the live PM workspace. It reads
-the validated journal and offers source-bound review, revision and delivery
-actions through the same application layer as the CLI. The delivery's board,
+The [assistant entry point](ASSISTANT_START.md) keeps approval, progress, actual
+result, human review and a separate Send action on one private job page. The
+destination is selected once during setup. The direct operator route remains
+`wringer-drive board --state DIRECTORY`; both use the same application layer
+and validated journal. The delivery's board,
 certificate, summary and MR derive from one carried fact record. Its `mr.md`
 names the exact offline audit command and where to run it. Older standalone
 verification records keep their separate, read-only-compatible views.

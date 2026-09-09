@@ -822,6 +822,67 @@ export type ContainedDeliveryV2 = {
 };
 
 /**
+ * Contained delivery manifest v3
+ *
+ * Generated from `schema/contained-delivery-v3.schema.json`. Do not edit.
+ */
+export type ContainedDeliveryV3 = {
+  "schema_version": "wringer.contained-delivery.v3";
+  "id": string;
+  "journeyId": string;
+  "createdAt": string;
+  "source": {
+    "url": string;
+    "baseCommit": unknown;
+    "codeCommit": unknown;
+    "tree": unknown;
+  };
+  "planSha256": unknown;
+  "acceptanceSha256": unknown;
+  "authoritySha256": unknown;
+  "environmentSha256": unknown;
+  "viewSha256": unknown;
+  "journal": {
+    "eventCount": number;
+    "headSha256": unknown;
+    "sourceHeadSha256": unknown;
+  };
+  "baseline": unknown;
+  "verification": unknown;
+  "roles": string[];
+  "humanCriteria": string[];
+  "judge": Record<string, unknown> | null;
+  "counts": {
+    "checks": number;
+    "proved": number;
+    "human": number;
+  };
+  "publication": {
+    "sourceBranch": string;
+    "targetBranch": string;
+  };
+  "evidencePath": string;
+  "auditCommand": string;
+  "falsify": {
+    "status": "available";
+    "command": string;
+    "reason": string;
+  };
+  "contracts": {
+    "view": "wringer.contained-delivery-view.v1";
+    "certificate": "wringer.contained-certificate.v1";
+    "documents": "wringer.contained-documents.v3";
+    "board": "wringer.contained-board.v2";
+  };
+  "sourceReview": null | {
+    "receipt": "source-inspection.json";
+    "sha256": unknown;
+    "findings": number;
+  };
+  "limits": string[];
+};
+
+/**
  * Contained delivery view v1
  *
  * Generated from `schema/contained-delivery-view-v1.schema.json`. Do not edit.
@@ -881,6 +942,31 @@ export type ContainedDeliveryViewV1 = {
   "auditCommand": string;
   "falsifyCommand": string;
   "limits": string[];
+};
+
+/**
+ * Explicit contained human decision with optional original comment
+ *
+ * Generated from `schema/contained-human-decision-v1.schema.json`. Do not edit.
+ */
+export type ContainedHumanDecisionV1 = {
+  "schema_version": "wringer.contained-human-decision.v1";
+  "criterionId": string;
+  "candidateTree": string;
+  "acceptanceSha256": string;
+  "verdict": "met" | "not_met";
+  "by": string;
+  /** Original authored comment, or null when the person supplied no comment. Never synthesized from the verdict. */
+  "note": string | null;
+  "displayId": string;
+  "display": {
+    "candidateTree": string;
+    "status": "shown";
+    "receiptSha256": string;
+  };
+  /** Attributed to the actor retained in the initial bounded execution approval. Cooperative-local, not authenticated human identity. */
+  "attribution": "initial-execution-approval";
+  "authoritySha256": string;
 };
 
 /**
@@ -2701,7 +2787,9 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "contained-certificate-v1.schema.json": "wringer.contained-certificate.v1",
   "contained-delivery-event-v2.schema.json": "wringer.contained-delivery-event.v2",
   "contained-delivery-v2.schema.json": "wringer.contained-delivery.v2",
+  "contained-delivery-v3.schema.json": "wringer.contained-delivery.v3",
   "contained-delivery-view-v1.schema.json": "wringer.contained-delivery-view.v1",
+  "contained-human-decision-v1.schema.json": "wringer.contained-human-decision.v1",
   "contained-projection-v2.schema.json": "wringer.contained-projection.v2",
   "coverage-v1.schema.json": "wringer.coverage.v1",
   "decisions-v2.schema.json": "wringer.decisions.v2",
@@ -2777,7 +2865,9 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.contained-certificate.v1": "contained-certificate-v1.schema.json",
   "wringer.contained-delivery-event.v2": "contained-delivery-event-v2.schema.json",
   "wringer.contained-delivery.v2": "contained-delivery-v2.schema.json",
+  "wringer.contained-delivery.v3": "contained-delivery-v3.schema.json",
   "wringer.contained-delivery-view.v1": "contained-delivery-view-v1.schema.json",
+  "wringer.contained-human-decision.v1": "contained-human-decision-v1.schema.json",
   "wringer.contained-projection.v2": "contained-projection-v2.schema.json",
   "wringer.coverage.v1": "coverage-v1.schema.json",
   "wringer.decisions.v2": "decisions-v2.schema.json",

@@ -9,6 +9,8 @@ import { atomicWrite, command, digest, immutableJson, locked, now, readJson, scr
 import { containedDiscoveryStartedAt } from "./discovery";
 import { parseAcpJsonReply, type AcpJsonReplyEvidence } from "./json-reply";
 import { diagnoseWorkerOutcome, type WorkerOutcomeStop } from "./worker-outcome";
+import { validContainedHumanAttribution } from "./human-decision";
+import type { CandidateHumanDecision, LegacyCandidateHumanJudgement } from "./contained-types";
 import type { CandidateSource, CandidateVerification, ContainedJourneyOptions, ContainedJourneyResult, ContainedJudgeFinding, CandidateHumanJudgement, ContainedJourneyStop, ContainedRevisionGuard, ContainedVerificationRequest } from "./contained-types";
 const ROOT = ".wringer/contained";
 interface Effect {
@@ -366,6 +368,7 @@ export async function readValidatedContainedState(stateDir: string, options: { a
         if (!result || !state.candidate || !sourceEqual(result.provenance.repository, state.candidate.source) || result.status !== "completed" || result.provenance.role !== "judge" || canonicalJson({ ...judgeReply(result.text, plan), runtimeId: result.provenance.runtimeId, sessionId: result.sessionId }) !== canonicalJson(state.judge))
             throw new Error("Judge view differs from the independent ACP final answer or candidate source");
     }
+    for (const row of state.humanJudgements) if ("schema_version" in row && !validContainedHumanAttribution(row, authority)) throw new Error("Explicit human decision differs from its retained approval attribution or original-comment contract");
     const last = events.at(-1)!, stop = last.type === "journey-stopped" ? last.details as ContainedJourneyStop : null;
     const status: ContainedJourneyResult["status"] = stop ? ["human-judgement", "human-said-no"].includes(stop.reason) ? "human-hold" : "stopped" : state.stage === "ready" ? "review-ready" : "stopped";
     if (status === "review-ready") {
@@ -376,7 +379,7 @@ export async function readValidatedContainedState(stateDir: string, options: { a
                 throw new Error("Ready journal lacks an established independent required criterion");
             if (criterion.kind === "human") {
                 const j = state.humanJudgements.find(j => j.criterionId === criterion.id);
-                if (!j || j.verdict !== "met" || j.candidateTree !== state.candidate.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !j.by?.trim() || typeof j.note !== "string" || j.display?.status !== "shown" || j.display.candidateTree !== state.candidate.tree || !hashPattern.test(j.display.receiptSha256))
+                if (!j || j.verdict !== "met" || j.candidateTree !== state.candidate.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !validContainedHumanAttribution(j, authority) || j.display?.status !== "shown" || j.display.candidateTree !== state.candidate.tree || !hashPattern.test(j.display.receiptSha256))
                     throw new Error("Ready journal lacks a current candidate-bound human observation");
             }
         }
@@ -437,14 +440,25 @@ export async function requestContainedRevision(stateDir: string, request: Contai
 }
 /** A human command records evidence and immediately withdraws previous readiness.
  * It cannot build, verify, judge or publish; resume evaluates the new observation. */
-export async function recordContainedHumanJudgement(stateDir: string, judgement: CandidateHumanJudgement & {
+export async function recordContainedHumanJudgement(stateDir: string, judgement: LegacyCandidateHumanJudgement & {
     displayId: string;
 }, guard: ContainedRevisionGuard = {}): Promise<{
-    judgement: CandidateHumanJudgement & {
+    judgement: LegacyCandidateHumanJudgement & {
         displayId: string;
     };
     result: ContainedJourneyResult;
 }> {
+    const recorded = await recordContainedHumanRows(stateDir, [judgement], guard, false);
+    return { judgement: recorded.judgements[0] as LegacyCandidateHumanJudgement & { displayId: string }, result: recorded.result };
+}
+/** Every display is validated under the journal lock before one grouped mutation.
+ * A rejected member records none of the decisions and grants no further work. */
+export async function recordContainedHumanDecisions(stateDir: string, judgements: CandidateHumanDecision[], guard: ContainedRevisionGuard = {}) {
+    if (!Array.isArray(judgements) || judgements.length < 1 || judgements.length > 64 || new Set(judgements.map(j => j?.criterionId)).size !== judgements.length || judgements.some(j => j?.schema_version !== "wringer.contained-human-decision.v1"))
+        throw new Error("Name 1–64 distinct displayed human requirements and an explicit decision for each");
+    return recordContainedHumanRows(stateDir, structuredClone(judgements), guard, true);
+}
+async function recordContainedHumanRows(stateDir: string, judgements: (CandidateHumanJudgement & { displayId: string })[], guard: ContainedRevisionGuard, grouped: boolean) {
     const controller = resolve(stateDir);
     return withContainedJourneyLock(controller, async () => {
         const history = await readValidatedContainedState(controller), { plan, state, authority } = history;
@@ -452,20 +466,27 @@ export async function recordContainedHumanJudgement(stateDir: string, judgement:
         validateExecutionAuthority(authority, plan);
         if (!["human", "ready"].includes(state.stage) || !state.candidate || state.verification?.status !== "passed")
             throw new Error("A human review requires the current independently verified candidate at its human hold");
-        const criterion = plan.acceptance.criteria.find(c => c.id === judgement.criterionId);
-        if (!criterion || criterion.kind !== "human" || !criterion.show || !judgement.by?.trim() || typeof judgement.note !== "string" || !["met", "not_met"].includes(judgement.verdict) || judgement.candidateTree !== state.candidate.tree || judgement.acceptanceSha256 !== plan.acceptance_sha256 || judgement.display?.candidateTree !== state.candidate.tree || judgement.display?.status !== "shown" || !hashPattern.test(judgement.display.receiptSha256) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(judgement.displayId))
-            throw new Error("Human observation is not bound to the declared criterion, candidate and display");
-        const receipt = await boundedRecord<any>(controller, `displays/${judgement.displayId}.json`), { sha256, ...body } = receipt;
-        const measured = receipt.measured, p = measured?.provenance;
-        const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), criterion.show.id];
-        if (receipt.schema_version !== "wringer.contained-display.v1" || sha256 !== hashValue(body) || sha256 !== judgement.display.receiptSha256 || receipt.success !== true || receipt.criterionId !== criterion.id || receipt.candidateTree !== state.candidate.tree || receipt.acceptanceSha256 !== plan.acceptance_sha256 || measured?.sourceChanged !== false || measured.sourceTree !== state.candidate.tree || !Array.isArray(measured.results) || canonicalJson(measured.results.map((r: any) => r.id)) !== canonicalJson(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || !sourceEqual(p.repository, state.candidate.source) || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
-            throw new Error("Human review requires a successful exact candidate display and all declared setup receipts");
+        if (Date.now() - Date.parse(state.startedAt) >= authority.budget.wall_clock_seconds * 1000) throw new Error("The whole-journey approval is out of date; no human decision was recorded");
+        for (const judgement of judgements) {
+            const criterion = plan.acceptance.criteria.find(c => c.id === judgement.criterionId);
+            if (!criterion || criterion.kind !== "human" || !criterion.show || !validContainedHumanAttribution(judgement, authority) || !["met", "not_met"].includes(judgement.verdict) || judgement.candidateTree !== state.candidate.tree || judgement.acceptanceSha256 !== plan.acceptance_sha256 || judgement.display?.candidateTree !== state.candidate.tree || judgement.display?.status !== "shown" || !hashPattern.test(judgement.display.receiptSha256) || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(judgement.displayId))
+                throw new Error("Human observation is not bound to the declared criterion, candidate and display");
+            const receipt = await boundedRecord<any>(controller, `displays/${judgement.displayId}.json`), { sha256, ...body } = receipt;
+            if (grouped && receipt.id !== judgement.displayId) throw new Error("The displayed observation has a different identity; no decisions recorded");
+            const measured = receipt.measured, p = measured?.provenance;
+            const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), criterion.show.id];
+            if (receipt.schema_version !== "wringer.contained-display.v1" || sha256 !== hashValue(body) || sha256 !== judgement.display.receiptSha256 || receipt.success !== true || receipt.criterionId !== criterion.id || receipt.candidateTree !== state.candidate.tree || receipt.acceptanceSha256 !== plan.acceptance_sha256 || measured?.sourceChanged !== false || measured.sourceTree !== state.candidate.tree || !Array.isArray(measured.results) || canonicalJson(measured.results.map((r: any) => r.id)) !== canonicalJson(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || !sourceEqual(p.repository, state.candidate.source) || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
+                throw new Error("Human review requires a successful exact candidate display and all declared setup receipts");
+        }
         return withSecrets((plan.runtime.env ?? []).map(name => process.env[name]), async () => {
-            const row = scrubValue(judgement);
+            const rows = scrubValue(judgements), row = rows[0]!;
+            if (grouped && canonicalJson(rows) !== canonicalJson(judgements)) throw new Error("The decision contains a detected credential; no words were changed or recorded");
             const wasReady = state.stage === "ready";
-            state.humanJudgements = [...state.humanJudgements.filter(j => j.criterionId !== row.criterionId), row];
+            state.humanJudgements = [...state.humanJudgements.filter(j => !rows.some(r => r.criterionId === j.criterionId)), ...rows];
             state.stage = "human";
-            const stop: ContainedJourneyStop = { reason: row.verdict === "not_met" ? "human-said-no" : "human-judgement", message: row.verdict === "not_met" ? `Human approval for ${row.criterionId} was withdrawn. ${row.by}: ${row.note}` : `A new human observation for ${row.criterionId} was recorded; resume evaluates all required observations before readiness.`, cwd: controller, next_move: command(controller, `wringer-drive resume --state ${quoteShell(controller)}`) };
+            const negative = rows.some(r => r.verdict === "not_met");
+            const message = grouped ? `Explicit human decisions were recorded for ${rows.map(r => r.criterionId).join(", ")}.${negative ? " At least one requirement was not accepted; readiness remains withdrawn." : " Resume evaluates every required observation before readiness."}` : row.verdict === "not_met" ? `Human approval for ${row.criterionId} was withdrawn. ${row.by}: ${row.note}` : `A new human observation for ${row.criterionId} was recorded; resume evaluates all required observations before readiness.`;
+            const stop: ContainedJourneyStop = { reason: negative ? "human-said-no" : "human-judgement", message, cwd: controller, next_move: command(controller, `wringer-drive resume --state ${quoteShell(controller)}`) };
             const compact = { ...state, effects: state.effects.map(({ result, ...effect }) => effect) };
             let sequence = history.events.length, previous = history.events.at(-1)!.sha256;
             const append = async (type: string, details: unknown) => {
@@ -474,13 +495,13 @@ export async function recordContainedHumanJudgement(stateDir: string, judgement:
                 await immutableJson(controller, `${ROOT}/events/${String(sequence).padStart(6, "0")}.json`, event);
                 previous = event.sha256;
             };
-            await append("human-review-recorded", { judgement: row, previousReadinessWithdrawn: wasReady });
+            await append(grouped ? "human-decisions-recorded" : "human-review-recorded", { ...(grouped ? { judgements: rows } : { judgement: row }), previousReadinessWithdrawn: wasReady });
             await append("journey-stopped", stop);
             const result: ContainedJourneyResult = { ...history.result, status: "human-hold", stop, humanJudgements: state.humanJudgements };
             await atomicWrite(controller, `${ROOT}/result.json`, JSON.stringify(result, null, 2) + "\n");
             // A compatibility view only. It is never imported as authority on resume.
             await atomicWrite(controller, "human-judgements.json", JSON.stringify(state.humanJudgements, null, 2) + "\n");
-            return { judgement: row, result };
+            return { judgements: rows, result };
         });
     });
 }
@@ -887,7 +908,7 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
                     if (!criterion.show)
                         refuse("human-display-missing", `Human criterion ${criterion.id} has no approved display command. Declare its show command in the plan and approve the new digest; there is no record-without-display bypass.`, "wringer-drive plan --help");
                     const judgement = entries.find(j => j.criterionId === criterion.id);
-                    if (!judgement || judgement.candidateTree !== state.candidate!.tree || judgement.acceptanceSha256 !== plan.acceptance_sha256 || judgement.display?.candidateTree !== state.candidate!.tree || judgement.display?.status !== "shown" || !hashPattern.test(judgement.display.receiptSha256) || !judgement.by?.trim() || typeof judgement.note !== "string") {
+                    if (!judgement || judgement.candidateTree !== state.candidate!.tree || judgement.acceptanceSha256 !== plan.acceptance_sha256 || judgement.display?.candidateTree !== state.candidate!.tree || judgement.display?.status !== "shown" || !hashPattern.test(judgement.display.receiptSha256) || !validContainedHumanAttribution(judgement, authority)) {
                         status = "human-hold";
                         refuse("human-judgement", `A person must inspect ${criterion.id} on candidate tree ${state.candidate!.tree}; no routine authority can supply that verdict.`, `wringer-drive show --state ${quoteShell(controller)} --criterion ${quoteShell(criterion.id)}`);
                     }

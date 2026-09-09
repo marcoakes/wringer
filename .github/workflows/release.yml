@@ -33,6 +33,8 @@ jobs:
         with:
           node-version: '24'
       - run: bun install --frozen-lockfile
+      - name: Install the pinned engineering-test browser (not a product runtime)
+        run: bun node_modules/playwright/cli.js install --with-deps chromium
       - run: bun scripts/release.ts check-tag
         env:
           WRINGER_RELEASE_TAG: ${{ inputs.tag }}

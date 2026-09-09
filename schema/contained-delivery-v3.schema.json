@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/contained-delivery-v3.schema.json",
+  "title": "Contained delivery manifest v3",
+  "description": "Additive delivery contract for optional-comment decisions and exact operator-reviewed source credential-shape exceptions. Prior delivery contracts retain their original bytes and meanings.",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "id", "journeyId", "createdAt", "source", "planSha256", "acceptanceSha256", "authoritySha256", "environmentSha256", "journal", "baseline", "verification", "roles", "humanCriteria", "judge", "counts", "publication", "evidencePath", "auditCommand", "falsify", "limits", "contracts", "viewSha256", "sourceReview"],
+  "properties": {
+    "schema_version": {"const": "wringer.contained-delivery.v3"}, "id": {"type": "string", "pattern": "^contained-[a-f0-9]{24}$"}, "journeyId": {"type": "string", "minLength": 1}, "createdAt": {"type": "string", "format": "date-time"},
+    "source": {"type": "object", "additionalProperties": false, "required": ["url", "baseCommit", "codeCommit", "tree"], "properties": {"url": {"type": "string", "minLength": 1}, "baseCommit": {"$ref": "#/$defs/git"}, "codeCommit": {"$ref": "#/$defs/git"}, "tree": {"$ref": "#/$defs/git"}}},
+    "planSha256": {"$ref": "#/$defs/digest"}, "acceptanceSha256": {"$ref": "#/$defs/digest"}, "authoritySha256": {"$ref": "#/$defs/digest"}, "environmentSha256": {"$ref": "#/$defs/digest"}, "viewSha256": {"$ref": "#/$defs/digest"},
+    "journal": {"type": "object", "additionalProperties": false, "required": ["eventCount", "headSha256", "sourceHeadSha256"], "properties": {"eventCount": {"type": "integer", "minimum": 1, "maximum": 10000}, "headSha256": {"$ref": "#/$defs/digest"}, "sourceHeadSha256": {"$ref": "#/$defs/digest"}}},
+    "baseline": {"$ref": "#/$defs/verification"}, "verification": {"$ref": "#/$defs/verification"},
+    "roles": {"type": "array", "maxItems": 10000, "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$"}, "uniqueItems": true}, "humanCriteria": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "judge": {"type": ["object", "null"]},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["checks", "proved", "human"], "properties": {"checks": {"type": "integer", "minimum": 0}, "proved": {"type": "integer", "minimum": 0}, "human": {"type": "integer", "minimum": 0}}},
+    "publication": {"type": "object", "additionalProperties": false, "required": ["sourceBranch", "targetBranch"], "properties": {"sourceBranch": {"type": "string", "minLength": 1}, "targetBranch": {"type": "string", "minLength": 1}}},
+    "evidencePath": {"type": "string", "pattern": "^\\.wringer/deliveries/contained-[a-f0-9]{24}$"}, "auditCommand": {"type": "string"},
+    "falsify": {"type": "object", "additionalProperties": false, "required": ["status", "command", "reason"], "properties": {"status": {"const": "available"}, "command": {"type": "string"}, "reason": {"type": "string"}}},
+    "contracts": {"type": "object", "additionalProperties": false, "required": ["view", "certificate", "documents", "board"], "properties": {"view": {"const": "wringer.contained-delivery-view.v1"}, "certificate": {"const": "wringer.contained-certificate.v1"}, "documents": {"const": "wringer.contained-documents.v3"}, "board": {"const": "wringer.contained-board.v2"}}},
+    "sourceReview": {"oneOf": [{"type": "null"}, {"type": "object", "additionalProperties": false, "required": ["receipt", "sha256", "findings"], "properties": {"receipt": {"const": "source-inspection.json"}, "sha256": {"$ref": "#/$defs/digest"}, "findings": {"type": "integer", "minimum": 1, "maximum": 10000}}}]},
+    "limits": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "git": {"type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"},
+    "verification": {"type": "object", "additionalProperties": false, "required": ["schema_version", "status", "candidateCommit", "candidateTree", "acceptanceSha256", "runtimeId", "image", "checks", "regressions", "evidenceRef"], "properties": {"schema_version": {"const": "wringer.contained-verification.v1"}, "status": {"enum": ["passed", "failed", "unavailable"]}, "candidateCommit": {"$ref": "#/$defs/git"}, "candidateTree": {"$ref": "#/$defs/git"}, "acceptanceSha256": {"$ref": "#/$defs/digest"}, "runtimeId": {"type": "string"}, "image": {"type": "string"}, "checks": {"type": "array", "items": {"type": "object"}}, "regressions": {"type": "array", "items": {"type": "object"}}, "evidenceRef": {"type": "string", "pattern": "^receipts/[A-Za-z0-9_.-]+$"}}}
+  }
+}

@@ -5,8 +5,11 @@ Start with [installation](INSTALL.md). These commands use the compiled `dist/` b
 **Want your coding app to handle the mechanics?** Use
 [the assistant entry point](ASSISTANT_START.md) after installation. It is an
 explicit cooperative-local engineering preview with separate human decisions
-and visible security/compatibility limits. The commands below remain the direct
-operator route over the same application services.
+and visible security/compatibility limits. Its single private job page carries
+approval, progress, actual result, review and a separate Send decision; showing
+and handover preparation do not require extra routine clicks. The commands
+below remain the direct operator route over the same application services,
+not steps a PM must reproduce after opening that page.
 
 ## See the product without spending on a model
 

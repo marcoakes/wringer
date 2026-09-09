@@ -102,7 +102,7 @@ export function createAssistantRequestHandler(service: AssistantTransportService
 export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
     const adminToken = randomBytes(32).toString("hex");
     let host = "";
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 15, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, onStop: options.onStop, isStopping: options.isStopping }) });
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, onStop: options.onStop, isStopping: options.isStopping }) });
     host = `127.0.0.1:${server.port}`;
     return { server, endpoint: `http://${host}/call`, adminToken, stop: () => server.stop(true) };
 }
@@ -110,7 +110,9 @@ export function createAssistantTransport(service: AssistantTransportService, opt
 /** No automatic retry and no daemon spawn: losing a response cannot replay work. */
 export async function callAssistantConnection(path: string, name: string, args: unknown): Promise<Record<string, unknown>> {
     const connection = await readAssistantConnection(path);
-    const response = await fetch(connection.endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ name, args }), redirect: "error", signal: AbortSignal.timeout(10000) });
+    const seconds = name === "wringer.wait_for_update" ? (args as { timeoutSeconds?: unknown } | null)?.timeoutSeconds ?? 25 : null;
+    const timeoutMs = typeof seconds === "number" && Number.isInteger(seconds) && seconds >= 0 && seconds <= 25 ? Math.max(10000, (seconds + 5) * 1000) : 10000;
+    const response = await fetch(connection.endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ name, args }), redirect: "error", signal: AbortSignal.timeout(timeoutMs) });
     if (!response.body) throw new Error("The local service returned no response");
     // Read the already-bounded response using the same fatal Unicode/duplicate-key reader.
     const value = await boundedJson(new Request("http://127.0.0.1/result", { method: "POST", body: response.body, duplex: "half" } as RequestInit));
