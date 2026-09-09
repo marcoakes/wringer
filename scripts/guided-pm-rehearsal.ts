@@ -33,9 +33,18 @@ export async function runGuidedPmJourney(input: {
     const waitPhase = (phase: string) => page.locator(`#${phase}-panel`).waitFor({ state: "visible", timeout: 90000 });
     const shot = async (name: string) => { await page.screenshot({ path: join(root, `browser-guided-${name}.png`), fullPage: true }); await record({ browserScreenshot: `browser-guided-${name}.png`, fixture: true }); };
     const heldImages: Route[] = [];
-    let holdImages = !!input.design;
+    let holdImages = !!input.design, failReferenceImages = false;
     const imageRoute = /\/api\/job\/asset\?/;
-    if (input.design) await page.route(imageRoute, route => { if (holdImages) heldImages.push(route); else void route.continue(); });
+    const respondToImage = async (route: Route) => {
+        if (holdImages) { heldImages.push(route); return; }
+        // A queued request can belong to an aborted render. Keep the required
+        // reference unavailable across every replacement request until the
+        // CURRENT page's failure gate has been observed, then explicitly retry.
+        if (failReferenceImages && new URL(route.request().url()).searchParams.get("kind") === "reference")
+            await route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "SCRIPTED unavailable required PNG" }) });
+        else await route.continue();
+    };
+    if (input.design) await page.route(imageRoute, respondToImage);
     const loadedImages = async () => {
         if (!input.design) return;
         await page.waitForFunction(expected => {
@@ -67,14 +76,18 @@ export async function runGuidedPmJourney(input: {
         await check("real Chromium keeps decisions disabled while required PNG requests are held", await page.locator("#accept-result").isDisabled() && await page.locator("#request-correction").isDisabled());
         await shot("design-images-loading");
         for (let i = 0; heldImages.length < input.design.expectedImages && i < 200; i++) await Bun.sleep(10);
-        holdImages = false;
+        holdImages = false; failReferenceImages = true;
         const pending = heldImages.splice(0);
         assertImagesWereRequested(pending.length);
-        await pending[0]!.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "SCRIPTED unavailable required PNG" }) });
-        await Promise.all(pending.slice(1).map(route => route.continue()));
+        await Promise.all(pending.map(respondToImage));
         await page.locator("#review-unavailable").filter({ hasText: "could not be displayed" }).waitFor();
         await check("real browser image failure does not permit visual acceptance or correction", await page.locator("#accept-result").isDisabled() && await page.locator("#request-correction").isDisabled());
+        const failedReload = page.waitForResponse(response => { const url = new URL(response.url()); return url.pathname === "/api/job/asset" && url.searchParams.get("kind") === "reference" && response.status() === 409; });
+        await page.locator("#refresh-job").click(); await failedReload;
+        await page.locator("#review-unavailable").filter({ hasText: "could not be displayed" }).waitFor();
+        await check("a replacement image generation keeps decisions closed while its required reference still fails", await page.locator("#reports .image-status.error").count() >= 1 && await page.locator("#accept-result").isDisabled() && await page.locator("#request-correction").isDisabled());
         await shot("design-image-failure");
+        failReferenceImages = false;
         await page.locator("#refresh-job").click(); await loadedImages();
         await page.unroute(imageRoute);
         await check("authenticated reference and actual desktop/mobile PNGs really decode before decisions", await page.locator("#reports img").count() === input.design.expectedImages);

@@ -146,6 +146,23 @@ Action itself does not install arbitrary browser dependencies into other targets
 Neither first-run failure is a green publication result. Read the subsequent
 commit's attached remote checks for the outcome after these repairs.
 
+The first Mac job passed the package suite, focused design contracts and existing
+guided journey, then exposed a race in the design browser fixture's injected
+image failure. It failed the first intercepted request, which could belong to a
+superseded page render, while allowing the current render's images to load. The
+retained stop screenshot shows all current images decoded; the expected error
+never appeared. The fixture now keeps the selected required reference unavailable
+across rerenders until it measures the visible error and disabled decisions,
+then restores it before explicit Refresh. The product's stale-response guard and
+image-required approval rule are unchanged.
+
+The strengthened local journey then passed **35 checks in 141.34 seconds**,
+including the fresh-clone audit (exit 0). Its
+[separate result record](evidence/design-guided-pm-after-ci-2026-09-09.json)
+identifies base commit `c79b699` with the modified test fixture and retains all
+scripted/live distinctions; it does not replace the first local result or the
+failed remote record. No product code changed for this fixture repair.
+
 ## Still required for the independent blind test
 
 The feature is prepared for an operator-provisioned blind test, not a new claim
