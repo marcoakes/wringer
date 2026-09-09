@@ -126,6 +126,33 @@ live model, sandbox, independent person or efficacy measurements.
   integration errors. Those failures remain in their dated local measurements;
   they are not relabelled as successful runs.
 
+## First remote checkpoint and cross-platform correction
+
+The implementation was published as `4bc6b1214dc1544def7b88edbcf3f81bc57fe3d4`.
+[Its first remote run](https://github.com/marcoakes/wringer/actions/runs/34370475358)
+passed the complete macOS envelope and the GitHub Action integration. Linux
+passed every stage before the final optional-improvement browser rehearsal,
+including its native suite, core loops, portable handover and design journey.
+That last fixture failed because it declared Linux while retaining an Apple
+container configuration. The product correctly refused the mismatched runtime.
+
+The corrective fixture selects matching macOS/Apple or Linux/gVisor declarations
+for both comparison arms. Its Kubernetes identifiers are synthetic and no
+runtime is launched by that browser fixture. Three new non-browser regressions
+(41 assertions) validate both platforms and preserve mismatch/unsupported-host
+refusal. The corrected local real-browser run passed all 14 checks in 3.3 seconds.
+Neither the failed remote run nor these scripted checks establish live benefit.
+
+The same follow-up also supplies the missing operator `experiment connect`
+recipe and corrects the design-binding guide to describe preserved v3 plans.
+The original local evidence index is retained unchanged. The corrective commit's
+remote checks must be observed separately; the earlier macOS success is not
+claimed for an untested later commit.
+The [corrective evidence index](evidence/meta-loops-cross-platform-2026-09-09.json)
+retains both first-remote envelopes and the corrected local browser measurement,
+with hashes of the follow-up source. Its source hash is not a claim that the
+earlier remote logs were produced from that later snapshot.
+
 ## Claims this report does not make
 
 - No paid comparison, live provider convergence, new credential provisioning,

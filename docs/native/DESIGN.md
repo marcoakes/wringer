@@ -137,8 +137,10 @@ with two captures. The captured dimensions must match their declarations.
 wring design bind --repo TARGET_REPO --plan /absolute/private-design-profiles/existing-profile.yaml --snapshot design/snapshot.json --reviews reviews.json --output /absolute/private-design-profiles/reports-design.json
 ```
 
-This creates an unapproved v2 plan. It retains the existing scope, checks and
-session/time budget and binds the exact committed design. Use that profile in
+This creates an unapproved design-aware plan: v3 input stays v3, preserving its
+strict checks, loop policy and pinned playbook; older input becomes v2. It retains
+the existing scope, checks and session/time budget and binds the exact committed
+design. Use that profile in
 the existing assistant setup. `inspect_setup` then supplies a design-aware
 proposal template. The assistant preserves the design field when proposing the
 person's original request. A different design requires a new profile/approval;

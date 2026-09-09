@@ -3,12 +3,26 @@
 import { mkdir, mkdtemp, readFile, readdir, writeFile, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { compileDeclaration, compileExecutionPlan, hashBytes, hashValue } from "../packages/plan/src";
+import { compileDeclaration, compileExecutionPlan, hashBytes, hashValue, type ExecutionPlan } from "../packages/plan/src";
 import { initializeAssistant, createAssistantService, issueAssistantCapability } from "../packages/application/src/assistant";
 import { connectImprovements, inspectImprovements } from "../packages/application/src/improvements";
-import { registerExperiment } from "../packages/application/src/experiments";
+import { registerExperiment, type ExperimentPlanInput } from "../packages/application/src/experiments";
 import { createAssistantConsole } from "../packages/cli/src/assistant-console";
 import { launchPmBrowser } from "./pm-browser";
+
+/** Compile-only fixture configuration, not runtime discovery or provisioning.
+ * Both arms use the same platform/runtime. No runtime is launched by this
+ * rehearsal and the Linux Kubernetes identifiers are explicitly synthetic. */
+export function createImprovementsBrowserFixture(template: ExecutionPlan, platform: NodeJS.Platform) {
+    if (platform !== "darwin" && platform !== "linux") throw new Error("The browser fixture supports only darwin and linux; do not invent a measured platform");
+    const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...data } = template;
+    const { image, cpus, memoryMiB, network } = data.runtime;
+    const runtime = { image, cpus, memoryMiB, network, env: [], ...(platform === "darwin" ? { kind: "apple-container" } : { kind: "gvisor-kubernetes", context: "scripted-browser-fixture", namespace: "wringer-browser-fixture", runtimeClass: "gvisor" }) };
+    const declaration = { version: 3, ...data, runtime, agents: { worker: { ...data.agents.worker, env: [] }, judge: { ...data.agents.judge, env: [] } }, acceptance: { ...data.acceptance, protected_paths: [...data.acceptance.protected_paths, "wringer/playbooks/candidate.json"] } };
+    const baseline = compileDeclaration(declaration), candidate = compileDeclaration({ ...declaration, playbook: { path: "wringer/playbooks/candidate.json", sha256: "a".repeat(64), taskFamily: "reports" } });
+    const experiment: ExperimentPlanInput = { id: "reports-browser", repository: baseline.repository.url, taskFamily: "reports", baselinePlaybook: null, candidatePlaybook: candidate.playbook!.sha256, changedVariable: "worker-playbook", tasks: [{ id: "reports-1", sourceTree: "c".repeat(40), split: "held-out", baseline, candidate }], repetitions: 1, order: "alternating-pairs", stratum: { platform, modelSelection: "Scripted configuration only", adapterSelection: "Scripted configuration only" }, prediction: { statement: "SCRIPTED hypothesis: reduce worker attempts by one without lost requirements.", metric: "worker-attempts", minimumImprovement: 1, minimumHeldOutPairs: 4, maximumSignProbability: 0.05, visualQualityClaim: false }, limits: { maxTrials: 2, maxRoleSessions: baseline.budget.max_sessions * 2, wallClockSeconds: 600 }, dataScope: "this-repository-only", holdout: { corpusId: "scripted-reports", candidateIteration: 1, maximumCandidateIterations: 1, candidateAuthorSawHeldOutSolutions: false }, accounting: "all-planned-trials-including-failures", stoppingRule: "fixed-sample-no-extension" };
+    return { baseline, candidate, experiment };
+}
 
 export async function runImprovementsBrowserRehearsal(repository = resolve(import.meta.dir, "..")) {
     const startedAt = new Date().toISOString(), directory = join(repository, ".wringer", `improvements-browser-${crypto.randomUUID()}`);
@@ -20,16 +34,14 @@ export async function runImprovementsBrowserRehearsal(repository = resolve(impor
     const record = async (value: unknown) => { transcript.push(JSON.parse(JSON.stringify(value).replaceAll(privateRoot, "PRIVATE_FIXTURE").replaceAll(directory, "RECEIPTS").replace(/#token=[a-f0-9]+/g, "#token=REDACTED"))); await writeFile(join(directory, "transcript.json"), JSON.stringify({ fixture: true, startedAt, limits, transcript }, null, 2) + "\n"); };
     const check = async (name: string, value: unknown) => { if (!value) throw new Error(name); checks.push(name); await record({ check: name, status: "passed" }); };
     const template = compileExecutionPlan(await readFile(join(repository, "packages/plan/examples/contained.yaml"), "utf8"), { format: "yaml" });
-    const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...data } = template;
-    const declaration = { version: 3, ...data, runtime: { ...data.runtime, env: [] }, agents: { worker: { ...data.agents.worker, env: [] }, judge: { ...data.agents.judge, env: [] } }, acceptance: { ...data.acceptance, protected_paths: [...data.acceptance.protected_paths, "wringer/playbooks/candidate.json"] } };
-    const baseline = compileDeclaration(declaration), candidate = compileDeclaration({ ...declaration, playbook: { path: "wringer/playbooks/candidate.json", sha256: "a".repeat(64), taskFamily: "reports" } });
+    const { baseline, experiment: experimentInput } = createImprovementsBrowserFixture(template, process.platform);
     const { workspace } = await initializeAssistant(controller, { plan: baseline, cooperativeLocal: true });
     const capability = await issueAssistantCapability(controller, new Date(Date.now() + 600000).toISOString());
     let dispatches = 0;
     const service = await createAssistantService(controller, { dependencies: { start: async () => { dispatches++; throw new Error("No approval or dispatch belongs in this browser fixture"); } } });
     const proposal = await service.call(capability.token, "wringer.propose", { workspaceId: workspace.id, idempotencyKey: crypto.randomUUID(), intent: baseline.intent, plan: baseline, questions: [], assumptions: [] });
     const jobId = String(proposal.jobId), before = hashValue(await service.inspectProposal(jobId));
-    await registerExperiment(join(research, "experiments", "reports-browser"), { id: "reports-browser", repository: baseline.repository.url, taskFamily: "reports", baselinePlaybook: null, candidatePlaybook: candidate.playbook!.sha256, changedVariable: "worker-playbook", tasks: [{ id: "reports-1", sourceTree: "c".repeat(40), split: "held-out", baseline, candidate }], repetitions: 1, order: "alternating-pairs", stratum: { platform: process.platform === "darwin" ? "darwin" : "linux", modelSelection: "Scripted configuration only", adapterSelection: "Scripted configuration only" }, prediction: { statement: "SCRIPTED hypothesis: reduce worker attempts by one without lost requirements.", metric: "worker-attempts", minimumImprovement: 1, minimumHeldOutPairs: 4, maximumSignProbability: 0.05, visualQualityClaim: false }, limits: { maxTrials: 2, maxRoleSessions: baseline.budget.max_sessions * 2, wallClockSeconds: 600 }, dataScope: "this-repository-only", holdout: { corpusId: "scripted-reports", candidateIteration: 1, maximumCandidateIterations: 1, candidateAuthorSawHeldOutSolutions: false }, accounting: "all-planned-trials-including-failures", stoppingRule: "fixed-sample-no-extension" });
+    await registerExperiment(join(research, "experiments", "reports-browser"), experimentInput);
     await connectImprovements(controller, { researchRoot: research, registryRoot: registry, taskFamily: "reports" });
     const server = await createAssistantConsole(service, { guided: true }), browser = await launchPmBrowser(directory, record), page = browser.page;
     const requests: { path: string; method: string }[] = [], errors: string[] = [];

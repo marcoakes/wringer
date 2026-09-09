@@ -107,6 +107,36 @@ only; uncertain model calls are not replayed. Uncertainty and missing records
 stay in the denominator. A completed-but-missing record is a refusal, not a fresh
 paid attempt. Fixture/live mode is durable and cannot change on resume.
 
+## Connect the optional card to the existing PM page
+
+This is operator setup, not another PM dashboard. First register the comparison
+as above. Its directory must be `PRIVATE_ROOT/experiments/<registered-id>`;
+for the example, `PRIVATE_ROOT` is `/PRIVATE` and the id is `reports`.
+The research root and adoption registry must both already exist, be owned by the
+operator with mode `0700`, and be outside Git and production controller state.
+For a new registry, create only the chosen new folder, for example
+`mkdir -m 700 /PRIVATE/playbook-adoptions`; do not change an unrelated folder's
+permissions. Use absolute paths in this recipe.
+
+```sh
+wring experiment connect --assistant-state /ABSOLUTE/EXISTING_ASSISTANT_CONTROLLER \
+  --research-root /PRIVATE --registry /PRIVATE/playbook-adoptions \
+  --task-family reports
+```
+
+Replace the placeholders with the existing assistant's private state directory
+and your chosen research directories. The connection uses that assistant
+profile's repository. Only comparisons for the same repository and task family
+appear; the registry must belong to that same pair. The PM view accepts at most
+16 matching comparisons. Keep older comparisons in a separate private archive,
+not in the connected `experiments` directory; never discard failed trials.
+
+Refresh the existing guided PM page to see the collapsed optional improvement
+card. The assistant can inspect the same facts with `wringer.inspect_improvements`.
+Connecting and reading approve nothing, make no provider calls and leave active
+proposals unchanged. Testing still needs its separate finite allowance; adopting
+or undoing a selection still needs a distinct revision-bound operator decision.
+
 ## What the comparison can conclude
 
 The first implementation supports `worker-attempts` and `functional-completion`.
