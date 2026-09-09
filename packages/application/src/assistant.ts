@@ -9,11 +9,13 @@ import { createAssistantRunner, AssistantDispatchRefused, type AssistantRunnerRe
 import { assistantId, assistantPath, assistantExists, assistantInventory, createAssistantDirectory, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
 import { projectRequirements } from "./requirements";
 import { inspectImprovements, futureImprovementTemplate } from "./improvements";
+import { createAssistantDesignService, type AssistantDesignDependencies } from "./assistant-design";
+import { readAssistantDesignBinding } from "./assistant-design-binding";
 
 export const ASSISTANT_BOUNDARY = "cooperative-local" as const;
 export const ASSISTANT_WARNING = "Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.";
 const SCHEMA = "wringer.assistant-response.v1";
-const allowedTools = new Set(["wringer.inspect_setup", "wringer.inspect_improvements", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
+const allowedTools = new Set(["wringer.inspect_setup", "wringer.inspect_improvements", "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const mutationTools = new Set(["wringer.start", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const continuation = new Set(["resume", "retry-verification", "retry-judge", "retry-stopped"]);
 const clean = new Redactor(["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]);
@@ -50,7 +52,8 @@ export interface AssistantWorkspace {
     destination: WorkspaceCommand["payload"] | null;
 }
 export interface AssistantProposal {
-    schema_version: "wringer.assistant-proposal.v1";
+    schema_version: "wringer.assistant-proposal.v1" | "wringer.assistant-proposal.v2";
+    designImportId?: string;
     id: string;
     workspaceId: string;
     requestId: string;
@@ -137,9 +140,15 @@ function bindProfile(plan: ExecutionPlan, workspace: AssistantWorkspace) {
 }
 async function proposal(root: string, jobId: string, workspace?: AssistantWorkspace): Promise<AssistantProposal> {
     const value = await readAssistantRecord<AssistantProposal>(root, jobFile(jobId, "proposal"));
-    insist(value.schema_version === "wringer.assistant-proposal.v1" && value.id === jobId && (!workspace || value.workspaceId === workspace.id), "job-refused", "This handle does not belong to the connection's workspace");
-    if (value.plan) { validateExecutionPlan(value.plan); insist(value.plan.intent === value.intent, "unreadable-proposal", "Proposal intent and plan disagree"); if (workspace) bindProfile(value.plan, workspace); }
+    insist(["wringer.assistant-proposal.v1", "wringer.assistant-proposal.v2"].includes(value.schema_version) && value.id === jobId && (!workspace || value.workspaceId === workspace.id), "job-refused", "This handle does not belong to the connection's workspace");
+    insist(value.schema_version === "wringer.assistant-proposal.v1" ? value.designImportId === undefined : typeof value.designImportId === "string", "unreadable-proposal", "The selected design handle does not match this proposal record version");
+    if (value.plan) { validateExecutionPlan(value.plan); insist(value.plan.intent === value.intent, "unreadable-proposal", "Proposal intent and plan disagree"); if (workspace) bindProfile(value.plan, await designWorkspace(root, workspace, value.designImportId)); }
     return value;
+}
+async function designWorkspace(root: string, workspace: AssistantWorkspace, importId?: string): Promise<AssistantWorkspace> {
+    if (importId === undefined) return workspace;
+    const binding = await readAssistantDesignBinding(root, workspace, assistantId(importId));
+    return { ...workspace, profile: binding.profile };
 }
 async function approval(root: string, p: AssistantProposal, current = false): Promise<AssistantApproval | null> {
     if (!await assistantExists(root, jobFile(p.id, "approval"))) return null;
@@ -191,9 +200,10 @@ export interface AssistantDependencies {
 }
 const realDependencies: AssistantDependencies = { start: startController, status: controllerStatus, queueCommand: queueWorkspaceCommand, readCommand: readWorkspaceCommand, publication: latestWorkspacePublication };
 /** One application service behind both operator presentation and the thin MCP adapter. */
-export async function createAssistantService(root: string, options: { dependencies?: Partial<AssistantDependencies>; application?: ApplicationOptions; beforeOwnerRelease?: () => Promise<void> } = {}) {
+export async function createAssistantService(root: string, options: { dependencies?: Partial<AssistantDependencies>; design?: Partial<AssistantDesignDependencies>; application?: ApplicationOptions; beforeOwnerRelease?: () => Promise<void> } = {}) {
     root = await createAssistantDirectory(root);
     const workspace = await readAssistantWorkspace(root), deps = { ...realDependencies, ...options.dependencies };
+    const design = createAssistantDesignService(root, workspace, options.design);
     const state = (jobId: string) => assistantControllerState(root, jobId);
     const runner = await createAssistantRunner(await assistantPath(root, "runner"), { execute: dispatch, beforeOwnerRelease: options.beforeOwnerRelease });
     const ownerAccess = Symbol("construction-only routine coordinator");
@@ -301,7 +311,8 @@ export async function createAssistantService(root: string, options: { dependenci
             insist(!view.started, "already-started", "This job already started. Inspect its retained outcome; do not create another start.");
             await writeAssistantRecord(root, jobFile(p.id, "started"), { schema_version: "wringer.assistant-start.v1", jobId: p.id, operationId: request.id, approvalSha256: hashValue(a) });
             began = true;
-            const result = await deps.start(state(p.id), p.plan, a.authority, { ...options.application, signal });
+            const designBinding = p.designImportId ? await readAssistantDesignBinding(root, workspace, p.designImportId) : null;
+            const result = await deps.start(state(p.id), p.plan, a.authority, { ...options.application, ...(designBinding ? { sourceBundle: designBinding.sourceBundle } : {}), signal });
             return { schema_version: SCHEMA, jobId: p.id, outcome: result.status, candidateTree: result.candidate?.tree ?? null, note: "Transport completion is not a claim that the work succeeded." };
         }
         insist(request.kind === "command" && view.query, "not-started", "This job has no recorded execution state");
@@ -333,11 +344,21 @@ export async function createAssistantService(root: string, options: { dependenci
             if (raw && typeof raw === "object" && Object.hasOwn(raw, "strictCashLimit")) throw new AssistantRefusal("strict-cash-unavailable", "Strict cash limits are unavailable. No work started; a monetary request is not downgraded to session limits.");
             const common = ["jobId", "idempotencyKey", "expectedRevision", "expectedCandidateTree"];
             const fields: Record<string, string[]> = { "wringer.inspect_setup": ["workspaceId"], "wringer.inspect_improvements": ["workspaceId"], "wringer.propose": ["workspaceId", "idempotencyKey", "intent", "plan", "assumptions", "questions"], "wringer.get_status": ["jobId"], "wringer.wait_for_update": ["jobId", "afterEventId", "timeoutSeconds"], "wringer.get_approval_request": ["jobId"], "wringer.get_evidence": ["jobId", "evidenceId", "offset", "limit"], "wringer.start": common, "wringer.cancel": common, "wringer.request_revision": [...common, "note"], "wringer.continue": [...common, "action"], "wringer.prepare_handover": common };
+            fields["wringer.inspect_design"] = ["workspaceId"];
+            fields["wringer.prepare_design_import"] = ["workspaceId", "idempotencyKey", "urls"];
+            fields["wringer.get_design_import"] = ["importId"];
+            fields["wringer.inspect_setup"]!.push("designImportId");
+            fields["wringer.propose"]!.push("designImportId");
             const args = exact(raw, fields[name]!);
+            if (["wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import"].includes(name)) {
+                insist(!args.workspaceId || args.workspaceId === workspace.id, "workspace-refused", "Only the selected workspace is available");
+                return { schema_version: SCHEMA, outcome: "observed", design: name === "wringer.inspect_design" ? await design.inspect() : name === "wringer.prepare_design_import" ? await design.prepare(args) : await design.get(assistantId(args.importId)) };
+            }
             if (name === "wringer.inspect_setup") {
                 insist(!args.workspaceId || args.workspaceId === workspace.id, "workspace-refused", "Only the operator-selected workspace is available");
-                const future = await futureImprovementTemplate(root, workspace.profile);
-                return { schema_version: SCHEMA, outcome: "inspected", workspaceId: workspace.id, boundary: ASSISTANT_BOUNDARY, limitation: ASSISTANT_WARNING, availability: { bun: Bun.version, git: !!Bun.which("git"), containerCommand: !!Bun.which(workspace.profile.runtime.kind === "apple-container" ? "container" : "kubectl"), runtimeReady: "not-probed", workerAuthentication: "not-probed" }, template: template(future.plan), improvementNote: future.note, note: "No command, installer, key read or paid planner ran. Submit an inert proposal using this pinned profile. Source and runtime fields cannot be changed by the assistant." };
+                const selected = await designWorkspace(root, workspace, args.designImportId);
+                const future = await futureImprovementTemplate(root, selected.profile);
+                return { schema_version: SCHEMA, outcome: "inspected", workspaceId: workspace.id, ...(args.designImportId ? { designImportId: args.designImportId } : {}), boundary: ASSISTANT_BOUNDARY, limitation: ASSISTANT_WARNING, availability: { bun: Bun.version, git: !!Bun.which("git"), containerCommand: !!Bun.which(selected.profile.runtime.kind === "apple-container" ? "container" : "kubectl"), runtimeReady: "not-probed", workerAuthentication: "not-probed" }, template: template(future.plan), improvementNote: future.note, note: "No command, installer, key read or paid planner ran. Submit an inert proposal using this pinned profile. Source and runtime fields cannot be changed by the assistant." };
             }
             if (name === "wringer.inspect_improvements") {
                 insist(!args.workspaceId || args.workspaceId === workspace.id, "workspace-refused", "Only the selected workspace is available");
@@ -346,16 +367,17 @@ export async function createAssistantService(root: string, options: { dependenci
             if (name === "wringer.propose") {
                 insist(args.workspaceId === workspace.id, "workspace-refused", "Use the selected workspace handle");
                 const requestId = assistantId(args.idempotencyKey), intent = text(args.intent, "original request"), questions = notes(args.questions, "questions"), assumptions = notes(args.assumptions, "assumptions");
+                const selected = await designWorkspace(root, workspace, args.designImportId);
                 let plan: ExecutionPlan | null = null;
-                if (args.plan) { plan = args.plan.schema_version ? validateExecutionPlan(args.plan) : compileDeclaration(args.plan); insist(plan.intent === intent, "intent-mismatch", "The plan must retain the original request verbatim"); bindProfile(plan, workspace); }
+                if (args.plan) { plan = args.plan.schema_version ? validateExecutionPlan(args.plan) : compileDeclaration(args.plan); insist(plan.intent === intent, "intent-mismatch", "The plan must retain the original request verbatim"); bindProfile(plan, selected); }
                 const approach = (p: ExecutionPlan) => ({ playbook: p.playbook ?? null, rollback: p.approachAdoption ?? null });
-                if (plan?.schema_version === "wringer.execution-plan.v3" && hashValue(approach(plan)) !== hashValue(approach(workspace.profile))) {
-                    const future = await futureImprovementTemplate(root, workspace.profile);
+                if (plan?.schema_version === "wringer.execution-plan.v3" && hashValue(approach(plan)) !== hashValue(approach(selected.profile))) {
+                    const future = await futureImprovementTemplate(root, selected.profile);
                     insist(hashValue(approach(plan)) === hashValue(approach(future.plan)), "playbook-selection-changed", "Only the operator-pinned approach or the exact evaluated future selection can enter a new proposal. Active approvals are unchanged.");
                 }
                 insist(plan || questions.length, "missing-proposal", "Provide a valid inert plan or the questions that prevent one");
                 const digest = hashValue({ workspaceId: workspace.id, requestId }), jobId = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
-                const p: AssistantProposal = { schema_version: "wringer.assistant-proposal.v1", id: jobId, workspaceId: workspace.id, requestId, intent, plan, assumptions, questions };
+                const p: AssistantProposal = { schema_version: args.designImportId ? "wringer.assistant-proposal.v2" : "wringer.assistant-proposal.v1", ...(args.designImportId ? { designImportId: assistantId(args.designImportId) } : {}), id: jobId, workspaceId: workspace.id, requestId, intent, plan, assumptions, questions };
                 insist(clean.scrub(JSON.stringify(p)) === JSON.stringify(p), "secret-refused", "Detected credentials cannot be recorded in proposals");
                 await writeAssistantRecord(root, jobFile(jobId, "proposal"), p);
                 return await presentedStatus(jobId);
@@ -462,7 +484,7 @@ export async function createAssistantService(root: string, options: { dependenci
         });
     }
     return {
-        call: (token: string, name: string, raw: unknown) => call(token, name, raw), runner, status, inspectForPm, root, workspace, reconcile,
+        call: (token: string, name: string, raw: unknown) => call(token, name, raw), runner, status, inspectForPm, root, workspace, reconcile, design,
         // This construction-only seam reuses exact application approval, source,
         // budget and idempotency checks. It grants no operator decision tools.
         requestRoutine: (name: "wringer.start" | "wringer.continue" | "wringer.prepare_handover", raw: unknown) => {

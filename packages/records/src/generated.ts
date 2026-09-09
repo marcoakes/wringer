@@ -1500,6 +1500,49 @@ export type DesignSnapshotV1 = {
 };
 
 /**
+ * DesignSnapshotV2
+ *
+ * Generated from `schema/design-snapshot-v2.schema.json`. Do not edit.
+ */
+export type DesignSnapshotV2 = {
+  "schema_version": "wringer.design-snapshot.v2";
+  "title": string;
+  "source": {
+    "provider": "figma-rest";
+    "label": string;
+    "endpoint": "https://api.figma.com";
+    "file_key": string;
+    "node_id": string;
+    "version": string;
+    "version_basis": "reported";
+  };
+  "captured_at": string;
+  "disclosure": "private" | "repository-permitted";
+  "context": string;
+  "component_rules": string[];
+  "assets": {
+    "id": string;
+    "title": string;
+    "media_type": "image/png";
+    "width": number;
+    "height": number;
+    "base64": string;
+    "sha256": string;
+  }[];
+  "provenance": {
+    "method": "figma-rest-read";
+    "calls": {
+      "tool": "GET /v1/files/:key/nodes" | "GET /v1/images/:key" | "GET Figma render PNG";
+      "arguments_sha256": string;
+      "request_sha256": string;
+      "response_sha256": string;
+    }[];
+    "limits": string[];
+  };
+  "snapshot_sha256": string;
+};
+
+/**
  * wringer.diagnosis.v1
  *
  * Generated from `schema/diagnosis.schema.json`. Do not edit.
@@ -4252,6 +4295,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "decisions.schema.json": "wringer.decisions.v1",
   "delivery-manifest.schema.json": "wringer.delivery.v1",
   "design-snapshot-v1.schema.json": "wringer.design-snapshot.v1",
+  "design-snapshot-v2.schema.json": "wringer.design-snapshot.v2",
   "diagnosis.schema.json": "wringer.diagnosis.v1",
   "digests.schema.json": "wringer.digests.v1",
   "engineering-evidence-v1.schema.json": "wringer.engineering-evidence.v1",
@@ -4367,6 +4411,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.decisions.v1": "decisions.schema.json",
   "wringer.delivery.v1": "delivery-manifest.schema.json",
   "wringer.design-snapshot.v1": "design-snapshot-v1.schema.json",
+  "wringer.design-snapshot.v2": "design-snapshot-v2.schema.json",
   "wringer.diagnosis.v1": "diagnosis.schema.json",
   "wringer.digests.v1": "digests.schema.json",
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",

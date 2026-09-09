@@ -52,6 +52,25 @@ export async function prepareRepositorySource(source: RepositorySource, options:
     await bundle(objectStore, bundlePath, driver);
     return { url: source.url, commit: source.commit, bundlePath, objectStore };
 }
+/** Install one approved data artifact using Git objects only. No checkout,
+ * repository command, global identity, remote write or worker impersonation. */
+export async function prepareRepositoryArtifactSource(source: RepositorySource, artifact: { path: string; contents: string; sha256: string }, options: SourceOptions): Promise<PreparedRepositorySource> {
+    if (!/^\.wringer-design\/[a-f0-9]{64}\.json$/.test(artifact.path) || hash(artifact.contents) !== artifact.sha256 || Buffer.byteLength(artifact.contents) > 16 * 1024 * 1024)
+        throw new RuntimeError("Approved source artifact must be exact bounded design data at its content-addressed path");
+    const prepared = await prepareRepositorySource(source, options), driver = options.driver ?? processDriver;
+    if ((await git(driver, prepared.objectStore, ["ls-tree", source.commit, "--", artifact.path])).trim()) throw new RuntimeError("Approved design attachment cannot replace an existing repository file");
+    await git(driver, prepared.objectStore, ["read-tree", source.commit]);
+    const blob = (await git(driver, prepared.objectStore, ["hash-object", "-w", "--stdin"], artifact.contents)).trim();
+    await git(driver, prepared.objectStore, ["update-index", "--add", "--cacheinfo", "100644", blob, artifact.path]);
+    const tree = (await git(driver, prepared.objectStore, ["write-tree"])).trim();
+    const changed = (await git(driver, prepared.objectStore, ["diff", "--name-only", "-z", source.commit, tree, "--"])).split("\0").filter(Boolean);
+    if (changed.length !== 1 || changed[0] !== artifact.path) throw new RuntimeError("Design attachment changed more than its approved data artifact");
+    const commit = (await git(driver, prepared.objectStore, ["commit-tree", tree, "-p", source.commit, "-m", `Approved design reference ${artifact.sha256}`])).trim();
+    await git(driver, prepared.objectStore, ["update-ref", "refs/heads/design", commit]);
+    const bundlePath = join(resolve(prepared.objectStore, ".."), "design.bundle");
+    await bundle(prepared.objectStore, bundlePath, driver, "refs/heads/design");
+    return { ...prepared, commit, bundlePath };
+}
 export interface CapturedCandidate {
     source: PreparedRepositorySource;
     tree: string;

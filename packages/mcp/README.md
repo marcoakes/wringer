@@ -2,9 +2,17 @@
 
 This package is the narrow MCP front door, not an agent runtime or execution
 owner. It uses the existing application services through an injected callback.
-The twelve tools are defined once in `src/contract.ts`; their JSON Schemas also
+The tools are defined once in `src/contract.ts`; their JSON Schemas also
 validate every tool call. Approval, the human pen, publication, credentials,
 arbitrary files and arbitrary execution are not assistant tools.
+
+Design intake adds `wringer.inspect_design`, `wringer.prepare_design_import` and
+`wringer.get_design_import`. Preparing stores a bounded frame-link request, not
+design bytes or permission. OAuth, preview, retention and attachment stay on the
+operator surface. An attached import's `designImportId` selects an immutable
+future-proposal profile in `inspect_setup`/`propose`; it cannot change existing
+approval. No sign-in URL, token or transport path is returned to the model.
+See [Connect Figma](../../docs/native/FIGMA_CONNECT.md).
 
 `createMcpSession({ version, call, redact? })` reads one JSON-RPC string through
 `receive(line)` and returns one response or `null` for a notification.

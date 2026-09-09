@@ -11,10 +11,14 @@ stop before another automatic attempt. Optional comparisons can test an approach
 for **future** jobs under a separate allowance; they cannot approve themselves or
 change your current work. See [measured repair loops](docs/native/MEASURED_LOOPS.md).
 
-Building from a design? Give the assistant the approved reference and existing
-component library. Follow [Design-led work](docs/native/DESIGN.md) for the one-time
-read-only import and design-aware profile. The same page then shows reference
-versus actual desktop/mobile output before your design decision.
+Building from a design? Paste the desktop and mobile Figma frame links and name
+the existing component library. In a design-ready workspace, the private PM page
+offers Connect Figma → private preview → permission to keep the references →
+attach for new work. The assistant then uses the approved import handle for its
+new proposal; earlier approvals do not transfer. [Figma connection setup and its
+live prerequisites](docs/native/FIGMA_CONNECT.md). [Other design inputs](docs/native/DESIGN.md)
+still work. The same job page shows reference versus actual desktop/mobile output
+before your design decision. Tokens never belong in this conversation.
 
 **This is an engineering preview, not a protected delegation product.** It
 requires an operator to select a real contained execution profile once and

@@ -4,6 +4,24 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.10 — Figma API connection repair (source checkpoint)
+
+- New registered-app OAuth broker and operator credential lifecycle; no app
+  secret on PM machines, no token-copying prompt, no worker Figma credentials.
+- Bounded selected-frame REST reader with version-pinned PNG requests and
+  `design-snapshot.v2`. The original v1 schema and readers remain supported.
+- Coding-app request/status tools and private PM connection, preview, retention
+  and attachment controls. Model tools cannot approve any of these decisions.
+- Immutable future-proposal profile overlays, bare-Git data attachment and
+  private source transport. No target checkout edit, remote push or reuse of
+  earlier approval at attachment; original checks, scope and ceilings persist.
+- Compiled broker entrypoint, deployment guide, adversarial tests and a distinct
+  REST-fixture visual review/handover/audit rehearsal.
+- **Not claimed:** official Figma remote MCP access, a deployed broker, real
+  OAuth/account access, a live design import or an independent PM blind pass.
+  Follow the [connection guide](docs/native/FIGMA_CONNECT.md) and the separately
+  labelled [API blind test](docs/FIGMA_API_BLIND_TEST.md).
+
 ## 1.0.0-alpha.5 — assistant-led engineering preview (source checkpoint)
 
 - New `wringer-assistant` executable and ten narrow MCP tools: inert proposals,

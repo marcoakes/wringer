@@ -5,6 +5,7 @@ export * from "./credentials";
 export * from "./discovery";
 export * from "./assistant-runner";
 export * from "./assistant";
+export * from "./assistant-design";
 export * from "./assistant-store";
 export * from "./requirements";
 export * from "./protected-confirmation";

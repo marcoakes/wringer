@@ -60,6 +60,11 @@ connection capability. Existing keys and logins are reused, never shown here.
 revoke disables assistant access and requests owner shutdown; evidence is kept.
 Session/time limits are not a cash cap. Coding-app usage remains unknown.
 
+Design-ready workspaces include Bring a Figma design on the private PM page.
+The assistant prepares frame links; the operator connects, previews and permits
+retention/attachment. Guide: docs/native/FIGMA_CONNECT.md. A registered-app HTTPS
+broker is required; a Figma personal token is not remote MCP authentication.
+
 Guide: ASSISTANT_START.md
 Codex connection reference: https://learn.chatgpt.com/docs/extend/mcp?surface=cli
 `;

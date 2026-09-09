@@ -11,6 +11,13 @@ import type { Answer } from "./app";
 
 export const DESIGN_HELP = `Design → contained build → visual review → handover proof
 
+PM Figma route: open Bring a Figma design in the private assistant workspace.
+Connect → preview → permit storage → attach → approve the new plan.
+Guide: docs/native/FIGMA_CONNECT.md (registered OAuth broker required).
+This is Figma REST API through Wringer, not official Figma remote MCP.
+
+Advanced file import commands:
+
   wring design import --recipe READ_RECIPE.json --output design/snapshot.json
       [--token-env FIGMA_MCP_TOKEN] --allow-repository-storage
   wring design reference --input OWNED_REFERENCE.json --output design/snapshot.json

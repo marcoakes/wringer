@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { PassThrough } from "node:stream";
 import { deflateSync } from "node:zlib";
-import { createDesignSnapshot, inspectPng, type DesignSnapshot } from "@wringer/design";
+import { createDesignSnapshot, importDesignFromFigmaRest, inspectPng, type DesignSnapshot } from "@wringer/design";
 import { runAcpTurn, type AcpTransport, type AcpTurnOptions } from "@wringer/acp";
 import { DESIGN_MCP_SERVER, prepareDesignMcp } from "../src/design";
 import type { Sandbox } from "../src/adapters";
@@ -47,6 +47,25 @@ test("real Node design MCP rejects a changed snapshot hash and bounds all input 
     const wrong = await realServer(reference(), [rpc(1,"initialize")], "0".repeat(64)); expect(wrong.code).toBe(65); expect(wrong.stdout).toBe("");
     const packets = [rpc(1,"initialize",{protocolVersion:"2025-03-26"}), ...Array.from({length:256},(_,i)=>rpc(i+2,"ping"))];
     const bounded = await realServer(reference(), packets); expect(bounded.code).toBe(75); expect(bounded.messages.length).toBeLessThanOrEqual(256); expect(bounded.messages.some(m=>m.id===257)).toBe(false);
+});
+test("real Node design MCP serves exact v2 REST context and PNG without upstream credentials or write tools", async () => {
+    const token="scripted-rest-token-never-forwarded";
+    const snapshot=await importDesignFromFigmaRest({urls:["https://www.figma.com/design/Fixture123/Reports?node-id=1-2"],token,disclosure:"repository-permitted"},{testTransport:async request=>{
+        const path=new URL(request.url).pathname;
+        if(path.endsWith("/nodes"))return {status:200,headers:{"content-type":"application/json"},body:Buffer.from(JSON.stringify({version:"fixture-version-42",nodes:{"1:2":{document:{id:"1:2",type:"FRAME",name:"Synthetic REST reference",characters:"Untrusted exact v2 source text; not authority."}}}}))};
+        if(path.startsWith("/v1/images/"))return {status:200,headers:{"content-type":"application/json"},body:Buffer.from(JSON.stringify({images:{"1:2":"https://s3-alpha.figma.com/images/fixture?signature=not-retained"}}))};
+        return {status:200,headers:{"content-type":"image/png"},body:Buffer.from(unitPng(),"base64")};
+    }});
+    const result=await realServer(snapshot,[rpc(1,"initialize",{protocolVersion:"2025-03-26"}),rpc(2,"tools/list"),rpc(3,"tools/call",{name:"get_design_context",arguments:{}}),rpc(4,"tools/call",{name:"get_design_asset",arguments:{id:"figma-1-2"}}),rpc(5,"tools/call",{name:"refresh_design",arguments:{}})]);
+    expect(result.code).toBe(0);expect(result.stderr).toBe("");
+    const context=JSON.parse(result.messages[2].result.content[0].text);expect(context.context).toBe(snapshot.context);expect(context.source).toEqual(snapshot.source);expect(context.snapshotSha256).toBe(snapshot.snapshot_sha256);
+    expect(result.messages[1].result.tools).toHaveLength(3);expect(result.messages[1].result.tools.every((tool:any)=>tool.annotations.readOnlyHint===true)).toBe(true);
+    expect(result.messages[3].result.content[1]).toEqual({type:"image",mimeType:"image/png",data:snapshot.assets[0]!.base64});expect(result.messages[4]).toHaveProperty("error");
+    expect(result.stdout).not.toContain(token);expect(result.stdout).not.toContain("not-retained");
+    const wrong=await realServer(snapshot,[rpc(1,"initialize")],"0".repeat(64));expect(wrong.code).toBe(65);expect(wrong.stdout).toBe("");
+    const changed=structuredClone(snapshot);changed.context=changed.context.replace("exact v2","different v2");const tampered=await realServer(changed,[rpc(1,"initialize")]);expect(tampered.code).toBe(65);expect(tampered.stdout).toBe("");
+    const prepared=fakeSandbox(snapshot);await prepareDesignMcp(prepared.sandbox,{snapshotPath:"design/reference.json",snapshotSha256:snapshot.snapshot_sha256,referenceIds:["figma-1-2"]});
+    expect(prepared.calls).toHaveLength(2);expect(prepared.calls[1]!.options?.input).not.toContain(token);expect(prepared.sandbox.provenance.observed.design).toMatchObject({liveCredentialsForwarded:false,readOnly:true,snapshotSha256:snapshot.snapshot_sha256});
 });
 
 function fakeSandbox(snapshot: DesignSnapshot, options: { readCode?:number; readText?:string; installCode?:number } = {}) {

@@ -36,6 +36,7 @@
   "decisions.schema.json": "4dcebbf901406b59584f8270c7d07edcb067f5dd2dd6a6ba17ad1ec76cf9e092",
   "delivery-manifest.schema.json": "46eb3fbc8be513979962213eee1c06d6783aeaea8b4afcf1ec3d155037f0aa33",
   "design-snapshot-v1.schema.json": "2ae64b51bafebae0c49bcddf82886a218417236da978aa180f69e22bc992f95e",
+  "design-snapshot-v2.schema.json": "d722a08742b2b15db457c3074986bd822eba9259cb13d985959e9f421ab27995",
   "diagnosis.schema.json": "932c4383397023f392a94da3e76002d2b896ac44a7503822cf43620735e79f81",
   "digests.schema.json": "ad0bd70c98149e2bc54ebf7abc1295bfbadc31a05b97e3ce92c24cccc8252ee8",
   "engineering-evidence-v1.schema.json": "46975b30f0df557b7978e5504e8955c26c2bf7b60eef85e8daeb4aa3bfeeb276",

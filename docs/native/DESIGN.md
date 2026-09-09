@@ -18,7 +18,21 @@ design bytes to travel with the source repository and its handover. This is
 separate from permission to build or publish. Do not expose private customer
 designs in a public repo. The importer cannot detect confidential pixels.
 
-### Figma or another approved MCP design service
+### Figma: the supported new connection route
+
+Use [Connect Figma](FIGMA_CONNECT.md) for the new PM flow. It reads selected
+frames through the Figma REST API and records `design-snapshot.v2`, then exposes
+the approved snapshot through Wringer's own read-only MCP service. It is **not**
+a connection to Figma's official remote MCP server. Sign-in requires an
+administrator-deployed registered-app broker. A Figma personal token is not a
+documented authentication route for Figma's official remote MCP server.
+
+The connected PM flow automatically prepares a new local, immutable source
+commit after explicit retention and attachment. It changes neither the target
+checkout nor any running plan, and does not push. The manual commit/bind steps
+below apply to file imports, not that connected flow.
+
+### Advanced: another approved MCP service, or separately eligible Figma MCP
 
 The importer executes a finite explicit read recipe. It does not spend on a model
 or let a model select additional tools. Example `figma-read.json`:
@@ -40,8 +54,9 @@ or let a model select additional tools. Example `figma-read.json`:
 ```
 
 The exact tool names/arguments must match those offered by the authorized service;
-unknown or write tools refuse. An approved eligible Figma MCP client and token
-are prerequisites, not something Wringer can grant. Use the authorized account
+unknown or write tools refuse. Figma's remote MCP restricts eligible clients;
+this generic importer does not establish Wringer's eligibility. Do not substitute
+a personal token or borrow a coding app's OAuth tokens. Use the authorized account
 flow, never paste a token into the chat or recipe. The explicitly named token
 variable is the only credential read by this import; it is not passed to workers.
 No login or Keychain entry is created or replaced.

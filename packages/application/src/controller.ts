@@ -43,6 +43,9 @@ export async function readController(state: string, currentAuthority = false, al
     return history;
 }
 export interface ApplicationOptions extends ContainedServiceOptions {
+    /** Private source transport selected by a validated operator attachment.
+     * Never accepted as an assistant tool or HTTP argument. */
+    sourceBundle?: string;
     signal?: AbortSignal;
     onEvent?: ContainedJourneyOptions["onEvent"];
     retryUncertain?: boolean;
@@ -68,7 +71,7 @@ export async function startController(stateDirectory: string, plan: ExecutionPla
         prepared = await readControllerFile(preparedPath);
         if (prepared.url !== plan.repository.url || prepared.commit !== plan.repository.commit) throw new Error("Prepared source record differs from the authorized repository revision");
     } else {
-        prepared = await prepareContainedSource(plan, state);
+        prepared = await prepareContainedSource(plan, state, options.sourceBundle);
         await immutableControllerFile(preparedPath, prepared);
     }
     if (await Bun.file(environmentPath).exists()) environment = await readControllerFile(environmentPath);

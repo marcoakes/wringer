@@ -1,6 +1,7 @@
 import Ajv from "ajv";
 
 export const ASSISTANT_TOOL_NAMES = [
+    "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import",
     "wringer.inspect_improvements", "wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status",
     "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover",
 ] as const;
@@ -31,6 +32,22 @@ export interface AssistantToolDefinition {
 /** This is the complete assistant surface. Human decisions and publication are deliberately absent. */
 export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
     {
+        name: "wringer.inspect_design", title: "Check the design connection",
+        description: "Read nonsecret Figma connection status and design import handles for this workspace. No credentials are exposed, and no external request, consent or model call occurs. Figma API imports are not Figma's official remote MCP service.",
+        inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
+    },
+    {
+        name: "wringer.prepare_design_import", title: "Prepare a design preview request",
+        description: "Record one desktop and optionally one mobile Figma frame/layer link from the same file for the operator to inspect. This does not connect, import design bytes, grant retention permission, approve work or attach a design. The person uses the private PM workspace for those separate decisions. No access token or sign-in link is returned.",
+        inputSchema: objectSchema({ workspaceId: handle, idempotencyKey, urls: { type: "array", minItems: 1, maxItems: 2, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 2048 } } }),
+        annotations: { ...mutationAnnotations, destructiveHint: false, openWorldHint: false },
+    },
+    {
+        name: "wringer.get_design_import", title: "Read a design preview's next step",
+        description: "Read one service-issued design import handle, exact snapshot digests and its next human action. No design pixels, private context, sign-in URL, token, arbitrary path or retention permission is returned. Reading never retries an interrupted import.",
+        inputSchema: objectSchema({ importId: handle }), annotations: readonlyAnnotations,
+    },
+    {
         name: "wringer.inspect_improvements", title: "Read improvement evidence",
         description: "Read the operator-connected repository comparisons and future adoption status. Offline only: no provider, credential, trial collection, promotion, approval or publication. Missing or fixture evidence cannot become a live improvement claim.",
         inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
@@ -38,12 +55,12 @@ export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
     {
         name: "wringer.inspect_setup", title: "Check what is ready",
         description: "Read the selected workspace, installation readiness and available proposal template. Does not install, read key values or call a model. A contained worker's bill is separate from your coding app.",
-        inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
+        inputSchema: objectSchema({ workspaceId: handle, designImportId: handle }, []), annotations: readonlyAnnotations,
     },
     {
         name: "wringer.propose", title: "Propose bounded work",
         description: "Submit the person's original request and an inert, unapproved plan declaration, using inspect_setup's template. Preserve their words and expose assumptions or questions. This does not approve work, execute declared commands or call a planner. Session/time limits are not a cash guarantee; strict cash limits are unavailable.",
-        inputSchema: objectSchema({ workspaceId: handle, idempotencyKey, intent: { type: "string", minLength: 1, maxLength: 16384, description: "The original request, at most 16384 UTF-8 bytes." }, plan: { anyOf: [{ type: "object" }, { type: "null" }], description: "An inert PlanDeclaration based on the selected workspace's template. The application validates all semantics and scope before a person can approve it. Omit while questions remain." }, assumptions: paragraphs, questions: paragraphs, strictCashLimit: { description: "Any supplied value requests an unavailable strict monetary guarantee and is refused before work." } }, ["workspaceId", "idempotencyKey", "intent"]),
+        inputSchema: objectSchema({ workspaceId: handle, designImportId: { ...handle, description: "Optional design import already retained and attached by the operator. Use inspect_setup with this same handle first; it selects the exact immutable source/design profile and grants no approval." }, idempotencyKey, intent: { type: "string", minLength: 1, maxLength: 16384, description: "The original request, at most 16384 UTF-8 bytes." }, plan: { anyOf: [{ type: "object" }, { type: "null" }], description: "An inert PlanDeclaration based on the selected workspace's template. The application validates all semantics and scope before a person can approve it. Omit while questions remain." }, assumptions: paragraphs, questions: paragraphs, strictCashLimit: { description: "Any supplied value requests an unavailable strict monetary guarantee and is refused before work." } }, ["workspaceId", "idempotencyKey", "intent"]),
         annotations: { ...mutationAnnotations, destructiveHint: false, openWorldHint: false },
     },
     {

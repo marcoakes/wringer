@@ -13,6 +13,8 @@ if (await headless.exited)
     throw new Error("Headless executable build failed");
 const assistant = Bun.spawn([process.execPath, "build", "--compile", "--no-compile-autoload-dotenv", "--no-compile-autoload-bunfig", "--asset", "schema", "packages/cli/src/assistant-cli.ts", "--outfile", "dist/wringer-assistant"], { cwd: root, stdout: "inherit", stderr: "inherit", env: process.env });
 if (await assistant.exited) throw new Error("Assistant executable build failed");
+const figmaBroker = Bun.spawn([process.execPath, "build", "--compile", "--no-compile-autoload-dotenv", "--no-compile-autoload-bunfig", "packages/figma-connect/src/serve.ts", "--outfile", "dist/wringer-figma-broker"], { cwd: root, stdout: "inherit", stderr: "inherit", env: process.env });
+if (await figmaBroker.exited) throw new Error("Figma connection broker executable build failed");
 for (const name of ["wringer-board", "wringer-drive"]) {
     const path = join(out, name);
     try {

@@ -20,7 +20,7 @@ const rpcError = (id: JsonRpcId, code: number, message: string): JsonRpcResponse
 export const mcpParseError = () => rpcError(null, -32700, "Invalid, ambiguous or oversized JSON input.");
 const success = (id: JsonRpcId, result: Record<string, unknown>): JsonRpcResponse => ({ jsonrpc: "2.0", id, result });
 const schemaVersion = "wringer.assistant-error.v1";
-const sensitiveField = /^(?:password|secret|authorization|credentialvalue|apikey|token|accesstoken|refreshtoken|bearer|approvaltoken|capability|capabilitytoken|publicationtoken|workerkey|providerkey|admintoken|operatortoken|operatorurl|operatorlink|boardurl|boardtoken)$/i;
+const sensitiveField = /^(?:password|secret|authorization|authorizationurl|oauthurl|signinurl|credentialvalue|apikey|token|accesstoken|refreshtoken|bearer|approvaltoken|capability|capabilitytoken|publicationtoken|workerkey|providerkey|admintoken|operatortoken|operatorurl|operatorlink|boardurl|boardtoken)$/i;
 
 function safeResult(value: unknown, redact: (text: string) => string, depth = 0, budget = { characters: 0, nodes: 0 }): unknown {
     if (depth > MCP_MAX_JSON_DEPTH || ++budget.nodes > 32768 || budget.characters > MCP_MAX_OUTPUT_BYTES / 2) throw new Error("Result complexity exceeded");

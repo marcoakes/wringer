@@ -122,8 +122,8 @@ export function containedServices(controllerDir: string, original: PreparedRepos
         reconcileVerification: request => verifyCandidate(request, true),
     };
 }
-export async function prepareContainedSource(plan: ExecutionPlan, controllerDir: string): Promise<PreparedRepositorySource> {
-    return prepareRepositorySource(plan.repository, { controllerDir });
+export async function prepareContainedSource(plan: ExecutionPlan, controllerDir: string, sourceBundle?: string): Promise<PreparedRepositorySource> {
+    return prepareRepositorySource({ ...plan.repository, ...(sourceBundle ? { bundlePath: sourceBundle } : {}) }, { controllerDir });
 }
 export async function showContainedCandidate(plan: ExecutionPlan, source: RepositorySource, criterionId: string, signal?: AbortSignal, options: ContainedServiceOptions = {}) {
     const criterion = plan.acceptance.criteria.find(c => c.id === criterionId);

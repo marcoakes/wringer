@@ -18,9 +18,15 @@ choose Yes or request a correction, then separately Send the reviewed change.
 **For PMs and designers:** bring an approved design and your existing component
 library. The design-aware workflow supplies that pinned reference to the contained
 agents and shows reference versus actual output for your decision.
-[Design-led work →](docs/native/DESIGN.md) · [Reports blind-test target →](docs/DESIGN_BLIND_TEST.md)
+[Connect Figma →](docs/native/FIGMA_CONNECT.md) · [Design-led work →](docs/native/DESIGN.md) · [Reports blind-test target →](docs/DESIGN_BLIND_TEST.md)
+Paste desktop/mobile frame links in your coding app or PM workspace. The new
+Figma API route offers sign-in, private preview, explicit reference-storage
+permission and attachment to a new approved plan. A registered Figma app and
+deployed connection broker are required; this repository does not supply a hosted
+service or claim that Figma's official remote MCP accepts Wringer.
 Live Figma access and a real design/PM blind pass remain separate, unclaimed measurements.
 [Engineering evidence and remaining prerequisites](docs/DESIGN_WORKFLOW_REPORT_2026-09-09.md).
+[Figma API repair evidence](docs/FIGMA_API_REPAIR_REPORT_2026-09-09.md).
 
 **Engineering preview:** the assistant entry point currently requires explicit
 cooperative-local setup by an operator. It is not a protected boundary against
@@ -31,7 +37,7 @@ starting route. Session/time limits are not a cash guarantee.
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.9` is a design-aware assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.10` is a Figma API / design-aware assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
 The first [September 8 PM test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). [Blind test 2](docs/PM_BLIND_REPORT_2026-09-08_2.md) built successfully but failed at human review; salvage stopped during handover. [Alpha.7 repairs those measured problems](docs/PM_BLIND2_REPAIR_2026-09-08.md), with a real-browser engineering rehearsal. Neither failed verdict is rewritten as a pass; a new live PM result remains required.
 
@@ -61,7 +67,7 @@ bun run build
 Chromium is required by the harness's engineering tests. This host test browser
 does not provision the contained browser used for a real design job.
 
-Keep the generated `dist/` directory together. It contains `wring`, `wringer-drive`, `wringer-board`, `wringer-assistant`, the `wringer-headless` alias for the same isolated driver, and accompanying records/documentation assets. Compiled executables do not require a separate Bun installation; the repositories and agents they run still need their own tools.
+Keep the generated `dist/` directory together. It contains `wring`, `wringer-drive`, `wringer-board`, `wringer-assistant`, `wringer-headless`, the administrator-only `wringer-figma-broker`, and accompanying records/documentation assets. Compiled executables do not require a separate Bun installation; the repositories and agents they run still need their own tools.
 
 These are source-build instructions. No package-registry release, downloaded binary, container image, or hosted service is implied by this page.
 

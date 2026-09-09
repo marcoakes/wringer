@@ -70,6 +70,7 @@ Keep live platform tests and their exact prerequisites visible as release gates.
 - `packages/records`: frozen contracts, refusal-aware readers and compatibility.
 - `packages/plan`: declarative configuration and environmental legibility.
 - `packages/design`: bounded read-only imports, immutable design snapshots and PNG validation; no agent loop or design-account writes.
+- `packages/figma-connect`: operator OAuth and server-only broker; no model tool, worker credential access or hosted-service claim.
 - `packages/acp`: protocol lifecycle; no model implementation or host tools.
 - `packages/runtime`: role environments and sandbox lifecycle/policy.
 - `packages/engine`: checks, snapshots, bounded process supervision and receipts.

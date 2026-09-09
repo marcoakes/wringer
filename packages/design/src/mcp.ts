@@ -1,7 +1,7 @@
 import { lookup } from "node:dns/promises";
 import { request as httpsRequest } from "node:https";
 import { isIP } from "node:net";
-import { DesignError, type DesignMcpInput, type DesignImportOptions, type DesignHttpRequest, type DesignHttpResponse, type DesignSnapshot, type DesignAsset } from "./types";
+import { DesignError, type DesignMcpInput, type DesignImportOptions, type DesignHttpRequest, type DesignHttpResponse, type DesignSnapshotV1, type DesignAsset } from "./types";
 import { assertNoDesignSecrets, designCanonicalJson, designPngAsset, hashDesignBytes, sealDesignSnapshot } from "./snapshot";
 
 const FIGMA_TOOLS = new Set(["get_design_context", "get_screenshot", "get_metadata", "get_variable_defs", "get_code_connect_map"]);
@@ -88,7 +88,7 @@ function validateInput(input: DesignMcpInput) {
     return { endpoint: endpoint.href, timeoutMs: bounded(input.limits?.timeoutMs, 30000, 1, 60000), maxCalls: bounded(input.limits?.maxCalls, 12, 1, 12), maxResponseBytes: bounded(input.limits?.maxResponseBytes, 8 * 1024 * 1024, 1024, 12 * 1024 * 1024) };
 }
 /** Fixed, explicitly approved read recipe; never an agent/model execution loop. */
-export async function importDesignFromMcp(input: DesignMcpInput, options: DesignImportOptions = {}): Promise<DesignSnapshot> {
+export async function importDesignFromMcp(input: DesignMcpInput, options: DesignImportOptions = {}): Promise<DesignSnapshotV1> {
     const limits = validateInput(input);
     if (input.recipe.length > limits.maxCalls) throw new DesignError("The read recipe exceeds its approved call budget.", "design-call-limit");
     const signal = AbortSignal.timeout(limits.timeoutMs), transport = options.testTransport ?? pinnedHttps;
@@ -121,7 +121,7 @@ export async function importDesignFromMcp(input: DesignMcpInput, options: Design
         const matches = listing.tools.filter((t: any) => mapping(t) && t.name === step.tool);
         if (matches.length !== 1 || matches[0].annotations?.readOnlyHint !== true || matches[0].annotations?.destructiveHint === true) throw new DesignError(`The server did not advertise ${step.tool} as an unambiguous read-only tool. No tool was called.`, "design-read-policy-refused");
     }
-    const context: string[] = [], assets: DesignAsset[] = [], calls: DesignSnapshot["provenance"]["calls"] = [];
+    const context: string[] = [], assets: DesignAsset[] = [], calls: DesignSnapshotV1["provenance"]["calls"] = [];
     let reportedVersion: string | null = null;
     for (const step of input.recipe) {
         const result = await request("tools/call", { name: step.tool, arguments: step.arguments });

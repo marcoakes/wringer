@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/design-snapshot-v2.schema.json",
+  "title": "DesignSnapshotV2",
+  "description": "Direct Figma REST capture of one or two selected frame/layer nodes and PNGs. Nodes report a version and the image request pins it. Not Figma remote MCP, ownership proof, human consent or renderer attestation. Readers additionally enforce source/context/receipt/PNG relationships and canonical snapshot hashes.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","title","source","captured_at","disclosure","context","component_rules","assets","provenance","snapshot_sha256"],
+  "properties": {
+    "schema_version": {"const":"wringer.design-snapshot.v2"},
+    "title":{"type":"string","minLength":1,"maxLength":500},
+    "source": {
+      "type":"object","additionalProperties":false,
+      "required":["provider","label","endpoint","file_key","node_id","version","version_basis"],
+      "properties": {
+        "provider":{"const":"figma-rest"},
+        "label":{"type":"string","minLength":1,"maxLength":500},
+        "endpoint":{"const":"https://api.figma.com"},
+        "file_key":{"type":"string","pattern":"^[A-Za-z0-9]{1,128}$"},
+        "node_id":{"type":"string","pattern":"^(0|[1-9][0-9]{0,19}):(0|[1-9][0-9]{0,19})(,(0|[1-9][0-9]{0,19}):(0|[1-9][0-9]{0,19}))?$"},
+        "version":{"type":"string","pattern":"^[A-Za-z0-9._-]{1,200}$"},
+        "version_basis":{"const":"reported"}
+      }
+    },
+    "captured_at":{"type":"string","format":"date-time"},
+    "disclosure":{"enum":["private","repository-permitted"]},
+    "context":{"type":"string","minLength":1,"maxLength":2097152},
+    "component_rules":{"type":"array","maxItems":100,"items":{"type":"string","minLength":1,"maxLength":8192}},
+    "assets":{"type":"array","minItems":1,"maxItems":2,"items":{
+      "type":"object","additionalProperties":false,
+      "required":["id","title","media_type","width","height","base64","sha256"],
+      "properties":{
+        "id":{"type":"string","pattern":"^figma-(0|[1-9][0-9]{0,19})-(0|[1-9][0-9]{0,19})$"},
+        "title":{"type":"string","minLength":1,"maxLength":500},
+        "media_type":{"const":"image/png"},
+        "width":{"type":"integer","minimum":1,"maximum":4096},
+        "height":{"type":"integer","minimum":1,"maximum":4096},
+        "base64":{"type":"string","maxLength":5592408,"pattern":"^[A-Za-z0-9+/]*={0,2}$"},
+        "sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+      }
+    }},
+    "provenance":{
+      "type":"object","additionalProperties":false,"required":["method","calls","limits"],
+      "properties":{
+        "method":{"const":"figma-rest-read"},
+        "calls":{"type":"array","minItems":3,"maxItems":4,"items":{
+          "type":"object","additionalProperties":false,"required":["tool","arguments_sha256","request_sha256","response_sha256"],
+          "properties":{
+            "tool":{"enum":["GET /v1/files/:key/nodes","GET /v1/images/:key","GET Figma render PNG"]},
+            "arguments_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+            "request_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+            "response_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+          }
+        }},
+        "limits":{"type":"array","minItems":1,"maxItems":20,"items":{"type":"string","minLength":1,"maxLength":2000}}
+      }
+    },
+    "snapshot_sha256":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+  }
+}

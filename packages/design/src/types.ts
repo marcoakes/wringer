@@ -8,7 +8,7 @@ export interface DesignAsset {
     base64: string;
     sha256: string;
 }
-export interface DesignSnapshot {
+export interface DesignSnapshotV1 {
     schema_version: "wringer.design-snapshot.v1";
     title: string;
     source: {
@@ -31,6 +31,54 @@ export interface DesignSnapshot {
         limits: string[];
     };
     snapshot_sha256: string;
+}
+/** Direct REST capture is a new contract; a REST call is never labeled MCP. */
+export interface DesignSnapshotV2 extends Omit<DesignSnapshotV1, "schema_version" | "source" | "provenance"> {
+    schema_version: "wringer.design-snapshot.v2";
+    source: {
+        provider: "figma-rest";
+        label: string;
+        endpoint: "https://api.figma.com";
+        file_key: string;
+        /** One or two canonical, sorted node identifiers, separated by a comma. */
+        node_id: string;
+        version: string;
+        version_basis: "reported";
+    };
+    provenance: {
+        method: "figma-rest-read";
+        calls: (DesignSnapshotV1["provenance"]["calls"][number] & { request_sha256: string })[];
+        limits: string[];
+    };
+}
+export type DesignSnapshot = DesignSnapshotV1 | DesignSnapshotV2;
+export type UnsealedDesignSnapshot = Omit<DesignSnapshotV1, "snapshot_sha256"> | Omit<DesignSnapshotV2, "snapshot_sha256">;
+export interface DesignFigmaRestInput {
+    urls: string[];
+    /** Explicit secret channel, never a command argument or snapshot field. */
+    token: string;
+    tokenType?: "oauth" | "pat";
+    disclosure: DesignDisclosure;
+    title?: string;
+    componentRules?: string[];
+    limits?: { timeoutMs?: number; maxResponseBytes?: number };
+}
+export interface DesignFigmaRestRequest {
+    url: string;
+    method: "GET";
+    headers: Record<string, string>;
+    maxBytes: number;
+    signal: AbortSignal;
+}
+export interface DesignFigmaRestResponse {
+    status: number;
+    headers: Record<string, string>;
+    body: Uint8Array;
+}
+export interface DesignFigmaRestOptions {
+    /** Deterministic tests only. Never accepted from CLI, MCP or configuration. */
+    testTransport?: (request: DesignFigmaRestRequest) => Promise<DesignFigmaRestResponse>;
+    now?: () => Date;
 }
 export interface DesignReferenceInput {
     title: string;

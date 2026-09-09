@@ -9,6 +9,9 @@ import { createOperatorBrowserSessions, OPERATOR_BROWSER_SESSION_LIMIT } from ".
 import { renderPmJobWorkspace } from "@wringer/board";
 import { createAssistantJobFlow } from "./assistant-job";
 import { parsePmDesignAssetRequest, readPmDesignAsset } from "./design-assets";
+import { withFigmaCard } from "./figma-console";
+import { openFigmaAuthorizationInBrowser } from "./figma-browser";
+import { attachAssistantDesign } from "../../application/src/assistant-design-binding";
 import type { ApplicationOptions } from "@wringer/application";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -119,12 +122,12 @@ export function renderAssistantConsole(nonce: string) {
 }
 
 /** Separate operator bearer. Never expose this URL through service.call/MCP. */
-export async function createAssistantConsole(service: Service, options: { port?: number; isStopping?: () => boolean; application?: ApplicationOptions; guided?: boolean } = {}) {
+export async function createAssistantConsole(service: Service, options: { port?: number; isStopping?: () => boolean; application?: ApplicationOptions; guided?: boolean; openFigmaBrowser?: typeof openFigmaAuthorizationInBrowser; attachDesign?: typeof attachAssistantDesign } = {}) {
     const token = randomBytes(32).toString("hex"), nonce = randomBytes(20).toString("base64");
     let stopped = false;
     const isStopping = () => stopped || options.isStopping?.() === true;
     const assertAccepting = () => { if (isStopping()) throw new Error("The local owner is stopping. No new approval or review action is accepted; retained evidence remains readable."); };
-    const shell = withImprovementCard(options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
+    const shell = withFigmaCard(withImprovementCard(options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), nonce), nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
     const collections = new Map<string, { abort: AbortController; work: Promise<unknown>; message: string }>();
     const flow = options.guided ? createAssistantJobFlow(service, { ...options.application, isStopping, beforeCommand: jobId => beforeReviewCommand(jobId) }) : null;
     const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
@@ -145,6 +148,34 @@ export async function createAssistantConsole(service: Service, options: { port?:
         const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
         const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
+            if (request.method === "GET" && url.pathname === "/api/design" && !url.search) return json(await service.design.inspect());
+            if (request.method === "GET" && url.pathname === "/api/design/asset") {
+                const keys = [...url.searchParams.keys()];
+                if (keys.length !== 3 || new Set(keys).size !== 3 || keys.some(key => !["importId", "assetId", "expectedPreviewSha256"].includes(key))) throw new Error("Use the exact image from this design preview.");
+                const bytes = await service.design.asset(url.searchParams.get("importId")!, url.searchParams.get("assetId")!, url.searchParams.get("expectedPreviewSha256")!);
+                return new Response(new Uint8Array(bytes), { headers: { ...headers, "Content-Type": "image/png", "Content-Length": String(bytes.byteLength), "Cross-Origin-Resource-Policy": "same-origin", "Content-Security-Policy": "default-src 'none'; sandbox; frame-ancestors 'none'" } });
+            }
+            if (request.method === "POST" && /^\/api\/design\/(prepare|connect|poll|disconnect|preview|confirm|attach)$/.test(url.pathname) && !url.search) {
+                assertAccepting();
+                if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use the separate design decision shown in this PM workspace." }, 415);
+                const raw = await request.text(); if (Buffer.byteLength(raw) > 16 * 1024) return json({ error: "Design decision exceeds its size limit." }, 413);
+                const input = JSON.parse(raw), action = url.pathname.split("/").at(-1)!;
+                if (action === "attach") {
+                    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length !== 3 || Object.keys(input).some(key => !["importId", "expectedSnapshotSha256", "confirmAttachment"].includes(key))) throw new Error("Use the exact displayed reference attachment decision.");
+                    const attached = await (options.attachDesign ?? attachAssistantDesign)(service.root, service.workspace, input, await service.design.confirmedSnapshot(input.importId));
+                    return json({ importId: attached.importId, profileSha256: attached.profile.plan_sha256, sourceCommit: attached.profile.repository.commit, nextAction: "Ask the assistant to inspect setup and propose with this designImportId. No work, design judgement or handover was approved." });
+                }
+                if (["connect", "poll", "disconnect"].includes(action)) {
+                    if (!input || typeof input !== "object" || Array.isArray(input) || Object.keys(input).length) throw new Error("Connection actions take no token or authority fields.");
+                    if (action === "connect") {
+                        const connection = await service.design.connect();
+                        await (options.openFigmaBrowser ?? openFigmaAuthorizationInBrowser)(connection.authorizationUrl);
+                        return json({ outcome: "browser-opened", nextAction: "Finish connecting in your regular browser, then return here and check the Figma connection. The sign-in link and credentials are never sent to your coding app." });
+                    }
+                    return json(action === "poll" ? await service.design.pollConnection() : await service.design.disconnect());
+                }
+                return json(action === "prepare" ? await service.design.prepare(input) : action === "preview" ? await service.design.preview(input) : await service.design.confirm(input));
+            }
             if (request.method === "GET" && url.pathname === "/api/improvements" && !url.search) return json({ ...await inspectImprovements(service.root, service.workspace.profile), collection: Object.fromEntries([...collections].map(([id, value]) => [id, value.message])) });
             if (request.method === "POST" && /^\/api\/improvements\/(collect|promote|rollback)$/.test(url.pathname) && !url.search) {
                 assertAccepting();
