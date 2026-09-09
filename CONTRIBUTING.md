@@ -6,10 +6,15 @@ The active product is the Bun/TypeScript workspace at the repository root. Read 
 
 ```sh
 bun install --frozen-lockfile
+bun node_modules/playwright/cli.js install --with-deps chromium
 bun run check
 bun run build
 bun run demo
 ```
+
+Install Chromium before the checks: visual-evidence tests require real browser
+captures and do not silently skip. This is an engineering browser, not a
+provisioned contained runtime for production design jobs.
 
 Run from the repository root. Use the root lockfile and scripts; do not create a parallel package tree or a Python runtime fallback. Dependencies needed by test fixtures and runtime adapters are separate from a promise that the host is provisioned for a live isolated run.
 

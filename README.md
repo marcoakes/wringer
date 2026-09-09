@@ -51,11 +51,15 @@ runtime. CI currently provisions Node.js 24.
 
 ```sh
 bun install --frozen-lockfile
+bun node_modules/playwright/cli.js install --with-deps chromium
 bun run check
 bun run build
 ./dist/wring --version
 ./dist/wring --help
 ```
+
+Chromium is required by the harness's engineering tests. This host test browser
+does not provision the contained browser used for a real design job.
 
 Keep the generated `dist/` directory together. It contains `wring`, `wringer-drive`, `wringer-board`, `wringer-assistant`, the `wringer-headless` alias for the same isolated driver, and accompanying records/documentation assets. Compiled executables do not require a separate Bun installation; the repositories and agents they run still need their own tools.
 

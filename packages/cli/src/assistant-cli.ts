@@ -127,18 +127,19 @@ async function stopOwner(service: Service) {
     const deadline = Date.now() + 6500;
     while (Date.now() < deadline) {
         const current = await service.runner.status();
-        if (!current.owner || current.owner.token !== record.ownerToken || current.ownerState !== "live") return { outcome: "stopped", note: "Local owner stopped. Active or orphan effects may remain uncertain; no evidence or reservations were deleted." };
+        if (!current.owner || current.owner.token !== record.ownerToken) return { outcome: "stopped", note: "Local owner stopped. Active or orphan effects may remain uncertain; no evidence or reservations were deleted." };
         await Bun.sleep(50);
     }
     return { outcome: "stop-requested", note: "Shutdown was requested but the owner has not confirmed stopping. Active effects may remain. Inspect status; do not start another owner." };
 }
 
 export async function serveAssistant(root: string, options: AssistantCliOptions = {}): Promise<Answer> {
-    const service = await createAssistantService(root);
     let console: Awaited<ReturnType<typeof createAssistantConsole>> | undefined, transport: ReturnType<typeof createAssistantTransport> | undefined;
-    let resolveStopped!: () => void, shutdown: Promise<unknown> | undefined, ownedToken: string | null = null, closing = false;
+    let resolveStopped!: () => void, shutdown: Promise<unknown> | undefined, listenersClosed: Promise<void> | undefined, ownedToken: string | null = null, closing = false;
     const stopped = new Promise<void>(resolve => { resolveStopped = resolve; });
-    const close = async () => { try { await console?.stop(); } finally { try { await transport?.stop(); } finally { resolveStopped(); } } };
+    const closeListeners = () => listenersClosed ??= (async () => { closing = true; try { await console?.stop(); } finally { await transport?.stop(); } })();
+    const service = await createAssistantService(root, { beforeOwnerRelease: closeListeners });
+    const close = async () => { await closeListeners(); resolveStopped(); };
     const stop = () => shutdown ??= (async () => {
         closing = true;
         if (!ownedToken) { await close(); return; }

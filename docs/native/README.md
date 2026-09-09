@@ -12,6 +12,7 @@ harness itself runs on Bun or as its compiled executable.
 
 ```sh
 bun install --frozen-lockfile
+bun node_modules/playwright/cli.js install --with-deps chromium
 bun run check
 bun run build
 ./dist/wring --version

@@ -4,7 +4,8 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { hashValue } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 
-/** The daemon owns this queue. Transport lifetime is deliberately not an input.
+/** The daemon owns this queue. A client's transport lifetime never owns work.
+ * Owner shutdown may finalize its listeners before releasing the ownership lock.
  * These records detect corruption, not tampering by the OS owner. execute is a
  * construction-only application dependency and must recheck domain authority. */
 export interface AssistantRunnerRequest { id: string; jobId: string; kind: string; body: Record<string, unknown>; }
@@ -22,6 +23,8 @@ export interface AssistantRunnerStatus {
 export interface AssistantRunnerOptions {
     execute: (request: AssistantRunnerRequest, signal: AbortSignal) => Promise<unknown>;
     pollIntervalMs?: number;
+    /** Construction-only owner cleanup, after work drains and before another owner can start. */
+    beforeOwnerRelease?: () => Promise<void>;
 }
 /** Only the application may use this when it proves no effect was dispatched. */
 export class AssistantDispatchRefused extends Error { override name = "AssistantDispatchRefused"; }
@@ -215,7 +218,7 @@ export async function createAssistantRunner(directory: string, options: Assistan
     async function release() {
         if (releasing) return releasing;
         if (!owner || active || pump) return;
-        releasing = (async () => { await assertOwner(); await store.remove("owner.json"); owner = null; })();
+        releasing = (async () => { await assertOwner(); await options.beforeOwnerRelease?.(); await assertOwner(); await store.remove("owner.json"); owner = null; })();
         try { await releasing; } finally { releasing = null; }
     }
     async function outcome(request: AssistantRunnerRequest, status: "completed" | "failed" | "cancelled" | "uncertain", extra: RecordValue = {}) {
@@ -324,12 +327,14 @@ export async function createAssistantRunner(directory: string, options: Assistan
             stopping = true;
             if (timer) { clearTimeout(timer); timer = null; }
             active?.controller.abort(new Error("Runner shutdown requested; effects may remain uncertain"));
-            if (pump) {
+            const deadline = Date.now() + timeoutMs;
+            const bounded = async (work: Promise<void>) => {
                 let timeout: ReturnType<typeof setTimeout> | undefined;
-                await Promise.race([pump, new Promise<void>(resolve => { timeout = setTimeout(resolve, timeoutMs); })]);
-                if (timeout) clearTimeout(timeout);
-            }
-            if (!fault) await release();
+                try { await Promise.race([work, new Promise<void>(resolve => { timeout = setTimeout(resolve, Math.max(0, deadline - Date.now())); })]); }
+                finally { if (timeout) clearTimeout(timeout); }
+            };
+            if (pump) await bounded(pump);
+            if (!fault) await bounded(release());
             return status();
         },
         async cancel(jobId: string) {

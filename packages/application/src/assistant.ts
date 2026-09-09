@@ -185,11 +185,11 @@ export interface AssistantDependencies {
 }
 const realDependencies: AssistantDependencies = { start: startController, status: controllerStatus, queueCommand: queueWorkspaceCommand, readCommand: readWorkspaceCommand, publication: latestWorkspacePublication };
 /** One application service behind both operator presentation and the thin MCP adapter. */
-export async function createAssistantService(root: string, options: { dependencies?: Partial<AssistantDependencies>; application?: ApplicationOptions } = {}) {
+export async function createAssistantService(root: string, options: { dependencies?: Partial<AssistantDependencies>; application?: ApplicationOptions; beforeOwnerRelease?: () => Promise<void> } = {}) {
     root = await createAssistantDirectory(root);
     const workspace = await readAssistantWorkspace(root), deps = { ...realDependencies, ...options.dependencies };
     const state = (jobId: string) => assistantControllerState(root, jobId);
-    const runner = await createAssistantRunner(await assistantPath(root, "runner"), { execute: dispatch });
+    const runner = await createAssistantRunner(await assistantPath(root, "runner"), { execute: dispatch, beforeOwnerRelease: options.beforeOwnerRelease });
     const ownerAccess = Symbol("construction-only routine coordinator");
     let presentation: ((jobId: string) => Promise<{ phase: string; nextAction: string; eventId: string; pageUrl: string }>) | undefined;
     let waiting = 0;

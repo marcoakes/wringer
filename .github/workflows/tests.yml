@@ -62,6 +62,8 @@ jobs:
         with:
           node-version: '24'
       - run: bun install --frozen-lockfile
+      - name: Install the browser required by this repository's declared checks
+        run: bun node_modules/playwright/cli.js install --with-deps chromium
       - uses: ./
       - uses: actions/upload-artifact@v4
         if: always()

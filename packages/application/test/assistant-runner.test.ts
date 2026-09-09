@@ -138,6 +138,27 @@ describe("assistant daemon durable queue", () => {
         finish(); await terminal(value, input.id);
         await until(() => value.status(), state => state.ownerState === "absent");
     });
+    test("owner release waits for listener finalization without extending the stop deadline", async () => {
+        const directory = await scratch(), input = request(); let finishWork!: () => void, closeListeners!: () => void, entered = false, finalizations = 0;
+        const work = new Promise<void>(resolve => finishWork = resolve), listeners = new Promise<void>(resolve => closeListeners = resolve);
+        const value = await createAssistantRunner(directory, { pollIntervalMs: 10, execute: async () => { entered = true; await work; return {}; }, beforeOwnerRelease: async () => { finalizations++; await listeners; } }); runners.push(value);
+        await value.enqueue(input); const first = await value.start(); await until(async () => entered, Boolean);
+        const stopping = value.stop(15); finishWork();
+        const retained = await stopping;
+        expect(retained.acceptingDispatch).toBe(false); expect(retained.owner?.token).toBe(first.owner!.token); expect(retained.ownerState).toBe("live");
+        await until(async () => finalizations, count => count === 1);
+        const other = await runner(directory); await expect(other.start()).rejects.toThrow("owns this queue");
+        expect((await value.stop(0)).owner?.token).toBe(first.owner!.token); expect(finalizations).toBe(1);
+        closeListeners(); await until(() => value.status(), state => state.ownerState === "absent");
+        expect(finalizations).toBe(1); expect((await other.start()).owner?.token).not.toBe(first.owner!.token);
+    });
+    test("failed listener finalization preserves owner identity and refuses replacement", async () => {
+        const directory = await scratch(); let finalized = 0;
+        const value = await createAssistantRunner(directory, { pollIntervalMs: 10, execute: async () => ({}), beforeOwnerRelease: async () => { finalized++; throw new Error("Listener closure was not confirmed"); } }); runners.push(value);
+        const first = await value.start(); await value.stop(50).catch(() => undefined);
+        const retained = await value.status(); expect(finalized).toBeGreaterThan(0); expect(retained.owner?.token).toBe(first.owner!.token); expect(retained.ownerState).toBe("live"); expect(retained.acceptingDispatch).toBe(false);
+        const other = await runner(directory); await expect(other.start()).rejects.toThrow("owns this queue");
+    });
     test("cancellation from a reconnected client reaches the independently owned active process", async () => {
         const directory = await scratch(), input = request(), client = await runner(directory);
         await client.enqueue(input);

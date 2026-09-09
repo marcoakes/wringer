@@ -121,6 +121,31 @@ profile-output example; inspect now lists the IDs and the guide names the requir
 private operator folder. No earlier
 blind-test failure was edited into a success.
 
+## First publication check — failure retained
+
+The first published candidate, `98eddcc41b7f18a26c441413ca1a5c75d5eecb58`,
+failed the Linux assistant lifecycle check in
+[GitHub run 34332554096](https://github.com/marcoakes/wringer/actions/runs/34332554096).
+The assistant subset recorded 110 passes and one failure: after the stop command
+reported `stopped`, the old status endpoint could still answer. The runner released
+its ownership record before the listeners finished closing. This is a shutdown
+ordering defect, not evidence that the test should accept a live stopped service.
+The original failed job and its uploaded measurement remain available.
+
+The repair holds ownership until the PM page and assistant listener have both
+closed. Slow or failed closure remains unconfirmed and blocks replacement;
+the existing real-process assertion was not weakened. The deterministic runner
+suite passed 20 tests/99 assertions, followed by the assistant process subset and
+compiled assistant lifecycle checks.
+
+The same publication's Action job separately lacked the newly required pinned
+Chromium test browser. Its retained test log names the absent executable, with
+the visual-evidence test failed rather than skipped. The repository's Action
+smoke job now installs that prerequisite before invoking the public Action; the
+Action itself does not install arbitrary browser dependencies into other targets.
+Neither first-run failure is a green publication result. Read the subsequent
+commit's attached remote checks for the outcome after these repairs.
+
 ## Still required for the independent blind test
 
 The feature is prepared for an operator-provisioned blind test, not a new claim

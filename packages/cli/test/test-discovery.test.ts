@@ -51,3 +51,14 @@ test("repository, action and validation commands declare test paths instead of s
         for (const target of targets) expect(target.startsWith("./packages/")).toBe(true);
     }
 });
+
+test("both CI consumers install the pinned browser before running repository checks", async () => {
+    const workflow = Bun.YAML.parse(await readFile(new URL("../../../.github/workflows/tests.yml", import.meta.url), "utf8")) as { jobs: Record<string, { steps: { run?: string; uses?: string }[] }> };
+    for (const name of ["bun", "action"]) {
+        const steps = workflow.jobs[name]!.steps;
+        const browser = steps.findIndex(step => step.run === "bun node_modules/playwright/cli.js install --with-deps chromium");
+        const checks = steps.findIndex(step => step.run === "bun run validate" || step.uses === "./");
+        expect(browser).toBeGreaterThan(-1);
+        expect(checks).toBeGreaterThan(browser);
+    }
+});
