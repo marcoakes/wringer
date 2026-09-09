@@ -4,7 +4,7 @@ import { parseYaml, Redactor } from "@wringer/engine";
 import { parseRuntimePolicy, parseWritableDirectories } from "@wringer/runtime";
 import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { parsePlanTypeScript } from "./dsl";
-import type { AgentDeclaration, AcceptanceContract, DeclaredCommand, ExecutionAuthority, ExecutionBudget, ExecutionPlan, PlanDeclaration, RuntimeDeclaration } from "./types";
+import type { AgentDeclaration, AcceptanceContract, DeclaredCommand, DesignDeclaration, ExecutionAuthority, ExecutionBudget, ExecutionPlan, PlanDeclaration, RuntimeDeclaration } from "./types";
 export function record(value: unknown, label: string, keys: string[]): Record<string, any> {
     if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
         throw new Error(`${label} must be a plain mapping`);
@@ -159,11 +159,43 @@ function acceptance(value: unknown, intent: string): AcceptanceContract {
     const protected_paths = [...new Set([...paths(a.protected_paths ?? [], "acceptance.protected_paths"), ...checks.flatMap(c => c.files)])].sort();
     return { criteria, checks, protected_paths };
 }
+function designDeclaration(value: unknown, contract: AcceptanceContract, writableDirectories: string[]): DesignDeclaration {
+    const d = record(value, "design", ["snapshotPath", "snapshotSha256", "reviews"]);
+    const snapshotPath = repoPath(d.snapshotPath);
+    if (!snapshotPath.endsWith(".json") || !/^[a-f0-9]{64}$/.test(d.snapshotSha256 ?? ""))
+        throw new Error("Design needs a repository JSON snapshot and its exact SHA256");
+    if (writableDirectories.some(path => snapshotPath === path || snapshotPath.startsWith(path + "/")))
+        throw new Error("A design snapshot cannot live in a writable output directory");
+    const reviews = distinct(list(d.reviews, "design reviews", value => {
+        const row = record(value, "design review", ["criterionId", "referenceIds", "captures"]);
+        const criterionId = identifier(row.criterionId, "design criterion");
+        const criterion = contract.criteria.find(c => c.id === criterionId);
+        if (!criterion || criterion.kind !== "human" || !criterion.required || !criterion.show)
+            throw new Error("Every design review needs a required human requirement and a declared show command");
+        const referenceIds = distinct(list(row.referenceIds, "design references", id => identifier(id, "design reference")), id => id, "design references").sort();
+        const captures = distinct(list(row.captures, "design captures", value => {
+            const c = record(value, "design capture", ["id", "path", "mimeType", "width", "height"]);
+            const path = repoPath(c.path), id = identifier(c.id, "capture id");
+            if (c.mimeType !== "image/png" || !path.endsWith(".png") || !writableDirectories.some(base => path.startsWith(base + "/")))
+                throw new Error("Visual captures must be PNG files inside declared writable output directories");
+            const width = integer(c.width, "capture width", 1, 4096), height = integer(c.height, "capture height", 1, 4096);
+            if (width * height > 8_000_000) throw new Error("Visual capture exceeds its pixel ceiling");
+            return { id, path, mimeType: "image/png" as const, width, height };
+        }), c => c.id, "design captures").sort((a, b) => a.id.localeCompare(b.id));
+        if (!referenceIds.length || referenceIds.length > 4 || !captures.length || captures.length > 4 || new Set(captures.map(c => c.path)).size !== captures.length)
+            throw new Error("A design review needs one to four distinct references and captures");
+        return { criterionId, referenceIds, captures };
+    }), row => row.criterionId, "design reviews").sort((a, b) => a.criterionId.localeCompare(b.criterionId));
+    if (!reviews.length || reviews.length > 16) throw new Error("A design plan needs one to sixteen visual reviews");
+    return { snapshotPath, snapshotSha256: d.snapshotSha256, reviews };
+}
 export function compileDeclaration(value: unknown): ExecutionPlan {
     canonicalJson(value); // Reject executable/exotic input even through the programmatic API.
-    const p = record(value, "plan", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "acceptance", "budget"]);
-    if (p.version !== 1)
-        throw new Error("Plan version must be 1");
+    const p = record(value, "plan", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "acceptance", "budget", "design"]);
+    if (p.version !== 1 && p.version !== 2)
+        throw new Error("Plan version must be 1 or 2");
+    if (p.version === 1 && p.design !== undefined || p.version === 2 && p.design === undefined)
+        throw new Error("Design inputs require a version 2 plan with an explicit design declaration");
     const intent = text(p.intent, "intent"), name = text(p.name, "name");
     const repository = record(p.repository, "repository", ["url", "commit"]);
     const url = text(repository.url, "repository.url"), commit = text(repository.commit, "repository.commit");
@@ -183,11 +215,15 @@ export function compileDeclaration(value: unknown): ExecutionPlan {
     if (!writable.length)
         throw new Error("scope.writable must explicitly name a bounded change scope");
     const contract = acceptance(p.acceptance, intent);
+    const writableDirectories = parseWritableDirectories(env.writable_directories ?? [], contract.protected_paths);
+    const design = p.version === 2 ? designDeclaration(p.design, contract, writableDirectories) : undefined;
+    if (design) contract.protected_paths = [...new Set([...contract.protected_paths, design.snapshotPath])].sort();
+    if (design && paths(env.context, "environment.context").includes(design.snapshotPath)) throw new Error("Design snapshots use their dedicated pinned reference channel, not the general text context list");
     const normalized: Omit<ExecutionPlan, "plan_sha256"> = {
-        schema_version: "wringer.execution-plan.v1", name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime),
+        schema_version: p.version === 2 ? "wringer.execution-plan.v2" : "wringer.execution-plan.v1", name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime),
         agents: { worker: agent(agents.worker), judge: agent(agents.judge), ...(agents.planner === undefined ? {} : { planner: agent(agents.planner) }) },
         environment: { context: paths(env.context, "environment.context"), tools: distinct(list(env.tools, "environment.tools", v => { const t = record(v, "tool", ["name", "version", "probe"]); return { name: identifier(t.name, "tool.name"), version: text(t.version, "tool.version"), probe: argv(t.probe) }; }), t => t.name, "tools").sort((a, b) => a.name.localeCompare(b.name)), setup: distinct(list(env.setup, "environment.setup", command), c => c.id, "setup commands"), baseline: distinct(list(env.baseline, "environment.baseline", command), c => c.id, "baseline commands"), writable_directories: parseWritableDirectories(env.writable_directories ?? [], contract.protected_paths) },
-        scope: { writable }, acceptance: contract, acceptance_sha256: hashValue(contract), budget: readBudget(p.budget),
+        scope: { writable }, acceptance: contract, acceptance_sha256: hashValue(design ? { acceptance: contract, design } : contract), budget: readBudget(p.budget), ...(design ? { design } : {}),
     };
     for (const role of Object.values(normalized.agents))
         for (const name of role.env ?? [])
@@ -202,11 +238,11 @@ export function compileDeclaration(value: unknown): ExecutionPlan {
     return freezeData({ ...normalized, plan_sha256: hashValue(normalized) });
 }
 export function validateExecutionPlan(value: unknown): ExecutionPlan {
-    const p = record(value, "execution plan", ["schema_version", "name", "intent", "intent_sha256", "repository", "runtime", "agents", "environment", "scope", "acceptance", "acceptance_sha256", "budget", "plan_sha256"]);
-    if (p.schema_version !== "wringer.execution-plan.v1")
+    const p = record(value, "execution plan", ["schema_version", "name", "intent", "intent_sha256", "repository", "runtime", "agents", "environment", "scope", "acceptance", "acceptance_sha256", "budget", "plan_sha256", "design"]);
+    if (p.schema_version !== "wringer.execution-plan.v1" && p.schema_version !== "wringer.execution-plan.v2")
         throw new Error("Unsupported canonical execution-plan version");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = p;
-    const plan = compileDeclaration({ version: 1, ...declaration });
+    const plan = compileDeclaration({ version: schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...declaration });
     if (canonicalJson(plan) !== canonicalJson(p))
         throw new Error("Canonical plan content or digest changed; approve a new plan explicitly");
     return plan;

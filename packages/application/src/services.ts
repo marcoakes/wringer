@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { hashValue, hashBytes, type ExecutionPlan } from "@wringer/plan";
 import { prepareRepositorySource, captureCandidate, runContainedCommands, type PreparedRepositorySource, type RepositorySource, type ContainedCommandResult } from "@wringer/runtime";
 import type { ContainedJourneyServices, CandidateVerification } from "@wringer/workflow";
+import { readPinnedDesignSnapshot, referenceImages, assertContainedDisplayVisuals, type ContainedDisplayVisuals } from "@wringer/workflow";
 import { Redactor, safePath } from "@wringer/engine";
 /** timeout(1), failed exec, missing command and signals are not assertion failures. */
 export const unavailableExit = (code: number) => code === 124 || code === 125 || code === 126 || code === 127 || code >= 128 || code < 0;
@@ -125,9 +126,14 @@ export async function showContainedCandidate(plan: ExecutionPlan, source: Reposi
     const command = criterion.show;
     const commands = [...plan.environment.setup.map(c => ({ id: `setup/${c.id}`, argv: c.argv, cwd: c.cwd, timeoutMs: c.timeout_seconds * 1000 })), { id: command.id, argv: command.argv, cwd: command.cwd, timeoutMs: command.timeout_seconds * 1000 }];
     const protectedFiles = [...new Set([...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(c => c.files)])];
-    const measured = new Redactor(plan.runtime.env).deep(await (options.runCommands ?? runContainedCommands)({ repo: source, runtime: plan.runtime, commands, acceptanceSource: { ...source, commit: plan.repository.commit }, protectedFiles, writableDirectories: plan.environment.writable_directories, timeoutMs: plan.budget.session_timeout_seconds * 1000, signal }));
+    const review = plan.design?.reviews.find(row => row.criterionId === criterionId), snapshot = review ? await readPinnedDesignSnapshot(plan, (source as PreparedRepositorySource).objectStore) : null;
+    const references = snapshot ? referenceImages(plan, criterionId, snapshot) : null;
+    const measured = new Redactor(plan.runtime.env).deep(await (options.runCommands ?? runContainedCommands)({ repo: source, runtime: plan.runtime, commands, acceptanceSource: { ...source, commit: plan.repository.commit }, protectedFiles, writableDirectories: plan.environment.writable_directories, ...(review ? { captureArtifacts: review.captures } : {}), timeoutMs: plan.budget.session_timeout_seconds * 1000, signal }));
     const p = measured?.provenance;
     if (!p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== source.url || p.repository?.commit !== source.commit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
         throw new Error("Display runtime did not establish its exact source, image and declared writable directories");
-    return { measured, success: measured.sourceChanged === false && hashValue(measured.results.map(r => r.id)) === hashValue(commands.map(c => c.id)) && measured.results.every(r => r.code === 0) };
+    const success = measured.sourceChanged === false && hashValue(measured.results.map(r => r.id)) === hashValue(commands.map(c => c.id)) && measured.results.every(r => r.code === 0);
+    const visuals: ContainedDisplayVisuals | undefined = review && snapshot && references ? { snapshotSha256: snapshot.snapshot_sha256, referenceAssets: references, captures: measured.artifacts ?? [] } : undefined;
+    if (success) assertContainedDisplayVisuals({ schema_version: visuals ? "wringer.contained-display.v2" : "wringer.contained-display.v1", criterionId, measured, ...(visuals ? { visuals } : {}) }, plan, snapshot);
+    return { measured, success, ...(visuals ? { visuals } : {}) };
 }

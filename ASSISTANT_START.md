@@ -5,6 +5,11 @@ the bounded run, checks and evidence. One private job page carries the proposal,
 progress, actual result, your review and a separate Send decision. You do not
 need to assemble those steps from different dashboards.
 
+Building from a design? Give the assistant the approved reference and existing
+component library. Follow [Design-led work](docs/native/DESIGN.md) for the one-time
+read-only import and design-aware profile. The same page then shows reference
+versus actual desktop/mobile output before your design decision.
+
 **This is an engineering preview, not a protected delegation product.** It
 requires an operator to select a real contained execution profile once and
 explicitly choose cooperative-local mode. A coding app with the same computer
@@ -49,10 +54,12 @@ Expect these decisions, not permission for every engineering step:
    choose **Send**. You do not re-enter that destination. Sending is not merging
    or deploying.
 
-The result is the declared command's actual recorded text output, not an
-embedded browser running the built application. Its content must genuinely
-support your judgement. Wringer does not invent a second report or claim a URL
-was inspected just because it was printed.
+For a design-aware plan, the result includes actual PNGs from the declared
+contained browser capture, compared with the approved reference. Other plans
+retain their declared text display. Neither is an embedded interactive app.
+The displayed content must genuinely support your judgement. Wringer does not
+invent a report, infer design quality from passing checks, or claim a URL was
+inspected just because it was printed.
 
 After sending, the same page shows the recorded handover and copyable
 fresh-clone audit instructions. A public review-request link is shown only if

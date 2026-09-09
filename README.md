@@ -15,6 +15,13 @@ choose Yes or request a correction, then separately Send the reviewed change.
 
 **[Start from your coding app →](ASSISTANT_START.md)**
 
+**For PMs and designers:** bring an approved design and your existing component
+library. The design-aware workflow supplies that pinned reference to the contained
+agents and shows reference versus actual output for your decision.
+[Design-led work →](docs/native/DESIGN.md) · [Reports blind-test target →](docs/DESIGN_BLIND_TEST.md)
+Live Figma access and a real design/PM blind pass remain separate, unclaimed measurements.
+[Engineering evidence and remaining prerequisites](docs/DESIGN_WORKFLOW_REPORT_2026-09-09.md).
+
 **Engineering preview:** the assistant entry point currently requires explicit
 cooperative-local setup by an operator. It is not a protected boundary against
 an assistant with the same computer access. Protected mode refuses; a complete
@@ -24,7 +31,7 @@ starting route. Session/time limits are not a cash guarantee.
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.8` is an assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.9` is a design-aware assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
 The first [September 8 PM test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). [Blind test 2](docs/PM_BLIND_REPORT_2026-09-08_2.md) built successfully but failed at human review; salvage stopped during handover. [Alpha.7 repairs those measured problems](docs/PM_BLIND2_REPAIR_2026-09-08.md), with a real-browser engineering rehearsal. Neither failed verdict is rewritten as a pass; a new live PM result remains required.
 

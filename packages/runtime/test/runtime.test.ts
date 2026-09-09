@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runAcpTurn } from "@wringer/acp";
 import { validateAppleImageInspection, validateAppleInspection } from "../src/observations";
+import { unitPng } from "./fixtures/png";
 import { openSandbox, executeAgentRole, preflightAgentRole, runContainedCommands, parseRuntimePolicy, parseWritableDirectories, kubernetesPod, kubernetesNetworkPolicy, firewallScript, prepareRepositorySource, captureCandidate, processDriver, digest, type RuntimeDriver, type RuntimePolicy, type RoleExecutionRequest, type RoleExecutionResult } from "../src/index";
 const image = `registry.invalid/agent@sha256:${"a".repeat(64)}`, commit = "b".repeat(40), tree = "c".repeat(40);
 const policy: RuntimePolicy = { kind: "apple-container", image, cpus: 1, memoryMiB: 512, network: { policy: "deny" } };
@@ -73,6 +74,34 @@ function fakeDriver(patch = "") {
     return { driver, calls, connections, connectionOptions, packets, wrongRuntimeClass() { mismatch = true; } };
 }
 const request: RoleExecutionRequest = { role: "worker", repo: source, runtime: policy, agent: { protocol: "acp", command: "test-acp-agent", args: ["--stdio"] }, scope: { writable: ["src"], protected: ["check.sh"] }, prompt: "Build the requirement.", budget: { maxTurns: 1, timeoutMs: 10000 } };
+test("declared visual outputs are captured after success before cleanup with no verifier credentials", async () => {
+    const fake = fakeDriver(), original = fake.driver.command, png = unitPng();
+    fake.driver.command = async (argv, options) => { const result = await original(argv, options); return argv.some(arg => arg.includes("head -c 4194305")) ? { code: 0, stdout: png + "\n", stderr: "" } : result; };
+    const result = await runContainedCommands({ repo: source, runtime: policy, commands: [{ id: "show", argv: ["true"], timeoutMs: 1000 }], writableDirectories: ["outputs"], captureArtifacts: [{ id: "desktop", path: "outputs/desktop.png", mimeType: "image/png", width: 1, height: 1 }], timeoutMs: 10000 }, { driver: fake.driver });
+    expect(result.artifacts).toEqual([{ id: "desktop", path: "outputs/desktop.png", mimeType: "image/png", width: 1, height: 1, bytes: Buffer.from(png, "base64").length, sha256: digest(Buffer.from(png, "base64")), base64: png }]);
+    const stop = fake.calls.findIndex(row => row.argv.some(arg => arg.includes("pkill -KILL -u 1000"))), capture = fake.calls.findIndex(row => row.argv.some(arg => arg.includes("head -c 4194305"))), close = fake.calls.findIndex(row => row.argv[1] === "delete");
+    expect(stop).toBeGreaterThan(0); expect(capture).toBeGreaterThan(stop); expect(close).toBeGreaterThan(capture);
+    const script = fake.calls[capture]!.argv.at(-1)!;
+    expect(script).toContain("test ! -L '/workspace/repo/outputs'"); expect(script).toContain("test ! -L '/workspace/repo/outputs/desktop.png'"); expect(script).toContain("stat -c %h"); expect(script).toContain("realpath -e"); expect(script).toContain("test -f");
+    expect(fake.connections).toHaveLength(0); expect(result.provenance.declared.env ?? []).toEqual([]);
+});
+test("unsafe visual declarations refuse before allocation", async () => {
+    for (const bad of [{ id: "desktop", path: "/tmp/secret.png", mimeType: "image/png" }, { id: "desktop", path: "outputs/../private.png", mimeType: "image/png" }, { id: "desktop", path: "outputs/a.svg", mimeType: "image/svg+xml" }, { id: "desktop", path: "src/a.png", mimeType: "image/png" }, { path: "outputs/a.png", mimeType: "image/png" }, { id: "desktop", path: "outputs/a.png", mimeType: "image/png", width: 0 }]) {
+        const fake = fakeDriver();
+        await expect(runContainedCommands({ repo: source, runtime: policy, commands: [{ id: "show", argv: ["true"], timeoutMs: 1000 }], writableDirectories: ["outputs"], captureArtifacts: [bad as any], timeoutMs: 10000 }, { driver: fake.driver })).rejects.toThrow("Visual captures");
+        expect(fake.calls).toHaveLength(0);
+    }
+});
+test("failed show never exports pixels; missing, non-PNG and mismatched images close the verifier and refuse", async () => {
+    for (const scenario of ["failed-show", "missing", "html", "dimensions"] as const) {
+        const fake = fakeDriver(), original = fake.driver.command;
+        fake.driver.command = async (argv, options) => { const result = await original(argv, options); return argv.some(arg => arg.includes("head -c 4194305")) ? { code: scenario === "missing" ? 1 : 0, stdout: scenario === "html" ? Buffer.from("<html>not evidence</html>").toString("base64") : unitPng(), stderr: "" } : result; };
+        const attempt = runContainedCommands({ repo: source, runtime: policy, commands: [{ id: "show", argv: [scenario === "failed-show" ? "false" : "true"], timeoutMs: 1000 }], writableDirectories: ["outputs"], captureArtifacts: [{ id: "desktop", path: "outputs/a.png", mimeType: "image/png", width: scenario === "dimensions" ? 2 : 1, height: 1 }], timeoutMs: 10000 }, { driver: fake.driver });
+        if (scenario === "failed-show") { expect((await attempt).artifacts).toEqual([]); expect(fake.calls.some(row => row.argv.some(arg => arg.includes("head -c 4194305")))).toBe(false); }
+        else await expect(attempt).rejects.toThrow();
+        expect(fake.calls.at(-1)!.argv[1]).toBe("delete");
+    }
+});
 test("runtime strict policy refuses host fallback, mutable images and unknown fields", () => {
     expect(() => parseRuntimePolicy({ ...policy, kind: "local" })).toThrow("no host fallback");
     expect(() => parseRuntimePolicy({ ...policy, image: "agent:latest" })).toThrow("pinned");

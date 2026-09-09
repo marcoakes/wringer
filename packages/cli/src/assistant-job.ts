@@ -6,6 +6,7 @@ import { assistantInventory, readAssistantRecord, writeAssistantRecord } from ".
 import { activeWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandResult } from "../../application/src/commands";
 import { readController, type ApplicationOptions } from "../../application/src/controller";
 import { readPmWorkspace } from "./workspace";
+import { projectDesignDisplay } from "./design-assets";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -92,7 +93,9 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
             const rows = receipt.measured?.results?.filter((r: any) => r.id === requirement.show?.id) ?? [];
             const parts = rows.map((r: any) => ({ title: requirement.title, text: typeof r.stdout === "string" ? r.stdout : "" }));
             const output = parts.map((r: any) => r.text).join("\n");
-            displays.push({ criterionId: requirement.id, title: requirement.title, displayId: receipt.id, candidateTree: receipt.candidateTree, success: receipt.success === true && !!output.trim(), output, parts, ...(!receipt.success || !output.trim() ? { error: "This result could not be shown successfully. No decision has been recorded." } : {}) });
+            const visuals = projectDesignDisplay(receipt, p.plan!);
+            const success = receipt.success === true && (!!visuals || !!output.trim());
+            displays.push({ criterionId: requirement.id, title: requirement.title, displayId: receipt.id, candidateTree: receipt.candidateTree, success, output, parts, ...(visuals ? { visuals } : {}), ...(!success ? { error: "This result could not be shown successfully. No decision has been recorded." } : {}) });
         }
         const prepareId = purposeId(jobId, status.candidateTree, "prepare", attempt);
         const preparation = status.candidateTree ? await recorded(stateOf(jobId), prepareId) : null;
@@ -127,7 +130,10 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
         return redactor.deep({ schema_version: "wringer.pm-job.v1", jobId, revision, readyRevision, candidateTree: status.candidateTree, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
             scope: { repository: p.plan?.repository.url ?? service.workspace.profile.repository.url, sourceCommit: p.plan?.repository.commit ?? service.workspace.profile.repository.commit, writable: p.plan?.scope.writable ?? [], protected: p.plan?.acceptance.protected_paths ?? [] }, questions: p.questions, assumptions: p.assumptions,
-            requirements: (p.plan?.acceptance.criteria ?? []).map(c => ({ id: c.id, title: c.title, quote: c.quote, kind: c.kind, required: c.required, state: board?.criteria.find(r => r.id === c.id)?.state ?? "unknown", note: board?.criteria.find(r => r.id === c.id)?.note ?? null, by: board?.criteria.find(r => r.id === c.id)?.by ?? null })),
+            requirements: (p.plan?.acceptance.criteria ?? []).map(c => {
+                const visual = p.plan?.design?.reviews.find(row => row.criterionId === c.id);
+                return { id: c.id, title: c.title, quote: c.quote, kind: c.kind, required: c.required, state: board?.criteria.find(r => r.id === c.id)?.state ?? "unknown", note: board?.criteria.find(r => r.id === c.id)?.note ?? null, by: board?.criteria.find(r => r.id === c.id)?.by ?? null, ...(visual ? { visualReview: { snapshotSha256: p.plan!.design!.snapshotSha256, referenceAssetIds: visual.referenceIds, captureIds: visual.captures.map(capture => capture.id) } } : {}) };
+            }),
             budget: { sessions: p.plan?.budget.max_sessions ?? 0, wallSeconds: p.plan?.budget.wall_clock_seconds ?? 0, expiresAt: approval?.authority.expires_at ?? null }, actor: approval?.authority.actor ?? null,
             displays, destination: destination ? { remote: destination.remote, sourceBranch: destination.sourceBranch, targetBranch: destination.targetBranch } : null,
             preparedId: phase === "send" ? prepareId : null, publication, nextAction: error ?? nextAction, error, retryable, retryLabel: preparation?.status === "failed" ? "Retry handover preparation" : "Try showing the result again",

@@ -1,0 +1,71 @@
+# Compile-only starter. Replace source/image/agents with measured choices, then
+# import and commit the design and use `wring design bind`. No live image implied.
+version: 1
+name: Reports workspace — design and PM review
+intent: |
+  Load the reports from the supplied local report data. Show each report's title,
+  owner, date and status. Search should narrow the reports by title; the status
+  filter should work alongside search. Opening a report should show its summary
+  and a clear way back. If nothing matches, explain that and offer a reset.
+  It must work by keyboard, have labelled controls and fit a phone without sideways
+  scrolling. Reuse the existing components and design tokens. Do not add a login,
+  external service or new dependency. Show desktop and mobile output next to the
+  approved design. I will decide whether the layout and overall feel are right.
+repository:
+  url: https://example.invalid/OWNER/REPOSITORY.git
+  commit: "0000000000000000000000000000000000000000"
+runtime:
+  kind: apple-container
+  image: example.invalid/browser-agent@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  cpus: 2
+  memoryMiB: 2048
+  network: {policy: deny}
+  env: []
+agents:
+  worker: {protocol: acp, command: SELECT_YOUR_ACP_WORKER}
+  judge: {protocol: acp, command: SELECT_YOUR_ACP_JUDGE}
+environment:
+  context: [README.md, REQUEST.md, ui/components.ts, ui/tokens.css, data/reports.json]
+  tools:
+    - name: bun
+      version: "1.4.2"
+      probe: [bun, --version]
+    - name: browser
+      version: "1.63.0"
+      probe: [node, -p, "require('/opt/wringer-design/node_modules/playwright/package.json').version"]
+  setup: []
+  baseline: []
+  writable_directories: [.evidence]
+scope: {writable: [src]}
+acceptance:
+  criteria:
+    - id: reports-work
+      title: Find and open reports on desktop and phone
+      quote: "Load the reports from the supplied local report data."
+      kind: check
+      required: true
+    - id: design-review
+      title: The layout and overall feel are right
+      quote: "I will decide whether the layout and overall feel are right."
+      kind: human
+      required: true
+      show:
+        id: show-design
+        argv: [bun, checks/show.ts]
+        cwd: .
+        timeout_seconds: 30
+  checks:
+    - id: reports-acceptance
+      argv: [bun, checks/acceptance.ts]
+      cwd: .
+      timeout_seconds: 45
+      criteria: [reports-work]
+      files: [checks/acceptance.ts, checks/browser.ts, checks/show.ts, ui/components.ts, ui/tokens.css, data/reports.json, index.html]
+  protected_paths: [checks, ui, data, index.html, REQUEST.md, README.md]
+budget:
+  max_sessions: 6
+  max_worker_turns: 3
+  max_judge_turns: 3
+  max_planner_turns: 0
+  wall_clock_seconds: 1200
+  session_timeout_seconds: 180

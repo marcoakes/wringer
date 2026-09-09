@@ -4,6 +4,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "nod
 import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
 import { VERSION } from "@wringer/engine";
 import { assistantExists, assistantPath, readAssistantWorkspace } from "@wringer/application";
+import { readPinnedDesignSnapshot } from "@wringer/workflow";
 import { quote } from "./args";
 
 type Status = "observed" | "needs-attention" | "unmeasured";
@@ -213,10 +214,15 @@ export async function prepareAssistantProfile(options: { fromPlan: string; repo:
     if (gitlinks.some(list => list.split("\0").some(entry => entry.startsWith("160000 ")))) throw new Error("The selected repository contains submodules. Host-side profile preparation cannot attest their separate configuration or source; use a reviewed inert profile and contained source verification. No submodule was inspected or executed.");
     if ((await gitMetadata(repo, ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=all"], options.signal)).trim()) throw new Error("The selected source has uncommitted or untracked work. Preparation will not silently omit it, commit it, or change it. Commit the intended test source separately, then repeat this command.");
     const files = new Set((await gitMetadata(repo, ["ls-tree", "-r", "-z", "--name-only", commit], options.signal)).split("\0").filter(Boolean));
-    const requiredFiles = [...new Set([...previous.environment.context, ...previous.acceptance.checks.flatMap(check => check.files)])];
+    const requiredFiles = [...new Set([...previous.environment.context, ...previous.acceptance.checks.flatMap(check => check.files), ...(previous.design ? [previous.design.snapshotPath] : [])])];
     if (requiredFiles.some(file => !files.has(file))) throw new Error("The selected profile references context or check files absent from this committed source. Choose a matching profile or revise its inert declarations; no check was invented or executed.");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = previous;
-    const plan = compileDeclaration({ version: 1, ...declaration, repository: { url: sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
+    const plan = compileDeclaration({ version: previous.schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...declaration, repository: { url: sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
+    if (plan.design) {
+        const objectStore = resolve(repo, (await gitMetadata(repo, ["rev-parse", "--git-common-dir"], options.signal)).trim());
+        const snapshot = await readPinnedDesignSnapshot(plan, objectStore);
+        if (!snapshot || plan.design.reviews.some(review => review.referenceIds.some(id => !snapshot.assets.some(asset => asset.id === id)))) throw new Error("A design reference is absent from the exact committed snapshot. No profile was created.");
+    }
     // A second observation avoids publishing a profile for a checkout that moved during inspection.
     if ((await gitMetadata(repo, ["rev-parse", "--verify", "HEAD^{commit}"], options.signal)).trim() !== commit || (await gitMetadata(repo, ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=all"], options.signal)).trim()) throw new Error("The selected source changed during preparation. Nothing was written; repeat against a stable committed checkout.");
     const bytes = canonicalPlanJson(plan), temp = join(dirname(output), `.wringer-profile-${crypto.randomUUID()}.pending`), file = await open(temp, "wx", 0o600);

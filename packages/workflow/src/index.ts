@@ -11,3 +11,4 @@ export * from "./contained-query";
 export * from "./proposal";
 export * from "./json-reply";
 export * from "./discovery";
+export * from "./display-visuals";

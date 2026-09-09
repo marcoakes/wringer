@@ -1,0 +1,8 @@
+[
+  {"id":"quarterly-growth","title":"Quarterly growth","owner":"Avery Chen","date":"2026-09-01","status":"Published","summary":"Customer retention improved this quarter. The next opportunity is a clearer first-week onboarding experience."},
+  {"id":"customer-research","title":"Customer research","owner":"Sam Rivera","date":"2026-08-28","status":"Published","summary":"Customers value clarity over more controls. Use plain labels and make the next decision obvious."},
+  {"id":"design-quality","title":"Design quality","owner":"Jordan Ellis","date":"2026-08-25","status":"Draft","summary":"Review keyboard journeys, smaller screens and empty states before the next launch."},
+  {"id":"launch-readiness","title":"Launch readiness","owner":"Taylor Morgan","date":"2026-08-22","status":"Draft","summary":"The functional checks are ready. Human review of the presentation is still required."},
+  {"id":"support-themes","title":"Support themes","owner":"Alex Patel","date":"2026-08-18","status":"Published","summary":"Finding an existing report is the most frequent task. Search and status need to work together."},
+  {"id":"previous-quarter","title":"Previous quarter","owner":"Robin Lee","date":"2026-06-30","status":"Archived","summary":"A historical baseline for the current quarter, retained for comparison."}
+]

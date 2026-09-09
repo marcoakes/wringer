@@ -8,6 +8,7 @@ import { parseArgs, allowed, flag, number, positionals, quote, required, string,
 import { HELP, DRIVE_HELP, BOARD_HELP, commandHelp, documentationHint } from "./help";
 import { containedDrive } from "./contained-cli";
 import { recordJudgement, showCriterion } from "./pen";
+import { designCommand, DESIGN_HELP } from "./design-cli";
 export interface Answer {
     value?: unknown;
     text?: string;
@@ -25,11 +26,12 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
     if (surface === "wringer-board")
         return evidence(a, repo, context);
     if (flag(a, "help") || !a.command)
-        return { text: commandHelp[a.command] || HELP };
+        return { text: a.command === "design" ? DESIGN_HELP : commandHelp[a.command] || HELP };
     context.signal?.throwIfAborted();
     if (["init", "start", "verify", "doctor", "deliver", "audit", "attest", "health"].includes(a.command))
         positionals(a, 0);
     switch (a.command) {
+        case "design": return designCommand(a, repo);
         case "init": {
             allowed(a, []);
             const value = await engine.init(repo);

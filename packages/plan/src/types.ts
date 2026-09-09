@@ -39,8 +39,18 @@ export interface ExecutionBudget {
     session_timeout_seconds: number;
 }
 export type ExecutionAction = "plan" | "build" | "verify" | "judge" | "deliver";
+export interface DesignReview {
+    criterionId: string;
+    referenceIds: string[];
+    captures: { id: string; path: string; mimeType: "image/png"; width: number; height: number }[];
+}
+export interface DesignDeclaration {
+    snapshotPath: string;
+    snapshotSha256: string;
+    reviews: DesignReview[];
+}
 export interface PlanDeclaration {
-    version: 1;
+    version: 1 | 2;
     name: string;
     intent: string;
     repository: RepositoryRef;
@@ -66,12 +76,14 @@ export interface PlanDeclaration {
     };
     acceptance: AcceptanceContract;
     budget: ExecutionBudget;
+    /** v2 only: approved design bytes and exact required visual observations. */
+    design?: DesignDeclaration;
 }
 export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     environment: PlanDeclaration["environment"] & {
         writable_directories: string[];
     };
-    schema_version: "wringer.execution-plan.v1";
+    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2";
     intent_sha256: string;
     acceptance_sha256: string;
     plan_sha256: string;

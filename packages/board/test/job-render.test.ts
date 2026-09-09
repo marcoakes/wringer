@@ -54,22 +54,26 @@ test("shell is a single private-session page with no embedded job, default verdi
 
 class Element {
     value = ""; textContent = ""; disabled = false; hidden = false; href = ""; className = ""; tabIndex = 0;
+    src = ""; alt = ""; width = 0; height = 0; naturalWidth = 0; naturalHeight = 0;
+    open = false; isConnected = true;
     dataset: Record<string, string> = {}; attributes: Record<string, string> = {}; children: Element[] = []; listeners = new Map<string, Function>();
     constructor(readonly id: string, readonly tagName = "div") {}
     append(...children: Element[]) { this.children.push(...children); }
     replaceChildren(...children: Element[]) { this.children = [...children]; }
     addEventListener(name: string, callback: Function) { this.listeners.set(name, callback); }
     setAttribute(name: string, value: string) { this.attributes[name] = value; }
-    removeAttribute(name: string) { delete this.attributes[name]; if (name === "href") this.href = ""; }
+    removeAttribute(name: string) { delete this.attributes[name]; if (name === "href") this.href = ""; if (name === "src") this.src = ""; }
     classList = { toggle: (_name: string, _value: boolean) => {} };
     focus() { this.attributes.focused = "true"; }
+    showModal() { this.open = true; }
+    close() { this.open = false; }
 }
 async function flush() { for (let i = 0; i < 5; i++) await new Promise(resolve => setTimeout(resolve, 0)); }
 async function harness(initial = fixture(), handler?: (path: string, options: RequestInit, context: any) => Promise<Response> | Response, fragment = "#token=synthetic-operator-link") {
     const html = renderPmJobWorkspace({ nonce: "fixtureNonce123" }), elements = new Map<string, Element>(), intervals: Function[] = [], windowEvents = new Map<string, Function>();
     for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1]!, new Element(match[1]!));
     const get = (id: string) => elements.get(id)!;
-    const context = { job: initial, get, elements, requests: [] as { path: string; options: RequestInit }[], posts: [] as { path: string; body: any }[], notifications: [] as any[], notificationPermissions: 0, focusCount: 0, copied: [] as string[] };
+    const context = { job: initial, get, elements, requests: [] as { path: string; options: RequestInit }[], posts: [] as { path: string; body: any }[], notifications: [] as any[], notificationPermissions: 0, focusCount: 0, copied: [] as string[], blobs: [] as Blob[], revoked: [] as string[] };
     const location = { hash: fragment, pathname: "/", search: `?jobId=${jobId}` }, history: unknown[][] = [];
     const fetch = async (path: string, options: RequestInit = {}) => {
         context.requests.push({ path, options }); if (options.method === "POST") context.posts.push({ path, body: JSON.parse(String(options.body)) });
@@ -85,17 +89,121 @@ async function harness(initial = fixture(), handler?: (path: string, options: Re
         constructor(title: string, options: unknown) { context.notifications.push({ title, options, instance: this }); }
         close() {}
     }
-    new Function("document", "window", "history", "location", "fetch", "setInterval", "navigator", "Notification", "AbortSignal", pmJobClientScript())(
+    class ImageURL extends URL {
+        static override createObjectURL(blob: Blob) { context.blobs.push(blob); return `blob:fixture/${context.blobs.length}`; }
+        static override revokeObjectURL(url: string) { context.revoked.push(url); }
+    }
+    new Function("document", "window", "history", "location", "fetch", "setInterval", "navigator", "Notification", "AbortSignal", "URL", pmJobClientScript())(
         { getElementById: get, createElement: (tag: string) => new Element("", tag) },
         { focus: () => context.focusCount++, addEventListener: (name: string, callback: Function) => windowEvents.set(name, callback) },
         { replaceState: (...args: unknown[]) => { history.push(args); location.hash = ""; } }, location, fetch, (callback: Function) => intervals.push(callback),
-        { clipboard: { writeText: async (value: string) => context.copied.push(value) } }, Notifications, AbortSignal,
+        { clipboard: { writeText: async (value: string) => context.copied.push(value) } }, Notifications, AbortSignal, ImageURL,
     );
     await flush();
     return { ...context, location, history, intervals, windowEvents, click: async (id: string) => { get(id).listeners.get("click")!(); await flush(); }, type: (id: string, value: string) => { get(id).value = value; get(id).listeners.get("input")!(); }, refresh: async () => { intervals[0]!(); await flush(); } };
 }
 const textOf = (element: Element): string => element.textContent + element.children.map(textOf).join("\n");
 const defaultResponse = (path: string, context: any) => path === "/api/session" || path === "/api/logout" ? Response.json({ outcome: "connected" }) : path === "/api/jobs" ? Response.json({ jobs: [{ jobId: context.job.jobId, name: context.job.name }] }) : Response.json(context.job);
+
+// These DOM probes exercise load/error events and byte binding; they do not
+// claim a real browser decoded these synthetic pixels or a person reviewed them.
+const visualBytes = new TextEncoder().encode("synthetic image bytes for event-boundary testing");
+function visualFixture(): PmJob {
+    const job = fixture(), sha256 = new Bun.CryptoHasher("sha256").update(visualBytes).digest("hex");
+    job.requirements[0]!.visualReview = { snapshotSha256: "f".repeat(64), referenceAssetIds: ["reference"], captureIds: ["desktop", "mobile"] };
+    const asset = (id: string, width: number) => ({ id, title: `${id} screen`, sha256, bytes: visualBytes.length, width, height: 800 });
+    job.displays[0]!.visuals = { snapshotSha256: "f".repeat(64), referenceAssets: [asset("reference", 1280)], captures: [asset("desktop", 1280), asset("mobile", 390)] };
+    job.displays[0]!.output = "";
+    return job;
+}
+const visualResponse = (path: string, context: any) => path.startsWith("/api/job/asset?") ? new Response(visualBytes.slice().buffer, { headers: { "Content-Type": "image/png" } }) : defaultResponse(path, context);
+const imagesIn = (element: Element): Element[] => (element.tagName === "img" ? [element] : []).concat(element.children.flatMap(imagesIn));
+const expandersIn = (element: Element): Element[] => (element.className.includes("view-image") ? [element] : []).concat(element.children.flatMap(expandersIn));
+const loadImage = (image: Element) => { image.naturalWidth = image.width; image.naturalHeight = image.height; image.listeners.get("load")!(); };
+
+test("full-size viewer opens only the verified loaded asset, closes with Escape/button, and returns keyboard focus", async () => {
+    const h = await harness(visualFixture(), (path, _options, context) => visualResponse(path, context));
+    const images = imagesIn(h.get("reports")), expanders = expandersIn(h.get("reports")), viewer = h.get("image-viewer"), full = h.get("image-viewer-image");
+    expect(expanders).toHaveLength(3); expanders[0]!.listeners.get("click")!(); expect(viewer.open).toBe(false); expect(full.src).toBe("");
+    images.forEach(loadImage); expanders[0]!.listeners.get("click")!();
+    expect(viewer.open).toBe(true); expect(full.src).toBe(images[0]!.src); expect(full.width).toBe(1280); expect(h.get("close-image-viewer").attributes.focused).toBe("true");
+    let prevented = false; viewer.listeners.get("cancel")!({ preventDefault: () => { prevented = true; } });
+    expect(prevented).toBe(true); expect(viewer.open).toBe(false); expect(full.src).toBe(""); expect(expanders[0]!.attributes.focused).toBe("true");
+    expanders[1]!.listeners.get("click")!(); await h.click("close-image-viewer"); expect(viewer.open).toBe(false); expect(full.src).toBe(""); expect(expanders[1]!.attributes.focused).toBe("true");
+    const original = images[0]!.src;
+    for (const wrong of ["https://remote.invalid/image.png", "data:image/svg+xml,untrusted", images[1]!.src]) { images[0]!.src = wrong; expanders[0]!.listeners.get("click")!(); expect(viewer.open).toBe(false); expect(full.src).toBe(""); }
+    images[0]!.src = original; expanders[0]!.listeners.get("click")!(); await h.click("lock-job-page");
+    expect(viewer.open).toBe(false); expect(full.src).toBe(""); expect(h.revoked).toContain(original);
+});
+
+test("source changes dismiss full-size pixels and visual display notes start collapsed", async () => {
+    const job = visualFixture(); job.displays[0]!.output = "untrusted display notes"; job.displays[0]!.parts = [{ title: "Recorded notes", text: "untrusted display notes" }];
+    const h = await harness(job, (path, _options, context) => visualResponse(path, context));
+    const card = h.get("reports").children[0]!, notes = card.children.find(child => child.tagName === "details" && child.children[0]?.textContent === "Recorded display notes")!;
+    expect(notes).toBeDefined(); expect(notes.open).toBe(false); expect(textOf(notes)).toContain("untrusted display notes"); expect(card.children.some(child => child.tagName === "pre" || child.className === "report-part")).toBe(false);
+    const images = imagesIn(card), expanders = expandersIn(card); images.forEach(loadImage); expanders[0]!.listeners.get("click")!(); expect(h.get("image-viewer").open).toBe(true);
+    h.job.candidateTree = "e".repeat(40); h.job.readyRevision = "e".repeat(64); await h.refresh();
+    expect(h.get("image-viewer").open).toBe(false); expect(h.get("image-viewer-image").src).toBe(""); expanders[0]!.listeners.get("click")!(); expect(h.get("image-viewer").open).toBe(false);
+});
+
+test("visual review rejects missing, stale, duplicated and remotely addressed evidence without falling back to text", () => {
+    expect(pmJobReviewSet(validatePmJob(visualFixture())).eligible).toBe(true);
+    for (const mutate of [
+        (job: PmJob) => delete job.displays[0]!.visuals,
+        (job: PmJob) => job.displays[0]!.visuals!.snapshotSha256 = "e".repeat(64),
+        (job: PmJob) => job.displays[0]!.visuals!.captures.pop(),
+        (job: PmJob) => delete job.requirements[0]!.visualReview,
+    ]) { const job = visualFixture(); job.displays[0]!.output = "Text must not replace required pixels"; mutate(job); expect(pmJobReviewSet(job).eligible).toBe(false); }
+    for (const mutate of [
+        (job: any) => job.displays[0].visuals.captures.push(job.displays[0].visuals.captures[0]),
+        (job: any) => job.displays[0].visuals.captures[0].url = "https://remote.invalid/image.png",
+        (job: any) => job.displays[0].visuals.referenceAssets[0].base64 = "private pixels",
+        (job: any) => job.displays[0].visuals.referenceAssets[0].width = 0,
+        (job: any) => job.requirements[0].visualReview.captureIds = [],
+    ]) { const job = visualFixture(); mutate(job); expect(() => validatePmJob(job)).toThrow(); }
+});
+
+test("reference, desktop and mobile must all pass authenticated byte checks and load before a source-bound decision", async () => {
+    const h = await harness(visualFixture(), (path, _options, context) => visualResponse(path, context));
+    const images = imagesIn(h.get("reports")); expect(images).toHaveLength(3);
+    expect(h.get("accept-result").disabled).toBe(true);
+    expect(textOf(h.get("reports"))).toContain("Pinned design reference"); expect(textOf(h.get("reports"))).toContain("Actual result · Mobile"); expect(textOf(h.get("reports"))).toContain("Actual result · Desktop");
+    expect(textOf(h.get("reports"))).toContain("Design snapshot " + "f".repeat(64));
+    expect(h.blobs).toHaveLength(3); expect(images.every(image => image.src.startsWith("blob:fixture/") && image.hidden)).toBe(true);
+    const requests = h.requests.filter(request => request.path.startsWith("/api/job/asset?")); expect(requests).toHaveLength(3);
+    for (const request of requests) { expect(request.options.credentials).toBe("same-origin"); expect(request.options.redirect).toBe("error"); expect((request.options.headers as any)["X-Wringer-Console"]).toBe("1"); expect(request.path).not.toContain("token"); expect(request.path).not.toContain("path="); }
+    loadImage(images[0]!); loadImage(images[1]!); expect(h.get("accept-result").disabled).toBe(true);
+    loadImage(images[2]!); expect(h.get("accept-result").disabled).toBe(false); expect(images.every(image => !image.hidden)).toBe(true);
+    await h.click("accept-result"); expect(h.posts.find(post => post.path === "/api/job/decision")!.body.displayIds).toEqual([displayId]);
+});
+
+test("image HTTP, media, digest, decode and size errors keep visual decisions closed", async () => {
+    for (const failure of ["http", "media", "digest", "decode", "size"] as const) {
+        const h = await harness(visualFixture(), (path, _options, context) => {
+            if (path.startsWith("/api/job/asset?")) {
+                if (failure === "http") return new Response("No image", { status: 409 });
+                if (failure === "media") return new Response("<html>untrusted</html>", { headers: { "Content-Type": "text/html" } });
+                if (failure === "digest") return new Response("different pixels", { headers: { "Content-Type": "image/png" } });
+            }
+            return visualResponse(path, context);
+        });
+        const images = imagesIn(h.get("reports"));
+        if (failure === "decode") for (const image of images) image.listeners.get("error")!();
+        if (failure === "size") for (const image of images) { image.naturalWidth = 5; image.naturalHeight = 5; image.listeners.get("load")!(); }
+        expect(h.get("accept-result").disabled).toBe(true); expect(h.get("request-correction").disabled).toBe(true);
+        expect(textOf(h.get("reports"))).toContain("could not be displayed"); await h.click("accept-result"); expect(h.posts.some(post => post.path.endsWith("decision"))).toBe(false);
+        if (["http", "media", "digest"].includes(failure)) expect(h.blobs).toHaveLength(0);
+    }
+});
+
+test("changed source and locking revoke visible image URLs and late loads cannot enable a decision", async () => {
+    const h = await harness(visualFixture(), (path, _options, context) => visualResponse(path, context));
+    const oldImages = imagesIn(h.get("reports")); oldImages.forEach(loadImage); expect(h.get("accept-result").disabled).toBe(false);
+    h.job.candidateTree = "e".repeat(40); h.job.readyRevision = "e".repeat(64); await h.refresh();
+    expect(h.revoked).toHaveLength(3); oldImages.forEach(loadImage); expect(h.get("accept-result").disabled).toBe(true);
+    expect(imagesIn(h.get("reports")).every(image => !image.src)).toBe(true);
+    await h.click("lock-job-page"); oldImages.forEach(loadImage); expect(imagesIn(h.get("reports"))).toHaveLength(0); expect(h.get("accept-result").disabled).toBe(true);
+});
 
 test("report cards deduplicate identical titles while preserving distinct and multipart labels and original output", async () => {
     const job = fixture(), title = job.requirements[0]!.title;

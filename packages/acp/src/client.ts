@@ -183,7 +183,7 @@ async function runSession(transport: AcpTransport, options: AcpTurnOptions, prob
             await request("authenticate", { methodId: method.id });
             event("acp.auth-method-returned", { methodId: method.id, authenticatedClaim: false });
         }
-        const session = await request("session/new", { cwd: options.cwd, mcpServers: [] });
+        const session = await request("session/new", { cwd: options.cwd, mcpServers: options.mcpServers ?? [] });
         if (!mapping(session) || typeof session.sessionId !== "string" || !session.sessionId)
             throw new AcpError("Agent returned no usable session id");
         sessionId = session.sessionId;

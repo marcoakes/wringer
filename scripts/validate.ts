@@ -23,6 +23,7 @@ const stages: [
     ] as [string, string[], string][] : []),
     ["assistant-check", [process.execPath, "test", "./packages/mcp/test", "./packages/application/test/assistant.test.ts", "./packages/application/test/assistant-runner.test.ts", "./packages/application/test/assistant-journey.test.ts", "./packages/cli/test/assistant-cli.test.ts", "./packages/cli/test/assistant-console.test.ts", "./packages/cli/test/assistant-transport.test.ts", "./packages/cli/test/assistant-lifecycle.test.ts", "./packages/cli/test/distribution-docs.test.ts", "./packages/cli/test/test-discovery.test.ts"], workspace],
     ["native-check", [process.execPath, "run", "check"], workspace],
+    ["design-contract", [process.execPath, "test", "./packages/design/test", "./packages/plan/test/design-plan.test.ts", "./packages/plan/test/design-proposal.test.ts", "./packages/runtime/test/design-mcp.test.ts", "./packages/workflow/test/display-visuals.test.ts", "./packages/application/test/visual-evidence.test.ts", "./packages/cli/test/design-cli.test.ts", "./packages/cli/test/design-assets.test.ts"], workspace],
     ["portable-python-corpus", [process.execPath, "test", "./packages/records/test", "./packages/board/test", "./packages/scheduler/test/health.test.ts"], workspace],
     ["standalone-contract", [process.execPath, "scripts/distribution.ts"], workspace],
     ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
@@ -35,6 +36,7 @@ const stages: [
     // No-spend scripted engineering proof, never a live-client or PM blind-test claim.
     ["assistant-launch-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts"], workspace],
     ["guided-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--guided"], workspace],
+    ["design-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--design"], workspace],
 ];
 const results: unknown[] = [];
 const selected = process.argv.slice(2);

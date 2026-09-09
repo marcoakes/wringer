@@ -51,6 +51,8 @@ export interface RoleExecutionRequest {
     runtime: RuntimePolicy;
     agent: AgentDeclaration;
     prompt: string;
+    /** Exact protected snapshot in the cloned source, never a caller-controlled URL. */
+    design?: { snapshotPath: string; snapshotSha256: string; referenceIds: string[] };
     budget: {
         maxTurns: number;
         timeoutMs: number;
@@ -125,6 +127,8 @@ export interface ContainedCommandRequest {
     protectedFiles?: string[];
     /** Empty, untracked dependency/build directories precreated before acceptance-parent lockdown. */
     writableDirectories?: string[];
+    /** Controller-declared PNG outputs only; captured before destroying the verifier. */
+    captureArtifacts?: CaptureArtifactDeclaration[];
     timeoutMs: number;
     signal?: AbortSignal;
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
@@ -141,7 +145,10 @@ export interface ContainedCommandResult {
     sourceChanged: boolean;
     sourceTree: string;
     checkInputsSha256?: string;
+    artifacts?: CapturedImageArtifact[];
 }
+export interface CaptureArtifactDeclaration { id: string; path: string; mimeType: "image/png"; width?: number; height?: number; }
+export interface CapturedImageArtifact { id: string; path: string; mimeType: "image/png"; sha256: string; bytes: number; base64: string; width: number; height: number; }
 export class RuntimeError extends Error {
     constructor(message: string, readonly code = "runtime-refused") { super(message); this.name = "RuntimeError"; }
 }

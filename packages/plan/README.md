@@ -44,3 +44,27 @@ repository, plan, acceptance digest, allowed routine actions, expiry and budgets
 Authority cannot enlarge the frozen plan ceiling or delegate human judgement.
 These versioned declarations do not authenticate a person's identity or establish
 a sandbox by themselves. The contained runtime and controller enforce that boundary.
+# Design-bound plans
+
+Version 1 remains byte-compatible and does not accept a design declaration.
+Version 2 adds `design.snapshotPath`, `design.snapshotSha256` and exact visual
+review declarations. The snapshot is a protected regular Git blob, must explicitly
+permit repository disclosure, and is independently validated before discovery is
+ready. Every referenced image must exist in those approved snapshot bytes.
+
+Each visual review names a required human requirement, its reference IDs and
+bounded PNG capture paths inside approved writable output directories. The show
+command must actually produce those captures. Capture dimensions are at most
+4096 per axis and eight million pixels. The acceptance hash includes both the
+acceptance contract and the design declaration, so changing a reference, capture
+size or snapshot invalidates the previous approval.
+
+`wringer.planning-request.v2` retains the design declaration while acceptance is
+still being proposed. Synthetic criteria used for strict compiler validation are
+discarded: they are never shown as an approved plan, run, or retained in a request.
+A planner must return real source-linked human requirements/show commands or ask
+a question. Planning authority remains `plan` only, never build or human approval.
+
+Large snapshot/image bytes do not enter the general environment text context.
+The contained runtime receives only the exact path, hash and reference IDs, then
+validates and serves the pinned reference through its read-only design channel.

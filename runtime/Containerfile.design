@@ -1,0 +1,16 @@
+# Optional browser-capable extension. Build only from an operator-inspected
+# digest of the Wringer agent image; this file is not proof of a live image build.
+ARG WRINGER_BASE_IMAGE
+FROM ${WRINGER_BASE_IMAGE}
+ARG WRINGER_BASE_IMAGE
+USER 0
+RUN printf '%s' "$WRINGER_BASE_IMAGE" | grep -Eq '@sha256:[a-f0-9]{64}$'
+WORKDIR /opt/wringer-design
+COPY runtime/design-package.json ./package.json
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/wringer-browsers
+RUN bun install --ignore-scripts --save-text-lockfile \
+    && node -e 'if(require("playwright/package.json").version!=="1.63.0")process.exit(1)' \
+    && bun node_modules/playwright/cli.js install --with-deps chromium \
+    && chmod -R a+rX /opt/wringer-design /opt/wringer-browsers \
+    && dpkg-query -W > /opt/wringer-design/os-packages.txt
+WORKDIR /workspace

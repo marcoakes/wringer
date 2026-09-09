@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { Redactor } from "@wringer/engine";
+import { MAX_SNAPSHOT_BYTES, assertRepositoryDisclosure, parseDesignSnapshot } from "@wringer/design";
 import { freezeData, hashBytes, hashValue } from "./canonical";
 import { validateExecutionPlan } from "./compile";
 import type { EnvironmentMap, EnvironmentObservation, ExecutionPlan } from "./types";
@@ -41,8 +42,20 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
     for (const path of plan.acceptance.checks.flatMap(c => c.files))
         if (!files.some(f => f.path === path && ["100644", "100755"].includes(f.mode)))
             throw new Error(`Pinned acceptance input ${path} is absent or not a regular source file`);
+    if (plan.design) {
+        const file = files.find(f => f.path === plan.design!.snapshotPath);
+        if (!file || !["100644", "100755"].includes(file.mode)) throw new Error("Approved design snapshot is absent or not an exact regular Git source blob");
+        const size = Number((await git(repo, ["cat-file", "-s", file.blob])).trim());
+        if (!Number.isSafeInteger(size) || size < 1 || size > MAX_SNAPSHOT_BYTES) throw new Error("Approved design snapshot exceeds its bounded source size");
+        const contents = await git(repo, ["cat-file", "blob", file.blob]);
+        const snapshot = parseDesignSnapshot(contents); assertRepositoryDisclosure(snapshot);
+        if (snapshot.snapshot_sha256 !== plan.design.snapshotSha256) throw new Error("Approved design snapshot digest does not match the exact source blob");
+        if (redactor.scrub(contents) !== contents) throw new Error("Design snapshot contains a detected runtime credential; no altered snapshot is accepted");
+        for (const review of plan.design.reviews) for (const reference of review.referenceIds)
+            if (!snapshot.assets.some(a => a.id === reference)) throw new Error(`Design review reference ${reference} is absent from the exact approved snapshot`);
+    }
     const automatic = ["AGENTS.md", "README.md", "ARCHITECTURE.md", "CODEOWNERS", ".github/CODEOWNERS", "package.json", "bun.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"];
-    const requested = [...new Set([...plan.environment.context, ...automatic.filter(path => files.some(f => f.path === path))])].sort();
+    const requested = [...new Set([...plan.environment.context, ...automatic.filter(path => path !== plan.design?.snapshotPath && files.some(f => f.path === path))])].sort();
     const context: EnvironmentMap["context"] = [];
     for (const path of requested) {
         const file = files.find(f => f.path === path);

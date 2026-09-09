@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
 import { posix } from "node:path";
 import { runAcpTurn, probeAcpSession, type AgentDeclaration } from "@wringer/acp";
+import { inspectPng } from "@wringer/design";
+import { prepareDesignMcp } from "./design";
 import { openSandbox, REPO } from "./adapters";
 import { processDriver } from "./driver";
 import { parseRuntimePolicy, parseWritableDirectories, quote, validateRepository } from "./policy";
@@ -54,8 +56,9 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
     try {
         const onEvent = request.onEvent ? async (event: Record<string, unknown>) => request.onEvent!(runtimeDeepRedact(event, redact)) : undefined;
         await onEvent?.({ type: "runtime.prepared", provenance: sandbox.provenance });
+        const mcpServers = request.design ? await prepareDesignMcp(sandbox, request.design) : [];
         const transport = await sandbox.connect(request.agent);
-        const acpOptions = { role: request.role, cwd: REPO, timeoutMs: Math.max(1, request.budget.timeoutMs - (Date.now() - started)), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact, onEvent };
+        const acpOptions = { role: request.role, cwd: REPO, timeoutMs: Math.max(1, request.budget.timeoutMs - (Date.now() - started)), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact, onEvent, ...(mcpServers.length ? { mcpServers, maxMessageBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 * 1024 } : {}) };
         const turn = runtimeDeepRedact(await (probeOnly ? probeAcpSession(transport, acpOptions) : runAcpTurn(transport, { ...acpOptions, prompt: request.prompt, allowedToolKinds: request.allowedToolKinds })), redact);
         const result: RoleExecutionResult = { ...turn, provenance: sandbox.provenance };
         if (!probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {
@@ -103,6 +106,13 @@ export async function runContainedCommands(request: ContainedCommandRequest, opt
         if (!path || path.startsWith("/") || path.split("/").some(part => part === ".." || part === ".git") || /[\0\n\r]/.test(path))
             throw new RuntimeError("Protected check input path is unsafe");
     const writableDirectories = parseWritableDirectories(request.writableDirectories ?? [], request.protectedFiles ?? []);
+    const captures = request.captureArtifacts ?? [];
+    if (!Array.isArray(captures) || captures.length > 8 || new Set(captures.map(row => row?.id)).size !== captures.length || new Set(captures.map(row => row?.path)).size !== captures.length)
+        throw new RuntimeError("Visual capture needs at most eight distinct declared PNG outputs", "visual-capture-refused");
+    for (const row of captures) {
+        if (!row || Object.keys(row).some(key => !["id", "path", "mimeType", "width", "height"].includes(key)) || typeof row.id !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$/.test(row.id) || row.mimeType !== "image/png" || typeof row.path !== "string" || !row.path.endsWith(".png") || row.path.split("/").some(part => !part || part === "." || part === ".." || part === ".git") || /[\\\x00-\x1f\x7f]/.test(row.path) || !writableDirectories.some(path => row.path.startsWith(path + "/")) || [row.width, row.height].some(value => value !== undefined && (!Number.isInteger(value) || value < 1 || value > 4096)))
+            throw new RuntimeError("Visual captures must name bounded PNG files inside approved writable output directories", "visual-capture-refused");
+    }
     const redact = runtimeRedactor(policy.env), sandbox = await openSandbox({ role: "verifier", repo: request.repo, policy: { ...policy, env: [], ...(policy.kind === "gvisor-kubernetes" ? { secretRefs: {} } : {}) }, timeoutMs: request.timeoutMs, signal: request.signal, driver: options.driver ?? processDriver, redact });
     const must = async (argv: string[], input?: string) => {
         const result = await sandbox.exec(argv, { input });
@@ -184,6 +194,9 @@ export async function runContainedCommands(request: ContainedCommandRequest, opt
             results.push(result);
             await request.onEvent?.({ type: "runtime.check.finished", ...result, runtimeId: sandbox.provenance.runtimeId });
         }
+        // Close every unprivileged writer before exporting image bytes. chmod alone
+        // cannot revoke an already-open descriptor or prevent a path-swap race.
+        if (captures.length) await must(["/bin/sh", "-c", "set -eu; for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do pkill -KILL -u 1000 || test $? = 1; live=0; agent_pids=$(pgrep -u 1000) || { test $? = 1; agent_pids=; }; for agent_pid in $agent_pids; do state=$(awk '/^State:/ { print $2 }' /proc/$agent_pid/status 2>/dev/null) || { test ! -d /proc/$agent_pid || exit 74; continue; }; case $state in Z|X) ;; *) live=1 ;; esac; done; test $live = 0 && exit 0; sleep 0.05; done; exit 74"]);
         const after = await sandbox.run(statusCommand);
         // Only new untracked descendants of declared directories are outputs. A tracked edit,
         // renamed directory or an extra file outside those directories remains a source change.
@@ -204,7 +217,21 @@ export async function runContainedCommands(request: ContainedCommandRequest, opt
         if (writableDirectories.length)
             await must(["/bin/sh", "-c", `set -eu; ${outputGuards.join("; ")}; ${writableDirectories.map(directory => `test -d ${quote(`${REPO}/${directory}`)}`).join("; ")}`]);
         const changed = before.code !== 0 || after.code !== 0 || sourceStatus(before.stdout) !== sourceStatus(after.stdout);
-        return { provenance: sandbox.provenance, results, sourceChanged: changed, sourceTree, ...(checkInputsSha256 ? { checkInputsSha256 } : {}) };
+        const artifacts: NonNullable<ContainedCommandResult["artifacts"]> = [];
+        if (captures.length && !changed && results.every(row => row.code === 0)) {
+            let totalBytes = 0;
+            for (const row of captures) {
+                const absolute = `${REPO}/${row.path}`, guards = row.path.split("/").map((_, i, parts) => `test ! -L ${quote(`${REPO}/${parts.slice(0, i + 1).join("/")}`)}`);
+                // Named regular outputs only. No credential environment crosses the
+                // verifier; reject symlinks/hardlinks, text formats and oversized data.
+                const encoded = await must(["/bin/sh", "-c", `set -eu; ${guards.join("; ")}; test -f ${quote(absolute)}; test "$(realpath -e -- ${quote(absolute)})" = ${quote(absolute)}; test "$(stat -c %h -- ${quote(absolute)})" = 1; test "$(stat -c %s -- ${quote(absolute)})" -le 4194304; head -c 4194305 -- ${quote(absolute)} | base64`]);
+                const base64 = encoded.replace(/[\r\n]/g, ""), image = inspectPng(base64);
+                if (row.width !== undefined && image.width !== row.width || row.height !== undefined && image.height !== row.height || image.bytes > 4194304 || (totalBytes += image.bytes) > 8388608)
+                    throw new RuntimeError("Visual capture dimensions or total image bytes exceed their declaration", "visual-capture-refused");
+                artifacts.push({ id: row.id, path: row.path, mimeType: "image/png", base64, ...image });
+            }
+        }
+        return { provenance: sandbox.provenance, results, sourceChanged: changed, sourceTree, ...(checkInputsSha256 ? { checkInputsSha256 } : {}), ...(captures.length ? { artifacts } : {}) };
     }
     finally {
         await sandbox.close();

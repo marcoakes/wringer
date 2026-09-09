@@ -70,10 +70,11 @@ actual observation.
 
 The delivery includes instructions for someone else to audit it from a fresh clone. This is how the result travels without depending on the builder's explanation or workstation.
 
-Wringer opens the actual result for you. The display is the declared command's
-text output, not a browser preview of the built application. If that output
-cannot support the judgement, do not approve it: that is a display limitation
-to fix in the plan. A failed, missing or old display cannot enable Yes.
+Wringer opens the actual result for you. [Design-aware work](docs/native/DESIGN.md)
+shows the approved reference beside actual desktop/mobile captures. Other plans
+show their declared text output. These are recorded displays, not an interactive
+preview. If the display cannot support your judgement, do not approve it. A
+failed, missing or old display cannot enable Yes.
 
 Choose **Yes, this is right** after reviewing the displayed requirements and
 result. You may add a comment, but you do not have to invent a sentence to make

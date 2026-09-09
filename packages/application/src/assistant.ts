@@ -119,9 +119,10 @@ async function authorize(root: string, token: string) {
 }
 function template(plan: ExecutionPlan) {
     const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...rest } = plan;
-    return { version: 1, ...rest };
+    return { version: plan.schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...rest };
 }
 function bindProfile(plan: ExecutionPlan, workspace: AssistantWorkspace) {
+    insist(hashValue(plan.design ?? null) === hashValue(workspace.profile.design ?? null), "design-changed", "The selected design and visual reviews are pinned. A changed design needs a new profile and explicit approval.");
     for (const field of ["repository", "runtime", "agents", "environment"] as const)
         insist(hashValue(plan[field]) === hashValue(workspace.profile[field]), "profile-changed", `The selected ${field} is pinned by the operator profile. Ask for a new profile; the assistant cannot replace it.`);
     for (const [key, value] of Object.entries(plan.budget)) insist(value <= workspace.profile.budget[key as keyof ExecutionPlan["budget"]], "budget-increase-refused", "A proposal cannot exceed the selected execution ceilings");

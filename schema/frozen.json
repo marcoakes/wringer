@@ -2,6 +2,10 @@
  "_comment": "sha256 of every published JSON schema. The ten from the v0.2.0 tag were captured from the tag itself; schemas added after it were captured when they were published, and describe formats frozen from that moment. Law 7: these are frozen. A byte change without a new schema_version is a silent break for every reader of an existing bundle. tests/test_schema.py enforces it; adding a NEW schema file is always allowed.",
  "tag": "v0.2.0",
  "schemas": {
+  "contained-display-v2.schema.json": "251ee88b99cff159ee5bb6f85d8e0b77775e0ec3f7256754dda75b2546ea4eb5",
+  "design-snapshot-v1.schema.json": "2ae64b51bafebae0c49bcddf82886a218417236da978aa180f69e22bc992f95e",
+  "execution-plan-v2.schema.json": "695b293d9e0c535688f8e8c61dc8a7669e85297f349a98c75b322e80f6d7a25a",
+  "planning-request-v2.schema.json": "6d121ad89c7a376f8179b430a1700e2617e5edaa070db41ee45fdcc48aba2ecd",
   "contained-delivery-v3.schema.json": "f9431ab21938c56d04f7463f63995942d21aa8afc111ba18e48d9232011dd606",
   "contained-human-decision-v1.schema.json": "7906a3a04f079c73f3e8e9629a8c1136b5ad5456464b6557a03365696691b109",
   "execution-plan-v1.schema.json": "43ac846af08bfd17913788440dc21bc8da8389fc7a9461d1c3d0d31cbb484234",

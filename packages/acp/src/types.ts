@@ -32,6 +32,8 @@ export interface AcpTurnOptions {
     credentialNames?: string[];
     maxMessageBytes?: number;
     maxOutputBytes?: number;
+    /** Controller-owned stdio services inside the same sandbox, not host MCP configuration. */
+    mcpServers?: Array<{ name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> }>;
     redact?: (value: string) => string;
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
 }

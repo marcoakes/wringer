@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
 import { processDriver } from "@wringer/runtime";
 import { readValidatedContainedState, withContainedJourneyLock, validContainedHumanAttribution } from "@wringer/workflow";
+import { assertContainedDisplayVisuals, readPinnedDesignSnapshot } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import { inside, files, seal, checkSeal, quote } from "./io";
 import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
@@ -87,6 +88,14 @@ async function immutable(path: string, value: unknown) {
             throw e;
     }
 }
+async function immutableImage(root: string, name: string, base64: string) {
+    const path = await inside(root, name), bytes = Buffer.from(base64, "base64");
+    await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+    try { await writeFile(path, bytes, { flag: "wx", mode: 0o600 }); }
+    catch (error: any) { if (error.code !== "EEXIST" || hashBytes(await readFile(path)) !== hashBytes(bytes)) throw error; }
+}
+function visualImagePath(criterionId: string, kind: "reference" | "capture", id: string) { return `visuals/${safeId(criterionId, "visual requirement")}/${kind}-${safeId(id, "visual image")}.png`; }
+function visualInventory(plan: ExecutionPlan, humanCriteria: string[]) { return plan.design ? ["visuals/snapshot.json", ...plan.design.reviews.filter(row => humanCriteria.includes(row.criterionId)).flatMap(row => [...row.referenceIds.map(id => visualImagePath(row.criterionId, "reference", id)), ...row.captures.map(image => visualImagePath(row.criterionId, "capture", image.id))])] : []; }
 async function read(root: string, name: string, max = 16 * 1024 * 1024) {
     const path = await inside(root, name), stat = await lstat(path);
     if (!stat.isFile() || stat.size > max)
@@ -248,7 +257,7 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), show.id];
     return canonicalJson(measured.results.map((r: any) => r.id)) === canonicalJson(expected) && measured.results.every((r: any) => r.code === 0 && typeof r.stdout === "string" && typeof r.stderr === "string" && Buffer.byteLength(r.stdout + r.stderr) <= 1024 * 1024) && canonicalJson(measured.provenance?.observed?.writableDirectories ?? []) === canonicalJson(plan.environment.writable_directories);
 }
-function expectedInventory(manifest: any, receiptIds: string[]): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
+function expectedInventory(manifest: any, receiptIds: string[], plan: ExecutionPlan): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...visualInventory(plan, manifest.humanCriteria), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
 /** Direct operator CLI only; no provider call, publication or MCP approval. */
 export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; signal?: AbortSignal }) {
     const stateDir = await realpath(options.stateDir);
@@ -312,6 +321,8 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     const scratch = await mkdtemp(join(directory, "preparation-")), store = join(scratch, "objects.git");
     try {
     await cloneBundle(carried, store, state.candidate.source.commit, options.signal);
+    const designSnapshot = await readPinnedDesignSnapshot(plan, store);
+    if (designSnapshot) await immutable(join(bundleDir, "visuals/snapshot.json"), designSnapshot);
     const observations = new Map<string, any>(), verifications = new Map<string, any>();
     for (const event of events)
         for (const v of [event.state.baseline, event.state.verification, ...((event.state as any).verificationAttempts ?? []).map((a: any) => a.result)])
@@ -327,7 +338,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     for (const effect of state.effects) {
         const roleResult = effect.result;
         const request = await read(stateDir, `.wringer/contained/effects/${safeId(effect.id, "effect")}/request.json`);
-        const row = { id: effect.id, role: effect.role, status: effect.status, ...((effect as any).disposition ? { disposition: (effect as any).disposition } : {}), sourceRequestSha256: effect.requestSha256, sourceResultSha256: effect.resultSha256 ?? null, request: { role: request.role, repo: ref(request.repo), runtime: request.runtime, agent: request.agent, budget: request.budget, ...(request.scope !== undefined ? { scope: request.scope } : {}) }, result: roleResult ? { status: roleResult.status, sessionId: roleResult.sessionId, stopReason: roleResult.stopReason, protocolVersion: roleResult.protocolVersion, authentication: roleResult.authentication, usage: roleResult.usage ?? null, provenance: provenance(roleResult.provenance), ...(effect.id === state.judgeEffect ? { finding: state.judge } : {}) } : null };
+        const row = { id: effect.id, role: effect.role, status: effect.status, ...((effect as any).disposition ? { disposition: (effect as any).disposition } : {}), sourceRequestSha256: effect.requestSha256, sourceResultSha256: effect.resultSha256 ?? null, request: { role: request.role, repo: ref(request.repo), runtime: request.runtime, agent: request.agent, budget: request.budget, ...(request.scope !== undefined ? { scope: request.scope } : {}), ...(request.design !== undefined ? { design: request.design } : {}) }, result: roleResult ? { status: roleResult.status, sessionId: roleResult.sessionId, stopReason: roleResult.stopReason, protocolVersion: roleResult.protocolVersion, authentication: roleResult.authentication, usage: roleResult.usage ?? null, provenance: provenance(roleResult.provenance), ...(effect.id === state.judgeEffect ? { finding: state.judge } : {}) } : null };
         roleRows.push(row);
         await immutable(join(bundleDir, `roles/${effect.id}.json`), clean(row, redactor, "Role receipt"));
     }
@@ -347,7 +358,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         for (const name of names) {
             if (!/^[a-f0-9-]{36}\.json$/.test(name))
                 continue;
-            const receipt = await read(stateDir, `displays/${name}`);
+            const receipt = await read(stateDir, `displays/${name}`, 64 * 1024 * 1024);
             const { sha256, ...body } = receipt;
             if (sha256 === judgement.display.receiptSha256) {
                 if (sha256 !== hashValue(body) || !receipt.success || receipt.candidateTree !== state.candidate.tree || receipt.acceptanceSha256 !== plan.acceptance_sha256 || receipt.criterionId !== judgement.criterionId || receipt.measured?.sourceChanged || receipt.measured?.sourceTree !== state.candidate.tree || !displayRowsValid(receipt.measured, plan, judgement.criterionId))
@@ -358,6 +369,8 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         }
         if (!found || hashValue(found) !== judgement.display.receiptSha256)
             throw new Error("Human judgement has no fully portable, hash-resolving successful display receipt");
+        assertContainedDisplayVisuals(found, plan, designSnapshot);
+        if (found.visuals) for (const [kind, images] of [["reference", found.visuals.referenceAssets], ["capture", found.visuals.captures]] as const) for (const image of images) await immutableImage(bundleDir, visualImagePath(judgement.criterionId, kind, image.id), image.base64);
         observations.set(found.measured.provenance.runtimeId, found.measured);
         const projection = { schema_version: "wringer.contained-human-receipt.v1", judgement, source_display_sha256: judgement.display.receiptSha256, display: found };
         human.push(projection);
@@ -370,7 +383,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     // ordinary runtime-command capture keeps its existing 64 MiB ceiling.
     const sourceInspection = await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal, collectFindings: true });
     const sourceReceipt = await sourceReviewReceipt(stateDir, sourceInspection.inventory!);
-    const v3 = !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
+    const v3 = !!plan.design || !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
     const currentManifest = { ...manifest, ...(v3 ? { schema_version: "wringer.contained-delivery.v3", contracts: containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), limits: sourceReceipt ? [...limitations, sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : limitations };
     const view = deriveContainedDeliveryProjection(plan, currentManifest, human, roleRows), versionedManifest = { ...currentManifest, viewSha256: containedProjectionDigest(view) };
     if (sourceReceipt) await immutable(join(bundleDir, "source-inspection.json"), clean(sourceReceipt, redactor, "Source review receipt"));
@@ -378,7 +391,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
         await immutable(join(bundleDir, name), clean(value, redactor, name));
     for (const [name, body] of Object.entries({ ...(v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : renderContainedDocuments(view, manifest.falsify.reason)), "board.html": v3 ? renderContainedBoardV2(view) : renderContainedBoard(view) }))
         await immutable(join(bundleDir, name), body);
-    same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(currentManifest, [...verifications.keys()]).filter(name => name !== "digests.json"), "Portable evidence inventory");
+    same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(currentManifest, [...verifications.keys()], plan).filter(name => name !== "digests.json"), "Portable evidence inventory");
     await seal(bundleDir);
     const audit = await auditContained(bundleDir);
     if (audit.status !== "passed")
@@ -449,7 +462,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         if (v2) {
             const checked = await contractReader.validate(manifest, v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json");
             if (!checked.ok) throw new Error(`Frozen delivery manifest: ${checked.said}`);
-            for (const [value, schema] of [[plan, "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
+            for (const [value, schema] of [[plan, plan.schema_version === "wringer.execution-plan.v2" ? "execution-plan-v2.schema.json" : "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
                 const result = await contractReader.validate(value, schema);
                 if (!result.ok) throw new Error(`Frozen ${schema}: ${result.said}`);
             }
@@ -565,7 +578,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         }
         if (observations.size !== receiptRefs.size)
             throw new Error("A historical verification receipt is missing");
-        same(await files(bundleDir), expectedInventory(manifest, [...receiptRefs.keys()]), "Portable evidence inventory");
+        same(await files(bundleDir), expectedInventory(manifest, [...receiptRefs.keys()], plan), "Portable evidence inventory");
         for (const v of [manifest.baseline, manifest.verification]) {
             const carried = await read(bundleDir, `${v.evidenceRef}/verification.json`);
             same(carried, v, "Required verification");
@@ -588,6 +601,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
                 throw new Error("Role receipt differs from the terminal journal");
             same(role.request.agent, plan.agents[role.role as "worker" | "judge" | "planner"], "Approved role agent");
             same(role.request.runtime, plan.runtime, "Approved role runtime");
+            same(role.request.design ?? null, plan.design ? { snapshotPath: plan.design.snapshotPath, snapshotSha256: plan.design.snapshotSha256, referenceIds: [...new Set(plan.design.reviews.flatMap(row => row.referenceIds))].sort() } : null, "Approved role design snapshot");
             if (v2 && role.role === "worker") {
                 if (!object(role.request.scope)) throw new Error("Approved worker write scope is missing from the portable role receipt");
                 same(role.request.scope, { writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories }, "Approved worker write scope");
@@ -629,10 +643,15 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         }
         const humanRows: any[] = [];
         for (const criterion of plan.acceptance.criteria.filter(c => c.kind === "human" && (c.required || v2 && manifest.humanCriteria.includes(c.id)))) {
-            const row = await read(bundleDir, `human/${safeId(criterion.id, "criterion")}.json`), j = row.judgement, d = row.display;
+            const row = await read(bundleDir, `human/${safeId(criterion.id, "criterion")}.json`, 64 * 1024 * 1024), j = row.judgement, d = row.display;
             if (j.schema_version === "wringer.contained-human-decision.v1" && j.displayId !== d.id) throw new Error("Explicit human decision names a different display identity");
             if (j.criterionId !== criterion.id || !["met", "not_met"].includes(j.verdict) || criterion.required && j.verdict !== "met" || !validContainedHumanAttribution(j, authority) || j.candidateTree !== manifest.source.tree || j.acceptanceSha256 !== plan.acceptance_sha256 || !d.success || d.candidateTree !== manifest.source.tree || d.criterionId !== criterion.id || d.acceptanceSha256 !== plan.acceptance_sha256 || d.measured?.sourceChanged || d.measured?.sourceTree !== manifest.source.tree || !displayRowsValid(d.measured, plan, criterion.id) || row.source_display_sha256 !== j.display?.receiptSha256 || hashValue(d) !== row.source_display_sha256)
                 throw new Error("Human verdict is not bound to the shown candidate");
+            assertContainedDisplayVisuals(d, plan);
+            if (d.visuals) for (const [kind, images] of [["reference", d.visuals.referenceAssets], ["capture", d.visuals.captures]] as const) for (const image of images) {
+                const bytes = await readFile(await inside(bundleDir, visualImagePath(criterion.id, kind, image.id)));
+                if (bytes.length !== image.bytes || hashBytes(bytes) !== image.sha256 || bytes.toString("base64") !== image.base64) throw new Error("Carried visual image differs from the human-reviewed PNG bytes");
+            }
             same(last.state.humanJudgements.find((r: any) => r.criterionId === criterion.id), j, "Human judgement");
             const p = provenance(d.measured.provenance);
             if (p.role !== "verifier" || p.repository.commit !== manifest.source.codeCommit || p.image !== plan.runtime.image || runtimeIds.has(p.runtimeId))
@@ -647,6 +666,11 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         try {
             await cloneBundle(await inside(bundleDir, "candidate.bundle"), store, manifest.source.codeCommit);
             await verifySource(store, manifest, plan, environment, observations);
+            const designSnapshot = await readPinnedDesignSnapshot(plan, store);
+            if (designSnapshot) {
+                same(await read(bundleDir, "visuals/snapshot.json", 32 * 1024 * 1024), designSnapshot, "Carried design snapshot");
+                for (const row of humanRows) assertContainedDisplayVisuals(row.display, plan, designSnapshot);
+            }
             if (v3) {
                 const declared = sourceReviewDigest(manifest.limits);
                 // Derive disclosure requirements from the carried bytes, not
@@ -692,6 +716,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             throw new Error("Portable projection provenance differs from its journal");
         report.checks = plan.acceptance.checks.length;
         report.claims = [{ id: "portable-journal-and-authority", status: "checked", reason: "Complete carried projection chain and historical authority validated." }, { id: "candidate-source", status: "checked", reason: "Complete Git bundle resolves the exact candidate, baseline, protected inputs and permitted changes." }, { id: "red-first-and-green", status: "checked", reason: "Every original check genuinely failed before worker reservation and passed independently on the candidate." }, { id: "independent-judge-and-human", status: "checked", reason: "Distinct role/session/runtime identities and candidate-bound judgements resolve." }];
+        if (plan.design) report.claims.push({ id: "source-bound-visual-review", status: "checked", reason: "Pinned design snapshot, exact reference/captured PNG bytes and their human display-decision digests resolve. This verifies evidence integrity, not screenshot truth, visual quality or authenticated human identity." });
         if (reviewedSource) report.claims.push({ id: "source-credential-shape-review", status: "checked", reason: `Recomputed the complete candidate-history shape inventory: ${reviewedSource.approvals.length} exact object/rule/match-byte digests have carried operator decisions. This does not authenticate the actor, recheck private controller secrets or prove these examples harmless.` });
         report.status = "passed";
     }

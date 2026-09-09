@@ -1,0 +1,7 @@
+{
+  "name": "@wringer/design",
+  "version": "1.0.0-alpha.9",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts"
+}

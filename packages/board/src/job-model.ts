@@ -1,5 +1,18 @@
 /** A single-job human view. Its phase is derived by the controller, not an
  * instruction from the assistant, and never grants execution authority. */
+export interface PmVisualAsset {
+    id: string;
+    title: string;
+    sha256: string;
+    bytes: number;
+    width: number;
+    height: number;
+}
+export interface PmVisualReview {
+    snapshotSha256: string;
+    referenceAssetIds: string[];
+    captureIds: string[];
+}
 export interface PmJob {
     schema_version: "wringer.pm-job.v1";
     jobId: string;
@@ -9,13 +22,13 @@ export interface PmJob {
     phase: "approval" | "working" | "review" | "preparing" | "send" | "sent" | "blocked" | "correction";
     name: string;
     intent: string;
-    requirements: { id: string; title: string; quote: string; kind: "check" | "human"; required: boolean; state: "met" | "not-met" | "unknown"; note?: string | null; by?: string | null }[];
+    requirements: { id: string; title: string; quote: string; kind: "check" | "human"; required: boolean; state: "met" | "not-met" | "unknown"; note?: string | null; by?: string | null; visualReview?: PmVisualReview }[];
     budget: { sessions: number; wallSeconds: number; expiresAt: string | null };
     scope: { repository: string; sourceCommit: string; writable: string[]; protected: string[] };
     questions?: string[];
     assumptions?: string[];
     actor: string | null;
-    displays: { criterionId: string; title: string; displayId: string; candidateTree: string; success: boolean; output: string; error?: string | null; parts?: { title: string; text: string }[] }[];
+    displays: { criterionId: string; title: string; displayId: string; candidateTree: string; success: boolean; output: string; error?: string | null; parts?: { title: string; text: string }[]; visuals?: { snapshotSha256: string; referenceAssets: PmVisualAsset[]; captures: PmVisualAsset[] } }[];
     destination: { remote: string; sourceBranch: string; targetBranch: string } | null;
     preparedId: string | null;
     publication: { status: string; deliveryId: string; url?: string; auditCommand: string; cloneCommand?: string } | null;
@@ -38,6 +51,11 @@ export function validatePmJob(value: unknown): PmJob {
     const list = (x: unknown, maximum: number, check: (entry: any) => boolean): x is any[] => Array.isArray(x) && x.length <= maximum && x.every(check);
     const optional = (x: unknown, limit = 262144) => x === null || x === undefined || text(x, limit);
     const count = (x: unknown) => Number.isSafeInteger(x) && Number(x) >= 0;
+    const ids = (x: unknown) => list(x, 32, id) && x.length > 0 && new Set(x).size === x.length;
+    const asset = (a: any) => a && id(a.id) && text(a.title, 4000) && hash(a.sha256) && count(a.bytes) && a.bytes > 0 && a.bytes <= 16 * 1024 * 1024 && count(a.width) && a.width > 0 && a.width <= 16384 && count(a.height) && a.height > 0 && a.height <= 16384 && a.width * a.height <= 40000000 && Object.keys(a).every(k => ["id", "title", "sha256", "bytes", "width", "height"].includes(k));
+    const assets = (x: unknown) => list(x, 32, asset) && x.length > 0 && new Set(x.map(a => a.id)).size === x.length;
+    const visualReview = (r: any) => r && hash(r.snapshotSha256) && ids(r.referenceAssetIds) && ids(r.captureIds);
+    const visuals = (v: any) => v && hash(v.snapshotSha256) && assets(v.referenceAssets) && assets(v.captures);
     if (!v || v.schema_version !== "wringer.pm-job.v1" || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
@@ -46,8 +64,8 @@ export function validatePmJob(value: unknown): PmJob {
         || !v.budget || !count(v.budget.sessions) || !count(v.budget.wallSeconds) || !(v.budget.expiresAt === null || typeof v.budget.expiresAt === "string" && Number.isFinite(Date.parse(v.budget.expiresAt)))
         || !v.scope || !text(v.scope.repository, 4096) || !tree(v.scope.sourceCommit) || !list(v.scope.writable, 1000, x => text(x, 4096)) || !list(v.scope.protected, 1000, x => text(x, 4096))
         || !(v.questions === undefined || list(v.questions, 100, x => text(x, 16000))) || !(v.assumptions === undefined || list(v.assumptions, 100, x => text(x, 16000)))
-        || !list(v.requirements, 1000, r => r && id(r.id) && text(r.title, 4000) && text(r.quote) && ["check", "human"].includes(r.kind) && typeof r.required === "boolean" && ["met", "not-met", "unknown"].includes(r.state) && optional(r.note) && optional(r.by, 200))
-        || !list(v.displays, 1000, d => d && id(d.criterionId) && uuid(d.displayId) && text(d.title, 4000) && tree(d.candidateTree) && typeof d.success === "boolean" && text(d.output, 524288) && optional(d.error, 16000) && (d.parts === undefined || list(d.parts, 100, p => p && text(p.title, 4000) && text(p.text, 524288))))
+        || !list(v.requirements, 1000, r => r && id(r.id) && text(r.title, 4000) && text(r.quote) && ["check", "human"].includes(r.kind) && typeof r.required === "boolean" && ["met", "not-met", "unknown"].includes(r.state) && optional(r.note) && optional(r.by, 200) && (r.visualReview === undefined || r.kind === "human" && visualReview(r.visualReview)))
+        || !list(v.displays, 1000, d => d && id(d.criterionId) && uuid(d.displayId) && text(d.title, 4000) && tree(d.candidateTree) && typeof d.success === "boolean" && text(d.output, 524288) && optional(d.error, 16000) && (d.parts === undefined || list(d.parts, 100, p => p && text(p.title, 4000) && text(p.text, 524288))) && (d.visuals === undefined || visuals(d.visuals)))
         || !(v.destination === null || v.destination && text(v.destination.remote, 4096) && id(v.destination.sourceBranch) && id(v.destination.targetBranch))
         || !(v.preparedId === null || uuid(v.preparedId))
         || !(v.publication === null || v.publication && id(v.publication.status) && id(v.publication.deliveryId) && optional(v.publication.url, 4096) && text(v.publication.auditCommand, 16000) && optional(v.publication.cloneCommand, 16000)))
@@ -66,8 +84,15 @@ export function pmJobReviewSet(job: PmJob): { eligible: boolean; displayIds: str
     const required = job.requirements.filter(r => r.kind === "human" && r.required && r.state === "unknown");
     if (!required.length) return { eligible: false, displayIds: [], reason: "No unreviewed human requirements were identified. A decision cannot be invented." };
     const displays = required.map(r => job.displays.find(d => d.criterionId === r.id));
-    if (displays.some(d => !d || !d.success || d.candidateTree !== job.candidateTree || !d.output.trim() && !d.parts?.some(p => p.text.trim())))
+    if (displays.some(d => !d || !d.success || d.candidateTree !== job.candidateTree || !d.visuals && !d.output.trim() && !d.parts?.some(p => p.text.trim())))
         return { eligible: false, displayIds: [], reason: "Every listed requirement needs a successful display of this exact result before you can decide." };
+    for (const requirement of required) {
+        const expected = requirement.visualReview, visual = displays.find(d => d!.criterionId === requirement.id)!.visuals;
+        if (!expected && !visual) continue;
+        const sameIds = (a: string[], b: string[]) => a.length === b.length && a.every(id => b.includes(id));
+        if (!expected || !visual || expected.snapshotSha256 !== visual.snapshotSha256 || !sameIds(expected.referenceAssetIds, visual.referenceAssets.map(a => a.id)) || !sameIds(expected.captureIds, visual.captures.map(a => a.id)))
+            return { eligible: false, displayIds: [], reason: "The pinned design reference and every required capture must match this result before you can decide." };
+    }
     if (!job.actor?.trim()) return { eligible: false, displayIds: [], reason: "The recorded review identity is unavailable. Ask the operator to inspect the approval." };
     return { eligible: true, displayIds: displays.map(d => d!.displayId), reason: "" };
 }

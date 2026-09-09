@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Contained source-bound PNG visual display",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "id", "criterionId", "candidateTree", "acceptanceSha256", "at", "success", "measured", "visuals", "sha256"],
+  "properties": {
+    "schema_version": { "const": "wringer.contained-display.v2" },
+    "id": { "type": "string", "format": "uuid" },
+    "criterionId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$" },
+    "candidateTree": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+    "acceptanceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "at": { "type": "string", "format": "date-time" },
+    "success": { "type": "boolean" },
+    "measured": {
+      "type": "object", "additionalProperties": false,
+      "required": ["provenance", "results", "sourceChanged", "sourceTree", "artifacts"],
+      "properties": {
+        "provenance": { "type": "object" },
+        "results": { "type": "array", "maxItems": 65, "items": { "type": "object", "additionalProperties": false, "required": ["id", "code", "stdout", "stderr", "durationMs"], "properties": { "id": { "type": "string" }, "code": { "type": "integer" }, "stdout": { "type": "string" }, "stderr": { "type": "string" }, "durationMs": { "type": "number", "minimum": 0 } } } },
+        "sourceChanged": { "type": "boolean" },
+        "sourceTree": { "type": "string", "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$" },
+        "checkInputsSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "artifacts": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/image" } }
+      }
+    },
+    "visuals": {
+      "type": "object", "additionalProperties": false,
+      "required": ["snapshotSha256", "referenceAssets", "captures"],
+      "properties": {
+        "snapshotSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "referenceAssets": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "$ref": "#/$defs/image" } },
+        "captures": { "type": "array", "maxItems": 8, "items": { "$ref": "#/$defs/image" } }
+      }
+    },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "$defs": {
+    "image": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "path", "mimeType", "sha256", "bytes", "base64", "width", "height"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,180}$" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+        "mimeType": { "const": "image/png" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "bytes": { "type": "integer", "minimum": 1, "maximum": 4194304 },
+        "base64": { "type": "string", "minLength": 1, "maxLength": 5592408 },
+        "width": { "type": "integer", "minimum": 1, "maximum": 4096 },
+        "height": { "type": "integer", "minimum": 1, "maximum": 4096 }
+      }
+    }
+  }
+}

@@ -945,6 +945,41 @@ export type ContainedDeliveryViewV1 = {
 };
 
 /**
+ * Contained source-bound PNG visual display
+ *
+ * Generated from `schema/contained-display-v2.schema.json`. Do not edit.
+ */
+export type ContainedDisplayV2 = {
+  "schema_version": "wringer.contained-display.v2";
+  "id": string;
+  "criterionId": string;
+  "candidateTree": string;
+  "acceptanceSha256": string;
+  "at": string;
+  "success": boolean;
+  "measured": {
+    "provenance": Record<string, unknown>;
+    "results": {
+      "id": string;
+      "code": number;
+      "stdout": string;
+      "stderr": string;
+      "durationMs": number;
+    }[];
+    "sourceChanged": boolean;
+    "sourceTree": string;
+    "checkInputsSha256"?: string;
+    "artifacts": unknown[];
+  };
+  "visuals": {
+    "snapshotSha256": string;
+    "referenceAssets": unknown[];
+    "captures": unknown[];
+  };
+  "sha256": string;
+};
+
+/**
  * Explicit contained human decision with optional original comment
  *
  * Generated from `schema/contained-human-decision-v1.schema.json`. Do not edit.
@@ -1129,6 +1164,48 @@ export type DeliveryManifest = {
 };
 
 /**
+ * DesignSnapshotV1
+ *
+ * Generated from `schema/design-snapshot-v1.schema.json`. Do not edit.
+ */
+export type DesignSnapshotV1 = {
+  "schema_version": "wringer.design-snapshot.v1";
+  "title": string;
+  "source": {
+    "provider": "owned-reference" | "figma" | "generic-mcp";
+    "label": string;
+    "endpoint": string | null;
+    "file_key": string | null;
+    "node_id": string | null;
+    "version": string | null;
+    "version_basis": "reported" | "operator-declared" | "capture-only";
+  };
+  "captured_at": string;
+  "disclosure": "private" | "repository-permitted";
+  "context": string;
+  "component_rules": string[];
+  "assets": {
+    "id": string;
+    "title": string;
+    "media_type": "image/png";
+    "width": number;
+    "height": number;
+    "base64": string;
+    "sha256": string;
+  }[];
+  "provenance": {
+    "method": "owned-reference" | "mcp-read";
+    "calls": {
+      "tool": string;
+      "arguments_sha256": string;
+      "response_sha256": string;
+    }[];
+    "limits": string[];
+  };
+  "snapshot_sha256": string;
+};
+
+/**
  * wringer.diagnosis.v1
  *
  * Generated from `schema/diagnosis.schema.json`. Do not edit.
@@ -1306,6 +1383,48 @@ export type ExecutionPlanV1 = {
   "acceptance_sha256": string;
   "budget": unknown;
   "plan_sha256": string;
+};
+
+/**
+ * Design-bound execution plan v2
+ *
+ * Generated from `schema/execution-plan-v2.schema.json`. Do not edit.
+ */
+export type ExecutionPlanV2 = {
+  "schema_version": "wringer.execution-plan.v2";
+  "name": string;
+  "intent": string;
+  "intent_sha256": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner"?: unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "acceptance": unknown;
+  "acceptance_sha256": string;
+  "budget": unknown;
+  "plan_sha256": string;
+  "design": {
+    "snapshotPath": string;
+    "snapshotSha256": string;
+    "reviews": {
+      "criterionId": string;
+      "referenceIds": string[];
+      "captures": {
+        "id": string;
+        "path": string;
+        "mimeType": "image/png";
+        "width": number;
+        "height": number;
+      }[];
+    }[];
+  };
 };
 
 /**
@@ -2282,6 +2401,45 @@ export type NextMove = {
 };
 
 /**
+ * Design-bound planning request v2
+ *
+ * Generated from `schema/planning-request-v2.schema.json`. Do not edit.
+ */
+export type PlanningRequestV2 = {
+  "schema_version": "wringer.planning-request.v2";
+  "name": string;
+  "intent": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner": unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "budget": unknown;
+  "design": {
+    "snapshotPath": string;
+    "snapshotSha256": string;
+    "reviews": {
+      "criterionId": string;
+      "referenceIds": string[];
+      "captures": {
+        "id": string;
+        "path": string;
+        "mimeType": "image/png";
+        "width": number;
+        "height": number;
+      }[];
+    }[];
+  };
+  "request_sha256": string;
+};
+
+/**
  * wringer.readiness.v1
  *
  * Generated from `schema/readiness.schema.json`. Do not edit.
@@ -2789,12 +2947,14 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "contained-delivery-v2.schema.json": "wringer.contained-delivery.v2",
   "contained-delivery-v3.schema.json": "wringer.contained-delivery.v3",
   "contained-delivery-view-v1.schema.json": "wringer.contained-delivery-view.v1",
+  "contained-display-v2.schema.json": "wringer.contained-display.v2",
   "contained-human-decision-v1.schema.json": "wringer.contained-human-decision.v1",
   "contained-projection-v2.schema.json": "wringer.contained-projection.v2",
   "coverage-v1.schema.json": "wringer.coverage.v1",
   "decisions-v2.schema.json": "wringer.decisions.v2",
   "decisions.schema.json": "wringer.decisions.v1",
   "delivery-manifest.schema.json": "wringer.delivery.v1",
+  "design-snapshot-v1.schema.json": "wringer.design-snapshot.v1",
   "diagnosis.schema.json": "wringer.diagnosis.v1",
   "digests.schema.json": "wringer.digests.v1",
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
@@ -2802,6 +2962,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "exchange.schema.json": "wringer.exchange.v1",
   "execution-authority-v1.schema.json": "wringer.execution-authority.v1",
   "execution-plan-v1.schema.json": "wringer.execution-plan.v1",
+  "execution-plan-v2.schema.json": "wringer.execution-plan.v2",
   "execution-v2.schema.json": "wringer.execution.v2",
   "execution.schema.json": "wringer.execution.v1",
   "falsification-v1.schema.json": "wringer.falsification.v1",
@@ -2829,6 +2990,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "loop-manifest.schema.json": "wringer.loop.v1",
   "manifest.schema.json": "wringer.evidence.v1",
   "next-move.schema.json": "wringer.nextmove.v1",
+  "planning-request-v2.schema.json": "wringer.planning-request.v2",
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
   "rubric.schema.json": "wringer.rubric.v1",
@@ -2867,18 +3029,21 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.contained-delivery.v2": "contained-delivery-v2.schema.json",
   "wringer.contained-delivery.v3": "contained-delivery-v3.schema.json",
   "wringer.contained-delivery-view.v1": "contained-delivery-view-v1.schema.json",
+  "wringer.contained-display.v2": "contained-display-v2.schema.json",
   "wringer.contained-human-decision.v1": "contained-human-decision-v1.schema.json",
   "wringer.contained-projection.v2": "contained-projection-v2.schema.json",
   "wringer.coverage.v1": "coverage-v1.schema.json",
   "wringer.decisions.v2": "decisions-v2.schema.json",
   "wringer.decisions.v1": "decisions.schema.json",
   "wringer.delivery.v1": "delivery-manifest.schema.json",
+  "wringer.design-snapshot.v1": "design-snapshot-v1.schema.json",
   "wringer.diagnosis.v1": "diagnosis.schema.json",
   "wringer.digests.v1": "digests.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
   "wringer.execution-authority.v1": "execution-authority-v1.schema.json",
   "wringer.execution-plan.v1": "execution-plan-v1.schema.json",
+  "wringer.execution-plan.v2": "execution-plan-v2.schema.json",
   "wringer.execution.v2": "execution-v2.schema.json",
   "wringer.execution.v1": "execution.schema.json",
   "wringer.falsification.v1": "falsification-v1.schema.json",
@@ -2900,6 +3065,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.loop.v1": "loop-manifest.schema.json",
   "wringer.evidence.v1": "manifest.schema.json",
   "wringer.nextmove.v1": "next-move.schema.json",
+  "wringer.planning-request.v2": "planning-request-v2.schema.json",
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
   "wringer.rubric.v1": "rubric.schema.json",

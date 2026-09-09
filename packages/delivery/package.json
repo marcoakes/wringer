@@ -1,9 +1,20 @@
 {
   "name": "@wringer/delivery",
-  "version":"1.0.0-alpha.8",
+  "version": "1.0.0-alpha.9",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
-  "exports": {".": "./src/index.ts", "./projection": "./src/projection.ts"},
-  "dependencies": {"@wringer/records":"workspace:*", "@wringer/engine":"workspace:*", "@wringer/board":"workspace:*", "@wringer/plan":"workspace:*", "@wringer/runtime":"workspace:*", "@wringer/workflow":"workspace:*"}
+  "exports": {
+    ".": "./src/index.ts",
+    "./projection": "./src/projection.ts"
+  },
+  "dependencies": {
+    "@wringer/records": "workspace:*",
+    "@wringer/engine": "workspace:*",
+    "@wringer/board": "workspace:*",
+    "@wringer/plan": "workspace:*",
+    "@wringer/runtime": "workspace:*",
+    "@wringer/workflow": "workspace:*",
+    "@wringer/design": "workspace:*"
+  }
 }

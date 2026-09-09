@@ -1,0 +1,6 @@
+[
+  {"criterionId":"design-review","referenceIds":["desktop","mobile"],"captures":[
+    {"id":"desktop","path":".evidence/desktop.png","mimeType":"image/png","width":1280,"height":900},
+    {"id":"mobile","path":".evidence/mobile.png","mimeType":"image/png","width":390,"height":844}
+  ]}
+]

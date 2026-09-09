@@ -16,13 +16,14 @@
     },
     "packages/acp": {
       "name": "@wringer/acp",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
     },
     "packages/application": {
       "name": "@wringer/application",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/delivery": "workspace:*",
+        "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
         "@wringer/plan": "workspace:*",
         "@wringer/runtime": "workspace:*",
@@ -31,7 +32,7 @@
     },
     "packages/board": {
       "name": "@wringer/board",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/records": "workspace:*",
         "yaml": "2.8.1",
@@ -39,7 +40,7 @@
     },
     "packages/cli": {
       "name": "@wringer/cli",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "bin": {
         "wring": "src/cli.ts",
         "wringer-board": "src/board-cli.ts",
@@ -49,6 +50,7 @@
         "@wringer/application": "workspace:*",
         "@wringer/board": "workspace:*",
         "@wringer/delivery": "workspace:*",
+        "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
         "@wringer/mcp": "workspace:*",
         "@wringer/plan": "workspace:*",
@@ -60,9 +62,10 @@
     },
     "packages/delivery": {
       "name": "@wringer/delivery",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/board": "workspace:*",
+        "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
         "@wringer/plan": "workspace:*",
         "@wringer/records": "workspace:*",
@@ -70,9 +73,13 @@
         "@wringer/workflow": "workspace:*",
       },
     },
+    "packages/design": {
+      "name": "@wringer/design",
+      "version": "1.0.0-alpha.9",
+    },
     "packages/engine": {
       "name": "@wringer/engine",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/records": "workspace:*",
         "@wringer/runtime": "workspace:*",
@@ -81,7 +88,7 @@
     },
     "packages/mcp": {
       "name": "@wringer/mcp",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/engine": "workspace:*",
         "ajv": "^8.17.1",
@@ -89,9 +96,10 @@
     },
     "packages/plan": {
       "name": "@wringer/plan",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/acp": "workspace:*",
+        "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
         "@wringer/runtime": "workspace:*",
         "typescript": "^5.6.0",
@@ -99,21 +107,22 @@
     },
     "packages/records": {
       "name": "@wringer/records",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "ajv": "^8.17.1",
       },
     },
     "packages/runtime": {
       "name": "@wringer/runtime",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/acp": "workspace:*",
+        "@wringer/design": "workspace:*",
       },
     },
     "packages/scheduler": {
       "name": "@wringer/scheduler",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
         "@wringer/delivery": "workspace:*",
         "@wringer/engine": "workspace:*",
@@ -122,8 +131,9 @@
     },
     "packages/workflow": {
       "name": "@wringer/workflow",
-      "version": "1.0.0-alpha.8",
+      "version": "1.0.0-alpha.9",
       "dependencies": {
+        "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
         "@wringer/plan": "workspace:*",
         "@wringer/records": "workspace:*",
@@ -147,6 +157,8 @@
     "@wringer/cli": ["@wringer/cli@workspace:packages/cli"],
 
     "@wringer/delivery": ["@wringer/delivery@workspace:packages/delivery"],
+
+    "@wringer/design": ["@wringer/design@workspace:packages/design"],
 
     "@wringer/engine": ["@wringer/engine@workspace:packages/engine"],
 

@@ -6,6 +6,7 @@ import { createPmWorkspaceServer } from "./workspace";
 import { createOperatorBrowserSessions, OPERATOR_BROWSER_SESSION_LIMIT } from "./operator-browser-session";
 import { renderPmJobWorkspace } from "@wringer/board";
 import { createAssistantJobFlow } from "./assistant-job";
+import { parsePmDesignAssetRequest, readPmDesignAsset } from "./design-assets";
 import type { ApplicationOptions } from "@wringer/application";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -123,7 +124,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
     const assertAccepting = () => { if (isStopping()) throw new Error("The local owner is stopping. No new approval or review action is accepted; retained evidence remains readable."); };
     const shell = options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
     const flow = options.guided ? createAssistantJobFlow(service, { ...options.application, isStopping, beforeCommand: jobId => beforeReviewCommand(jobId) }) : null;
-    const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
+    const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
     const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
     const sessions = createOperatorBrowserSessions(token, headers);
     let origin = "";
@@ -141,6 +142,13 @@ export async function createAssistantConsole(service: Service, options: { port?:
         const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
         const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
+            if (flow && request.method === "GET" && url.pathname === "/api/job/asset") {
+                const asset = parsePmDesignAssetRequest(url), before = await flow.read(asset.jobId);
+                const bytes = await readPmDesignAsset(assistantControllerState(service.root, asset.jobId), before, asset);
+                const after = await flow.read(asset.jobId);
+                if (after.readyRevision !== before.readyRevision || after.revision !== before.revision || after.candidateTree !== before.candidateTree || hashValue(after.displays) !== hashValue(before.displays)) throw new Error("The result changed while its image was loading. Refresh before deciding.");
+                return new Response(new Uint8Array(bytes).buffer, { headers: { ...headers, "Content-Type": "image/png", "Content-Length": String(bytes.byteLength), "Cross-Origin-Resource-Policy": "same-origin", "Content-Disposition": "inline; filename=recorded-image.png", "Content-Security-Policy": "default-src 'none'; sandbox; frame-ancestors 'none'" } });
+            }
             if (flow && request.method === "GET" && url.pathname === "/api/job" && [...url.searchParams.keys()].every(key => key === "jobId") && uuid.test(url.searchParams.get("jobId") ?? "")) return json(await flow.read(url.searchParams.get("jobId")!));
             if (flow && request.method === "POST" && /^\/api\/job\/(approve|decision|correction|send|retry)$/.test(url.pathname) && !url.search) {
                 assertAccepting();

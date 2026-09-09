@@ -7,6 +7,7 @@ import { Redactor } from "@wringer/engine";
 import { containedServices, prepareContainedSource, showContainedCandidate, type ContainedServiceOptions } from "./services";
 import { measureControllerEnvironment } from "./discovery";
 import { loadExistingCredentials } from "./credentials";
+import { assertContainedDisplayVisuals } from "@wringer/workflow";
 
 export async function readControllerFile(path: string): Promise<any> {
     const info = await lstat(path);
@@ -93,8 +94,9 @@ export async function controllerStatus(state: string) {
 function assertDisplay(receipt: any, plan: ExecutionPlan, criterionId: string, candidateTree: string, candidateCommit?: string) {
     const criterion = plan.acceptance.criteria.find(c => c.id === criterionId), measured = receipt.measured, p = measured?.provenance;
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), criterion?.show?.id];
-    if (!criterion || criterion.kind !== "human" || !criterion.show || receipt.schema_version !== "wringer.contained-display.v1" || !measured || measured.sourceChanged !== false || measured.sourceTree !== candidateTree || !Array.isArray(measured.results) || hashValue(measured.results.map((r: any) => r.id)) !== hashValue(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== plan.repository.url || candidateCommit && p.repository?.commit !== candidateCommit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
+    if (!criterion || criterion.kind !== "human" || !criterion.show || !measured || measured.sourceChanged !== false || measured.sourceTree !== candidateTree || !Array.isArray(measured.results) || hashValue(measured.results.map((r: any) => r.id)) !== hashValue(expected) || measured.results.some((r: any) => r.code !== 0) || !p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== plan.repository.url || candidateCommit && p.repository?.commit !== candidateCommit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
         throw new Error("Display does not establish the declared setup and human criterion in its contained candidate; no judgement recorded");
+    assertContainedDisplayVisuals(receipt, plan);
 }
 async function validateLegacyHumanCache(state: string, plan: ExecutionPlan) {
     const rows = await readControllerFile(join(state, "human-judgements.json"));
@@ -122,9 +124,9 @@ export async function showControllerCandidate(state: string, criterionId: string
     if (remaining <= 0) throw new Error("The journey wall-clock authority expired; no display ran");
     const deadline = AbortSignal.timeout(Math.min(remaining, plan.budget.session_timeout_seconds * 1000));
     const signal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline;
-    const { measured, success } = await showContainedCandidate(plan, latest.candidate.source, criterionId, signal, options);
+    const { measured, success, visuals } = await showContainedCandidate(plan, latest.candidate.source, criterionId, signal, options);
     if (measured.sourceTree !== latest.candidate.tree) throw new Error("Display runtime measured a different candidate tree");
-    const id = crypto.randomUUID(), body = { schema_version: "wringer.contained-display.v1", id, criterionId, candidateTree: latest.candidate.tree, acceptanceSha256: plan.acceptance_sha256, at: new Date().toISOString(), success, measured };
+    const id = crypto.randomUUID(), body = { schema_version: visuals ? "wringer.contained-display.v2" : "wringer.contained-display.v1", id, criterionId, candidateTree: latest.candidate.tree, acceptanceSha256: plan.acceptance_sha256, at: new Date().toISOString(), success, measured, ...(visuals ? { visuals } : {}) };
     const receipt = { ...body, sha256: hashValue(body) };
     await privateControllerDirectory(join(state, "displays"));
     await immutableControllerFile(join(state, "displays", `${id}.json`), receipt);

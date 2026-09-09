@@ -1,1 +1,11 @@
-{"name":"@wringer/runtime","version":"1.0.0-alpha.8","type":"module","main":"src/index.ts","exports":"./src/index.ts","dependencies":{"@wringer/acp":"workspace:*"}}
+{
+  "name": "@wringer/runtime",
+  "version": "1.0.0-alpha.9",
+  "type": "module",
+  "main": "src/index.ts",
+  "exports": "./src/index.ts",
+  "dependencies": {
+    "@wringer/acp": "workspace:*",
+    "@wringer/design": "workspace:*"
+  }
+}
