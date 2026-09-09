@@ -203,6 +203,9 @@ describe("assistant daemon durable queue", () => {
         const directory = await scratch(), input = request(); let calls = 0;
         const value = await runner(directory, async () => { calls++; throw new Error("Fixture lost response after retained domain outcome"); });
         await value.enqueue(input); await value.start(); await terminal(value, input.id);
+        // The immutable outcome becomes visible before dispatch's finally
+        // clears its active owner. Reconciliation requires both observations.
+        await until(() => value.status(), state => state.activeOperationId === null);
         const path = join(directory, "requests", input.id, "outcome.json"), before = await readFile(path, "utf8");
         const proof = { acknowledgeUncertain: true as const, disposition: "completed" as const, evidenceSha256: "a".repeat(64) };
         const reconciled = await value.reconcile(input.id, proof);
@@ -219,7 +222,9 @@ describe("assistant daemon durable queue", () => {
         await value.enqueue(input); await expect(value.reconcile(input.id, proof)).rejects.toThrow("inactive uncertain");
         await value.start(); await until(async () => began, Boolean);
         await expect(value.reconcile(input.id, proof)).rejects.toThrow("inactive uncertain");
-        finish(); await terminal(value, input.id); await value.reconcile(input.id, proof);
+        finish(); await terminal(value, input.id);
+        await until(() => value.status(), state => state.activeOperationId === null);
+        await value.reconcile(input.id, proof);
         const path = join(directory, "requests", input.id, "reconciliation.json"), saved = JSON.parse(await readFile(path, "utf8"));
         saved.evidenceSha256 = "b".repeat(64); await writeFile(path, JSON.stringify(saved));
         await expect(value.read(input.id)).rejects.toThrow("digest or identity changed");

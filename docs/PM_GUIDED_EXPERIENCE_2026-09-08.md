@@ -127,6 +127,17 @@ That inventory is not transferable to a different candidate commit.
 Failed local captures remain distinct from later passes. No credential repair,
 history rewrite, provider API call or change to the frozen blind runs was made.
 
+The first pushed checkpoint, `015897576d6f33e363178a219cda929dabfdd121`,
+encountered a Linux CI test-ordering failure in
+[run 34320104555](https://github.com/marcoakes/wringer/actions/runs/34320104555).
+The reconciliation test saw the immutable terminal outcome before the runner's
+`finally` had cleared its active operation. Production correctly refused to
+reconcile that still-active operation. The follow-up changes only the tests:
+they wait for both the retained outcome and recorded inactive state. No
+production guard was removed, and the failed CI record remains available.
+Both reconciliation tests then passed 20 repetitions each: 40 passes,
+200 assertions, no failures.
+
 ## Validation and publication ledger
 
 Local validation record: `native-validation-2026-09-09T05-58-05-388Z`.
