@@ -34,33 +34,47 @@ and portable handover machinery remains the authority boundary.
 
 ## Verification status
 
-The focused Figma contract run passed all 57 tests, including the real-browser
-connection/recovery/preview/retention/attachment test and real Git transport.
-[Focused validation](../.wringer/native-validation-2026-09-09T19-59-47-363Z/result.json).
+The clean implementation commit `cdab913e7ed8233df48328a6d0b77caca07086ee`
+passed all 25 local validation stages. The main suite recorded **857 passes,
+one Linux-only skip on macOS, zero failures and 9,686 assertions** across 94
+files. Strict TypeScript and all 115 generated schema contracts pass. The
+focused Figma contract recorded **63 passes and 612 assertions**, including
+the real-browser connection/recovery/preview/retention/attachment test, real Git
+transport and research-record compatibility.
+
+The [portable evidence index](evidence/figma-api-repair-2026-09-09.json) carries
+the source manifest, stage results, parsed test counts and hashes of seven retained
+validation runs, including failures and the deliberate interruption. The final
+run is `.wringer/native-validation-2026-09-09T20-15-58-558Z`; its sequential
+stage durations total 1,176,848 ms (19 minutes 37 seconds). This is validation
+time, not total development time or model billing. Raw local artifacts are not
+copied into this public summary. For remote measurements, inspect the exact
+published commit in [GitHub checks](https://github.com/marcoakes/wringer/actions/workflows/tests.yml);
+local results do not establish a CI outcome.
 
 The separate v2 visual/handover rehearsal passed: one scripted correction,
 source-bound review, separate Send, local test-origin publication and fresh-clone
-audit. Its [result and limitations](../.wringer/assistant-launch-rehearsal-6153baaa-9264-47ca-bcee-adb351d3f308/guided-result.json)
-identify the injected Figma responses, scripted worker/judge/human decisions and
-unmeasured live containment. Browser interaction took 132,489 ms; no provider
-calls or credential reads were made by this fixture. TypeScript also passes.
-
-Final whole-product validation and publication remain pending in this first
-implementation checkpoint; their result will be recorded before final handoff.
+audit. Its [portable result and limitations](evidence/figma-api-rehearsal-2026-09-09.json)
+identify the injected Figma responses and scripted worker/judge/human decisions.
+Browser interaction took 130,635 ms; no provider calls or credential reads were
+made by this fixture. The extra breakage test honestly remained inconclusive
+because live containment was unavailable. The earlier successful rehearsal is
+also retained; its success is not substituted for the final clean-commit run.
 
 Initial full-suite observation: 838 passed, one platform skip and one failure.
 The failed assertion expected 12 MCP tools instead of the newly declared 15.
 It was corrected, and all 32 MCP protocol tests then passed. The original
-[failed validation record](../.wringer/native-validation-2026-09-09T19-42-03-584Z/result.json)
-is retained locally. This was engineering iteration, not a blind test.
+failed validation record is retained locally at
+`.wringer/native-validation-2026-09-09T19-42-03-584Z/result.json` and indexed
+above. This was engineering iteration, not a blind test.
 
 Two focused iterations also exposed test-selector/message assumptions: the
 new test initially waited for the older page's connection element and later
 selected both forms' name fields. Selectors now target the actual design form;
 the new reconnect assertion matches the explicit safe stop message. Their
-[first](../.wringer/native-validation-2026-09-09T19-57-44-016Z/result.json) and
-[second](../.wringer/native-validation-2026-09-09T19-59-03-482Z/result.json) failed
-measurements remain retained. No failure was reclassified as a live success.
+first (`.wringer/native-validation-2026-09-09T19-57-44-016Z`) and second
+(`.wringer/native-validation-2026-09-09T19-59-03-482Z`) failed measurements remain
+retained and indexed above. No failure was reclassified as a live success.
 
 A final independent code review found three issues before publication: a
 provider transport failure during refresh could discard an otherwise valid
@@ -70,7 +84,7 @@ before authorising retrieval. The fixes preserve credentials on temporary refres
 failure, introduce a versioned research display without changing the old contract,
 and show canonical source links before Preview. All receive regression tests.
 The superseded
-[whole-product run](../.wringer/native-validation-2026-09-09T20-04-37-247Z/result.json)
+whole-product run (`.wringer/native-validation-2026-09-09T20-04-37-247Z`)
 was deliberately interrupted at its test stage to restart against these fixes;
 its SIGTERM is not a product-test verdict.
 

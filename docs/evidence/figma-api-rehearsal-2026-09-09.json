@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "sourceCommit": "cdab913e7ed8233df48328a6d0b77caca07086ee",
+  "workingTree": "clean",
+  "sourceFixtureKind": "figma-rest-injected-owned-reference",
+  "jobId": "53f16da6-b7dd-7be2-48a9-fa6d207879d5",
+  "deliveryId": "contained-067476d6f979e2880007b934",
+  "candidateCommit": "d4defcbf27d2583935fbe441eb2d18d3b9d0c513",
+  "evidenceCommit": "d3c523363a9a123c7d9459efb32041032fad20f0",
+  "browserInteractionMs": 130635,
+  "providerCalls": 0,
+  "credentialReads": 0,
+  "independentPmMeasured": false,
+  "realContainmentMeasured": false,
+  "realClientMeasured": false,
+  "freshCloneAuditExit": 0,
+  "breakageTest": "inconclusive-runtime-unavailable",
+  "limitations": [
+    "Engineering rehearsal, not a PM blind-test result or observed genuine human approval.",
+    "Role replies, check outcomes, runtime provenance and display observations are synthetic; real client, model convergence and containment are unmeasured.",
+    "Uses cooperative-local fixture state, not a demonstrated protected controller boundary.",
+    "No provider API calls or credential reads; usage fields remain unknown where the production records have no billing evidence.",
+    "Publication changes only a newly created local bare test origin, not a hosted forge, merge or deployment.",
+    "Authenticated page reload and locking are exercised; OS kill, reboot and sleep recovery are not measured in this guided fixture.",
+    "Reports PNG reference and candidate captures are rendered by real Chromium from fixture-owned HTML. Role replies, check results, runtime provenance and human decisions remain SCRIPTED; no real Figma/MCP import, model or containment is measured.",
+    "Figma REST request parsing and v2 snapshot creation run through an injected deterministic transport. API replies and download URLs are synthetic; OAuth, real Figma access and production network/DNS behavior are not measured."
+  ],
+  "kind": "figma-api-engineering-rehearsal-summary"
+}
