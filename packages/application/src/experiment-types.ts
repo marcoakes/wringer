@@ -1,5 +1,5 @@
 import type { ExecutionPlan } from "@wringer/plan";
-import type { DesignSnapshot } from "@wringer/design";
+import type { DesignSnapshotV1, DesignSnapshotV2 } from "@wringer/design";
 import type { ContainedCommandResult } from "@wringer/runtime";
 import type { ContainedDisplayVisuals } from "@wringer/workflow";
 import type { ContainedAudit } from "@wringer/delivery";
@@ -134,16 +134,24 @@ export interface ExperimentResearchReview {
     noProductionAuthority: true;
     sha256: string;
 }
-export interface ExperimentResearchDisplay {
-    schema_version: "wringer.experiment-research-display.v1";
+interface ExperimentResearchDisplayBody {
     experimentSha256: string;
     trialSha256: string;
     candidateCommit: string;
     candidateTree: string;
-    snapshot: DesignSnapshot | null;
     displays: { criterionId: string; success: boolean; measured: ContainedCommandResult; visuals?: ContainedDisplayVisuals }[];
     sha256: string;
 }
+export interface ExperimentResearchDisplayV1 extends ExperimentResearchDisplayBody {
+    schema_version: "wringer.experiment-research-display.v1";
+    snapshot: DesignSnapshotV1 | null;
+}
+/** REST snapshots use a sibling contract, never reinterpret frozen v1 research records. */
+export interface ExperimentResearchDisplayV2 extends ExperimentResearchDisplayBody {
+    schema_version: "wringer.experiment-research-display.v2";
+    snapshot: DesignSnapshotV2;
+}
+export type ExperimentResearchDisplay = ExperimentResearchDisplayV1 | ExperimentResearchDisplayV2;
 /** A separate zero-agent allowance; it never renews the original journey clock. */
 export interface ExperimentResearchFinishReservation {
     schema_version: "wringer.experiment-research-finish-reservation.v1";

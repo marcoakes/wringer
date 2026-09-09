@@ -83,6 +83,11 @@ test("real browser connects, recovers from refusal and failed display, retains e
     await page.getByLabel("Desktop Figma frame or layer link", { exact: true }).fill("https://www.figma.com/design/ReportsFixture/Reports"); await page.getByRole("button", { name: "Prepare these references", exact: true }).click();
     await page.getByText(/Use an HTTPS Figma design/).waitFor(); expect(await page.getByRole("button", { name: "Prepare these references", exact: true }).isEnabled()).toBe(true);
     await page.getByLabel("Desktop Figma frame or layer link", { exact: true }).fill(urls[0]!); await page.getByLabel("Mobile frame or layer link (optional)", { exact: true }).fill(urls[1]!); await page.getByRole("button", { name: "Prepare these references", exact: true }).click();
+    for (const url of ["https://www.figma.com/design/ReportsFixture?node-id=1-2", "https://www.figma.com/design/ReportsFixture?node-id=3-4"]) await page.getByText(url, { exact: true }).waitFor();
+    expect(f.counts().imports).toBe(0);
+    const prepared = (await f.service.design.inspect()).imports[0]!;
+    const modelView: any = await f.service.call(f.capability.token, "wringer.get_design_import", { importId: prepared.importId });
+    expect(modelView.design.urls).toBeUndefined(); expect(JSON.stringify(modelView)).not.toContain("https://www.figma.com/design/ReportsFixture");
     let failImages = true;
     await page.route("**/api/design/asset?**", route => failImages ? route.fulfill({ status: 503, contentType: "application/json", body: "{}" }) : route.continue());
     await page.getByRole("button", { name: "Preview these frames privately", exact: true }).click(); await page.getByText(/Reference display failed/).first().waitFor(); expect(await page.getByRole("button", { name: "Keep these references", exact: true }).isDisabled()).toBe(true);

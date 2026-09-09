@@ -177,7 +177,9 @@ function validateResearchCompletion(completion: ExperimentResearchCompletion, cu
 }
 function validateResearchDisplay(display: ExperimentResearchDisplay, experiment: ExperimentPlan, trials: ExperimentTrial[]) {
     verifyStamp(display); const trial = trials.find(t => t.sha256 === display.trialSha256);
-    if (!trial || display.schema_version !== "wringer.experiment-research-display.v1" || display.experimentSha256 !== experiment.sha256 || display.candidateTree !== trial.candidateTree || display.candidateCommit !== trial.candidateCommit) throw new Error("Research display does not resolve to its exact retained trial candidate");
+    if (!trial || !["wringer.experiment-research-display.v1", "wringer.experiment-research-display.v2"].includes(display.schema_version) || display.experimentSha256 !== experiment.sha256 || display.candidateTree !== trial.candidateTree || display.candidateCommit !== trial.candidateCommit) throw new Error("Research display does not resolve to its exact retained trial candidate");
+    if (display.schema_version === "wringer.experiment-research-display.v2" ? display.snapshot?.schema_version !== "wringer.design-snapshot.v2" : display.snapshot !== null && display.snapshot?.schema_version !== "wringer.design-snapshot.v1") throw new Error("Research display record version does not match its exact design snapshot version; legacy records are not reinterpreted");
+    if (display.schema_version === "wringer.experiment-research-display.v2") shape(display, ["schema_version", "experimentSha256", "trialSha256", "candidateCommit", "candidateTree", "snapshot", "displays", "sha256"], "Research display");
     const plan = experiment.tasks.find(t => t.id === trial.slot.taskId)![trial.slot.arm], human = plan.acceptance.criteria.filter(c => c.kind === "human");
     if (!Array.isArray(display.displays) || hashValue(display.displays.map(d => d.criterionId).sort()) !== hashValue(human.map(c => c.id).sort())) throw new Error("Research display omitted a human requirement");
     const snapshot = display.snapshot ? parseDesignSnapshot(JSON.stringify(display.snapshot)) : null;

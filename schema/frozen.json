@@ -59,6 +59,7 @@
   "experiment-registration-v1.schema.json": "4b224bb69d073374f9c5e7ce53a25e6fd1d9ffee2f8f10fa1633387a53de7074",
   "experiment-research-completion-v1.schema.json": "b4f7564280501f68d2c3d570f55b944db5815a8a9d6f044e883775f90f483a78",
   "experiment-research-display-v1.schema.json": "83e00a7a074edc98438bf699e406db5b1cdd7a1aa2479c2c69869215bac2ebe7",
+  "experiment-research-display-v2.schema.json": "31957a1618c5d3e79ed45196c3eb8fb23dd0e6438695aa7678f5e1280dec7a25",
   "experiment-research-finish-reservation-v1.schema.json": "d0b4cd98473dc33c99ae009a8493d3b1c6b59bf47495fffc2c5f25b90464040a",
   "experiment-research-review-v1.schema.json": "2887ae2a92ad2a6071f55e0b8992ec0690cd6a94bb2015d4fc8f42c3fb23e4fc",
   "experiment-result-v1.schema.json": "6982080f570d49c216518e618c3062482135b9fe8af224bacf34b982dc2f94f9",

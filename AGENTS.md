@@ -52,7 +52,8 @@ bun run validate
 ```
 
 The compiled entrypoints are `dist/wring`, `dist/wringer-drive`,
-`dist/wringer-board` and `dist/wringer-assistant`. Python is not required to build or execute them. A target
+`dist/wringer-board`, `dist/wringer-assistant` and `dist/wringer-figma-broker`.
+Python is not required to build or execute them. A target
 repository's own checks still require its declared toolchain.
 
 `bun run check` checks generated record types, strict TypeScript and executable

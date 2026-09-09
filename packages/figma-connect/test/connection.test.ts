@@ -176,11 +176,13 @@ describe("operator-side connection lifecycle", () => {
     await expect(f.service.withAccessToken(async t => t)).rejects.toThrow("Connect Figma");
   });
   test("refresh refusal removes credentials and asks to reconnect", async () => {
-    const f = fixture({ transport: async url => url.endsWith("/refresh") ? new Response(ACCESS, { status: 401 }) : Response.json({ access_token: ACCESS, refresh_token: REFRESH, token_type: "bearer", expires_in: 1 }) });
-    const begin = await f.service.begin(); await f.authorise(begin.authorizationUrl); await f.service.complete();
-    await expect(f.service.withAccessToken(async t => t)).rejects.toThrow("revoked");
-    expect((await f.service.status()).state).toBe("reconnect-required");
-    expect(JSON.stringify([...f.vault.values])).not.toContain(REFRESH);
+    for (const status of [400, 401, 403]) {
+      const f = fixture({ transport: async url => url.endsWith("/refresh") ? new Response(ACCESS, { status }) : Response.json({ access_token: ACCESS, refresh_token: REFRESH, token_type: "bearer", expires_in: 1 }) });
+      const begin = await f.service.begin(); await f.authorise(begin.authorizationUrl); await f.service.complete();
+      await expect(f.service.withAccessToken(async t => t)).rejects.toThrow("revoked");
+      expect((await f.service.status()).state).toBe("reconnect-required");
+      expect(JSON.stringify([...f.vault.values])).not.toContain(REFRESH);
+    }
   });
   test("transient renewal failures retain the connection", async () => {
     const f = fixture({ transport: async url => url.endsWith("/refresh") ? new Response("temporary", { status: 429 }) : Response.json({ access_token: ACCESS, refresh_token: REFRESH, token_type: "bearer", expires_in: 1 }) });
@@ -188,6 +190,34 @@ describe("operator-side connection lifecycle", () => {
     await expect(f.service.withAccessToken(async t => t)).rejects.toThrow("temporarily unavailable");
     expect((await f.service.status()).state).toBe("connected");
     expect(JSON.stringify([...f.vault.values])).toContain(REFRESH);
+  });
+  test("refresh transport errors and malformed provider replies preserve credentials without silent retries", async () => {
+    const failures = [
+      async () => { throw new Error(`connection reset ${ACCESS} ${REFRESH} ${CLIENT_SECRET}`); },
+      async () => { throw new DOMException(`timeout ${REFRESH}`, "AbortError"); },
+      async () => new Response(`not-json ${ACCESS}`, { headers: { "Content-Type": "application/json" } }),
+      async () => Response.json({ access_token: ACCESS, token_type: "bearer", expires_in: "invalid" }),
+    ];
+    for (const fail of failures) {
+      let renewals = 0;
+      const f = fixture({ transport: async url => {
+        if (!url.endsWith("/refresh")) return Response.json({ access_token: ACCESS, refresh_token: REFRESH, token_type: "bearer", expires_in: 1 });
+        renewals++;
+        if (renewals === 1) return fail();
+        return Response.json({ access_token: "fixture-recovered-token", token_type: "bearer", expires_in: 3600 });
+      } });
+      const begin = await f.service.begin(); await f.authorise(begin.authorizationUrl); await f.service.complete();
+      const before = JSON.stringify([...f.vault.values]);
+      let imported = false;
+      const failure = await f.service.withAccessToken(async () => { imported = true; }).then(() => "unexpected-success", error => String(error));
+      expect(failure).toContain("temporarily unavailable");
+      for (const sensitive of [ACCESS, REFRESH, CLIENT_SECRET]) expect(failure).not.toContain(sensitive);
+      expect(imported).toBe(false); expect(renewals).toBe(1);
+      expect((await f.service.status()).state).toBe("connected");
+      expect(JSON.stringify([...f.vault.values])).toBe(before);
+      expect(await f.service.withAccessToken(async token => token)).toBe("fixture-recovered-token");
+      expect(renewals).toBe(2);
+    }
   });
   test("read refusal is explicit; no unparseable credential text is exposed", async () => {
     const f = fixture();

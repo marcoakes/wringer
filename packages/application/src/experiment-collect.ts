@@ -7,6 +7,7 @@ import type { RoleExecutor, RoleExecutionResult, PreparedRepositorySource } from
 import { runContainedJourney, readValidatedContainedState, readPinnedDesignSnapshot, assertAssertionRed, assertAssertionPair } from "@wringer/workflow";
 import type { ContainedJourneyResult, ValidatedContainedState } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
+import { validateDesignSnapshot } from "@wringer/design";
 import { prepareContainedSource, containedServices, showContainedCandidate } from "./services";
 import { measureControllerEnvironment } from "./discovery";
 import { readExperiment, experimentSchedule, validateExperimentGrant, validateImprovementPrediction, validateFailurePatternReport } from "./experiments";
@@ -28,6 +29,14 @@ interface Collection {
     sha256: string;
 }
 interface TrialMeasurement { result: ContainedJourneyResult; validated: ValidatedContainedState; display?: Pick<ExperimentResearchDisplay, "snapshot" | "displays">; handover?: ExperimentHandover; }
+/** Select the record contract from the observed snapshot; no legacy relabeling. */
+export function stampExperimentResearchDisplay(input: Omit<ExperimentResearchDisplay, "schema_version" | "sha256">): ExperimentResearchDisplay {
+    const { snapshot, ...body } = input;
+    if (snapshot !== null) validateDesignSnapshot(snapshot);
+    return snapshot?.schema_version === "wringer.design-snapshot.v2"
+        ? stamped({ ...body, schema_version: "wringer.experiment-research-display.v2" as const, snapshot })
+        : stamped({ ...body, schema_version: "wringer.experiment-research-display.v1" as const, snapshot });
+}
 export interface ExperimentCollectionOptions {
     signal?: AbortSignal;
     /** Engineering tests only. Its presence permanently labels every record a fixture. No CLI option exposes it. */
@@ -152,7 +161,7 @@ export async function collectExperiment(root: string, grant: ExperimentGrant, op
                             measurement.handover = await measureExperimentHandover({ root, state, experiment: plan, registrationSha256: current.registration.sha256, slot, plan: task[slot.arm], result: measurement.result, validated: measurement.validated, fixture: !!options.fixture, signal: abort.signal });
                             trial = measurementTrial(current, slot, startedAt, measurement, !!options.fixture);
                             if (measurement.display && trial.candidateCommit && trial.candidateTree) {
-                                const display = stamped({ schema_version: "wringer.experiment-research-display.v1" as const, experimentSha256: plan.sha256, trialSha256: trial.sha256, candidateCommit: trial.candidateCommit, candidateTree: trial.candidateTree, ...measurement.display });
+                                const display = stampExperimentResearchDisplay({ experimentSha256: plan.sha256, trialSha256: trial.sha256, candidateCommit: trial.candidateCommit, candidateTree: trial.candidateTree, ...measurement.display });
                                 // Trial first, display second: interruption can lose a display, never manufacture an accepted one.
                                 await exclusiveJson(root, `trials/${slot.id}.json`, trial);
                                 await exclusiveJson(root, `displays/${slot.id}.json`, display);

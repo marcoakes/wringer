@@ -148,7 +148,12 @@ export async function createAssistantConsole(service: Service, options: { port?:
         const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
         const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
-            if (request.method === "GET" && url.pathname === "/api/design" && !url.search) return json(await service.design.inspect());
+            if (request.method === "GET" && url.pathname === "/api/design" && !url.search) {
+                const view = await service.design.inspect();
+                // Selected source links belong on the operator's decision surface
+                // before retrieval. Keep the narrower model-facing view unchanged.
+                return json({ ...view, imports: await Promise.all(view.imports.map(row => service.design.operatorView(row.importId))) });
+            }
             if (request.method === "GET" && url.pathname === "/api/design/asset") {
                 const keys = [...url.searchParams.keys()];
                 if (keys.length !== 3 || new Set(keys).size !== 3 || keys.some(key => !["importId", "assetId", "expectedPreviewSha256"].includes(key))) throw new Error("Use the exact image from this design preview.");

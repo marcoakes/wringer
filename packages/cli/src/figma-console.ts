@@ -23,6 +23,8 @@ function figmaClient() {
         const card = node("article"); card.className = "card panel";
         card.append(node("h3", row.outcome === "retained" ? "Design reference retained" : "Review your selected design"), node("p", row.nextAction));
         card.append(node("small", row.route));
+        card.append(node("h4", "Selected Figma frames"));
+        for (const url of row.urls) card.append(node("p", url));
         if (row.outcome === "needs-preview") card.append(button("Preview these frames privately", async () => { await api("/api/design/preview", { importId: row.importId, confirmPrivatePreview: true }); }));
         if (row.outcome === "retained") card.append(button("Use these references for new work", async () => { await api("/api/design/attach", { importId: row.importId, expectedSnapshotSha256: row.retainedSha256, confirmAttachment: true }); }));
         if (row.outcome === "needs-retention-permission") {

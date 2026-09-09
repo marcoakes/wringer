@@ -2370,6 +2370,30 @@ export type ExperimentResearchDisplayV1 = {
 };
 
 /**
+ * experiment-research-display-v2
+ *
+ * Generated from `schema/experiment-research-display-v2.schema.json`. Do not edit.
+ */
+export type ExperimentResearchDisplayV2 = {
+  "schema_version": "wringer.experiment-research-display.v2";
+  "experimentSha256": string;
+  "trialSha256": string;
+  "candidateCommit": string;
+  "candidateTree": string;
+  "snapshot": {
+    "schema_version": "wringer.design-snapshot.v2";
+    "snapshot_sha256": string;
+  };
+  "displays": {
+    "criterionId": string;
+    "success": boolean;
+    "measured": Record<string, unknown>;
+    "visuals"?: Record<string, unknown>;
+  }[];
+  "sha256": string;
+};
+
+/**
  * experiment-research-finish-reservation-v1
  *
  * Generated from `schema/experiment-research-finish-reservation-v1.schema.json`. Do not edit.
@@ -4318,6 +4342,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "experiment-registration-v1.schema.json": "wringer.experiment-registration.v1",
   "experiment-research-completion-v1.schema.json": "wringer.experiment-research-completion.v1",
   "experiment-research-display-v1.schema.json": "wringer.experiment-research-display.v1",
+  "experiment-research-display-v2.schema.json": "wringer.experiment-research-display.v2",
   "experiment-research-finish-reservation-v1.schema.json": "wringer.experiment-research-finish-reservation.v1",
   "experiment-research-review-v1.schema.json": "wringer.experiment-research-review.v1",
   "experiment-result-v1.schema.json": "wringer.experiment-result.v1",
@@ -4433,6 +4458,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.experiment-registration.v1": "experiment-registration-v1.schema.json",
   "wringer.experiment-research-completion.v1": "experiment-research-completion-v1.schema.json",
   "wringer.experiment-research-display.v1": "experiment-research-display-v1.schema.json",
+  "wringer.experiment-research-display.v2": "experiment-research-display-v2.schema.json",
   "wringer.experiment-research-finish-reservation.v1": "experiment-research-finish-reservation-v1.schema.json",
   "wringer.experiment-research-review.v1": "experiment-research-review-v1.schema.json",
   "wringer.experiment-result.v1": "experiment-result-v1.schema.json",

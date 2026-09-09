@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-research-display-v2.schema.json",
+  "title": "experiment-research-display-v2",
+  "description": "Private bounded research display carrying a direct Figma REST v2 snapshot. Existing v1 displays retain their v1/null snapshot contract. Application readers validate exact source/plan/evidence identity, chronology and the embedded design record; this grants no production or human authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "trialSha256",
+    "candidateCommit",
+    "candidateTree",
+    "snapshot",
+    "displays",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-research-display.v2"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trialSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "candidateTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "snapshot": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "snapshot_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.design-snapshot.v2"
+        },
+        "snapshot_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "displays": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterionId",
+          "success",
+          "measured"
+        ],
+        "properties": {
+          "criterionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "measured": {
+            "type": "object",
+            "required": [
+              "provenance",
+              "results",
+              "sourceChanged",
+              "sourceTree"
+            ]
+          },
+          "visuals": {
+            "type": "object",
+            "required": [
+              "snapshotSha256",
+              "referenceAssets",
+              "captures"
+            ]
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

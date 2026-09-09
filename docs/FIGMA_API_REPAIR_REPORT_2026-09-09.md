@@ -62,6 +62,18 @@ the new reconnect assertion matches the explicit safe stop message. Their
 [second](../.wringer/native-validation-2026-09-09T19-59-03-482Z/result.json) failed
 measurements remain retained. No failure was reclassified as a live success.
 
+A final independent code review found three issues before publication: a
+provider transport failure during refresh could discard an otherwise valid
+connection, and optional research trials could label a v2 design snapshot as a
+v1 research display; the PM also needed to see the exact prepared frame links
+before authorising retrieval. The fixes preserve credentials on temporary refresh
+failure, introduce a versioned research display without changing the old contract,
+and show canonical source links before Preview. All receive regression tests.
+The superseded
+[whole-product run](../.wringer/native-validation-2026-09-09T20-04-37-247Z/result.json)
+was deliberately interrupted at its test stage to restart against these fixes;
+its SIGTERM is not a product-test verdict.
+
 The new source-attachment tests use real Git and a fresh bundle clone, with
 explicitly injected API responses. They check single-artifact attachment,
 unchanged source checkout and remote identity, preserved limits/protection,

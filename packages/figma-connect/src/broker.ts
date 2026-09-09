@@ -95,9 +95,16 @@ export function createFigmaOAuthBroker(options: FigmaOAuthBrokerOptions): (reque
       }
       if (url.pathname === "/v1/refresh") {
         if (Object.keys(body).length !== 1 || !isToken(body.refreshToken)) return json(400, { error: "invalid-refresh" });
-        const result = await requestJson(transport, "https://api.figma.com/v1/oauth/refresh", new URLSearchParams({ refresh_token: body.refreshToken }), { Authorization: basic });
-        if (result.status !== 200) return json(result.status === 429 ? 429 : result.status >= 500 ? 503 : 401, { error: "refresh-unavailable" });
-        return json(200, { tokens: parseTokens(result.body, now(), body.refreshToken) });
+        try {
+          const result = await requestJson(transport, "https://api.figma.com/v1/oauth/refresh", new URLSearchParams({ refresh_token: body.refreshToken }), { Authorization: basic });
+          if (result.status !== 200) return json(result.status === 429 ? 429 : result.status >= 500 ? 503 : 401, { error: "refresh-unavailable" });
+          return json(200, { tokens: parseTokens(result.body, now(), body.refreshToken) });
+        } catch {
+          // A transport failure or malformed provider reply does not establish
+          // that a refresh credential was revoked. Preserve it for a later,
+          // explicitly requested attempt; never echo the provider's error.
+          return json(503, { error: "refresh-unavailable" });
+        }
       }
       return json(404, { error: "not-found" });
     } catch { return json(400, { error: "connection-request-could-not-be-completed" }); }
