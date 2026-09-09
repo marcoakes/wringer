@@ -138,6 +138,31 @@ production guard was removed, and the failed CI record remains available.
 Both reconciliation tests then passed 20 repetitions each: 40 passes,
 200 assertions, no failures.
 
+The next checkpoint, `a1991f7fdf6a474852f6a3131384d4ab0b3eb12d`, passed
+Linux and the Action integration but failed the Mac guided browser journey in
+[run 34320869535](https://github.com/marcoakes/wringer/actions/runs/34320869535).
+The retained screenshot showed the actual result alongside
+`Unknown file in authoritative journey event namespace`; the review controls
+never appeared. This was a product concurrency defect, not a slow browser:
+the atomic writer briefly placed a temporary file in the strict event
+namespace, and the guided coordinator retained that observation error even
+after a later read succeeded.
+
+The repair stages atomic writes in a separate private directory, then renames
+only complete records into place. The authoritative reader still refuses
+unexpected files. A complete successful reread clears the coordinator's stale
+observation error, but retained failed/uncertain commands remain authoritative:
+neither spend nor sending is silently replayed. The failed screenshot and
+transcript remain in that CI run's Mac evidence artifact.
+
+The focused repair suite passed 57 tests / 398 assertions across storage,
+contained orchestration, guided job and correction tests. An isolated-process
+filesystem spy examines the exact pre-rename boundary, deterministically
+rejecting the original adjacent temporary-file implementation. It also checks
+private permissions, complete replacement bytes, cleanup after failed rename,
+staging symlink refusal, and the unchanged strict foreign-event refusal.
+TypeScript and whitespace checks passed.
+
 ## Validation and publication ledger
 
 Local validation record: `native-validation-2026-09-09T05-58-05-388Z`.
@@ -200,6 +225,19 @@ Compiled audit SHA256:
 Final desktop and mobile screenshots were visually inspected. The release
 workflow now installs the same pinned test browser before validation; no
 release workflow was dispatched and no public release is claimed.
+
+After the Mac concurrency repair, the compiled rebuild and guided journey
+passed again in `native-validation-2026-09-09T07-18-19-677Z` (2.584 and
+100.598 seconds). Fixture `assistant-launch-rehearsal-4cc2e7a4-2dd6-4ecc-a5ed-e6d1d122977f`
+delivered `contained-3a6bcaae9f735334d1437fcc`, code commit
+`e5c6229126a6f474713b36d33b29ce10582c77ed`, evidence commit
+`ff5cb048a656255045f5641fe203204cbfc35171`; the fresh-clone audit exited 0.
+There were no provider calls or credential reads. The extra breakage test
+remained explicitly inconclusive because its live runtime was unavailable.
+A second consecutive guided run passed in
+`native-validation-2026-09-09T07-20-42-774Z` (101.906 seconds), using the same
+compiled build. These are repeat engineering measurements, not a new blind
+verdict. The repair's GitHub checks remain separately visible on its commit.
 
 Do not publish controller connections, private page links,
 cookies, credential values or raw browser traces. The next PM test starts from

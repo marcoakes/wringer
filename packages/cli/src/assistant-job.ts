@@ -139,6 +139,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         let ownsActivity = false;
         try {
             const { p, status, approval, attempt, commands } = await details(jobId);
+            transient.delete(jobId); // A fresh validated snapshot supersedes an earlier observation error; durable command failures remain authoritative.
             assertRunning();
             if (!approval || Date.parse(approval.authority.expires_at) <= Date.now() || status.uncertainty || status.outcome === "cancelled" || status.outcome === "running") return;
             if (status.outcome === "approved") {

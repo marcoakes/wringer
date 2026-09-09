@@ -23,6 +23,17 @@ test("automatic coordination cannot start an unapproved job, and reading never a
     for (let i = 0; i < 3; i++) { await f.flow.tick(); expect((await f.flow.read(f.jobId)).phase).toBe("approval"); }
     expect(await f.service.inspectApproval(f.jobId)).toBeNull(); expect(await f.service.runner.list()).toEqual([]); expect(f.starts()).toBe(0);
 });
+test("one transient observation error cannot poison a later complete snapshot or replay work", async () => {
+    const root = await scratch(), jobId = crypto.randomUUID(); let unreadableOnce = true, dispatches = 0;
+    const view = { jobId, stage: "intake", revision: "a".repeat(64), candidateTree: null, outcome: "running", uncertainty: false, requirements: [], operations: [], publication: null };
+    const service = { root, workspace: { profile }, inspectProposal: async () => ({ plan: profile, intent: profile.intent, questions: [], assumptions: [] }), status: async () => { if (unreadableOnce) { unreadableOnce = false; throw new Error("Synthetic transient controller initialization read"); } return view; }, inspectApproval: async () => ({ authority: { actor: "Synthetic fixture", expires_at: new Date(Date.now() + 60000).toISOString() }, destination: null }), list: async () => [view], requestRoutine: async () => { dispatches++; return { outcome: "accepted" }; } } as unknown as Awaited<ReturnType<typeof createAssistantService>>;
+    const flow = createAssistantJobFlow(service); flows.push(flow);
+    await flow.tick();
+    expect((await flow.read(jobId)).phase).toBe("blocked");
+    await flow.tick();
+    const recovered = await flow.read(jobId);
+    expect(recovered.phase).toBe("working"); expect(recovered.error).toBeNull(); expect(dispatches).toBe(0);
+});
 test("job decisions reject stale revisions, foreign handles and unexpected fields before any approval", async () => {
     const f = await fixture(), current = await f.flow.read(f.jobId);
     const approved = { jobId: f.jobId, expectedRevision: current.readyRevision, actor: "Explicit fixture person" };

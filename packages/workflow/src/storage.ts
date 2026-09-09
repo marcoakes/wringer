@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile, realpath, lstat, readdir } from "node:fs/promises";
+import { mkdir, open, readFile, rename, unlink, realpath, lstat, readdir } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { parseYaml, Redactor } from "@wringer/engine";
@@ -53,9 +53,25 @@ export async function safePath(repo: string, target: string): Promise<string> {
 export async function atomicWrite(repo: string, target: string, content: string) {
     const path = await safePath(repo, target);
     await mkdir(dirname(path), { recursive: true });
-    const temp = `${path}.${randomUUID()}.tmp`;
-    await writeFile(temp, scrub(content), { mode: 0o600, flag: "wx" });
-    await rename(temp, path);
+    // Readers validate authoritative directory contents, not just JSON bytes.
+    // Stage outside those namespaces so a concurrent read sees only complete records.
+    const staging = await safePath(repo, ".wringer/write-pending");
+    await mkdir(staging, { recursive: true, mode: 0o700 });
+    const stat = await lstat(staging);
+    if (!stat.isDirectory() || stat.isSymbolicLink())
+        throw new Error("Atomic write staging must be a real directory");
+    const temp = join(staging, `${randomUUID()}.tmp`);
+    const handle = await open(temp, "wx", 0o600);
+    try {
+        try { await handle.writeFile(scrub(content)); }
+        finally { await handle.close(); }
+        await rename(temp, path);
+    }
+    finally {
+        await unlink(temp).catch((error: NodeJS.ErrnoException) => {
+            if (error.code !== "ENOENT") throw error;
+        });
+    }
 }
 export const writeJson = (repo: string, path: string, value: unknown) => atomicWrite(repo, path, JSON.stringify(value, null, 2) + "\n");
 export async function readJson<T>(repo: string, path: string): Promise<T | null> {
