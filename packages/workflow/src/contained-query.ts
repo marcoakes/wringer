@@ -73,7 +73,7 @@ export async function queryContainedJourney(stateDir: string): Promise<Contained
     const unsettled = effect?.disposition === "unsettled";
     const plannerDecision = state.stage === "planner" && !state.plannerComplete && events.some(e => e.type === "planner-decisions-requested");
     const explicitRetryStops = ["baseline-unavailable", "verification-unavailable", "judge-unsettled", "effect-uncertain", "verification-uncertain", "worker-stopped", "worker-no-change", "worker-auth-rejected", "judge-stopped", "planner-stopped", "judge-invalid-reply", "planner-invalid-reply"];
-    const terminalStops = ["acceptance-born-green", "intent-needs-decision", "acceptance-mutation", "scope-violation", "wall-clock-exhausted", "authority-missing", "legacy-verification-retry"];
+    const terminalStops = ["acceptance-born-green", "intent-needs-decision", "acceptance-mutation", "scope-violation", "wall-clock-exhausted", "authority-missing", "legacy-verification-retry", "repeated-candidate", "assertion-red-not-established", "assertion-identities-changed"];
     let resumeProblem = "";
     if (["worker", "judge", "planner"].includes(state.stage)) {
         const role = state.stage as "worker" | "judge" | "planner";

@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { hashValue, hashBytes, type ExecutionPlan } from "@wringer/plan";
 import { prepareRepositorySource, captureCandidate, runContainedCommands, type PreparedRepositorySource, type RepositorySource, type ContainedCommandResult } from "@wringer/runtime";
 import type { ContainedJourneyServices, CandidateVerification } from "@wringer/workflow";
-import { readPinnedDesignSnapshot, referenceImages, assertContainedDisplayVisuals, type ContainedDisplayVisuals } from "@wringer/workflow";
+import { readPinnedDesignSnapshot, referenceImages, assertContainedDisplayVisuals, buildRepairPacket, observeAssertionReport, type ContainedDisplayVisuals } from "@wringer/workflow";
 import { Redactor, safePath } from "@wringer/engine";
 /** timeout(1), failed exec, missing command and signals are not assertion failures. */
 export const unavailableExit = (code: number) => code === 124 || code === 125 || code === 126 || code === 127 || code >= 128 || code < 0;
@@ -94,11 +94,19 @@ export function containedServices(controllerDir: string, original: PreparedRepos
                 const unavailable = !row || setupFailed || measured.sourceChanged || unavailableExit(row.code);
                 return { id: check.id, status: (unavailable ? "unavailable" : row!.code === 0 ? "passed" : "failed") as "passed" | "failed" | "unavailable", exitCode: unavailable ? null : row!.code, checkInputsSha256: hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: measured.checkInputsSha256 ?? null, image: plan.runtime.image }), outputSha256: hashBytes(row ? row.stdout + row.stderr : "No check result was observed") };
             });
+            const checkEvidence = plan.schema_version === "wringer.execution-plan.v3" ? plan.acceptance.checks.filter(c => c.evidence?.kind === "assertions").map(check => {
+                const raw = measured.results.find(r => r.id === `acceptance/${check.id}`)!, row = rows.find(r => r.id === check.id)!;
+                const observed = observeAssertionReport(check.id, raw.stdout, row.exitCode, check.criteria);
+                if (observed.status === "unavailable") { row.status = "unavailable"; row.exitCode = null; }
+                return observed;
+            }) : undefined;
             const regressions = plan.environment.baseline.map(c => {
                 const row = measured.results.find(r => r.id === `baseline/${c.id}`), unavailable = !row || setupFailed || measured.sourceChanged || unavailableExit(row.code);
                 return { id: c.id, status: (unavailable ? "unavailable" : row!.code === 0 ? "passed" : "failed") as "passed" | "failed" | "unavailable", exitCode: unavailable ? null : row!.code, outputSha256: hashBytes(row ? row.stdout + row.stderr : "No regression result was observed") };
             });
-            const value: CandidateVerification = { schema_version: "wringer.contained-verification.v1", status: setupFailed || measured.sourceChanged || [...rows, ...regressions].some(r => r.status === "unavailable") ? "unavailable" : baselineFailed || rows.some(r => r.status === "failed") ? "failed" : "passed", candidateCommit: source.commit, candidateTree: measured.sourceTree, acceptanceSha256: plan.acceptance_sha256, runtimeId: measured.provenance.runtimeId, image: measured.provenance.image, checks: rows, regressions, evidenceRef: directory };
+            const value: CandidateVerification = { schema_version: plan.schema_version === "wringer.execution-plan.v3" ? "wringer.contained-verification.v2" : "wringer.contained-verification.v1", status: setupFailed || measured.sourceChanged || [...rows, ...regressions].some(r => r.status === "unavailable") ? "unavailable" : baselineFailed || rows.some(r => r.status === "failed") ? "failed" : "passed", candidateCommit: source.commit, candidateTree: measured.sourceTree, acceptanceSha256: plan.acceptance_sha256, runtimeId: measured.provenance.runtimeId, image: measured.provenance.image, checks: rows, regressions, evidenceRef: directory, ...(checkEvidence ? { checkEvidence } : {}) };
+            if (plan.schema_version === "wringer.execution-plan.v3") value.repair = buildRepairPacket(plan, value, phase, hashValue(measured), measured.results);
+            if (saved && hashValue(saved.value) !== hashValue(value)) throw new Error("Retained verification differs from its recomputed observation evidence");
             await immutableRecord(observationPath, measured);
             await immutableRecord(recordPath, { requestIdentity, value, sha256: hashValue(value) });
             return value;

@@ -12,3 +12,6 @@ export * from "./proposal";
 export * from "./json-reply";
 export * from "./discovery";
 export * from "./display-visuals";
+export * from "./check-evidence";
+export * from "./repair-packet";
+export * from "./loop-analysis";

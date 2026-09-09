@@ -1,6 +1,6 @@
 # Compile-only starter. Replace source/image/agents with measured choices, then
 # import and commit the design and use `wring design bind`. No live image implied.
-version: 1
+version: 3
 name: Reports workspace — design and PM review
 intent: |
   Load the reports from the supplied local report data. Show each report's title,
@@ -37,6 +37,11 @@ environment:
   baseline: []
   writable_directories: [.evidence]
 scope: {writable: [src]}
+loop: {repeatCandidate: stop, repeatedOutcomeWarning: 3}
+playbook:
+  path: wringer/playbooks/reports-component-first.json
+  sha256: 0d609e5b9486fbc81c89f6ca5f39090378aa59920ec43ccbe9e555ba1b8d9cd1
+  taskFamily: reports-design
 acceptance:
   criteria:
     - id: reports-work
@@ -60,6 +65,7 @@ acceptance:
       cwd: .
       timeout_seconds: 45
       criteria: [reports-work]
+      evidence: {kind: assertions, format: wringer-check.v1}
       files: [checks/acceptance.ts, checks/browser.ts, checks/show.ts, ui/components.ts, ui/tokens.css, data/reports.json, index.html]
   protected_paths: [checks, ui, data, index.html, REQUEST.md, README.md]
 budget:

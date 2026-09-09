@@ -9,6 +9,10 @@ import { HELP, DRIVE_HELP, BOARD_HELP, commandHelp, documentationHint } from "./
 import { containedDrive } from "./contained-cli";
 import { recordJudgement, showCriterion } from "./pen";
 import { designCommand, DESIGN_HELP } from "./design-cli";
+import { experimentCommand, EXPERIMENT_HELP } from "./experiment-cli";
+import { connectImprovements } from "../../application/src/improvements";
+import { failurePatternsFromJourneys } from "../../application/src/journey-patterns";
+const IMPROVEMENT_CONNECT_HELP = `\nConnect the optional card to an existing assistant workspace (operator setup):\n  wring experiment connect --assistant-state CONTROLLER --research-root PRIVATE_ROOT\n      --registry PRIVATE_REGISTRY --task-family FAMILY\nRead structured failures from ordinary jobs without collecting anything:\n  wring experiment patterns --from ORDINARY_CONTROLLER [--from ANOTHER] --task-family FAMILY\nComparisons live in PRIVATE_ROOT/experiments/<registered-id>. Paths are never accepted\nfrom the coding-app tool or a browser decision. Connecting starts and approves nothing.\n`;
 export interface Answer {
     value?: unknown;
     text?: string;
@@ -26,11 +30,24 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
     if (surface === "wringer-board")
         return evidence(a, repo, context);
     if (flag(a, "help") || !a.command)
-        return { text: a.command === "design" ? DESIGN_HELP : commandHelp[a.command] || HELP };
+        return { text: a.command === "design" ? DESIGN_HELP : a.command === "experiment" ? EXPERIMENT_HELP + IMPROVEMENT_CONNECT_HELP : commandHelp[a.command] || HELP };
     context.signal?.throwIfAborted();
     if (["init", "start", "verify", "doctor", "deliver", "audit", "attest", "health"].includes(a.command))
         positionals(a, 0);
     switch (a.command) {
+        case "experiment": {
+            if (a.words[0] === "patterns" && a.flags.has("from")) {
+                positionals(a, 1); allowed(a, ["from", "task-family"]);
+                const value = await failurePatternsFromJourneys(values(a, "from")!.map(path => resolve(repo, path)), required(a, "task-family"));
+                return { value, text: `${value.groups.length} comparable failure patterns from ${value.sources.length} explicitly selected ordinary journeys.\nOnly structured observations are included; no role conversation, human prose, credentials or research holdout data. No model call or new work ran.` };
+            }
+            if (a.words[0] === "connect") {
+                positionals(a, 1); allowed(a, ["assistant-state", "research-root", "registry", "task-family"]);
+                const value = await connectImprovements(resolve(repo, required(a, "assistant-state")), { researchRoot: resolve(repo, required(a, "research-root")), registryRoot: resolve(repo, required(a, "registry")), taskFamily: required(a, "task-family") });
+                return { value, text: value.note };
+            }
+            return experimentCommand(a, repo);
+        }
         case "design": return designCommand(a, repo);
         case "init": {
             allowed(a, []);

@@ -105,6 +105,13 @@ preview's host trust limits are explained in the [assistant threat model](docs/A
 
 The Bun codebase contains strict record readers, contained workflow records, source/authority checks, portable delivery and audit, and standalone verification/board/pen tools. Public graph access is read-only (`wring graph show`, `status`, `explain`). `wring fleet` and `wring bench` execution refuse with a contained-plan migration route; retained graph/fleet implementation APIs are internal/historical, not supported host-worker alternatives. Deterministic tests exercise these seams, including unsuccessful paths.
 
+[Measured repair loops](docs/native/MEASURED_LOOPS.md) now give workers the actual
+check failure, distinguish assertion evidence from command failure, stop exact
+unsuccessful repeats and record a selected repository playbook. Optional
+[experiments](docs/native/EXPERIMENTS.md) can evaluate a future approach under a
+separate allowance; adoption never changes active work or grants approval.
+These mechanisms are implemented, but live playbook benefit is not yet claimed.
+
 The mandatory ACP and Apple Container/gVisor execution path is being integrated into the same product. Protocol fixtures and generated runtime manifests **do not establish** that a real host or cluster enforces its declared isolation. Live runtime, credential, cancellation, network-denial and fresh-machine journeys remain separately measured release gates. Legacy shell/direct-HTTP paths are compatibility material, not an alternative production trust boundary. See [setup](SETUP.md), [architecture](docs/native/ARCHITECTURE.md), and the [threat model](THREAT_MODEL.md).
 
 ## A handover you can check

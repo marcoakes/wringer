@@ -13,8 +13,18 @@ export interface PmVisualReview {
     referenceAssetIds: string[];
     captureIds: string[];
 }
+export interface PmEngineering {
+    schema_version: "wringer.pm-engineering.v1";
+    planSha256: string;
+    rollback?: { action: "rollback"; actor: string; note: string; at: string; receiptSha256: string };
+    approach: { path: string; sha256: string; taskFamily: string; title: string | null; revision: string | null; sourceStatus: "awaiting-validation" | "validated"; workerUses: number; adoption: { action: "promote" | "rollback"; actor: string; note: string; at: string; receiptSha256: string } | null } | null;
+    checks: { id: string; level: "command" | "assertions"; status: "not-measured" | "passed" | "failed" | "unknown"; assertionStatus: "not-requested" | "not-measured" | "established" | "unavailable"; reason: string }[];
+    history: { sequence: number; phase: "checks" | "judge"; action: "continue" | "warn" | "stop"; reason: string; candidateTree: string; sha256: string }[];
+    limits: string[];
+}
 export interface PmJob {
-    schema_version: "wringer.pm-job.v1";
+    schema_version: "wringer.pm-job.v1" | "wringer.pm-job.v2";
+    engineering?: PmEngineering;
     jobId: string;
     revision: string;
     readyRevision: string;
@@ -56,7 +66,13 @@ export function validatePmJob(value: unknown): PmJob {
     const assets = (x: unknown) => list(x, 32, asset) && x.length > 0 && new Set(x.map(a => a.id)).size === x.length;
     const visualReview = (r: any) => r && hash(r.snapshotSha256) && ids(r.referenceAssetIds) && ids(r.captureIds);
     const visuals = (v: any) => v && hash(v.snapshotSha256) && assets(v.referenceAssets) && assets(v.captures);
-    if (!v || v.schema_version !== "wringer.pm-job.v1" || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
+    const exact = (x: any, keys: string[]) => !!x && typeof x === "object" && !Array.isArray(x) && Object.keys(x).length === keys.length && keys.every(k => Object.hasOwn(x, k));
+    const adoption = (x: any) => exact(x, ["action", "actor", "note", "at", "receiptSha256"]) && ["promote", "rollback"].includes(x.action) && id(x.actor) && text(x.note, 16000) && typeof x.at === "string" && Number.isFinite(Date.parse(x.at)) && hash(x.receiptSha256);
+    const approach = (x: any) => exact(x, ["path", "sha256", "taskFamily", "title", "revision", "sourceStatus", "workerUses", "adoption"]) && text(x.path, 512) && x.path.endsWith(".json") && !/[\\\r\n\t:*?\[\]]/.test(x.path) && !x.path.split("/").some((p: string) => !p || p === "." || p === ".." || p === ".git" || p === ".wringer") && hash(x.sha256) && id(x.taskFamily) && ["awaiting-validation", "validated"].includes(x.sourceStatus) && count(x.workerUses) && x.workerUses <= 10000 && (x.sourceStatus === "validated" ? text(x.title, 256) && !!x.title.trim() && id(x.revision) : x.title === null && x.revision === null && x.workerUses === 0) && (x.adoption === null || adoption(x.adoption));
+    const engineering = (x: any) => exact(x, ["schema_version", "planSha256", "approach", "checks", "history", "limits", ...(x?.rollback === undefined ? [] : ["rollback"])]) && x.schema_version === "wringer.pm-engineering.v1" && hash(x.planSha256) && (x.approach === null || approach(x.approach)) && (x.rollback === undefined || x.approach === null && adoption(x.rollback) && x.rollback.action === "rollback")
+        && list(x.checks, 4096, c => exact(c, ["id", "level", "status", "assertionStatus", "reason"]) && id(c.id) && ["command", "assertions"].includes(c.level) && ["not-measured", "passed", "failed", "unknown"].includes(c.status) && ["not-requested", "not-measured", "established", "unavailable"].includes(c.assertionStatus) && text(c.reason, 16000) && (c.level === "command" ? c.assertionStatus === "not-requested" : c.assertionStatus !== "not-requested") && !(c.status === "passed" && c.level === "assertions" && c.assertionStatus !== "established")) && new Set(x.checks.map((c: any) => c.id)).size === x.checks.length
+        && list(x.history, 10000, r => exact(r, ["sequence", "phase", "action", "reason", "candidateTree", "sha256"]) && count(r.sequence) && r.sequence > 0 && ["checks", "judge"].includes(r.phase) && ["continue", "warn", "stop"].includes(r.action) && text(r.reason, 16000) && tree(r.candidateTree) && hash(r.sha256)) && x.history.every((r: any, i: number) => r.sequence === i + 1) && list(x.limits, 32, x => text(x, 16000));
+    if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v1" ? v.engineering !== undefined : !engineering(v.engineering)) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
         || !(v.retryable === undefined || typeof v.retryable === "boolean") || !(v.retryLabel === undefined || text(v.retryLabel, 200)) || v.retryable === true && !id(v.retryLabel)

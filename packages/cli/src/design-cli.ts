@@ -129,7 +129,7 @@ export async function designCommand(a: Args, repo: string): Promise<Answer> {
         if (await realpath(await git(root, ["rev-parse", "--show-toplevel"])) !== root) throw new Error("Select the source repository root");
         const commit = await git(root, ["rev-parse", "--verify", "HEAD^{commit}"]), objectStore = resolve(root, await git(root, ["rev-parse", "--git-common-dir"]));
         const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, design, ...declaration } = base;
-        const plan = compileDeclaration({ version: 2, ...declaration, repository: { ...base.repository, commit }, design: { snapshotPath: path, snapshotSha256: snapshot.snapshot_sha256, reviews } });
+        const plan = compileDeclaration({ version: base.schema_version === "wringer.execution-plan.v3" ? 3 : 2, ...declaration, repository: { ...base.repository, commit }, design: { snapshotPath: path, snapshotSha256: snapshot.snapshot_sha256, reviews } });
         const pinned = await readPinnedDesignSnapshot(plan, objectStore);
         if (!pinned || plan.design!.reviews.some(r => r.referenceIds.some(id => !pinned.assets.some(asset => asset.id === id)))) throw new Error("A named design reference is absent from the committed snapshot");
         if (await git(root, ["rev-parse", "HEAD^{commit}"]) !== commit) throw new Error("Source moved during design binding; repeat against a stable commit");

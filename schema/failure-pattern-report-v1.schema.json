@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/failure-pattern-report-v1.schema.json",
+  "title": "failure-pattern-report-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "taskFamily",
+    "sources",
+    "groups",
+    "limits",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.failure-pattern-report.v1"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "taskFamily": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "comparisonKey",
+          "kind",
+          "requirementIds",
+          "count",
+          "observations"
+        ],
+        "properties": {
+          "comparisonKey": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "kind": {
+            "enum": [
+              "environment",
+              "product-check",
+              "agent-finding",
+              "human-preference"
+            ]
+          },
+          "requirementIds": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 128,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "observations": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

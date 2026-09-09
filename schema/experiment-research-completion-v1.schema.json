@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-research-completion-v1.schema.json",
+  "title": "experiment-research-completion-v1",
+  "description": "Explicit private research-only ending: no provider, extra role sessions or production approval. Exact trial/review/display binding and chronology also require the semantic application reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "reservation",
+    "evidenceKind",
+    "originalJourneyRevision",
+    "handover",
+    "status",
+    "completedAt",
+    "reason",
+    "productionHumanApproval",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-research-completion.v1"
+    },
+    "reservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "experimentSha256",
+        "registrationSha256",
+        "trialSha256",
+        "reviewSha256",
+        "displaySha256",
+        "actor",
+        "startedAt",
+        "deadline",
+        "wallClockSeconds",
+        "roleSessions",
+        "action",
+        "noProductionAuthority",
+        "sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.experiment-research-finish-reservation.v1"
+        },
+        "experimentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "registrationSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "trialSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reviewSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "displaySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "wallClockSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        },
+        "roleSessions": {
+          "const": 0
+        },
+        "action": {
+          "const": "finish-private-research-only"
+        },
+        "noProductionAuthority": {
+          "const": true
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "evidenceKind": {
+      "enum": [
+        "live-contained",
+        "deterministic-fixture"
+      ]
+    },
+    "originalJourneyRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "handover": {
+      "anyOf": [
+        {
+          "description": "Separate private local experimental handover and literal fresh-clone audit. No production destination, forge, deployment or human acceptance is authorised.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "experimentSha256",
+            "slotId",
+            "planSha256",
+            "candidateCommit",
+            "candidateTree",
+            "journeyRevision",
+            "evidenceKind",
+            "target",
+            "registrationSha256",
+            "status",
+            "measuredAt",
+            "delivery",
+            "freshClone",
+            "productionPublication",
+            "productionHumanApproval",
+            "reason",
+            "sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.experiment-handover.v1"
+            },
+            "experimentSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "slotId": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,179}$"
+            },
+            "planSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "candidateCommit": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "candidateTree": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "journeyRevision": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidenceKind": {
+              "enum": [
+                "live-contained",
+                "deterministic-fixture"
+              ]
+            },
+            "target": {
+              "const": "generated-private-local-origin-only"
+            },
+            "registrationSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "status": {
+              "enum": [
+                "passed",
+                "failed",
+                "unknown"
+              ]
+            },
+            "measuredAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "delivery": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "deliveryId",
+                    "codeCommit",
+                    "evidenceCommit",
+                    "sourceBranch",
+                    "targetBranch",
+                    "pushed"
+                  ],
+                  "properties": {
+                    "deliveryId": {
+                      "type": "string",
+                      "pattern": "^contained-[a-f0-9]{24}$"
+                    },
+                    "codeCommit": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                    },
+                    "evidenceCommit": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                    },
+                    "sourceBranch": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 4000
+                    },
+                    "targetBranch": {
+                      "const": "main"
+                    },
+                    "pushed": {
+                      "const": true
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "freshClone": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "headCommit",
+                    "audit"
+                  ],
+                  "properties": {
+                    "headCommit": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                    },
+                    "audit": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "schema_version",
+                        "status",
+                        "deliveryId",
+                        "codeCommit",
+                        "checks",
+                        "human",
+                        "claims",
+                        "limits"
+                      ],
+                      "properties": {
+                        "schema_version": {
+                          "const": "wringer.contained-audit.v1"
+                        },
+                        "status": {
+                          "enum": [
+                            "passed",
+                            "failed"
+                          ]
+                        },
+                        "deliveryId": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 4000
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "codeCommit": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "checks": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "human": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "claims": {
+                          "type": "array",
+                          "maxItems": 100000,
+                          "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                              "id",
+                              "status",
+                              "reason"
+                            ],
+                            "properties": {
+                              "id": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4000
+                              },
+                              "status": {
+                                "enum": [
+                                  "checked",
+                                  "failed"
+                                ]
+                              },
+                              "reason": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 4000
+                              }
+                            }
+                          }
+                        },
+                        "limits": {
+                          "type": "array",
+                          "maxItems": 64,
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 4000
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "productionPublication": {
+              "const": "not-attempted"
+            },
+            "productionHumanApproval": {
+              "const": "not-granted"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "unknown"
+      ]
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "productionHumanApproval": {
+      "const": "not-granted"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

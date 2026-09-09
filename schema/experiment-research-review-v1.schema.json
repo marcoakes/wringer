@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-research-review-v1.schema.json",
+  "title": "experiment-research-review-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "trialSha256",
+    "candidateTree",
+    "actor",
+    "at",
+    "independent",
+    "blinded",
+    "kind",
+    "criteria",
+    "displayReceiptSha256",
+    "noProductionAuthority",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-research-review.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trialSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "independent": {
+      "type": "boolean"
+    },
+    "blinded": {
+      "type": "boolean"
+    },
+    "kind": {
+      "enum": [
+        "real-research-observation",
+        "deterministic-fixture"
+      ]
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "met",
+          "note"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      }
+    },
+    "displayReceiptSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "noProductionAuthority": {
+      "const": true
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

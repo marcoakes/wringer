@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-research-finish-reservation-v1.schema.json",
+  "title": "experiment-research-finish-reservation-v1",
+  "description": "Explicit private research-only ending: no provider, extra role sessions or production approval. Exact trial/review/display binding and chronology also require the semantic application reader.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "registrationSha256",
+    "trialSha256",
+    "reviewSha256",
+    "displaySha256",
+    "actor",
+    "startedAt",
+    "deadline",
+    "wallClockSeconds",
+    "roleSessions",
+    "action",
+    "noProductionAuthority",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-research-finish-reservation.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "registrationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trialSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reviewSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "displaySha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "deadline": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "wallClockSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 120
+    },
+    "roleSessions": {
+      "const": 0
+    },
+    "action": {
+      "const": "finish-private-research-only"
+    },
+    "noProductionAuthority": {
+      "const": true
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

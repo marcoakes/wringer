@@ -29,7 +29,7 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
     const workspace = (await initializeAssistant(root, { plan: profile, cooperativeLocal: true, destination: settings.destination })).workspace;
     const capability = await issueAssistantCapability(root, settings.expiresAt ?? new Date(Date.now() + 60000).toISOString());
     const counters = { starts: 0, commands: 0, status: 0, publications: 0 };
-    const publicationState: { value: Awaited<ReturnType<AssistantDependencies["publication"]>> } = { value: null };
+    const publicationState: { value: Awaited<ReturnType<AssistantDependencies["publication"]>>; beforeRead?: () => Promise<void> } = { value: null };
     const result: ContainedJourneyResult = { schema_version: "wringer.contained-journey-result.v1", journeyId: "synthetic-fixture", status: "stopped", candidate: null, verification: null, judge: null, stop: null, recordDir: "synthetic-fixture-only", sessions: 0, tokens: { input: null, output: null }, humanJudgements: [] };
     const query: any = { revision: "b".repeat(64), candidateTree: null, status: "stopped", stage: "worker", stop: { reason: "worker-auth-rejected", message: "Fixture provider rejected authentication. No repeated attempt was made." }, effects: [], actions: [ { id: "resume", enabled: false, reason: "A provider rejected authentication." }, { id: "request-revision", enabled: true, reason: "A correction is available under existing limits." }, { id: "deliver", enabled: true, reason: "Fixture handover can be prepared." } ], budget: { reserved: 1, remaining: 7 }, result };
     const dependencies: AssistantDependencies = {
@@ -45,7 +45,7 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
         status: async () => { counters.status++; return structuredClone(query); },
         queueCommand: async (_state, command) => { counters.commands++; query.revision = "d".repeat(64); return { commandId: parseWorkspaceCommand(command).idempotencyKey, status: "completed", result: { fixture: true } }; },
         readCommand: async (_state, id) => ({ commandId: id, status: "completed", result: { fixture: true } }),
-        publication: async () => { counters.publications++; return publicationState.value; },
+        publication: async () => { counters.publications++; await publicationState.beforeRead?.(); return publicationState.value; },
     };
     const service = await createAssistantService(root, { dependencies }); services.push(service);
     const call = (name: string, args: unknown, token = capability.token) => service.call(token, `wringer.${name}`, args) as Promise<any>;
@@ -62,6 +62,58 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
 }
 
 describe("assistant application narrow authority and inert intake", () => {
+    test("PM inspection coalesces only overlapping publication reads and keeps public status unchanged", async () => {
+        const f = await fixture(), proposed = await f.propose();
+        const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+        // Status dependency is a synthetic validated-query seam, not a live run.
+        await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+        const publicBefore = await f.call("get_status", { jobId: proposed.jobId });
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        f.publicationState.beforeRead = () => gate;
+        const baseline = f.counters.publications, status = f.service.status(proposed.jobId), first = f.service.inspectForPm(proposed.jobId), second = f.service.inspectForPm(proposed.jobId);
+        try {
+            await until(async () => f.counters.publications, count => count > baseline);
+            expect(f.counters.publications).toBe(baseline + 1);
+        } finally { release(); }
+        const [visible, a, b] = await Promise.all([status, first, second]);
+        expect(a.status).toEqual(visible); expect(b.status).toEqual(visible); expect(a.query).toEqual(f.query);
+        const { eventId: _eventId, ...publicBody } = publicBefore;
+        expect(visible).toEqual(publicBody); expect(visible).not.toHaveProperty("query");
+        expect(visible).not.toHaveProperty("status");
+        // A UI consumer cannot alter another overlapping caller's observations.
+        a.query!.revision = "e".repeat(64); a.status.nextAction = "Mutated consumer copy";
+        expect(b.query!.revision).toBe(f.query.revision); expect(b.status.nextAction).toBe(visible.nextAction);
+        f.publicationState.beforeRead = undefined;
+        f.query.revision = "f".repeat(64);
+        const later = await f.service.inspectForPm(proposed.jobId);
+        expect(f.counters.publications).toBe(baseline + 2); expect(later.status.revision).toBe(f.query.revision); expect(later.query!.revision).toBe(f.query.revision);
+        expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0);
+    });
+    test("overlapping PM inspections reject an invalidated query and later reads recompute after refusal", async () => {
+        const f = await fixture(), proposed = await f.propose();
+        const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+        await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+        let release!: () => void;
+        const gate = new Promise<void>(resolve => { release = resolve; });
+        f.publicationState.beforeRead = () => gate;
+        const status = f.service.status(proposed.jobId), inspection = f.service.inspectForPm(proposed.jobId);
+        try {
+            await until(async () => f.counters.publications, count => count === 1);
+            f.query.revision = "e".repeat(64);
+        } finally { release(); }
+        const outcomes = await Promise.allSettled([status, inspection]);
+        expect(outcomes.map(result => result.status)).toEqual(["rejected", "rejected"]);
+        for (const result of outcomes) if (result.status === "rejected") expect(result.reason.code).toBe("state-advanced");
+        expect(f.counters.publications).toBe(1);
+        f.publicationState.beforeRead = undefined;
+        const current = await f.service.inspectForPm(proposed.jobId);
+        expect(current.query!.revision).toBe(f.query.revision); expect(current.status.revision).toBe(f.query.revision); expect(f.counters.publications).toBe(2);
+        // A newly invalid publication cannot be concealed by a completed cache.
+        f.publicationState.beforeRead = async () => { throw new Error("Altered retained publication"); };
+        await expect(f.service.inspectForPm(proposed.jobId)).rejects.toThrow("Altered retained publication");
+        expect(f.counters.publications).toBe(3); expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0);
+    });
     test("the construction-only routine coordinator still requires exact approval and restricts runtime tool names", async () => {
         const f = await fixture(), proposed = await f.propose(), input = await f.mutation(proposed.jobId);
         expect((await f.service.requestRoutine("wringer.start", input)).code).toBe("not-approved");

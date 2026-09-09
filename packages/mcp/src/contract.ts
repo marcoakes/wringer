@@ -1,7 +1,7 @@
 import Ajv from "ajv";
 
 export const ASSISTANT_TOOL_NAMES = [
-    "wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status",
+    "wringer.inspect_improvements", "wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status",
     "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover",
 ] as const;
 export type AssistantToolName = typeof ASSISTANT_TOOL_NAMES[number];
@@ -30,6 +30,11 @@ export interface AssistantToolDefinition {
 
 /** This is the complete assistant surface. Human decisions and publication are deliberately absent. */
 export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
+    {
+        name: "wringer.inspect_improvements", title: "Read improvement evidence",
+        description: "Read the operator-connected repository comparisons and future adoption status. Offline only: no provider, credential, trial collection, promotion, approval or publication. Missing or fixture evidence cannot become a live improvement claim.",
+        inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
+    },
     {
         name: "wringer.inspect_setup", title: "Check what is ready",
         description: "Read the selected workspace, installation readiness and available proposal template. Does not install, read key values or call a model. A contained worker's bill is separate from your coding app.",

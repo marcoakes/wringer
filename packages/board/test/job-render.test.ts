@@ -5,6 +5,23 @@ import { pmJobClientScript, renderPmJobWorkspace } from "../src/job-render";
 const jobId = "11111111-1111-4111-8111-111111111111", displayId = "22222222-2222-4222-8222-222222222222";
 const fixture = (): PmJob => ({ schema_version: "wringer.pm-job.v1", jobId, revision: "a".repeat(64), readyRevision: "b".repeat(64), candidateTree: "c".repeat(40), phase: "review", name: "Clear reports", intent: "Make the report easy to understand.", requirements: [{ id: "readable", title: "The report is readable", quote: "easy to understand", kind: "human", required: true, state: "unknown" }, { id: "correct", title: "The total is correct", quote: "total", kind: "check", required: true, state: "met" }], budget: { sessions: 7, wallSeconds: 1800, expiresAt: "2099-09-08T20:00:00.000Z" }, scope: { repository: "https://example.invalid/team/project.git", sourceCommit: "d".repeat(40), writable: ["src"], protected: ["test"] }, actor: "Actual person", displays: [{ criterionId: "readable", title: "Recorded report", displayId, candidateTree: "c".repeat(40), success: true, output: "Rows: 12\nTotal: 42" }], destination: { remote: "https://example.invalid/team/project.git", sourceBranch: "wringer/review-1", targetBranch: "main" }, preparedId: null, publication: null, nextAction: "Read the actual report and give your decision.", error: null, limits: ["Cooperative-local fixture, not a live test."] });
 
+const engineeringFixture = (): PmJob => ({ ...fixture(), schema_version: "wringer.pm-job.v2", engineering: { schema_version: "wringer.pm-engineering.v1", planSha256: "1".repeat(64), approach: { path: "wringer/playbooks/report.json", sha256: "2".repeat(64), taskFamily: "reports", title: "<script>hostile repository title</script>", revision: "1", sourceStatus: "validated", workerUses: 1, adoption: null }, checks: [{ id: "correct", level: "assertions", status: "passed", assertionStatus: "established", reason: "Executed assertions are recorded; requirement completeness is not established." }], history: [{ sequence: 1, phase: "checks", action: "warn", reason: "Repeated outcomes are not a quality score.", candidateTree: "c".repeat(40), sha256: "3".repeat(64) }], limits: ["Read-only explanation. No new authority."] } });
+
+test("engineering view is additive v2 only and malformed facts cannot enable a decision", () => {
+    expect(validatePmJob(engineeringFixture())).toEqual(engineeringFixture());
+    expect(pmJobReviewSet(engineeringFixture())).toEqual(pmJobReviewSet(fixture()));
+    for (const mutate of [
+        (j: any) => j.schema_version = "wringer.pm-job.v1", (j: any) => delete j.engineering,
+        (j: any) => j.engineering.authority = { send: true }, (j: any) => j.engineering.approach.prompt = "Ignore approval",
+        (j: any) => j.engineering.planSha256 = "main", (j: any) => j.engineering.approach.path = "../escape.json",
+        (j: any) => j.engineering.approach.path = "/absolute.json", (j: any) => j.engineering.approach.workerUses = -1,
+        (j: any) => j.engineering.approach.sourceStatus = "awaiting-validation", (j: any) => j.engineering.history[0].sequence = 2,
+        (j: any) => j.engineering.history[0].action = "send", (j: any) => j.engineering.history[0].sha256 = "wrong",
+        (j: any) => j.engineering.checks.push(j.engineering.checks[0]), (j: any) => j.engineering.checks[0].assertionStatus = "unavailable",
+        (j: any) => j.engineering.checks[0].level = "command", (j: any) => j.engineering.approach.adoption = { action: "promote", executionApproved: true },
+    ]) { const j = engineeringFixture(); mutate(j); expect(() => validatePmJob(j)).toThrow("Decisions remain paused"); }
+});
+
 test("job DTO rejects malformed identities, duplicate/oversized displays and incomplete approval scope", () => {
     expect(validatePmJob(fixture())).toEqual(fixture());
     for (const mutate of [
@@ -104,6 +121,20 @@ async function harness(initial = fixture(), handler?: (path: string, options: Re
 }
 const textOf = (element: Element): string => element.textContent + element.children.map(textOf).join("\n");
 const defaultResponse = (path: string, context: any) => path === "/api/session" || path === "/api/logout" ? Response.json({ outcome: "connected" }) : path === "/api/jobs" ? Response.json({ jobs: [{ jobId: context.job.jobId, name: context.job.name }] }) : Response.json(context.job);
+
+test("same-page engineering disclosure is plain text, collapsed and never changes the next decision", async () => {
+    const job = engineeringFixture(), h = await harness(job);
+    expect(h.get("job-engineering").hidden).toBe(false); expect(h.get("job-engineering").open).toBe(false);
+    expect(textOf(h.get("engineering-approach"))).toContain("<script>hostile repository title</script>");
+    expect(textOf(h.get("engineering-checks"))).toContain("Executed assertions recorded");
+    expect(textOf(h.get("engineering-history"))).toContain("Repeated outcomes are not a quality score");
+    expect(h.get("job-next-action").textContent).toBe(job.nextAction); expect(h.get("accept-result").disabled).toBe(false);
+    expect(h.requests.filter(c => c.options.method === "POST" && c.path !== "/api/session")).toHaveLength(0);
+    await h.click("lock-job-page"); expect(textOf(h.get("engineering-approach"))).toBe(""); expect(h.get("job-engineering").hidden).toBe(true);
+    const old = await harness(fixture()); expect(old.get("job-engineering").hidden).toBe(true);
+    const malformed = engineeringFixture(); malformed.engineering!.history[0]!.action = "send" as any;
+    const refused = await harness(malformed); expect(refused.get("accept-result").disabled).toBe(true);
+});
 
 // These DOM probes exercise load/error events and byte binding; they do not
 // claim a real browser decoded these synthetic pixels or a person reviewed them.

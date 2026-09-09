@@ -1,0 +1,439 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/contained-delivery-view-v2.schema.json",
+  "title": "Contained delivery view v2",
+  "description": "Derived portable facts. This record grants no execution or human authority. Its corresponding renderer is immutable.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "journeyId",
+    "deliveryId",
+    "name",
+    "status",
+    "source",
+    "planSha256",
+    "acceptanceSha256",
+    "journalHeadSha256",
+    "counts",
+    "checks",
+    "criteria",
+    "usage",
+    "agents",
+    "auditCommand",
+    "falsifyCommand",
+    "limits",
+    "engineering"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-delivery-view.v2"
+    },
+    "journeyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "deliveryId": {
+      "type": "string",
+      "pattern": "^contained-[a-f0-9]{24}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "review-ready"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "url",
+        "baseCommit",
+        "codeCommit",
+        "tree"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "baseCommit": {
+          "$ref": "#/$defs/git"
+        },
+        "codeCommit": {
+          "$ref": "#/$defs/git"
+        },
+        "tree": {
+          "$ref": "#/$defs/git"
+        }
+      }
+    },
+    "planSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "acceptanceSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "journalHeadSha256": {
+      "$ref": "#/$defs/digest"
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checks",
+        "proved",
+        "human"
+      ],
+      "properties": {
+        "checks": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "proved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "human": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "before",
+          "after",
+          "inputsSha256"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "before": {
+            "$ref": "#/$defs/outcome"
+          },
+          "after": {
+            "$ref": "#/$defs/outcome"
+          },
+          "inputsSha256": {
+            "$ref": "#/$defs/digest"
+          }
+        }
+      }
+    },
+    "criteria": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "kind",
+          "required",
+          "state",
+          "checkIds",
+          "note",
+          "by"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "check",
+              "human"
+            ]
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "state": {
+            "enum": [
+              "met",
+              "not-met",
+              "unknown"
+            ]
+          },
+          "checkIds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "by": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sessions",
+        "reportedSessions",
+        "inputTokens",
+        "outputTokens",
+        "costUsd"
+      ],
+      "properties": {
+        "sessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reportedSessions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "outputTokens": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "costUsd": {
+          "type": "null"
+        }
+      }
+    },
+    "agents": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "effectId",
+          "role",
+          "command",
+          "protocolVersion",
+          "image",
+          "agentInfo",
+          "model"
+        ],
+        "properties": {
+          "effectId": {
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "planner",
+              "worker",
+              "judge"
+            ]
+          },
+          "command": {
+            "type": "string"
+          },
+          "protocolVersion": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "image": {
+            "type": "string"
+          },
+          "agentInfo": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "model": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    "auditCommand": {
+      "type": "string",
+      "pattern": "^wringer-drive audit --bundle \\.wringer/deliveries/contained-[a-f0-9]{24}$"
+    },
+    "falsifyCommand": {
+      "type": "string",
+      "pattern": "^wringer-drive falsify --bundle \\.wringer/deliveries/contained-[a-f0-9]{24}$"
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "researchPurpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt", "sha256"],
+      "properties": {
+        "receipt": { "const": "research-purpose.json" },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "engineering": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "receipt",
+        "sha256",
+        "playbook",
+        "adoption",
+        "checks",
+        "decisions"
+      ],
+      "properties": {
+        "receipt": {
+          "const": "engineering.json"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "adoption": { "type": ["object", "null"] },
+        "playbook": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "level"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "level": {
+                "enum": [
+                  "command",
+                  "assertions"
+                ]
+              }
+            }
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sequence",
+              "phase",
+              "action",
+              "reason",
+              "sha256"
+            ],
+            "properties": {
+              "sequence": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "phase": {
+                "enum": [
+                  "checks",
+                  "judge"
+                ]
+              },
+              "action": {
+                "enum": [
+                  "continue",
+                  "warn",
+                  "stop"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "git": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "exitCode",
+        "receipt"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "passed",
+            "failed",
+            "unavailable"
+          ]
+        },
+        "exitCode": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 255
+        },
+        "receipt": {
+          "type": "string",
+          "pattern": "^receipts/[A-Za-z0-9_.-]+/observations\\.json$"
+        }
+      }
+    }
+  }
+}

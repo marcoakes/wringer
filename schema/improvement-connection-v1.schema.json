@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "wringer/improvement-connection-v1",
+  "title": "Private operator-selected improvement connection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "researchRoot", "registryRoot", "repository", "taskFamily"],
+  "properties": {
+    "schema_version": { "const": "wringer.improvement-connection.v1" },
+    "researchRoot": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "registryRoot": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "repository": { "type": "string", "minLength": 1, "maxLength": 4096 },
+    "taskFamily": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,79}$" }
+  },
+  "description": "Private local operator configuration, never returned as a path-bearing assistant capability. Connecting neither starts trials nor adopts or approves any work. Runtime validates ownership, privacy and repository binding."
+}

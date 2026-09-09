@@ -10,3 +10,7 @@ export * from "./requirements";
 export * from "./protected-confirmation";
 export * from "./protected-deployment";
 export * from "./provider-readiness";
+export * from "./experiments";
+export * from "./improvements";
+export * from "./journey-patterns";
+export * from "./engineering-view";

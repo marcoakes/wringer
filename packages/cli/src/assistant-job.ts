@@ -4,9 +4,9 @@ import type { PmJob } from "@wringer/board";
 import { approveAssistantProposal, assistantControllerState, type createAssistantService } from "../../application/src/assistant";
 import { assistantInventory, readAssistantRecord, writeAssistantRecord } from "../../application/src/assistant-store";
 import { activeWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandResult } from "../../application/src/commands";
-import { readController, type ApplicationOptions } from "../../application/src/controller";
-import { readPmWorkspace } from "./workspace";
+import { readController, controllerStatus, type ApplicationOptions } from "../../application/src/controller";
 import { projectDesignDisplay } from "./design-assets";
+import { readPmEngineering } from "../../application/src/engineering-view";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -40,11 +40,14 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         await options.beforeCommand?.(jobId);
         const view = await service.status(jobId), approval = await service.inspectApproval(jobId);
         assertRunning();
+        if (view.outcome === "cancelled") throw new Error("The job was cancelled while its state was read. No command was reserved.");
+        await service.assertJobActive(jobId);
+        assertRunning();
         if (!approval || Date.parse(approval.authority.expires_at) <= Date.now()) throw new Error("Approval is out of date or missing. Reading cannot renew it.");
         if (view.uncertainty || view.operations.some((op: any) => ["accepted", "running", "cancel-requested", "uncertain"].includes(op.status))) throw new Error("An operation is running or uncertain. It has not been repeated.");
         return { view, approval };
     }
-    async function queue(jobId: string, commandId: string, action: WorkspaceCommand["action"], payload: Record<string, unknown>, expected?: { revision: string; candidateTree: string | null }) {
+    async function queue(jobId: string, commandId: string, action: WorkspaceCommand["action"], payload: Record<string, unknown>, expected?: { revision: string; candidateTree: string | null }, waitForCompletion = true) {
         const state = stateOf(jobId), existing = await recorded(state, commandId);
         if (existing) return existing;
         const { view, approval } = await guardJob(jobId);
@@ -62,23 +65,45 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
                 finally { checking = false; }
             })();
         }, 250); supervision.unref();
+        let observingInBackground = false;
         try {
+            await service.assertJobActive(jobId);
+            assertRunning();
             let result = await queueWorkspaceCommand(state, { idempotencyKey: commandId, expectedRevision: view.revision, expectedCandidateTree: view.candidateTree, action, payload }, { ...options, signal });
             const deadline = Math.min(Date.parse(approval.authority.expires_at), Date.now() + 600000);
             // Admission is not completion. Observe this exact retained command;
             // never re-enqueue it, and never chain a correction from a pending No.
-            while (result.status === "running" || result.status === "completed" && (await activeWorkspaceCommand(state))?.commandId === commandId) {
-                if (signal.aborted || Date.now() >= deadline) { cancellation.abort(new Error("The bounded local command observation ended. Retain any uncertain effects.")); return result; }
-                await new Promise(resolve => setTimeout(resolve, 100));
-                result = await readWorkspaceCommand(state, commandId);
+            const observe = async () => {
+                while (result.status === "running" || result.status === "completed" && (await activeWorkspaceCommand(state))?.commandId === commandId) {
+                    if (signal.aborted || Date.now() >= deadline) { cancellation.abort(new Error("The bounded local command observation ended. Retain any uncertain effects.")); return result; }
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    result = await readWorkspaceCommand(state, commandId);
+                }
+                return result;
+            };
+            if (!waitForCompletion && result.status === "running") {
+                // The durable command owns publication; an HTTP response is not
+                // the publication. Keep cancellation/deadline supervision alive
+                // while the page observes this exact command, never reposting.
+                observingInBackground = true;
+                void observe().catch(error => {
+                    cancellation.abort(new Error("The accepted command could not be observed. Stop further work and retain any uncertain effect; no command may be repeated."));
+                    transient.set(jobId, redactor.scrub(error instanceof Error ? error.message : "The accepted command could not be observed. No work was repeated."));
+                }).finally(() => clearInterval(supervision));
+                return result;
             }
-            return result;
+            return await observe();
         }
-        finally { clearInterval(supervision); }
+        finally { if (!observingInBackground) clearInterval(supervision); }
     }
     async function details(jobId: string) {
-        const p = await service.inspectProposal(jobId), status = await service.status(jobId), approval = await service.inspectApproval(jobId);
-        const board = status.stage !== "intake" ? await readPmWorkspace(stateOf(jobId)) : null;
+        const p = await service.inspectProposal(jobId), { status, query } = await service.inspectForPm(jobId), approval = await service.inspectApproval(jobId);
+        const operation = query ? await activeWorkspaceCommand(stateOf(jobId)) : null;
+        // These are projections of the same validated status/query snapshot.
+        // Do not perform another full bundle audit merely to derive PM wording.
+        const board = query ? { criteria: status.requirements as PmJob["requirements"], status: operation ? operation.status === "running" ? "running" : "stopped" : query.status,
+            actions: query.actions.map(a => operation ? { ...a, enabled: false } : a),
+            limits: ["This workspace derives the validated controller journal. A button is not additional authority.", "A check and an independent agent judgement support a declared requirement; neither guarantees that every intended behaviour was specified.", `Verifier attempts: ${query.budget.verificationAttempts.reserved}/${query.budget.verificationAttempts.ceiling}; unresolved: ${query.budget.verificationAttempts.unknown}.`, `Whole-journey wall-clock ceiling: ${query.budget.wallClock.ceilingSeconds} seconds${query.budget.wallClock.expired ? " (expired)" : ""}.`, "Host login directories are not shared with agents. Provider cost is not inferred from absent billing observations."] } : null;
         const attempt = await retryCount(jobId, status.candidateTree), displays: PmJob["displays"] = [];
         const commands: WorkspaceCommandResult[] = [];
         for (const requirement of p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? []) {
@@ -105,6 +130,8 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
     }
     async function read(jobId: string): Promise<PmJob> {
         const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send } = await details(jobId);
+        const engineering = p.plan ? await readPmEngineering(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
+        if (engineering && status.stage !== "intake" && (await controllerStatus(stateOf(jobId))).revision !== status.revision) throw new Error("The run advanced while progress evidence was read. Refresh before deciding.");
         const destination = approval?.destination ?? service.workspace.destination;
         const human = p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? [];
         const failed = commands.find(c => ["failed", "uncertain"].includes(c.status)) ?? (preparation && ["failed", "uncertain"].includes(preparation.status) ? preparation : null);
@@ -113,6 +140,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         let phase: PmJob["phase"] = "working", nextAction = "The approved work is running. No decision is needed right now.", error: string | null = null;
         if (status.publication && ["branch-pushed", "published", "recovered", "closed", "merged"].includes(status.publication.status)) { phase = "sent"; nextAction = "The reviewed change was sent. Share its handover record and fresh-clone audit route."; }
         else if (send && ["uncertain", "failed"].includes(send.status)) { phase = "blocked"; error = `Sending did not establish a completed handover. ${send.error ?? "Inspect the recorded publication outcome."} No send was repeated; reconcile the retained operation before continuing.`; }
+        else if (send?.status === "running") { phase = "working"; nextAction = "Sending the accepted handover. This exact command is recorded; do not send it again."; }
         else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = "Approve this request and its finite limits once. Work will start automatically."; }
         else if (status.uncertainty || status.outcome === "cancelled" || approval && Date.parse(approval.authority.expires_at) <= Date.now()) { phase = "blocked"; error = status.nextAction; }
         else if (failed || failedDisplay || transient.has(jobId)) { phase = "blocked"; error = failed?.error ?? displays.find(d => !d.success)?.error ?? transient.get(jobId) ?? "This step did not complete."; }
@@ -128,7 +156,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --branch ${quote(status.publication.sourceBranch)} ${quote(destination.remote)} reviewed-change` } : {}) } : null;
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
-        return redactor.deep({ schema_version: "wringer.pm-job.v1", jobId, revision, readyRevision, candidateTree: status.candidateTree, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
+        return redactor.deep({ schema_version: engineering ? "wringer.pm-job.v2" : "wringer.pm-job.v1", ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
             scope: { repository: p.plan?.repository.url ?? service.workspace.profile.repository.url, sourceCommit: p.plan?.repository.commit ?? service.workspace.profile.repository.commit, writable: p.plan?.scope.writable ?? [], protected: p.plan?.acceptance.protected_paths ?? [] }, questions: p.questions, assumptions: p.assumptions,
             requirements: (p.plan?.acceptance.criteria ?? []).map(c => {
                 const visual = p.plan?.design?.reviews.find(row => row.criterionId === c.id);
@@ -190,16 +218,16 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
                 const value = await approveAssistantProposal(service.root, { jobId, expectedRevision: hashValue(p), actor: body.actor, expiresAt: new Date(Date.now() + current.budget.wallSeconds * 1000).toISOString(), confirmExecution: true });
                 return { outcome: "approved", expiresAt: value.authority.expires_at };
             }
+            if (action === "send") {
+                if (current.phase !== "send" || body.preparedId !== current.preparedId) throw new Error("Inspect the exact prepared handover before sending.");
+                return await queue(jobId, purposeId(jobId, current.candidateTree, `send/${current.preparedId}`, 0), "publish", { preparedId: current.preparedId }, current, false);
+            }
             const { approval } = await guardJob(jobId);
             if (action === "retry") {
                 if (!current.retryable) throw new Error("No failed local step is eligible for retry. Uncertain work or publication is never replayed here.");
                 const recordId = id({ jobId, revision: current.readyRevision, action });
                 await writeAssistantRecord(service.root, `jobs/${jobId}/pm-retries/${recordId}.json`, { schema_version: "wringer.pm-retry.v1", candidateTree: current.candidateTree, expectedRevision: current.readyRevision, actor: approval.authority.actor });
                 transient.delete(jobId); return { outcome: "retry-recorded" };
-            }
-            if (action === "send") {
-                if (current.phase !== "send" || body.preparedId !== current.preparedId) throw new Error("Inspect the exact prepared handover before sending.");
-                return await queue(jobId, purposeId(jobId, current.candidateTree, `send/${current.preparedId}`, 0), "publish", { preparedId: current.preparedId }, current);
             }
             if (body.note !== undefined && (typeof body.note !== "string" || !body.note.trim() || Buffer.byteLength(body.note) > 16000)) throw new Error("Use your own nonempty comment, within 16,000 bytes, or omit it.");
             if (action === "correction") {

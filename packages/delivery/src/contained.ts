@@ -1,14 +1,17 @@
 import { mkdir, readFile, writeFile, lstat, readdir, realpath, mkdtemp, rm } from "node:fs/promises";
 import { join, relative, resolve, dirname } from "node:path";
 import { tmpdir } from "node:os";
-import { hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
+import { hashValue, hashBytes, canonicalJson, validateExecutionPlan, validateExecutionAuthority, readPinnedPlaybook, type ExecutionPlan } from "@wringer/plan";
+import { assertResearchPublication, validateResearchDeliveryPurpose } from "./research-purpose";
 import { processDriver } from "@wringer/runtime";
 import { readValidatedContainedState, withContainedJourneyLock, validContainedHumanAttribution } from "@wringer/workflow";
 import { assertContainedDisplayVisuals, readPinnedDesignSnapshot } from "@wringer/workflow";
+import { observeAssertionReport, validateCheckEvidence, assertAssertionRed, assertAssertionPair, buildRepairPacket, validateRepairPacket } from "@wringer/workflow";
 import { Redactor } from "@wringer/engine";
 import { inside, files, seal, checkSeal, quote } from "./io";
 import { publishMergeRequest, assertForgeRepositoryBinding, type ForgeConfiguration, type MergeRequestPublication } from "./forge";
-import { containedViewContracts, containedViewContractsV3, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedDocuments, renderContainedDocumentsV3, type ContainedDeliveryProjection } from "./projection";
+import { containedViewContracts, containedViewContractsV3, containedViewContractsV4, deriveContainedDeliveryProjection, containedProjectionDigest, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedBoardV3, renderContainedDocuments, renderContainedDocumentsV3, renderContainedDocumentsV4, type ContainedDeliveryProjection } from "./projection";
+import { engineeringEvidence, summarizeEngineering } from "./engineering";
 import { openReader } from "@wringer/records";
 import { schemaDirectory } from "@wringer/engine";
 import { inspectCandidateHistory } from "./source-inspection";
@@ -184,19 +187,33 @@ function validateObservations(v: any, observed: any, plan: ExecutionPlan) {
         throw new Error("Acceptance check inventory changed");
     for (const check of plan.acceptance.checks) {
         const row = v.checks.find((r: any) => r.id === check.id), out = observed.results.find((r: any) => r.id === `acceptance/${check.id}`);
-        if (!row || !out || !Number.isInteger(out.code) || row.exitCode !== (unavailable ? null : out.code) || row.status !== (unavailable ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr) || row.checkInputsSha256 !== hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: observed.checkInputsSha256 ?? null, image: plan.runtime.image }))
+        const unavailableCode = (code: number) => code === 124 || code === 125 || code === 126 || code === 127 || code >= 128 || code < 0;
+        let missing = unavailable || plan.schema_version === "wringer.execution-plan.v3" && out && unavailableCode(out.code);
+        if (plan.schema_version === "wringer.execution-plan.v3" && check.evidence && out) {
+            const derived = observeAssertionReport(check.id, out.stdout, missing ? null : out.code, check.criteria);
+            same(v.checkEvidence?.find((e: any) => e.checkId === check.id), derived, "Assertion report derived from the exact carried observation");
+            missing ||= derived.status === "unavailable";
+        }
+        if (!row || !out || !Number.isInteger(out.code) || row.exitCode !== (missing ? null : out.code) || row.status !== (missing ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr) || row.checkInputsSha256 !== hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: observed.checkInputsSha256 ?? null, image: plan.runtime.image }))
             throw new Error(`Acceptance check ${check.id} contradicts its command/input/output receipt`);
     }
     if ((v.regressions ?? []).length !== plan.environment.baseline.length)
         throw new Error("Regression receipts omitted a declared baseline");
     for (const baseline of plan.environment.baseline) {
         const row = v.regressions.find((r: any) => r.id === baseline.id), out = observed.results.find((r: any) => r.id === `baseline/${baseline.id}`);
-        if (!row || !out || row.exitCode !== (unavailable ? null : out.code) || row.status !== (unavailable ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr))
+        const missing = unavailable || plan.schema_version === "wringer.execution-plan.v3" && out && (out.code < 0 || out.code >= 124);
+        if (!row || !out || row.exitCode !== (missing ? null : out.code) || row.status !== (missing ? "unavailable" : out.code === 0 ? "passed" : "failed") || row.outputSha256 !== hashBytes(out.stdout + out.stderr))
             throw new Error("Regression receipt contradicts observed output");
     }
     const rows = [...v.checks, ...(v.regressions ?? [])];
     if (v.status !== (rows.some((r: any) => r.status === "unavailable") ? "unavailable" : rows.some((r: any) => r.status === "failed") ? "failed" : "passed"))
         throw new Error("Verification aggregate contradicts check results");
+    if (plan.schema_version === "wringer.execution-plan.v3") {
+        if (v.schema_version !== "wringer.contained-verification.v2") throw new Error("Plan v3 requires versioned actionable verification evidence");
+        validateCheckEvidence(plan, v); validateRepairPacket(plan, v);
+        if (v.repair.phase !== (v.candidateCommit === plan.repository.commit ? "baseline" : "candidate")) throw new Error("Repair phase contradicts the pinned source observation");
+        same(v.repair, buildRepairPacket(plan, v, v.repair.phase, v.repair.observationSha256, observed.results), "Actionable repair packet from carried outputs");
+    }
 }
 async function cloneBundle(bundlePath: string, store: string, commit: string, signal?: AbortSignal) {
     await mkdir(dirname(store), { recursive: true, mode: 0o700 });
@@ -257,7 +274,7 @@ function displayRowsValid(measured: any, plan: ExecutionPlan, criterionId: strin
     const expected = [...plan.environment.setup.map(c => `setup/${c.id}`), show.id];
     return canonicalJson(measured.results.map((r: any) => r.id)) === canonicalJson(expected) && measured.results.every((r: any) => r.code === 0 && typeof r.stdout === "string" && typeof r.stderr === "string" && Buffer.byteLength(r.stdout + r.stderr) <= 1024 * 1024) && canonicalJson(measured.provenance?.observed?.writableDirectories ?? []) === canonicalJson(plan.environment.writable_directories);
 }
-function expectedInventory(manifest: any, receiptIds: string[], plan: ExecutionPlan): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...visualInventory(plan, manifest.humanCriteria), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
+function expectedInventory(manifest: any, receiptIds: string[], plan: ExecutionPlan): string[] { return ["candidate.bundle", "plan.json", "authority.json", "environment.json", "manifest.json", "projection.json", "summary.md", "mr.md", "digests.json", ...(["wringer.contained-delivery.v2", "wringer.contained-delivery.v3", "wringer.contained-delivery.v4"].includes(manifest.schema_version) ? ["view.json", "certificate.json", "board.html"] : []), ...(manifest.schema_version === "wringer.contained-delivery.v4" ? ["engineering.json"] : []), ...(manifest.researchPurpose ? ["research-purpose.json"] : []), ...(manifest.sourceReview ? ["source-inspection.json"] : []), ...visualInventory(plan, manifest.humanCriteria), ...Array.from({ length: manifest.journal.eventCount }, (_, i) => `journal/${String(i + 1).padStart(6, "0")}.json`), ...manifest.roles.map((id: string) => `roles/${safeId(id, "role")}.json`), ...manifest.humanCriteria.map((id: string) => `human/${safeId(id, "human")}.json`), ...receiptIds.flatMap(id => [`receipts/${safeId(id, "receipt")}/verification.json`, `receipts/${id}/observations.json`])].sort(); }
 /** Direct operator CLI only; no provider call, publication or MCP approval. */
 export async function reviewContainedSource(options: { stateDir: string; policyDirectory?: string; decision?: SourceReviewDecision; decisionFile?: string; signal?: AbortSignal }) {
     const stateDir = await realpath(options.stateDir);
@@ -289,8 +306,10 @@ export async function deliverContained(options: ContainedDeliveryOptions): Promi
 }
 async function deliverContainedLocked(options: ContainedDeliveryOptions): Promise<ContainedDeliveryResult> {
     options.signal?.throwIfAborted();
-    await validatePublication(options.publication);
     const stateDir = await realpath(options.stateDir), validated = await readValidatedContainedState(stateDir), { plan, authority, environment, state, result, events } = validated;
+    const researchPurpose = await assertResearchPublication(stateDir, plan, authority.actor, options.publication);
+    await validatePublication(options.publication);
+    const v4 = plan.schema_version === "wringer.execution-plan.v3";
     if (options.expectedRevision !== undefined && options.expectedRevision !== events.at(-1)!.sha256 || options.expectedCandidateTree !== undefined && options.expectedCandidateTree !== state.candidate?.tree)
         throw new Error("Delivery selection is stale; reload the current journal and candidate before authorizing publication");
     if (state.stage !== "ready" || result.status !== "review-ready" || !state.candidate || !state.verification || !state.baseline)
@@ -299,6 +318,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     const falsify = falsificationRoute(bundlePath);
     await inside(stateDir, relative(stateDir, bundleDir));
     await mkdir(bundleDir, { recursive: true, mode: 0o700 });
+    if (researchPurpose) await immutable(join(bundleDir, "research-purpose.json"), researchPurpose);
     await inside(stateDir, relative(stateDir, bundleDir));
     if (typeof state.candidate.source.bundlePath !== "string")
         throw new Error("Candidate has no controller-captured Git bundle");
@@ -323,6 +343,8 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     await cloneBundle(carried, store, state.candidate.source.commit, options.signal);
     const designSnapshot = await readPinnedDesignSnapshot(plan, store);
     if (designSnapshot) await immutable(join(bundleDir, "visuals/snapshot.json"), designSnapshot);
+    const engineering = v4 ? engineeringEvidence(plan, environment.map_sha256, events, await readPinnedPlaybook(store, plan, { environment })) : null;
+    if (engineering) await immutable(join(bundleDir, "engineering.json"), clean(engineering, redactor, "Engineering evidence"));
     const observations = new Map<string, any>(), verifications = new Map<string, any>();
     for (const event of events)
         for (const v of [event.state.baseline, event.state.verification, ...((event.state as any).verificationAttempts ?? []).map((a: any) => a.result)])
@@ -345,7 +367,7 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     let previous = "0".repeat(64);
     const projected: any[] = [];
     for (const original of events) {
-        const row = { schema_version: "wringer.contained-delivery-event.v2", sequence: original.sequence, previous, at: original.at, type: original.type, source_event_sha256: original.sha256, state: portableState(original.state) };
+        const row = { schema_version: v4 ? "wringer.contained-delivery-event.v3" : "wringer.contained-delivery-event.v2", sequence: original.sequence, previous, at: original.at, type: original.type, source_event_sha256: original.sha256, state: portableState(original.state), ...(v4 && (original.details as any)?.loopDecision ? { loopDecision: (original.details as any).loopDecision } : {}), ...(v4 && (original.details as any)?.playbookUse ? { playbookUse: (original.details as any).playbookUse } : {}) };
         const projectedEvent = { ...row, sha256: hashValue(row) };
         previous = projectedEvent.sha256;
         projected.push(projectedEvent);
@@ -383,13 +405,13 @@ async function deliverContainedLocked(options: ContainedDeliveryOptions): Promis
     // ordinary runtime-command capture keeps its existing 64 MiB ceiling.
     const sourceInspection = await inspectCandidateHistory(store, state.candidate.source.commit, redactor, { signal: options.signal, collectFindings: true });
     const sourceReceipt = await sourceReviewReceipt(stateDir, sourceInspection.inventory!);
-    const v3 = !!plan.design || !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
-    const currentManifest = { ...manifest, ...(v3 ? { schema_version: "wringer.contained-delivery.v3", contracts: containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), limits: sourceReceipt ? [...limitations, sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : limitations };
+    const v3 = v4 || !!plan.design || !!sourceReceipt || human.some(row => row.judgement.schema_version === "wringer.contained-human-decision.v1");
+    const currentManifest = { ...manifest, ...(v3 ? { schema_version: v4 ? "wringer.contained-delivery.v4" : "wringer.contained-delivery.v3", contracts: v4 ? containedViewContractsV4 : containedViewContractsV3, sourceReview: sourceReceipt ? { receipt: "source-inspection.json", sha256: hashValue(sourceReceipt), findings: sourceReceipt.approvals.length } : null } : {}), ...(engineering ? { engineering: summarizeEngineering(engineering) } : {}), ...(researchPurpose ? { researchPurpose: { receipt: "research-purpose.json", sha256: researchPurpose.sha256 } } : {}), limits: [...(sourceReceipt ? [...limitations, sourceReviewMarker(sourceReceipt), ...SOURCE_REVIEW_LIMITATIONS] : limitations), ...(engineering?.limits ?? []), ...(researchPurpose ? ["PRIVATE EXPERIMENTAL HANDOVER: research observations are not production approval or permission to publish elsewhere. The original controller-purpose digest is a commitment to a private destination reservation; host paths are intentionally omitted."] : [])] };
     const view = deriveContainedDeliveryProjection(plan, currentManifest, human, roleRows), versionedManifest = { ...currentManifest, viewSha256: containedProjectionDigest(view) };
     if (sourceReceipt) await immutable(join(bundleDir, "source-inspection.json"), clean(sourceReceipt, redactor, "Source review receipt"));
     for (const [name, value] of Object.entries({ "plan.json": plan, "authority.json": authority, "environment.json": environment, "manifest.json": versionedManifest, "view.json": view, "certificate.json": renderContainedCertificate(view), "projection.json": { schema_version: "wringer.contained-projection.v2", omitted: ["ACP request prompt bodies", "ACP thought/progress traces and provider stderr", "Worker/planner narrative and patch duplication", "Controller absolute transport paths", "Journal free-form details and feedback duplicates"], sourceJournalHeadSha256: events.at(-1)!.sha256, portableJournalHeadSha256: previous, viewSha256: versionedManifest.viewSha256, limits: limitations } }))
         await immutable(join(bundleDir, name), clean(value, redactor, name));
-    for (const [name, body] of Object.entries({ ...(v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : renderContainedDocuments(view, manifest.falsify.reason)), "board.html": v3 ? renderContainedBoardV2(view) : renderContainedBoard(view) }))
+    for (const [name, body] of Object.entries({ ...(v4 ? renderContainedDocumentsV4(view, manifest.falsify.reason) : v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : renderContainedDocuments(view, manifest.falsify.reason)), "board.html": v4 ? renderContainedBoardV3(view) : v3 ? renderContainedBoardV2(view) : renderContainedBoard(view) }))
         await immutable(join(bundleDir, name), body);
     same((await files(bundleDir)).filter(name => name !== "digests.json"), expectedInventory(currentManifest, [...verifications.keys()], plan).filter(name => name !== "digests.json"), "Portable evidence inventory");
     await seal(bundleDir);
@@ -458,11 +480,12 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
     try {
         await checkSeal(bundleDir);
         const manifest = await read(bundleDir, "manifest.json"), plan = validateExecutionPlan(await read(bundleDir, "plan.json")), authority = await read(bundleDir, "authority.json"), environment = await read(bundleDir, "environment.json");
-        const v3 = manifest.schema_version === "wringer.contained-delivery.v3", v2 = v3 || manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
+        const v4 = manifest.schema_version === "wringer.contained-delivery.v4", v3 = v4 || manifest.schema_version === "wringer.contained-delivery.v3", v2 = v3 || manifest.schema_version === "wringer.contained-delivery.v2", contractReader = await openReader(schemaDirectory());
+        if (v4 !== (plan.schema_version === "wringer.execution-plan.v3")) throw new Error("Plan v3 engineering evidence requires its explicit v4 delivery contract");
         if (v2) {
-            const checked = await contractReader.validate(manifest, v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json");
+            const checked = await contractReader.validate(manifest, v4 ? "contained-delivery-v4.schema.json" : v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json");
             if (!checked.ok) throw new Error(`Frozen delivery manifest: ${checked.said}`);
-            for (const [value, schema] of [[plan, plan.schema_version === "wringer.execution-plan.v2" ? "execution-plan-v2.schema.json" : "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
+            for (const [value, schema] of [[plan, v4 ? "execution-plan-v3.schema.json" : plan.schema_version === "wringer.execution-plan.v2" ? "execution-plan-v2.schema.json" : "execution-plan-v1.schema.json"], [authority, "execution-authority-v1.schema.json"], [environment, "environment-map-v1.schema.json"]] as const) {
                 const result = await contractReader.validate(value, schema);
                 if (!result.ok) throw new Error(`Frozen ${schema}: ${result.said}`);
             }
@@ -479,19 +502,21 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             throw new Error("Portable journal inventory changed");
         let previous = "0".repeat(64), last: any, redSequence = 0, firstWorker = Infinity, previousTime = -Infinity;
         const knownEffects = new Map<string, any>(), receiptRefs = new Map<string, any>(), knownVerifications = new Map<string, any>(), knownSources = new Set([plan.repository.commit]);
+        const carriedEvents: any[] = [];
         for (const [index, name] of names.sort().entries()) {
             if (name !== `${String(index + 1).padStart(6, "0")}.json`)
                 throw new Error("Portable journal sequence changed");
             const event = await read(bundleDir, `journal/${name}`), { sha256, ...body } = event;
+            carriedEvents.push(event);
             if (v2) {
-                const checked = await contractReader.validate(event, "contained-delivery-event-v2.schema.json");
+                const checked = await contractReader.validate(event, v4 ? "contained-delivery-event-v3.schema.json" : "contained-delivery-event-v2.schema.json");
                 if (!checked.ok) throw new Error(`Frozen portable event: ${checked.said}`);
             }
             const eventTime = typeof event.at === "string" ? Date.parse(event.at) : NaN;
             if (!Number.isFinite(eventTime) || eventTime < previousTime || new Date(eventTime).toISOString() !== event.at)
                 throw new Error("Portable journal has an invalid or non-monotonic timestamp");
             previousTime = eventTime;
-            if (event.schema_version !== (v2 ? "wringer.contained-delivery-event.v2" : "wringer.contained-delivery-event.v1") || event.sequence !== index + 1 || event.previous !== previous || sha256 !== hashValue(body) || !digestPattern.test(event.source_event_sha256))
+            if (event.schema_version !== (v4 ? "wringer.contained-delivery-event.v3" : v2 ? "wringer.contained-delivery-event.v2" : "wringer.contained-delivery-event.v1") || event.sequence !== index + 1 || event.previous !== previous || sha256 !== hashValue(body) || !digestPattern.test(event.source_event_sha256))
                 throw new Error("Portable journal hash chain failed");
             previous = sha256;
             last = event;
@@ -565,6 +590,11 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         if (knownVerifications.size) for (const [phase, value] of [["baseline", manifest.baseline], ["candidate", manifest.verification]])
             if (![...knownVerifications.values()].some(a => a.phase === phase && a.result && canonicalJson(a.result) === canonicalJson(value))) throw new Error("Terminal verification is not a completed reserved attempt");
         same(last.state.judge, manifest.judge, "Judge");
+        if (manifest.researchPurpose) {
+            if (!v4 || manifest.researchPurpose.receipt !== "research-purpose.json") throw new Error("Research purpose requires the experimental v4 receipt");
+            const purpose = validateResearchDeliveryPurpose(await read(bundleDir, "research-purpose.json"), plan, manifest.publication);
+            if (purpose.sha256 !== manifest.researchPurpose.sha256 || !manifest.limits.some((line: string) => line.startsWith("PRIVATE EXPERIMENTAL HANDOVER:"))) throw new Error("Research purpose or non-production label changed");
+        } else if (authority.actor.startsWith("Experiment:") || manifest.publication.sourceBranch.startsWith("wringer/experiment-")) throw new Error("An experimental handover omitted its private-purpose record");
         const observations = new Map<string, any>(), runtimeIds = new Set<string>(), sessionIds = new Set<string>();
         for (const name of await readdir(await inside(bundleDir, "receipts"))) {
             safeId(name, "receipt directory");
@@ -590,6 +620,7 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             if (check.status !== "failed" || !Number.isInteger(check.exitCode) || check.exitCode === 0 || [124, 126, 127, 137, 143].includes(check.exitCode) || green?.status !== "passed" || green.checkInputsSha256 !== check.checkInputsSha256)
                 throw new Error("A red-first claim lacks a genuine failure of the exact original check");
         }
+        if (v4) { assertAssertionRed(plan, manifest.baseline); assertAssertionPair(plan, manifest.baseline, manifest.verification); }
         const roles: any[] = [];
         if (!Array.isArray(manifest.roles) || new Set(manifest.roles).size !== manifest.roles.length)
             throw new Error("Role inventory is duplicated");
@@ -666,6 +697,11 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         try {
             await cloneBundle(await inside(bundleDir, "candidate.bundle"), store, manifest.source.codeCommit);
             await verifySource(store, manifest, plan, environment, observations);
+            if (v4) {
+                const evidence = engineeringEvidence(plan, environment.map_sha256, carriedEvents, await readPinnedPlaybook(store, plan, { environment }));
+                same(await read(bundleDir, "engineering.json"), evidence, "Carried engineering evidence from source and journal");
+                same(manifest.engineering, summarizeEngineering(evidence), "Engineering summary");
+            }
             const designSnapshot = await readPinnedDesignSnapshot(plan, store);
             if (designSnapshot) {
                 same(await read(bundleDir, "visuals/snapshot.json", 32 * 1024 * 1024), designSnapshot, "Carried design snapshot");
@@ -692,17 +728,17 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
         same(manifest.falsify, (v2 ? falsificationRoute : legacyFalsificationRouteV1)(manifest.evidencePath), "Printed falsification route");
         view = deriveContainedDeliveryProjection(plan, manifest, humanRows, roles);
         if (v2) {
-            same(manifest.contracts, v3 ? containedViewContractsV3 : containedViewContracts, "Delivery view contract versions");
+            same(manifest.contracts, v4 ? containedViewContractsV4 : v3 ? containedViewContractsV3 : containedViewContracts, "Delivery view contract versions");
             if (manifest.viewSha256 !== containedProjectionDigest(view)) throw new Error("Delivery view digest differs from its evidence");
             same(await read(bundleDir, "view.json"), view, "Delivery view");
             same(await read(bundleDir, "certificate.json"), renderContainedCertificate(view), "Certificate");
-            for (const [value, schema] of [[manifest, v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json"], [view, "contained-delivery-view-v1.schema.json"], [renderContainedCertificate(view), "contained-certificate-v1.schema.json"]] as const) {
+            for (const [value, schema] of [[manifest, v4 ? "contained-delivery-v4.schema.json" : v3 ? "contained-delivery-v3.schema.json" : "contained-delivery-v2.schema.json"], [view, v4 ? "contained-delivery-view-v2.schema.json" : "contained-delivery-view-v1.schema.json"], [renderContainedCertificate(view), v4 ? "contained-certificate-v2.schema.json" : "contained-certificate-v1.schema.json"]] as const) {
                 const checked = await contractReader.validate(value, schema);
                 if (!checked.ok) throw new Error(`Frozen delivery contract: ${checked.said}`);
             }
-            if (await readFile(await inside(bundleDir, "board.html"), "utf8") !== (v3 ? renderContainedBoardV2(view) : renderContainedBoard(view))) throw new Error("Delivered board differs from its audited view");
+            if (await readFile(await inside(bundleDir, "board.html"), "utf8") !== (v4 ? renderContainedBoardV3(view) : v3 ? renderContainedBoardV2(view) : renderContainedBoard(view))) throw new Error("Delivered board differs from its audited view");
         }
-        for (const [name, body] of Object.entries(v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : v2 ? renderContainedDocuments(view, manifest.falsify.reason) : legacyContainedDocumentsV1(plan, manifest, humanRows)))
+        for (const [name, body] of Object.entries(v4 ? renderContainedDocumentsV4(view, manifest.falsify.reason) : v3 ? renderContainedDocumentsV3(view, manifest.falsify.reason) : v2 ? renderContainedDocuments(view, manifest.falsify.reason) : legacyContainedDocumentsV1(plan, manifest, humanRows)))
             if (await readFile(await inside(bundleDir, name), "utf8") !== body)
                 throw new Error("Summary/MR wording disagrees with the source, counts or human notes");
         const projection = await read(bundleDir, "projection.json");
@@ -716,6 +752,10 @@ async function inspectContainedDelivery(bundleDir: string): Promise<{ report: Co
             throw new Error("Portable projection provenance differs from its journal");
         report.checks = plan.acceptance.checks.length;
         report.claims = [{ id: "portable-journal-and-authority", status: "checked", reason: "Complete carried projection chain and historical authority validated." }, { id: "candidate-source", status: "checked", reason: "Complete Git bundle resolves the exact candidate, baseline, protected inputs and permitted changes." }, { id: "red-first-and-green", status: "checked", reason: "Every original check genuinely failed before worker reservation and passed independently on the candidate." }, { id: "independent-judge-and-human", status: "checked", reason: "Distinct role/session/runtime identities and candidate-bound judgements resolve." }];
+        if (v4) {
+            report.claims.find(c => c.id === "red-first-and-green")!.reason = "Every declared command failed before work and passed afterward. Declared assertion checks additionally preserve executed assertion identities and mappings; generic commands do not establish assertion-level proof.";
+            report.claims.push({ id: "measured-engineering-and-playbook", status: "checked", reason: "Pinned playbook source/use, bounded repair excerpts and deterministic loop decisions resolve against the carried observations. This is not a playbook efficacy or model-understanding claim." });
+        }
         if (plan.design) report.claims.push({ id: "source-bound-visual-review", status: "checked", reason: "Pinned design snapshot, exact reference/captured PNG bytes and their human display-decision digests resolve. This verifies evidence integrity, not screenshot truth, visual quality or authenticated human identity." });
         if (reviewedSource) report.claims.push({ id: "source-credential-shape-review", status: "checked", reason: `Recomputed the complete candidate-history shape inventory: ${reviewedSource.approvals.length} exact object/rule/match-byte digests have carried operator decisions. This does not authenticate the actor, recheck private controller secrets or prove these examples harmless.` });
         report.status = "passed";

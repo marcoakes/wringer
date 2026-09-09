@@ -17,6 +17,7 @@ Delegate a bounded engineering outcome; inspect the change and its evidence.
   wring start                        Show readiness and the product's next steps
   wring plan PLAN.yaml               Compile a declarative plan without executing it
   wring design --help                Import an approved design and bind visual review
+  wring experiment --help            Review or separately test future improvements
   wring run PLAN.yaml --authority FILE [--state DIRECTORY]
   wring resume --state DIRECTORY     Resume contained ACP work within its authority
   wringer-drive board --state DIR    Open the live PM workspace for that same run

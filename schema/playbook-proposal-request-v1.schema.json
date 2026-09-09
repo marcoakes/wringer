@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/playbook-proposal-request-v1.schema.json",
+  "title": "playbook-proposal-request-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan",
+    "baseline",
+    "patterns",
+    "outputPath",
+    "prediction",
+    "actor",
+    "grantedAt",
+    "expiresAt",
+    "maxSessions",
+    "maxTurns",
+    "wallClockSeconds",
+    "credentialNames",
+    "dataScope",
+    "action",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.playbook-proposal-request.v1"
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "plan_sha256",
+        "acceptance_sha256",
+        "repository",
+        "runtime",
+        "agents",
+        "scope",
+        "acceptance",
+        "budget"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.execution-plan.v3"
+        },
+        "plan_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "acceptance_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "description": "Full compiled plan is additionally validated by the inert plan reader, including semantic hashes and authority."
+    },
+    "baseline": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "source",
+        "content",
+        "manifest",
+        "sha256",
+        "snapshot_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.playbook-snapshot.v1"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "snapshot_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "description": "Exact inert playbook bytes and applicability are additionally validated by the playbook snapshot reader."
+    },
+    "patterns": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "repository",
+        "taskFamily",
+        "sources",
+        "groups",
+        "limits",
+        "sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.failure-pattern-report.v1"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "taskFamily": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "comparisonKey",
+              "kind",
+              "requirementIds",
+              "count",
+              "observations"
+            ],
+            "properties": {
+              "comparisonKey": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "kind": {
+                "enum": [
+                  "environment",
+                  "product-check",
+                  "agent-finding",
+                  "human-preference"
+                ]
+              },
+              "requirementIds": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 128,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4096
+              },
+              "observations": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4096,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            }
+          }
+        },
+        "limits": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "outputPath": {
+      "type": "string",
+      "pattern": "^wringer/proposals/[a-z][a-z0-9-]*\\.json$"
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "metric",
+        "minimumImprovement",
+        "minimumHeldOutPairs",
+        "maximumSignProbability",
+        "visualQualityClaim"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "metric": {
+          "enum": [
+            "worker-attempts",
+            "functional-completion"
+          ]
+        },
+        "minimumImprovement": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "minimumHeldOutPairs": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "maximumSignProbability": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.05
+        },
+        "visualQualityClaim": {
+          "type": "boolean"
+        }
+      }
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "grantedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "maxSessions": {
+      "const": 1
+    },
+    "maxTurns": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "wallClockSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 604800
+    },
+    "credentialNames": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+      }
+    },
+    "dataScope": {
+      "const": "this-repository-only"
+    },
+    "action": {
+      "const": "propose-one-worker-playbook"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

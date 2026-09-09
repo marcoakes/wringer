@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Deterministic approved loop decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sequence",
+    "phase",
+    "candidateCommit",
+    "candidateTree",
+    "acceptanceSha256",
+    "environmentSha256",
+    "verificationSha256",
+    "comparableSha256",
+    "outcomes",
+    "unsuccessful",
+    "action",
+    "repeatedCandidateSequence",
+    "repeatedOutcomes",
+    "reason",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.loop-decision.v1"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase": {
+      "enum": [
+        "checks",
+        "judge"
+      ]
+    },
+    "candidateCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "candidateTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "acceptanceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "environmentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verificationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "comparableSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 512,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "check",
+              "regression",
+              "judge"
+            ]
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed",
+              "unavailable",
+              "met",
+              "not-met",
+              "unknown"
+            ]
+          }
+        }
+      }
+    },
+    "unsuccessful": {
+      "type": "boolean"
+    },
+    "action": {
+      "enum": [
+        "continue",
+        "warn",
+        "stop"
+      ]
+    },
+    "repeatedCandidateSequence": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "repeatedOutcomes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "reason": {
+      "type": "string"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

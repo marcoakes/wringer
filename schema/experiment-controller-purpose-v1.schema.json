@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-controller-purpose-v1.schema.json",
+  "title": "experiment-controller-purpose-v1",
+  "description": "Immutable research purpose written before source or role activity. All ordinary publication paths must constrain this controller to these generated private local origins and may never reuse research observations as production approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "registrationSha256",
+    "slotId",
+    "planSha256",
+    "purpose",
+    "allowedPublications",
+    "productionHumanApproval",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-controller-purpose.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "registrationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "slotId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,179}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "purpose": {
+      "const": "private-research-only"
+    },
+    "allowedPublications": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "remote",
+          "sourceBranch",
+          "targetBranch"
+        ],
+        "properties": {
+          "remote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^/"
+          },
+          "sourceBranch": {
+            "type": "string",
+            "pattern": "^wringer/experiment-[a-z][a-z0-9-]{0,179}$"
+          },
+          "targetBranch": {
+            "const": "main"
+          }
+        }
+      }
+    },
+    "productionHumanApproval": {
+      "const": "not-granted"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

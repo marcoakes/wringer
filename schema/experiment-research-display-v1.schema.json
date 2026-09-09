@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-research-display-v1.schema.json",
+  "title": "experiment-research-display-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "trialSha256",
+    "candidateCommit",
+    "candidateTree",
+    "snapshot",
+    "displays",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-research-display.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "trialSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "candidateTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "snapshot": {
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "schema_version",
+            "snapshot_sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.design-snapshot.v1"
+            },
+            "snapshot_sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "displays": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "criterionId",
+          "success",
+          "measured"
+        ],
+        "properties": {
+          "criterionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "measured": {
+            "type": "object",
+            "required": [
+              "provenance",
+              "results",
+              "sourceChanged",
+              "sourceTree"
+            ]
+          },
+          "visuals": {
+            "type": "object",
+            "required": [
+              "snapshotSha256",
+              "referenceAssets",
+              "captures"
+            ]
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

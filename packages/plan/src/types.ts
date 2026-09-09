@@ -24,6 +24,8 @@ export interface AcceptanceCriterion {
 export interface AcceptanceCheck extends DeclaredCommand {
     criteria: string[];
     files: string[];
+    /** v3 only: command exit alone cannot establish assertion evidence. */
+    evidence?: { kind: "assertions"; format: "wringer-check.v1" };
 }
 export interface AcceptanceContract {
     criteria: AcceptanceCriterion[];
@@ -49,8 +51,37 @@ export interface DesignDeclaration {
     snapshotSha256: string;
     reviews: DesignReview[];
 }
+export interface LoopPolicy {
+    repeatCandidate: "stop";
+    repeatedOutcomeWarning: number;
+}
+export interface PlaybookSelection {
+    path: string;
+    /** SHA-256 of the complete exact UTF-8 source blob, not a mutable name. */
+    sha256: string;
+    taskFamily: string;
+    /** Retained future-selection provenance, not execution or research eligibility authority. */
+    adoption?: PlaybookAdoptionReceipt;
+}
+export interface PlaybookAdoptionReceipt {
+    schema_version: "wringer.playbook-adoption.v1";
+    repository: string;
+    taskFamily: string;
+    action: "promote" | "rollback";
+    actor: string;
+    note: string;
+    at: string;
+    previousRevision: string;
+    previousDigest: string | null;
+    selectedDigest: string | null;
+    experimentSha256: string;
+    evidenceRevision: string;
+    appliesTo: "future-plans-only";
+    executionApproved: false;
+    sha256: string;
+}
 export interface PlanDeclaration {
-    version: 1 | 2;
+    version: 1 | 2 | 3;
     name: string;
     intent: string;
     repository: RepositoryRef;
@@ -78,12 +109,18 @@ export interface PlanDeclaration {
     budget: ExecutionBudget;
     /** v2 only: approved design bytes and exact required visual observations. */
     design?: DesignDeclaration;
+    /** v3 only; finite deterministic feedback policy, never acceptance authority. */
+    loop?: LoopPolicy;
+    /** v3 only; one explicitly selected worker-only advisory artifact. */
+    playbook?: PlaybookSelection;
+    /** v3 only: retained rollback-to-no-playbook decision, never execution authority. */
+    approachAdoption?: PlaybookAdoptionReceipt;
 }
 export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     environment: PlanDeclaration["environment"] & {
         writable_directories: string[];
     };
-    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2";
+    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3";
     intent_sha256: string;
     acceptance_sha256: string;
     plan_sha256: string;

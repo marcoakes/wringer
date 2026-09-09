@@ -4,6 +4,12 @@ Wringer coordinates agents, checks and evidence. The agents author the product c
 
 This is prerelease software. Deterministic integration tests are not proof of live-agent convergence or real platform isolation.
 
+[Measured repair loops](MEASURED_LOOPS.md) explains the v3 contract: actual failure
+feedback, assertion-level checks, repeated-candidate stops and pinned worker
+playbooks. [Experiments](EXPERIMENTS.md) covers separately authorised comparisons
+and future-only adoption. Neither path can replace human acceptance or Send;
+live improvement evidence remains a separate measurement.
+
 ## Build from a source checkout
 
 Run at the Wringer repository root with Bun, Git and Node.js installed. The

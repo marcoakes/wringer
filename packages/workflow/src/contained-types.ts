@@ -1,5 +1,7 @@
 import type { EnvironmentMap, ExecutionAuthority, ExecutionPlan, RepositoryRef } from "@wringer/plan";
 import type { RoleExecutor, RoleExecutionResult, RepositorySource } from "@wringer/runtime";
+import type { CheckEvidenceObservation } from "./check-evidence";
+import type { RepairPacket } from "./repair-packet";
 export interface CandidateSource {
     source: RepositorySource;
     tree: string;
@@ -14,7 +16,7 @@ export interface ContainedCheckResult {
     outputSha256: string;
 }
 export interface CandidateVerification {
-    schema_version: "wringer.contained-verification.v1";
+    schema_version: "wringer.contained-verification.v1" | "wringer.contained-verification.v2";
     status: "passed" | "failed" | "unavailable";
     candidateCommit: string;
     candidateTree: string;
@@ -29,6 +31,9 @@ export interface CandidateVerification {
         outputSha256: string;
     }[];
     evidenceRef: string;
+    /** v2 only. Old command receipts are never retrospectively called assertion evidence. */
+    checkEvidence?: CheckEvidenceObservation[];
+    repair?: RepairPacket;
 }
 export interface ContainedJourneyServices {
     /** No agent program runs here; prepare an existing commit/bundle transport. */

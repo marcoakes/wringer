@@ -146,7 +146,7 @@ function jobClientRuntime() {
         }
     };
     const render = () => {
-        if (!job) { clearVisuals(); el("reports").replaceChildren(); el("job-workspace").hidden = true; controls(); return; }
+        if (!job) { clearVisuals(); el("reports").replaceChildren(); for (const id of ["engineering-approach", "engineering-checks", "engineering-history", "engineering-limits"]) el(id).replaceChildren(); el("job-engineering").hidden = true; el("job-workspace").hidden = true; controls(); return; }
         const value = job;
         el("job-workspace").hidden = false; el("job-empty").hidden = true;
         document.title = `${value.name} · Wringer`;
@@ -179,6 +179,26 @@ function jobClientRuntime() {
         showDestination("approval-destination", value.destination); showDestination("send-destination", value.destination);
         el("send-source").textContent = value.candidateTree ? `This sends the exact reviewed result: ${value.candidateTree}` : "No reviewed source is recorded.";
         renderReports(value);
+        const engineering = value.engineering, approachFacts = el("engineering-approach"), checkFacts = el("engineering-checks"), historyFacts = el("engineering-history"), engineeringLimits = el("engineering-limits");
+        el("job-engineering").hidden = !engineering;
+        approachFacts.replaceChildren(); checkFacts.replaceChildren(); historyFacts.replaceChildren(); engineeringLimits.replaceChildren();
+        if (engineering) {
+            const approach = engineering.approach;
+            if (!approach) approachFacts.append(node("p", "No extra worker playbook is selected. The approved plan and checks still govern the work."));
+            else {
+                approachFacts.append(node("h3", approach.title ?? "Pinned worker approach"), node("p", approach.sourceStatus === "validated" ? `The source was validated. Worker-use receipts recorded: ${approach.workerUses}. This does not prove that the advice improved the result.` : "Selected in the plan. The source has not yet been validated for a worker attempt."));
+                const facts = node("dl"); addFact(facts, "Repository file", approach.path); addFact(facts, "Exact content", approach.sha256); addFact(facts, "Task family", approach.taskFamily); if (approach.revision) addFact(facts, "Declared revision", approach.revision); approachFacts.append(facts);
+                if (approach.adoption) { const adoption = approach.adoption; approachFacts.append(node("p", `${adoption.action === "promote" ? "Selected" : "Restored"} for future plans by the recorded reviewer ${adoption.actor} on ${adoption.at}. This is provenance, not this job's approval.`), node("blockquote", adoption.note)); }
+            }
+            if (engineering.rollback) { const r = engineering.rollback; approachFacts.append(node("p", `Restored no extra playbook for future work by the recorded reviewer ${r.actor} on ${r.at}. This does not approve this job.`), node("blockquote", r.note)); }
+            for (const check of engineering.checks) {
+                const status = ({ "not-measured": "Not yet measured", passed: "Passed", failed: "Needs work", unknown: "Unknown" })[check.status];
+                checkFacts.append(node("li", `${check.id} · ${status} · ${check.level === "command" ? "Command result only" : check.assertionStatus === "established" ? "Executed assertions recorded" : "Assertion evidence not established"}. ${check.reason}`));
+            }
+            if (!engineering.history.length) historyFacts.append(node("li", "No candidate progress observation is recorded yet."));
+            for (const row of engineering.history) historyFacts.append(node("li", `${row.sequence}. ${row.phase === "checks" ? "Checks" : "Independent review"} · ${row.action === "stop" ? "Automatic repair stopped" : row.action === "warn" ? "Repeated outcome warning" : "Observation recorded"}. ${row.reason} Result: ${row.candidateTree}`));
+            for (const limit of engineering.limits) engineeringLimits.append(node("li", limit));
+        }
         const all = el("job-requirements"); all.replaceChildren();
         for (const requirement of value.requirements) {
             const item = node("article", undefined, "requirement-detail"); item.append(node("h3", requirement.title), node("p", `${requirement.required ? "Required" : "Optional"} · ${requirement.kind === "human" ? "A person decides" : "Checks and independent review"} · ${requirement.state === "met" ? "Met" : requirement.state === "not-met" ? "Needs work" : "Not evaluated"}`, "muted"));
@@ -199,7 +219,11 @@ function jobClientRuntime() {
         controls();
     };
     const api = async (path: string, body?: unknown) => {
-        const response = await fetch(path, { method: body === undefined ? "GET" : "POST", ...(body === undefined ? {} : { body: JSON.stringify(body) }), credentials: "same-origin", cache: "no-store", redirect: "error", headers: { Accept: "application/json", "X-Wringer-Console": "1", ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, signal: AbortSignal.timeout(15000) });
+        // Admission validates source/evidence before recording authority. Its
+        // finite network window is not the lifetime of the accepted operation.
+        // Measured v4 design admission takes ~14s on a small Mac; leave headroom
+        // without ever replaying a timed-out decision or extending job approval.
+        const response = await fetch(path, { method: body === undefined ? "GET" : "POST", ...(body === undefined ? {} : { body: JSON.stringify(body) }), credentials: "same-origin", cache: "no-store", redirect: "error", headers: { Accept: "application/json", "X-Wringer-Console": "1", ...(body === undefined ? {} : { "Content-Type": "application/json" }) }, signal: AbortSignal.timeout(body === undefined ? 30000 : 45000) });
         const length = Number(response.headers.get("content-length") ?? "0"); if (length > 2 * 1024 * 1024) throw new Error("The controller response exceeds the bounded review size.");
         const text = await response.text(); if (text.length > 2 * 1024 * 1024) throw new Error("The controller response exceeds the bounded review size.");
         let value: any; try { value = JSON.parse(text); } catch { throw new Error("The controller returned an unreadable response. No decision was inferred."); }
@@ -350,6 +374,7 @@ export function renderPmJobWorkspace(options: { nonce?: string } = {}): string {
 <section id="correction-panel" class="panel decision-panel" hidden><h2>What should change?</h2><label for="correction-note">Describe the correction in your own words</label><textarea id="correction-note" maxlength="16000" required></textarea><p class="note-help">The controller checks the remaining approval before more work. This cannot buy a larger allowance.</p><div class="buttons"><button id="submit-correction" type="button" disabled>Request this correction</button><button id="cancel-correction" type="button" class="secondary">Back to the result</button></div></section></div>
 <section id="handover-panel" class="panel" hidden><h2>Give your reviewer the handover</h2><p id="publication-description"></p><div class="buttons"><a id="review-request-link" target="_blank" rel="noopener noreferrer" hidden>Open the recorded review request ↗</a><button id="copy-review-link" type="button" class="secondary" hidden>Copy review link</button></div><h3>Verify the carried evidence</h3><p>These are the recorded delivery instructions, not a claim that someone has run the audit.</p><pre id="clone-command"></pre><pre id="audit-command"></pre><button id="copy-audit" type="button" class="secondary" disabled>Copy audit instructions</button></section>
 <section id="blocked-panel" class="panel" hidden><h2>No decision can bypass this stop</h2><p>Read the recorded next action above. Existing evidence stays available; refreshing does not repeat a paid operation or renew approval.</p><button id="retry-job" type="button" disabled hidden>Retry the recorded local step</button></section>
+<details id="job-engineering" hidden><summary>Approach and progress evidence</summary><div id="engineering-approach"></div><h3>What the checks establish</h3><ul id="engineering-checks"></ul><h3>Recorded progress</h3><ul id="engineering-history"></ul><ul id="engineering-limits" class="muted"></ul></details>
 <details id="job-evidence"><summary>Requirements, evidence and original request</summary><div id="job-requirements"></div><h3>Your original request</h3><blockquote id="job-intent"></blockquote></details>
 <details><summary>Budget, identity and access limits</summary><p>Recorded decision name: <span id="job-actor"></span>. A supplied name is not authenticated human presence.</p><div class="two-lanes"><p>Coding-app usage and cost: unknown to this page.</p><p>Development and independent review cost: unknown. Session/time ceilings are not an invoice guarantee.</p></div><pre id="job-record"></pre><ul id="job-limits"></ul></details>
 </section></main><footer><button id="notify-ready" type="button" class="secondary">Notify me when a decision is ready</button><p id="notification-note" class="notification-note">Optional browser notifications work only while this page is open. No notification inside your coding app is claimed.</p><details><summary>Cooperative-local engineering preview</summary><p class="footer-note">This page is separate from the assistant tools, but another unrestricted app under the same computer account can bypass that tool boundary. Protected human-presence enforcement is not established. Keep private links out of chat. Browser access is finite; Lock ends this browser session, not the job.</p></details></footer><script nonce="${nonce}">${pmJobClientScript()}</script></body></html>`;

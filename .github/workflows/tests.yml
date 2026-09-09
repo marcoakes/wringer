@@ -46,6 +46,9 @@ jobs:
             .wringer/assistant-launch-rehearsal-*/assistant.json
             .wringer/assistant-launch-rehearsal-*/pm-workspace.json
             .wringer/assistant-launch-rehearsal-*/browser-*.png
+            .wringer/improvements-browser-*/result.json
+            .wringer/improvements-browser-*/transcript.json
+            .wringer/improvements-browser-*/browser-*.png
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
           if-no-files-found: error

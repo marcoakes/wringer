@@ -4,6 +4,7 @@ import { ASSISTANT_TOOLS, ASSISTANT_TOOL_NAMES, AssistantToolValidationError, pa
 const guard = () => ({ jobId: "job_123", idempotencyKey: crypto.randomUUID(), expectedRevision: "a".repeat(64), expectedCandidateTree: "b".repeat(40) });
 const valid: Record<string, Record<string, unknown>> = {
     "wringer.inspect_setup": {},
+    "wringer.inspect_improvements": {},
     "wringer.propose": { workspaceId: "workspace_123", idempotencyKey: crypto.randomUUID(), intent: "Make the summary readable.", plan: null, assumptions: ["Keep the recorded format."], questions: ["Who will read this?"] },
     "wringer.get_approval_request": { jobId: "job_123" },
     "wringer.start": guard(),
@@ -17,9 +18,9 @@ const valid: Record<string, Record<string, unknown>> = {
 };
 
 describe("narrow assistant tool contract", () => {
-    test("exactly eleven tools; no human pen, publication, credentials, scope or arbitrary execution route", () => {
+    test("exactly twelve tools including offline improvements; no human pen, publication, credentials, scope or arbitrary execution route", () => {
         expect(ASSISTANT_TOOLS.map(t => t.name)).toEqual([...ASSISTANT_TOOL_NAMES]);
-        expect(ASSISTANT_TOOLS).toHaveLength(11);
+        expect(ASSISTANT_TOOLS).toHaveLength(12);
         for (const name of ["wringer.approve", "wringer.record_human_verdict", "wringer.publish", "wringer.execute", "wringer.get_key", "wringer.grant_authority", "wringer.increase_budget", "wringer.read_file", "wringer.retry_uncertain", "constructor"]) {
             expect(() => parseAssistantToolCall(name, {})).toThrow(AssistantToolValidationError);
         }

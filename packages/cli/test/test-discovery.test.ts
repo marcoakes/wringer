@@ -48,7 +48,14 @@ test("repository, action and validation commands declare test paths instead of s
     for (const command of commands) {
         const targets = JSON.parse(`[${command[1]}]`) as string[];
         expect(targets.length).toBeGreaterThan(0);
-        for (const target of targets) expect(target.startsWith("./packages/")).toBe(true);
+        // An explicit file may also narrow test names with Bun's -t. The path
+        // remains mandatory: a name filter must never become a discovery root.
+        expect(targets[0]!.startsWith("./packages/")).toBe(true);
+        for (let index = 0; index < targets.length; index++) {
+            const target = targets[index]!;
+            if (target === "-t") { expect(index).toBeGreaterThan(0); expect(targets[++index]?.trim().length).toBeGreaterThan(0); }
+            else expect(target.startsWith("./packages/")).toBe(true);
+        }
     }
 });
 

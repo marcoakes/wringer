@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/playbook-adoption-v1.schema.json",
+  "title": "playbook-adoption-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "taskFamily",
+    "action",
+    "actor",
+    "note",
+    "at",
+    "previousRevision",
+    "previousDigest",
+    "selectedDigest",
+    "experimentSha256",
+    "evidenceRevision",
+    "appliesTo",
+    "executionApproved",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.playbook-adoption.v1"
+    },
+    "repository": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "taskFamily": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "action": {
+      "enum": [
+        "promote",
+        "rollback"
+      ]
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "note": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "previousRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "previousDigest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "selectedDigest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "evidenceRevision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "appliesTo": {
+      "const": "future-plans-only"
+    },
+    "executionApproved": {
+      "const": false
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

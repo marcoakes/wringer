@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-handover-reservation-v1.schema.json",
+  "title": "experiment-handover-reservation-v1",
+  "description": "Separate private local experimental handover and literal fresh-clone audit. No production destination, forge, deployment or human acceptance is authorised.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experimentSha256",
+    "slotId",
+    "planSha256",
+    "candidateCommit",
+    "candidateTree",
+    "journeyRevision",
+    "evidenceKind",
+    "target",
+    "sourceBranch",
+    "at",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-handover-reservation.v1"
+    },
+    "experimentSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "slotId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,179}$"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateCommit": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidateTree": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "journeyRevision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidenceKind": {
+      "enum": [
+        "live-contained",
+        "deterministic-fixture"
+      ]
+    },
+    "target": {
+      "const": "generated-private-local-origin-only"
+    },
+    "sourceBranch": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

@@ -30,6 +30,8 @@ await writeFile(join(repo, "wringer.spec.yaml"), JSON.stringify({ schema_version
 await execute(["git", "add", "."]);
 await execute(["git", "commit", "-m", "Committed standalone fixture"]);
 const version = (await execute([join(bin, "wring"), "--version"])).stdout;
+const experimentHelp = (await execute([join(bin, "wring"), "experiment", "--help"])).stdout;
+if (!experimentHelp.includes("Test") && !experimentHelp.includes("Measured improvements") || !experimentHelp.includes("FUTURE") || !experimentHelp.includes("experiment connect")) throw new Error("Compiled comparison entry point lost its explicit future-only authority boundary");
 if (!(await execute([join(bin, "wringer-headless"), "--help"])).stdout.includes("No sandbox bypass"))
     throw new Error("Compiled headless help is unavailable");
 if (!version.includes((await Bun.file(join(root, "package.json")).json()).version))

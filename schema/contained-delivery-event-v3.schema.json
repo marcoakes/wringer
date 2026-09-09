@@ -1,0 +1,388 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/contained-delivery-event-v3.schema.json",
+  "title": "Contained delivery event v3",
+  "description": "Additive source-bound loop decisions and worker-only playbook use. Old v2 projection remains unchanged.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "sequence",
+    "previous",
+    "at",
+    "type",
+    "source_event_sha256",
+    "state",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.contained-delivery-event.v3"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 10000
+    },
+    "previous": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "type": {
+      "type": "string"
+    },
+    "source_event_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "planSha256",
+        "authoritySha256",
+        "environmentSha256",
+        "startedAt",
+        "source",
+        "stage",
+        "iteration",
+        "plannerComplete",
+        "workerEffect",
+        "judgeEffect",
+        "runtimeIds",
+        "effects",
+        "baseline",
+        "verification",
+        "candidate",
+        "judge",
+        "humanJudgements"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.contained-journey.v1"
+        },
+        "id": {
+          "type": "string"
+        },
+        "planSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "authoritySha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "environmentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "startedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "source": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "url",
+                "commit"
+              ],
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "commit": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage": {
+          "enum": [
+            "prepare",
+            "baseline",
+            "planner",
+            "worker",
+            "capture",
+            "verify",
+            "judge",
+            "human",
+            "ready"
+          ]
+        },
+        "iteration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "plannerComplete": {
+          "type": "boolean"
+        },
+        "workerEffect": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "judgeEffect": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "runtimeIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "role",
+              "status",
+              "requestSha256",
+              "requestIdentity"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "role": {
+                "enum": [
+                  "worker",
+                  "judge",
+                  "planner"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "reserved",
+                  "completed",
+                  "uncertain"
+                ]
+              },
+              "requestSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "requestIdentity": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "resultSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "disposition": {
+                "enum": [
+                  "accepted",
+                  "stopped",
+                  "invalid",
+                  "unsettled"
+                ]
+              },
+              "invalidReasonOmitted": {
+                "const": true
+              }
+            }
+          }
+        },
+        "verificationAttempts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "phase",
+              "sourceCommit",
+              "requestSha256",
+              "status"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "phase": {
+                "enum": [
+                  "baseline",
+                  "candidate"
+                ]
+              },
+              "sourceCommit": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              },
+              "requestSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "status": {
+                "enum": [
+                  "reserved",
+                  "completed",
+                  "uncertain"
+                ]
+              },
+              "disposition": {
+                "enum": [
+                  "passed",
+                  "failed",
+                  "unavailable"
+                ]
+              },
+              "result": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "baseline": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "verification": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "candidate": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source",
+                "tree",
+                "changedPaths"
+              ],
+              "properties": {
+                "source": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "url",
+                    "commit"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string"
+                    },
+                    "commit": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                    }
+                  }
+                },
+                "tree": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                },
+                "changedPaths": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "judge": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "humanJudgements": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "loopDecision": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.loop-decision.v1"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "playbookUse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effectId",
+        "requestSha256",
+        "snapshotSha256",
+        "playbookSha256",
+        "path",
+        "taskFamily"
+      ],
+      "properties": {
+        "effectId": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "requestSha256": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "snapshotSha256": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "playbookSha256": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "taskFamily": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      }
+    }
+  }
+}

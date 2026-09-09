@@ -5,6 +5,12 @@ the bounded run, checks and evidence. One private job page carries the proposal,
 progress, actual result, your review and a separate Send decision. You do not
 need to assemble those steps from different dashboards.
 
+New v3 profiles also show the approved approach and check history on that page.
+Workers receive bounded failure details, and exact repeats of unsuccessful work
+stop before another automatic attempt. Optional comparisons can test an approach
+for **future** jobs under a separate allowance; they cannot approve themselves or
+change your current work. See [measured repair loops](docs/native/MEASURED_LOOPS.md).
+
 Building from a design? Give the assistant the approved reference and existing
 component library. Follow [Design-led work](docs/native/DESIGN.md) for the one-time
 read-only import and design-aware profile. The same page then shows reference

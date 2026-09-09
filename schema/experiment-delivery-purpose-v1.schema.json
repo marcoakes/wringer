@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-delivery-purpose-v1.schema.json",
+  "title": "Portable private experimental delivery purpose",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "experimentSha256", "registrationSha256", "slotId", "planSha256", "controllerPurposeSha256", "sourceBranch", "targetBranch", "purpose", "productionHumanApproval", "sha256"],
+  "properties": {
+    "schema_version": { "const": "wringer.experiment-delivery-purpose.v1" },
+    "experimentSha256": { "$ref": "#/$defs/digest" },
+    "registrationSha256": { "$ref": "#/$defs/digest" },
+    "slotId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{0,159}$" },
+    "planSha256": { "$ref": "#/$defs/digest" },
+    "controllerPurposeSha256": { "$ref": "#/$defs/digest" },
+    "sourceBranch": { "type": "string", "pattern": "^wringer/experiment-[a-z][a-z0-9-]{0,159}$" },
+    "targetBranch": { "const": "main" },
+    "purpose": { "const": "private-research-only" },
+    "productionHumanApproval": { "const": "not-granted" },
+    "sha256": { "$ref": "#/$defs/digest" }
+  },
+  "$defs": { "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" } }
+}

@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/playbook-proposal-result-v1.schema.json",
+  "title": "playbook-proposal-result-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "requestSha256",
+    "reservationSha256",
+    "status",
+    "evidenceKind",
+    "startedAt",
+    "finishedAt",
+    "sessionsReserved",
+    "cost",
+    "adoption",
+    "executionApproval",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.playbook-proposal-result.v1"
+    },
+    "requestSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "reservationSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "status": {
+      "enum": [
+        "proposed",
+        "stopped"
+      ]
+    },
+    "evidenceKind": {
+      "enum": [
+        "live-contained",
+        "deterministic-fixture"
+      ]
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "finishedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "sourceTree": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "artifactPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "manifest": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "role",
+        "applicability",
+        "guidanceMarkdown"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.playbook.v1"
+        },
+        "role": {
+          "const": "worker"
+        }
+      }
+    },
+    "prediction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "metric",
+        "minimumImprovement",
+        "minimumHeldOutPairs",
+        "maximumSignProbability",
+        "visualQualityClaim"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "metric": {
+          "enum": [
+            "worker-attempts",
+            "functional-completion"
+          ]
+        },
+        "minimumImprovement": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000
+        },
+        "minimumHeldOutPairs": {
+          "type": "integer",
+          "minimum": 4,
+          "maximum": 128
+        },
+        "maximumSignProbability": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 0.05
+        },
+        "visualQualityClaim": {
+          "type": "boolean"
+        }
+      }
+    },
+    "runtimeId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "sessionsReserved": {
+      "const": 1
+    },
+    "cost": {
+      "type": "null"
+    },
+    "adoption": {
+      "const": "not-granted"
+    },
+    "executionApproval": {
+      "const": "not-granted"
+    },
+    "limits": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 4000
+      }
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

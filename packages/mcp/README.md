@@ -2,7 +2,7 @@
 
 This package is the narrow MCP front door, not an agent runtime or execution
 owner. It uses the existing application services through an injected callback.
-The eleven tools are defined once in `src/contract.ts`; their JSON Schemas also
+The twelve tools are defined once in `src/contract.ts`; their JSON Schemas also
 validate every tool call. Approval, the human pen, publication, credentials,
 arbitrary files and arbitrary execution are not assistant tools.
 

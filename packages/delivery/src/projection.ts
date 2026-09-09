@@ -1,8 +1,11 @@
 /** Frozen delivery views. This module is pure and imports no board/orchestration services. */
 import { createHash } from "node:crypto";
 import type { ExecutionPlan } from "@wringer/plan";
+import type { EngineeringSummary } from "./engineering";
 export interface ContainedDeliveryProjection {
-    schema_version: "wringer.contained-delivery-view.v1";
+    schema_version: "wringer.contained-delivery-view.v1" | "wringer.contained-delivery-view.v2";
+    engineering?: EngineeringSummary;
+    researchPurpose?: { receipt: "research-purpose.json"; sha256: string };
     journeyId: string;
     deliveryId: string;
     name: string;
@@ -22,13 +25,15 @@ export interface ContainedDeliveryProjection {
 }
 export const containedViewContracts = Object.freeze({ view: "wringer.contained-delivery-view.v1", certificate: "wringer.contained-certificate.v1", documents: "wringer.contained-documents.v2", board: "wringer.contained-board.v1" });
 export const containedViewContractsV3 = Object.freeze({ view: "wringer.contained-delivery-view.v1", certificate: "wringer.contained-certificate.v1", documents: "wringer.contained-documents.v3", board: "wringer.contained-board.v2" });
+export const containedViewContractsV4 = Object.freeze({ view: "wringer.contained-delivery-view.v2", certificate: "wringer.contained-certificate.v2", documents: "wringer.contained-documents.v4", board: "wringer.contained-board.v3" });
 const canonical = (value: any): string => value === null || typeof value !== "object" ? JSON.stringify(value) : Array.isArray(value) ? `[${value.map(canonical).join(",")}]` : `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonical(value[k])}`).join(",")}}`;
 export const containedProjectionDigest = (view: ContainedDeliveryProjection) => createHash("sha256").update(canonical(view)).digest("hex");
 /** Inputs must come from the validated controller or portable audit, never an unverified mutable view. */
 export function deriveContainedDeliveryProjection(plan: ExecutionPlan, manifest: any, human: any[], roles: any[]): ContainedDeliveryProjection {
     const reported = (key: "inputTokens" | "outputTokens") => roles.every(r => Number.isSafeInteger(r.result?.usage?.[key]) && r.result.usage[key] >= 0) ? roles.reduce((n, r) => n + r.result.usage[key], 0) : null;
     return {
-        schema_version: "wringer.contained-delivery-view.v1", journeyId: manifest.journeyId, deliveryId: manifest.id, name: plan.name, status: "review-ready", source: { ...manifest.source }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, journalHeadSha256: manifest.journal.headSha256, counts: { ...manifest.counts },
+        ...(manifest.schema_version === "wringer.contained-delivery.v4" && manifest.researchPurpose ? { researchPurpose: { ...manifest.researchPurpose } } : {}),
+        schema_version: manifest.schema_version === "wringer.contained-delivery.v4" ? "wringer.contained-delivery-view.v2" : "wringer.contained-delivery-view.v1", ...(manifest.schema_version === "wringer.contained-delivery.v4" ? { engineering: manifest.engineering } : {}), journeyId: manifest.journeyId, deliveryId: manifest.id, name: plan.name, status: "review-ready", source: { ...manifest.source }, planSha256: plan.plan_sha256, acceptanceSha256: plan.acceptance_sha256, journalHeadSha256: manifest.journal.headSha256, counts: { ...manifest.counts },
         checks: plan.acceptance.checks.map(c => {
             const before = manifest.baseline.checks.find((r: any) => r.id === c.id), after = manifest.verification.checks.find((r: any) => r.id === c.id);
             return { id: c.id, before: { status: before.status, exitCode: before.exitCode, receipt: `${manifest.baseline.evidenceRef}/observations.json` }, after: { status: after.status, exitCode: after.exitCode, receipt: `${manifest.verification.evidenceRef}/observations.json` }, inputsSha256: after.checkInputsSha256 };
@@ -43,7 +48,7 @@ export function deriveContainedDeliveryProjection(plan: ExecutionPlan, manifest:
     };
 }
 export function renderContainedCertificate(view: ContainedDeliveryProjection) {
-    return { schema_version: "wringer.contained-certificate.v1" as const, viewSha256: containedProjectionDigest(view), view, limits: ["This certificate copies audited delivery facts; it does not independently assess the work or authenticate a person's identity."] };
+    return { schema_version: view.schema_version === "wringer.contained-delivery-view.v2" ? "wringer.contained-certificate.v2" as const : "wringer.contained-certificate.v1" as const, viewSha256: containedProjectionDigest(view), view, limits: ["This certificate copies audited delivery facts; it does not independently assess the work or authenticate a person's identity."] };
 }
 const escape = (value: unknown) => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 /** Immutable v1 HTML contract. Evolve with a new renderer identifier, never edit old bundle semantics. */
@@ -65,4 +70,22 @@ export function renderContainedDocumentsV3(view: ContainedDeliveryProjection, fa
     const notes = view.criteria.filter(c => c.kind === "human" && c.by !== null).map(c => c.note === null ? `- ${c.id}: [System metadata: Decision recorded; no comment supplied. Recorded attribution: ${c.by}.]` : `- ${c.id}: ${c.note} — ${c.by}`).join("\n");
     const facts = `Journey: ${view.journeyId}\nDelivery: ${view.deliveryId}\nCandidate commit: ${view.source.codeCommit}\nTree: ${view.source.tree}\nChecks: ${view.counts.checks}; red-first receipts: ${view.counts.proved}; human answers: ${view.counts.human}.\n\n${notes}\n\nUsage: ${view.usage.sessions} sessions; ${view.usage.reportedSessions} complete reports. Input tokens: ${view.usage.inputTokens ?? "unknown"}; output tokens: ${view.usage.outputTokens ?? "unknown"}; cost: unknown.`;
     return { "summary.md": `# ${view.name}\n\n${facts}\n\n${view.limits.join("\n\n")}\n`, "mr.md": `# ${view.name}\n\n${facts}\n\nFrom the ROOT of a fresh clone of the delivered review branch, run exactly:\n\n\`\`\`sh\n${view.auditCommand}\n\`\`\`\n\nThen challenge the committed source range from that same clone root:\n\n\`\`\`sh\n${view.falsifyCommand}\n\`\`\`\n\n${falsifyReason}\n\nThe bundle includes candidate.bundle, plan.json, authority.json, environment.json, manifest.json, projection.json, view.json, certificate.json, board.html, summary.md, mr.md, digests.json, and every journal/, roles/, receipts/ and human/ file named by the digest inventory. When manifest.sourceReview is non-null, source-inspection.json also carries every exact source exception and operator decision. An accepted example is not a secret-free claim. The audit is offline; no original controller directory or provider account is required.\n\n${view.limits.join("\n\n")}\n` };
+}
+
+function engineeringText(view: ContainedDeliveryProjection): string {
+    const e = view.engineering;
+    if (view.schema_version !== "wringer.contained-delivery-view.v2" || !e) throw new Error("Missing versioned engineering evidence");
+    const approach = e.playbook ? `${e.playbook.title} (${e.playbook.id}, revision ${e.playbook.revision}); SHA256 ${e.playbook.sha256}; ${e.playbook.workerUses} recorded worker uses.` : "No additional worker playbook was selected.";
+    return `## Approach and measured feedback\n\n${approach}\n\n${e.adoption ? `Future-selection decision: ${e.adoption.action}; selected ${e.adoption.selectedDigest ?? "no playbook"}. Recorded by ${e.adoption.actor} at ${e.adoption.at}: ${e.adoption.note}. Receipt SHA256 ${e.adoption.sha256}. This records the operator decision, not a fresh measurement of benefit.\n\n` : ""}${e.checks.map(c => `- ${c.id}: ${c.level === "assertions" ? "Before work, an executed failing assertion covered each required linked requirement; the same complete assertion identities and mappings later all passed." : "Command failed before implementation and passed on the candidate; assertion-level evidence was not declared."}`).join("\n")}\n\n${e.decisions.map(d => `- Observation ${d.sequence} (${d.phase}, ${d.action}): ${d.reason}`).join("\n")}\n\nengineering.json carries the selected playbook bytes (when present), worker-use identities, and deterministic loop decisions. Receipt SHA256: ${e.sha256}. Playbook use is not evidence of efficacy or model understanding. These records do not create authority or authenticate a human.\n`;
+}
+/** Additive v4 wording, leaving historical renderer bytes unchanged. */
+export function renderContainedDocumentsV4(view: ContainedDeliveryProjection, reason: string) {
+    const documents = renderContainedDocumentsV3(view, reason), engineering = engineeringText(view);
+    const label = view.researchPurpose ? `> PRIVATE EXPERIMENTAL HANDOVER — not production approval. Research decisions apply only to the reserved private destination. research-purpose.json records that boundary; SHA256 ${view.researchPurpose.sha256}.\n\n` : "";
+    return { "summary.md": `${label}${documents["summary.md"]}\n${engineering}`, "mr.md": `${label}${documents["mr.md"]}\n${engineering}` };
+}
+export function renderContainedBoardV3(view: ContainedDeliveryProjection): string {
+    const text = engineeringText(view);
+    const label = view.researchPurpose ? `<aside role="note"><strong>Private experimental handover — not production approval</strong><p>Research decisions apply only to the reserved private destination. Boundary receipt: research-purpose.json; SHA256 ${escape(view.researchPurpose.sha256)}.</p></aside>` : "";
+    return renderContainedBoardV2(view).replace("<body>", `<body>${label}`).replace("<h2>Usage</h2>", `<h2>Approach and measured feedback</h2><pre>${escape(text.replace(/^## Approach and measured feedback\n\n/, ""))}</pre><h2>Usage</h2>`);
 }

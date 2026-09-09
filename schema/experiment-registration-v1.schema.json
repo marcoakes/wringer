@@ -1,0 +1,321 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/experiment-registration-v1.schema.json",
+  "title": "experiment-registration-v1",
+  "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan",
+    "registeredAt",
+    "sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.experiment-registration.v1"
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "id",
+        "taskFamily",
+        "repository",
+        "baselinePlaybook",
+        "candidatePlaybook",
+        "changedVariable",
+        "tasks",
+        "repetitions",
+        "order",
+        "stratum",
+        "prediction",
+        "limits",
+        "dataScope",
+        "holdout",
+        "accounting",
+        "stoppingRule",
+        "sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "wringer.experiment-plan.v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "taskFamily": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "baselinePlaybook": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "candidatePlaybook": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "changedVariable": {
+          "const": "worker-playbook"
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "sourceTree",
+              "split",
+              "baseline",
+              "candidate"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,79}$"
+              },
+              "sourceTree": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+              },
+              "split": {
+                "enum": [
+                  "development",
+                  "held-out"
+                ]
+              },
+              "baseline": {
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "acceptance_sha256",
+                  "repository",
+                  "runtime",
+                  "agents",
+                  "scope",
+                  "acceptance",
+                  "budget"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "wringer.execution-plan.v3"
+                  },
+                  "plan_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "acceptance_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "description": "Full compiled plan is additionally validated by the inert plan reader, including semantic hashes and authority."
+              },
+              "candidate": {
+                "type": "object",
+                "required": [
+                  "schema_version",
+                  "plan_sha256",
+                  "acceptance_sha256",
+                  "repository",
+                  "runtime",
+                  "agents",
+                  "scope",
+                  "acceptance",
+                  "budget"
+                ],
+                "properties": {
+                  "schema_version": {
+                    "const": "wringer.execution-plan.v3"
+                  },
+                  "plan_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "acceptance_sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "description": "Full compiled plan is additionally validated by the inert plan reader, including semantic hashes and authority."
+              }
+            }
+          }
+        },
+        "repetitions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "order": {
+          "const": "alternating-pairs"
+        },
+        "stratum": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "platform",
+            "modelSelection",
+            "adapterSelection"
+          ],
+          "properties": {
+            "platform": {
+              "enum": [
+                "darwin",
+                "linux"
+              ]
+            },
+            "modelSelection": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            },
+            "adapterSelection": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          }
+        },
+        "prediction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "statement",
+            "metric",
+            "minimumImprovement",
+            "minimumHeldOutPairs",
+            "maximumSignProbability",
+            "visualQualityClaim"
+          ],
+          "properties": {
+            "statement": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "metric": {
+              "enum": [
+                "worker-attempts",
+                "functional-completion"
+              ]
+            },
+            "minimumImprovement": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 1000
+            },
+            "minimumHeldOutPairs": {
+              "type": "integer",
+              "minimum": 4,
+              "maximum": 128
+            },
+            "maximumSignProbability": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 0.05
+            },
+            "visualQualityClaim": {
+              "type": "boolean"
+            }
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "maxTrials",
+            "maxRoleSessions",
+            "wallClockSeconds"
+          ],
+          "properties": {
+            "maxTrials": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 128
+            },
+            "maxRoleSessions": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            },
+            "wallClockSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 604800
+            }
+          }
+        },
+        "dataScope": {
+          "const": "this-repository-only"
+        },
+        "holdout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "corpusId",
+            "candidateIteration",
+            "maximumCandidateIterations",
+            "candidateAuthorSawHeldOutSolutions"
+          ],
+          "properties": {
+            "corpusId": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,79}$"
+            },
+            "candidateIteration": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "maximumCandidateIterations": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "candidateAuthorSawHeldOutSolutions": {
+              "const": false
+            }
+          }
+        },
+        "accounting": {
+          "const": "all-planned-trials-including-failures"
+        },
+        "stoppingRule": {
+          "const": "fixed-sample-no-extension"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "registeredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  }
+}

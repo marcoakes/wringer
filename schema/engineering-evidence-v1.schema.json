@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/engineering-evidence-v1.schema.json",
+  "title": "Engineering evidence v1",
+  "description": "Portable pinned playbook, worker use and deterministic loop evidence.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planSha256",
+    "playbook",
+    "adoption",
+    "uses",
+    "loopDecisions",
+    "checks",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.engineering-evidence.v1"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "adoption": { "type": ["object", "null"] },
+    "playbook": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "uses": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "effectId",
+          "requestSha256",
+          "snapshotSha256",
+          "playbookSha256",
+          "path",
+          "taskFamily"
+        ],
+        "properties": {
+          "effectId": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "requestSha256": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "snapshotSha256": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "playbookSha256": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "taskFamily": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      }
+    },
+    "loopDecisions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "required": [
+          "schema_version",
+          "sha256"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "wringer.loop-decision.v1"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "checks": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "level"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "level": {
+            "enum": [
+              "command",
+              "assertions"
+            ]
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

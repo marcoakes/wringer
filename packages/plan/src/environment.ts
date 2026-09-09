@@ -2,8 +2,9 @@ import { resolve } from "node:path";
 import { Redactor } from "@wringer/engine";
 import { MAX_SNAPSHOT_BYTES, assertRepositoryDisclosure, parseDesignSnapshot } from "@wringer/design";
 import { freezeData, hashBytes, hashValue } from "./canonical";
-import { validateExecutionPlan } from "./compile";
+import { validateExecutionPlan, type PlanValidationOptions } from "./compile";
 import type { EnvironmentMap, EnvironmentObservation, ExecutionPlan } from "./types";
+import { readPinnedPlaybook } from "./playbook";
 async function git(repo: string, args: string[]): Promise<string> {
     const child = Bun.spawn(["git", "--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", ...args], { cwd: repo, env: { ...process.env, GIT_NO_REPLACE_OBJECTS: "1", GIT_TERMINAL_PROMPT: "0" }, stdout: "pipe", stderr: "pipe" });
     const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
@@ -54,8 +55,10 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
         for (const review of plan.design.reviews) for (const reference of review.referenceIds)
             if (!snapshot.assets.some(a => a.id === reference)) throw new Error(`Design review reference ${reference} is absent from the exact approved snapshot`);
     }
+    // Inspect the selected worker artifact without leaking its advice into shared role context.
+    if (plan.playbook) await readPinnedPlaybook(repo, plan);
     const automatic = ["AGENTS.md", "README.md", "ARCHITECTURE.md", "CODEOWNERS", ".github/CODEOWNERS", "package.json", "bun.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.toml", "Cargo.lock", "go.mod", "go.sum"];
-    const requested = [...new Set([...plan.environment.context, ...automatic.filter(path => path !== plan.design?.snapshotPath && files.some(f => f.path === path))])].sort();
+    const requested = [...new Set([...plan.environment.context, ...automatic.filter(path => path !== plan.design?.snapshotPath && path !== plan.playbook?.path && files.some(f => f.path === path))])].sort();
     const context: EnvironmentMap["context"] = [];
     for (const path of requested) {
         const file = files.find(f => f.path === path);
@@ -108,15 +111,16 @@ export async function assertEnvironmentFresh(repo: string, map: EnvironmentMap):
 }
 
 /** Incorporate controller observations without re-reading or executing repository code. */
-export function ingestEnvironmentObservations(map: EnvironmentMap, rawPlan: ExecutionPlan, observations: EnvironmentObservation[]): EnvironmentMap {
-    const plan = validateExecutionPlan(rawPlan), { map_sha256, ...data } = map;
+export function ingestEnvironmentObservations(map: EnvironmentMap, rawPlan: ExecutionPlan, observations: EnvironmentObservation[], options: PlanValidationOptions = {}): EnvironmentMap {
+    const plan = validateExecutionPlan(rawPlan, options), { map_sha256, ...data } = map;
     if (map_sha256 !== hashValue(data) || map.inventory_sha256 !== hashValue(map.files) || map.plan_sha256 !== plan.plan_sha256 || hashValue(map.repository) !== hashValue(plan.repository))
         throw new Error("Observations cannot update an altered or stale environment map");
     if (hashValue(map.tools.map(({ observation, ...tool }) => tool)) !== hashValue(plan.environment.tools) || hashValue(map.baseline.map(row => row.declaration)) !== hashValue(plan.environment.baseline) || hashValue(map.protected_paths) !== hashValue(plan.acceptance.protected_paths) || hashValue(map.writable_paths) !== hashValue(plan.scope.writable))
         throw new Error("Environment declarations differ from the approved tool, baseline or scope policy");
     if (!Array.isArray(observations) || observations.length > 4096 || new Set(observations.map(o => `${o.kind}:${o.id}`)).size !== observations.length)
         throw new Error("Environment observations must have bounded unique identities");
-    const redactor = new Redactor(undefined, process.env, (plan.runtime.env ?? []).map(name => process.env[name]).filter((v): v is string => !!v));
+    const credentialEnvironment = options.credentialEnvironment ?? process.env;
+    const redactor = new Redactor(undefined, credentialEnvironment, (plan.runtime.env ?? []).map(name => credentialEnvironment[name]).filter((v): v is string => !!v));
     const index = new Map<string, EnvironmentObservation>();
     if (redactor.scrub(JSON.stringify(data)) !== JSON.stringify(data))
         throw new Error("Environment map contains a detected credential; no altered map was retained");

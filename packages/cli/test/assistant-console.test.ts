@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, realpath, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { compileDeclaration, compileExecutionPlan, hashValue } from "@wringer/plan";
 import { createAssistantService, initializeAssistant, issueAssistantCapability } from "../../application/src/assistant";
 import { createAssistantConsole, renderAssistantConsole, superviseAssistantReview } from "../src/assistant-console";
+import { connectImprovements } from "../../application/src/improvements";
+import { withImprovementCard } from "../../board/src/improvements-render";
 
 const roots: string[] = [];
 const consoles: Awaited<ReturnType<typeof createAssistantConsole>>[] = [];
@@ -76,6 +78,32 @@ describe("assistant operator console rendering", () => {
 // Real loopback boundary with deterministic application records; no providers,
 // runtime containers, source commands, or genuine human observations are used.
 describe("assistant operator console HTTP boundary", () => {
+    test("optional improvement view is private, offline, repository-scoped and cannot impersonate approval", async () => {
+        const f = await fixture([], { guided: true });
+        const outside = await realpath(await mkdtemp(join(tmpdir(), "wringer-research-connection-"))); roots.push(outside);
+        const registry = join(outside, "adoption-registry"); await mkdir(registry, { mode: 0o700 });
+        expect((await fetch(f.console.origin + "/api/improvements")).status).toBe(401);
+        const before = await fetch(f.console.origin + "/api/improvements", { headers: f.auth }).then(r => r.json());
+        expect(before.connected).toBe(false);
+        await connectImprovements(f.root, { researchRoot: outside, registryRoot: registry, taskFamily: "reports" });
+        const response = await fetch(f.console.origin + "/api/improvements", { headers: f.auth });
+        const view = await response.json(); expect(view.connected).toBe(true); expect(view.experiments).toEqual([]);
+        expect(JSON.stringify(view)).not.toContain(outside); expect(JSON.stringify(view)).not.toContain(f.token);
+        const tool = await f.service.call(f.capability.token, "wringer.inspect_improvements", {});
+        expect(tool.outcome).toBe("observed");
+        for (const name of ["wringer.promote", "wringer.collect", "wringer.rollback", "wringer.approve"]) expect((await f.service.call(f.capability.token, name, {})).outcome).toBe("refused");
+        expect((await f.post("/api/improvements/collect", { experimentId: "../outside", expectedPlanSha256: "a".repeat(64), actor: "Fixture", expiresAt: new Date(Date.now() + 60000).toISOString() })).status).toBe(409);
+        expect((await f.post("/api/improvements/promote", { experimentId: "missing", actor: "Fixture", note: "No evidence", expectedRevision: view.revision, expectedCurrentDigest: null, expectedEvidenceRevision: "a".repeat(64) })).status).toBe(409);
+        expect((await f.post("/api/improvements/rollback", { expectedRevision: view.revision, path: outside })).status).toBe(409);
+        expect(await f.service.inspectApproval(f.jobId)).toBeNull(); expect(f.dispatches()).toBe(0);
+    });
+    test("improvement script parses, uses inert text and keeps production action routes absent", () => {
+        const html = withImprovementCard("<main></main></body>", "fixtureNonce");
+        const script = /<script nonce="fixtureNonce">([\s\S]*?)<\/script>/.exec(html)![1]!;
+        expect(() => new Function(script)).not.toThrow();
+        expect(html).toContain("Use for future work"); expect(html).toContain("Test this improvement");
+        expect(html).not.toContain("innerHTML"); expect(html).not.toContain("/api/job/send"); expect(html).not.toContain("localStorage");
+    });
     test("shutdown closes new operator decisions while retained jobs remain readable", async () => {
         let stopping = false;
         const f = await fixture([], { isStopping: () => stopping });
