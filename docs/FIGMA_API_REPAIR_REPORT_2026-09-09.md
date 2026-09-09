@@ -76,7 +76,7 @@ first (`.wringer/native-validation-2026-09-09T19-57-44-016Z`) and second
 (`.wringer/native-validation-2026-09-09T19-59-03-482Z`) failed measurements remain
 retained and indexed above. No failure was reclassified as a live success.
 
-A final independent code review found three issues before publication: a
+A final cross-check by separate coding agents found three issues before publication: a
 provider transport failure during refresh could discard an otherwise valid
 connection, and optional research trials could label a v2 design snapshot as a
 v1 research display; the PM also needed to see the exact prepared frame links
@@ -87,6 +87,25 @@ The superseded
 whole-product run (`.wringer/native-validation-2026-09-09T20-04-37-247Z`)
 was deliberately interrupted at its test stage to restart against these fixes;
 its SIGTERM is not a product-test verdict.
+
+The [first published CI run](https://github.com/marcoakes/wringer/actions/runs/34402174210)
+then passed Linux validation and the repository Action, but failed the macOS main
+suite: 855 passes, two skips and one failure. The
+[observed failure](evidence/figma-api-initial-ci-2026-09-09.json) is retained.
+An active-correction cancellation could save both cancellation markers, then
+return `refused` because a new status audit saw the journal advance. A
+deterministic regression reproduced that exact post-effect `state-advanced`
+refusal. The repair returns the durable cancellation acknowledgement without
+inventing a current revision or claiming remote execution/charges have stopped.
+Stale admission still refuses before either marker is written. The formerly
+failing case passed ten consecutive focused runs after repair, and the
+correction/cancellation tests now run in the early assistant validation stage.
+This is a real PM cancellation repair, not a CI timeout increase or test skip.
+The [repair evidence index](evidence/figma-cancellation-repair-2026-09-09.json)
+retains the macOS failure and the corrected build, assistant, Figma and packaged
+distribution checks. All four corrected local stages passed. Remote CI remains
+an independently observed measurement at the published commit, not inferred
+from those local checks.
 
 The new source-attachment tests use real Git and a fresh bundle clone, with
 explicitly injected API responses. They check single-artifact attachment,

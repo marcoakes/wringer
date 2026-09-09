@@ -307,6 +307,37 @@ describe("assistant application narrow authority and inert intake", () => {
         expect((await f.call("start", await f.mutation(proposed.jobId))).code).toBe("cancelled");
         const other = await f.propose(); expect((await f.call("start", await f.mutation(other.jobId))).code).toBe("not-approved");
     });
+    test("durable cancellation acknowledgement survives an immediately advancing correction journal", async () => {
+        const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId);
+        const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+        await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+        const input = await f.mutation(proposed.jobId), before = f.counters.publications;
+        // Deterministically simulate the correction finishing after it observes
+        // cancellation: a post-effect audit sees its journal advance. This must
+        // not turn the already-durable cancellation into a false refusal.
+        f.publicationState.beforeRead = async () => {
+            const marker = await readAssistantRecord(f.root, `jobs/${proposed.jobId}/cancelled.json`);
+            expect(marker.jobId).toBe(proposed.jobId);
+            f.query.revision = "e".repeat(64);
+        };
+        const result = await f.call("cancel", input);
+        const marker = await readAssistantRecord(f.root, `jobs/${proposed.jobId}/cancelled.json`);
+        expect(marker.requestId).toBe(input.idempotencyKey);
+        expect(await Bun.file(join(f.root, "runner/jobs", proposed.jobId, "cancel.json")).exists()).toBe(true);
+        expect(result).toMatchObject({ outcome: "cancelled", cancellationRequested: true, activeEffects: "unknown" });
+        expect(f.counters.publications).toBe(before);
+        expect(result).not.toHaveProperty("revision");
+        expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0);
+        f.publicationState.beforeRead = undefined;
+        expect((await f.call("get_status", { jobId: proposed.jobId })).outcome).toBe("cancelled");
+    });
+    test("cancellation still refuses stale admission without writing either cancellation marker", async () => {
+        const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId);
+        const result = await f.call("cancel", { ...await f.mutation(proposed.jobId), expectedRevision: "f".repeat(64) });
+        expect(result).toMatchObject({ outcome: "refused", code: "stale-request" });
+        expect(await Bun.file(join(f.root, "jobs", proposed.jobId, "cancelled.json")).exists()).toBe(false);
+        expect(await Bun.file(join(f.root, "runner/jobs", proposed.jobId, "cancel.json")).exists()).toBe(false);
+    });
     test("questions/evidence from another job cannot cross a workspace capability", async () => {
         const a = await fixture(), b = await fixture(), p = await a.propose();
         expect((await b.call("get_status", { jobId: p.jobId })).outcome).toBe("refused");

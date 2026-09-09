@@ -432,7 +432,11 @@ export async function createAssistantService(root: string, options: { dependenci
                 const saved = { schema_version: "wringer.assistant-cancellation.v1", jobId, requestId: id };
                 if (!await lifecycleMarker(root, p, "cancelled")) await writeAssistantRecord(root, jobFile(jobId, "cancelled"), saved);
                 await runner.cancel(jobId);
-                return { ...(await status(jobId)), note: "Future dispatch stopped; active work receives cancellation. Already accepted remote requests may still have run and incurred charges." };
+                // A correction may observe cancellation and advance its journal
+                // immediately. A new status audit could then fail its snapshot
+                // guard and falsely report refusal after both durable markers
+                // were installed. Acknowledge this effect, not a moving view.
+                return { schema_version: SCHEMA, workspaceId: workspace.id, jobId, outcome: "cancelled", cancellationRequested: true, activeEffects: "unknown", nextAction: "Cancellation is recorded. Inspect retained progress to observe active work; do not restart it.", note: "Future dispatch stopped; active work receives cancellation. Already accepted remote requests may still have run and incurred charges. This acknowledgement does not prove remote execution has stopped or refund unknown charges.", boundary: ASSISTANT_BOUNDARY };
             }
             insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job is cancelled. Its evidence and reservations remain.");
             insist(view.approval, "not-approved", "The operator must approve this exact job before execution");

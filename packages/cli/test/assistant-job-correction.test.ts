@@ -64,7 +64,7 @@ for (const cancellation of ["owner-stop", "assistant-cancel"]) test(`${cancellat
     try {
         await until(async () => f.correctionSignal(), signal => !!signal);
         if (cancellation === "owner-stop") f.flow.stop();
-        else { const current = await f.service.status(f.jobId); const result = await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree }); expect(result.outcome).toBe("cancelled"); await f.flow.tick(); }
+        else { const current = await f.service.status(f.jobId); const result = await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree }); expect(result).toMatchObject({ outcome: "cancelled" }); await f.flow.tick(); }
         await until(async () => f.correctionSignal()?.aborted, aborted => aborted === true);
         await pending; await until(() => hasActiveWorkspaceCommand(f.state), active => !active);
         expect(f.correctionCalls()).toBe(1);

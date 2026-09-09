@@ -1,0 +1,25 @@
+{
+  "kind": "remote-ci-observation",
+  "commit": "b31c731bea0036aadfa6a160a62cf3dd550851f3",
+  "run": "https://github.com/marcoakes/wringer/actions/runs/34402174210",
+  "conclusion": "failure",
+  "jobs": [
+    { "name": "action", "conclusion": "success", "durationSeconds": 474 },
+    { "name": "Bun / ubuntu-latest", "conclusion": "success", "durationSeconds": 1085 },
+    { "name": "Bun / macos-latest", "conclusion": "failure", "durationSeconds": 655 }
+  ],
+  "macosMainSuite": {
+    "passed": 855,
+    "failed": 1,
+    "skipped": 2,
+    "assertions": 9680,
+    "test": "assistant-cancel reaches an already running correction without another dispatch",
+    "expected": "cancelled",
+    "received": "refused",
+    "artifact": "https://github.com/marcoakes/wringer/actions/runs/34402174210/artifacts/10124290955"
+  },
+  "limitations": [
+    "This is the first published checkpoint's actual failure, not a successful live Figma or PM blind test.",
+    "Later fixes and measurements do not erase this run or change its conclusion."
+  ]
+}
