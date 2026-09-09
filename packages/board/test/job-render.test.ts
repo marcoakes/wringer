@@ -316,13 +316,23 @@ test("approval binds the shown source and finite limits without a manual expiry 
 test("Send is a separate exact prepared-source action and the reviewer receives only recorded public instructions", async () => {
     const job = fixture(); job.phase = "send"; job.requirements[0]!.state = "met"; job.preparedId = "44444444-4444-4444-8444-444444444444";
     const h = await harness(job, (path, _options, c) => {
-        if (path === "/api/job/send") { c.job.phase = "sent"; c.job.readyRevision = "f".repeat(64); c.job.publication = { status: "branch-pushed", deliveryId: "contained-fixture", url: "https://example.invalid/review/1", cloneCommand: "git clone the-recorded-remote", auditCommand: "wringer-drive audit --bundle recorded-bundle" }; return Response.json({ outcome: "sent" }); }
+        if (path === "/api/job/send") { c.job.phase = "sent"; c.job.readyRevision = "f".repeat(64); c.job.publication = { status: "branch-pushed", deliveryId: "contained-fixture", url: "https://example.invalid/review/1", cloneCommand: "git clone the-recorded-remote 'reviewed-change'", auditCommand: "wringer-drive audit --bundle recorded-bundle" }; return Response.json({ outcome: "sent" }); }
         return defaultResponse(path, c);
     });
     expect(h.get("send-panel").hidden).toBe(false); expect(textOf(h.get("send-destination"))).toContain(job.destination!.remote); expect(h.posts.filter(p => p.path.endsWith("send"))).toHaveLength(0);
     await h.click("send-job"); expect(h.posts.find(p => p.path === "/api/job/send")!.body).toEqual({ jobId, expectedRevision: "b".repeat(64), expectedCandidateTree: "c".repeat(40), preparedId: "44444444-4444-4444-8444-444444444444" });
     expect(h.get("handover-panel").hidden).toBe(false); expect(h.get("review-request-link").href).toBe("https://example.invalid/review/1"); expect(h.get("audit-command").textContent).toBe("wringer-drive audit --bundle recorded-bundle");
-    await h.click("copy-audit"); expect(h.copied).toEqual(["git clone the-recorded-remote\n\nwringer-drive audit --bundle recorded-bundle"]);
+    expect(h.get("change-directory-command").textContent).toBe("cd 'reviewed-change'"); expect(h.get("change-directory-command").hidden).toBe(false);
+    expect(h.get("audit-working-directory").textContent).toContain("enter the new reviewed-change folder");
+    await h.click("copy-audit"); expect(h.copied).toEqual(["git clone the-recorded-remote 'reviewed-change' &&\ncd 'reviewed-change' &&\nwringer-drive audit --bundle recorded-bundle"]);
+});
+
+test("audit-only handovers name the existing clone root without inventing a clone destination", async () => {
+    const job = fixture(); job.phase = "sent"; job.publication = { status: "branch-pushed", deliveryId: "contained-fixture", auditCommand: "wringer-drive audit --bundle recorded-bundle" };
+    const h = await harness(job);
+    expect(h.get("change-directory-command").hidden).toBe(true);
+    expect(h.get("audit-working-directory").textContent).toContain("root of the reviewed repository clone");
+    await h.click("copy-audit"); expect(h.copied).toEqual([job.publication.auditCommand!]);
 });
 
 test("lost action responses pause further decisions without automatic repost or inferred acceptance", async () => {

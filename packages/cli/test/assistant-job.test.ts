@@ -153,3 +153,12 @@ test("cancellation during the slow Send guard refuses before reserving a publica
     expect(await readdir(join(state, ".wringer/application/commands"))).toEqual([preparedId]);
     expect(await readdir(join(state, ".wringer/application"))).not.toContain("operation.lock");
 });
+test("handover clone instructions quote the recorded branch and remote and name the reviewer folder", async () => {
+    const root = await scratch(), jobId = crypto.randomUUID(), remote = "/tmp/fixture's origin.git", sourceBranch = "review/person's-result";
+    const view = { jobId, stage: "intake", revision: "a".repeat(64), candidateTree: null, outcome: "branch-pushed", uncertainty: false, requirements: [], operations: [], publication: { status: "branch-pushed", deliveryId: "contained-fixture", sourceBranch, auditCommand: "wringer-drive audit --bundle .wringer/deliveries/contained-fixture" } };
+    const service = fixtureService({ root, workspace: { profile, destination: { remote, sourceBranch, targetBranch: "main" } }, inspectProposal: async () => ({ plan: profile, intent: profile.intent, questions: [], assumptions: [] }), status: async () => view, inspectApproval: async () => null, list: async () => [] });
+    const flow = createAssistantJobFlow(service); flows.push(flow);
+    const job = await flow.read(jobId);
+    expect(job.phase).toBe("sent");
+    expect(job.publication?.cloneCommand).toBe("git clone --branch 'review/person'\\''s-result' -- '/tmp/fixture'\\''s origin.git' 'reviewed-change'");
+});

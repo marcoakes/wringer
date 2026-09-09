@@ -153,6 +153,26 @@ retains both first-remote envelopes and the corrected local browser measurement,
 with hashes of the follow-up source. Its source hash is not a claim that the
 earlier remote logs were produced from that later snapshot.
 
+### Literal reviewer instructions
+
+Visual inspection of the actual remote design-handover screenshot exposed a
+separate ending defect: the PM page copied a clone command followed by a relative
+audit command, without entering the clone. The existing rehearsal supplied the
+audit's working directory itself, so it did not measure that copied sequence.
+This is a product handover defect, not a problem for a PM to repair.
+
+The follow-up makes the displayed/copied instructions enter the new clone and
+stop if cloning fails. Browser verification must execute the page's actual copied
+instructions from a fresh parent directory; it may not supply a separately
+corrected audit directory. Source-bound review and separate Send are unchanged.
+
+The corrected real-browser design journey passed **47 checks** in 128.6 seconds,
+including the exact clipboard sequence and refusal to audit an existing clone
+after a failed repeated clone. The focused board/decision suites passed 34 tests
+and 345 assertions. The [literal-handover evidence index](evidence/meta-loops-literal-handover-2026-09-09.json)
+retains this final local build/browser envelope and its source hashes. These
+remain scripted engineering measurements, not an independent person's verdict.
+
 ## Claims this report does not make
 
 - No paid comparison, live provider convergence, new credential provisioning,

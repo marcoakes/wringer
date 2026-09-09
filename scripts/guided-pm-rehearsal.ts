@@ -1,6 +1,6 @@
 /** Browser-operated fixture: real product forms, Git and audit, synthetic
  * worker/judge/check/display observations. Never a genuine person's verdict. */
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Page, Route } from "playwright";
 import { hashValue } from "../packages/plan/src";
@@ -174,8 +174,17 @@ export async function runGuidedPmJourney(input: {
     if (!delivered) throw new Error("No carried publication was recorded");
     await check("one separate Send publishes only the intended review branch", delivered.pushed === true && decisions.filter(d => d.action === "send").length === 1 && (await git(["--git-dir", input.origin, "rev-parse", "main"])).trim() === input.baseCommit);
     await check("PM-visible happy-path post-build decisions are Yes then Send", decisions.filter(d => ["decision", "send"].includes(d.action)).length === 2 && decisions.filter(d => d.action === "approve").length === 1 && decisions.filter(d => d.action === "correction").length === 1);
-    const clone = join(root, "guided-fresh-clone"); await git(["clone", "--branch", delivered.sourceBranch, input.origin, clone]);
-    const audit = await command("guided literal carried audit in fresh clone", ["/bin/sh", "-c", delivered.auditCommand], clone);
+    await page.context().grantPermissions(["clipboard-read", "clipboard-write"], { origin: route.origin });
+    await page.locator("#copy-audit").click();
+    await page.getByText("Copied the recorded handover information.", { exact: true }).waitFor();
+    const copiedAudit = await page.evaluate(() => navigator.clipboard.readText());
+    const shownClone = (await page.locator("#clone-command").innerText()).trim(), shownCd = (await page.locator("#change-directory-command").innerText()).trim();
+    await check("visible and copied audit instructions enter the new clone and stop on clone failure", shownCd === "cd 'reviewed-change'" && (await page.locator("#audit-working-directory").innerText()).includes("run the audit there") && copiedAudit === [shownClone, shownCd, delivered.auditCommand].join(" &&\n"));
+    const auditParent = join(root, "guided-audit-parent"), clone = join(auditParent, "reviewed-change");
+    await mkdir(auditParent); await check("literal copied audit starts in a fresh empty parent folder", (await readdir(auditParent)).length === 0);
+    const audit = await command("guided literal copied clone-and-audit instructions from fresh parent", ["/bin/sh", "-c", copiedAudit], auditParent);
+    const repeatedCopy = await command("guided copied instructions refuse an existing clone before audit", ["/bin/sh", "-c", copiedAudit], auditParent, 128);
+    await check("clone refusal cannot audit an existing reviewed-change folder", /already exists/i.test(repeatedCopy.stderr) && repeatedCopy.stdout.trim() === "");
     const bundle = join(clone, ".wringer/deliveries", delivered.deliveryId), view = await readContainedDeliveryProjection(bundle);
     if (input.design) {
         const snapshot = JSON.parse(await readFile(join(clone, "design/reference.json"), "utf8"));
