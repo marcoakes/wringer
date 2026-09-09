@@ -153,6 +153,10 @@ retains both first-remote envelopes and the corrected local browser measurement,
 with hashes of the follow-up source. Its source hash is not a claim that the
 earlier remote logs were produced from that later snapshot.
 
+All three jobs subsequently passed for that cross-platform checkpoint,
+`5ec733d493a56c2e1a6e2ea72f968bec6af01cb0`, in
+[remote run 34376354572](https://github.com/marcoakes/wringer/actions/runs/34376354572).
+
 ### Literal reviewer instructions
 
 Visual inspection of the actual remote design-handover screenshot exposed a
@@ -172,6 +176,26 @@ after a failed repeated clone. The focused board/decision suites passed 34 tests
 and 345 assertions. The [literal-handover evidence index](evidence/meta-loops-literal-handover-2026-09-09.json)
 retains this final local build/browser envelope and its source hashes. These
 remain scripted engineering measurements, not an independent person's verdict.
+
+### Deterministic expiry verification
+
+The literal-handover commit `1e64d7bdbd2bbc82fce76657653cf193f4ac99dd`
+[exposed a timing-dependent Linux test](https://github.com/marcoakes/wringer/actions/runs/34378422625).
+That test allowed 200 milliseconds for approval and queue admission, but the
+runner took longer; the product correctly refused the already-expired approval
+instead of admitting it. The failed remote measurement remains retained.
+
+The two existing subsecond expiry probes now use a test-only controlled clock.
+They admit at one millisecond before expiry, then advance to the exact boundary
+and require refusal without effects. They also distinguish a valid connection
+from an expired execution approval. Production code and expiry rules did not
+change. The focused file passed 19 tests / 197 assertions, and 20 repetitions of
+the two expiry probes passed 40 tests / 440 assertions. The complete local
+assistant contract envelope passed 118 tests after the correction.
+The [expiry evidence index](evidence/meta-loops-expiry-2026-09-09.json) retains
+the remote failure and corrective local envelope with explicit source hashes;
+the final pushed commit's remote result is its own separate check, not inferred
+from either earlier measurement.
 
 ## Claims this report does not make
 

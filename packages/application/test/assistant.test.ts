@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { mkdtemp, realpath, readFile, writeFile, mkdir, rm, chmod, symlink, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -181,10 +181,15 @@ describe("assistant application narrow authority and inert intake", () => {
         expect((await b.call("inspect_setup", {}, a.capability.token)).code).toBe("capability-refused");
         await revokeAssistantCapabilities(a.root);
         expect((await a.call("inspect_setup", {})).code).toBe("capability-refused");
-        const expiring = await issueAssistantCapability(b.root, new Date(Date.now() + 200).toISOString());
-        expect((await b.call("inspect_setup", {}, expiring.token)).outcome).toBe("inspected");
-        await Bun.sleep(220);
-        expect((await b.call("inspect_setup", {}, expiring.token)).code).toBe("capability-refused");
+        const issuedAt = Date.now(), expiresAt = issuedAt + 200;
+        setSystemTime(issuedAt);
+        try {
+            const expiring = await issueAssistantCapability(b.root, new Date(expiresAt).toISOString());
+            setSystemTime(expiresAt - 1);
+            expect((await b.call("inspect_setup", {}, expiring.token)).outcome).toBe("inspected");
+            setSystemTime(expiresAt);
+            expect((await b.call("inspect_setup", {}, expiring.token)).code).toBe("capability-refused");
+        } finally { setSystemTime(); }
         expect(a.counters.starts + b.counters.starts).toBe(0);
     });
     test("proposal questions, assumptions and original words survive repeated reads without a planner", async () => {
@@ -265,12 +270,33 @@ describe("assistant application narrow authority and inert intake", () => {
         expect((await f.call("start", { ...input, expectedCandidateTree: "e".repeat(40) })).outcome).toBe("refused");
     });
     test("approval expiry while accepted but unclaimed refuses before effects, not as unknown spend", async () => {
-        const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId, new Date(Date.now() + 200).toISOString());
-        const input = await f.mutation(proposed.jobId); expect((await f.call("start", input)).outcome).toBe("accepted");
-        await Bun.sleep(220); await f.service.runner.start();
-        const operation = await until(() => f.service.runner.read(input.idempotencyKey), value => ["completed", "failed", "uncertain"].includes(value.status));
-        expect(operation.status).toBe("failed"); expect(f.counters.starts).toBe(0);
-        const status = await f.call("get_status", { jobId: proposed.jobId }); expect(status.actions.every((x: any) => !x.enabled)).toBe(true);
+        // Freeze Date and Date.now, not the queue's timers. Filesystem latency
+        // cannot consume the admission window before we advance it ourselves.
+        const grantedAt = Date.now();
+        let f: Awaited<ReturnType<typeof fixture>> | undefined;
+        setSystemTime(grantedAt);
+        try {
+            f = await fixture();
+            const proposed = await f.propose(), approved = await f.approve(proposed.jobId, new Date(grantedAt + 200).toISOString());
+            const expiresAt = Date.parse(approved.authority.expires_at);
+            setSystemTime(expiresAt - 1);
+            const input = await f.mutation(proposed.jobId); expect((await f.call("start", input)).outcome).toBe("accepted");
+            const queued = await f.service.runner.read(input.idempotencyKey);
+            expect(queued.status).toBe("accepted"); expect(Date.parse(queued.acceptedAt)).toBe(expiresAt - 1);
+            expect(f.counters.starts).toBe(0);
+            setSystemTime(expiresAt);
+            expect(Date.now()).toBeLessThan(Date.parse(f.capability.expiresAt));
+            await f.service.runner.start();
+            const service = f.service;
+            const operation = await until(() => service.runner.read(input.idempotencyKey), value => ["completed", "failed", "uncertain"].includes(value.status));
+            expect(operation.status).toBe("failed"); expect(operation.error).toContain("no effect was dispatched");
+            expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0);
+            const status = await f.call("get_status", { jobId: proposed.jobId });
+            expect(status.outcome).toBe("approval-out-of-date"); expect(status.actions.every((x: any) => !x.enabled)).toBe(true);
+            expect((await f.call("inspect_setup", {})).outcome).toBe("inspected");
+        } finally {
+            try { await f?.service.runner.stop(50); } finally { setSystemTime(); }
+        }
     });
     test("cancellation prevents accepted future dispatch and cannot mint another job approval", async () => {
         const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId);
