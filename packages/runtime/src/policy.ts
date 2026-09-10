@@ -6,6 +6,9 @@ const envName = /^[A-Za-z_][A-Za-z0-9_]*$/;
 // Agent credential forwarding must not become executable configuration forwarding.
 const controlEnvironment = /^(?:PATH|HOME|USER|LOGNAME|SHELL|ENV|BASH_ENV|ZDOTDIR|CDPATH|IFS|NODE_OPTIONS|BUN_OPTIONS|PYTHON.*|RUBYOPT|RUBYLIB|PERL5OPT|PERL5LIB|KUBECONFIG|CONTAINER_.*|SSH_AUTH_SOCK|SSH_AGENT_PID|XDG_RUNTIME_DIR|TMPDIR|LD_.*|DYLD_.*|GIT_.*)$/;
 export const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
+/** A local-only source's whole identity: the single root commit of its history.
+ * It resolves nowhere; the source is read only from its prepared Git bundle. */
+export const LOCAL_SOURCE_URL = /^local:\/\/[a-f0-9]{40}$/;
 export function parseWritableDirectories(value: unknown, protectedFiles: string[] = []): string[] {
     if (!Array.isArray(value) || value.length > 64)
         throw new RuntimeError("Verifier writable directories must be a bounded explicit list");

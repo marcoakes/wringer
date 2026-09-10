@@ -1,6 +1,6 @@
 import { open } from "node:fs/promises";
 import { constants } from "node:fs";
-import { compileDeclaration, hashValue, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
+import { compileDeclaration, hashValue, planVersion, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
 import { prepareRepositoryArtifactSource } from "@wringer/runtime";
 import { assertRepositoryDisclosure, designCanonicalJson, hashDesignBytes, readDesignSnapshot, type DesignSnapshot } from "@wringer/design";
 import { assistantId, assistantPath, assistantExists, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
@@ -45,7 +45,7 @@ function deriveProfile(original: ExecutionPlan, snapshot: DesignSnapshot, commit
         return { ...review, referenceIds: ids };
     });
     const { schema_version, plan_sha256: _p, acceptance_sha256: _a, intent_sha256: _i, ...declaration } = original;
-    return compileDeclaration({ ...declaration, version: schema_version === "wringer.execution-plan.v3" ? 3 : 2, repository: { ...original.repository, commit }, design: { snapshotPath: `.wringer-design/${snapshot.snapshot_sha256}.json`, snapshotSha256: snapshot.snapshot_sha256, reviews } });
+    return compileDeclaration({ ...declaration, version: Math.max(2, planVersion(original)), repository: { ...original.repository, commit }, design: { snapshotPath: `.wringer-design/${snapshot.snapshot_sha256}.json`, snapshotSha256: snapshot.snapshot_sha256, reviews } });
 }
 async function bundleDigest(path: string) {
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);

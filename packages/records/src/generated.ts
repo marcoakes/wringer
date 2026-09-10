@@ -1863,6 +1863,75 @@ export type ExecutionPlanV3 = {
 };
 
 /**
+ * Local-source execution plan v4
+ *
+ * Generated from `schema/execution-plan-v4.schema.json`. Do not edit.
+ */
+export type ExecutionPlanV4 = {
+  "schema_version": "wringer.execution-plan.v4";
+  "name": string;
+  "intent": string;
+  "intent_sha256": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner"?: unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "acceptance": unknown;
+  "acceptance_sha256": string;
+  "budget": unknown;
+  "plan_sha256": string;
+  "design"?: {
+    "snapshotPath": string;
+    "snapshotSha256": string;
+    "reviews": {
+      "criterionId": string;
+      "referenceIds": string[];
+      "captures": {
+        "id": string;
+        "path": string;
+        "mimeType": "image/png";
+        "width": number;
+        "height": number;
+      }[];
+    }[];
+  };
+  "loop": {
+    "repeatCandidate": "stop";
+    "repeatedOutcomeWarning": number;
+  };
+  "approachAdoption"?: unknown;
+  "playbook"?: {
+    "path": string;
+    "sha256": string;
+    "taskFamily": string;
+    "adoption"?: {
+      "schema_version": "wringer.playbook-adoption.v1";
+      "repository": string;
+      "taskFamily": string;
+      "action": "promote" | "rollback";
+      "actor": string;
+      "note": string;
+      "at": string;
+      "previousRevision": string;
+      "previousDigest": string | null;
+      "selectedDigest": string | null;
+      "experimentSha256": string;
+      "evidenceRevision": string;
+      "appliesTo": "future-plans-only";
+      "executionApproved": false;
+      "sha256": string;
+    };
+  };
+};
+
+/**
  * Wringer execution record, v2 — the worker's containment
  *
  * Generated from `schema/execution-v2.schema.json`. Do not edit.
@@ -4330,6 +4399,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "execution-plan-v1.schema.json": "wringer.execution-plan.v1",
   "execution-plan-v2.schema.json": "wringer.execution-plan.v2",
   "execution-plan-v3.schema.json": "wringer.execution-plan.v3",
+  "execution-plan-v4.schema.json": "wringer.execution-plan.v4",
   "execution-v2.schema.json": "wringer.execution.v2",
   "execution.schema.json": "wringer.execution.v1",
   "experiment-collection-v1.schema.json": "wringer.experiment-collection.v1",
@@ -4446,6 +4516,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.execution-plan.v1": "execution-plan-v1.schema.json",
   "wringer.execution-plan.v2": "execution-plan-v2.schema.json",
   "wringer.execution-plan.v3": "execution-plan-v3.schema.json",
+  "wringer.execution-plan.v4": "execution-plan-v4.schema.json",
   "wringer.execution.v2": "execution-v2.schema.json",
   "wringer.execution.v1": "execution.schema.json",
   "wringer.experiment-collection.v1": "experiment-collection-v1.schema.json",

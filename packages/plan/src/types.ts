@@ -81,7 +81,7 @@ export interface PlaybookAdoptionReceipt {
     sha256: string;
 }
 export interface PlanDeclaration {
-    version: 1 | 2 | 3;
+    version: 1 | 2 | 3 | 4;
     name: string;
     intent: string;
     repository: RepositoryRef;
@@ -120,7 +120,7 @@ export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     environment: PlanDeclaration["environment"] & {
         writable_directories: string[];
     };
-    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3";
+    schema_version: "wringer.execution-plan.v1" | "wringer.execution-plan.v2" | "wringer.execution-plan.v3" | "wringer.execution-plan.v4";
     intent_sha256: string;
     acceptance_sha256: string;
     plan_sha256: string;

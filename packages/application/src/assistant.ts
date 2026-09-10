@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
-import { compileDeclaration, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority, hashValue, type ExecutionPlan, type ExecutionAuthority } from "@wringer/plan";
+import { compileDeclaration, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority, hashValue, planVersion, type ExecutionPlan, type ExecutionAuthority } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 import { withContainedJourneyLock } from "@wringer/workflow";
 import { controllerStatus, readController, startController, type ApplicationOptions } from "./controller";
@@ -123,11 +123,11 @@ async function authorize(root: string, token: string) {
 }
 function template(plan: ExecutionPlan) {
     const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...rest } = plan;
-    return { version: plan.schema_version === "wringer.execution-plan.v3" ? 3 : plan.schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...rest };
+    return { version: planVersion(plan), ...rest };
 }
 function bindProfile(plan: ExecutionPlan, workspace: AssistantWorkspace) {
-    if (workspace.profile.schema_version === "wringer.execution-plan.v3") {
-        insist(plan.schema_version === "wringer.execution-plan.v3", "profile-downgrade", "A strict v3 profile cannot silently downgrade its evidence contract");
+    if (planVersion(workspace.profile) >= 3) {
+        insist(plan.schema_version === workspace.profile.schema_version, "profile-downgrade", "A strict v3 profile cannot silently downgrade its evidence contract");
         insist(hashValue(plan.loop) === hashValue(workspace.profile.loop), "loop-changed", "The operator-selected repeat policy is pinned; a new proposal cannot remove it");
         for (const check of workspace.profile.acceptance.checks.filter(row => row.evidence)) insist(hashValue(plan.acceptance.checks.find(row => row.id === check.id)?.evidence ?? null) === hashValue(check.evidence), "evidence-downgrade", "A proposal cannot downgrade the selected assertion evidence level");
     }

@@ -1,5 +1,5 @@
 import { canonicalJson, freezeData, hashValue } from "./canonical";
-import { compileDeclaration, record, text, validateExecutionPlan } from "./compile";
+import { compileDeclaration, planVersion, record, text, validateExecutionPlan } from "./compile";
 import type { ExecutionPlan, PlanDeclaration } from "./types";
 
 export interface PlanningRequest extends Omit<PlanDeclaration, "version" | "acceptance"> {
@@ -19,6 +19,7 @@ export function compilePlanningRequest(value: unknown): PlanningRequest {
     canonicalJson(value);
     const input = record(value, "planning request", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "budget", "design", "loop", "playbook", "approachAdoption"]);
     const intent = text(input.intent, "planning intent");
+    if (input.version === 4) throw new Error("A planning request cannot carry a local-only source yet: no frozen planning-request version names one. Nothing was planned.");
     const designRows = input.design === undefined ? undefined : record(input.design, "planning design", ["snapshotPath", "snapshotSha256", "reviews"]).reviews;
     if (input.design !== undefined && (!Array.isArray(designRows) || !designRows.length || designRows.length > 16)) throw new Error("Design planning needs bounded explicit visual review declarations");
     const criteria = designRows ? designRows.map((row: unknown, index: number) => ({ id: record(row, "planning design review", ["criterionId", "referenceIds", "captures"]).criterionId, title: "Design planning validation only, not approved acceptance", quote: intent, kind: "human", required: true, show: { id: `planning-show-${index}`, argv: ["true"], cwd: ".", timeout_seconds: 1 } })) : [{ id: "planning-input", title: "Planning input, not acceptance", quote: intent, kind: "check", required: false }];
@@ -39,7 +40,7 @@ export function validatePlanningRequest(value: unknown): PlanningRequest {
 }
 export function planningRequestFromPlan(template: ExecutionPlan, intent: string): PlanningRequest {
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, acceptance, ...data } = validateExecutionPlan(template);
-    return compilePlanningRequest({ version: schema_version === "wringer.execution-plan.v3" ? 3 : schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...data, intent });
+    return compilePlanningRequest({ version: planVersion(template), ...data, intent });
 }
 export function validatePlanningAuthority(value: unknown, request: PlanningRequest, at = new Date()): PlanningAuthority {
     canonicalJson(value);

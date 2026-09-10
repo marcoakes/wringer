@@ -1,7 +1,7 @@
 import { readFile, lstat } from "node:fs/promises";
 import { isIP } from "node:net";
 import { parseYaml, Redactor } from "@wringer/engine";
-import { parseRuntimePolicy, parseWritableDirectories } from "@wringer/runtime";
+import { LOCAL_SOURCE_URL, parseRuntimePolicy, parseWritableDirectories } from "@wringer/runtime";
 import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { parsePlanTypeScript } from "./dsl";
 import { validatePlaybookAdoption } from "./adoption";
@@ -145,7 +145,7 @@ function acceptance(value: unknown, intent: string, version: number): Acceptance
     if (!criteria.length)
         throw new Error("An execution plan needs an acceptance contract before workers can build");
     const checks = distinct(list(a.checks, "acceptance.checks", v => {
-        const c = record(v, "acceptance check", ["id", "argv", "cwd", "timeout_seconds", "criteria", "files", ...(version === 3 ? ["evidence"] : [])]);
+        const c = record(v, "acceptance check", ["id", "argv", "cwd", "timeout_seconds", "criteria", "files", ...(version >= 3 ? ["evidence"] : [])]);
         const refs = distinct(list(c.criteria, "check.criteria", id => identifier(id, "criterion id")), id => id, "check criteria").sort();
         if (!refs.length || refs.some(id => !criteria.some(r => r.id === id && r.kind === "check")))
             throw new Error("A check must reference known nonhuman criteria");
@@ -196,9 +196,9 @@ export interface PlanValidationOptions { credentialEnvironment?: NodeJS.ProcessE
 export function compileDeclaration(value: unknown, options: PlanValidationOptions = {}): ExecutionPlan {
     canonicalJson(value); // Reject executable/exotic input even through the programmatic API.
     const p = record(value, "plan", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "acceptance", "budget", "design", "loop", "playbook", "approachAdoption"]);
-    if (p.version !== 1 && p.version !== 2 && p.version !== 3)
-        throw new Error("Plan version must be 1, 2 or 3");
-    if (p.version !== 3 && (p.loop !== undefined || p.playbook !== undefined || p.approachAdoption !== undefined)) throw new Error("Loop policy and playbook selection require plan version 3");
+    if (p.version !== 1 && p.version !== 2 && p.version !== 3 && p.version !== 4)
+        throw new Error("Plan version must be 1, 2, 3 or 4");
+    if (p.version < 3 && (p.loop !== undefined || p.playbook !== undefined || p.approachAdoption !== undefined)) throw new Error("Loop policy and playbook selection require plan version 3");
     if (p.version === 1 && p.design !== undefined || p.version === 2 && p.design === undefined)
         throw new Error("Design inputs require a version 2 plan with an explicit design declaration");
     const intent = text(p.intent, "intent"), name = text(p.name, "name");
@@ -206,15 +206,22 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     const url = text(repository.url, "repository.url"), commit = text(repository.commit, "repository.commit");
     if (!/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(commit))
         throw new Error("repository.commit must be a full immutable Git object id");
-    let parsed: URL;
-    try {
-        parsed = new URL(url);
+    // Version 4 exists only to name a local-only source, and no other version can.
+    if (p.version === 4) {
+        if (!LOCAL_SOURCE_URL.test(url))
+            throw new Error("A version 4 plan names a local-only source: repository.url must be local:// followed by the 40-character root commit of its history. Hosted sources use plan version 1, 2 or 3.");
     }
-    catch {
-        throw new Error("repository.url must be an explicit HTTPS or SSH URL, never a host filesystem path");
+    else {
+        let parsed: URL;
+        try {
+            parsed = new URL(url);
+        }
+        catch {
+            throw new Error("repository.url must be an explicit HTTPS or SSH URL, never a host filesystem path");
+        }
+        if (!["https:", "ssh:"].includes(parsed.protocol) || parsed.password || (parsed.protocol === "https:" && parsed.username) || parsed.search || parsed.hash)
+            throw new Error("Repository clone URLs cannot embed credentials or use local/file transports");
     }
-    if (!["https:", "ssh:"].includes(parsed.protocol) || parsed.password || (parsed.protocol === "https:" && parsed.username) || parsed.search || parsed.hash)
-        throw new Error("Repository clone URLs cannot embed credentials or use local/file transports");
     const agents = record(p.agents, "agents", ["worker", "judge", "planner"]), env = record(p.environment, "environment", ["context", "tools", "setup", "baseline", "writable_directories"]);
     const scope = record(p.scope, "scope", ["writable"]), writable = paths(scope.writable, "scope.writable");
     if (!writable.length)
@@ -222,7 +229,7 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     const contract = acceptance(p.acceptance, intent, p.version);
     const writableDirectories = parseWritableDirectories(env.writable_directories ?? [], contract.protected_paths);
     const design = p.design !== undefined ? designDeclaration(p.design, contract, writableDirectories) : undefined;
-    const loop: LoopPolicy | undefined = p.version === 3 ? (() => { const value = p.loop === undefined ? { repeatCandidate: "stop", repeatedOutcomeWarning: 3 } : record(p.loop, "loop policy", ["repeatCandidate", "repeatedOutcomeWarning"]); if (value.repeatCandidate !== "stop") throw new Error("Exact repeated unsuccessful candidates must stop; loop policy cannot grant delivery"); return { repeatCandidate: "stop", repeatedOutcomeWarning: integer(value.repeatedOutcomeWarning, "loop.repeatedOutcomeWarning", 2, 64) }; })() : undefined;
+    const loop: LoopPolicy | undefined = p.version >= 3 ? (() => { const value = p.loop === undefined ? { repeatCandidate: "stop", repeatedOutcomeWarning: 3 } : record(p.loop, "loop policy", ["repeatCandidate", "repeatedOutcomeWarning"]); if (value.repeatCandidate !== "stop") throw new Error("Exact repeated unsuccessful candidates must stop; loop policy cannot grant delivery"); return { repeatCandidate: "stop", repeatedOutcomeWarning: integer(value.repeatedOutcomeWarning, "loop.repeatedOutcomeWarning", 2, 64) }; })() : undefined;
     const playbook: PlaybookSelection | undefined = p.playbook === undefined ? undefined : (() => {
         const value = record(p.playbook, "playbook selection", ["path", "sha256", "taskFamily", "adoption"]), path = repoPath(value.path);
         if (path === "." || path.length > 512 || !path.endsWith(".json") || !/^[a-f0-9]{64}$/.test(value.sha256 ?? "")) throw new Error("Playbook requires one bounded exact JSON source path and its SHA256");
@@ -239,7 +246,7 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
     if (playbook && paths(env.context, "environment.context").includes(playbook.path)) throw new Error("Worker playbooks use their dedicated role context, never shared planner/judge context");
     if (playbook && design?.snapshotPath === playbook.path) throw new Error("Design snapshot and worker playbook must be distinct source artifacts");
     const normalized: Omit<ExecutionPlan, "plan_sha256"> = {
-        schema_version: p.version === 3 ? "wringer.execution-plan.v3" : p.version === 2 ? "wringer.execution-plan.v2" : "wringer.execution-plan.v1", name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime),
+        schema_version: `wringer.execution-plan.v${p.version}` as ExecutionPlan["schema_version"], name, intent, intent_sha256: hashBytes(intent), repository: { url, commit }, runtime: runtime(p.runtime),
         agents: { worker: agent(agents.worker), judge: agent(agents.judge), ...(agents.planner === undefined ? {} : { planner: agent(agents.planner) }) },
         environment: { context: paths(env.context, "environment.context"), tools: distinct(list(env.tools, "environment.tools", v => { const t = record(v, "tool", ["name", "version", "probe"]); return { name: identifier(t.name, "tool.name"), version: text(t.version, "tool.version"), probe: argv(t.probe) }; }), t => t.name, "tools").sort((a, b) => a.name.localeCompare(b.name)), setup: distinct(list(env.setup, "environment.setup", command), c => c.id, "setup commands"), baseline: distinct(list(env.baseline, "environment.baseline", command), c => c.id, "baseline commands"), writable_directories: parseWritableDirectories(env.writable_directories ?? [], contract.protected_paths) },
         scope: { writable }, acceptance: contract, acceptance_sha256: hashValue(design ? { acceptance: contract, design } : contract), budget: readBudget(p.budget), ...(design ? { design } : {}), ...(loop ? { loop } : {}), ...(playbook ? { playbook } : {}), ...(approachAdoption ? { approachAdoption } : {}),
@@ -257,13 +264,19 @@ export function compileDeclaration(value: unknown, options: PlanValidationOption
         throw new Error("Plan contains a detected credential. Remove secret values and declare environment-variable names; no plan was retained");
     return freezeData({ ...normalized, plan_sha256: hashValue(normalized) });
 }
+const PLAN_VERSIONS: Record<ExecutionPlan["schema_version"], 1 | 2 | 3 | 4> = { "wringer.execution-plan.v1": 1, "wringer.execution-plan.v2": 2, "wringer.execution-plan.v3": 3, "wringer.execution-plan.v4": 4 };
+/** The declaration version a canonical plan recompiles from. Every site that
+ * re-derives a plan asks here, so a new version cannot be missed at one of them. */
+export function planVersion(plan: { readonly schema_version?: unknown }): 1 | 2 | 3 | 4 {
+    if (typeof plan.schema_version !== "string" || !Object.hasOwn(PLAN_VERSIONS, plan.schema_version))
+        throw new Error("Unsupported canonical execution-plan version");
+    return PLAN_VERSIONS[plan.schema_version as ExecutionPlan["schema_version"]];
+}
 export function validateExecutionPlan(value: unknown, options: PlanValidationOptions = {}): ExecutionPlan {
     canonicalJson(value);
     const p = record(value, "execution plan", ["schema_version", "name", "intent", "intent_sha256", "repository", "runtime", "agents", "environment", "scope", "acceptance", "acceptance_sha256", "budget", "plan_sha256", "design", "loop", "playbook", "approachAdoption"]);
-    if (p.schema_version !== "wringer.execution-plan.v1" && p.schema_version !== "wringer.execution-plan.v2" && p.schema_version !== "wringer.execution-plan.v3")
-        throw new Error("Unsupported canonical execution-plan version");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = p;
-    const plan = compileDeclaration({ version: schema_version === "wringer.execution-plan.v3" ? 3 : schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...declaration }, options);
+    const plan = compileDeclaration({ version: planVersion(p), ...declaration }, options);
     if (canonicalJson(plan) !== canonicalJson(p))
         throw new Error("Canonical plan content or digest changed; approve a new plan explicitly");
     return plan;
@@ -292,6 +305,10 @@ export const executionPlanDigest = (plan: ExecutionPlan) => validateExecutionPla
 export function validateExecutionAuthority(value: unknown, plan: ExecutionPlan, at = new Date(), options: PlanValidationOptions = {}): ExecutionAuthority {
     if (!(at instanceof Date) || !Number.isFinite(at.getTime()))
         throw new Error("Authority validation requires a finite observation time");
+    // execution-authority.v1 pins its repository to a hosted URL. Stop here,
+    // before any spend, rather than mint a record its own schema cannot read.
+    if (LOCAL_SOURCE_URL.test(plan.repository.url))
+        throw new Error("This profile names a local-only source, and execution approval cannot record one yet: the frozen authority record names hosted sources only. Nothing was approved or started. To approve work, prepare the profile against a hosted source with --source-url.");
     const credentialEnvironment = options.credentialEnvironment ?? process.env;
     const authorityWire = canonicalJson(value), secrets = (plan.runtime.env ?? []).map(name => credentialEnvironment[name]).filter((v): v is string => !!v);
     if (new Redactor(undefined, credentialEnvironment, secrets).scrub(authorityWire) !== authorityWire)

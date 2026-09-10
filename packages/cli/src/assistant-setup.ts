@@ -1,7 +1,7 @@
 import { constants } from "node:fs";
 import { link, lstat, open, realpath, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
+import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, planVersion, type ExecutionPlan } from "@wringer/plan";
 import { VERSION } from "@wringer/engine";
 import { assistantExists, assistantPath, readAssistantWorkspace } from "@wringer/application";
 import { readPinnedDesignSnapshot } from "@wringer/workflow";
@@ -217,7 +217,7 @@ export async function prepareAssistantProfile(options: { fromPlan: string; repo:
     const requiredFiles = [...new Set([...previous.environment.context, ...previous.acceptance.checks.flatMap(check => check.files), ...(previous.design ? [previous.design.snapshotPath] : [])])];
     if (requiredFiles.some(file => !files.has(file))) throw new Error("The selected profile references context or check files absent from this committed source. Choose a matching profile or revise its inert declarations; no check was invented or executed.");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = previous;
-    const plan = compileDeclaration({ version: previous.schema_version === "wringer.execution-plan.v3" ? 3 : previous.schema_version === "wringer.execution-plan.v2" ? 2 : 1, ...declaration, repository: { url: sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
+    const plan = compileDeclaration({ version: planVersion(previous), ...declaration, repository: { url: sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
     if (plan.design) {
         const objectStore = resolve(repo, (await gitMetadata(repo, ["rev-parse", "--git-common-dir"], options.signal)).trim());
         const snapshot = await readPinnedDesignSnapshot(plan, objectStore);
