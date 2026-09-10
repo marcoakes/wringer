@@ -1,4 +1,5 @@
-import { mkdir, readFile, writeFile, lstat, readdir, link } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile, lstat, readdir, link } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { processDriver } from "./driver";
@@ -9,9 +10,10 @@ const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 export interface PreparedRepositorySource extends RepositorySource {
     objectStore: string;
 }
+/** No checkout path is an option: a local repository travels only as the
+ * bundle createLocalSourceBundle makes, the same door prepare --local uses. */
 export interface SourceOptions {
     controllerDir: string;
-    localRepo?: string;
     driver?: RuntimeDriver;
 }
 const gitEnvironment = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_CONFIG_COUNT: "3", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: "/dev/null", GIT_CONFIG_KEY_1: "uploadpack.packObjectsHook", GIT_CONFIG_VALUE_1: "", GIT_CONFIG_KEY_2: "core.fsmonitor", GIT_CONFIG_VALUE_2: "false", GIT_AUTHOR_NAME: "Wringer source transport", GIT_AUTHOR_EMAIL: "wringer@localhost", GIT_COMMITTER_NAME: "Wringer source transport", GIT_COMMITTER_EMAIL: "wringer@localhost", GIT_AUTHOR_DATE: "2000-01-01T00:00:00Z", GIT_COMMITTER_DATE: "2000-01-01T00:00:00Z" };
@@ -20,9 +22,9 @@ async function storeDirectory(directory: string) { await mkdir(directory, { recu
     throw new RuntimeError("Controller source directory must not be a symlink"); }
 async function git(driver: RuntimeDriver, store: string, args: string[], input?: string) { const result = await driver.command([...gitArgs, "--git-dir", store, ...args], { env: gitEnvironment, timeoutMs: 60000, input }); if (result.code !== 0)
     throw new RuntimeError(`Source transport Git operation failed: ${runtimeRedactor()(result.stderr || result.stdout)}`, "source-transport-failed"); return result.stdout; }
-async function seed(source: RepositorySource, store: string, driver: RuntimeDriver, localRepo?: string) {
+async function seed(source: RepositorySource, store: string, driver: RuntimeDriver) {
     await git(driver, store, ["init", "--bare", store]);
-    const origin = source.bundlePath ?? localRepo ?? source.url;
+    const origin = source.bundlePath ?? source.url;
     if (source.bundlePath) {
         const file = await lstat(source.bundlePath);
         if (!file.isFile() || file.isSymbolicLink() || file.size > 64 * 1024 * 1024)
@@ -40,15 +42,60 @@ async function bundle(store: string, path: string, driver: RuntimeDriver, ref = 
     if (info.size > 64 * 1024 * 1024)
         throw new RuntimeError("Source Git bundle exceeds the 64 MiB transport ceiling", "source-size-limit");
 }
+export interface LocalSourceBundle {
+    url: string;
+    commit: string;
+    rootCommit: string;
+    bundleSha256: string;
+    bundleBytes: number;
+}
+/** The one product path from a local checkout to transportable source: the Git
+ * objects reachable from one exact commit, bundled once from scratch storage.
+ * No checkout, hook, filter, remote or host path becomes identity. prepare
+ * --local, both rehearsals and every fixture use this; there is no other door. */
+export async function createLocalSourceBundle(repo: string, commit: string, bundlePath: string, options: { driver?: RuntimeDriver } = {}): Promise<LocalSourceBundle> {
+    if (!/^[a-f0-9]{40}$/.test(commit)) throw new RuntimeError("A local-only source needs one exact 40-character commit");
+    if (!bundlePath.startsWith("/")) throw new RuntimeError("Git bundle transport path must be absolute");
+    if (await lstat(bundlePath).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return false; throw error; })) throw new RuntimeError("A local source bundle is written once; its path already exists");
+    const driver = options.driver ?? processDriver, scratch = await mkdtemp(join(tmpdir(), "wringer-local-source-"));
+    try {
+        const store = join(scratch, "objects.git");
+        await git(driver, store, ["init", "--bare", store]);
+        await git(driver, store, ["fetch", "--no-tags", "--", resolve(repo), `${commit}:refs/heads/base`]);
+        if ((await git(driver, store, ["rev-parse", "--verify", `${commit}^{commit}`])).trim() !== commit) throw new RuntimeError("Source transport resolved a different commit");
+        const roots = (await git(driver, store, ["rev-list", "--max-parents=0", commit])).split("\n").filter(Boolean);
+        if (roots.length !== 1) throw new RuntimeError(`This history has ${roots.length} root commits, and local identity needs one root; name the remote instead with --source-url. No bundle was written.`, "local-source-roots");
+        await bundle(store, bundlePath, driver);
+        const bytes = await readFile(bundlePath);
+        return { url: `local://${roots[0]}`, commit, rootCommit: roots[0]!, bundleSha256: createHash("sha256").update(bytes).digest("hex"), bundleBytes: bytes.length };
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+}
+/** What a prepared bundle holds, read into scratch object storage: its one head
+ * and that head's history roots. The bundle is untrusted; nothing is checked out. */
+export async function inspectLocalSourceBundle(bundlePath: string, options: { driver?: RuntimeDriver } = {}): Promise<{ head: string; roots: string[] }> {
+    const info = await lstat(bundlePath);
+    if (!info.isFile() || info.isSymbolicLink() || info.size > 64 * 1024 * 1024) throw new RuntimeError("Source Git bundle must be regular, non-symlink, and <=64 MiB");
+    const driver = options.driver ?? processDriver, scratch = await mkdtemp(join(tmpdir(), "wringer-local-source-"));
+    try {
+        const store = join(scratch, "objects.git");
+        await git(driver, store, ["init", "--bare", store]);
+        await git(driver, store, ["fetch", "--no-tags", "--", bundlePath, "refs/heads/base:refs/heads/base"]);
+        const head = (await git(driver, store, ["rev-parse", "--verify", "refs/heads/base^{commit}"])).trim();
+        return { head, roots: (await git(driver, store, ["rev-list", "--max-parents=0", head])).split("\n").filter(Boolean) };
+    } finally { await rm(scratch, { recursive: true, force: true }); }
+}
 /** Host work is limited to immutable Git objects and bundle transport; no checkout or agent. */
 export async function prepareRepositorySource(source: RepositorySource, options: SourceOptions): Promise<PreparedRepositorySource> {
-    validateRepository({ ...source, ...(options.localRepo ? { bundlePath: resolve(options.localRepo) } : {}) });
+    for (const key of Object.keys(options))
+        if (key !== "controllerDir" && key !== "driver")
+            throw new RuntimeError(`Source preparation has no ${key} option; a local checkout travels only as a bundle made by createLocalSourceBundle`, "source-option-refused");
+    validateRepository(source);
     const driver = options.driver ?? processDriver, root = resolve(options.controllerDir, "sources");
     await storeDirectory(root);
     const directory = join(root, `source-${randomUUID()}`);
     await storeDirectory(directory);
     const objectStore = join(directory, "objects.git"), bundlePath = join(directory, "source.bundle");
-    await seed(source, objectStore, driver, options.localRepo);
+    await seed(source, objectStore, driver);
     await bundle(objectStore, bundlePath, driver);
     return { url: source.url, commit: source.commit, bundlePath, objectStore };
 }

@@ -5,7 +5,7 @@
 import { chmod, copyFile, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compileDeclaration, discoverEnvironment, hashBytes, hashValue, type ExecutionPlan } from "../packages/plan/src";
-import { prepareRepositorySource, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../packages/runtime/src";
+import { createLocalSourceBundle, prepareRepositorySource, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../packages/runtime/src";
 import { initializeAssistant, issueAssistantCapability, createAssistantService, assistantControllerState } from "../packages/application/src/assistant";
 import { immutableControllerFile, startController } from "../packages/application/src/controller";
 import { readWorkspaceCommand, type WorkspaceCommand } from "../packages/application/src/commands";
@@ -153,7 +153,10 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const application = { executeRole, runCommands };
         const createService = () => createAssistantService(controller, { application, dependencies: { start: async (state, accepted, authority, options) => {
             await mkdir(state, { recursive: true });
-            const prepared = await prepareRepositorySource(accepted.repository, { controllerDir: state, localRepo: source });
+            // The product door prepare --local uses: bundle the committed source, then transport only that.
+            const sourceBundle = join(root, `source-${crypto.randomUUID()}.bundle`);
+            await createLocalSourceBundle(source, accepted.repository.commit, sourceBundle);
+            const prepared = await prepareRepositorySource({ ...accepted.repository, bundlePath: sourceBundle }, { controllerDir: state });
             await immutableControllerFile(join(state, "prepared-source.json"), prepared);
             // Declared fixture bypass: this does not claim measured environment discovery.
             await immutableControllerFile(join(state, "environment.json"), await discoverEnvironment(prepared.objectStore, accepted));

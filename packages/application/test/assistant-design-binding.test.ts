@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { deflateSync } from "node:zlib";
 import { compileDeclaration, compileExecutionPlan, hashValue, discoverEnvironment } from "@wringer/plan";
 import { importDesignFromFigmaRest, sealDesignSnapshot, writeDesignSnapshot, parseDesignSnapshot } from "@wringer/design";
-import { prepareRepositorySource, prepareRepositoryArtifactSource } from "@wringer/runtime";
+import { createLocalSourceBundle, prepareRepositorySource, prepareRepositoryArtifactSource } from "@wringer/runtime";
 import { initializeAssistant, createAssistantService, issueAssistantCapability, approveAssistantProposal } from "../src/assistant";
 import { assistantPath, writeAssistantRecord } from "../src/assistant-store";
 import { attachAssistantDesign, readAssistantDesignBinding } from "../src/assistant-design-binding";
@@ -50,7 +50,7 @@ async function fixture() {
     await writeDesignSnapshot(await assistantPath(controller, at("retained.json")), snapshot);
     const permission = () => writeAssistantRecord(controller, at("consent.json"), { schema_version: "wringer.assistant-design-consent.v1", importId, workspaceId: workspace.id, profileSha256: hashValue(profile), previewSha256: preview.snapshot_sha256, retainedSha256: snapshot.snapshot_sha256, actor: "Synthetic operator" });
     const input = { importId, expectedSnapshotSha256: snapshot.snapshot_sha256, confirmAttachment: true };
-    const attach = (override = input) => attachAssistantDesign(controller, workspace, override, undefined, { prepareSource: (source, artifact, options) => prepareRepositoryArtifactSource(source, artifact, { ...options, localRepo: repo }) });
+    const attach = (override = input) => attachAssistantDesign(controller, workspace, override, undefined, { prepareSource: async (source, artifact, options) => { const bundlePath = join(root, `hosted-${crypto.randomUUID()}.bundle`); await createLocalSourceBundle(repo, source.commit, bundlePath); return prepareRepositoryArtifactSource({ ...source, bundlePath }, artifact, options); } });
     return { root, repo, controller, commit, workspace, profile, snapshot, preview, input, permission, attach };
 }
 test("approved REST design attaches a single immutable data commit and survives a fresh bundle clone", async () => {

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { compileDeclaration, compileExecutionPlan, hashValue, hashBytes } from "@wringer/plan";
 import type { ExecutionPlan } from "@wringer/plan";
 import { createExperimentPlan, createExperimentGrant, validateExperimentGrant, registerExperiment, experimentSchedule, evaluateRecordedExperiment as compareRecordedExperiment, evaluateExperiment, readExperiment, promoteExperiment, rollbackPlaybook, readPlaybookAdoptions, collectExperiment, failurePatternReport, listExperiments, recordExperimentReview, createPlaybookProposalRequest, proposePlaybookImprovement } from "../src/experiments";
-import { prepareRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
+import { createLocalSourceBundle, prepareRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
 import { openReader } from "../../records/src/read";
 import type { ExperimentPlanInput, ExperimentTrial, ExperimentTrialSlot } from "../src/experiment-types";
 import { stamped, exclusiveJson, ZERO, readExperimentJson, atomicJson } from "../src/experiment-store";
@@ -193,7 +193,7 @@ describe("one bounded contained proposal artifact", () => {
             calls++; expect(r.role).toBe("worker"); expect(r.scope?.writable).toEqual([outputPath]); expect(r.scope?.protected).toContain("wringer/playbooks/baseline.json"); expect(r.prompt).toContain("SANITISED DEVELOPMENT"); expect(r.prompt).not.toContain("PRIVATE_HELDOUT_ANSWER");
             return { status: "completed", text: "One inactive artifact proposed.", stopReason: "end_turn", sessionId: "fixture-proposer", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: "fixture-proposal-runtime", role: "worker", kind: r.runtime.kind, image: r.runtime.image, repository: r.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-write", declared: r.runtime, observed: {}, limits: ["Scripted fixture, not live containment."] }, change: { baseCommit: r.repo.commit, patch, sha256: hashBytes(patch) } };
         };
-        const options = { fixtureExecutor: executor, fixtureSource: (plan: ExecutionPlan, state: string) => prepareRepositorySource(plan.repository, { controllerDir: state, localRepo: source }) };
+        const options = { fixtureExecutor: executor, fixtureSource: async (plan: ExecutionPlan, state: string) => { const bundlePath = join(await privateDir(), "source.bundle"); await createLocalSourceBundle(source, plan.repository.commit, bundlePath); return prepareRepositorySource({ ...plan.repository, bundlePath }, { controllerDir: state }); } };
         const result = await proposePlaybookImprovement(state, retained, options);
         if (result.status !== "proposed") throw new Error(String(result.reason));
         expect(result.status).toBe("proposed"); expect(result.evidenceKind).toBe("deterministic-fixture"); expect(result.adoption).toBe("not-granted"); expect(result.executionApproval).toBe("not-granted");

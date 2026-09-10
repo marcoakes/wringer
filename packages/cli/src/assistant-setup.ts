@@ -115,10 +115,6 @@ export async function inspectAssistantSetup(options: AssistantSetupOptions, depe
     } catch { add("profile", "needs-attention", "The profile or retained controller could not be read safely. Inspect the original file with the plan command, retain existing evidence and repair only the reported input. No parser details or file contents were echoed."); }
     let credentials: AssistantCredentialPresence[] = [];
     if (plan) {
-        if (isAbsolute(plan.repository.url)) {
-            const rel = relative(resolve(plan.repository.url), root);
-            if (!rel || rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel)) add("controller-location", "needs-attention", "The controller is inside the target source repository. Choose an operator-controlled directory outside that repository; worker files must not contain its authority or evidence.");
-        }
         const placeholders = plan.repository.commit === "0".repeat(40) || plan.repository.url.includes("/OWNER/REPOSITORY") || plan.runtime.image.includes("example.invalid/") || /@sha256:0{64}$/.test(plan.runtime.image) || plan.environment.tools.some(tool => tool.version === "REPLACE_WITH_MEASURED_VERSION");
         add("source-and-image", placeholders ? "needs-attention" : "unmeasured", placeholders ? "Compile-only example placeholders remain. Replace them with the actual repository commit, measured tool versions and inspected image digest before initialization; runtime/README.md describes the image route." : "Source commit and image digest are declared, not remotely checked. The actual clone, image identity and runtime policy must still pass their contained checks.");
         const binary = plan.runtime.binary ?? (plan.runtime.kind === "apple-container" ? "container" : "kubectl");

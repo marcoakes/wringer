@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { chromium } from "playwright";
 import { compileDeclaration, discoverEnvironment, createExecutionAuthority, hashValue, hashBytes, type ExecutionPlan } from "@wringer/plan";
 import { createDesignSnapshot, inspectPng } from "@wringer/design";
-import { prepareRepositorySource, processDriver, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
+import { createLocalSourceBundle, prepareRepositorySource, processDriver, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
 import { auditContained, deliverContained } from "@wringer/delivery";
 import { seal } from "../../delivery/src/io";
 import { readPinnedDesignSnapshot, assertContainedDisplayVisuals } from "@wringer/workflow";
@@ -35,7 +35,8 @@ test("visual review carries real PNGs, refuses substitutions, and audits from co
         const commit = (await git(["-C", repo, "rev-parse", "HEAD"])).trim();
         const plan: ExecutionPlan = compileDeclaration({ version: 2, name: "Visual evidence fixture", intent: "Return the expected value. Show the review card.", repository: { url: "https://fixture.invalid/visual.git", commit }, runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: [], tools: [], setup: [], baseline: [], writable_directories: ["outputs"] }, scope: { writable: ["src"] }, acceptance: { criteria: [{ id: "expected", title: "Expected value", quote: "Return the expected value.", kind: "check", required: true }, { id: "card", title: "Review card", quote: "Show the review card.", kind: "human", required: true, show: { id: "show", argv: ["fixture-browser"], cwd: ".", timeout_seconds: 10 } }], checks: [{ id: "expected", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["expected"], files: ["check.sh"] }], protected_paths: ["check.sh", "design.json"] }, design: { snapshotPath: "design.json", snapshotSha256: snapshot.snapshot_sha256, reviews: [{ criterionId: "card", referenceIds: ["reference"], captures: [{ id: "desktop", path: "outputs/desktop.png", mimeType: "image/png", width: 320, height: 200 }] }] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 20 } });
         const authority = createExecutionAuthority(plan, { actor: "SCRIPTED engineering choice", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() });
-        await mkdir(state); const prepared = await prepareRepositorySource(plan.repository, { controllerDir: state, localRepo: repo });
+        await mkdir(state); const sourceBundle = join(root, "source.bundle"); await createLocalSourceBundle(repo, commit, sourceBundle);
+        const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: state });
         await immutableControllerFile(join(state, "prepared-source.json"), prepared); await immutableControllerFile(join(state, "environment.json"), await discoverEnvironment(prepared.objectStore, plan));
         expect(await readPinnedDesignSnapshot(plan, prepared.objectStore)).toEqual(snapshot);
         await expect(readPinnedDesignSnapshot({ ...plan, design: { ...plan.design!, snapshotSha256: "f".repeat(64) } }, prepared.objectStore)).rejects.toThrow("digest");

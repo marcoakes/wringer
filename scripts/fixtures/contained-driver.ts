@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compileDeclaration, canonicalPlanJson, discoverEnvironment, hashBytes, hashValue, type ExecutionPlan } from "../../packages/plan/src";
-import { prepareRepositorySource, processDriver, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
+import { createLocalSourceBundle, prepareRepositorySource, processDriver, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
 import { startController, showControllerCandidate, immutableControllerFile } from "../../packages/application/src";
 
 const [action, directoryArgument] = process.argv.slice(2), directory = resolve(directoryArgument!), repo = join(directory, "source"), origin = join(directory, "origin.git"), state = join(directory, "state");
@@ -26,7 +26,9 @@ if (action === "prepare") {
     await writeFile(join(directory, "plan.yaml"), JSON.stringify(declaration, null, 2));
     await writeFile(join(directory, "plan.canonical.json"), canonicalPlanJson(plan));
     await mkdir(state);
-    const prepared = await prepareRepositorySource(plan.repository, { controllerDir: state, localRepo: repo });
+    const sourceBundle = join(directory, "source.bundle");
+    await createLocalSourceBundle(repo, commit, sourceBundle);
+    const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: state });
     await immutableControllerFile(join(state, "prepared-source.json"), prepared);
     // This is an explicitly synthetic pre-mapped fixture, not a discovery claim.
     await immutableControllerFile(join(state, "environment.json"), await discoverEnvironment(prepared.objectStore, plan));

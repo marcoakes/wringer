@@ -85,9 +85,13 @@ export function parseRuntimePolicy(value: unknown): RuntimePolicy {
 export function validateRepository(repo: RepositorySource) {
     if (!repo || typeof repo.url !== "string" || !/^[a-f0-9]{40,64}$/.test(repo.commit))
         throw new RuntimeError("Repository source must name an exact committed Git object");
-    if (repo.bundlePath) {
-        if (typeof repo.bundlePath !== "string" || !repo.bundlePath.startsWith("/"))
-            throw new RuntimeError("Git bundle transport path must be absolute");
+    if (repo.bundlePath !== undefined && (typeof repo.bundlePath !== "string" || !repo.bundlePath.startsWith("/")))
+        throw new RuntimeError("Git bundle transport path must be absolute");
+    // A transported bundle never excuses the source's name, and a local-only
+    // source exists only as its bundle: there is nothing to fetch it from.
+    if (LOCAL_SOURCE_URL.test(repo.url)) {
+        if (!repo.bundlePath)
+            throw new RuntimeError("This source is local-only (local://): it can only be read from its prepared bundle, and none was supplied. No fetch was attempted.", "local-source-bundle-missing");
         return;
     }
     let url: URL;
@@ -95,7 +99,7 @@ export function validateRepository(repo: RepositorySource) {
         url = new URL(repo.url);
     }
     catch {
-        throw new RuntimeError("Use an explicit HTTPS/SSH repository URL or a transported Git bundle");
+        throw new RuntimeError("Name the repository source by an HTTPS/SSH URL or local://<root commit>, even when its Git bundle is transported");
     }
     if (!["https:", "ssh:"].includes(url.protocol) || url.password || url.protocol === "https:" && url.username || url.search || url.hash)
         throw new RuntimeError("Repository URL must be HTTPS/SSH without embedded credentials, query or fragment");
