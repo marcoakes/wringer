@@ -2,11 +2,13 @@
  * journals, source commits, local publication and fresh-clone audit are real.
  * Role/check/display observations and every operator decision are SCRIPTED.
  * Never import this fixture into a production entrypoint or offer a fixture flag. */
-import { chmod, copyFile, mkdir, readFile, realpath, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, mkdir, readFile, readdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { compileDeclaration, discoverEnvironment, hashBytes, hashValue, type ExecutionPlan } from "../packages/plan/src";
-import { createLocalSourceBundle, prepareRepositorySource, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../packages/runtime/src";
+import { canonicalPlanJson, compileDeclaration, discoverEnvironment, hashBytes, hashValue, loadExecutionPlan, type ExecutionPlan } from "../packages/plan/src";
+import { createLocalSourceBundle, prepareRepositorySource, runtimeProvenanceVersion, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../packages/runtime/src";
 import { initializeAssistant, issueAssistantCapability, createAssistantService, assistantControllerState } from "../packages/application/src/assistant";
+import { localSourceSiblings } from "../packages/application/src/assistant-local-source";
+import { prepareAssistantProfile } from "../packages/cli/src/assistant-setup";
 import { immutableControllerFile, startController } from "../packages/application/src/controller";
 import { readWorkspaceCommand, type WorkspaceCommand } from "../packages/application/src/commands";
 import { readPmWorkspace } from "../packages/cli/src/workspace";
@@ -34,11 +36,11 @@ const baseLimits = [
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
 const htmlText = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
-export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, ".."), guided = false, design = false, figmaRest = false) {
+export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, ".."), guided = false, design = false, figmaRest = false, local = false) {
     design ||= figmaRest;
     guided ||= design;
     const sourceFixtureKind = figmaRest ? "figma-rest-injected-owned-reference" : design ? "owned-reference" : "no-design-reference";
-    const rehearsalTitle = figmaRest ? "Figma REST v2 engineering rehearsal — injected transport, not live Figma" : design ? "Owned Reports design engineering rehearsal" : "Assistant launch engineering rehearsal";
+    const rehearsalTitle = (figmaRest ? "Figma REST v2 engineering rehearsal — injected transport, not live Figma" : design ? "Owned Reports design engineering rehearsal" : "Assistant launch engineering rehearsal") + (local ? " — local-only source through prepare --local" : "");
     const limits = guided ? [...baseLimits.slice(0, -1), "Authenticated page reload and locking are exercised; OS kill, reboot and sleep recovery are not measured in this guided fixture.", ...(design ? ["Reports PNG reference and candidate captures are rendered by real Chromium from fixture-owned HTML. Role replies, check results, runtime provenance and human decisions remain SCRIPTED; no real Figma/MCP import, model or containment is measured."] : []), ...(figmaRest ? ["Figma REST request parsing and v2 snapshot creation run through an injected deterministic transport. API replies and download URLs are synthetic; OAuth, real Figma access and production network/DNS behavior are not measured."] : [])] : baseLimits;
     const began = Date.now(), startedAt = new Date(began).toISOString();
     const directory = join(repository, ".wringer", `assistant-launch-rehearsal-${crypto.randomUUID()}`);
@@ -58,6 +60,17 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     const sanitize = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll(root, "FIXTURE").replaceAll(repository, "WRINGER_CHECKOUT").replace(/#token=[a-f0-9]+/g, "#token=REDACTED"));
     const record = async (entry: unknown) => { transcript.push(sanitize(entry)); await writeFile(join(root, "transcript.json"), JSON.stringify({ fixture: true, rehearsalTitle, sourceFixtureKind, startedAt, limits, transcript }, null, 2) + "\n"); };
     const check = async (name: string, value: unknown) => { assert(value, name); checks.push(name); await record({ check: name, status: "passed" }); };
+    let keptBundleStarts = 0;
+    // --local proof: every record carried to the fresh clone names the local-only source, never a hosted one.
+    const checkLocalRecords = async (bundle: string) => {
+        const carried = async (name: string) => JSON.parse(await readFile(join(bundle, name), "utf8"));
+        const [carriedPlan, authority, environment] = await Promise.all(["plan.json", "authority.json", "environment.json"].map(carried));
+        const roles = await Promise.all((await readdir(join(bundle, "roles"))).filter(name => name.endsWith(".json")).map(name => carried(`roles/${name}`)));
+        await record({ localRecords: { plan: carriedPlan.schema_version, authority: authority.schema_version, environment: environment.schema_version, url: carriedPlan.repository.url, roleProvenance: roles.filter(row => row.result).map(row => row.result.provenance.schema_version) } });
+        await check("the fresh clone's plan, approval and environment records name the local-only source", carriedPlan.schema_version === "wringer.execution-plan.v4" && authority.schema_version === "wringer.execution-authority.v2" && environment.schema_version === "wringer.environment-map.v2" && [carriedPlan, authority, environment].every(row => /^local:\/\/[a-f0-9]{40}$/.test(row.repository.url) && row.repository.url === carriedPlan.repository.url));
+        await check("every carried role ran under local-only runtime provenance", roles.some(row => row.result) && roles.filter(row => row.result).every(row => row.result.provenance.schema_version === "wringer.runtime.v2" && row.result.provenance.repository.url === carriedPlan.repository.url));
+        await check("the local-only job started from the bundle its controller kept at init", keptBundleStarts === 1);
+    };
     async function command(label: string, argv: string[], cwd = root, expected = 0) {
         const result = await runProcess(argv, { cwd, env: environment, timeout: 40, maxBytes: 4 * 1024 * 1024 });
         await record({ label, command: argv, cwd, ...result });
@@ -115,12 +128,21 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await git(["-C", source, "add", "."]); await git(["-C", source, "commit", "-m", "Scripted launch rehearsal baseline"]); await git(["-C", source, "push", origin, "main"]);
         const baseCommit = (await git(["-C", source, "rev-parse", "HEAD"])).trim();
         const captures = [{ id: "desktop", path: "captures/desktop.png", mimeType: "image/png", width: 1280, height: 800 }, { id: "mobile", path: "captures/mobile.png", mimeType: "image/png", width: 390, height: 844 }];
-        const plan = compileDeclaration({ version: design ? 3 : 1, name: design ? "Reports design engineering rehearsal" : "Assistant launch engineering rehearsal", intent: design ? "Return the expected value. The display is readable. The Reports design follows the pinned reference at desktop and mobile sizes." : "Return the expected value. The display is readable.", repository: { url: "https://fixture.invalid/assistant-launch.git", commit: baseCommit }, runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 5 }], baseline: [], writable_directories: design ? ["captures"] : [] }, scope: { writable: ["src"] }, acceptance: { criteria: [{ id: "expected", title: "Expected value", quote: "Return the expected value.", kind: "check", required: true }, { id: "readable", title: design ? "PM review: reports and readiness are understandable" : "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "src/value.js"], cwd: ".", timeout_seconds: 5 } }, ...(design ? [{ id: "design-match", title: "Design review: reference and responsive layout", quote: "The Reports design follows the pinned reference at desktop and mobile sizes.", kind: "human", required: true, show: { id: "show-design", argv: ["cat", "src/reports.html"], cwd: ".", timeout_seconds: 5 } }] : [])], checks: [{ id: "expected", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["expected"], files: ["check.sh"], ...(design ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 600, session_timeout_seconds: 20 }, ...(design ? { playbook: { path: playbookPath, sha256: hashBytes(playbookContent), taskFamily: "reports" }, design: { snapshotPath: "design/reference.json", snapshotSha256: designSnapshot!.snapshot_sha256, reviews: ["design-match"].map(criterionId => ({ criterionId, referenceIds: designSnapshot!.assets.map(asset => asset.id), captures })) } } : {}) });
+        const selected = compileDeclaration({ version: design || local ? 3 : 1, name: design ? "Reports design engineering rehearsal" : "Assistant launch engineering rehearsal", intent: design ? "Return the expected value. The display is readable. The Reports design follows the pinned reference at desktop and mobile sizes." : "Return the expected value. The display is readable.", repository: { url: "https://fixture.invalid/assistant-launch.git", commit: baseCommit }, runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 5 }], baseline: [], writable_directories: design ? ["captures"] : [] }, scope: { writable: ["src"] }, acceptance: { criteria: [{ id: "expected", title: "Expected value", quote: "Return the expected value.", kind: "check", required: true }, { id: "readable", title: design ? "PM review: reports and readiness are understandable" : "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "src/value.js"], cwd: ".", timeout_seconds: 5 } }, ...(design ? [{ id: "design-match", title: "Design review: reference and responsive layout", quote: "The Reports design follows the pinned reference at desktop and mobile sizes.", kind: "human", required: true, show: { id: "show-design", argv: ["cat", "src/reports.html"], cwd: ".", timeout_seconds: 5 } }] : [])], checks: [{ id: "expected", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["expected"], files: ["check.sh"], ...(design ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 600, session_timeout_seconds: 20 }, ...(design ? { playbook: { path: playbookPath, sha256: hashBytes(playbookContent), taskFamily: "reports" }, design: { snapshotPath: "design/reference.json", snapshotSha256: designSnapshot!.snapshot_sha256, reviews: ["design-match"].map(criterionId => ({ criterionId, referenceIds: designSnapshot!.assets.map(asset => asset.id), captures })) } } : {}) });
+        // --local: the PM's own front door. prepare --local pins the committed checkout as local://<root> and
+        // writes its bundle and record beside the profile; init verifies them and keeps the bundle.
+        const profilePath = join(root, "profile.json");
+        if (local) {
+            await writeFile(join(root, "selected-profile.json"), canonicalPlanJson(selected));
+            await prepareAssistantProfile({ fromPlan: join(root, "selected-profile.json"), repo: source, local: true, image: selected.runtime.image, output: profilePath, root: controller, command: [process.execPath] });
+        }
+        const plan = local ? await loadExecutionPlan(profilePath) : selected;
+        if (local) await record({ localSource: { url: plan.repository.url, commit: plan.repository.commit, plan: plan.schema_version } });
         const destination = { remote: origin, sourceBranch: "wringer/assistant-launch-fixture", targetBranch: "main" };
-        const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true });
+        const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true, ...(local ? { localSource: localSourceSiblings(profilePath) } : {}) });
         const capability = await issueAssistantCapability(controller, new Date(Date.now() + 600000).toISOString());
         let workerTurns = 0, loseStartReply = !guided, failNextDisplay = false;
-        const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
+        const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: runtimeProvenanceVersion(requestSource.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
         const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
             const pinned = request.repo as PreparedRepositorySource;
             const tree = (await git(["--git-dir", pinned.objectStore, "rev-parse", `${pinned.commit}^{tree}`])).trim();
@@ -153,9 +175,11 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         const application = { executeRole, runCommands };
         const createService = () => createAssistantService(controller, { application, dependencies: { start: async (state, accepted, authority, options) => {
             await mkdir(state, { recursive: true });
-            // The product door prepare --local uses: bundle the committed source, then transport only that.
-            const sourceBundle = join(root, `source-${crypto.randomUUID()}.bundle`);
-            await createLocalSourceBundle(source, accepted.repository.commit, sourceBundle);
+            // A local-only job arrives with the bundle its controller kept at init; a hosted fixture bundles its commit here.
+            if (local && !options?.sourceBundle?.startsWith(join(controller, "local-source") + "/")) throw new Error("A local-only job started without the controller's kept bundle");
+            if (local) keptBundleStarts++;
+            const sourceBundle = options?.sourceBundle ?? join(root, `source-${crypto.randomUUID()}.bundle`);
+            if (!options?.sourceBundle) await createLocalSourceBundle(source, accepted.repository.commit, sourceBundle);
             const prepared = await prepareRepositorySource({ ...accepted.repository, bundlePath: sourceBundle }, { controllerDir: state });
             await immutableControllerFile(join(state, "prepared-source.json"), prepared);
             // Declared fixture bypass: this does not claim measured environment discovery.
@@ -193,6 +217,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
                 const retained = await readValidatedContainedState(state);
                 await check("v3 design fixture retains exact playbook and honest assertion observations", retained.plan.schema_version === "wringer.execution-plan.v3" && retained.playbook?.sha256 === hashBytes(playbookContent) && retained.state.verification?.checkEvidence?.every(row => row.status === "established") && retained.events.some(event => event.type === "loop-decision-recorded"));
             }
+            if (local) await checkLocalRecords(join(root, "guided-audit-parent", "reviewed-change", ".wringer/deliveries", result.deliveryId));
             await writeFile(join(root, "result.json"), JSON.stringify({ ...result, rehearsalTitle, sourceFixtureKind, implementation, checks, limits }, null, 2) + "\n");
             failed = false; return { directory: root, ...result, rehearsalTitle, sourceFixtureKind, checks, implementation, limits };
         }
@@ -286,6 +311,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await check("both usage lanes retain unknown bill values", assistant.usage.codingApp.cost === null && assistant.usage.development.cost === null && board.usage.costUsd === null && assistant.usage.development.measured.sessions.reserved === 4);
         const falsify = await command("literal breakage command truthfully unavailable without fixture runtime", ["/bin/sh", "-c", delivered.falsify.command], clone, 3);
         await check("unavailable live breakage measurement stays inconclusive", /inconclusive|unavailable/i.test(falsify.stdout));
+        if (local) await checkLocalRecords(bundle);
         await writeFile(join(root, "assistant.json"), JSON.stringify(sanitize(assistant), null, 2) + "\n"); await writeFile(join(root, "pm-workspace.json"), JSON.stringify(sanitize(board), null, 2) + "\n");
         await browser.finish(consoleServer.origin + "/");
         await check("real browser can lock its console and reload without decision authority", true);
@@ -305,4 +331,4 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await record({ finishedAt: new Date().toISOString(), failed, ownerStopped: true });
     }
 }
-if (import.meta.main) console.log(JSON.stringify(await runAssistantLaunchRehearsal(undefined, process.argv.includes("--guided"), process.argv.includes("--design"), process.argv.includes("--figma-rest")), null, 2));
+if (import.meta.main) console.log(JSON.stringify(await runAssistantLaunchRehearsal(undefined, process.argv.includes("--guided"), process.argv.includes("--design"), process.argv.includes("--figma-rest"), process.argv.includes("--local")), null, 2));

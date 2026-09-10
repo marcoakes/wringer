@@ -3,7 +3,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { compileDeclaration, canonicalPlanJson, discoverEnvironment, hashBytes, hashValue, type ExecutionPlan } from "../../packages/plan/src";
-import { createLocalSourceBundle, prepareRepositorySource, processDriver, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
+import { createLocalSourceBundle, prepareRepositorySource, processDriver, runtimeProvenanceVersion, type ContainedCommandRequest, type ContainedCommandResult, type PreparedRepositorySource, type RoleExecutionRequest, type RoleExecutionResult } from "../../packages/runtime/src";
 import { startController, showControllerCandidate, immutableControllerFile } from "../../packages/application/src";
 
 const [action, directoryArgument] = process.argv.slice(2), directory = resolve(directoryArgument!), repo = join(directory, "source"), origin = join(directory, "origin.git"), state = join(directory, "state");
@@ -38,7 +38,7 @@ if (action === "prepare") {
 } else {
     const plan: ExecutionPlan = await json(join(directory, "plan.canonical.json")), authority = await json(join(directory, "authority.json")), prepared: PreparedRepositorySource = await json(join(state, "prepared-source.json"));
     const originalInputs = await git(["--git-dir", prepared.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", plan.repository.commit, "--", "check.sh"]);
-    const provenance = (role: "worker" | "judge" | "verifier", source: any, runtime = plan.runtime) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: source.url, commit: source.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: ["Synthetic fixture receipt: no real container, provider, authentication or agent convergence measured"] });
+    const provenance = (role: "worker" | "judge" | "verifier", source: any, runtime = plan.runtime) => ({ schema_version: runtimeProvenanceVersion(source.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: source.url, commit: source.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: ["Synthetic fixture receipt: no real container, provider, authentication or agent convergence measured"] });
     const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
         const source = request.repo as PreparedRepositorySource;
         if (!source.objectStore) throw new Error("Fixture needs the controller's bare source object store");
