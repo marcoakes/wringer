@@ -13,7 +13,10 @@ test("explicit package test roots do not discover similarly named distribution c
     await writeFile(join(root, "packages/check/test/real.test.ts"), 'import { expect, test } from "bun:test"; test("actual package check", () => expect(true).toBe(true));\n');
     await writeFile(join(root, "dist/packages/check/test/copied.test.ts"), 'throw new Error("REFERENCE_COPY_MUST_NOT_EXECUTE");\n');
     const run = async (target: string) => {
-        const child = Bun.spawn([process.execPath, "test", target], { cwd: root, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
+        // Never inherit the runner's environment: an agent marker such as
+        // CLAUDECODE makes Bun omit passing test names, so the proof below would
+        // depend on who ran it rather than on what was discovered.
+        const child = Bun.spawn([process.execPath, "test", target], { cwd: root, env: { PATH: process.env.PATH ?? "" }, stdin: "ignore", stdout: "pipe", stderr: "pipe" });
         const timer = setTimeout(() => child.kill(), 5000);
         try {
             const [exitCode, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
