@@ -16,6 +16,7 @@ import { isLocalSource, keepLocalSource, LOCAL_SOURCE_MISSING, readAssistantLoca
 export const ASSISTANT_BOUNDARY = "cooperative-local" as const;
 export const ASSISTANT_WARNING = "Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.";
 const SCHEMA = "wringer.assistant-response.v1";
+const REVISION_ADVANCED = "The run advanced while it was read; read again before acting.";
 const allowedTools = new Set(["wringer.inspect_setup", "wringer.inspect_improvements", "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status", "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const mutationTools = new Set(["wringer.start", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover"]);
 const continuation = new Set(["resume", "retry-verification", "retry-judge", "retry-stopped"]);
@@ -238,7 +239,9 @@ export async function createAssistantService(root: string, options: { dependenci
         // candidate alone is not a sent branch or an open hosted request.
         const recordedPublication = view.query ? await deps.publication(state(jobId)) : null;
         const publication = recordedPublication && recordedPublication.codeCommit === view.query?.result.candidate?.source.commit ? recordedPublication : null;
-        if (view.query) insist((await deps.status(state(jobId))).revision === view.revision, "state-advanced", "The run advanced while its handover was read. Refresh the current state before acting.");
+        // An observation never refuses because work advanced while it was read; it
+        // says so and offers no action. Every act still refuses a stale request.
+        const revisionAdvanced = !!view.query && (await deps.status(state(jobId))).revision !== view.revision;
         const publicationStatus = publication ? publication.forge?.status ?? (publication.pushed ? "branch-pushed" : "prepared") : null;
         const handoverBlocked = workspacePublicationBlocksHandover(publication);
         const busy = operations.some(op => ["accepted", "running", "cancel-requested", "uncertain"].includes(op.status));
@@ -246,7 +249,8 @@ export async function createAssistantService(root: string, options: { dependenci
         const outOfDate = !!view.approval && Date.parse(view.approval.authority.expires_at) <= Date.now();
         const effectiveStatus = cancelled ? "cancelled" : operations.some(op => op.status === "uncertain") ? "uncertain" : busy ? "running" : publicationStatus && publicationStatus !== "prepared" ? publicationStatus : view.query?.status ?? (view.started ? "setup-stopped" : view.approval ? outOfDate ? "approval-out-of-date" : "approved" : p.questions.length ? "needs-decision" : "awaiting-approval");
         const actions = view.query?.actions.filter(a => continuation.has(a.id) || a.id === "request-revision" || a.id === "deliver").map(a => ({ action: a.id === "deliver" ? "prepare_handover" : a.id, enabled: a.enabled && !busy && !cancelled && !outOfDate && (a.id !== "deliver" || !!view.approval?.destination && !handoverBlocked), reason: cancelled ? "Cancellation is recorded; future work is stopped." : busy ? "Observe the accepted operation; do not submit overlapping work." : outOfDate ? "Approval is out of date." : a.id === "deliver" && handoverBlocked ? "This handover was sent or its publication is uncertain. Inspect the existing record; do not prepare or send it again." : a.id === "deliver" && !view.approval?.destination ? "The operator has not selected a handover destination." : a.reason })) ?? [{ action: "start", enabled: !!view.approval && !view.started && !busy && !cancelled && !outOfDate, reason: view.approval ? "Only this exact approved job may start; its ceilings cannot reset." : "The operator must approve the exact proposal first." }];
-        const nextAction = cancelled ? "Work is cancelled. Inspect retained evidence."
+        const nextAction = revisionAdvanced ? REVISION_ADVANCED
+            : cancelled ? "Work is cancelled. Inspect retained evidence."
             : busy ? "Work is running or uncertain. Inspect its recorded operation; do not restart it."
             : publicationStatus === "uncertain" ? "The handover outcome is uncertain. Inspect the existing publication record; do not send it again."
             : publicationStatus === "blocked" ? "Handover is blocked. Inspect the recorded reason before any separate recovery."
@@ -259,7 +263,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 : view.started ? "Inspect the stopped setup. Do not replay an uncertain start." : "Start the approved work.");
         const status = safeCopy({
             schema_version: SCHEMA, jobId, workspaceId: workspace.id,
-            revision: view.revision, candidateTree: view.candidateTree,
+            revision: view.revision, candidateTree: view.candidateTree, revisionAdvanced,
             outcome: effectiveStatus, stage: view.query?.stage ?? "intake",
             uncertainty: publicationStatus === "uncertain" || operations.some(op => op.status === "uncertain") || !!view.query?.effects.some(e => ["reserved", "uncertain"].includes(e.transport)),
             nextAction, questions: p.questions, assumptions: p.assumptions,
@@ -269,7 +273,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 tree: view.query.result.candidate.tree, changedPaths: view.query.result.candidate.changedPaths,
             } : null,
             stop: view.query?.stop ? { reason: view.query.stop.reason, message: view.query.stop.message } : null,
-            actions,
+            actions: revisionAdvanced ? actions.map(a => ({ ...a, enabled: false, reason: REVISION_ADVANCED })) : actions,
             operations: operations.map(op => ({
                 operationId: op.id, status: op.status, message: op.error ?? null,
                 reconciliation: op.reconciliation ?? null,
@@ -395,7 +399,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 const ids = await assistantInventory(root, "jobs");
                 insist(ids.length <= 200, "inventory-limit", "Too many retained jobs for one compact response; request a known job handle");
                 const jobs = await Promise.all(ids.map(id => status(assistantId(id))));
-                return { schema_version: SCHEMA, outcome: "observed", workspaceId: workspace.id, jobs: jobs.map(v => ({ jobId: v.jobId, revision: v.revision, candidateTree: v.candidateTree, outcome: v.outcome, nextAction: v.nextAction, operations: v.operations })) };
+                return { schema_version: SCHEMA, outcome: "observed", workspaceId: workspace.id, jobs: jobs.map(v => ({ jobId: v.jobId, revision: v.revision, candidateTree: v.candidateTree, revisionAdvanced: v.revisionAdvanced, outcome: v.outcome, nextAction: v.nextAction, operations: v.operations })) };
             }
             const jobId = assistantId(args.jobId), p = await proposal(root, jobId, workspace);
             if (name === "wringer.get_status") return await presentedStatus(jobId);
@@ -442,9 +446,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 if (!await lifecycleMarker(root, p, "cancelled")) await writeAssistantRecord(root, jobFile(jobId, "cancelled"), saved);
                 await runner.cancel(jobId);
                 // A correction may observe cancellation and advance its journal
-                // immediately. A new status audit could then fail its snapshot
-                // guard and falsely report refusal after both durable markers
-                // were installed. Acknowledge this effect, not a moving view.
+                // immediately. Acknowledge this durable effect, not a moving view.
                 return { schema_version: SCHEMA, workspaceId: workspace.id, jobId, outcome: "cancelled", cancellationRequested: true, activeEffects: "unknown", nextAction: "Cancellation is recorded. Inspect retained progress to observe active work; do not restart it.", note: "Future dispatch stopped; active work receives cancellation. Already accepted remote requests may still have run and incurred charges. This acknowledgement does not prove remote execution has stopped or refund unknown charges.", boundary: ASSISTANT_BOUNDARY };
             }
             insist(!await lifecycleMarker(root, p, "cancelled"), "cancelled", "This job is cancelled. Its evidence and reservations remain.");

@@ -90,7 +90,7 @@ describe("assistant application narrow authority and inert intake", () => {
         expect(f.counters.publications).toBe(baseline + 2); expect(later.status.revision).toBe(f.query.revision); expect(later.query!.revision).toBe(f.query.revision);
         expect(f.counters.starts).toBe(0); expect(f.counters.commands).toBe(0);
     });
-    test("overlapping PM inspections reject an invalidated query and later reads recompute after refusal", async () => {
+    test("overlapping PM inspections report an invalidated query as advanced and later reads recompute", async () => {
         const f = await fixture(), proposed = await f.propose();
         const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
         await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
@@ -102,13 +102,16 @@ describe("assistant application narrow authority and inert intake", () => {
             await until(async () => f.counters.publications, count => count === 1);
             f.query.revision = "e".repeat(64);
         } finally { release(); }
-        const outcomes = await Promise.allSettled([status, inspection]);
-        expect(outcomes.map(result => result.status)).toEqual(["rejected", "rejected"]);
-        for (const result of outcomes) if (result.status === "rejected") expect(result.reason.code).toBe("state-advanced");
+        // The observation reports the advance instead of refusing; acting on it is refused at the act.
+        const [visible, inspected] = await Promise.all([status, inspection]);
+        for (const view of [visible, inspected.status]) {
+            expect(view.revisionAdvanced).toBe(true); expect(view.revision).toBe("b".repeat(64));
+            expect(view.actions.length).toBeGreaterThan(0); expect(view.actions.every((a: any) => !a.enabled)).toBe(true);
+        }
         expect(f.counters.publications).toBe(1);
         f.publicationState.beforeRead = undefined;
         const current = await f.service.inspectForPm(proposed.jobId);
-        expect(current.query!.revision).toBe(f.query.revision); expect(current.status.revision).toBe(f.query.revision); expect(f.counters.publications).toBe(2);
+        expect(current.query!.revision).toBe(f.query.revision); expect(current.status.revision).toBe(f.query.revision); expect(current.status.revisionAdvanced).toBe(false); expect(f.counters.publications).toBe(2);
         // A newly invalid publication cannot be concealed by a completed cache.
         f.publicationState.beforeRead = async () => { throw new Error("Altered retained publication"); };
         await expect(f.service.inspectForPm(proposed.jobId)).rejects.toThrow("Altered retained publication");

@@ -7,6 +7,7 @@ import { runContainedJourney, readValidatedContainedState, type CandidateVerific
 import type { RoleExecutionResult } from "@wringer/runtime";
 import { initializeAssistant, issueAssistantCapability, createAssistantService, approveAssistantProposal, assistantControllerState } from "../../application/src/assistant";
 import { hasActiveWorkspaceCommand } from "../../application/src/commands";
+import { controllerStatus } from "../../application/src/controller";
 import { createAssistantJobFlow } from "../src/assistant-job";
 
 const roots: string[] = [], flows: ReturnType<typeof createAssistantJobFlow>[] = [], services: Awaited<ReturnType<typeof createAssistantService>>[] = [];
@@ -24,7 +25,10 @@ async function fixture(waitForCancellation = false) {
     raw.acceptance.criteria.push({ id: "readable", title: "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable", argv: ["true"], cwd: ".", timeout_seconds: 5 } });
     const plan = compileDeclaration({ version: 1, ...raw }), { workspace } = await initializeAssistant(root, { plan, cooperativeLocal: true });
     const capability = await issueAssistantCapability(root, new Date(Date.now() + 60000).toISOString());
-    const service = await createAssistantService(root); services.push(service);
+    // Construction-time seam over the real validated query. An armed read sees
+    // the journal move under it once, so the two reads of one observation disagree.
+    let advanceNextRead = false;
+    const service = await createAssistantService(root, { dependencies: { status: async controller => { const view = await controllerStatus(controller); if (!advanceNextRead) return view; advanceNextRead = false; return { ...view, revision: `${view.revision}-advanced` }; } } }); services.push(service);
     const proposed = await service.call(capability.token, "wringer.propose", { workspaceId: workspace.id, idempotencyKey: crypto.randomUUID(), intent: plan.intent, plan }), jobId = proposed.jobId as string;
     const approved = await approveAssistantProposal(root, { jobId, expectedRevision: hashValue(await service.inspectProposal(jobId)), actor: "SCRIPTED correction fixture", expiresAt: new Date(Date.now() + 60000).toISOString(), confirmExecution: true });
     const state = assistantControllerState(root, jobId); await mkdir(state, { recursive: true });
@@ -43,7 +47,7 @@ async function fixture(waitForCancellation = false) {
         executeRole: async request => { correctionCalls++; correctionSignal = request.signal; if (waitForCancellation) await new Promise<void>(resolve => { if (request.signal?.aborted) resolve(); else request.signal?.addEventListener("abort", () => resolve(), { once: true }); }); throw new Error("Synthetic correction transport failed; no actual model ran"); },
     }); flows.push(flow); await flow.tick();
     const current = await until(() => flow.read(jobId), view => view.phase === "review");
-    return { root, service, capability, state, jobId, flow, current, correctionCalls: () => correctionCalls, correctionSignal: () => correctionSignal };
+    return { root, service, capability, state, jobId, flow, current, correctionCalls: () => correctionCalls, correctionSignal: () => correctionSignal, advanceNextRead: () => { advanceNextRead = true; } };
 }
 test("one correction request retains the source-bound No and exact words; failed correction is never silently replayed", async () => {
     const f = await fixture(), note = "  My original request: make the result easier to read.\nKeep these exact words.  ";
@@ -70,3 +74,35 @@ for (const cancellation of ["owner-stop", "assistant-cancel"]) test(`${cancellat
         expect(f.correctionCalls()).toBe(1);
     } finally { f.flow.stop(); await pending.catch(() => {}); }
 }, 15000);
+const ADVANCED = "The run advanced while it was read; read again before acting.";
+test("a status read that sees the run advance reports it, never refuses and offers no action", async () => {
+    // The page owner's periodic tick also reads status; stop it so the armed read is ours.
+    const f = await fixture(); f.flow.stop();
+    const fresh = await f.service.status(f.jobId);
+    expect(fresh.actions.some((a: any) => a.enabled)).toBe(true);
+    const reads: [string, () => Promise<any>][] = [["status", () => f.service.status(f.jobId)], ["PM page", async () => (await f.service.inspectForPm(f.jobId)).status], ["wringer.get_status", () => f.service.call(f.capability.token, "wringer.get_status", { jobId: f.jobId })]];
+    for (const [name, read] of reads) {
+        f.advanceNextRead();
+        const view = await read();
+        expect(view, name).toMatchObject({ revisionAdvanced: true, outcome: fresh.outcome, nextAction: ADVANCED });
+        expect(view.actions, name).toHaveLength(fresh.actions.length);
+        for (const action of view.actions) expect(action, name).toMatchObject({ enabled: false, reason: ADVANCED });
+    }
+    f.advanceNextRead();
+    const inventory = await f.service.call(f.capability.token, "wringer.get_status", {}) as any;
+    expect(inventory.jobs).toHaveLength(1); expect(inventory.jobs[0]).toMatchObject({ jobId: f.jobId, revisionAdvanced: true, nextAction: ADVANCED });
+    expect(await f.service.status(f.jobId)).toMatchObject({ revisionAdvanced: false, nextAction: fresh.nextAction });
+});
+test("every act refuses the revision an advancing read reported; nothing is recorded or dispatched", async () => {
+    const f = await fixture(); f.flow.stop();
+    f.advanceNextRead();
+    const observed = await f.service.status(f.jobId);
+    expect(observed.revisionAdvanced).toBe(true);
+    const guard = { jobId: f.jobId, expectedRevision: observed.revision, expectedCandidateTree: observed.candidateTree };
+    for (const [name, extra] of [["wringer.cancel", {}], ["wringer.request_revision", { note: "SCRIPTED correction on a stale read" }]] as const)
+        expect(await f.service.call(f.capability.token, name, { ...guard, idempotencyKey: crypto.randomUUID(), ...extra }), name).toMatchObject({ outcome: "refused", code: "stale-request" });
+    expect(await f.service.runner.list(f.jobId)).toEqual([]);
+    await f.service.assertJobActive(f.jobId);
+    expect(await f.service.status(f.jobId)).toMatchObject({ revisionAdvanced: false, outcome: observed.outcome });
+    expect(f.correctionCalls()).toBe(0);
+});
