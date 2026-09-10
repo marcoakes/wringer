@@ -160,5 +160,5 @@ test("handover clone instructions quote the recorded branch and remote and name 
     const flow = createAssistantJobFlow(service); flows.push(flow);
     const job = await flow.read(jobId);
     expect(job.phase).toBe("sent");
-    expect(job.publication?.cloneCommand).toBe("git clone --branch 'review/person'\\''s-result' -- '/tmp/fixture'\\''s origin.git' 'reviewed-change'");
+    expect(job.publication?.cloneCommand).toBe("git clone --no-local --branch 'review/person'\\''s-result' -- '/tmp/fixture'\\''s origin.git' 'reviewed-change'");
 });

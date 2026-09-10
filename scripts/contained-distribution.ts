@@ -44,7 +44,7 @@ if (!delivered.pushed || delivered.codeCommit !== ready.candidate.source.commit 
 const main = (await execute("unchanged-default-branch", ["git", "--git-dir", prepared.origin, "rev-parse", "main"])).stdout.trim();
 if (main !== prepared.baseCommit) throw new Error("Fixture delivery changed the default branch");
 const clone = join(directory, "fresh-clone");
-await execute("fresh-review-branch-clone", ["git", "clone", "--branch", "wringer/distribution-fixture", prepared.origin, clone]);
+await execute("fresh-review-branch-clone", ["git", "clone", "--no-local", "--branch", "wringer/distribution-fixture", prepared.origin, clone]);
 await execute("literal-delivery-audit-command", ["/bin/sh", "-c", delivered.auditCommand], { cwd: clone });
 const bundle = join(clone, ".wringer/deliveries", delivered.deliveryId), documents = (await Promise.all(["mr.md", "summary.md", "certificate.json", "board.html"].map(name => readFile(join(bundle, name), "utf8")))).join("\n");
 if (!documents.includes(note) || documents.includes("PRIVATE_FIXTURE") || documents.includes(state)) throw new Error("Portable delivery lost the review note or leaked private/controller-only content");

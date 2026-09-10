@@ -28,6 +28,9 @@ package version and are listed per release.
   is marked unexercised until a tag is dispatched.
 - The design blind-test page records that the assistant lane runs no planner
   turn; planning lives in `wringer-drive`'s intake.
+- The reviewer's printed clone command, and every clone the product or its
+  fixtures run from a local path, use `git clone --no-local`: git streams a pack
+  instead of copying loose objects that a detached `gc` may remove mid-copy.
 - **Not claimed:** a live PM pass, real containment, model convergence, or that
   an observation never reports an older head than the journal holds.
 

@@ -30,7 +30,7 @@ export async function getRepository(url: string, directory: string, options: {
             throw e;
     }
     await mkdir(dirname(directory), { recursive: true });
-    const clone = await runProcess(["git", "clone", "--", url, directory], { cwd: dirname(directory), timeout: 120, signal: options.signal, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
+    const clone = await runProcess(["git", "clone", "--no-local", "--", url, directory], { cwd: dirname(directory), timeout: 120, signal: options.signal, env: { ...process.env, GIT_TERMINAL_PROMPT: "0" } });
     if (clone.exit_code !== 0 || clone.timed_out || clone.interrupted)
         throw new Error(`Clone ${clone.interrupted ? "interrupted" : "failed"}; partial files, if any, remain at ${directory}: ${clone.stderr}`);
     const head = await runProcess(["git", "rev-parse", "HEAD"], { cwd: directory }), branch = await runProcess(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], { cwd: directory });

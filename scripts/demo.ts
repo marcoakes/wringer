@@ -47,7 +47,7 @@ try {
     await command("wring", ["verify"]);
     await command("wring", ["deliver"]);
     const delivered = await command("wring", ["deliver", "--send"]);
-    await git(directory, ["clone", "--branch", delivered.branch, origin, clone]);
+    await git(directory, ["clone", "--no-local", "--branch", delivered.branch, origin, clone]);
     const mr = await readFile(join(delivered.directory, "mr.md"), "utf8");
     for (const printed of [delivered.audit_command, delivered.falsify_command]) {
         if (!mr.includes(printed))

@@ -84,7 +84,7 @@ export async function measureExperimentHandover(options: MeasureExperimentHandov
                 for (const [key, value] of [["user.name", "Wringer private experiment"], ["user.email", "experiment@localhost"], ["commit.gpgsign", "false"], ["wringer.researchOnly", experiment.sha256]]) await privateGit(["--git-dir", origin, "config", "--local", key!, value!], options.signal);
                 const delivery = await deliverContained({ stateDir: state, publication: { remote: await realpath(origin), sourceBranch: branch, targetBranch: "main" }, send: true, signal: options.signal, expectedRevision: base.journeyRevision!, expectedCandidateTree: base.candidateTree! });
                 if (!delivery.pushed || delivery.forge || delivery.status !== "delivered" || delivery.codeCommit !== base.candidateCommit || delivery.sourceBranch !== branch || delivery.targetBranch !== "main") throw new Error("Private handover did not establish its exact nonproduction review branch");
-                await privateGit(["clone", "--no-hardlinks", "--single-branch", "--branch", branch, origin, fresh], options.signal);
+                await privateGit(["clone", "--no-local", "--single-branch", "--branch", branch, origin, fresh], options.signal);
                 const headCommit = await privateGit(["-C", fresh, "rev-parse", "HEAD"], options.signal);
                 const audit = await auditContained(join(fresh, ".wringer/deliveries", delivery.deliveryId));
                 options.signal?.throwIfAborted();

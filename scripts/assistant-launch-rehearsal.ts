@@ -291,7 +291,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await browser.page.locator("#publication-consent").check();
         const delivered = await operator("publish");
         await check("separate scripted send publishes only the review branch", delivered.pushed === true && (await git(["--git-dir", origin, "rev-parse", "main"])).trim() === baseCommit);
-        const clone = join(root, "fresh-clone"); await git(["clone", "--branch", destination.sourceBranch, origin, clone]);
+        const clone = join(root, "fresh-clone"); await git(["clone", "--no-local", "--branch", destination.sourceBranch, origin, clone]);
         const audit = await command("literal carried audit command from fresh clone root", ["/bin/sh", "-c", delivered.auditCommand], clone);
         const bundle = join(clone, ".wringer/deliveries", delivered.deliveryId), view = await readContainedDeliveryProjection(bundle), certificate = JSON.parse(await readFile(join(bundle, "certificate.json"), "utf8"));
         const assistant = await status(), board = await readPmWorkspace(state), documents = await Promise.all(["mr.md", "summary.md", "board.html"].map(name => readFile(join(bundle, name), "utf8")));
