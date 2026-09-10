@@ -13,7 +13,8 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    # macOS measured 1302–1358 s before alpha.12's two local rehearsal stages (~250 s more); 40 keeps headroom.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:

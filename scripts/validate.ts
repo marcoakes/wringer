@@ -59,7 +59,8 @@ for (const [name, command, cwd] of stages) {
         continue;
     console.log(`Checking ${name}…`);
     const stageEnvironment = name === "portable-python-corpus" ? { ...environment, WRINGER_TEST_CORPUS: join(workspace, "packages/records/test/corpus.json") } : environment;
-    const result = await runProcess(command, { cwd, env: stageEnvironment, timeout: name === "assistant-launch-rehearsal" ? 300 : 600, maxBytes: 8 * 1024 * 1024, redactor: new Redactor() });
+    // native-check measured 580–600 s on macOS runners by alpha.12; its bound is a hang guard, so it keeps twice that.
+    const result = await runProcess(command, { cwd, env: stageEnvironment, timeout: name === "assistant-launch-rehearsal" ? 300 : name === "native-check" ? 1200 : 600, maxBytes: 8 * 1024 * 1024, redactor: new Redactor() });
     await writeFile(join(directory, `${name}.stdout.log`), result.stdout);
     await writeFile(join(directory, `${name}.stderr.log`), result.stderr);
     results.push({ name, exit_code: result.exit_code, timed_out: result.timed_out, duration_ms: result.duration_ms });
