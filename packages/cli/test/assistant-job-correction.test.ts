@@ -68,7 +68,20 @@ for (const cancellation of ["owner-stop", "assistant-cancel"]) test(`${cancellat
     try {
         await until(async () => f.correctionSignal(), signal => !!signal);
         if (cancellation === "owner-stop") f.flow.stop();
-        else { const current = await f.service.status(f.jobId); const result = await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree }); expect(result).toMatchObject({ outcome: "cancelled" }); await f.flow.tick(); }
+        else {
+            const seenAt = Date.now(), abortedWhenSeen = f.correctionSignal()!.aborted;
+            const current = await f.service.status(f.jobId), readMs = Date.now() - seenAt;
+            const result = await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree });
+            // CI-only race capture: a refused cancel prints what the journal did around its read.
+            // It explains the failure; it never retries or passes it.
+            let race = "";
+            if (result.outcome !== "cancelled") {
+                const events = (await readValidatedContainedState(f.state, { allowStaleView: true })).events, read = events.findIndex(e => e.sha256 === current.revision) + 1, from = Math.max(0, read - 2);
+                race = JSON.stringify({ code: result.code, abortedWhenSeen, revisionAdvanced: current.revisionAdvanced, outcome: current.outcome, readAtSequence: read, readMs, tail: events.slice(from).map((e, i) => `${from + i + 1}:${e.type}@${Date.parse(e.at) - seenAt}ms`) });
+            }
+            expect(result, race).toMatchObject({ outcome: "cancelled" });
+            await f.flow.tick();
+        }
         await until(async () => f.correctionSignal()?.aborted, aborted => aborted === true);
         await pending; await until(() => hasActiveWorkspaceCommand(f.state), active => !active);
         expect(f.correctionCalls()).toBe(1);
