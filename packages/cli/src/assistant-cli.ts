@@ -7,7 +7,7 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadExecutionPlan } from "@wringer/plan";
 import { VERSION, Redactor } from "@wringer/engine";
-import { ASSISTANT_WARNING, createAssistantService, readAssistantWorkspace, initializeAssistant, issueAssistantCapability, revokeAssistantCapabilities, recoverAssistantRunner, assistantPath, assistantExists, writeAssistantRecord, readAssistantRecord } from "@wringer/application";
+import { ASSISTANT_WARNING, createAssistantService, readAssistantWorkspace, initializeAssistant, issueAssistantCapability, revokeAssistantCapabilities, recoverAssistantRunner, assistantPath, assistantExists, writeAssistantRecord, readAssistantRecord, isLocalSource, localSourceSiblings } from "@wringer/application";
 import { ASSISTANT_TOOL_NAMES, runMcpStdio, parseMcpJson } from "@wringer/mcp";
 import { parseArgs, flag, required, string, positionals, quote, type Args } from "./args";
 import type { Answer } from "./app";
@@ -26,7 +26,7 @@ ${ASSISTANT_WARNING}
 
 Operator setup:
   setup --root ABS_DIRECTORY [--plan ABS_PLAN] [--cooperative-local] [--check-keychain]
-  prepare --from-plan ABS_PLAN --repo ABS_REPO --image DIGEST_REF --output ABS_JSON --root ABS_DIRECTORY [--source-url HTTPS_OR_SSH_URL]
+  prepare --from-plan ABS_PLAN --repo ABS_REPO --image DIGEST_REF --output ABS_JSON --root ABS_DIRECTORY [--source-url HTTPS_OR_SSH_URL | --local]
   init --root ABS_DIRECTORY --plan ABS_PLAN --cooperative-local [--destination ABS_JSON]
   start --root ABS_DIRECTORY --cooperative-local
   serve --root ABS_DIRECTORY --cooperative-local
@@ -51,6 +51,9 @@ setup is a read-only inspection, not a ready-to-spend verdict. --check-keychain
 checks entry metadata only, never password values. Existing keys are preserved.
 prepare pins a matching existing profile to measured clean Git HEAD and an
 explicit image digest; it never invents checks or approves execution.
+--local names a repository with no remote by its history's root commit and
+writes its Git bundle beside the profile; setup and init verify it, and init
+keeps it. Approval cannot yet record a local-only source.
 The operator console records execution approval. Human review and sending need
 their own source-bound decisions. The assistant cannot grant either authority.
 
@@ -70,7 +73,7 @@ Codex connection reference: https://learn.chatgpt.com/docs/extend/mcp?surface=cl
 `;
 
 function parse(argv: string[]): Args {
-    const local = new Set(["cooperative-local", "operator", "renew", "check-keychain"]), flags = new Set<string>(), rest: string[] = [];
+    const local = new Set(["cooperative-local", "operator", "renew", "check-keychain", "local"]), flags = new Set<string>(), rest: string[] = [];
     for (const arg of argv) {
         const key = arg.startsWith("--") ? arg.slice(2).split("=")[0]! : "";
         if (!local.has(key)) { rest.push(arg); continue; }
@@ -233,8 +236,8 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
         return { value, text: renderAssistantSetup(value), exit: value.outcome === "needs-attention" ? 3 : 0 };
     }
     if (a.command === "prepare") {
-        allowed(a, ["root", "from-plan", "repo", "source-url", "image", "output"]);
-        const value = await prepareAssistantProfile({ root: absolute(a, "root"), fromPlan: absolute(a, "from-plan"), repo: absolute(a, "repo"), sourceUrl: string(a, "source-url"), image: required(a, "image"), output: absolute(a, "output"), command: assistantExecutableCommand(), signal: options.signal });
+        allowed(a, ["root", "from-plan", "repo", "source-url", "local", "image", "output"]);
+        const value = await prepareAssistantProfile({ root: absolute(a, "root"), fromPlan: absolute(a, "from-plan"), repo: absolute(a, "repo"), sourceUrl: string(a, "source-url"), local: flag(a, "local"), image: required(a, "image"), output: absolute(a, "output"), command: assistantExecutableCommand(), signal: options.signal });
         return { value, text: value.text };
     }
     if (a.command === "upgrade" || a.command === "uninstall") {
@@ -250,14 +253,15 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
     }
     if (a.command === "init") {
         allowed(a, ["root", "plan", "cooperative-local", "destination"]); cooperative(a);
-        const root = absolute(a, "root"), plan = await loadExecutionPlan(absolute(a, "plan"));
+        const root = absolute(a, "root"), planPath = absolute(a, "plan"), plan = await loadExecutionPlan(planPath);
         let destination: any;
         if (a.flags.has("destination")) {
             const path = absolute(a, "destination"), file = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
             try { const stat = await file.stat(); if (!stat.isFile() || stat.size > 65536) throw new Error("Destination must be a bounded JSON file."); destination = parseMcpJson(await file.readFile("utf8")); } finally { await file.close(); }
         }
-        const value = await initializeAssistant(root, { plan, cooperativeLocal: true, ...(destination ? { destination } : {}) });
-        return { value: { created: value.created, workspaceId: value.workspace.id, boundary: value.workspace.boundary }, text: `${value.created ? "Workspace profile recorded" : "Existing workspace profile verified"}. No plan was approved and no agent ran.\n${ASSISTANT_WARNING}\nNext: ${assistantExecutableCommand().map(quote).join(" ")} start --root ${quote(root)} --cooperative-local` };
+        // A local-only profile brings the pair prepare --local wrote beside it; init verifies and keeps it.
+        const local = isLocalSource(plan), value = await initializeAssistant(root, { plan, cooperativeLocal: true, ...(destination ? { destination } : {}), ...(local ? { localSource: localSourceSiblings(planPath) } : {}) });
+        return { value: { created: value.created, workspaceId: value.workspace.id, boundary: value.workspace.boundary, ...(local ? { localSource: { url: plan.repository.url, commit: plan.repository.commit } } : {}) }, text: `${value.created ? "Workspace profile recorded" : "Existing workspace profile verified"}. ${local ? `Its local-only source (${plan.repository.url} at ${plan.repository.commit}) was verified and kept in the controller; this controller no longer needs the source checkout. ` : ""}No plan was approved and no agent ran.\n${ASSISTANT_WARNING}\nNext: ${assistantExecutableCommand().map(quote).join(" ")} start --root ${quote(root)} --cooperative-local` };
     }
     if (a.command === "serve") { allowed(a, ["root", "cooperative-local"]); cooperative(a); return serveAssistant(absolute(a, "root"), options); }
     if (a.command === "start") {

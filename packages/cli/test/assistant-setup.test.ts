@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { chmod, lstat, mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
-import { initializeAssistant } from "@wringer/application";
+import { canonicalPlanJson, compileDeclaration, hashBytes, loadExecutionPlan, type ExecutionPlan } from "@wringer/plan";
+import { initializeAssistant, localSourceSiblings, readAssistantLocalSource, verifyLocalSource } from "@wringer/application";
 import { assistantCommand, readCodexConnection } from "../src/assistant-cli";
 import { assistantMaintenanceRecipe, inspectAssistantCredentials, inspectAssistantSetup, inspectKeychainEntry, prepareAssistantProfile, renderAssistantSetup, type AssistantSetupDependencies } from "../src/assistant-setup";
 
@@ -182,5 +182,68 @@ describe("explicit profile preparation pins actual Git without running repositor
             await expect(prepareAssistantProfile(fixture)).rejects.toThrow("Git content filter");
             await expect(lstat(marker)).rejects.toThrow(); await expect(lstat(fixture.output)).rejects.toThrow();
         }
+    });
+});
+
+describe("a local-only source is prepared through the one bundle door the rehearsals use", () => {
+    async function localFixture() {
+        const fixture = await profileFixture(), { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = await loadExecutionPlan(fixture.fromPlan);
+        await writeFile(fixture.fromPlan, canonicalPlanJson(compileDeclaration({ ...declaration, version: 3 })));
+        return { ...fixture, local: true as const };
+    }
+    const trio = (output: string) => [output, localSourceSiblings(output).record, localSourceSiblings(output).bundle];
+    const pending = async (output: string) => (await readdir(dirname(output))).filter(name => name.endsWith(".pending"));
+    test("prepare --local names the history's root, writes the pair beside the profile once, and setup and init verify it", async () => {
+        const fixture = await localFixture(), result = await prepareAssistantProfile(fixture), plan = await loadExecutionPlan(fixture.output);
+        const root = await git(fixture.repo, ["rev-list", "--max-parents=0", "HEAD"]), head = await git(fixture.repo, ["rev-parse", "HEAD"]);
+        expect(plan.schema_version).toBe("wringer.execution-plan.v4"); expect(plan.repository).toEqual({ url: `local://${root}`, commit: head });
+        const verified = await verifyLocalSource(plan, localSourceSiblings(fixture.output));
+        expect(verified.record).toEqual({ schema_version: "wringer.local-source.v1", planSha256: plan.plan_sha256, url: `local://${root}`, commit: head, rootCommit: root, bundleSha256: hashBytes(verified.bundle), bundleBytes: verified.bundle.length });
+        expect(result.localSource).toEqual({ ...localSourceSiblings(fixture.output), rootCommit: root }); expect(result.remoteCommitAvailable).toBe("not-applicable");
+        for (const path of trio(fixture.output)) expect((await lstat(path)).mode & 0o777).toBe(0o600);
+        expect(await pending(fixture.output)).toEqual([]);
+        const before = await Promise.all(trio(fixture.output).map(path => readFile(path)));
+        expect((await prepareAssistantProfile(fixture)).created).toBeFalse();
+        expect(await Promise.all(trio(fixture.output).map(path => readFile(path)))).toEqual(before);
+        await expect(lstat(fixture.root)).rejects.toThrow();
+        const setup = await inspectAssistantSetup({ root: fixture.root, planPath: fixture.output, command, cooperativeLocal: true }, dependencies());
+        expect(setup.checks.find(check => check.id === "local-source")?.status).toBe("observed");
+        expect((await assistantCommand(["init", "--root", fixture.root, "--plan", fixture.output, "--cooperative-local"])).value).toMatchObject({ created: true });
+        expect((await readAssistantLocalSource(fixture.root, plan)).record).toEqual(verified.record);
+    });
+    test("--local refuses beside --source-url, from a v1 profile and on a two-root history; the placeholder names both doors", async () => {
+        const fixture = await localFixture();
+        await expect(prepareAssistantProfile({ ...fixture, sourceUrl: "https://example.com/operator/source.git" })).rejects.toThrow("Choose one source: --local names a local-only source from this checkout, --source-url names a hosted one. Nothing was written.");
+        await expect(prepareAssistantProfile({ ...await profileFixture(), local: true })).rejects.toThrow("A local-only source needs a version 3 profile, which carries the loop policy and evidence contract it keeps; this profile is version 1. Nothing was written.");
+        const placeholder = await profileFixture(), { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...selected } = await loadExecutionPlan(placeholder.fromPlan);
+        await writeFile(placeholder.fromPlan, canonicalPlanJson(compileDeclaration({ ...selected, version: 1, repository: { ...selected.repository, url: "https://example.invalid/OWNER/REPOSITORY.git" } })));
+        await expect(prepareAssistantProfile(placeholder)).rejects.toThrow("This profile's repository is a compile-only placeholder. Select the actual hosted HTTPS/SSH source with --source-url, or name a local-only source from this checkout with --local. No network request was made.");
+        const branch = await git(fixture.repo, ["rev-parse", "--abbrev-ref", "HEAD"]);
+        await git(fixture.repo, ["checkout", "--quiet", "--orphan", "other"]); await git(fixture.repo, ["rm", "-rf", "--quiet", "."]);
+        await writeFile(join(fixture.repo, "other.txt"), "second root\n"); await git(fixture.repo, ["add", "."]); await git(fixture.repo, ["commit", "-m", "Second root"]);
+        await git(fixture.repo, ["checkout", "--quiet", branch]); await git(fixture.repo, ["merge", "--quiet", "--allow-unrelated-histories", "-m", "Join histories", "other"]);
+        await expect(prepareAssistantProfile(fixture)).rejects.toThrow("This history has 2 root commits, and local identity needs one root; name the remote instead with --source-url. No bundle was written.");
+        for (const path of trio(fixture.output)) await expect(lstat(path)).rejects.toThrow();
+        expect(await pending(fixture.output)).toEqual([]);
+    });
+    test("after the source moves on, repeating prepare into the same output replaces nothing, and the pinned pair still initialises", async () => {
+        const fixture = await localFixture(); await prepareAssistantProfile(fixture);
+        const before = await Promise.all(trio(fixture.output).map(path => readFile(path)));
+        await writeFile(join(fixture.repo, "src/index.ts"), "moved on\n"); await git(fixture.repo, ["commit", "-am", "Source moved after preparation"]);
+        await expect(prepareAssistantProfile(fixture)).rejects.toThrow("The output already exists with different or unreadable data. It was not overwritten; choose a separate reviewed output.");
+        expect(await Promise.all(trio(fixture.output).map(path => readFile(path)))).toEqual(before);
+        const other = join(fixture.dir, "other-output.json"); await writeFile(localSourceSiblings(other).record, "{}\n");
+        await expect(prepareAssistantProfile({ ...fixture, output: other })).rejects.toThrow("A different prepared source already exists beside this output. It was not overwritten; choose a separate reviewed output.");
+        await expect(lstat(other)).rejects.toThrow(); expect(await pending(other)).toEqual([]);
+        expect((await assistantCommand(["init", "--root", fixture.root, "--plan", fixture.output, "--cooperative-local"])).value).toMatchObject({ created: true });
+    });
+    test("init and setup name both doors when the pair is not beside the profile, and no controller is created", async () => {
+        const fixture = await localFixture(); await prepareAssistantProfile(fixture);
+        const moved = join(fixture.dir, "moved-profile.json"); await writeFile(moved, await readFile(fixture.output));
+        const missing = "This profile names a local-only source; its prepared bundle was not found beside the profile. Repeat prepare --local, or select a hosted source with --source-url.";
+        await expect(assistantCommand(["init", "--root", fixture.root, "--plan", moved, "--cooperative-local"])).rejects.toThrow(missing);
+        await expect(lstat(fixture.root)).rejects.toThrow();
+        const setup = await inspectAssistantSetup({ root: fixture.root, planPath: moved, command, cooperativeLocal: true }, dependencies());
+        expect(setup.checks.find(check => check.id === "local-source")).toEqual({ id: "local-source", status: "needs-attention", detail: missing });
     });
 });

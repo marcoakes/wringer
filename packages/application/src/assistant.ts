@@ -11,6 +11,7 @@ import { projectRequirements } from "./requirements";
 import { inspectImprovements, futureImprovementTemplate } from "./improvements";
 import { createAssistantDesignService, type AssistantDesignDependencies } from "./assistant-design";
 import { readAssistantDesignBinding } from "./assistant-design-binding";
+import { isLocalSource, keepLocalSource, LOCAL_SOURCE_MISSING, readAssistantLocalSource, verifyLocalSource } from "./assistant-local-source";
 
 export const ASSISTANT_BOUNDARY = "cooperative-local" as const;
 export const ASSISTANT_WARNING = "Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.";
@@ -78,17 +79,23 @@ interface Capability {
 }
 const jobFile = (id: string, name: string) => `jobs/${assistantId(id)}/${name}.json`;
 export function assistantControllerState(root: string, jobId: string) { return join(root, "jobs", assistantId(jobId), "controller"); }
-export async function initializeAssistant(root: string, input: { plan: ExecutionPlan; cooperativeLocal: boolean; destination?: WorkspaceCommand["payload"] }) {
+export async function initializeAssistant(root: string, input: { plan: ExecutionPlan; cooperativeLocal: boolean; destination?: WorkspaceCommand["payload"]; localSource?: { record: string; bundle: string } }) {
     insist(input.cooperativeLocal, "protected-mode-unavailable", "Protected assistant mode is not available: the controller and human-confirmation OS boundary is not established. An operator may explicitly select --cooperative-local for the labelled engineering preview.");
     const plan = validateExecutionPlan(input.plan);
     insist(clean.scrub(JSON.stringify(plan)) === JSON.stringify(plan), "secret-refused", "The profile contains a detected credential; nothing was installed.");
     if (input.destination) parseWorkspaceCommand({ idempotencyKey: crypto.randomUUID(), expectedRevision: "0".repeat(64), expectedCandidateTree: null, action: "prepare-delivery", payload: input.destination });
+    insist(isLocalSource(plan) || !input.localSource, "local-source-refused", "A hosted profile has no prepared local source; nothing was installed.");
+    insist(!isLocalSource(plan) || input.localSource, "local-source-missing", LOCAL_SOURCE_MISSING);
+    // Verified before any controller exists; what is kept is exactly what was checked.
+    const verified = input.localSource ? await verifyLocalSource(plan, input.localSource) : null;
     root = await createAssistantDirectory(root);
     if (await assistantExists(root, "workspace.json")) {
         const existing = await readAssistantWorkspace(root);
         insist(hashValue(existing.profile) === hashValue(plan) && hashValue(existing.destination) === hashValue(input.destination ?? null), "workspace-conflict", "This controller is already bound to a different workspace profile. Existing evidence was preserved.");
+        if (verified) await keepLocalSource(root, plan, verified);
         return { workspace: existing, created: false };
     }
+    if (verified) await keepLocalSource(root, plan, verified);
     const workspace: AssistantWorkspace = { schema_version: "wringer.assistant-workspace.v1", id: crypto.randomUUID(), boundary: ASSISTANT_BOUNDARY, profile: plan, destination: input.destination ?? null };
     await writeAssistantRecord(root, "workspace.json", workspace);
     return { workspace, created: true };
@@ -312,7 +319,9 @@ export async function createAssistantService(root: string, options: { dependenci
             await writeAssistantRecord(root, jobFile(p.id, "started"), { schema_version: "wringer.assistant-start.v1", jobId: p.id, operationId: request.id, approvalSha256: hashValue(a) });
             began = true;
             const designBinding = p.designImportId ? await readAssistantDesignBinding(root, workspace, p.designImportId) : null;
-            const result = await deps.start(state(p.id), p.plan, a.authority, { ...options.application, ...(designBinding ? { sourceBundle: designBinding.sourceBundle } : {}), signal });
+            // A local-only source exists only as the bundle this controller kept at init.
+            const sourceBundle = designBinding?.sourceBundle ?? (isLocalSource(workspace.profile) ? (await readAssistantLocalSource(root, workspace.profile)).bundlePath : undefined);
+            const result = await deps.start(state(p.id), p.plan, a.authority, { ...options.application, ...(sourceBundle ? { sourceBundle } : {}), signal });
             return { schema_version: SCHEMA, jobId: p.id, outcome: result.status, candidateTree: result.candidate?.tree ?? null, note: "Transport completion is not a claim that the work succeeded." };
         }
         insist(request.kind === "command" && view.query, "not-started", "This job has no recorded execution state");

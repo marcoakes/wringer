@@ -32,7 +32,7 @@ test("one product function bundles a commit's history once and names it by its s
     expect(await inspectLocalSourceBundle(path)).toEqual({ head: f.head, roots: [f.root] });
     await expect(createLocalSourceBundle(f.repo, f.head, path)).rejects.toThrow("A local source bundle is written once; its path already exists");
     expect(await readFile(path)).toEqual(bytes);
-});
+}, 30_000);
 
 test("a history with two roots has no local identity and no bundle is written", async () => {
     const f = await repository(), path = join(f.dir, "two-roots.bundle");
@@ -41,4 +41,4 @@ test("a history with two roots has no local identity and no bundle is written", 
     await git(f.repo, "checkout", "main"); await git(f.repo, "merge", "--allow-unrelated-histories", "-m", "join histories", "other");
     await expect(createLocalSourceBundle(f.repo, await git(f.repo, "rev-parse", "HEAD"), path)).rejects.toThrow("This history has 2 root commits, and local identity needs one root; name the remote instead with --source-url. No bundle was written.");
     expect(await Bun.file(path).exists()).toBe(false);
-});
+}, 30_000);

@@ -1,9 +1,10 @@
 import { constants } from "node:fs";
-import { link, lstat, open, realpath, unlink } from "node:fs/promises";
+import { chmod, link, lstat, open, realpath, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, planVersion, type ExecutionPlan } from "@wringer/plan";
 import { VERSION } from "@wringer/engine";
-import { assistantExists, assistantPath, readAssistantWorkspace } from "@wringer/application";
+import { assistantExists, assistantPath, isLocalSource, localSourceSiblings, readAssistantLocalSource, readAssistantWorkspace, verifyLocalSource, type LocalSourceRecord } from "@wringer/application";
+import { LOCAL_SOURCE_URL, createLocalSourceBundle } from "@wringer/runtime";
 import { readPinnedDesignSnapshot } from "@wringer/workflow";
 import { quote } from "./args";
 
@@ -115,6 +116,12 @@ export async function inspectAssistantSetup(options: AssistantSetupOptions, depe
     } catch { add("profile", "needs-attention", "The profile or retained controller could not be read safely. Inspect the original file with the plan command, retain existing evidence and repair only the reported input. No parser details or file contents were echoed."); }
     let credentials: AssistantCredentialPresence[] = [];
     if (plan) {
+        if (isLocalSource(plan)) {
+            try {
+                const { record } = options.planPath ? await verifyLocalSource(plan, localSourceSiblings(options.planPath)) : await readAssistantLocalSource(root, plan);
+                add("local-source", "observed", `The local-only source matches this profile: commit ${record.commit}, bundled from a history whose single root is ${record.rootCommit} (${record.bundleBytes} bytes). No remote is named or needed. ${options.planPath ? "Initialization verifies the bundle again and keeps it in the controller." : "The controller keeps this verified copy."}`);
+            } catch (error) { add("local-source", "needs-attention", error instanceof Error ? error.message : "The local-only source could not be verified."); }
+        }
         const placeholders = plan.repository.commit === "0".repeat(40) || plan.repository.url.includes("/OWNER/REPOSITORY") || plan.runtime.image.includes("example.invalid/") || /@sha256:0{64}$/.test(plan.runtime.image) || plan.environment.tools.some(tool => tool.version === "REPLACE_WITH_MEASURED_VERSION");
         add("source-and-image", placeholders ? "needs-attention" : "unmeasured", placeholders ? "Compile-only example placeholders remain. Replace them with the actual repository commit, measured tool versions and inspected image digest before initialization; runtime/README.md describes the image route." : "Source commit and image digest are declared, not remotely checked. The actual clone, image identity and runtime policy must still pass their contained checks.");
         const binary = plan.runtime.binary ?? (plan.runtime.kind === "apple-container" ? "container" : "kubectl");
@@ -185,13 +192,31 @@ async function gitMetadata(repo: string, args: string[], signal?: AbortSignal, a
     } finally { if (child.exitCode === null) { child.kill(); await child.exited; } }
 }
 
-export async function prepareAssistantProfile(options: { fromPlan: string; repo: string; sourceUrl?: string; image: string; output: string; root: string; command: string[]; signal?: AbortSignal }) {
+/** Beside the output, never over a different prepared source: link once, or verify what is there. */
+async function placeLocalSource(plan: ExecutionPlan, siblings: { record: string; bundle: string }, record: LocalSourceRecord, pending: string) {
+    const present = await Promise.all([siblings.record, siblings.bundle].map(path => lstat(path).then(() => true, (error: NodeJS.ErrnoException) => { if (error.code === "ENOENT") return false; throw error; })));
+    if (present.some(Boolean)) {
+        try { await verifyLocalSource(plan, siblings); return; }
+        catch { throw new Error("A different prepared source already exists beside this output. It was not overwritten; choose a separate reviewed output."); }
+    }
+    await chmod(pending, 0o600);
+    const temp = join(dirname(siblings.record), `.wringer-source-record-${crypto.randomUUID()}.pending`), file = await open(temp, "wx", 0o600);
+    try {
+        try { await file.writeFile(JSON.stringify(record, null, 2) + "\n"); await file.sync(); } finally { await file.close(); }
+        await link(pending, siblings.bundle); await link(temp, siblings.record);
+    } finally { await unlink(temp); }
+}
+
+export async function prepareAssistantProfile(options: { fromPlan: string; repo: string; sourceUrl?: string; local?: boolean; image: string; output: string; root: string; command: string[]; signal?: AbortSignal }) {
+    if (options.local && options.sourceUrl !== undefined) throw new Error("Choose one source: --local names a local-only source from this checkout, --source-url names a hosted one. Nothing was written.");
     const previous = await loadExecutionPlan(options.fromPlan), repo = await realpath(options.repo), root = resolve(options.root), output = resolve(options.output);
     options.signal?.throwIfAborted();
     if (!/@sha256:[a-f0-9]{64}$/.test(options.image) || /@sha256:0{64}$/.test(options.image) || options.image.includes("example.invalid/")) throw new Error("Supply the actual inspected digest-qualified runtime image, not a mutable tag or example placeholder. Preparation never builds or pulls an image.");
     if (previous.environment.tools.some(tool => !tool.version.trim() || tool.version.includes("REPLACE_WITH"))) throw new Error("The selected profile still contains placeholder tool versions. Use an existing measured profile; preparation cannot infer the tools inside an image from this host.");
     const sourceUrl = options.sourceUrl ?? previous.repository.url;
-    if (sourceUrl.includes("/OWNER/REPOSITORY")) throw new Error("Select the actual HTTPS/SSH source URL with --source-url; the compile-only repository placeholder cannot be used. No network request was made.");
+    if (!options.local && sourceUrl.includes("/OWNER/REPOSITORY")) throw new Error("This profile's repository is a compile-only placeholder. Select the actual hosted HTTPS/SSH source with --source-url, or name a local-only source from this checkout with --local. No network request was made.");
+    if (!options.local && options.sourceUrl === undefined && LOCAL_SOURCE_URL.test(previous.repository.url)) throw new Error("This profile names a local-only source. Repeat with --local to bundle this checkout, or name a hosted source with --source-url. Nothing was written.");
+    if (options.local && planVersion(previous) < 3) throw new Error(`A local-only source needs a version 3 profile, which carries the loop policy and evidence contract it keeps; this profile is version ${planVersion(previous)}. Nothing was written.`);
     const insideRepo = (path: string) => { const rel = relative(repo, path); return !rel || rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel); };
     await assistantPath(dirname(output), basename(output)); await assistantPath(root, ".");
     if (insideRepo(output) || insideRepo(root)) throw new Error("The prepared profile and controller must be outside the selected source repository. Nothing was written.");
@@ -213,27 +238,42 @@ export async function prepareAssistantProfile(options: { fromPlan: string; repo:
     const requiredFiles = [...new Set([...previous.environment.context, ...previous.acceptance.checks.flatMap(check => check.files), ...(previous.design ? [previous.design.snapshotPath] : [])])];
     if (requiredFiles.some(file => !files.has(file))) throw new Error("The selected profile references context or check files absent from this committed source. Choose a matching profile or revise its inert declarations; no check was invented or executed.");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = previous;
-    const plan = compileDeclaration({ version: planVersion(previous), ...declaration, repository: { url: sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
-    if (plan.design) {
-        const objectStore = resolve(repo, (await gitMetadata(repo, ["rev-parse", "--git-common-dir"], options.signal)).trim());
-        const snapshot = await readPinnedDesignSnapshot(plan, objectStore);
-        if (!snapshot || plan.design.reviews.some(review => review.referenceIds.some(id => !snapshot.assets.some(asset => asset.id === id)))) throw new Error("A design reference is absent from the exact committed snapshot. No profile was created.");
-    }
-    // A second observation avoids publishing a profile for a checkout that moved during inspection.
-    if ((await gitMetadata(repo, ["rev-parse", "--verify", "HEAD^{commit}"], options.signal)).trim() !== commit || (await gitMetadata(repo, ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=all"], options.signal)).trim()) throw new Error("The selected source changed during preparation. Nothing was written; repeat against a stable committed checkout.");
-    const bytes = canonicalPlanJson(plan), temp = join(dirname(output), `.wringer-profile-${crypto.randomUUID()}.pending`), file = await open(temp, "wx", 0o600);
-    let created = true;
+    // A local-only source is named by bundling it: the single root of the bundled
+    // history is its identity. The pair goes beside the output only after every check.
+    const pending = options.local ? join(dirname(output), `.wringer-source-${crypto.randomUUID()}.pending`) : null, siblings = localSourceSiblings(output);
     try {
-        try { await file.writeFile(bytes); await file.sync(); } finally { await file.close(); }
-        try { await link(temp, output); }
-        catch (error: any) {
-            if (error.code !== "EEXIST") throw error;
-            try { const existing = await boundedJson(output); if (canonicalPlanJson(existing) !== bytes) throw new Error("different"); }
-            catch { throw new Error("The output already exists with different or unreadable data. It was not overwritten; choose a separate reviewed output."); }
-            created = false;
+        const bundled = pending ? await createLocalSourceBundle(repo, commit, pending) : null;
+        const plan = compileDeclaration({ version: bundled ? 4 : Math.min(3, planVersion(previous)), ...declaration, repository: { url: bundled?.url ?? sourceUrl, commit }, runtime: { ...declaration.runtime, image: options.image } });
+        if (plan.design) {
+            const objectStore = resolve(repo, (await gitMetadata(repo, ["rev-parse", "--git-common-dir"], options.signal)).trim());
+            const snapshot = await readPinnedDesignSnapshot(plan, objectStore);
+            if (!snapshot || plan.design.reviews.some(review => review.referenceIds.some(id => !snapshot.assets.some(asset => asset.id === id)))) throw new Error("A design reference is absent from the exact committed snapshot. No profile was created.");
         }
-        const directory = await open(dirname(output), "r"); try { await directory.sync(); } finally { await directory.close(); }
-    } finally { await unlink(temp); }
-    const next = `${options.command.map(quote).join(" ")} setup --root ${quote(root)} --plan ${quote(output)} --cooperative-local`;
-    return { schema_version: "wringer.assistant-profile-preparation.v1" as const, created, path: output, fromPlanSha256: previous.plan_sha256, planSha256: plan.plan_sha256, repository: plan.repository, image: plan.runtime.image, limits: plan.budget, remoteCommitAvailable: "unmeasured" as const, executed: { gitMetadataOnly: true, repositoryCommands: false, modelPrompts: 0, keychainPasswordsRead: false, controllerCreated: false, approvalCreated: false }, next, text: `${created ? "Prepared" : "Verified the existing"} pinned profile: ${output}\nSource: ${commit}. Existing role selection, checks, scope, network policy and finite session/time limits were preserved.\nNo repository script or model ran; no key, client setting or execution approval was changed. The image reference is operator-supplied, not an observed runtime test. The selected remote URL's availability and possession of this local commit remain unmeasured; source transport will check them before execution.\nThis is a separate operator profile preparation, not permission to bypass any previous job's allowance. Review the profile and handover destination before initialization.\nNext, only for a deliberately cooperative-local evaluation:\n${next}` };
+        // A second observation avoids publishing a profile for a checkout that moved during inspection.
+        if ((await gitMetadata(repo, ["rev-parse", "--verify", "HEAD^{commit}"], options.signal)).trim() !== commit || (await gitMetadata(repo, ["status", "--porcelain=v1", "--untracked-files=normal", "--ignore-submodules=all"], options.signal)).trim()) throw new Error("The selected source changed during preparation. Nothing was written; repeat against a stable committed checkout.");
+        const bytes = canonicalPlanJson(plan);
+        if (bundled && pending) {
+            // A different existing profile refuses before anything is placed beside it.
+            let existing: "absent" | "same" | "different" = "absent";
+            try { existing = canonicalPlanJson(await boundedJson(output)) === bytes ? "same" : "different"; }
+            catch (error: any) { if (error?.code !== "ENOENT") existing = "different"; }
+            if (existing === "different") throw new Error("The output already exists with different or unreadable data. It was not overwritten; choose a separate reviewed output.");
+            await placeLocalSource(plan, siblings, { schema_version: "wringer.local-source.v1", planSha256: plan.plan_sha256, url: bundled.url, commit, rootCommit: bundled.rootCommit, bundleSha256: bundled.bundleSha256, bundleBytes: bundled.bundleBytes }, pending);
+        }
+        const temp = join(dirname(output), `.wringer-profile-${crypto.randomUUID()}.pending`), file = await open(temp, "wx", 0o600);
+        let created = true;
+        try {
+            try { await file.writeFile(bytes); await file.sync(); } finally { await file.close(); }
+            try { await link(temp, output); }
+            catch (error: any) {
+                if (error.code !== "EEXIST") throw error;
+                try { const existing = await boundedJson(output); if (canonicalPlanJson(existing) !== bytes) throw new Error("different"); }
+                catch { throw new Error("The output already exists with different or unreadable data. It was not overwritten; choose a separate reviewed output."); }
+                created = false;
+            }
+            const directory = await open(dirname(output), "r"); try { await directory.sync(); } finally { await directory.close(); }
+        } finally { await unlink(temp); }
+        const next = `${options.command.map(quote).join(" ")} setup --root ${quote(root)} --plan ${quote(output)} --cooperative-local`;
+        return { schema_version: "wringer.assistant-profile-preparation.v1" as const, created, path: output, fromPlanSha256: previous.plan_sha256, planSha256: plan.plan_sha256, repository: plan.repository, image: plan.runtime.image, limits: plan.budget, remoteCommitAvailable: bundled ? "not-applicable" as const : "unmeasured" as const, localSource: bundled ? { ...siblings, rootCommit: bundled.rootCommit } : null, executed: { gitMetadataOnly: !bundled, sourceBundled: !!bundled, repositoryCommands: false, modelPrompts: 0, keychainPasswordsRead: false, controllerCreated: false, approvalCreated: false }, next, text: `${created ? "Prepared" : "Verified the existing"} pinned profile: ${output}\n${bundled ? `Source: ${commit}, a local-only source named ${bundled.url} by the single root commit of its history. No remote is named or needed.\nIts Git bundle and a record of what was bundled are beside the profile:\n${siblings.bundle}\n${siblings.record}\nKeep the three files together: setup and init verify them, and init keeps the bundle in the controller.\n` : `Source: ${commit}. `}Existing role selection, checks, scope, network policy and finite session/time limits were preserved.\nNo repository script or model ran; no key, client setting or execution approval was changed. The image reference is operator-supplied, not an observed runtime test. ${bundled ? "Approval cannot yet record a local-only source: the frozen authority record names hosted sources only, so work stops at approval." : "The selected remote URL's availability and possession of this local commit remain unmeasured; source transport will check them before execution."}\nThis is a separate operator profile preparation, not permission to bypass any previous job's allowance. Review the profile and handover destination before initialization.\nNext, only for a deliberately cooperative-local evaluation:\n${next}` };
+    } finally { if (pending) await unlink(pending).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; }); }
 }

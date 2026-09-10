@@ -9,6 +9,7 @@ import { createLocalSourceBundle, prepareRepositorySource, prepareRepositoryArti
 import { initializeAssistant, createAssistantService, issueAssistantCapability, approveAssistantProposal } from "../src/assistant";
 import { assistantPath, writeAssistantRecord } from "../src/assistant-store";
 import { attachAssistantDesign, readAssistantDesignBinding } from "../src/assistant-design-binding";
+import { localSourceSiblings } from "../src/assistant-local-source";
 
 // Real Git plumbing with deterministic HTTP bytes. No Figma account or model.
 const dirs: string[] = [];
@@ -70,6 +71,24 @@ test("approved REST design attaches a single immutable data commit and survives 
     const map = await discoverEnvironment(transport.objectStore, binding.profile);
     expect(map.files.some(row => row.path === binding.profile.design!.snapshotPath)).toBe(true);
     expect(JSON.stringify(map.context)).not.toContain(f.snapshot.assets[0]!.base64);
+});
+test("a local-only workspace attaches its design on top of the bundle kept at init, with no source override", async () => {
+    const f = await fixture(), controller = join(f.root, "local-controller"), profilePath = join(f.root, "local-profile.json"), siblings = localSourceSiblings(profilePath);
+    const made = await createLocalSourceBundle(f.repo, f.commit, siblings.bundle);
+    const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...declaration } = f.profile;
+    const profile = compileDeclaration({ ...declaration, version: 4, repository: { url: made.url, commit: f.commit } });
+    await writeFile(siblings.record, JSON.stringify({ schema_version: "wringer.local-source.v1", planSha256: profile.plan_sha256, url: made.url, commit: f.commit, rootCommit: made.rootCommit, bundleSha256: made.bundleSha256, bundleBytes: made.bundleBytes }));
+    const workspace = (await initializeAssistant(controller, { plan: profile, cooperativeLocal: true, localSource: siblings })).workspace;
+    const importId = crypto.randomUUID(), at = (name: string) => `design-imports/${importId}/${name}`;
+    await writeAssistantRecord(controller, at("request.json"), { schema_version: "wringer.assistant-design-request.v1", importId, workspaceId: workspace.id, profileSha256: hashValue(profile) });
+    await writeDesignSnapshot(await assistantPath(controller, at("preview.json")), f.preview);
+    await writeDesignSnapshot(await assistantPath(controller, at("retained.json")), f.snapshot);
+    await writeAssistantRecord(controller, at("consent.json"), { schema_version: "wringer.assistant-design-consent.v1", importId, workspaceId: workspace.id, profileSha256: hashValue(profile), previewSha256: f.preview.snapshot_sha256, retainedSha256: f.snapshot.snapshot_sha256, actor: "Synthetic operator" });
+    const binding = await attachAssistantDesign(controller, workspace, { importId, expectedSnapshotSha256: f.snapshot.snapshot_sha256, confirmAttachment: true });
+    expect(binding.profile.schema_version).toBe("wringer.execution-plan.v4"); expect(binding.profile.repository.url).toBe(made.url); expect(binding.profile.repository.commit).not.toBe(f.commit);
+    const clone = join(f.root, "local-fresh"); await git(f.root, "clone", "-q", "--branch", "design", binding.sourceBundle, clone);
+    expect(await git(clone, "rev-parse", "HEAD^")).toBe(f.commit);
+    expect(await git(clone, "diff", "--name-only", "HEAD^", "HEAD")).toBe(binding.profile.design!.snapshotPath);
 });
 test("attachment refuses absent consent, stale hash, changed profile and tampered private transport", async () => {
     const f = await fixture(); await expect(attachAssistantDesign(f.controller, f.workspace, f.input)).rejects.toThrow();

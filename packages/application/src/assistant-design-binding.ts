@@ -4,6 +4,7 @@ import { compileDeclaration, hashValue, planVersion, validateExecutionPlan, type
 import { prepareRepositoryArtifactSource } from "@wringer/runtime";
 import { assertRepositoryDisclosure, designCanonicalJson, hashDesignBytes, readDesignSnapshot, type DesignSnapshot } from "@wringer/design";
 import { assistantId, assistantPath, assistantExists, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
+import { isLocalSource, readAssistantLocalSource } from "./assistant-local-source";
 
 interface Workspace { id: string; profile: ExecutionPlan }
 interface DesignBinding {
@@ -75,7 +76,9 @@ async function performAttachment(root: string, workspace: Workspace, input: { im
     deriveProfile(workspace.profile, snapshot, workspace.profile.repository.commit); // refuse before source I/O
     if (await assistantExists(root, entry(importId, "binding.json"))) return readAssistantDesignBinding(root, workspace, importId);
     const contents = designCanonicalJson(snapshot) + "\n";
-    const source = await (options.prepareSource ?? prepareRepositoryArtifactSource)(workspace.profile.repository, { path: `.wringer-design/${snapshot.snapshot_sha256}.json`, contents, sha256: hashDesignBytes(contents) }, { controllerDir: await assistantPath(root, entry(importId, "attachment")) });
+    // A local-only workspace builds its design commit on the bundle kept at init.
+    const base = isLocalSource(workspace.profile) ? { ...workspace.profile.repository, bundlePath: (await readAssistantLocalSource(root, workspace.profile)).bundlePath } : workspace.profile.repository;
+    const source = await (options.prepareSource ?? prepareRepositoryArtifactSource)(base, { path:`.wringer-design/${snapshot.snapshot_sha256}.json`, contents, sha256: hashDesignBytes(contents) }, { controllerDir: await assistantPath(root, entry(importId, "attachment")) });
     const sourceBundleRelative = source.bundlePath!.slice(root.length + 1);
     if (await assistantPath(root, sourceBundleRelative) !== source.bundlePath) throw new Error("Source attachment escaped private controller storage.");
     const value: DesignBinding = { schema_version: "wringer.assistant-design-binding.v1", importId, workspaceId: workspace.id, originalProfileSha256: hashValue(workspace.profile), consentSha256: hashValue(consent), snapshotSha256: snapshot.snapshot_sha256, sourceCommit: source.commit, sourceBundleRelative, sourceBundleSha256: await bundleDigest(source.bundlePath!), profile: deriveProfile(workspace.profile, snapshot, source.commit) };

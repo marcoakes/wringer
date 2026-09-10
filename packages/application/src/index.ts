@@ -7,6 +7,7 @@ export * from "./assistant-runner";
 export * from "./assistant";
 export * from "./assistant-design";
 export * from "./assistant-store";
+export * from "./assistant-local-source";
 export * from "./requirements";
 export * from "./protected-confirmation";
 export * from "./protected-deployment";
