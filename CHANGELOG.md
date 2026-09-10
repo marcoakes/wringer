@@ -4,6 +4,36 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.13 — observations never refuse; a cancel stops work at any revision (source checkpoint)
+
+- A status read never refuses because the run advanced while it was read. The
+  shared read under `status()`, `inspectForPm()` and `wringer.get_status`
+  reports `revisionAdvanced: true`, enables no action and says to read again
+  before acting; `outcome` is unchanged. The PM page does the same: when its own
+  progress-evidence read disagrees, it reports `revisionAdvanced`, shows the
+  work as in progress with that reason and offers no decision.
+- `wringer.cancel` is not bound to a revision. It records the revision its
+  observation saw as `requestedAtRevision` and is applied whatever the journal
+  did meanwhile; a malformed revision is refused. Start, correction,
+  continuation and handover still refuse a stale revision (`stale-request`).
+- The daemon test asserts its invariant: once a stopped owner has exited,
+  ownership is absent or dead, never live or unknown, and a retained dead owner
+  is released only by explicit recovery of exactly that owner. A new test forces
+  listener cleanup past the stop bound and proves that path.
+- `bun run validate --group core|rehearsals`. A stage's group is derived from
+  its name (`*-rehearsal` runs with the rehearsals) and a stage with no group
+  is refused; CI runs the two groups as parallel jobs. One test holds every
+  stage to exactly one group, and the workflow test holds CI to running each
+  group once. The release workflow uses the same split and 40-minute bound and
+  is marked unexercised until a tag is dispatched.
+- The design blind-test page records that the assistant lane runs no planner
+  turn; planning lives in `wringer-drive`'s intake.
+- **Not claimed:** a live PM pass, real containment, model convergence, or that
+  an observation never reports an older head than the journal holds.
+
+Schemas: none changed. The assistant cancellation record gains
+`requestedAtRevision`; it has no schema file.
+
 ## 1.0.0-alpha.12 — local-only identity end to end (source checkpoint)
 
 - A local-only repository (no remote, no forge account) now goes the whole

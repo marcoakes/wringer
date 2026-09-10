@@ -37,6 +37,8 @@ With no forge account, prepare that bound profile against the local checkout wit
 its bundle and record beside it, and pass it to `setup` and `init`. The local
 lane is a route, proven end to end by the `local-design-rehearsal` validation
 stage with scripted roles and decisions; a PM pass on it is still to be observed.
+The assistant lane proposes from the profile and runs no planner turn; planning
+lives in `wringer-drive`'s intake and is guarded by the scripted-planner test.
 
 The designer should keep the expected result out of worker-writable files. Give
 the worker the approved design snapshot and the existing component library,

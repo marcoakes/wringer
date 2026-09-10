@@ -37,7 +37,7 @@ starting route. Session/time limits are not a cash guarantee.
 
 Wringer is a Bun/TypeScript control plane. You supply the repositories, the outcome you want, and the agents allowed to work on it. Wringer preserves that intent, coordinates bounded work, runs the declared checks, records the human decisions, and prepares a portable handover. **The agents write the product code. Wringer does not.**
 
-This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.12` is a local-identity / Figma API / design-aware assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
+This repository now contains one Bun product, not a second edition alongside an active Python implementation. `1.0.0-alpha.13` is a local-identity / Figma API / design-aware assistant-entry engineering prerelease; source availability and a passing test suite are not claims of production readiness or reliable convergence on arbitrary work.
 
 The first [September 8 PM test failed at planning](docs/PM_BLIND_REPORT_2026-09-08.md). [Blind test 2](docs/PM_BLIND_REPORT_2026-09-08_2.md) built successfully but failed at human review; salvage stopped during handover. [Alpha.7 repairs those measured problems](docs/PM_BLIND2_REPAIR_2026-09-08.md), with a real-browser engineering rehearsal. Neither failed verdict is rewritten as a pass; a new live PM result remains required.
 
