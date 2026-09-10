@@ -63,7 +63,15 @@ describe("assistant daemon durable queue", () => {
         expect((await reconnected.enqueue(input)).status).toBe("completed");
         expect(await dispatches(directory)).toHaveLength(1);
         child.kill("SIGTERM"); await child.exited;
-        expect((await reconnected.status()).ownerState).toBe("absent");
+        // The daemon's stop is bounded, so it may exit before its release finishes (c79b699): never live or unknown,
+        // and a retained dead owner is released only by explicit recovery of exactly that owner.
+        const after = await reconnected.status();
+        expect(["absent", "dead"]).toContain(after.ownerState);
+        if (after.ownerState === "dead") {
+            expect(after.recoveryRequired).toBe(true);
+            expect((await recoverAssistantRunner(directory, { ownerToken: after.owner!.token, acknowledgeUncertain: true })).previousOwner.pid).toBe(child.pid);
+            expect((await reconnected.status()).ownerState).toBe("absent");
+        }
     });
     test("real kill after claim retains uncertainty; explicit recovery dispatches only never-claimed work", async () => {
         const directory = await scratch(), active = request(), pending = request(), client = await runner(directory);
@@ -158,6 +166,18 @@ describe("assistant daemon durable queue", () => {
         const first = await value.start(); await value.stop(50).catch(() => undefined);
         const retained = await value.status(); expect(finalized).toBeGreaterThan(0); expect(retained.owner?.token).toBe(first.owner!.token); expect(retained.ownerState).toBe("live"); expect(retained.acceptingDispatch).toBe(false);
         const other = await runner(directory); await expect(other.start()).rejects.toThrow("owns this queue");
+    });
+    test("an owner whose listener cleanup outlives its stop bound exits with ownership retained, released only by explicit recovery", async () => {
+        const directory = await scratch(), child = await spawn(directory, "slow-release"), client = await runner(directory);
+        const live = await client.status();
+        expect(live.ownerState).toBe("live"); expect(live.owner?.pid).toBe(child.pid);
+        child.kill("SIGTERM"); await child.exited;
+        const retained = await client.status();
+        expect(retained).toMatchObject({ ownerState: "dead", recoveryRequired: true }); expect(retained.owner?.token).toBe(live.owner!.token);
+        await expect(client.start()).rejects.toThrow("owns this queue");
+        const recovery = await recoverAssistantRunner(directory, { ownerToken: live.owner!.token, acknowledgeUncertain: true });
+        expect(recovery.previousOwner).toMatchObject({ token: live.owner!.token, pid: child.pid });
+        expect((await client.status()).ownerState).toBe("absent");
     });
     test("cancellation from a reconnected client reaches the independently owned active process", async () => {
         const directory = await scratch(), input = request(), client = await runner(directory);

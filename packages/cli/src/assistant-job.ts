@@ -1,7 +1,7 @@
 import { hashValue } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 import type { PmJob } from "@wringer/board";
-import { approveAssistantProposal, assistantControllerState, type createAssistantService } from "../../application/src/assistant";
+import { ASSISTANT_REVISION_ADVANCED, approveAssistantProposal, assistantControllerState, type createAssistantService } from "../../application/src/assistant";
 import { assistantInventory, readAssistantRecord, writeAssistantRecord } from "../../application/src/assistant-store";
 import { activeWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandResult } from "../../application/src/commands";
 import { readController, controllerStatus, type ApplicationOptions } from "../../application/src/controller";
@@ -17,7 +17,7 @@ const redactor = new Redactor();
 /** A deterministic convenience layer, never a second workflow or model loop.
  * Only automatic start, declared showing and PREPARATION are scheduled. A
  * person's decision and sending require separate guarded POSTs. */
-export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; beforeCommand?: (jobId: string) => Promise<void> } = {}) {
+export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; beforeCommand?: (jobId: string) => Promise<void>; /** Construction-time seam for the page's own journal re-read. */ dependencies?: { status?: typeof controllerStatus } } = {}) {
     const active = new Set<string>(), transient = new Map<string, string>();
     const cancellations = new Map<string, AbortController>();
     let stopped = false, sweeping = false;
@@ -131,7 +131,8 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
     async function read(jobId: string): Promise<PmJob> {
         const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send } = await details(jobId);
         const engineering = p.plan ? await readPmEngineering(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
-        if (engineering && status.stage !== "intake" && (await controllerStatus(stateOf(jobId))).revision !== status.revision) throw new Error("The run advanced while progress evidence was read. Refresh before deciding.");
+        // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
+        const revisionAdvanced = status.revisionAdvanced === true || !!engineering && status.stage !== "intake" && (await (options.dependencies?.status ?? controllerStatus)(stateOf(jobId))).revision !== status.revision;
         const destination = approval?.destination ?? service.workspace.destination;
         const human = p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? [];
         const failed = commands.find(c => ["failed", "uncertain"].includes(c.status)) ?? (preparation && ["failed", "uncertain"].includes(preparation.status) ? preparation : null);
@@ -153,10 +154,11 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         else if (status.outcome === "human-hold") { phase = "preparing"; nextAction = "Opening the actual result for your review. No decision has been recorded."; }
         else if (!["approved", "running"].includes(status.outcome)) { phase = "blocked"; error = status.nextAction; }
         if (board?.status === "running" || active.has(jobId)) { if (!["approval", "sent"].includes(phase)) { phase = "working"; nextAction = "Recording this step. No extra approval or repeated action is needed."; error = null; } }
+        if (revisionAdvanced && phase !== "sent") { phase = "working"; nextAction = ASSISTANT_REVISION_ADVANCED; error = null; }
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
-        return redactor.deep({ schema_version: engineering ? "wringer.pm-job.v2" : "wringer.pm-job.v1", ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
+        return redactor.deep({ schema_version: engineering ? "wringer.pm-job.v2" : "wringer.pm-job.v1", ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, revisionAdvanced, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
             scope: { repository: p.plan?.repository.url ?? service.workspace.profile.repository.url, sourceCommit: p.plan?.repository.commit ?? service.workspace.profile.repository.commit, writable: p.plan?.scope.writable ?? [], protected: p.plan?.acceptance.protected_paths ?? [] }, questions: p.questions, assumptions: p.assumptions,
             requirements: (p.plan?.acceptance.criteria ?? []).map(c => {
                 const visual = p.plan?.design?.reviews.find(row => row.criterionId === c.id);

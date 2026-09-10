@@ -3,11 +3,12 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { compileDeclaration, compileExecutionPlan, hashBytes, hashValue, type EnvironmentMap } from "@wringer/plan";
-import { runContainedJourney, readValidatedContainedState, type CandidateVerification } from "@wringer/workflow";
+import { runContainedJourney, readValidatedContainedState, buildRepairPacket, type CandidateVerification } from "@wringer/workflow";
 import type { RoleExecutionResult } from "@wringer/runtime";
 import { initializeAssistant, issueAssistantCapability, createAssistantService, approveAssistantProposal, assistantControllerState } from "../../application/src/assistant";
 import { hasActiveWorkspaceCommand } from "../../application/src/commands";
 import { controllerStatus } from "../../application/src/controller";
+import { readAssistantRecord } from "../../application/src/assistant-store";
 import { createAssistantJobFlow } from "../src/assistant-job";
 
 const roots: string[] = [], flows: ReturnType<typeof createAssistantJobFlow>[] = [], services: Awaited<ReturnType<typeof createAssistantService>>[] = [];
@@ -17,18 +18,18 @@ async function until<T>(read: () => Promise<T>, test: (value: T) => boolean): Pr
     for (let i = 0; i < 400; i++) { const value = await read(); if (test(value)) return value; await Bun.sleep(10); }
     throw new Error("Synthetic job observation did not settle");
 }
-async function fixture(waitForCancellation = false) {
+async function fixture(waitForCancellation = false, version: 1 | 3 = 1) {
     const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-job-correction-"))); roots.push(root);
     const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...raw } = structuredClone(template);
     raw.intent += " The display is readable."; raw.repository = { url: "https://fixture.invalid/job-correction.git", commit: "a".repeat(40) };
     raw.runtime.env = []; raw.agents.worker.env = []; raw.agents.judge.env = [];
     raw.acceptance.criteria.push({ id: "readable", title: "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable", argv: ["true"], cwd: ".", timeout_seconds: 5 } });
-    const plan = compileDeclaration({ version: 1, ...raw }), { workspace } = await initializeAssistant(root, { plan, cooperativeLocal: true });
+    const plan = compileDeclaration({ version, ...raw }), { workspace } = await initializeAssistant(root, { plan, cooperativeLocal: true });
     const capability = await issueAssistantCapability(root, new Date(Date.now() + 60000).toISOString());
     // Construction-time seam over the real validated query. An armed read sees
     // the journal move under it once, so the two reads of one observation disagree.
     let advanceNextRead = false;
-    const service = await createAssistantService(root, { dependencies: { status: async controller => { const view = await controllerStatus(controller); if (!advanceNextRead) return view; advanceNextRead = false; return { ...view, revision: `${view.revision}-advanced` }; } } }); services.push(service);
+    const service = await createAssistantService(root, { dependencies: { status: async controller => { const view = await controllerStatus(controller); if (!advanceNextRead) return view; advanceNextRead = false; return { ...view, revision: hashValue(`${view.revision}-advanced`) }; } } }); services.push(service);
     const proposed = await service.call(capability.token, "wringer.propose", { workspaceId: workspace.id, idempotencyKey: crypto.randomUUID(), intent: plan.intent, plan }), jobId = proposed.jobId as string;
     const approved = await approveAssistantProposal(root, { jobId, expectedRevision: hashValue(await service.inspectProposal(jobId)), actor: "SCRIPTED correction fixture", expiresAt: new Date(Date.now() + 60000).toISOString(), confirmExecution: true });
     const state = assistantControllerState(root, jobId); await mkdir(state, { recursive: true });
@@ -39,15 +40,27 @@ async function fixture(waitForCancellation = false) {
     const provenance = (role: "worker" | "judge" | "verifier", repository: typeof plan.repository) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId: crypto.randomUUID(), role, kind: plan.runtime.kind, image: plan.runtime.image, repository, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: plan.runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: ["Synthetic only"] });
     await runContainedJourney({ controllerDir: state, plan, authority: approved.authority, environment, services: {
         prepareSource: async source => source, captureCandidate: async () => candidate,
-        verifyCandidate: async request => { const status = request.phase === "baseline" ? "failed" : "passed"; return { schema_version: "wringer.contained-verification.v1", status, candidateCommit: request.source.commit, candidateTree: request.phase === "baseline" ? environment.source_tree : candidate.tree, acceptanceSha256: plan.acceptance_sha256, runtimeId: crypto.randomUUID(), image: plan.runtime.image, checks: plan.acceptance.checks.map(c => ({ id: c.id, status, exitCode: status === "passed" ? 0 : 1, checkInputsSha256: "d".repeat(64), outputSha256: "e".repeat(64) })), regressions: plan.environment.baseline.map(c => ({ id: c.id, status: "passed", exitCode: 0, outputSha256: "e".repeat(64) })), evidenceRef: "synthetic" } as CandidateVerification; },
+        verifyCandidate: async request => {
+            const status = request.phase === "baseline" ? "failed" : "passed", output = `Synthetic ${request.phase} observation\n`;
+            const value = { schema_version: "wringer.contained-verification.v1", status, candidateCommit: request.source.commit, candidateTree: request.phase === "baseline" ? environment.source_tree : candidate.tree, acceptanceSha256: plan.acceptance_sha256, runtimeId: crypto.randomUUID(), image: plan.runtime.image, checks: plan.acceptance.checks.map(c => ({ id: c.id, status, exitCode: status === "passed" ? 0 : 1, checkInputsSha256: "d".repeat(64), outputSha256: "e".repeat(64) })), regressions: plan.environment.baseline.map(c => ({ id: c.id, status: "passed", exitCode: 0, outputSha256: "e".repeat(64) })), evidenceRef: "synthetic" } as CandidateVerification;
+            if (version !== 3) return value;
+            // A measured-loop plan needs its evidence classification and a repair packet over the retained outputs.
+            const rows = [...plan.acceptance.checks.map(c => ({ id: `acceptance/${c.id}`, code: status === "passed" ? 0 : 1, stdout: output, stderr: "", durationMs: 1 })), ...plan.environment.baseline.map(c => ({ id: `baseline/${c.id}`, code: 0, stdout: output, stderr: "", durationMs: 1 }))];
+            for (const row of [...value.checks, ...(value.regressions ?? [])]) row.outputSha256 = hashBytes(output);
+            const measured = { ...value, schema_version: "wringer.contained-verification.v2", checkEvidence: [] } as CandidateVerification;
+            return { ...measured, repair: buildRepairPacket(plan, measured, request.phase, hashValue(rows), rows) };
+        },
     }, executeRole: async request => ({ status: "completed", text: request.role === "worker" ? "Synthetic change" : JSON.stringify({ criteria: plan.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met: true, reason: "Synthetic" })), note: "Synthetic" }), sessionId: crypto.randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: provenance(request.role as "worker" | "judge", request.repo) }) as RoleExecutionResult });
     let correctionCalls = 0, correctionSignal: AbortSignal | undefined;
+    // The page's own re-read of the journal goes through the flow's dependencies, so a test can make it disagree.
+    let advancePageRead = false;
     const flow = createAssistantJobFlow(service, {
+        dependencies: { status: async controller => { const view = await controllerStatus(controller); if (!advancePageRead) return view; advancePageRead = false; return { ...view, revision: hashValue(`${view.revision}-page`) }; } },
         runCommands: async request => ({ provenance: provenance("verifier", request.repo), sourceChanged: false, sourceTree: candidate.tree, results: request.commands.map(c => ({ id: c.id, code: 0, stdout: "Synthetic result to inspect", stderr: "", durationMs: 1 })) }),
         executeRole: async request => { correctionCalls++; correctionSignal = request.signal; if (waitForCancellation) await new Promise<void>(resolve => { if (request.signal?.aborted) resolve(); else request.signal?.addEventListener("abort", () => resolve(), { once: true }); }); throw new Error("Synthetic correction transport failed; no actual model ran"); },
     }); flows.push(flow); await flow.tick();
     const current = await until(() => flow.read(jobId), view => view.phase === "review");
-    return { root, service, capability, state, jobId, flow, current, correctionCalls: () => correctionCalls, correctionSignal: () => correctionSignal, advanceNextRead: () => { advanceNextRead = true; } };
+    return { root, service, capability, state, jobId, flow, current, correctionCalls: () => correctionCalls, correctionSignal: () => correctionSignal, advanceNextRead: () => { advanceNextRead = true; }, advancePageRead: () => { advancePageRead = true; } };
 }
 test("one correction request retains the source-bound No and exact words; failed correction is never silently replayed", async () => {
     const f = await fixture(), note = "  My original request: make the result easier to read.\nKeep these exact words.  ";
@@ -69,17 +82,10 @@ for (const cancellation of ["owner-stop", "assistant-cancel"]) test(`${cancellat
         await until(async () => f.correctionSignal(), signal => !!signal);
         if (cancellation === "owner-stop") f.flow.stop();
         else {
-            const seenAt = Date.now(), abortedWhenSeen = f.correctionSignal()!.aborted;
-            const current = await f.service.status(f.jobId), readMs = Date.now() - seenAt;
-            const result = await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree });
-            // CI-only race capture: a refused cancel prints what the journal did around its read.
-            // It explains the failure; it never retries or passes it.
-            let race = "";
-            if (result.outcome !== "cancelled") {
-                const events = (await readValidatedContainedState(f.state, { allowStaleView: true })).events, read = events.findIndex(e => e.sha256 === current.revision) + 1, from = Math.max(0, read - 2);
-                race = JSON.stringify({ code: result.code, abortedWhenSeen, revisionAdvanced: current.revisionAdvanced, outcome: current.outcome, readAtSequence: read, readMs, tail: events.slice(from).map((e, i) => `${from + i + 1}:${e.type}@${Date.parse(e.at) - seenAt}ms`) });
-            }
-            expect(result, race).toMatchObject({ outcome: "cancelled" });
+            // Whatever revision this observation reports while the correction advances, the cancel is recorded and applied.
+            const current = await f.service.status(f.jobId);
+            expect(await f.service.call(f.capability.token, "wringer.cancel", { jobId: f.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree })).toMatchObject({ outcome: "cancelled" });
+            expect(await readAssistantRecord(f.service.root, `jobs/${f.jobId}/cancelled.json`)).toMatchObject({ requestedAtRevision: current.revision });
             await f.flow.tick();
         }
         await until(async () => f.correctionSignal()?.aborted, aborted => aborted === true);
@@ -106,16 +112,32 @@ test("a status read that sees the run advance reports it, never refuses and offe
     expect(inventory.jobs).toHaveLength(1); expect(inventory.jobs[0]).toMatchObject({ jobId: f.jobId, revisionAdvanced: true, nextAction: ADVANCED });
     expect(await f.service.status(f.jobId)).toMatchObject({ revisionAdvanced: false, nextAction: fresh.nextAction });
 });
-test("every act refuses the revision an advancing read reported; nothing is recorded or dispatched", async () => {
+test("a cancel is recorded and applied whatever revision its observation saw; every other act still refuses that revision", async () => {
     const f = await fixture(); f.flow.stop();
     f.advanceNextRead();
     const observed = await f.service.status(f.jobId);
     expect(observed.revisionAdvanced).toBe(true);
     const guard = { jobId: f.jobId, expectedRevision: observed.revision, expectedCandidateTree: observed.candidateTree };
-    for (const [name, extra] of [["wringer.cancel", {}], ["wringer.request_revision", { note: "SCRIPTED correction on a stale read" }]] as const)
+    expect(await f.service.call(f.capability.token, "wringer.cancel", { ...guard, idempotencyKey: crypto.randomUUID() })).toMatchObject({ outcome: "cancelled" });
+    expect(await readAssistantRecord(f.service.root, `jobs/${f.jobId}/cancelled.json`)).toMatchObject({ schema_version: "wringer.assistant-cancellation.v1", jobId: f.jobId, requestedAtRevision: observed.revision });
+    await expect(f.service.assertJobActive(f.jobId)).rejects.toThrow("cancelled");
+    // Start, correction, continuation and handover mean something only at the revision they name.
+    for (const [name, extra] of [["wringer.start", {}], ["wringer.request_revision", { note: "SCRIPTED correction on a stale read" }], ["wringer.continue", { action: "resume" }], ["wringer.prepare_handover", {}]] as const)
         expect(await f.service.call(f.capability.token, name, { ...guard, idempotencyKey: crypto.randomUUID(), ...extra }), name).toMatchObject({ outcome: "refused", code: "stale-request" });
     expect(await f.service.runner.list(f.jobId)).toEqual([]);
-    await f.service.assertJobActive(f.jobId);
-    expect(await f.service.status(f.jobId)).toMatchObject({ revisionAdvanced: false, outcome: observed.outcome });
     expect(f.correctionCalls()).toBe(0);
 });
+test("the PM page reports a run that advanced while it was read, never refuses and offers no decision", async () => {
+    // The page re-reads the journal for progress evidence only on measured-loop plans, so this job's plan is version 3.
+    const f = await fixture(false, 3); f.flow.stop();
+    const fresh = await f.flow.read(f.jobId);
+    expect(fresh.engineering).toBeDefined(); expect(fresh.phase).toBe("review");
+    const arms: [string, () => void][] = [["service observation", f.advanceNextRead], ["page re-read", f.advancePageRead]];
+    for (const [name, arm] of arms) {
+        arm();
+        const view = await f.flow.read(f.jobId);
+        expect(view, name).toMatchObject({ revisionAdvanced: true, phase: "working", nextAction: ADVANCED, error: null, retryable: false, preparedId: null });
+        expect(view.readyRevision, name).not.toBe(fresh.readyRevision);
+    }
+    expect(await f.flow.read(f.jobId)).toMatchObject({ revisionAdvanced: false, phase: "review" });
+}, 15000);

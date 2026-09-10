@@ -29,6 +29,8 @@ export interface PmJob {
     revision: string;
     readyRevision: string;
     candidateTree: string | null;
+    /** The run advanced while this page was read; decisions wait for a fresh read. */
+    revisionAdvanced?: boolean;
     phase: "approval" | "working" | "review" | "preparing" | "send" | "sent" | "blocked" | "correction";
     name: string;
     intent: string;
@@ -75,6 +77,7 @@ export function validatePmJob(value: unknown): PmJob {
     if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v1" ? v.engineering !== undefined : !engineering(v.engineering)) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
+        || !(v.revisionAdvanced === undefined || typeof v.revisionAdvanced === "boolean") || v.revisionAdvanced === true && !["working", "sent"].includes(v.phase)
         || !(v.retryable === undefined || typeof v.retryable === "boolean") || !(v.retryLabel === undefined || text(v.retryLabel, 200)) || v.retryable === true && !id(v.retryLabel)
         || !(v.actor === null || id(v.actor)) || !list(v.limits, 100, x => text(x, 16000))
         || !v.budget || !count(v.budget.sessions) || !count(v.budget.wallSeconds) || !(v.budget.expiresAt === null || typeof v.budget.expiresAt === "string" && Number.isFinite(Date.parse(v.budget.expiresAt)))

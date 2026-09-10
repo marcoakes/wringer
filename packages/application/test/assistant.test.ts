@@ -334,12 +334,15 @@ describe("assistant application narrow authority and inert intake", () => {
         f.publicationState.beforeRead = undefined;
         expect((await f.call("get_status", { jobId: proposed.jobId })).outcome).toBe("cancelled");
     });
-    test("cancellation still refuses stale admission without writing either cancellation marker", async () => {
+    test("a cancellation naming an older revision is recorded with it and stops future work; a malformed revision is refused", async () => {
         const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId);
-        const result = await f.call("cancel", { ...await f.mutation(proposed.jobId), expectedRevision: "f".repeat(64) });
-        expect(result).toMatchObject({ outcome: "refused", code: "stale-request" });
+        expect(await f.call("cancel", { ...await f.mutation(proposed.jobId), expectedRevision: "not-a-revision" })).toMatchObject({ outcome: "refused", code: "invalid-input" });
         expect(await Bun.file(join(f.root, "jobs", proposed.jobId, "cancelled.json")).exists()).toBe(false);
-        expect(await Bun.file(join(f.root, "runner/jobs", proposed.jobId, "cancel.json")).exists()).toBe(false);
+        const result = await f.call("cancel", { ...await f.mutation(proposed.jobId), expectedRevision: "f".repeat(64) });
+        expect(result).toMatchObject({ outcome: "cancelled" });
+        expect(await readAssistantRecord(f.root, `jobs/${proposed.jobId}/cancelled.json`)).toMatchObject({ requestedAtRevision: "f".repeat(64) });
+        expect(await Bun.file(join(f.root, "runner/jobs", proposed.jobId, "cancel.json")).exists()).toBe(true);
+        expect((await f.call("start", await f.mutation(proposed.jobId))).code).toBe("cancelled");
     });
     test("questions/evidence from another job cannot cross a workspace capability", async () => {
         const a = await fixture(), b = await fixture(), p = await a.propose();

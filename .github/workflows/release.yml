@@ -1,6 +1,7 @@
 name: release
 # Explicit release dispatch only. Pushing main does not publish a package.
 # Python/PyPI publishing is retired; original releases remain historical.
+# Unexercised until a v-prefixed tag is dispatched: alphas are source checkpoints and never run this workflow.
 on:
   workflow_dispatch:
     inputs:
@@ -20,7 +21,8 @@ jobs:
           - os: macos-14
             platform: darwin-arm64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    # The same split and 40-minute hang guard as tests.yml; the rehearsal group runs in parallel below.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -38,7 +40,7 @@ jobs:
       - run: bun scripts/release.ts check-tag
         env:
           WRINGER_RELEASE_TAG: ${{ inputs.tag }}
-      - run: bun run validate
+      - run: bun run validate --group core
       - run: bun scripts/release.ts package
         env:
           WRINGER_RELEASE_PLATFORM: ${{ matrix.platform }}
@@ -53,8 +55,45 @@ jobs:
           name: release-evidence-${{ matrix.platform }}
           path: .wringer/native-validation-*/
           include-hidden-files: true
+  rehearsals:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x64
+          - os: macos-14
+            platform: darwin-arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - name: Install the pinned engineering-test browser (not a product runtime)
+        run: bun node_modules/playwright/cli.js install --with-deps chromium
+      - run: bun scripts/release.ts check-tag
+        env:
+          WRINGER_RELEASE_TAG: ${{ inputs.tag }}
+      - name: Build the distribution the rehearsals drive
+        run: bun run build
+      - run: bun run validate --group rehearsals
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: release-rehearsal-evidence-${{ matrix.platform }}
+          path: .wringer/native-validation-*/
+          include-hidden-files: true
   publish-draft:
-    needs: build
+    needs: [build, rehearsals]
     runs-on: ubuntu-latest
     environment: release
     permissions:

@@ -7,6 +7,8 @@ const directory = process.argv[2]!, mode = process.argv[3]!;
 const keepAlive = setInterval(() => {}, 1000);
 const runner = await createAssistantRunner(directory, {
     pollIntervalMs: 10,
+    // Listener cleanup that never confirms, so a SIGTERM'd owner exits past its stop bound with ownership retained.
+    ...(mode === "slow-release" ? { beforeOwnerRelease: () => new Promise<void>(() => {}) } : {}),
     execute: async (request, signal) => {
         await appendFile(join(directory, "fixture-dispatches.jsonl"), JSON.stringify({ id: request.id, jobId: request.jobId }) + "\n");
         if (mode === "block") await new Promise<void>(() => {});
