@@ -13,7 +13,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    # macOS measured 1302–1358 s before alpha.12's two local rehearsal stages (~250 s more); 40 keeps headroom.
+    # Ratified at 703de14, where the whole envelope took 1,727 s on macOS; its core stages were 892 s of that.
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +28,8 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Install the pinned engineering-test browser (not a product runtime)
         run: bun node_modules/playwright/cli.js install --with-deps chromium
-      - run: bun run validate
+      # Groups are derived from stage names in scripts/validate.ts; this job runs every stage not named *-rehearsal.
+      - run: bun run validate --group core
       - name: Preserve successful and failed measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -43,6 +44,42 @@ jobs:
             .wringer/assistant-smoke-*/transcript.json
             .wringer/local-source-route-*/result.json
             .wringer/local-source-route-*/transcript.json
+            .wringer/native-demo-*/result.json
+            .wringer/native-demo-*/transcript.md
+          if-no-files-found: error
+          include-hidden-files: true
+  rehearsals:
+    name: Rehearsals / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    # The rehearsal stages took 804 s (macOS) and 661 s (Linux) inside the 703de14 jobs; same hang guard.
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: bun install --frozen-lockfile
+      - name: Install the pinned engineering-test browser (not a product runtime)
+        run: bun node_modules/playwright/cli.js install --with-deps chromium
+      - name: Build the distribution the rehearsals drive
+        run: bun run build
+      - run: bun run validate --group rehearsals
+      - name: Preserve successful and failed measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-evidence-${{ matrix.os }}
+          path: |
+            .wringer/native-validation-*/
             .wringer/assistant-launch-rehearsal-*/result.json
             .wringer/assistant-launch-rehearsal-*/guided-result.json
             .wringer/assistant-launch-rehearsal-*/transcript.json
@@ -52,8 +89,6 @@ jobs:
             .wringer/improvements-browser-*/result.json
             .wringer/improvements-browser-*/transcript.json
             .wringer/improvements-browser-*/browser-*.png
-            .wringer/native-demo-*/result.json
-            .wringer/native-demo-*/transcript.md
           if-no-files-found: error
           include-hidden-files: true
   action:

@@ -2,6 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { VALIDATION_GROUPS } from "../../../scripts/validate";
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -62,13 +63,23 @@ test("repository, action and validation commands declare test paths instead of s
     }
 });
 
-test("both CI consumers install the pinned browser before running repository checks", async () => {
+test("every CI job installs the pinned browser before its checks, and the jobs together run each validation group once", async () => {
     const workflow = Bun.YAML.parse(await readFile(new URL("../../../.github/workflows/tests.yml", import.meta.url), "utf8")) as { jobs: Record<string, { steps: { run?: string; uses?: string }[] }> };
-    for (const name of ["bun", "action"]) {
+    const validation = /^bun run validate --group ([a-z]+)$/, groups: string[] = [];
+    for (const name of ["bun", "rehearsals", "action"]) {
+        expect(workflow.jobs[name], name).toBeDefined();
         const steps = workflow.jobs[name]!.steps;
         const browser = steps.findIndex(step => step.run === "bun node_modules/playwright/cli.js install --with-deps chromium");
-        const checks = steps.findIndex(step => step.run === "bun run validate" || step.uses === "./");
-        expect(browser).toBeGreaterThan(-1);
-        expect(checks).toBeGreaterThan(browser);
+        const checks = steps.findIndex(step => validation.test(step.run ?? "") || step.uses === "./");
+        expect(browser, name).toBeGreaterThan(-1);
+        expect(checks, name).toBeGreaterThan(browser);
     }
+    for (const job of Object.values(workflow.jobs)) for (const step of job.steps) {
+        // An ungrouped run would put every stage back into one job.
+        expect(step.run ?? "").not.toMatch(/validate(\.ts)?\s*$/);
+        const group = step.run?.match(validation)?.[1];
+        if (group) groups.push(group);
+    }
+    // Groups are derived from stage names in scripts/validate.ts; a deleted or duplicated group job is refused here.
+    expect(groups.sort()).toEqual([...VALIDATION_GROUPS].sort());
 });
