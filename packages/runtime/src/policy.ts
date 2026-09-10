@@ -9,6 +9,9 @@ export const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
 /** A local-only source's whole identity: the single root commit of its history.
  * It resolves nowhere; the source is read only from its prepared Git bundle. */
 export const LOCAL_SOURCE_URL = /^local:\/\/[a-f0-9]{40}$/;
+/** Runtime provenance names its source kind: the local sibling for local://, the original otherwise. */
+export const RUNTIME_PROVENANCE_VERSIONS = { hosted: "wringer.runtime.v1", local: "wringer.runtime.v2" } as const;
+export const runtimeProvenanceVersion = (url: string) => LOCAL_SOURCE_URL.test(url) ? RUNTIME_PROVENANCE_VERSIONS.local : RUNTIME_PROVENANCE_VERSIONS.hosted;
 export function parseWritableDirectories(value: unknown, protectedFiles: string[] = []): string[] {
     if (!Array.isArray(value) || value.length > 64)
         throw new RuntimeError("Verifier writable directories must be a bounded explicit list");

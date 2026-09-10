@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { discoverEnvironment, hashValue, createExecutionAuthority, validateExecutionPlan, validatePlaybookManifest, parsePlaybookManifest, validatePlaybookSnapshot } from "@wringer/plan";
+import { measuredLoopPlan, discoverEnvironment, hashValue, createExecutionAuthority, validateExecutionPlan, validatePlaybookManifest, parsePlaybookManifest, validatePlaybookSnapshot } from "@wringer/plan";
 import type { ExecutionPlan, PlaybookSnapshot } from "@wringer/plan";
 import { executeAgentRole, captureCandidate } from "@wringer/runtime";
 import type { RoleExecutor, RoleExecutionResult, PreparedRepositorySource } from "@wringer/runtime";
@@ -58,7 +58,7 @@ function measurementTrial(current: Awaited<ReturnType<typeof readExperiment>>, s
     });
     const baseline = validated.state.baseline, verification = result.verification;
     let assertionFailure = false;
-    if (plan.schema_version === "wringer.execution-plan.v3" && baseline && verification) {
+    if (measuredLoopPlan(plan) && baseline && verification) {
         try { assertAssertionRed(plan, baseline); assertAssertionPair(plan, baseline, verification); }
         catch { assertionFailure = true; }
     }

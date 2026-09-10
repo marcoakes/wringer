@@ -3,8 +3,8 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, cp, rm, unlink, lstat } f
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { compileDeclaration, createExecutionAuthority, discoverEnvironment, hashValue, hashBytes } from "@wringer/plan";
-import { createLocalSourceBundle, prepareRepositorySource, captureCandidate, processDriver, type RoleExecutionResult, type RoleExecutionRequest, type ContainedCommandRequest } from "@wringer/runtime";
+import { compileDeclaration, createExecutionAuthority, discoverEnvironment, hashValue, hashBytes, recordVersion, validateExecutionAuthority } from "@wringer/plan";
+import { createLocalSourceBundle, prepareRepositorySource, captureCandidate, processDriver, runtimeProvenanceVersion, type RoleExecutionResult, type RoleExecutionRequest, type ContainedCommandRequest } from "@wringer/runtime";
 import { runContainedJourney, buildRepairPacket, observeAssertionReport, type ContainedJourneyServices, type CandidateVerification } from "@wringer/workflow";
 import { deliverContained, auditContained, readContainedDeliveryProjection, legacyContainedDocumentsV1, reviewContainedSource } from "../src/contained";
 import { containedProjectionDigest, deriveContainedDeliveryProjection, renderContainedCertificate, renderContainedBoard, renderContainedBoardV2, renderContainedDocuments, renderContainedDocumentsV3 } from "../src/projection";
@@ -18,7 +18,7 @@ async function command(argv: string[], input?: string) {
         throw new Error(result.stderr);
     return result.stdout;
 }
-async function fixture(human = false, mutable = false, dependencySetup = false, historicalBytes = 0, sourceExamples = false, optionalComment = false, engineering = false) {
+async function fixture(human = false, mutable = false, dependencySetup = false, historicalBytes = 0, sourceExamples = false, optionalComment = false, engineering = false, local = false) {
     const root = await mkdtemp(join(tmpdir(), "wringer-contained-delivery-")), repo = join(root, "repo"), origin = join(root, "origin.git"), stateDir = join(root, "controller");
     await command(["git", "init", "--initial-branch=main", repo]);
     await command(["git", "init", "--bare", "--initial-branch=main", origin]);
@@ -49,17 +49,23 @@ async function fixture(human = false, mutable = false, dependencySetup = false, 
     await command(["git", "-C", repo, "commit", "-m", "baseline"]);
     await command(["git", "-C", repo, "push", origin, "main"]);
     const commit = (await command(["git", "-C", repo, "rev-parse", "HEAD"])).trim();
-    const plan = compileDeclaration({ version: engineering ? 3 : 1, ...(engineering ? { playbook: { path: "playbook.json", sha256: hashBytes(playbook), taskFamily: "fixture" } } : {}), name: "Portable exact candidate", intent: `Return after.${human ? " The display is readable." : ""}`, repository: { url: "https://example.invalid/fixture.git", commit }, runtime: { kind: "apple-container", image, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: dependencySetup ? [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 10 }] : [], writable_directories: dependencySetup ? ["node_modules"] : [], baseline: [] }, scope: { writable: ["product.txt", ...(mutable ? ["product.js"] : [])] }, acceptance: { criteria: [{ id: "after", title: "Return after", quote: "Return after.", kind: "check", required: true }, ...(human ? [{ id: "readable", title: "Readable", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "product.txt"], cwd: ".", timeout_seconds: 10 } }] : [])], checks: [{ id: "after", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 10, criteria: ["after"], files: ["check.sh"], ...(engineering ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 30 } });
+    // A local-only plan names its source by the history's single root; nothing else about the journey differs.
+    const url = local ? `local://${(await command(["git", "-C", repo, "rev-list", "--max-parents=0", "HEAD"])).trim()}` : "https://example.invalid/fixture.git";
+    const plan = compileDeclaration({ version: local ? 4 : engineering ? 3 : 1, ...(engineering ? { playbook: { path: "playbook.json", sha256: hashBytes(playbook), taskFamily: "fixture" } } : {}), name: "Portable exact candidate", intent: `Return after.${human ? " The display is readable." : ""}`, repository: { url, commit }, runtime: { kind: "apple-container", image, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: dependencySetup ? [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 10 }] : [], writable_directories: dependencySetup ? ["node_modules"] : [], baseline: [] }, scope: { writable: ["product.txt", ...(mutable ? ["product.js"] : [])] }, acceptance: { criteria: [{ id: "after", title: "Return after", quote: "Return after.", kind: "check", required: true }, ...(human ? [{ id: "readable", title: "Readable", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "product.txt"], cwd: ".", timeout_seconds: 10 } }] : [])], checks: [{ id: "after", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 10, criteria: ["after"], files: ["check.sh"], ...(engineering ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 3600, session_timeout_seconds: 30 } });
     await mkdir(stateDir);
     const sourceBundle = join(root, "source.bundle");
     await createLocalSourceBundle(repo, commit, sourceBundle);
-    const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: stateDir }), environment = await discoverEnvironment(prepared.objectStore, plan), authority = createExecutionAuthority(plan, { actor: "Fixture operator", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() });
+    const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: stateDir }), environment = await discoverEnvironment(prepared.objectStore, plan), authority = local
+        // Minting authority for a local-only source stays stopped until its whole journey is proven; until
+        // then the fixture signs exactly the record createExecutionAuthority mints, through the real reader.
+        ? validateExecutionAuthority({ schema_version: recordVersion(plan, "authority"), actor: "Fixture operator", repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions: ["build", "verify", "judge"], budget: plan.budget, granted_at: new Date().toISOString(), expires_at: new Date(Date.now() + 3600000).toISOString() }, plan)
+        : createExecutionAuthority(plan, { actor: "Fixture operator", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() });
     const originalInputs = await command(["git", "--git-dir", prepared.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", commit, "--", ...plan.acceptance.protected_paths]);
     await writeFile(join(repo, "product.txt"), "after\n");
     if (mutable)
         await writeFile(join(repo, "product.js"), "export const expected = true;\nexport const unused = true;\n");
     const patch = await command(["git", "-C", repo, "diff", "--binary", "--full-index"]);
-    const provenance = (role: string, source: any, runtimeId: string) => ({ schema_version: "wringer.runtime.v1" as const, runtimeId, role: role as any, kind: plan.runtime.kind, image, repository: { url: source.url, commit: source.commit }, clonedInside: true as const, hostMounts: [] as [
+    const provenance = (role: string, source: any, runtimeId: string) => ({ schema_version: runtimeProvenanceVersion(source.url), runtimeId, role: role as any, kind: plan.runtime.kind, image, repository: { url: source.url, commit: source.commit }, clonedInside: true as const, hostMounts: [] as [
         ], repositoryAccess: role === "judge" ? "read-only" as const : "read-write" as const, declared: plan.runtime, observed: { fixture: true, ...(role === "verifier" ? { writableDirectories: plan.environment.writable_directories } : {}) }, limits: ["Synthetic runtime receipt; no real isolation or model was measured"] });
     const setupRows = () => plan.environment.setup.map(c => ({ id: `setup/${c.id}`, code: 0, stdout: "Synthetic setup observation\n", stderr: "", durationMs: 1 }));
     const services: ContainedJourneyServices = { prepareSource: async () => prepared, captureCandidate: (result, base, effectId) => captureCandidate(result, base, { controllerDir: stateDir, effectId }), verifyCandidate: async (request) => {
@@ -117,6 +123,30 @@ test("v4 handover carries strict red/green, pinned worker playbook and determini
         await writeFile(join(directory, "engineering.json"), JSON.stringify(engineering)); await seal(directory);
         const corrupted = await auditContained(directory);
         expect(corrupted.status).toBe("failed");
+    } finally { await rm(f.root, { recursive: true, force: true }); }
+}, 90000);
+test("a local-only v4 plan carries its local records through delivery into a fresh-clone audit", async () => {
+    const f = await fixture(true, false, false, 0, false, true, true, true);
+    try {
+        expect(f.plan.schema_version).toBe("wringer.execution-plan.v4"); expect(f.plan.repository.url).toMatch(/^local:\/\/[a-f0-9]{40}$/);
+        const delivered = await deliverContained({ stateDir: f.stateDir, publication: f.publication, send: true });
+        const clone = join(f.root, "local-fresh");
+        await command(["git", "clone", "--branch", f.publication.sourceBranch, f.origin, clone]);
+        const directory = join(clone, ".wringer/deliveries", delivered.deliveryId), carried = async (name: string) => JSON.parse(await readFile(join(directory, name), "utf8"));
+        const [manifest, plan, authority, environment] = await Promise.all(["manifest.json", "plan.json", "authority.json", "environment.json"].map(carried));
+        expect(manifest.schema_version).toBe("wringer.contained-delivery.v4");
+        expect([plan.schema_version, authority.schema_version, environment.schema_version]).toEqual(["wringer.execution-plan.v4", "wringer.execution-authority.v2", "wringer.environment-map.v2"]);
+        expect(authority.repository).toEqual(f.plan.repository); expect(environment.repository).toEqual(f.plan.repository);
+        const audit = await auditContained(directory);
+        expect(audit.status).toBe("passed"); expect(audit.claims.every(c => c.status === "checked")).toBe(true);
+        // A carried role receipt relabelled as hosted provenance, resealed: only the runtime family guard names why it refuses.
+        const roles = join(directory, "roles"), receipts = await Promise.all((await readdir(roles)).filter(name => name.endsWith(".json")).map(async name => ({ path: join(roles, name), row: JSON.parse(await readFile(join(roles, name), "utf8")) })));
+        const roleReceipt = receipts.find(receipt => receipt.row.result?.provenance)!;
+        expect(roleReceipt.row.result.provenance.schema_version).toBe("wringer.runtime.v2");
+        await writeFile(roleReceipt.path, JSON.stringify({ ...roleReceipt.row, result: { ...roleReceipt.row.result, provenance: { ...roleReceipt.row.result.provenance, schema_version: "wringer.runtime.v1" } } })); await seal(directory);
+        const mixed = await auditContained(directory);
+        expect(mixed.status).toBe("failed");
+        expect(mixed.claims.find(c => c.id === "delivery-integrity")?.reason).toContain("This runtime provenance is wringer.runtime.v1, but a local-only source's runtime provenance is wringer.runtime.v2.");
     } finally { await rm(f.root, { recursive: true, force: true }); }
 }, 90000);
 test("contained delivery prepares without publishing, then fresh-clone audit resolves exact candidate and human note", async () => {

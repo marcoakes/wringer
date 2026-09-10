@@ -3,6 +3,7 @@ import { Redactor } from "@wringer/engine";
 import { parseDesignJson } from "@wringer/design";
 import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { record, repoPath, validateExecutionPlan, type PlanValidationOptions } from "./compile";
+import { assertRecordUrlFamily, recordVersion } from "./family";
 import type { EnvironmentMap, ExecutionPlan, RepositoryRef } from "./types";
 
 export const MAX_PLAYBOOK_BYTES = 64 * 1024;
@@ -18,7 +19,7 @@ export interface PlaybookManifest {
     evaluationRefs: string[];
 }
 export interface PlaybookSnapshot {
-    schema_version: "wringer.playbook-snapshot.v1";
+    schema_version: "wringer.playbook-snapshot.v1" | "wringer.playbook-snapshot.v2";
     source: { repository: RepositoryRef; path: string; blob: string };
     content: string;
     manifest: PlaybookManifest;
@@ -67,10 +68,11 @@ export function validatePlaybookSnapshot(value: unknown, options: PlanValidation
     canonicalJson(value);
     const s = record(value, "playbook snapshot", ["schema_version", "source", "content", "manifest", "sha256", "snapshot_sha256"]);
     const source = record(s.source, "playbook source", ["repository", "path", "blob"]), repository = record(source.repository, "playbook repository", ["url", "commit"]);
-    if (s.schema_version !== "wringer.playbook-snapshot.v1" || typeof repository.url !== "string" || !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(repository.commit ?? "") || !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(source.blob ?? "")) throw new Error("Playbook snapshot needs an exact repository and Git blob identity");
+    if (typeof repository.url !== "string" || !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(repository.commit ?? "") || !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(source.blob ?? "")) throw new Error("Playbook snapshot needs an exact repository and Git blob identity");
+    assertRecordUrlFamily("playbook", s.schema_version, repository.url);
     const content = string(s.content, "playbook source bytes", MAX_PLAYBOOK_BYTES), manifest = parsePlaybookManifest(content, options);
     if (hashBytes(content) !== digest(s.sha256) || canonicalJson(manifest) !== canonicalJson(s.manifest)) throw new Error("Playbook snapshot differs from its exact source bytes");
-    const snapshot = { schema_version: "wringer.playbook-snapshot.v1" as const, source: { repository: { url: repository.url, commit: repository.commit }, path: path(source.path), blob: source.blob }, content, manifest, sha256: s.sha256 };
+    const snapshot = { schema_version: s.schema_version as PlaybookSnapshot["schema_version"], source: { repository: { url: repository.url, commit: repository.commit }, path: path(source.path), blob: source.blob }, content, manifest, sha256: s.sha256 };
     if (hashValue(snapshot) !== digest(s.snapshot_sha256)) throw new Error("Playbook snapshot digest changed");
     return freezeData({ ...snapshot, snapshot_sha256: s.snapshot_sha256 });
 }
@@ -109,7 +111,7 @@ export async function readPinnedPlaybook(repo: string, rawPlan: ExecutionPlan, o
     if (!Number.isSafeInteger(size) || size < 1 || size > MAX_PLAYBOOK_BYTES) throw new Error("Approved playbook exceeds its bounded source size");
     const bytes = await gitBytes(repo, ["cat-file", "blob", match[2]!], MAX_PLAYBOOK_BYTES), content = decode(bytes);
     if (bytes.byteLength !== size || hashBytes(bytes) !== selection.sha256) throw new Error("Approved playbook SHA256 differs from the exact source blob");
-    const manifest = parsePlaybookManifest(bytes, options), body = { schema_version: "wringer.playbook-snapshot.v1" as const, source: { repository: plan.repository, path: selection.path, blob: match[2]! }, content, manifest, sha256: selection.sha256 };
+    const manifest = parsePlaybookManifest(bytes, options), body = { schema_version: recordVersion(plan, "playbook"), source: { repository: plan.repository, path: selection.path, blob: match[2]! }, content, manifest, sha256: selection.sha256 };
     const snapshot = freezeData({ ...body, snapshot_sha256: hashValue(body) });
     assertPlaybookApplicability(snapshot, plan, options.environment, options);
     return snapshot;

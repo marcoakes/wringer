@@ -3,6 +3,7 @@ import { Redactor } from "@wringer/engine";
 import { MAX_SNAPSHOT_BYTES, assertRepositoryDisclosure, parseDesignSnapshot } from "@wringer/design";
 import { freezeData, hashBytes, hashValue } from "./canonical";
 import { validateExecutionPlan, type PlanValidationOptions } from "./compile";
+import { assertRecordUrlFamily, recordVersion } from "./family";
 import type { EnvironmentMap, EnvironmentObservation, ExecutionPlan } from "./types";
 import { readPinnedPlaybook } from "./playbook";
 async function git(repo: string, args: string[]): Promise<string> {
@@ -94,7 +95,7 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
         const component = f.path.includes("/") ? f.path.split("/")[0]! : ".";
         counts.set(component, (counts.get(component) ?? 0) + 1);
     }
-    const data: Omit<EnvironmentMap, "map_sha256"> = { schema_version: "wringer.environment-map.v1", repository: plan.repository, plan_sha256: plan.plan_sha256, source_tree: tree, inventory_sha256: hashValue(files), files, context, components: [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([path, files]) => ({ path, files })), tools: plan.environment.tools.map(t => ({ ...t, observation: observation("tool", t.name, t.probe) })), baseline: plan.environment.baseline.map(declaration => ({ declaration, observation: observation("baseline", declaration.id, declaration) })), protected_paths: plan.acceptance.protected_paths, writable_paths: plan.scope.writable, limits: ["Repository context is source-linked, not a claim that a model understood it.", "Null observations mean not measured. No repository tool, baseline or setup command was executed on the host to build this map.", "Check files and declared dependency inputs are pinned; unlisted transitive dependencies are not inferred.", "Baseline observations are accepted only from the injected controller supervisor, never parsed from agent prose."] };
+    const data: Omit<EnvironmentMap, "map_sha256"> = { schema_version: recordVersion(plan, "environment"), repository: plan.repository, plan_sha256: plan.plan_sha256, source_tree: tree, inventory_sha256: hashValue(files), files, context, components: [...counts].sort(([a], [b]) => a.localeCompare(b)).map(([path, files]) => ({ path, files })), tools: plan.environment.tools.map(t => ({ ...t, observation: observation("tool", t.name, t.probe) })), baseline: plan.environment.baseline.map(declaration => ({ declaration, observation: observation("baseline", declaration.id, declaration) })), protected_paths: plan.acceptance.protected_paths, writable_paths: plan.scope.writable, limits: ["Repository context is source-linked, not a claim that a model understood it.", "Null observations mean not measured. No repository tool, baseline or setup command was executed on the host to build this map.", "Check files and declared dependency inputs are pinned; unlisted transitive dependencies are not inferred.", "Baseline observations are accepted only from the injected controller supervisor, never parsed from agent prose."] };
     if (redactor.scrub(JSON.stringify(data)) !== JSON.stringify(data))
         throw new Error("Environment inventory contains a detected credential; no altered source map was retained");
     await cleanSource(repo, plan.repository.commit);
@@ -102,8 +103,9 @@ export async function discoverEnvironment(repo: string, rawPlan: ExecutionPlan, 
 }
 export async function assertEnvironmentFresh(repo: string, map: EnvironmentMap): Promise<void> {
     const { map_sha256, ...data } = map;
-    if (map.schema_version !== "wringer.environment-map.v1" || hashValue(data) !== map_sha256 || hashValue(map.files) !== map.inventory_sha256)
+    if (hashValue(data) !== map_sha256 || hashValue(map.files) !== map.inventory_sha256)
         throw new Error("Environment map contents or digest changed");
+    assertRecordUrlFamily("environment", map.schema_version, map.repository?.url);
     await cleanSource(resolve(repo), map.repository.commit);
     const tree = (await git(repo, ["rev-parse", `${map.repository.commit}^{tree}`])).trim();
     if (tree !== map.source_tree)

@@ -126,7 +126,7 @@ export interface ExecutionPlan extends Omit<PlanDeclaration, "version"> {
     plan_sha256: string;
 }
 export interface ExecutionAuthority {
-    schema_version: "wringer.execution-authority.v1";
+    schema_version: "wringer.execution-authority.v1" | "wringer.execution-authority.v2";
     actor: string;
     repository: RepositoryRef;
     plan_sha256: string;
@@ -148,7 +148,7 @@ export interface EnvironmentObservation {
     command_sha256: string;
 }
 export interface EnvironmentMap {
-    schema_version: "wringer.environment-map.v1";
+    schema_version: "wringer.environment-map.v1" | "wringer.environment-map.v2";
     repository: RepositoryRef;
     plan_sha256: string;
     source_tree: string;

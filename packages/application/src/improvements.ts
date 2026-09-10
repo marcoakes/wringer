@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { compileDeclaration, hashValue, type ExecutionPlan } from "@wringer/plan";
+import { measuredLoopPlan, planVersion, compileDeclaration, hashValue, type ExecutionPlan } from "@wringer/plan";
 import { assistantExists, readAssistantRecord, writeAssistantRecord } from "./assistant-store";
 import { listExperiments, readPlaybookAdoptions, promoteExperiment, rollbackPlaybook, createExperimentGrant, collectExperiment } from "./experiments";
 import { privateExperimentRoot } from "./experiment-store";
@@ -75,21 +75,21 @@ export async function prepareImprovementTest(root: string, profile: ExecutionPla
 export async function futureImprovementTemplate(root: string, profile: ExecutionPlan): Promise<{ plan: ExecutionPlan; note: string }> {
     const current = await inventory(root, profile), selected = current?.history.at(-1);
     if (!current || !selected) return { plan: profile, note: "No evaluated future approach has been selected." };
-    if (profile.schema_version !== "wringer.execution-plan.v3") return { plan: profile, note: "The current profile predates pinned approaches. Select a v3 profile before adopting guidance in a new proposal." };
+    if (!measuredLoopPlan(profile)) return { plan: profile, note: "The current profile predates pinned approaches. Select a v3 profile before adopting guidance in a new proposal." };
     const { schema_version, plan_sha256, acceptance_sha256, intent_sha256, ...declaration } = profile;
     const plans = current.experiments.flatMap(row => row.plan.tasks.flatMap(task => [task.baseline, task.candidate]));
     const comparable = (plan: ExecutionPlan) => plan.repository.commit === profile.repository.commit && hashValue(plan.runtime) === hashValue(profile.runtime) && hashValue(plan.agents) === hashValue(profile.agents) && hashValue(plan.environment) === hashValue(profile.environment) && hashValue(plan.acceptance.checks) === hashValue(profile.acceptance.checks);
     if (!selected.selectedDigest) {
         if (!profile.playbook) {
             if (!plans.some(plan => plan.playbook?.sha256 === selected.previousDigest && comparable(plan))) return { plan: profile, note: "The no-playbook selection belongs to another source/runtime/check family. This profile is unchanged." };
-            return { plan: compileDeclaration({ version: 3, ...declaration, approachAdoption: selected }, { credentialEnvironment: {} }), note: "The future selection is no playbook, with its rollback receipt retained. Existing jobs are unchanged." };
+            return { plan: compileDeclaration({ version: planVersion(profile), ...declaration, approachAdoption: selected }, { credentialEnvironment: {} }), note: "The future selection is no playbook, with its rollback receipt retained. Existing jobs are unchanged." };
         }
         if (profile.playbook.taskFamily !== selected.taskFamily || profile.playbook.sha256 !== selected.previousDigest || !plans.some(plan => plan.playbook?.sha256 === profile.playbook!.sha256 && comparable(plan))) return { plan: profile, note: "This rollback does not match the profile's pinned approach and source/runtime/check family. Its explicit guidance is unchanged." };
         delete declaration.playbook;
-        return { plan: compileDeclaration({ version: 3, ...declaration, approachAdoption: selected }, { credentialEnvironment: {} }), note: "Rollback selected no playbook for future proposals only. New work still needs its own approval." };
+        return { plan: compileDeclaration({ version: planVersion(profile), ...declaration, approachAdoption: selected }, { credentialEnvironment: {} }), note: "Rollback selected no playbook for future proposals only. New work still needs its own approval." };
     }
     const known = plans.find(plan => plan.playbook?.sha256 === selected.selectedDigest && comparable(plan));
     if (!known?.playbook) return { plan: profile, note: "The adopted evidence does not match this pinned source/runtime/check family. The current profile is unchanged; prepare and evaluate a matching profile before claiming benefit." };
     delete declaration.approachAdoption;
-    return { plan: compileDeclaration({ version: 3, ...declaration, playbook: { ...known.playbook, adoption: selected } }, { credentialEnvironment: {} }), note: "This unapproved future proposal pins the adopted approach and decision receipt. Existing jobs are unchanged. New execution still requires approval." };
+    return { plan: compileDeclaration({ version: planVersion(profile), ...declaration, playbook: { ...known.playbook, adoption: selected } }, { credentialEnvironment: {} }), note: "This unapproved future proposal pins the adopted approach and decision receipt. Existing jobs are unchanged. New execution still requires approval." };
 }

@@ -1,6 +1,6 @@
 import { lstat, readFile, realpath } from "node:fs/promises";
 import { join, isAbsolute } from "node:path";
-import { hashValue, type ExecutionPlan } from "@wringer/plan";
+import { measuredLoopPlan, hashValue, type ExecutionPlan } from "@wringer/plan";
 import type { ContainedPublication } from "./contained";
 
 export interface ResearchDeliveryPurpose {
@@ -35,7 +35,7 @@ export async function assertResearchPublication(state: string, plan: ExecutionPl
     if (!info.isFile() || info.isSymbolicLink() || info.size > 16384 || (info.mode & 0o077) !== 0) throw new Error("Experimental controller purpose must be a bounded private regular record");
     const value = JSON.parse(await readFile(path, "utf8")), { sha256, ...body } = value;
     if (Object.keys(value).sort().join(",") !== "allowedPublications,experimentSha256,planSha256,productionHumanApproval,purpose,registrationSha256,schema_version,sha256,slotId" || value.schema_version !== "wringer.experiment-controller-purpose.v1" || !hash(sha256) || sha256 !== hashValue(body) || !hash(value.experimentSha256) || !hash(value.registrationSha256) || value.planSha256 !== plan.plan_sha256 || value.purpose !== "private-research-only" || value.productionHumanApproval !== "not-granted" || !/^[a-z][a-z0-9-]{0,159}$/.test(value.slotId) || !Array.isArray(value.allowedPublications) || value.allowedPublications.length !== 2) throw new Error("Experimental purpose was changed or belongs to another plan");
-    if (plan.schema_version !== "wringer.execution-plan.v3" || publication.forge || !isAbsolute(publication.remote)) throw new Error("Research decisions permit only the pre-reserved private local ending, never a production destination or forge");
+    if (!measuredLoopPlan(plan) || publication.forge || !isAbsolute(publication.remote)) throw new Error("Research decisions permit only the pre-reserved private local ending, never a production destination or forge");
     const remote = await realpath(publication.remote);
     const allowed = value.allowedPublications.some((row: any) => row && Object.keys(row).sort().join(",") === "remote,sourceBranch,targetBranch" && isAbsolute(row.remote) && row.remote === remote && row.sourceBranch === publication.sourceBranch && row.targetBranch === publication.targetBranch && row.targetBranch === "main" && row.sourceBranch === `wringer/experiment-${value.slotId}`);
     if (!allowed) throw new Error("This destination is outside the exact private experiment reservation. Research acceptance is not production Send authority.");

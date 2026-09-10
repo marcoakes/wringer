@@ -1,6 +1,6 @@
 import { lstat, mkdir, readFile, writeFile, link, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { hashValue, type EnvironmentMap, type EnvironmentObservation, type ExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
+import { assertRecordFamily, hashValue, type EnvironmentMap, type EnvironmentObservation, type ExecutionAuthority, type ExecutionPlan } from "@wringer/plan";
 import { runContainedCommands, type ContainedCommandResult, type PreparedRepositorySource } from "@wringer/runtime";
 import { runContainedDiscovery, type DiscoveryMeasurement } from "@wringer/workflow";
 import { Redactor, safePath } from "@wringer/engine";
@@ -48,6 +48,7 @@ export async function measureControllerEnvironment(state: string, plan: Executio
         if (!saved && readOnly) return null;
         const measured: ContainedCommandResult = saved?.measured ?? new Redactor(plan.runtime.env).deep(await (options.runCommands ?? runContainedCommands)({ repo: prepared, runtime, commands, acceptanceSource: prepared, protectedFiles: [...new Set([...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(c => c.files)])], writableDirectories: plan.environment.writable_directories, timeoutMs: authority.budget.session_timeout_seconds * 1000, signal }));
         const p = measured?.provenance;
+        if (p) assertRecordFamily(plan, "runtime", p.schema_version);
         if (!p || p.role !== "verifier" || p.kind !== runtime.kind || p.image !== runtime.image || p.repository.url !== prepared.url || p.repository.commit !== prepared.commit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || !p.runtimeId || (p.declared.env ?? []).length || p.declared.kind === "gvisor-kubernetes" && Object.keys(p.declared.secretRefs ?? {}).length || hashValue(p.observed.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories) || measured.sourceTree !== originalMap.source_tree || typeof measured.sourceChanged !== "boolean" || !Array.isArray(measured.results) || hashValue(measured.results.map(r => r.id)) !== hashValue(commands.map(c => c.id)) || measured.results.some(r => !Number.isInteger(r.code) || typeof r.stdout !== "string" || typeof r.stderr !== "string" || Buffer.byteLength(r.stdout) + Buffer.byteLength(r.stderr) > 1024 * 1024))
             throw new Error("Discovery did not establish exact commands, source, image and a credential-free contained verifier");
         await retain(path, { schema_version: "wringer.discovery-runtime.v1", requestSha256, measured, sha256: hashValue(measured) });

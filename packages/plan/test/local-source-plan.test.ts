@@ -37,10 +37,3 @@ test("a local identity is refused outside v4, and v4 refuses every other source 
     expect(() => compileDeclaration({ ...declaration(4, local), version: 5 } as unknown as PlanDeclaration)).toThrow("Plan version must be 1, 2, 3 or 4");
 });
 
-test("a local-only source stops before minting a frozen record that cannot name it", () => {
-    const plan = compileDeclaration(declaration(4, local));
-    expect(() => createExecutionAuthority(plan, { actor: "Fixture operator", actions: ["build"], expiresAt: new Date(Date.now() + 60000).toISOString() })).toThrow("This profile names a local-only source, and execution approval cannot record one yet: the frozen authority record names hosted sources only. Nothing was approved or started.");
-    // A planner is declared, so only the local-source stop stands between this plan and a request.
-    const d = declaration(4, local), planned = compileDeclaration({ ...d, agents: { ...d.agents, planner: d.agents.judge }, budget: { ...d.budget, max_planner_turns: 1 } });
-    expect(() => planningRequestFromPlan(planned, planned.intent)).toThrow("A planning request cannot carry a local-only source yet: no frozen planning-request version names one. Nothing was planned.");
-});

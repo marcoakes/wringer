@@ -1,6 +1,6 @@
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { join } from "node:path";
-import { compileDeclaration, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority, hashValue, planVersion, type ExecutionPlan, type ExecutionAuthority } from "@wringer/plan";
+import { measuredLoopPlan, compileDeclaration, validateExecutionPlan, createExecutionAuthority, validateExecutionAuthority, hashValue, planVersion, type ExecutionPlan, type ExecutionAuthority } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 import { withContainedJourneyLock } from "@wringer/workflow";
 import { controllerStatus, readController, startController, type ApplicationOptions } from "./controller";
@@ -380,7 +380,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 let plan: ExecutionPlan | null = null;
                 if (args.plan) { plan = args.plan.schema_version ? validateExecutionPlan(args.plan) : compileDeclaration(args.plan); insist(plan.intent === intent, "intent-mismatch", "The plan must retain the original request verbatim"); bindProfile(plan, selected); }
                 const approach = (p: ExecutionPlan) => ({ playbook: p.playbook ?? null, rollback: p.approachAdoption ?? null });
-                if (plan?.schema_version === "wringer.execution-plan.v3" && hashValue(approach(plan)) !== hashValue(approach(selected.profile))) {
+                if (!!plan && measuredLoopPlan(plan) && hashValue(approach(plan)) !== hashValue(approach(selected.profile))) {
                     const future = await futureImprovementTemplate(root, selected.profile);
                     insist(hashValue(approach(plan)) === hashValue(approach(future.plan)), "playbook-selection-changed", "Only the operator-pinned approach or the exact evaluated future selection can enter a new proposal. Active approvals are unchanged.");
                 }

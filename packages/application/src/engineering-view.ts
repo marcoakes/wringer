@@ -1,10 +1,10 @@
-import { hashValue, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
+import { measuredLoopPlan, hashValue, validateExecutionPlan, type ExecutionPlan } from "@wringer/plan";
 import { readValidatedContainedState, type LoopDecision, type ValidatedContainedState } from "@wringer/workflow";
 
 /** An explanatory read model, never authority, a worker prompt or a quality score. */
 export function projectPmEngineering(planInput: ExecutionPlan, history: ValidatedContainedState | null = null) {
     const plan = validateExecutionPlan(planInput);
-    if (plan.schema_version !== "wringer.execution-plan.v3") return undefined;
+    if (!measuredLoopPlan(plan)) return undefined;
     if (history && hashValue(history.plan) !== hashValue(plan)) throw new Error("Progress evidence belongs to a different approved plan. Refresh before deciding.");
     const selection = plan.playbook, snapshot = history?.playbook ?? null;
     const verification = history?.state.verification ?? null;
@@ -31,6 +31,6 @@ export function projectPmEngineering(planInput: ExecutionPlan, history: Validate
 /** No provider calls or new operations: history is validated by the same reader
  * that governs resume and human decisions. A missing/corrupt run is not hidden. */
 export async function readPmEngineering(plan: ExecutionPlan, controller?: string) {
-    if (plan.schema_version !== "wringer.execution-plan.v3") return undefined;
+    if (!measuredLoopPlan(plan)) return undefined;
     return projectPmEngineering(plan, controller ? await readValidatedContainedState(controller, { allowStaleView: true }) : null);
 }

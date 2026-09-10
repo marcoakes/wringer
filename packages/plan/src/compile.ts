@@ -5,6 +5,7 @@ import { LOCAL_SOURCE_URL, parseRuntimePolicy, parseWritableDirectories } from "
 import { canonicalJson, freezeData, hashBytes, hashValue } from "./canonical";
 import { parsePlanTypeScript } from "./dsl";
 import { validatePlaybookAdoption } from "./adoption";
+import { assertRecordFamily, RECORD_FAMILIES, recordVersion, sourceFamily } from "./family";
 import type { AgentDeclaration, AcceptanceContract, DeclaredCommand, DesignDeclaration, ExecutionAuthority, ExecutionBudget, ExecutionPlan, PlanDeclaration, RuntimeDeclaration, LoopPolicy, PlaybookSelection } from "./types";
 export function record(value: unknown, label: string, keys: string[]): Record<string, any> {
     if (!value || typeof value !== "object" || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
@@ -305,17 +306,14 @@ export const executionPlanDigest = (plan: ExecutionPlan) => validateExecutionPla
 export function validateExecutionAuthority(value: unknown, plan: ExecutionPlan, at = new Date(), options: PlanValidationOptions = {}): ExecutionAuthority {
     if (!(at instanceof Date) || !Number.isFinite(at.getTime()))
         throw new Error("Authority validation requires a finite observation time");
-    // execution-authority.v1 pins its repository to a hosted URL. Stop here,
-    // before any spend, rather than mint a record its own schema cannot read.
-    if (LOCAL_SOURCE_URL.test(plan.repository.url))
-        throw new Error("This profile names a local-only source, and execution approval cannot record one yet: the frozen authority record names hosted sources only. Nothing was approved or started. To approve work, prepare the profile against a hosted source with --source-url.");
     const credentialEnvironment = options.credentialEnvironment ?? process.env;
     const authorityWire = canonicalJson(value), secrets = (plan.runtime.env ?? []).map(name => credentialEnvironment[name]).filter((v): v is string => !!v);
     if (new Redactor(undefined, credentialEnvironment, secrets).scrub(authorityWire) !== authorityWire)
         throw new Error("Authority contains a detected credential; values belong only in the runtime secret channel");
     const a = record(value, "execution authority", ["schema_version", "actor", "repository", "plan_sha256", "acceptance_sha256", "actions", "budget", "granted_at", "expires_at"]);
-    if (a.schema_version !== "wringer.execution-authority.v1")
+    if (sourceFamily(plan) === "hosted" && a.schema_version !== RECORD_FAMILIES.authority.hosted && a.schema_version !== RECORD_FAMILIES.authority.local)
         throw new Error("Explicit controller-owned execution authority v1 is required; legacy routine authority does not authorize this plan");
+    assertRecordFamily(plan, "authority", a.schema_version);
     if (a.plan_sha256 !== plan.plan_sha256 || a.acceptance_sha256 !== plan.acceptance_sha256 || canonicalJson(a.repository) !== canonicalJson(plan.repository))
         throw new Error("Authority is bound to a different plan, acceptance contract or source revision");
     const actions = distinct(list(a.actions, "authority.actions", v => {
@@ -331,7 +329,7 @@ export function validateExecutionAuthority(value: unknown, plan: ExecutionPlan, 
     const granted_at = text(a.granted_at, "authority.granted_at"), expires_at = text(a.expires_at, "authority.expires_at");
     if (!Number.isFinite(Date.parse(granted_at)) || !Number.isFinite(Date.parse(expires_at)) || Date.parse(granted_at) > at.getTime() || Date.parse(expires_at) <= at.getTime() || Date.parse(expires_at) <= Date.parse(granted_at))
         throw new Error("Authority is not currently valid");
-    return freezeData({ schema_version: "wringer.execution-authority.v1", actor: text(a.actor, "authority.actor"), repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions, budget, granted_at, expires_at });
+    return freezeData({ schema_version: a.schema_version as ExecutionAuthority["schema_version"], actor: text(a.actor, "authority.actor"), repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions, budget, granted_at, expires_at });
 }
 export function createExecutionAuthority(plan: ExecutionPlan, options: {
     actor: string;
@@ -340,6 +338,9 @@ export function createExecutionAuthority(plan: ExecutionPlan, options: {
     budget?: ExecutionBudget;
     at?: Date;
 }): ExecutionAuthority {
+    // Minting is the approval act. Until the whole local journey is proven, no authority is minted for a local-only source.
+    if (sourceFamily(plan) === "local")
+        throw new Error("Approval of a local-only source is not open yet: its records are versioned, but the whole local journey has not been proven end to end. Nothing was approved or started.");
     const at = options.at ?? new Date();
-    return validateExecutionAuthority({ schema_version: "wringer.execution-authority.v1", actor: options.actor, repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions: options.actions, budget: options.budget ?? plan.budget, granted_at: at.toISOString(), expires_at: options.expiresAt }, plan, at);
+    return validateExecutionAuthority({ schema_version: recordVersion(plan, "authority"), actor: options.actor, repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions: options.actions, budget: options.budget ?? plan.budget, granted_at: at.toISOString(), expires_at: options.expiresAt }, plan, at);
 }

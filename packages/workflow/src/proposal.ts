@@ -3,7 +3,7 @@ import { mkdir, readdir, lstat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { canonicalJson, hashValue, compilePlanningProposal, validatePlanningAuthority, validatePlanningRequest } from "@wringer/plan";
 import type { ExecutionPlan, PlanningAuthority, PlanningRequest } from "@wringer/plan";
-import { executeAgentRole } from "@wringer/runtime";
+import { executeAgentRole, runtimeProvenanceVersion } from "@wringer/runtime";
 import type { RepositorySource, RoleExecutionRequest, RoleExecutionResult, RoleExecutor } from "@wringer/runtime";
 import { atomicWrite, immutableJson, locked, now, readJson, safePath, scrubValue, withSecrets, workflowLockStatus } from "./storage";
 import { parseAcpJsonReply, type AcpJsonReplyEvidence } from "./json-reply";
@@ -80,7 +80,7 @@ function interpretPlanningReply(request: PlanningRequest, text: string): { outco
 }
 function acceptedBoundary(result: RoleExecutionResult, request: PlanningRequest): boolean {
     const p = result.provenance;
-    return !!p && p.role === "planner" && p.repositoryAccess === "read-only" && p.kind === request.runtime.kind && p.image === request.runtime.image && p.repository?.url === request.repository.url && p.repository.commit === request.repository.commit && p.clonedInside === true && Array.isArray(p.hostMounts) && p.hostMounts.length === 0 && !!p.runtimeId && (result.status !== "completed" || !!result.sessionId && result.authentication?.sessionOpened === true && Number.isInteger(result.protocolVersion));
+    return !!p && p.schema_version === runtimeProvenanceVersion(request.repository.url) && p.role === "planner" && p.repositoryAccess === "read-only" && p.kind === request.runtime.kind && p.image === request.runtime.image && p.repository?.url === request.repository.url && p.repository.commit === request.repository.commit && p.clonedInside === true && Array.isArray(p.hostMounts) && p.hostMounts.length === 0 && !!p.runtimeId && (result.status !== "completed" || !!result.sessionId && result.authentication?.sessionOpened === true && Number.isInteger(result.protocolVersion));
 }
 export interface ContainedPlanningView {
     schema_version: "wringer.planning-view.v1";

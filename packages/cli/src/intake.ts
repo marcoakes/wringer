@@ -1,7 +1,7 @@
 import { lstat, readFile, mkdir, writeFile, realpath } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 import { randomUUID } from "node:crypto";
-import { compilePlanningRequest, compileExecutionPlan, planningRequestFromPlan, createPlanningAuthority, validatePlanningAuthority, canonicalPlanJson, type PlanningAuthority } from "@wringer/plan";
+import { compilePlanningRequest, compileExecutionPlan, planningRequestFromPlan, planningRequestVersion, createPlanningAuthority, validatePlanningAuthority, canonicalPlanJson, type PlanningAuthority } from "@wringer/plan";
 import { parseYaml } from "@wringer/engine";
 import { prepareRepositorySource } from "@wringer/runtime";
 import { loadExistingCredentials } from "@wringer/application";
@@ -72,7 +72,7 @@ export async function planningNewGrantCommand(a: Args, repo: string, context: Di
     if (await exists(output)) throw new Error("A new planning grant requires a new output file; no planner was started");
     if (prior.proposal.questions.length && intent === prior.request.intent) throw new Error("Answer the retained planning questions in a revised --intent file before authorizing another paid planning attempt");
     const { schema_version, request_sha256, ...data } = prior.request;
-    const request = compilePlanningRequest({ version: prior.request.schema_version === "wringer.planning-request.v3" ? 3 : prior.request.schema_version === "wringer.planning-request.v2" ? 2 : 1, ...data, intent }), authority = createPlanningAuthority(request, { actor: string(a, "actor") ?? prior.authority.actor, expiresAt });
+    const request = compilePlanningRequest({ version: planningRequestVersion(prior.request.schema_version), ...data, intent }), authority = createPlanningAuthority(request, { actor: string(a, "actor") ?? prior.authority.actor, expiresAt });
     context.signal?.throwIfAborted();
     await mkdir(state, { recursive: false, mode: 0o700 });
     // The link is a new sibling, not a mutation or enlargement of the old authority.

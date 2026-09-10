@@ -1,4 +1,4 @@
-import { hashValue, type ExecutionPlan, type PlaybookSnapshot, type PlaybookAdoptionReceipt } from "@wringer/plan";
+import { measuredLoopPlan, hashValue, type ExecutionPlan, type PlaybookSnapshot, type PlaybookAdoptionReceipt } from "@wringer/plan";
 import { analyzeLoop, validateEngineeringJournal, type LoopDecision } from "@wringer/workflow";
 
 export interface PlaybookUse {
@@ -30,7 +30,7 @@ export interface EngineeringSummary {
 
 /** Reconstructed from the same validated journal used for delivery, not a mutable status view. */
 export function engineeringEvidence(plan: ExecutionPlan, environmentSha256: string, events: any[], snapshot: PlaybookSnapshot | null): EngineeringEvidence {
-    if (plan.schema_version !== "wringer.execution-plan.v3") throw new Error("Engineering receipts require execution plan v3");
+    if (!measuredLoopPlan(plan)) throw new Error("Engineering receipts require execution plan v3");
     validateEngineeringJournal(plan, environmentSha256, events);
     const decisions: LoopDecision[] = [], uses: PlaybookUse[] = [];
     for (const event of events) {

@@ -1,6 +1,6 @@
 import { mkdir, writeFile, readFile, lstat, link, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { hashValue, hashBytes, type ExecutionPlan } from "@wringer/plan";
+import { assertRecordFamily, measuredLoopPlan, hashValue, hashBytes, type ExecutionPlan } from "@wringer/plan";
 import { prepareRepositorySource, captureCandidate, runContainedCommands, type PreparedRepositorySource, type RepositorySource, type ContainedCommandResult } from "@wringer/runtime";
 import type { ContainedJourneyServices, CandidateVerification } from "@wringer/workflow";
 import { readPinnedDesignSnapshot, referenceImages, assertContainedDisplayVisuals, buildRepairPacket, observeAssertionReport, type ContainedDisplayVisuals } from "@wringer/workflow";
@@ -80,6 +80,7 @@ export function containedServices(controllerDir: string, original: PreparedRepos
                 measured = new Redactor(plan.runtime.env).deep(await (options.runCommands ?? runContainedCommands)({ repo: source, runtime: plan.runtime, commands: [...setup, ...baselines, ...checks], acceptanceSource: original, protectedFiles, writableDirectories: plan.environment.writable_directories, timeoutMs: plan.budget.session_timeout_seconds * 1000, signal }));
             }
             const p = measured?.provenance, commands = [...setup, ...baselines, ...checks];
+            if (p) assertRecordFamily(plan, "runtime", p.schema_version);
             if (!p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== source.url || p.repository?.commit !== source.commit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || !p.runtimeId || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories) || !/^[a-f0-9]{40}(?:[a-f0-9]{24})?$/.test(measured.sourceTree) || typeof measured.sourceChanged !== "boolean" || !Array.isArray(measured.results) || hashValue(measured.results.map(r => r.id)) !== hashValue(commands.map(c => c.id)) || measured.results.some(r => !Number.isInteger(r.code) || typeof r.stdout !== "string" || typeof r.stderr !== "string"))
                 throw new Error("Verifier observations do not establish the exact declared commands in a source-bound contained runtime");
             // Persist the identity and complete observation together first. Both human-
@@ -94,7 +95,7 @@ export function containedServices(controllerDir: string, original: PreparedRepos
                 const unavailable = !row || setupFailed || measured.sourceChanged || unavailableExit(row.code);
                 return { id: check.id, status: (unavailable ? "unavailable" : row!.code === 0 ? "passed" : "failed") as "passed" | "failed" | "unavailable", exitCode: unavailable ? null : row!.code, checkInputsSha256: hashValue({ argv: check.argv, cwd: check.cwd, files: check.files, protectedInputs: measured.checkInputsSha256 ?? null, image: plan.runtime.image }), outputSha256: hashBytes(row ? row.stdout + row.stderr : "No check result was observed") };
             });
-            const checkEvidence = plan.schema_version === "wringer.execution-plan.v3" ? plan.acceptance.checks.filter(c => c.evidence?.kind === "assertions").map(check => {
+            const checkEvidence = measuredLoopPlan(plan) ? plan.acceptance.checks.filter(c => c.evidence?.kind === "assertions").map(check => {
                 const raw = measured.results.find(r => r.id === `acceptance/${check.id}`)!, row = rows.find(r => r.id === check.id)!;
                 const observed = observeAssertionReport(check.id, raw.stdout, row.exitCode, check.criteria);
                 if (observed.status === "unavailable") { row.status = "unavailable"; row.exitCode = null; }
@@ -104,8 +105,8 @@ export function containedServices(controllerDir: string, original: PreparedRepos
                 const row = measured.results.find(r => r.id === `baseline/${c.id}`), unavailable = !row || setupFailed || measured.sourceChanged || unavailableExit(row.code);
                 return { id: c.id, status: (unavailable ? "unavailable" : row!.code === 0 ? "passed" : "failed") as "passed" | "failed" | "unavailable", exitCode: unavailable ? null : row!.code, outputSha256: hashBytes(row ? row.stdout + row.stderr : "No regression result was observed") };
             });
-            const value: CandidateVerification = { schema_version: plan.schema_version === "wringer.execution-plan.v3" ? "wringer.contained-verification.v2" : "wringer.contained-verification.v1", status: setupFailed || measured.sourceChanged || [...rows, ...regressions].some(r => r.status === "unavailable") ? "unavailable" : baselineFailed || rows.some(r => r.status === "failed") ? "failed" : "passed", candidateCommit: source.commit, candidateTree: measured.sourceTree, acceptanceSha256: plan.acceptance_sha256, runtimeId: measured.provenance.runtimeId, image: measured.provenance.image, checks: rows, regressions, evidenceRef: directory, ...(checkEvidence ? { checkEvidence } : {}) };
-            if (plan.schema_version === "wringer.execution-plan.v3") value.repair = buildRepairPacket(plan, value, phase, hashValue(measured), measured.results);
+            const value: CandidateVerification = { schema_version: measuredLoopPlan(plan) ? "wringer.contained-verification.v2" : "wringer.contained-verification.v1", status: setupFailed || measured.sourceChanged || [...rows, ...regressions].some(r => r.status === "unavailable") ? "unavailable" : baselineFailed || rows.some(r => r.status === "failed") ? "failed" : "passed", candidateCommit: source.commit, candidateTree: measured.sourceTree, acceptanceSha256: plan.acceptance_sha256, runtimeId: measured.provenance.runtimeId, image: measured.provenance.image, checks: rows, regressions, evidenceRef: directory, ...(checkEvidence ? { checkEvidence } : {}) };
+            if (measuredLoopPlan(plan)) value.repair = buildRepairPacket(plan, value, phase, hashValue(measured), measured.results);
             if (saved && hashValue(saved.value) !== hashValue(value)) throw new Error("Retained verification differs from its recomputed observation evidence");
             await immutableRecord(observationPath, measured);
             await immutableRecord(recordPath, { requestIdentity, value, sha256: hashValue(value) });
@@ -138,6 +139,7 @@ export async function showContainedCandidate(plan: ExecutionPlan, source: Reposi
     const references = snapshot ? referenceImages(plan, criterionId, snapshot) : null;
     const measured = new Redactor(plan.runtime.env).deep(await (options.runCommands ?? runContainedCommands)({ repo: source, runtime: plan.runtime, commands, acceptanceSource: { ...source, commit: plan.repository.commit }, protectedFiles, writableDirectories: plan.environment.writable_directories, ...(review ? { captureArtifacts: review.captures } : {}), timeoutMs: plan.budget.session_timeout_seconds * 1000, signal }));
     const p = measured?.provenance;
+    if (p) assertRecordFamily(plan, "runtime", p.schema_version);
     if (!p || p.role !== "verifier" || p.kind !== plan.runtime.kind || p.image !== plan.runtime.image || p.repository?.url !== source.url || p.repository?.commit !== source.commit || p.clonedInside !== true || !Array.isArray(p.hostMounts) || p.hostMounts.length || hashValue(p.observed?.writableDirectories ?? []) !== hashValue(plan.environment.writable_directories))
         throw new Error("Display runtime did not establish its exact source, image and declared writable directories");
     const success = measured.sourceChanged === false && hashValue(measured.results.map(r => r.id)) === hashValue(commands.map(c => c.id)) && measured.results.every(r => r.code === 0);

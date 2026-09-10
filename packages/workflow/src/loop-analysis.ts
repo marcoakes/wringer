@@ -1,4 +1,4 @@
-import { hashValue, type ExecutionPlan } from "@wringer/plan";
+import { measuredLoopPlan, hashValue, type ExecutionPlan } from "@wringer/plan";
 import type { CandidateVerification, ContainedJudgeFinding } from "./contained-types";
 
 export interface LoopDecision {
@@ -21,7 +21,7 @@ export interface LoopDecision {
 }
 /** No score, model inference or mutable policy: observations determine this bounded decision. */
 export function analyzeLoop(plan: ExecutionPlan, environmentSha256: string, verification: CandidateVerification, previous: LoopDecision[], judge?: ContainedJudgeFinding[]): LoopDecision {
-    if (plan.schema_version !== "wringer.execution-plan.v3" || !plan.loop || !/^[a-f0-9]{64}$/.test(environmentSha256) || previous.length > 10000) throw new Error("Loop analysis requires the approved v3 policy and bounded source history");
+    if (!measuredLoopPlan(plan) || !plan.loop || !/^[a-f0-9]{64}$/.test(environmentSha256) || previous.length > 10000) throw new Error("Loop analysis requires the approved v3 policy and bounded source history");
     for (let index = 0; index < previous.length; index++) {
         const row = previous[index]!, { sha256, ...body } = row;
         if (row.schema_version !== "wringer.loop-decision.v1" || row.sequence !== index + 1 || sha256 !== hashValue(body)) throw new Error("Loop decision history changed or lost its ordering");
@@ -48,7 +48,7 @@ export function analyzeLoop(plan: ExecutionPlan, environmentSha256: string, veri
 /** The same coverage/ordering rules apply to local and portable journal projections.
  * Stopped partial histories may end before a decision; they may not spend or become ready past it. */
 export function validateEngineeringJournal(plan: ExecutionPlan, environmentSha256: string, events: { type: string; state: any; details?: any; loopDecision?: LoopDecision }[]): LoopDecision[] {
-    if (plan.schema_version !== "wringer.execution-plan.v3") return [];
+    if (!measuredLoopPlan(plan)) return [];
     const decisions: LoopDecision[] = [], effects = new Set<string>();
     let pendingChecks: string | null = null, pendingJudge: string | null = null, stopped = false;
     let previousVerification: string | null = null, previousJudge: string | null = null, checksAnchored = false;

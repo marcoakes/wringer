@@ -4,6 +4,7 @@ export { compileDeclaration, compileExecutionPlan, loadExecutionPlan, validateEx
 export { discoverEnvironment, assertEnvironmentFresh, ingestEnvironmentObservations, environmentReadiness } from "./environment";
 export { canonicalJson, hashBytes, hashValue } from "./canonical";
 export * from "./planning";
+export * from "./family";
 export * from "./playbook";
 export { validatePlaybookAdoption } from "./adoption";
 export type { PlanValidationOptions } from "./compile";

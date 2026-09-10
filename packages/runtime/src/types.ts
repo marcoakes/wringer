@@ -64,7 +64,7 @@ export interface RoleExecutionRequest {
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
 }
 export interface RuntimeProvenance {
-    schema_version: "wringer.runtime.v1";
+    schema_version: "wringer.runtime.v1" | "wringer.runtime.v2";
     runtimeId: string;
     role: AgentRole | "verifier";
     kind: RuntimePolicy["kind"];

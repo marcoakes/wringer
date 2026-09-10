@@ -3,7 +3,7 @@ import { compileDeclaration, planVersion, record, text, validateExecutionPlan } 
 import type { ExecutionPlan, PlanDeclaration } from "./types";
 
 export interface PlanningRequest extends Omit<PlanDeclaration, "version" | "acceptance"> {
-    schema_version: "wringer.planning-request.v1" | "wringer.planning-request.v2" | "wringer.planning-request.v3";
+    schema_version: "wringer.planning-request.v1" | "wringer.planning-request.v2" | "wringer.planning-request.v3" | "wringer.planning-request.v4";
     request_sha256: string;
 }
 export interface PlanningAuthority {
@@ -14,12 +14,17 @@ export interface PlanningAuthority {
     granted_at: string;
     expires_at: string;
 }
+/** A planning request is the plan version it was compiled from; v4 names a local-only source. */
+export function planningRequestVersion(schemaVersion: unknown): 1 | 2 | 3 | 4 {
+    const version = typeof schemaVersion === "string" ? /^wringer\.planning-request\.v([1-4])$/.exec(schemaVersion)?.[1] : undefined;
+    if (!version) throw new Error("Unsupported planning request version");
+    return Number(version) as 1 | 2 | 3 | 4;
+}
 /** Reuse strict policy validation. Synthetic acceptance is never retained or authorized. */
 export function compilePlanningRequest(value: unknown): PlanningRequest {
     canonicalJson(value);
     const input = record(value, "planning request", ["version", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "budget", "design", "loop", "playbook", "approachAdoption"]);
     const intent = text(input.intent, "planning intent");
-    if (input.version === 4) throw new Error("A planning request cannot carry a local-only source yet: no frozen planning-request version names one. Nothing was planned.");
     const designRows = input.design === undefined ? undefined : record(input.design, "planning design", ["snapshotPath", "snapshotSha256", "reviews"]).reviews;
     if (input.design !== undefined && (!Array.isArray(designRows) || !designRows.length || designRows.length > 16)) throw new Error("Design planning needs bounded explicit visual review declarations");
     const criteria = designRows ? designRows.map((row: unknown, index: number) => ({ id: record(row, "planning design review", ["criterionId", "referenceIds", "captures"]).criterionId, title: "Design planning validation only, not approved acceptance", quote: intent, kind: "human", required: true, show: { id: `planning-show-${index}`, argv: ["true"], cwd: ".", timeout_seconds: 1 } })) : [{ id: "planning-input", title: "Planning input, not acceptance", quote: intent, kind: "check", required: false }];
@@ -27,14 +32,13 @@ export function compilePlanningRequest(value: unknown): PlanningRequest {
     if (!validated.agents.planner || validated.budget.max_planner_turns < 1)
         throw new Error("Planning requires an explicit ACP planner and nonzero bounded planner allowance");
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, acceptance, ...data } = validated;
-    const request = { schema_version: (schema_version === "wringer.execution-plan.v3" ? "wringer.planning-request.v3" : schema_version === "wringer.execution-plan.v2" ? "wringer.planning-request.v2" : "wringer.planning-request.v1") as PlanningRequest["schema_version"], ...data };
+    const request = { schema_version: `wringer.planning-request.v${planVersion(validated)}` as PlanningRequest["schema_version"], ...data };
     return freezeData({ ...request, request_sha256: hashValue(request) });
 }
 export function validatePlanningRequest(value: unknown): PlanningRequest {
     canonicalJson(value);
     const input = record(value, "planning request", ["schema_version", "request_sha256", "name", "intent", "repository", "runtime", "agents", "environment", "scope", "budget", "design", "loop", "playbook", "approachAdoption"]);
-    if (input.schema_version !== "wringer.planning-request.v1" && input.schema_version !== "wringer.planning-request.v2" && input.schema_version !== "wringer.planning-request.v3") throw new Error("Unsupported planning request version");
-    const { schema_version, request_sha256, ...data } = input, expected = compilePlanningRequest({ version: schema_version === "wringer.planning-request.v3" ? 3 : schema_version === "wringer.planning-request.v2" ? 2 : 1, ...data });
+    const { schema_version, request_sha256, ...data } = input, expected = compilePlanningRequest({ version: planningRequestVersion(schema_version), ...data });
     if (canonicalJson(expected) !== canonicalJson(value)) throw new Error("Planning request differs from its frozen digest");
     return expected;
 }
@@ -51,10 +55,13 @@ export function validatePlanningAuthority(value: unknown, request: PlanningReque
     return freezeData({ schema_version: "wringer.planning-authority.v1", actor: text(a.actor, "planning actor"), request_sha256: request.request_sha256, actions: ["plan"], granted_at: a.granted_at, expires_at: a.expires_at });
 }
 export function createPlanningAuthority(request: PlanningRequest, options: { actor: string; expiresAt: string; at?: Date }): PlanningAuthority {
+    // The first spend. Until the whole local journey is proven, no planner turn is authorized for a local-only source.
+    if (request.schema_version === "wringer.planning-request.v4")
+        throw new Error("Planning for a local-only source is not open yet: its records are versioned, but the whole local journey has not been proven end to end. Nothing was planned.");
     const at = options.at ?? new Date();
     return validatePlanningAuthority({ schema_version: "wringer.planning-authority.v1", actor: options.actor, request_sha256: request.request_sha256, actions: ["plan"], granted_at: at.toISOString(), expires_at: options.expiresAt }, request, at);
 }
 export function compilePlanningProposal(request: PlanningRequest, acceptance: unknown): ExecutionPlan {
     const { schema_version, request_sha256, ...data } = validatePlanningRequest(request);
-    return compileDeclaration({ version: schema_version === "wringer.planning-request.v3" ? 3 : schema_version === "wringer.planning-request.v2" ? 2 : 1, ...data, acceptance });
+    return compileDeclaration({ version: planningRequestVersion(schema_version), ...data, acceptance });
 }
