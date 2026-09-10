@@ -54,7 +54,9 @@ test("the family guard refuses a record of the other source kind even when every
     expect(() => validatePlanningRequest({ ...asV3, request_sha256: hashValue(asV3) })).toThrow("Repository clone URLs cannot embed credentials or use local/file transports");
 }, 30_000);
 
-test("until the journey is proven, minting authority for a local-only source still stops", () => {
-    expect(() => createExecutionAuthority(local, { actor: "Family fixture operator", actions: ["build"], expiresAt, at })).toThrow("Approval of a local-only source is not open yet");
-    expect(() => createPlanningAuthority(planningRequestFromPlan(local, local.intent), { actor: "Family fixture operator", expiresAt, at })).toThrow("Planning for a local-only source is not open yet");
+test("approval and planning mint for a local-only source, naming its local identity", () => {
+    const authority = createExecutionAuthority(local, { actor: "Family fixture operator", actions: ["build"], expiresAt, at });
+    expect(authority.schema_version).toBe("wringer.execution-authority.v2"); expect(authority.repository).toEqual(local.repository);
+    const request = planningRequestFromPlan(local, local.intent), planning = createPlanningAuthority(request, { actor: "Family fixture operator", expiresAt, at });
+    expect(request.schema_version).toBe("wringer.planning-request.v4"); expect(planning.request_sha256).toBe(request.request_sha256);
 });

@@ -97,6 +97,11 @@ try {
     const again = await run("repeated init", [...init(controller, output), "--json"]);
     await check("repeated init verifies instead of recreating", again.exit_code === 0 && JSON.parse(again.stdout).created === false);
     await rename(moved, source);
+    // Past init: approval through the public drive entry records the same local identity in the authority.
+    const approved = profile("authority.json");
+    const authorityRun = await run("approval through the public drive entry", [join(checkout, "dist/wringer-drive"), "authority", output, "--actor", "Local source route fixture operator", "--expires", new Date(Date.now() + 3600000).toISOString(), "--output", approved, "--json"]);
+    const authority = authorityRun.exit_code === 0 ? JSON.parse(await readFile(approved, "utf8")) : null;
+    await check("approval mints execution-authority v2 naming the local identity", authority?.schema_version === "wringer.execution-authority.v2" && authority.repository.url === `local://${root}` && authority.repository.commit === head && authority.plan_sha256 === plan.plan_sha256);
 
     // Negatives: each its own invocation, fresh outputs and controllers.
     await refuses("--local with --source-url", prepare(source, profile("conflict.json"), ["--local", "--source-url", "https://example.com/operator/source.git"]), STOP.conflict);
@@ -153,7 +158,7 @@ try {
     await refuses("a version 3 plan naming local://", init(join(directory, "controller-v3"), profile("v3-local.yaml")), STOP.v3Local);
     await check("the v3 local:// init created no controller", !await exists(join(directory, "controller-v3")));
 
-    const result = { schema_version: "wringer.local-source-route.v1", status: "passed", fixture: "compiled-local-source-route", checks, negatives: Object.keys(STOP).length, modelCalls: 0, credentialReads: 0, imagesBuilt: 0, containersStarted: 0, forgeAccount: false, limits: ["Engineering proof through the compiled public entry, not a PM blind-test pass.", "Stops at init and status: approval, start, containment and delivery of a local-only source are not exercised, and approval refuses one by design.", "Setup names this runner's absent coding client and container runtime; that is expected here and is not a readiness claim."] };
+    const result = { schema_version: "wringer.local-source-route.v1", status: "passed", fixture: "compiled-local-source-route", checks, negatives: Object.keys(STOP).length, modelCalls: 0, credentialReads: 0, imagesBuilt: 0, containersStarted: 0, forgeAccount: false, limits: ["Engineering proof through the compiled public entry, not a PM blind-test pass.", "Reaches init, status and approval through compiled entries; the build, review, correction, handover and fresh-clone audit of a local-only source are proven by the local-pm-rehearsal and local-design-rehearsal stages, with scripted roles.", "Setup names this runner's absent coding client and container runtime; that is expected here and is not a readiness claim."] };
     await writeFile(join(directory, "result.json"), JSON.stringify(result, null, 2) + "\n");
     failed = false;
     console.log(JSON.stringify({ directory, ...result }, null, 2));

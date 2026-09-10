@@ -34,9 +34,9 @@ outside every Git working tree and pass its absolute output path to `design bind
 The permitted snapshot belongs in the target repo; the operator profile does not.
 With no forge account, prepare that bound profile against the local checkout with
 `prepare --local` (see the [assistant entry page](../ASSISTANT_START.md)), keep
-its bundle and record beside it, and pass it to `setup` and `init`. **Known
-stop:** approval cannot yet record a local-only source, so this lane stops at
-approval until authority is versioned. Do not start a blind run expecting to pass it.
+its bundle and record beside it, and pass it to `setup` and `init`. The local
+lane is a route, proven end to end by the `local-design-rehearsal` validation
+stage with scripted roles and decisions; a PM pass on it is still to be observed.
 
 The designer should keep the expected result out of worker-writable files. Give
 the worker the approved design snapshot and the existing component library,

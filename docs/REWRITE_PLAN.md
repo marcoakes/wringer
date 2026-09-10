@@ -84,10 +84,10 @@ the user's intent was captured. Independent acceptance evaluation must test that
 - A repository with no remote is identified by the single root commit of its
   history (`local://<root>`, plan v4) and travels only as the Git bundle
   prepared beside its profile, which the controller verifies and keeps. The
-  URL was always an identity string, never dialled. Records downstream of the
-  plan that still pin a hosted URL (authority, environment map, runtime
-  provenance, playbook snapshot, planning request) are not yet versioned, so a
-  local-only source stops at approval.
+  URL was always an identity string, never dialled. Every record downstream of
+  the plan names the same identity through a local-only sibling (authority,
+  environment map, runtime provenance, playbook snapshot, planning request), and
+  a family guard refuses any mix of source kinds.
 - Enforcement and tests are repository-owned, but the active policy and acceptance
   contract are pinned from an approved revision. A worker may propose policy or
   test changes; its candidate changes cannot silently redefine the rules that

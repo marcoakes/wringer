@@ -338,9 +338,6 @@ export function createExecutionAuthority(plan: ExecutionPlan, options: {
     budget?: ExecutionBudget;
     at?: Date;
 }): ExecutionAuthority {
-    // Minting is the approval act. Until the whole local journey is proven, no authority is minted for a local-only source.
-    if (sourceFamily(plan) === "local")
-        throw new Error("Approval of a local-only source is not open yet: its records are versioned, but the whole local journey has not been proven end to end. Nothing was approved or started.");
     const at = options.at ?? new Date();
     return validateExecutionAuthority({ schema_version: recordVersion(plan, "authority"), actor: options.actor, repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions: options.actions, budget: options.budget ?? plan.budget, granted_at: at.toISOString(), expires_at: options.expiresAt }, plan, at);
 }

@@ -29,7 +29,7 @@ Declare:
 - The runtime image, CPU/memory limits, network policy and allowed environment-variable names.
 - Turn/time ceilings and the operator's bounded authority.
 
-A repository with no remote is named differently: `wringer-assistant prepare --local` pins it as `local://<root commit>` in a version 4 plan and writes its Git bundle beside the profile, which `init` verifies and keeps. The runtime reads that bundle; nothing is fetched. Approval of a local-only source is not available yet. See [ASSISTANT_START.md](ASSISTANT_START.md).
+A repository with no remote is named differently: `wringer-assistant prepare --local` pins it as `local://<root commit>` in a version 4 plan and writes its Git bundle beside the profile, which `init` verifies and keeps. The runtime reads that bundle; nothing is fetched. Its approval, environment map, runtime receipts and handover records carry the same local identity. See [ASSISTANT_START.md](ASSISTANT_START.md).
 
 There is no built-in vendor or model recommendation. Agent binaries and dependencies must be present in the selected runtime image. Do not assume a program on the host's `PATH` exists inside it.
 

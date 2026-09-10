@@ -55,9 +55,6 @@ export function validatePlanningAuthority(value: unknown, request: PlanningReque
     return freezeData({ schema_version: "wringer.planning-authority.v1", actor: text(a.actor, "planning actor"), request_sha256: request.request_sha256, actions: ["plan"], granted_at: a.granted_at, expires_at: a.expires_at });
 }
 export function createPlanningAuthority(request: PlanningRequest, options: { actor: string; expiresAt: string; at?: Date }): PlanningAuthority {
-    // The first spend. Until the whole local journey is proven, no planner turn is authorized for a local-only source.
-    if (request.schema_version === "wringer.planning-request.v4")
-        throw new Error("Planning for a local-only source is not open yet: its records are versioned, but the whole local journey has not been proven end to end. Nothing was planned.");
     const at = options.at ?? new Date();
     return validatePlanningAuthority({ schema_version: "wringer.planning-authority.v1", actor: options.actor, request_sha256: request.request_sha256, actions: ["plan"], granted_at: at.toISOString(), expires_at: options.expiresAt }, request, at);
 }

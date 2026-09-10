@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, writeFile, readFile, readdir, cp, rm, unlink, lstat } f
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { compileDeclaration, createExecutionAuthority, discoverEnvironment, hashValue, hashBytes, recordVersion, validateExecutionAuthority } from "@wringer/plan";
+import { compileDeclaration, createExecutionAuthority, discoverEnvironment, hashValue, hashBytes } from "@wringer/plan";
 import { createLocalSourceBundle, prepareRepositorySource, captureCandidate, processDriver, runtimeProvenanceVersion, type RoleExecutionResult, type RoleExecutionRequest, type ContainedCommandRequest } from "@wringer/runtime";
 import { runContainedJourney, buildRepairPacket, observeAssertionReport, type ContainedJourneyServices, type CandidateVerification } from "@wringer/workflow";
 import { deliverContained, auditContained, readContainedDeliveryProjection, legacyContainedDocumentsV1, reviewContainedSource } from "../src/contained";
@@ -55,11 +55,7 @@ async function fixture(human = false, mutable = false, dependencySetup = false, 
     await mkdir(stateDir);
     const sourceBundle = join(root, "source.bundle");
     await createLocalSourceBundle(repo, commit, sourceBundle);
-    const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: stateDir }), environment = await discoverEnvironment(prepared.objectStore, plan), authority = local
-        // Minting authority for a local-only source stays stopped until its whole journey is proven; until
-        // then the fixture signs exactly the record createExecutionAuthority mints, through the real reader.
-        ? validateExecutionAuthority({ schema_version: recordVersion(plan, "authority"), actor: "Fixture operator", repository: plan.repository, plan_sha256: plan.plan_sha256, acceptance_sha256: plan.acceptance_sha256, actions: ["build", "verify", "judge"], budget: plan.budget, granted_at: new Date().toISOString(), expires_at: new Date(Date.now() + 3600000).toISOString() }, plan)
-        : createExecutionAuthority(plan, { actor: "Fixture operator", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() });
+    const prepared = await prepareRepositorySource({ ...plan.repository, bundlePath: sourceBundle }, { controllerDir: stateDir }), environment = await discoverEnvironment(prepared.objectStore, plan), authority = createExecutionAuthority(plan, { actor: "Fixture operator", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() });
     const originalInputs = await command(["git", "--git-dir", prepared.objectStore, "--literal-pathspecs", "ls-tree", "-r", "-z", commit, "--", ...plan.acceptance.protected_paths]);
     await writeFile(join(repo, "product.txt"), "after\n");
     if (mutable)

@@ -44,6 +44,9 @@ const stages: [
     ["guided-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--guided"], workspace],
     ["design-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--design"], workspace],
     ["figma-api-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--figma-rest"], workspace],
+    // No-spend local-only identity end to end: prepare --local, approval, build, judge, correction, Send, fresh-clone audit.
+    ["local-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--local"], workspace],
+    ["local-design-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--design", "--local"], workspace],
     ["improvements-browser-rehearsal", [process.execPath, "scripts/improvements-browser-rehearsal.ts"], workspace],
 ];
 const results: unknown[] = [];

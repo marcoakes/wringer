@@ -156,8 +156,8 @@ bundle (`.source.bundle`) and a record of what was bundled (`.source.json`).
 Keep the three files together. `setup` and `init` verify them, and `init` keeps
 the verified bundle in the controller, so the checkout is not needed afterwards.
 A history with more than one root refuses; name the remote with `--source-url`.
-Approval cannot yet record a local-only source: work stops at approval, before
-anything runs, until that record is versioned.
+From there the job is approved, built, reviewed and sent to your local bare
+origin like any other; its records name the local-only source throughout.
 
 This prepares a selected profile, not an unassisted vendor wizard or a new
 spending grant. Initial runtime/policy selection remains an operator task.

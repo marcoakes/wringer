@@ -53,7 +53,7 @@ prepare pins a matching existing profile to measured clean Git HEAD and an
 explicit image digest; it never invents checks or approves execution.
 --local names a repository with no remote by its history's root commit and
 writes its Git bundle beside the profile; setup and init verify it, and init
-keeps it. Approval cannot yet record a local-only source.
+keeps it for the whole job through handover to your local bare origin.
 The operator console records execution approval. Human review and sending need
 their own source-bound decisions. The assistant cannot grant either authority.
 

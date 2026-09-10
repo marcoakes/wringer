@@ -4,6 +4,35 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.12 — local-only identity end to end (source checkpoint)
+
+- A local-only repository (no remote, no forge account) now goes the whole
+  way with scripted roles: planned, approved, built, judged, corrected, sent
+  to its local bare origin and audited from a fresh clone. The alpha.11 stops
+  at approval and planning are gone, removed last, after that journey was
+  proven.
+- Five local-only record siblings, one version per source kind: a local
+  plan's `execution-authority-v2`, `environment-map-v2`, `runtime-v2`,
+  `playbook-snapshot-v2` and `planning-request-v4` differ from their
+  predecessors only in naming `local://<root>`. Hosted plans keep their
+  records byte for byte.
+- A family guard refuses any mix of source kinds wherever those records are
+  read, and the offline audit reads each carried record under its family's
+  schema. All 31 measured-loop `execution-plan.v3` sites also apply to plan v4.
+- The launch and design rehearsals gain `--local`: they prepare through the
+  real `prepare --local` door, start from the controller's kept bundle, and
+  check the carried local records from a fresh clone. New validation stages
+  `local-pm-rehearsal` and `local-design-rehearsal`; `local-source-route`
+  now reaches approval and shows the local identity in the authority.
+- A local-only planning request goes through a contained planner turn with a
+  scripted planner and returns an unapproved v4 proposal; the planner boundary
+  refuses a hosted runtime receipt on that turn.
+- **Not claimed:** a live PM pass, real containment or real model convergence.
+  Roles, checks and decisions in the rehearsals remain scripted.
+
+Schemas: `execution-authority-v2`, `environment-map-v2`, `runtime-v2`,
+`playbook-snapshot-v2`, `planning-request-v4` (new siblings).
+
 ## 1.0.0-alpha.11 — local-only source (source checkpoint)
 
 - `wringer-assistant prepare --local` names a repository that has no remote by

@@ -7,7 +7,7 @@ import { PassThrough } from "node:stream";
 import { runAcpTurn } from "../../acp/src";
 import { compileExecutionPlan, compileDeclaration, createExecutionAuthority, hashBytes, hashValue, planningRequestFromPlan, createPlanningAuthority, validatePlanningAuthority, environmentReadiness, ingestEnvironmentObservations } from "@wringer/plan";
 import type { ExecutionPlan, EnvironmentMap } from "@wringer/plan";
-import type { RoleExecutionRequest, RoleExecutionResult } from "@wringer/runtime";
+import { runtimeProvenanceVersion, type RoleExecutionRequest, type RoleExecutionResult } from "@wringer/runtime";
 import { runContainedJourney, readValidatedContainedState, queryContainedJourney, requestContainedRevision, proposeContainedPlan, runContainedDiscovery, draftSpec, recordContainedHumanDecisions, recordContainedHumanJudgement, validContainedHumanAttribution, type CandidateHumanDecision } from "../src";
 import type { ContainedJourneyOptions, ContainedJourneyServices, CandidateVerification } from "../src";
 const template = await readFile(new URL("../../plan/examples/contained.yaml", import.meta.url), "utf8");
@@ -16,6 +16,7 @@ function planFixture(options: {
     secondHuman?: boolean;
     workerTurns?: number;
     planner?: boolean;
+    local?: boolean;
 } = {}): ExecutionPlan {
     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...raw } = compileExecutionPlan(template, { format: "yaml" });
     const d = structuredClone(raw);
@@ -30,7 +31,9 @@ function planFixture(options: {
         d.acceptance.criteria.push({ id: "readable", title: "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable", argv: ["bun", "run", "demo"], cwd: ".", timeout_seconds: 60 } });
         if (options.secondHuman) d.acceptance.criteria.push({ id: "readable-again", title: "Another explicit observation", quote: "The display is readable.", kind: "human", required: true, show: { id: "show-readable-again", argv: ["bun", "run", "demo"], cwd: ".", timeout_seconds: 60 } });
     }
-    return compileDeclaration({ version: 1, ...d });
+    // A local-only plan names its source by its history's root; nothing else about the fixture differs.
+    if (options.local) d.repository.url = `local://${"a".repeat(40)}`;
+    return compileDeclaration({ version: options.local ? 4 : 1, ...d });
 }
 function environment(plan: ExecutionPlan): EnvironmentMap {
     const files = ["README.md", ...plan.acceptance.checks.flatMap(c => c.files)].map(path => ({ path, mode: "100644", blob: "f".repeat(40) }));
@@ -48,6 +51,7 @@ async function fixture(settings: {
     unknownUsage?: boolean;
     sharedRuntime?: boolean;
     throwFirstWorker?: boolean;
+    local?: boolean;
 } = {}) {
     const plan = planFixture(settings), controllerDir = await mkdtemp(join(tmpdir(), "wringer-contained-"));
     const requests: RoleExecutionRequest[] = [];
@@ -83,7 +87,7 @@ async function fixture(settings: {
             judgeCount++;
             answer = JSON.stringify({ criteria: plan.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met: judgeCount > (settings.judgeFails ?? 0), reason: "Fixture independent inspection" })), note: "Fixture only" });
         }
-        return { status: "completed", text: answer, sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, ...(settings.unknownUsage ? {} : { usage: { inputTokens: 10, outputTokens: 5 } }), events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: settings.sharedRuntime ? "reused-role-runtime" : randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["No real runtime or provider"] } };
+        return { status: "completed", text: answer, sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, ...(settings.unknownUsage ? {} : { usage: { inputTokens: 10, outputTokens: 5 } }), events: [], stderr: "", provenance: { schema_version: runtimeProvenanceVersion(request.repo.url), runtimeId: settings.sharedRuntime ? "reused-role-runtime" : randomUUID(), role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["No real runtime or provider"] } };
     };
     const options: ContainedJourneyOptions = { controllerDir, plan, authority, environment: environment(plan), services, executeRole };
     return { options, requests, serviceCalls };
@@ -681,6 +685,23 @@ describe("contained ACP production journey", () => {
         expect((await proposeContainedPlan(options)).plan!.plan_sha256).toBe(proposal.plan!.plan_sha256);
         expect(f.requests).toHaveLength(1);
         await expect(proposeContainedPlan({ ...options, authority: { ...authority, actions: ["build"] as any } })).rejects.toThrow();
+    });
+    test("a local-only planning request proposes a v4 plan through a contained planner turn and refuses a hosted runtime receipt", async () => {
+        const f = await fixture({ planner: true, local: true }), request = planningRequestFromPlan(f.options.plan, f.options.plan.intent);
+        const authority = createPlanningAuthority(request, { actor: "Planning operator", expiresAt: new Date(Date.now() + 3600000).toISOString() });
+        const reply = async (r: RoleExecutionRequest) => ({ ...await f.options.executeRole!(r), text: JSON.stringify({ acceptance: f.options.plan.acceptance, questions: [], note: "Local-only source inspected by fixture planner" }) });
+        const proposal = await proposeContainedPlan({ controllerDir: f.options.controllerDir, request, authority, source: request.repository, executeRole: reply });
+        expect(request.schema_version).toBe("wringer.planning-request.v4");
+        expect(proposal.status).toBe("proposal");
+        expect(proposal.approved).toBe(false);
+        expect(proposal.plan!.schema_version).toBe("wringer.execution-plan.v4");
+        expect(proposal.plan!.repository).toEqual(request.repository);
+        expect(f.requests.map(r => [r.role, r.repo.url])).toEqual([["planner", `local://${"a".repeat(40)}`]]);
+        // The same turn with a hosted runtime receipt: the planner boundary refuses to mix source kinds, and nothing is proposed.
+        const hostedReceipt = await proposeContainedPlan({ controllerDir: await mkdtemp(join(tmpdir(), "wringer-contained-")), request, authority, source: request.repository, executeRole: async r => { const result = await reply(r); return { ...result, provenance: { ...result.provenance!, schema_version: "wringer.runtime.v1" } }; } });
+        expect(hostedReceipt.status).toBe("stopped");
+        expect(hostedReceipt.plan).toBeNull();
+        expect(hostedReceipt.stopReason).toBe("planner-boundary-unestablished: no accepted contained ACP result");
     });
     test("planning rejects self-approval/policy changes and does not replay uncertain sessions", async () => {
         for (const failure of ["policy", "uncertain"] as const) {
