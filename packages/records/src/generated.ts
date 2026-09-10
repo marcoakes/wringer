@@ -1644,6 +1644,48 @@ export type EnvironmentMapV1 = {
 };
 
 /**
+ * Local-source environment map v2
+ *
+ * Generated from `schema/environment-map-v2.schema.json`. Do not edit.
+ */
+export type EnvironmentMapV2 = {
+  "schema_version": "wringer.environment-map.v2";
+  "repository": unknown;
+  "plan_sha256": string;
+  "source_tree": string;
+  "inventory_sha256": string;
+  "files": {
+    "path": string;
+    "mode": "100644" | "100755" | "120000" | "160000";
+    "blob": string;
+  }[];
+  "context": {
+    "path": unknown;
+    "blob": string;
+    "text": string;
+    "sha256": string;
+  }[];
+  "components": {
+    "path": string;
+    "files": number;
+  }[];
+  "tools": {
+    "name": string;
+    "version": string;
+    "probe": string[];
+    "observation": unknown | null;
+  }[];
+  "baseline": {
+    "declaration": unknown;
+    "observation": unknown | null;
+  }[];
+  "protected_paths": unknown[];
+  "writable_paths": unknown[];
+  "limits": string[];
+  "map_sha256": string;
+};
+
+/**
  * Wringer evidence event
  *
  * Generated from `schema/evidence-event.schema.json`. Do not edit.
@@ -1714,6 +1756,23 @@ export type Exchange = {
  */
 export type ExecutionAuthorityV1 = {
   "schema_version": "wringer.execution-authority.v1";
+  "actor": string;
+  "repository": unknown;
+  "plan_sha256": string;
+  "acceptance_sha256": string;
+  "actions": "plan" | "build" | "verify" | "judge" | "deliver"[];
+  "budget": unknown;
+  "granted_at": string;
+  "expires_at": string;
+};
+
+/**
+ * Local-source execution authority v2
+ *
+ * Generated from `schema/execution-authority-v2.schema.json`. Do not edit.
+ */
+export type ExecutionAuthorityV2 = {
+  "schema_version": "wringer.execution-authority.v2";
   "actor": string;
   "repository": unknown;
   "plan_sha256": string;
@@ -3644,6 +3703,72 @@ export type PlanningRequestV3 = {
 };
 
 /**
+ * Local-source planning request v4
+ *
+ * Generated from `schema/planning-request-v4.schema.json`. Do not edit.
+ */
+export type PlanningRequestV4 = {
+  "schema_version": "wringer.planning-request.v4";
+  "name": string;
+  "intent": string;
+  "repository": unknown;
+  "runtime": unknown;
+  "agents": {
+    "worker": unknown;
+    "judge": unknown;
+    "planner"?: unknown;
+  };
+  "environment": unknown;
+  "scope": {
+    "writable": unknown[];
+  };
+  "budget": unknown;
+  "design"?: {
+    "snapshotPath": string;
+    "snapshotSha256": string;
+    "reviews": {
+      "criterionId": string;
+      "referenceIds": string[];
+      "captures": {
+        "id": string;
+        "path": string;
+        "mimeType": "image/png";
+        "width": number;
+        "height": number;
+      }[];
+    }[];
+  };
+  "loop": {
+    "repeatCandidate": "stop";
+    "repeatedOutcomeWarning": number;
+  };
+  "approachAdoption"?: unknown;
+  "playbook"?: {
+    "path": string;
+    "sha256": string;
+    "taskFamily": string;
+    "adoption"?: {
+      "schema_version": "wringer.playbook-adoption.v1";
+      "repository": string;
+      "taskFamily": string;
+      "action": "promote" | "rollback";
+      "actor": string;
+      "note": string;
+      "at": string;
+      "previousRevision": string;
+      "previousDigest": string | null;
+      "selectedDigest": string | null;
+      "experimentSha256": string;
+      "evidenceRevision": string;
+      "appliesTo": "future-plans-only";
+      "executionApproved": false;
+      "sha256": string;
+    };
+  };
+  "request_sha256": string;
+};
+
+/**
  * playbook-adoption-v1
  *
  * Generated from `schema/playbook-adoption-v1.schema.json`. Do not edit.
@@ -3812,6 +3937,44 @@ export type PlaybookSnapshotV1 = {
 };
 
 /**
+ * Exact source-bound worker playbook snapshot v2 (local-only source)
+ *
+ * Generated from `schema/playbook-snapshot-v2.schema.json`. Do not edit.
+ */
+export type PlaybookSnapshotV2 = {
+  "schema_version": "wringer.playbook-snapshot.v2";
+  "source": {
+    "repository": {
+      "url": string;
+      "commit": string;
+    };
+    "path": string;
+    "blob": string;
+  };
+  "content": string;
+  "manifest": {
+    "schema_version": "wringer.playbook.v1";
+    "id": string;
+    "revision": string;
+    "title": string;
+    "role": "worker";
+    "applicability": {
+      "taskFamily": string;
+      "context": string[];
+      "tools": string[];
+      "checks": string[];
+      "scope": string[];
+      "design": boolean;
+    };
+    "guidanceMarkdown": string;
+    "limits": string[];
+    "evaluationRefs": string[];
+  };
+  "sha256": string;
+  "snapshot_sha256": string;
+};
+
+/**
  * Inert worker-only repository playbook
  *
  * Generated from `schema/playbook-v1.schema.json`. Do not edit.
@@ -3942,6 +4105,30 @@ export type Rubric = {
  */
 export type RuntimeV1 = {
   "schema_version": "wringer.runtime.v1";
+  "runtimeId": string;
+  "role": "planner" | "worker" | "judge" | "verifier";
+  "kind": "apple-container" | "gvisor-kubernetes";
+  "image": string;
+  "repository": {
+    "url": string;
+    "commit": string;
+    "bundlePath"?: string;
+  };
+  "clonedInside": true;
+  "hostMounts": unknown[];
+  "repositoryAccess": "read-only" | "read-write";
+  "declared": unknown;
+  "observed": Record<string, unknown>;
+  "limits": string[];
+};
+
+/**
+ * Local-source contained runtime provenance v2
+ *
+ * Generated from `schema/runtime-v2.schema.json`. Do not edit.
+ */
+export type RuntimeV2 = {
+  "schema_version": "wringer.runtime.v2";
   "runtimeId": string;
   "role": "planner" | "worker" | "judge" | "verifier";
   "kind": "apple-container" | "gvisor-kubernetes";
@@ -4393,9 +4580,11 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "digests.schema.json": "wringer.digests.v1",
   "engineering-evidence-v1.schema.json": "wringer.engineering-evidence.v1",
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
+  "environment-map-v2.schema.json": "wringer.environment-map.v2",
   "evidence-event.schema.json": null,
   "exchange.schema.json": "wringer.exchange.v1",
   "execution-authority-v1.schema.json": "wringer.execution-authority.v1",
+  "execution-authority-v2.schema.json": "wringer.execution-authority.v2",
   "execution-plan-v1.schema.json": "wringer.execution-plan.v1",
   "execution-plan-v2.schema.json": "wringer.execution-plan.v2",
   "execution-plan-v3.schema.json": "wringer.execution-plan.v3",
@@ -4447,17 +4636,20 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "next-move.schema.json": "wringer.nextmove.v1",
   "planning-request-v2.schema.json": "wringer.planning-request.v2",
   "planning-request-v3.schema.json": "wringer.planning-request.v3",
+  "planning-request-v4.schema.json": "wringer.planning-request.v4",
   "playbook-adoption-v1.schema.json": "wringer.playbook-adoption.v1",
   "playbook-proposal-request-v1.schema.json": "wringer.playbook-proposal-request.v1",
   "playbook-proposal-reservation-v1.schema.json": "wringer.playbook-proposal-reservation.v1",
   "playbook-proposal-result-v1.schema.json": "wringer.playbook-proposal-result.v1",
   "playbook-snapshot-v1.schema.json": "wringer.playbook-snapshot.v1",
+  "playbook-snapshot-v2.schema.json": "wringer.playbook-snapshot.v2",
   "playbook-v1.schema.json": "wringer.playbook.v1",
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
   "repair-packet-v1.schema.json": "wringer.repair-packet.v1",
   "rubric.schema.json": "wringer.rubric.v1",
   "runtime-v1.schema.json": "wringer.runtime.v1",
+  "runtime-v2.schema.json": "wringer.runtime.v2",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
@@ -4511,8 +4703,10 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.digests.v1": "digests.schema.json",
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
+  "wringer.environment-map.v2": "environment-map-v2.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
   "wringer.execution-authority.v1": "execution-authority-v1.schema.json",
+  "wringer.execution-authority.v2": "execution-authority-v2.schema.json",
   "wringer.execution-plan.v1": "execution-plan-v1.schema.json",
   "wringer.execution-plan.v2": "execution-plan-v2.schema.json",
   "wringer.execution-plan.v3": "execution-plan-v3.schema.json",
@@ -4558,17 +4752,20 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.nextmove.v1": "next-move.schema.json",
   "wringer.planning-request.v2": "planning-request-v2.schema.json",
   "wringer.planning-request.v3": "planning-request-v3.schema.json",
+  "wringer.planning-request.v4": "planning-request-v4.schema.json",
   "wringer.playbook-adoption.v1": "playbook-adoption-v1.schema.json",
   "wringer.playbook-proposal-request.v1": "playbook-proposal-request-v1.schema.json",
   "wringer.playbook-proposal-reservation.v1": "playbook-proposal-reservation-v1.schema.json",
   "wringer.playbook-proposal-result.v1": "playbook-proposal-result-v1.schema.json",
   "wringer.playbook-snapshot.v1": "playbook-snapshot-v1.schema.json",
+  "wringer.playbook-snapshot.v2": "playbook-snapshot-v2.schema.json",
   "wringer.playbook.v1": "playbook-v1.schema.json",
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
   "wringer.repair-packet.v1": "repair-packet-v1.schema.json",
   "wringer.rubric.v1": "rubric.schema.json",
   "wringer.runtime.v1": "runtime-v1.schema.json",
+  "wringer.runtime.v2": "runtime-v2.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",
