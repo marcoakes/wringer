@@ -143,6 +143,22 @@ Repository-defined Git content filters and submodules cause refusal before
 host-side status can run filters or inspect nested repositories; use a separately
 reviewed inert profile and contained source verification for those repositories.
 
+If the repository has no remote — a fresh local repository with its own bare
+`origin.git` and no forge account — prepare a local-only source instead:
+
+```sh
+./dist/wringer-assistant prepare --from-plan ABS_EXISTING_PROFILE --repo ABS_REPO --image DIGEST_QUALIFIED_IMAGE --output ABS_NEW_PROFILE --root ABS_CONTROLLER --local
+```
+
+`--local` needs a version 3 profile. It names the source by the single root
+commit of its history and writes two files beside the new profile: its Git
+bundle (`.source.bundle`) and a record of what was bundled (`.source.json`).
+Keep the three files together. `setup` and `init` verify them, and `init` keeps
+the verified bundle in the controller, so the checkout is not needed afterwards.
+A history with more than one root refuses; name the remote with `--source-url`.
+Approval cannot yet record a local-only source: work stops at approval, before
+anything runs, until that record is versioned.
+
 This prepares a selected profile, not an unassisted vendor wizard or a new
 spending grant. Initial runtime/policy selection remains an operator task.
 

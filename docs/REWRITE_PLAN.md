@@ -81,6 +81,13 @@ the user's intent was captured. Independent acceptance evaluation must test that
 - Clone the repository inside each environment. Do not bind-mount the user's
   working checkout, home directory, credential stores, container control socket
   or Kubernetes credentials into an agent sandbox.
+- A repository with no remote is identified by the single root commit of its
+  history (`local://<root>`, plan v4) and travels only as the Git bundle
+  prepared beside its profile, which the controller verifies and keeps. The
+  URL was always an identity string, never dialled. Records downstream of the
+  plan that still pin a hosted URL (authority, environment map, runtime
+  provenance, playbook snapshot, planning request) are not yet versioned, so a
+  local-only source stops at approval.
 - Enforcement and tests are repository-owned, but the active policy and acceptance
   contract are pinned from an approved revision. A worker may propose policy or
   test changes; its candidate changes cannot silently redefine the rules that

@@ -40,6 +40,8 @@ jobs:
             .wringer/contained-distribution-*/transcript.json
             .wringer/assistant-smoke-*/result.json
             .wringer/assistant-smoke-*/transcript.json
+            .wringer/local-source-route-*/result.json
+            .wringer/local-source-route-*/transcript.json
             .wringer/assistant-launch-rehearsal-*/result.json
             .wringer/assistant-launch-rehearsal-*/guided-result.json
             .wringer/assistant-launch-rehearsal-*/transcript.json

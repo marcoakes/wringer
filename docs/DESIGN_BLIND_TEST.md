@@ -32,6 +32,11 @@ For Figma use the actual returned asset ids, never assumed `desktop`/`mobile` id
 Keep the new operator profile in an existing operator-owned private folder (0700)
 outside every Git working tree and pass its absolute output path to `design bind`.
 The permitted snapshot belongs in the target repo; the operator profile does not.
+With no forge account, prepare that bound profile against the local checkout with
+`prepare --local` (see the [assistant entry page](../ASSISTANT_START.md)), keep
+its bundle and record beside it, and pass it to `setup` and `init`. **Known
+stop:** approval cannot yet record a local-only source, so this lane stops at
+approval until authority is versioned. Do not start a blind run expecting to pass it.
 
 The designer should keep the expected result out of worker-writable files. Give
 the worker the approved design snapshot and the existing component library,

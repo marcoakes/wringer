@@ -4,6 +4,38 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.11 — local-only source (source checkpoint)
+
+- `wringer-assistant prepare --local` names a repository that has no remote by
+  the single root commit of its history (`local://<root>`) and writes its Git
+  bundle and a `wringer.local-source.v1` record beside the profile. No forge
+  account, host path or remote URL becomes identity. `--local` is explicit,
+  never inferred, and refused beside `--source-url`; a history with more than
+  one root refuses.
+- `setup` verifies the pair; `init` verifies it again (bytes, profile, commit
+  and root) before any controller exists and keeps the verified bytes
+  privately. A Figma attachment on a local-only workspace builds on that bundle.
+- Source transport fails closed: a transported bundle no longer excuses an
+  unnamed source, `local://` without its bundle refuses by sentence and is
+  never fetched, and the fixture-only local-checkout seam is gone. Both
+  rehearsals and every fixture bundle their source through the same product
+  function as `prepare --local`.
+- New compiled validation stage `local-source-route`: a real Reports starter
+  repository with its own bare origin goes through prepare → setup → init →
+  status from the entry page's literal command, plus ten refusals, each
+  asserting the compiled product's exact sentence.
+- The test-discovery self-test no longer inherits the runner's environment (an
+  agent marker hid passing test names, so it failed under agent runners only).
+- **Stops by design:** approval (`execution-authority.v1`) and planning requests
+  cannot name a local-only source and refuse before any work, because those
+  frozen records, like the environment map, runtime provenance and playbook
+  snapshot, still pin a hosted URL. **Not claimed:** starting, containing or
+  delivering a local-only source, a live PM pass, or that the design blind
+  test now passes.
+
+Schemas: `execution-plan-v4` (new sibling of v3). Records:
+`wringer.local-source.v1` (new; no published schema).
+
 ## 1.0.0-alpha.10 — Figma API connection repair (source checkpoint)
 
 - New registered-app OAuth broker and operator credential lifecycle; no app

@@ -37,6 +37,8 @@ const stages: [
     ["compiled-assistant", [join(workspace, "dist/wringer-assistant"), "--help"], repo],
     ["compiled-figma-broker", [join(workspace, "dist/wringer-figma-broker"), "--help"], repo],
     ["compiled-assistant-lifecycle", [process.execPath, "scripts/assistant-distribution.ts"], workspace],
+    // No-model black box of the local-only source door through the compiled entry.
+    ["local-source-route", [process.execPath, "scripts/local-source-route.ts"], workspace],
     // No-spend scripted engineering proof, never a live-client or PM blind-test claim.
     ["assistant-launch-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts"], workspace],
     ["guided-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--guided"], workspace],
