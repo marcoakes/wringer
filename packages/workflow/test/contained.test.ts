@@ -512,6 +512,66 @@ describe("contained ACP production journey", () => {
         expect(ready.status).toBe("review-ready");
         expect(ready.sessions).toBe(4);
     });
+    test("timeout retry carries recorded scheduling facts without accepting work or renewing limits", async () => {
+        const f = await fixture({ workerTurns: 2 }), execute = f.options.executeRole!;
+        f.options.executeRole = async request => ({ ...await execute(request), status: "stopped", stopReason: "timeout" });
+        const first = await runContainedJourney(f.options);
+        expect(first.stop?.reason).toBe("worker-stopped");
+        expect(first.candidate).toBeNull();
+        expect(f.serviceCalls.filter(row => row.kind === "capture")).toHaveLength(0);
+        const history = await readValidatedContainedState(f.options.controllerDir), effect = history.state.effects[0]!;
+        const savedPath = join(f.options.controllerDir, ".wringer/contained/effects", effect.id, "request.json");
+        const saved = await readFile(savedPath, "utf8");
+        expect(f.requests[0]!.prompt).toContain("recorded worker timeouts: 0");
+        expect(f.requests[0]!.prompt).toContain(JSON.stringify(f.options.plan.intent));
+        expect(f.requests[0]!.prompt).toContain(`hard session ceiling is ${f.options.authority.budget.session_timeout_seconds} seconds`);
+        await runContainedJourney(f.options);
+        expect(f.requests).toHaveLength(1);
+        const second = await runContainedJourney({ ...f.options, retryStopped: true });
+        expect(second.stop?.reason).toBe("worker-stopped");
+        expect(second.sessions).toBe(2);
+        expect(f.requests[1]!.prompt).toContain("Previously reserved worker sessions: 1/2; recorded worker timeouts: 1");
+        expect(f.requests[1]!.prompt).not.toContain("WORKER_PRIVATE_NARRATIVE");
+        expect(f.requests[1]!.scope).toEqual(f.requests[0]!.scope);
+        expect(f.requests[1]!.budget.timeoutMs).toBeLessThanOrEqual(f.options.authority.budget.session_timeout_seconds * 1000);
+        expect(await readFile(savedPath, "utf8")).toBe(saved);
+        await runContainedJourney(f.options);
+        expect(f.requests).toHaveLength(2);
+        expect((await runContainedJourney({ ...f.options, retryStopped: true })).stop?.reason).toBe("agent-budget-exhausted");
+        expect(f.requests).toHaveLength(2);
+    });
+    test("historical worker requests without completion guidance reconcile without replay", async () => {
+        const f = await fixture(), execute = f.options.executeRole!;
+        let timeout = true;
+        f.options.executeRole = async request => {
+            const result = await execute(request);
+            if (request.role === "worker" && timeout) { timeout = false; return { ...result, status: "stopped", stopReason: "timeout" }; }
+            return result;
+        };
+        await runContainedJourney(f.options);
+        const history = await readValidatedContainedState(f.options.controllerDir), effect = history.state.effects[0]!;
+        // Construct a historical unit fixture with a valid journal and the exact
+        // pre-guidance request. No production record is migrated or rewritten.
+        const path = join(f.options.controllerDir, ".wringer/contained/effects", effect.id, "request.json");
+        const request = JSON.parse(await readFile(path, "utf8"));
+        request.prompt = request.prompt.slice(request.prompt.indexOf("\n") + 1);
+        const requestSha256 = hashValue(request), requestIdentity = hashValue({ ...request, budget: { maxTurns: 1 } });
+        await writeFile(path, JSON.stringify(request));
+        let previous = "0".repeat(64);
+        for (const event of history.events) {
+            const { sha256: _sha, ...body } = event;
+            body.previous = previous;
+            for (const row of body.state.effects) if (row.id === effect.id) { row.requestSha256 = requestSha256; row.requestIdentity = requestIdentity; }
+            const sha256 = hashValue(body); previous = sha256;
+            await writeFile(join(f.options.controllerDir, ".wringer/contained/events", `${String(body.sequence).padStart(6, "0")}.json`), JSON.stringify({ ...body, sha256 }));
+        }
+        expect((await runContainedJourney(f.options)).stop?.reason).toBe("worker-stopped");
+        expect(f.requests).toHaveLength(1);
+        expect((await runContainedJourney({ ...f.options, retryStopped: true })).status).toBe("review-ready");
+        expect(f.requests.filter(row => row.role === "worker")).toHaveLength(2);
+        expect(f.requests[1]!.prompt).toContain("recorded worker timeouts: 1");
+        expect(f.requests.find(row => row.role === "judge")!.prompt).not.toContain("Controller execution guidance:");
+    });
     test("known unavailable verification requires explicit new attempt and keeps both receipts", async () => {
         for (const phase of ["baseline", "candidate"] as const) {
             const f = await fixture(), verify = f.options.services.verifyCandidate;

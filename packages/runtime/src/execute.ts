@@ -69,7 +69,21 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
             const locked = await sandbox.exec(["/bin/sh", "-c", repositoryPermissionsScript(REPO)]);
             if (locked.code !== 0) throw new RuntimeError("Worker source could not be locked before capture", "change-capture-failed");
             const excludeOutputs = (scope?.writableDirectories ?? []).map(path => quote(`:(exclude,literal)${path}`)).join(" ");
-            const exported = await sandbox.exec(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", `set -eu; cd ${quote(REPO)}; git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false fsck --no-reflogs >/dev/null; git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false add -A -- . ${excludeOutputs}; git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false diff --cached --no-ext-diff --no-textconv --binary --full-index ${quote(request.repo.commit)} --`]);
+            // git add -A rejects an explicitly named ignored directory even in an exclusion
+            // pathspec. Enumerate source paths before that step so ignored outputs never reach it.
+            // Keep all other tracked/untracked paths, including forbidden changes, visible
+            // to the controller. NUL records and literal staging preserve exact filenames.
+            // Update tracked paths before enumeration: a directory replaced by a file or
+            // symlink must lose its cached descendants before those paths reach literal add.
+            const git = "git --no-replace-objects -c core.hooksPath=/dev/null -c core.fsmonitor=false";
+            const exported = await sandbox.exec(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", [
+                "set -eu", `cd ${quote(REPO)}`, `${git} fsck --no-reflogs >/dev/null`,
+                `${git} add -u -- . ${excludeOutputs}`,
+                "capture_paths=$(mktemp)", "trap 'rm -f -- \"$capture_paths\"' EXIT",
+                `${git} ls-files --cached --others --exclude-standard -z -- . ${excludeOutputs} > "$capture_paths"`,
+                `if test -s "$capture_paths"; then ${git} --literal-pathspecs add -A --pathspec-from-file="$capture_paths" --pathspec-file-nul; fi`,
+                `${git} diff --cached --no-ext-diff --no-textconv --binary --full-index ${quote(request.repo.commit)} --`,
+            ].join("; ")]);
             if (exported.code !== 0)
                 throw new RuntimeError(`Worker change capture failed: ${redact(exported.stderr)}`, "change-capture-failed");
             if (redact(exported.stdout) !== exported.stdout)

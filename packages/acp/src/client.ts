@@ -15,10 +15,26 @@ export async function probeAcpSession(transport: AcpTransport, options: AcpProbe
 async function runSession(transport: AcpTransport, options: AcpTurnOptions, probeOnly: boolean): Promise<AcpTurnResult> {
     if (!options.cwd.startsWith("/") || !Number.isFinite(options.timeoutMs) || options.timeoutMs <= 0)
         throw new AcpError("ACP needs an absolute sandbox cwd and a positive timeout", "invalid-options");
+    // MCP readOnlyHint is advisory and the Claude adapter reports MCP calls as
+    // `other`. Only the containing controller can bind a read grant to an exact
+    // installed service/tool. Never derive authority from agent titles or hints.
+    const controllerMcpReads = new Set<string>(), serverNames = new Set<string>();
+    const mcpServers = (options.mcpServers ?? []).map(({ controllerReadOnlyTools, ...server }) => {
+        if (serverNames.has(server.name)) throw new AcpError("ACP MCP service names must be unique", "invalid-options");
+        serverNames.add(server.name);
+        if (controllerReadOnlyTools !== undefined) {
+            const exactName = (name: unknown): name is string => typeof name === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(name) && !name.includes("__");
+            if (!exactName(server.name) || !Array.isArray(controllerReadOnlyTools) || controllerReadOnlyTools.length > 16 || controllerReadOnlyTools.some(name => !exactName(name)) || new Set(controllerReadOnlyTools).size !== controllerReadOnlyTools.length)
+                throw new AcpError("Controller MCP read grants need bounded exact service/tool names", "invalid-options");
+            for (const name of controllerReadOnlyTools) controllerMcpReads.add(`mcp__${server.name}__${name}`);
+        }
+        return server;
+    });
     const redact = options.redact ?? ((text: string) => text), maxMessage = options.maxMessageBytes ?? 2 * 1024 * 1024, maxOutput = options.maxOutputBytes ?? 4 * 1024 * 1024;
     let serial = 0, sessionId: string | null = null, protocolVersion: number | null = null, agentInfo: Record<string, unknown> | null = null, capabilities: Record<string, any> = {}, authMethods: Record<string, any>[] = [], methodAttempted: string | null = null;
     let output = "", stderr = "", cancelled = false, timedOut = false, finished = false, failure: AcpError | undefined, totalBytes = 0;
     let receive = Promise.resolve(), eventQueue = Promise.resolve(), buffer = Buffer.alloc(0);
+    const mcpCalls = new Map<string, { name: string | undefined; eligible: boolean }>();
     const events: Record<string, unknown>[] = [], pending = new Map<number, {
         resolve: (value: any) => void;
         reject: (error: Error) => void;
@@ -65,6 +81,16 @@ async function runSession(transport: AcpTransport, options: AcpTurnOptions, prob
                 if (packet.id !== undefined || !mapping(params) || params.sessionId !== sessionId || !mapping(params.update) || typeof params.update.sessionUpdate !== "string")
                     throw new AcpError("Malformed or cross-session ACP update");
                 const update = params.update;
+                // Claude 0.65.0 names the tool on the initial update, but omits
+                // that metadata from ordinary permission requests. Bind the
+                // request to this session's original toolCallId, never its title.
+                if (sessionId !== null && controllerMcpReads.size && agentInfo?.name === "@agentclientprotocol/claude-agent-acp" && typeof update.toolCallId === "string") {
+                    const name = update._meta?.claudeCode?.toolName, prior = mcpCalls.get(update.toolCallId);
+                    if (update.sessionUpdate === "tool_call") {
+                        if (prior) prior.eligible = false;
+                        else mcpCalls.set(update.toolCallId, { name: typeof name === "string" ? name : undefined, eligible: update.kind === "other" && typeof name === "string" && controllerMcpReads.has(name) && !["completed", "failed"].includes(update.status) });
+                    } else if (update.sessionUpdate === "tool_call_update" && prior && (name !== undefined && name !== prior.name || update.kind !== undefined && update.kind !== "other" || ["completed", "failed"].includes(update.status))) prior.eligible = false;
+                }
                 if (update.sessionUpdate === "agent_message_chunk" && mapping(update.content) && update.content.type === "text") {
                     if (typeof update.content.text !== "string")
                         throw new AcpError("Malformed agent text chunk");
@@ -86,10 +112,13 @@ async function runSession(transport: AcpTransport, options: AcpTurnOptions, prob
                     return;
                 }
                 const allowed = new Set(options.allowedToolKinds ?? (options.role === "worker" ? ["read", "search", "edit", "execute"] : ["read", "search"]));
-                const kind = params.toolCall.kind, accepted = !cancelled && typeof kind === "string" && allowed.has(kind), desired = accepted ? "allow_once" : "reject_once";
+                const kind = params.toolCall.kind, toolName = params.toolCall._meta?.claudeCode?.toolName, known = mcpCalls.get(params.toolCall.toolCallId);
+                const controllerRead = kind === "other" && known?.eligible === true && (toolName === undefined || toolName === known.name);
+                if (known) known.eligible = false; // A single allow_once cannot be replayed for another effect.
+                const effectiveKind = controllerRead ? "read" : kind, accepted = !cancelled && typeof effectiveKind === "string" && allowed.has(effectiveKind), desired = accepted ? "allow_once" : "reject_once";
                 const choice = params.options.find((candidate: any) => mapping(candidate) && candidate.kind === desired && typeof candidate.optionId === "string");
                 const outcome = choice && !cancelled ? { outcome: "selected", optionId: choice.optionId } : { outcome: "cancelled" };
-                event("acp.permission", { sessionId, toolCallId: params.toolCall.toolCallId ?? null, kind: kind ?? null, policy: accepted ? "declared-effect" : "denied", outcome });
+                event("acp.permission", { sessionId, toolCallId: params.toolCall.toolCallId ?? null, kind: kind ?? null, ...(controllerRead ? { effectiveKind: "read" } : {}), policy: accepted ? controllerRead ? "controller-mcp-read" : "declared-effect" : "denied", outcome });
                 respond(packet.id, { outcome });
                 return;
             }
@@ -183,7 +212,7 @@ async function runSession(transport: AcpTransport, options: AcpTurnOptions, prob
             await request("authenticate", { methodId: method.id });
             event("acp.auth-method-returned", { methodId: method.id, authenticatedClaim: false });
         }
-        const session = await request("session/new", { cwd: options.cwd, mcpServers: options.mcpServers ?? [] });
+        const session = await request("session/new", { cwd: options.cwd, mcpServers });
         if (!mapping(session) || typeof session.sessionId !== "string" || !session.sessionId)
             throw new AcpError("Agent returned no usable session id");
         sessionId = session.sessionId;

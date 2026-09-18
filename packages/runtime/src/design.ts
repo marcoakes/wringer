@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { assertRepositoryDisclosure, parseDesignSnapshot } from "@wringer/design";
 import type { AcpTurnOptions } from "@wringer/acp";
 import type { Sandbox } from "./adapters";
@@ -92,6 +92,9 @@ export async function prepareDesignMcp(sandbox: Sandbox, design: { snapshotPath:
     const installer = String.raw`const fs=require("node:fs");let input="";process.stdin.setEncoding("utf8");process.stdin.on("data",s=>{input+=s;if(Buffer.byteLength(input)>20*1024*1024)process.exit(75)});process.stdin.on("end",()=>{const d=JSON.parse(input),p="/input/wringer-design";fs.mkdirSync(p,{mode:0o755});fs.writeFileSync(p+"/server.cjs",d.server,{mode:0o444,flag:"wx"});fs.writeFileSync(p+"/snapshot.json",JSON.stringify(d.snapshot),{mode:0o444,flag:"wx"});fs.chmodSync(p,0o555);});`;
     const installed = await sandbox.exec(["node", "-e", installer], { input: JSON.stringify({ server: DESIGN_MCP_SERVER, snapshot }) });
     if (installed.code !== 0) throw new RuntimeError("The approved design service could not be protected inside the sandbox", "design-refused");
-    sandbox.provenance.observed.design = { snapshotSha256: snapshot.snapshot_sha256, sourcePath: design.snapshotPath, serviceSha256: createHash("sha256").update(DESIGN_MCP_SERVER).digest("hex"), liveCredentialsForwarded: false, readOnly: true };
-    return [{ name: "wringer-design", command: "/usr/bin/env", args: ["-i", "PATH=/usr/local/bin:/usr/bin:/bin", "node", "/input/wringer-design/server.cjs", "/input/wringer-design/snapshot.json", snapshot.snapshot_sha256], env: [] }];
+    // A repository MCP configuration cannot preclaim this session's service
+    // namespace. Permission grants still match its complete name, never a prefix.
+    const serviceName = `wringer-design-${randomUUID()}`;
+    sandbox.provenance.observed.design = { snapshotSha256: snapshot.snapshot_sha256, sourcePath: design.snapshotPath, serviceName, serviceSha256: createHash("sha256").update(DESIGN_MCP_SERVER).digest("hex"), liveCredentialsForwarded: false, readOnly: true };
+    return [{ name: serviceName, command: "/usr/bin/env", args: ["-i", "PATH=/usr/local/bin:/usr/bin:/bin", "node", "/input/wringer-design/server.cjs", "/input/wringer-design/snapshot.json", snapshot.snapshot_sha256], env: [], controllerReadOnlyTools: ["get_design_context", "list_design_assets", "get_design_asset"] }];
 }

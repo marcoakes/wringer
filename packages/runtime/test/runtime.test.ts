@@ -1,6 +1,6 @@
 import { test, expect } from "bun:test";
 import { PassThrough } from "node:stream";
-import { mkdtemp, writeFile, readFile, mkdir, readdir } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, mkdir, readdir, unlink, rmdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { runAcpTurn } from "@wringer/acp";
@@ -368,6 +368,56 @@ test("worker filesystem authority is mandatory before allocation; source capture
     expect(stop).toBeGreaterThan(-1);
     expect(commands.findIndex(value => value.includes("diff --cached"))).toBeGreaterThan(stop);
     expect((await processDriver.command(["/bin/sh", "-n"], { input: fake.calls[stop]!.argv.at(-1)! })).code).toBe(0);
+});
+
+test("real Git worker capture handles replacements and excludes outputs without hiding source or protected changes", async () => {
+    const repo = await mkdtemp(join(tmpdir(), "wringer-worker-capture-"));
+    const git = async (args: string[]) => {
+        const result = await processDriver.command(["git", "-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "-C", repo, ...args]);
+        if (result.code) throw new Error(result.stderr);
+        return result.stdout;
+    };
+    await git(["init"]);
+    await git(["config", "user.name", "Fixture"]);
+    await git(["config", "user.email", "fixture@example.invalid"]);
+    for (const directory of ["src", "tests", "src/to-link", "src/to-file"]) await mkdir(join(repo, directory));
+    await writeFile(join(repo, ".gitignore"), ".evidence/\n");
+    for (const path of ["src/tracked.ts", "src/deleted.ts", "src/to-link/a.ts", "src/to-file/a.ts", "tests/check.ts"]) await writeFile(join(repo, path), "before\n");
+    await git(["add", "."]);
+    await git(["commit", "-m", "Synthetic worker capture fixture"]);
+    const baseCommit = (await git(["rev-parse", "HEAD"])).trim();
+    await writeFile(join(repo, "src/tracked.ts"), "after\n");
+    await writeFile(join(repo, "src/new report.ts"), "new source\n");
+    await writeFile(join(repo, "src/[literal].ts"), "literal source path\n");
+    await unlink(join(repo, "src/deleted.ts"));
+    for (const directory of ["src/to-link", "src/to-file"]) {
+        await unlink(join(repo, directory, "a.ts"));
+        await rmdir(join(repo, directory));
+    }
+    await symlink("tracked.ts", join(repo, "src/to-link"));
+    await writeFile(join(repo, "src/to-file"), "directory replaced by file\n");
+    // Simulate a forbidden mutation: it must remain visible to the controller's
+    // protected-path check, not disappear behind the approved writable scope.
+    await writeFile(join(repo, "tests/check.ts"), "forbidden check change\n");
+    for (const directory of [".evidence", "generated files"]) {
+        await mkdir(join(repo, directory));
+        await writeFile(join(repo, directory, "output.txt"), "generated output must not enter the source patch\n");
+    }
+    const fake = fakeDriver(), original = fake.driver.command;
+    fake.driver.command = async (argv, options) => {
+        if (argv.at(-1)?.includes("diff --cached")) {
+            const script = argv.at(-1)!.replace("cd '/workspace/repo'", `cd '${repo.replaceAll("'", "'\\''")}'`);
+            return processDriver.command(["env", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "/bin/sh", "-c", script]);
+        }
+        return original(argv, options);
+    };
+    const result = await executeAgentRole({ ...request, repo: { ...source, commit: baseCommit }, scope: { writable: ["src"], protected: ["tests"], writableDirectories: [".evidence", "generated files"] } }, { driver: fake.driver });
+    expect(result.change?.baseCommit).toBe(baseCommit);
+    expect(result.change?.sha256).toBe(digest(result.change!.patch));
+    expect((await git(["diff", "--cached", "--name-only", "-z", baseCommit])).split("\0").filter(Boolean).sort()).toEqual(["src/[literal].ts", "src/deleted.ts", "src/new report.ts", "src/to-file", "src/to-file/a.ts", "src/to-link", "src/to-link/a.ts", "src/tracked.ts", "tests/check.ts"]);
+    expect(await git(["ls-files", "--stage", "--", "src/to-link"])).toMatch(/^120000 /);
+    expect(result.change!.patch).toContain("forbidden check change");
+    expect(result.change!.patch).not.toContain("generated output");
 });
 
 test("contained preflight opens only the selected role session, never sends task work or captures a patch", async () => {

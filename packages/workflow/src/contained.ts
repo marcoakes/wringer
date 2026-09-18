@@ -29,6 +29,13 @@ interface Effect {
     /** Accepted means a valid role output, never acceptance of the entire candidate. */
     disposition?: "accepted" | "stopped" | "invalid" | "unsettled";
 }
+/** Advisory scheduling facts, derived only from retained reservations and results.
+ * They do not extend authority or turn an interrupted worker's prose into source. */
+function workerCompletionGuidance(authority: ExecutionAuthority, prior: Effect[]): string {
+    const workers = prior.filter(effect => effect.role === "worker");
+    const timeouts = workers.filter(effect => effect.result?.status === "stopped" && effect.result.stopReason === "timeout").length;
+    return `Controller execution guidance: the hard session ceiling is ${authority.budget.session_timeout_seconds} seconds, including runtime setup; the remaining journey allowance can shorten it. Previously reserved worker sessions: ${workers.length}/${authority.budget.max_worker_turns}; recorded worker timeouts: ${timeouts}. Complete the required source changes and relevant checks before the deadline. Once those checks pass, finish the turn promptly with at most five brief summary lines; do not spend the remaining time on repeated checks or unrequested polish. A timeout does not produce an accepted candidate, and prior worker self-checks are not independent verification. When design tools are advertised, use their exact advertised service name; the controller may add a session-specific suffix. ${timeouts ? "A previous worker timed out: use that observation to prioritize the required implementation and a completed turn. Do not assume its unrecorded edits survived." : ""}\n`;
+}
 interface VerificationAttempt {
     id: string;
     phase: "baseline" | "candidate";
@@ -667,9 +674,13 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         prompt += roleContextPrompt(role, plan, playbook);
         if (Buffer.byteLength(prompt) > 512 * 1024)
             refuse("agent-context-too-large", "The explicit intent/acceptance/context packet exceeds 512 KiB. Scope the plan or select fewer context files; no requirement was silently truncated.", "wringer-drive plan --help");
-        const request = scrubValue({ role, repo: source, runtime: plan.runtime, agent, prompt, ...(plan.design ? { design: { snapshotPath: plan.design.snapshotPath, snapshotSha256: plan.design.snapshotSha256, referenceIds: [...new Set(plan.design.reviews.flatMap(r => r.referenceIds))].sort() } } : {}), ...(role === "worker" ? { scope: { writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories } } : {}), budget: { maxTurns: 1, timeoutMs: Math.max(1, Math.min(authority.budget.session_timeout_seconds * 1000, authorizedUntil - Date.now())) } });
-        const identity = hashValue({ ...request, budget: { maxTurns: 1 } });
         let effect = existingId ? state!.effects.find(e => e.id === existingId) : undefined;
+        const makeRequest = (prior: Effect[], guidance = true) => scrubValue({ role, repo: source, runtime: plan.runtime, agent, prompt: (role === "worker" && guidance ? workerCompletionGuidance(authority, prior) : "") + prompt, ...(plan.design ? { design: { snapshotPath: plan.design.snapshotPath, snapshotSha256: plan.design.snapshotSha256, referenceIds: [...new Set(plan.design.reviews.flatMap(r => r.referenceIds))].sort() } } : {}), ...(role === "worker" ? { scope: { writable: plan.scope.writable, protected: plan.acceptance.protected_paths, writableDirectories: plan.environment.writable_directories } } : {}), budget: { maxTurns: 1, timeoutMs: Math.max(1, Math.min(authority.budget.session_timeout_seconds * 1000, authorizedUntil - Date.now())) } });
+        const requestIdentity = (request: ReturnType<typeof makeRequest>) => hashValue({ ...request, budget: { maxTurns: 1 } });
+        // Reconstruct the context as it existed before this reservation, so a read
+        // or resume cannot change its identity by counting the attempt itself.
+        let request = makeRequest(effect ? state!.effects.slice(0, state!.effects.indexOf(effect)) : state!.effects);
+        let identity = requestIdentity(request);
         const complete = async (result: RoleExecutionResult, recovered = false): Promise<Effect> => {
             const p = result.provenance;
             if (p) assertRecordFamily(plan, "runtime", p.schema_version);
@@ -691,8 +702,15 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
             return effect!;
         };
         if (effect) {
-            if (effect.requestIdentity !== identity)
-                throw new Error("A resumed ACP effect has different approved request content");
+            if (effect.requestIdentity !== identity) {
+                // Historical requests predate this advisory guidance. Accept only
+                // the exact old request content, never arbitrary retained prose.
+                const legacy = makeRequest([], false);
+                if (effect.requestIdentity !== requestIdentity(legacy))
+                    throw new Error("A resumed ACP effect has different approved request content");
+                request = legacy;
+                identity = effect.requestIdentity;
+            }
             const retained = await readJson(controller, `${ROOT}/effects/${effect.id}/request.json`);
             if (!retained || hashValue(retained) !== effect.requestSha256)
                 throw new Error("Retained ACP request differs from its pre-spend digest");
@@ -714,6 +732,12 @@ async function runLocked(options: ContainedJourneyOptions): Promise<ContainedJou
         const roleCeiling = role === "worker" ? authority.budget.max_worker_turns : role === "judge" ? authority.budget.max_judge_turns : authority.budget.max_planner_turns;
         if (state!.effects.length >= authority.budget.max_sessions || state!.effects.filter(e => e.role === role).length >= roleCeiling)
             refuse("agent-budget-exhausted", `The whole-journey ${role}/session budget is exhausted. Unknown reservations remain charged.`);
+        // Only an eligible, newly reserved attempt receives updated retry facts.
+        // Ordinary observation/reconciliation above neither rewrites nor replays it.
+        request = makeRequest(state!.effects);
+        if (Buffer.byteLength(request.prompt) > 512 * 1024)
+            refuse("agent-context-too-large", "The explicit intent/acceptance/context packet and execution guidance exceed 512 KiB. Scope the plan or select fewer context files; no requirement was silently truncated.", "wringer-drive plan --help");
+        identity = requestIdentity(request);
         effect = { id: randomUUID(), role, requestSha256: hashValue(request), requestIdentity: identity, status: "reserved" };
         state!.effects.push(effect);
         if (role === "worker")

@@ -85,8 +85,12 @@ test("design preparation validates source then installs only controller-owned no
     expect(f.calls).toHaveLength(2); expect(f.calls[0]!.argv.slice(0,2)).toEqual(["node","-e"]);expect(f.calls[0]!.argv.at(-1)).toBe("design/reference.json");
     expect(f.calls[0]!.argv[2]).toContain("isSymbolicLink"); expect(f.calls[0]!.argv[2]).toContain("O_NOFOLLOW");
     const installation=JSON.parse(String(f.calls[1]!.options?.input));expect(installation.server).toBe(DESIGN_MCP_SERVER);expect(installation.snapshot).toEqual(snapshot);expect(f.calls[1]!.argv[2]).toContain("0o444");expect(f.calls[1]!.argv[2]).toContain("0o555");
-    expect(servers).toEqual([{name:"wringer-design",command:"/usr/bin/env",args:["-i","PATH=/usr/local/bin:/usr/bin:/bin","node","/input/wringer-design/server.cjs","/input/wringer-design/snapshot.json",snapshot.snapshot_sha256],env:[]}]);
-    expect(f.sandbox.provenance.observed.design).toMatchObject({snapshotSha256:snapshot.snapshot_sha256,readOnly:true,liveCredentialsForwarded:false});
+    const serviceName=servers[0]!.name;
+    expect(serviceName).toMatch(/^wringer-design-[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/);
+    expect(servers).toEqual([{name:serviceName,command:"/usr/bin/env",args:["-i","PATH=/usr/local/bin:/usr/bin:/bin","node","/input/wringer-design/server.cjs","/input/wringer-design/snapshot.json",snapshot.snapshot_sha256],env:[],controllerReadOnlyTools:["get_design_context","list_design_assets","get_design_asset"]}]);
+    expect(f.sandbox.provenance.observed.design).toMatchObject({snapshotSha256:snapshot.snapshot_sha256,serviceName,readOnly:true,liveCredentialsForwarded:false});
+    const next=fakeSandbox(snapshot),nextServers=await prepareDesignMcp(next.sandbox,identity(snapshot));
+    expect(nextServers[0]!.name).not.toBe(serviceName);
 });
 test("design preparation refuses invalid path, source digest, missing refs, privacy and failed installation", async () => {
     const snapshot=reference();
@@ -103,10 +107,29 @@ function largeValidPng() {
     const chunk=(name:string,data:Buffer)=>{const buffer=Buffer.alloc(data.length+12);buffer.writeUInt32BE(data.length);buffer.write(name,4);data.copy(buffer,8);let crc=0xffffffff;for(const b of buffer.subarray(4,buffer.length-4)){crc^=b;for(let n=0;n<8;n++)crc=crc>>>1^(crc&1?0xedb88320:0);}buffer.writeUInt32BE((crc^0xffffffff)>>>0,buffer.length-4);return buffer;};
     return Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),chunk("IHDR",header),chunk("IDAT",deflateSync(Buffer.alloc((1+width*3)*height),{level:0})),chunk("IEND",Buffer.alloc(0))]).toString("base64");
 }
-function acpFixture(png:string) {
-    const input=new PassThrough(),output=new PassThrough(),packets:any[]=[];let buffer="",stopped=0;
+function acpFixture(png:string, requestDesignRead = false) {
+    const input=new PassThrough(),output=new PassThrough(),packets:any[]=[];let buffer="",stopped=0,promptId:number,serviceName:string;
     const send=(value:unknown)=>{const wire=JSON.stringify(value)+"\n";for(let start=0;start<wire.length;start+=65536)output.write(wire.slice(start,start+65536));};
-    input.on("data",chunk=>{buffer+=chunk;let index:number;while((index=buffer.indexOf("\n"))>=0){const p=JSON.parse(buffer.slice(0,index));buffer=buffer.slice(index+1);packets.push(p);if(p.method==="initialize")send({jsonrpc:"2.0",id:p.id,result:{protocolVersion:1,agentCapabilities:{},authMethods:[]}});else if(p.method==="session/new")send({jsonrpc:"2.0",id:p.id,result:{sessionId:"design-fixture"}});else if(p.method==="session/prompt"){send({jsonrpc:"2.0",method:"session/update",params:{sessionId:"design-fixture",update:{sessionUpdate:"tool_call_update",toolCallId:"reference",status:"completed",content:[{type:"content",content:{type:"image",mimeType:"image/png",data:png}}]}}});send({jsonrpc:"2.0",method:"session/update",params:{sessionId:"design-fixture",update:{sessionUpdate:"agent_message_chunk",content:{type:"text",text:"Reference observed by scripted adapter."}}}});send({jsonrpc:"2.0",id:p.id,result:{stopReason:"end_turn"}});}}});
+    const finish=()=>{
+        send({jsonrpc:"2.0",method:"session/update",params:{sessionId:"design-fixture",update:{sessionUpdate:"tool_call_update",toolCallId:"reference",status:"completed",content:[{type:"content",content:{type:"image",mimeType:"image/png",data:png}}]}}});
+        send({jsonrpc:"2.0",method:"session/update",params:{sessionId:"design-fixture",update:{sessionUpdate:"agent_message_chunk",content:{type:"text",text:"Reference observed by scripted adapter."}}}});
+        send({jsonrpc:"2.0",id:promptId,result:{stopReason:"end_turn"}});
+    };
+    input.on("data",chunk=>{buffer+=chunk;let index:number;while((index=buffer.indexOf("\n"))>=0){
+        const p=JSON.parse(buffer.slice(0,index));buffer=buffer.slice(index+1);packets.push(p);
+        if(p.method==="initialize")send({jsonrpc:"2.0",id:p.id,result:{protocolVersion:1,agentInfo:{name:"@agentclientprotocol/claude-agent-acp",version:"0.65.0"},agentCapabilities:{},authMethods:[]}});
+        else if(p.method==="session/new"){serviceName=p.params.mcpServers[0].name;send({jsonrpc:"2.0",id:p.id,result:{sessionId:"design-fixture"}});}
+        else if(p.method==="session/prompt"){
+            promptId=p.id;
+            if(!requestDesignRead){finish();continue;}
+            const toolName=`mcp__${serviceName}__get_design_asset`,toolCall={toolCallId:"reference",kind:"other",title:toolName,rawInput:{id:"desktop"}};
+            send({jsonrpc:"2.0",method:"session/update",params:{sessionId:"design-fixture",update:{...toolCall,sessionUpdate:"tool_call",status:"pending",_meta:{claudeCode:{toolName}}}}});
+            send({jsonrpc:"2.0",id:"read-design",method:"session/request_permission",params:{sessionId:"design-fixture",toolCall,options:[{kind:"allow_once",optionId:"read"},{kind:"reject_once",optionId:"deny"}]}});
+        } else if(p.id==="read-design"){
+            if(p.result.outcome.optionId==="read")finish();
+            else send({jsonrpc:"2.0",id:promptId,result:{stopReason:"refusal"}});
+        }
+    }});
     const transport:AcpTransport={input,output,exited:new Promise(()=>{}),async terminate(){stopped++;input.destroy();output.destroy();}};
     return {transport,packets,stopped:()=>stopped};
 }
@@ -115,8 +138,9 @@ test("ACP forwards only configured design service and accepts a valid image upda
     const snapshot=reference("repository-permitted",png),f=fakeSandbox(snapshot),mcpServers=await prepareDesignMcp(f.sandbox,identity(snapshot));
     const options:AcpTurnOptions={role:"worker",cwd:"/workspace/repo",prompt:"Synthetic protocol fixture; no model involved.",timeoutMs:5000,mcpServers};
     const legacy=acpFixture(png),tooSmall=await runAcpTurn(legacy.transport,options);expect(tooSmall.stopReason).toBe("message-limit");expect(legacy.stopped()).toBe(1);
-    const configured=acpFixture(png),result=await runAcpTurn(configured.transport,{...options,maxMessageBytes:16*1024*1024,maxOutputBytes:32*1024*1024});
-    expect(result.status).toBe("completed");expect(configured.stopped()).toBe(1);expect(configured.packets.find(p=>p.method==="session/new").params.mcpServers).toEqual(mcpServers);
+    const configured=acpFixture(png,true),result=await runAcpTurn(configured.transport,{...options,maxMessageBytes:16*1024*1024,maxOutputBytes:32*1024*1024});
+    expect(result.status).toBe("completed");expect(configured.stopped()).toBe(1);expect(configured.packets.find(p=>p.method==="session/new").params.mcpServers).toEqual(mcpServers.map(({controllerReadOnlyTools,...server})=>server));
+    expect(configured.packets.find(p=>p.id==="read-design").result.outcome).toEqual({outcome:"selected",optionId:"read"});
     const update=result.events.find((e:any)=>e.type==="acp.update"&&(e.update as any)?.sessionUpdate==="tool_call_update") as any;
     expect(inspectPng(update.update.content[0].content.data).sha256).toBe(dimensions.sha256);expect(result.text).toBe("Reference observed by scripted adapter.");
 });

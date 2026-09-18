@@ -33,7 +33,15 @@ export interface AcpTurnOptions {
     maxMessageBytes?: number;
     maxOutputBytes?: number;
     /** Controller-owned stdio services inside the same sandbox, not host MCP configuration. */
-    mcpServers?: Array<{ name: string; command: string; args: string[]; env: Array<{ name: string; value: string }> }>;
+    mcpServers?: Array<{
+        name: string;
+        command: string;
+        args: string[];
+        env: Array<{ name: string; value: string }>;
+        /** Controller authorization for this installed service, never MCP annotations or repository input.
+         * Kept client-side; these exact tools may use the role's existing read permission. */
+        controllerReadOnlyTools?: string[];
+    }>;
     redact?: (value: string) => string;
     onEvent?: (event: Record<string, unknown>) => void | Promise<void>;
 }

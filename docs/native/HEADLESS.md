@@ -234,6 +234,13 @@ sessions **without sending a model prompt** and reports that precise limit.
 
 The remedy is the recorded next action, not a host fallback, a larger hidden budget or an invented human note. Routine authority can carry ordinary work; only a person can supply a person's observation.
 
+Worker requests include the approved session ceiling, prior worker reservation
+count and recorded timeout count. An eligible retry receives updated facts and
+guidance to complete the required changes and checks before returning a short
+summary. Earlier requests remain immutable, and interrupted work is not adopted
+as a candidate. This scheduling guidance does not extend a deadline or establish
+that a real agent will finish within it.
+
 ## Read the actual outcome
 
 Keep the controller's frozen plan/authority, sequenced events, runtime/session provenance, reservations, resulting source identity and stop/result records. Usage is reported when known, not priced by guesswork. No receipt is a promise that a live model will converge.
