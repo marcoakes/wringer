@@ -1,0 +1,58 @@
+/** SCRIPTED engineering fixture implementation; no model or human verdict authored this file. */
+import { button, reportCard, statusBadge, workspace } from "../ui/components.ts";
+
+type Report = { id: string; title: string; owner: string; date: string; status: string; summary: string };
+
+export async function mount(root: HTMLElement) {
+    const response = await fetch("/data/reports.json");
+    if (!response.ok) throw new Error("The supplied report data could not be loaded");
+    const reports: Report[] = await response.json();
+    let query = "", selectedStatus = "All statuses";
+    const date = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    const dates = (value: string) => date.format(new Date(value + "T00:00:00Z"));
+    const paragraph = (text: string) => { const p = document.createElement("p"); p.textContent = text; return p; };
+
+    function list(returnTo?: string) {
+        const page = workspace("Reports", "Find the report you need, open it, and get back. Search by title and narrow by status.");
+        const toolbar = document.createElement("div"); toolbar.className = "toolbar";
+        const searchLabel = document.createElement("label"); searchLabel.textContent = "Search reports";
+        const search = document.createElement("input"); search.type = "text"; search.value = query; search.placeholder = "Search by title";
+        searchLabel.append(search);
+        const statusLabel = document.createElement("label"); statusLabel.textContent = "Status";
+        const status = document.createElement("select");
+        for (const value of ["All statuses", "Published", "Draft", "Archived"]) {
+            const option = document.createElement("option"); option.value = value; option.textContent = value; status.append(option);
+        }
+        status.value = selectedStatus; statusLabel.append(status); toolbar.append(searchLabel, statusLabel);
+        const count = paragraph(""); count.className = "result-count"; count.setAttribute("aria-live", "polite");
+        const results = document.createElement("div");
+        page.append(toolbar, count, results); root.replaceChildren(page);
+        function filter() {
+            const visible = reports.filter(report => report.title.toLowerCase().includes(query.trim().toLowerCase()) && (selectedStatus === "All statuses" || report.status === selectedStatus));
+            count.textContent = `${visible.length} of ${reports.length} reports`;
+            results.replaceChildren(); results.className = visible.length ? "reports-grid" : "empty";
+            if (!visible.length) {
+                const title = document.createElement("h2"); title.textContent = "No reports match";
+                results.append(title, paragraph("Try a different title or reset your search and status filter."), button("Reset", () => {
+                    query = ""; selectedStatus = "All statuses"; search.value = query; status.value = selectedStatus; filter(); search.focus();
+                }));
+            }
+            for (const report of visible) {
+                const card = reportCard(report.title), open = button("Open", () => detail(report), "secondary");
+                open.dataset.reportId = report.id;
+                card.append(paragraph(`${report.owner} · ${dates(report.date)}`), statusBadge(report.status), open); results.append(card);
+            }
+        }
+        search.addEventListener("input", () => { query = search.value; filter(); });
+        status.addEventListener("change", () => { selectedStatus = status.value; filter(); });
+        filter();
+        if (returnTo) Array.from(results.querySelectorAll<HTMLButtonElement>("button")).find(element => element.dataset.reportId === returnTo)?.focus();
+    }
+    function detail(report: Report) {
+        const page = workspace(report.title, `${report.owner} · ${dates(report.date)}`), body = document.createElement("div"); body.className = "detail";
+        body.append(statusBadge(report.status), paragraph(report.summary), button("Back to reports", () => list(report.id), "secondary"));
+        page.append(body); root.replaceChildren(page);
+        const heading = page.querySelector("h1")!; heading.tabIndex = -1; heading.focus();
+    }
+    list();
+}

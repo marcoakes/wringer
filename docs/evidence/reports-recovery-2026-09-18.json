@@ -1,0 +1,395 @@
+{
+  "recordType": "reports-engineering-recovery",
+  "date": "2026-09-18",
+  "version": "1.0.0-alpha.13",
+  "conditions": {
+    "platform": "darwin-arm64",
+    "bun": "1.4.2",
+    "sourceBase": "02519e4fc326f04324cd795be2ef37cdef611ac0",
+    "workingTree": "modified",
+    "phase": "engineering-validation-not-independent-human-review"
+  },
+  "fullSuite": {
+    "passed": 908,
+    "skipped": 1,
+    "failed": 0,
+    "assertions": 10195,
+    "files": 103,
+    "durationMs": 540040,
+    "skip": "Linux-only DAC measurement on macOS",
+    "includes": [
+      "generated-record-check",
+      "strict-typescript",
+      "packages-tests"
+    ]
+  },
+  "subsequentFocused": {
+    "passed": 20,
+    "failed": 0,
+    "assertions": 86,
+    "suites": [
+      "rehearsal-clone-audit",
+      "reports-workspace-rehearsal"
+    ],
+    "typecheck": "passed"
+  },
+  "distributionStages": [
+    {
+      "name": "native-confirmation-build",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 6199
+    },
+    {
+      "name": "native-confirmation-probe",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 500
+    },
+    {
+      "name": "portable-python-corpus",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5954
+    },
+    {
+      "name": "standalone-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 5126
+    },
+    {
+      "name": "compiled-contained-contract",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 34253
+    },
+    {
+      "name": "local-delivery-fixture",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 6247
+    },
+    {
+      "name": "compiled-version",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 131
+    },
+    {
+      "name": "compiled-board",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 138
+    },
+    {
+      "name": "compiled-drive",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 143
+    },
+    {
+      "name": "compiled-assistant",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1667
+    },
+    {
+      "name": "compiled-figma-broker",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 1326
+    },
+    {
+      "name": "compiled-assistant-lifecycle",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3804
+    },
+    {
+      "name": "local-source-route",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 11027
+    }
+  ],
+  "rehearsalStages": [
+    {
+      "name": "assistant-launch-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 102690
+    },
+    {
+      "name": "guided-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 84698
+    },
+    {
+      "name": "design-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 165546
+    },
+    {
+      "name": "figma-api-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 150425
+    },
+    {
+      "name": "local-pm-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 110646
+    },
+    {
+      "name": "local-design-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 144786
+    },
+    {
+      "name": "improvements-browser-rehearsal",
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_ms": 3253
+    }
+  ],
+  "reportsRehearsal": {
+    "schema_version": "wringer.guided-pm-rehearsal.v1",
+    "status": "passed",
+    "fixture": true,
+    "jobId": "208c1ccc-f056-4dae-cf7f-d1e6cf06acf2",
+    "deliveryId": "contained-ffbdceb2f30cf0861b660086",
+    "candidateCommit": "9413f968833d7a483c77405d0eb6dca3f037f587",
+    "evidenceCommit": "1499d6d0015ff4de366c7c6f42b62c0373e15088",
+    "browserDecisions": [
+      "approve",
+      "correction",
+      "decision",
+      "send"
+    ],
+    "browserInteractionMs": 282412,
+    "providerCalls": 0,
+    "credentialReads": 0,
+    "independentPmMeasured": false,
+    "realContainmentMeasured": true,
+    "realVerifierContainmentMeasured": true,
+    "realClientMeasured": false,
+    "freshCloneAuditExit": 0,
+    "breakageTest": "not-run-scenario-budget",
+    "design": {
+      "snapshotSha256": "652da82052987e5d7610ea389bd159cb4c4fc6028bdcba832b64971adea9c442",
+      "realChromiumReferenceAndCaptures": false,
+      "realChromiumCaptures": true,
+      "referenceOrigin": "preserved-original-pngs",
+      "requiredImagesPerCandidate": 4,
+      "imageLoadAndFailureGatesMeasured": true,
+      "realFigmaMeasured": false,
+      "humanDecisions": "SCRIPTED TEST FIXTURE ONLY"
+    },
+    "rehearsalTitle": "Actual Reports inputs — SCRIPTED operator and source author, real contained checks",
+    "sourceFixtureKind": "original-reports-inputs-contained-verifier",
+    "implementation": {
+      "baseCommit": "02519e4fc326f04324cd795be2ef37cdef611ac0",
+      "workingTree": "modified",
+      "rehearsalSha256": "98fe24c5dd4433f16903ce9d8f083b4e4b19adf6a12bd2ccd0b2b2c764caea64",
+      "browserFixtureSha256": "b76d07831d7e4f0efd955f063bb31ee309ff1f4310e7260ed13b0c5375f319b6",
+      "guidedFixtureSha256": "3109f6793c25c5d390551ac0839752efd8bb73b503628066799a1572dc5603f1",
+      "auditBinarySha256": "f399cce3052aacec57870732a8542fb56adf277413d42caf85e240f80c69fe3f"
+    },
+    "checks": [
+      "proposal holds without approving or spending",
+      "unapproved start refuses",
+      "guided page removes private fragment",
+      "bounded assistant wait observes without approving or spending",
+      "worker fixture receives the correct bounded playbook channel",
+      "real worker capture exports scripted source and excludes ignored .evidence",
+      "judge fixture receives the correct bounded playbook channel",
+      "real Chromium keeps decisions disabled while required PNG requests are held",
+      "real browser image failure does not permit visual acceptance or correction",
+      "a replacement image generation keeps decisions closed while its required reference still fails",
+      "authenticated reference and actual desktop/mobile PNGs really decode before decisions",
+      "engineering disclosure starts collapsed without displacing the human decision",
+      "same-page approach and check facts reflect validated v3 worker use",
+      "engineering details grant no authority or efficacy and keep the same next action",
+      "opening source details exposes the exact approved design snapshot",
+      "the design display is bound to the pinned snapshot without duplicating PM review images",
+      "full-size viewer displays the exact verified reference without new requests",
+      "Escape closes full-size pixels and restores keyboard focus",
+      "Close image returns to the same verified reference button",
+      "visual display notes remain available in collapsed details",
+      "product and design requirements are visible without invented separate reviewers",
+      "one approval automatically reaches the actual displayed human hold",
+      "coding app receives a credential-free ready pointer",
+      "the PM stayed on one origin with actual source-bound fixture output",
+      "legacy terminal-style review mechanics are absent",
+      "actual HTTP review refuses an invented display without recording Yes",
+      "worker fixture receives the correct bounded playbook channel",
+      "real worker capture exports scripted source and excludes ignored .evidence",
+      "judge fixture receives the correct bounded playbook channel",
+      "correction loads fresh captures of the changed source and preserves the original design reference",
+      "one correction preserves original words and uses only the remaining allowance",
+      "new result has no prefilled approval or comment",
+      "guided page fits mobile without horizontal overflow",
+      "one Yes records a decision without inventing a personal note",
+      "acceptance automatically prepares but never sends",
+      "reopening send preserves its decision and does not publish",
+      "Send acknowledges its one durable running command before observing publication",
+      "one separate Send publishes only the intended review branch",
+      "PM-visible happy-path post-build decisions are Yes then Send",
+      "visible and copied audit instructions enter the new clone and stop on clone failure",
+      "literal copied audit starts in a fresh empty parent folder",
+      "clone refusal cannot audit an existing reviewed-change folder",
+      "fresh clone has the exact evidence HEAD, one reviewed-source parent, audited source tree and only evidence additions in a clean checkout",
+      "fresh clone carries the originally pinned design snapshot and rendered corrected source",
+      "source-bound human requirements survive the fresh-clone audit",
+      "carried views and certificate preserve decision identity and no-comment truth",
+      "handover page offers the real carried audit command",
+      "guided browser has no script errors",
+      "v4 local-only design fixture retains exact playbook and honest assertion observations",
+      "the fresh clone's plan, approval and environment records name the local-only source",
+      "every carried role ran under local-only runtime provenance",
+      "the local-only job started from the bundle its controller kept at init",
+      "fresh clone preserves every original Reports input, exact chat intent and scripted final source"
+    ],
+    "limits": [
+      "Engineering rehearsal with SCRIPTED source author, independent-role reply, approval, correction, acceptance and local Send; no real person's decision and no live model convergence claim.",
+      "Original request, chat intent, report data, components, checks and both reference PNGs are preserved. Original checks and screenshots execute only in the declared credential-free contained verifier.",
+      "Deterministic Node ACP fixtures run in real worker/judge sandboxes. Worker writes source and ignored .evidence; production patch export must capture source and exclude outputs. This measures containment, not model reasoning.",
+      "No provider API calls or credential reads. Four role records represent contained scripted ACP calls, not paid model sessions or billing measurements.",
+      "Generated isolated local bare origin only; no original destination, hosted forge, merge, deployment or production approval.",
+      "Controller and scripted operator use cooperative-local fixture state; a protected controller or human-confirmation OS boundary is not measured.",
+      "OS kill, reboot and sleep recovery and live breakage testing are not exercised by this bounded scenario. No target-code host fallback is permitted."
+    ]
+  },
+  "observedScriptedRoleSessions": 4,
+  "cloneLineage": {
+    "deliveryId": "contained-ffbdceb2f30cf0861b660086",
+    "evidenceCommit": "1499d6d0015ff4de366c7c6f42b62c0373e15088",
+    "codeCommit": "9413f968833d7a483c77405d0eb6dca3f037f587",
+    "sourceTree": "30e88742c512e8baff33309d1ef23dddad3d0cf6",
+    "evidencePath": ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/",
+    "evidenceFiles": [
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/authority.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/board.html",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/candidate.bundle",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/certificate.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/digests.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/engineering.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/environment.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/human/design-review.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000001.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000002.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000003.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000004.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000005.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000006.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000007.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000008.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000009.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000010.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000011.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000012.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000013.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000014.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000015.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000016.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000017.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000018.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000019.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000020.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000021.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000022.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000023.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000024.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000025.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000026.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000027.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000028.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000029.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000030.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000031.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000032.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000033.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000034.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000035.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000036.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000037.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000038.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000039.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000040.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000041.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000042.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000043.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000044.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000045.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000046.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000047.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/journal/000048.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/manifest.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/mr.md",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/plan.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/projection.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-7585bece-f5b9-4b4f-a10e-ca1b0081d1a0/observations.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-7585bece-f5b9-4b4f-a10e-ca1b0081d1a0/verification.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-ca56f73c-4aa0-42e1-a7d3-801b1da6851f/observations.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-ca56f73c-4aa0-42e1-a7d3-801b1da6851f/verification.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-d301f886-14b0-4788-b53b-0792c31ffe09/observations.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/receipts/wringer-verifier-d301f886-14b0-4788-b53b-0792c31ffe09/verification.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/roles/3a2b7b4e-6f0d-4654-aacc-aa3de4f42a55.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/roles/84f37b63-420a-45be-b039-707e7a83a419.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/roles/a842a9d5-d4cb-4cab-b7ff-7b87abaf766f.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/roles/bf11de88-5753-4fa8-854a-c75d4b734e51.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/summary.md",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/view.json",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/visuals/design-review/capture-desktop.png",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/visuals/design-review/capture-mobile.png",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/visuals/design-review/reference-desktop.png",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/visuals/design-review/reference-mobile.png",
+      ".wringer/deliveries/contained-ffbdceb2f30cf0861b660086/visuals/snapshot.json"
+    ],
+    "cleanCheckout": true
+  },
+  "retainedFailures": [
+    {
+      "capture": "assistant-launch-rehearsal-fb6320ed-c4bd-46a9-bda7-4e9b2add7aa5",
+      "phase": "local-listener",
+      "reason": "Outer coding sandbox refused loopback listener; no target role started."
+    },
+    {
+      "capture": "assistant-launch-rehearsal-40839e40-42ff-475b-a462-50d1a2fbe792",
+      "phase": "first-visual-hold",
+      "reason": "Harness expected collapsed display-note text in visible innerText. Real capture, original and supplementary checks passed. Corrected assertion binds recorded note text and visible images to the candidate; original checks unchanged."
+    }
+  ],
+  "liveReports": {
+    "candidateAccepted": false,
+    "publication": false,
+    "limitations": "Earlier failed capture and two worker timeouts remain charged. No larger live grant or resumed paid call is established by this engineering test."
+  },
+  "sourceFiles": {
+    "packages/runtime/src/execute.ts": "5b86953a05c1eed70502b096d561864bbd0e4359c7a90f6d8edb9fe5329b5f47",
+    "packages/runtime/src/design.ts": "ce3803938bf7d218c235cfd0ec7da6929edb1cc354d000159a88c46a22e7a878",
+    "packages/acp/src/client.ts": "fffddd8e5977df01e849dd4cfad1645a872abab1cb383b03b825a7cef8bf2653",
+    "packages/acp/src/types.ts": "91025cc126652d84bde1f8dcde9f839c8d251f1d7acba894d00d4052f145f50d",
+    "packages/workflow/src/contained.ts": "2a27e1035481c716048ec7c6a44aecdaecd054de94de25e9609a74f6cb8fe8b0",
+    "scripts/assistant-launch-rehearsal.ts": "98fe24c5dd4433f16903ce9d8f083b4e4b19adf6a12bd2ccd0b2b2c764caea64",
+    "scripts/guided-pm-rehearsal.ts": "3109f6793c25c5d390551ac0839752efd8bb73b503628066799a1572dc5603f1",
+    "scripts/rehearsal-clone-audit.ts": "dd6d6b77ee0d27377003c08c3dadd1bfe7480f6539d966340caa8a9ea14b9723",
+    "scripts/reports-workspace-scenario.ts": "8924a159e928b2b8a7f9966f3be3f8afe75b22dc7d336046d49be4813a730fe5",
+    "scripts/reports-workspace-rehearsal.ts": "0c4f00824961664e3fe09007c456de42343d47bca6280ab8dba70cae51aef23a",
+    "scripts/fixtures/reports-app.ts.txt": "6637304caf7a5869f9051b76e3405625359d724a1a13b1e947bf6015207d7fab",
+    "scripts/fixtures/reports-audit.ts.txt": "ee057783440d72671dcf9543ff7a00b4ec9fd8a1d2a0eb9536e1f9d4f259a16e",
+    "scripts/fixtures/reports-scripted-acp.mjs": "21a8f07a6cd53d367a5ccbb66ebdc5d0f52e946cd3a152c804f2d6d2e608f2d5"
+  },
+  "limits": [
+    "The successful original-input scenario uses actual contained scripted ACP roles and contained browser checks, not live models.",
+    "Every approval, correction, verdict and Send is SCRIPTED TEST FIXTURE; none is Marc's decision.",
+    "Publication targets only a newly generated local test origin. Original target/controller history is preserved.",
+    "Remote CI and final code commit must be observed separately; these local modified-worktree records do not claim either.",
+    "Portable bundle/audit integrity is distinct from live platform isolation and human visual quality."
+  ]
+}

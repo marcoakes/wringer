@@ -1,6 +1,7 @@
 /** No-spend engineering rehearsal, NOT a PM blind test. The MCP/application,
  * journals, source commits, local publication and fresh-clone audit are real.
- * Role/check/display observations and every operator decision are SCRIPTED.
+ * Default role/check/display observations and every operator decision are SCRIPTED.
+ * An explicit original-input scenario can measure credential-free containment.
  * Never import this fixture into a production entrypoint or offer a fixture flag. */
 import { chmod, copyFile, mkdir, readFile, readdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -20,6 +21,7 @@ import { readValidatedContainedState } from "../packages/workflow/src";
 import { readContainedDeliveryProjection } from "../packages/delivery/src";
 import { runProcess } from "../packages/engine/src/process";
 import { createDesignSnapshot, importDesignFromFigmaRest, inspectPng, sealDesignSnapshot, type DesignFigmaRestRequest, type DesignSnapshot } from "../packages/design/src";
+import type { RehearsalScenario } from "./rehearsal-scenario";
 
 const actor = "SCRIPTED TEST FIXTURE (not an independent person)";
 const negativeNote = "SCRIPTED negative review: the value is correct, but the label is still hard to understand.";
@@ -36,16 +38,18 @@ const baseLimits = [
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
 const htmlText = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 
-export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, ".."), guided = false, design = false, figmaRest = false, local = false) {
+export async function runAssistantLaunchRehearsal(repository = resolve(import.meta.dir, ".."), guided = false, design = false, figmaRest = false, local = false, scenario?: RehearsalScenario) {
+    if (scenario && (!guided || !design || !local || figmaRest)) throw new Error("An original-input scenario requires the guided local design test route");
     design ||= figmaRest;
     guided ||= design;
-    const sourceFixtureKind = figmaRest ? "figma-rest-injected-owned-reference" : design ? "owned-reference" : "no-design-reference";
-    const rehearsalTitle = (figmaRest ? "Figma REST v2 engineering rehearsal — injected transport, not live Figma" : design ? "Owned Reports design engineering rehearsal" : "Assistant launch engineering rehearsal") + (local ? " — local-only source through prepare --local" : "");
-    const limits = guided ? [...baseLimits.slice(0, -1), "Authenticated page reload and locking are exercised; OS kill, reboot and sleep recovery are not measured in this guided fixture.", ...(design ? ["Reports PNG reference and candidate captures are rendered by real Chromium from fixture-owned HTML. Role replies, check results, runtime provenance and human decisions remain SCRIPTED; no real Figma/MCP import, model or containment is measured."] : []), ...(figmaRest ? ["Figma REST request parsing and v2 snapshot creation run through an injected deterministic transport. API replies and download URLs are synthetic; OAuth, real Figma access and production network/DNS behavior are not measured."] : [])] : baseLimits;
+    const sourceFixtureKind = scenario?.sourceFixtureKind ?? (figmaRest ? "figma-rest-injected-owned-reference" : design ? "owned-reference" : "no-design-reference");
+    const rehearsalTitle = scenario?.title ?? ((figmaRest ? "Figma REST v2 engineering rehearsal — injected transport, not live Figma" : design ? "Owned Reports design engineering rehearsal" : "Assistant launch engineering rehearsal") + (local ? " — local-only source through prepare --local" : ""));
+    const limits = scenario?.limits ?? (guided ? [...baseLimits.slice(0, -1), "Authenticated page reload and locking are exercised; OS kill, reboot and sleep recovery are not measured in this guided fixture.", ...(design ? ["Reports PNG reference and candidate captures are rendered by real Chromium from fixture-owned HTML. Role replies, check results, runtime provenance and human decisions remain SCRIPTED; no real Figma/MCP import, model or containment is measured."] : []), ...(figmaRest ? ["Figma REST request parsing and v2 snapshot creation run through an injected deterministic transport. API replies and download URLs are synthetic; OAuth, real Figma access and production network/DNS behavior are not measured."] : [])] : baseLimits);
     const began = Date.now(), startedAt = new Date(began).toISOString();
     const directory = join(repository, ".wringer", `assistant-launch-rehearsal-${crypto.randomUUID()}`);
     await mkdir(directory, { recursive: true, mode: 0o700 });
     const root = await realpath(directory), controller = join(root, "assistant"), source = join(root, "source"), origin = join(root, "origin.git"), bin = join(root, "bin"), fixtureHome = join(root, "isolated-home");
+    if (scenario) console.error(`SCRIPTED Reports rehearsal evidence: ${root}`);
     await mkdir(bin); await mkdir(fixtureHome);
     await copyFile(join(repository, "dist/wring"), join(bin, "wring")); await chmod(join(bin, "wring"), 0o755);
     await symlink("wring", join(bin, "wringer-drive"));
@@ -54,6 +58,9 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     let service: Awaited<ReturnType<typeof createAssistantService>> | undefined, failed = true;
     let consoleServer: Awaited<ReturnType<typeof createAssistantConsole>> | undefined;
     let browser: Awaited<ReturnType<typeof launchPmBrowser>> | undefined;
+    const scenarioDeadline = new AbortController();
+    const scenarioTimer = scenario ? setTimeout(() => { scenarioDeadline.abort(new Error("Reports rehearsal reached its 15-minute wall limit")); void browser?.close().catch(() => {}); }, Math.max(1, 900000 - (Date.now() - began))) : undefined;
+    const boundedSignal = (signal?: AbortSignal) => signal ? AbortSignal.any([signal, scenarioDeadline.signal]) : scenarioDeadline.signal;
     let designSnapshot: DesignSnapshot | undefined;
     const playbookPath = "wringer/playbooks/reports-fixture.json";
     const playbookContent = JSON.stringify({ schema_version: "wringer.playbook.v1", id: "reports-fixture", revision: "1", title: "Reports fixture approach", role: "worker", applicability: { taskFamily: "reports", context: ["README.md"], tools: [], checks: ["expected"], scope: ["src"], design: true }, guidanceMarkdown: "Inspect the approved Reports reference and preserve the protected expected-value check. Repair the value before presentation. This fixture advice grants no authority.", limits: ["Unevaluated scripted fixture, not measured model benefit."], evaluationRefs: [] }) + "\n";
@@ -99,6 +106,10 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await record({ implementation, note: "A modified worktree is not described as a frozen release candidate; the exact script and compiled audit bytes are identified separately." });
         await git(["init", "--initial-branch=main", source]); await git(["init", "--bare", "--initial-branch=main", origin]);
         await git(["-C", source, "config", "user.name", "Scripted launch rehearsal"]); await git(["-C", source, "config", "user.email", "fixture@example.invalid"]);
+        if (scenario) {
+            await scenario.prepareSource(source); designSnapshot = scenario.snapshot;
+            await record({ originalInputs: scenario.manifest, sourceAuthor: "SCRIPTED TEST FIXTURE", providerCalls: 0 });
+        } else {
         await mkdir(join(source, "src"));
         await writeFile(join(source, "README.md"), limits.join("\n") + "\n");
         await writeFile(join(source, "src/value.js"), "export const expected = false;\n");
@@ -125,10 +136,11 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
             await writeFile(join(source, "src/reports.html"), reportsHtml("Not ready") + "\n");
             await mkdir(join(source, "wringer/playbooks"), { recursive: true }); await writeFile(join(source, playbookPath), playbookContent);
         }
+        }
         await git(["-C", source, "add", "."]); await git(["-C", source, "commit", "-m", "Scripted launch rehearsal baseline"]); await git(["-C", source, "push", origin, "main"]);
         const baseCommit = (await git(["-C", source, "rev-parse", "HEAD"])).trim();
-        const captures = [{ id: "desktop", path: "captures/desktop.png", mimeType: "image/png", width: 1280, height: 800 }, { id: "mobile", path: "captures/mobile.png", mimeType: "image/png", width: 390, height: 844 }];
-        const selected = compileDeclaration({ version: design || local ? 3 : 1, name: design ? "Reports design engineering rehearsal" : "Assistant launch engineering rehearsal", intent: design ? "Return the expected value. The display is readable. The Reports design follows the pinned reference at desktop and mobile sizes." : "Return the expected value. The display is readable.", repository: { url: "https://fixture.invalid/assistant-launch.git", commit: baseCommit }, runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 5 }], baseline: [], writable_directories: design ? ["captures"] : [] }, scope: { writable: ["src"] }, acceptance: { criteria: [{ id: "expected", title: "Expected value", quote: "Return the expected value.", kind: "check", required: true }, { id: "readable", title: design ? "PM review: reports and readiness are understandable" : "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "src/value.js"], cwd: ".", timeout_seconds: 5 } }, ...(design ? [{ id: "design-match", title: "Design review: reference and responsive layout", quote: "The Reports design follows the pinned reference at desktop and mobile sizes.", kind: "human", required: true, show: { id: "show-design", argv: ["cat", "src/reports.html"], cwd: ".", timeout_seconds: 5 } }] : [])], checks: [{ id: "expected", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["expected"], files: ["check.sh"], ...(design ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 600, session_timeout_seconds: 20 }, ...(design ? { playbook: { path: playbookPath, sha256: hashBytes(playbookContent), taskFamily: "reports" }, design: { snapshotPath: "design/reference.json", snapshotSha256: designSnapshot!.snapshot_sha256, reviews: ["design-match"].map(criterionId => ({ criterionId, referenceIds: designSnapshot!.assets.map(asset => asset.id), captures })) } } : {}) });
+        const captures = scenario?.captures ?? [{ id: "desktop", path: "captures/desktop.png", mimeType: "image/png", width: 1280, height: 800 }, { id: "mobile", path: "captures/mobile.png", mimeType: "image/png", width: 390, height: 844 }];
+        const selected = scenario?.plan(baseCommit) ?? compileDeclaration({ version: design || local ? 3 : 1, name: design ? "Reports design engineering rehearsal" : "Assistant launch engineering rehearsal", intent: design ? "Return the expected value. The display is readable. The Reports design follows the pinned reference at desktop and mobile sizes." : "Return the expected value. The display is readable.", repository: { url: "https://fixture.invalid/assistant-launch.git", commit: baseCommit }, runtime: { kind: "apple-container", image: `fixture.invalid/agent@sha256:${"a".repeat(64)}`, cpus: 1, memoryMiB: 512, network: { policy: "deny" }, env: [] }, agents: { worker: { protocol: "acp", command: "fixture-acp" }, judge: { protocol: "acp", command: "fixture-acp" } }, environment: { context: ["README.md"], tools: [], setup: [{ id: "dependencies", argv: ["true"], cwd: ".", timeout_seconds: 5 }], baseline: [], writable_directories: design ? ["captures"] : [] }, scope: { writable: ["src"] }, acceptance: { criteria: [{ id: "expected", title: "Expected value", quote: "Return the expected value.", kind: "check", required: true }, { id: "readable", title: design ? "PM review: reports and readiness are understandable" : "Readable display", quote: "The display is readable.", kind: "human", required: true, show: { id: "show", argv: ["cat", "src/value.js"], cwd: ".", timeout_seconds: 5 } }, ...(design ? [{ id: "design-match", title: "Design review: reference and responsive layout", quote: "The Reports design follows the pinned reference at desktop and mobile sizes.", kind: "human", required: true, show: { id: "show-design", argv: ["cat", "src/reports.html"], cwd: ".", timeout_seconds: 5 } }] : [])], checks: [{ id: "expected", argv: ["sh", "check.sh"], cwd: ".", timeout_seconds: 5, criteria: ["expected"], files: ["check.sh"], ...(design ? { evidence: { kind: "assertions", format: "wringer-check.v1" } } : {}) }], protected_paths: ["check.sh"] }, budget: { max_sessions: 4, max_worker_turns: 2, max_judge_turns: 2, max_planner_turns: 0, wall_clock_seconds: 600, session_timeout_seconds: 20 }, ...(design ? { playbook: { path: playbookPath, sha256: hashBytes(playbookContent), taskFamily: "reports" }, design: { snapshotPath: "design/reference.json", snapshotSha256: designSnapshot!.snapshot_sha256, reviews: ["design-match"].map(criterionId => ({ criterionId, referenceIds: designSnapshot!.assets.map(asset => asset.id), captures })) } } : {}) });
         // --local: the PM's own front door. prepare --local pins the committed checkout as local://<root> and
         // writes its bundle and record beside the profile; init verifies them and keeps the bundle.
         const profilePath = join(root, "profile.json");
@@ -140,10 +152,10 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         if (local) await record({ localSource: { url: plan.repository.url, commit: plan.repository.commit, plan: plan.schema_version } });
         const destination = { remote: origin, sourceBranch: "wringer/assistant-launch-fixture", targetBranch: "main" };
         const initialized = await initializeAssistant(controller, { plan, destination, cooperativeLocal: true, ...(local ? { localSource: localSourceSiblings(profilePath) } : {}) });
-        const capability = await issueAssistantCapability(controller, new Date(Date.now() + 600000).toISOString());
+        const capability = await issueAssistantCapability(controller, new Date(Date.now() + (scenario ? 900000 : 600000)).toISOString());
         let workerTurns = 0, loseStartReply = !guided, failNextDisplay = false;
         const provenance = (role: "worker" | "judge" | "verifier", requestSource: ExecutionPlan["repository"], runtime = plan.runtime) => ({ schema_version: runtimeProvenanceVersion(requestSource.url), runtimeId: crypto.randomUUID(), role, kind: runtime.kind, image: runtime.image, repository: { url: requestSource.url, commit: requestSource.commit }, clonedInside: true as const, hostMounts: [] as [], repositoryAccess: role === "worker" ? "read-write" as const : "read-only" as const, declared: runtime, observed: { fixture: true, writableDirectories: plan.environment.writable_directories }, limits: [limits[1]!] });
-        const runCommands = async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
+        const runCommands = scenario ? (request: ContainedCommandRequest) => scenario.runCommands({ ...request, signal: boundedSignal(request.signal) }) : (async (request: ContainedCommandRequest): Promise<ContainedCommandResult> => {
             const pinned = request.repo as PreparedRepositorySource;
             const tree = (await git(["--git-dir", pinned.objectStore, "rev-parse", `${pinned.commit}^{tree}`])).trim();
             const contents = await git(["--git-dir", pinned.objectStore, "show", `${pinned.commit}:src/value.js`]);
@@ -160,11 +172,17 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
                 }
             }
             return { provenance: provenance("verifier", pinned, request.runtime), sourceChanged: false, sourceTree: tree, checkInputsSha256: hashBytes(originalInputs), results: request.commands.map(c => ({ id: c.id, code: showing(c.id) && failShow || c.id.startsWith("acceptance/") && !contents.includes("expected = true;") ? 1 : 0, stdout: showing(c.id) ? failShow ? "SCRIPTED failed display: no current result shown" : contents + (design ? "\nReal Chromium rendered Reports PNGs; runtime provenance and human decisions remain SCRIPTED.\n" : "") : design && c.id.startsWith("acceptance/") ? JSON.stringify({ schema_version: "wringer-check.v1", assertions: [{ id: "expected-value", requirements: ["expected"], status: contents.includes("expected = true;") ? "passed" : "failed" }], errors: [] }) : "SYNTHETIC check observation of the pinned source blob\n", stderr: "", durationMs: 1 })), ...(request.captureArtifacts ? { artifacts } : {}) };
-        };
+        });
         const executeRole = async (request: RoleExecutionRequest): Promise<RoleExecutionResult> => {
+            if (design) await check(`${request.role} fixture receives the correct bounded playbook channel`, request.role === "worker" ? request.prompt.includes(scenario?.playbookId ?? "reports-fixture") && request.prompt.includes("untrusted repository instructions") : !request.prompt.includes("guidanceMarkdown"));
+            if (scenario) {
+                const result = await scenario.executeRole({ ...request, signal: boundedSignal(request.signal) });
+                roles.push({ role: request.role, runtimeId: result.provenance.runtimeId });
+                if (request.role === "worker") await check("real worker capture exports scripted source and excludes ignored .evidence", result.status === "completed" && result.text.includes("SCRIPTED ignored .evidence capture probe written") && !!result.change?.patch.includes("diff --git a/src/app.ts b/src/app.ts") && !result.change.patch.includes("diff --git a/.evidence/"));
+                return result;
+            }
             const p = provenance(request.role as "worker" | "judge", request.repo); roles.push({ role: request.role, runtimeId: p.runtimeId });
             let patch: string | undefined;
-            if (design) await check(`${request.role} fixture receives the correct bounded playbook channel`, request.role === "worker" ? request.prompt.includes("reports-fixture") && request.prompt.includes("untrusted repository instructions") : !request.prompt.includes("guidanceMarkdown"));
             if (request.role === "worker") {
                 workerTurns++;
                 patch = workerTurns === 1 ? "diff --git a/src/value.js b/src/value.js\n--- a/src/value.js\n+++ b/src/value.js\n@@ -1 +1,2 @@\n-export const expected = false;\n+export const expected = true;\n+export const label = 'X';\n" : "diff --git a/src/value.js b/src/value.js\n--- a/src/value.js\n+++ b/src/value.js\n@@ -1,2 +1,2 @@\n export const expected = true;\n-export const label = 'X';\n+export const label = 'Expected value is ready';\n";
@@ -183,7 +201,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
             const prepared = await prepareRepositorySource({ ...accepted.repository, bundlePath: sourceBundle }, { controllerDir: state });
             await immutableControllerFile(join(state, "prepared-source.json"), prepared);
             // Declared fixture bypass: this does not claim measured environment discovery.
-            await immutableControllerFile(join(state, "environment.json"), await discoverEnvironment(prepared.objectStore, accepted));
+            if (!scenario) await immutableControllerFile(join(state, "environment.json"), await discoverEnvironment(prepared.objectStore, accepted));
             const result = await startController(state, accepted, authority, { ...options, ...application });
             if (loseStartReply) { loseStartReply = false; throw new Error("SCRIPTED lost reply after the durable domain stop"); }
             return result;
@@ -212,12 +230,13 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         if (guided) {
             consoleServer = await createAssistantConsole(service, { application, guided: true });
             browser ??= await launchPmBrowser(root, record); await service.runner.start();
-            const result = await runGuidedPmJourney({ page: browser.page, url: consoleServer.url, root, state, jobId, actor, origin, baseCommit, roleCount: () => roles.length, call, record, check, git, command, ...(design ? { design: { snapshotSha256: designSnapshot!.snapshot_sha256, expectedImages: designSnapshot!.assets.length + captures.length } } : {}) });
+            const result = await runGuidedPmJourney({ page: browser.page, url: consoleServer.url, root, state, jobId, actor, origin, baseCommit, roleCount: () => roles.length, call, record, check, git, command, ...(design ? { design: { snapshotSha256: designSnapshot!.snapshot_sha256, expectedImages: designSnapshot!.assets.length + captures.length } } : {}), ...(scenario ? { scenario: scenario.guided } : {}) });
             if (design) {
                 const retained = await readValidatedContainedState(state);
-                await check(`${local ? "v4 local-only" : "v3"} design fixture retains exact playbook and honest assertion observations`, retained.plan.schema_version === (local ? "wringer.execution-plan.v4" : "wringer.execution-plan.v3") && retained.playbook?.sha256 === hashBytes(playbookContent) && retained.state.verification?.checkEvidence?.every(row => row.status === "established") && retained.events.some(event => event.type === "loop-decision-recorded"));
+                await check(`${local ? "v4 local-only" : "v3"} design fixture retains exact playbook and honest assertion observations`, retained.plan.schema_version === (local ? "wringer.execution-plan.v4" : "wringer.execution-plan.v3") && retained.playbook?.sha256 === (scenario?.playbookSha256 ?? hashBytes(playbookContent)) && retained.state.verification?.checkEvidence?.every(row => row.status === "established") && retained.events.some(event => event.type === "loop-decision-recorded"));
             }
             if (local) await checkLocalRecords(join(root, "guided-audit-parent", "reviewed-change", ".wringer/deliveries", result.deliveryId));
+            if (scenario) { await scenario.verifyClone(join(root, "guided-audit-parent", "reviewed-change")); await check("fresh clone preserves every original Reports input, exact chat intent and scripted final source", true); }
             await writeFile(join(root, "result.json"), JSON.stringify({ ...result, rehearsalTitle, sourceFixtureKind, implementation, checks, limits }, null, 2) + "\n");
             failed = false; return { directory: root, ...result, rehearsalTitle, sourceFixtureKind, checks, implementation, limits };
         }
@@ -327,6 +346,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await writeFile(join(root, "result.json"), JSON.stringify({ status: "failed", fixture: true, rehearsalTitle, sourceFixtureKind, startedAt, wallMs: Date.now() - began, checks, limits }, null, 2) + "\n");
         throw new Error(`Assistant launch rehearsal failed; retained evidence: ${root}`, { cause: error });
     } finally {
+        if (scenarioTimer) clearTimeout(scenarioTimer);
         if (browser) await browser.close();
         if (consoleServer) await consoleServer.stop();
         if (service) await service.runner.stop(1000);

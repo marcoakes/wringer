@@ -1,0 +1,105 @@
+// Supplementary SCRIPTED engineering assertions, independent of the original protected checks.
+// This file runs only inside the Reports fixture's credential-free browser container.
+import { openReports } from "../checks/browser";
+import { readFile } from "node:fs/promises";
+class AssertionFailure extends Error {}
+const assert = (value: unknown, message: string) => { if (!value) throw new AssertionFailure(message); };
+const reports = JSON.parse(await readFile(new URL("../data/reports.json", import.meta.url), "utf8"));
+const expectedDates: Record<string, RegExp> = {
+    "quarterly-growth": /1 Sept? 2026/, "customer-research": /28 Aug 2026/,
+    "design-quality": /25 Aug 2026/, "launch-readiness": /22 Aug 2026/,
+    "support-themes": /18 Aug 2026/, "previous-quarter": /30 Jun 2026/,
+};
+let page: any;
+const search = () => page.getByRole("textbox", { name: /search reports/i });
+const status = () => page.getByRole("combobox", { name: /status/i });
+const cards = () => page.locator(".report-card");
+const card = (title: string) => cards().filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+const focused = (locator: any) => locator.evaluate((element: Element) => document.activeElement === element);
+const noOverflow = async () => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "The viewport must not scroll horizontally");
+const checks: { id: string; run: () => Promise<void> }[] = [
+    { id: "audit-every-report-metadata", run: async () => {
+        assert(await cards().count() === reports.length && reports.length === 6, "Show every supplied report");
+        for (const report of reports) {
+            const item = card(report.title);
+            assert(await item.count() === 1, `Show the unique title ${report.title}`);
+            const text = await item.innerText();
+            assert(text.includes(report.owner) && text.includes(report.status), `Show owner and status for ${report.title}`);
+            assert(expectedDates[report.id]?.test(text) && !text.includes(report.date), `Use a readable date for ${report.title}`);
+        }
+    } },
+    { id: "audit-every-summary-and-return-focus", run: async () => {
+        for (const report of reports) {
+            const open = card(report.title).getByRole("button", { name: "Open", exact: true });
+            await open.focus(); await page.keyboard.press("Enter");
+            const heading = page.getByRole("heading", { level: 1, name: report.title, exact: true });
+            assert(await heading.count() === 1 && await focused(heading), `Focus the ${report.title} detail heading`);
+            assert((await page.locator("main").innerText()).includes(report.summary), `Show the supplied summary for ${report.title}`);
+            await page.getByRole("button", { name: /back to reports/i }).click();
+            assert(await cards().count() === 6 && await focused(open), `Return to the originating ${report.title} Open button`);
+        }
+    } },
+    { id: "audit-trim-case-combination-and-reset", run: async () => {
+        await search().fill("  GROWTH  ");
+        assert(await cards().count() === 1 && await card("Quarterly growth").count() === 1, "Trim the query and compare titles without case sensitivity");
+        await status().selectOption({ label: "Published" });
+        assert(await cards().count() === 1, "Retain the matching published report");
+        await status().selectOption({ label: "Draft" });
+        assert(await cards().count() === 0, "Apply search and status together");
+        assert((await page.locator("main").innerText()).includes("No reports"), "Explain the empty result");
+        await page.getByRole("button", { name: "Reset", exact: true }).click();
+        assert(await search().inputValue() === "" && await status().evaluate((element: HTMLSelectElement) => element.selectedIndex === 0), "Reset both controls");
+        assert(await cards().count() === 6 && await focused(search()), "Reset restores reports and focuses search");
+    } },
+    { id: "audit-keyboard-and-filter-preservation", run: async () => {
+        await search().fill("e"); await status().selectOption({ label: "Draft" });
+        assert(await cards().count() === 2 && await card("Design quality").count() === 1 && await card("Launch readiness").count() === 1, "Combined query selects both matching drafts");
+        await search().focus(); await page.keyboard.press("Tab");
+        assert(await focused(status()), "Tab reaches the labelled status control");
+        const outline = await status().evaluate((element: Element) => { const style = getComputedStyle(element); return { width: parseFloat(style.outlineWidth), style: style.outlineStyle, color: style.outlineColor }; });
+        assert(outline.width >= 2 && outline.style !== "none" && outline.color !== "rgba(0, 0, 0, 0)", "Keyboard focus has a visible outline");
+        await page.keyboard.press("Tab");
+        const open = card("Design quality").getByRole("button", { name: "Open", exact: true });
+        assert(await focused(open), "Tab reaches the first filtered report's Open button");
+        await page.keyboard.press("Enter");
+        assert(await focused(page.getByRole("heading", { level: 1, name: "Design quality", exact: true })), "Detail starts at its heading");
+        await page.getByRole("button", { name: /back to reports/i }).click();
+        assert(await search().inputValue() === "e" && await status().inputValue() === "Draft" && await cards().count() === 2, "Back preserves both controls and the filtered result set");
+        assert(await focused(open), "Back restores the originating Open button's focus");
+    } },
+    { id: "audit-desktop-and-small-phone-layouts", run: async () => {
+        await search().fill(""); await status().selectOption({ index: 0 });
+        await page.setViewportSize({ width: 1280, height: 900 });
+        const desktop = await cards().evaluateAll((elements: Element[]) => elements.slice(0, 3).map(element => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, bottom: r.bottom }; }));
+        assert(desktop.length === 3 && desktop.every((r: any) => Math.abs(r.y - desktop[0].y) <= 1) && desktop[0].x < desktop[1].x && desktop[1].x < desktop[2].x, "Desktop uses three columns");
+        await noOverflow();
+        for (const width of [390, 320]) {
+            await page.setViewportSize({ width, height: 844 });
+            const mobile = await cards().evaluateAll((elements: Element[]) => elements.slice(0, 3).map(element => { const r = element.getBoundingClientRect(); return { x: r.x, y: r.y, bottom: r.bottom }; }));
+            assert(mobile.every((r: any) => Math.abs(r.x - mobile[0].x) <= 1) && mobile[1].y >= mobile[0].bottom && mobile[2].y >= mobile[1].bottom, `${width}px phone uses one column`);
+            await noOverflow();
+            await card("Quarterly growth").getByRole("button", { name: "Open", exact: true }).click(); await noOverflow();
+            await page.getByRole("button", { name: /back to reports/i }).click();
+            await search().fill("no matching report"); await status().selectOption({ label: "Draft" });
+            assert(await cards().count() === 0, "Exercise the empty layout"); await noOverflow();
+            await page.getByRole("button", { name: "Reset", exact: true }).click();
+        }
+    } },
+];
+const assertions = checks.map(check => ({ id: check.id, requirements: ["reports-work"], status: "skipped" as "passed" | "failed" | "skipped" }));
+const errors: string[] = [];
+let close: (() => Promise<void>) | undefined;
+try {
+    ({ page, close } = await openReports());
+    for (let i = 0; i < checks.length; i++) {
+        try { await checks[i]!.run(); assertions[i]!.status = "passed"; }
+        catch (error) {
+            if (error instanceof AssertionFailure) { assertions[i]!.status = "failed"; console.error(`${checks[i]!.id}: ${error.message}`); }
+            else errors.push(String(error).slice(0, 1500));
+            break;
+        }
+    }
+} catch (error) { errors.push(String(error).slice(0, 1500)); }
+finally { try { await close?.(); } catch (error) { errors.push(String(error).slice(0, 1500)); } }
+console.log(JSON.stringify({ schema_version: "wringer-check.v1", assertions, errors }));
+process.exitCode = errors.length || assertions.some(assertion => assertion.status !== "passed") ? 1 : 0;

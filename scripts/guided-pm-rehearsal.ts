@@ -9,6 +9,8 @@ import { readController } from "../packages/application/src/controller";
 import { readPmWorkspace } from "../packages/cli/src/workspace";
 import { readContainedDeliveryProjection } from "../packages/delivery/src";
 import type { PmJob } from "../packages/board/src/job-model";
+import type { GuidedScenario } from "./rehearsal-scenario";
+import { auditRehearsalClone } from "./rehearsal-clone-audit";
 
 export async function runGuidedPmJourney(input: {
     page: Page; url: string; root: string; state: string; jobId: string; actor: string; origin: string; baseCommit: string;
@@ -17,6 +19,7 @@ export async function runGuidedPmJourney(input: {
     git: (args: string[]) => Promise<string>;
     command: (label: string, argv: string[], cwd?: string, expected?: number) => Promise<any>;
     design?: { snapshotSha256: string; expectedImages: number };
+    scenario?: GuidedScenario;
 }) {
     const { page, record, check, root, state, jobId, actor, call, git, command } = input;
     const began = Date.now(), errors: string[] = [], decisions: { action: string; body: unknown }[] = [];
@@ -30,7 +33,8 @@ export async function runGuidedPmJourney(input: {
         const path = new URL(request.url()).pathname;
         if (!adversarialProbe && request.method() === "POST" && path.startsWith("/api/job/")) decisions.push({ action: path.split("/").at(-1)!, body: request.postDataJSON() });
     });
-    const waitPhase = (phase: string) => page.locator(`#${phase}-panel`).waitFor({ state: "visible", timeout: 90000 });
+    const phaseTimeoutMs = input.scenario?.phaseTimeoutMs ?? 90000;
+    const waitPhase = (phase: string) => page.locator(`#${phase}-panel`).waitFor({ state: "visible", timeout: phaseTimeoutMs });
     const shot = async (name: string) => { await page.screenshot({ path: join(root, `browser-guided-${name}.png`), fullPage: true }); await record({ browserScreenshot: `browser-guided-${name}.png`, fixture: true }); };
     const heldImages: Route[] = [];
     let holdImages = !!input.design, failReferenceImages = false;
@@ -102,25 +106,31 @@ export async function runGuidedPmJourney(input: {
         await check("opening source details exposes the exact approved design snapshot", (await page.locator("#reports").innerText()).includes(input.design.snapshotSha256));
         for (const summary of await identitySummaries.all()) await summary.click();
         firstVisual = await visualModel();
-        await check("the design display is bound to the pinned snapshot without duplicating PM review images", firstVisual.displays.length === 1 && firstVisual.displays[0]!.criterionId === "design-match" && firstVisual.displays.every(display => display.candidateTree === firstVisual!.candidateTree && display.visuals?.snapshotSha256 === input.design!.snapshotSha256));
+        await check("the design display is bound to the pinned snapshot without duplicating PM review images", firstVisual.displays.length === 1 && firstVisual.displays[0]!.criterionId === (input.scenario?.designCriterionId ?? "design-match") && firstVisual.displays.every(display => display.candidateTree === firstVisual!.candidateTree && display.visuals?.snapshotSha256 === input.design!.snapshotSha256));
         const fullSize = page.getByRole("button", { name: /^View full size: Pinned design reference/ }).first();
         await fullSize.focus(); await fullSize.press("Enter");
         await page.locator("#image-viewer[open]").waitFor();
-        await page.waitForFunction(() => { const image = document.getElementById("image-viewer-image") as HTMLImageElement; return image.complete && image.naturalWidth === 1280 && image.naturalHeight === 800; });
+        await page.waitForFunction(([width, height]) => { const image = document.getElementById("image-viewer-image") as HTMLImageElement; return image.complete && image.naturalWidth === width && image.naturalHeight === height; }, [input.scenario?.referenceWidth ?? 1280, input.scenario?.referenceHeight ?? 800]);
         await check("full-size viewer displays the exact verified reference without new requests", await page.locator("#image-viewer-image").getAttribute("src") === firstVisual.imageUrls[0] && await page.locator("#close-image-viewer").evaluate(element => document.activeElement === element));
         await shot("design-full-size-reference");
         await page.keyboard.press("Escape");
         await check("Escape closes full-size pixels and restores keyboard focus", await page.locator("#image-viewer").isHidden() && await page.locator("#image-viewer-image").getAttribute("src") === null && await fullSize.evaluate(element => document.activeElement === element));
         await fullSize.click(); await page.locator("#close-image-viewer").click();
         await check("Close image returns to the same verified reference button", await page.locator("#image-viewer").isHidden() && await fullSize.evaluate(element => document.activeElement === element));
-        await check("visual display notes remain available in collapsed details", await page.locator('[data-criterion-id="design-match"] details').filter({ has: page.getByText("Recorded display notes", { exact: true }) }).evaluate(element => !(element as HTMLDetailsElement).open));
-        await check("product and design requirements are visible without invented separate reviewers", (await page.locator("#review-requirements").innerText()).includes("PM review") && (await page.locator("#review-requirements").innerText()).includes("Design review") && (await page.locator("#review-as").innerText()).includes(actor));
+        await check("visual display notes remain available in collapsed details", await page.locator(`[data-criterion-id="${input.scenario?.designCriterionId ?? "design-match"}"] details`).filter({ has: page.getByText("Recorded display notes", { exact: true }) }).evaluate(element => !(element as HTMLDetailsElement).open));
+        const requirements = await page.locator("#review-requirements").innerText();
+        await check("product and design requirements are visible without invented separate reviewers", (input.scenario ? requirements.includes(input.scenario.requirementText) : requirements.includes("PM review") && requirements.includes("Design review")) && (await page.locator("#review-as").innerText()).includes(actor));
         await shot("design-first-result");
     }
     const first = await readPmWorkspace(state), before = await call("get_status", { jobId });
     await check("one approval automatically reaches the actual displayed human hold", input.roleCount() === 2 && first.checks.every(c => c.before.status === "failed" && c.after.status === "passed") && first.criteria.some(c => c.kind === "human" && c.state === "unknown"));
     await check("coding app receives a credential-free ready pointer", before.decision?.phase === "review" && before.decision?.pageUrl?.startsWith(route.origin) && !before.decision.pageUrl.includes("token") && before.decision.eventId === before.eventId);
-    await check("the PM stayed on one origin and sees actual fixture output", new URL(page.url()).origin === route.origin && (await page.locator("#reports").innerText()).includes("export const expected = true"));
+    // A design-only review shows the PNGs and deliberately collapses textual
+    // capture notes. Their hidden innerText must not be mistaken for absent output.
+    const displayedOutput = input.scenario
+        ? (await page.locator("#reports").textContent())?.includes(input.scenario.firstResultText) && firstVisual?.candidateTree === first.candidate?.tree
+        : (await page.locator("#reports").innerText()).includes("export const expected = true");
+    await check("the PM stayed on one origin with actual source-bound fixture output", new URL(page.url()).origin === route.origin && displayedOutput);
     await check("legacy terminal-style review mechanics are absent", await page.locator("#review-by, #criterion, #delivery-remote, #publication-consent, [data-command=show]").count() === 0);
     adversarialProbe = true;
     const rejected = await page.evaluate(async jobId => {
@@ -133,10 +143,15 @@ export async function runGuidedPmJourney(input: {
     await check("actual HTTP review refuses an invented display without recording Yes", rejected === 409 && (await readPmWorkspace(state)).criteria.filter(c => c.kind === "human").every(c => c.state === "unknown"));
     await shot("first-result");
     await page.locator("#request-correction").click();
-    const correction = "SCRIPTED correction: keep the correct value and replace the cryptic label with Expected value is ready.";
+    const correction = input.scenario?.correction ?? "SCRIPTED correction: keep the correct value and replace the cryptic label with Expected value is ready.";
     await page.locator("#correction-note").fill(correction);
     await page.locator("#submit-correction").click();
-    await page.waitForFunction(() => document.getElementById("reports")?.textContent?.includes("Expected value is ready"), {}, { timeout: 90000 });
+    await page.waitForFunction(async ({ jobId, previous }) => {
+        const response = await fetch(`/api/job?jobId=${encodeURIComponent(jobId)}`, { credentials: "same-origin", cache: "no-store", headers: { "X-Wringer-Console": "1" } });
+        if (!response.ok) return false;
+        const job = await response.json() as PmJob;
+        return job.phase === "review" && !!job.candidateTree && job.candidateTree !== previous;
+    }, { jobId, previous: first.candidate?.tree }, { timeout: phaseTimeoutMs, polling: 500 });
     await waitPhase("review");
     const history = await readController(state), corrected = await readPmWorkspace(state);
     await loadedImages();
@@ -186,23 +201,29 @@ export async function runGuidedPmJourney(input: {
     const repeatedCopy = await command("guided copied instructions refuse an existing clone before audit", ["/bin/sh", "-c", copiedAudit], auditParent, 128);
     await check("clone refusal cannot audit an existing reviewed-change folder", /already exists/i.test(repeatedCopy.stderr) && repeatedCopy.stdout.trim() === "");
     const bundle = join(clone, ".wringer/deliveries", delivered.deliveryId), view = await readContainedDeliveryProjection(bundle);
+    const cloneLineage = await auditRehearsalClone({ clone, delivery: delivered, projection: view });
+    await record({ cloneLineage, fixture: true });
+    await check("fresh clone has the exact evidence HEAD, one reviewed-source parent, audited source tree and only evidence additions in a clean checkout", cloneLineage.cleanCheckout);
     if (input.design) {
-        const snapshot = JSON.parse(await readFile(join(clone, "design/reference.json"), "utf8"));
-        await check("fresh clone carries the originally pinned design snapshot and rendered corrected source", snapshot.snapshot_sha256 === input.design.snapshotSha256 && (await readFile(join(clone, "src/reports.html"), "utf8")).includes("Expected value is ready"));
-        await check("both source-bound PM and design requirements survive the fresh-clone audit", view.criteria.filter(c => c.kind === "human" && c.required).length === 2 && view.criteria.filter(c => c.kind === "human").every(c => c.state === "met") && audit.exit_code === 0);
+        const snapshot = JSON.parse(await readFile(join(clone, input.scenario?.snapshotPath ?? "design/reference.json"), "utf8"));
+        await check("fresh clone carries the originally pinned design snapshot and rendered corrected source", snapshot.snapshot_sha256 === input.design.snapshotSha256 && (await readFile(join(clone, input.scenario?.sourcePath ?? "src/reports.html"), "utf8")).includes(input.scenario?.correctedSourceText ?? "Expected value is ready"));
+        await check("source-bound human requirements survive the fresh-clone audit", view.criteria.filter(c => c.kind === "human" && c.required).length === (input.scenario?.requiredHumanCount ?? 2) && view.criteria.filter(c => c.kind === "human").every(c => c.state === "met") && audit.exit_code === 0);
     }
     const certificate = JSON.parse(await readFile(join(bundle, "certificate.json"), "utf8"));
     const documents = await Promise.all(["mr.md", "summary.md", "board.html"].map(name => readFile(join(bundle, name), "utf8")));
     await check("carried views and certificate preserve decision identity and no-comment truth", hashValue(certificate.view) === hashValue(view) && view.criteria.filter(c => c.kind === "human").every(c => c.note === null && c.by === actor) && documents.every(text => text.includes(delivered.deliveryId) && !text.includes("null —") && !text.includes("PRIVATE_FIXTURE")));
     await check("handover page offers the real carried audit command", (await page.locator("#audit-command").innerText()).trim() === delivered.auditCommand);
-    const falsify = await command("guided literal breakage command without fixture runtime", ["/bin/sh", "-c", delivered.falsify.command], clone, 3);
-    await check("unavailable live breakage remains inconclusive", /inconclusive|unavailable/i.test(falsify.stdout));
+    if (input.scenario?.skipBreakage) await record({ breakageTest: "not-run-scenario-budget", note: "The original-input scenario preserves the literal carried command but does not spend its finite containment envelope on additional mutation probes." });
+    else {
+        const falsify = await command("guided literal breakage command without fixture runtime", ["/bin/sh", "-c", delivered.falsify.command], clone, 3);
+        await check("unavailable live breakage remains inconclusive", /inconclusive|unavailable/i.test(falsify.stdout));
+    }
     await shot("handover");
     await page.locator("#lock-job-page").click(); await page.reload();
     await page.waitForFunction(() => /locked|private.*link|connect/i.test(document.getElementById("job-message")?.textContent ?? ""));
     await check("guided browser has no script errors", errors.length === 0);
     await record({ surface: "guided Chromium SCRIPTED operator journey", decisions, routeStayedOnOneOrigin: true, roleSessions: input.roleCount(), wallMs: Date.now() - began, providerCalls: 0, credentialReads: 0 });
-    const result = { schema_version: "wringer.guided-pm-rehearsal.v1", status: "passed", fixture: true, jobId, deliveryId: delivered.deliveryId, candidateCommit: delivered.codeCommit, evidenceCommit: delivered.evidenceCommit, browserDecisions: decisions.map(d => d.action), browserInteractionMs: Date.now() - began, providerCalls: 0, credentialReads: 0, independentPmMeasured: false, realContainmentMeasured: false, realClientMeasured: false, freshCloneAuditExit: audit.exit_code, breakageTest: "inconclusive-runtime-unavailable", ...(input.design ? { design: { snapshotSha256: input.design.snapshotSha256, realChromiumReferenceAndCaptures: true, requiredImagesPerCandidate: input.design.expectedImages, imageLoadAndFailureGatesMeasured: true, realFigmaMeasured: false, humanDecisions: "SCRIPTED TEST FIXTURE ONLY" } } : {}) };
+    const result = { schema_version: "wringer.guided-pm-rehearsal.v1", status: "passed", fixture: true, jobId, deliveryId: delivered.deliveryId, candidateCommit: delivered.codeCommit, evidenceCommit: delivered.evidenceCommit, browserDecisions: decisions.map(d => d.action), browserInteractionMs: Date.now() - began, providerCalls: 0, credentialReads: 0, independentPmMeasured: false, realContainmentMeasured: input.scenario?.realRoleContainment === true && input.scenario.realVerifier, realVerifierContainmentMeasured: input.scenario?.realVerifier ?? false, realClientMeasured: false, freshCloneAuditExit: audit.exit_code, breakageTest: input.scenario?.skipBreakage ? "not-run-scenario-budget" : "inconclusive-runtime-unavailable", ...(input.design ? { design: { snapshotSha256: input.design.snapshotSha256, realChromiumReferenceAndCaptures: !input.scenario, realChromiumCaptures: true, referenceOrigin: input.scenario ? "preserved-original-pngs" : "fixture-owned-chromium-render", requiredImagesPerCandidate: input.design.expectedImages, imageLoadAndFailureGatesMeasured: true, realFigmaMeasured: false, humanDecisions: "SCRIPTED TEST FIXTURE ONLY" } } : {}) };
     await writeFile(join(root, "guided-result.json"), JSON.stringify(result, null, 2) + "\n");
     return result;
 }
