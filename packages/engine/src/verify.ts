@@ -8,15 +8,18 @@ import { Bundle, VERSION, newId, now, posix, Redactor, safePath, sha256 } from "
 import { runProcess } from "./process";
 import { prove } from "./prove";
 import { selectionRecord } from "./selection";
+import { observeGateAssertions, GATE_ASSERTION_LIMITS, type GateAssertionOptions, type GateAssertionRow } from "./gate-evidence";
+import { probeRequirement, type ReadinessRow } from "./readiness";
 import { preflightContainer, runGateCommand, executionRecord } from "./backend";
 import { captureArtifacts } from "./artifacts";
 import { EngineError, type Config, type Gate, type GateResult, type VerifyOptions, type VerifyOutcome } from "./types";
 const gateDir = (index: number, id: string) => `gates/${String(index + 1).padStart(3, "0")}_${id}`;
-async function runGate(repo: string, config: Config, gate: Gate, index: number, bundle: Bundle, options: VerifyOptions) {
+async function runGate(repo: string, config: Config, gate: Gate, index: number, bundle: Bundle, options: VerifyOptions, evidence: GateAssertionOptions) {
     const dir = gateDir(index, gate.id);
     await bundle.event("gate.started", { gate_id: gate.id, command: gate.run });
     const attempts: GateResult[] = [];
     const attemptRows: any[] = [];
+    const assertionRows: GateAssertionRow[] = [];
     let interrupted = false;
     for (let i = 1; i <= (gate.stability?.attempts ?? 1); i++) {
         const attemptDir = gate.stability ? `${dir}/attempts/${String(i).padStart(3, "0")}` : dir;
@@ -31,19 +34,27 @@ async function runGate(repo: string, config: Config, gate: Gate, index: number, 
             if (staging)
                 await rm(staging, { recursive: true, force: true });
         }
-        const result: GateResult = { gate_id: gate.id, command: gate.run, exit_code: process.exit_code, duration_ms: process.duration_ms, timed_out: process.timed_out, stdout_truncated: process.stdout_truncated, stderr_truncated: process.stderr_truncated, optional: gate.optional, status: process.exit_code === 0 && !process.timed_out ? "passed" : "failed" };
         await bundle.write(`${attemptDir}/stdout.log`, process.stdout);
         await bundle.write(`${attemptDir}/stderr.log`, process.stderr);
         if (process.interrupted) {
             interrupted = true;
             break;
         }
+        // Zero executed assertions cannot pass. A gate that declares structured evidence is
+        // answered by its runner's report as well as its exit code.
+        const observed = gate.evidence ? await observeGateAssertions(repo, gate, bundle, attemptDir, process, evidence) : null;
+        if (observed)
+            assertionRows.push(observed.row);
+        // The gate result stays derivable from what the process did — the board enforces that, and
+        // it is right to. An observation that established nothing fails the RUN instead, exactly as
+        // a check that mutated itself does, and the sibling record says which gate and why.
+        const result: GateResult = { gate_id: gate.id, command: gate.run, exit_code: process.exit_code, duration_ms: process.duration_ms, timed_out: process.timed_out, stdout_truncated: process.stdout_truncated, stderr_truncated: process.stderr_truncated, optional: gate.optional, status: process.exit_code === 0 && !process.timed_out ? "passed" : "failed" };
         await bundle.json(`${attemptDir}/result.json`, result);
         attempts.push(result);
         attemptRows.push({ attempt: i, status: result.status, exit_code: result.exit_code, duration_ms: result.duration_ms, timed_out: result.timed_out, result: `${attemptDir}/result.json` });
     }
     if (interrupted)
-        return { interrupted: true, result: null, stability: null };
+        return { interrupted: true, result: null, stability: null, assertions: assertionRows };
     const statuses = new Set(attempts.map(a => a.status));
     const classification = attempts.length === 0 || attempts.some(a => a.timed_out) ? "unknown" : statuses.size > 1 ? "flaky" : attempts[0]!.status === "passed" ? "stable_pass" : "stable_fail";
     const tolerated = classification === "flaky" && gate.stability?.require_consistent === false;
@@ -58,7 +69,7 @@ async function runGate(repo: string, config: Config, gate: Gate, index: number, 
     }
     await bundle.event("gate.finished", { gate_id: gate.id, exit_code: result.exit_code, duration_ms: result.duration_ms, ...(result.status === "failed" ? { log: `${dir}/stdout.log` } : {}), ...(result.stdout_truncated || result.stderr_truncated ? { truncated: true } : {}) });
     const stability = gate.stability ? { gate_id: gate.id, optional: gate.optional, attempts_requested: gate.stability.attempts, attempts_run: attempts.length, require_consistent: gate.stability.require_consistent, classification, tolerated, verdict: classification === "stable_pass" || tolerated ? "passed" : classification === "unknown" ? "unresolved" : "failed", routing: classification === "stable_fail" ? "repair" : classification === "stable_pass" ? "none" : "no_repair", reason: classification === "flaky" ? `The same gate produced both passing and failing observations; repair is not attempted against nondeterminism.${tolerated ? " The repository explicitly tolerates this mixture." : ""}` : `Observed ${classification.replaceAll("_", " ")}.`, deciding_attempt: deciding, attempts: attemptRows } : null;
-    return { interrupted: false, result, stability };
+    return { interrupted: false, result, stability, assertions: assertionRows };
 }
 export async function verify(repo: string, options: VerifyOptions = {}): Promise<VerifyOutcome> {
     const snap = await snapshot(repo);
@@ -94,12 +105,20 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     const results: GateResult[] = [];
     const stabilities: any[] = [];
     const concurrent: any[] = [];
+    const assertionRows: GateAssertionRow[] = [];
+    // One bounded launch probe per run, measured only if a playwright gate actually needs it.
+    let browserProbe: Promise<ReadinessRow | null> | undefined;
+    const evidenceOptions: GateAssertionOptions = { browserProbe: () => {
+            const declared = config.requires.find(r => r.kind === "browser");
+            browserProbe ??= declared ? probeRequirement(repo, declared, { signal: options.signal }) : Promise.resolve(null);
+            return browserProbe;
+        } };
     let failed_gate: string | null = null, status: VerifyOutcome["status"] = "passed", groupId = 0;
     for (let i = 0; i < config.gates.length;) {
         const index = i, g = config.gates[i++]!;
         if (selected && !selected.has(g.id))
             continue;
-        if (failed_gate && !g.proves.length)
+        if (failed_gate && !g.proves.length && !g.corroborates.length)
             continue;
         if (options.signal?.aborted) {
             status = "interrupted";
@@ -109,7 +128,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
         if (!options.serial && g.concurrent) {
             while (i < config.gates.length && config.gates[i]!.concurrent) {
                 const next = config.gates[i++]!;
-                if ((!selected || selected.has(next.id)) && (!failed_gate || next.proves.length))
+                if ((!selected || selected.has(next.id)) && (!failed_gate || next.proves.length || next.corroborates.length))
                     group.push({ gate: next, index: i - 1 });
             }
         }
@@ -118,7 +137,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
             for (const one of group)
                 concurrent.push({ gate_id: one.gate.id, group: groupId, beside: group.filter(x => x !== one).map(x => x.gate.id) });
         }
-        const completed = await Promise.all(group.map(({ gate, index }) => runGate(repo, config, gate, index, bundle, options)));
+        const completed = await Promise.all(group.map(({ gate, index }) => runGate(repo, config, gate, index, bundle, options, evidenceOptions)));
         for (let j = 0; j < completed.length; j++) {
             const one = completed[j]!, gate = group[j]!.gate;
             if (one.interrupted) {
@@ -126,6 +145,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
                 continue;
             }
             results.push(one.result!);
+            assertionRows.push(...one.assertions);
             if (one.stability)
                 stabilities.push(one.stability);
             if ((one.result!.status === "failed" || one.stability?.verdict === "unresolved") && !gate.optional && !failed_gate)
@@ -141,7 +161,16 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
         await bundle.json("stability.json", { schema_version: "wringer.stability.v1", gates: stabilities });
     if (concurrent.length)
         await bundle.json("concurrency.json", { schema_version: "wringer.concurrency.v1", gates: concurrent });
+    if (assertionRows.length)
+        await bundle.json("gate-assertions.json", { schema_version: "wringer.gate-assertions.v1", gates: assertionRows, limits: GATE_ASSERTION_LIMITS });
     const vacuity = status !== "interrupted" && (options.prove || config.run?.prove) ? await prove(repo, config, bundle, snap, results, checks, options) : undefined;
+    // Zero executed assertions cannot pass. A gate whose declared evidence established nothing
+    // cannot carry a green run, and its result cannot establish proof for a requirement.
+    const unestablished = new Set(assertionRows.filter(row => row.status === "unavailable").map(row => row.gate_id).filter(id => !config.gates.find(g => g.id === id)?.optional));
+    if (unestablished.size && status !== "interrupted") {
+        status = "failed";
+        failed_gate ??= [...unestablished][0] ?? null;
+    }
     const afterChecks = await Promise.all(config.gates.map(g => checkIdentity(repo, g))), mutated = new Set(config.gates.filter((g, i) => JSON.stringify(checks[i]) !== JSON.stringify(afterChecks[i])).map(g => g.id));
     if (mutated.size) {
         await bundle.json("check-mutations.json", { schema_version: "wringer.native.check-mutations.v1", before: checks, after: afterChecks, refuses: true, reason: "A declared check changed while verification ran." });
@@ -150,7 +179,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
             failed_gate ??= [...mutated][0] ?? null;
         }
     }
-    const assessed = await acceptance(repo, config, bundle, results, checks, spec, vacuity, mutated);
+    const assessed = await acceptance(repo, config, bundle, results, checks, spec, vacuity, mutated, assertionRows);
     const manifest = { schema_version: "wringer.evidence.v1", run_id: id, started_at, repo: repoRecord, result: { status, failed_gate } };
     await bundle.event("run.finished", { status, ...(failed_gate ? { failed_gate } : {}) });
     await bundle.json("manifest.json", manifest);
@@ -159,7 +188,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     await bundle.json("selection.json", selection);
     const required = config.gates.filter(g => !g.optional);
     const template_only = required.length > 0 && required.every(g => g.id === "placeholder" && g.run.trim() === "true");
-    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, selection.reason, template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
+    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, selection.reason, ...(unestablished.size ? [`Assertion evidence established nothing for ${[...unestablished].join(", ")}; see gate-assertions.json.`] : []), template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
     for (const [index, g] of config.gates.entries()) {
         const result = results.find(r => r.gate_id === g.id);
         summary.push(`| ${g.id} | ${result?.status ?? (status === "interrupted" ? "not completed" : "skipped")} | ${result ? `${result.duration_ms} ms` : "—"} | ${result ? `[output](${gateDir(index, g.id)}/stdout.log) · [errors](${gateDir(index, g.id)}/stderr.log)` : "—"} |`);

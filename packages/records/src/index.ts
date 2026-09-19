@@ -12,6 +12,8 @@
  * wrote (`ts/corpus.json`, built by `scripts/export-records.py`).
  */
 
+export * from "./canonical";
+export * from "./assertions";
 export * from "./generated";
 export * from "./read";
 export * from "./assets";

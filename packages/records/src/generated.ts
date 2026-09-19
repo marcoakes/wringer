@@ -1736,6 +1736,46 @@ export type EvidenceEvent = {
 };
 
 /**
+ * Wringer layered requirement evidence
+ *
+ * Generated from `schema/evidence-layers-v1.schema.json`. Do not edit.
+ */
+export type EvidenceLayersV1 = {
+  "schema_version": "wringer.evidence-layers.v1";
+  /** The one relation this version implements between a criterion's binding gates. Named rather than implied, so a later version that adds alternatives cannot be mistaken for this one. */
+  "relation": "all-required";
+  /** One row per criterion with layered evidence: more than one binding gate, or at least one corroborating gate. Criteria with a single binding gate and no corroboration are left to acceptance.json. */
+  "criteria": {
+    "criterion": string;
+    "required": boolean;
+    /** The same state acceptance.json recorded for this criterion, repeated so this record can be read alone without inviting a reader to recompute it differently. */
+    "state": string;
+    /** The first binding gate in declared order — the one acceptance.json's frozen `gate` field names. It has no extra authority: it is the only one that fits in a single-valued field. */
+    "owner": string;
+    /** Every gate whose `proves:` names this criterion, in declared order. All of them must pass. */
+    "proved_by": {
+      "gate_id": string;
+      /** `did-not-run` is its own outcome: a gate that was not selected, or was skipped after an earlier failure, has not failed and has not passed. */
+      "status": "passed" | "failed" | "did-not-run" | "check-changed";
+      /** The sealed earlier record showing this same gate genuinely failing, or null when none was found. Every binding gate needs one before the criterion is evidenced; the frozen record carries the owner's. */
+      "receipt": {
+        "kind": string;
+        "bundle": string;
+      } | null;
+    }[];
+    /** Gates whose `corroborates:` names this criterion, with their outcomes. Recorded and never decisive: a failure here does not fail the requirement, and a pass here cannot rescue one. */
+    "corroborated_by": {
+      "gate_id": string;
+      "status": "passed" | "failed" | "did-not-run" | "check-changed";
+    }[];
+    /** The sentence a person reads, naming the gate that decided this row. */
+    "reason": string;
+  }[];
+  /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
+  "limits": string[];
+};
+
+/**
  * wringer.exchange.v1
  *
  * Generated from `schema/exchange.schema.json`. Do not edit.
@@ -2948,6 +2988,51 @@ export type GateArtifacts = {
     "bytes"?: number;
   }[];
   /** What this record does NOT say, travelling with it rather than living in a spec nobody opened — the `acceptance.json` precedent. */
+  "limits": string[];
+};
+
+/**
+ * Wringer gate assertion observations
+ *
+ * Generated from `schema/gate-assertions-v1.schema.json`. Do not edit.
+ */
+export type GateAssertionsV1 = {
+  "schema_version": "wringer.gate-assertions.v1";
+  /** One row per attempt of each gate that declared `evidence:`, in execution order. A gate with a `stability:` policy contributes one row per attempt, because a flaky gate's attempts are separate observations. */
+  "gates": {
+    "gate_id": string;
+    /** Which runner's report was translated. Wringer reads these three formats and refuses to parse arbitrary output, because a parser for everything is a parser nobody can trust. */
+    "adapter": "vitest" | "playwright" | "node-test";
+    /** Where the report came from: the gate's captured stdout, or the repository-relative path its own command was declared to write. */
+    "source": string;
+    /** `established`: assertions executed and the report agrees with the observed exit. `unavailable`: this run established nothing about the requirement — an empty or all-skipped suite, a report contradicting the exit code, a declared requirement the report omitted, a runner error, or no readable report at all. */
+    "status": "established" | "unavailable";
+    /** `assertions`: whatever happened, the runner's own assertions are what happened. `environment`: the supervisor measured that the run could not have produced a product assertion. Only four things set it, all of them this supervisor's own observations: exit 126 or 127 from the shell, a timeout, no readable report, or a launch probe reporting that the declared browser does not start here. */
+    "classification": "assertions" | "environment";
+    /** The translated totals, or null when no report could be read. `executed` is total minus skipped and is the number the `established` rule turns on: zero executed assertions cannot pass. */
+    "counts": {
+      "total": number;
+      "passed": number;
+      "failed": number;
+      "skipped": number;
+      "executed": number;
+    } | null;
+    /** The criteria this gate's `proves:` binds, which are what its assertions are evidence FOR. Empty when the gate binds none, in which case no `wringer-check.v1` report is written — assertions with nothing to be evidence of have no requirement mapping to record — and only the counts above speak. */
+    "requirements": string[];
+    /** Every translated assertion, with the runner's own test name beside the derived id. The name lives here and not in the frozen `wringer-check.v1` report, whose id pattern cannot hold a sentence. */
+    "assertions": {
+      "id": string;
+      "name": string;
+      "status": "passed" | "failed" | "skipped";
+    }[];
+    /** The path of this attempt's `wringer.check-observation.v1` record — the same format the contained lane's protected runners produce, so one reader serves both. Null when the gate binds no criterion. */
+    "observation": string | null;
+    /** sha256 of the canonical `wringer-check.v1` report, or null when none was produced. */
+    "report_sha256": string | null;
+    /** The sentence a person reads: the rule that decided `status`, followed by the measurement that decided `classification` when one did. */
+    "reason": string;
+  }[];
+  /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
   "limits": string[];
 };
 
@@ -4672,6 +4757,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
   "environment-map-v2.schema.json": "wringer.environment-map.v2",
   "evidence-event.schema.json": null,
+  "evidence-layers-v1.schema.json": "wringer.evidence-layers.v1",
   "exchange.schema.json": "wringer.exchange.v1",
   "execution-authority-v1.schema.json": "wringer.execution-authority.v1",
   "execution-authority-v2.schema.json": "wringer.execution-authority.v2",
@@ -4704,6 +4790,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "forge-intent-v2.schema.json": "wringer.forge-intent.v2",
   "forge-publication-v2.schema.json": "wringer.forge-publication.v2",
   "gate-artifacts.schema.json": "wringer.gate-artifacts.v1",
+  "gate-assertions-v1.schema.json": "wringer.gate-assertions.v1",
   "gate-result.schema.json": null,
   "gatespec-v2.schema.json": "wringer.gatespec.v2",
   "gatespec.schema.json": "wringer.gatespec.v1",
@@ -4796,6 +4883,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.environment-map.v2": "environment-map-v2.schema.json",
+  "wringer.evidence-layers.v1": "evidence-layers-v1.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
   "wringer.execution-authority.v1": "execution-authority-v1.schema.json",
   "wringer.execution-authority.v2": "execution-authority-v2.schema.json",
@@ -4827,6 +4915,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.forge-intent.v2": "forge-intent-v2.schema.json",
   "wringer.forge-publication.v2": "forge-publication-v2.schema.json",
   "wringer.gate-artifacts.v1": "gate-artifacts.schema.json",
+  "wringer.gate-assertions.v1": "gate-assertions-v1.schema.json",
   "wringer.gatespec.v2": "gatespec-v2.schema.json",
   "wringer.gatespec.v1": "gatespec.schema.json",
   "wringer.graph.v1": "graph-manifest.schema.json",

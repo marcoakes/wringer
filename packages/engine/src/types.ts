@@ -1,12 +1,23 @@
 export class EngineError extends Error {
     constructor(message: string, readonly exit_code = 2, readonly next_move?: string) { super(message); this.name = "EngineError"; }
 }
+export type Adapter = "vitest" | "playwright" | "node-test";
+/** Where a gate's structured assertion report comes from, and which runner wrote it. */
+export interface GateEvidence {
+    kind: "assertions";
+    adapter: Adapter;
+    /** A repository-relative file the gate's own command writes; absent means the gate's stdout. */
+    report?: string;
+}
 export interface Gate {
     id: string;
     run: string;
     timeout: number;
     optional: boolean;
     proves: string[];
+    /** Supporting evidence that can never override a failure of a required binding gate. */
+    corroborates: string[];
+    evidence?: GateEvidence;
     concurrent: boolean;
     stability?: {
         attempts: number;

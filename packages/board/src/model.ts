@@ -96,9 +96,12 @@ export interface BoardFacts {
     humanComplete: boolean | null;
     readyToDeliver: boolean | null;
     delivered: boolean | null;
+    unestablished: Unestablished;
     /** From the run's `wringer.selection.v1` sibling. Null when the bundle predates that record — which means nobody recorded what the pass covered, never that everything ran. */
     selection: Selection | null;
 }
+/** Gates whose declared assertion evidence established nothing this run. */
+export type Unestablished = { gateId: string; reason: string }[];
 export interface Selection {
     complete: boolean;
     reason: string;
@@ -153,6 +156,8 @@ export interface BoardModel {
     } | null;
     journey: string | null;
     selection: Selection | null;
+    /** From `wringer.gate-assertions.v1`. Empty when no gate declared structured evidence. */
+    unestablished: Unestablished;
     buildContext?: {
         journeyId: string;
         runId: string;
@@ -173,6 +178,7 @@ export function deriveFacts(model: Pick<BoardModel, "run" | "gates" | "requireme
     built?: boolean | null;
     buildContext?: BoardModel["buildContext"];
     selection?: Selection | null;
+    unestablished?: Unestablished;
 }): BoardFacts {
     const fatal = model.issues.some(i => !["source-unfrozen", "source-missing", "optional-absent"].includes(i.code));
     const checks = model.run ? { passed: model.gates.filter(g => g.status === "passed").length, failed: model.gates.filter(g => g.status === "failed").length, total: model.gates.length } : null;
@@ -185,13 +191,14 @@ export function deriveFacts(model: Pick<BoardModel, "run" | "gates" | "requireme
         humanMet: model.requirements.filter(r => r.human && r.judgement?.verdict === "met" && !r.judgement.stale).length,
         requiredUnproved: model.requirements.filter(r => r.required && !r.human && !r.proved).length,
     };
-    const selection = model.selection ?? null;
-    // A green selection is not a green verification: an incomplete run cannot report checks as passing.
-    const checksPassing = model.run && checks && checks.total > 0 ? model.run.result === "passed" && model.gates.every(g => g.optional || g.status === "passed") && selection?.complete !== false : null;
+    const selection = model.selection ?? null, unestablished = model.unestablished ?? [];
+    // A green selection is not a green verification: an incomplete run cannot report checks as passing,
+    // and neither can a gate whose own runner established no executed assertion.
+    const checksPassing = model.run && checks && checks.total > 0 ? model.run.result === "passed" && model.gates.every(g => g.optional || g.status === "passed") && selection?.complete !== false && unestablished.length === 0 : null;
     const humanComplete = requirements ? requirements.humanComplete === requirements.human : null;
     const requiredHumanSatisfied = model.requirements.filter(r => r.required && r.human).every(r => r.judgement?.verdict === "met" && !r.judgement.stale);
     return {
-        built: model.built ?? null, ...(model.built == null && model.buildContext ? { buildDetail: model.buildContext.detail } : {}), checksPassing, checks, requirements, humanComplete, selection,
+        built: model.built ?? null, ...(model.built == null && model.buildContext ? { buildDetail: model.buildContext.detail } : {}), checksPassing, checks, requirements, humanComplete, selection, unestablished,
         readyToDeliver: model.run && requirements ? !fatal && checksPassing === true && requirements.requiredUnproved === 0 && requiredHumanSatisfied && !model.requirements.some(r => r.refuses) : null,
         delivered: model.delivery ? model.delivery.mode === "live" && Boolean(model.delivery.commit) && model.delivery.pushed : null,
     };
@@ -201,7 +208,7 @@ export function deriveRail(facts: BoardFacts): RailStep[] {
     const r = facts.requirements, g = facts.checks;
     return [
         { label: "Built", status: state(facts.built), detail: facts.built === true ? "The worker recorded a completed build." : facts.buildDetail ?? "No completed build is recorded for this run." },
-        { label: "Checks passing", status: state(facts.checksPassing), detail: g ? `${g.passed} of ${g.total} recorded checks passed${g.failed ? `; ${g.failed} failed` : ""}. ${facts.selection ? facts.selection.reason : "No selection record travelled with this run, so what the result covered was not recorded."}` : "Checks have not been recorded." },
+        { label: "Checks passing", status: state(facts.checksPassing), detail: g ? `${g.passed} of ${g.total} recorded checks passed${g.failed ? `; ${g.failed} failed` : ""}. ${facts.selection ? facts.selection.reason : "No selection record travelled with this run, so what the result covered was not recorded."}${facts.unestablished.length ? ` Established no assertion evidence: ${facts.unestablished.map(u => u.gateId).join(", ")} — ${facts.unestablished[0]!.reason}` : ""}` : "Checks have not been recorded." },
         { label: "Requirements proved", status: r ? (r.unproved === 0 ? "complete" : "pending") : "unknown", detail: r ? `${r.proved} proved · ${r.unproved} unproved · ${r.human} for a person.` : "Requirements have not been assessed." },
         { label: "Human judgement complete", status: state(facts.humanComplete), detail: r ? `${r.humanComplete} of ${r.human} judgements recorded; ${r.humanMet} said met.` : "Human judgements have not been assessed." },
         { label: "Ready to deliver", status: state(facts.readyToDeliver), detail: facts.readyToDeliver ? "Required checks, proof and human decisions are satisfied in this record." : "Outstanding evidence or decisions still need attention." },

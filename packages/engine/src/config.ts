@@ -55,16 +55,39 @@ export function parseYaml(source: string, name = "YAML"): any {
 }
 export function parseGate(value: unknown): Gate {
     const g = object(value, "gate");
-    keys(g, ["id", "run", "timeout", "optional", "required", "proves", "concurrent", "stability", "artifacts"], "gate");
+    keys(g, ["id", "run", "timeout", "optional", "required", "proves", "corroborates", "evidence", "concurrent", "stability", "artifacts"], "gate");
     const id = textValue(g.id, "gate.id");
     if (!SLUG.test(id))
         throw new EngineError(`gate.id ${id} must be a slug of at most 64 characters`);
     if (g.optional !== undefined && g.required !== undefined)
         throw new EngineError(`gate ${id}: use optional or required, never both`);
-    const gate: Gate = { id, run: textValue(g.run, `gate ${id}.run`), timeout: integer(g.timeout, `gate ${id}.timeout`, 120), optional: g.required === undefined ? boolean(g.optional, "optional", false) : !boolean(g.required, "required", true), proves: typeof g.proves === "string" ? [textValue(g.proves, "proves")] : strings(g.proves, "proves"), concurrent: boolean(g.concurrent, "concurrent", false) };
-    for (const criterion of gate.proves)
+    const gate: Gate = { id, run: textValue(g.run, `gate ${id}.run`), timeout: integer(g.timeout, `gate ${id}.timeout`, 120), optional: g.required === undefined ? boolean(g.optional, "optional", false) : !boolean(g.required, "required", true), proves: typeof g.proves === "string" ? [textValue(g.proves, "proves")] : strings(g.proves, "proves"), corroborates: typeof g.corroborates === "string" ? [textValue(g.corroborates, "corroborates")] : strings(g.corroborates, "corroborates"), concurrent: boolean(g.concurrent, "concurrent", false) };
+    for (const criterion of [...gate.proves, ...gate.corroborates])
         if (!SLUG.test(criterion))
             throw new EngineError(`invalid criterion id ${criterion}`);
+    for (const list of [gate.proves, gate.corroborates])
+        if (new Set(list).size !== list.length)
+            throw new EngineError(`gate ${id} names the same criterion twice in one list`);
+    // A criterion cannot be both the thing this gate is required to prove and mere support for it.
+    const both = gate.proves.filter(c => gate.corroborates.includes(c));
+    if (both.length)
+        throw new EngineError(`gate ${id} both proves and corroborates ${both.join(", ")}. Choose one: keep it under proves: for evidence that must pass, or under corroborates: for supporting evidence that cannot override a failure.`);
+    if (g.evidence !== undefined) {
+        const e = object(g.evidence, `gate ${id}.evidence`);
+        keys(e, ["kind", "adapter", "report"], `gate ${id}.evidence`);
+        if (e.kind !== "assertions")
+            throw new EngineError(`gate ${id}.evidence.kind must be assertions; that is the one structured contract Wringer reads`);
+        const adapter = textValue(e.adapter, `gate ${id}.evidence.adapter`);
+        if (!["vitest", "playwright", "node-test"].includes(adapter))
+            throw new EngineError(`gate ${id}.evidence.adapter must be vitest, playwright or node-test. Wringer translates those runners' own reports; it does not parse arbitrary output.`);
+        gate.evidence = { kind: "assertions", adapter: adapter as NonNullable<Gate["evidence"]>["adapter"] };
+        if (e.report !== undefined) {
+            const report = textValue(e.report, `gate ${id}.evidence.report`);
+            if (report.startsWith("/") || report.split(/[\\/]/).includes("..") || report.includes("\0"))
+                throw new EngineError(`gate ${id}.evidence.report must be a repository-relative path`);
+            gate.evidence.report = report;
+        }
+    }
     if (g.stability !== undefined) {
         const s = object(g.stability, "stability");
         keys(s, ["attempts", "require_consistent"], "stability");
@@ -127,17 +150,22 @@ export function parseConfig(value: string | unknown): Config {
         throw new EngineError("gates must contain at least one declared check; run wring init to detect project commands");
     const gates = c.gates.map(parseGate);
     const seen = new Set<string>();
-    const bound = new Set<string>();
+    // Layered evidence (Zen report #4): one requirement may need unit, persistence AND browser
+    // evidence. Several gates may bind one criterion, and the relation is ALL REQUIRED: every
+    // binding gate must pass. `corroborates:` adds support that can never override a failure.
+    const provedBy = new Map<string, string[]>(), corroboratedBy = new Map<string, string[]>();
     for (const g of gates) {
         if (seen.has(g.id))
             throw new EngineError(`duplicate gate id ${g.id}`);
         seen.add(g.id);
-        for (const p of g.proves) {
-            if (bound.has(p))
-                throw new EngineError(`criterion ${p} is bound more than once`);
-            bound.add(p);
-        }
+        for (const p of g.proves)
+            provedBy.set(p, [...(provedBy.get(p) ?? []), g.id]);
+        for (const p of g.corroborates)
+            corroboratedBy.set(p, [...(corroboratedBy.get(p) ?? []), g.id]);
     }
+    for (const [criterion, supporting] of corroboratedBy)
+        if (!provedBy.has(criterion))
+            throw new EngineError(`criterion ${criterion} is corroborated by ${supporting.join(", ")} and required by no gate. Supporting evidence cannot carry a requirement on its own: add ${criterion} to the proves: list of the gate whose result must decide it, or remove that corroborates: entry.`, 2, "wring verify --help");
     if (c.requires !== undefined && (!Array.isArray(c.requires) || c.requires.length > 8))
         throw new EngineError("requires must be a list of at most eight declared prerequisites");
     const requires = (c.requires ?? []).map(parseRequirement);

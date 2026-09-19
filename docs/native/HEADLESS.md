@@ -279,6 +279,22 @@ Declare the standalone route's prerequisites under `requires:` in `.wringer.yaml
 Exit 1 means a measured shortfall; exit 0 with `unmeasured` means a declared
 prerequisite was never measured, which is not the same as ready.
 
+## Make the runner's report part of the gate
+
+In an unattended job the two most expensive failures are the ones that look like success. A suite whose tests are all skipped exits 0; a browser gate whose engine is absent exits 1 with its specs marked `failed`, exactly as a product assertion would. Declare the runner and neither can pass unnoticed:
+
+```yaml
+gates:
+  - id: browser
+    run: node scripts/check.mjs browser tests/browser/workbench.spec.ts
+    proves: [ZJ-04]
+    evidence: { kind: assertions, adapter: playwright }   # reads the gate's stdout
+```
+
+Zero executed assertions cannot pass. A report contradicting the exit code is refused. A `playwright` gate's failure is classified `environment` only when the bounded launch probe from `requires:` says the engine does not start on this host — never from text in the log — and an `environment` failure can never serve as the recorded red a requirement rests on. Declare `requires: [{kind: browser}]` if you want that measured rather than left unmeasured; the record says which it was.
+
+A requirement may be bound in several gates (`proves:` in each, relation **all required**) with extra `corroborates:` gates recorded but never decisive. A corroborating gate runs even after an earlier failure, because it is evidence too.
+
 ## Verify in phases, then combine them
 
 Unattended CI usually cannot run every declared check in one invocation: the browser phase needs a browser, the database phase needs a database. Run the phases you can, each in its own `wring verify --gate …`, and keep every bundle.

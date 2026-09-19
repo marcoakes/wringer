@@ -144,6 +144,63 @@ test("a gate skipped because an earlier one failed leaves the verification incom
     expect(out.status).toBe("failed");
     expect(out.selection).toMatchObject({ complete: false, executed: ["first"], failed: ["first"], missing_required: ["costly"] });
 });
+// Zen report #4: one requirement can need unit, persistence AND browser evidence. All required.
+// Each gate names only its own script, so flipping the unnamed state file keeps check identity.
+test("a layered requirement needs every binding gate, and corroboration never decides", async () => {
+    const root = await scratch();
+    await spec(root, [{ id: "layered", title: "Needs three kinds of evidence" }]);
+    for (const name of ["unit", "persistence", "browser", "smoke"])
+        await writeFile(join(root, `${name}.sh`), `test "$(cat ${name}.state)" = ready\n`);
+    const state = async (...ready: string[]) => {
+        for (const name of ["unit", "persistence", "browser", "smoke"])
+            await writeFile(join(root, `${name}.state`), ready.includes(name) ? "ready\n" : "broken\n");
+    };
+    await config(root, [
+        { id: "unit", run: "sh unit.sh", proves: ["layered"] },
+        { id: "persistence", run: "sh persistence.sh", proves: ["layered"] },
+        { id: "browser", run: "sh browser.sh", proves: ["layered"] },
+        { id: "smoke", run: "sh smoke.sh", corroborates: ["layered"], optional: true },
+    ]);
+    // Every binding gate red first, so each has its own recorded failure to point at.
+    await state();
+    const red = await verify(root);
+    expect(red.acceptance.criteria[0].state).toBe("gate-failed");
+    expect(red.acceptance.criteria[0].reason).toContain("unit, persistence, browser");
+    // One binding gate still failing keeps the whole requirement unproved, and names it.
+    await state("unit", "persistence", "smoke");
+    const partial = await verify(root);
+    expect(partial.acceptance.criteria[0].state).toBe("gate-failed");
+    expect(partial.acceptance.criteria[0].reason).toContain("The bound check browser failed");
+    expect(partial.acceptance.criteria[0].gate).toBe("unit");
+    // All three green, each with its own receipt: evidenced, and the layers record says which.
+    await state("unit", "persistence", "browser", "smoke");
+    const green = await verify(root);
+    expect(green.acceptance.criteria[0].state).toBe("evidenced");
+    expect(green.acceptance.criteria[0].reason).toContain("All 3 bound checks passed");
+    const layers = JSON.parse(await readFile(join(root, green.evidence_dir, "evidence-layers.json"), "utf8"));
+    await validate(layers, "evidence-layers-v1.schema.json");
+    expect(layers.relation).toBe("all-required");
+    expect(layers.criteria[0].owner).toBe("unit");
+    expect(layers.criteria[0].proved_by.map((r: any) => `${r.gate_id}:${r.status}`)).toEqual(["unit:passed", "persistence:passed", "browser:passed"]);
+    expect(layers.criteria[0].proved_by.every((r: any) => r.receipt)).toBe(true);
+    expect(layers.criteria[0].corroborated_by).toEqual([{ gate_id: "smoke", status: "passed" }]);
+    // A failing corroborating gate cannot take the requirement away.
+    await state("unit", "persistence", "browser");
+    const supported = await verify(root);
+    expect(supported.acceptance.criteria[0].state).toBe("evidenced");
+    expect(JSON.parse(await readFile(join(root, supported.evidence_dir, "evidence-layers.json"), "utf8")).criteria[0].corroborated_by).toEqual([{ gate_id: "smoke", status: "failed" }]);
+    // And a passing corroborating gate cannot rescue a failing binding one.
+    await state("unit", "browser", "smoke");
+    const rescue = await verify(root);
+    expect(rescue.acceptance.criteria[0].state).toBe("gate-failed");
+});
+test("a single-gate mapping writes no layers record at all", async () => {
+    const root = await scratch();
+    await spec(root, [{ id: "plain", title: "One check decides it" }]);
+    await config(root, [{ id: "only", run: "true", proves: ["plain"] }]);
+    const out = await verify(root);
+    expect(await Bun.file(join(root, out.evidence_dir, "evidence-layers.json")).exists()).toBeFalse();
+});
 test("secrets are scrubbed in all captured text before seal, including command and both streams", async () => {
     const root = await scratch();
     const key = "secret-value-4bb20600a9";

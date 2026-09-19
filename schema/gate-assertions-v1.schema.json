@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/gate-assertions-v1.schema.json",
+  "title": "Wringer gate assertion observations",
+  "description": "`gate-assertions.json` — what each gate that declared `evidence: {kind: assertions}` actually reported, translated from its own runner's output. A SIBLING of manifest.json like checks.json, selection.json and stability.json, ABSENT when no gate declared structured evidence, which is every bundle written before this existed. **The question it exists to answer.** An exit code says whether a command succeeded. It does not say whether a single assertion ran. Measured with real runners on 19 September 2026: `node --test --test-reporter=tap` over two skipped tests exits **0** and reports `# pass 0, # skipped 2`, so a gate whose whole testimony is its exit code passes on a suite that asserted nothing; and `playwright test --reporter=json` with its browser binary absent exits 1 reporting `stats.unexpected: 2` and **two specs with status `failed`**, with an empty top-level `errors` array — indistinguishable, in the runner's own JSON, from two product assertions that failed. The only trace of the real cause is inside an error MESSAGE. **Two facts, kept apart.** `status` is whether this run established anything: `unavailable` means it did not, which is a different claim from a product assertion that failed, and a gate whose observation is `unavailable` cannot pass however it exited. `classification` is whether the shortfall was the environment's: `environment` is set only from measurements this supervisor made itself — a shell that exited 126 or 127 and so could not execute the command, a timeout, a gate that produced no readable report at all, or the bounded browser launch probe of `requires:` reporting that the declared engine does not start on this host. **It is never set from log text**, because a message is what the failing thing chose to say. An `environment` failure is also excluded from red-first receipts: a browser that could not start never demonstrated that a check can fail. **What it does not claim.** Executed assertions are not honest or sufficient assertions, and a translated identity is the runner's own test name, so renaming a test changes it — which is the point, since the comparison a receipt makes is between the same assertions. Its absence means *no gate declared structured evidence*, never *every gate asserted something*.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "gates",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.gate-assertions.v1"
+    },
+    "gates": {
+      "description": "One row per attempt of each gate that declared `evidence:`, in execution order. A gate with a `stability:` policy contributes one row per attempt, because a flaky gate's attempts are separate observations.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "adapter",
+          "source",
+          "status",
+          "classification",
+          "counts",
+          "requirements",
+          "assertions",
+          "observation",
+          "report_sha256",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "type": "string"
+          },
+          "adapter": {
+            "description": "Which runner's report was translated. Wringer reads these three formats and refuses to parse arbitrary output, because a parser for everything is a parser nobody can trust.",
+            "enum": [
+              "vitest",
+              "playwright",
+              "node-test"
+            ]
+          },
+          "source": {
+            "description": "Where the report came from: the gate's captured stdout, or the repository-relative path its own command was declared to write.",
+            "type": "string"
+          },
+          "status": {
+            "description": "`established`: assertions executed and the report agrees with the observed exit. `unavailable`: this run established nothing about the requirement — an empty or all-skipped suite, a report contradicting the exit code, a declared requirement the report omitted, a runner error, or no readable report at all.",
+            "enum": [
+              "established",
+              "unavailable"
+            ]
+          },
+          "classification": {
+            "description": "`assertions`: whatever happened, the runner's own assertions are what happened. `environment`: the supervisor measured that the run could not have produced a product assertion. Only four things set it, all of them this supervisor's own observations: exit 126 or 127 from the shell, a timeout, no readable report, or a launch probe reporting that the declared browser does not start here.",
+            "enum": [
+              "assertions",
+              "environment"
+            ]
+          },
+          "counts": {
+            "description": "The translated totals, or null when no report could be read. `executed` is total minus skipped and is the number the `established` rule turns on: zero executed assertions cannot pass.",
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "total",
+                  "passed",
+                  "failed",
+                  "skipped",
+                  "executed"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "total": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "passed": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "failed": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "skipped": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "executed": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requirements": {
+            "description": "The criteria this gate's `proves:` binds, which are what its assertions are evidence FOR. Empty when the gate binds none, in which case no `wringer-check.v1` report is written — assertions with nothing to be evidence of have no requirement mapping to record — and only the counts above speak.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "assertions": {
+            "description": "Every translated assertion, with the runner's own test name beside the derived id. The name lives here and not in the frozen `wringer-check.v1` report, whose id pattern cannot hold a sentence.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "name",
+                "status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "skipped"
+                  ]
+                }
+              }
+            }
+          },
+          "observation": {
+            "description": "The path of this attempt's `wringer.check-observation.v1` record — the same format the contained lane's protected runners produce, so one reader serves both. Null when the gate binds no criterion.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "report_sha256": {
+            "description": "sha256 of the canonical `wringer-check.v1` report, or null when none was produced.",
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "description": "The sentence a person reads: the rule that decided `status`, followed by the measurement that decided `classification` when one did.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  }
+}

@@ -3,6 +3,11 @@ import { join, relative, resolve } from "node:path";
 import { parseYaml, exists } from "./config";
 import { Bundle, criterionDigest, maybeJson, posix, safePath, schemaDirectory, sha256, validateDigests } from "./io";
 import { EngineError, type Config, type Gate, type GateResult } from "./types";
+export const EVIDENCE_LAYER_LIMITS = [
+    "All of a criterion's binding gates must pass, and each needs its own recorded earlier failure. Passing them all does not establish that together they cover the requirement's meaning.",
+    "A corroborating gate is recorded and never decides: its failure does not fail the requirement, and its pass cannot rescue one.",
+    "acceptance.json names the first binding gate in declared order as the owner, because its frozen field holds one value. The owner has no extra authority.",
+];
 import { openReader } from "@wringer/records";
 import { humanSourceFingerprint } from "./git";
 export interface Criterion {
@@ -133,6 +138,9 @@ async function receipts(repo: string, current: string, checks: any[]) {
             }
             const prior = await maybeJson(join(directory, "checks.json"));
             const execution = await maybeJson(join(directory, "execution.json"));
+            // A browser that could not start never demonstrated that a check can fail.
+            const assertions = await maybeJson(join(directory, "gate-assertions.json"));
+            const environmental = new Set<string>((assertions?.schema_version === "wringer.gate-assertions.v1" ? assertions.gates : []).filter((row: any) => row?.classification === "environment").map((row: any) => row.gate_id));
             if (execution && currentExecution && ["backend", "execution_mode", "image", "runtime", "network", "user", "env_allowlist"].some(key => JSON.stringify(execution[key]) !== JSON.stringify(currentExecution[key])))
                 continue;
             for (const check of checks) {
@@ -146,7 +154,7 @@ async function receipts(repo: string, current: string, checks: any[]) {
                     if (!d.isDirectory() || d.isSymbolicLink())
                         continue;
                     const r = await maybeJson(join(directory, "gates", d.name, "result.json"));
-                    if (r?.gate_id === check.gate_id && r.command === check.run && r.status === "failed" && r.exit_code !== 0 && ![126, 127, 137, 143].includes(r.exit_code) && !r.timed_out) {
+                    if (r?.gate_id === check.gate_id && r.command === check.run && r.status === "failed" && r.exit_code !== 0 && ![126, 127, 137, 143].includes(r.exit_code) && !r.timed_out && !environmental.has(check.gate_id)) {
                         const stability = await maybeJson(join(directory, "stability.json"));
                         if (stability?.gates?.some((s: any) => s.gate_id === check.gate_id && s.classification !== "stable_fail"))
                             continue;
@@ -162,7 +170,11 @@ async function receipts(repo: string, current: string, checks: any[]) {
     }
     return { found, notices };
 }
-export async function acceptance(repo: string, config: Config, bundle: Bundle, results: GateResult[], checks: any[], spec: any | null, vacuity?: any, mutated = new Set<string>()) {
+export async function acceptance(repo: string, config: Config, bundle: Bundle, results: GateResult[], checks: any[], spec: any | null, vacuity?: any, mutated = new Set<string>(), assertionRows: {
+    gate_id: string;
+    status: string;
+    reason: string;
+}[] = []) {
     if (!spec?.approved)
         return undefined;
     const history = await receipts(repo, bundle.directory, checks);
@@ -189,11 +201,25 @@ export async function acceptance(repo: string, config: Config, bundle: Bundle, r
             await bundle.json("judgement-bindings.json", bindings);
     }
     const counts: Record<string, number> = { evidenced: 0, unevidenced: 0, "gate-failed": 0, "gate-did-not-run": 0, human: 0 };
+    const layers: any[] = [];
+    // Layered evidence: every gate whose `proves:` names the criterion must pass, and each needs
+    // its own recorded failure. `corroborates:` is recorded and never decides.
+    // A gate whose declared assertion evidence established nothing cannot establish proof either,
+    // exactly as a gate that mutated its own check cannot.
+    const unestablished = new Map(assertionRows.filter(row => row.status === "unavailable").map(row => [row.gate_id, row.reason]));
+    const outcome = (gate: Gate) => mutated.has(gate.id) || unestablished.has(gate.id) ? "check-changed" : results.find(r => r.gate_id === gate.id)?.status ?? "did-not-run";
     const criteria = spec.criteria.map((c: Criterion) => {
-        const g = config.gates.find(g => g.proves.includes(c.id));
+        const binding = config.gates.filter(x => x.proves.includes(c.id));
+        const supporting = config.gates.filter(x => x.corroborates.includes(c.id));
+        const g = binding[0];
         const result = g ? results.find(r => r.gate_id === g.id) : null;
         const sensitive = vacuity?.verdict === "proven" ? vacuity.gates?.find((r: any) => r.gate_id === g?.id && r.sensitive) : undefined;
+        const receiptFor = (gate: Gate) => history.found.get(gate.id) ?? (vacuity?.verdict === "proven" && vacuity.gates?.find((r: any) => r.gate_id === gate.id && r.sensitive) ? { kind: "sensitive", bundle: posix(relative(repo, bundle.directory)), cites: vacuity.gates.find((r: any) => r.gate_id === gate.id && r.sensitive).cites } : undefined);
         const receipt = g ? history.found.get(g.id) ?? (sensitive ? { kind: "sensitive", bundle: posix(relative(repo, bundle.directory)), cites: sensitive.cites } : undefined) : undefined;
+        const unrun = binding.filter(x => outcome(x) === "did-not-run");
+        const failedGates = binding.filter(x => outcome(x) === "failed");
+        const changed = binding.filter(x => outcome(x) === "check-changed");
+        const withoutReceipt = binding.filter(x => !receiptFor(x));
         const row: any = { criterion: c.id, title: c.title, required: c.required !== false, state: "unevidenced", gate: g?.id ?? null, command: g?.run ?? null, receipt: null, reason: "No check is bound to this requirement. Add a proves binding and record the check failing before building.", refuses: c.required !== false, witness: null, cause: "unbound", demonstrated_able_to_fail: g ? !!receipt : null, judgement: null };
         if (c.human) {
             row.state = "human";
@@ -216,33 +242,42 @@ export async function acceptance(repo: string, config: Config, bundle: Bundle, r
         }
         else if (g) {
             row.cause = null;
-            if (mutated.has(g.id)) {
-                row.reason = `The named check files for ${g.id} changed during execution. Its result cannot establish proof against the recorded check identity. Restore the intended check and verify again.`;
+            const many = binding.length > 1 ? ` This requirement needs all ${binding.length} of its bound checks: ${binding.map(x => x.id).join(", ")}.` : "";
+            if (changed.length) {
+                const mutatedOnes = changed.filter(x => mutated.has(x.id)), hollow = changed.filter(x => !mutated.has(x.id));
+                row.reason = [
+                    mutatedOnes.length ? `The named check files for ${mutatedOnes.map(x => x.id).join(", ")} changed during execution. Its result cannot establish proof against the recorded check identity. Restore the intended check and verify again.` : "",
+                    hollow.length ? `${hollow.map(x => x.id).join(", ")} established no assertion evidence: ${unestablished.get(hollow[0]!.id)} A result that established nothing cannot establish proof.` : "",
+                ].filter(Boolean).join(" ") + many;
             }
-            else if (!result) {
+            else if (unrun.length) {
                 row.state = "gate-did-not-run";
-                row.reason = `The bound check ${g.id} did not run. Run wring verify.`;
+                row.reason = `The bound check ${unrun.map(x => x.id).join(", ")} did not run. Run wring verify.${many}`;
             }
-            else if (result.status !== "passed") {
+            else if (failedGates.length) {
                 row.state = "gate-failed";
-                row.reason = `The bound check ${g.id} failed. Run wring explain for its output.`;
+                row.reason = `The bound check ${failedGates.map(x => x.id).join(", ")} failed. Run wring explain for its output.${many}`;
             }
-            else if (receipt) {
+            else if (!withoutReceipt.length) {
                 row.state = "evidenced";
                 row.receipt = receipt;
                 row.refuses = false;
-                row.reason = "The same check passed now and a sealed earlier record shows it genuinely failing.";
+                row.reason = `${binding.length > 1 ? `All ${binding.length} bound checks passed` : "The same check passed"} now and a sealed earlier record shows ${binding.length > 1 ? "each of them" : "it"} genuinely failing.${many}`;
             }
             else {
                 row.cause = "born-green";
-                row.reason = "This check passed, but no sealed earlier failure of this same check was found. A passing check alone cannot prove the requirement.";
+                row.reason = `${binding.length > 1 ? `The bound checks passed, but no sealed earlier failure was found for ${withoutReceipt.map(x => x.id).join(", ")}` : "This check passed, but no sealed earlier failure of this same check was found"}. A passing check alone cannot prove the requirement.${many}`;
             }
+            if (binding.length > 1 || supporting.length)
+                layers.push({ criterion: c.id, required: c.required !== false, state: row.state, owner: g.id, proved_by: binding.map(x => ({ gate_id: x.id, status: outcome(x), receipt: receiptFor(x) ?? null })), corroborated_by: supporting.map(x => ({ gate_id: x.id, status: outcome(x) })), reason: row.reason });
         }
         counts[row.state] = (counts[row.state] ?? 0) + 1;
         return row;
     });
     const record = { schema_version: "wringer.acceptance.v3", counts, criteria, limits: ["Evidence establishes the declared check's result, not the completeness of the requirement or correctness of all software.", "A historical failure is accepted only with matching recorded command and named check-file identities; commands naming no files have command-only coverage.", "Human judgements record a person's words; identity is not verified. A matching source/entry binding is required; legacy unbound judgements remain readable but cannot authorize delivery.", "Local evidence is tamper-evident, not tamper-proof. A writer who controls the whole evidence store can replace the seals.", "Sensitivity receipts, where present in legacy records, describe two trees' outcomes and do not alone prove the change caused the difference."] };
     await bundle.json("acceptance.json", record);
+    if (layers.length)
+        await bundle.json("evidence-layers.json", { schema_version: "wringer.evidence-layers.v1", relation: "all-required", criteria: layers, limits: EVIDENCE_LAYER_LIMITS });
     const requirements = criteria.map((r: any) => ({ criterion: r.criterion, title: r.title, needs_a_person: r.state === "human", covered: r.state === "human" ? null : !!r.gate, check: r.gate, shown: r.state === "human" ? !!config.show?.[r.criterion] : null, show: r.state === "human" ? config.show?.[r.criterion] ?? null : null }));
     await bundle.json("coverage.json", { schema_version: "wringer.coverage.v1", counts: { covered: requirements.filter((r: any) => r.covered).length, checkable: requirements.filter((r: any) => !r.needs_a_person).length, shown: requirements.filter((r: any) => r.shown).length, needing_a_person: requirements.filter((r: any) => r.needs_a_person).length }, requirements, limits: ["A bound check does not establish that it covers the requirement's meaning. A declared display is not a recorded successful showing."] });
     if (history.notices.length)

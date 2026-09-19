@@ -137,7 +137,61 @@ An installed browser that cannot launch is `executable`, not ready. A portable o
 
 Credentials read the same way everywhere they appear, on three states: **exists** (an entry or variable name is there, value unread) → **retrievable** (a read succeeded; the value is never shown) → **accepted** (a session opened with it). `wring doctor` and `wringer-assistant setup` never reach `accepted`, because neither opens a session; only `wringer-drive doctor --probe-agents` can, and it sends no model prompt.
 
-## 8. Verify in phases without losing the whole
+## 8. Let the runner's own report answer, not just the exit code
+
+An exit code says whether a command succeeded. It does not say whether a single assertion ran. Two measurements, both real:
+
+```
+node --test --test-reporter=tap  over two skipped tests   → exit 0, "# pass 0 / # skipped 2"
+playwright test --reporter=json  with no browser binary   → exit 1, two specs "failed", errors []
+```
+
+The first passes a gate. The second is indistinguishable, in the runner's own JSON, from two product assertions that failed — the only trace of the real cause is inside an error message.
+
+Declare the runner and Wringer reads its report:
+
+```yaml
+gates:
+  - id: persistence-workflow
+    run: npx vitest run --reporter=json --outputFile=.wringer/vitest.json
+    proves: [SW-03]
+    evidence:
+      kind: assertions
+      adapter: vitest            # vitest | playwright | node-test
+      report: .wringer/vitest.json   # omit to read the gate's stdout
+```
+
+Then: **zero executed assertions cannot pass**, whatever the command exited. A report that contradicts the exit code is refused. A declared requirement the report never mentions is refused. Each gate's observation lands in `gates/NNN_id/check-observation.json` as `wringer.check-observation.v1` — the same record the contained lane's runners produce — with the counts and the runner's own test names in `gate-assertions.json` beside it.
+
+`node --test` prints `spec` format on a pipe, so declare `--test-reporter=tap`; the adapter says so rather than guessing.
+
+**Environment failures are classified from measurements, never from log text.** A shell that exited 126 or 127, a timeout, a gate that produced no readable report, or — for a `playwright` gate — the browser launch probe from `requires:` reporting that the engine does not start here. An environment failure is also excluded from red-first receipts: a browser that never launched has not demonstrated that a check can fail.
+
+## 9. One requirement, several kinds of evidence
+
+A requirement can reasonably need unit, persistence and browser evidence. Bind it in every gate that must pass:
+
+```yaml
+gates:
+  - id: fresh-offline-setup
+    run: node scripts/check-fresh-setup.mjs
+    proves: [SW-01]
+  - id: persistence-workflow
+    run: node scripts/check.mjs test tests/backend.test.ts
+    proves: [SW-01, SW-03]
+  - id: browser
+    run: node scripts/check.mjs browser tests/browser/workbench.spec.ts
+    proves: [SW-01, SW-02]
+  - id: integration-smoke
+    run: node scripts/smoke.mjs
+    corroborates: [SW-01]      # supporting evidence; can never override a failure
+```
+
+The relation is **all required**: every gate whose `proves:` names `SW-01` must pass, and each needs its own recorded earlier failure. One that did not run leaves the requirement unproved; one that failed fails it, and the reason names which. `corroborates:` is recorded with its outcome and never decides — it cannot fail a requirement and cannot rescue one. `acceptance.json` still names the first binding gate as the owner because its frozen field holds one value; `evidence-layers.json` beside it carries the rest.
+
+A criterion that is corroborated and proved by nothing is refused by name: supporting evidence cannot carry a requirement on its own.
+
+## 10. Verify in phases without losing the whole
 
 A project whose checks need different services verifies in phases: `wring verify --gate build --gate lint`, then the database phase, then the browser phase. Each phase writes its own sealed bundle, and each one legitimately reports `passed` — for its selection. It stays exit 0, because a deliberately narrow run is a useful act.
 

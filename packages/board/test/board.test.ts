@@ -221,6 +221,25 @@ test("a bundle with no selection record keeps its older reading, and says nobody
     expect(b.facts.checksPassing).toBe(true);
     expect(b.rail.find(s => s.label === "Checks passing")!.detail).toContain("No selection record travelled with this run");
 });
+// A run can fail with every gate green: its declared assertion evidence established nothing.
+// The gate record itself must stay derivable from the exit code, or this reader drops the gate.
+test("a run whose assertion evidence established nothing reads as not passing, and keeps its gate", async () => {
+    const { repo, green } = await fixture();
+    await Bun.write(join(repo, green, "gate-assertions.json"), JSON.stringify({
+        schema_version: "wringer.gate-assertions.v1",
+        gates: [{ gate_id: "accept", adapter: "node-test", source: "the gate's captured stdout", status: "unavailable", classification: "assertions", counts: { total: 2, passed: 0, failed: 0, skipped: 2, executed: 0 }, requirements: ["works"], assertions: [], observation: null, report_sha256: null, reason: "An empty or all-skipped suite is not established" }],
+        limits: ["synthetic"],
+    }));
+    const b = await loadBoard(repo);
+    expect(b.issues).toEqual([]);
+    expect(b.gates.map(g => g.id)).toEqual(["accept"]);
+    expect(b.unestablished).toEqual([{ gateId: "accept", reason: "An empty or all-skipped suite is not established" }]);
+    expect(b.facts.checksPassing).toBe(false);
+    expect(b.facts.readyToDeliver).toBe(false);
+    const rail = b.rail.find(s => s.label === "Checks passing")!;
+    expect(rail.detail).toContain("Established no assertion evidence: accept");
+    expect(renderMarkdown(b)).toContain("An empty or all-skipped suite is not established");
+});
 const REAL = "/Users/marc/Claude/wringer-run5-rerun-2026-09-06/blind-0910/example-clean/project";
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 test("the legacy corpus's frozen evidence manifests remain readable by the board", async () => {

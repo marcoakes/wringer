@@ -1,51 +1,19 @@
 import { canonicalJson, hashValue, type ExecutionPlan } from "@wringer/plan";
+import { observeAssertions, validateAssertionReport, type AssertionReport, type CheckEvidenceObservation } from "@wringer/records";
 import { parseDesignJson } from "@wringer/design";
 import type { CandidateVerification } from "./contained-types";
 
-/** A protected runner's structured report, not a worker narrative or a proof of test sufficiency. */
-export interface AssertionReport {
-    schema_version: "wringer-check.v1";
-    assertions: { id: string; requirements: string[]; status: "passed" | "failed" | "skipped" }[];
-    errors: string[];
-}
-export interface CheckEvidenceObservation {
-    schema_version: "wringer.check-observation.v1";
-    checkId: string;
-    kind: "assertions";
-    format: "wringer-check.v1";
-    status: "established" | "unavailable";
-    reportSha256: string | null;
-    report: AssertionReport | null;
-    reason: string;
-}
-const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
-const exact = (v: Record<string, unknown>, keys: string[]) => Object.keys(v).length === keys.length && keys.every(k => Object.hasOwn(v, k));
-const id = (v: unknown): v is string => typeof v === "string" && /^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,199}$/.test(v);
+/** The shape and the rules live in `@wringer/records`, below both lanes: the
+ * standalone adapters translate a runner's own JSON or TAP into the same
+ * `wringer-check.v1` report and apply the same judgements. Re-exported here so
+ * every existing caller of this module keeps its import. */
+export type { AssertionReport, CheckEvidenceObservation } from "@wringer/records";
+/** Exact source bytes, refusing duplicate keys that JSON.parse would hide. */
 export function parseAssertionReport(input: string | unknown, requirements: string[]): AssertionReport {
-    const value = typeof input === "string" ? parseDesignJson(input, 256 * 1024) : input;
-    if (!object(value) || !exact(value, ["schema_version", "assertions", "errors"]) || value.schema_version !== "wringer-check.v1" || !Array.isArray(value.assertions) || value.assertions.length > 1024 || !Array.isArray(value.errors) || value.errors.length > 32 || value.errors.some(e => typeof e !== "string" || !e.trim() || e.length > 2000)) throw new Error("Malformed bounded assertion report");
-    const seen = new Set<string>();
-    for (const row of value.assertions) {
-        if (!object(row) || !exact(row, ["id", "requirements", "status"]) || !id(row.id) || seen.has(row.id) || !["passed", "failed", "skipped"].includes(row.status as string) || !Array.isArray(row.requirements) || !row.requirements.length || row.requirements.length > 128 || new Set(row.requirements).size !== row.requirements.length || row.requirements.some(r => typeof r !== "string" || !requirements.includes(r))) throw new Error("Assertion identity, requirement mapping or outcome is invalid");
-        seen.add(row.id);
-    }
-    if (Buffer.byteLength(canonicalJson(value)) > 256 * 1024) throw new Error("Assertion report exceeds its byte limit");
-    return value as unknown as AssertionReport;
+    return validateAssertionReport(typeof input === "string" ? parseDesignJson(input, 256 * 1024) : input, requirements);
 }
-export function observeAssertionReport(checkId: string, stdout: string, exitCode: number | null, requirements: string[]): CheckEvidenceObservation {
-    let report: AssertionReport | null = null;
-    let reason = "Executed requirement assertions were reported by the pinned check runner; test honesty and sufficiency are not established.";
-    let status: CheckEvidenceObservation["status"] = "established";
-    try {
-        report = parseAssertionReport(stdout, requirements);
-        if (report.errors.length) throw new Error("The check runner reported an execution error, not assertion evidence");
-        if (!report.assertions.some(a => a.status !== "skipped")) throw new Error("An empty or all-skipped suite is not established");
-        if (requirements.some(r => !report!.assertions.some(a => a.requirements.includes(r)))) throw new Error("The check report omitted a declared requirement");
-        const failed = report.assertions.some(a => a.status === "failed");
-        if (!failed && report.assertions.some(a => a.status === "skipped")) throw new Error("Skipped assertions cannot establish a green requirement");
-        if (exitCode === null || (failed ? exitCode !== 1 : exitCode !== 0)) throw new Error("The assertion report contradicts the observed process exit");
-    } catch (error) { status = "unavailable"; reason = error instanceof Error ? error.message : "Assertion evidence is unavailable"; }
-    return { schema_version: "wringer.check-observation.v1", checkId, kind: "assertions", format: "wringer-check.v1", status, reportSha256: report ? hashValue(report) : null, report, reason };
+export function observeAssertionReport(checkId: string, stdout: string | unknown, exitCode: number | null, requirements: string[]): CheckEvidenceObservation {
+    return observeAssertions(checkId, () => parseAssertionReport(stdout, requirements), exitCode, requirements);
 }
 /** Recompute derived status from the carried protected-runner report; never trust a status label. */
 export function validateCheckEvidence(plan: ExecutionPlan, verification: CandidateVerification): void {

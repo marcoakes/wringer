@@ -254,7 +254,7 @@ function quoteFor(id: string, sources: Obj | null, intent: string | null, frozen
 export async function loadBoard(repo: string, run?: string): Promise<BoardModel> {
     repo = await realpath(repo);
     const records = new Records(repo, await openReader(SCHEMAS));
-    const model: BoardModel = { version: "wringer.board.v1", repo, title: basename(repo), intent: null, generatedAt: new Date().toISOString(), selected: Boolean(run), run: null, delivery: null, journey: null, selection: null, gates: [], requirements: [], acceptanceCounts: null, facts: {} as BoardModel["facts"], rail: [], nextAction: { title: "Record the first check", description: "There is no verification record to review yet.", command: "wring verify", owner: "operator", spends: false }, timeline: [], usage: [{ lane: "drafting", tokens: null, cost: null, basis: "Not reported", calls: null }, { lane: "building", tokens: null, cost: null, basis: "Not reported", calls: null }], issues: records.issues, limits: [] };
+    const model: BoardModel = { version: "wringer.board.v1", repo, title: basename(repo), intent: null, generatedAt: new Date().toISOString(), selected: Boolean(run), run: null, delivery: null, journey: null, selection: null, unestablished: [], gates: [], requirements: [], acceptanceCounts: null, facts: {} as BoardModel["facts"], rail: [], nextAction: { title: "Record the first check", description: "There is no verification record to review yet.", command: "wring verify", owner: "operator", spends: false }, timeline: [], usage: [{ lane: "drafting", tokens: null, cost: null, basis: "Not reported", calls: null }, { lane: "building", tokens: null, cost: null, basis: "Not reported", calls: null }], issues: records.issues, limits: [] };
     let runPath: string | undefined;
     if (run) {
         try {
@@ -274,6 +274,10 @@ export async function loadBoard(repo: string, run?: string): Promise<BoardModel>
         const selection = await records.json(resolve(runPath, "selection.json"), "wringer.selection.v1");
         if (selection)
             model.selection = { complete: selection.complete === true, reason: selection.reason, declared: selection.declared.length, required: selection.required.length, executed: selection.executed.length, missingRequired: selection.missing_required };
+        // A run can fail with every gate green: its declared assertion evidence established nothing.
+        const assertions = await records.json(resolve(runPath, "gate-assertions.json"), "wringer.gate-assertions.v1");
+        if (assertions)
+            model.unestablished = (assertions.gates as any[]).filter(row => row.status === "unavailable").map(row => ({ gateId: row.gate_id, reason: row.reason }));
     }
     const frozenPath = runPath ? resolve(runPath, "wringer.spec.yaml") : null;
     const frozen = frozenPath !== null && await Bun.file(frozenPath).exists();

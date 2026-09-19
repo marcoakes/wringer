@@ -4,6 +4,83 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.17 — what the runner actually reported (source checkpoint)
+
+Three measurements, all real, taken before this release:
+
+```
+node --test --test-reporter=tap  over two skipped tests  → exit 0, "# pass 0 / # skipped 2"
+playwright test --reporter=json  with no browser binary  → exit 1, stats.unexpected 2,
+                                                           two specs "failed", errors []
+parseConfig(ZenJev's original SW-01 mapping)             → "criterion SW-01 is bound more
+                                                            than once"
+```
+
+The first passes a gate whose whole testimony is its exit code. The second is
+indistinguishable, in the runner's own JSON, from two product assertions that
+failed — the only trace of the real cause is inside an error MESSAGE. The third
+is a refusal that named no gates, printed no repair and carried no next move, and
+it is why the ZenJev build nominated one owner gate for a requirement that needed
+unit, persistence and browser evidence, then documented the rest in prose nothing
+checked.
+
+- **One implementation of the assertion rules, for both lanes.** The contained
+  lane's `wringer-check.v1` contract and its judgements moved down into
+  `@wringer/records` beside the canonical hash, so the standalone route uses the
+  same rules rather than a second protocol (Zen report §5's actual ask). Behaviour
+  and digests are unchanged; `@wringer/plan` re-exports the hash it always had.
+- **Per-gate `evidence: {kind: assertions, adapter: vitest|playwright|node-test}`**,
+  with an optional `report:` naming the file the gate's own command writes
+  (default: the gate's stdout). Adapters translate each runner's own report into
+  `wringer-check.v1` at the gate boundary. The engine records
+  `gates/NNN_id/check-observation.json` — the frozen `wringer.check-observation.v1`,
+  the same record the contained lane's protected runners produce — plus a new
+  `gate-assertions.json` carrying the counts and the runner's own test names,
+  which the frozen id pattern cannot hold.
+- **Zero executed assertions cannot pass**, whatever the process exited. The gate
+  RESULT stays derivable from what the process did — the board refuses a record
+  whose status contradicts its exit code, and is right to — so the RUN fails
+  instead, exactly as a check that mutated itself already does: `failed_gate` names
+  the gate, `summary.md` and the board say the evidence established nothing, and
+  acceptance treats that gate's result as unable to establish proof. A report
+  contradicting the exit code is refused. A declared requirement the report omits
+  is refused. A runner's own counters disagreeing with its own rows is recorded as
+  a contradiction.
+- **Environment classification comes from this supervisor's measurements, never
+  from log text**: exit 126 or 127 from the shell, a timeout, no readable report,
+  or — for a `playwright` gate — the bounded browser launch probe of `requires:`
+  reporting that the engine does not start here. With no browser requirement
+  declared, the record says nothing measured this host rather than guessing.
+  **An `environment` failure is excluded from red-first receipts**: a browser that
+  never launched has not demonstrated that a check can fail.
+- **Layered evidence.** `proves:` may name one criterion in several gates; the
+  relation is `all-required` — every binding gate must pass and each needs its own
+  recorded earlier failure, and the reason names the one that decided it. A new
+  `corroborates:` list records supporting evidence that can never override a
+  failure and can never rescue one. `acceptance.json` stays frozen and still names
+  the first binding gate as the owner; `evidence-layers.json` carries the rest.
+  A criterion corroborated but proved by nothing is refused by name.
+  **ZenJev's original three-gate SW-01 mapping compiles.**
+
+Two real defects surfaced while building this and both are fixed. Reverting the
+corroboration guard exposed the first: a gate that only `corroborates:` a
+criterion was being skipped after an earlier failure, because the skip rule asked
+whether a gate *proved* anything. Corroborating evidence is evidence, so it runs.
+The second was found by reading the board's own reader: it refuses a gate result
+whose status contradicts its exit code and drops that gate from its model, so the
+first design — recording an assertion-hollow gate as `failed` at `exit_code: 0`
+— would have made such a run appear to have no gate at all. The run fails instead,
+and a test now asserts the invariant where the record is written.
+
+Schema versions: two new files, `gate-assertions-v1.schema.json` and
+`evidence-layers-v1.schema.json`. No frozen schema changed.
+
+Not claimed: that executed assertions are honest or sufficient ones; that passing
+every binding gate establishes a requirement's meaning; that a corroborating gate
+adds strength; or any live PM pass.
+
+bun run check: 987 pass, 1 skip, 0 fail.
+
 ## 1.0.0-alpha.16 — installed, executable, measured (source checkpoint)
 
 Measured before this release, on the ZenJev fixture: `wring doctor` on a

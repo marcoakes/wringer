@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/evidence-layers-v1.schema.json",
+  "title": "Wringer layered requirement evidence",
+  "description": "`evidence-layers.json` — which gates a requirement needs, when more than one gate speaks to it. A SIBLING of `acceptance.json`, ABSENT when every criterion has at most one binding gate and nothing corroborates, because a single-gate mapping is already fully described there. **Why it exists.** `wringer.acceptance.v3` is frozen and its `gate` and `command` are single values, so it can name one gate per requirement and no more. Until 19 September 2026 the configuration enforced that: `criterion SW-01 is bound more than once` — a refusal with no gates named, no repair printed and no next move. A real requirement can need unit, persistence AND browser evidence; the ZenJev build had exactly that mapping, was refused, and worked around it by nominating one owner gate and documenting the rest in prose that nothing checked. **The relation.** `all-required`: every gate whose `proves:` names the criterion must pass. One that did not run leaves the requirement unproved; one that failed fails it. `corroborates:` is a separate, weaker list: supporting evidence, recorded with its outcome, which **can never override a failure** and never turns an unproved requirement into a proved one. The frozen record still names the first binding gate in declared order as the owner, so an older reader sees a claim that is stricter than or equal to what it would have seen before — never weaker. **What it does not claim.** That the gates together cover the requirement's meaning; that a passing gate is a sufficient test; or that a corroborating gate adds any strength at all, which is why it cannot change a state. Its absence means *no requirement in this run had layered evidence*, never *no requirement needed any*.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "relation",
+    "criteria",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.evidence-layers.v1"
+    },
+    "relation": {
+      "description": "The one relation this version implements between a criterion's binding gates. Named rather than implied, so a later version that adds alternatives cannot be mistaken for this one.",
+      "const": "all-required"
+    },
+    "criteria": {
+      "description": "One row per criterion with layered evidence: more than one binding gate, or at least one corroborating gate. Criteria with a single binding gate and no corroboration are left to acceptance.json.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "criterion",
+          "required",
+          "state",
+          "owner",
+          "proved_by",
+          "corroborated_by",
+          "reason"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "criterion": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "state": {
+            "description": "The same state acceptance.json recorded for this criterion, repeated so this record can be read alone without inviting a reader to recompute it differently.",
+            "type": "string"
+          },
+          "owner": {
+            "description": "The first binding gate in declared order — the one acceptance.json's frozen `gate` field names. It has no extra authority: it is the only one that fits in a single-valued field.",
+            "type": "string"
+          },
+          "proved_by": {
+            "description": "Every gate whose `proves:` names this criterion, in declared order. All of them must pass.",
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "gate_id",
+                "status",
+                "receipt"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "gate_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "description": "`did-not-run` is its own outcome: a gate that was not selected, or was skipped after an earlier failure, has not failed and has not passed.",
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "did-not-run",
+                    "check-changed"
+                  ]
+                },
+                "receipt": {
+                  "description": "The sealed earlier record showing this same gate genuinely failing, or null when none was found. Every binding gate needs one before the criterion is evidenced; the frozen record carries the owner's.",
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "kind",
+                        "bundle"
+                      ],
+                      "additionalProperties": true,
+                      "properties": {
+                        "kind": {
+                          "type": "string"
+                        },
+                        "bundle": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "corroborated_by": {
+            "description": "Gates whose `corroborates:` names this criterion, with their outcomes. Recorded and never decisive: a failure here does not fail the requirement, and a pass here cannot rescue one.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "gate_id",
+                "status"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "gate_id": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "did-not-run",
+                    "check-changed"
+                  ]
+                }
+              }
+            }
+          },
+          "reason": {
+            "description": "The sentence a person reads, naming the gate that decided this row.",
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  }
+}
