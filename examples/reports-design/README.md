@@ -11,6 +11,13 @@ design snapshot are protected inputs. The checks are expected to fail initially.
 unprovisioned source/image/agent placeholders. Use the exact original PM request
 when proposing work; the starter is not a substitute for their words or approval.
 
+Its limits are 6 sessions, 3 worker turns, 3 judge turns, no planner turn, a
+1200-second wall clock and **600 seconds per session**. The per-session figure
+was raised from 180 s after a live run stopped two worker sessions at a 300 s
+ceiling, one of them mid-summary. The 1200-second wall is a recorded open
+finding: it has not been shown to fit a complete live journey, and no limit
+here is a monetary guarantee.
+
 Give the PM [REQUEST.md](REQUEST.md) and an authorized Figma frame or owned design
 reference. Use the operator protocol in
 [DESIGN_BLIND_TEST.md](../../docs/DESIGN_BLIND_TEST.md). Do not run this repository

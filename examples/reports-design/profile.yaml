@@ -74,4 +74,6 @@ budget:
   max_judge_turns: 3
   max_planner_turns: 0
   wall_clock_seconds: 1200
-  session_timeout_seconds: 180
+  # 600 s, ruled 2026-09-19 (F-B2): two live worker sessions stopped at a 300 s
+  # ceiling, one mid-summary. The 1200 s wall is a separate open finding (S-A7).
+  session_timeout_seconds: 600

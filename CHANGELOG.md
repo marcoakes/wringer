@@ -4,6 +4,77 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.14 — the repairs a live run asked for (source checkpoint)
+
+The alpha.13 local-lane blind test **failed**, at worker capture, on the frozen
+candidate `02519e4`. A real approval and a real worker turn were spent and the
+turn's work was lost. Its verdict is recorded and closed; this release carries
+the repairs, each with a guard. **No live PM pass is claimed** — attempt 2 is a
+separate run against this candidate.
+
+Findings of record from that live run, and where each one stands:
+
+- **F-B1 — worker change capture refused the job's own ignored outputs.** The
+  capture named an ignored directory inside `git add -A`, Git refused, and the
+  model's work was lost before any candidate existed. Fixed in `a70a754`: the
+  capture now enumerates source paths with `ls-files --cached --others
+  --exclude-standard -z` and stages them literally from a NUL pathspec file, so
+  declared output directories never reach `add`. Tracked paths are updated
+  first, so a directory replaced by a file or symlink loses its cached
+  descendants. Forbidden and untracked changes stay visible to the controller.
+- **F-B2 — a 300-second session ceiling is too short for a real worker.** Two
+  live sessions stopped at it, one mid-summary. The Reports starter profile now
+  declares **600 seconds per session**, and its page says so. Its 1200-second
+  wall clock is a separate open finding (S-A7), unchanged and unclaimed. Worker
+  requests carry the approved ceiling, the prior reservation count and the
+  recorded timeout count, and an eligible retry receives updated facts and
+  guidance to finish and return a short summary (`a70a754`). That guidance is
+  advisory prose: a test now asserts it never changes the recorded request
+  identity of a historical effect, and that no planner or judge prompt carries
+  it.
+- **F-B3 — the approved design service's reads were denied as tool kind
+  `other`.** Addressed in `a70a754`: the controller binds a read grant to the
+  exact installed service and tool names it configured, the design service takes
+  a session-specific name a repository cannot preclaim, and a grant is never
+  derived from an agent's title or an MCP annotation. Unmeasured against a live
+  agent. Its test covers the worker's permitted reads and the refusal of
+  anything outside that exact service.
+- **F-B4 — a stopped container service surfaces as an uncertain auto-start**
+  needing manual reconciliation. **Open.** No change in this release; the
+  uncertain effect is retained and never replayed automatically.
+- **F-B5 / S-A12 — there was no pre-job session probe for a local-only
+  source.** Fixed. `wringer-drive doctor --plan P --probe-agents` now reads
+  `P.source.bundle` and `P.source.json` and verifies them through the same
+  function `init` uses, then prepares from the verified bytes. A missing or
+  mismatched pair refuses by sentence and opens no session. A started run reuses
+  the copy its own controller prepared.
+
+Also in this release:
+
+- **Design is a section of the specification, never a default.** `tools/list`
+  advertises `wringer.inspect_design`, `wringer.prepare_design_import` and
+  `wringer.get_design_import` only where the workspace's own specification
+  declares a design section; otherwise the list is the plain twelve and a call
+  to one of them refuses: *"This workspace's specification has no design
+  section; nothing design-related applies."* The resolver fails closed, and the
+  loopback `/call` route applies the same gate. The operator console offers the
+  design routes only to a design-declaring workspace and the Figma card only
+  where a connection broker is actually configured — owned images need no
+  connected service. `ASSISTANT_START.md` and `README.md` now lead with *bring a
+  design as images, or connect Figma or another design service if your
+  specification names it*; Figma keeps its own page as a named option.
+- Guards, red first: the plain launch rehearsal asserts the advertised list
+  carries no design tool and the served job page carries no "design" or "Figma";
+  the `--design --local` owned rehearsal asserts the page carries no "Figma".
+  Nothing binds the two Markdown paragraphs themselves; that is recorded as
+  unguarded, not implied.
+- **Not claimed:** a live PM pass, real containment, model convergence, that a
+  real agent finishes inside 600 seconds, or that the design-read repair has
+  been observed against a live agent.
+
+Schemas: none changed. `wringer.inspect_setup` gains a `designDeclared` boolean;
+it has no schema file.
+
 ## 1.0.0-alpha.13 — observations never refuse; a cancel stops work at any revision (source checkpoint)
 
 - A status read never refuses because the run advanced while it was read. The
