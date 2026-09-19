@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/marcoakes/wringer/blob/main/schema/verification-set-v1.schema.json",
   "title": "Wringer verification-set receipt",
-  "description": "`set.json` — one combined result over SEVERAL sealed `wring verify` bundles of the SAME revision, written by `wring verify --set DIR…` and `wring audit --set DIR…`. Not a bundle and not a delivery: it is a receipt over bundles that already exist, it runs nothing, and it adds no measurement of its own. **The question it exists to answer.** A real project verifies in phases — a build subset, a database subset, a browser subset — because the phases need different services and different amounts of time. Each phase writes its own sealed bundle saying `passed`, and until this record existed nothing in the product could add them up: the 19 September 2026 ZenJev build combined four bundles into a ten-gate claim with a custom script and a hand-written table, and the completeness of that claim lived only in the operator's head. **What it claims.** `complete` here is STRICTER than the same word in `wringer.selection.v1`: a set is complete only when every required declared gate has EXACTLY ONE passed execution across the whole set. A single bundle's `complete` is about execution alone, because a bundle is a record of what happened; a set is a claim that a revision was verified, so a failure or a gap breaks it. The two words are different on purpose and each record says which it means. **What it refuses.** Combining is legitimate only when the bundles are speaking about the same thing, so the combiner refuses, by a sentence naming the offending bundle, when: two bundles record different `head_sha`; two bundles carry different `.wringer.yaml` bytes; a gate's check identity in `checks.json` differs between two bundles; a bundle's digest inventory does not validate; or two bundles record an outcome for the same gate. That last one is not pedantry — two outcomes for one gate is either a re-run whose order nobody recorded or two different machines disagreeing, and picking one silently is how a red becomes a green. **What it does not claim.** It does not establish that the checks cover the requirement they are bound to, that the tested source is the published source, or that a human judged anything; those are `wringer.acceptance.v3`, the delivery anchor and a recorded judgement respectively, and the generated `HANDOFF.md` beside this file says which of them are absent rather than filling them in. It reads operator-named directories and executes nothing from them.",
+  "description": "`set.json` \u2014 one combined result over SEVERAL sealed `wring verify` bundles of the SAME revision, written by `wring verify --set DIR\u2026` and `wring audit --set DIR\u2026`. Not a bundle and not a delivery: it is a receipt over bundles that already exist, it runs nothing, and it adds no measurement of its own. **The question it exists to answer.** A real project verifies in phases \u2014 a build subset, a database subset, a browser subset \u2014 because the phases need different services and different amounts of time. Each phase writes its own sealed bundle saying `passed`, and until this record existed nothing in the product could add them up: the 19 September 2026 ZenJev build combined four bundles into a ten-gate claim with a custom script and a hand-written table, and the completeness of that claim lived only in the operator's head. **What it claims.** `complete` here is STRICTER than the same word in `wringer.selection.v1`: a set is complete only when every required declared gate has EXACTLY ONE passed execution across the whole set. A single bundle's `complete` is about execution alone, because a bundle is a record of what happened; a set is a claim that a revision was verified, so a failure or a gap breaks it. The two words are different on purpose and each record says which it means. **What it refuses.** Combining is legitimate only when the bundles are speaking about the same thing, so the combiner refuses, by a sentence naming the offending bundle, when: two bundles record different `head_sha`; two bundles carry different `.wringer.yaml` bytes; a gate's check identity in `checks.json` differs between two bundles; a bundle's digest inventory does not validate; or two bundles record an outcome for the same gate. That last one is not pedantry \u2014 two outcomes for one gate is either a re-run whose order nobody recorded or two different machines disagreeing, and picking one silently is how a red becomes a green. **What it does not claim.** It does not establish that the checks cover the requirement they are bound to, that the tested source is the published source, or that a human judged anything; those are `wringer.acceptance.v3`, the delivery anchor and a recorded judgement respectively, and the generated `HANDOFF.md` beside this file says which of them are absent rather than filling them in. It reads operator-named directories and executes nothing from them.",
   "type": "object",
   "required": [
     "schema_version",
@@ -35,7 +35,7 @@
       "type": "string"
     },
     "head_sha": {
-      "description": "The one revision every bundle in the set agrees it tested. A set with two revisions does not exist — the combiner refuses before writing this file.",
+      "description": "The one revision every bundle in the set agrees it tested. A set with two revisions does not exist \u2014 the combiner refuses before writing this file.",
       "type": [
         "string",
         "null"
@@ -98,9 +98,11 @@
             }
           },
           "selection_record": {
-            "description": "`wringer.selection.v1` when the bundle carried the sibling record, `absent` when it did not. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had.",
+            "description": "The version of the sibling record the bundle carried, or `absent` when it carried none. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had.",
             "enum": [
               "wringer.selection.v1",
+              "wringer.selection.v2",
+              "wringer.selection.v3",
               "absent"
             ]
           }
@@ -108,7 +110,7 @@
       }
     },
     "executions": {
-      "description": "One row per gate execution across the whole set, in declared gate order: which bundle recorded it and what it recorded. The audit trail behind `passed`, `failed` and `missing_required` — a reader disputing the set's verdict for one gate can go straight to the bundle that decided it.",
+      "description": "One row per gate execution across the whole set, in declared gate order: which bundle recorded it and what it recorded. The audit trail behind `passed`, `failed` and `missing_required` \u2014 a reader disputing the set's verdict for one gate can go straight to the bundle that decided it.",
       "type": "array",
       "items": {
         "type": "object",

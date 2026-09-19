@@ -216,9 +216,14 @@ export async function audit(repo: string, delivery: string): Promise<AuditReport
                     throw new Error("Receipt is not a genuine failure of the exact gate/command pair");
                 if (!passed || passed.status !== "passed" || passed.exit_code !== 0 || passed.timed_out)
                     throw new Error("That exact check did not pass in the delivered run");
-                const beforeChecks = await record(join(redPath, "checks.json"), "wringer.checks.v1"), afterChecks = await record(join(directory, "run/checks.json"), "wringer.checks.v1");
+                const beforeChecks = await record(join(redPath, "checks.json")), afterChecks = await record(join(directory, "run/checks.json"));
+                for (const [name, carried] of [["red", beforeChecks], ["green", afterChecks]] as const)
+                    if (!["wringer.checks.v1", "wringer.checks.v2"].includes(carried.schema_version))
+                        throw new Error(`The ${name} bundle's check identities are ${carried.schema_version}, which this audit cannot read`);
                 const prior = beforeChecks.checks.find((c: any) => c.gate_id === row.gate && c.run === row.command), current = afterChecks.checks.find((c: any) => c.gate_id === row.gate && c.run === row.command);
-                if (!prior || !current || prior.run_sha256 !== current.run_sha256 || JSON.stringify(prior.files) !== JSON.stringify(current.files))
+                // `inputs` is v2's addition: a receipt across versions compares what both recorded,
+                // and two v2 bundles compare their declared globs' contents too.
+                if (!prior || !current || prior.run_sha256 !== current.run_sha256 || JSON.stringify(prior.files) !== JSON.stringify(current.files) || JSON.stringify(prior.inputs ?? null) !== JSON.stringify(current.inputs ?? null))
                     throw new Error("The check's named file identity changed between red and green");
                 const redExecution = await record(join(redPath, "execution.json")), greenExecution = await record(join(directory, "run/execution.json"));
                 if (["backend", "execution_mode", "image", "runtime", "network", "user", "env_allowlist"].some(key => JSON.stringify(redExecution[key]) !== JSON.stringify(greenExecution[key])))

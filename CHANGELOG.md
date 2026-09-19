@@ -4,6 +4,77 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.19 — binding a claim to what it rests on (source checkpoint)
+
+Four measurements, each of a claim that was not bound to the thing it asserted.
+
+- **`checks.json` said so itself**, in its own limits: *only files explicitly named
+  in a shell command are hashed*. `vitest run` names nothing, discovers `tests/**`
+  at runtime, and is configured by a file and a lockfile that decide what those
+  tests are. Changing an indirectly loaded test left identity byte-identical, so a
+  receipt comparing red to green accepted a transition that was no longer about
+  the same assertions.
+- **The source was only ever checked before the gates.** ZenJev's coordinator
+  compared cleanliness before AND after; Wringer took its snapshot fingerprint at
+  the start and nothing at the end, so a gate that edited tracked source and then
+  passed left a green result that no longer described the reviewed commit.
+- **`inspectForPm` shared any in-flight inspection**, so a read arriving at T could
+  join one that began at T−ε and had already read the journal, and be told a head
+  **older** than the journal at its own request time. A caller who had just watched
+  work advance could be told it had not. The mechanism was recorded as unconfirmed
+  in September; reading it confirmed it.
+- **`docs/DESIGN_BLIND_TEST.md` claimed the assistant lane's planning boundary was
+  "guarded by the scripted-planner test".** No test of that name has ever existed.
+  The boundary held — `createPlanningAuthority` is reachable only from the
+  operator's own `wring intake` route — but nothing checked that it held.
+
+All four are now bound.
+
+- **Per-gate `inputs:` globs**, whose tracked matches are hashed into identity
+  beside the files the command names. `coverage` gains `command-and-inputs` and
+  `command-files-and-inputs`, so the label always says which parts of an identity
+  exist. Bounded: 64 globs, 4096 files, repository-relative, no duplicates, and
+  the run's own `.wringer/` is never part of a check's identity.
+  `wringer.checks.v2` carries it; a run whose gates declare no `inputs:` still
+  writes v1, so older and newer bundles stay comparable, and the delivery audit
+  reads both and compares what both recorded.
+- **`--strict`, automatic when `CI=true`.** The before-and-after source comparison
+  lands in `wringer.selection.v3`: both fingerprints, the tracked paths that
+  changed, the count of ignored paths present, and `exact_source` — true only when
+  no **tracked** path changed. **A gate that modifies tracked source cannot leave
+  an exact-source claim**: the run fails at exit 1 with every gate green, because a
+  green result that no longer describes the reviewed commit is worse than a red
+  one. Ignored build output stays permitted and counted rather than hidden, and a
+  path Git neither tracks nor ignores is named in the sentence so a reader never
+  has to wonder why two digests differ.
+- **Observation monotonicity.** A read joins only an inspection that began at or
+  after it arrived; otherwise it waits for the next one, which by construction
+  begins later. At most one extra recompute per burst, and never a backwards
+  answer. Its test drives the race through the injected `status` seam: a slow read
+  that observed the old head, an advance while it is in flight, and a second read
+  that must not be served by it.
+- **The planning guard the page claimed.** `a planner-declared profile through the
+  assistant flow mints no planning authority` drives a profile that **does** declare
+  a planner through propose, approve, start, status and inspect, then walks the whole
+  controller root asserting no planning request, grant or authority exists, and
+  asserts no reachable application or MCP source can mint one. The page now names
+  that test and its file, and records the old false claim as a dated correction
+  rather than deleting it — with a test asserting the correction stays dated and the
+  named test really exists.
+
+Schema versions: two new files, `checks-v2.schema.json` and
+`selection-v3.schema.json`. No frozen schema changed.
+
+Not claimed: that declared `inputs:` cover everything a runner loads — a glob is a
+declaration, and an undeclared dependency is still invisible; that `--strict`
+protects against an owner who controls the host; or any live PM pass.
+
+`docs/NEXT_BUILD.md` is written from alpha.15 to alpha.19: the route a second
+application would take, and the five measurements to collect on the first one that
+does. It is a route, not a result.
+
+bun run check: 1011 pass, 1 skip, 0 fail.
+
 ## 1.0.0-alpha.18 — the coordinator disappears (source checkpoint)
 
 Measured from ZenJev's own CI coordinator at `e4d21da`, 117 lines beside a

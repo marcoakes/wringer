@@ -17,6 +17,9 @@ export interface Gate {
     proves: string[];
     /** Supporting evidence that can never override a failure of a required binding gate. */
     corroborates: string[];
+    /** Globs whose tracked matches are folded into this check's identity: the tests a runner
+     * discovers, its configuration, the lockfile that decides what those tests are. */
+    inputs: string[];
     evidence?: GateEvidence;
     concurrent: boolean;
     stability?: {
@@ -171,6 +174,8 @@ export interface GateResult {
 export type EventCallback = (event: Record<string, unknown>) => void;
 export interface VerifyOptions {
     gate?: string | string[];
+    /** Record post-run source identity and refuse an exact-source claim a gate took away. */
+    strict?: boolean;
     /** The environment declared steps and services read from. Defaults to this process's. */
     environment?: NodeJS.ProcessEnv;
     output?: string;

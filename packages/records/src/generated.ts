@@ -664,6 +664,36 @@ export type CheckObservationV1 = {
 };
 
 /**
+ * Wringer check-identity record, version 2
+ *
+ * Generated from `schema/checks-v2.schema.json`. Do not edit.
+ */
+export type ChecksV2 = {
+  "schema_version": "wringer.checks.v2";
+  /** One row per declared gate that has a command, in declared order. */
+  "checks": {
+    /** The gate this identity belongs to, as declared in `.wringer.yaml`. */
+    "gate_id": string;
+    /** The command verbatim, as the repository wrote it. Kept alongside its hash because a reader comparing two bundles wants to SEE what changed, and a hash alone can only say that something did. */
+    "run": string;
+    /** sha256 of the command's UTF-8 bytes. The one part of a check's identity that always exists — a gate whose command names no file still has a command, and changing it changes what the check is. */
+    "run_sha256": string;
+    /** Repo-relative path → sha256, for every file the command NAMES and that exists inside the tree. Deliberately conservative: a token is resolved only when it already looks like a path or carries a check-ish suffix, because hashing a file the command does not run would make the note fire for a change that cannot affect the check. Paths that escape the repository are dropped — a check file outside the tree is not something this bundle can honestly speak for. */
+    "files": {
+      [key: string]: string;
+    };
+    /** Which parts of this check's identity exist, said out loud rather than inferred from two empty maps. `command-only` means the command named no file in this tree and the gate declared no `inputs:` — `pytest -q` with nothing declared — so a change INSIDE whatever it runs is invisible here and the note says so when it fires. `command-and-files` adds the files the command names. `command-and-inputs` adds the files the gate's globs match. `command-files-and-inputs` has both. A row whose label disagrees with its two maps would be a check that covers less than its name claims. */
+    "coverage": "command-only" | "command-and-files" | "command-and-inputs" | "command-files-and-inputs";
+    /** Repo-relative path -> sha256, for every tracked file matched by the gate's declared `inputs:` globs. Empty when the gate declares none. This is the half of a check's identity a command cannot express: `vitest run` names no file, discovers `tests/**` at runtime, and reads a runner config and a lockfile that decide what those tests even are. Changing any of them changes what the check IS, and before this existed a red-before/green-now comparison would accept the transition as being about the same assertions. */
+    "inputs": {
+      [key: string]: string;
+    };
+  }[];
+  /** What this record does NOT claim, travelling with it rather than living in a spec nobody opened — the pattern `wringer.execution.v1` and `wringer.acceptance.v1` set. Pinned by CONTENT in the tests, not by non-emptiness. */
+  "limits": string[];
+};
+
+/**
  * Wringer check-identity record
  *
  * Generated from `schema/checks.schema.json`. Do not edit.
@@ -4360,6 +4390,63 @@ export type SelectionV2 = {
 };
 
 /**
+ * Wringer run selection and completeness record
+ *
+ * Generated from `schema/selection-v3.schema.json`. Do not edit.
+ */
+export type SelectionV3 = {
+  "schema_version": "wringer.selection.v3";
+  /** The run this selection belongs to, identical to `manifest.json`'s `run_id`. Repeated here so a set combiner that has read only the sibling can still name the bundle it came from in a refusal. */
+  "run_id": string;
+  /** The commit the checks ran against, identical to `manifest.json`'s `repo.head_sha`, or null in an unborn repository. Repeated here because combining bundles is only legitimate across ONE revision, and the combiner compares this field. */
+  "head_sha": string | null;
+  /** sha256 of the `.wringer.yaml` bytes this run read, which travel in the same bundle. Two bundles whose configs differ declare different checks, so their gate rows are not the same population and cannot be added up — the combiner refuses on a mismatch rather than reporting a total nobody measured. */
+  "config_sha256": string;
+  /** Every gate id in `.wringer.yaml`, in declared order. The denominator of completeness, said out loud rather than left to be recounted from a config a reader may not have parsed. */
+  "declared": string[];
+  /** The declared gates that are not `optional: true`, in declared order. A gate with no `proves:` is still required — `lint` proves no criterion and its absence still means the verification did not cover what the repository declared. This is why completeness is computed from the config and not from the requirement mapping. */
+  "required": string[];
+  /** The gate ids named by `--gate`, in declared order, or null when the invocation named none and therefore selected everything declared. Null and a list equal to `declared` are deliberately distinguishable: the first is an operator who asked for the whole verification, the second is an operator who listed every gate by hand, and a reader reconstructing the command line needs to tell them apart. */
+  "selected": string[] | null;
+  /** The gates with a recorded result in this bundle, in declared order. Smaller than `selected` when the run was interrupted, or when a gate was skipped because an earlier required gate had already failed and it proves no criterion. */
+  "executed": string[];
+  /** Executed gates whose recorded status is `passed`, in declared order. */
+  "passed": string[];
+  /** Executed gates whose recorded status is `failed`, in declared order. Includes optional gates, which fail without failing the run; `result.failed_gate` in the manifest names the one that decided the run's status. */
+  "failed": string[];
+  /** Required declared gates with NO recorded execution in this bundle, in declared order. The whole point of the record: this list, not the status, is what a consumer needs to know before treating a green run as a verification. `complete` is exactly `missing_required.length === 0`. */
+  "missing_required": string[];
+  /** True when every required declared gate ran. Computed FROM `missing_required` and from nothing else, so the boolean and the list can never disagree — a `complete: true` beside a nonempty `missing_required` would be the exact confusion this record exists to prevent. */
+  "complete": boolean;
+  /** The sentence a person reads, carried here verbatim so every surface prints the same words rather than recomposing them. Incomplete runs read `Incomplete: N required checks were not run (a, b, c).`; complete runs say so and name the count. The surfaces that must show it are this bundle's `summary.md` and the board that `wring verify` prints. */
+  "reason": string;
+  /** What this record does NOT claim, travelling with it rather than living in a document nobody opened — the pattern `wringer.execution.v1` and `wringer.checks.v1` set. Pinned by CONTENT in the tests, not by non-emptiness. */
+  "limits": string[];
+  /** One row per declared phase, in declared order, saying which of its gates this run executed. Empty when the repository declares no `phases:`. It lives here because completeness and the running order are the same question asked twice: a phase whose services never became ready contributes no execution, and a reader adding up a set needs to see that the gap is a phase rather than a gate nobody selected. */
+  "phases": {
+    "id": string;
+    /** Every gate this phase groups, in the phase's own order. */
+    "gates": string[];
+    /** Those of them with a recorded result in this bundle. */
+    "executed": string[];
+  }[];
+  /** The post-run source comparison `--strict` performed, or null when the flag was not in force. ZenJev's CI coordinator checked source cleanliness before AND after verification, because a gate that edits tracked source and then passes leaves a green result that no longer describes the commit anybody will review. Wringer captured the fingerprint before the gates and nothing after. */
+  "strict": {
+    /** The snapshot fingerprint taken before the gates ran. */
+    "before": string;
+    /** The same fingerprint recomputed after them. */
+    "after": string;
+    /** Tracked paths whose content differs between the two. NOT empty means a gate wrote to the source under review, and `exact_source` is false however green the gates were. */
+    "changed_tracked": string[];
+    /** How many paths Git IGNORES were present when the checks finished. Ordinary build output is permitted and counted rather than hidden: a build that writes `dist/` is not a gate rewriting the product, and refusing it would make strict mode unusable on every real project. */
+    "permitted_ignored": number;
+    /** True only when no TRACKED path changed. It is the claim a reviewer needs and the one a gate can quietly take away. A path Git neither tracks nor ignores changes the two fingerprints without taking this claim away, and `reason` names those paths rather than leaving a reader to wonder why the digests differ. */
+    "exact_source": boolean;
+    "reason": string;
+  } | null;
+};
+
+/**
  * Wringer requirement sources
  *
  * Generated from `schema/sources.schema.json`. Do not edit.
@@ -4641,8 +4728,8 @@ export type VerificationSetV1 = {
     "status": string;
     /** The gates this bundle recorded a result for, in declared order. */
     "executed": string[];
-    /** `wringer.selection.v1` when the bundle carried the sibling record, `absent` when it did not. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had. */
-    "selection_record": "wringer.selection.v1" | "absent";
+    /** The version of the sibling record the bundle carried, or `absent` when it carried none. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had. */
+    "selection_record": "wringer.selection.v1" | "wringer.selection.v2" | "wringer.selection.v3" | "absent";
   }[];
   /** One row per gate execution across the whole set, in declared gate order: which bundle recorded it and what it recorded. The audit trail behind `passed`, `failed` and `missing_required` — a reader disputing the set's verdict for one gate can go straight to the bundle that decided it. */
   "executions": {
@@ -4823,6 +4910,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "briefed.schema.json": "wringer.briefed.v1",
   "certificate-v1.schema.json": "wringer.certificate.v1",
   "check-observation-v1.schema.json": "wringer.check-observation.v1",
+  "checks-v2.schema.json": "wringer.checks.v2",
   "checks.schema.json": "wringer.checks.v1",
   "choices.schema.json": "wringer.choices.v1",
   "concurrency.schema.json": "wringer.concurrency.v1",
@@ -4923,6 +5011,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "runtime-v2.schema.json": "wringer.runtime.v2",
   "selection-v1.schema.json": "wringer.selection.v1",
   "selection-v2.schema.json": "wringer.selection.v2",
+  "selection-v3.schema.json": "wringer.selection.v3",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
@@ -4952,6 +5041,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.briefed.v1": "briefed.schema.json",
   "wringer.certificate.v1": "certificate-v1.schema.json",
   "wringer.check-observation.v1": "check-observation-v1.schema.json",
+  "wringer.checks.v2": "checks-v2.schema.json",
   "wringer.checks.v1": "checks.schema.json",
   "wringer.choices.v1": "choices.schema.json",
   "wringer.concurrency.v1": "concurrency.schema.json",
@@ -5045,6 +5135,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.runtime.v2": "runtime-v2.schema.json",
   "wringer.selection.v1": "selection-v1.schema.json",
   "wringer.selection.v2": "selection-v2.schema.json",
+  "wringer.selection.v3": "selection-v3.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",

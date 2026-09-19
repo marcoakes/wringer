@@ -38,7 +38,13 @@ its bundle and record beside it, and pass it to `setup` and `init`. The local
 lane is a route, proven end to end by the `local-design-rehearsal` validation
 stage with scripted roles and decisions; a PM pass on it is still to be observed.
 The assistant lane proposes from the profile and runs no planner turn; planning
-lives in `wringer-drive`'s intake and is guarded by the scripted-planner test.
+lives in `wringer-drive`'s intake. Until 20 September 2026 this page said that was
+"guarded by the scripted-planner test" and no test of that name existed. It is now
+guarded by `a planner-declared profile through the assistant flow mints no planning
+authority` in `packages/application/test/assistant.test.ts`, which drives a profile
+that DOES declare a planner through propose, approve, start, status and inspect,
+then asserts that no planning request, grant or authority exists anywhere under the
+controller root and that no reachable application or MCP source can mint one.
 
 The designer should keep the expected result out of worker-writable files. Give
 the worker the approved design snapshot and the existing component library,

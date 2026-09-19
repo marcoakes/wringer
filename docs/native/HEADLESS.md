@@ -312,6 +312,29 @@ Exit 2 is not a product result. `orchestration.json` names the step or the servi
 
 A service with no URL of its own (a worker reported by the application's health endpoint) declares no `readiness:` and is recorded as started and **not measured**, which is true, rather than given a URL it does not serve.
 
+## Bind the check's real inputs, and let CI check the source afterwards
+
+`--strict` is automatic when `CI=true`. It records the source comparison ZenJev's
+coordinator made by hand — before and after the gates — in `selection.json`
+(`wringer.selection.v3`): the two fingerprints, the tracked paths that changed, the
+count of ignored paths present, and `exact_source`. **A gate that modifies tracked
+source cannot leave an exact-source claim**: the run fails at exit 1 with every gate
+green, because a green result that no longer describes the reviewed commit is worse
+than a red one. Ignored build output stays permitted and counted.
+
+Declare each gate's real dependencies so a receipt compares the same assertions:
+
+```yaml
+gates:
+  - id: unit
+    run: npx vitest run --reporter=json
+    inputs: [tests/**, vitest.config.ts, package-lock.json]
+    evidence: { kind: assertions, adapter: vitest }
+```
+
+Without `inputs:`, identity comes only from the files the command names — and
+`vitest run` names none, so changing a discovered test leaves it byte-identical.
+
 ## Verify in phases, then combine them
 
 Unattended CI usually cannot run every declared check in one invocation: the browser phase needs a browser, the database phase needs a database. Run the phases you can, each in its own `wring verify --gate …`, and keep every bundle.

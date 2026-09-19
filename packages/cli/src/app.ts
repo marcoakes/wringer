@@ -69,8 +69,11 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             }
             if (a.flags.has("set"))
                 return combineBundles(a, repo);
-            allowed(a, ["gate", "serial", "output", "prove"]);
-            const value = await engine.verify(repo, { gate: values(a, "gate"), serial: flag(a, "serial"), output: string(a, "output"), prove: flag(a, "prove"), signal: context.signal });
+            allowed(a, ["gate", "serial", "output", "prove", "strict"]);
+            // Automatic under CI: the place a green result is most likely to be read as
+            // describing a commit nobody re-checked afterwards.
+            const strict = flag(a, "strict") || process.env.CI === "true" || process.env.CI === "1";
+            const value = await engine.verify(repo, { gate: values(a, "gate"), serial: flag(a, "serial"), output: string(a, "output"), prove: flag(a, "prove"), strict, signal: context.signal });
             const model = await board.loadBoard(repo, value.evidence_dir);
             return { value, text: board.renderMarkdown(model), exit: value.exit_code };
         }

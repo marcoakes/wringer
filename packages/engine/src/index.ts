@@ -10,6 +10,7 @@ export * from "./handoff";
 export * from "./loop";
 export * from "./diagnostics";
 export * from "./readiness";
+export * from "./strict";
 export * from "./orchestrate";
 export * from "./adapters";
 export * from "./gate-evidence";

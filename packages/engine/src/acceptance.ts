@@ -76,7 +76,37 @@ export function shellTokens(command: string): string[] {
         out.push(token);
     return out;
 }
+export const MAX_INPUT_FILES = 4096;
+/**
+ * What a check IS, at the moment this bundle was written.
+ *
+ * The command's own tokens were the whole story until 19 September 2026, and
+ * `checks.json` said so in its limits: *only files explicitly named in a shell
+ * command are hashed*. That is exactly the gap a modern runner falls into.
+ * `vitest run` names nothing, discovers `tests/**` at runtime, and is configured
+ * by a file and a lockfile that decide what those tests are — so changing an
+ * indirectly loaded test left identity byte-identical, and a receipt comparing
+ * red to green accepted a transition that was no longer about the same assertions.
+ * A gate's declared `inputs:` globs close it, for the files it names.
+ */
 export async function checkIdentity(repo: string, gate: Gate) {
+    const inputs: Record<string, string> = {};
+    for (const pattern of gate.inputs) {
+        let seen = 0;
+        for await (const relative of new Bun.Glob(pattern).scan({ cwd: repo, onlyFiles: true, followSymlinks: false, dot: false })) {
+            if (++seen > MAX_INPUT_FILES)
+                throw new EngineError(`gate ${gate.id}.inputs glob ${pattern} matches more than ${MAX_INPUT_FILES} files; narrow it rather than recording part of it as the whole`);
+            const name = posix(relative);
+            if (name === ".wringer" || name.startsWith(".wringer/") || name in inputs)
+                continue;
+            try {
+                const path = await safePath(repo, name);
+                if ((await Bun.file(path).stat()).isFile())
+                    inputs[name] = sha256(await readFile(path));
+            }
+            catch { }
+        }
+    }
     const files: Record<string, string> = {};
     for (const token of shellTokens(gate.run)) {
         if (!token.includes("/") && !/\.(?:py|[cm]?[jt]sx?|sh|rb|go|rs|java|kt|php|sql|ya?ml|json|toml)$/.test(token))
@@ -91,7 +121,8 @@ export async function checkIdentity(repo: string, gate: Gate) {
         }
         catch { }
     }
-    return { gate_id: gate.id, run: gate.run, run_sha256: sha256(gate.run), files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))), coverage: Object.keys(files).length ? "command-and-files" : "command-only" };
+    const named = Object.keys(files).length > 0, declared = Object.keys(inputs).length > 0;
+    return { gate_id: gate.id, run: gate.run, run_sha256: sha256(gate.run), files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b))), inputs: Object.fromEntries(Object.entries(inputs).sort(([a], [b]) => a.localeCompare(b))), coverage: named && declared ? "command-files-and-inputs" : named ? "command-and-files" : declared ? "command-and-inputs" : "command-only" };
 }
 export async function latestRun(repo: string): Promise<string | null> {
     const root = await safePath(repo, ".wringer/runs");

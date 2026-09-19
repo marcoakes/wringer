@@ -236,7 +236,31 @@ A setup step that failed, or a service that never answered its declared readines
 
 Once `phases:` are declared, every declared gate must belong to exactly one: a gate in two phases would be two outcomes for one check, and a gate in none would silently never run. Both are refused by name. `wring verify --gate` still selects within that order, and `selection.json` becomes `wringer.selection.v2`, which says which phase ran what.
 
-## 11. Verify in phases without losing the whole
+## 11. Bind what the check really depends on, and check the source afterwards
+
+`checks.json` recorded a check's identity from the files its command **names**, and said so in its own limits. That is exactly the gap a modern runner falls into: `vitest run` names nothing, discovers `tests/**` at runtime, and is configured by a file and a lockfile that decide what those tests are. Change an indirectly loaded test and identity stayed byte-identical — so a receipt comparing red to green accepted a transition that was no longer about the same assertions.
+
+Declare what the check actually depends on:
+
+```yaml
+gates:
+  - id: persistence-workflow
+    run: npx vitest run --reporter=json
+    proves: [SW-03]
+    inputs: [tests/**, vitest.config.ts, package-lock.json]
+```
+
+Those tracked matches are hashed into identity alongside the files the command names, and `coverage` says which parts exist: `command-only`, `command-and-files`, `command-and-inputs`, `command-files-and-inputs`. A run whose gates declare no `inputs:` still writes `wringer.checks.v1`, so older bundles and newer ones stay comparable.
+
+**And check the source after the gates, not only before.** A gate that edits tracked source and then passes leaves a green result that no longer describes the commit anybody will review:
+
+```sh
+wring verify --strict
+```
+
+`--strict` is automatic when `CI=true`. It records the before-and-after source comparison in `selection.json` (`wringer.selection.v3`): the two fingerprints, the tracked paths that changed, how many ignored paths are present, and `exact_source`. A gate that modifies tracked source **cannot leave an exact-source claim** — the run fails even with every gate green. Ignored build output stays permitted and is counted rather than hidden, and a path Git neither tracks nor ignores is named in the sentence so a reader never has to wonder why two digests differ.
+
+## 12. Verify in phases without losing the whole
 
 A project whose checks need different services verifies in phases: `wring verify --gate build --gate lint`, then the database phase, then the browser phase. Each phase writes its own sealed bundle, and each one legitimately reports `passed` — for its selection. It stays exit 0, because a deliberately narrow run is a useful act.
 

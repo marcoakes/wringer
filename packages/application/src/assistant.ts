@@ -217,7 +217,9 @@ export async function createAssistantService(root: string, options: { dependenci
     const ownerAccess = Symbol("construction-only routine coordinator");
     let presentation: ((jobId: string) => Promise<{ phase: string; nextAction: string; eventId: string; pageUrl: string }>) | undefined;
     let waiting = 0;
-    const pendingInspections = new Map<string, Promise<Awaited<ReturnType<typeof computeInspection>>>>();
+    type Inspection = Awaited<ReturnType<typeof computeInspection>>;
+    const pendingInspections = new Map<string, { began: number; promise: Promise<Inspection> }>();
+    const queuedInspections = new Map<string, Promise<Inspection>>();
     async function current(p: AssistantProposal) {
         const a = await approval(root, p), started = await lifecycleMarker(root, p, "started");
         const hasJournal = await assistantExists(root, `jobs/${p.id}/controller/.wringer/contained/plan.json`);
@@ -293,18 +295,35 @@ export async function createAssistantService(root: string, options: { dependenci
     }
     /** Internal PM read: one validated query and its audited public status.
      * Share only work currently in flight, never a completed result or TTL.
-     * Every later read revalidates; independent callers cannot mutate peers. */
+     * Every later read revalidates; independent callers cannot mutate peers.
+     *
+     * OBSERVATION MONOTONICITY. Coalescing used to share any in-flight computation,
+     * so a request arriving at T could join one that began at T-e and had already read
+     * the journal — returning a head OLDER than the journal at request time. A caller
+     * that had just watched work advance could then be told it had not. A request now
+     * joins only a computation that began at or after it arrived; otherwise it waits for
+     * the next one, which by construction begins later. At most one extra recompute per
+     * burst, and never a backwards answer. */
     async function inspectForPm(jobId: string) {
         assistantId(jobId);
-        let pending = pendingInspections.get(jobId);
-        if (!pending) {
-            const computation = computeInspection(jobId).finally(() => {
-                if (pendingInspections.get(jobId) === computation) pendingInspections.delete(jobId);
+        const requestedAt = performance.now();
+        const current = pendingInspections.get(jobId);
+        if (current && current.began >= requestedAt)
+            return structuredClone(await current.promise);
+        let queued = queuedInspections.get(jobId);
+        if (!queued) {
+            const settled = current ? current.promise.then(() => undefined, () => undefined) : Promise.resolve();
+            queued = settled.then(() => {
+                queuedInspections.delete(jobId);
+                const computation = computeInspection(jobId).finally(() => {
+                    if (pendingInspections.get(jobId)?.promise === computation) pendingInspections.delete(jobId);
+                });
+                pendingInspections.set(jobId, { began: performance.now(), promise: computation });
+                return computation;
             });
-            pendingInspections.set(jobId, computation);
-            pending = computation;
+            queuedInspections.set(jobId, queued);
         }
-        return structuredClone(await pending);
+        return structuredClone(await queued);
     }
     async function status(jobId: string) {
         return (await inspectForPm(jobId)).status;

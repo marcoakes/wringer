@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/selection-v3.schema.json",
+  "title": "Wringer run selection and completeness record",
+  "description": "`selection.json` \u2014 WHICH of the repository's declared checks this one `wring verify` actually ran, and therefore whether a `passed` manifest is a complete verification or a passing slice of one. A SIBLING of manifest.json like checks.json, execution.json and stability.json, and for the same law-7 reason: `wringer.evidence.v1` is frozen and its `result` object is closed, so the fact cannot go on the record it qualifies. **The question it exists to answer.** `wring verify --gate lint` selects one gate, runs it, and writes `\"status\": \"passed\"`. That status is true \u2014 the selection passed \u2014 and a consumer reading only the manifest has no way to learn that nine other required checks never ran. On 19 September 2026 a build verified ten gates across four subset bundles and the operator had to assemble completeness by hand, because every bundle said `passed` and none said what the pass covered. The summary table listed the unrun gates as `skipped`, which is a row in a table and not a sentence anybody reads. **What it claims.** `complete` is about EXECUTION and never about outcome: it is true when every required declared gate has a recorded execution in this bundle, false when one or more did not run. A full run in which a gate FAILED is `complete: true` with `status: failed` \u2014 the verification covered everything and something was wrong, which is a different fact from a green run that covered a tenth of the checks. Read `complete` with `result.status`, never instead of it. The verification-set record (`wringer.verification-set.v1`) uses a STRICTER word for a combined result, where `complete` additionally requires each required gate to have exactly one PASSED execution; the two are deliberately different because a single bundle is evidence and a set is a claim about a revision. **What it does not claim.** Nothing here decides an exit code: a subset run stays exit 0 for its selection, because refusing a deliberately narrow run would make the narrow run useless and teach operators to stop recording it. Completeness is measured against what `.wringer.yaml` DECLARED at the moment this bundle was written, carried in the same bundle and hashed here; it cannot speak for a gate the repository never declared, and a config that grows a gate later does not retroactively make an older bundle incomplete. **v3 adds one key**, `strict`: the post-run source comparison `--strict` performed, because a gate that edits tracked source and then passes leaves a green result that no longer describes the commit anybody will review, and the fingerprint was only ever captured before the gates. v2 added, `phases`: which declared phase each gate belongs to and which of them ran, because once `phases:` are declared they are the running order and a gap may be a whole phase whose services never became ready rather than a gate nobody selected. v1 is frozen, so this is a new file (law 7) on the `decisions.v2` precedent; every v1 document remains valid and readable, and a reader that knows only v1 ignores this one. Bundles written before either existed do not have one, and a reader must treat that absence as *nobody recorded this*, never as *everything ran*.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "head_sha",
+    "config_sha256",
+    "declared",
+    "required",
+    "selected",
+    "executed",
+    "passed",
+    "failed",
+    "missing_required",
+    "complete",
+    "reason",
+    "limits",
+    "phases",
+    "strict"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.selection.v3"
+    },
+    "run_id": {
+      "description": "The run this selection belongs to, identical to `manifest.json`'s `run_id`. Repeated here so a set combiner that has read only the sibling can still name the bundle it came from in a refusal.",
+      "type": "string"
+    },
+    "head_sha": {
+      "description": "The commit the checks ran against, identical to `manifest.json`'s `repo.head_sha`, or null in an unborn repository. Repeated here because combining bundles is only legitimate across ONE revision, and the combiner compares this field.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config_sha256": {
+      "description": "sha256 of the `.wringer.yaml` bytes this run read, which travel in the same bundle. Two bundles whose configs differ declare different checks, so their gate rows are not the same population and cannot be added up \u2014 the combiner refuses on a mismatch rather than reporting a total nobody measured.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "declared": {
+      "description": "Every gate id in `.wringer.yaml`, in declared order. The denominator of completeness, said out loud rather than left to be recounted from a config a reader may not have parsed.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required": {
+      "description": "The declared gates that are not `optional: true`, in declared order. A gate with no `proves:` is still required \u2014 `lint` proves no criterion and its absence still means the verification did not cover what the repository declared. This is why completeness is computed from the config and not from the requirement mapping.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "selected": {
+      "description": "The gate ids named by `--gate`, in declared order, or null when the invocation named none and therefore selected everything declared. Null and a list equal to `declared` are deliberately distinguishable: the first is an operator who asked for the whole verification, the second is an operator who listed every gate by hand, and a reader reconstructing the command line needs to tell them apart.",
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "executed": {
+      "description": "The gates with a recorded result in this bundle, in declared order. Smaller than `selected` when the run was interrupted, or when a gate was skipped because an earlier required gate had already failed and it proves no criterion.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "passed": {
+      "description": "Executed gates whose recorded status is `passed`, in declared order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "failed": {
+      "description": "Executed gates whose recorded status is `failed`, in declared order. Includes optional gates, which fail without failing the run; `result.failed_gate` in the manifest names the one that decided the run's status.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_required": {
+      "description": "Required declared gates with NO recorded execution in this bundle, in declared order. The whole point of the record: this list, not the status, is what a consumer needs to know before treating a green run as a verification. `complete` is exactly `missing_required.length === 0`.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "complete": {
+      "description": "True when every required declared gate ran. Computed FROM `missing_required` and from nothing else, so the boolean and the list can never disagree \u2014 a `complete: true` beside a nonempty `missing_required` would be the exact confusion this record exists to prevent.",
+      "type": "boolean"
+    },
+    "reason": {
+      "description": "The sentence a person reads, carried here verbatim so every surface prints the same words rather than recomposing them. Incomplete runs read `Incomplete: N required checks were not run (a, b, c).`; complete runs say so and name the count. The surfaces that must show it are this bundle's `summary.md` and the board that `wring verify` prints.",
+      "type": "string",
+      "minLength": 1
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it rather than living in a document nobody opened \u2014 the pattern `wringer.execution.v1` and `wringer.checks.v1` set. Pinned by CONTENT in the tests, not by non-emptiness.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "phases": {
+      "description": "One row per declared phase, in declared order, saying which of its gates this run executed. Empty when the repository declares no `phases:`. It lives here because completeness and the running order are the same question asked twice: a phase whose services never became ready contributes no execution, and a reader adding up a set needs to see that the gap is a phase rather than a gate nobody selected.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "gates",
+          "executed"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "gates": {
+            "description": "Every gate this phase groups, in the phase's own order.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "executed": {
+            "description": "Those of them with a recorded result in this bundle.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "strict": {
+      "description": "The post-run source comparison `--strict` performed, or null when the flag was not in force. ZenJev's CI coordinator checked source cleanliness before AND after verification, because a gate that edits tracked source and then passes leaves a green result that no longer describes the commit anybody will review. Wringer captured the fingerprint before the gates and nothing after.",
+      "anyOf": [
+        {
+          "type": "object",
+          "required": [
+            "before",
+            "after",
+            "changed_tracked",
+            "permitted_ignored",
+            "exact_source",
+            "reason"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "before": {
+              "description": "The snapshot fingerprint taken before the gates ran.",
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "after": {
+              "description": "The same fingerprint recomputed after them.",
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "changed_tracked": {
+              "description": "Tracked paths whose content differs between the two. NOT empty means a gate wrote to the source under review, and `exact_source` is false however green the gates were.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "permitted_ignored": {
+              "description": "How many paths Git IGNORES were present when the checks finished. Ordinary build output is permitted and counted rather than hidden: a build that writes `dist/` is not a gate rewriting the product, and refusing it would make strict mode unusable on every real project.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "exact_source": {
+              "description": "True only when no TRACKED path changed. It is the claim a reviewer needs and the one a gate can quietly take away. A path Git neither tracks nor ignores changes the two fingerprints without taking this claim away, and `reason` names those paths rather than leaving a reader to wonder why the digests differ.",
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

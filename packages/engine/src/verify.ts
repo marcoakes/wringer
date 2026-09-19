@@ -4,6 +4,7 @@ import { basename, join, relative, resolve } from "node:path";
 import { exists, loadConfig } from "./config";
 import { acceptance, checkIdentity, loadSpec } from "./acceptance";
 import { snapshot } from "./git";
+import { strictSource } from "./strict";
 import { Bundle, VERSION, newId, now, posix, Redactor, safePath, sha256 } from "./io";
 import { runProcess } from "./process";
 import { prove } from "./prove";
@@ -102,7 +103,10 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
             await bundle.write(name, await readFile(path));
     }
     const checks = await Promise.all(config.gates.map(g => checkIdentity(repo, g)));
-    await bundle.json("checks.json", { schema_version: "wringer.checks.v1", checks, limits: ["Only files explicitly named in a shell command are hashed. A command-only identity cannot detect changes in implicitly discovered checks.", "Identity is captured before execution. A gate that edits a check, executes it and restores it can evade a before/after comparison."] });
+    // v2 only where a gate declared `inputs:`, so a repository that declares none keeps writing
+    // bytes an older reader already understands.
+    const declaresInputs = config.gates.some(g => g.inputs.length);
+    await bundle.json("checks.json", { schema_version: declaresInputs ? "wringer.checks.v2" : "wringer.checks.v1", checks: declaresInputs ? checks : checks.map(({ inputs, ...row }) => { void inputs; return row; }), limits: [declaresInputs ? "Files explicitly named in a shell command are hashed, and so are the tracked files a gate's declared inputs globs match. A gate that declares no inputs still cannot detect changes in checks its command discovers implicitly." : "Only files explicitly named in a shell command are hashed. A command-only identity cannot detect changes in implicitly discovered checks.", "Identity is captured before execution. A gate that edits a check, executes it and restores it can evade a before/after comparison."] });
     const results: GateResult[] = [];
     const stabilities: any[] = [];
     const concurrent: any[] = [];
@@ -225,11 +229,19 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     await bundle.event("run.finished", { status, ...(failed_gate ? { failed_gate } : {}) });
     await bundle.json("manifest.json", manifest);
     // A subset run legitimately says `passed`. This sibling is the only thing that says what the pass covered.
-    const selection = selectionRecord({ run_id: id, head_sha: snap.head_sha, config_sha256: sha256(await readFile(await safePath(repo, ".wringer.yaml"))), gates: config.gates, selected: selected ? [...selected] : null, results, ...(config.phases.length ? { phases: config.phases.map(p => ({ id: p.id, gates: p.gates })) } : {}) });
+    // `--strict`: ZenJev's coordinator compared source cleanliness before AND after, because a
+    // gate that edits tracked source and then passes leaves a green result that no longer
+    // describes the commit anybody will review. Ignored build output stays permitted.
+    const strict = options.strict ? await strictSource(repo, snap) : null;
+    if (strict && !strict.exact_source && status !== "interrupted") {
+        status = "failed";
+        failed_gate ??= null;
+    }
+    const selection = selectionRecord({ run_id: id, head_sha: snap.head_sha, config_sha256: sha256(await readFile(await safePath(repo, ".wringer.yaml"))), gates: config.gates, selected: selected ? [...selected] : null, results, ...(config.phases.length ? { phases: config.phases.map(p => ({ id: p.id, gates: p.gates })) } : {}), ...(options.strict ? { strict } : {}) });
     await bundle.json("selection.json", selection);
     const required = config.gates.filter(g => !g.optional);
     const template_only = required.length > 0 && required.every(g => g.id === "placeholder" && g.run.trim() === "true");
-    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, ...(environmentRefusal ? [`Environment: ${environmentRefusal}`] : []), selection.reason, ...(unestablished.size ? [`Assertion evidence established nothing for ${[...unestablished].join(", ")}; see gate-assertions.json.`] : []), template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
+    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, ...(environmentRefusal ? [`Environment: ${environmentRefusal}`] : []), ...(strict ? [strict.reason] : []), selection.reason, ...(unestablished.size ? [`Assertion evidence established nothing for ${[...unestablished].join(", ")}; see gate-assertions.json.`] : []), template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
     for (const [index, g] of config.gates.entries()) {
         const result = results.find(r => r.gate_id === g.id);
         summary.push(`| ${g.id} | ${result?.status ?? (status === "interrupted" ? "not completed" : "skipped")} | ${result ? `${result.duration_ms} ms` : "—"} | ${result ? `[output](${gateDir(index, g.id)}/stdout.log) · [errors](${gateDir(index, g.id)}/stderr.log)` : "—"} |`);

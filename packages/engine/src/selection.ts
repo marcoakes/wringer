@@ -13,13 +13,14 @@ import { join, resolve } from "node:path";
 import { parseConfig, parseYaml } from "./config";
 import { fileList, maybeJson, readJson, sha256, validateDigests } from "./io";
 import { EngineError, type Gate, type GateResult } from "./types";
+import type { StrictSource } from "./strict";
 export interface SelectionPhase {
     id: string;
     gates: string[];
     executed: string[];
 }
 export interface SelectionRecord {
-    schema_version: "wringer.selection.v1" | "wringer.selection.v2";
+    schema_version: "wringer.selection.v1" | "wringer.selection.v2" | "wringer.selection.v3";
     run_id: string;
     head_sha: string | null;
     config_sha256: string;
@@ -32,8 +33,10 @@ export interface SelectionRecord {
     missing_required: string[];
     complete: boolean;
     reason: string;
-    /** v2 only: the declared phase order and what each phase ran. */
+    /** v2 and later: the declared phase order and what each phase ran. */
     phases?: SelectionPhase[];
+    /** v3 only: the post-run source comparison --strict performed, or null when it did not run. */
+    strict?: StrictSource | null;
     limits: string[];
 }
 export const SELECTION_LIMITS = [
@@ -54,8 +57,10 @@ export function selectionRecord(input: {
     gates: Pick<Gate, "id" | "optional">[];
     selected: string[] | null;
     results: Pick<GateResult, "gate_id" | "status">[];
-    /** Declared phases. Present means v2: the running order is part of what the pass covered. */
+    /** Declared phases. Present means at least v2: the running order is part of what the pass covered. */
     phases?: { id: string; gates: string[] }[];
+    /** Present means v3, whether or not the comparison itself ran. */
+    strict?: StrictSource | null;
 }): SelectionRecord {
     const order = input.gates.map(g => g.id);
     const inOrder = (ids: Iterable<string>) => { const want = new Set(ids); return order.filter(id => want.has(id)); };
@@ -68,10 +73,11 @@ export function selectionRecord(input: {
     const missing_required = required.filter(id => !ran1.has(id));
     const inPhase = (ids: string[]) => ids.filter(id => ran1.has(id));
     return {
-        schema_version: input.phases ? "wringer.selection.v2" : "wringer.selection.v1", run_id: input.run_id, head_sha: input.head_sha, config_sha256: input.config_sha256,
+        schema_version: input.strict !== undefined ? "wringer.selection.v3" : input.phases ? "wringer.selection.v2" : "wringer.selection.v1", run_id: input.run_id, head_sha: input.head_sha, config_sha256: input.config_sha256,
         declared, required, selected: input.selected === null ? null : inOrder(input.selected), executed, passed, failed,
         missing_required, complete: missing_required.length === 0,
-        ...(input.phases ? { phases: input.phases.map(p => ({ id: p.id, gates: [...p.gates], executed: inPhase(p.gates) })) } : {}),
+        ...(input.phases || input.strict !== undefined ? { phases: (input.phases ?? []).map(p => ({ id: p.id, gates: [...p.gates], executed: inPhase(p.gates) })) } : {}),
+        ...(input.strict !== undefined ? { strict: input.strict } : {}),
         reason: completenessSentence(missing_required, required.length), limits: SELECTION_LIMITS,
     };
 }
@@ -81,7 +87,7 @@ export interface SetBundleRow {
     started_at: string;
     status: string;
     executed: string[];
-    selection_record: "wringer.selection.v1" | "absent";
+    selection_record: "wringer.selection.v1" | "wringer.selection.v2" | "wringer.selection.v3" | "absent";
 }
 export interface SetExecution {
     gate_id: string;
@@ -154,7 +160,7 @@ async function loadBundle(named: string, directory: string): Promise<LoadedBundl
         throw refuse(`Bundle ${named} carries a .wringer.yaml this version cannot read, so its declared checks are unknown: ${(e as Error).message}`, NEXT);
     }
     const checksRecord = await maybeJson(join(directory, "checks.json"));
-    if (!checksRecord || checksRecord.schema_version !== "wringer.checks.v1" || !Array.isArray(checksRecord.checks))
+    if (!checksRecord || !["wringer.checks.v1", "wringer.checks.v2"].includes(checksRecord.schema_version) || !Array.isArray(checksRecord.checks))
         throw refuse(`Bundle ${named} carries no wringer.checks.v1 check identities, so no reader can establish that its gates are the same checks as another bundle's.`, NEXT);
     const results: GateResult[] = [];
     for (const name of (await fileList(directory)).filter(p => /^gates\/[^/]+\/result\.json$/.test(p))) {
@@ -166,8 +172,8 @@ async function loadBundle(named: string, directory: string): Promise<LoadedBundl
     if (!results.length)
         throw refuse(`Bundle ${named} recorded no gate result, so it contributes nothing to a set.`, NEXT);
     const selection = await maybeJson(join(directory, "selection.json"));
-    if (selection && selection.schema_version !== "wringer.selection.v1")
-        throw refuse(`Bundle ${named} carries an unreadable selection record (${selection.schema_version}); this reader knows wringer.selection.v1 only.`, NEXT);
+    if (selection && !["wringer.selection.v1", "wringer.selection.v2", "wringer.selection.v3"].includes(selection.schema_version))
+        throw refuse(`Bundle ${named} carries an unreadable selection record (${selection.schema_version}); this reader knows wringer.selection.v1 to v3.`, NEXT);
     let spec: any = null;
     try {
         spec = parseYaml(await readFile(join(directory, "wringer.spec.yaml"), "utf8"), `${named}/wringer.spec.yaml`);
@@ -178,7 +184,7 @@ async function loadBundle(named: string, directory: string): Promise<LoadedBundl
         acceptance: await maybeJson(join(directory, "acceptance.json")), execution: await maybeJson(join(directory, "execution.json")),
     };
 }
-const identity = (row: any) => JSON.stringify([row?.run ?? null, row?.run_sha256 ?? null, row?.files ?? null]);
+const identity = (row: any) => JSON.stringify([row?.run ?? null, row?.run_sha256 ?? null, row?.files ?? null, row?.inputs ?? null]);
 export async function combineSet(named: string[]): Promise<{
     set: VerificationSet;
     bundles: LoadedBundle[];
@@ -238,7 +244,7 @@ export async function combineSet(named: string[]): Promise<{
         head_sha: first.manifest.repo?.head_sha ?? null,
         config_sha256: first.config_sha256,
         declared: [...order], required,
-        bundles: loaded.map(one => ({ path: one.named, run_id: one.manifest.run_id, started_at: one.manifest.started_at, status: one.manifest.result.status, executed: declaredOrder(one.results.map(r => r.gate_id)), selection_record: one.selection ? "wringer.selection.v1" : "absent" })),
+        bundles: loaded.map(one => ({ path: one.named, run_id: one.manifest.run_id, started_at: one.manifest.started_at, status: one.manifest.result.status, executed: declaredOrder(one.results.map(r => r.gate_id)), selection_record: one.selection ? one.selection.schema_version : "absent" })),
         executions: declaredOrder(executions.map(e => e.gate_id)).map(id => byGate.get(id)!),
         passed, failed, missing_required, complete, reason, limits: SET_LIMITS,
     };

@@ -55,13 +55,13 @@ export function parseYaml(source: string, name = "YAML"): any {
 }
 export function parseGate(value: unknown): Gate {
     const g = object(value, "gate");
-    keys(g, ["id", "run", "timeout", "optional", "required", "proves", "corroborates", "evidence", "concurrent", "stability", "artifacts"], "gate");
+    keys(g, ["id", "run", "timeout", "optional", "required", "proves", "corroborates", "inputs", "evidence", "concurrent", "stability", "artifacts"], "gate");
     const id = textValue(g.id, "gate.id");
     if (!SLUG.test(id))
         throw new EngineError(`gate.id ${id} must be a slug of at most 64 characters`);
     if (g.optional !== undefined && g.required !== undefined)
         throw new EngineError(`gate ${id}: use optional or required, never both`);
-    const gate: Gate = { id, run: textValue(g.run, `gate ${id}.run`), timeout: integer(g.timeout, `gate ${id}.timeout`, 120), optional: g.required === undefined ? boolean(g.optional, "optional", false) : !boolean(g.required, "required", true), proves: typeof g.proves === "string" ? [textValue(g.proves, "proves")] : strings(g.proves, "proves"), corroborates: typeof g.corroborates === "string" ? [textValue(g.corroborates, "corroborates")] : strings(g.corroborates, "corroborates"), concurrent: boolean(g.concurrent, "concurrent", false) };
+    const gate: Gate = { id, run: textValue(g.run, `gate ${id}.run`), timeout: integer(g.timeout, `gate ${id}.timeout`, 120), optional: g.required === undefined ? boolean(g.optional, "optional", false) : !boolean(g.required, "required", true), proves: typeof g.proves === "string" ? [textValue(g.proves, "proves")] : strings(g.proves, "proves"), corroborates: typeof g.corroborates === "string" ? [textValue(g.corroborates, "corroborates")] : strings(g.corroborates, "corroborates"), inputs: typeof g.inputs === "string" ? [textValue(g.inputs, "inputs")] : strings(g.inputs, "inputs"), concurrent: boolean(g.concurrent, "concurrent", false) };
     for (const criterion of [...gate.proves, ...gate.corroborates])
         if (!SLUG.test(criterion))
             throw new EngineError(`invalid criterion id ${criterion}`);
@@ -72,6 +72,14 @@ export function parseGate(value: unknown): Gate {
     const both = gate.proves.filter(c => gate.corroborates.includes(c));
     if (both.length)
         throw new EngineError(`gate ${id} both proves and corroborates ${both.join(", ")}. Choose one: keep it under proves: for evidence that must pass, or under corroborates: for supporting evidence that cannot override a failure.`);
+    if (gate.inputs.length > 64)
+        throw new EngineError(`gate ${id}.inputs declares more than 64 globs; name directories rather than files`);
+    for (const pattern of gate.inputs) {
+        if (pattern.startsWith("/") || pattern.split(/[\\/]/).includes("..") || pattern.includes("\0"))
+            throw new EngineError(`gate ${id}.inputs ${pattern} must be a repository-relative glob`);
+        if (new Set(gate.inputs).size !== gate.inputs.length)
+            throw new EngineError(`gate ${id}.inputs names the same glob twice`);
+    }
     if (g.evidence !== undefined) {
         const e = object(g.evidence, `gate ${id}.evidence`);
         keys(e, ["kind", "adapter", "report"], `gate ${id}.evidence`);

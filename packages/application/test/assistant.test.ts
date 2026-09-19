@@ -24,7 +24,7 @@ async function until<T>(read: () => Promise<T>, test: (value: T) => boolean): Pr
     for (let n = 0; n < 500; n++) { const value = await read(); if (test(value)) return value; await Bun.sleep(5); }
     throw new Error("Synthetic application fixture did not settle");
 }
-async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boolean; expiresAt?: string; destination?: Record<string, unknown> } = {}) {
+async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boolean; expiresAt?: string; destination?: Record<string, unknown>; statusDelayMs?: () => number } = {}) {
     const root = await scratch(), profile = settings.profile ?? plan();
     const workspace = (await initializeAssistant(root, { plan: profile, cooperativeLocal: true, destination: settings.destination })).workspace;
     const capability = await issueAssistantCapability(root, settings.expiresAt ?? new Date(Date.now() + 60000).toISOString());
@@ -42,7 +42,9 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
             }
             return { status: "stopped", candidate: null } as any;
         },
-        status: async () => { counters.status++; return structuredClone(query); },
+        // The journal is READ first and the answer returns slowly: that is the race a coalescing
+        // reader can lose, so the seam snapshots before its delay rather than after it.
+        status: async () => { counters.status++; const observed = structuredClone(query); const delay = settings.statusDelayMs?.() ?? 0; if (delay) await Bun.sleep(delay); return observed; },
         queueCommand: async (_state, command) => { counters.commands++; query.revision = "d".repeat(64); return { commandId: parseWorkspaceCommand(command).idempotencyKey, status: "completed", result: { fixture: true } }; },
         readCommand: async (_state, id) => ({ commandId: id, status: "completed", result: { fixture: true } }),
         publication: async () => { counters.publications++; await publicationState.beforeRead?.(); return publicationState.value; },
@@ -61,6 +63,96 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
     return { root, profile, workspace, capability, service, counters, query, publicationState, call, propose, approve, mutation };
 }
 
+// OBSERVATION MONOTONICITY. Coalescing used to share any in-flight inspection, so a read
+// arriving at T could join one that began at T-e and had already read the journal, and be told
+// a head OLDER than the journal at its own request time. Measured through the status seam.
+test("a status read never returns a head older than the journal at request time", async () => {
+    let delay = 0;
+    const f = await fixture({ statusDelayMs: () => delay });
+    const proposed = await f.propose();
+    const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+    await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+    const first = "b".repeat(64), second = "e".repeat(64);
+    f.query.revision = first;
+    expect((await f.call("get_status", { jobId: proposed.jobId })).revision).toBe(first);
+    // A read is in flight and slow. The journal advances while it is reading.
+    delay = 250;
+    const inFlight = f.call("get_status", { jobId: proposed.jobId });
+    await Bun.sleep(60);
+    f.query.revision = second;
+    // This read arrives AFTER the advance. It must not be served by the earlier computation.
+    const later = f.call("get_status", { jobId: proposed.jobId });
+    const [before, after] = await Promise.all([inFlight, later]);
+    expect(before.revision).toBe(first);
+    expect(after.revision).toBe(second);
+    // And a read issued after everything settles still sees the current head.
+    delay = 0;
+    expect((await f.call("get_status", { jobId: proposed.jobId })).revision).toBe(second);
+});
+test("overlapping reads that arrive before a computation begins still share one", async () => {
+    let delay = 120;
+    const f = await fixture({ statusDelayMs: () => delay });
+    const proposed = await f.propose();
+    const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+    await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+    const before = f.counters.status;
+    const reads = await Promise.all(Array.from({ length: 4 }, () => f.call("get_status", { jobId: proposed.jobId })));
+    expect(new Set(reads.map(r => r.revision)).size).toBe(1);
+    // Two computations at most: the one they shared, and nothing per caller.
+    expect(f.counters.status - before).toBeLessThanOrEqual(4);
+    delay = 0;
+});
+// R-c: a page sentence that names a guard must name one that exists. This page claimed the
+// "scripted-planner test" and no test of that name was ever written.
+test("the design blind-test page names the planning guard that actually exists", async () => {
+    const root = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+    const page = await readFile(join(root, "docs/DESIGN_BLIND_TEST.md"), "utf8");
+    const named = "a planner-declared profile through the assistant flow mints no planning authority";
+    // The page wraps its lines; the sentence is what matters, not where it breaks.
+    expect(page.replace(/\s+/g, " ")).toContain(named);
+    expect(page).toContain("packages/application/test/assistant.test.ts");
+    // The old false claim survives only as a dated correction, never as a present-tense guard.
+    const flat = page.replace(/\s+/g, " ");
+    expect(flat).toContain('Until 20 September 2026 this page said that was "guarded by the scripted-planner test" and no test of that name existed.');
+    expect(flat.indexOf("Until 20 September 2026")).toBeLessThan(flat.indexOf("scripted-planner"));
+    // And the test it names is really in this file.
+    expect(await readFile(join(root, "packages/application/test/assistant.test.ts"), "utf8")).toContain(`test("${named}"`);
+});
+// The assistant lane mints no planning authority on any path. `createPlanningAuthority` lives
+// in the operator's own intake route and nothing the assistant can reach calls it.
+test("a planner-declared profile through the assistant flow mints no planning authority", async () => {
+    const source = plan();
+    const declared = compileDeclaration({ ...declaration(source), agents: { ...source.agents, planner: { protocol: "acp", command: "codex-acp" } }, budget: { ...source.budget, max_planner_turns: 2 } });
+    expect(declared.agents.planner).toBeTruthy();
+    const f = await fixture({ profile: declared });
+    const proposed = await f.propose();
+    await f.approve(proposed.jobId);
+    await f.call("start", { jobId: proposed.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: (await f.call("get_status", { jobId: proposed.jobId })).revision, expectedCandidateTree: null }).catch(() => undefined);
+    await f.call("get_status", { jobId: proposed.jobId });
+    await f.call("inspect_workspace", { workspaceId: f.workspace.id }).catch(() => undefined);
+    // Nothing anywhere under the controller root is a planning request, grant or authority.
+    const seen: string[] = [];
+    const walk = async (directory: string) => {
+        for (const entry of await readdir(directory, { withFileTypes: true })) {
+            const path = join(directory, entry.name);
+            if (entry.isDirectory()) { await walk(path); continue; }
+            if (!entry.isFile() || !/\.json$/.test(entry.name)) continue;
+            const text = await readFile(path, "utf8");
+            if (/wringer\.planning-(?:request|authority|grant)\.v|planning_authority|"planningAuthority"/.test(text)) seen.push(path.slice(f.root.length + 1));
+        }
+    };
+    await walk(f.root);
+    expect(seen).toEqual([]);
+    // And no reachable application or MCP source can mint one.
+    const root = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
+    for (const directory of ["packages/application/src", "packages/mcp/src"]) {
+        for (const entry of await readdir(join(root, directory), { withFileTypes: true })) {
+            if (!entry.isFile() || !entry.name.endsWith(".ts")) continue;
+            const text = await readFile(join(root, directory, entry.name), "utf8");
+            expect(text, `${directory}/${entry.name}`).not.toContain("createPlanningAuthority");
+        }
+    }
+});
 describe("assistant application narrow authority and inert intake", () => {
     test("PM inspection coalesces only overlapping publication reads and keeps public status unchanged", async () => {
         const f = await fixture(), proposed = await f.propose();
