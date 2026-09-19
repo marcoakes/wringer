@@ -15,12 +15,15 @@ choose Yes or request a correction, then separately Send the reviewed change.
 
 **[Start from your coding app →](ASSISTANT_START.md)**
 
-**For PMs and designers:** bring an approved design and your existing component
-library. The design-aware workflow supplies that pinned reference to the contained
-agents and shows reference versus actual output for your decision.
-[Connect Figma →](docs/native/FIGMA_CONNECT.md) · [Design-led work →](docs/native/DESIGN.md) · [Reports blind-test target →](docs/DESIGN_BLIND_TEST.md)
-Paste desktop/mobile frame links in your coding app or PM workspace. The new
-Figma API route offers sign-in, private preview, explicit reference-storage
+**For PMs and designers:** bring a design as images, or connect Figma or another
+design service if your specification names it. Design is a section of the
+specification, never a default: a specification without one gets the plain
+surface, and no design tool is advertised for it. Owned images are the plain
+route — the design-aware workflow pins that reference for the contained agents
+and shows reference versus actual output for your decision.
+[Design-led work →](docs/native/DESIGN.md) · [Reports blind-test target →](docs/DESIGN_BLIND_TEST.md)
+If your specification names Figma, [that route has its own page →](docs/native/FIGMA_CONNECT.md):
+desktop/mobile frame links, sign-in, private preview, explicit reference-storage
 permission and attachment to a new approved plan. A registered Figma app and
 deployed connection broker are required; this repository does not supply a hosted
 service or claim that Figma's official remote MCP accepts Wringer.

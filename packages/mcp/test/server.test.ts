@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { createMcpSession, MCP_PROTOCOL_VERSIONS, type JsonRpcResponse, type McpSessionOptions } from "../src/server";
+import { ASSISTANT_TOOL_NAMES, DESIGN_NOT_DECLARED, DESIGN_TOOL_NAMES } from "../src/contract";
 
 const frame = (id: string | number, method: string, params: Record<string, unknown> = {}) => JSON.stringify({ jsonrpc: "2.0", id, method, params });
 const init = (version = MCP_PROTOCOL_VERSIONS[0]) => frame("init", "initialize", { protocolVersion: version, capabilities: {}, clientInfo: { name: "fixture", version: "1.0" } });
@@ -31,8 +32,31 @@ describe("MCP lifecycle and narrow dispatch", () => {
         expect(result(await session.receive(init()))?.protocolVersion).toBe(MCP_PROTOCOL_VERSIONS[0]);
         expect(error(await session.receive(frame(3, "tools/list")))?.code).toBe(-32000);
         expect(await session.receive(initialized)).toBeNull();
-        expect((result(await session.receive(frame(4, "tools/list")))?.tools as unknown[]).length).toBe(15);
+        expect((result(await session.receive(frame(4, "tools/list")))?.tools as unknown[]).length).toBe(12);
         expect(error(await session.receive(frame(5, "initialize", {})))?.code).toBe(-32600);
+    });
+    test("design tools are advertised only to a workspace whose specification declares design", async () => {
+        const names = async (design: McpSessionOptions["design"]) => ((result(await (await ready({ design })).session.receive(frame(1, "tools/list")))?.tools as { name: string }[]).map(tool => tool.name));
+        const plain = await names(undefined);
+        expect(plain).toEqual([...ASSISTANT_TOOL_NAMES].filter(name => !DESIGN_TOOL_NAMES.includes(name as never)));
+        expect(plain).toHaveLength(12);
+        expect(await names(true)).toEqual([...ASSISTANT_TOOL_NAMES]);
+        expect(await names(() => true)).toEqual([...ASSISTANT_TOOL_NAMES]);
+        // Unresolvable means undeclared: the plain surface, never design by default.
+        for (const unresolved of [() => { throw new Error("owner unreachable"); }, async () => { throw new Error("owner unreachable"); }, () => "yes" as never, false])
+            expect(await names(unresolved as McpSessionOptions["design"])).toEqual(plain);
+    });
+    test("a design call on a plain workspace refuses by sentence and never reaches the application", async () => {
+        for (const name of DESIGN_TOOL_NAMES) {
+            const { session, calls } = await ready();
+            const refusal = result(await session.receive(frame(1, "tools/call", { name, arguments: {} })));
+            expect(refusal?.isError).toBeTrue();
+            expect(refusal?.structuredContent).toEqual({ schema_version: "wringer.assistant-error.v1", outcome: "refused", code: "design-not-declared", message: DESIGN_NOT_DECLARED });
+            expect(calls).toEqual([]);
+        }
+        const { session, calls } = await ready({ design: true });
+        expect(result(await session.receive(frame(1, "tools/call", { name: "wringer.inspect_design", arguments: {} })))?.isError).toBeFalse();
+        expect(calls).toHaveLength(1);
     });
     test("tool shape errors differ from malformed protocol, unknown tools and honest stopped work", async () => {
         const { session, calls } = await ready({ call: () => ({ outcome: "stopped", reason: "The provider rejected this attempt.", cost: null }) });

@@ -1,11 +1,16 @@
 import Ajv from "ajv";
 
 export const ASSISTANT_TOOL_NAMES = [
-    "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import",
     "wringer.inspect_improvements", "wringer.inspect_setup", "wringer.propose", "wringer.get_approval_request", "wringer.start", "wringer.get_status",
     "wringer.wait_for_update", "wringer.get_evidence", "wringer.request_revision", "wringer.continue", "wringer.cancel", "wringer.prepare_handover",
+    "wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import",
 ] as const;
 export type AssistantToolName = typeof ASSISTANT_TOOL_NAMES[number];
+/** Design is a section a specification turns on, never this surface's default:
+ * these are advertised only to a workspace whose profile declares one. */
+export const DESIGN_TOOL_NAMES = ["wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import"] as const;
+export const DESIGN_NOT_DECLARED = "This workspace's specification has no design section; nothing design-related applies.";
+export const isDesignTool = (name: unknown): name is AssistantToolName => (DESIGN_TOOL_NAMES as readonly string[]).includes(name as string);
 export type AssistantToolArguments = Record<string, unknown>;
 export interface AssistantToolCall { name: AssistantToolName; args: AssistantToolArguments }
 
@@ -31,22 +36,6 @@ export interface AssistantToolDefinition {
 
 /** This is the complete assistant surface. Human decisions and publication are deliberately absent. */
 export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
-    {
-        name: "wringer.inspect_design", title: "Check the design connection",
-        description: "Read nonsecret Figma connection status and design import handles for this workspace. No credentials are exposed, and no external request, consent or model call occurs. Figma API imports are not Figma's official remote MCP service.",
-        inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
-    },
-    {
-        name: "wringer.prepare_design_import", title: "Prepare a design preview request",
-        description: "Record one desktop and optionally one mobile Figma frame/layer link from the same file for the operator to inspect. This does not connect, import design bytes, grant retention permission, approve work or attach a design. The person uses the private PM workspace for those separate decisions. No access token or sign-in link is returned.",
-        inputSchema: objectSchema({ workspaceId: handle, idempotencyKey, urls: { type: "array", minItems: 1, maxItems: 2, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 2048 } } }),
-        annotations: { ...mutationAnnotations, destructiveHint: false, openWorldHint: false },
-    },
-    {
-        name: "wringer.get_design_import", title: "Read a design preview's next step",
-        description: "Read one service-issued design import handle, exact snapshot digests and its next human action. No design pixels, private context, sign-in URL, token, arbitrary path or retention permission is returned. Reading never retries an interrupted import.",
-        inputSchema: objectSchema({ importId: handle }), annotations: readonlyAnnotations,
-    },
     {
         name: "wringer.inspect_improvements", title: "Read improvement evidence",
         description: "Read the operator-connected repository comparisons and future adoption status. Offline only: no provider, credential, trial collection, promotion, approval or publication. Missing or fixture evidence cannot become a live improvement claim.",
@@ -108,7 +97,28 @@ export const ASSISTANT_TOOLS: readonly AssistantToolDefinition[] = [
         description: "Prepare a source-bound handover preview for the destination already approved by the operator. This never publishes, merges or deploys. The person makes the separate exact-destination decision on the trusted operator surface.",
         inputSchema: objectSchema(guard), annotations: { ...mutationAnnotations, destructiveHint: false },
     },
+    {
+        name: "wringer.inspect_design", title: "Check the design connection",
+        description: "Read nonsecret Figma connection status and design import handles for this workspace. No credentials are exposed, and no external request, consent or model call occurs. Figma API imports are not Figma's official remote MCP service.",
+        inputSchema: objectSchema({ workspaceId: handle }, []), annotations: readonlyAnnotations,
+    },
+    {
+        name: "wringer.prepare_design_import", title: "Prepare a design preview request",
+        description: "Record one desktop and optionally one mobile Figma frame/layer link from the same file for the operator to inspect. This does not connect, import design bytes, grant retention permission, approve work or attach a design. The person uses the private PM workspace for those separate decisions. No access token or sign-in link is returned.",
+        inputSchema: objectSchema({ workspaceId: handle, idempotencyKey, urls: { type: "array", minItems: 1, maxItems: 2, uniqueItems: true, items: { type: "string", minLength: 1, maxLength: 2048 } } }),
+        annotations: { ...mutationAnnotations, destructiveHint: false, openWorldHint: false },
+    },
+    {
+        name: "wringer.get_design_import", title: "Read a design preview's next step",
+        description: "Read one service-issued design import handle, exact snapshot digests and its next human action. No design pixels, private context, sign-in URL, token, arbitrary path or retention permission is returned. Reading never retries an interrupted import.",
+        inputSchema: objectSchema({ importId: handle }), annotations: readonlyAnnotations,
+    },
 ];
+
+/** The advertised surface for one workspace. A specification with no design
+ * section is served the plain list: bringing a design is an option it turns on. */
+export const assistantTools = (options: { design: boolean }): readonly AssistantToolDefinition[] =>
+    options.design ? ASSISTANT_TOOLS : ASSISTANT_TOOLS.filter(tool => !isDesignTool(tool.name));
 
 const ajv = new Ajv({ strict: true, allErrors: false });
 const validators = new Map(ASSISTANT_TOOLS.map(tool => [tool.name, ajv.compile(tool.inputSchema)]));

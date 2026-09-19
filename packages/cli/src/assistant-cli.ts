@@ -168,7 +168,7 @@ export async function serveAssistant(root: string, options: AssistantCliOptions 
         if (!owner) throw new Error("The local runner did not acquire ownership.");
         ownedToken = owner.token;
         console = await createAssistantConsole(service, { isStopping: () => closing, guided: true });
-        transport = createAssistantTransport(service, { instanceId: owner.token, onStop: stop, isStopping: () => closing });
+        transport = createAssistantTransport(service, { instanceId: owner.token, design: !!service.workspace.profile.design, onStop: stop, isStopping: () => closing });
         let token: string;
         if (await assistantExists(service.root, "connection.json")) token = (await readAssistantConnection(join(service.root, "connection.json"))).token;
         else token = (await issueAssistantCapability(service.root, new Date(Date.now() + 7 * 86400000).toISOString())).token;
@@ -248,7 +248,10 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
     }
     if (a.command === "mcp") {
         allowed(a, ["connection"]); const path = absolute(a, "connection"); await readAssistantConnection(path);
-        await runMcpStdio({ version: VERSION, call: (name, args) => callAssistantConnection(path, name, args) });
+        // The advertised surface belongs to the workspace, not to this bridge: ask
+        // the owner whether its own specification declares design. An unreadable
+        // answer leaves the plain surface rather than advertising design anyway.
+        await runMcpStdio({ version: VERSION, call: (name, args) => callAssistantConnection(path, name, args), design: async () => (await callAssistantConnection(path, "wringer.inspect_setup", {})).designDeclared === true });
         return {};
     }
     if (a.command === "init") {

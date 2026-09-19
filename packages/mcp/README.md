@@ -6,18 +6,25 @@ The tools are defined once in `src/contract.ts`; their JSON Schemas also
 validate every tool call. Approval, the human pen, publication, credentials,
 arbitrary files and arbitrary execution are not assistant tools.
 
-Design intake adds `wringer.inspect_design`, `wringer.prepare_design_import` and
-`wringer.get_design_import`. Preparing stores a bounded frame-link request, not
-design bytes or permission. OAuth, preview, retention and attachment stay on the
-operator surface. An attached import's `designImportId` selects an immutable
+Design is a section of the workspace's own specification, never this surface's
+default. `wringer.inspect_design`, `wringer.prepare_design_import` and
+`wringer.get_design_import` are advertised by `tools/list` only when `design` is
+declared for the session; otherwise the list is the plain twelve and a call to
+one of them refuses: "This workspace's specification has no design section;
+nothing design-related applies." An unresolvable answer leaves the plain
+surface. Preparing stores a bounded frame-link request, not design bytes or
+permission. OAuth, preview, retention and attachment stay on the operator
+surface. An attached import's `designImportId` selects an immutable
 future-proposal profile in `inspect_setup`/`propose`; it cannot change existing
 approval. No sign-in URL, token or transport path is returned to the model.
-See [Connect Figma](../../docs/native/FIGMA_CONNECT.md).
+Owned images are the plain way to bring a design; if the specification names
+Figma, see [Connect Figma](../../docs/native/FIGMA_CONNECT.md).
 
-`createMcpSession({ version, call, redact? })` reads one JSON-RPC string through
-`receive(line)` and returns one response or `null` for a notification.
-`runMcpStdio({ version, call, redact?, input?, output? })` supplies the bounded
-UTF-8 newline transport. It writes only JSON-RPC messages. The application
+`createMcpSession({ version, call, redact?, design? })` reads one JSON-RPC string
+through `receive(line)` and returns one response or `null` for a notification.
+`design` is a boolean or a resolver the session calls once.
+`runMcpStdio({ version, call, redact?, design?, input?, output? })` supplies the
+bounded UTF-8 newline transport. It writes only JSON-RPC messages. The application
 callback must return bounded, safe, factual data without writing to stdout.
 
 The adapter negotiates MCP `2025-11-25` and `2025-06-18`. Unsupported requested

@@ -3,7 +3,7 @@ import { constants } from "node:fs";
 import { lstat, open } from "node:fs/promises";
 import { isAbsolute, join, sep } from "node:path";
 import { Redactor } from "@wringer/engine";
-import { MCP_MAX_INPUT_BYTES, parseMcpJson, parseAssistantToolCall, AssistantToolValidationError } from "@wringer/mcp";
+import { MCP_MAX_INPUT_BYTES, parseMcpJson, parseAssistantToolCall, isDesignTool, AssistantToolValidationError, DESIGN_NOT_DECLARED } from "@wringer/mcp";
 
 export interface AssistantTransportService { call(token: string, name: string, args: unknown): Promise<Record<string, unknown>> }
 export interface AssistantConnection { schema_version: "wringer.assistant-connection.v1"; endpoint: string; token: string }
@@ -61,7 +61,7 @@ async function boundedJson(request: Request): Promise<unknown> {
     return parseMcpJson(new TextDecoder("utf-8", { fatal: true }).decode(buffer));
 }
 
-export function createAssistantRequestHandler(service: AssistantTransportService, options: { host: () => string; adminToken: string; instanceId: string; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
+export function createAssistantRequestHandler(service: AssistantTransportService, options: { host: () => string; adminToken: string; instanceId: string; design?: boolean; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
     let active = 0, windowAt = Date.now(), requests = 0;
     return async (request: Request): Promise<Response> => {
         const url = new URL(request.url), host = options.host();
@@ -86,6 +86,9 @@ export function createAssistantRequestHandler(service: AssistantTransportService
                 return reply(202, { schema_version: "wringer.assistant-response.v1", outcome: "stop-requested", note: "New dispatch is stopping. Active effects or charges may remain uncertain; retained evidence is preserved." });
             }
             if (!plain(input) || Object.keys(input).sort().join(",") !== "args,name") return refused(400, "invalid-request", "Provide only an allowed tool name and its arguments.");
+            // The same gate the advertised tool list uses, applied to this route
+            // too, so a design call cannot arrive around an unadvertised surface.
+            if (isDesignTool(input.name) && options.design !== true) return refused(400, "design-not-declared", DESIGN_NOT_DECLARED);
             let call;
             try { call = parseAssistantToolCall(input.name, input.args); }
             catch (error) { return refused(400, error instanceof AssistantToolValidationError ? error.code : "invalid-request", error instanceof AssistantToolValidationError ? error.message : "The operation shape is invalid."); }
@@ -99,10 +102,10 @@ export function createAssistantRequestHandler(service: AssistantTransportService
     };
 }
 
-export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
+export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; design?: boolean; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
     const adminToken = randomBytes(32).toString("hex");
     let host = "";
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, onStop: options.onStop, isStopping: options.isStopping }) });
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, design: options.design, onStop: options.onStop, isStopping: options.isStopping }) });
     host = `127.0.0.1:${server.port}`;
     return { server, endpoint: `http://${host}/call`, adminToken, stop: () => server.stop(true) };
 }

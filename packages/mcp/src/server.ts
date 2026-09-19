@@ -1,5 +1,5 @@
 import { Redactor } from "@wringer/engine";
-import { ASSISTANT_TOOLS, AssistantToolValidationError, parseAssistantToolCall, type AssistantToolArguments, type AssistantToolName } from "./contract";
+import { assistantTools, isDesignTool, AssistantToolValidationError, DESIGN_NOT_DECLARED, parseAssistantToolCall, type AssistantToolArguments, type AssistantToolName } from "./contract";
 import { MCP_MAX_INPUT_BYTES, MCP_MAX_JSON_DEPTH, MCP_MAX_OUTPUT_BYTES, parseMcpJson } from "./json";
 
 export const MCP_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18"] as const;
@@ -11,6 +11,10 @@ export interface McpSessionOptions {
     serverName?: string;
     /** Optional additional redaction for known connection secrets. Never fetch provider keys for redaction. */
     redact?: (text: string) => string;
+    /** Whether this workspace's own specification declares a design section.
+     * Absent, unresolvable or false means it does not: the design tools are not
+     * advertised and a call to one refuses. Design is never a default. */
+    design?: boolean | (() => boolean | Promise<boolean>);
 }
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value) && [null, Object.prototype].includes(Object.getPrototypeOf(value));
@@ -66,6 +70,13 @@ export function createMcpSession(options: McpSessionOptions) {
         return response;
     };
     const toolError = (id: JsonRpcId, code: string, message: string) => toolResult(id, { schema_version: schemaVersion, outcome: "refused", code, message }, true);
+    // Resolved once per connection and never assumed: an unreadable answer leaves
+    // the plain surface, which is the correct one for a specification without design.
+    let declaresDesign: Promise<boolean> | undefined;
+    const design = () => (declaresDesign ??= (async () => {
+        try { return await (typeof options.design === "function" ? options.design() : options.design) === true; }
+        catch { return false; }
+    })());
 
     return {
         async receive(line: string): Promise<JsonRpcResponse | null> {
@@ -105,10 +116,11 @@ export function createMcpSession(options: McpSessionOptions) {
             if (state !== "ready") return rpcError(id, -32000, "Initialize this connection and send notifications/initialized before using tools.");
             if (message.method === "tools/list") {
                 if (!fields(params, ["cursor", "_meta"]) || own(params, "cursor")) return rpcError(id, -32602, "This tool list is a single page; do not supply a cursor.");
-                return success(id, { tools: ASSISTANT_TOOLS });
+                return success(id, { tools: assistantTools({ design: await design() }) });
             }
             if (message.method !== "tools/call") return rpcError(id, -32601, "Method is not available. This server offers only ping and the declared tools.");
             if (!fields(params, ["name", "arguments", "_meta"]) || typeof params.name !== "string" || (own(params, "arguments") && !record(params.arguments))) return rpcError(id, -32602, "Malformed tools/call parameters.");
+            if (isDesignTool(params.name) && !await design()) return toolError(id, "design-not-declared", DESIGN_NOT_DECLARED);
             let call;
             try { call = parseAssistantToolCall(params.name, params.arguments ?? {}); }
             catch (error) {

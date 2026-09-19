@@ -18,9 +18,9 @@ test("bounded wait survives the real transport beyond its ordinary request and i
         expect(calls).toBe(1); expect(Date.now() - began).toBeGreaterThanOrEqual(17000);
     } finally { transport.stop(); }
 }, 25000);
-function fixture() {
+function fixture(design?: boolean) {
     const calls: unknown[] = []; let stops = 0;
-    const handler = createAssistantRequestHandler({ call: async (credential, name, args) => { calls.push({ credential, name, args }); return { outcome: "observed", cost: null, private: credential }; } }, { host: () => host, adminToken: admin, instanceId: "fixture", onStop: () => { stops++; } });
+    const handler = createAssistantRequestHandler({ call: async (credential, name, args) => { calls.push({ credential, name, args }); return { outcome: "observed", cost: null, private: credential }; } }, { host: () => host, adminToken: admin, instanceId: "fixture", design, onStop: () => { stops++; } });
     const request = (path = "/call", body: string = JSON.stringify({ name: "wringer.get_status", args: {} }), overrides: RequestInit = {}) => new Request(`http://${host}${path}`, { method: "POST", body, ...overrides, headers: { Host: host, Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...overrides.headers } });
     return { calls, handler, request, stops: () => stops };
 }
@@ -31,6 +31,18 @@ describe("local assistant request boundary without a listener", () => {
         expect(response.status).toBe(200); expect(result).toEqual({ outcome: "observed", cost: null, private: "[REDACTED]" });
         expect(f.calls).toEqual([{ credential: token, name: "wringer.get_status", args: {} }]);
         expect(response.headers.get("cache-control")).toBe("no-store"); expect(response.headers.has("access-control-allow-origin")).toBeFalse();
+    });
+    test("a design call on a plain workspace refuses by sentence on this route too", async () => {
+        const plain = fixture(), declared = fixture(true);
+        const body = (name: string) => JSON.stringify({ name, args: {} });
+        for (const name of ["wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import"]) {
+            const response = await plain.handler(plain.request("/call", body(name)));
+            expect(response.status).toBe(400);
+            expect(await response.json()).toEqual({ schema_version: "wringer.assistant-response.v1", outcome: "refused", code: "design-not-declared", message: "This workspace's specification has no design section; nothing design-related applies." });
+        }
+        expect(plain.calls).toEqual([]);
+        expect((await declared.handler(declared.request("/call", body("wringer.inspect_design")))).status).toBe(200);
+        expect(declared.calls).toHaveLength(1);
     });
     test("browser Origin, fetch metadata, wrong Host and query authentication fail before callback", async () => {
         const f = fixture();

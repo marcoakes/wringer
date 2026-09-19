@@ -12,6 +12,7 @@ import { parsePmDesignAssetRequest, readPmDesignAsset } from "./design-assets";
 import { withFigmaCard } from "./figma-console";
 import { openFigmaAuthorizationInBrowser } from "./figma-browser";
 import { attachAssistantDesign } from "../../application/src/assistant-design-binding";
+import { DESIGN_NOT_DECLARED } from "@wringer/mcp";
 import type { ApplicationOptions } from "@wringer/application";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
@@ -127,7 +128,14 @@ export async function createAssistantConsole(service: Service, options: { port?:
     let stopped = false;
     const isStopping = () => stopped || options.isStopping?.() === true;
     const assertAccepting = () => { if (isStopping()) throw new Error("The local owner is stopping. No new approval or review action is accepted; retained evidence remains readable."); };
-    const shell = withFigmaCard(withImprovementCard(options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), nonce), nonce), reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
+    // Design is a section of this workspace's own specification, and a design
+    // service is one named way to bring one. A plain workspace is offered
+    // neither; an owned reference needs no connected service, so the Figma card
+    // appears only where one is actually configured for this operator.
+    const declaresDesign = !!service.workspace.profile.design;
+    const figmaConfigured = declaresDesign && (await service.design.connectionStatus().catch(() => null))?.configured === true;
+    const page = withImprovementCard(options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), nonce);
+    const shell = figmaConfigured ? withFigmaCard(page, nonce) : page, reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
     const collections = new Map<string, { abort: AbortController; work: Promise<unknown>; message: string }>();
     const flow = options.guided ? createAssistantJobFlow(service, { ...options.application, isStopping, beforeCommand: jobId => beforeReviewCommand(jobId) }) : null;
     const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
@@ -148,6 +156,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
         const sessionResponse = await sessions.handle(request, origin); if (sessionResponse) return sessionResponse;
         const authentication = sessions.authenticate(request, origin); if (authentication instanceof Response) return authentication;
         try {
+            if (url.pathname.startsWith("/api/design") && !declaresDesign) return json({ error: DESIGN_NOT_DECLARED }, 404);
             if (request.method === "GET" && url.pathname === "/api/design" && !url.search) {
                 const view = await service.design.inspect();
                 // Selected source links belong on the operator's decision surface

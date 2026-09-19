@@ -67,6 +67,16 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
     const sanitize = (value: unknown) => JSON.parse(JSON.stringify(value).replaceAll(root, "FIXTURE").replaceAll(repository, "WRINGER_CHECKOUT").replace(/#token=[a-f0-9]+/g, "#token=REDACTED"));
     const record = async (entry: unknown) => { transcript.push(sanitize(entry)); await writeFile(join(root, "transcript.json"), JSON.stringify({ fixture: true, rehearsalTitle, sourceFixtureKind, startedAt, limits, transcript }, null, 2) + "\n"); };
     const check = async (name: string, value: unknown) => { assert(value, name); checks.push(name); await record({ check: name, status: "passed" }); };
+    // R-6: what the job page offers is what the specification names. A plain
+    // workspace is shown no design prose at all, and an owned design reference
+    // needs no design service, so no Figma connection is offered for it either.
+    const checkJobPage = async (server: { origin: string }) => {
+        const html = await (await fetch(server.origin + "/")).text();
+        const count = (word: string) => (html.match(new RegExp(word, "gi")) ?? []).length;
+        await record({ jobPage: { bytes: html.length, figma: count("figma"), design: count("design"), designDeclared: design, guided } });
+        if (!figmaRest) await check(`the job page offers no Figma connection for this ${design ? "owned design" : "plain"} specification`, count("figma") === 0);
+        if (!design && !guided) await check("a specification with no design section shows no design prose on the job page", count("design") === 0);
+    };
     let keptBundleStarts = 0;
     // --local proof: every record carried to the fresh clone names the local-only source, never a hosted one.
     const checkLocalRecords = async (bundle: string) => {
@@ -209,9 +219,15 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         service = await createService();
         let sequence = 0;
         const connect = async () => {
-            const session = createMcpSession({ version: "fixture", call: (name, args) => service!.call(capability.token, name, args) });
+            const session = createMcpSession({ version: "fixture", design: !!plan.design, call: (name, args) => service!.call(capability.token, name, args) });
             await session.receive(JSON.stringify({ jsonrpc: "2.0", id: ++sequence, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "Scripted MCP test client, not Codex", version: "fixture" } } }));
             await session.receive(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }));
+            // R-6: design is a section of the specification. A plain workspace is
+            // advertised no design tool, and its job page carries no design prose.
+            const listed: any = await session.receive(JSON.stringify({ jsonrpc: "2.0", id: ++sequence, method: "tools/list" }));
+            const advertised = listed.result.tools.map((tool: { name: string }) => tool.name);
+            await record({ surface: "in-process MCP protocol fixture", advertisedTools: advertised, designDeclared: !!plan.design });
+            await check(`${design ? "a design specification advertises its design tools" : "a specification with no design section advertises no design tool"}`, advertised.some((name: string) => name.includes("design")) === !!plan.design);
             return async (name: string, args: unknown): Promise<any> => {
                 const request = { jsonrpc: "2.0", id: ++sequence, method: "tools/call", params: { name: `wringer.${name}`, arguments: args } }, response = await session.receive(JSON.stringify(request));
                 await record({ surface: "in-process MCP protocol fixture", request, response });
@@ -229,6 +245,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
         await record({ surface: "SCRIPTED operator approval, not a human", actor, jobId, revision: approval.revision, budget: plan.budget });
         if (guided) {
             consoleServer = await createAssistantConsole(service, { application, guided: true });
+            await checkJobPage(consoleServer);
             browser ??= await launchPmBrowser(root, record); await service.runner.start();
             const result = await runGuidedPmJourney({ page: browser.page, url: consoleServer.url, root, state, jobId, actor, origin, baseCommit, roleCount: () => roles.length, call, record, check, git, command, ...(design ? { design: { snapshotSha256: designSnapshot!.snapshot_sha256, expectedImages: designSnapshot!.assets.length + captures.length } } : {}), ...(scenario ? { scenario: scenario.guided } : {}) });
             if (design) {
@@ -241,6 +258,7 @@ export async function runAssistantLaunchRehearsal(repository = resolve(import.me
             failed = false; return { directory: root, ...result, rehearsalTitle, sourceFixtureKind, checks, implementation, limits };
         }
         consoleServer = await createAssistantConsole(service, { application });
+        await checkJobPage(consoleServer);
         browser = await launchPmBrowser(root, record);
         await browser.approve(consoleServer.url, actor);
         await check("real browser approves the actual form after console reload and reopen", (await status()).outcome !== "awaiting-approval");

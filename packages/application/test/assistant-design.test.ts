@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { compileExecutionPlan } from "@wringer/plan";
+import { compileDeclaration, compileExecutionPlan } from "@wringer/plan";
 import { importDesignFromFigmaRest, readDesignSnapshot, type DesignFigmaRestRequest, type DesignFigmaRestResponse } from "@wringer/design";
 import { createMcpSession } from "../../mcp/src/server";
 import { initializeAssistant, issueAssistantCapability, createAssistantService } from "../src/assistant";
@@ -18,7 +18,12 @@ afterEach(async()=>{for(const service of services.splice(0))await service.runner
 const json=(body:unknown):DesignFigmaRestResponse=>({status:200,headers:{"content-type":"application/json"},body:Buffer.from(JSON.stringify(body))});
 async function fixture(options:{failStatus?:number;failIndex?:number}={}) {
     const root=await realpath(await mkdtemp(join(tmpdir(),"wringer-assistant-design-test-")));roots.push(root);
-    const profile=compileExecutionPlan(template,{format:"yaml"}),workspace=(await initializeAssistant(root,{plan:profile,cooperativeLocal:true})).workspace;
+    // A design import belongs to a workspace whose own specification declares a
+    // design section; a plain specification is offered no design route at all.
+    const original=compileExecutionPlan(template,{format:"yaml"});
+    const {schema_version:_v,plan_sha256:_p,intent_sha256:_i,acceptance_sha256:_a,...base}=original;
+    const profile=compileDeclaration({...base,version:2,intent:original.intent+" The display matches the design.",environment:{...original.environment,writable_directories:["node_modules","preview"]},acceptance:{...original.acceptance,criteria:[...original.acceptance.criteria,{id:"design-fit",title:"Display matches design",quote:"The display matches the design.",kind:"human",required:true,show:{id:"preview",argv:["bun","scripts/capture.ts"],cwd:".",timeout_seconds:30}}]},design:{snapshotPath:"design/old.json",snapshotSha256:"a".repeat(64),reviews:[{criterionId:"design-fit",referenceIds:["desktop","mobile"],captures:[{id:"desktop",path:"preview/desktop.png",mimeType:"image/png",width:20,height:20},{id:"mobile",path:"preview/mobile.png",mimeType:"image/png",width:50,height:50}]}]}});
+    const workspace=(await initializeAssistant(root,{plan:profile,cooperativeLocal:true})).workspace;
     const counters={credentials:0,reconnect:0,begin:0,poll:0,disconnect:0,network:0},requests:DesignFigmaRestRequest[]=[];
     let state:FigmaConnectionStatus={state:"connected",configured:true,message:"Fixture connection only; no account accessed."};
     const connection:AssistantDesignDependencies["connection"]={
@@ -47,7 +52,7 @@ async function fixture(options:{failStatus?:number;failIndex?:number}={}) {
 test("MCP design preparation and observation are inert; assistant cannot connect, preview, retain or attach",async()=>{
     const f=await fixture(),session=createMcpSession({version:"fixture",call:()=>{throw new Error("An uninitialised fixture connection must not dispatch tools");}});
     // Exercise a real MCP envelope with the same service-issued capability via the wrapper.
-    const authenticated=createMcpSession({version:"fixture",call:(name,args)=>f.call(name.replace(/^wringer\./,""),args)});
+    const authenticated=createMcpSession({version:"fixture",design:true,call:(name,args)=>f.call(name.replace(/^wringer\./,""),args)});
     await authenticated.receive(JSON.stringify({jsonrpc:"2.0",id:1,method:"initialize",params:{protocolVersion:"2025-11-25",capabilities:{},clientInfo:{name:"scripted-test-client",version:"fixture"}}}));
     await authenticated.receive(JSON.stringify({jsonrpc:"2.0",method:"notifications/initialized"}));
     const response:any=await authenticated.receive(JSON.stringify({jsonrpc:"2.0",id:2,method:"tools/call",params:{name:"wringer.prepare_design_import",arguments:{workspaceId:f.workspace.id,idempotencyKey:crypto.randomUUID(),urls}}}));

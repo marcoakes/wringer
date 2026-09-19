@@ -156,5 +156,5 @@ export function createAssistantDesignService(root: string, workspace: AssistantD
         if (!["retained", "attached"].includes(view.outcome)) throw new Error("Permission to retain this exact snapshot has not been recorded.");
         return { path: await assistantPath(root, file(importId, "retained.json")), snapshot: await readSnapshot(importId, "retained.json") };
     }
-    return { inspect, prepare, get, operatorView, preview, confirm, asset, confirmedSnapshot, connect: () => connection.begin(), pollConnection: () => connection.poll(), disconnect: () => connection.disconnect() };
+    return { inspect, prepare, get, operatorView, preview, confirm, asset, confirmedSnapshot, connectionStatus: () => connection.status(), connect: () => connection.begin(), pollConnection: () => connection.poll(), disconnect: () => connection.disconnect() };
 }
