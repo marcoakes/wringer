@@ -1,20 +1,41 @@
+import { randomUUID } from "node:crypto";
 import { join, resolve } from "node:path";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { loadExecutionPlan, hashValue, type ExecutionPlan } from "@wringer/plan";
 import { prepareRepositorySource, preflightAgentRole } from "@wringer/runtime";
-import { readController, immutableControllerFile, privateControllerDirectory, loadExistingCredentials } from "@wringer/application";
+import { readController, immutableControllerFile, privateControllerDirectory, loadExistingCredentials, isLocalSource, localSourceSiblings, verifyLocalSource } from "@wringer/application";
 import { Redactor } from "@wringer/engine";
 import type { Answer } from "./app";
 
-export async function containedDoctor(options: { state?: string; planPath?: string; probeAgents?: boolean; signal?: AbortSignal }): Promise<Answer> {
+/** Construction-time seams for unit tests only; never CLI flags or plan inputs. */
+export interface ContainedDoctorDependencies {
+    which?: (name: string) => string | null;
+    preflight?: typeof preflightAgentRole;
+}
+
+/** A local-only source is never fetched by name, so a pre-job probe has to read
+ * the pair `prepare --local` wrote beside this exact profile. It is verified
+ * exactly as `init` verifies it, and the verified bytes — not a second read —
+ * are what the probe prepares from. A started run already holds the copy its own
+ * controller prepared; nothing else is accepted as a local source. */
+async function probeSourceBundle(plan: ExecutionPlan, planPath: string | undefined, recorded: string | undefined, state: string): Promise<{ bundlePath?: string }> {
+    if (!isLocalSource(plan)) return {};
+    if (!planPath) return recorded && resolve(recorded).startsWith(resolve(state) + "/") ? { bundlePath: recorded } : {};
+    const verified = await verifyLocalSource(plan, localSourceSiblings(planPath));
+    const bundlePath = join(state, "preflight", `source-${randomUUID()}.bundle`);
+    await writeFile(bundlePath, verified.bundle, { flag: "wx", mode: 0o600 });
+    return { bundlePath };
+}
+
+export async function containedDoctor(options: { state?: string; planPath?: string; probeAgents?: boolean; signal?: AbortSignal }, dependencies: ContainedDoctorDependencies = {}): Promise<Answer> {
     if (!options.state && !options.planPath) throw new Error("Choose --state DIRECTORY for a run, or --plan PLAN.yaml before starting. Existing keys are reused; none are stored or replaced.");
     const history = options.state ? await readController(options.state, false, true) : null;
     const plan: ExecutionPlan = options.planPath ? await loadExecutionPlan(options.planPath) : history!.plan;
     if (history && history.plan.plan_sha256 !== plan.plan_sha256) throw new Error("The plan does not match this recorded run");
     const rows: { name: string; status: "ready" | "unmeasured" | "blocked"; detail: string }[] = [];
     const binary = plan.runtime.binary ?? (plan.runtime.kind === "apple-container" ? "container" : "kubectl");
-    const path = Bun.which(binary);
+    const path = (dependencies.which ?? (name => Bun.which(name)))(binary);
     rows.push({ name: "Containment", status: path ? "unmeasured" : "blocked", detail: path ? `${plan.runtime.kind} client found at ${path}; client presence is not proof of effective isolation.` : `${binary} is not available. ${plan.runtime.kind === "apple-container" ? "Install Apple's signed container package from https://github.com/apple/container/releases, then run container system start." : "Provision the declared gVisor RuntimeClass, namespace and network policy on your Kubernetes cluster."} No host fallback is offered.` });
     const credentialNames = Object.values(plan.agents).flatMap(a => a?.env ?? []), credentials = await loadExistingCredentials(credentialNames);
     for (const row of credentials) rows.push({ name: row.name, status: row.available ? "unmeasured" : "blocked", detail: row.available ? `Available from ${row.source}; value not displayed. Provider validity is not yet measured.` : `Not available. No key was changed. ${row.name === "ANTHROPIC_API_KEY" ? "Expected Keychain service anthropic-api-key, account wringer." : row.name === "CODEX_API_KEY" || row.name === "OPENAI_API_KEY" ? "Expected Keychain service openai-api-key, account wringer." : "Provide this declared environment variable to the launching controller."}` });
@@ -25,11 +46,12 @@ export async function containedDoctor(options: { state?: string; planPath?: stri
     if (options.probeAgents && !rows.some(r => r.status === "blocked" && r.name !== "Last verify")) {
         const state = options.state ?? await mkdtemp(join(tmpdir(), "wringer-preflight-"));
         await privateControllerDirectory(join(state, "preflight"));
-        const source = await prepareRepositorySource(plan.repository, { controllerDir: state });
+        const bundle = await probeSourceBundle(plan, options.planPath, history?.state.source?.bundlePath, state);
+        const source = await prepareRepositorySource({ ...plan.repository, ...bundle }, { controllerDir: state });
         for (const role of ["planner", "worker", "judge"] as const) {
             const agent = plan.agents[role]; if (!agent) continue;
             try {
-                const probe = await preflightAgentRole({ role, repo: source, runtime: plan.runtime, agent, budget: { maxTurns: 1, timeoutMs: Math.min(120000, plan.budget.session_timeout_seconds * 1000) }, scope: role === "worker" ? { writable: plan.scope.writable, protected: [...new Set([...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(c => c.files)])], writableDirectories: plan.environment.writable_directories } : undefined, signal: options.signal });
+                const probe = await (dependencies.preflight ?? preflightAgentRole)({ role, repo: source, runtime: plan.runtime, agent, budget: { maxTurns: 1, timeoutMs: Math.min(120000, plan.budget.session_timeout_seconds * 1000) }, scope: role === "worker" ? { writable: plan.scope.writable, protected: [...new Set([...plan.acceptance.protected_paths, ...plan.acceptance.checks.flatMap(c => c.files)])], writableDirectories: plan.environment.writable_directories } : undefined, signal: options.signal });
                 probes.push(probe);
                 rows.push({ name: `${role} authentication`, status: probe.status === "completed" && probe.authentication.sessionOpened ? "ready" : "blocked", detail: probe.authLine });
                 await immutableControllerFile(join(state, "preflight", `${role}-${crypto.randomUUID()}.json`), new Redactor(plan.runtime.env).deep({ schema_version: "wringer.agent-preflight.v1", planSha256: plan.plan_sha256, at: new Date().toISOString(), probe, sha256: hashValue(probe) }));

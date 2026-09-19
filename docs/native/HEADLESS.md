@@ -224,6 +224,11 @@ key presence nor ACP session creation proves effective provider authentication.
 `wringer-drive doctor --plan PLAN.yaml --probe-agents` opens contained ACP
 sessions **without sending a model prompt** and reports that precise limit.
 
+A `local://` profile is probed from the pair `prepare --local` wrote beside it
+(`PROFILE.source.bundle` and `PROFILE.source.json`), verified exactly as `init`
+verifies them. Nothing is fetched by name: if that pair is missing or no longer
+matches the profile, the probe refuses by sentence and opens no session.
+
 ## What remains a real stop
 
 - The required runtime cannot establish the declared isolation or network policy.
