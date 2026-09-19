@@ -123,6 +123,27 @@ test("single gate keeps declared numbering and optional failures do not fail a r
     expect(out.status).toBe("passed");
     expect(await readdir(join(root, out.evidence_dir, "gates"))).toEqual(["002_two"]);
 });
+test("a narrow selection stays exit 0 and records what the pass did not cover", async () => {
+    const root = await scratch();
+    await config(root, [{ id: "one", run: "true" }, { id: "two", run: "true" }, { id: "spare", run: "false", optional: true }]);
+    const out = await verify(root, { gate: "one" });
+    expect(out.status).toBe("passed");
+    expect(out.exit_code).toBe(0);
+    expect(out.selection).toMatchObject({ complete: false, selected: ["one"], executed: ["one"], passed: ["one"], missing_required: ["two"], required: ["one", "two"] });
+    await schema(join(root, out.evidence_dir), "selection.json", "selection-v1.schema.json");
+    expect(await readFile(join(root, out.evidence_dir, "summary.md"), "utf8")).toContain("Incomplete: 1 required check was not run (two).");
+    expect((await validateDigests(join(root, out.evidence_dir))).ok).toBe(true);
+    const full = await verify(root);
+    expect(full.selection).toMatchObject({ complete: true, selected: null, missing_required: [] });
+    expect(await readFile(join(root, full.evidence_dir, "summary.md"), "utf8")).toContain("Complete: all 2 required checks ran.");
+});
+test("a gate skipped because an earlier one failed leaves the verification incomplete", async () => {
+    const root = await scratch();
+    await config(root, [{ id: "first", run: "exit 1" }, { id: "costly", run: "echo should-not-run" }]);
+    const out = await verify(root);
+    expect(out.status).toBe("failed");
+    expect(out.selection).toMatchObject({ complete: false, executed: ["first"], failed: ["first"], missing_required: ["costly"] });
+});
 test("secrets are scrubbed in all captured text before seal, including command and both streams", async () => {
     const root = await scratch();
     const key = "secret-value-4bb20600a9";

@@ -83,3 +83,25 @@ not a substitute for running that safety probe on the actual platform.
 A useful stop preserves the evidence and supplies a runnable next action. Capture one that does not. Do not remove an isolation policy or invent a human observation to force a green result.
 
 The person reviews the actual display for a human criterion. The operator separately reviews delivery and chooses whether to send it. Once delivered, follow the bundle's audit and falsification instructions in a fresh clone. [QUICKSTART.md](QUICKSTART.md) explains those surfaces.
+
+## 7. Verify in phases without losing the whole
+
+A project whose checks need different services verifies in phases: `wring verify --gate build --gate lint`, then the database phase, then the browser phase. Each phase writes its own sealed bundle, and each one legitimately reports `passed` — for its selection. It stays exit 0, because a deliberately narrow run is a useful act.
+
+What a subset run cannot do is stand in for the verification. Every bundle carries `selection.json` (`wringer.selection.v1`) naming what was declared, selected, executed, passed, failed and **not run**, and both the bundle's `summary.md` and the board Wringer prints say it in one sentence:
+
+```
+Incomplete: 9 required checks were not run (fresh-offline-setup, domain-provider-contracts, …).
+```
+
+Completeness there is about execution, never outcome: a run in which everything ran and one check failed is complete and failed. A gate with no `proves:` still counts — `lint` proves no requirement, and omitting it still means the verification did not cover what you declared.
+
+Combine the phases into one result:
+
+```sh
+wring audit --set .wringer/runs/FIRST --set .wringer/runs/SECOND --set .wringer/runs/THIRD
+```
+
+That writes `wringer.verification-set.v1` and a generated `HANDOFF.md` under `.wringer/sets/`, and exits 1 while the set is incomplete. Bundles join only when their revision, their `.wringer.yaml` bytes and each gate's check identity agree; a damaged bundle, a second revision or two outcomes for one gate is refused by a sentence naming the bundle, never resolved by picking one. `wring verify --set` is the same combiner under the verb you may already be holding.
+
+The generated handoff separates the tested commit from the evidence commit, lists complete and incomplete checks, states which gates you declared with `--live-check` and what a live check does not establish, and keeps agent review apart from owner judgment. Where no person recorded a judgement it says so; nothing in a machine result ever becomes one. Name earlier decision documents with `--supersedes FILE` and each gets a dated superseded line rather than being quietly contradicted.

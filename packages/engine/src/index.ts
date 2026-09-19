@@ -5,6 +5,8 @@ export * from "./process";
 export * from "./git";
 export * from "./acceptance";
 export * from "./verify";
+export * from "./selection";
+export * from "./handoff";
 export * from "./loop";
 export * from "./diagnostics";
 export * from "./prove";

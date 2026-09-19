@@ -40,7 +40,7 @@ export function parseArgs(argv: string[]): Args {
                 throw new Error(`--${key} needs a value`);
         }
         if (flags.has(key)) {
-            if (!["gate", "from", "contender"].includes(key))
+            if (!["gate", "from", "contender", "set", "live-check", "supersedes"].includes(key))
                 throw new Error(`--${key} was supplied more than once`);
             const previous = flags.get(key)!;
             flags.set(key, [...(Array.isArray(previous) ? previous : [String(previous)]), String(value)]);

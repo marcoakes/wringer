@@ -67,6 +67,8 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
                 const value = await delivery.falsify(repo, required(a, "delivery"), { maxAttempts: number(a, "max-attempts", 24), wallSeconds: number(a, "wall-seconds", 60), signal: context.signal });
                 return { value, text: value.table, exit: context.signal?.aborted ? 4 : 0 };
             }
+            if (a.flags.has("set"))
+                return combineBundles(a, repo);
             allowed(a, ["gate", "serial", "output", "prove"]);
             const value = await engine.verify(repo, { gate: values(a, "gate"), serial: flag(a, "serial"), output: string(a, "output"), prove: flag(a, "prove"), signal: context.signal });
             const model = await board.loadBoard(repo, value.evidence_dir);
@@ -105,6 +107,8 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             return { value, text: `${value.mode === "live" ? "Branch and evidence delivered" : "Prepared"}: ${value.delivery_id}\nEvidence: ${value.directory}\nReview request: ${value.publication?.url ?? value.publication?.status ?? "No forge declared; no hosted review request was created."}\nAudit: ${value.audit_command}\nNext: ${value.next_move}`, exit: value.publication && !["prepared", "published", "recovered"].includes(value.publication.status) ? 3 : 0 };
         }
         case "audit": {
+            if (a.flags.has("set"))
+                return combineBundles(a, repo);
             allowed(a, ["delivery"]);
             const value = await delivery.audit(repo, required(a, "delivery"));
             return { value, text: delivery.renderAudit(value), exit: value.status === "passed" ? 0 : 1 };
@@ -138,6 +142,12 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             return extended(a, repo, context);
         }
     }
+}
+/** One combined result over several sealed bundles of one revision, on `verify` and `audit` alike. */
+async function combineBundles(a: Args, repo: string): Promise<Answer> {
+    allowed(a, ["set", "output", "repository", "preview", "live-check", "supersedes"]);
+    const value = await engine.verificationSetReceipt(repo, values(a, "set")!, { output: string(a, "output"), repository: string(a, "repository"), preview: string(a, "preview"), liveChecks: values(a, "live-check"), supersedes: values(a, "supersedes") });
+    return { value: { ...value.set, receipt: value.directory }, text: value.text, exit: value.exit_code };
 }
 async function evidence(a: Args, repo: string, context: DispatchContext): Promise<Answer> {
     if (flag(a, "help"))

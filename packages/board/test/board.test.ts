@@ -193,6 +193,34 @@ describe("honest shared evidence", () => {
         expect(html).toContain('id="wringer-board-meta"');
     });
 });
+// A green selection is not a green verification. The sentence must reach the surface `wring verify` prints.
+test("an incomplete selection is stated on the board and cannot read as checks passing", async () => {
+    const { repo, green } = await fixture();
+    await Bun.write(join(repo, green, "selection.json"), JSON.stringify({
+        schema_version: "wringer.selection.v1", run_id: "a-first-lexically", head_sha: "a".repeat(40), config_sha256: "b".repeat(64),
+        declared: ["accept", "lint", "browser"], required: ["accept", "lint", "browser"], selected: ["accept"], executed: ["accept"], passed: ["accept"], failed: [],
+        missing_required: ["lint", "browser"], complete: false, reason: "Incomplete: 2 required checks were not run (lint, browser).", limits: ["One"],
+    }));
+    const b = await loadBoard(repo);
+    expect(b.selection).toMatchObject({ complete: false, declared: 3, required: 3, executed: 1, missingRequired: ["lint", "browser"] });
+    expect(b.facts.checksPassing).toBe(false);
+    expect(b.facts.readyToDeliver).toBe(false);
+    const rail = b.rail.find(s => s.label === "Checks passing")!;
+    expect(rail.status).not.toBe("complete");
+    expect(rail.detail).toContain("Incomplete: 2 required checks were not run (lint, browser).");
+    const markdown = renderMarkdown(b);
+    expect(markdown).toContain("Incomplete: 2 required checks were not run (lint, browser).");
+    expect(renderHtml(b)).toContain("Incomplete: 2 required checks were not run (lint, browser).");
+    expect(b.nextAction.command).toBe("wring verify --gate 'lint' --gate 'browser'");
+    expect(b.issues).toEqual([]);
+});
+test("a bundle with no selection record keeps its older reading, and says nobody recorded one", async () => {
+    const { repo } = await fixture();
+    const b = await loadBoard(repo);
+    expect(b.selection).toBeNull();
+    expect(b.facts.checksPassing).toBe(true);
+    expect(b.rail.find(s => s.label === "Checks passing")!.detail).toContain("No selection record travelled with this run");
+});
 const REAL = "/Users/marc/Claude/wringer-run5-rerun-2026-09-06/blind-0910/example-clean/project";
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");
 test("the legacy corpus's frozen evidence manifests remain readable by the board", async () => {

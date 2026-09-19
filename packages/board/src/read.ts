@@ -254,7 +254,7 @@ function quoteFor(id: string, sources: Obj | null, intent: string | null, frozen
 export async function loadBoard(repo: string, run?: string): Promise<BoardModel> {
     repo = await realpath(repo);
     const records = new Records(repo, await openReader(SCHEMAS));
-    const model: BoardModel = { version: "wringer.board.v1", repo, title: basename(repo), intent: null, generatedAt: new Date().toISOString(), selected: Boolean(run), run: null, delivery: null, journey: null, gates: [], requirements: [], acceptanceCounts: null, facts: {} as BoardModel["facts"], rail: [], nextAction: { title: "Record the first check", description: "There is no verification record to review yet.", command: "wring verify", owner: "operator", spends: false }, timeline: [], usage: [{ lane: "drafting", tokens: null, cost: null, basis: "Not reported", calls: null }, { lane: "building", tokens: null, cost: null, basis: "Not reported", calls: null }], issues: records.issues, limits: [] };
+    const model: BoardModel = { version: "wringer.board.v1", repo, title: basename(repo), intent: null, generatedAt: new Date().toISOString(), selected: Boolean(run), run: null, delivery: null, journey: null, selection: null, gates: [], requirements: [], acceptanceCounts: null, facts: {} as BoardModel["facts"], rail: [], nextAction: { title: "Record the first check", description: "There is no verification record to review yet.", command: "wring verify", owner: "operator", spends: false }, timeline: [], usage: [{ lane: "drafting", tokens: null, cost: null, basis: "Not reported", calls: null }, { lane: "building", tokens: null, cost: null, basis: "Not reported", calls: null }], issues: records.issues, limits: [] };
     let runPath: string | undefined;
     if (run) {
         try {
@@ -270,6 +270,10 @@ export async function loadBoard(repo: string, run?: string): Promise<BoardModel>
     if (manifest && runPath) {
         model.run = { id: manifest.run_id, path: relative(repo, runPath), createdAt: manifest.started_at, head: manifest.repo.head_sha, branch: manifest.repo.branch, result: manifest.result.status };
         model.gates = await readGates(records, runPath);
+        // Absent in every bundle written before the record existed: unrecorded, never "everything ran".
+        const selection = await records.json(resolve(runPath, "selection.json"), "wringer.selection.v1");
+        if (selection)
+            model.selection = { complete: selection.complete === true, reason: selection.reason, declared: selection.declared.length, required: selection.required.length, executed: selection.executed.length, missingRequired: selection.missing_required };
     }
     const frozenPath = runPath ? resolve(runPath, "wringer.spec.yaml") : null;
     const frozen = frozenPath !== null && await Bun.file(frozenPath).exists();

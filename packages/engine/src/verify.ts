@@ -7,6 +7,7 @@ import { snapshot } from "./git";
 import { Bundle, VERSION, newId, now, posix, Redactor, safePath, sha256 } from "./io";
 import { runProcess } from "./process";
 import { prove } from "./prove";
+import { selectionRecord } from "./selection";
 import { preflightContainer, runGateCommand, executionRecord } from "./backend";
 import { captureArtifacts } from "./artifacts";
 import { EngineError, type Config, type Gate, type GateResult, type VerifyOptions, type VerifyOutcome } from "./types";
@@ -153,9 +154,12 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     const manifest = { schema_version: "wringer.evidence.v1", run_id: id, started_at, repo: repoRecord, result: { status, failed_gate } };
     await bundle.event("run.finished", { status, ...(failed_gate ? { failed_gate } : {}) });
     await bundle.json("manifest.json", manifest);
+    // A subset run legitimately says `passed`. This sibling is the only thing that says what the pass covered.
+    const selection = selectionRecord({ run_id: id, head_sha: snap.head_sha, config_sha256: sha256(await readFile(await safePath(repo, ".wringer.yaml"))), gates: config.gates, selected: selected ? [...selected] : null, results });
+    await bundle.json("selection.json", selection);
     const required = config.gates.filter(g => !g.optional);
     const template_only = required.length > 0 && required.every(g => g.id === "placeholder" && g.run.trim() === "true");
-    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
+    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, selection.reason, template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
     for (const [index, g] of config.gates.entries()) {
         const result = results.find(r => r.gate_id === g.id);
         summary.push(`| ${g.id} | ${result?.status ?? (status === "interrupted" ? "not completed" : "skipped")} | ${result ? `${result.duration_ms} ms` : "—"} | ${result ? `[output](${gateDir(index, g.id)}/stdout.log) · [errors](${gateDir(index, g.id)}/stderr.log)` : "—"} |`);
@@ -168,5 +172,5 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
         summary.push("", `Next: \`${rerun}\``);
     await bundle.write("summary.md", summary.filter((line, i) => line || i > 0).join("\n") + "\n");
     await bundle.seal();
-    return { status, failed_gate, rerun, evidence_dir: posix(relative(repo, directory)), template_only, exit_code: status === "interrupted" ? 4 : status === "failed" ? 1 : 0, manifest, results, ...(assessed ? { acceptance: assessed } : {}), ...(stabilities.length ? { stability: { gates: stabilities } } : {}), ...(vacuity ? { vacuity } : {}) };
+    return { status, failed_gate, rerun, evidence_dir: posix(relative(repo, directory)), template_only, exit_code: status === "interrupted" ? 4 : status === "failed" ? 1 : 0, manifest, selection, results, ...(assessed ? { acceptance: assessed } : {}), ...(stabilities.length ? { stability: { gates: stabilities } } : {}), ...(vacuity ? { vacuity } : {}) };
 }

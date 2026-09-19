@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/verification-set-v1.schema.json",
+  "title": "Wringer verification-set receipt",
+  "description": "`set.json` — one combined result over SEVERAL sealed `wring verify` bundles of the SAME revision, written by `wring verify --set DIR…` and `wring audit --set DIR…`. Not a bundle and not a delivery: it is a receipt over bundles that already exist, it runs nothing, and it adds no measurement of its own. **The question it exists to answer.** A real project verifies in phases — a build subset, a database subset, a browser subset — because the phases need different services and different amounts of time. Each phase writes its own sealed bundle saying `passed`, and until this record existed nothing in the product could add them up: the 19 September 2026 ZenJev build combined four bundles into a ten-gate claim with a custom script and a hand-written table, and the completeness of that claim lived only in the operator's head. **What it claims.** `complete` here is STRICTER than the same word in `wringer.selection.v1`: a set is complete only when every required declared gate has EXACTLY ONE passed execution across the whole set. A single bundle's `complete` is about execution alone, because a bundle is a record of what happened; a set is a claim that a revision was verified, so a failure or a gap breaks it. The two words are different on purpose and each record says which it means. **What it refuses.** Combining is legitimate only when the bundles are speaking about the same thing, so the combiner refuses, by a sentence naming the offending bundle, when: two bundles record different `head_sha`; two bundles carry different `.wringer.yaml` bytes; a gate's check identity in `checks.json` differs between two bundles; a bundle's digest inventory does not validate; or two bundles record an outcome for the same gate. That last one is not pedantry — two outcomes for one gate is either a re-run whose order nobody recorded or two different machines disagreeing, and picking one silently is how a red becomes a green. **What it does not claim.** It does not establish that the checks cover the requirement they are bound to, that the tested source is the published source, or that a human judged anything; those are `wringer.acceptance.v3`, the delivery anchor and a recorded judgement respectively, and the generated `HANDOFF.md` beside this file says which of them are absent rather than filling them in. It reads operator-named directories and executes nothing from them.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "set_id",
+    "at",
+    "head_sha",
+    "config_sha256",
+    "declared",
+    "required",
+    "bundles",
+    "executions",
+    "passed",
+    "failed",
+    "missing_required",
+    "complete",
+    "reason",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.verification-set.v1"
+    },
+    "set_id": {
+      "description": "This receipt's own identity, in the same timestamp-and-suffix shape as a run id. A set is re-derivable from its bundles, so this names the act of combining rather than any new measurement.",
+      "type": "string"
+    },
+    "at": {
+      "description": "When the set was combined, ISO 8601. Not a measurement of the checks, which carry their own `started_at`; a clock reading on the machine that combined them and not authenticated.",
+      "type": "string"
+    },
+    "head_sha": {
+      "description": "The one revision every bundle in the set agrees it tested. A set with two revisions does not exist — the combiner refuses before writing this file.",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "config_sha256": {
+      "description": "sha256 of the one `.wringer.yaml` every bundle in the set carried. The declared-gate population is read from these bytes, so the set's denominator is a hashed artefact and not a config on the combining machine, which may be a different checkout or no checkout at all.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "declared": {
+      "description": "Every gate id in the carried `.wringer.yaml`, in declared order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required": {
+      "description": "The declared gates that are not `optional: true`, in declared order. The set's denominator.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "bundles": {
+      "description": "One row per bundle combined, in the order the operator named them.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "run_id",
+          "started_at",
+          "status",
+          "executed",
+          "selection_record"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "description": "The directory as the operator named it, verbatim. A reader who wants to re-derive the set needs the words that were typed, not a normalisation of them.",
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "started_at": {
+            "type": "string"
+          },
+          "status": {
+            "description": "That bundle's own `result.status`.",
+            "type": "string"
+          },
+          "executed": {
+            "description": "The gates this bundle recorded a result for, in declared order.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "selection_record": {
+            "description": "`wringer.selection.v1` when the bundle carried the sibling record, `absent` when it did not. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had.",
+            "enum": [
+              "wringer.selection.v1",
+              "absent"
+            ]
+          }
+        }
+      }
+    },
+    "executions": {
+      "description": "One row per gate execution across the whole set, in declared gate order: which bundle recorded it and what it recorded. The audit trail behind `passed`, `failed` and `missing_required` — a reader disputing the set's verdict for one gate can go straight to the bundle that decided it.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "bundle",
+          "status",
+          "exit_code",
+          "optional"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "gate_id": {
+            "type": "string"
+          },
+          "bundle": {
+            "description": "The bundle path, as named, that recorded this execution.",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "passed",
+              "failed"
+            ]
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "optional": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "passed": {
+      "description": "Required declared gates with a passed execution somewhere in the set, in declared order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "failed": {
+      "description": "Required declared gates whose execution in the set failed, in declared order. A nonempty list makes the set incomplete; it is kept separate from `missing_required` because a gate that ran and failed is a finding and a gate that never ran is a gap, and the two need different next steps.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_required": {
+      "description": "Required declared gates with no execution anywhere in the set, in declared order.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "complete": {
+      "description": "True only when `missing_required` and `failed` are both empty, so every required declared gate has exactly one passed execution across the set. Duplicate executions cannot reach this field: the combiner refuses them.",
+      "type": "boolean"
+    },
+    "reason": {
+      "description": "The sentence a person reads, carried verbatim so the receipt, the generated handoff and stdout all print the same words.",
+      "type": "string",
+      "minLength": 1
+    },
+    "limits": {
+      "description": "What this receipt does NOT claim, travelling with it. Pinned by CONTENT in the tests.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  }
+}

@@ -129,6 +129,7 @@ export interface VerifyOutcome {
     template_only: boolean;
     exit_code: number;
     manifest: any;
+    selection: any;
     results: GateResult[];
     acceptance?: any;
     stability?: any;

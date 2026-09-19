@@ -251,3 +251,25 @@ that a real agent will finish within it.
 Keep the controller's frozen plan/authority, sequenced events, runtime/session provenance, reservations, resulting source identity and stop/result records. Usage is reported when known, not priced by guesswork. No receipt is a promise that a live model will converge.
 
 Apple/gVisor protocol fixtures do not establish live isolation. Before a valuable unattended workload, require the platform-specific boundary and cancellation/cleanup tests. [Architecture](ARCHITECTURE.md) explains the separation; the [historical alpha.1 report](IMPLEMENTATION_REPORT.md) documents an earlier helper and must not be followed as current setup.
+
+## Verify in phases, then combine them
+
+Unattended CI usually cannot run every declared check in one invocation: the browser phase needs a browser, the database phase needs a database. Run the phases you can, each in its own `wring verify --gate …`, and keep every bundle.
+
+A subset run exits 0 and reports `passed` for its selection. It also writes `selection.json` (`wringer.selection.v1`) and prints one sentence naming what it did not cover:
+
+```
+Incomplete: 9 required checks were not run (fresh-offline-setup, domain-provider-contracts, …).
+```
+
+Never read a subset's `passed` as a verification. Read `selection.json`: `complete` is false while any required declared gate has no recorded execution, a gate with no `proves:` included. A bundle written before that record existed does not have it, and its absence means *nobody recorded this*, never *everything ran*.
+
+At the end of the job, combine the phases:
+
+```sh
+wring audit --set .wringer/runs/BUILD --set .wringer/runs/DATABASE --set .wringer/runs/BROWSER
+```
+
+Exit 0 means every required declared gate has exactly one passed execution across the set; exit 1 means it does not, and the receipt names the gaps and the failures separately. Exit 2 is a refusal: two revisions, two configurations, two definitions of one check, a damaged bundle, or two outcomes for one gate. Each refusal names the offending bundle. The receipt (`wringer.verification-set.v1`) and a generated `HANDOFF.md` land under `.wringer/sets/<id>/`, which is the one locator to publish. `wring verify --set` is the same combiner.
+
+Declare live integration checks with `--live-check ID` and earlier decision documents with `--supersedes FILE`; both are recorded as written, and neither invents a result. The handoff never manufactures an owner judgment — where no person recorded one it says `none recorded`.

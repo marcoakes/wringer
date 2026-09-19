@@ -4,6 +4,75 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.15 — completeness you cannot mistake for a pass (source checkpoint)
+
+An outside reader scored Wringer's contribution to a second application, ZenJev
+(`marcoakes/ZenJev` @ `8ea4f273`, ten gates, 109 test cases, four sealed bundles),
+at 6.5/10, and named partial-verification confusion its highest-priority gap. The
+measurement behind that: `wring verify --gate lint` writes `"status": "passed"`,
+exits 0, and nothing else in the bundle says that nine required checks never ran.
+Measured on the fixture before this release, the board Wringer prints read
+`Checks passing: complete. 1 of 1 recorded checks passed.` for a one-of-ten
+selection, and no product verb could combine the four bundles the build actually
+produced.
+
+This release is that gap, closed.
+
+- **`wringer.selection.v1` (`selection.json`), a new sibling written on every
+  run**, beside `checks.json` and `execution.json`: `declared`, `required`,
+  `selected`, `executed`, `passed`, `failed`, `missing_required`, `complete`,
+  `config_sha256` and `head_sha`. `complete` is exactly
+  `missing_required.length === 0` — about EXECUTION and never outcome, so a full
+  run in which a check failed is complete and failed, which is a different fact
+  from a green run that covered a tenth of the checks. Completeness is measured
+  against the `.wringer.yaml` the bundle carries, so **a gate with no `proves:`
+  still counts**: `lint` proves no requirement and omitting it still means the
+  verification did not cover what the repository declared.
+- **A narrow run stays `passed` for its selection and exit 0**, because
+  refusing a deliberately narrow run would teach operators to stop recording it.
+  What changes is that it now says, in one sentence carried in the record and
+  printed verbatim by both the bundle's `summary.md` and the board:
+  `Incomplete: 9 required checks were not run (…)`. The board's "Checks passing"
+  rail can no longer read `complete` for an incomplete selection, an incomplete
+  run is not ready to deliver, and its next action is the rest of the
+  verification rather than a repair that has nothing to repair.
+- **`wring verify --set DIR…` and `wring audit --set DIR…`** — the same combiner
+  under either verb — write `wringer.verification-set.v1` and a generated
+  `HANDOFF.md` under `.wringer/sets/<id>/`, one stable locator. A set's
+  `complete` is STRICTER than a bundle's: every required declared gate must have
+  exactly one PASSED execution. Exit 0 complete, 1 incomplete, 2 refused.
+- **Five refusals, each a sentence naming the offending bundle**: two revisions;
+  two `.wringer.yaml` bytes; one gate with two check definitions; a bundle whose
+  digest inventory does not validate; and two outcomes for one gate — a re-run
+  whose order nobody recorded, or two machines disagreeing, which this set will
+  not resolve by picking one. Bundles written before `selection.json` existed
+  still combine, from their gate results, and the receipt records which route
+  each one used rather than pretending it carried a record it never had.
+- **The handoff is generated, and never manufactures a verdict.** It separates
+  the tested application commit from the evidence commit (measured; normally
+  "not committed", because `.wringer/` is ignored), lists complete and incomplete
+  checks with the bundle that decided each, states declared live integration
+  checks and what they do not establish, keeps agent review apart from owner
+  judgment — where no person recorded one it says `none recorded` — names the
+  repository, preview and artifact locators, and writes a dated *superseded* line
+  for every earlier decision file named with `--supersedes`.
+
+Acceptance, measured on the real ZenJev artifacts of run 35462754472, not
+reconstructed: lint-only reports a passing selection and an incomplete overall
+verification at exit 0; omitting `lint`, `typecheck` and `production-build` —
+all three of which have no `proves:` — blocks completion by name; the four
+bundles combine into one complete ten-gate result; a duplicated bundle, a
+tampered bundle and a repeated directory are each refused by a sentence naming
+it. Every guard was reverted one at a time and observed RED before restoration.
+
+Schema versions: two new files, `selection-v1.schema.json` and
+`verification-set-v1.schema.json`. No frozen schema changed.
+
+Not claimed: that ZenJev's numbers improved — those get measured on the next
+build — or any live PM pass.
+
+bun run check: 951 pass, 1 skip, 0 fail.
+
 ## 1.0.0-alpha.14 — the repairs a live run asked for (source checkpoint)
 
 The alpha.13 local-lane blind test **failed**, at worker capture, on the frozen

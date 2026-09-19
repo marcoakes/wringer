@@ -4147,6 +4147,41 @@ export type RuntimeV2 = {
 };
 
 /**
+ * Wringer run selection and completeness record
+ *
+ * Generated from `schema/selection-v1.schema.json`. Do not edit.
+ */
+export type SelectionV1 = {
+  "schema_version": "wringer.selection.v1";
+  /** The run this selection belongs to, identical to `manifest.json`'s `run_id`. Repeated here so a set combiner that has read only the sibling can still name the bundle it came from in a refusal. */
+  "run_id": string;
+  /** The commit the checks ran against, identical to `manifest.json`'s `repo.head_sha`, or null in an unborn repository. Repeated here because combining bundles is only legitimate across ONE revision, and the combiner compares this field. */
+  "head_sha": string | null;
+  /** sha256 of the `.wringer.yaml` bytes this run read, which travel in the same bundle. Two bundles whose configs differ declare different checks, so their gate rows are not the same population and cannot be added up — the combiner refuses on a mismatch rather than reporting a total nobody measured. */
+  "config_sha256": string;
+  /** Every gate id in `.wringer.yaml`, in declared order. The denominator of completeness, said out loud rather than left to be recounted from a config a reader may not have parsed. */
+  "declared": string[];
+  /** The declared gates that are not `optional: true`, in declared order. A gate with no `proves:` is still required — `lint` proves no criterion and its absence still means the verification did not cover what the repository declared. This is why completeness is computed from the config and not from the requirement mapping. */
+  "required": string[];
+  /** The gate ids named by `--gate`, in declared order, or null when the invocation named none and therefore selected everything declared. Null and a list equal to `declared` are deliberately distinguishable: the first is an operator who asked for the whole verification, the second is an operator who listed every gate by hand, and a reader reconstructing the command line needs to tell them apart. */
+  "selected": string[] | null;
+  /** The gates with a recorded result in this bundle, in declared order. Smaller than `selected` when the run was interrupted, or when a gate was skipped because an earlier required gate had already failed and it proves no criterion. */
+  "executed": string[];
+  /** Executed gates whose recorded status is `passed`, in declared order. */
+  "passed": string[];
+  /** Executed gates whose recorded status is `failed`, in declared order. Includes optional gates, which fail without failing the run; `result.failed_gate` in the manifest names the one that decided the run's status. */
+  "failed": string[];
+  /** Required declared gates with NO recorded execution in this bundle, in declared order. The whole point of the record: this list, not the status, is what a consumer needs to know before treating a green run as a verification. `complete` is exactly `missing_required.length === 0`. */
+  "missing_required": string[];
+  /** True when every required declared gate ran. Computed FROM `missing_required` and from nothing else, so the boolean and the list can never disagree — a `complete: true` beside a nonempty `missing_required` would be the exact confusion this record exists to prevent. */
+  "complete": boolean;
+  /** The sentence a person reads, carried here verbatim so every surface prints the same words rather than recomposing them. Incomplete runs read `Incomplete: N required checks were not run (a, b, c).`; complete runs say so and name the count. The surfaces that must show it are this bundle's `summary.md` and the board that `wring verify` prints. */
+  "reason": string;
+  /** What this record does NOT claim, travelling with it rather than living in a document nobody opened — the pattern `wringer.execution.v1` and `wringer.checks.v1` set. Pinned by CONTENT in the tests, not by non-emptiness. */
+  "limits": string[];
+};
+
+/**
  * Wringer requirement sources
  *
  * Generated from `schema/sources.schema.json`. Do not edit.
@@ -4400,6 +4435,61 @@ export type Vacuity = {
 };
 
 /**
+ * Wringer verification-set receipt
+ *
+ * Generated from `schema/verification-set-v1.schema.json`. Do not edit.
+ */
+export type VerificationSetV1 = {
+  "schema_version": "wringer.verification-set.v1";
+  /** This receipt's own identity, in the same timestamp-and-suffix shape as a run id. A set is re-derivable from its bundles, so this names the act of combining rather than any new measurement. */
+  "set_id": string;
+  /** When the set was combined, ISO 8601. Not a measurement of the checks, which carry their own `started_at`; a clock reading on the machine that combined them and not authenticated. */
+  "at": string;
+  /** The one revision every bundle in the set agrees it tested. A set with two revisions does not exist — the combiner refuses before writing this file. */
+  "head_sha": string | null;
+  /** sha256 of the one `.wringer.yaml` every bundle in the set carried. The declared-gate population is read from these bytes, so the set's denominator is a hashed artefact and not a config on the combining machine, which may be a different checkout or no checkout at all. */
+  "config_sha256": string;
+  /** Every gate id in the carried `.wringer.yaml`, in declared order. */
+  "declared": string[];
+  /** The declared gates that are not `optional: true`, in declared order. The set's denominator. */
+  "required": string[];
+  /** One row per bundle combined, in the order the operator named them. */
+  "bundles": {
+    /** The directory as the operator named it, verbatim. A reader who wants to re-derive the set needs the words that were typed, not a normalisation of them. */
+    "path": string;
+    "run_id": string;
+    "started_at": string;
+    /** That bundle's own `result.status`. */
+    "status": string;
+    /** The gates this bundle recorded a result for, in declared order. */
+    "executed": string[];
+    /** `wringer.selection.v1` when the bundle carried the sibling record, `absent` when it did not. Bundles written before that record existed are combined from their gate results alone, which is the same population the sibling would have reported; saying which route was used keeps an older bundle readable without pretending it carried a record it never had. */
+    "selection_record": "wringer.selection.v1" | "absent";
+  }[];
+  /** One row per gate execution across the whole set, in declared gate order: which bundle recorded it and what it recorded. The audit trail behind `passed`, `failed` and `missing_required` — a reader disputing the set's verdict for one gate can go straight to the bundle that decided it. */
+  "executions": {
+    "gate_id": string;
+    /** The bundle path, as named, that recorded this execution. */
+    "bundle": string;
+    "status": "passed" | "failed";
+    "exit_code": number;
+    "optional": boolean;
+  }[];
+  /** Required declared gates with a passed execution somewhere in the set, in declared order. */
+  "passed": string[];
+  /** Required declared gates whose execution in the set failed, in declared order. A nonempty list makes the set incomplete; it is kept separate from `missing_required` because a gate that ran and failed is a finding and a gate that never ran is a gap, and the two need different next steps. */
+  "failed": string[];
+  /** Required declared gates with no execution anywhere in the set, in declared order. */
+  "missing_required": string[];
+  /** True only when `missing_required` and `failed` are both empty, so every required declared gate has exactly one passed execution across the set. Duplicate executions cannot reach this field: the combiner refuses them. */
+  "complete": boolean;
+  /** The sentence a person reads, carried verbatim so the receipt, the generated handoff and stdout all print the same words. */
+  "reason": string;
+  /** What this receipt does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
+  "limits": string[];
+};
+
+/**
  * Wringer witness record — the check Wringer authored
  *
  * Generated from `schema/witness.schema.json`. Do not edit.
@@ -4650,6 +4740,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "rubric.schema.json": "wringer.rubric.v1",
   "runtime-v1.schema.json": "wringer.runtime.v1",
   "runtime-v2.schema.json": "wringer.runtime.v2",
+  "selection-v1.schema.json": "wringer.selection.v1",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
@@ -4658,6 +4749,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "untracked.schema.json": "wringer.untracked.v1",
   "usage.schema.json": "wringer.usage.v1",
   "vacuity.schema.json": "wringer.vacuity.v1",
+  "verification-set-v1.schema.json": "wringer.verification-set.v1",
   "witness.schema.json": "wringer.witness.v1",
   "worker-diagnosis-v2.schema.json": "wringer.workerdiagnosis.v2",
   "worker-diagnosis-v3.schema.json": "wringer.workerdiagnosis.v3",
@@ -4766,6 +4858,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.rubric.v1": "rubric.schema.json",
   "wringer.runtime.v1": "runtime-v1.schema.json",
   "wringer.runtime.v2": "runtime-v2.schema.json",
+  "wringer.selection.v1": "selection-v1.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",
@@ -4774,6 +4867,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.untracked.v1": "untracked.schema.json",
   "wringer.usage.v1": "usage.schema.json",
   "wringer.vacuity.v1": "vacuity.schema.json",
+  "wringer.verification-set.v1": "verification-set-v1.schema.json",
   "wringer.witness.v1": "witness.schema.json",
   "wringer.workerdiagnosis.v2": "worker-diagnosis-v2.schema.json",
   "wringer.workerdiagnosis.v3": "worker-diagnosis-v3.schema.json",
