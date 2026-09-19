@@ -3683,6 +3683,56 @@ export type NextMove = {
 };
 
 /**
+ * Wringer declared prelude and epilogue
+ *
+ * Generated from `schema/orchestration-v1.schema.json`. Do not edit.
+ */
+export type OrchestrationV1 = {
+  "schema_version": "wringer.orchestration.v1";
+  /** `ready`: the declared prelude completed and the gates were asked their questions. `environment`: a setup step failed, or a service never answered its declared readiness — exit 2, and no product result exists. `not-declared`: this repository declares no prelude, in which case the record is absent anyway and this value exists only for an in-memory reader. */
+  "outcome": "ready" | "environment" | "not-declared";
+  /** Ordered, bounded, project-owned commands, in declared order, each with its captured log. The first failure stops the run: a prelude is a sequence, not a set. */
+  "setup": unknown[];
+  /** One row per long-lived process this run started, in the order it started them. A service is started once, for the first phase that needs it, and held until teardown. */
+  "services": {
+    "id": string;
+    "command": string;
+    /** The leader pid of the process group this run created. It is the only group this run ever signals. */
+    "pid": number;
+    "readiness": {
+      /** The declared URL, or `none declared` when this service has no readiness of its own. */
+      "url": string;
+      /** The declared answer, as a phrase: an HTTP status, or a dotted JSON body path and the value it must equal. */
+      "expect": string;
+      "waited_ms": number;
+      /** `exited-before-readiness` is its own outcome and not a timeout: a process this run started died rather than staying silent, which is a different thing to investigate, and the detail names which one. `not-measured` means the service declares no readiness URL of its own — a worker reported by the application's health endpoint, for instance — so it was started and nothing established that it is serving; that is recorded rather than papered over with a URL it does not answer. */
+      "status": "ready" | "not-measured" | "exited-before-readiness" | "timed-out" | "refused";
+      /** What actually happened, including what the URL last answered when it never answered as declared. */
+      "detail": string;
+    };
+    /** How this service ended, or null if the record was written before teardown reached it. `forced: true` means it did not exit within grace and its group was killed. */
+    "stopped": {
+      "code": number | null;
+      "signal": string | null;
+      "forced": boolean;
+    } | null;
+    "log": string;
+  }[];
+  /** The declared phase order, with the services each phase needs. Once phases are declared they ARE the running order, and every declared gate belongs to exactly one — a gate in two phases would be two outcomes for one check, and a gate in none would silently never run. */
+  "phases": {
+    "id": string;
+    "needs": string[];
+    "gates": string[];
+  }[];
+  /** The epilogue, which always ran. A failure here is recorded and does not rewrite the run's outcome: cleanup that went wrong is not a product result either. */
+  "teardown": unknown[];
+  /** The sentence a person reads, naming the step or service that decided the outcome. */
+  "reason": string;
+  /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
+  "limits": string[];
+};
+
+/**
  * Design-bound planning request v2
  *
  * Generated from `schema/planning-request-v2.schema.json`. Do not edit.
@@ -4267,6 +4317,49 @@ export type SelectionV1 = {
 };
 
 /**
+ * Wringer run selection and completeness record
+ *
+ * Generated from `schema/selection-v2.schema.json`. Do not edit.
+ */
+export type SelectionV2 = {
+  "schema_version": "wringer.selection.v2";
+  /** The run this selection belongs to, identical to `manifest.json`'s `run_id`. Repeated here so a set combiner that has read only the sibling can still name the bundle it came from in a refusal. */
+  "run_id": string;
+  /** The commit the checks ran against, identical to `manifest.json`'s `repo.head_sha`, or null in an unborn repository. Repeated here because combining bundles is only legitimate across ONE revision, and the combiner compares this field. */
+  "head_sha": string | null;
+  /** sha256 of the `.wringer.yaml` bytes this run read, which travel in the same bundle. Two bundles whose configs differ declare different checks, so their gate rows are not the same population and cannot be added up — the combiner refuses on a mismatch rather than reporting a total nobody measured. */
+  "config_sha256": string;
+  /** Every gate id in `.wringer.yaml`, in declared order. The denominator of completeness, said out loud rather than left to be recounted from a config a reader may not have parsed. */
+  "declared": string[];
+  /** The declared gates that are not `optional: true`, in declared order. A gate with no `proves:` is still required — `lint` proves no criterion and its absence still means the verification did not cover what the repository declared. This is why completeness is computed from the config and not from the requirement mapping. */
+  "required": string[];
+  /** The gate ids named by `--gate`, in declared order, or null when the invocation named none and therefore selected everything declared. Null and a list equal to `declared` are deliberately distinguishable: the first is an operator who asked for the whole verification, the second is an operator who listed every gate by hand, and a reader reconstructing the command line needs to tell them apart. */
+  "selected": string[] | null;
+  /** The gates with a recorded result in this bundle, in declared order. Smaller than `selected` when the run was interrupted, or when a gate was skipped because an earlier required gate had already failed and it proves no criterion. */
+  "executed": string[];
+  /** Executed gates whose recorded status is `passed`, in declared order. */
+  "passed": string[];
+  /** Executed gates whose recorded status is `failed`, in declared order. Includes optional gates, which fail without failing the run; `result.failed_gate` in the manifest names the one that decided the run's status. */
+  "failed": string[];
+  /** Required declared gates with NO recorded execution in this bundle, in declared order. The whole point of the record: this list, not the status, is what a consumer needs to know before treating a green run as a verification. `complete` is exactly `missing_required.length === 0`. */
+  "missing_required": string[];
+  /** True when every required declared gate ran. Computed FROM `missing_required` and from nothing else, so the boolean and the list can never disagree — a `complete: true` beside a nonempty `missing_required` would be the exact confusion this record exists to prevent. */
+  "complete": boolean;
+  /** The sentence a person reads, carried here verbatim so every surface prints the same words rather than recomposing them. Incomplete runs read `Incomplete: N required checks were not run (a, b, c).`; complete runs say so and name the count. The surfaces that must show it are this bundle's `summary.md` and the board that `wring verify` prints. */
+  "reason": string;
+  /** What this record does NOT claim, travelling with it rather than living in a document nobody opened — the pattern `wringer.execution.v1` and `wringer.checks.v1` set. Pinned by CONTENT in the tests, not by non-emptiness. */
+  "limits": string[];
+  /** One row per declared phase, in declared order, saying which of its gates this run executed. Empty when the repository declares no `phases:`. It lives here because completeness and the running order are the same question asked twice: a phase whose services never became ready contributes no execution, and a reader adding up a set needs to see that the gap is a phase rather than a gate nobody selected. */
+  "phases": {
+    "id": string;
+    /** Every gate this phase groups, in the phase's own order. */
+    "gates": string[];
+    /** Those of them with a recorded result in this bundle. */
+    "executed": string[];
+  }[];
+};
+
+/**
  * Wringer requirement sources
  *
  * Generated from `schema/sources.schema.json`. Do not edit.
@@ -4811,6 +4904,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "loop-manifest.schema.json": "wringer.loop.v1",
   "manifest.schema.json": "wringer.evidence.v1",
   "next-move.schema.json": "wringer.nextmove.v1",
+  "orchestration-v1.schema.json": "wringer.orchestration.v1",
   "planning-request-v2.schema.json": "wringer.planning-request.v2",
   "planning-request-v3.schema.json": "wringer.planning-request.v3",
   "planning-request-v4.schema.json": "wringer.planning-request.v4",
@@ -4828,6 +4922,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "runtime-v1.schema.json": "wringer.runtime.v1",
   "runtime-v2.schema.json": "wringer.runtime.v2",
   "selection-v1.schema.json": "wringer.selection.v1",
+  "selection-v2.schema.json": "wringer.selection.v2",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
@@ -4931,6 +5026,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.loop.v1": "loop-manifest.schema.json",
   "wringer.evidence.v1": "manifest.schema.json",
   "wringer.nextmove.v1": "next-move.schema.json",
+  "wringer.orchestration.v1": "orchestration-v1.schema.json",
   "wringer.planning-request.v2": "planning-request-v2.schema.json",
   "wringer.planning-request.v3": "planning-request-v3.schema.json",
   "wringer.planning-request.v4": "planning-request-v4.schema.json",
@@ -4948,6 +5044,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.runtime.v1": "runtime-v1.schema.json",
   "wringer.runtime.v2": "runtime-v2.schema.json",
   "wringer.selection.v1": "selection-v1.schema.json",
+  "wringer.selection.v2": "selection-v2.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",

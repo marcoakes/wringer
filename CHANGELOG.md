@@ -4,6 +4,90 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.18 — the coordinator disappears (source checkpoint)
+
+Measured from ZenJev's own CI coordinator at `e4d21da`, 117 lines beside a
+104-line workflow. It re-implemented detached spawn, `SIGTERM`→`SIGKILL`,
+timeouts, per-label log capture and an owned-children set — machinery
+`engine/process.ts` already had for bounded commands. It ran two migrations and
+two seeds, started a worker and two application instances, polled two readiness
+URLs (one on a JSON body path, one on an authenticated `401`), ran four gate
+subsets, stopped everything and aggregated the bundles by hand. `.wringer.yaml`
+had no way to say any of it.
+
+- **Four additive config keys.** `setup:` — ordered, bounded, project-owned
+  commands. `services:` — long-lived processes the run owns, each with an optional
+  `readiness: {url, status | body_path + equals, timeout}`. `phases:` — ordered
+  gate groups, each with `needs: [service…]`. `teardown:`. `env:` on a step or
+  service maps a variable name to **another variable's name**, never to a literal:
+  a literal there would put a credential in the repository and is refused.
+- **`startService` in `engine/process.ts`**, the not-awaited sibling of
+  `runProcess`: detached spawn, the same scrub-then-cap capture, `SIGTERM` to the
+  group this call created then `SIGKILL` after grace, and **only** that group —
+  signalled by the leader pid the handle holds.
+- **The environment/product distinction, in the exit code.** A setup step that
+  failed or a service that never answered its declared readiness is
+  `outcome: "environment"` at **exit 2**: no gate ran, so nothing was asked of the
+  application. A gate that ran and failed stays exit 1. A cancelled run stays
+  exit 4. `orchestration.json` names the step or service, what its URL last
+  answered and how long it waited, and the run still writes a complete sealed
+  bundle — the evidence of why nothing was asked is the point of it.
+- **`exited-before-readiness` is its own outcome**, not a timeout, and any service
+  this run started dying during any poll ends the wait naming that service —
+  exactly as the coordinator passed its whole process set to each poll.
+- **Nothing under `setup:` or `services:` is retried.** A retry could repeat a
+  paid call or an external write; that is the project's decision to make
+  explicitly, and the refusal sentence says so.
+- **Teardown always runs** — after a failed gate, after an exit-2 refusal, and
+  after a cancellation. It is deliberately not bound to the run's abort signal,
+  because a cancelled run is exactly when cleanup matters. A teardown command that
+  itself fails is recorded and does not rewrite the run's outcome.
+- **Declared phases are the running order.** Every declared gate must be in
+  exactly one: a gate in two phases would be two outcomes for one check, and a
+  gate in none would silently never run. Both are refused by name, as is a phase
+  needing an undeclared service and a service no phase needs. `--gate` still
+  selects within that order, and `selection.json` becomes
+  `wringer.selection.v2`, which says which phase ran what.
+
+**The fixture, and its body count.** ZenJev's coordinator is expressed entirely
+in `.wringer.yaml` and deleted, on a local branch of the pinned fixture clone:
+
+```
+scripts/ci-verify.mjs           117  ->    0
+.github/workflows/verify.yml    104  ->  112   (one wring doctor, one wring verify)
+.wringer.yaml                    49  ->  116
+```
+
+117 lines of custom coordination became 67 lines of declaration in the file that
+already declared the gates, and the imperative supervision — spawn, signal
+escalation, timeouts, readiness polling, the owned-children set, the `pg` client
+for the identity query, the aggregation loop — is gone. The translated
+configuration is checked in as a regression fixture and a test asserts its whole
+shape: four phases in the coordinator's order, the two migrations and two seeds,
+the three services with the worker declaring no URL of its own, the `native_database`
+probe that replaced the `pg` client, the vitest and playwright adapters, and
+SW-01 bound in all three gates that evidence it.
+
+**Not run, and not claimed:** ZenJev's suite was not re-executed for this release.
+This host has no native PostgreSQL 17 and no container runtime, which ZenJev's own
+CI requires and which its coordinator explicitly refuses to substitute with a
+portable database. So there are **no new wall clocks**; the figures on record
+remain the ones the Zen report measured (≈101 s of gate subprocesses, ≈111 s of
+coordinator) for one successful run in September.
+
+Reverting the guards was severe enough to be worth recording: removing the
+process-group ownership check made the test runner signal its own group and die
+at exit 144, which is the clearest possible demonstration that the check is
+load-bearing. Two real defects were found and fixed while building this — service
+logs were captured after the handle list had been cleared, so they were never
+written; and teardown inherited the run's abort signal, so a cancelled run killed
+its own cleanup before it started.
+
+Schema versions: two new files, `orchestration-v1.schema.json` and
+`selection-v2.schema.json`. No frozen schema changed.
+
+bun run check: 1000 pass, 1 skip, 0 fail.
+
 ## 1.0.0-alpha.17 — what the runner actually reported (source checkpoint)
 
 Three measurements, all real, taken before this release:

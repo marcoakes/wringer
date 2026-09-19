@@ -295,6 +295,23 @@ Zero executed assertions cannot pass. A report contradicting the exit code is re
 
 A requirement may be bound in several gates (`proves:` in each, relation **all required**) with extra `corroborates:` gates recorded but never decisive. A corroborating gate runs even after an earlier failure, because it is evidence too.
 
+## Let the run hold the services
+
+An unattended job that needs a database, a worker and two application instances does not need a coordinator script beside it. Declare `setup:`, `services:` with their `readiness:`, ordered `phases:` with a `needs:` list, and `teardown:`, and one `wring verify` runs the whole thing. ZenJev's 117-line CI coordinator became 67 lines of declaration in the file that already declared its gates.
+
+The exit codes are the part to wire into a pipeline:
+
+```
+0  every required gate in every phase passed
+1  a gate ran and failed
+2  a setup step failed, or a service never answered its declared readiness  ← nothing was asked
+4  cancelled
+```
+
+Exit 2 is not a product result. `orchestration.json` names the step or the service, what its URL last answered, and how long it waited. Nothing under `setup:` or `services:` is retried, because a retry could repeat a paid call or an external write. Teardown always runs — after a failed gate, after an exit-2 refusal, and after a cancellation — and only the process groups this run started are ever signalled.
+
+A service with no URL of its own (a worker reported by the application's health endpoint) declares no `readiness:` and is recorded as started and **not measured**, which is true, rather than given a URL it does not serve.
+
 ## Verify in phases, then combine them
 
 Unattended CI usually cannot run every declared check in one invocation: the browser phase needs a browser, the database phase needs a database. Run the phases you can, each in its own `wring verify --gate …`, and keep every bundle.

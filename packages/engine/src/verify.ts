@@ -10,6 +10,7 @@ import { prove } from "./prove";
 import { selectionRecord } from "./selection";
 import { observeGateAssertions, GATE_ASSERTION_LIMITS, type GateAssertionOptions, type GateAssertionRow } from "./gate-evidence";
 import { probeRequirement, type ReadinessRow } from "./readiness";
+import { Orchestrator, EnvironmentError, type Orchestration } from "./orchestrate";
 import { preflightContainer, runGateCommand, executionRecord } from "./backend";
 import { captureArtifacts } from "./artifacts";
 import { EngineError, type Config, type Gate, type GateResult, type VerifyOptions, type VerifyOutcome } from "./types";
@@ -114,47 +115,87 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
             return browserProbe;
         } };
     let failed_gate: string | null = null, status: VerifyOutcome["status"] = "passed", groupId = 0;
-    for (let i = 0; i < config.gates.length;) {
-        const index = i, g = config.gates[i++]!;
-        if (selected && !selected.has(g.id))
-            continue;
-        if (failed_gate && !g.proves.length && !g.corroborates.length)
-            continue;
-        if (options.signal?.aborted) {
-            status = "interrupted";
-            break;
-        }
-        const group = [{ gate: g, index }];
-        if (!options.serial && g.concurrent) {
-            while (i < config.gates.length && config.gates[i]!.concurrent) {
-                const next = config.gates[i++]!;
-                if ((!selected || selected.has(next.id)) && (!failed_gate || next.proves.length || next.corroborates.length))
-                    group.push({ gate: next, index: i - 1 });
-            }
-        }
-        if (group.length > 1) {
-            groupId++;
-            for (const one of group)
-                concurrent.push({ gate_id: one.gate.id, group: groupId, beside: group.filter(x => x !== one).map(x => x.gate.id) });
-        }
-        const completed = await Promise.all(group.map(({ gate, index }) => runGate(repo, config, gate, index, bundle, options, evidenceOptions)));
-        for (let j = 0; j < completed.length; j++) {
-            const one = completed[j]!, gate = group[j]!.gate;
-            if (one.interrupted) {
+    // Declared phases ARE the running order; without them the declared gate order is.
+    const declaredIndex = new Map(config.gates.map((g, index) => [g.id, index]));
+    const segments = config.phases.length
+        ? config.phases.map(phase => ({ phase, sequence: phase.gates.map(id => ({ gate: config.gates.find(g => g.id === id)!, index: declaredIndex.get(id)! })) }))
+        : [{ phase: null, sequence: config.gates.map((gate, index) => ({ gate, index })) }];
+    const orchestrator = new Orchestrator(repo, config, bundle, { signal: options.signal, environment: options.environment });
+    let orchestration: Orchestration = orchestrator.record();
+    // A prelude failure is an environment outcome, not a product result. It still writes a
+    // complete, sealed bundle: the evidence of why nothing was asked is the point of it.
+    let environmentRefusal: string | null = null;
+    try {
+        if (orchestrator.declared)
+            await orchestrator.setup();
+        for (const segment of segments) {
+            if (options.signal?.aborted) {
                 status = "interrupted";
-                continue;
+                break;
             }
-            results.push(one.result!);
-            assertionRows.push(...one.assertions);
-            if (one.stability)
-                stabilities.push(one.stability);
-            if ((one.result!.status === "failed" || one.stability?.verdict === "unresolved") && !gate.optional && !failed_gate)
-                failed_gate = gate.id;
+            // A service starts only for a phase that has gates left to run in this selection.
+            if (segment.phase?.needs.length && segment.sequence.some(({ gate }) => (!selected || selected.has(gate.id)) && (!failed_gate || gate.proves.length || gate.corroborates.length)))
+                await orchestrator.ensure(segment.phase.needs);
+            for (let i = 0; i < segment.sequence.length;) {
+                const first = segment.sequence[i++]!;
+                const g = first.gate;
+                if (selected && !selected.has(g.id))
+                    continue;
+                if (failed_gate && !g.proves.length && !g.corroborates.length)
+                    continue;
+                if (options.signal?.aborted) {
+                    status = "interrupted";
+                    break;
+                }
+                const group = [first];
+                if (!options.serial && g.concurrent) {
+                    while (i < segment.sequence.length && segment.sequence[i]!.gate.concurrent) {
+                        const next = segment.sequence[i++]!;
+                        if ((!selected || selected.has(next.gate.id)) && (!failed_gate || next.gate.proves.length || next.gate.corroborates.length))
+                            group.push(next);
+                    }
+                }
+                if (group.length > 1) {
+                    groupId++;
+                    for (const one of group)
+                        concurrent.push({ gate_id: one.gate.id, group: groupId, beside: group.filter(x => x !== one).map(x => x.gate.id) });
+                }
+                const completed = await Promise.all(group.map(({ gate, index }) => runGate(repo, config, gate, index, bundle, options, evidenceOptions)));
+                for (let j = 0; j < completed.length; j++) {
+                    const one = completed[j]!, gate = group[j]!.gate;
+                    if (one.interrupted) {
+                        status = "interrupted";
+                        continue;
+                    }
+                    results.push(one.result!);
+                    assertionRows.push(...one.assertions);
+                    if (one.stability)
+                        stabilities.push(one.stability);
+                    if ((one.result!.status === "failed" || one.stability?.verdict === "unresolved") && !gate.optional && !failed_gate)
+                        failed_gate = gate.id;
+                }
+                if (status === "interrupted")
+                    break;
+            }
+            if (status === "interrupted")
+                break;
         }
-        if (status === "interrupted")
-            break;
     }
-    if (status !== "interrupted")
+    catch (error) {
+        if (!(error instanceof EnvironmentError))
+            throw error;
+        environmentRefusal = error.message;
+        status = "failed";
+    }
+    finally {
+        // Always: even after a failed gate, an environment refusal or a cancelled run.
+        if (orchestrator.declared) {
+            await orchestrator.stop();
+            orchestration = orchestrator.record();
+            await bundle.json("orchestration.json", orchestration);
+        }
+    }
+    if (status !== "interrupted" && !environmentRefusal)
         status = failed_gate ? "failed" : "passed";
     await bundle.json("execution.json", executionRecord(config, results.map(r => r.gate_id), options.workerExecution));
     if (stabilities.length)
@@ -184,11 +225,11 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     await bundle.event("run.finished", { status, ...(failed_gate ? { failed_gate } : {}) });
     await bundle.json("manifest.json", manifest);
     // A subset run legitimately says `passed`. This sibling is the only thing that says what the pass covered.
-    const selection = selectionRecord({ run_id: id, head_sha: snap.head_sha, config_sha256: sha256(await readFile(await safePath(repo, ".wringer.yaml"))), gates: config.gates, selected: selected ? [...selected] : null, results });
+    const selection = selectionRecord({ run_id: id, head_sha: snap.head_sha, config_sha256: sha256(await readFile(await safePath(repo, ".wringer.yaml"))), gates: config.gates, selected: selected ? [...selected] : null, results, ...(config.phases.length ? { phases: config.phases.map(p => ({ id: p.id, gates: p.gates })) } : {}) });
     await bundle.json("selection.json", selection);
     const required = config.gates.filter(g => !g.optional);
     const template_only = required.length > 0 && required.every(g => g.id === "placeholder" && g.run.trim() === "true");
-    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, selection.reason, ...(unestablished.size ? [`Assertion evidence established nothing for ${[...unestablished].join(", ")}; see gate-assertions.json.`] : []), template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
+    const summary = [`# Verification ${id}`, "", `Checks ${status}.`, ...(environmentRefusal ? [`Environment: ${environmentRefusal}`] : []), selection.reason, ...(unestablished.size ? [`Assertion evidence established nothing for ${[...unestablished].join(", ")}; see gate-assertions.json.`] : []), template_only ? "WARNING: the placeholder passed and proved nothing." : "", `Commit: ${snap.head_sha ?? "unborn"}. Branch: ${snap.branch ?? "detached"}. Working tree: ${snap.dirty ? "changed" : "clean"}.`, "", "| Check | Result | Time | Evidence |", "|---|---|---:|---|"];
     for (const [index, g] of config.gates.entries()) {
         const result = results.find(r => r.gate_id === g.id);
         summary.push(`| ${g.id} | ${result?.status ?? (status === "interrupted" ? "not completed" : "skipped")} | ${result ? `${result.duration_ms} ms` : "—"} | ${result ? `[output](${gateDir(index, g.id)}/stdout.log) · [errors](${gateDir(index, g.id)}/stderr.log)` : "—"} |`);
@@ -201,5 +242,5 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
         summary.push("", `Next: \`${rerun}\``);
     await bundle.write("summary.md", summary.filter((line, i) => line || i > 0).join("\n") + "\n");
     await bundle.seal();
-    return { status, failed_gate, rerun, evidence_dir: posix(relative(repo, directory)), template_only, exit_code: status === "interrupted" ? 4 : status === "failed" ? 1 : 0, manifest, selection, results, ...(assessed ? { acceptance: assessed } : {}), ...(stabilities.length ? { stability: { gates: stabilities } } : {}), ...(vacuity ? { vacuity } : {}) };
+    return { status, failed_gate, rerun, evidence_dir: posix(relative(repo, directory)), template_only, exit_code: status === "interrupted" ? 4 : environmentRefusal ? 2 : status === "failed" ? 1 : 0, manifest, selection, orchestration, results, ...(assessed ? { acceptance: assessed } : {}), ...(stabilities.length ? { stability: { gates: stabilities } } : {}), ...(vacuity ? { vacuity } : {}) };
 }

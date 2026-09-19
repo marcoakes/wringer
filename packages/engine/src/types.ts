@@ -41,10 +41,42 @@ export interface Requirement {
     /** container_service: the client binary to ask for status. */
     binary?: string;
 }
+/** A bounded, project-owned command in the run's prelude or epilogue. Never retried. */
+export interface Step {
+    id: string;
+    run: string;
+    timeout: number;
+    /** NAME -> the name of the variable whose value to use. An indirection, never a literal. */
+    env?: Record<string, string>;
+}
+export interface Service {
+    id: string;
+    run: string;
+    env?: Record<string, string>;
+    /** Absent when this service has no URL of its own — ZenJev's worker is reported by the
+     * application's health endpoint, not by one of its own. Then it is started and recorded as
+     * not measured, which is true, rather than given a URL it does not serve. */
+    readiness?: {
+        url: string;
+        status: number;
+        body_path?: string;
+        equals?: string;
+        timeout: number;
+    };
+}
+export interface Phase {
+    id: string;
+    gates: string[];
+    needs: string[];
+}
 export interface Config {
     version: 1;
     gates: Gate[];
     requires: Requirement[];
+    setup: Step[];
+    services: Service[];
+    phases: Phase[];
+    teardown: Step[];
     evidence: {
         include: string[];
         redact: {
@@ -139,6 +171,8 @@ export interface GateResult {
 export type EventCallback = (event: Record<string, unknown>) => void;
 export interface VerifyOptions {
     gate?: string | string[];
+    /** The environment declared steps and services read from. Defaults to this process's. */
+    environment?: NodeJS.ProcessEnv;
     output?: string;
     serial?: boolean;
     signal?: AbortSignal;
@@ -155,6 +189,8 @@ export interface VerifyOutcome {
     exit_code: number;
     manifest: any;
     selection: any;
+    /** The declared prelude's record, or a not-declared placeholder. */
+    orchestration: any;
     results: GateResult[];
     acceptance?: any;
     stability?: any;

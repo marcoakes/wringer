@@ -1,0 +1,242 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/marcoakes/wringer/blob/main/schema/orchestration-v1.schema.json",
+  "title": "Wringer declared prelude and epilogue",
+  "description": "`orchestration.json` \u2014 the setup this run ran, the services it started and held, the readiness answers it waited for, the phase order it used, and the teardown it always performed. A SIBLING of manifest.json, ABSENT when the repository declares no `setup:`, `services:`, `phases:` or `teardown:`, which is every bundle written before this existed. **Why it exists.** A real application needs more than a list of shell checks: build, start dependencies, wait for readiness, run several suites, stop what you started. On 19 September 2026 ZenJev did all of that in a **117-line CI coordinator** beside a **104-line workflow**, and that coordinator re-implemented detached spawn, SIGTERM\u2192SIGKILL, timeouts, per-label log capture and an owned-children set \u2014 machinery `engine/process.ts` already had for bounded commands. The application's own commands belong to the application; the supervision, the ordering and the aggregation do not. **The distinction this record exists to keep.** A setup step or a service that never reached readiness is an ENVIRONMENT outcome, exit 2, and `outcome: \"environment\"` says so: no gate ran, so nothing was asked of the application, and reading that as a product failure is the mistake this whole release is about. A gate that ran and failed is exit 1 and is not recorded here. **What it will not do.** Nothing under `setup:` or `services:` is retried \u2014 a retry could repeat a paid call or an external write, and that is the project's decision to make explicitly rather than the harness's to take quietly. Cancellation and teardown signal only the process groups this run started, by the leader pid it holds. Teardown always runs, including after a failed gate and after a cancelled run; a teardown command that itself fails is recorded and does not rewrite the run's outcome. **What it does not claim.** That a readiness answer means the service is correct, or that it will still answer a second later; that a started service is contained; or that the declared commands are the right ones.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "outcome",
+    "setup",
+    "services",
+    "phases",
+    "teardown",
+    "reason",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": "wringer.orchestration.v1"
+    },
+    "outcome": {
+      "description": "`ready`: the declared prelude completed and the gates were asked their questions. `environment`: a setup step failed, or a service never answered its declared readiness \u2014 exit 2, and no product result exists. `not-declared`: this repository declares no prelude, in which case the record is absent anyway and this value exists only for an in-memory reader.",
+      "enum": [
+        "ready",
+        "environment",
+        "not-declared"
+      ]
+    },
+    "setup": {
+      "description": "Ordered, bounded, project-owned commands, in declared order, each with its captured log. The first failure stops the run: a prelude is a sequence, not a set.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "services": {
+      "description": "One row per long-lived process this run started, in the order it started them. A service is started once, for the first phase that needs it, and held until teardown.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "command",
+          "pid",
+          "readiness",
+          "stopped",
+          "log"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "command": {
+            "type": "string"
+          },
+          "pid": {
+            "description": "The leader pid of the process group this run created. It is the only group this run ever signals.",
+            "type": "integer"
+          },
+          "readiness": {
+            "type": "object",
+            "required": [
+              "url",
+              "expect",
+              "waited_ms",
+              "status",
+              "detail"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string",
+                "description": "The declared URL, or `none declared` when this service has no readiness of its own."
+              },
+              "expect": {
+                "description": "The declared answer, as a phrase: an HTTP status, or a dotted JSON body path and the value it must equal.",
+                "type": "string"
+              },
+              "waited_ms": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "status": {
+                "description": "`exited-before-readiness` is its own outcome and not a timeout: a process this run started died rather than staying silent, which is a different thing to investigate, and the detail names which one. `not-measured` means the service declares no readiness URL of its own \u2014 a worker reported by the application's health endpoint, for instance \u2014 so it was started and nothing established that it is serving; that is recorded rather than papered over with a URL it does not answer.",
+                "enum": [
+                  "ready",
+                  "not-measured",
+                  "exited-before-readiness",
+                  "timed-out",
+                  "refused"
+                ]
+              },
+              "detail": {
+                "description": "What actually happened, including what the URL last answered when it never answered as declared.",
+                "type": "string"
+              }
+            }
+          },
+          "stopped": {
+            "description": "How this service ended, or null if the record was written before teardown reached it. `forced: true` means it did not exit within grace and its group was killed.",
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "code",
+                  "signal",
+                  "forced"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "code": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "signal": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "forced": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "log": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "phases": {
+      "description": "The declared phase order, with the services each phase needs. Once phases are declared they ARE the running order, and every declared gate belongs to exactly one \u2014 a gate in two phases would be two outcomes for one check, and a gate in none would silently never run.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "needs",
+          "gates"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "gates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "teardown": {
+      "description": "The epilogue, which always ran. A failure here is recorded and does not rewrite the run's outcome: cleanup that went wrong is not a product result either.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "reason": {
+      "description": "The sentence a person reads, naming the step or service that decided the outcome.",
+      "type": "string",
+      "minLength": 1
+    },
+    "limits": {
+      "description": "What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "step": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "command",
+        "exit_code",
+        "duration_ms",
+        "timed_out",
+        "status",
+        "log"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "setup",
+            "teardown"
+          ]
+        },
+        "command": {
+          "type": "string"
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timed_out": {
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed"
+          ]
+        },
+        "log": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

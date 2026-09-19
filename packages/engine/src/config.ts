@@ -1,7 +1,7 @@
 import { readFile, writeFile, access, appendFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseDocument, stringify } from "yaml";
-import { EngineError, type Config, type Gate, type Requirement } from "./types";
+import { EngineError, type Config, type Gate, type Phase, type Requirement, type Service, type Step } from "./types";
 import { safePath } from "./io";
 const SLUG = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 export function object(value: unknown, name: string): Record<string, any> {
@@ -139,9 +139,68 @@ export function parseRequirement(value: unknown): Requirement {
         only([]);
     return out;
 }
+/** Project-owned commands. `env:` names another variable to read, never a literal value. */
+export function parseStep(value: unknown, where: string): Step {
+    const v = object(value, where);
+    keys(v, ["id", "run", "timeout", "env"], where);
+    const id = textValue(v.id, `${where}.id`);
+    if (!SLUG.test(id))
+        throw new EngineError(`${where}.id ${id} must be a slug of at most 64 characters`);
+    const step: Step = { id, run: textValue(v.run, `${where} ${id}.run`), timeout: integer(v.timeout, `${where} ${id}.timeout`, 300, 3600) };
+    if (v.env !== undefined)
+        step.env = environmentIndirection(v.env, `${where} ${id}.env`);
+    return step;
+}
+function environmentIndirection(value: unknown, where: string): Record<string, string> {
+    const v = object(value, where), out: Record<string, string> = {};
+    for (const [name, from] of Object.entries(v)) {
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name))
+            throw new EngineError(`${where}: ${name} is not an environment variable name`);
+        const source = textValue(from, `${where}.${name}`);
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(source))
+            throw new EngineError(`${where}.${name} must name another environment variable to read, not a value. A literal here would put a credential in the repository.`);
+        out[name] = source;
+    }
+    return out;
+}
+export function parseService(value: unknown): Service {
+    const v = object(value, "service");
+    keys(v, ["id", "run", "env", "readiness"], "service");
+    const id = textValue(v.id, "service.id");
+    if (!SLUG.test(id))
+        throw new EngineError(`service.id ${id} must be a slug of at most 64 characters`);
+    const service: Service = { id, run: textValue(v.run, `service ${id}.run`) };
+    if (v.env !== undefined)
+        service.env = environmentIndirection(v.env, `service ${id}.env`);
+    if (v.readiness === undefined)
+        return service;
+    const r = object(v.readiness, `service ${id}.readiness`);
+    keys(r, ["url", "status", "body_path", "equals", "timeout"], `service ${id}.readiness`);
+    const url = textValue(r.url, `service ${id}.readiness.url`);
+    let parsed: URL;
+    try {
+        parsed = new URL(url);
+    }
+    catch {
+        throw new EngineError(`service ${id}.readiness.url must be a URL`);
+    }
+    if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password)
+        throw new EngineError(`service ${id}.readiness.url must be a credential-free http or https URL`);
+    const readiness: Service["readiness"] = { url, status: integer(r.status, `service ${id}.readiness.status`, 200, 599), timeout: integer(r.timeout, `service ${id}.readiness.timeout`, 60, 600) };
+    if ((r.body_path === undefined) !== (r.equals === undefined))
+        throw new EngineError(`service ${id}.readiness needs body_path and equals together, or neither`);
+    if (r.body_path !== undefined) {
+        readiness.body_path = textValue(r.body_path, `service ${id}.readiness.body_path`);
+        if (!/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*){0,8}$/.test(readiness.body_path))
+            throw new EngineError(`service ${id}.readiness.body_path must be a dotted JSON path of at most nine names`);
+        readiness.equals = textValue(r.equals, `service ${id}.readiness.equals`);
+    }
+    service.readiness = readiness;
+    return service;
+}
 export function parseConfig(value: string | unknown): Config {
     const c = object(typeof value === "string" ? parseYaml(value, ".wringer.yaml") : value, "config");
-    keys(c, ["version", "gates", "requires", "evidence", "run", "judge", "show", "deliver", "execution", "provenance", "fleet", "workspace", "forge", "bench"], "config");
+    keys(c, ["version", "gates", "requires", "setup", "services", "phases", "teardown", "evidence", "run", "judge", "show", "deliver", "execution", "provenance", "fleet", "workspace", "forge", "bench"], "config");
     if (c.version !== 1)
         throw new EngineError(".wringer.yaml version must be 1");
     if (Object.prototype.hasOwnProperty.call(c, "workspace"))
@@ -176,6 +235,57 @@ export function parseConfig(value: string | unknown): Config {
             throw new EngineError(`requires declares ${identity} twice; one probe measures it once`);
         kinds.add(identity);
     }
+    const bounded = (value: unknown, name: string, max: number) => {
+        if (value === undefined)
+            return [];
+        if (!Array.isArray(value) || value.length > max)
+            throw new EngineError(`${name} must be a list of at most ${max} entries`);
+        return value;
+    };
+    const unique = <T extends { id: string }>(rows: T[], name: string) => {
+        const seen = new Set<string>();
+        for (const row of rows) {
+            if (seen.has(row.id))
+                throw new EngineError(`${name} declares ${row.id} twice`);
+            seen.add(row.id);
+        }
+        return rows;
+    };
+    const setup = unique(bounded(c.setup, "setup", 32).map((v: unknown) => parseStep(v, "setup")), "setup");
+    const services = unique(bounded(c.services, "services", 16).map(parseService), "services");
+    const teardown = unique(bounded(c.teardown, "teardown", 32).map((v: unknown) => parseStep(v, "teardown")), "teardown");
+    const phases: Phase[] = unique(bounded(c.phases, "phases", 32).map((raw: unknown) => {
+        const v = object(raw, "phase");
+        keys(v, ["id", "gates", "needs"], "phase");
+        const id = textValue(v.id, "phase.id");
+        if (!SLUG.test(id))
+            throw new EngineError(`phase.id ${id} must be a slug of at most 64 characters`);
+        const phaseGates = strings(v.gates, `phase ${id}.gates`);
+        if (!phaseGates.length)
+            throw new EngineError(`phase ${id} runs no gate; remove it or name the gates it groups`);
+        return { id, gates: phaseGates, needs: strings(v.needs, `phase ${id}.needs`) };
+    }), "phases");
+    if (phases.length) {
+        const placed = new Map<string, string>();
+        for (const phase of phases) {
+            for (const gate of phase.gates) {
+                if (!gates.some(g => g.id === gate))
+                    throw new EngineError(`phase ${phase.id} names gate ${gate}, which is not declared`);
+                const already = placed.get(gate);
+                if (already !== undefined)
+                    throw new EngineError(`gate ${gate} is in both phase ${already} and phase ${phase.id}. A gate runs in exactly one phase, or its second run would be a second outcome for one check.`);
+                placed.set(gate, phase.id);
+            }
+            for (const need of phase.needs)
+                if (!services.some(s => s.id === need))
+                    throw new EngineError(`phase ${phase.id} needs service ${need}, which is not declared under services:`);
+        }
+        const orphans = gates.filter(g => !placed.has(g.id));
+        if (orphans.length)
+            throw new EngineError(`gate${orphans.length === 1 ? "" : "s"} ${orphans.map(g => g.id).join(", ")} ${orphans.length === 1 ? "is" : "are"} declared but no phase runs ${orphans.length === 1 ? "it" : "them"}. Once phases are declared they are the running order: add ${orphans.length === 1 ? "it" : "them"} to a phase, or remove the gate.`);
+    }
+    else if (services.length)
+        throw new EngineError("services: are started for the phases that need them, so declare phases: with a needs: list. A service nothing needs would be started and never used.");
     const e = c.evidence === undefined ? {} : object(c.evidence, "evidence");
     keys(e, ["include", "redact"], "evidence");
     const r = e.redact === undefined ? {} : object(e.redact, "evidence.redact");
@@ -183,7 +293,7 @@ export function parseConfig(value: string | unknown): Config {
     const include = strings(e.include, "evidence.include");
     if (include.length)
         throw new EngineError("Nonempty evidence.include is not supported by the native runtime: those files would not be captured. Remove that setting or use explicit gate artifacts capture; verification has not started.");
-    const out: Config = { ...c, version: 1, gates, requires, evidence: { include, redact: { env: strings(r.env, "evidence.redact.env", ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]) } } };
+    const out: Config = { ...c, version: 1, gates, requires, setup, services, phases, teardown, evidence: { include, redact: { env: strings(r.env, "evidence.redact.env", ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]) } } };
     if (c.run !== undefined) {
         const v = object(c.run, "run");
         keys(v, ["worker", "max_iterations", "worker_timeout", "wall_clock", "prove", "prove_setup", "containment"], "run");

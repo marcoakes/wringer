@@ -13,8 +13,13 @@ import { join, resolve } from "node:path";
 import { parseConfig, parseYaml } from "./config";
 import { fileList, maybeJson, readJson, sha256, validateDigests } from "./io";
 import { EngineError, type Gate, type GateResult } from "./types";
+export interface SelectionPhase {
+    id: string;
+    gates: string[];
+    executed: string[];
+}
 export interface SelectionRecord {
-    schema_version: "wringer.selection.v1";
+    schema_version: "wringer.selection.v1" | "wringer.selection.v2";
     run_id: string;
     head_sha: string | null;
     config_sha256: string;
@@ -27,6 +32,8 @@ export interface SelectionRecord {
     missing_required: string[];
     complete: boolean;
     reason: string;
+    /** v2 only: the declared phase order and what each phase ran. */
+    phases?: SelectionPhase[];
     limits: string[];
 }
 export const SELECTION_LIMITS = [
@@ -47,6 +54,8 @@ export function selectionRecord(input: {
     gates: Pick<Gate, "id" | "optional">[];
     selected: string[] | null;
     results: Pick<GateResult, "gate_id" | "status">[];
+    /** Declared phases. Present means v2: the running order is part of what the pass covered. */
+    phases?: { id: string; gates: string[] }[];
 }): SelectionRecord {
     const order = input.gates.map(g => g.id);
     const inOrder = (ids: Iterable<string>) => { const want = new Set(ids); return order.filter(id => want.has(id)); };
@@ -55,12 +64,14 @@ export function selectionRecord(input: {
     const executed = inOrder(input.results.map(r => r.gate_id));
     const passed = inOrder(input.results.filter(r => r.status === "passed").map(r => r.gate_id));
     const failed = inOrder(input.results.filter(r => r.status === "failed").map(r => r.gate_id));
-    const ran = new Set(executed);
-    const missing_required = required.filter(id => !ran.has(id));
+    const ran1 = new Set(executed);
+    const missing_required = required.filter(id => !ran1.has(id));
+    const inPhase = (ids: string[]) => ids.filter(id => ran1.has(id));
     return {
-        schema_version: "wringer.selection.v1", run_id: input.run_id, head_sha: input.head_sha, config_sha256: input.config_sha256,
+        schema_version: input.phases ? "wringer.selection.v2" : "wringer.selection.v1", run_id: input.run_id, head_sha: input.head_sha, config_sha256: input.config_sha256,
         declared, required, selected: input.selected === null ? null : inOrder(input.selected), executed, passed, failed,
         missing_required, complete: missing_required.length === 0,
+        ...(input.phases ? { phases: input.phases.map(p => ({ id: p.id, gates: [...p.gates], executed: inPhase(p.gates) })) } : {}),
         reason: completenessSentence(missing_required, required.length), limits: SELECTION_LIMITS,
     };
 }

@@ -271,8 +271,10 @@ export async function loadBoard(repo: string, run?: string): Promise<BoardModel>
         model.run = { id: manifest.run_id, path: relative(repo, runPath), createdAt: manifest.started_at, head: manifest.repo.head_sha, branch: manifest.repo.branch, result: manifest.result.status };
         model.gates = await readGates(records, runPath);
         // Absent in every bundle written before the record existed: unrecorded, never "everything ran".
-        const selection = await records.json(resolve(runPath, "selection.json"), "wringer.selection.v1");
-        if (selection)
+        const selection = await records.json(resolve(runPath, "selection.json"));
+        if (selection && !["wringer.selection.v1", "wringer.selection.v2"].includes(selection.schema_version as string))
+            records.issue(resolve(runPath, "selection.json"), "wrong-selection-version", `Cannot read ${selection.schema_version} as a selection.`);
+        if (selection && ["wringer.selection.v1", "wringer.selection.v2"].includes(selection.schema_version as string))
             model.selection = { complete: selection.complete === true, reason: selection.reason, declared: selection.declared.length, required: selection.required.length, executed: selection.executed.length, missingRequired: selection.missing_required };
         // A run can fail with every gate green: its declared assertion evidence established nothing.
         const assertions = await records.json(resolve(runPath, "gate-assertions.json"), "wringer.gate-assertions.v1");

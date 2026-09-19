@@ -1,0 +1,116 @@
+version: 1
+execution:
+  backend: local
+
+# What these checks need, measured before the job rather than discovered inside it.
+requires:
+  - kind: native_database
+    url_env: DATABASE_URL
+  - kind: browser
+  - kind: filesystem
+
+# The application's own commands, ordered and bounded. Nothing here is retried.
+setup:
+  - id: migrate-demo
+    run: node node_modules/prisma/build/index.js migrate deploy
+    timeout: 300
+  - id: migrate-test
+    run: node node_modules/prisma/build/index.js migrate deploy
+    timeout: 300
+    env:
+      DATABASE_URL: ZENJEV_TEST_DATABASE_URL
+  - id: seed-demo-first
+    run: node --import tsx scripts/seed.ts
+    timeout: 300
+  - id: seed-demo-second
+    run: node --import tsx scripts/seed.ts
+    timeout: 300
+
+# Long-lived processes this run owns. The worker is reported by the application's own
+# health endpoint, so it declares no readiness URL of its own and is recorded as such.
+services:
+  - id: worker
+    run: node --import tsx src/worker/index.ts
+  - id: production-app
+    run: node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+    readiness:
+      url: http://127.0.0.1:3000/api/health
+      body_path: worker.status
+      equals: healthy
+      timeout: 60
+  - id: authenticated-app
+    run: node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3001
+    env:
+      APP_BASE_URL: ZENJEV_AUTH_BASE_URL
+      APP_BIND_HOST: ZENJEV_AUTH_BIND_HOST
+    readiness:
+      url: http://127.0.0.1:3001/api/settings
+      status: 401
+      timeout: 60
+
+# The four subsets the coordinator ran, in the same order, with the services each needs.
+phases:
+  - id: build
+    gates: [lint, typecheck, production-build]
+  - id: native
+    gates: [native-concurrency]
+  - id: workflows
+    needs: [worker, production-app]
+    gates: [fresh-offline-setup, branding, domain-provider-contracts, persistence-workflow, browser]
+  - id: authenticated
+    needs: [authenticated-app]
+    gates: [browser-auth]
+
+evidence:
+  include: []
+  redact:
+    env: ['*TOKEN*', '*SECRET*', '*KEY*', '*PASSWORD*']
+gates:
+  - id: fresh-offline-setup
+    run: node scripts/check-fresh-setup.mjs
+    timeout: 120
+    proves: [SW-01]
+  - id: branding
+    run: node --test --test-reporter=tap checks/branding.test.mjs
+    timeout: 30
+    proves: [ZJ-01, ZJ-02, ZJ-03]
+  - id: domain-provider-contracts
+    run: node scripts/check.mjs test tests/domain.test.ts tests/providers.test.ts tests/integration-smoke.test.ts tests/keychain-jev.test.ts
+    timeout: 120
+    proves: [SW-04, SW-07, SW-08, SW-09, SW-10]
+  - id: persistence-workflow
+    run: node scripts/check.mjs test tests/backend.test.ts tests/provider-integration-orchestration.test.ts
+    timeout: 240
+    proves: [SW-01, SW-03, SW-05, SW-06]
+    evidence:
+      kind: assertions
+      adapter: vitest
+  - id: browser
+    run: node scripts/check.mjs browser tests/browser/workbench.spec.ts
+    timeout: 300
+    proves: [SW-01, SW-02, SW-11, ZJ-04, ZJ-05]
+    evidence:
+      kind: assertions
+      adapter: playwright
+    artifacts:
+      max_bytes: 5242880
+      total_bytes: 52428800
+  - id: lint
+    run: node scripts/check.mjs lint
+    timeout: 120
+  - id: typecheck
+    run: node scripts/check.mjs typecheck
+    timeout: 120
+  - id: production-build
+    run: node scripts/check.mjs build
+    timeout: 300
+  - id: native-concurrency
+    run: node scripts/check-native.mjs
+    timeout: 180
+  - id: browser-auth
+    run: node scripts/check.mjs browser tests/browser/auth.spec.ts
+    timeout: 180
+    corroborates: [SW-10]
+    artifacts:
+      max_bytes: 5242880
+      total_bytes: 52428800

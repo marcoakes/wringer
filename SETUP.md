@@ -191,7 +191,52 @@ The relation is **all required**: every gate whose `proves:` names `SW-01` must 
 
 A criterion that is corroborated and proved by nothing is refused by name: supporting evidence cannot carry a requirement on its own.
 
-## 10. Verify in phases without losing the whole
+## 10. Declare the services and phases instead of scripting them
+
+A typical application needs more than a list of shell checks: migrate, seed, start dependencies, wait for readiness, run several suites, stop what you started. ZenJev did all of that in a **117-line CI coordinator** beside a 104-line workflow, and that coordinator re-implemented detached spawn, `SIGTERM` then `SIGKILL`, timeouts, per-label log capture and an owned-children set — machinery Wringer already had for bounded commands.
+
+Declare it and the run carries it:
+
+```yaml
+setup:                                 # ordered, bounded, project-owned. Never retried.
+  - id: migrate-demo
+    run: node node_modules/prisma/build/index.js migrate deploy
+  - id: migrate-test
+    run: node node_modules/prisma/build/index.js migrate deploy
+    env: { DATABASE_URL: ZENJEV_TEST_DATABASE_URL }   # a variable NAME, never a value
+services:                              # started once, for the first phase that needs them
+  - id: worker
+    run: node --import tsx src/worker/index.ts        # no URL of its own: not measured, and said so
+  - id: production-app
+    run: node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3000
+    readiness: { url: 'http://127.0.0.1:3000/api/health', body_path: worker.status, equals: healthy, timeout: 60 }
+  - id: authenticated-app
+    run: node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port 3001
+    readiness: { url: 'http://127.0.0.1:3001/api/settings', status: 401, timeout: 60 }
+phases:                                # once declared, these ARE the running order
+  - id: build
+    gates: [lint, typecheck, production-build]
+  - id: workflows
+    needs: [worker, production-app]
+    gates: [fresh-offline-setup, branding, persistence-workflow, browser]
+teardown:                              # always runs
+  - id: stop-fixtures
+    run: node scripts/teardown.mjs
+```
+
+**Three rules worth knowing before you rely on it.**
+
+A setup step that failed, or a service that never answered its declared readiness, is an **environment outcome at exit 2** — not a gate failure at exit 1. No gate ran, so nothing was asked of the application, and `orchestration.json` names the step or service and what it last answered. That distinction is the whole point: reading a database that never started as "the application is broken" is how a day disappears.
+
+**Nothing under `setup:` or `services:` is retried.** A retry could repeat a paid call or an external write. If your setup is safe to repeat, repeat it yourself in the command.
+
+**Teardown always runs** — after a failed gate, after an environment refusal, and after you cancel. Cancellation and teardown signal only the process groups this run started, by the leader pid it holds; nothing else on your machine is touched.
+
+`env:` maps a variable name to **another variable's name**, never to a literal. A literal there would put a credential in the repository, and it is refused.
+
+Once `phases:` are declared, every declared gate must belong to exactly one: a gate in two phases would be two outcomes for one check, and a gate in none would silently never run. Both are refused by name. `wring verify --gate` still selects within that order, and `selection.json` becomes `wringer.selection.v2`, which says which phase ran what.
+
+## 11. Verify in phases without losing the whole
 
 A project whose checks need different services verifies in phases: `wring verify --gate build --gate lint`, then the database phase, then the browser phase. Each phase writes its own sealed bundle, and each one legitimately reports `passed` — for its selection. It stays exit 0, because a deliberately narrow run is a useful act.
 
