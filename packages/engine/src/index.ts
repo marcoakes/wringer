@@ -9,6 +9,7 @@ export * from "./selection";
 export * from "./handoff";
 export * from "./loop";
 export * from "./diagnostics";
+export * from "./readiness";
 export * from "./prove";
 export * from "./backend";
 export { executeAgentRole, runContainedCommands, prepareRepositorySource, captureCandidate } from "@wringer/runtime";

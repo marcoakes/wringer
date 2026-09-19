@@ -58,8 +58,8 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             allowed(a, []);
             if (!await Bun.file(join(repo, ".wringer.yaml")).exists())
                 await engine.init(repo);
-            const value = await engine.doctor(repo);
-            return { value, text: `${value.status === "ready" ? "Ready" : "Needs attention"}.\n${value.checks.map(c => `${c.name}: ${c.detail}`).join("\n")}\n\nNext: wringer-drive authority --help\nGuide: ${await documentationHint()}\nWorker recipes: ${await documentationHint("HEADLESS.md")}`, exit: value.exit_code };
+            const value = await engine.doctor(repo, { signal: context.signal });
+            return { value, text: `${value.status === "ready" ? "Ready" : value.status === "blocked" ? "Needs attention" : "Not fully measured"}.\n${renderReadiness(value.checks)}\n\nNext: wringer-drive authority --help\nGuide: ${await documentationHint()}\nWorker recipes: ${await documentationHint("HEADLESS.md")}`, exit: value.exit_code };
         }
         case "verify": {
             if (flag(a, "falsify")) {
@@ -80,8 +80,8 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         }
         case "doctor": {
             allowed(a, []);
-            const value = await engine.doctor(repo);
-            return { value, text: value.checks.map(c => `${c.status === "ok" ? "✓" : c.status === "blocked" ? "✗" : "—"} ${c.name}: ${c.detail}`).join("\n"), exit: value.exit_code };
+            const value = await engine.doctor(repo, { signal: context.signal });
+            return { value, text: `${renderReadiness(value.checks)}\n${value.limits.join("\n")}`, exit: value.exit_code };
         }
         case "explain": {
             allowed(a, ["run"]);
@@ -142,6 +142,11 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             return extended(a, repo, context);
         }
     }
+}
+/** One rung, one measurement, one bounded next step. A rung is never printed without its measurement. */
+export function renderReadiness(rows: engine.ReadinessRow[]): string {
+    const mark: Record<engine.Rung, string> = { measured: "✓", executable: "◐", installed: "◔", unavailable: "✗", not_measured: "—" };
+    return rows.map(r => `${mark[r.rung]} ${r.name} [${engine.RUNG_WORDS[r.rung]}]: ${r.measurement}${r.next ? `\n    Next: ${r.next}` : ""}`).join("\n");
 }
 /** One combined result over several sealed bundles of one revision, on `verify` and `audit` alike. */
 async function combineBundles(a: Args, repo: string): Promise<Answer> {

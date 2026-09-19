@@ -143,3 +143,17 @@ test("even an unusually short explicit credential cannot be echoed into a snapsh
     const request={...input(),token:"xyz"};
     await expect(importDesignFromMcp(request,{testTransport:transport({toolResult:{content:[{type:"text",text:"echo xyz"}]}}).send})).rejects.toThrow("credential");
 });
+
+// S-A9 (alpha.13 blind test): the seal hashes before it validates, so a missing field
+// refused with "Design records contain only finite JSON data." — a complaint about JSON
+// syntax on JSON that had parsed perfectly. The refusal now names the field and the repair.
+test("an owned reference missing a field is refused by a sentence naming that field", () => {
+    expect(() => createDesignSnapshot({ title: "A design", disclosure: "private" } as any)).toThrow('An owned reference is missing "context"');
+    expect(() => createDesignSnapshot({ context: "Observed", disclosure: "private" } as any)).toThrow('An owned reference is missing "title"');
+    expect(() => createDesignSnapshot({ title: "A", context: "B", disclosure: "private" } as any)).not.toThrow();
+    expect(() => createDesignSnapshot({ title: "A", context: "B", disclosure: "private", assets: [{ pngBase64: png() }] } as any)).toThrow('Owned reference image 1 is missing "id"');
+    expect(() => createDesignSnapshot({ title: "A", context: "B", disclosure: "private", assets: [{ id: "one", pngBase64: png() }] } as any)).toThrow('Owned reference image 1 is missing "title"');
+    for (const bad of [{ title: "A design", disclosure: "private" }, { context: "Observed", disclosure: "private" }])
+        expect(() => createDesignSnapshot(bad as any)).not.toThrow("finite JSON data");
+    expect(() => createDesignSnapshot({ title: "A design", disclosure: "private" } as any)).toThrow("Accepted top-level fields are title, context, componentRules, assets and source.");
+});

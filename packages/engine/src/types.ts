@@ -17,9 +17,23 @@ export interface Gate {
         total_bytes: number;
     };
 }
+/** One declared prerequisite a bounded probe can measure. Additive; absent in most repositories. */
+export interface Requirement {
+    kind: "browser" | "native_database" | "filesystem" | "container_service";
+    timeout: number;
+    /** browser: the node_modules package that pins the browser. */
+    module?: string;
+    /** browser: which engine to launch. */
+    engine?: "chromium" | "firefox" | "webkit";
+    /** native_database: the environment variable NAME carrying the URL. Never the URL. */
+    url_env?: string;
+    /** container_service: the client binary to ask for status. */
+    binary?: string;
+}
 export interface Config {
     version: 1;
     gates: Gate[];
+    requires: Requirement[];
     evidence: {
         include: string[];
         redact: {

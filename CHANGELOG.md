@@ -4,6 +4,82 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.16 — installed, executable, measured (source checkpoint)
+
+Measured before this release, on the ZenJev fixture: `wring doctor` on a
+repository whose ten declared checks need a browser, a native PostgreSQL and a
+filesystem that reads back printed **five green ticks and `ready` at exit 0**,
+with no row for any of the three. That is worse than reporting an unusable
+browser as ready — it was a readiness claim about things the doctor had never
+looked at. The ZenJev build then lost days to Apple Container permissions,
+PostgreSQL shared memory, Chromium startup restrictions and cloud-filesystem
+placeholders that no row could have caught, because no row existed.
+
+- **One readiness ladder for both doctors**: `installed` → `executable` →
+  `capability measured`, with `unavailable` and `not measured` as the two honest
+  ends. Every row carries the measurement it rests on and one bounded next step.
+  The standalone doctor's `ok | blocked | unknown | present` and the contained
+  doctor's `ready | unmeasured | blocked` were two vocabularies for one question;
+  there is now one. `wringer.contained-doctor.v2` because those rows changed shape.
+- **Bounded, session-free probes, declared per repository** under a new additive
+  `requires:` key: `browser` launches the pinned Playwright engine, opens
+  `about:blank` and closes it; `native_database` runs one identity query against
+  the URL named by `url_env` (the variable NAME — a URL in the configuration is
+  refused, because that would be a credential in the repository);
+  `filesystem` writes, fsyncs and reads back in both the workspace and
+  `.wringer/`; `container_service` asks the Apple client for its service status.
+  An unknown kind is refused with the reason: a repository command is a gate,
+  not a probe.
+- **What the probes refuse to conclude.** An installed browser whose engine will
+  not launch is `executable`, never ready — the launch is real, and a test asserts
+  the stub's `launch()` actually ran. A portable or in-memory database does not
+  satisfy a `native_database` requirement; the probe says so instead of accepting
+  it. A cloud placeholder that does not read back its own bytes is `unavailable`.
+  **A stopped container service is a readiness row with `container system start`
+  as its next step (F-B4), and nothing is started**: a test captures the client's
+  whole argv and asserts `system status` was the only command ever issued.
+- **Credentials are three-state everywhere they appear**: `exists` (an entry or
+  variable name is there, value unread) → `retrievable` (a read succeeded; the
+  value is never shown) → `accepted` (a session opened with it). The flat
+  `providerValidity: "not-validated"` said nothing about which had happened.
+  `wringer-assistant setup` reads no value and opens no session, so it reports at
+  most `exists` and says so; the contained doctor's key rows are `retrievable`
+  because that route does read; `accepted` is reachable only from
+  `wringer-drive doctor --probe-agents`, where a session actually opened.
+
+Every page debt the alpha.13 blind run recorded is now written, each with a test:
+
+- **S-A1** `runtime/README.md` names `container image pull --platform linux/arm64`
+  and why: pulling every platform of the two base indexes took one machine's free
+  disk from 13 GiB to 4.8 GiB and left the image store empty.
+- **S-A2** SETUP.md gives the allowlist keys verbatim — `allow: [{cidr, ports}]`,
+  IPv4 and TCP only, a hostname refused — and **S-A8** states that declared
+  resolvers are admitted on port 53 over UDP and TCP, that `/etc/resolv.conf` is
+  rewritten to exactly those addresses, and that an allowlist with no `dns` cannot
+  resolve a hostname at all, which is the usual reason it looks like a denial.
+- **S-A6** `setup --check-keychain` with no readable profile now says that the
+  credential names come from the profile, names `--plan ABS_PROFILE.json`, and
+  records that no entry was queried, created or replaced. It used to inspect
+  nothing and say nothing.
+- **S-A9** an owned-reference import missing a field is refused by a sentence
+  naming that field and listing the accepted ones. The mechanism: the seal hashed
+  before it validated, so a missing `context` surfaced as "Design records contain
+  only finite JSON data." — a complaint about JSON syntax on JSON that had parsed
+  perfectly.
+- **S-A10** `design bind`'s help no longer says it writes v2. It carries the
+  selected profile's own record version, never below v2, and the command prints
+  which version it wrote.
+- **S-A13** `design bind`'s *Next* measures whether the repository has a Git
+  remote. With none, it names `wringer-assistant prepare --local` before `setup`,
+  in that order. The old Next sent a local-only repository to a route that cannot
+  fetch.
+
+Not claimed: that any of these probes describes the machine that will run the
+checks, if that is a different one; that a measured capability makes a check pass;
+or any live PM pass.
+
+bun run check: 970 pass, 1 skip, 0 fail.
+
 ## 1.0.0-alpha.15 — completeness you cannot mistake for a pass (source checkpoint)
 
 An outside reader scored Wringer's contribution to a second application, ZenJev

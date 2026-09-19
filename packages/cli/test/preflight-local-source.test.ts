@@ -26,6 +26,10 @@ async function git(repo: string, args: string[]) {
 const probes: { role: string; repo: unknown }[] = [];
 const dependencies = (): ContainedDoctorDependencies => ({
     which: () => "/trusted/container",
+    // The container service is its own readiness row (F-B4); this fixture measures the
+    // source route, so the service is injected as running rather than asked for on a host
+    // that may have no Apple container at all.
+    probeService: async () => ({ name: "container service (container)", requirement: "container_service", rung: "measured", measurement: "Injected unit-test service status: running.", next: null, blocking: false }),
     preflight: async request => {
         probes.push({ role: request.role, repo: request.repo });
         return { status: "completed", stopReason: "session-opened", text: "", sessionId: "probe", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v2", runtimeId: "fixture", role: request.role, kind: request.runtime.kind, image: request.runtime.image, repository: { url: request.repo.url, commit: request.repo.commit }, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: request.runtime, observed: { fixture: true }, limits: ["Injected unit-test probe; no runtime measured"] }, promptSent: false, modelWorkRequested: false, providerCredentialValidated: false, effectiveCredential: "not-attested", credentialNames: [], authMethodReturned: false, authLine: `${request.role} ACP preflight: session opened. Injected unit-test probe.` } as unknown as AgentPreflightResult;
@@ -49,10 +53,15 @@ test("a local-only plan is session-probed from the pair beside its profile, neve
     probes.length = 0;
     const fixture = await localProfile(), plan = await loadExecutionPlan(fixture.output);
     const answer = await containedDoctor({ planPath: fixture.output, probeAgents: true }, dependencies());
-    const value = answer.value as { status: string; checks: { name: string; status: string }[] };
+    const value = answer.value as { schema_version: string; status: string; checks: { name: string; rung: string; measurement: string }[] };
+    // The rows changed shape when both doctors moved onto one ladder, so the record moved too.
+    expect(value.schema_version).toBe("wringer.contained-doctor.v2");
     expect(answer.exit).toBe(0);
     expect(value.status).toBe("protocol-ready");
-    expect(value.checks.filter(row => row.name.endsWith("authentication")).map(row => `${row.name}:${row.status}`)).toEqual(["worker authentication:ready", "judge authentication:ready"]);
+    expect(value.checks.filter(row => row.name.endsWith("authentication")).map(row => `${row.name}:${row.rung}`)).toEqual(["worker authentication:measured", "judge authentication:measured"]);
+    // An opened session is the one route to `accepted`; presence alone never reaches it.
+    for (const row of value.checks.filter(row => row.name.endsWith("authentication")))
+        expect(row.measurement).toContain("Credential: accepted");
     // The probed source is the profile's own local-only identity, read from the
     // bundle: no remote is named, and no hosted URL can appear in its place.
     expect(probes.map(row => row.role)).toEqual(["worker", "judge"]);

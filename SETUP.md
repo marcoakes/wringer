@@ -35,6 +35,28 @@ There is no built-in vendor or model recommendation. Agent binaries and dependen
 
 The runtime policy names are `apple-container` and `gvisor-kubernetes`. Network is explicit (`deny` or a declared allowlist). Kubernetes also requires its context, namespace and RuntimeClass. These are declarations to be checked, not evidence that the cluster implements the policy.
 
+An allowlist is written with exactly these keys:
+
+```yaml
+runtime:
+  network:
+    policy: allowlist
+    allow:
+      - cidr: 203.0.113.7/32   # one IPv4 address or prefix, never a hostname
+        ports: [443]           # the TCP ports that prefix may be reached on
+    dns: [203.0.113.53]        # the resolvers this run may ask, by address
+```
+
+`allow` takes IPv4 CIDRs and TCP ports only; a hostname is refused, because the policy is
+enforced by address and a name resolved later is not the thing that was reviewed. Every
+outbound packet to anything else is dropped, in both IPv4 and IPv6.
+
+**Declared resolvers are admitted on port 53, over both UDP and TCP**, and `/etc/resolv.conf`
+inside the boundary is rewritten to name exactly those addresses. Nothing else reaches port
+53: a run with an `allow` entry but no `dns` cannot resolve a hostname at all, which is the
+usual reason a declared allowlist appears to deny a host it names. Declaring a resolver
+admits DNS to that resolver and nothing more — it opens no other port and no other host.
+
 Compile your operator-authored `PLAN.yaml` (or constrained `PLAN.ts`) before granting authority:
 
 ```sh
@@ -84,7 +106,38 @@ A useful stop preserves the evidence and supplies a runnable next action. Captur
 
 The person reviews the actual display for a human criterion. The operator separately reviews delivery and chooses whether to send it. Once delivered, follow the bundle's audit and falsification instructions in a fresh clone. [QUICKSTART.md](QUICKSTART.md) explains those surfaces.
 
-## 7. Verify in phases without losing the whole
+## 7. Declare what your checks need, and let the doctor measure it
+
+`wring doctor` used to answer with rows about the repository, the configuration and the Bun runtime, and nothing else. A repository whose checks need a browser, a native PostgreSQL and a filesystem that reads back got five green ticks and `ready` at exit 0 — a claim about things it had never looked at.
+
+Declare those prerequisites and each becomes a measured row:
+
+```yaml
+requires:
+  - kind: browser              # launches the pinned Playwright browser and opens about:blank
+    module: playwright         # optional; the node_modules package that pins it
+    engine: chromium           # optional; chromium | firefox | webkit
+  - kind: native_database      # runs one identity query against the declared URL
+    url_env: DATABASE_URL      # an environment variable NAME — never the URL itself
+  - kind: filesystem           # writes, fsyncs and reads back in the workspace and .wringer/
+  - kind: container_service    # asks the Apple container client for its service status
+```
+
+Each row lands on one ladder — **installed → executable → capability measured**, with **unavailable** and **not measured** as the two honest ends — and carries the measurement it is based on and one bounded next step:
+
+```
+◐ browser (chromium) [executable]: The pinned chromium binary is present at … and did not launch: …
+    Next: read that launch error; a sandbox, missing system library or seatbelt policy is the usual cause.
+◔ container service (container) [installed]: … its service is not running: … This probe does not start it,
+  because an auto-start that may or may not have worked is not a measurement.
+    Next: container system start
+```
+
+An installed browser that cannot launch is `executable`, not ready. A portable or in-memory database does not satisfy `native_database` — the probe says so rather than accepting it. A cloud placeholder that does not read back its own bytes is `unavailable`. A stopped container service is a row with a next step; nothing is started, installed or switched for you.
+
+Credentials read the same way everywhere they appear, on three states: **exists** (an entry or variable name is there, value unread) → **retrievable** (a read succeeded; the value is never shown) → **accepted** (a session opened with it). `wring doctor` and `wringer-assistant setup` never reach `accepted`, because neither opens a session; only `wringer-drive doctor --probe-agents` can, and it sends no model prompt.
+
+## 8. Verify in phases without losing the whole
 
 A project whose checks need different services verifies in phases: `wring verify --gate build --gate lint`, then the database phase, then the browser phase. Each phase writes its own sealed bundle, and each one legitimately reports `passed` — for its selection. It stays exit 0, because a deliberately narrow run is a useful act.
 

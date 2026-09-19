@@ -5,6 +5,7 @@ import { latestRun, shellTokens } from "./acceptance";
 import { maybeJson, posix, safePath, Redactor } from "./io";
 import { runProcess } from "./process";
 import { snapshot } from "./git";
+import { CREDENTIAL_WORDS, READINESS_LIMITS, probeRequirements, readinessVerdict, type CredentialState, type ReadinessRow } from "./readiness";
 import { EngineError, type Config } from "./types";
 const SHELL_VENDORS = [{ binary: "codex", key: "CODEX_API_KEY", probe: ["login", "status"], logged: /logged in/i, loggedOut: /not logged in/i, login: "codex login" }, { binary: "claude", key: "ANTHROPIC_API_KEY", probe: ["auth", "status"], logged: /"loggedIn"\s*:\s*true/i, loggedOut: /"loggedIn"\s*:\s*false/i, login: "claude auth login" }];
 export async function workerAuth(repo: string, config: Config) {
@@ -68,37 +69,56 @@ export async function explain(repo: string, path?: string) {
     const data = { status: manifest.result.status, run_id: manifest.run_id, evidence_dir: posix(relative(repo, directory)), failed_gate: gate, command: result?.command ?? null, exit_code: result?.exit_code ?? null, stdout, stderr, rerun: gate ? `wring verify --gate ${gate}` : "wring verify", acceptance: await maybeJson(join(directory, "acceptance.json")), summary: await readFile(join(directory, "summary.md"), "utf8") };
     return data;
 }
-export async function doctor(repo: string) {
+/** The declared coding worker's credential on the three-state ladder. Never `accepted` here: no session opens. */
+export function workerCredentialState(auth: Awaited<ReturnType<typeof workerAuth>> | null): CredentialState {
+    if (!auth || auth.state === "not-applicable")
+        return "not-measured";
+    switch (auth.credential) {
+        case "none": case "missing-binary": return "absent";
+        case "key-only": case "key-and-login": case "key-login-unsettled": case "login-only": return "retrievable";
+        default: return "not-measured";
+    }
+}
+export async function doctor(repo: string, options: {
+    signal?: AbortSignal;
+} = {}) {
     repo = resolve(repo);
-    const checks: any[] = [];
+    const checks: ReadinessRow[] = [];
     let config: Config | undefined;
     try {
         const s = await snapshot(repo);
         repo = s.root;
-        checks.push({ name: "repository", status: "ok", detail: `${s.branch ?? "detached"} at ${s.head_sha ?? "unborn HEAD"}` });
+        checks.push({ name: "repository", requirement: null, rung: "measured", measurement: `${s.branch ?? "detached"} at ${s.head_sha ?? "unborn HEAD"}`, next: null, blocking: false });
     }
     catch (e) {
-        checks.push({ name: "repository", status: "blocked", detail: (e as Error).message });
+        checks.push({ name: "repository", requirement: null, rung: "unavailable", measurement: (e as Error).message, next: "open a Git repository, or pass --repo DIRECTORY", blocking: true });
     }
     try {
         config = await loadConfig(repo);
-        checks.push({ name: "configuration", status: "ok", detail: `${config.gates.length} declared checks` });
+        checks.push({ name: "configuration", requirement: null, rung: "measured", measurement: `${config.gates.length} declared checks; ${config.requires.length} declared prerequisite${config.requires.length === 1 ? "" : "s"}`, next: config.requires.length ? null : "declare requires: in .wringer.yaml for the browser, database, filesystem or container service your checks need, so this doctor can measure them before a run", blocking: false });
     }
     catch (e) {
-        checks.push({ name: "configuration", status: "blocked", detail: (e as Error).message });
+        checks.push({ name: "configuration", requirement: null, rung: "unavailable", measurement: (e as Error).message, next: "wring init", blocking: true });
     }
-    checks.push({ name: "runtime", status: "ok", detail: `Bun ${Bun.version}; ${process.platform}; trusted local execution` });
+    checks.push({ name: "runtime", requirement: null, rung: "measured", measurement: `Bun ${Bun.version}; ${process.platform}; trusted local execution`, next: null, blocking: false });
+    // Declared prerequisites are measured, not assumed: an installed browser that cannot launch is not ready.
+    if (config?.requires.length)
+        checks.push(...await probeRequirements(repo, config.requires, { signal: options.signal }));
     const auth = config ? await workerAuth(repo, config) : null;
     if (auth)
-        checks.push({ name: "worker credential", status: auth.blocking ? "blocked" : auth.state === "unknown" ? "unknown" : "ok", detail: auth.words });
-    if (config?.judge)
-        checks.push({ name: "drafting key", status: process.env[config.judge.api_key_env] ? "present" : "unknown", detail: process.env[config.judge.api_key_env] ? `${config.judge.api_key_env} is present; validity has not been tested.` : `${config.judge.api_key_env} is absent from this process.` });
+        checks.push({ name: "worker credential", requirement: null, rung: auth.blocking ? "unavailable" : auth.state === "verified" ? "executable" : "not_measured", measurement: `${auth.words} Credential: ${workerCredentialState(auth)} — ${CREDENTIAL_WORDS[workerCredentialState(auth)]}.`, next: (auth as any).next_move ?? null, blocking: auth.blocking });
+    if (config?.judge) {
+        const present = !!process.env[config.judge.api_key_env];
+        checks.push({ name: "drafting key", requirement: null, rung: present ? "executable" : "not_measured", measurement: `${config.judge.api_key_env} is ${present ? "readable in this process" : "absent from this process"}. Credential: ${present ? "retrievable" : "absent"} — ${CREDENTIAL_WORDS[present ? "retrievable" : "absent"]}.`, next: present ? null : `export ${config.judge.api_key_env}`, blocking: false });
+    }
     const latest = await latestRun(repo);
     if (latest) {
         const manifest = await maybeJson(join(latest, "manifest.json"));
-        checks.push({ name: "last verify", status: "ok", detail: `${manifest.run_id}: ${manifest.result.status}; ${posix(relative(repo, latest))}` });
+        const selection = await maybeJson(join(latest, "selection.json"));
+        checks.push({ name: "last verify", requirement: null, rung: "measured", measurement: `${manifest.run_id}: ${manifest.result.status}; ${posix(relative(repo, latest))}${selection?.schema_version === "wringer.selection.v1" ? `. ${selection.reason}` : ""}`, next: selection?.complete === false ? "wring verify for the checks that record does not cover" : null, blocking: false });
     }
     else
-        checks.push({ name: "last verify", status: "unknown", detail: "No completed verification record exists. Run wring verify." });
-    return { status: checks.some(c => c.status === "blocked") ? "blocked" : "ready", exit_code: checks.some(c => c.status === "blocked") ? 1 : 0, checks, worker_auth: auth, last_verify: latest ? posix(relative(repo, latest)) : null };
+        checks.push({ name: "last verify", requirement: null, rung: "not_measured", measurement: "No completed verification record exists.", next: "wring verify", blocking: false });
+    const verdict = readinessVerdict(checks);
+    return { status: verdict.ready ? "ready" : checks.some(c => c.blocking) ? "blocked" : "unmeasured", exit_code: checks.some(c => c.blocking) ? 1 : 0, checks, readiness: verdict, worker_auth: auth, worker_credential: workerCredentialState(auth), last_verify: latest ? posix(relative(repo, latest)) : null, limits: READINESS_LIMITS };
 }

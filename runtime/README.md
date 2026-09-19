@@ -27,7 +27,22 @@ adapter, not a separate host execution route. [Official Codex CLI documentation]
 An operator must first resolve and inspect official `oven/bun:1.4.2` and
 `node:24-bookworm-slim` multi-platform images, then supply their **actual full
 digests** as `BUN_BASE_IMAGE` and `NODE_BASE_IMAGE`. There are intentionally no
-default digests. Bun is copied from its pinned stage into the pinned Node 24
+default digests.
+
+**Name the platform when you pull them.** Apple's client pulls every platform of a
+multi-platform index by default. On 14 September 2026 that took one machine's free
+disk from 13 GiB to 4.8 GiB on the two base images alone, and the image store was
+still empty afterwards, so neither the agent nor the design image could be built.
+Pull the one platform the host runs:
+
+```sh
+container image pull --platform linux/arm64 docker.io/oven/bun:1.4.2
+container image pull --platform linux/arm64 docker.io/library/node:24-bookworm-slim
+```
+
+Use `linux/amd64` on an Intel host. Check `df -h /` before and after; an index digest
+you resolve from a single-platform pull still names the index, which is the reference
+the plan and the smoke profile want. Bun is copied from its pinned stage into the pinned Node 24
 Debian runtime. The build does not assume the distribution's apt repository
 provides a recent enough Node for the ACP adapters.
 Do not substitute a plausible hash or an image tag without a digest.

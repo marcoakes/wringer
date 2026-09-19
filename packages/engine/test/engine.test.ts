@@ -313,7 +313,7 @@ test("doctor reads last verification record and explain retains both streams", a
     const out = await verify(root);
     const d = await doctor(root);
     expect(d.last_verify).toBe(out.evidence_dir);
-    expect(d.checks.find(c => c.name === "last verify").detail).toContain(out.manifest.run_id);
+    expect(d.checks.find(c => c.name === "last verify")!.measurement).toContain(out.manifest.run_id);
     const e = await explain(root);
     expect(e.stdout).toContain("useful");
     expect(e.stderr).toContain("broken");

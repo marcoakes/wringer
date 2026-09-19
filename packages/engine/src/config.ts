@@ -1,7 +1,7 @@
 import { readFile, writeFile, access, appendFile } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { parseDocument, stringify } from "yaml";
-import { EngineError, type Config, type Gate } from "./types";
+import { EngineError, type Config, type Gate, type Requirement } from "./types";
 import { safePath } from "./io";
 const SLUG = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 export function object(value: unknown, name: string): Record<string, any> {
@@ -77,9 +77,48 @@ export function parseGate(value: unknown): Gate {
     }
     return gate;
 }
+/** A declared prerequisite names a bounded probe, never a command of the repository's own. */
+export function parseRequirement(value: unknown): Requirement {
+    const r = object(value, "requirement");
+    keys(r, ["kind", "timeout", "module", "engine", "url_env", "binary"], "requirement");
+    const kind = textValue(r.kind, "requirement.kind");
+    if (!["browser", "native_database", "filesystem", "container_service"].includes(kind))
+        throw new EngineError(`requires: unknown kind ${kind}. Wringer measures browser, native_database, filesystem and container_service; a repository command is a gate, not a probe.`);
+    const out: Requirement = { kind: kind as Requirement["kind"], timeout: integer(r.timeout, `requires ${kind}.timeout`, kind === "browser" ? 90 : 30, 600) };
+    const only = (allowed: string[]) => {
+        for (const key of Object.keys(r))
+            if (!["kind", "timeout", ...allowed].includes(key))
+                throw new EngineError(`requires ${kind}: ${key} does not apply to this probe`);
+    };
+    if (kind === "browser") {
+        only(["module", "engine"]);
+        out.module = r.module === undefined ? "playwright" : textValue(r.module, "requires browser.module");
+        if (!/^(?:@[A-Za-z0-9][\w.-]*\/)?[A-Za-z0-9][\w.-]*$/.test(out.module))
+            throw new EngineError(`requires browser.module ${out.module} is not a package name`);
+        const engine = r.engine === undefined ? "chromium" : r.engine;
+        if (!["chromium", "firefox", "webkit"].includes(engine))
+            throw new EngineError("requires browser.engine must be chromium, firefox or webkit");
+        out.engine = engine as Requirement["engine"];
+    }
+    else if (kind === "native_database") {
+        only(["url_env"]);
+        out.url_env = textValue(r.url_env, "requires native_database.url_env (an environment variable NAME, never the URL)");
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(out.url_env))
+            throw new EngineError(`requires native_database.url_env ${out.url_env} must name an environment variable; a URL in the configuration would be a credential in the repository`);
+    }
+    else if (kind === "container_service") {
+        only(["binary"]);
+        out.binary = r.binary === undefined ? "container" : textValue(r.binary, "requires container_service.binary");
+        if (!/^[A-Za-z0-9][A-Za-z0-9._+-]*$/.test(out.binary))
+            throw new EngineError(`requires container_service.binary ${out.binary} is not a plain client name`);
+    }
+    else
+        only([]);
+    return out;
+}
 export function parseConfig(value: string | unknown): Config {
     const c = object(typeof value === "string" ? parseYaml(value, ".wringer.yaml") : value, "config");
-    keys(c, ["version", "gates", "evidence", "run", "judge", "show", "deliver", "execution", "provenance", "fleet", "workspace", "forge", "bench"], "config");
+    keys(c, ["version", "gates", "requires", "evidence", "run", "judge", "show", "deliver", "execution", "provenance", "fleet", "workspace", "forge", "bench"], "config");
     if (c.version !== 1)
         throw new EngineError(".wringer.yaml version must be 1");
     if (Object.prototype.hasOwnProperty.call(c, "workspace"))
@@ -99,6 +138,16 @@ export function parseConfig(value: string | unknown): Config {
             bound.add(p);
         }
     }
+    if (c.requires !== undefined && (!Array.isArray(c.requires) || c.requires.length > 8))
+        throw new EngineError("requires must be a list of at most eight declared prerequisites");
+    const requires = (c.requires ?? []).map(parseRequirement);
+    const kinds = new Set<string>();
+    for (const r of requires) {
+        const identity = r.kind === "native_database" ? `${r.kind}:${r.url_env}` : r.kind === "browser" ? `${r.kind}:${r.engine}` : r.kind;
+        if (kinds.has(identity))
+            throw new EngineError(`requires declares ${identity} twice; one probe measures it once`);
+        kinds.add(identity);
+    }
     const e = c.evidence === undefined ? {} : object(c.evidence, "evidence");
     keys(e, ["include", "redact"], "evidence");
     const r = e.redact === undefined ? {} : object(e.redact, "evidence.redact");
@@ -106,7 +155,7 @@ export function parseConfig(value: string | unknown): Config {
     const include = strings(e.include, "evidence.include");
     if (include.length)
         throw new EngineError("Nonempty evidence.include is not supported by the native runtime: those files would not be captured. Remove that setting or use explicit gate artifacts capture; verification has not started.");
-    const out: Config = { ...c, version: 1, gates, evidence: { include, redact: { env: strings(r.env, "evidence.redact.env", ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]) } } };
+    const out: Config = { ...c, version: 1, gates, requires, evidence: { include, redact: { env: strings(r.env, "evidence.redact.env", ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"]) } } };
     if (c.run !== undefined) {
         const v = object(c.run, "run");
         keys(v, ["worker", "max_iterations", "worker_timeout", "wall_clock", "prove", "prove_setup", "containment"], "run");

@@ -190,6 +190,16 @@ export function parseDesignJson(contents: string | Uint8Array, maxBytes = MAX_SN
 export function parseDesignSnapshot(contents: string | Uint8Array): DesignSnapshot { return validateDesignSnapshot(parseDesignJson(contents)); }
 export function createDesignSnapshot(input: DesignReferenceInput, now = new Date()): DesignSnapshotV1 {
     if (input.source?.provider && input.source.provider !== "owned-reference") throw new DesignError("Use the measured MCP import for remote source claims.");
+    // S-A13's neighbour, S-A9 (alpha.13 blind test): the seal hashes before it validates,
+    // so a missing field surfaced as "Design records contain only finite JSON data." — a
+    // complaint about JSON syntax on JSON that parsed perfectly. Name the field instead.
+    for (const field of ["title", "context"] as const)
+        if (typeof input[field] !== "string")
+            throw new DesignError(`An owned reference is missing "${field}". Add it to the input JSON: "title" names the design, and "context" is the observed description a reviewer reads (use "" only when at least one PNG reference travels with it). Accepted top-level fields are title, context, componentRules, assets and source.`, "design-input-incomplete");
+    for (const [index, asset] of (input.assets ?? []).entries())
+        for (const field of ["id", "title"] as const)
+            if (typeof (asset as any)?.[field] !== "string")
+                throw new DesignError(`Owned reference image ${index + 1} is missing "${field}". Each asset needs id, title and exactly one of path or pngBase64.`, "design-input-incomplete");
     return sealDesignSnapshot({ schema_version: "wringer.design-snapshot.v1", title: input.title, source: { provider: "owned-reference", label: input.source?.label ?? input.title, endpoint: null, file_key: null, node_id: null, version: input.source?.version ?? null, version_basis: input.source?.version ? "operator-declared" : "capture-only" }, captured_at: now.toISOString(), disclosure: input.disclosure, context: input.context, component_rules: input.componentRules ?? [], assets: (input.assets ?? []).map(designPngAsset), provenance: { method: "owned-reference", calls: [], limits: ["Operator-supplied reference, not a Figma/MCP access measurement.", "The snapshot hash pins retained bytes, not ownership or design correctness.", "PNG pixels may contain private information; text redaction cannot establish image privacy."] } });
 }
 export function assertRepositoryDisclosure(snapshot: DesignSnapshot) { validateDesignSnapshot(snapshot); if (snapshot.disclosure !== "repository-permitted") throw new DesignError("This design reference is private. Explicit repository permission is required before attaching it to source or delivery.", "design-disclosure-required"); }

@@ -59,10 +59,27 @@ describe("assistant setup inspects names and declarations, never invents live re
         const calls: string[] = [], plan = await measuredPlan();
         const rows = await inspectAssistantCredentials(plan, true, dependencies({ environmentNames: new Set(["CODEX_API_KEY"]), keychainEntry: async service => { calls.push(service); return "present"; } }));
         expect(calls).toEqual(["anthropic-api-key"]);
-        expect(rows).toEqual([{ name: "ANTHROPIC_API_KEY", source: "keychain-entry", providerValidity: "not-validated" }, { name: "CODEX_API_KEY", source: "environment-name", providerValidity: "not-validated" }]);
-        expect(await inspectAssistantCredentials(plan, true, dependencies({ keychainEntry: async () => "unavailable" }))).toMatchObject([{ source: "unavailable" }, { source: "unavailable" }]);
-        expect(await inspectAssistantCredentials(plan, true, dependencies({ keychainEntry: async () => "absent" }))).toMatchObject([{ source: "not-found" }, { source: "not-found" }]);
+        // exists, and never better: no value was read and no session was opened.
+        expect(rows).toEqual([{ name: "ANTHROPIC_API_KEY", source: "keychain-entry", providerValidity: "exists" }, { name: "CODEX_API_KEY", source: "environment-name", providerValidity: "exists" }]);
+        expect(rows.every(row => row.providerValidity !== "retrievable" && row.providerValidity !== "accepted")).toBeTrue();
+        expect(await inspectAssistantCredentials(plan, true, dependencies({ keychainEntry: async () => "unavailable" }))).toMatchObject([{ source: "unavailable", providerValidity: "not-measured" }, { source: "unavailable", providerValidity: "not-measured" }]);
+        expect(await inspectAssistantCredentials(plan, true, dependencies({ keychainEntry: async () => "absent" }))).toMatchObject([{ source: "not-found", providerValidity: "absent" }, { source: "not-found", providerValidity: "absent" }]);
         await expect(inspectKeychainEntry("unrelated-account-service")).rejects.toThrow("Only the declared");
+    });
+    // S-A6 (alpha.13 blind test): --check-keychain with no readable profile inspected
+    // nothing and said nothing at all, because the credential NAMES come from the profile.
+    test("check-keychain with no readable profile says what it needs", async () => {
+        const root = join(await scratch(), "controller");
+        const report = await inspectAssistantSetup({ root, cooperativeLocal: false, checkKeychain: true, command: ["wringer-assistant"] });
+        const row = report.checks.find(check => check.id === "credential-inspection");
+        expect(row, JSON.stringify(report.checks.map(c => c.id))).toBeTruthy();
+        expect(row!.detail).toContain("--check-keychain inspected no entry");
+        expect(row!.detail).toContain("--plan ABS_PROFILE.json");
+        expect(row!.detail).toContain("No Keychain entry was queried, created or replaced.");
+        expect(report.credentials).toEqual([]);
+        expect(report.effects.keychainPasswordsRead).toBeFalse();
+        const quiet = await inspectAssistantSetup({ root, cooperativeLocal: false, command: ["wringer-assistant"] });
+        expect(quiet.checks.some(check => check.id === "credential-inspection")).toBeFalse();
     });
     test("runtime Secret references are not mistaken for missing host Keychain credentials", async () => {
         const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = await measuredPlan();

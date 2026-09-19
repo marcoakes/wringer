@@ -39,7 +39,8 @@ Import performs only a finite declared read recipe, never an agent loop or desig
 write. Figma requires an eligible authorized MCP connection; access failure is a
 stop, not a substitute design. An owned export is labelled owned-reference.
 Commit the intended snapshot in the source repo before bind; bind pins the HEAD
-Git blob, preserves the previous checks/budget, and creates an unapproved v2 plan.
+Git blob, preserves the previous checks/budget, and creates an unapproved plan at the
+selected profile's own record version, never below v2: a v3 profile binds to v3.
 Guide: docs/native/DESIGN.md
 `;
 
@@ -142,7 +143,15 @@ export async function designCommand(a: Args, repo: string): Promise<Answer> {
         if (await git(root, ["rev-parse", "HEAD^{commit}"]) !== commit) throw new Error("Source moved during design binding; repeat against a stable commit");
         const file = await open(output, "wx", 0o600);
         try { await file.writeFile(canonicalPlanJson(plan)); await file.sync(); } finally { await file.close(); }
-        return { value: { path: output, planSha256: plan.plan_sha256, sourceCommit: commit, snapshotSha256: snapshot.snapshot_sha256, approval: "not-granted" }, text: `Prepared an unapproved design-aware plan: ${output}\nSource: ${commit}\nDesign: ${snapshot.snapshot_sha256}\nExisting checks and limits retained. No model, source script, approval or publication ran.\nNext: use this profile with wringer-assistant setup --plan ${JSON.stringify(output)} and your existing controller options. Then propose the PM request and review the plan.` };
+        // S-A13 (alpha.13 blind test): for a repository with no remote, `setup` is not the
+        // next step — a local-only source has to be prepared beside the profile first, and
+        // the Next line that skipped it sent a live run down a route that cannot fetch.
+        const remote = await git(root, ["remote"]).catch(() => "");
+        const local = plan.repository.url.startsWith("local://") || !remote.trim();
+        const next = local
+            ? `this repository has ${remote.trim() ? "a local-only source URL" : "no Git remote"}, so prepare its source beside this profile before setup:\n  wringer-assistant prepare --local --repo ${JSON.stringify(root)} --plan ${JSON.stringify(output)}\nThen: wringer-assistant setup --plan ${JSON.stringify(output)} with your existing controller options, and review the plan before approving it.`
+            : `use this profile with wringer-assistant setup --plan ${JSON.stringify(output)} and your existing controller options. Then propose the PM request and review the plan.`;
+        return { value: { path: output, planSha256: plan.plan_sha256, sourceCommit: commit, snapshotSha256: snapshot.snapshot_sha256, approval: "not-granted", localSource: local }, text: `Prepared an unapproved design-aware plan: ${output}\nSource: ${commit}\nDesign: ${snapshot.snapshot_sha256}\nRecord version: v${planVersion(plan)}, carried from the selected profile.\nExisting checks and limits retained. No model, source script, approval or publication ran.\nNext: ${next}` };
     }
     throw new Error(DESIGN_HELP);
 }

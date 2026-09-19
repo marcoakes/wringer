@@ -252,6 +252,33 @@ Keep the controller's frozen plan/authority, sequenced events, runtime/session p
 
 Apple/gVisor protocol fixtures do not establish live isolation. Before a valuable unattended workload, require the platform-specific boundary and cancellation/cleanup tests. [Architecture](ARCHITECTURE.md) explains the separation; the [historical alpha.1 report](IMPLEMENTATION_REPORT.md) documents an earlier helper and must not be followed as current setup.
 
+## Measure the prerequisites before the job, not during it
+
+`wringer-drive doctor --plan PLAN.yaml` and `wring doctor` answer on one ladder:
+**installed → executable → capability measured**, with **unavailable** and **not
+measured** as the two honest ends. Each row carries the measurement it rests on and
+one bounded next step. Nothing on this route starts a service, installs a tool,
+switches the execution route or sends a model prompt.
+
+Two consequences worth planning around in an unattended job:
+
+- **A stopped Apple container service is a row, not a retry.** The doctor asks
+  `container system status` and reports `installed` with `container system start` as
+  the next step. It does not start the service, because an auto-start that may or may
+  not have worked leaves an uncertain effect somebody has to reconcile.
+- **Credentials read on three states** — `exists`, `retrievable`, `accepted` — and
+  only `--probe-agents` can reach `accepted`, because only a session that actually
+  opened establishes it. A present key is `retrievable` at best, and a key that is
+  merely named is `exists`.
+
+Declare the standalone route's prerequisites under `requires:` in `.wringer.yaml` and
+`wring doctor` measures each one: `browser` (launches the pinned engine and opens
+`about:blank`), `native_database` (one identity query against the URL named by
+`url_env`; a portable or in-memory database does not satisfy it), `filesystem`
+(write, fsync and read back in the workspace and `.wringer/`) and `container_service`.
+Exit 1 means a measured shortfall; exit 0 with `unmeasured` means a declared
+prerequisite was never measured, which is not the same as ready.
+
 ## Verify in phases, then combine them
 
 Unattended CI usually cannot run every declared check in one invocation: the browser phase needs a browser, the database phase needs a database. Run the phases you can, each in its own `wring verify --gate …`, and keep every bundle.

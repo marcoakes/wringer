@@ -76,7 +76,14 @@ describe("design CLI entry path", () => {
         const answer = await f.call(args), compiled = await loadExecutionPlan(output);
         expect(compiled.schema_version).toBe("wringer.execution-plan.v2"); expect(compiled.repository.commit).toBe(await git("rev-parse", "HEAD"));
         expect(compiled.budget).toEqual(plan.budget); expect(compiled.acceptance.protected_paths).toContain("design/snapshot.json");
-        expect(answer.value).toMatchObject({ approval: "not-granted" });
+        expect(answer.value).toMatchObject({ approval: "not-granted", localSource: true });
+        // S-A13 (alpha.13 blind test): this fixture has no Git remote, so `setup` is not the
+        // next step — the source has to be prepared beside the profile first, and the old Next
+        // line skipped it. S-A10: the record version bind wrote is named, never guessed.
+        expect(answer.text).toContain("no Git remote");
+        expect(answer.text).toContain("wringer-assistant prepare --local");
+        expect(answer.text).toContain("Record version: v2, carried from the selected profile.");
+        expect(answer.text!.indexOf("prepare --local")).toBeLessThan(answer.text!.indexOf("wringer-assistant setup"));
         expect(await readFile(profile, "utf8")).toBe(canonicalPlanJson(plan));
         await expect(f.call(args)).rejects.toThrow();
         const input = JSON.parse(await readFile(join(f.repo, "input.json"), "utf8")); input.title = "Moved design";

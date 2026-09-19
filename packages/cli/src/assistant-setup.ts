@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { chmod, link, lstat, open, realpath, unlink } from "node:fs/promises";
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { canonicalPlanJson, compileDeclaration, loadExecutionPlan, planVersion, type ExecutionPlan } from "@wringer/plan";
-import { VERSION } from "@wringer/engine";
+import { CREDENTIAL_WORDS, VERSION, type CredentialState } from "@wringer/engine";
 import { assistantExists, assistantPath, isLocalSource, localSourceSiblings, readAssistantLocalSource, readAssistantWorkspace, verifyLocalSource, type LocalSourceRecord } from "@wringer/application";
 import { LOCAL_SOURCE_URL, createLocalSourceBundle } from "@wringer/runtime";
 import { readPinnedDesignSnapshot } from "@wringer/workflow";
@@ -14,7 +14,12 @@ export interface AssistantSetupAction { id: string; label: string; command?: str
 export interface AssistantCredentialPresence {
     name: string;
     source: "environment-name" | "keychain-entry" | "runtime-secret-reference" | "not-found" | "not-inspected" | "unavailable";
-    providerValidity: "not-validated";
+    /** The three-state credential ladder: exists -> retrievable -> accepted. This
+     * inspection never reads a value and never opens a session, so it reports at most
+     * `exists`; `retrievable` belongs to a route that read the value, and `accepted`
+     * only to a session that actually opened. The flat "not-validated" it replaced said
+     * nothing about which of those three had happened. */
+    providerValidity: CredentialState;
 }
 export interface AssistantSetupOptions {
     root: string;
@@ -62,7 +67,7 @@ export async function inspectAssistantCredentials(plan: ExecutionPlan, checkKeyc
             const state = cache.get(service)!;
             source = state === "present" ? "keychain-entry" : state === "absent" ? "not-found" : "unavailable";
         }
-        result.push({ name, source, providerValidity: "not-validated" });
+        result.push({ name, source, providerValidity: source === "not-found" ? "absent" : source === "not-inspected" || source === "unavailable" ? "not-measured" : "exists" });
     }
     return result;
 }
@@ -135,13 +140,17 @@ export async function inspectAssistantSetup(options: AssistantSetupOptions, depe
                 : row.source === "not-inspected" ? "The variable name is absent from this environment. Keychain was not inspected; use --check-keychain for an exit-only entry check without retrieving a password."
                 : row.source === "unavailable" ? "Keychain entry presence could not be established. Do not replace the key on this evidence; inspect Keychain access first."
                 : `No available credential source was found by this inspection. ${keychainServices[row.name] ? `Expected Keychain service ${keychainServices[row.name]}, account wringer, or the declared environment variable.` : "Provide the declared variable to the launching controller through the selected runtime route."} Never paste a key into chat, a plan or client arguments.`;
-            add(`credential:${row.name}`, row.source === "not-found" ? "needs-attention" : "unmeasured", `${detail} Provider validity and effective authentication are not attested.`);
+            add(`credential:${row.name}`, row.source === "not-found" ? "needs-attention" : "unmeasured", `${detail} Credential: ${row.providerValidity} — ${CREDENTIAL_WORDS[row.providerValidity]}. This inspection reads no value and opens no session, so it can never report retrievable or accepted.`);
         }
         add("billing", "unmeasured", `The profile limits the whole job to ${plan.budget.max_sessions} sessions and ${plan.budget.wall_clock_seconds} seconds. These are not a cash cap. Coding-app usage and worker/judge billing remain unknown until observed.`);
         if (existing) nextActions.push({ id: "status", label: "Inspect the retained work first", command: `${command} status --root ${quote(root)}`, note: "Status does not start an owner, replay an effect or renew an allowance." });
         else if (options.planPath) nextActions.push({ id: "initialize", label: "Record the reviewed profile", command: `${command} init --root ${quote(root)} --plan ${quote(options.planPath)} --cooperative-local`, note: "Only for explicitly selected cooperative-local evaluation after the issues above are settled. Choose and add --destination ABS_JSON before initialization if this run will include handover; it cannot be added to the pinned root later. This does not approve execution." });
         if (options.planPath) nextActions.push({ id: "runtime-probe", label: "Measure contained sessions before a live job", page: "SETUP.md#5-read-preflight-before-spend", note: "Use the contained doctor's --probe-agents route with this exact plan after reviewing the runtime. It may resolve existing keys and create temporary contained sessions, but sends no model prompt. A session does not validate a provider key." });
     } else nextActions.push({ id: "profile", label: "Resolve the selected profile", page: "SETUP.md", note: "Use the reviewed source and exact runtime; do not execute the compile-only example unchanged." });
+    // S-A6 (alpha.13 blind test): --check-keychain with no readable profile inspected
+    // nothing and said nothing, because the credential NAMES come from the profile.
+    if (options.checkKeychain && !plan)
+        add("credential-inspection", "unmeasured", `--check-keychain inspected no entry: the credential variable names it would look for are declared by the profile, and no profile was read here. Supply --plan ABS_PROFILE.json (or a root whose retained profile is readable), then repeat the flag. No Keychain entry was queried, created or replaced.`);
     if (credentials.some(row => row.source === "not-inspected")) nextActions.push({ id: "credential-metadata", label: "Check whether existing Keychain entries can be reused", command: `${command} setup --root ${quote(root)}${options.planPath ? ` --plan ${quote(options.planPath)}` : ""}${options.cooperativeLocal ? " --cooperative-local" : ""} --check-keychain`, note: "Optional metadata query only. No key value is read or displayed, no entry is stored or replaced, and nothing is spent." });
     return { schema_version: "wringer.assistant-setup.v1" as const, outcome: checks.some(check => check.status === "needs-attention") ? "needs-attention" as const : "inspection-complete" as const, checks, credentials, nextActions, planSha256: plan?.plan_sha256 ?? null, existingWorkspace: existing, effects: { modelPrompts: 0, keychainPasswordsRead: false, configurationChanged: false, controllerCreated: false }, limits: ["Inspection is not approval, a passed containment test, validated provider authentication or a supported-client PM run.", "No plan-supplied command, installer, runtime allocation, owner launch or client configuration write was performed.", "The existing plan validator may compare already-inherited environment values for secret redaction. Setup does not retrieve Keychain passwords or expose credential values."] };
 }
