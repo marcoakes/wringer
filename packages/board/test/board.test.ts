@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtemp, mkdir, rm, symlink, utimes } from "node:fs/promises";
+import { mkdtemp, mkdir, readdir, rm, symlink, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadBoard, renderHtml, renderMarkdown, requirementLines, safeRecordPath, toCertificateRequirements } from "../src";
+import { loadBoard, READABLE_SELECTIONS, renderHtml, renderMarkdown, requirementLines, safeRecordPath, toCertificateRequirements } from "../src";
 import Ajv2020 from "ajv/dist/2020";
 const scratch = await mkdtemp(join(tmpdir(), "wringer-board-tests-"));
 afterAll(async () => { await rm(scratch, { recursive: true, force: true }); });
@@ -239,6 +239,31 @@ test("a run whose assertion evidence established nothing reads as not passing, a
     const rail = b.rail.find(s => s.label === "Checks passing")!;
     expect(rail.detail).toContain("Established no assertion evidence: accept");
     expect(renderMarkdown(b)).toContain("An empty or all-skipped suite is not established");
+});
+// RED-WATCH: a selection version shipped in `schema/` and not added to the board's reader.
+// Measured 19 September 2026: v3 shipped, this list still said v2, and the board printed
+// "Checks passing: complete. … No selection record travelled with this run" for a run whose
+// own record said complete:false. Found by running the real binary, not by a test.
+test("selection-versions-are-all-readable: every selection schema is one the board reads", async () => {
+    const schemas = new URL("../../../schema/", import.meta.url).pathname;
+    const published = (await readdir(schemas)).filter(name => /^selection(-v\d+)?\.schema\.json$/.test(name));
+    expect(published.length).toBeGreaterThan(0);
+    const versions = await Promise.all(published.map(async name => (await Bun.file(join(schemas, name)).json()).properties.schema_version.const as string));
+    expect([...versions].sort()).toEqual([...READABLE_SELECTIONS].sort());
+});
+test("a v3 selection record with its strict comparison reads on the board", async () => {
+    const { repo, green } = await fixture();
+    await Bun.write(join(repo, green, "selection.json"), JSON.stringify({
+        schema_version: "wringer.selection.v3", run_id: "a-first-lexically", head_sha: "a".repeat(40), config_sha256: "b".repeat(64),
+        declared: ["accept", "lint"], required: ["accept", "lint"], selected: ["accept"], executed: ["accept"], passed: ["accept"], failed: [],
+        missing_required: ["lint"], complete: false, phases: [], strict: { before: "c".repeat(64), after: "c".repeat(64), changed_tracked: [], permitted_ignored: 2, exact_source: true, reason: "Strict: no tracked file changed while the checks ran." },
+        reason: "Incomplete: 1 required check was not run (lint).", limits: ["One"],
+    }));
+    const b = await loadBoard(repo);
+    expect(b.issues).toEqual([]);
+    expect(b.selection).toMatchObject({ complete: false, missingRequired: ["lint"] });
+    expect(b.facts.checksPassing).toBe(false);
+    expect(b.rail.find(s => s.label === "Checks passing")!.detail).toContain("Incomplete: 1 required check was not run (lint).");
 });
 const REAL = "/Users/marc/Claude/wringer-run5-rerun-2026-09-06/blind-0910/example-clean/project";
 const REPO = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");

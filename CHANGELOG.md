@@ -65,6 +65,19 @@ All four are now bound.
 Schema versions: two new files, `checks-v2.schema.json` and
 `selection-v3.schema.json`. No frozen schema changed.
 
+**A regression in this release, found twice and fixed.** Minting
+`wringer.selection.v3` left the board's reader capped at v2, so it fell back to
+"No selection record travelled with this run" and printed `Checks passing:
+complete` for a partial run — the exact confusion alpha.15 exists to prevent. It
+surfaced first by running the compiled binary against the real ZenJev fixture, and
+then in CI, where `local-delivery-fixture` refused delivery outright with
+`Cannot read wringer.selection.v3 as a selection.` That refusal chain is the
+product working: an unreadable record blocks a handover instead of being ignored.
+Both version lists are now single named constants — `READABLE_SELECTIONS` in the
+board and `COMBINABLE_SELECTIONS` / `COMBINABLE_CHECKS` in the set combiner — and
+two tests walk `schema/` asserting that every published version of those records
+appears in them, so the next version cannot be forgotten in one place.
+
 Not claimed: that declared `inputs:` cover everything a runner loads — a glob is a
 declaration, and an undeclared dependency is still invisible; that `--strict`
 protects against an owner who controls the host; or any live PM pass.

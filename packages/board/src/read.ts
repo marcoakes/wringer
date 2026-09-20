@@ -7,6 +7,11 @@ import { openReader, readSchema, SCHEMA_BY_VERSION, type Reader } from "@wringer
 import { deriveFacts, deriveRail, deriveNextAction, type BoardModel, type Gate, type Issue, type Requirement, type Receipt, type SourceQuote } from "./model";
 import { nativeContext } from "./native";
 type Obj = Record<string, any>;
+/** Every selection version this reader understands. A version added to `schema/` and not added
+ * here makes the board fall back to "no selection record travelled with this run" and print
+ * `complete` for a partial one — measured on 19 September 2026, when v3 shipped and this list
+ * still said v2. `selection-versions-are-all-readable` in the board suite now fails instead. */
+export const READABLE_SELECTIONS = ["wringer.selection.v1", "wringer.selection.v2", "wringer.selection.v3"];
 const SCHEMAS = new URL("../../../schema/", import.meta.url).pathname;
 const ACCEPTANCE = new Set(["wringer.acceptance.v1", "wringer.acceptance.v2", "wringer.acceptance.v3"]);
 const normalize = (s: string) => s.replace(/\s+/g, " ").trim();
@@ -272,9 +277,9 @@ export async function loadBoard(repo: string, run?: string): Promise<BoardModel>
         model.gates = await readGates(records, runPath);
         // Absent in every bundle written before the record existed: unrecorded, never "everything ran".
         const selection = await records.json(resolve(runPath, "selection.json"));
-        if (selection && !["wringer.selection.v1", "wringer.selection.v2"].includes(selection.schema_version as string))
+        if (selection && !READABLE_SELECTIONS.includes(selection.schema_version as string))
             records.issue(resolve(runPath, "selection.json"), "wrong-selection-version", `Cannot read ${selection.schema_version} as a selection.`);
-        if (selection && ["wringer.selection.v1", "wringer.selection.v2"].includes(selection.schema_version as string))
+        if (selection && READABLE_SELECTIONS.includes(selection.schema_version as string))
             model.selection = { complete: selection.complete === true, reason: selection.reason, declared: selection.declared.length, required: selection.required.length, executed: selection.executed.length, missingRequired: selection.missing_required };
         // A run can fail with every gate green: its declared assertion evidence established nothing.
         const assertions = await records.json(resolve(runPath, "gate-assertions.json"), "wringer.gate-assertions.v1");

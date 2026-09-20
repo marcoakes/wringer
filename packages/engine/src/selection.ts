@@ -134,6 +134,11 @@ export interface LoadedBundle {
     execution: any | null;
     spec: any | null;
 }
+/** Every version of each record the combiner reads. A new file in `schema/` that is not added
+ * here is refused by a sentence naming a version it should understand, and the
+ * `combiner-reads-every-version` test fails rather than a reader silently regressing. */
+export const COMBINABLE_SELECTIONS = ["wringer.selection.v1", "wringer.selection.v2", "wringer.selection.v3"];
+export const COMBINABLE_CHECKS = ["wringer.checks.v1", "wringer.checks.v2"];
 const refuse = (message: string, next: string) => new EngineError(message, 2, next);
 const NEXT = "wring audit --set DIR --set DIR --help";
 async function loadBundle(named: string, directory: string): Promise<LoadedBundle> {
@@ -160,7 +165,7 @@ async function loadBundle(named: string, directory: string): Promise<LoadedBundl
         throw refuse(`Bundle ${named} carries a .wringer.yaml this version cannot read, so its declared checks are unknown: ${(e as Error).message}`, NEXT);
     }
     const checksRecord = await maybeJson(join(directory, "checks.json"));
-    if (!checksRecord || !["wringer.checks.v1", "wringer.checks.v2"].includes(checksRecord.schema_version) || !Array.isArray(checksRecord.checks))
+    if (!checksRecord || !COMBINABLE_CHECKS.includes(checksRecord.schema_version) || !Array.isArray(checksRecord.checks))
         throw refuse(`Bundle ${named} carries no wringer.checks.v1 check identities, so no reader can establish that its gates are the same checks as another bundle's.`, NEXT);
     const results: GateResult[] = [];
     for (const name of (await fileList(directory)).filter(p => /^gates\/[^/]+\/result\.json$/.test(p))) {
@@ -172,8 +177,8 @@ async function loadBundle(named: string, directory: string): Promise<LoadedBundl
     if (!results.length)
         throw refuse(`Bundle ${named} recorded no gate result, so it contributes nothing to a set.`, NEXT);
     const selection = await maybeJson(join(directory, "selection.json"));
-    if (selection && !["wringer.selection.v1", "wringer.selection.v2", "wringer.selection.v3"].includes(selection.schema_version))
-        throw refuse(`Bundle ${named} carries an unreadable selection record (${selection.schema_version}); this reader knows wringer.selection.v1 to v3.`, NEXT);
+    if (selection && !COMBINABLE_SELECTIONS.includes(selection.schema_version))
+        throw refuse(`Bundle ${named} carries an unreadable selection record (${selection.schema_version}); this reader knows ${COMBINABLE_SELECTIONS.join(", ")}.`, NEXT);
     let spec: any = null;
     try {
         spec = parseYaml(await readFile(join(directory, "wringer.spec.yaml"), "utf8"), `${named}/wringer.spec.yaml`);

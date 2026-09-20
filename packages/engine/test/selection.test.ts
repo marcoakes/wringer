@@ -11,7 +11,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Bundle, sha256 } from "../src/io";
-import { combineSet, completenessSentence, selectionRecord } from "../src/selection";
+import { combineSet, COMBINABLE_CHECKS, COMBINABLE_SELECTIONS, completenessSentence, selectionRecord } from "../src/selection";
 import { renderHandoff, verificationSetReceipt } from "../src/handoff";
 import { EngineError } from "../src/types";
 const GATES = ["fresh-offline-setup", "branding", "domain-provider-contracts", "persistence-workflow", "browser", "lint", "typecheck", "production-build", "native-concurrency", "browser-auth"];
@@ -309,5 +309,17 @@ test("the receipt is written, sealed and exits by completeness", async () => {
     }
     finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+// RED-WATCH: a record version shipped in `schema/` and not added to the combiner's reader.
+test("combiner-reads-every-version: every selection and checks schema is one the set reads", async () => {
+    const { readdir } = await import("node:fs/promises");
+    const schemas = new URL("../../../schema/", import.meta.url).pathname;
+    for (const [pattern, known] of [[/^selection(-v\d+)?\.schema\.json$/, COMBINABLE_SELECTIONS], [/^checks(-v\d+)?\.schema\.json$/, COMBINABLE_CHECKS]] as const) {
+        const published = (await readdir(schemas)).filter(name => pattern.test(name));
+        expect(published.length).toBeGreaterThan(0);
+        const versions = await Promise.all(published.map(async name => (await Bun.file(join(schemas, name)).json()).properties.schema_version.const as string));
+        expect([...versions].sort(), pattern.source).toEqual([...known].sort());
     }
 });
