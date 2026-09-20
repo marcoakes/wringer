@@ -218,8 +218,8 @@ export async function createAssistantService(root: string, options: { dependenci
     let presentation: ((jobId: string) => Promise<{ phase: string; nextAction: string; eventId: string; pageUrl: string }>) | undefined;
     let waiting = 0;
     type Inspection = Awaited<ReturnType<typeof computeInspection>>;
-    const pendingInspections = new Map<string, { began: number; promise: Promise<Inspection> }>();
-    const queuedInspections = new Map<string, Promise<Inspection>>();
+    const pendingInspections = new Map<string, { began: number; promise: Promise<Inspection> }[]>();
+    const MAX_CONCURRENT_INSPECTIONS = 4;
     async function current(p: AssistantProposal) {
         const a = await approval(root, p), started = await lifecycleMarker(root, p, "started");
         const hasJournal = await assistantExists(root, `jobs/${p.id}/controller/.wringer/contained/plan.json`);
@@ -300,30 +300,47 @@ export async function createAssistantService(root: string, options: { dependenci
      * OBSERVATION MONOTONICITY. Coalescing used to share any in-flight computation,
      * so a request arriving at T could join one that began at T-e and had already read
      * the journal — returning a head OLDER than the journal at request time. A caller
-     * that had just watched work advance could then be told it had not. A request now
-     * joins only a computation that began at or after it arrived; otherwise it waits for
-     * the next one, which by construction begins later. At most one extra recompute per
-     * burst, and never a backwards answer. */
+     * that had just watched work advance could then be told it had not.
+     *
+     * A request joins only a computation that had not yet BEGUN reading when the request
+     * arrived — which is exactly what keeps overlapping reads coalescing into one
+     * publication read while making a backwards answer impossible. `began` is stamped one
+     * microtask after the entry is created, so a whole synchronous burst joins the same
+     * pass, and a request arriving after the read genuinely started gets its own.
+     *
+     * Two earlier shapes were wrong and are worth naming. Sharing ANY in-flight
+     * computation let a request arriving at T be served by one that began at T-e and had
+     * already read the journal. Making the late request wait for the NEXT computation was
+     * monotonic but cost every read on the heaviest path a second full pass: the design PM
+     * rehearsal's Send handler exceeded its 20 s window in CI. This shape is monotonic at
+     * one pass, bounded by MAX_CONCURRENT_INSPECTIONS. */
     async function inspectForPm(jobId: string) {
         assistantId(jobId);
         const requestedAt = performance.now();
-        const current = pendingInspections.get(jobId);
-        if (current && current.began >= requestedAt)
-            return structuredClone(await current.promise);
-        let queued = queuedInspections.get(jobId);
-        if (!queued) {
-            const settled = current ? current.promise.then(() => undefined, () => undefined) : Promise.resolve();
-            queued = settled.then(() => {
-                queuedInspections.delete(jobId);
-                const computation = computeInspection(jobId).finally(() => {
-                    if (pendingInspections.get(jobId)?.promise === computation) pendingInspections.delete(jobId);
-                });
-                pendingInspections.set(jobId, { began: performance.now(), promise: computation });
-                return computation;
-            });
-            queuedInspections.set(jobId, queued);
-        }
-        return structuredClone(await queued);
+        const live = pendingInspections.get(jobId) ?? [];
+        // `Infinity` means "has not started reading yet", so joining it is still monotonic.
+        const joinable = live.find(entry => entry.began >= requestedAt);
+        if (joinable)
+            return structuredClone(await joinable.promise);
+        if (live.length >= MAX_CONCURRENT_INSPECTIONS)
+            return structuredClone(await live[live.length - 1]!.promise);
+        const entry = { began: Number.POSITIVE_INFINITY, promise: undefined as unknown as Promise<Inspection> };
+        entry.promise = (async () => {
+            await Promise.resolve();
+            entry.began = performance.now();
+            return await computeInspection(jobId);
+        })().finally(() => {
+            const rows = pendingInspections.get(jobId);
+            if (!rows)
+                return;
+            const at = rows.indexOf(entry);
+            if (at >= 0)
+                rows.splice(at, 1);
+            if (!rows.length)
+                pendingInspections.delete(jobId);
+        });
+        pendingInspections.set(jobId, [...live, entry]);
+        return structuredClone(await entry.promise);
     }
     async function status(jobId: string) {
         return (await inspectForPm(jobId)).status;

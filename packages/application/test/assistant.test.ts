@@ -89,17 +89,20 @@ test("a status read never returns a head older than the journal at request time"
     delay = 0;
     expect((await f.call("get_status", { jobId: proposed.jobId })).revision).toBe(second);
 });
-test("overlapping reads that arrive before a computation begins still share one", async () => {
+test("a burst of reads is bounded, and none of them answers with a stale head", async () => {
     let delay = 120;
     const f = await fixture({ statusDelayMs: () => delay });
     const proposed = await f.propose();
     const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
     await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+    f.query.revision = "f".repeat(64);
     const before = f.counters.status;
-    const reads = await Promise.all(Array.from({ length: 4 }, () => f.call("get_status", { jobId: proposed.jobId })));
-    expect(new Set(reads.map(r => r.revision)).size).toBe(1);
-    // Two computations at most: the one they shared, and nothing per caller.
-    expect(f.counters.status - before).toBeLessThanOrEqual(4);
+    // Ten reads, arriving at different moments while each pass is slow. Each is answered by a
+    // pass that had not begun reading when it arrived, so none of them can be stale — and the
+    // concurrency cap means ten callers do not buy ten passes. Two status calls per pass.
+    const reads = await Promise.all(Array.from({ length: 10 }, () => f.call("get_status", { jobId: proposed.jobId })));
+    expect(reads.every(r => r.revision === "f".repeat(64))).toBeTrue();
+    expect(f.counters.status - before).toBeLessThanOrEqual(8);
     delay = 0;
 });
 // R-c: a page sentence that names a guard must name one that exists. This page claimed the

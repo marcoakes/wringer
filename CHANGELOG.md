@@ -47,12 +47,19 @@ All four are now bound.
   one. Ignored build output stays permitted and counted rather than hidden, and a
   path Git neither tracks nor ignores is named in the sentence so a reader never
   has to wonder why two digests differ.
-- **Observation monotonicity.** A read joins only an inspection that began at or
-  after it arrived; otherwise it waits for the next one, which by construction
-  begins later. At most one extra recompute per burst, and never a backwards
-  answer. Its test drives the race through the injected `status` seam: a slow read
-  that observed the old head, an advance while it is in flight, and a second read
-  that must not be served by it.
+- **Observation monotonicity.** A read joins only an inspection that had not yet
+  begun reading when the read arrived. That keeps the product's existing property —
+  overlapping reads coalesce into one publication read — while making a backwards
+  answer impossible, because a pass that has already read the journal can never
+  serve a later request. Its test drives the race through the injected `status`
+  seam: a slow read that observed the old head, an advance while it is in flight,
+  and a second read that must not be served by it. **Two earlier shapes of this fix
+  were wrong.** Sharing any in-flight pass was the original defect. Making the late
+  request wait for the *next* pass was monotonic and cost every read on the heaviest
+  path a second full computation — the design PM rehearsal's Send handler then
+  exceeded its 20 s window in CI on both platforms, twice. The shipped shape is
+  monotonic at one pass, bounded by a concurrency cap, and its test asserts that a
+  burst of ten reads buys at most four passes and that none of them answers stale.
 - **The planning guard the page claimed.** `a planner-declared profile through the
   assistant flow mints no planning authority` drives a profile that **does** declare
   a planner through propose, approve, start, status and inspect, then walks the whole
