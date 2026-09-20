@@ -127,6 +127,23 @@ test("a cancel is recorded and applied whatever revision its observation saw; ev
     expect(await f.service.runner.list(f.jobId)).toEqual([]);
     expect(f.correctionCalls()).toBe(0);
 });
+// A read derives its phase from ONE observation. Measured 20 September 2026 on macOS CI: the
+// assistant service's inspections became concurrent, a stopped flow's abort recorded an
+// observation error, and a read that had already taken its snapshot reported `blocked` for a job
+// whose own state had not changed. The error map is shared with the ticker; the snapshot is not.
+test("an observation error recorded while a read is in flight cannot change that read's phase", async () => {
+    const f = await fixture(false, 3);
+    const before = await f.flow.read(f.jobId);
+    expect(before.phase).toBe("review");
+    // Stopping the flow aborts its in-flight work, which records an observation error.
+    f.flow.stop();
+    const after = await f.flow.read(f.jobId);
+    expect(after.phase).toBe("review");
+    expect(after.error).toBeNull();
+    // Several reads in flight at once all report the job, never each other's trouble.
+    const together = await Promise.all([f.flow.read(f.jobId), f.flow.read(f.jobId), f.flow.read(f.jobId)]);
+    expect(together.map(view => view.phase)).toEqual(["review", "review", "review"]);
+});
 test("the PM page reports a run that advanced while it was read, never refuses and offers no decision", async () => {
     // The page re-reads the journal for progress evidence only on measured-loop plans, so this job's plan is version 3.
     const f = await fixture(false, 3); f.flow.stop();

@@ -60,6 +60,15 @@ All four are now bound.
   exceeded its 20 s window in CI on both platforms, twice. The shipped shape is
   monotonic at one pass, bounded by a concurrency cap, and its test asserts that a
   burst of ten reads buys at most four passes and that none of them answers stale.
+  **Making inspections concurrent then exposed a third defect, in a different
+  module.** `assistant-job.ts` derived a read's phase from a shared observation-error
+  map that it consulted *after* its own awaits, so an error recorded by concurrent
+  work landed in a read that had already taken its snapshot: a page showing `review`
+  could show `blocked` a moment later with nothing about the job having changed.
+  macOS CI caught it. A read now derives its phase from one observation, including
+  the observation error — the same principle as `revisionAdvanced`, which the file
+  already stated in a comment: a read reports what was true when it began, and the
+  next read reports the rest.
 - **The planning guard the page claimed.** `a planner-declared profile through the
   assistant flow mints no planning authority` drives a profile that **does** declare
   a planner through propose, approve, start, status and inspect, then walks the whole

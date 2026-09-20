@@ -129,6 +129,13 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         return { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send, sendId };
     }
     async function read(jobId: string): Promise<PmJob> {
+        // One read derives its phase from ONE observation, including the observation error. This
+        // map is shared with the ticker and with other reads, and a read has several awaits: a
+        // failure recorded by concurrent work used to land in this read's phase as `blocked`,
+        // which is how a page that had just shown `review` showed `blocked` a moment later
+        // without anything about the job changing. The same principle as `revisionAdvanced`
+        // below: a read reports what was true when it began, and the next read reports the rest.
+        const observedTransient = transient.get(jobId) ?? null;
         const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send } = await details(jobId);
         const engineering = p.plan ? await readPmEngineering(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
         // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
@@ -144,7 +151,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         else if (send?.status === "running") { phase = "working"; nextAction = "Sending the accepted handover. This exact command is recorded; do not send it again."; }
         else if (status.outcome === "awaiting-approval" && !p.questions.length) { phase = "approval"; nextAction = "Approve this request and its finite limits once. Work will start automatically."; }
         else if (status.uncertainty || status.outcome === "cancelled" || approval && Date.parse(approval.authority.expires_at) <= Date.now()) { phase = "blocked"; error = status.nextAction; }
-        else if (failed || failedDisplay || transient.has(jobId)) { phase = "blocked"; error = failed?.error ?? displays.find(d => !d.success)?.error ?? transient.get(jobId) ?? "This step did not complete."; }
+        else if (failed || failedDisplay || observedTransient !== null) { phase = "blocked"; error = failed?.error ?? displays.find(d => !d.success)?.error ?? observedTransient ?? "This step did not complete."; }
         else if (needCorrection) { phase = "correction"; nextAction = "Your No is recorded. Say what should change; correction uses only the remaining approved allowance."; }
         else if (status.outcome === "review-ready") {
             if (preparation?.status === "completed") { phase = "send"; nextAction = "Your result is accepted. Send this exact prepared change to the destination below?"; }
