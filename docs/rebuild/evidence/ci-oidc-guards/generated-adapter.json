@@ -1,0 +1,17 @@
+{
+  "kind": "Isolated generated-artifact reversion",
+  "sourceCommit": "15e01fb3b54ac137e683d4da469eb2f9c3bf9081",
+  "control": {
+    "exit": 0,
+    "staleDetected": false
+  },
+  "reverted": {
+    "exit": 1,
+    "staleDetected": true
+  },
+  "restored": {
+    "exit": 0,
+    "staleDetected": false
+  },
+  "caught": true
+}

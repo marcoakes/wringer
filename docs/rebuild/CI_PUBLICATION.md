@@ -81,3 +81,14 @@ which the existing fragment policy correctly redacted and invalidated a fixture
 receipt; that failed measurement is retained. Repeating with a synthetic opaque
 signature passed. Typecheck, the regenerated CLI reference and frozen offline
 lockfile installation also passed. No real OIDC token was copied or inspected.
+
+The first alpha21 push (`15e01fb3b54ac137e683d4da469eb2f9c3bf9081`) exposed a
+missed generated artifact: the shared redactor had changed, but its bundled
+contained assertion adapter had not been regenerated. GitHub recorded test runs
+[36441508855](https://github.com/marcoakes/wringer/actions/runs/36441508855) and
+[36441512821](https://github.com/marcoakes/wringer/actions/runs/36441512821);
+all ten test jobs stopped at that build gate and both corresponding permission
+jobs passed. The generated bundle is now current. Its compiled build, exact CLI
+reference and three affected runtime/redactor tests passed. An
+[isolated artifact reversion](evidence/ci-oidc-guards/generated-adapter.json)
+passed its control, caught the old bundle, and passed again after restoration.
