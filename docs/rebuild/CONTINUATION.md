@@ -1,6 +1,17 @@
 # Current checkpoint — 28 September 2026, GitHub publication
 
-Current:549eb017 passed every source CI job (36451390891/36451390885) and was
+Current:3dbf93e9694e34bd51f3a14d3035036c7e3a6f18 passed every source CI job
+(36461145330/36461145294) and was tagged alpha22. Release36472889317 passed both
+rehearsals and DAC; both native core suites, extracted archives and installers
+passed, then both builds stopped at the npm JSON inventory comparison. npm masks
+a UUID-shaped evidence filename in its display while preserving the actual tar
+path. Exact local archive inspection reproduced this. Alpha23 validates actual
+tar entries, hashes, lengths and executable flags, with red-first and isolated
+reversion evidence. Observe its full push CI before tagging, then every release
+job before draft promotion and public-byte/install verification. Keep all prior
+tags immutable. Full chronology: CI_PUBLICATION.md.
+
+Earlier:549eb017 passed every source CI job (36451390891/36451390885) and was
 tagged alpha21. Release36456822663 passed Linux packaging/attestations, both
 rehearsals and DAC; macOS failed one verification-owner observation test before
 packaging. No draft was staged. A deterministic MCP/PM barrier reproduces the

@@ -3,7 +3,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { installerFixture } from "./fixtures/installer";
 import { generateReleaseChannels } from "../../../scripts/release-channels";
-import { distributionHash } from "../src/distribution-manifest";
+import { distributionHash, distributionFiles } from "../src/distribution-manifest";
+import { verifyNpmPackInventory } from "../../../scripts/npm-pack-inventory";
 async function channelFixture() {
     const f = await installerFixture(), archive = await f.archive("1.0.0-test.1"), artifacts = join(f.root, "artifacts"), output = join(f.root, "channels"); await mkdir(artifacts);
     const name = `wringer-${archive.selection.version}-${process.platform}-${process.arch}.tar.gz`;
@@ -12,12 +13,32 @@ async function channelFixture() {
 }
 test("actual npm tarball agrees with its channel inventory and packages no controller secrets or install hooks", async () => {
     const f = await channelFixture(), platform = `${process.platform}-${process.arch}`, directory = join(f.output, `npm-${platform}`);
+    // npm's display redactor mistakes this ordinary evidence filename for a token.
+    const evidence = "docs/browser-54127b7f-b29f-44d4-b8a7-82b8ce9ad6b9.json";
+    await mkdir(join(directory, "dist/docs")); await writeFile(join(directory, "dist", evidence), '{"fixture":true}\n');
+    const inventory = JSON.parse(await readFile(join(directory, "dist/PACKAGE-CONTENTS.json"), "utf8"));
+    inventory.files = (await distributionFiles(join(directory, "dist"))).filter(f => f.path !== "PACKAGE-CONTENTS.json");
+    await writeFile(join(directory, "dist/PACKAGE-CONTENTS.json"), JSON.stringify(inventory));
     const packed = Bun.spawnSync(["npm", "pack", "--offline", "--ignore-scripts", "--json", "--cache", join(f.root, "cache"), "--pack-destination", f.output], { cwd: directory });
     expect(packed.exitCode).toBe(0); const result = JSON.parse(packed.stdout.toString())[0];
     const manifest = JSON.parse(await readFile(join(directory, "dist/PACKAGE-CONTENTS.json"), "utf8"));
     const expected = ["package.json", "dist/PACKAGE-CONTENTS.json", ...manifest.files.map((f: any) => `dist/${f.path}`)].sort();
-    expect(result.files.map((f: any) => f.path).sort()).toEqual(expected);
-    expect(result.files.some((f: any) => /(^|\/)(AGENTS\.md|CLAUDE\.md|connection\.json|operator\.json)$/.test(f.path))).toBe(false);
+    const bytes = await readFile(join(f.output, result.filename)), inventoryBytes = await readFile(join(directory, "dist/PACKAGE-CONTENTS.json")), packageBytes = await readFile(join(directory, "package.json"));
+    const paths = verifyNpmPackInventory(bytes, inventoryBytes, packageBytes);
+    expect(paths).toEqual(expected); expect(paths).toContain(`dist/${evidence}`);
+    expect(paths.some(path => /(^|\/)(AGENTS\.md|CLAUDE\.md|connection\.json|operator\.json)$/.test(path))).toBe(false);
+    // Corrupt the archive independently of npm's display summary and source inventory.
+    const mutate = (change: (entries: ReturnType<typeof readReleaseArchive>) => void) => {
+        const entries = readReleaseArchive(bytes); change(entries);
+        return () => verifyNpmPackInventory(encodeReleaseArchive(entries), inventoryBytes, packageBytes);
+    };
+    expect(mutate(entries => { entries.splice(entries.findIndex(e => e.path === "package/dist/LICENSE"), 1); })).toThrow("Actual npm archive differs");
+    expect(mutate(entries => { entries.push({ path: "package/unexpected", kind: "file", mode: 0o644, target: "", data: Buffer.from("extra") }); })).toThrow("Actual npm archive differs");
+    expect(mutate(entries => { const e = entries.find(e => e.path === "package/dist/LICENSE")!; e.data = Buffer.from("x".repeat(e.data.length)); })).toThrow("content");
+    expect(mutate(entries => { entries.find(e => e.path === "package/dist/wring")!.mode = 0o644; })).toThrow("content");
+    expect(mutate(entries => { const e = entries.find(e => e.path === "package/dist/LICENSE")!; e.kind = "symlink"; e.target = "wring"; e.data = Buffer.alloc(0); })).toThrow("Actual npm archive differs");
+    expect(mutate(entries => { entries.find(e => e.path === "package/package.json")!.data = Buffer.from("{}"); })).toThrow("content");
+    expect(mutate(entries => { entries.find(e => e.path === "package/dist/PACKAGE-CONTENTS.json")!.data = Buffer.from("{}"); })).toThrow("content");
     const launcher = JSON.parse(await readFile(join(f.output, "npm-launcher/package.json"), "utf8"));
     expect(launcher.license).toBe("Apache-2.0"); expect(launcher.private).toBe(true); expect(launcher.scripts).toBeUndefined();
     expect(Object.values(launcher.optionalDependencies)).toEqual(["1.0.0-test.1"]);

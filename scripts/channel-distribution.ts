@@ -1,15 +1,17 @@
 /** npm's real pack/install path, offline and without lifecycle hooks. */
-import { readFile, mkdir, writeFile, readdir, realpath, mkdtemp } from "node:fs/promises";
+import { readFile, mkdir, writeFile, realpath, mkdtemp } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { runProcess } from "../packages/engine/src/process";
 import { distributionHash } from "../packages/cli/src/distribution-manifest";
+import { verifyNpmPackInventory } from "./npm-pack-inventory";
 const channels = resolve(process.argv[2] ?? "build/channels"), report = JSON.parse(await readFile(join(channels, "CHANNELS.json"), "utf8"));
 const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-npm-measure-"))), tarballs: string[] = [], records: unknown[] = [];
 const evidence = resolve(process.argv[3] ?? "build/channel-measurement"); await mkdir(evidence, { recursive: true });
 const npm = Bun.which("npm"), node = Bun.which("node"); if (!npm || !node) throw new Error("This npm-channel measurement requires Node and npm; the native installer remains independent");
 async function run(name: string, command: string[], cwd: string) {
     const result = await runProcess(command, { cwd, timeout: 180, maxBytes: 4 * 1024 * 1024 });
+    await writeFile(join(evidence, `${name}.json`), JSON.stringify(result, null, 2) + "\n");
     if (result.exit_code || result.timed_out || result.stdout_truncated || result.stderr_truncated) throw new Error(`${name}: ${result.stderr.slice(-2000)}`);
     records.push({ name, exit: result.exit_code, durationMs: result.duration_ms }); return result.stdout;
 }
@@ -17,8 +19,7 @@ for (const pkg of report.packages) {
     const directory = join(channels, pkg.directory);
     const packed = JSON.parse(await run(`npm-pack-${pkg.platform}`, [npm, "pack", "--ignore-scripts", "--offline", "--json", "--cache", join(root, "cache"), "--pack-destination", root], directory))[0];
     if (pkg.platform !== "launcher") {
-        const contents = JSON.parse(await readFile(join(directory, "dist/PACKAGE-CONTENTS.json"), "utf8")), expected = ["package.json", "dist/PACKAGE-CONTENTS.json", ...contents.files.map((f: any) => "dist/" + f.path)].sort();
-        if (JSON.stringify(packed.files.map((f: any) => f.path).sort()) !== JSON.stringify(expected)) throw new Error("Actual npm archive differs from its channel inventory");
+        verifyNpmPackInventory(await readFile(join(root, packed.filename)), await readFile(join(directory, "dist/PACKAGE-CONTENTS.json")), await readFile(join(directory, "package.json")));
     }
     tarballs.push(join(root, packed.filename));
 }

@@ -16,7 +16,10 @@ The subsequent alpha20 release builds exposed an OIDC redaction defect before
 packaging; its tag stays unchanged and no draft was created. The repaired release
 candidate was alpha21, which passed all six source jobs and Linux release packaging
 but exposed a macOS verification-observation race before draft staging. Both tags
-stay unchanged. The repaired candidate is alpha22. [Publication qualification](CI_PUBLICATION.md) retains each
+stay unchanged. Alpha22 passed all source jobs and release core/archive/installer
+checks; both release builds then rejected npm's masked display filename despite
+the actual tarball matching its inventory. The repaired candidate is alpha23,
+which validates actual npm archive bytes. [Publication qualification](CI_PUBLICATION.md) retains each
 failed run, its deterministic reproduction, guarded repair and later observations.
 
 | Milestone | Implemented result | Engineering evidence / boundary |
@@ -32,7 +35,7 @@ failed run, its deterministic reproduction, guarded repair and later observation
 | M8 | Owned installer, archive verifier, npm/Brew/Action/registry and native image/draft workflows | Installer/Action/channel/image/publication guard fixtures pass; final artifact reports bind exact native archive; no public channel claim |
 | M9 | Current guides, generated CLI reference, support/templates, three examples, historical/reference inventory | Documentation closure passes; 18 real example observations include default CLI job creation; advanced legacy guidance retained |
 | M10 | T01–T26 map and integrated acceptance procedures | Full suite1162 pass/1 explicit Linux skip/0fail; compiled core and all rehearsals pass; final repairs get affected checks |
-| M11 | Alpha22 source and release preparation, notes, metadata and exact packaging/claim procedures | Earlier alpha20 local archive measurements remain in `build/rebuild-candidate/REPORT.json`; alpha21 measured Linux packaging and attestations; full native CI and GitHub publication proceed separately |
+| M11 | Alpha23 source and release preparation, notes, metadata and exact packaging/claim procedures | Earlier alpha20 local archive measurements remain in `build/rebuild-candidate/REPORT.json`; alpha21 measured Linux packaging and attestations; alpha22 measured both native archives/installers; full native CI and GitHub publication proceed separately |
 
 The final accompanying [implementation report](IMPLEMENTATION_REPORT.md) separates
 source implementation, available-host engineering, live acceptance and publication.
@@ -57,7 +60,7 @@ isolated checkouts. Native helper output now lives outside the release directory
 | Provider use | No model calls authorized | Deterministic engineering procedures implemented; live test needs finite allowance |
 | Human acceptance | Automated review authorized; no personal decision fabricated | Present actual candidate for any real human decision |
 | Package namespaces / registries | Ownership unverified | Prepare packages locally; verify ownership before publication |
-| GitHub prerelease | Publication authorized on2026-09-28; login repaired; alpha20/21 source passed push CI but their release attempts did not complete | Keep both tags unchanged; qualify alpha22 through full push/release CI, then publish and independently fetch exact bytes |
+| GitHub prerelease | Publication authorized on2026-09-28; login repaired; alpha20/21/22 source passed push CI but their release attempts did not complete | Keep prior tags unchanged; qualify alpha23 through full push/release CI, then publish and independently fetch exact bytes |
 
 Engineering implementation, available-host validation, live acceptance, and public
 release remain separate axes. Local checks are not CI. At this pre-push checkpoint,

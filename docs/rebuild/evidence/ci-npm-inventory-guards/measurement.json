@@ -1,0 +1,103 @@
+{
+  "kind": "Automated offline engineering measurement; no registry publication, model call or human decision",
+  "measuredSource": "3dbf93e9694e34bd51f3a14d3035036c7e3a6f18",
+  "version": "1.0.0-alpha.22",
+  "npmVersion": "11.17.0",
+  "archiveEntries": 424,
+  "packageSha256": "c25a0254012f94ef5f36146cfcd15d26192680c2f203b2cc84e3c27e77303a8f",
+  "summaryPath": "dist/docs/rebuild/evidence/m5/browser-***.json",
+  "actualPath": "package/dist/docs/rebuild/evidence/m5/browser-54127b7f-b29f-44d4-b8a7-82b8ce9ad6b9.json",
+  "actualPathsMatchSourceInventory": true,
+  "repairObservations": {
+    "schema_version": "wringer.channel-measurement.v1",
+    "kind": "Actual offline npm pack/install and launcher on this host; generated Homebrew syntax check",
+    "platform": "darwin-arm64",
+    "version": "1.0.0-alpha.22",
+    "fixtureNamespace": true,
+    "archiveIdentities": [
+      {
+        "platform": "darwin-arm64",
+        "sha256": "8a5b3ddf20605a3b8ea526ce6c0f712365247b7de9be0a6327c6e450516d3c72"
+      }
+    ],
+    "packageDigests": [
+      {
+        "file": "wringer-fixture-wringer-darwin-arm64-1.0.0-alpha.22.tgz",
+        "sha256": "c25a0254012f94ef5f36146cfcd15d26192680c2f203b2cc84e3c27e77303a8f"
+      },
+      {
+        "file": "wringer-fixture-wringer-1.0.0-alpha.22.tgz",
+        "sha256": "2678db58e7a3460687ca5da1313e069fed16f663ce7847404ce0fcd2240b318a"
+      }
+    ],
+    "publicInstall": "unmeasured",
+    "homebrewInstall": "unmeasured: syntax and same-artifact demo only; separate native Brew fixture required",
+    "modelCalls": 0,
+    "records": [
+      {
+        "name": "npm-pack-darwin-arm64",
+        "exit": 0,
+        "durationMs": 3186
+      },
+      {
+        "name": "npm-pack-launcher",
+        "exit": 0,
+        "durationMs": 214
+      },
+      {
+        "name": "npm-install-selected-tarballs-offline",
+        "exit": 0,
+        "durationMs": 1585
+      },
+      {
+        "name": "npm-launch-wring",
+        "exit": 0,
+        "durationMs": 1604
+      },
+      {
+        "name": "npm-launch-wringer-drive",
+        "exit": 0,
+        "durationMs": 242
+      },
+      {
+        "name": "npm-launch-wringer-board",
+        "exit": 0,
+        "durationMs": 251
+      },
+      {
+        "name": "npm-launch-wringer-assistant",
+        "exit": 0,
+        "durationMs": 452
+      },
+      {
+        "name": "npm-launch-wringer-headless",
+        "exit": 0,
+        "durationMs": 235
+      },
+      {
+        "name": "npm-launch-wringer-figma-broker",
+        "exit": 0,
+        "durationMs": 194
+      },
+      {
+        "name": "npm-installed-demo",
+        "exit": 0,
+        "durationMs": 859
+      },
+      {
+        "name": "npm-registry-no-download-launch",
+        "exit": 0,
+        "durationMs": 393
+      },
+      {
+        "name": "formula-ruby-syntax",
+        "exit": 0,
+        "durationMs": 86
+      }
+    ]
+  },
+  "limitations": [
+    "Repaired script measured against the unchanged local alpha22 artifact, not alpha23 qualification.",
+    "Failed initial guard run retained separately; all seven reversions subsequently caught."
+  ]
+}

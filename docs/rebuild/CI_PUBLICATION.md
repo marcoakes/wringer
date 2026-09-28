@@ -171,3 +171,36 @@ typecheck, frozen offline installation, the rebuilt executable and generated CLI
 reference. The [compiled verification browser journey](evidence/m5/browser-54127b7f-b29f-44d4-b8a7-82b8ce9ad6b9.json)
 passed approval, correction, empty-note acceptance, separate Send, fresh-clone
 audit, owner restart and Stop without any model calls or real human judgment.
+
+## Alpha22 qualification and npm archive inventory repair
+
+At3dbf93e9694e34bd51f3a14d3035036c7e3a6f18,
+[all five source jobs](https://github.com/marcoakes/wringer/actions/runs/36461145330)
+and [Linux permissions](https://github.com/marcoakes/wringer/actions/runs/36461145294)
+passed. Both native suites reported1176 passes,2 explicit skips and no failures;
+all23 macOS/21 Linux core stages and both rehearsal jobs passed. Only then was
+the immutable alpha22tag created.
+
+Its [release qualification](https://github.com/marcoakes/wringer/actions/runs/36472889317)
+passed both rehearsals and Linux permissions. Both native core suites, extracted
+archive checks and owned installer checks passed. Both builds then failed the
+npm inventory comparison, so draft staging was skipped and no release published.
+
+Local actual npm11.17.0 packing reproduced424 expected archive entries, all with
+exact paths. npm's JSON display instead replaced the UUID in the committed M5
+browser-evidence filename with `***`. The comparator incorrectly treated that
+display as the tar inventory. An actual npm-pack regression with a UUID-shaped
+evidence filename failed first. Alpha23 reads the tar bytes and verifies exact
+paths, regular files, content sizes/hashes and executable flags, including both
+package and inventory metadata. npm command results are retained before checking
+for failure. Publication namespace and clean-source policy remain separately
+enforced by the production publication verifier.
+
+The first isolated guard run found that an overly broad error assertion did not
+distinguish nonregular entries from later content refusal. That failed reversion
+record is retained. Tightening the assertion caught all seven isolated reversions
+with passing controls and restoration; see
+[npm inventory evidence](evidence/ci-npm-inventory-guards/reversions.json).
+The repaired full local offline npm installation uses the unchanged alpha22
+native archive to isolate the comparison repair; it does not qualify alpha23.
+The next source and release must each pass every required native job.

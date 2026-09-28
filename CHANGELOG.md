@@ -4,7 +4,7 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 1.0.0-alpha.22 — adoption rebuild
+## 1.0.0-alpha.23 — adoption rebuild
 
 - Reusable verification and contained-delegation workspaces, finite grants,
   typed proposals, explicit questions and source-bound review and Send.
@@ -32,6 +32,13 @@ It retains full credential and meaningful fragment redaction while avoiding
 false secret detection of a URL's generic transport scheme. It includes the
 Git-filter and owner-shutdown repairs, measured Send observation window and
 finite full-suite Action budget found during native CI qualification.
+
+Alpha22 passed every source job and both release core suites, extracted archives
+and installers. Its release stopped because npm's printable JSON summary masked
+a UUID-shaped evidence filename although the tarball retained the exact path.
+Alpha23 checks actual npm archive paths, bytes and executable flags against the
+source inventory, retaining command observations even when measurement fails.
+The alpha22 tag remains unchanged and its failed release remains recorded.
 
 ## 1.0.0-alpha.19 — binding a claim to what it rests on (source checkpoint)
 
