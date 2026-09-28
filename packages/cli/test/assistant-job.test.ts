@@ -43,6 +43,24 @@ test("one transient observation error cannot poison a later complete snapshot or
     const recovered = await flow.read(jobId);
     expect(recovered.phase).toBe("working"); expect(recovered.error).toBeNull(); expect(dispatches).toBe(0);
 });
+test("an observation error recorded while a read is in flight cannot change that read's phase", async () => {
+    const root = await scratch(), jobId = crypto.randomUUID();
+    let release!: () => void, entered!: () => void, held = true, failNext = false;
+    const waiting = new Promise<void>(resolve => { release = resolve; }), reached = new Promise<void>(resolve => { entered = resolve; });
+    const view = { jobId, stage: "intake", revision: "a".repeat(64), candidateTree: null, outcome: "running", uncertainty: false, requirements: [], operations: [], publication: null };
+    const service = fixtureService({ root, workspace: { profile }, inspectProposal: async () => {
+        if (failNext) { failNext = false; throw new Error("Synthetic concurrent observation failure"); }
+        if (held) { held = false; entered(); await waiting; }
+        return { plan: profile, intent: profile.intent, questions: [], assumptions: [] };
+    }, status: async () => view, inspectApproval: async () => null, list: async () => [view] });
+    const flow = createAssistantJobFlow(service, { autoAdvance: false }); flows.push(flow);
+    const pending = flow.read(jobId); await reached;
+    failNext = true; await flow.tick(); release();
+    expect(await pending).toMatchObject({ phase: "working", error: null });
+    expect(await flow.read(jobId)).toMatchObject({ phase: "blocked", error: "Synthetic concurrent observation failure" });
+    await flow.tick();
+    expect(await flow.read(jobId)).toMatchObject({ phase: "working", error: null });
+});
 test("job decisions reject stale revisions, foreign handles and unexpected fields before any approval", async () => {
     const f = await fixture(), current = await f.flow.read(f.jobId);
     const approved = { jobId: f.jobId, expectedRevision: current.readyRevision, actor: "Explicit fixture person" };

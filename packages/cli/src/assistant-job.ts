@@ -184,7 +184,9 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         try {
             const { p, status, approval, attempt, commands } = await details(jobId);
             transient.delete(jobId); // A fresh validated snapshot supersedes an earlier observation error; durable command failures remain authoritative.
-            assertRunning();
+            // Shutdown after this awaited observation ends convenience work;
+            // it is not a failed job read. Durable failures remain in commands.
+            if (stopped || options.isStopping?.() || options.signal?.aborted) return;
             if (!approval || Date.parse(approval.authority.expires_at) <= Date.now() || status.uncertainty || status.outcome === "cancelled" || status.outcome === "running") return;
             if (status.outcome === "approved") {
                 if (active.has(jobId)) return; active.add(jobId); ownsActivity = true;

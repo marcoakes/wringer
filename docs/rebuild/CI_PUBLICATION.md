@@ -30,3 +30,24 @@ GitHub retains the original native logs and artifacts.
 Next release gate: push this repair and observe every job green, then tag the
 exact source, dispatch native release qualification and inspect every job before
 promotion. Passing local checks do not satisfy that remote gate.
+
+## Second push and deterministic shutdown repair
+
+Commit `f9e7cbe8a71a90b92cb11ff4466b63d224699572` passed the Action, both browser
+rehearsals, Linux native validation and the Linux permission adversary. The
+[second CI run](https://github.com/marcoakes/wringer/actions/runs/36432542662)
+reported1168 passing tests/2 explicit skips on Linux. macOS reported1167 passing
+tests/2 skips/1 failure: a periodic owner tick could finish its read after owner
+shutdown and record the shutdown refusal as a transient job failure. Later reads
+then incorrectly marked unchanged reviewable work as blocked.
+
+A held observation now reproduces that race without relying on timer scheduling.
+It failed before repair. A stopped owner now returns from convenience work after
+its observation; durable command failures and uncertain sends remain authoritative.
+A separate barrier test confirms that a concurrent genuine observation error
+cannot alter a read already in flight, but is visible on the next read and clears
+after a fresh successful tick. All19 affected checks and typecheck pass. All three
+[isolated reversions](evidence/ci-owner-guards/reversions.json) were caught with
+passing controls and restored checks, including removal of the shutdown guard.
+No failed remote job was retried into a claimed pass; the repaired source must
+receive its own complete green push run before any release tag is created.
