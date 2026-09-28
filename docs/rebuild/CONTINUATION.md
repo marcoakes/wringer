@@ -1,6 +1,16 @@
 # Current checkpoint — 28 September 2026, GitHub publication
 
-Latest: alpha20 tag now exists at7e1dd64783b68aaec1e2348ebb44fc5e82eb7184 after
+Latest: alpha21 source31dd93be passed both native core jobs, the Action, Linux
+rehearsals and the permission adversary. macOS design rehearsal reached Send
+but exceeded its20-second response observation. Local request timing measured
+14.1seconds; successful Linux design variants measured15.2–19.2seconds. The
+rehearsal now allows a finite40-second Send observation, separately from UI
+action timeouts. This is no claim of faster admission or successful publication.
+Its red/green browser checks and isolated timeout reversions accompany the fix.
+All23 local core stages also passed under synthetic release OIDC metadata.
+Observe every new push job before tagging; see CI_PUBLICATION.md.
+
+Earlier: alpha20 tag exists at7e1dd64783b68aaec1e2348ebb44fc5e82eb7184 after
 all six push jobs passed. Its release attempt36438547130 failed before packaging
 because OIDC request-URL metadata falsely redacted generic URL schemes; both
 rehearsals and the permission adversary passed. No draft exists. The tag stays
@@ -12,8 +22,9 @@ earlier Git-filter and owner-shutdown repairs and exact remote evidence.
 Marc requested: "ok well finish this and get it published on the repo". This now
 authorizes committing, pushing, tagging, CI dispatch and GitHub prerelease
 publication. The operator repaired GitHub login; authenticated `gh` inspection
-succeeded, remote main remains7f4cc542fd1149c00a3be0ee8949c895b95ef0c3, alpha20
-is unused, and no branch protections require a PR. Do not rewrite an existing tag.
+succeeded; remote main has the rebuild and publication repairs, alpha20 is an
+immutable failed qualification tag, and no branch protections require a PR.
+Do not rewrite an existing tag.
 
 All local candidate assembly described below is complete. Exact local candidate
 archive SHA256 is949349d170da942cbb6b6821bd03ece7ecb29bd1b78aa430e3a04f135f3d9c68;
@@ -23,7 +34,7 @@ It has17 extracted,13 installer,12 offline npm,22 migration,18 example,
 and hashes remain in ignored `build/rebuild-candidate/`. Documentation changes
 for publication follow that dated dirty-source artifact; do not relabel its bytes.
 
-Next: commit the reviewed source; push main; observe every CI job on that exact
+Next: commit the remaining qualification repair; push main; observe every CI job on that exact
 push green. Only then tag and dispatch the native release workflow. Observe every
 job green before promoting its verified draft. Independently fetch published
 bytes and verify the public installation path. No models, fleets, privileged

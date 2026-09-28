@@ -92,3 +92,32 @@ jobs passed. The generated bundle is now current. Its compiled build, exact CLI
 reference and three affected runtime/redactor tests passed. An
 [isolated artifact reversion](evidence/ci-oidc-guards/generated-adapter.json)
 passed its control, caught the old bundle, and passed again after restoration.
+
+## Measured Send observation window
+
+At31dd93be7193c9e090662e0d323f7312eed2bcb3,
+[push CI](https://github.com/marcoakes/wringer/actions/runs/36444153337) passed
+both native core jobs, the Action and Linux rehearsals. The
+[permission adversary](https://github.com/marcoakes/wringer/actions/runs/36444153354)
+passed. The macOS design rehearsal failed while waiting20seconds for Send's
+admission response. Its retained screenshot subsequently showed acknowledgment;
+the original exact request duration is unknown. This failed attempt remains red.
+
+Before changing that bound, request/response instrumentation measured local design
+admission at14088ms (click41ms), with the full rehearsal passing. Passing Linux
+design variants in that exact CI run measured15154ms,16144ms and19174ms; plain
+guided Send measured9098ms. The20-second UI action timeout left almost no margin
+for native bundle validation. The rehearsal now observes Send for at most40seconds
+(twice the prior observation bound). It still clicks once, requires202 and the
+exact durable command, and separately waits for audited handover. Product
+admission, source validation, authority checks and publication are unchanged.
+This is a hang-guard correction, not a claim that admission became faster.
+
+A real Chromium test failed first when a held response outlived the UI action
+timeout. The repaired check observes that one POST; a separate no-response test
+proves the finite40-second bound without retries. Isolated reversion of the fix
+and removal of its finite guard are recorded in
+[the Send guard evidence](evidence/ci-send-guards/reversions.json).
+All23 local core validation stages also passed under synthetic OIDC URL/token
+metadata, including1172 passing tests and1 explicit Linux-only skip. No real token was
+read, and these local checks do not substitute for the next source's remote CI.

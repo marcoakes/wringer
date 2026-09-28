@@ -1,0 +1,58 @@
+{
+  "source": "31dd93be7193c9e090662e0d323f7312eed2bcb3",
+  "localHarnessChange": "Request/response timing only; no product change",
+  "fixture": true,
+  "local": [
+    {
+      "browserSendClick": {
+        "elapsedMs": 41
+      },
+      "fixture": true
+    },
+    {
+      "browserDecisionTiming": {
+        "action": "send",
+        "status": 202,
+        "elapsedMs": 14088
+      },
+      "fixture": true
+    },
+    {
+      "sendAcknowledgement": {
+        "status": 202,
+        "commandId": "2ed4391c-a40a-e058-6d4b-b3f66324c7cc",
+        "outcome": "running",
+        "elapsedMs": 14132
+      },
+      "fixture": true,
+      "note": "Admission is not successful publication; the browser still waits for the carried handover."
+    }
+  ],
+  "linux": {
+    "run": 36444153337,
+    "measurements": [
+      {
+        "scenario": "Assistant launch engineering rehearsal",
+        "elapsedMs": 9098
+      },
+      {
+        "scenario": "Owned Reports design engineering rehearsal — local-only source through prepare --local",
+        "elapsedMs": 19174
+      },
+      {
+        "scenario": "Figma REST v2 engineering rehearsal — injected transport, not live Figma",
+        "elapsedMs": 16144
+      },
+      {
+        "scenario": "Owned Reports design engineering rehearsal",
+        "elapsedMs": 15154
+      }
+    ]
+  },
+  "failedMacOS": {
+    "run": 36444153337,
+    "observed": "Response observation exceeded 20000ms; later screenshot showed acknowledgement; exact request duration unknown"
+  },
+  "selectedObservationBoundMs": 40000,
+  "publicationSuccessInferred": false
+}

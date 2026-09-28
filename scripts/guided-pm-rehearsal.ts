@@ -2,7 +2,7 @@
  * worker/judge/check/display observations. Never a genuine person's verdict. */
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { Page, Route } from "playwright";
+import type { Page, Request, Route } from "playwright";
 import { hashValue } from "../packages/plan/src";
 import { latestWorkspacePublication } from "../packages/application/src/commands";
 import { readController } from "../packages/application/src/controller";
@@ -11,6 +11,7 @@ import { readContainedDeliveryProjection } from "../packages/delivery/src";
 import type { PmJob } from "../packages/board/src/job-model";
 import type { GuidedScenario } from "./rehearsal-scenario";
 import { auditRehearsalClone } from "./rehearsal-clone-audit";
+import { waitForSendAdmission } from "./rehearsal-send";
 
 export async function runGuidedPmJourney(input: {
     page: Page; url: string; root: string; state: string; jobId: string; actor: string; origin: string; baseCommit: string;
@@ -24,14 +25,24 @@ export async function runGuidedPmJourney(input: {
     const { page, record, check, root, state, jobId, actor, call, git, command } = input;
     const began = Date.now(), errors: string[] = [], decisions: { action: string; body: unknown }[] = [];
     let adversarialProbe = false;
+    const decisionStarts = new Map<Request, number>();
     page.setDefaultTimeout(20000);
     page.on("pageerror", e => errors.push(e.message));
     page.on("response", response => {
+        const started = decisionStarts.get(response.request());
+        if (started !== undefined) {
+            decisionStarts.delete(response.request());
+            void record({ browserDecisionTiming: { action: new URL(response.url()).pathname.split("/").at(-1), status: response.status(), elapsedMs: Date.now() - started }, fixture: true });
+        }
         if (new URL(response.url()).pathname.startsWith("/api/job/") && !response.ok()) void response.json().then(body => record({ browserDecisionRefusal: body, status: response.status() })).catch(() => {});
     });
     page.on("request", request => {
         const path = new URL(request.url()).pathname;
-        if (!adversarialProbe && request.method() === "POST" && path.startsWith("/api/job/")) decisions.push({ action: path.split("/").at(-1)!, body: request.postDataJSON() });
+        if (!adversarialProbe && request.method() === "POST" && path.startsWith("/api/job/")) {
+            decisionStarts.set(request, Date.now());
+            decisions.push({ action: path.split("/").at(-1)!, body: request.postDataJSON() });
+            void record({ browserDecisionStarted: { action: path.split("/").at(-1), elapsedMs: Date.now() - began }, fixture: true });
+        }
     });
     const phaseTimeoutMs = input.scenario?.phaseTimeoutMs ?? 90000;
     const waitPhase = (phase: string) => page.locator(`#${phase}-panel`).waitFor({ state: "visible", timeout: phaseTimeoutMs });
@@ -178,9 +189,10 @@ export async function runGuidedPmJourney(input: {
     await page.reload(); await waitPhase("send");
     await check("reopening send preserves its decision and does not publish", (await latestWorkspacePublication(state))?.pushed === false);
     await shot("send");
-    const sendResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/job/send" && response.request().method() === "POST");
+    const sendResponse = waitForSendAdmission(page);
     const sendStarted = Date.now();
     await page.locator("#send-job").click();
+    await record({ browserSendClick: { elapsedMs: Date.now() - sendStarted }, fixture: true });
     const acknowledged = await sendResponse, acknowledgement = await acknowledged.json();
     await check("Send acknowledges its one durable running command before observing publication", acknowledged.status() === 202 && acknowledgement.status === "running" && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(acknowledgement.commandId) && decisions.filter(d => d.action === "send").length === 1);
     await record({ sendAcknowledgement: { status: acknowledged.status(), commandId: acknowledgement.commandId, outcome: acknowledgement.status, elapsedMs: Date.now() - sendStarted }, fixture: true, note: "Admission is not successful publication; the browser still waits for the carried handover." });
