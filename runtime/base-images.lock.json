@@ -1,0 +1,63 @@
+{
+  "schema_version": "wringer.runtime-base-lock.v1",
+  "catalogue": "node-bun-2026-09-27",
+  "platforms": {
+    "linux/arm64": {
+      "bun": {
+        "source": "docker.io/oven/bun:1.4.2",
+        "reference": "docker.io/oven/bun@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895",
+        "platform": "linux/arm64",
+        "platformManifest": "sha256:3121e24dc54514f0e37bcc996a9e6df64519b4caff03a33bbb9993baca7c403b",
+        "config": "sha256:a81de950abb8b5d961ed8c1dcd345450fab8cda00ea3c11e7ec24a4ed4bb82ce",
+        "compressedBytes": 94029305,
+        "measuredAt": "2026-09-27T08:51:13.702Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      },
+      "node": {
+        "source": "docker.io/library/node:24-bookworm-slim",
+        "reference": "docker.io/library/node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+        "platform": "linux/arm64",
+        "platformManifest": "sha256:24b8bc17702002d2ed0c1da9ad66c3ee507cc279d0856726662ff2b6fc35c149",
+        "config": "sha256:234deedb4512c28a423279fb96167f8d1c8ba3da6cb4ef1cb2299cb7249c1174",
+        "compressedBytes": 80691808,
+        "measuredAt": "2026-09-27T08:51:13.697Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      }
+    },
+    "linux/amd64": {
+      "bun": {
+        "source": "docker.io/oven/bun:1.4.2",
+        "reference": "docker.io/oven/bun@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895",
+        "platform": "linux/amd64",
+        "platformManifest": "sha256:296a79bbc988bb0a91ef11099af70a78a8cba98b73fd53f7b2a7715b7c86ced2",
+        "config": "sha256:8165c75cee6a4fca90a1229b3db2b3910e7bc99675f7490df5a112085f224d6d",
+        "compressedBytes": 92710947,
+        "measuredAt": "2026-09-27T09:12:42.242Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      },
+      "node": {
+        "source": "docker.io/library/node:24-bookworm-slim",
+        "reference": "docker.io/library/node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+        "platform": "linux/amd64",
+        "platformManifest": "sha256:5cbc7caba8c2c0f0bca675d1b61b9f2857e1cf1853c6164ee9dd409501a936e7",
+        "config": "sha256:e8c4de1e2519b4f34de27a595df6c2a32df28baa90db80bfaf2e038889d94390",
+        "compressedBytes": 80822402,
+        "measuredAt": "2026-09-27T09:12:42.242Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      }
+    }
+  },
+  "executionMeasured": [],
+  "limits": [
+    "Public registry bytes and descriptors were measured; no image was downloaded or executed by these observations.",
+    "OS package installation inputs still need a separately reviewed lock before a reproducible-image claim."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "gates": [
+    {
+      "id": "content",
+      "run": "node show.mjs",
+      "inputs": [
+        "show.mjs"
+      ]
+    }
+  ],
+  "show": {
+    "layout": "node show.mjs"
+  }
+}

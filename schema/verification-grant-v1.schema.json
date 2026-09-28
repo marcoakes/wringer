@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/verification-grant-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.verification-grant.v1"
+    },
+    "jobId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "proposalSha256": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "expiresAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "boundary": {
+      "const": "trusted-local"
+    }
+  },
+  "required": [
+    "schema_version",
+    "jobId",
+    "proposalSha256",
+    "actor",
+    "issuedAt",
+    "expiresAt",
+    "boundary"
+  ],
+  "additionalProperties": false
+}

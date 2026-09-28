@@ -1,0 +1,16 @@
+# Wringer
+
+> Local check evidence and bounded contained delegation; prerelease candidate.
+
+- [Start](README.md): choose verification or delegation and read current limits.
+- [Install](INSTALL.md): native archive, candidate channels and contributor setup.
+- [Agent contract](USING_WRINGER.md): modes, structured observations and authority.
+- [Agent setup](docs/START_AGENT.md): scoped Claude Code, Codex and generic STDIO.
+- [PM review](docs/START_PM.md): approve, inspect, correct/accept and separate Send.
+- [Operator](docs/START_OPERATOR.md): provisioning, owners and local state.
+- [CLI](docs/CLI.md): generated executable help and exit codes.
+- [Recovery](docs/MIGRATION.md): uncertainty, migration, rollback and uninstall.
+- [Evidence](EVIDENCE.md): measured, unavailable, failed and unmeasured claims.
+- [Security](SECURITY.md): trust boundaries and private reporting.
+
+This index is optional documentation. No client is assumed to discover it.

@@ -1,5 +1,6 @@
 import { dirname, join } from "node:path";
 import { VERSION } from "@wringer/engine";
+import { EXECUTABLE_ROUTES } from "./routes";
 /** Installed help must not send a new customer to the builder's working directory. */
 export async function documentationHint(file = "README.md"): Promise<string> {
     if (!["README.md", "HEADLESS.md"].includes(file))
@@ -11,7 +12,17 @@ export async function documentationHint(file = "README.md"): Promise<string> {
 }
 export const HELP = `Wringer · Bun/TypeScript · ${VERSION}
 
-Delegate a bounded engineering outcome; inspect the change and its evidence.
+Check your coding agent's changes, or delegate a bounded contained job.
+
+  wring demo                         Local simulation; no provider or account
+  wring setup --help                 Review workspace and client setup
+  wring job --help                   Prepare, find, and open retained jobs
+  wring connect --help               Inspect a scoped client connection recipe
+  wring runtime --help               Inspect and provision contained execution
+  wring recover --help               Reconcile retained work without replay
+  wring upgrade --help               Preview installation, rollback or removal
+  wring mcp --connection PATH        Restricted STDIO; no owner startup
+${EXECUTABLE_ROUTES.map(row => `  wring ${row.command} --help${" ".repeat(Math.max(1, 22 - row.command.length))}${row.description}`).join("\n")}
 
   wring init                         Detect local checks; no coding agent required
   wring start                        Show readiness and the product's next steps
@@ -25,6 +36,7 @@ Delegate a bounded engineering outcome; inspect the change and its evidence.
   wringer-drive --help               Authority, review and contained delivery commands
 
 Standalone trusted-local verification and historical evidence:
+  wring reporter node-test           Export inert Node reporter source to stdout
   wring verify                       Run the repository's declared local checks
   wring verify --prove                Compare those checks against the pre-change tree
   wring verify --gate ID              Run one declared check; the record says what it did not cover

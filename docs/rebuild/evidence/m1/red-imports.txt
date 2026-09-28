@@ -1,0 +1,68 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/import-safe.test.ts:
+4 |     const modules = ["packages/cli/src/cli.ts", "packages/cli/src/launcher.ts", "packages/cli/src/board-cli.ts", "packages/cli/src/drive-cli.ts", "packages/cli/src/assistant-cli.ts", "scripts/headless.ts", "packages/figma-connect/src/serve.ts"];
+5 |     const root = new URL("../../../", import.meta.url).pathname;
+6 |     for (const module of modules) {
+7 |         const child = Bun.spawn([process.execPath, "-e", `await import(${JSON.stringify(root + module)}); process.stdout.write('import-safe');`], { cwd: root, stdin: "ignore", stdout: "pipe", stderr: "pipe", env: { PATH: process.env.PATH ?? "" } });
+8 |         const [code, stdout, stderr] = await Promise.all([child.exited, new Response(child.stdout).text(), new Response(child.stderr).text()]);
+9 |         expect({ code, stdout, stderr }, module).toEqual({ code: 0, stdout: "import-safe", stderr: "" });
+                                                     ^
+error: packages/cli/src/cli.ts
+
+  {
+    "code": 0,
+    "stderr": "",
+-   "stdout": "import-safe",
++   "stdout":
++ "Wringer · Bun/TypeScript · 1.0.0-alpha.19
++
++ Delegate a bounded engineering outcome; inspect the change and its evidence.
++
++   wring init                         Detect local checks; no coding agent required
++   wring start                        Show readiness and the product's next steps
++   wring plan PLAN.yaml               Compile a declarative plan without executing it
++   wring design --help                Import an approved design and bind visual review
++   wring experiment --help            Review or separately test future improvements
++   wring run PLAN.yaml --authority FILE [--state DIRECTORY]
++   wring resume --state DIRECTORY     Resume contained ACP work within its authority
++   wringer-drive board --state DIR    Open the live PM workspace for that same run
++   wringer-drive doctor --plan FILE   Check the contained run's prerequisites
++   wringer-drive --help               Authority, review and contained delivery commands
++
++ Standalone trusted-local verification and historical evidence:
++   wring verify                       Run the repository's declared local checks
++   wring verify --prove                Compare those checks against the pre-change tree
++   wring verify --gate ID              Run one declared check; the record says what it did not cover
++   wring audit --set DIR --set DIR     Combine sealed bundles of one revision into one result
++   wring explain                      Show the failing check and its actual output
++   wring doctor                       Report runtime, credentials and last verify
++   wring deliver                      Prepare a portable delivery; no push
++   wring deliver --send                Explicitly commit and push a new branch
++   wring audit --delivery ID           Audit the carried claims from a fresh clone
++   wring verify --falsify --delivery ID Measure a committed range in a scratch clone
++   wring attest --delivery ID          Record an independent audit report
++   wring get URL DIRECTORY             Clone a repository; run none of its contents
++   wring graph show|status|explain     Read legacy graph declarations or history
++   wring issue / health               Import a declared issue or inspect check history
++
++ All commands accept --repo DIRECTORY and --json. Unknown options are errors.
++ Separate surfaces: wringer-drive (headless PM), wringer-board (evidence / pen).
++ Run wring start --help for setup and wringer-drive --help for unattended operation.
++ Legacy host coding workers, graph/fleet/bench execution and direct-HTTP model calls
++ are retired. No provider, key, human verdict or remote publication is invented.
++
++ import-safe"
++ ,
+  }
+
+- Expected  - 1
++ Received  + 40
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/cli/test/import-safe.test.ts:9:50)
+(fail) T02 importing command entrypoints does not run a command or write protocol output [306.50ms]
+
+ 0 pass
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [328.00ms]

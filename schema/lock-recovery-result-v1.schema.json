@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/lock-recovery-result-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.lock-recovery-result.v1"
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "client",
+            "acceptance",
+            "profile",
+            "page-recovery",
+            "proposal",
+            "verification",
+          "verification-send",
+          "verification-prepare",
+            "runtime",
+            "delegation-preparation",
+            "runner-recovery"
+          ]
+        },
+        "id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "workspaceId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "retainedLock": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "dispatched": {
+      "const": false
+    },
+    "uncertaintyRetained": {
+      "const": true
+    },
+    "nextAction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "schema_version",
+    "identity",
+    "selection",
+    "retainedLock",
+    "dispatched",
+    "uncertaintyRetained",
+    "nextAction"
+  ],
+  "additionalProperties": false
+}

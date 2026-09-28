@@ -1,0 +1,18 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/assistant.test.ts:
+144 |             pending.push(f.service.inspectForPm(proposed.jobId).catch(error => error));
+145 |             await until(async () => f.counters.status, count => count === n + 1);
+146 |         }
+147 |         f.query.revision = "e".repeat(64);
+148 |         const fresh = f.service.inspectForPm(proposed.jobId); pending.push(fresh);
+149 |         gates[0]!.reject(new Error("Invalid prior observation"));
+                                   ^
+error: Invalid prior observation
+      at <anonymous> ([isolated-checkout]/packages/application/test/assistant.test.ts:149:30)
+(fail) T13 an older failed inspection frees capacity without poisoning a queued read [47.68ms]
+
+ 0 pass
+ 26 filtered out
+ 1 fail
+Ran 1 test across 1 file. [199.00ms]

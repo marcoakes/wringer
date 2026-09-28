@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/assistant.test.ts:
+123 |         // No fifth computation may start until a slot opens.
+124 |         await Promise.resolve(); await Promise.resolve();
+125 |         expect(f.counters.status).toBe(4);
+126 |         gates.forEach(gate => gate.resolve());
+127 |         const [fresh, other] = await Promise.all([fifth, peer]);
+128 |         expect(fresh.status.revision).toBe(f.query.revision);
+                                            ^
+error: expect(received).toBe(expected)
+
+Expected: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+Received: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/assistant.test.ts:128:39)
+(fail) T13 staggered saturation queues a fresh observation after four held snapshots [53.62ms]
+
+ 0 pass
+ 26 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [190.00ms]

@@ -1,45 +1,57 @@
 name: Wringer verification
-description: Run declared repository checks with the Bun harness and preserve evidence. Does not run coding agents or publish.
+description: Verify declared repository checks and preserve evidence. No agents, approval, comments or publication.
 inputs:
   repository:
     description: Repository directory whose trusted checks should run
     default: .
   config:
-    description: Reserved; only repository-owned .wringer.yaml is supported
+    description: Only repository-owned .wringer.yaml is supported
     default: .wringer.yaml
+  mode:
+    description: Binary for an exact release tag or commit; source explicitly builds a development checkout
+    default: binary
+  prove:
+    description: Request the verifier's assertion, selection and vacuity proof checks
+    default: 'false'
+  selection:
+    description: JSON array of gate IDs; an empty array requests all configured checks
+    default: '[]'
 outputs:
   evidence-dir:
-    description: Absolute directory containing this action's evidence
+    description: Absolute path to this action's evidence (including unsuccessful checks)
     value: ${{ steps.verify.outputs.evidence-dir }}
+  exit-code:
+    description: Actual verifier exit code; summaries do not replace it
+    value: ${{ steps.verify.outputs.exit-code }}
 runs:
   using: composite
   steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '24'
     - uses: oven-sh/setup-bun@v2
+      if: inputs.mode == 'source'
       with:
         bun-version: 1.4.2
-    - name: Build the harness separately from the target repository
+    - name: Explicit source development build
+      if: inputs.mode == 'source'
       shell: bash
       env:
-        ACTION_ROOT: ${{ github.action_path }}
+        WRINGER_ACTION_ROOT: ${{ github.action_path }}
       run: |
         set -euo pipefail
-        cd "$ACTION_ROOT"
+        cd "$WRINGER_ACTION_ROOT"
         bun install --frozen-lockfile
         bun run build
     - id: verify
-      name: Verify declared checks; preserve their real exit code
+      name: Run checks and retain their exit status
       shell: bash
       env:
-        ACTION_ROOT: ${{ github.action_path }}
-        TARGET_REPOSITORY: ${{ inputs.repository }}
-        CONFIG: ${{ inputs.config }}
-      run: |
-        set -euo pipefail
-        if [ "$CONFIG" != '.wringer.yaml' ]; then
-          echo 'Only repository-owned .wringer.yaml is supported' >&2
-          exit 2
-        fi
-        cd "$TARGET_REPOSITORY"
-        output="$PWD/.wringer/runs/action-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-        printf 'evidence-dir=%s\n' "$output" >> "$GITHUB_OUTPUT"
-        "$ACTION_ROOT/dist/wring" verify --output "$output"
+        WRINGER_ACTION_ROOT: ${{ github.action_path }}
+        WRINGER_ACTION_REF: ${{ github.action_ref }}
+        WRINGER_REPOSITORY: ${{ inputs.repository }}
+        WRINGER_CONFIG: ${{ inputs.config }}
+        WRINGER_MODE: ${{ inputs.mode }}
+        WRINGER_PROVE: ${{ inputs.prove }}
+        WRINGER_SELECTION: ${{ inputs.selection }}
+      run: node "$WRINGER_ACTION_ROOT/packaging/action.mjs"

@@ -214,7 +214,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
                 return new Response(new Uint8Array(bytes).buffer, { headers: { ...headers, "Content-Type": "image/png", "Content-Length": String(bytes.byteLength), "Cross-Origin-Resource-Policy": "same-origin", "Content-Disposition": "inline; filename=recorded-image.png", "Content-Security-Policy": "default-src 'none'; sandbox; frame-ancestors 'none'" } });
             }
             if (flow && request.method === "GET" && url.pathname === "/api/job" && [...url.searchParams.keys()].every(key => key === "jobId") && uuid.test(url.searchParams.get("jobId") ?? "")) return json(await flow.read(url.searchParams.get("jobId")!));
-            if (flow && request.method === "POST" && /^\/api\/job\/(approve|decision|correction|send|retry)$/.test(url.pathname) && !url.search) {
+            if (flow && request.method === "POST" && /^\/api\/job\/(approve|decision|correction|send|retry|stop)$/.test(url.pathname) && !url.search) {
                 assertAccepting();
                 if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use an explicit decision from this page." }, 415);
                 const raw = await request.text(); if (Buffer.byteLength(raw) > 16 * 1024) return json({ error: "Decision exceeds its size limit" }, 413);
@@ -224,7 +224,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
                 if (flow) return json({ jobs: await Promise.all((await service.list()).map(async status => ({ jobId: status.jobId, name: (await service.inspectProposal(status.jobId)).plan?.name ?? "Your requested work", phase: status.outcome, nextAction: status.nextAction }))) });
                 const jobs = await Promise.all((await service.list()).map(async status => {
                     const proposal = await service.inspectProposal(status.jobId);
-                    return { status: isStopping() ? { ...status, nextAction: "The local owner is stopping. Read retained evidence; no new decision or execution is accepted." } : status, proposal, proposalRevision: hashValue(proposal), destination: service.workspace.destination, canApprove: !isStopping() && status.outcome === "awaiting-approval" && !!proposal.plan && !proposal.questions.length, canReview: !isStopping() && status.stage !== "intake" && status.outcome !== "cancelled" };
+                    return { status: isStopping() ? { ...status, nextAction: "The local owner is stopping. Read retained evidence; no new decision or execution is accepted." } : status, proposal, proposalRevision: hashValue(proposal), destination: await service.destination(status.jobId), canApprove: !isStopping() && status.outcome === "awaiting-approval" && !!proposal.plan && !proposal.questions.length, canReview: !isStopping() && status.stage !== "intake" && status.outcome !== "cancelled" };
                 }));
                 return json({ schema_version: "wringer.assistant-console.v1", jobs, limitation: ASSISTANT_WARNING });
             }
@@ -261,7 +261,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
         }
     } });
     origin = server.url.origin;
-    if (flow) service.setPresentation(async jobId => { const view = await flow.read(jobId); return { phase: view.phase, nextAction: view.nextAction, eventId: view.readyRevision, pageUrl: `${origin}/?jobId=${encodeURIComponent(jobId)}` }; });
+    if (flow) service.setPresentation(async jobId => { const view = await flow.read(jobId); return { phase: view.phase, nextAction: view.nextAction, eventId: view.readyRevision, observedRevision: view.revision, observedCandidateTree: view.candidateTree, pageUrl: `${origin}/?jobId=${encodeURIComponent(jobId)}` }; });
     return { server, origin, url: `${origin}/#token=${token}`, async stop() {
         stopped = true;
         flow?.stop(); if (flow) service.setPresentation(undefined);

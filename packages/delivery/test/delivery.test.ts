@@ -55,6 +55,15 @@ test("dry delivery carries every red receipt and leaves index, checkout and refs
     expect(report.uncheckable).toBe(1);
     expect(report.failed).toBe(0);
 }, 20000);
+test.each(["fingerprint", "tree", "remoteURL", "baseCommit"] as const)("T10 Send refuses changed prepared %s before creating a branch", async key => {
+        const { repo, origin } = await fixture(), prepared = await deliver(repo), anchor = await json(join(prepared.directory, "anchor.json"));
+        const expected = { fingerprint: anchor.verified_fingerprint, tree: anchor.code_tree, remoteURL: origin, baseCommit: anchor.base_commit };
+        expected[key] = key === "remoteURL" ? "different-origin" : "0".repeat(key === "fingerprint" ? 64 : 40);
+        const branch = `wringer/guard-${key}`;
+        await expect(deliver(repo, { send: true, branch, expected } as any)).rejects.toThrow("prepared");
+        expect(await git(repo, ["rev-parse", "--verify", `refs/heads/${branch}`], { allowFailure: true })).toBe("");
+        expect(await git(repo, ["ls-remote", "--heads", "origin", `refs/heads/${branch}`])).toBe("");
+}, 20000);
 test("committed delivery audits in a fresh clone without original .wringer history", async () => {
     const { repo, origin, root, green } = await fixture(), before = await snapshot(repo);
     const delivered = await deliver(repo, { send: true });

@@ -1,0 +1,50 @@
+import { expect, test } from "bun:test";
+import { mkdtemp, realpath, writeFile, readdir, unlink } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { compileExecutionPlan, hashValue } from "@wringer/plan";
+import { createAssistantDirectory, writeAssistantRecord, initializeAssistant, createAssistantService, retainDelegationJob, inspectDelegationRecovery, applyDelegationRecovery } from "../src";
+
+test("delegation recovery previews exact dead ownership, does not grant work and survives a lost successful reply", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-domain-recovery-"))); await createAssistantDirectory(root);
+    const workspaceId = crypto.randomUUID(), contextId = crypto.randomUUID(), profileId = crypto.randomUUID();
+    const plan = compileExecutionPlan(await Bun.file(new URL("../../plan/examples/contained.yaml", import.meta.url)).text(), { format: "yaml" });
+    await writeAssistantRecord(root, `workspaces/${workspaceId}.json`, { schema_version: "wringer.workspace.v2", id: workspaceId, mode: "delegation", repo: join(root, "fixture-repo"), client: "generic", preferences: { destination: null, profileId, credentialReferences: [] }, boundary: { approval: "cooperative-local", execution: "contained" }, createdAt: new Date().toISOString() });
+    const context = { schema_version: "wringer.delegation-context.v1" as const, id: contextId, workspaceId, profileId, intent: plan.intent, parentJobId: null, destination: null, createdAt: new Date().toISOString() };
+    await writeAssistantRecord(root, `delegation-contexts/${workspaceId}/${contextId}.json`, context);
+    const controllerRoot = join(root, "delegation-controllers", workspaceId, contextId), initialized = await initializeAssistant(controllerRoot, { plan, cooperativeLocal: true }), service = await createAssistantService(controllerRoot);
+    const proposal = await service.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: crypto.randomUUID(), proposal: { intent: plan.intent, title: "Unapproved fixture", questions: ["Which behavior?"] } }), jobId = proposal.jobId as string;
+    await retainDelegationJob(root, context, jobId);
+    const child = Bun.spawn([process.execPath, "-e", ""], { stdout: "ignore", stderr: "pipe" }); await child.exited;
+    const owner = { schema_version: "wringer.assistant-runner-owner.v1", at: new Date().toISOString(), token: crypto.randomUUID(), pid: child.pid };
+    await (await import("node:fs/promises")).mkdir(join(controllerRoot, "runner"), { mode: 0o700 });
+    await writeFile(join(controllerRoot, "runner", "owner.json"), JSON.stringify({ ...owner, sha256: hashValue(owner) }), { mode: 0o600 });
+    const before = (await readdir(root, { recursive: true })).sort(), preview = await inspectDelegationRecovery(root, jobId);
+    expect(preview.eligible).toBeTrue(); expect((await readdir(root, { recursive: true })).sort()).toEqual(before);
+    await expect(applyDelegationRecovery(root, jobId, undefined, "a".repeat(64), "Automated fixture")).rejects.toThrow("changed");
+    const recovered = await applyDelegationRecovery(root, jobId, undefined, preview.identity, "Automated fixture");
+    expect(recovered.dispatched).toBeFalse(); expect(await service.inspectApproval(jobId)).toBeNull(); expect(await service.runner.list()).toEqual([]);
+    expect(await applyDelegationRecovery(root, jobId, undefined, preview.identity, "Automated fixture")).toEqual(recovered);
+    await unlink(join(root, "maintenance", "domain-recoveries", preview.identity, "result.json"));
+    expect((await applyDelegationRecovery(root, jobId, undefined, preview.identity, "Automated fixture")).dispatched).toBeFalse();
+    await expect(applyDelegationRecovery(root, crypto.randomUUID(), undefined, preview.identity, "Automated fixture")).rejects.toThrow();
+});
+
+test("T08 retained delegation status does not repair an index or allocate an absent runner directory", async () => {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-read-only-history-"))); await createAssistantDirectory(root);
+    const workspaceId = crypto.randomUUID(), contextId = crypto.randomUUID(), profileId = crypto.randomUUID();
+    const plan = compileExecutionPlan(await Bun.file(new URL("../../plan/examples/contained.yaml", import.meta.url)).text(), { format: "yaml" });
+    await writeAssistantRecord(root, `workspaces/${workspaceId}.json`, { schema_version: "wringer.workspace.v2", id: workspaceId, mode: "delegation", repo: join(root, "fixture-repo"), client: "generic", preferences: { destination: null, profileId, credentialReferences: [] }, boundary: { approval: "cooperative-local", execution: "contained" }, createdAt: new Date().toISOString() });
+    const context = { schema_version: "wringer.delegation-context.v1" as const, id: contextId, workspaceId, profileId, intent: plan.intent, parentJobId: null, destination: null, createdAt: new Date().toISOString() };
+    await writeAssistantRecord(root, `delegation-contexts/${workspaceId}/${contextId}.json`, context);
+    const controllerRoot = join(root, "delegation-controllers", workspaceId, contextId), initialized = await initializeAssistant(controllerRoot, { plan, cooperativeLocal: true }), service = await createAssistantService(controllerRoot);
+    const proposal = await service.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: crypto.randomUUID(), proposal: { intent: plan.intent, title: "Retained question", questions: ["Which behavior?"] } });
+    const { rm } = await import("node:fs/promises"); await rm(join(controllerRoot, "runner"), { recursive: true, force: true });
+    const before = (await readdir(root, { recursive: true })).sort();
+    const app = await import("../src");
+    expect((await app.delegationJobStatus(root, proposal.jobId as string)).outcome).toBe("needs-decision");
+    expect((await readdir(root, { recursive: true })).sort()).toEqual(before);
+    expect(await Bun.file(join(root, "delegation-jobs", proposal.jobId + ".json")).exists()).toBeFalse();
+    expect((await app.retainDelegationJob(root, context, proposal.jobId as string)).id).toBe(proposal.jobId as string);
+    expect(await Bun.file(join(root, "delegation-jobs", proposal.jobId + ".json")).exists()).toBeTrue();
+});

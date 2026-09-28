@@ -16,6 +16,33 @@
  */
 import { git, snapshot } from "./git";
 import type { Snapshot } from "./types";
+import { lstat, readlink } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createHash } from "node:crypto";
+import { join } from "node:path";
+type TrackedSource = Record<string, string>;
+/** Capture bytes, executable bits, symlink targets and index entries before any gate.
+ * A list of dirty filenames cannot distinguish two edits to the same file. */
+export async function captureTrackedSource(repo: string): Promise<TrackedSource> {
+    const result: TrackedSource = Object.create(null);
+    const entries = (await git(repo, ["ls-files", "--stage", "-z", "--", ".", ":(exclude).wringer", ":(exclude).wringer/**"])).stdout.split("\0").filter(Boolean);
+    for (const entry of entries) {
+        const split = entry.indexOf("\t"), path = entry.slice(split + 1), indexed = entry.slice(0, split);
+        if (split < 0 || Object.hasOwn(result, path)) throw new Error("Strict source requires an unambiguous Git index");
+        try {
+            const file = join(repo, path), stat = await lstat(file);
+            if (stat.isSymbolicLink()) result[path] = `${indexed}:link:${await readlink(file)}`;
+            else if (stat.isFile()) {
+                const hash = createHash("sha256"); for await (const bytes of createReadStream(file)) hash.update(bytes);
+                result[path] = `${indexed}:${stat.mode & 0o111}:${hash.digest("hex")}`;
+            } else throw new Error(`Strict source cannot measure tracked special entry ${path}`);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+            result[path] = `${indexed}:absent`;
+        }
+    }
+    return result;
+}
 export interface StrictSource {
     before: string;
     after: string;
@@ -31,11 +58,11 @@ async function ignoredPaths(repo: string): Promise<number> {
         return 0;
     return listed.stdout.split("\0").filter(entry => entry.startsWith("!!")).length;
 }
-export async function strictSource(repo: string, before: Snapshot): Promise<StrictSource> {
+export async function strictSource(repo: string, before: Snapshot, baseline: TrackedSource): Promise<StrictSource> {
     const after = await snapshot(repo);
-    const tracked = (snap: Snapshot) => new Set(snap.changed_files.filter(path => !snap.untracked.includes(path)));
-    const wasTracked = tracked(before), isTracked = tracked(after);
-    const changed_tracked = [...new Set([...isTracked].filter(path => !wasTracked.has(path)))].sort();
+    const current = await captureTrackedSource(repo);
+    const changed_tracked = [...new Set([...Object.keys(baseline), ...Object.keys(current)])].filter(path => baseline[path] !== current[path]).sort();
+    if (before.head_sha !== after.head_sha) changed_tracked.push("HEAD");
     const appeared = after.untracked.filter(path => !before.untracked.includes(path));
     const permitted_ignored = await ignoredPaths(repo);
     const exact_source = changed_tracked.length === 0;

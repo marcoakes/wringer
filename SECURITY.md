@@ -6,7 +6,14 @@ Wringer is a prerelease Bun/TypeScript control plane. It executes repository che
 
 Use [GitHub private vulnerability reporting](https://github.com/marcoakes/wringer/security/advisories/new). Do not include exploitable details, credentials or private source in a public issue. Provide a minimal reproduction, affected version/commit, runtime policy, expected boundary and observed result. Non-sensitive hardening proposals may use ordinary repository issues.
 
-## Production execution boundary
+## Verification and contained delegation
+
+Verification is an explicit trusted-local entry: the existing coding assistant
+edits source and Wringer runs reviewed repository checks under finite grants.
+It needs no managed worker or image and carries no isolation claim. Inspect all
+commands before approving them. The following boundary applies to delegation.
+
+## Contained execution boundary
 
 The required execution path uses ACP agents in fresh isolated role environments:
 
@@ -20,7 +27,7 @@ An unavailable or unestablished boundary must stop the run. Host execution is no
 
 Runtime adapters and integration are being verified. Unit tests of ACP messages and Kubernetes/Apple command generation are not evidence that a host kernel, cluster RuntimeClass or network plugin enforces the intended policy. Live isolation tests must record the platform, runtime, image and observed results. Do not infer a general escape-resistance claim from a deterministic fixture.
 
-Legacy repository-oriented commands may retain trusted-local execution semantics for compatibility. Their existence is not approval to execute an unfamiliar repository on the host. New production runs must use the isolated plan route; inspect the exact preflight and runtime records rather than relying on a green initialization message.
+Verification and compatible standalone commands run trusted-local. Their existence is not approval to execute an unfamiliar repository. Delegation must use the contained plan route and never falls back to host execution. Inspect the exact runtime records rather than relying on a green setup message.
 
 ## Authority is narrower than capability
 

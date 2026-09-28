@@ -1,0 +1,81 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio-progress.test.ts:
+14 |             let end: number;
+15 |             while ((end = pending.indexOf("\n")) >= 0) { visit(pending.slice(0, end)); pending = pending.slice(end + 1); }
+16 |         }
+17 |         if (pending) throw new Error("Unterminated protocol fixture output");
+18 |     }
+19 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else if (line === "wait-exited") exited++; else throw new Error("Unexpected fixture diagnostic"); })];
+                                                                                                                                                                                                                   ^
+error: Unexpected fixture diagnostic
+      at <anonymous> ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:19:207)
+      at lines ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:15:58)
+(fail) T12 real STDIO handles status and durable cancellation during a long poll [39.63ms]
+14 |             let end: number;
+15 |             while ((end = pending.indexOf("\n")) >= 0) { visit(pending.slice(0, end)); pending = pending.slice(end + 1); }
+16 |         }
+17 |         if (pending) throw new Error("Unterminated protocol fixture output");
+18 |     }
+19 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else if (line === "wait-exited") exited++; else throw new Error("Unexpected fixture diagnostic"); })];
+                                                                                                                                                                                                                   ^
+error: Unexpected fixture diagnostic
+      at <anonymous> ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:19:207)
+      at lines ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:15:58)
+(fail) T12 transport cancellation releases only its wait, never the durable job [32.13ms]
+14 |             let end: number;
+15 |             while ((end = pending.indexOf("\n")) >= 0) { visit(pending.slice(0, end)); pending = pending.slice(end + 1); }
+16 |         }
+17 |         if (pending) throw new Error("Unterminated protocol fixture output");
+18 |     }
+19 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else if (line === "wait-exited") exited++; else throw new Error("Unexpected fixture diagnostic"); })];
+                                                                                                                                                                                                                   ^
+error: Unexpected fixture diagnostic
+      at <anonymous> ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:19:207)
+      at lines ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:15:58)
+(fail) T12 long-poll overload is bounded and leaves capacity for status [38.38ms]
+
+packages/mcp/test/stdio.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find package 'yaml' from '[isolated-checkout]/packages/engine/src/config.ts'
+-------------------------------
+
+
+packages/mcp/test/json.test.ts:
+(pass) bounded unambiguous MCP JSON > preserves Unicode and complete JSON values without evaluating strings [3.59ms]
+(pass) bounded unambiguous MCP JSON > rejects duplicate decoded keys at every depth, not just the selected tool name [0.12ms]
+(pass) bounded unambiguous MCP JSON > rejects malformed, non-finite, trailing and dangerously deep input [0.29ms]
+(pass) bounded unambiguous MCP JSON > size is measured as UTF-8 bytes, not JavaScript characters [0.98ms]
+(pass) bounded unambiguous MCP JSON > deterministic generated JSON agrees with the platform reader [2.69ms]
+
+packages/mcp/test/contract.test.ts:
+(pass) narrow assistant tool contract > exactly fifteen tools including bounded design requests; no human pen, publication, credentials, scope or arbitrary execution route [0.74ms]
+(pass) narrow assistant tool contract > every listed schema accepts its intended inert request without changing the person's words [1.74ms]
+(pass) narrow assistant tool contract > unknown arguments and null/array arguments fail closed for every tool [0.25ms]
+(pass) narrow assistant tool contract > handles cannot become files, URLs, flags or executable snippets [0.10ms]
+(pass) narrow assistant tool contract > every mutation requires idempotency and exact revision/candidate guards [0.16ms]
+(pass) narrow assistant tool contract > uncertain effect replay is not an ordinary assistant recovery action [0.06ms]
+(pass) narrow assistant tool contract > bounded evidence pages and proposal notes cannot request an unlimited dump [0.44ms]
+(pass) narrow assistant tool contract > any explicit cash-limit request is a named refusal, including zero, null and false [0.08ms]
+
+packages/mcp/test/server.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+packages/application/test/assistant.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+-------------------------------
+
+
+ 13 pass
+ 6 fail
+ 3 errors
+ 791 expect() calls
+Ran 19 tests across 6 files. [276.00ms]

@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio.test.ts:
+25 |         try {
+26 |             await entered.promise;
+27 |             for (let n = 0; n < 100; n++) await Promise.resolve();
+28 |             expect(calls).toBeGreaterThan(0); expect(calls).toBeLessThanOrEqual(31);
+29 |         } finally { gate.resolve(); }
+30 |         expect((await run).reason).toBe("eof"); expect(overlap).toBeFalse();
+                                                                     ^
+error: expect(received).toBeFalse()
+
+Received: true
+
+      at <anonymous> ([isolated-checkout]/packages/mcp/test/stdio.test.ts:30:65)
+(fail) bounded MCP stdio transport > T12 slow output uses one writer and bounds outstanding dispatch [4.22ms]
+
+ 0 pass
+ 6 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [103.00ms]

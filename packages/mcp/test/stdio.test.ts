@@ -13,6 +13,23 @@ async function stream(chunks: Uint8Array[]) {
 }
 
 describe("bounded MCP stdio transport", () => {
+    test("T12 slow output uses one writer and bounds outstanding dispatch", async () => {
+        const gate = Promise.withResolvers<void>(), entered = Promise.withResolvers<void>();
+        let writing = false, overlap = false, calls = 0; const replies: any[] = [];
+        const data = `${init}\n${initialized}\n` + Array.from({ length: 80 }, (_, i) => JSON.stringify({ jsonrpc: "2.0", id: i + 2, method: "tools/call", params: { name: "wringer.get_status", arguments: {} } }) + "\n").join("");
+        const frames = data.trimEnd().split("\n");
+        const run = runMcpStdio({ version: "fixture", input: new ReadableStream({ pull(c) { const next = frames.shift(); if (next === undefined) c.close(); else c.enqueue(encode(next + "\n")); } }), output: { async write(bytes) {
+            overlap ||= writing; writing = true; entered.resolve(); await gate.promise;
+            await Promise.resolve(); replies.push(JSON.parse(new TextDecoder().decode(bytes))); writing = false;
+        } }, call: () => { calls++; return { outcome: "observed" }; } });
+        try {
+            await entered.promise;
+            for (let n = 0; n < 100; n++) await Promise.resolve();
+            expect(calls).toBeGreaterThan(0); expect(calls).toBeLessThanOrEqual(31);
+        } finally { gate.resolve(); }
+        expect((await run).reason).toBe("eof"); expect(overlap).toBeFalse();
+        expect(replies).toHaveLength(81); expect(new Set(replies.map(row => row.id)).size).toBe(81);
+    });
     test("handles split UTF-8, one-byte chunks and multiple messages per chunk", async () => {
         const bytes = encode(`${init}\n${initialized}\n${status}\n`);
         const run = await stream(Array.from(bytes, b => new Uint8Array([b])));

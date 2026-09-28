@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private vulnerability report
+    url: https://github.com/marcoakes/wringer/security/advisories/new
+    about: Keep exploitable details and credentials out of public issues.

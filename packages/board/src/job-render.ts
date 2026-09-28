@@ -17,6 +17,7 @@ function jobClientRuntime() {
     let job: PmJob | null = null, connected = false, lastRead = 0, busy = false, locked = false, unresolvedRevision: string | null = null;
     let refreshing: Promise<void> | null = null, exchange: Promise<void> | null = null, chooseCorrection = false;
     let lastList = 0, notifications = false;
+    let lastNotificationAt = -Infinity, notificationPending = false;
     let imageGeneration = 0;
     const imageChecks = new Map<string, { displayId: string; state: "loading" | "loaded" | "failed" }>();
     const imageUrls: string[] = [], imageRequests: AbortController[] = [];
@@ -30,17 +31,18 @@ function jobClientRuntime() {
     };
     const clearVisuals = () => { imageGeneration++; closeViewer(false); for (const request of imageRequests.splice(0)) request.abort(); for (const url of imageUrls.splice(0)) URL.revokeObjectURL(url); imageChecks.clear(); };
     const notified = new Set<string>();
-    const readyKey = (value: PmJob) => `${value.jobId}:${value.candidateTree ?? "no-candidate"}:${value.phase}`;
+    const readyKey = (value: PmJob) => `${value.jobId}:${value.candidateTree ?? "no-candidate"}:${value.phase}:${value.readyRevision}`;
     const say = (text: string, error = false) => { el("job-message").textContent = text; el("job-message").classList.toggle("error", error); };
     const current = () => !locked && connected && Date.now() - lastRead < 6500;
     const usable = () => current() && !busy && unresolvedRevision === null;
-    const actionButtons = ["approve-job", "accept-result", "request-correction", "submit-correction", "send-job", "retry-job"];
+    const actionButtons = ["approve-job", "accept-result", "request-correction", "submit-correction", "send-job", "retry-job", "stop-job"];
     const controls = () => {
         el("job-connection").textContent = locked ? "Locked" : current() ? busy ? "Saving your decision…" : "Connected" : "Connecting · decisions paused";
         el("job-workspace").setAttribute("aria-busy", String(busy));
         for (const id of actionButtons) button(id).disabled = true;
         if (!job) return;
         const allowed = usable();
+        button("stop-job").disabled = !current() || busy || job.phase === "sent";
         button("approve-job").disabled = !allowed || job.phase !== "approval" || !field("approval-actor").value.trim() || !!job.questions?.length;
         const review = pmJobReviewSet(job);
         const visualChecks = [...imageChecks.values()].filter(check => review.displayIds.includes(check.displayId));
@@ -151,6 +153,7 @@ function jobClientRuntime() {
         el("job-workspace").hidden = false; el("job-empty").hidden = true;
         document.title = `${value.name} · Wringer`;
         el("job-name").textContent = value.name; el("phase-title").textContent = pmJobHeading(value); el("job-next-action").textContent = value.nextAction;
+        el("job-mode").textContent = value.mode === "verification" ? "Verification · trusted-local checks" : "Delegation · contained roles";
         el("job-error").textContent = value.error ?? ""; el("job-error").hidden = !value.error;
         el("approval-panel").hidden = value.phase !== "approval";
         el("review-panel").hidden = value.phase !== "review" || chooseCorrection;
@@ -170,7 +173,9 @@ function jobClientRuntime() {
         for (const [id, rows] of [["job-questions", value.questions ?? []], ["job-assumptions", value.assumptions ?? []]] as const) { const list = el(id); list.replaceChildren(); for (const text of rows) list.append(node("li", text)); el(`${id}-panel`).hidden = rows.length === 0; }
         (el("job-assumptions-panel") as HTMLDetailsElement).open = value.phase === "approval";
         const minutes = value.budget.wallSeconds / 60;
-        el("approval-budget").textContent = `Up to ${value.budget.sessions} agent sessions and ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} minutes for this job. Session/time limits are not a cash cap.`;
+        el("approval-budget").textContent = value.mode === "verification" && value.verification
+            ? `Verification · trusted-local. Up to ${value.verification.repetitions} runs (${value.verification.remaining} remaining), ${value.verification.runSeconds} seconds per run, and ${value.budget.wallSeconds} seconds including downtime. These commands execute changing repository code under your OS account; they are not contained workers.\n` + value.verification.checks.map(check => `${check.id}: ${check.command}`).join("\n")
+            : `Delegation · contained roles. Up to ${value.budget.sessions} agent sessions and ${Number.isInteger(minutes) ? minutes : minutes.toFixed(1)} minutes for this job. Session/time limits are not a cash cap.`;
         el("approval-expiry").textContent = value.budget.expiresAt ? `Approval ends ${new Date(value.budget.expiresAt).toLocaleString()}. Downtime counts.` : "The controller sets a finite approval deadline within this job's time limit; it is not an open-ended grant.";
         if (value.actor && !field("approval-actor").value) field("approval-actor").value = value.actor;
         el("review-as").textContent = value.actor ? `Recording your decision as ${value.actor}, the name previously supplied.` : "The recorded decision identity is unavailable.";
@@ -256,8 +261,9 @@ function jobClientRuntime() {
     };
     const notify = (value: PmJob) => {
         if (locked || !notifications || !["approval", "review", "send", "blocked", "correction"].includes(value.phase)) return;
-        const key = readyKey(value); if (notified.has(key)) return; notified.add(key);
+        const key = readyKey(value); if (notified.has(key) || Date.now() - lastNotificationAt < 30000) return;
         if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+        lastNotificationAt = Date.now(); notified.add(key);
         const title = value.phase === "review" ? "Your result is ready" : value.phase === "send" ? "Your handover is ready for a decision" : "Wringer needs your attention";
         try { const notification = new Notification(title, { body: "Return to your open Wringer page to inspect the recorded result and next action." }); notification.onclick = () => { window.focus(); notification.close(); }; } catch { el("notification-note").textContent = "Browser notification failed. Follow progress on this page; no assistant notification is implied."; }
     };
@@ -275,15 +281,18 @@ function jobClientRuntime() {
                     const next = validatePmJob(raw);
                     if (next.jobId !== selectedAtRead || selectedAtRead !== selected) throw new Error("The controller returned a different job. No decision was accepted.");
                     if (job && (job.jobId !== next.jobId || job.readyRevision !== next.readyRevision || job.candidateTree !== next.candidateTree)) { clearDraft(); unresolvedRevision = null; }
+                    const decisionChanged = !!job && (job.jobId !== next.jobId || job.phase !== next.phase);
                     const changed = JSON.stringify(next) !== JSON.stringify(job); job = next; connected = true; lastRead = Date.now();
-                    if (changed) render(); else controls(); notify(next);
+                    if (changed) render(); else controls();
+                    if (decisionChanged) el("job-workspace").focus();
+                    notify(next);
                 } else { connected = true; lastRead = Date.now(); render(); }
             } catch (error) { connected = false; if (!locked) say(error instanceof Error ? error.message : "The controller could not be read. Decisions are paused.", true); controls(); }
         })().finally(() => { refreshing = null; });
         return refreshing;
     };
     const submit = async (path: string, body: Record<string, unknown>) => {
-        if (!job || !usable()) return;
+        if (!job || !(path === "/api/job/stop" ? current() && !busy : usable())) return;
         const before = job.readyRevision;
         busy = true; unresolvedRevision = before; controls();
         try {
@@ -304,6 +313,7 @@ function jobClientRuntime() {
         void submit("/api/job/decision", { ...guards(), verdict, ...(note?.trim() ? { note } : {}), displayIds: pmJobReviewSet(job).displayIds });
     };
     el("approve-job").addEventListener("click", () => { if (!job || button("approve-job").disabled) return; void submit("/api/job/approve", { jobId: job.jobId, expectedRevision: job.readyRevision, actor: field("approval-actor").value }); });
+    el("stop-job").addEventListener("click", () => { if (!job || button("stop-job").disabled) return; void submit("/api/job/stop", guards()); });
     el("accept-result").addEventListener("click", () => { if (!button("accept-result").disabled) reviewDecision("met", field("review-note").value); });
     el("request-correction").addEventListener("click", () => {
         if (!job || button("request-correction").disabled) return;
@@ -331,14 +341,21 @@ function jobClientRuntime() {
         void api("/api/logout", {}).catch(() => say("This page is locked, but server logout was not confirmed. Close the tab and ask the operator to lock access.", true));
     });
     el("notify-ready").addEventListener("click", () => {
+        if (locked || notificationPending) return;
+        if (notifications) {
+            notifications = false; button("notify-ready").textContent = "Notify me when a decision is ready";
+            el("notification-note").textContent = "Browser notifications are off. Your work and this page remain available.";
+            return;
+        }
         if (typeof Notification === "undefined") { el("notification-note").textContent = "This browser does not offer notifications. Follow the recorded state on this page."; return; }
+        notificationPending = true; button("notify-ready").disabled = true;
         void Notification.requestPermission().then(permission => {
             if (locked) return;
             notifications = permission === "granted";
             if (job) notified.add(readyKey(job));
-            button("notify-ready").disabled = notifications;
+            button("notify-ready").textContent = notifications ? "Turn off browser notifications" : "Notify me when a decision is ready";
             el("notification-note").textContent = notifications ? "Browser notifications are on while this page is open. This does not notify your coding app or work after you close the page." : "Notifications were not enabled. Your work can continue; follow its state on this page.";
-        }, () => { el("notification-note").textContent = "The browser did not enable notifications. Follow progress here."; });
+        }, () => { el("notification-note").textContent = "The browser did not enable notifications. Follow progress here."; }).finally(() => { notificationPending = false; button("notify-ready").disabled = locked; });
     });
     const copy = async (text: string) => { try { await navigator.clipboard.writeText(text); say("Copied the recorded handover information."); } catch { say("Copy was unavailable. Select and copy the recorded text below.", true); } };
     el("copy-audit").addEventListener("click", () => { if (job?.publication?.auditCommand) void copy([...(job.publication.cloneCommand ? [job.publication.cloneCommand, "cd 'reviewed-change'"] : []), job.publication.auditCommand].join(" &&\n")); });
@@ -365,10 +382,10 @@ export function renderPmJobWorkspace(options: { nonce?: string } = {}): string {
     return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'"><title>Your work · Wringer</title><style nonce="${nonce}">${style}</style></head><body>
 <a class="skip" href="#job-workspace">Skip to your work</a>
 <dialog id="image-viewer" aria-labelledby="image-viewer-title" aria-describedby="image-viewer-help"><div class="image-viewer-toolbar"><h2 id="image-viewer-title"></h2><button id="close-image-viewer" type="button" class="secondary">Close image</button></div><p id="image-viewer-help">Full-size recorded image. Scroll to inspect every part. Press Escape or Close image to return.</p><div class="image-viewer-canvas"><img id="image-viewer-image" alt=""></div></dialog>
-<header><div class="brand">wringer <span class="muted">/ your work</span></div><div class="top-actions"><span id="job-connection" class="muted" role="status">Connecting…</span><button id="refresh-job" class="secondary" type="button">Refresh progress</button><button id="lock-job-page" class="secondary" type="button">Lock</button></div></header>
+<header><div class="brand">wringer <span class="muted">/ your work</span></div><div class="top-actions"><span id="job-connection" class="muted" role="status">Connecting…</span><button id="refresh-job" class="secondary" type="button">Refresh progress</button><button id="stop-job" class="secondary" type="button" disabled>Stop this job</button><button id="lock-job-page" class="secondary" type="button">Lock</button></div></header>
 <main><div id="job-selection" class="job-selection"><label for="job-picker">Your work</label><select id="job-picker"><option value="">Loading…</option></select></div>
 <p id="job-message" class="message" role="status" aria-live="polite" aria-atomic="true"></p><p id="job-empty">Connecting to your recorded work…</p>
-<section id="job-workspace" tabindex="-1" hidden aria-busy="false"><p class="eyebrow" id="job-name"></p><h1 id="phase-title"></h1><p id="job-next-action" class="lead"></p><p id="job-error" class="error" hidden></p><section id="job-questions-panel" class="panel" hidden><h2>Questions to answer in your coding app</h2><ul id="job-questions"></ul></section><details id="job-assumptions-panel" class="panel" hidden><summary>Assumptions to check</summary><ul id="job-assumptions"></ul></details>
+<section id="job-workspace" tabindex="-1" hidden aria-busy="false"><p class="eyebrow" id="job-name"></p><p id="job-mode" class="muted"></p><h1 id="phase-title"></h1><p id="job-next-action" class="lead"></p><p id="job-error" class="error" hidden></p><section id="job-questions-panel" class="panel" hidden><h2>Questions to answer in your coding app</h2><ul id="job-questions"></ul></section><details id="job-assumptions-panel" class="panel" hidden><summary>Assumptions to check</summary><ul id="job-assumptions"></ul></details>
 <section id="approval-panel" class="panel decision-panel" hidden><h2>The work you are approving</h2><blockquote id="approval-intent" class="request-quote"></blockquote><h3>Required outcomes</h3><ul id="approval-requirements"></ul><dl id="approval-source"></dl><details><summary>Exact allowed and protected file scope</summary><pre id="approval-scope"></pre></details><p id="approval-budget"></p><p id="approval-expiry" class="muted"></p><details><summary>Registered handover destination</summary><dl id="approval-destination"></dl></details><label for="approval-actor">Your name</label><input id="approval-actor" autocomplete="name" maxlength="200" required><p class="note-help">The button approves this exact request, requirements and finite limits. It does not accept the result or send a change.</p><button id="approve-job" type="button" disabled>Approve this bounded work</button></section>
 <section id="progress-panel" class="panel stage-note" hidden><span class="activity" aria-hidden="true"></span><p>Your assistant and Wringer handle the next steps within the existing approval. You do not need to keep clicking Continue.</p></section>
 <section id="send-panel" class="panel decision-panel" hidden><h2>Send the reviewed change</h2><dl id="send-destination"></dl><p id="send-source" class="muted"></p><p>This sends the prepared branch and its evidence to the registered destination. It does not merge or deploy.</p><button id="send-job" type="button" disabled>Send this reviewed change</button></section>

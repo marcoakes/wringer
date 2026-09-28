@@ -1,0 +1,14 @@
+{
+  "observedAt": "2026-09-28T10:03:57.819620+00:00",
+  "candidate": "1.0.0-alpha.20",
+  "localAlphaTags": [],
+  "remoteCommand": "git ls-remote --tags origin",
+  "remoteRepository": "https://github.com/marcoakes/wringer.git",
+  "remoteAlphaTags": [],
+  "latestVisibleRemoteTag": "v0.9.11",
+  "publicReleaseObservation": "Public GitHub releases API observed 2026-09-28: latest v0.9.11; alpha20 absent",
+  "authenticatedReleaseInspection": "401 Bad credentials; private drafts not observable",
+  "tagCreated": false,
+  "publication": "not attempted",
+  "limits": "Recheck version availability and private drafts before authorized publication; local selection is not a reservation."
+}

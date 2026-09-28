@@ -1,56 +1,85 @@
-# Python retirement and the Bun replacement
+# Upgrade, recovery, rollback and removal
 
-The active Wringer implementation on main is Bun/TypeScript. Python harness
-source, Python test runner, pyproject/SDist packaging, PyPI publishing workflow
-and the old probe/release scripts have been retired. There is no Python runtime
-fallback and no second supported product under `ts/`.
-
-The root `package.json`, `bun.lock`, `packages/`, `scripts/*.ts` and Bun CI are
-the build authority. See [installation](../INSTALL.md), [quickstart](../QUICKSTART.md)
-and [the rewrite contract](REWRITE_PLAN.md). The replacement remains a prerelease
-until its declared live-model and real-containment release gates pass.
-
-## What is preserved
-
-- Published `schema/` files and their original digests. Old records are read
-  according to the version they declare; new facts use new record versions.
-- Committed data fixtures, past delivery bundles and dated field reports.
-- Upstream held-out tests and historical example projects, including Python
-  target code. They document what was measured; they are not Wringer's runtime.
-- The complete prior implementation and tests in Git history. The baseline is
-  commit `7b79c58`; [the retirement inventory](python-retirement.json) names the
-  removed tracked files. No installed local interpreter or Keychain item is
-  removed by this repository migration.
-
-This is not a claim that the smaller new test suite reproduces all prior Python
-coverage. The historical implementation report documents its actual measurement.
-New acceptance evidence must come from the replacement itself. Unsupported old
-configuration is rejected with a migration route, not silently interpreted as
-a weaker policy.
-
-## Configuration and responsibility changes
-
-The supported agent path is a versioned execution plan, ACP, and isolated worker
-and judge instances. Shell workers and direct model HTTP endpoints are not the
-new production orchestration interface. The CLI orchestrates; agent runtimes
-author product code. Apple container and gVisor/Kubernetes contain the repo clones.
-
-Standalone evidence inspection and verification retain explicit local operation.
-Running a repository's checks locally is trusted local execution, not isolation.
-Existing installed Python `wring` commands do not change just because this checkout
-changes: invoke `dist/wring --version` when checking the new build.
-
-Published PyPI artifacts and historical Git tags are not altered or deleted here.
-Their installation instructions in dated documents describe the old product.
-No new PyPI release is produced by main or by the Bun release workflow.
-
-## Recovering historical source
-
-Inspect a named old file without changing this checkout:
+The installer retains versioned binaries separately from application state and
+repository evidence. Existing formats keep their original readers. It does not
+rewrite old history, refresh budgets, restart workers or move uncertain effects.
+Back up the private application directory and repository `.wringer/` together
+using your normal private backup procedure before switching versions.
 
 ```sh
-git show 7b79c58:src/wringer/cli.py
+wring upgrade --archive /absolute/candidate.tar.gz --sha256 EXACT_SHA --release VERSION --dry-run --json
 ```
 
-If a historical experiment needs an old release, use a separate clone at that
-existing tag. Do not reactivate its runtime or build system on main.
+Review the target, current/previous versions, owned changes and holds; repeat with
+`--apply --expected IDENTITY`. In-flight owners, pending check results, queued
+runner work and uncertain Send hold the switch. Stop known owners and reconcile
+work first. Completed checks and decisions remain source-bound. Never remove a
+reservation or edit a controller record to bypass a hold.
+
+A lost installation response retains `PREFIX/pending.json`. Repeat its exact
+selection/identity to resume. A completed old transaction cannot switch back after
+a newer upgrade. `wring upgrade --rollback` previews the retained prior version;
+apply its identity separately. Rollback refuses missing/changed owned bytes or a
+version without the installed schema set. This is conservative compatibility,
+not automatic downgrade conversion. Default uninstall retains jobs/evidence.
+
+## Recovery with no automatic replay
+
+Read `wring job list --json` and `wring job status --job ID --json`. Preview:
+
+```sh
+wring recover --workspace ID --dry-run --json
+wring recover --job ID --operation OPERATION_ID --dry-run --json
+wring recover --job ID --send --dry-run --json
+```
+
+Choose one route and repeat only an eligible exact preview with
+`--apply --expected IDENTITY --actor NAME`. Workspace recovery releases a confirmed
+dead page owner and retains uncertainty. Domain recovery inspects existing
+operations. It never spends or sends. If a dead coordination lock blocks it,
+`wring recover --lock-kind KIND --lock-id ID` previews the exact lock; the help
+lists the additional workspace argument for controller locks.
+
+New verification reservations bind one output directory. Recovery requires its
+sealed final completion, exact source and selection. It records the observation
+without executing checks. Lost display observations remain missing: acceptance
+stays unavailable until a subsequent explicitly granted check/display supplies
+them. Repetitions and expiry remain spent. Legacy v1 operations lack that exact
+output binding and remain uncertain; do not guess among nearby evidence bundles.
+An incomplete bundle cannot become success through recovery.
+
+Lost Send recovery observes the exact prepared remote head, copies matching
+local Git objects privately and audits carried evidence. Missing, changed or
+source-only remote results stay uncertain. It performs no push. Provider work
+whose effect cannot be observed likewise remains uncertain; any deliberate
+retry must acknowledge possible duplicate spend under the original authority.
+
+Legacy assistant roots remain usable via `wring assistant status --root PATH`
+and the retained `assistant` recovery commands. They are not silently imported
+into the new workspace registry. Upgrade preserves their files/readers. Keep the
+older version's evidence and original semantics; [CLI](CLI.md) includes aliases.
+The [documentation disposition](rebuild/DOCUMENTATION_INVENTORY.md) retains old
+entrypoints and historical implementation reports.
+
+## Remove only owned configuration and installation
+
+```sh
+wring connect --workspace ID --client codex --scope project --remove --dry-run --json
+wring uninstall --dry-run --json
+```
+
+Apply each separately with its current identity. Client removal preserves
+unrelated settings; a changed/unowned skill or entry refuses replacement.
+Disconnecting does not stop a job. Uninstall holds while owned client bindings
+remain, deletes only manifest-owned installation files, and retains private
+installation receipts plus app/repository evidence. No broad home-directory
+cleanup exists. `wring storage` inventories owned state; only explicitly selected
+incomplete acceptance/profile preparations can be archived/removed by that route.
+
+## Diagnostics
+
+`wring diagnostics --workspace ID --dry-run --json` previews a bounded, redacted
+export. Repeat with `--output NEW_DIRECTORY --apply --expected IDENTITY` to write
+it. Inspect before sharing: no credentials, private operator URL, raw provider
+transcript or browser profile should be sent. Reports name omissions and retain
+unknown costs. See [SUPPORT](../SUPPORT.md).

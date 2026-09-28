@@ -38,6 +38,8 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
     const policy = parseRuntimePolicy(request.runtime);
     validateRepository(request.repo);
     validateAgent(request.agent);
+    const explicitModel = request.agent.command === "bun" && request.agent.args?.[0] === "/opt/wringer-agents/model-launch.ts" ? request.agent.args[2] : undefined;
+    if (request.agent.args?.[0] === "/opt/wringer-agents/model-launch.ts" && (request.agent.command !== "bun" || request.agent.args.length !== 3 || !["openai", "anthropic"].includes(request.agent.args[1]!) || !explicitModel || !/^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,159}$/.test(explicitModel))) throw new RuntimeError("The reviewed model launcher needs one provider and exact model");
     if (!["planner", "worker", "judge"].includes(request.role) || typeof request.prompt !== "string" || !request.prompt.trim())
         throw new RuntimeError("A declared agent role and nonempty prompt are required");
     if (!Number.isInteger(request.budget.maxTurns) || request.budget.maxTurns < 1 || !Number.isFinite(request.budget.timeoutMs) || request.budget.timeoutMs < 1)
@@ -58,7 +60,7 @@ async function executeRole(request: RoleExecutionRequest, options: { driver?: Ru
         await onEvent?.({ type: "runtime.prepared", provenance: sandbox.provenance });
         const mcpServers = request.design ? await prepareDesignMcp(sandbox, request.design) : [];
         const transport = await sandbox.connect(request.agent);
-        const acpOptions = { role: request.role, cwd: REPO, timeoutMs: Math.max(1, request.budget.timeoutMs - (Date.now() - started)), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact, onEvent, ...(mcpServers.length ? { mcpServers, maxMessageBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 * 1024 } : {}) };
+        const acpOptions = { ...(explicitModel ? { model: explicitModel } : {}), role: request.role, cwd: REPO, timeoutMs: Math.max(1, request.budget.timeoutMs - (Date.now() - started)), signal: request.signal, authMethod: request.agent.authMethod, mode: request.agent.mode, credentialNames: request.agent.env ?? [], redact, onEvent, ...(mcpServers.length ? { mcpServers, maxMessageBytes: 16 * 1024 * 1024, maxOutputBytes: 32 * 1024 * 1024 } : {}) };
         const turn = runtimeDeepRedact(await (probeOnly ? probeAcpSession(transport, acpOptions) : runAcpTurn(transport, { ...acpOptions, prompt: request.prompt, allowedToolKinds: request.allowedToolKinds })), redact);
         const result: RoleExecutionResult = { ...turn, provenance: sandbox.provenance };
         if (!probeOnly && request.role === "worker" && turn.status === "completed" && turn.authentication.sessionOpened) {

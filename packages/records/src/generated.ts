@@ -6,6 +6,148 @@
 // this file changing is always a deliberate act with a version behind it.
 
 /**
+ * acceptance-input-v1.schema.json
+ *
+ * Generated from `schema/acceptance-input-v1.schema.json`. Do not edit.
+ */
+export type AcceptanceInputV1 = {
+  "schema_version": "wringer.acceptance-input.v1";
+  "requirements": {
+    "id": string;
+    "title": string;
+    "quote": string;
+  }[];
+  "files": {
+    "path": string;
+    "contents": string;
+  }[];
+  "checks": {
+    "id": string;
+    "run": string;
+    "inputs": string[];
+    "requirements": string[];
+    "timeout"?: number;
+    "adapter"?: "node-test" | "vitest" | "playwright";
+  }[];
+};
+
+/**
+ * acceptance-prepared-v1.schema.json
+ *
+ * Generated from `schema/acceptance-prepared-v1.schema.json`. Do not edit.
+ */
+export type AcceptancePreparedV1 = {
+  "schema_version": "wringer.acceptance-prepared.v1";
+  "id": string;
+  "repo": string;
+  "baseCommit": string;
+  "commit": string;
+  "sourceRepo": string;
+  "preview": {
+    "schema_version": "wringer.acceptance-preview.v1";
+    "repo": string;
+    "baseCommit": string;
+    "sourceFingerprint": string;
+    "input": {
+      "schema_version": "wringer.acceptance-input.v1";
+      "requirements": {
+        "id": string;
+        "title": string;
+        "quote": string;
+      }[];
+      "files": {
+        "path": string;
+        "contents": string;
+      }[];
+      "checks": {
+        "id": string;
+        "run": string;
+        "inputs": string[];
+        "requirements": string[];
+        "timeout"?: number;
+        "adapter"?: "node-test" | "vitest" | "playwright";
+      }[];
+    };
+    "files": {
+      "path": string;
+      "contents": string;
+    }[];
+    "gates": {
+      "id": string;
+      "run": string;
+      "timeout": number;
+      "optional": false;
+      "proves": string[];
+      "corroborates": string[];
+      "inputs": string[];
+      "concurrent": false;
+      "evidence"?: {
+        "kind": "assertions";
+        "adapter": "node-test" | "vitest" | "playwright";
+      };
+    }[];
+    "authority": "none";
+    "executionApproved": false;
+    "identity": string;
+  };
+  "actor": string;
+  "executionApproved": false;
+};
+
+/**
+ * acceptance-preview-v1.schema.json
+ *
+ * Generated from `schema/acceptance-preview-v1.schema.json`. Do not edit.
+ */
+export type AcceptancePreviewV1 = {
+  "schema_version": "wringer.acceptance-preview.v1";
+  "repo": string;
+  "baseCommit": string;
+  "sourceFingerprint": string;
+  "input": {
+    "schema_version": "wringer.acceptance-input.v1";
+    "requirements": {
+      "id": string;
+      "title": string;
+      "quote": string;
+    }[];
+    "files": {
+      "path": string;
+      "contents": string;
+    }[];
+    "checks": {
+      "id": string;
+      "run": string;
+      "inputs": string[];
+      "requirements": string[];
+      "timeout"?: number;
+      "adapter"?: "node-test" | "vitest" | "playwright";
+    }[];
+  };
+  "files": {
+    "path": string;
+    "contents": string;
+  }[];
+  "gates": {
+    "id": string;
+    "run": string;
+    "timeout": number;
+    "optional": false;
+    "proves": string[];
+    "corroborates": string[];
+    "inputs": string[];
+    "concurrent": false;
+    "evidence"?: {
+      "kind": "assertions";
+      "adapter": "node-test" | "vitest" | "playwright";
+    };
+  }[];
+  "authority": "none";
+  "executionApproved": false;
+  "identity": string;
+};
+
+/**
  * Wringer acceptance evidence
  *
  * Generated from `schema/acceptance-v2.schema.json`. Do not edit.
@@ -203,6 +345,55 @@ export type AcquiredManifest = {
 };
 
 /**
+ * archive-removal-decision-v1.schema.json
+ *
+ * Generated from `schema/archive-removal-decision-v1.schema.json`. Do not edit.
+ */
+export type ArchiveRemovalDecisionV1 = {
+  "schema_version": "wringer.archive-removal-decision.v1";
+  "preview": {
+    "schema_version": "wringer.archive-removal-preview.v1";
+    "archiveId": string;
+    "archiveIdentity": string;
+    "bytes": number;
+    "entries": number;
+    "action": "remove-selected-private-preparation-copy";
+    "retained": string[];
+    "identity": string;
+  };
+  "actor": string;
+};
+
+/**
+ * archive-removal-preview-v1.schema.json
+ *
+ * Generated from `schema/archive-removal-preview-v1.schema.json`. Do not edit.
+ */
+export type ArchiveRemovalPreviewV1 = {
+  "schema_version": "wringer.archive-removal-preview.v1";
+  "archiveId": string;
+  "archiveIdentity": string;
+  "bytes": number;
+  "entries": number;
+  "action": "remove-selected-private-preparation-copy";
+  "retained": string[];
+  "identity": string;
+};
+
+/**
+ * archive-removal-result-v1.schema.json
+ *
+ * Generated from `schema/archive-removal-result-v1.schema.json`. Do not edit.
+ */
+export type ArchiveRemovalResultV1 = {
+  "schema_version": "wringer.archive-removal-result.v1";
+  "archiveId": string;
+  "identity": string;
+  "removed": true;
+  "retainedLineage": true;
+};
+
+/**
  * Protected check runner assertion report
  *
  * Generated from `schema/assertion-report-v1.schema.json`. Do not edit.
@@ -215,6 +406,104 @@ export type AssertionReportV1 = {
     "status": "passed" | "failed" | "skipped";
   }[];
   "errors": string[];
+};
+
+/**
+ * assistant-refusal-v2.schema.json
+ *
+ * Generated from `schema/assistant-refusal-v2.schema.json`. Do not edit.
+ */
+export type AssistantRefusalV2 = {
+  "schema_version": "wringer.assistant-refusal.v2";
+  "mode": "delegation";
+  "outcome": "refused";
+  "isError": true;
+  "code": string;
+  "message": string;
+};
+
+/**
+ * assistant-response-v2.schema.json
+ *
+ * Generated from `schema/assistant-response-v2.schema.json`. Do not edit.
+ */
+export type AssistantResponseV2 = {
+  "schema_version": "wringer.assistant-response.v2";
+  "jobId": string;
+  "workspaceId": string;
+  "mode": "delegation";
+  "revision": string;
+  "candidateIdentity": null | string;
+  "eventId": string;
+  "phase": string;
+  "outcome": string;
+  "uncertainty": boolean;
+  "nextAction": {
+    "code": string;
+    "actor": "assistant" | "operator";
+    "eligible": boolean;
+    "reason": string;
+  };
+  "decision": {
+    "kind": null | string;
+    "page": null | string;
+  };
+  "remaining": {
+    "ceilings": {
+      "max_sessions": number;
+      "max_worker_turns": number;
+      "max_judge_turns": number;
+      "max_planner_turns": number;
+      "wall_clock_seconds": number;
+      "session_timeout_seconds": number;
+    };
+    "measured": null | {
+      "sessions": {
+        "reserved": number;
+        "ceiling": number;
+      };
+      "roles": {
+        "role": "worker" | "judge" | "planner";
+        "reserved": number;
+        "ceiling": number;
+      }[];
+      "verificationAttempts": {
+        "reserved": number;
+        "ceiling": number;
+        "unknown": number;
+      };
+      "wallClock": {
+        "elapsedSeconds": number;
+        "ceilingSeconds": number;
+        "expired": boolean;
+      };
+      "tokens": {
+        "input": null | number;
+        "output": null | number;
+      };
+    };
+    "monetaryCost": null;
+    "codingAppCost": null;
+  };
+  "operation": null | {
+    "operationId": string;
+    "status": "accepted" | "running" | "cancel-requested" | "uncertain" | "completed" | "failed" | "cancelled" | "reconciled";
+    "message": null | string;
+  };
+  "evidence": {
+    "id": string;
+    "kind": "request" | "proposal" | "report" | "handover";
+    "contentIdentity": string;
+  }[];
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "contained";
+  };
+  "lineage": null | {
+    "parentJobId": string;
+    "rootJobId": string;
+  };
+  "supersededBy": null | string;
 };
 
 /**
@@ -318,6 +607,152 @@ export type Audit = {
   "limits": string[];
   /** The tree the claims were checked against — the clone the reader stood in, or the delivered commit in a worktree. An `ok` with no answer to 'against what' is not a result. */
   "checked_against": string;
+};
+
+/**
+ * audited-verification-publication-v1.schema.json
+ *
+ * Generated from `schema/audited-verification-publication-v1.schema.json`. Do not edit.
+ */
+export type AuditedVerificationPublicationV1 = {
+  "schema_version": "wringer.audited-verification-publication.v1";
+  "copyId": string;
+  "audit": {
+    "schema_version": "wringer.native.audit.v1";
+    "at": string;
+    "delivery": string;
+    "status": "passed" | "failed";
+    "claims": {
+      "claim": string;
+      "status": "checked" | "failed" | "uncheckable";
+      "reason": string;
+    }[];
+    "checked": number;
+    "failed": number;
+    "uncheckable": number;
+    "limits": string[];
+  };
+  "publication": {
+    "schema_version": "wringer.verification-publication.v2";
+    "preparedId": string;
+    "jobId": string;
+    "at": string;
+    "result": {
+      "delivery_id": string;
+      "directory": string;
+      "branch": string;
+      "commit": string;
+      "evidence_commit": string;
+      "pushed": true;
+      "mode": "live";
+      "audit_command": string;
+      "falsify_command": string;
+      "next_move": string;
+    };
+    "expected": {
+      "fingerprint": string;
+      "tree": string;
+      "remoteURL": string;
+      "baseCommit": string;
+    };
+    "destination": {
+      "remote": string;
+      "base": string;
+      "branch": string;
+    };
+    "publicationKind": "branch-only";
+    "observation": {
+      "kind": "exact-remote-head-and-carried-audit";
+      "recoveryIdentity": string;
+      "remoteHead": string;
+      "auditIdentity": string;
+      "actor": string;
+    };
+  };
+};
+
+/**
+ * authorable-proposal-v1.schema.json
+ *
+ * Generated from `schema/authorable-proposal-v1.schema.json`. Do not edit.
+ */
+export type AuthorableProposalV1 = {
+  "intent": string;
+  "title": string;
+  "criteria"?: {
+    "id": string;
+    "title": string;
+    "quote": string;
+    "kind": "check" | "human";
+    "required": boolean;
+    "show"?: {
+      "id": string;
+      "argv": string[];
+      "cwd": string;
+      "timeout_seconds": number;
+    };
+  }[];
+  "checks"?: {
+    "id": string;
+    "criteria": string[];
+  }[];
+  "scope"?: {
+    "writable": string[];
+  };
+  "ceilings"?: {
+    "max_sessions"?: number;
+    "max_worker_turns"?: number;
+    "max_judge_turns"?: number;
+    "max_planner_turns"?: number;
+    "wall_clock_seconds"?: number;
+    "session_timeout_seconds"?: number;
+  };
+  "assumptions"?: string[];
+  "questions"?: string[];
+};
+
+/**
+ * authored-proposal-v1.schema.json
+ *
+ * Generated from `schema/authored-proposal-v1.schema.json`. Do not edit.
+ */
+export type AuthoredProposalV1 = {
+  "schema_version": "wringer.authored-proposal.v1";
+  "jobId": string;
+  "proposal": {
+    "intent": string;
+    "title": string;
+    "criteria"?: {
+      "id": string;
+      "title": string;
+      "quote": string;
+      "kind": "check" | "human";
+      "required": boolean;
+      "show"?: {
+        "id": string;
+        "argv": string[];
+        "cwd": string;
+        "timeout_seconds": number;
+      };
+    }[];
+    "checks"?: {
+      "id": string;
+      "criteria": string[];
+    }[];
+    "scope"?: {
+      "writable": string[];
+    };
+    "ceilings"?: {
+      "max_sessions"?: number;
+      "max_worker_turns"?: number;
+      "max_judge_turns"?: number;
+      "max_planner_turns"?: number;
+      "wall_clock_seconds"?: number;
+      "session_timeout_seconds"?: number;
+    };
+    "assumptions"?: string[];
+    "questions"?: string[];
+  };
 };
 
 /**
@@ -1452,6 +1887,145 @@ export type Decisions = {
 };
 
 /**
+ * delegation-context-v1.schema.json
+ *
+ * Generated from `schema/delegation-context-v1.schema.json`. Do not edit.
+ */
+export type DelegationContextV1 = {
+  "schema_version": "wringer.delegation-context.v1";
+  "id": string;
+  "workspaceId": string;
+  "profileId": string;
+  "intent": string;
+  "parentJobId": string | null;
+  "createdAt": string;
+  "destination": {
+    "remote": string;
+    "sourceBranch": string;
+    "targetBranch": string;
+  } | null;
+};
+
+/**
+ * delegation-job-v1.schema.json
+ *
+ * Generated from `schema/delegation-job-v1.schema.json`. Do not edit.
+ */
+export type DelegationJobV1 = {
+  "schema_version": "wringer.delegation-job.v1";
+  "id": string;
+  "workspaceId": string;
+  "contextId": string;
+  "mode": "delegation";
+  "intent": string;
+  "source": {
+    "url": string;
+    "commit": string;
+  };
+  "parentJobId": string | null;
+  "createdAt": string;
+};
+
+/**
+ * delegation-recovery-decision-v1.schema.json
+ *
+ * Generated from `schema/delegation-recovery-decision-v1.schema.json`. Do not edit.
+ */
+export type DelegationRecoveryDecisionV1 = {
+  "schema_version": "wringer.delegation-recovery-decision.v1";
+  "preview": {
+    "schema_version": "wringer.delegation-recovery-preview.v1";
+    "jobId": string;
+    "operationId": string | null;
+    "action": "reconcile-terminal-domain-evidence" | "release-dead-runner-owner";
+    "ownerState": "live" | "dead" | "unknown" | "absent";
+    "ownerIdentity": string | null;
+    "revision": string;
+    "operationIdentity": string | null;
+    "uncertainty": boolean;
+    "eligible": boolean;
+    "dispatched": false;
+    "note": string;
+    "identity": string;
+  };
+  "actor": string;
+};
+
+/**
+ * delegation-recovery-preview-v1.schema.json
+ *
+ * Generated from `schema/delegation-recovery-preview-v1.schema.json`. Do not edit.
+ */
+export type DelegationRecoveryPreviewV1 = {
+  "schema_version": "wringer.delegation-recovery-preview.v1";
+  "jobId": string;
+  "operationId": string | null;
+  "action": "reconcile-terminal-domain-evidence" | "release-dead-runner-owner";
+  "ownerState": "live" | "dead" | "unknown" | "absent";
+  "ownerIdentity": string | null;
+  "revision": string;
+  "operationIdentity": string | null;
+  "uncertainty": boolean;
+  "eligible": boolean;
+  "dispatched": false;
+  "note": string;
+  "identity": string;
+};
+
+/**
+ * delegation-recovery-result-v1.schema.json
+ *
+ * Generated from `schema/delegation-recovery-result-v1.schema.json`. Do not edit.
+ */
+export type DelegationRecoveryResultV1 = {
+  "schema_version": "wringer.delegation-recovery-result.v1";
+  "identity": string;
+  "jobId": string;
+  "operationId": string | null;
+  "resultIdentity": string;
+  "dispatched": false;
+};
+
+/**
+ * delegation-setup-v1.schema.json
+ *
+ * Generated from `schema/delegation-setup-v1.schema.json`. Do not edit.
+ */
+export type DelegationSetupV1 = {
+  "schema_version": "wringer.delegation-setup.v1";
+  "mode": "delegation";
+  "workspaceId": string;
+  "profileIdentity": string;
+  "checks": {
+    "id": string;
+    "argv": string[];
+    "cwd": string;
+    "timeout_seconds": number;
+    "files": string[];
+    "evidence": null | {
+      "kind": "assertions";
+      "format": "wringer-check.v1";
+    };
+  }[];
+  "writable": string[];
+  "protectedPaths": string[];
+  "ceilings": {
+    "max_sessions": number;
+    "max_worker_turns": number;
+    "max_judge_turns": number;
+    "max_planner_turns": number;
+    "wall_clock_seconds": number;
+    "session_timeout_seconds": number;
+  };
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "contained";
+  };
+  "authority": "none";
+  "untrustedContent": true;
+};
+
+/**
  * Wringer delivery manifest
  *
  * Generated from `schema/delivery-manifest.schema.json`. Do not edit.
@@ -1585,6 +2159,138 @@ export type Diagnosis = {
   "gate": string;
   /** The line the guess was read from, extracted by `gates.cite` — the single evidence-line extractor in the codebase, which a vacuity row about the same gate would quote identically. The LAST informative line of stderr then stdout, because the first is a traceback header or a row of `=`: true, and no use. Two records citing one gate differently would be worse than either. */
   "evidence": string;
+};
+
+/**
+ * diagnostic-manifest-v1.schema.json
+ *
+ * Generated from `schema/diagnostic-manifest-v1.schema.json`. Do not edit.
+ */
+export type DiagnosticManifestV1 = {
+  "schema_version": "wringer.diagnostic-manifest.v1";
+  "included": {
+    "path": "report.json";
+    "bytes": number;
+    "sha256": string;
+  }[];
+  "excluded": string[];
+  "sharing": "Inspect this export before deliberately sharing it. No upload is performed.";
+};
+
+/**
+ * diagnostic-preview-v1.schema.json
+ *
+ * Generated from `schema/diagnostic-preview-v1.schema.json`. Do not edit.
+ */
+export type DiagnosticPreviewV1 = {
+  "schema_version": "wringer.diagnostic-preview.v1";
+  "identity": string;
+  "report": {
+    "schema_version": "wringer.diagnostic-report.v1";
+    "version": string;
+    "host": {
+      "platform": string;
+      "architecture": string;
+      "runtime": string;
+    };
+    "workspace": {
+      "id": string;
+      "schemaVersion": string;
+      "mode": "verification" | "delegation";
+      "client": "claude-code" | "codex" | "generic";
+      "boundary": {
+        "approval": "cooperative-local";
+        "execution": "trusted-local" | "contained";
+      };
+    };
+    "support": {
+      "artifactIdentity": "not-observed-by-this-export";
+      "containment": "not-measured-by-this-export";
+      "liveClient": "not-measured-by-this-export";
+      "protectedHumanPresence": "unavailable";
+    };
+    "jobs": {
+      "jobId": string;
+      "mode": "verification" | "delegation";
+      "schemaVersion": string;
+      "monetaryCost": null;
+      "phase": string | null;
+      "outcome": string;
+      "revision": string | null;
+      "uncertainty": boolean | null;
+      "operationIds": string[] | null;
+      "stopCodes": string[];
+      "repetitionsRemaining": number | null;
+      "approvalExpiresAt": string | null;
+    }[];
+    "page": {
+      "offset": number;
+      "count": number;
+      "nextOffset": number | null;
+    };
+    "excluded": string[];
+  };
+  "manifest": {
+    "schema_version": "wringer.diagnostic-manifest.v1";
+    "included": {
+      "path": "report.json";
+      "bytes": number;
+      "sha256": string;
+    }[];
+    "excluded": string[];
+    "sharing": "Inspect this export before deliberately sharing it. No upload is performed.";
+  };
+};
+
+/**
+ * diagnostic-report-v1.schema.json
+ *
+ * Generated from `schema/diagnostic-report-v1.schema.json`. Do not edit.
+ */
+export type DiagnosticReportV1 = {
+  "schema_version": "wringer.diagnostic-report.v1";
+  "version": string;
+  "host": {
+    "platform": string;
+    "architecture": string;
+    "runtime": string;
+  };
+  "workspace": {
+    "id": string;
+    "schemaVersion": string;
+    "mode": "verification" | "delegation";
+    "client": "claude-code" | "codex" | "generic";
+    "boundary": {
+      "approval": "cooperative-local";
+      "execution": "trusted-local" | "contained";
+    };
+  };
+  "support": {
+    "artifactIdentity": "not-observed-by-this-export";
+    "containment": "not-measured-by-this-export";
+    "liveClient": "not-measured-by-this-export";
+    "protectedHumanPresence": "unavailable";
+  };
+  "jobs": {
+    "jobId": string;
+    "mode": "verification" | "delegation";
+    "schemaVersion": string;
+    "monetaryCost": null;
+    "phase": string | null;
+    "outcome": string;
+    "revision": string | null;
+    "uncertainty": boolean | null;
+    "operationIds": string[] | null;
+    "stopCodes": string[];
+    "repetitionsRemaining": number | null;
+    "approvalExpiresAt": string | null;
+  }[];
+  "page": {
+    "offset": number;
+    "count": number;
+    "nextOffset": number | null;
+  };
+  "excluded": string[];
 };
 
 /**
@@ -1803,6 +2509,20 @@ export type EvidenceLayersV1 = {
   }[];
   /** What this record does NOT claim, travelling with it. Pinned by CONTENT in the tests. */
   "limits": string[];
+};
+
+/**
+ * evidence-page-v2.schema.json
+ *
+ * Generated from `schema/evidence-page-v2.schema.json`. Do not edit.
+ */
+export type EvidencePageV2 = {
+  "schema_version": "wringer.evidence-page.v2";
+  "jobId": string;
+  "contentIdentity": string;
+  "content": string;
+  "nextOffset": null | number;
+  "untrustedContent": true;
 };
 
 /**
@@ -3237,6 +3957,71 @@ export type ImprovementConnectionV1 = {
 };
 
 /**
+ * job-list-v2.schema.json
+ *
+ * Generated from `schema/job-list-v2.schema.json`. Do not edit.
+ */
+export type JobListV2 = {
+  "schema_version": "wringer.job-list.v2";
+  "mode": "delegation" | "verification";
+  "workspaceId": string;
+  "jobs": {
+    "jobId": string;
+    "outcome": string;
+    "revision": string;
+    "supersededBy": null | string;
+  }[];
+  "nextOffset": null | number;
+};
+
+/**
+ * job-response-v2.schema.json
+ *
+ * Generated from `schema/job-response-v2.schema.json`. Do not edit.
+ */
+export type JobResponseV2 = {
+  "schema_version": "wringer.job-response.v2";
+  "jobId": string;
+  "workspaceId": string;
+  "mode": "verification";
+  "revision": string;
+  "candidateIdentity": string;
+  "eventId": string;
+  "phase": string;
+  "outcome": string;
+  "uncertainty": boolean;
+  "nextAction": {
+    "code": string;
+    "actor": "assistant" | "operator";
+    "eligible": boolean;
+    "reason": string;
+  };
+  "decision": {
+    "kind": null | string;
+    "page": null | string;
+  };
+  "remaining": {
+    "repetitions": number;
+    "expiresAt": null | string;
+    "cost": null;
+  };
+  "operation": null | {
+    "id": string;
+    "status": "completed" | "interrupted" | "unconfirmed" | "uncertain";
+  };
+  "evidence": {
+    "id": string;
+    "kind": "standalone-sealed-bundle" | "review-decision" | "preparation-error";
+    "contentIdentity": string;
+  }[];
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local";
+  };
+  "changed"?: boolean;
+};
+
+/**
  * wringer.journey.v1
  *
  * Generated from `schema/journey.schema.json`. Do not edit.
@@ -3384,6 +4169,77 @@ export type Judgements = {
     /** Optional free text. Rendered verbatim wherever it is rendered at all; never parsed and never routed on. */
     "note"?: string;
   }[];
+};
+
+/**
+ * lock-recovery-preview-v1.schema.json
+ *
+ * Generated from `schema/lock-recovery-preview-v1.schema.json`. Do not edit.
+ */
+export type LockRecoveryPreviewV1 = {
+  "schema_version": "wringer.lock-recovery-preview.v1";
+  "selection": {
+    "kind": "client" | "acceptance" | "profile" | "page-recovery" | "proposal" | "verification" | "verification-send" | "verification-prepare" | "runtime" | "delegation-preparation" | "runner-recovery";
+    "id": string | string;
+    "workspaceId"?: string;
+  };
+  "path": string;
+  "pid": number;
+  "lockIdentity": string;
+  "ownerState": "live" | "dead" | "unknown";
+  "eligible": boolean;
+  "action": "retain-dead-coordination-lock";
+  "dispatched": false;
+  "uncertaintyRetained": true;
+  "nextAction": string;
+  "identity": string;
+};
+
+/**
+ * lock-recovery-request-v1.schema.json
+ *
+ * Generated from `schema/lock-recovery-request-v1.schema.json`. Do not edit.
+ */
+export type LockRecoveryRequestV1 = {
+  "schema_version": "wringer.lock-recovery-request.v1";
+  "preview": {
+    "schema_version": "wringer.lock-recovery-preview.v1";
+    "selection": {
+      "kind": "client" | "acceptance" | "profile" | "page-recovery" | "proposal" | "verification" | "verification-send" | "verification-prepare" | "runtime" | "delegation-preparation" | "runner-recovery";
+      "id": string | string;
+      "workspaceId"?: string;
+    };
+    "path": string;
+    "pid": number;
+    "lockIdentity": string;
+    "ownerState": "live" | "dead" | "unknown";
+    "eligible": boolean;
+    "action": "retain-dead-coordination-lock";
+    "dispatched": false;
+    "uncertaintyRetained": true;
+    "nextAction": string;
+    "identity": string;
+  };
+  "actor": string;
+};
+
+/**
+ * lock-recovery-result-v1.schema.json
+ *
+ * Generated from `schema/lock-recovery-result-v1.schema.json`. Do not edit.
+ */
+export type LockRecoveryResultV1 = {
+  "schema_version": "wringer.lock-recovery-result.v1";
+  "identity": string;
+  "selection": {
+    "kind": "client" | "acceptance" | "profile" | "page-recovery" | "proposal" | "verification" | "verification-send" | "verification-prepare" | "runtime" | "delegation-preparation" | "runner-recovery";
+    "id": string | string;
+    "workspaceId"?: string;
+  };
+  "retainedLock": string;
+  "dispatched": false;
+  "uncertaintyRetained": true;
+  "nextAction": string;
 };
 
 /**
@@ -4164,6 +5020,186 @@ export type PlaybookV1 = {
 };
 
 /**
+ * preparation-archive-preview-v1.schema.json
+ *
+ * Generated from `schema/preparation-archive-preview-v1.schema.json`. Do not edit.
+ */
+export type PreparationArchivePreviewV1 = {
+  "schema_version": "wringer.preparation-archive-preview.v1";
+  "selected": {
+    "kind": "acceptance" | "profile";
+    "id": string;
+  };
+  "registrations": {
+    "name": string;
+    "identity": string;
+  }[];
+  "dataIdentity": string;
+  "bytes": number;
+  "entries": number;
+  "action": "retain-incomplete-local-preparation";
+  "discardedAuthority": false;
+  "note": string;
+  "identity": string;
+};
+
+/**
+ * preparation-archive-request-v1.schema.json
+ *
+ * Generated from `schema/preparation-archive-request-v1.schema.json`. Do not edit.
+ */
+export type PreparationArchiveRequestV1 = {
+  "schema_version": "wringer.preparation-archive-request.v1";
+  "preview": {
+    "schema_version": "wringer.preparation-archive-preview.v1";
+    "selected": {
+      "kind": "acceptance" | "profile";
+      "id": string;
+    };
+    "registrations": {
+      "name": string;
+      "identity": string;
+    }[];
+    "dataIdentity": string;
+    "bytes": number;
+    "entries": number;
+    "action": "retain-incomplete-local-preparation";
+    "discardedAuthority": false;
+    "note": string;
+    "identity": string;
+  };
+  "files": {
+    "path": string;
+    "kind": "file" | "directory";
+    "bytes": number;
+    "inode": string;
+    "modified": string;
+    "mode": number;
+    "sha256": string | null;
+  }[];
+  "actor": string;
+};
+
+/**
+ * preparation-archive-result-v1.schema.json
+ *
+ * Generated from `schema/preparation-archive-result-v1.schema.json`. Do not edit.
+ */
+export type PreparationArchiveResultV1 = {
+  "schema_version": "wringer.preparation-archive-result.v1";
+  "identity": string;
+  "selected": {
+    "kind": "acceptance" | "profile";
+    "id": string;
+  };
+  "retainedDirectory": string;
+  "dispatched": false;
+  "registrationRetained": true;
+};
+
+/**
+ * proposal-destination-policy-v1.schema.json
+ *
+ * Generated from `schema/proposal-destination-policy-v1.schema.json`. Do not edit.
+ */
+export type ProposalDestinationPolicyV1 = {
+  "schema_version": "wringer.proposal-destination-policy.v1";
+  "workspaceId": string;
+  "uniqueProposalBranches": true;
+};
+
+/**
+ * proposal-lineage-v1.schema.json
+ *
+ * Generated from `schema/proposal-lineage-v1.schema.json`. Do not edit.
+ */
+export type ProposalLineageV1 = {
+  "schema_version": "wringer.proposal-lineage.v1";
+  "jobId": string;
+  "parentJobId": string;
+  "rootJobId": string;
+  "parentRevision": string;
+  "proposalIdentity": string;
+};
+
+/**
+ * proposal-supersession-v1.schema.json
+ *
+ * Generated from `schema/proposal-supersession-v1.schema.json`. Do not edit.
+ */
+export type ProposalSupersessionV1 = {
+  "schema_version": "wringer.proposal-supersession.v1";
+  "parentJobId": string;
+  "parentRevision": string;
+  "requestId": string;
+  "inputIdentity": string;
+  "successor": {
+    "schema_version": "wringer.assistant-proposal.v1";
+    "id": string;
+    "workspaceId": string;
+    "requestId": string;
+    "intent": string;
+    "plan": null | unknown | unknown | unknown | unknown;
+    "assumptions": string[];
+    "questions": string[];
+  };
+};
+
+/**
+ * proposal-validation-v2.schema.json
+ *
+ * Generated from `schema/proposal-validation-v2.schema.json`. Do not edit.
+ */
+export type ProposalValidationV2 = {
+  "schema_version": "wringer.proposal-validation.v2";
+  "valid": boolean;
+  "approvalEligible": boolean;
+  "profileIdentity": string;
+  "canonicalIdentity": null | string;
+  "assumptions": string[];
+  "questions": string[];
+  "errors": {
+    "field": string;
+    "code": string;
+    "message": string;
+  }[];
+  "preview": null | {
+    "intent": string;
+    "title": string;
+    "criteria"?: {
+      "id": string;
+      "title": string;
+      "quote": string;
+      "kind": "check" | "human";
+      "required": boolean;
+      "show"?: {
+        "id": string;
+        "argv": string[];
+        "cwd": string;
+        "timeout_seconds": number;
+      };
+    }[];
+    "checks"?: {
+      "id": string;
+      "criteria": string[];
+    }[];
+    "scope"?: {
+      "writable": string[];
+    };
+    "ceilings"?: {
+      "max_sessions"?: number;
+      "max_worker_turns"?: number;
+      "max_judge_turns"?: number;
+      "max_planner_turns"?: number;
+      "wall_clock_seconds"?: number;
+      "session_timeout_seconds"?: number;
+    };
+    "assumptions"?: string[];
+    "questions"?: string[];
+  };
+};
+
+/**
  * wringer.readiness.v1
  *
  * Generated from `schema/readiness.schema.json`. Do not edit.
@@ -4447,6 +5483,45 @@ export type SelectionV3 = {
 };
 
 /**
+ * setup-observation-v1.schema.json
+ *
+ * Generated from `schema/setup-observation-v1.schema.json`. Do not edit.
+ */
+export type SetupObservationV1 = {
+  "schema_version": "wringer.setup-observation.v1";
+  "mode": "verification";
+  "workspaceId": string;
+  "checks": {
+    "id": string;
+    "run": string;
+    "timeout": number;
+    "optional": boolean;
+    "proves": string[];
+    "corroborates": string[];
+    "inputs": string[];
+    "evidence"?: {
+      "kind": "assertions";
+      "adapter": "vitest" | "playwright" | "node-test";
+      "report"?: string;
+    };
+    "concurrent": boolean;
+    "stability"?: {
+      "attempts": number;
+      "require_consistent": boolean;
+    };
+    "artifacts"?: {
+      "max_bytes": number;
+      "total_bytes": number;
+    };
+  }[];
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local";
+  };
+  "untrustedContent": true;
+};
+
+/**
  * Wringer requirement sources
  *
  * Generated from `schema/sources.schema.json`. Do not edit.
@@ -4591,6 +5666,23 @@ export type Stop = {
 };
 
 /**
+ * storage-use-v1.schema.json
+ *
+ * Generated from `schema/storage-use-v1.schema.json`. Do not edit.
+ */
+export type StorageUseV1 = {
+  "schema_version": "wringer.storage-use.v1";
+  "bytes": number;
+  "entries": number;
+  "linksNotFollowed": number;
+  "categories": {
+    "name": string;
+    "bytes": number;
+  }[];
+  "removable": string;
+};
+
+/**
  * Wringer untracked-file identities
  *
  * Generated from `schema/untracked-v2.schema.json`. Do not edit.
@@ -4697,6 +5789,349 @@ export type Vacuity = {
     /** Bundle-relative path to the pre-change run's stdout, under `vacuity/`. Evidence, not summary: a reader who doubts a row can read both trees' output. */
     "pre_change_log": string | null;
   }[];
+};
+
+/**
+ * verification-completion-v1.schema.json
+ *
+ * Generated from `schema/verification-completion-v1.schema.json`. Do not edit.
+ */
+export type VerificationCompletionV1 = {
+  "schema_version": "wringer.verification-completion.v1";
+  "run_id": string;
+  "status": "passed" | "failed" | "interrupted";
+  "exit_code": 0 | 1 | 2 | 4;
+  "fingerprint": string;
+  "completed_at": string;
+  "selection_sha256": string;
+};
+
+/**
+ * verification-creation-v1.schema.json
+ *
+ * Generated from `schema/verification-creation-v1.schema.json`. Do not edit.
+ */
+export type VerificationCreationV1 = {
+  "schema_version": "wringer.verification-creation.v1";
+  "request": {
+    "workspaceId": string;
+    "intent": string;
+    "idempotencyKey": string;
+    "parentJobId"?: string;
+    "selection"?: string[];
+    "repetitions"?: number;
+    "elapsedSeconds"?: number;
+    "runSeconds"?: number;
+  };
+  "job": {
+    "schema_version": "wringer.verification-job.v1";
+    "id": string;
+    "workspaceId": string;
+    "mode": "verification";
+    "parentJobId": string | null;
+    "intent": string;
+    "createdAt": string;
+    "source": {
+      "head_sha": string | null;
+      "branch": string | null;
+      "dirty": boolean;
+      "fingerprint": string;
+    };
+    "configSha256": string;
+    "checkIdentities": {
+      "gate_id": string;
+      "run": string;
+      "run_sha256": string;
+      "files": {
+        [key: string]: string;
+      };
+      "inputs": {
+        [key: string]: string;
+      };
+      "coverage": "command-files-and-inputs" | "command-and-files" | "command-and-inputs" | "command-only";
+    }[];
+    "selection": string[];
+    "ceilings": {
+      "repetitions": number;
+      "elapsedSeconds": number;
+      "runSeconds": number;
+      "supervisedCommandsPerRun": number;
+    };
+    "destination": {
+      "remote": string;
+      "base": string;
+      "branch": string;
+    } | null;
+    "trust": "trusted-local";
+  };
+};
+
+/**
+ * verification-decision-v1.schema.json
+ *
+ * Generated from `schema/verification-decision-v1.schema.json`. Do not edit.
+ */
+export type VerificationDecisionV1 = {
+  "schema_version": "wringer.verification-decision.v1";
+  "candidateIdentity": string;
+  "revision": string;
+  "verdict": "met" | "not_met";
+  "note"?: string;
+  "actor": string;
+  "at": string;
+};
+
+/**
+ * verification-grant-v1.schema.json
+ *
+ * Generated from `schema/verification-grant-v1.schema.json`. Do not edit.
+ */
+export type VerificationGrantV1 = {
+  "schema_version": "wringer.verification-grant.v1";
+  "jobId": string;
+  "proposalSha256": string;
+  "actor": string;
+  "issuedAt": string;
+  "expiresAt": string;
+  "boundary": "trusted-local";
+};
+
+/**
+ * verification-job-v1.schema.json
+ *
+ * Generated from `schema/verification-job-v1.schema.json`. Do not edit.
+ */
+export type VerificationJobV1 = {
+  "schema_version": "wringer.verification-job.v1";
+  "id": string;
+  "workspaceId": string;
+  "mode": "verification";
+  "parentJobId": string | null;
+  "intent": string;
+  "createdAt": string;
+  "source": {
+    "head_sha": string | null;
+    "branch": string | null;
+    "dirty": boolean;
+    "fingerprint": string;
+  };
+  "configSha256": string;
+  "checkIdentities": {
+    "gate_id": string;
+    "run": string;
+    "run_sha256": string;
+    "files": {
+      [key: string]: string;
+    };
+    "inputs": {
+      [key: string]: string;
+    };
+    "coverage": "command-files-and-inputs" | "command-and-files" | "command-and-inputs" | "command-only";
+  }[];
+  "selection": string[];
+  "ceilings": {
+    "repetitions": number;
+    "elapsedSeconds": number;
+    "runSeconds": number;
+    "supervisedCommandsPerRun": number;
+  };
+  "destination": {
+    "remote": string;
+    "base": string;
+    "branch": string;
+  } | null;
+  "trust": "trusted-local";
+};
+
+/**
+ * verification-operation-v2.schema.json
+ *
+ * Generated from `schema/verification-operation-v2.schema.json`. Do not edit.
+ */
+export type VerificationOperationV2 = {
+  "schema_version": "wringer.verification-operation.v2";
+  "id": string;
+  "jobId": string;
+  "sequence": number;
+  "at": string;
+  "request": {
+    "idempotencyKey": string;
+    "expectedRevision": string;
+    "expectedCandidateIdentity": string;
+  };
+  "deadline": string;
+  "evidence": string;
+};
+
+/**
+ * verification-publication-v2.schema.json
+ *
+ * Generated from `schema/verification-publication-v2.schema.json`. Do not edit.
+ */
+export type VerificationPublicationV2 = {
+  "schema_version": "wringer.verification-publication.v2";
+  "preparedId": string;
+  "jobId": string;
+  "at": string;
+  "result": {
+    "delivery_id": string;
+    "directory": string;
+    "branch": string;
+    "commit": string;
+    "evidence_commit": string;
+    "pushed": true;
+    "mode": "live";
+    "audit_command": string;
+    "falsify_command": string;
+    "next_move": string;
+  };
+  "expected": {
+    "fingerprint": string;
+    "tree": string;
+    "remoteURL": string;
+    "baseCommit": string;
+  };
+  "destination": {
+    "remote": string;
+    "base": string;
+    "branch": string;
+  };
+  "publicationKind": "branch-only";
+  "observation": {
+    "kind": "exact-remote-head-and-carried-audit";
+    "recoveryIdentity": string;
+    "remoteHead": string;
+    "auditIdentity": string;
+    "actor": string;
+  };
+};
+
+/**
+ * verification-recovery-preview-v1.schema.json
+ *
+ * Generated from `schema/verification-recovery-preview-v1.schema.json`. Do not edit.
+ */
+export type VerificationRecoveryPreviewV1 = {
+  "schema_version": "wringer.verification-recovery-preview.v1";
+  "jobId": string;
+  "operationId": string;
+  "operationIdentity": string;
+  "bundleIdentity": string | null;
+  "owner": "absent" | "live" | "dead" | "unknown";
+  "eligible": boolean;
+  "observation": {
+    "schema_version": "wringer.verification-observation.v1";
+    "operationId": string;
+    "jobId": string;
+    "at": string;
+    "evidence": string;
+    "exit": 0 | 1 | 2 | 4;
+    "source": {
+      "head_sha": string | null;
+      "branch": string | null;
+      "dirty": boolean;
+      "fingerprint": string;
+    };
+    "outcome": "completed" | "interrupted";
+    "displays": unknown[];
+  } | null;
+  "reason": string;
+  "dispatched": false;
+  "identity": string;
+};
+
+/**
+ * verification-recovery-result-v1.schema.json
+ *
+ * Generated from `schema/verification-recovery-result-v1.schema.json`. Do not edit.
+ */
+export type VerificationRecoveryResultV1 = {
+  "schema_version": "wringer.verification-recovery-result.v1";
+  "identity": string;
+  "jobId": string;
+  "operationId": string;
+  "operationIdentity": string;
+  "bundleIdentity": string;
+  "observation": {
+    "schema_version": "wringer.verification-observation.v1";
+    "operationId": string;
+    "jobId": string;
+    "at": string;
+    "evidence": string;
+    "exit": 0 | 1 | 2 | 4;
+    "source": {
+      "head_sha": string | null;
+      "branch": string | null;
+      "dirty": boolean;
+      "fingerprint": string;
+    };
+    "outcome": "completed" | "interrupted";
+    "displays": unknown[];
+  };
+  "actor": string;
+  "dispatched": false;
+};
+
+/**
+ * verification-send-recovery-decision-v1.schema.json
+ *
+ * Generated from `schema/verification-send-recovery-decision-v1.schema.json`. Do not edit.
+ */
+export type VerificationSendRecoveryDecisionV1 = {
+  "schema_version": "wringer.verification-send-recovery-decision.v1";
+  "preview": {
+    "schema_version": "wringer.verification-send-recovery-preview.v1";
+    "jobId": string;
+    "requestIdentity": string;
+    "preparedId": string;
+    "remoteHead": string | null;
+    "localHead": string | null;
+    "delivery": {
+      "id": string;
+      "codeCommit": string;
+      "anchorIdentity": string;
+      "manifestIdentity": string;
+    } | null;
+    "gitBytes": number;
+    "checkoutBytes": number;
+    "sendOwner": "absent" | "live" | "dead" | "unknown";
+    "maxLocalCopyBytes": 536870912;
+    "eligible": boolean;
+    "action": "observe-exact-remote-evidence";
+    "dispatched": false;
+    "reason": string;
+    "identity": string;
+  };
+  "actor": string;
+};
+
+/**
+ * verification-send-recovery-preview-v1.schema.json
+ *
+ * Generated from `schema/verification-send-recovery-preview-v1.schema.json`. Do not edit.
+ */
+export type VerificationSendRecoveryPreviewV1 = {
+  "schema_version": "wringer.verification-send-recovery-preview.v1";
+  "jobId": string;
+  "requestIdentity": string;
+  "preparedId": string;
+  "remoteHead": string | null;
+  "localHead": string | null;
+  "delivery": {
+    "id": string;
+    "codeCommit": string;
+    "anchorIdentity": string;
+    "manifestIdentity": string;
+  } | null;
+  "gitBytes": number;
+  "checkoutBytes": number;
+  "sendOwner": "absent" | "live" | "dead" | "unknown";
+  "maxLocalCopyBytes": 536870912;
+  "eligible": boolean;
+  "action": "observe-exact-remote-evidence";
+  "dispatched": false;
+  "reason": string;
+  "identity": string;
 };
 
 /**
@@ -4894,15 +6329,116 @@ export type WorkerDiagnosis = {
   "engine_words"?: string;
 };
 
+/**
+ * workspace-recovery-preview-v1.schema.json
+ *
+ * Generated from `schema/workspace-recovery-preview-v1.schema.json`. Do not edit.
+ */
+export type WorkspaceRecoveryPreviewV1 = {
+  "schema_version": "wringer.workspace-recovery-preview.v1";
+  "workspaceId": string;
+  "mode": "verification" | "delegation";
+  "pid": number;
+  "files": {
+    "name": "owner.lock" | "connection.json" | "operator.json";
+    "identity": string;
+    "bytes": number;
+  }[];
+  "ownerState": "live" | "dead" | "unknown";
+  "eligible": boolean;
+  "action": "retain-dead-page-owner";
+  "dispatched": false;
+  "reason": string;
+  "identity": string;
+};
+
+/**
+ * workspace-recovery-request-v1.schema.json
+ *
+ * Generated from `schema/workspace-recovery-request-v1.schema.json`. Do not edit.
+ */
+export type WorkspaceRecoveryRequestV1 = {
+  "schema_version": "wringer.workspace-recovery-request.v1";
+  "preview": {
+    "schema_version": "wringer.workspace-recovery-preview.v1";
+    "workspaceId": string;
+    "mode": "verification" | "delegation";
+    "pid": number;
+    "files": {
+      "name": "owner.lock" | "connection.json" | "operator.json";
+      "identity": string;
+      "bytes": number;
+    }[];
+    "ownerState": "live" | "dead" | "unknown";
+    "eligible": boolean;
+    "action": "retain-dead-page-owner";
+    "dispatched": false;
+    "reason": string;
+    "identity": string;
+  };
+  "actor": string;
+};
+
+/**
+ * workspace-recovery-result-v1.schema.json
+ *
+ * Generated from `schema/workspace-recovery-result-v1.schema.json`. Do not edit.
+ */
+export type WorkspaceRecoveryResultV1 = {
+  "schema_version": "wringer.workspace-recovery-result.v1";
+  "workspaceId": string;
+  "identity": string;
+  "retainedDirectory": string;
+  "dispatched": false;
+  "nextAction": string;
+};
+
+/**
+ * workspace-v2.schema.json
+ *
+ * Generated from `schema/workspace-v2.schema.json`. Do not edit.
+ */
+export type WorkspaceV2 = {
+  "schema_version": "wringer.workspace.v2";
+  "id": string;
+  "mode": "verification" | "delegation";
+  "repo": string;
+  "client": "claude-code" | "codex" | "generic";
+  "preferences": {
+    "destination": {
+      "remote": string;
+      "base": string;
+    } | null;
+    "profileId": string | null;
+    "credentialReferences": string[];
+  };
+  "boundary": {
+    "approval": "cooperative-local";
+    "execution": "trusted-local" | "contained";
+  };
+  "createdAt": string;
+};
+
 /** Every schema file, and the `schema_version` it fixes — null when it fixes none. */
 export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.freeze({
+  "acceptance-input-v1.schema.json": "wringer.acceptance-input.v1",
+  "acceptance-prepared-v1.schema.json": "wringer.acceptance-prepared.v1",
+  "acceptance-preview-v1.schema.json": "wringer.acceptance-preview.v1",
   "acceptance-v2.schema.json": "wringer.acceptance.v2",
   "acceptance-v3.schema.json": "wringer.acceptance.v3",
   "acceptance.schema.json": "wringer.acceptance.v1",
   "acquired-manifest.schema.json": "wringer.acquired.v1",
+  "archive-removal-decision-v1.schema.json": "wringer.archive-removal-decision.v1",
+  "archive-removal-preview-v1.schema.json": "wringer.archive-removal-preview.v1",
+  "archive-removal-result-v1.schema.json": "wringer.archive-removal-result.v1",
   "assertion-report-v1.schema.json": "wringer-check.v1",
+  "assistant-refusal-v2.schema.json": "wringer.assistant-refusal.v2",
+  "assistant-response-v2.schema.json": "wringer.assistant-response.v2",
   "attestation.schema.json": "wringer.attestation.v1",
   "audit.schema.json": "wringer.audit.v1",
+  "audited-verification-publication-v1.schema.json": "wringer.audited-verification-publication.v1",
+  "authorable-proposal-v1.schema.json": null,
+  "authored-proposal-v1.schema.json": "wringer.authored-proposal.v1",
   "bench-event-v2.schema.json": null,
   "bench-event.schema.json": null,
   "bench-manifest-v2.schema.json": "wringer.bench.v2",
@@ -4929,16 +6465,26 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "coverage-v1.schema.json": "wringer.coverage.v1",
   "decisions-v2.schema.json": "wringer.decisions.v2",
   "decisions.schema.json": "wringer.decisions.v1",
+  "delegation-context-v1.schema.json": "wringer.delegation-context.v1",
+  "delegation-job-v1.schema.json": "wringer.delegation-job.v1",
+  "delegation-recovery-decision-v1.schema.json": "wringer.delegation-recovery-decision.v1",
+  "delegation-recovery-preview-v1.schema.json": "wringer.delegation-recovery-preview.v1",
+  "delegation-recovery-result-v1.schema.json": "wringer.delegation-recovery-result.v1",
+  "delegation-setup-v1.schema.json": "wringer.delegation-setup.v1",
   "delivery-manifest.schema.json": "wringer.delivery.v1",
   "design-snapshot-v1.schema.json": "wringer.design-snapshot.v1",
   "design-snapshot-v2.schema.json": "wringer.design-snapshot.v2",
   "diagnosis.schema.json": "wringer.diagnosis.v1",
+  "diagnostic-manifest-v1.schema.json": "wringer.diagnostic-manifest.v1",
+  "diagnostic-preview-v1.schema.json": "wringer.diagnostic-preview.v1",
+  "diagnostic-report-v1.schema.json": "wringer.diagnostic-report.v1",
   "digests.schema.json": "wringer.digests.v1",
   "engineering-evidence-v1.schema.json": "wringer.engineering-evidence.v1",
   "environment-map-v1.schema.json": "wringer.environment-map.v1",
   "environment-map-v2.schema.json": "wringer.environment-map.v2",
   "evidence-event.schema.json": null,
   "evidence-layers-v1.schema.json": "wringer.evidence-layers.v1",
+  "evidence-page-v2.schema.json": "wringer.evidence-page.v2",
   "exchange.schema.json": "wringer.exchange.v1",
   "execution-authority-v1.schema.json": "wringer.execution-authority.v1",
   "execution-authority-v2.schema.json": "wringer.execution-authority.v2",
@@ -4979,12 +6525,17 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "graph-manifest.schema.json": "wringer.graph.v1",
   "health-report.schema.json": "wringer.health.v1",
   "improvement-connection-v1.schema.json": "wringer.improvement-connection.v1",
+  "job-list-v2.schema.json": "wringer.job-list.v2",
+  "job-response-v2.schema.json": "wringer.job-response.v2",
   "journey.schema.json": "wringer.journey.v1",
   "judge-request.schema.json": null,
   "judge-verdict.schema.json": "wringer.judge.v1",
   "judgement-record.schema.json": "wringer.judgementrecord.v1",
   "judgements-v2.schema.json": "wringer.judgement.v2",
   "judgements.schema.json": "wringer.judgement.v1",
+  "lock-recovery-preview-v1.schema.json": "wringer.lock-recovery-preview.v1",
+  "lock-recovery-request-v1.schema.json": "wringer.lock-recovery-request.v1",
+  "lock-recovery-result-v1.schema.json": "wringer.lock-recovery-result.v1",
   "loop-decision-v1.schema.json": "wringer.loop-decision.v1",
   "loop-event-v2.schema.json": null,
   "loop-event.schema.json": null,
@@ -5003,6 +6554,13 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "playbook-snapshot-v1.schema.json": "wringer.playbook-snapshot.v1",
   "playbook-snapshot-v2.schema.json": "wringer.playbook-snapshot.v2",
   "playbook-v1.schema.json": "wringer.playbook.v1",
+  "preparation-archive-preview-v1.schema.json": "wringer.preparation-archive-preview.v1",
+  "preparation-archive-request-v1.schema.json": "wringer.preparation-archive-request.v1",
+  "preparation-archive-result-v1.schema.json": "wringer.preparation-archive-result.v1",
+  "proposal-destination-policy-v1.schema.json": "wringer.proposal-destination-policy.v1",
+  "proposal-lineage-v1.schema.json": "wringer.proposal-lineage.v1",
+  "proposal-supersession-v1.schema.json": "wringer.proposal-supersession.v1",
+  "proposal-validation-v2.schema.json": "wringer.proposal-validation.v2",
   "readiness.schema.json": "wringer.readiness.v1",
   "refusal.schema.json": "wringer.refusal.v1",
   "repair-packet-v1.schema.json": "wringer.repair-packet.v1",
@@ -5012,30 +6570,57 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "selection-v1.schema.json": "wringer.selection.v1",
   "selection-v2.schema.json": "wringer.selection.v2",
   "selection-v3.schema.json": "wringer.selection.v3",
+  "setup-observation-v1.schema.json": "wringer.setup-observation.v1",
   "sources.schema.json": "wringer.sources.v1",
   "spec.schema.json": "wringer.spec.v1",
   "stability.schema.json": "wringer.stability.v1",
   "stop.schema.json": "wringer.stop.v1",
+  "storage-use-v1.schema.json": "wringer.storage-use.v1",
   "untracked-v2.schema.json": "wringer.untracked.v2",
   "untracked.schema.json": "wringer.untracked.v1",
   "usage.schema.json": "wringer.usage.v1",
   "vacuity.schema.json": "wringer.vacuity.v1",
+  "verification-completion-v1.schema.json": "wringer.verification-completion.v1",
+  "verification-creation-v1.schema.json": "wringer.verification-creation.v1",
+  "verification-decision-v1.schema.json": "wringer.verification-decision.v1",
+  "verification-grant-v1.schema.json": "wringer.verification-grant.v1",
+  "verification-job-v1.schema.json": "wringer.verification-job.v1",
+  "verification-operation-v2.schema.json": "wringer.verification-operation.v2",
+  "verification-publication-v2.schema.json": "wringer.verification-publication.v2",
+  "verification-recovery-preview-v1.schema.json": "wringer.verification-recovery-preview.v1",
+  "verification-recovery-result-v1.schema.json": "wringer.verification-recovery-result.v1",
+  "verification-send-recovery-decision-v1.schema.json": "wringer.verification-send-recovery-decision.v1",
+  "verification-send-recovery-preview-v1.schema.json": "wringer.verification-send-recovery-preview.v1",
   "verification-set-v1.schema.json": "wringer.verification-set.v1",
   "witness.schema.json": "wringer.witness.v1",
   "worker-diagnosis-v2.schema.json": "wringer.workerdiagnosis.v2",
   "worker-diagnosis-v3.schema.json": "wringer.workerdiagnosis.v3",
   "worker-diagnosis.schema.json": "wringer.workerdiagnosis.v1",
+  "workspace-recovery-preview-v1.schema.json": "wringer.workspace-recovery-preview.v1",
+  "workspace-recovery-request-v1.schema.json": "wringer.workspace-recovery-request.v1",
+  "workspace-recovery-result-v1.schema.json": "wringer.workspace-recovery-result.v1",
+  "workspace-v2.schema.json": "wringer.workspace.v2",
 });
 
 /** `schema_version` -> the schema file that claims it. */
 export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze({
+  "wringer.acceptance-input.v1": "acceptance-input-v1.schema.json",
+  "wringer.acceptance-prepared.v1": "acceptance-prepared-v1.schema.json",
+  "wringer.acceptance-preview.v1": "acceptance-preview-v1.schema.json",
   "wringer.acceptance.v2": "acceptance-v2.schema.json",
   "wringer.acceptance.v3": "acceptance-v3.schema.json",
   "wringer.acceptance.v1": "acceptance.schema.json",
   "wringer.acquired.v1": "acquired-manifest.schema.json",
+  "wringer.archive-removal-decision.v1": "archive-removal-decision-v1.schema.json",
+  "wringer.archive-removal-preview.v1": "archive-removal-preview-v1.schema.json",
+  "wringer.archive-removal-result.v1": "archive-removal-result-v1.schema.json",
   "wringer-check.v1": "assertion-report-v1.schema.json",
+  "wringer.assistant-refusal.v2": "assistant-refusal-v2.schema.json",
+  "wringer.assistant-response.v2": "assistant-response-v2.schema.json",
   "wringer.attestation.v1": "attestation.schema.json",
   "wringer.audit.v1": "audit.schema.json",
+  "wringer.audited-verification-publication.v1": "audited-verification-publication-v1.schema.json",
+  "wringer.authored-proposal.v1": "authored-proposal-v1.schema.json",
   "wringer.bench.v2": "bench-manifest-v2.schema.json",
   "wringer.bench.v1": "bench-manifest.schema.json",
   "wringer.briefed.v1": "briefed.schema.json",
@@ -5060,15 +6645,25 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.coverage.v1": "coverage-v1.schema.json",
   "wringer.decisions.v2": "decisions-v2.schema.json",
   "wringer.decisions.v1": "decisions.schema.json",
+  "wringer.delegation-context.v1": "delegation-context-v1.schema.json",
+  "wringer.delegation-job.v1": "delegation-job-v1.schema.json",
+  "wringer.delegation-recovery-decision.v1": "delegation-recovery-decision-v1.schema.json",
+  "wringer.delegation-recovery-preview.v1": "delegation-recovery-preview-v1.schema.json",
+  "wringer.delegation-recovery-result.v1": "delegation-recovery-result-v1.schema.json",
+  "wringer.delegation-setup.v1": "delegation-setup-v1.schema.json",
   "wringer.delivery.v1": "delivery-manifest.schema.json",
   "wringer.design-snapshot.v1": "design-snapshot-v1.schema.json",
   "wringer.design-snapshot.v2": "design-snapshot-v2.schema.json",
   "wringer.diagnosis.v1": "diagnosis.schema.json",
+  "wringer.diagnostic-manifest.v1": "diagnostic-manifest-v1.schema.json",
+  "wringer.diagnostic-preview.v1": "diagnostic-preview-v1.schema.json",
+  "wringer.diagnostic-report.v1": "diagnostic-report-v1.schema.json",
   "wringer.digests.v1": "digests.schema.json",
   "wringer.engineering-evidence.v1": "engineering-evidence-v1.schema.json",
   "wringer.environment-map.v1": "environment-map-v1.schema.json",
   "wringer.environment-map.v2": "environment-map-v2.schema.json",
   "wringer.evidence-layers.v1": "evidence-layers-v1.schema.json",
+  "wringer.evidence-page.v2": "evidence-page-v2.schema.json",
   "wringer.exchange.v1": "exchange.schema.json",
   "wringer.execution-authority.v1": "execution-authority-v1.schema.json",
   "wringer.execution-authority.v2": "execution-authority-v2.schema.json",
@@ -5106,11 +6701,16 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.graph.v1": "graph-manifest.schema.json",
   "wringer.health.v1": "health-report.schema.json",
   "wringer.improvement-connection.v1": "improvement-connection-v1.schema.json",
+  "wringer.job-list.v2": "job-list-v2.schema.json",
+  "wringer.job-response.v2": "job-response-v2.schema.json",
   "wringer.journey.v1": "journey.schema.json",
   "wringer.judge.v1": "judge-verdict.schema.json",
   "wringer.judgementrecord.v1": "judgement-record.schema.json",
   "wringer.judgement.v2": "judgements-v2.schema.json",
   "wringer.judgement.v1": "judgements.schema.json",
+  "wringer.lock-recovery-preview.v1": "lock-recovery-preview-v1.schema.json",
+  "wringer.lock-recovery-request.v1": "lock-recovery-request-v1.schema.json",
+  "wringer.lock-recovery-result.v1": "lock-recovery-result-v1.schema.json",
   "wringer.loop-decision.v1": "loop-decision-v1.schema.json",
   "wringer.loop.v2": "loop-manifest-v2.schema.json",
   "wringer.loop.v1": "loop-manifest.schema.json",
@@ -5127,6 +6727,13 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.playbook-snapshot.v1": "playbook-snapshot-v1.schema.json",
   "wringer.playbook-snapshot.v2": "playbook-snapshot-v2.schema.json",
   "wringer.playbook.v1": "playbook-v1.schema.json",
+  "wringer.preparation-archive-preview.v1": "preparation-archive-preview-v1.schema.json",
+  "wringer.preparation-archive-request.v1": "preparation-archive-request-v1.schema.json",
+  "wringer.preparation-archive-result.v1": "preparation-archive-result-v1.schema.json",
+  "wringer.proposal-destination-policy.v1": "proposal-destination-policy-v1.schema.json",
+  "wringer.proposal-lineage.v1": "proposal-lineage-v1.schema.json",
+  "wringer.proposal-supersession.v1": "proposal-supersession-v1.schema.json",
+  "wringer.proposal-validation.v2": "proposal-validation-v2.schema.json",
   "wringer.readiness.v1": "readiness.schema.json",
   "wringer.refusal.v1": "refusal.schema.json",
   "wringer.repair-packet.v1": "repair-packet-v1.schema.json",
@@ -5136,17 +6743,34 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.selection.v1": "selection-v1.schema.json",
   "wringer.selection.v2": "selection-v2.schema.json",
   "wringer.selection.v3": "selection-v3.schema.json",
+  "wringer.setup-observation.v1": "setup-observation-v1.schema.json",
   "wringer.sources.v1": "sources.schema.json",
   "wringer.spec.v1": "spec.schema.json",
   "wringer.stability.v1": "stability.schema.json",
   "wringer.stop.v1": "stop.schema.json",
+  "wringer.storage-use.v1": "storage-use-v1.schema.json",
   "wringer.untracked.v2": "untracked-v2.schema.json",
   "wringer.untracked.v1": "untracked.schema.json",
   "wringer.usage.v1": "usage.schema.json",
   "wringer.vacuity.v1": "vacuity.schema.json",
+  "wringer.verification-completion.v1": "verification-completion-v1.schema.json",
+  "wringer.verification-creation.v1": "verification-creation-v1.schema.json",
+  "wringer.verification-decision.v1": "verification-decision-v1.schema.json",
+  "wringer.verification-grant.v1": "verification-grant-v1.schema.json",
+  "wringer.verification-job.v1": "verification-job-v1.schema.json",
+  "wringer.verification-operation.v2": "verification-operation-v2.schema.json",
+  "wringer.verification-publication.v2": "verification-publication-v2.schema.json",
+  "wringer.verification-recovery-preview.v1": "verification-recovery-preview-v1.schema.json",
+  "wringer.verification-recovery-result.v1": "verification-recovery-result-v1.schema.json",
+  "wringer.verification-send-recovery-decision.v1": "verification-send-recovery-decision-v1.schema.json",
+  "wringer.verification-send-recovery-preview.v1": "verification-send-recovery-preview-v1.schema.json",
   "wringer.verification-set.v1": "verification-set-v1.schema.json",
   "wringer.witness.v1": "witness.schema.json",
   "wringer.workerdiagnosis.v2": "worker-diagnosis-v2.schema.json",
   "wringer.workerdiagnosis.v3": "worker-diagnosis-v3.schema.json",
   "wringer.workerdiagnosis.v1": "worker-diagnosis.schema.json",
+  "wringer.workspace-recovery-preview.v1": "workspace-recovery-preview-v1.schema.json",
+  "wringer.workspace-recovery-request.v1": "workspace-recovery-request-v1.schema.json",
+  "wringer.workspace-recovery-result.v1": "workspace-recovery-result-v1.schema.json",
+  "wringer.workspace.v2": "workspace-v2.schema.json",
 });

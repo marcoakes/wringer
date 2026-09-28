@@ -1,0 +1,186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/verification-publication-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.verification-publication.v2"
+    },
+    "preparedId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "delivery_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]{1,100}$"
+        },
+        "directory": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "evidence_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "pushed": {
+          "const": true
+        },
+        "mode": {
+          "const": "live"
+        },
+        "audit_command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "falsify_command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "next_move": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        }
+      },
+      "required": [
+        "delivery_id",
+        "directory",
+        "branch",
+        "commit",
+        "evidence_commit",
+        "pushed",
+        "mode",
+        "audit_command",
+        "falsify_command",
+        "next_move"
+      ],
+      "additionalProperties": false
+    },
+    "expected": {
+      "type": "object",
+      "properties": {
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "tree": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "remoteURL": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16384
+        },
+        "baseCommit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        }
+      },
+      "required": [
+        "fingerprint",
+        "tree",
+        "remoteURL",
+        "baseCommit"
+      ],
+      "additionalProperties": false
+    },
+    "destination": {
+      "type": "object",
+      "properties": {
+        "remote": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "base": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "branch": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "remote",
+        "base",
+        "branch"
+      ],
+      "additionalProperties": false
+    },
+    "publicationKind": {
+      "const": "branch-only"
+    },
+    "observation": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "exact-remote-head-and-carried-audit"
+        },
+        "recoveryIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "remoteHead": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "auditIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "required": [
+        "kind",
+        "recoveryIdentity",
+        "remoteHead",
+        "auditIdentity",
+        "actor"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "preparedId",
+    "jobId",
+    "at",
+    "result",
+    "expected",
+    "destination",
+    "publicationKind",
+    "observation"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,60 @@
+import { expect, test } from "bun:test";
+import { mkdtemp, realpath, mkdir, writeFile, unlink } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { dispatch } from "../../cli/src/app";
+import * as application from "../src";
+const api = application as any;
+test("storage archives only an exact interrupted owned preparation, permits retry and removes only its selected archive", async () => {
+    expect(typeof api.previewPreparationArchive).toBe("function");
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-storage-"))), id = crypto.randomUUID(), identity = "a".repeat(64), selected = { kind: "acceptance", id };
+    await application.createAssistantDirectory(root);
+    await application.writeAssistantRecord(root, `acceptance-index/${identity}.json`, { id, identity });
+    const path = join(root, "acceptance-preparations", id); await mkdir(join(path, "source"), { recursive: true, mode: 0o700 }); await writeFile(join(path, "source", "private.txt"), "PRIVATE_SOURCE", { mode: 0o600 });
+    expect((await api.inspectOwnedStorage(root)).bytes).toBeGreaterThan(0);
+    expect((await dispatch(["storage", "--app-dir", root, "--dry-run", "--json"])).value).toEqual(await api.inspectOwnedStorage(root));
+    const preview = await api.previewPreparationArchive(root, selected);
+    expect(JSON.stringify(preview)).not.toContain("PRIVATE_SOURCE");
+    await expect(api.archivePreparation(root, selected, "b".repeat(64), "Automated fixture")).rejects.toThrow("changed");
+    const result = await api.archivePreparation(root, selected, preview.identity, "Automated fixture");
+    expect(await Bun.file(join(path, "source", "private.txt")).exists()).toBeFalse();
+    expect(await Bun.file(join(root, result.retainedDirectory, "source", "private.txt")).text()).toBe("PRIVATE_SOURCE");
+    // The same registration can prepare again; an old reply must not move it.
+    await mkdir(path, { recursive: true, mode: 0o700 }); await writeFile(join(path, "new-attempt.txt"), "new");
+    expect(await api.archivePreparation(root, selected, preview.identity, "Automated fixture")).toEqual(result);
+    expect(await Bun.file(join(path, "new-attempt.txt")).text()).toBe("new");
+    await unlink(join(root, "maintenance", "preparation-archives", preview.identity, "result.json"));
+    expect(await api.archivePreparation(root, selected, preview.identity, "Automated fixture")).toEqual(result);
+    const removal = await api.previewArchiveRemoval(root, preview.identity);
+    await expect(api.removePreparationArchive(root, preview.identity, "c".repeat(64), "Automated fixture")).rejects.toThrow("changed");
+    // Simulate death after the removal decision and one known file deletion.
+    const prefix = `maintenance/preparation-archives/${preview.identity}`;
+    await application.writeAssistantRecord(root, `${prefix}/removal-decision.json`, { schema_version: "wringer.archive-removal-decision.v1", preview: removal, actor: "Automated fixture" });
+    await unlink(join(root, result.retainedDirectory, "source", "private.txt"));
+    await writeFile(join(root, result.retainedDirectory, "source", "foreign.txt"), "preserve");
+    await expect(api.removePreparationArchive(root, preview.identity, removal.identity, "Automated fixture")).rejects.toThrow();
+    expect(await Bun.file(join(root, result.retainedDirectory, "source", "foreign.txt")).text()).toBe("preserve");
+    await unlink(join(root, result.retainedDirectory, "source", "foreign.txt"));
+    await api.removePreparationArchive(root, preview.identity, removal.identity, "Automated fixture");
+    expect(await Bun.file(join(root, result.retainedDirectory, "source", "private.txt")).exists()).toBeFalse();
+    expect(await Bun.file(join(path, "new-attempt.txt")).text()).toBe("new");
+    expect((await api.removePreparationArchive(root, preview.identity, removal.identity, "Automated fixture")).removed).toBeTrue();
+    await application.writeAssistantRecord(root, `acceptance-preparations/${id}/result.json`, { schema_version: "legacy-fixture", completed: true });
+    await expect(api.previewPreparationArchive(root, selected)).rejects.toThrow("completed");
+    await expect(api.previewPreparationArchive(root, { kind: "acceptance", id: crypto.randomUUID() })).rejects.toThrow("registered");
+});
+
+test("storage refuses a live preparation owner, source changes and unexpected links", async () => {
+    expect(typeof api.previewPreparationArchive).toBe("function");
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-storage-live-"))), id = crypto.randomUUID(), identity = "a".repeat(64), selected = { kind: "profile", id };
+    await application.createAssistantDirectory(root); await application.writeAssistantRecord(root, `profile-index/${identity}.json`, { schema_version: "wringer.profile-registration.v1", id, identity });
+    const path = join(root, "profiles", id); await mkdir(path, { mode: 0o700, recursive: true });
+    await writeFile(join(path, "preparation.lock"), JSON.stringify({ pid: process.pid }), { mode: 0o600 });
+    await expect(api.previewPreparationArchive(root, selected)).rejects.toThrow("live");
+    const child = Bun.spawn([process.execPath, "-e", ""], { stdout: "ignore", stderr: "ignore" }); await child.exited;
+    await writeFile(join(path, "preparation.lock"), JSON.stringify({ pid: child.pid }));
+    const preview = await api.previewPreparationArchive(root, selected); await writeFile(join(path, "extra.txt"), "changed");
+    await expect(api.archivePreparation(root, selected, preview.identity, "Automated fixture")).rejects.toThrow("changed");
+    const { symlink } = await import("node:fs/promises"); await symlink("/private/tmp", join(path, "foreign"));
+    await expect(api.previewPreparationArchive(root, selected)).rejects.toThrow("link");
+});

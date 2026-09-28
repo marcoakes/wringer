@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/delegation-recovery-decision-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.delegation-recovery-decision.v1"
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.delegation-recovery-preview.v1"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action": {
+          "enum": [
+            "reconcile-terminal-domain-evidence",
+            "release-dead-runner-owner"
+          ]
+        },
+        "ownerState": {
+          "enum": [
+            "live",
+            "dead",
+            "unknown",
+            "absent"
+          ]
+        },
+        "ownerIdentity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "operationIdentity": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uncertainty": {
+          "type": "boolean"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "dispatched": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "jobId",
+        "operationId",
+        "action",
+        "ownerState",
+        "ownerIdentity",
+        "revision",
+        "operationIdentity",
+        "uncertainty",
+        "eligible",
+        "dispatched",
+        "note",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "schema_version",
+    "preview",
+    "actor"
+  ],
+  "additionalProperties": false
+}

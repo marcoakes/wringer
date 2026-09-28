@@ -18,8 +18,13 @@ test("active build and release workflows cannot publish or invoke the Python har
         expect(text, file).not.toMatch(/setup-python|pip install|uv tool|pypa\/|pytest -|\.venv\/bin\/python/);
     }
     const release = await Bun.file(`${root}/.github/workflows/release.yml`).text();
-    expect(release).toContain("--draft");
-    expect(release).not.toContain("id-token: write");
+    expect(release).toContain("bun scripts/draft-release.ts");
+    const draft = await Bun.file(`${root}/scripts/draft-release.ts`).text();
+    expect(draft).toContain('"--draft"');
+    const workflow = Bun.YAML.parse(release) as any;
+    // OIDC is scoped to provenance generation, never restored PyPI publishing.
+    expect(workflow.jobs.build.permissions).toMatchObject({ "id-token": "write", attestations: "write" });
+    expect(workflow.jobs["publish-draft"].permissions).toEqual({ contents: "write" });
 });
 test("every retired tracked runtime file is recorded and recoverable by its baseline commit", async () => {
     const record = await Bun.file(`${root}/docs/python-retirement.json`).json();

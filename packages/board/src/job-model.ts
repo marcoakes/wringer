@@ -23,7 +23,9 @@ export interface PmEngineering {
     limits: string[];
 }
 export interface PmJob {
-    schema_version: "wringer.pm-job.v1" | "wringer.pm-job.v2";
+    schema_version: "wringer.pm-job.v1" | "wringer.pm-job.v2" | "wringer.pm-job.v3";
+    mode?: "verification" | "delegation";
+    verification?: { repetitions: number; remaining: number; runSeconds: number; checks: { id: string; command: string }[] };
     engineering?: PmEngineering;
     jobId: string;
     revision: string;
@@ -74,7 +76,7 @@ export function validatePmJob(value: unknown): PmJob {
     const engineering = (x: any) => exact(x, ["schema_version", "planSha256", "approach", "checks", "history", "limits", ...(x?.rollback === undefined ? [] : ["rollback"])]) && x.schema_version === "wringer.pm-engineering.v1" && hash(x.planSha256) && (x.approach === null || approach(x.approach)) && (x.rollback === undefined || x.approach === null && adoption(x.rollback) && x.rollback.action === "rollback")
         && list(x.checks, 4096, c => exact(c, ["id", "level", "status", "assertionStatus", "reason"]) && id(c.id) && ["command", "assertions"].includes(c.level) && ["not-measured", "passed", "failed", "unknown"].includes(c.status) && ["not-requested", "not-measured", "established", "unavailable"].includes(c.assertionStatus) && text(c.reason, 16000) && (c.level === "command" ? c.assertionStatus === "not-requested" : c.assertionStatus !== "not-requested") && !(c.status === "passed" && c.level === "assertions" && c.assertionStatus !== "established")) && new Set(x.checks.map((c: any) => c.id)).size === x.checks.length
         && list(x.history, 10000, r => exact(r, ["sequence", "phase", "action", "reason", "candidateTree", "sha256"]) && count(r.sequence) && r.sequence > 0 && ["checks", "judge"].includes(r.phase) && ["continue", "warn", "stop"].includes(r.action) && text(r.reason, 16000) && tree(r.candidateTree) && hash(r.sha256)) && x.history.every((r: any, i: number) => r.sequence === i + 1) && list(x.limits, 32, x => text(x, 16000));
-    if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v1" ? v.engineering !== undefined : !engineering(v.engineering)) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
+    if (!v || !["wringer.pm-job.v1", "wringer.pm-job.v2", "wringer.pm-job.v3"].includes(v.schema_version) || (v.schema_version === "wringer.pm-job.v2" ? !engineering(v.engineering) : v.engineering !== undefined) || (v.schema_version === "wringer.pm-job.v3" ? v.mode !== "verification" || !v.verification || !count(v.verification.repetitions) || !count(v.verification.remaining) || !count(v.verification.runSeconds) || !list(v.verification.checks, 256, c => id(c.id) && text(c.command, 16384)) : v.mode !== undefined || v.verification !== undefined) || !uuid(v.jobId) || !hash(v.revision) || !hash(v.readyRevision) || !(v.candidateTree === null || tree(v.candidateTree))
         || !["approval", "working", "review", "preparing", "send", "sent", "blocked", "correction"].includes(v.phase)
         || !text(v.name, 1000) || !text(v.intent) || !text(v.nextAction, 16000) || !(v.error === null || text(v.error, 16000))
         || !(v.revisionAdvanced === undefined || typeof v.revisionAdvanced === "boolean") || v.revisionAdvanced === true && !["working", "sent"].includes(v.phase)

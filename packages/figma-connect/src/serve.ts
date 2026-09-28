@@ -44,9 +44,9 @@ export function figmaBrokerServerOptions(env: Record<string, string | undefined>
   };
 }
 
-if (import.meta.main) {
-  if (process.argv.slice(2).length === 1 && ["--help", "-h"].includes(process.argv[2]!)) console.log(FIGMA_BROKER_HELP);
-  else if (process.argv.length > 2) { console.error("Unknown Figma broker argument. Use --help."); process.exitCode = 1; }
+export async function figmaBrokerMain(argv = process.argv.slice(2)) {
+  if (argv.length === 1 && ["--help", "-h"].includes(argv[0]!)) console.log(FIGMA_BROKER_HELP);
+  else if (argv.length > 0) { console.error("Unknown Figma broker argument. Use --help."); process.exitCode = 1; }
   else {
     try {
       const server = Bun.serve(figmaBrokerServerOptions());
@@ -57,3 +57,4 @@ if (import.meta.main) {
     }
   }
 }
+if (import.meta.main) await figmaBrokerMain();

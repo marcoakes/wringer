@@ -93,6 +93,7 @@ export function parseGate(value: unknown): Gate {
             const report = textValue(e.report, `gate ${id}.evidence.report`);
             if (report.startsWith("/") || report.split(/[\\/]/).includes("..") || report.includes("\0"))
                 throw new EngineError(`gate ${id}.evidence.report must be a repository-relative path`);
+            if (gate.inputs.some(pattern => new Bun.Glob(pattern).match(report.replace(/^\.\//, "")))) throw new EngineError(`gate ${id}: the output report cannot also be a declared check input`);
             gate.evidence.report = report;
         }
     }
@@ -474,47 +475,63 @@ export async function exists(path: string) {
         return false;
     }
 }
-export async function init(repo: string, options: {
-    force?: boolean;
-} = {}) {
+export async function init(repo: string, options: { force?: boolean; dryRun?: boolean } = {}) {
     repo = resolve(repo);
     const path = await safePath(repo, ".wringer.yaml"), ignore = await safePath(repo, ".gitignore");
-    if (await exists(path))
-        throw new EngineError(`${path} already exists; no configuration was overwritten`);
-    const found: {
-        id: string;
-        run: string;
-    }[] = [];
-    const files: string[] = [];
-    if (await exists(join(repo, "package.json"))) {
-        files.push("package.json");
-        const p = JSON.parse(await readFile(join(repo, "package.json"), "utf8"));
-        const manager = await exists(join(repo, "bun.lock")) || await exists(join(repo, "bun.lockb")) ? "bun" : await exists(join(repo, "pnpm-lock.yaml")) ? "pnpm" : "npm";
-        for (const id of ["lint", "typecheck", "test", "build"])
-            if (typeof p.scripts?.[id] === "string")
-                found.push({ id, run: `${manager} run ${id}` });
+    if (await exists(path)) {
+        if (!options.dryRun) throw new EngineError(`${path} already exists; no configuration was overwritten`);
+        const config = parseConfig(await readFile(path, "utf8"));
+        return { schema_version: "wringer.check-proposal.v1", status: "existing", config: path, gates: config.gates, template_only: false, writes: [], suggestions: [], next_move: "Inspect the existing checks before granting execution." };
     }
-    if (await exists(join(repo, "Makefile"))) {
-        files.push("Makefile");
-        const m = await readFile(join(repo, "Makefile"), "utf8");
-        for (const id of ["lint", "test", "check"])
-            if (new RegExp(`^${id}\\s*:`, "m").test(m) && !found.some(g => g.id === id))
-                found.push({ id, run: `make ${id}` });
+    const found: { id: string; run: string; inputs: string[] }[] = [], files: string[] = [], suggestions: string[] = [];
+    async function data(name: string) {
+        const file = await safePath(repo, name);
+        if (!await exists(file)) return null;
+        const text = await readFile(file, "utf8");
+        if (Buffer.byteLength(text) > 1024 * 1024) throw new EngineError(`${name} exceeds the bounded setup inspection size`);
+        files.push(name); return text;
     }
-    if (await exists(join(repo, "pyproject.toml"))) {
-        files.push("pyproject.toml");
-        const p = await readFile(join(repo, "pyproject.toml"), "utf8");
-        for (const [id, pattern, run] of [["lint", /\[tool\.ruff/, "ruff check ."], ["typecheck", /\[tool\.mypy/, "mypy ."], ["test", /\[tool\.pytest/, "pytest"]] as const)
-            if (pattern.test(p) && !found.some(g => g.id === id))
-                found.push({ id, run });
+    const add = (id: string, run: string, inputs: string[]) => { if (!found.some(g => g.id === id)) found.push({ id, run, inputs }); };
+    const pkg = await data("package.json");
+    if (pkg !== null) {
+        const p = JSON.parse(pkg), declared = p.packageManager === undefined ? null : /^(npm|pnpm|yarn|bun)@[0-9]/.exec(p.packageManager)?.[1];
+        if (p.packageManager !== undefined && !declared) throw new EngineError("Unsupported packageManager declaration; supply an explicit reviewed check proposal.");
+        const manager = declared ?? (await exists(join(repo, "bun.lock")) || await exists(join(repo, "bun.lockb")) ? "bun" : await exists(join(repo, "pnpm-lock.yaml")) ? "pnpm" : await exists(join(repo, "yarn.lock")) ? "yarn" : "npm");
+        for (const id of ["lint", "typecheck", "test", "build"]) {
+            if (typeof p.scripts?.[id] !== "string" || !p.scripts[id].trim()) continue;
+            if (/^(?:true|echo\s+[\s\S]*|exit\s+0)\s*;?$/.test(p.scripts[id].trim())) { suggestions.push(`${id} looks like a placeholder; supply a meaningful check.`); continue; }
+            add(id, `${manager} run ${id}`, ["package.json", "*lock*", "**/*.test.*", "**/*.spec.*", "*config*"]);
+            if (/\b(vitest|playwright)\b/.test(p.scripts[id])) suggestions.push(`${id}: review an assertion reporter (vitest or playwright) and its exact report path; command success alone is not assertion proof.`);
+        }
     }
+    const make = await data("Makefile");
+    if (make !== null) for (const id of ["lint", "test", "check"]) if (new RegExp(`^${id}\\s*:`, "m").test(make)) add(id, `make ${id}`, ["Makefile"]);
+    const python = await data("pyproject.toml");
+    if (python !== null) {
+        const p = Bun.TOML.parse(python) as any;
+        if (p.tool?.ruff) add("lint", "ruff check .", ["pyproject.toml"]);
+        if (p.tool?.mypy) add("typecheck", "mypy .", ["pyproject.toml"]);
+        if (p.tool?.pytest) add("test", "pytest", ["pyproject.toml", "tests/**/*.py", "**/conftest.py"]);
+    }
+    if (await data("pytest.ini") !== null) add("test", "pytest", ["pytest.ini", "tests/**/*.py", "**/conftest.py"]);
+    const cargo = await data("Cargo.toml");
+    if (cargo !== null) {
+        const p = Bun.TOML.parse(cargo) as any;
+        if (p.package || p.workspace) add("test", `cargo test${await exists(join(repo, "Cargo.lock")) ? " --locked" : ""}`, ["Cargo.toml", "Cargo.lock", "tests/**/*.rs", "src/**/*.rs"]);
+    }
+    const go = await data("go.mod");
+    if (go !== null && /^module\s+\S+/m.test(go)) add("test", "go test ./...", ["go.mod", "go.sum", "**/*_test.go"]);
     const template_only = found.length === 0;
-    const document = { version: 1, gates: template_only ? [{ id: "placeholder", run: "true" }] : found, evidence: { redact: { env: ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"] } } };
-    const content = `# Wringer runs only the commands this repository declares.\n${template_only ? `# No commands detected in ${files.join(", ") || "known build files"}. This placeholder proves nothing.\n` : ""}${stringify(document)}`;
+    if (template_only) return { schema_version: "wringer.check-proposal.v1", status: "incomplete", config: null, gates: found, template_only, writes: [], suggestions, next_move: "No meaningful checks detected. Propose an explicit .wringer.yaml check command and limits for review. No placeholder or configuration was written." };
+    const document = { version: 1, gates: found, evidence: { redact: { env: ["*TOKEN*", "*SECRET*", "*KEY*", "*PASSWORD*"] } } };
+    const content = "# Reviewed repository commands execute trusted-local, under your account.\n" + stringify(document);
     parseConfig(content);
-    await writeFile(path, content, { flag: "wx" });
     const old = await exists(ignore) ? await readFile(ignore, "utf8") : "";
-    if (!/^\/?\.wringer\/?$/m.test(old))
-        await appendFile(ignore, `${old && !old.endsWith("\n") ? "\n" : ""}.wringer/\n`);
-    return { status: "ready", config: path, gates: found, template_only, next_move: template_only ? "Replace the placeholder in .wringer.yaml with your project's real checks, then run wring verify." : "wring verify" };
+    const append = /^\/?\.wringer\/?$/m.test(old) ? "" : `${old && !old.endsWith("\n") ? "\n" : ""}.wringer/\n`;
+    const writes = [{ path: ".wringer.yaml", action: "create", content }, ...(append ? [{ path: ".gitignore", action: "append", content: append }] : [])];
+    if (!options.dryRun) {
+        await writeFile(path, content, { flag: "wx" });
+        if (append) await appendFile(ignore, append);
+    }
+    return { schema_version: "wringer.check-proposal.v1", status: options.dryRun ? "proposed" : "ready", config: path, gates: found, template_only, writes, suggestions: [...suggestions, "Discovery is data-only and does not establish CI equivalence, assertions, or requirement coverage. Review declared input globs for your project."], next_move: options.dryRun ? "Review the proposed files, then explicitly apply setup." : "wring verify" };
 }

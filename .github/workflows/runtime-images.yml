@@ -1,0 +1,82 @@
+name: Runtime image artifacts
+# Manual native build is not a claim of Apple Container/gVisor containment.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing source release tag
+        required: true
+      publish:
+        description: Publish verified architecture tags to GHCR after environment approval
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/release.ts check-tag
+        env:
+          WRINGER_RELEASE_TAG: ${{ inputs.tag }}
+      - run: bun scripts/runtime-image-artifact.ts build build/runtime-image
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-${{ matrix.arch }}
+          path: build/runtime-image/
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    if: inputs.publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment: runtime-images
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runtime-image-*
+          path: build/runtime-images
+      - name: Login only for the explicitly selected publication job
+        shell: bash
+        env:
+          REGISTRY_TOKEN: ${{ github.token }}
+          REGISTRY_ACTOR: ${{ github.actor }}
+        run: printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$REGISTRY_ACTOR" --password-stdin
+      - name: Publish exact architecture images without replacing different content
+        env:
+          REGISTRY_REPOSITORY: ghcr.io/${{ github.repository }}-runtime
+        run: bun scripts/runtime-image-publish.ts build/runtime-images
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runtime-image-digests
+          path: build/runtime-images/**/PUBLISHED.json
+          if-no-files-found: error

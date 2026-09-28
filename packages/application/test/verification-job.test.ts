@@ -1,0 +1,151 @@
+import { afterEach, expect, test } from "bun:test";
+import { mkdtemp, mkdir, realpath, readFile, rm, writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { git } from "@wringer/engine";
+import { hashValue } from "@wringer/plan";
+import { registerWorkspace, inspectWorkspaceSetup } from "../src/workspaces";
+import { createVerificationJob, readVerificationJob, approveVerificationJob, verificationStatus, createVerificationOperations } from "../src/verification-job";
+import { assistantExists, readAssistantRecord, writeAssistantRecord } from "../src/assistant-store";
+const roots: string[] = [];
+afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+async function fixture() {
+    const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-verification-job-"))); roots.push(root);
+    const repo = join(root, "repo"), app = join(root, "application"); await mkdir(repo);
+    await git(repo, ["init", "--initial-branch=main"]);
+    for (const [key, value] of [["user.name", "Automated fixture"], ["user.email", "fixture@example.invalid"], ["commit.gpgsign", "false"]]) await git(repo, ["config", key!, value!]);
+    await writeFile(join(repo, ".gitignore"), ".wringer/\n");
+    await writeFile(join(repo, "value.txt"), "wrong\n");
+    await writeFile(join(repo, "check.sh"), 'test "$(cat value.txt)" = correct\n');
+    await writeFile(join(repo, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "check", run: "sh check.sh", inputs: ["check.sh"] }] }));
+    await git(repo, ["add", "."]); await git(repo, ["-c", "core.hooksPath=/dev/null", "commit", "-m", "fixture"]);
+    const workspace = await registerWorkspace(app, { repo, mode: "verification", client: "generic" });
+    const job = await createVerificationJob(app, workspace.id, { intent: "Check the corrected value", idempotencyKey: crypto.randomUUID(), repetitions: 2 });
+    const ops = createVerificationOperations(app);
+    const run = async () => { const status = await verificationStatus(app, job.id); return ops.execute(job.id, { idempotencyKey: crypto.randomUUID(), expectedRevision: status.revision, expectedCandidateIdentity: status.candidateIdentity }); };
+    return { root, repo, app, workspace, job, ops, run };
+}
+test("T04 real checks need a finite operator grant and preserve red then green evidence", async () => {
+    const f = await fixture();
+    await expect(f.run()).rejects.toThrow("not currently eligible");
+    await approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture approval", confirmLocalExecution: true });
+    const red = await f.run(); expect(red.phase).toBe("checks-failed"); expect(red.remaining.repetitions).toBe(1);
+    await writeFile(join(f.repo, "value.txt"), "correct\n");
+    const green = await f.run(); expect(green.phase).toBe("review"); expect(green.remaining.repetitions).toBe(0); expect(green.boundary.execution).toBe("trusted-local");
+    expect(green.board!.facts.readyToDeliver).not.toBe(true);
+    expect(green.evidence).toHaveLength(1); expect(red.evidence[0]!.id).not.toBe(green.evidence[0]!.id);
+    await expect(f.run()).rejects.toThrow("not currently eligible");
+    await expect(f.ops.review(f.job.id, { expectedRevision: green.revision, expectedCandidateIdentity: green.candidateIdentity, verdict: "met", note: "Synthetic observation" })).rejects.toThrow("No human criterion");
+});
+test("T06 changing check inputs invalidates the grant; changing source invalidates the result", async () => {
+    const f = await fixture();
+    await approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture approval", confirmLocalExecution: true });
+    await writeFile(join(f.repo, "value.txt"), "correct\n"); await f.run();
+    await writeFile(join(f.repo, "value.txt"), "later\n"); expect((await verificationStatus(f.app, f.job.id)).fresh).toBeFalse();
+    await writeFile(join(f.repo, "check.sh"), "true\n");
+    expect((await verificationStatus(f.app, f.job.id)).phase).toBe("policy-changed"); await expect(f.run()).rejects.toThrow("not currently eligible");
+});
+test("T17 transport requests and legacy retries bind one canonical operation to its job", async () => {
+    const f = await fixture();
+    await approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture approval", confirmLocalExecution: true });
+    const before = await verificationStatus(f.app, f.job.id);
+    const request = { idempotencyKey: crypto.randomUUID(), expectedRevision: before.revision, expectedCandidateIdentity: before.candidateIdentity };
+    await expect(f.ops.execute(f.job.id, { ...request, jobId: crypto.randomUUID() })).rejects.toThrow("another job");
+    await expect(f.ops.execute(f.job.id, { ...request, extra: true } as any)).rejects.toThrow("Unknown operation");
+    const first = await f.ops.execute(f.job.id, { ...request, jobId: f.job.id });
+    const path = `verification-jobs/${f.job.id}/operations/${request.idempotencyKey}.json`;
+    const operation = await readAssistantRecord<any>(f.app, path);
+    expect(operation.request).toEqual(request);
+    expect((await f.ops.execute(f.job.id, request)).remaining).toEqual(first.remaining);
+    // Recreate the historical v1 envelope in this disposable fixture only.
+    const { evidence, ...legacy } = operation;
+    await unlink(join(f.app, path));
+    await writeAssistantRecord(f.app, path, { ...legacy, schema_version: "wringer.verification-operation.v1", request: { ...request, jobId: f.job.id } });
+    expect((await f.ops.execute(f.job.id, request)).remaining).toEqual(first.remaining);
+    await expect(f.ops.execute(f.job.id, { ...request, expectedCandidateIdentity: "f".repeat(64) })).rejects.toThrow("conflicts");
+    await expect(f.ops.execute(f.job.id, { ...request, jobId: crypto.randomUUID() })).rejects.toThrow("another job");
+});
+test("T08 setup inspection and proposal allocate no work authority or repository execution", async () => {
+    const f = await fixture();
+    const before = await readFile(join(f.repo, "value.txt"), "utf8");
+    const preview = await inspectWorkspaceSetup(f.repo, undefined, "generic");
+    expect(preview.mode).toBeNull(); expect(preview.authority).toBe("none");
+    const status = await verificationStatus(f.app, f.job.id);
+    expect(status.approval).toBeNull(); expect(status.operation).toBeNull();
+    expect(await readFile(join(f.repo, "value.txt"), "utf8")).toBe(before);
+    await expect(registerWorkspace(join(f.repo, "state"), { repo: f.repo, mode: "verification", client: "generic" })).rejects.toThrow("outside");
+});
+test("T18 second jobs reuse the workspace but never inherit an earlier grant", async () => {
+    const f = await fixture();
+    await approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture approval", confirmLocalExecution: true });
+    await writeFile(join(f.repo, "value.txt"), "new task\n");
+    const second = await createVerificationJob(f.app, f.workspace.id, { intent: "Review a new task", parentJobId: f.job.id, idempotencyKey: crypto.randomUUID() });
+    expect(second.parentJobId).toBe(f.job.id); expect(second.source.fingerprint).not.toBe(f.job.source.fingerprint);
+    expect((await verificationStatus(f.app, second.id)).approval).toBeNull();
+});
+test("T26 the CLI creates a first job with default checks and a separate selected successor", async () => {
+    const f = await fixture(), { dispatch } = await import("../../cli/src/app"), id = crypto.randomUUID();
+    const args = ["job", "new", "--workspace", f.workspace.id, "--app-dir", f.app, "--intent", "CLI original words", "--idempotency-key", id];
+    const first = (await dispatch(args)).value as any;
+    expect(first.id).toBe(id); expect(first.selection).toEqual(["check"]); expect(first.parentJobId).toBeNull();
+    expect((await verificationStatus(f.app, id)).approval).toBeNull();
+    await writeFile(join(f.repo, "value.txt"), "next source\n");
+    expect((await dispatch(args)).value).toEqual(first);
+    const next = (await dispatch(["job", "new", "--workspace", f.workspace.id, "--app-dir", f.app, "--intent", "Successor words", "--parent", id, "--gate", "check", "--repetitions", "1"])).value as any;
+    expect(next.parentJobId).toBe(id); expect(next.selection).toEqual(["check"]); expect(next.ceilings.repetitions).toBe(1);
+    expect(next.source.fingerprint).not.toBe(first.source.fingerprint); expect((await verificationStatus(f.app, next.id)).approval).toBeNull();
+});
+test("T17 interrupted verification preparation resumes the exact retained source after checkout advances", async () => {
+    const f = await fixture(), prefix = `verification-jobs/${f.job.id}`, body = await readAssistantRecord<any>(f.app, `${prefix}/request.json`);
+    // Reproduce a crash between durable source preparation and public index.
+    if (!await assistantExists(f.app, `${prefix}/creation.json`)) await writeAssistantRecord(f.app, `${prefix}/creation.json`, { schema_version: "wringer.verification-creation.v1", request: body, job: f.job });
+    await unlink(join(f.app, prefix, "job.json")); await writeFile(join(f.repo, "value.txt"), "later checkout\n");
+    expect(await readVerificationJob(f.app, f.job.id)).toEqual(f.job);
+    const { dispatch } = await import("../../cli/src/app");
+    expect((await dispatch(["job", "status", "--job", f.job.id, "--app-dir", f.app])).value).toMatchObject({ jobId: f.job.id, mode: "verification" });
+    expect(await Bun.file(join(f.app, prefix, "job.json")).exists()).toBe(false);
+    const { workspaceId, ...request } = body;
+    expect(await createVerificationJob(f.app, workspaceId, request)).toEqual(f.job);
+    await unlink(join(f.app, prefix, "job.json")); await unlink(join(f.app, prefix, "request.json"));
+    expect(await createVerificationJob(f.app, workspaceId, request)).toEqual(f.job);
+    expect((await verificationStatus(f.app, f.job.id)).approval).toBeNull();
+    await expect(createVerificationJob(f.app, workspaceId, { ...request, intent: "Different request" })).rejects.toThrow("different");
+    await unlink(join(f.app, prefix, "job.json")); await unlink(join(f.app, prefix, "request.json"));
+    await expect(createVerificationJob(f.app, workspaceId, { ...request, repetitions: 1 })).rejects.toThrow("different retained work");
+});
+test("T12 stopped verification work cannot receive a later execution approval", async () => {
+    const f = await fixture(); await f.ops.stop(f.job.id, "Automated fixture stop");
+    await expect(approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture", confirmLocalExecution: true })).rejects.toThrow("stopped");
+});
+test("T17 lost check outcome keeps an exact sealed operation binding and recovers without replay", async () => {
+    const f = await fixture();
+    await approveVerificationJob(f.app, f.job.id, { expectedRevision: hashValue(f.job), actor: "Automated fixture approval", confirmLocalExecution: true });
+    const first = await f.run(), opId = first.operation!.id, prefix = `verification-jobs/${f.job.id}`;
+    const op = await readAssistantRecord<any>(f.app, `${prefix}/operations/${opId}.json`);
+    expect(op.schema_version).toBe("wringer.verification-operation.v2");
+    expect(op.evidence).toBe(`.wringer/runs/verification-${opId}`);
+    const completion = await Bun.file(join(f.repo, op.evidence, "completion.json")).json(); expect(completion.exit_code).toBe(1);
+    const observationPath = join(f.app, prefix, `observations/${opId}.json`); await unlink(observationPath);
+    expect((await verificationStatus(f.app, f.job.id)).phase).toBe("uncertain");
+    const { inspectVerificationRecovery, applyVerificationRecovery } = await import("../src/verification-recovery");
+    const preview = await inspectVerificationRecovery(f.app, f.job.id, opId); expect(preview.eligible).toBe(true);
+    const summaryPath = join(f.repo, op.evidence, "summary.md"), summary = await readFile(summaryPath);
+    await writeFile(summaryPath, "altered"); expect((await inspectVerificationRecovery(f.app, f.job.id, opId)).eligible).toBe(false); await writeFile(summaryPath, summary);
+    const lock = join(f.app, prefix, "execution.lock"); await writeFile(lock, JSON.stringify({ pid: process.pid, operationId: opId }), { mode: 0o600 });
+    expect((await inspectVerificationRecovery(f.app, f.job.id, opId)).eligible).toBe(false); await unlink(lock);
+    await expect(applyVerificationRecovery(f.app, f.job.id, opId, "f".repeat(64), "Automated recovery fixture")).rejects.toThrow("stale");
+    expect(await Bun.file(observationPath).exists()).toBe(false);
+    const result = await applyVerificationRecovery(f.app, f.job.id, opId, preview.identity, "Automated recovery fixture");
+    expect(result.dispatched).toBe(false); expect(result.observation.exit).toBe(1);
+    expect(await applyVerificationRecovery(f.app, f.job.id, opId, preview.identity, "Automated recovery fixture")).toEqual(result);
+    const recovered = await verificationStatus(f.app, f.job.id); expect(recovered.phase).toBe("checks-failed"); expect(recovered.remaining.repetitions).toBe(1);
+    await writeFile(join(f.repo, op.evidence, "summary.md"), "tampered");
+    await expect(verificationStatus(f.app, f.job.id)).rejects.toThrow("altered");
+});
+test("T06 read-only proposal inspection cannot execute a repository-configured Git fsmonitor", async () => {
+    const f = await fixture();
+    await writeFile(join(f.repo, "monitor.sh"), "printf exploited > monitor-executed\nprintf '\\0'\n");
+    await git(f.repo, ["config", "core.fsmonitor", "sh ./monitor.sh"]);
+    await createVerificationJob(f.app, f.workspace.id, { intent: "Read only", idempotencyKey: crypto.randomUUID() });
+    expect(await Bun.file(join(f.repo, "monitor-executed")).exists()).toBeFalse();
+});

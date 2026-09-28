@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/workspace-recovery-result-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.workspace-recovery-result.v1"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "retainedDirectory": {
+      "type": "string",
+      "pattern": "^recoveries/page-owners/[a-f0-9]{64}/private-owner$"
+    },
+    "dispatched": {
+      "const": false
+    },
+    "nextAction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "schema_version",
+    "workspaceId",
+    "identity",
+    "retainedDirectory",
+    "dispatched",
+    "nextAction"
+  ],
+  "additionalProperties": false
+}

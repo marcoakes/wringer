@@ -94,7 +94,8 @@ test("verification refuses an approved plan that does not satisfy the frozen spe
 });
 test("placeholder declares explicitly that a passing run proves nothing", async () => {
     const root = await scratch();
-    await init(root);
+    // Retained legacy configuration stays legible; discovery no longer creates it.
+    await config(root, [{ id: "placeholder", run: "true" }]);
     const result = await verify(root);
     expect(result.status).toBe("passed");
     expect(result.template_only).toBe(true);

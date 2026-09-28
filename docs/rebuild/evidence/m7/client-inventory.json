@@ -1,0 +1,33 @@
+{
+  "at": "2026-09-27T18:33:54.192Z",
+  "platform": "darwin",
+  "arch": "arm64",
+  "detection": {
+    "codex": {
+      "executable": "available-on-PATH",
+      "version": "codex-cli 0.153.4",
+      "installed": true,
+      "compatibility": "unmeasured"
+    },
+    "claudeCode": {
+      "executable": null,
+      "version": null,
+      "installed": false,
+      "compatibility": "unmeasured"
+    }
+  },
+  "configAcceptance": {
+    "status": "accepted-by-installed-cli",
+    "version": "codex-cli 0.153.4",
+    "commandMatched": true,
+    "argsMatched": true,
+    "via": "explicit CLI configuration overrides",
+    "projectTrust": "not-measured",
+    "namedClientToolDiscovery": "not-measured",
+    "desktop": "not-measured"
+  },
+  "modelCalls": 0,
+  "accountChanges": 0,
+  "userConfigurationWrites": 0,
+  "fullLiveJourney": "unmeasured"
+}

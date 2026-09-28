@@ -16,7 +16,7 @@ async function fixture() {
 describe("packaged documentation closure", () => {
     test("code, tests and active configuration are inert references with rewritten links, never auto-discovered tests", async () => {
         const f = await fixture();
-        const refs = ["packages/canary.test.ts", "packages/component.tsx", "scripts/build.js", "scripts/run.mjs", "scripts/run.cjs", "scripts/run.sh", "scripts/run.py", "package.json", "bunfig.toml"];
+        const refs = ["packages/canary.test.ts", "packages/component.tsx", "scripts/build.js", "scripts/run.mjs", "scripts/run.cjs", "scripts/run.sh", "scripts/run.py", "package.json", "bunfig.toml", "AGENTS.md", "nested/CLAUDE.md", ".wringer.yaml"];
         await f.put("START.md", refs.map(path => `[${path}](${path})`).join("\n") + "\n[Template](plan.yaml)");
         for (const path of refs) await f.put(path, 'throw new Error("DOC_REFERENCE_EXECUTED")');
         await f.put("plan.yaml", "version: 1\n");

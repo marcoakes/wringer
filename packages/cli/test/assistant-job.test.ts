@@ -12,7 +12,7 @@ const profile = compileExecutionPlan(await readFile(new URL("../../plan/examples
 const scratch = async () => { const path = await realpath(await mkdtemp(join(tmpdir(), "wringer-pm-job-"))); roots.push(path); return path; };
 // Construction-only intake fixtures have no controller query. The production
 // service supplies its validated query alongside the same public status.
-const fixtureService = (value: Record<string, any>) => ({ ...value, inspectForPm: async (jobId: string) => ({ status: await value.status(jobId), query: null }) }) as Awaited<ReturnType<typeof createAssistantService>>;
+const fixtureService = (value: Record<string, any>) => ({ ...value, destination: async () => value.workspace.destination ?? null, inspectForPm: async (jobId: string) => ({ status: await value.status(jobId), query: null }) }) as unknown as Awaited<ReturnType<typeof createAssistantService>>;
 async function fixture() {
     const root = await scratch(), { workspace } = await initializeAssistant(root, { cooperativeLocal: true, plan: profile });
     const capability = await issueAssistantCapability(root, new Date(Date.now() + 60000).toISOString()); let starts = 0;
@@ -25,6 +25,12 @@ test("automatic coordination cannot start an unapproved job, and reading never a
     const f = await fixture();
     for (let i = 0; i < 3; i++) { await f.flow.tick(); expect((await f.flow.read(f.jobId)).phase).toBe("approval"); }
     expect(await f.service.inspectApproval(f.jobId)).toBeNull(); expect(await f.service.runner.list()).toEqual([]); expect(f.starts()).toBe(0);
+});
+test("T12 the operator can stop an unapproved delegated job without granting work", async () => {
+    const f = await fixture(), page = await f.flow.read(f.jobId);
+    await f.flow.post("stop", { jobId: f.jobId, expectedRevision: page.readyRevision, expectedCandidateTree: page.candidateTree });
+    expect((await f.service.status(f.jobId)).outcome).toBe("cancelled");
+    await f.flow.tick(); expect(f.starts()).toBe(0); expect(await f.service.inspectApproval(f.jobId)).toBeNull();
 });
 test("one transient observation error cannot poison a later complete snapshot or replay work", async () => {
     const root = await scratch(), jobId = crypto.randomUUID(); let unreadableOnce = true, dispatches = 0;

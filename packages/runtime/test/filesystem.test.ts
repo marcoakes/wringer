@@ -46,6 +46,7 @@ test("effective policy accepts independent default deny, rejects selecting allow
 // This executable DAC adversary requires a Linux root test environment, not a fake runtime.
 // It is deliberately skipped on macOS; manifest/protocol tests do not replace it or live gates.
 const realLinuxDac = process.platform === "linux" && process.getuid?.() === 0 && !!Bun.which("setpriv");
+if (process.env.WRINGER_REQUIRE_LINUX_DAC === "1" && !realLinuxDac) throw new Error("Required Linux DAC measurement needs Linux, UID 0 and setpriv; refusing a skipped job");
 (realLinuxDac ? test : test.skip)("real Linux DAC denies out-of-scope, protected rename and verifier tracked writes", async () => {
     const root = await mkdtemp(join(tmpdir(), "wringer-dac-")), repo = join(root, "repo");
     await chmod(root, 0o755);

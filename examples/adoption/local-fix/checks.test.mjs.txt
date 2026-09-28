@@ -1,0 +1,6 @@
+import {test} from 'node:test';
+import {strict as assert} from 'node:assert';
+import {total} from './total.mjs';
+test('TOTAL: include every value', () => assert.equal(total([10, 20]), 30));
+test('TOTAL: empty input', () => assert.equal(total([]), 0));
+test('TOTAL: singleton input', () => assert.equal(total([7]), 7));

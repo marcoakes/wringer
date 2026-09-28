@@ -78,6 +78,9 @@ export async function runtimeSmoke(profile: SmokeProfile, output: string, signal
       return sandbox;
     };
     const worker = await allocate("worker"), peer = await allocate("judge"), nonce = randomUUID();
+    const inventory = JSON.parse((await checked("runtime-inventory-command", peer, [...fixture, "inventory"])).stdout);
+    if (inventory.bun !== "1.4.2" || !/^24\.[0-9]+\.[0-9]+$/.test(inventory.node) || !/^[a-f0-9]{64}$/.test(inventory.lock) || !/^[a-f0-9]{64}$/.test(inventory.modelLauncher) || inventory.packages?.["@agentclientprotocol/codex-acp"] !== "1.10.0" || inventory.packages?.["@agentclientprotocol/claude-agent-acp"] !== "0.65.0" || inventory.packages?.["@openai/codex"] !== "0.153.4" || inventory.packages?.["@anthropic-ai/claude-agent-sdk"] !== "0.3.220") throw Error("The measured image inventory does not match the selected runtime catalogue");
+    await record({ id: "runtime-inventory", status: "pass", detail: inventory });
     await checked("worker-scope-and-protected-metadata", worker, [...fixture, "worker", nonce]);
     await checked("peer-source-and-private-storage", peer, [...fixture, "reader", nonce]);
     const sentinel = join(directory, "host-sentinel.txt"), marker = `host-only-${randomUUID()}`;
@@ -121,7 +124,7 @@ export async function runtimeSmoke(profile: SmokeProfile, output: string, signal
       } catch (error) { await record({ id: `cleanup-${id}`, status: "inconclusive", detail: redact(String(error)) }); }
     }
   }
-  const required = ["worker-scope-and-protected-metadata", "peer-source-and-private-storage", "host-filesystem-separation", "host-sentinel-unchanged", "resource-policy", "network-deny", "no-model-acp-session", "cancellation"];
+  const required = ["worker-scope-and-protected-metadata", "peer-source-and-private-storage", "host-filesystem-separation", "host-sentinel-unchanged", "resource-policy", "network-deny", "no-model-acp-session", "cancellation", "runtime-inventory"];
   const status = rows.some(row => row.status === "fail") ? "fail" : required.every(id => rows.some(row => row.id === id && row.status === "pass")) && !rows.some(row => row.status === "inconclusive") && runtimes.size >= 5 ? "pass" : "inconclusive";
   const report = { schema_version: "wringer.live-runtime-smoke.v1", status, started, finished: new Date().toISOString(), runtime: profile.runtime, sourceCommit: source?.commit ?? null, modelPromptsSent: 0, providerCredentialsForwarded: false, providerAuthenticationMeasured: false, blindJourneyMeasured: false, evidence: "Real platform commands and filesystem/network probes; deterministic no-model ACP fixture", limitations: ["Not an escape-proof security certification", "Resource stress/OOM and comprehensive network/peer reachability are not measured", "Real provider authentication, convergence, and full blind journey remain separate release gates"], rows };
   await writeFile(join(directory, "report.json"), JSON.stringify(report, null, 2) + "\n", { mode: 0o600, flag: "wx" });

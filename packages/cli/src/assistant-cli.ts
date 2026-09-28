@@ -2,13 +2,13 @@
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
 import { open, rename, unlink } from "node:fs/promises";
-import { isAbsolute, join, resolve } from "node:path";
+import { basename, isAbsolute, join, resolve } from "node:path";
 import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { loadExecutionPlan } from "@wringer/plan";
 import { VERSION, Redactor } from "@wringer/engine";
 import { ASSISTANT_WARNING, createAssistantService, readAssistantWorkspace, initializeAssistant, issueAssistantCapability, revokeAssistantCapabilities, recoverAssistantRunner, assistantPath, assistantExists, writeAssistantRecord, readAssistantRecord, isLocalSource, localSourceSiblings } from "@wringer/application";
-import { ASSISTANT_TOOL_NAMES, runMcpStdio, parseMcpJson } from "@wringer/mcp";
+import { ASSISTANT_TOOL_NAMES, runMcpStdio, parseMcpJson, verificationContract, delegationContract } from "@wringer/mcp";
 import { parseArgs, flag, required, string, positionals, quote, type Args } from "./args";
 import type { Answer } from "./app";
 import { createAssistantConsole } from "./assistant-console";
@@ -91,7 +91,7 @@ function cooperative(a: Args) { if (!flag(a, "cooperative-local")) throw new Err
 
 /** Same command in source and compiled builds; never rely on the coding app's PATH. */
 export function assistantExecutableCommand(executable = process.execPath, modulePath = fileURLToPath(import.meta.url)): string[] {
-    return modulePath.startsWith("/$bunfs/") || modulePath.startsWith("B:/~BUN/") ? [executable] : [executable, "--no-env-file", "--no-install", "--no-macros", "--config=/dev/null", modulePath];
+    return modulePath.startsWith("/$bunfs/") || modulePath.startsWith("B:/~BUN/") ? [executable, ...(basename(executable) === "wringer-assistant" ? [] : ["assistant"])] : [executable, "--no-env-file", "--no-install", "--no-macros", "--config=/dev/null", modulePath];
 }
 
 async function installConnection(root: string, value: AssistantConnection): Promise<string> {
@@ -208,7 +208,7 @@ export function codexConnectionRecipe(connectionPath: string, command = assistan
         argv,
         addCommand: `codex mcp add wringer -- ${argv.map(quote).join(" ")}`,
         inspectCommand: "codex mcp list",
-        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 40\n# Optional: approve routine calls for this restricted server only.\n# Do not change global shell or browser permissions.\ndefault_tools_approval_mode = "auto"\n`,
+        config: `[mcp_servers.wringer]\ncommand = ${JSON.stringify(argv[0])}\nargs = ${JSON.stringify(argv.slice(1))}\nenv_vars = []\nenabled_tools = ${JSON.stringify(ASSISTANT_TOOL_NAMES)}\nstartup_timeout_sec = 10\ntool_timeout_sec = 40\n# Optional: approve routine calls for this restricted server only.\n# Do not change global shell or browser permissions.\n# default_tools_approval_mode = "auto"\n`,
         disconnectCommand: "codex mcp remove wringer",
     };
 }
@@ -251,7 +251,8 @@ export async function assistantCommand(argv: string[], options: AssistantCliOpti
         // The advertised surface belongs to the workspace, not to this bridge: ask
         // the owner whether its own specification declares design. An unreadable
         // answer leaves the plain surface rather than advertising design anyway.
-        await runMcpStdio({ version: VERSION, call: (name, args) => callAssistantConnection(path, name, args), design: async () => (await callAssistantConnection(path, "wringer.inspect_setup", {})).designDeclared === true });
+        const selectedConnection = await readAssistantConnection(path);
+        await runMcpStdio({ version: VERSION, ...(selectedConnection.schema_version === "wringer.assistant-connection.v2" ? { contract: verificationContract } : selectedConnection.schema_version === "wringer.assistant-connection.v3" ? { contract: delegationContract } : {}), call: (name, args, context) => callAssistantConnection(path, name, args, context?.signal), design: async () => (await callAssistantConnection(path, "wringer.inspect_setup", {})).designDeclared === true });
         return {};
     }
     if (a.command === "init") {

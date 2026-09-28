@@ -1,0 +1,50 @@
+/** No-model compiled bridge/reconnect and new delegation owner browser join. */
+import { mkdir, mkdtemp, readFile, realpath, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
+import { chromium } from "playwright";
+import { git } from "../packages/engine/src";
+import { compileExecutionPlan, hashBytes } from "../packages/plan/src";
+import { createAssistantDirectory, writeAssistantRecord, initializeAssistant, createAssistantService, retainDelegationJob, registerWorkspace, createVerificationJob } from "../packages/application/src";
+import { createVerificationOwner } from "../packages/cli/src/verification-owner";
+import { createDelegationOwner } from "../packages/cli/src/delegation-owner";
+import { probeRestrictedConnection } from "../packages/cli/src/client-adapters";
+const source = resolve(import.meta.dir, ".."), binary = resolve(process.argv[2] ?? join(source, "dist/wring")), output = resolve(process.argv[3] ?? join(source, "build/adoption-connections"));
+const root = await realpath(await mkdtemp(join(tmpdir(), "wringer-adoption-connections-"))), app = join(root, "application"), repo = join(root, "repo"), rows: object[] = [], probes: object[] = [];
+await mkdir(output, { recursive: true }); await mkdir(repo); await git(repo, ["init", "-b", "main"]);
+for (const [key, value] of [["user.name", "Automated connection fixture"], ["user.email", "fixture@example.invalid"], ["commit.gpgsign", "false"], ["core.hooksPath", "/dev/null"]]) await git(repo, ["config", key!, value!]);
+await writeFile(join(repo, "value.txt"), "inert fixture\n"); await writeFile(join(repo, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "value", run: "test -s value.txt" }] })); await git(repo, ["add", "."]); await git(repo, ["commit", "-m", "No-model connection baseline"]);
+const check = (name: string, value: unknown) => { rows.push({ name, passed: !!value }); if (!value) throw new Error(name); };
+let verification: Awaited<ReturnType<typeof createVerificationOwner>> | undefined, delegation: Awaited<ReturnType<typeof createDelegationOwner>> | undefined, browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+try {
+    const workspace = await registerWorkspace(app, { repo, mode: "verification", client: "generic" }), job = await createVerificationJob(app, workspace.id, { intent: "Read the existing value", idempotencyKey: crypto.randomUUID() });
+    verification = await createVerificationOwner(app, workspace.id); probes.push(await probeRestrictedConnection([binary], verification.connectionPath, "verification")); await verification.stop();
+    verification = await createVerificationOwner(app, workspace.id); probes.push(await probeRestrictedConnection([binary], verification.connectionPath, "verification"));
+    check("verification restart retains the unapproved job", (await verification.pm(job.id)).phase === "approval");
+    const workspaceId = crypto.randomUUID(), contextId = crypto.randomUUID(), profileId = crypto.randomUUID();
+    const plan = compileExecutionPlan(await readFile(join(source, "packages/plan/examples/contained.yaml"), "utf8"), { format: "yaml" });
+    await createAssistantDirectory(app);
+    await writeAssistantRecord(app, `workspaces/${workspaceId}.json`, { schema_version: "wringer.workspace.v2", id: workspaceId, mode: "delegation", repo, client: "generic", preferences: { destination: null, profileId, credentialReferences: [] }, boundary: { approval: "cooperative-local", execution: "contained" }, createdAt: new Date().toISOString() });
+    const context = { schema_version: "wringer.delegation-context.v1" as const, id: contextId, workspaceId, profileId, intent: plan.intent, parentJobId: null, destination: null, createdAt: new Date().toISOString() };
+    await writeAssistantRecord(app, `delegation-contexts/${workspaceId}/${contextId}.json`, context);
+    const controllerRoot = join(app, "delegation-controllers", workspaceId, contextId), initialized = await initializeAssistant(controllerRoot, { plan, cooperativeLocal: true }), controller = await createAssistantService(controllerRoot);
+    const proposed = await controller.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: crypto.randomUUID(), proposal: { intent: plan.intent, title: "Unapproved delegation fixture", questions: ["Which behavior should be accepted?"] } });
+    await retainDelegationJob(app, context, proposed.jobId as string);
+    delegation = await createDelegationOwner(app, workspaceId); probes.push(await probeRestrictedConnection([binary], delegation.connectionPath, "delegation"));
+    browser = await chromium.launch({ headless: true }); const page = await browser.newPage(); page.setDefaultTimeout(15000);
+    await page.route("**/*", route => new URL(route.request().url()).hostname === "127.0.0.1" ? route.continue() : route.abort());
+    const url = new URL(delegation.operatorUrl); url.searchParams.set("jobId", proposed.jobId as string); await page.goto(url.href);
+    await page.locator("#job-questions").filter({ hasText: "Which behavior should be accepted?" }).waitFor();
+    check("delegation mode remains explicit", (await page.locator("#job-mode").innerText()).includes("Delegation · contained roles"));
+    check("question cannot acquire approval", await page.locator("#approve-job").isDisabled());
+    check("private bootstrap fragment removed", new URL(page.url()).hash === "");
+    await page.reload(); await page.locator("#job-questions").filter({ hasText: "Which behavior should be accepted?" }).waitFor();
+    check("same question survives browser reload", await page.locator("#approve-job").isDisabled());
+    await page.screenshot({ path: join(output, "delegation-question.png"), fullPage: true });
+    await delegation.stop(); delegation = await createDelegationOwner(app, workspaceId); probes.push(await probeRestrictedConnection([binary], delegation.connectionPath, "delegation"));
+    check("delegation reconnect starts no worker", (await controller.runner.list(proposed.jobId as string)).length === 0 && await controller.inspectApproval(proposed.jobId as string) === null);
+} finally {
+    await browser?.close(); await delegation?.stop(); await verification?.stop();
+    await writeFile(join(output, "result.json"), JSON.stringify({ kind: "Actual compiled STDIO and Chromium; inert unapproved delegation profile; no live client/model/containment claim", binarySha256: hashBytes(await readFile(binary)), modelCalls: 0, rows, probes }, null, 2) + "\n");
+}
+console.log(`${rows.length} owner/browser observations and ${probes.length} exact compiled STDIO probes passed`);

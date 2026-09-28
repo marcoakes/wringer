@@ -1,0 +1,49 @@
+{
+  "baseline": "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3",
+  "kind": "deterministic fixture; no provider/human measurement",
+  "results": [
+    {
+      "name": "serial-stdio",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "red"
+    },
+    {
+      "name": "ignored-wait-cancellation",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "red"
+    },
+    {
+      "name": "unbounded-long-polls",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "red"
+    },
+    {
+      "name": "parallel-writers",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "NOT RED"
+    },
+    {
+      "name": "unbounded-response-queue",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "NOT RED"
+    },
+    {
+      "name": "stale-saturated-join",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "NOT RED"
+    },
+    {
+      "name": "poisoned-admission",
+      "expected": "test fails",
+      "exit": 1,
+      "observed": "NOT RED"
+    }
+  ],
+  "restored_exit": 1
+}

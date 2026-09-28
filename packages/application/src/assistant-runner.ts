@@ -23,6 +23,8 @@ export interface AssistantRunnerStatus {
 export interface AssistantRunnerOptions {
     execute: (request: AssistantRunnerRequest, signal: AbortSignal) => Promise<unknown>;
     pollIntervalMs?: number;
+    /** Application observations construct a reader without allocating queue files. */
+    createStorage?: boolean;
     /** Construction-only owner cleanup, after work drains and before another owner can start. */
     beforeOwnerRelease?: () => Promise<void>;
 }
@@ -71,12 +73,16 @@ function alive(pid: number): "live" | "dead" | "unknown" {
     try { process.kill(pid, 0); return "live"; } catch (e: any) { return e.code === "ESRCH" ? "dead" : "unknown"; }
 }
 
-async function storeAt(directory: string) {
+async function storeAt(directory: string, create = true) {
     const absolute = resolve(directory);
-    await mkdir(absolute, { recursive: true, mode: 0o700 });
-    if ((await lstat(absolute)).isSymbolicLink()) throw new Error("Queue root must not be a symlink");
-    const root = await realpath(absolute);
+    if (create) await mkdir(absolute, { recursive: true, mode: 0o700 });
+    let root = absolute;
+    try {
+        if ((await lstat(absolute)).isSymbolicLink()) throw new Error("Queue root must not be a symlink");
+        root = await realpath(absolute);
+    } catch (error: any) { if (error.code !== "ENOENT" || create) throw error; }
     async function path(name: string) {
+        try { if ((await lstat(root)).isSymbolicLink()) throw new Error("Queue root became a symlink"); } catch (error: any) { if (error.code !== "ENOENT") throw error; }
         const target = resolve(root, name), rel = relative(root, target);
         if (!rel || rel === ".." || rel.startsWith(`..${sep}`)) throw new Error("Queue path escapes its root");
         let cursor = root;
@@ -201,7 +207,7 @@ export async function createAssistantRunner(directory: string, options: Assistan
     if (typeof options.execute !== "function") throw new Error("An application executor is required");
     const interval = options.pollIntervalMs ?? 250;
     if (!Number.isInteger(interval) || interval < 10 || interval > 5000) throw new Error("Queue poll interval must be between 10 and 5000 ms");
-    const store = await storeAt(directory);
+    const store = await storeAt(directory, options.createStorage !== false);
     let owner: AssistantRunnerOwner | null = null, timer: ReturnType<typeof setTimeout> | null = null;
     let stopping = true, pump: Promise<void> | null = null, fault: string | null = null, releasing: Promise<void> | null = null;
     let active: { id: string; jobId: string; controller: AbortController } | null = null;

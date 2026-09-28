@@ -1,6 +1,7 @@
 import { lstat, mkdir, open, link, unlink, readFile, readdir, realpath } from "node:fs/promises";
 import { dirname, join, resolve, relative, sep } from "node:path";
 import { hashValue } from "@wringer/plan";
+import { validateAdoptionRecord } from "./adoption-records";
 
 export const assistantId = (value: unknown): string => {
     if (typeof value !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value)) throw new Error("Use a service-issued handle");
@@ -17,6 +18,12 @@ export async function assistantPath(root: string, name: string): Promise<string>
         catch (e: any) { if (e.code !== "ENOENT") throw e; }
     }
     return path;
+}
+/** Validate an existing private root without creating or syncing anything. */
+export async function readAssistantDirectory(root: string) {
+    const path = await assistantPath(root, "."), info = await lstat(path);
+    if (!info.isDirectory() || (info.mode & 0o077) !== 0 || info.uid !== process.getuid?.()) throw new Error("Controller must be an operator-owned private directory (mode 0700)");
+    return realpath(path);
 }
 export async function createAssistantDirectory(root: string) {
     const path = await assistantPath(root, ".");
@@ -35,10 +42,12 @@ export async function readAssistantRecord<T = any>(root: string, name: string): 
     if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 2 * 1024 * 1024) throw new Error("Assistant record is not a bounded regular file");
     const value = JSON.parse(await readFile(path, "utf8")), { sha256, ...body } = value;
     if (sha256 !== hashValue(body)) throw new Error("Assistant record identity changed; dispatch is refused");
+    await validateAdoptionRecord(body);
     return body as T;
 }
 /** Install once, fsync before acceptance; duplicate semantic data observes the same record. */
 export async function writeAssistantRecord(root: string, name: string, value: object): Promise<void> {
+    await validateAdoptionRecord(value);
     const path = await assistantPath(root, name);
     if (path === resolve(root)) throw new Error("A record must name a file inside its controller");
     await mkdir(dirname(path), { recursive: true, mode: 0o700 });
@@ -60,4 +69,17 @@ export async function assistantInventory(root: string, name: string): Promise<st
     const names = await readdir(path).catch((e: NodeJS.ErrnoException) => { if (e.code === "ENOENT") return []; throw e; });
     if (names.length > 10000) throw new Error("Assistant inventory exceeds its bound");
     return names.sort();
+}
+/** Serialize operator approval and proposal replacement across processes. A
+ * crash leaves the lock for explicit recovery; time alone never grants access. */
+export async function withAssistantProposalLock<T>(root: string, action: () => Promise<T>): Promise<T> {
+    const path = await assistantPath(root, "proposal-decision.lock");
+    const file = await open(path, "wx", 0o600).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "EEXIST") throw new Error("A proposal decision is active or requires explicit owner recovery");
+        throw error;
+    });
+    try {
+        await file.writeFile(JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })); await file.sync();
+        return await action();
+    } finally { await file.close(); await unlink(path); }
 }

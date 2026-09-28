@@ -7,3 +7,5 @@ export * from "./source";
 export * from "./filesystem";
 export * from "./observations";
 export * from "./redact";
+export * from "./oci-resolution";
+export * from "./inspection";

@@ -1,0 +1,173 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/preparation-archive-request-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.preparation-archive-request.v1"
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.preparation-archive-preview.v1"
+        },
+        "selected": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "acceptance",
+                "profile"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "registrations": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}\\.json$"
+              },
+              "identity": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "name",
+              "identity"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "dataIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "entries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "action": {
+          "const": "retain-incomplete-local-preparation"
+        },
+        "discardedAuthority": {
+          "const": false
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "selected",
+        "registrations",
+        "dataIdentity",
+        "bytes",
+        "entries",
+        "action",
+        "discardedAuthority",
+        "note",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "maxLength": 16384,
+            "pattern": "^(?:$|(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))[^\\\\\\x00]+)$"
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "directory"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "inode": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "modified": {
+            "type": "string",
+            "pattern": "^-?[0-9]+$"
+          },
+          "mode": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 511
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "kind",
+          "bytes",
+          "inode",
+          "modified",
+          "mode",
+          "sha256"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "schema_version",
+    "preview",
+    "files",
+    "actor"
+  ],
+  "additionalProperties": false
+}

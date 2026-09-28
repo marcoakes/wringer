@@ -5,8 +5,8 @@ import { isAbsolute, join, sep } from "node:path";
 import { Redactor } from "@wringer/engine";
 import { MCP_MAX_INPUT_BYTES, parseMcpJson, parseAssistantToolCall, isDesignTool, AssistantToolValidationError, DESIGN_NOT_DECLARED } from "@wringer/mcp";
 
-export interface AssistantTransportService { call(token: string, name: string, args: unknown): Promise<Record<string, unknown>> }
-export interface AssistantConnection { schema_version: "wringer.assistant-connection.v1"; endpoint: string; token: string }
+export interface AssistantTransportService { call(token: string, name: string, args: unknown, signal?: AbortSignal): Promise<Record<string, unknown>> }
+export interface AssistantConnection { schema_version: "wringer.assistant-connection.v1" | "wringer.assistant-connection.v2" | "wringer.assistant-connection.v3"; endpoint: string; token: string; mode?: "verification" | "delegation"; workspaceId?: string }
 export const ASSISTANT_CONNECTION_SCHEMA = "wringer.assistant-connection.v1";
 const plain = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
 const equal = (left: string, right: string) => left.length === right.length && timingSafeEqual(Buffer.from(left), Buffer.from(right));
@@ -23,7 +23,13 @@ export function validateAssistantEndpoint(endpoint: unknown): string {
 }
 
 export function parseAssistantConnection(value: unknown): AssistantConnection {
-    if (!plain(value) || Object.keys(value).sort().join(",") !== "endpoint,schema_version,token" || value.schema_version !== ASSISTANT_CONNECTION_SCHEMA || typeof value.token !== "string" || !tokenShape.test(value.token)) throw new Error("Use a private scoped Wringer connection file; operator URLs or additional credentials are not accepted.");
+    if (!plain(value) || typeof value.token !== "string" || !tokenShape.test(value.token)) throw new Error("Use a private scoped Wringer connection file");
+    if (value.schema_version === "wringer.assistant-connection.v2" || value.schema_version === "wringer.assistant-connection.v3") {
+        const mode = value.schema_version === "wringer.assistant-connection.v2" ? "verification" : "delegation";
+        if (Object.keys(value).sort().join(",") !== "endpoint,mode,schema_version,token,workspaceId" || value.mode !== mode || typeof value.workspaceId !== "string" || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(value.workspaceId)) throw new Error("Invalid registered workspace connection");
+        return { schema_version: value.schema_version, mode, workspaceId: value.workspaceId, endpoint: validateAssistantEndpoint(value.endpoint), token: value.token };
+    }
+    if (Object.keys(value).sort().join(",") !== "endpoint,schema_version,token" || value.schema_version !== ASSISTANT_CONNECTION_SCHEMA) throw new Error("Use a private scoped Wringer connection file; operator URLs or additional credentials are not accepted.");
     return { schema_version: ASSISTANT_CONNECTION_SCHEMA, endpoint: validateAssistantEndpoint(value.endpoint), token: value.token };
 }
 
@@ -61,7 +67,7 @@ async function boundedJson(request: Request): Promise<unknown> {
     return parseMcpJson(new TextDecoder("utf-8", { fatal: true }).decode(buffer));
 }
 
-export function createAssistantRequestHandler(service: AssistantTransportService, options: { host: () => string; adminToken: string; instanceId: string; design?: boolean; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
+export function createAssistantRequestHandler(service: AssistantTransportService, options: { host: () => string; adminToken: string; instanceId: string; design?: boolean; parseCall?: (name: unknown, args: unknown) => { name: string; args: Record<string, unknown> }; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
     let active = 0, windowAt = Date.now(), requests = 0;
     return async (request: Request): Promise<Response> => {
         const url = new URL(request.url), host = options.host();
@@ -90,10 +96,10 @@ export function createAssistantRequestHandler(service: AssistantTransportService
             // too, so a design call cannot arrive around an unadvertised surface.
             if (isDesignTool(input.name) && options.design !== true) return refused(400, "design-not-declared", DESIGN_NOT_DECLARED);
             let call;
-            try { call = parseAssistantToolCall(input.name, input.args); }
+            try { call = (options.parseCall ?? parseAssistantToolCall)(input.name, input.args); }
             catch (error) { return refused(400, error instanceof AssistantToolValidationError ? error.code : "invalid-request", error instanceof AssistantToolValidationError ? error.message : "The operation shape is invalid."); }
             if (options.isStopping?.() && ["wringer.propose", "wringer.start", "wringer.continue", "wringer.request_revision", "wringer.prepare_handover"].includes(call.name)) return refused(409, "owner-stopping", "The owner is stopping. Status, evidence and cancellation remain available; no new work was accepted.");
-            const result = await service.call(token, call.name, call.args);
+            const result = await service.call(token, call.name, call.args, call.name === "wringer.wait_for_update" ? request.signal : undefined);
             const text = new Redactor(undefined, process.env, [token, options.adminToken]).scrub(JSON.stringify(result));
             if (Buffer.byteLength(text) > MCP_MAX_INPUT_BYTES) return refused(502, "response-too-large", "The response exceeds the transport bound. Request a single job or smaller evidence page.");
             return new Response(text, { status: 200, headers });
@@ -102,20 +108,21 @@ export function createAssistantRequestHandler(service: AssistantTransportService
     };
 }
 
-export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; design?: boolean; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
+export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; design?: boolean; parseCall?: (name: unknown, args: unknown) => { name: string; args: Record<string, unknown> }; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
     const adminToken = randomBytes(32).toString("hex");
     let host = "";
-    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, design: options.design, onStop: options.onStop, isStopping: options.isStopping }) });
+    const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, design: options.design, parseCall: options.parseCall, onStop: options.onStop, isStopping: options.isStopping }) });
     host = `127.0.0.1:${server.port}`;
     return { server, endpoint: `http://${host}/call`, adminToken, stop: () => server.stop(true) };
 }
 
 /** No automatic retry and no daemon spawn: losing a response cannot replay work. */
-export async function callAssistantConnection(path: string, name: string, args: unknown): Promise<Record<string, unknown>> {
+export async function callAssistantConnection(path: string, name: string, args: unknown, signal?: AbortSignal): Promise<Record<string, unknown>> {
     const connection = await readAssistantConnection(path);
     const seconds = name === "wringer.wait_for_update" ? (args as { timeoutSeconds?: unknown } | null)?.timeoutSeconds ?? 25 : null;
     const timeoutMs = typeof seconds === "number" && Number.isInteger(seconds) && seconds >= 0 && seconds <= 25 ? Math.max(10000, (seconds + 5) * 1000) : 10000;
-    const response = await fetch(connection.endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ name, args }), redirect: "error", signal: AbortSignal.timeout(timeoutMs) });
+    const timeout = AbortSignal.timeout(timeoutMs);
+    const response = await fetch(connection.endpoint, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${connection.token}` }, body: JSON.stringify({ name, args }), redirect: "error", signal: name === "wringer.wait_for_update" && signal ? AbortSignal.any([timeout, signal]) : timeout });
     if (!response.body) throw new Error("The local service returned no response");
     // Read the already-bounded response using the same fatal Unicode/duplicate-key reader.
     const value = await boundedJson(new Request("http://127.0.0.1/result", { method: "POST", body: response.body, duplex: "half" } as RequestInit));

@@ -46,6 +46,7 @@ jobs:
             .wringer/local-source-route-*/transcript.json
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
+            build/validated-examples/result.json
           if-no-files-found: error
           include-hidden-files: true
   rehearsals:
@@ -89,6 +90,10 @@ jobs:
             .wringer/improvements-browser-*/result.json
             .wringer/improvements-browser-*/transcript.json
             .wringer/improvements-browser-*/browser-*.png
+            build/adoption-connections/result.json
+            build/adoption-connections/delegation-question.png
+            docs/rebuild/evidence/m5/browser-*.json
+            build/rebuild-browser/*/*.png
           if-no-files-found: error
           include-hidden-files: true
   action:
@@ -106,6 +111,8 @@ jobs:
       - name: Install the browser required by this repository's declared checks
         run: bun node_modules/playwright/cli.js install --with-deps chromium
       - uses: ./
+        with:
+          mode: source
       - uses: actions/upload-artifact@v4
         if: always()
         with:

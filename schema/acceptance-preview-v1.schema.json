@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/acceptance-preview-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.acceptance-preview.v1"
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "baseCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "sourceFingerprint": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.acceptance-input.v1"
+        },
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "quote"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64,
+          "minItems": 1
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 220,
+                "pattern": "^wringer-acceptance/[A-Za-z0-9][A-Za-z0-9_./-]*$"
+              },
+              "contents": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 524288
+              }
+            },
+            "required": [
+              "path",
+              "contents"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64,
+          "minItems": 0
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+              },
+              "run": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 16384
+              },
+              "inputs": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                },
+                "maxItems": 64,
+                "minItems": 1
+              },
+              "requirements": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 64,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "maxItems": 64,
+                "minItems": 1
+              },
+              "timeout": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3600
+              },
+              "adapter": {
+                "enum": [
+                  "node-test",
+                  "vitest",
+                  "playwright"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "run",
+              "inputs",
+              "requirements"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 64,
+          "minItems": 1
+        }
+      },
+      "required": [
+        "schema_version",
+        "requirements",
+        "files",
+        "checks"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 220,
+            "pattern": "^wringer-acceptance/[A-Za-z0-9][A-Za-z0-9_./-]*$"
+          },
+          "contents": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 524288
+          }
+        },
+        "required": [
+          "path",
+          "contents"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 66,
+      "minItems": 0
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+          },
+          "run": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3600
+          },
+          "optional": {
+            "const": false
+          },
+          "proves": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "maxItems": 64,
+            "minItems": 1
+          },
+          "corroborates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+            },
+            "maxItems": 0,
+            "minItems": 0
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "maxItems": 64,
+            "minItems": 1
+          },
+          "concurrent": {
+            "const": false
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "assertions"
+              },
+              "adapter": {
+                "enum": [
+                  "node-test",
+                  "vitest",
+                  "playwright"
+                ]
+              }
+            },
+            "required": [
+              "kind",
+              "adapter"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "run",
+          "timeout",
+          "optional",
+          "proves",
+          "corroborates",
+          "inputs",
+          "concurrent"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 64,
+      "minItems": 1
+    },
+    "authority": {
+      "const": "none"
+    },
+    "executionApproved": {
+      "const": false
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "required": [
+    "schema_version",
+    "repo",
+    "baseCommit",
+    "sourceFingerprint",
+    "input",
+    "files",
+    "gates",
+    "authority",
+    "executionApproved",
+    "identity"
+  ],
+  "additionalProperties": false
+}

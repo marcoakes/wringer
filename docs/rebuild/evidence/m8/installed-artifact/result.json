@@ -1,0 +1,77 @@
+{
+  "schema_version": "wringer.installer-measurement.v1",
+  "kind": "local candidate artifact, offline bootstrap, actual host, no Bun on PATH",
+  "version": "1.0.0-alpha.19",
+  "platform": "darwin-arm64",
+  "archiveSha256": "9f202310be30522543884041b02808203c022377516a45767517701d91734e1e",
+  "archiveBytes": 29184271,
+  "modelCalls": 0,
+  "publicDownload": "unmeasured",
+  "records": [
+    {
+      "name": "bootstrap-preview-without-bun",
+      "exit": 0,
+      "durationMs": 2265
+    },
+    {
+      "name": "bootstrap-apply-exact-preview",
+      "exit": 0,
+      "durationMs": 1280
+    },
+    {
+      "name": "installed-version",
+      "exit": 0,
+      "durationMs": 964
+    },
+    {
+      "name": "installed-route-wring",
+      "exit": 0,
+      "durationMs": 130
+    },
+    {
+      "name": "installed-route-wringer-drive",
+      "exit": 0,
+      "durationMs": 131
+    },
+    {
+      "name": "installed-route-wringer-board",
+      "exit": 0,
+      "durationMs": 131
+    },
+    {
+      "name": "installed-route-wringer-assistant",
+      "exit": 0,
+      "durationMs": 298
+    },
+    {
+      "name": "installed-route-wringer-headless",
+      "exit": 0,
+      "durationMs": 131
+    },
+    {
+      "name": "installed-route-wringer-figma-broker",
+      "exit": 0,
+      "durationMs": 95
+    },
+    {
+      "name": "installed-no-model-demo",
+      "exit": 0,
+      "durationMs": 637
+    },
+    {
+      "name": "bootstrap-corrupt-binary-refused",
+      "exit": 2,
+      "durationMs": 24
+    },
+    {
+      "name": "installed-uninstall-preview",
+      "exit": 0,
+      "durationMs": 267
+    },
+    {
+      "name": "installed-uninstall-apply",
+      "exit": 0,
+      "durationMs": 428
+    }
+  ]
+}

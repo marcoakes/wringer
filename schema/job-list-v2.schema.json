@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/job-list-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.job-list.v2"
+    },
+    "mode": {
+      "enum": ["delegation", "verification"]
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "outcome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "revision": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "supersededBy": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+              }
+            ]
+          }
+        },
+        "required": [
+          "jobId",
+          "outcome",
+          "revision",
+          "supersededBy"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 50
+    },
+    "nextOffset": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "integer",
+          "minimum": 0
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "mode",
+    "workspaceId",
+    "jobs",
+    "nextOffset"
+  ],
+  "additionalProperties": false
+}

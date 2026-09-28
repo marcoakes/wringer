@@ -29,7 +29,7 @@ export function parseArgs(argv: string[]): Args {
         if (!key)
             throw new Error("Empty option");
         let value: string | boolean;
-        if (booleans.has(key)) {
+        if (booleans.has(key) || ["start-service", "cooperative-local", "replace", "remove", "auto-approve", "verify-client", "probe-tools", "rollback"].includes(key)) {
             if (rest.length)
                 throw new Error(`--${key} takes no value`);
             value = true;
@@ -40,7 +40,7 @@ export function parseArgs(argv: string[]): Args {
                 throw new Error(`--${key} needs a value`);
         }
         if (flags.has(key)) {
-            if (!["gate", "from", "contender", "set", "live-check", "supersedes"].includes(key))
+            if (!["gate", "from", "contender", "set", "live-check", "supersedes", "secret-ref", "egress", "dns", "writable", "output-dir"].includes(key))
                 throw new Error(`--${key} was supplied more than once`);
             const previous = flags.get(key)!;
             flags.set(key, [...(Array.isArray(previous) ? previous : [String(previous)]), String(value)]);

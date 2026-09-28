@@ -1,0 +1,9 @@
+{
+  "kind": "illustrative sanitized schema-independent example; not an observed run",
+  "mode": "verification",
+  "red": "expected assertion/display refusal retained",
+  "green": "must be measured against exact corrected source",
+  "humanAcceptance": "unmeasured",
+  "publication": "not attempted",
+  "cost": null
+}

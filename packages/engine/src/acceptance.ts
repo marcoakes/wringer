@@ -113,7 +113,7 @@ export async function checkIdentity(repo: string, gate: Gate) {
             continue;
         try {
             const path = await safePath(repo, token), name = posix(relative(repo, path));
-            if (name === ".wringer" || name.startsWith(".wringer/"))
+            if (name === ".wringer" || name.startsWith(".wringer/") || gate.evidence?.report && name === posix(gate.evidence.report).replace(/^\.\//, ""))
                 continue;
             const stat = await Bun.file(path).stat();
             if (stat.isFile())

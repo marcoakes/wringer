@@ -14,10 +14,10 @@
  * only trace in the runner's JSON is inside an error message, which is exactly
  * the thing that must not decide this.
  */
-import { readFile } from "node:fs/promises";
+import { readFile, lstat } from "node:fs/promises";
 import { observeAssertions, type CheckEvidenceObservation } from "@wringer/records";
 import { assertionReport, translate, type Translation } from "./adapters";
-import { Bundle, safePath } from "./io";
+import { Bundle, safePath, sha256 } from "./io";
 import { type ReadinessRow } from "./readiness";
 import { type Gate, type ProcessResult } from "./types";
 export interface GateAssertionRow {
@@ -48,6 +48,16 @@ const SPAWN_EXITS = new Set([126, 127]);
 export interface GateAssertionOptions {
     /** The bounded browser launch probe for this repository, memoised per run. Null when none is declared. */
     browserProbe: () => Promise<ReadinessRow | null>;
+    reportBefore?: string | null;
+}
+/** Bound report inspection before and after the command, without deleting a
+ * project file. A stale sidecar cannot stand in for this attempt's output. */
+export async function reportFingerprint(repo: string, path: string): Promise<string | null> {
+    try {
+        const target = await safePath(repo, path), info = await lstat(target, { bigint: true });
+        if (!info.isFile() || info.size > 8n * 1024n * 1024n) throw new Error("The assertion report must be a bounded regular file");
+        return sha256([info.dev, info.ino, info.size, info.mtimeNs, info.ctimeNs, sha256(await readFile(target))].join(":"));
+    } catch (error: any) { if (error.code === "ENOENT") return null; throw error; }
 }
 export async function observeGateAssertions(repo: string, gate: Gate, bundle: Bundle, attemptDir: string, process: ProcessResult, options: GateAssertionOptions): Promise<{
     row: GateAssertionRow;
@@ -60,6 +70,8 @@ export async function observeGateAssertions(repo: string, gate: Gate, bundle: Bu
     if (evidence.report) {
         sourceName = evidence.report;
         try {
+            const after = await reportFingerprint(repo, evidence.report);
+            if (options.reportBefore === undefined || after === options.reportBefore) throw new Error("The declared report was unchanged or its pre-run identity was not measured; freshness is unavailable");
             source = await readFile(await safePath(repo, evidence.report), "utf8");
         }
         catch (error) {
@@ -78,6 +90,12 @@ export async function observeGateAssertions(repo: string, gate: Gate, bundle: Bu
             produceError = (error as Error).message;
         }
     }
+    const completeness: string[] = [];
+    if (translation && !produceError) {
+        if (!evidence.report && (process.stdout_truncated || process.stderr_truncated)) completeness.push("Captured output was truncated; a partial report cannot establish the complete run");
+        if (evidence.adapter === "node-test" && translation.counts.executed > 0 && !/^# wringer-node-registration-v1: complete$/m.test(source)) completeness.push("Node test registration was not established for every file. Use the shipped runtime/node-reporter.mjs; plain TAP can pass an empty file");
+    }
+    translation?.errors.push(...completeness);
     const observation = observeAssertions(gate.id, () => {
         if (produceError)
             throw new Error(produceError);
@@ -107,7 +125,7 @@ export async function observeGateAssertions(repo: string, gate: Gate, bundle: Bu
         else if (!probe)
             environmentReason = "No browser requirement is declared in .wringer.yaml, so no launch probe measured this host. Declare requires: [{kind: browser}] to have that measured rather than assumed.";
     }
-    const reason = [observation.reason, environmentReason].filter(Boolean).join(" ");
+    const reason = [observation.reason, ...completeness, environmentReason].filter(Boolean).join(" ");
     const row: GateAssertionRow = {
         gate_id: gate.id, adapter: evidence.adapter, source: sourceName,
         status: observation.status, classification,

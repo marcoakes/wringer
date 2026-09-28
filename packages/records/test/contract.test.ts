@@ -57,7 +57,7 @@ describe("the schema set", () => {
     expect(Object.keys(SCHEMA_BY_VERSION).sort()).toEqual([...seen.keys()].sort());
   });
 
-  test("the versionless schemas are the ones the corpus names, and no others", () => {
+  test("versionless schemas are the historical corpus members and explicitly tested new input contracts", () => {
     // Nine schemas describe event lines and sub-objects that carry no
     // version of their own. They are matched by the file they live in, not
     // by declaration, and until that is built they are OUT of this contract
@@ -66,7 +66,9 @@ describe("the schema set", () => {
       .filter(([, version]) => version === null)
       .map(([file]) => file)
       .sort();
-    expect(versionless).toEqual([...corpus.versionless_schemas].sort());
+    // Preserve the historical corpus bytes. The new mutable input is validated
+    // independently by the delegation protocol suite; it is not a record.
+    expect(versionless).toEqual([...corpus.versionless_schemas, "authorable-proposal-v1.schema.json"].sort());
   });
 });
 

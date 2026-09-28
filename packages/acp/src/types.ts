@@ -20,6 +20,8 @@ export interface AgentDeclaration {
     mode?: string;
 }
 export interface AcpTurnOptions {
+    /** Exact operator-selected ACP model option; absence preserves legacy semantics. */
+    model?: string;
     role: AgentRole;
     cwd: string;
     prompt: string;

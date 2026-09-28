@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/proposal-destination-policy-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.proposal-destination-policy.v1"
+    },
+    "workspaceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "uniqueProposalBranches": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "workspaceId",
+    "uniqueProposalBranches"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,83 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio-progress.test.ts:
+(pass) T12 real STDIO handles status and durable cancellation during a long poll [97.26ms]
+(pass) T12 transport cancellation releases only its wait, never the durable job [103.17ms]
+(pass) T12 long-poll overload is bounded and leaves capacity for status [97.20ms]
+
+packages/mcp/test/stdio.test.ts:
+(pass) bounded MCP stdio transport > T12 slow output uses one writer and bounds outstanding dispatch [3.63ms]
+(pass) bounded MCP stdio transport > handles split UTF-8, one-byte chunks and multiple messages per chunk [2.06ms]
+(pass) bounded MCP stdio transport > accepts CRLF but rejects embedded raw carriage returns [0.22ms]
+(pass) bounded MCP stdio transport > invalid UTF-8 fails closed rather than replacing source words [0.18ms]
+(pass) bounded MCP stdio transport > unterminated final frame never becomes a dispatch on EOF [0.11ms]
+(pass) bounded MCP stdio transport > oversized frames are rejected before decoding, even with multibyte characters [0.40ms]
+(pass) bounded MCP stdio transport > a real Bun subprocess writes only protocol responses and exits after chat input closes [79.39ms]
+
+packages/mcp/test/json.test.ts:
+(pass) bounded unambiguous MCP JSON > preserves Unicode and complete JSON values without evaluating strings [0.14ms]
+(pass) bounded unambiguous MCP JSON > rejects duplicate decoded keys at every depth, not just the selected tool name [0.09ms]
+(pass) bounded unambiguous MCP JSON > rejects malformed, non-finite, trailing and dangerously deep input [0.11ms]
+(pass) bounded unambiguous MCP JSON > size is measured as UTF-8 bytes, not JavaScript characters [0.25ms]
+(pass) bounded unambiguous MCP JSON > deterministic generated JSON agrees with the platform reader [1.38ms]
+
+packages/mcp/test/contract.test.ts:
+(pass) narrow assistant tool contract > exactly fifteen tools including bounded design requests; no human pen, publication, credentials, scope or arbitrary execution route [0.10ms]
+(pass) narrow assistant tool contract > every listed schema accepts its intended inert request without changing the person's words [1.47ms]
+(pass) narrow assistant tool contract > unknown arguments and null/array arguments fail closed for every tool [0.24ms]
+(pass) narrow assistant tool contract > handles cannot become files, URLs, flags or executable snippets [0.10ms]
+(pass) narrow assistant tool contract > every mutation requires idempotency and exact revision/candidate guards [0.16ms]
+(pass) narrow assistant tool contract > uncertain effect replay is not an ordinary assistant recovery action [0.06ms]
+(pass) narrow assistant tool contract > bounded evidence pages and proposal notes cannot request an unlimited dump [0.46ms]
+(pass) narrow assistant tool contract > any explicit cash-limit request is a named refusal, including zero, null and false [0.08ms]
+
+packages/mcp/test/server.test.ts:
+(pass) MCP lifecycle and narrow dispatch > negotiates both declared versions and offers latest for an unknown client's version [0.27ms]
+(pass) MCP lifecycle and narrow dispatch > requires initialization notification before tools; ping is allowed during initialization [0.20ms]
+(pass) MCP lifecycle and narrow dispatch > design tools are advertised only to a workspace whose specification declares design [0.51ms]
+(pass) MCP lifecycle and narrow dispatch > a design call on a plain workspace refuses by sentence and never reaches the application [0.31ms]
+(pass) MCP lifecycle and narrow dispatch > tool shape errors differ from malformed protocol, unknown tools and honest stopped work [0.33ms]
+(pass) MCP lifecycle and narrow dispatch > forbidden tools and smuggled authority never reach the application [0.28ms]
+(pass) MCP lifecycle and narrow dispatch > cash-cap requests are explicitly refused before the service callback [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > duplicate JSON-RPC request id does not repeat even a read or dispatch [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > notifications cannot dispatch work, cancel accepted jobs or answer themselves [0.11ms]
+(pass) MCP lifecycle and narrow dispatch > batches, duplicate keys, responses and protocol extensions do not trigger a callback [0.17ms]
+(pass) MCP lifecycle and narrow dispatch > known-secret redaction and credential-field removal apply before serialized structured content [0.15ms]
+(pass) MCP lifecycle and narrow dispatch > raw service exceptions are not exposed and never imply no side effect occurred [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > an accidental operator link or authority token cannot cross through a tool result [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > exotic, cyclic and oversized application responses fail closed without serializing secrets [1.27ms]
+(pass) MCP lifecycle and narrow dispatch > limits concurrent callback work while still answering ping [0.31ms]
+
+packages/application/test/assistant.test.ts:
+(pass) a status read never returns a head older than the journal at request time [605.81ms]
+(pass) a synchronous burst coalesces before observation starts [266.70ms]
+(pass) T13 staggered saturation queues a fresh observation after four held snapshots [55.46ms]
+(pass) T13 an older failed inspection frees capacity without poisoning a queued read [43.65ms]
+(pass) the design blind-test page names the planning guard that actually exists [0.66ms]
+(pass) a planner-declared profile through the assistant flow mints no planning authority [38.97ms]
+(pass) assistant application narrow authority and inert intake > PM inspection coalesces only overlapping publication reads and keeps public status unchanged [19.28ms]
+(pass) assistant application narrow authority and inert intake > overlapping PM inspections report an invalidated query as advanced and later reads recompute [20.61ms]
+(pass) assistant application narrow authority and inert intake > the construction-only routine coordinator still requires exact approval and restricts runtime tool names [24.14ms]
+(pass) assistant application narrow authority and inert intake > bounded waiting observes unchanged state without execution and rejects non-string cursors or extra powers [1048.39ms]
+(pass) assistant application narrow authority and inert intake > a pending wait rechecks revoked credentials and only the changed presentation is returned [2066.49ms]
+(pass) assistant application narrow authority and inert intake > current audited publication drives next action; fresh handover refuses but duplicate observation survives [97.87ms]
+(pass) assistant application narrow authority and inert intake > protected mode refuses; local preview must be explicit and private [1.51ms]
+(pass) assistant application narrow authority and inert intake > wrong, revoked, expired and another workspace's capabilities fail closed [18.29ms]
+(pass) assistant application narrow authority and inert intake > proposal questions, assumptions and original words survive repeated reads without a planner [15.57ms]
+(pass) assistant application narrow authority and inert intake > profile pins source, runtime, agents, environment, budgets, scope and protected files [21.31ms]
+(pass) assistant application narrow authority and inert intake > strict cash, arbitrary paths/commands and human/publication powers are not assistant tools [20.94ms]
+(pass) assistant application narrow authority and inert intake > approval binds the exact revision, cannot answer questions, and does not itself start work [25.36ms]
+(pass) assistant application narrow authority and inert intake > read-only inspection and evidence consume no execution and preserve both unknown cost lanes [41.68ms]
+(pass) assistant application narrow authority and inert intake > a duplicate start after lost response and advanced revision observes the same operation [40.67ms]
+(pass) assistant application narrow authority and inert intake > approval expiry while accepted but unclaimed refuses before effects, not as unknown spend [30.63ms]
+(pass) assistant application narrow authority and inert intake > cancellation prevents accepted future dispatch and cannot mint another job approval [78.72ms]
+(pass) assistant application narrow authority and inert intake > durable cancellation acknowledgement survives an immediately advancing correction journal [21.73ms]
+(pass) assistant application narrow authority and inert intake > a cancellation naming an older revision is recorded with it and stops future work; a malformed revision is refused [27.43ms]
+(pass) assistant application narrow authority and inert intake > questions/evidence from another job cannot cross a workspace capability [15.02ms]
+(pass) assistant application narrow authority and inert intake > record corruption and symlink escapes are refused without writing outside the service [10.28ms]
+(pass) assistant application narrow authority and inert intake > corrupt start and cancellation markers are not narrated as recorded lifecycle facts [22.12ms]
+
+ 65 pass
+ 0 fail
+ 1192 expect() calls
+Ran 65 tests across 6 files. [5.25s]

@@ -90,7 +90,7 @@ async function harness(initial = fixture(), handler?: (path: string, options: Re
     const html = renderPmJobWorkspace({ nonce: "fixtureNonce123" }), elements = new Map<string, Element>(), intervals: Function[] = [], windowEvents = new Map<string, Function>();
     for (const match of html.matchAll(/id="([^"]+)"/g)) elements.set(match[1]!, new Element(match[1]!));
     const get = (id: string) => elements.get(id)!;
-    const context = { job: initial, get, elements, requests: [] as { path: string; options: RequestInit }[], posts: [] as { path: string; body: any }[], notifications: [] as any[], notificationPermissions: 0, focusCount: 0, copied: [] as string[], blobs: [] as Blob[], revoked: [] as string[] };
+    const context = { job: initial, get, elements, requests: [] as { path: string; options: RequestInit }[], posts: [] as { path: string; body: any }[], notifications: [] as any[], notificationPermissions: 0, focusCount: 0, copied: [] as string[], blobs: [] as Blob[], revoked: [] as string[], now: Date.now() };
     const location = { hash: fragment, pathname: "/", search: `?jobId=${jobId}` }, history: unknown[][] = [];
     const fetch = async (path: string, options: RequestInit = {}) => {
         context.requests.push({ path, options }); if (options.method === "POST") context.posts.push({ path, body: JSON.parse(String(options.body)) });
@@ -110,17 +110,31 @@ async function harness(initial = fixture(), handler?: (path: string, options: Re
         static override createObjectURL(blob: Blob) { context.blobs.push(blob); return `blob:fixture/${context.blobs.length}`; }
         static override revokeObjectURL(url: string) { context.revoked.push(url); }
     }
-    new Function("document", "window", "history", "location", "fetch", "setInterval", "navigator", "Notification", "AbortSignal", "URL", pmJobClientScript())(
+    class Clock extends Date { static override now() { return context.now; } }
+    new Function("document", "window", "history", "location", "fetch", "setInterval", "navigator", "Notification", "AbortSignal", "URL", "Date", pmJobClientScript())(
         { getElementById: get, createElement: (tag: string) => new Element("", tag) },
         { focus: () => context.focusCount++, addEventListener: (name: string, callback: Function) => windowEvents.set(name, callback) },
         { replaceState: (...args: unknown[]) => { history.push(args); location.hash = ""; } }, location, fetch, (callback: Function) => intervals.push(callback),
-        { clipboard: { writeText: async (value: string) => context.copied.push(value) } }, Notifications, AbortSignal, ImageURL,
+        { clipboard: { writeText: async (value: string) => context.copied.push(value) } }, Notifications, AbortSignal, ImageURL, Clock,
     );
     await flush();
-    return { ...context, location, history, intervals, windowEvents, click: async (id: string) => { get(id).listeners.get("click")!(); await flush(); }, type: (id: string, value: string) => { get(id).value = value; get(id).listeners.get("input")!(); }, refresh: async () => { intervals[0]!(); await flush(); } };
+    return { ...context, advance: (milliseconds: number) => { context.now += milliseconds; }, location, history, intervals, windowEvents, click: async (id: string) => { get(id).listeners.get("click")!(); await flush(); }, type: (id: string, value: string) => { get(id).value = value; get(id).listeners.get("input")!(); }, refresh: async () => { intervals[0]!(); await flush(); } };
 }
 const textOf = (element: Element): string => element.textContent + element.children.map(textOf).join("\n");
 const defaultResponse = (path: string, context: any) => path === "/api/session" || path === "/api/logout" ? Response.json({ outcome: "connected" }) : path === "/api/jobs" ? Response.json({ jobs: [{ jobId: context.job.jobId, name: context.job.name }] }) : Response.json(context.job);
+
+test("mode remains visible and phase transitions focus the current decision", async () => {
+    const job = fixture(); job.schema_version = "wringer.pm-job.v3"; job.mode = "verification";
+    job.verification = { repetitions: 3, remaining: 2, runSeconds: 120, checks: [{ id: "check", command: "test -f source.txt" }] };
+    const h = await harness(job);
+    expect(h.get("job-mode").textContent).toBe("Verification · trusted-local checks");
+    expect(h.get("job-workspace").attributes.focused).toBeUndefined();
+    h.job.phase = "preparing"; h.job.readyRevision = "f".repeat(64); await h.refresh();
+    expect(h.get("job-workspace").attributes.focused).toBe("true");
+    delete h.get("job-workspace").attributes.focused; await h.refresh();
+    expect(h.get("job-workspace").attributes.focused).toBeUndefined();
+    expect(h.get("job-mode").textContent).toContain("trusted-local");
+});
 
 test("same-page engineering disclosure is plain text, collapsed and never changes the next decision", async () => {
     const job = engineeringFixture(), h = await harness(job);
@@ -348,7 +362,16 @@ test("notification is opt-in, readiness-deduplicated and carries neither project
     h.job.phase = "review"; h.job.readyRevision = "e".repeat(64); await h.refresh(); await h.refresh();
     expect(h.notifications).toHaveLength(1); expect(h.notifications[0].title).toBe("Your result is ready"); expect(JSON.stringify(h.notifications[0].options)).not.toContain("token"); expect(JSON.stringify(h.notifications[0].options)).not.toContain(job.name); expect(JSON.stringify(h.notifications[0].options)).not.toContain(job.intent);
     h.notifications[0].instance.onclick(); expect(h.get("notification-note").textContent).toContain("while this page is open");
-    h.job.phase = "send"; h.job.readyRevision = "f".repeat(64); await h.refresh(); expect(h.notifications).toHaveLength(2);
+    h.job.phase = "send"; h.job.readyRevision = "f".repeat(64); await h.refresh(); expect(h.notifications).toHaveLength(1);
+    h.advance(31000); await h.refresh(); expect(h.notifications).toHaveLength(2);
+    h.job.readyRevision = "a".repeat(64); h.advance(31000); await h.refresh(); expect(h.notifications).toHaveLength(3);
+});
+test("notification opt-in can be disabled immediately without locking or changing work", async () => {
+    const job = fixture(); job.phase = "working"; const h = await harness(job);
+    await h.click("notify-ready"); expect(h.get("notify-ready").disabled).toBe(false); expect(h.get("notify-ready").textContent).toContain("Turn off");
+    await h.click("notify-ready"); h.job.phase = "review"; await h.refresh();
+    expect(h.notifications).toHaveLength(0);
+    expect(h.get("notification-note").textContent).toContain("off"); expect(h.get("accept-result").disabled).toBe(false);
 });
 
 test("browser continuity exchanges one bearer, then reads with cookies; locking stops polling and decisions", async () => {

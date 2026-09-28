@@ -1,78 +1,96 @@
-# Install Wringer from this checkout
+# Install Wringer
 
-The active implementation is the Bun workspace at the repository root. Build this checkout; do not use historical Python package-install instructions for the current product.
+Download an exact adoption prerelease from
+[GitHub Releases](https://github.com/marcoakes/wringer/releases). A version is
+available only after its native validation and release workflow succeed; inspect
+the attached manifest, checksums and claim reports. Public npm packages,
+Homebrew taps and registry listings remain separate, pending channels.
 
-To use a coding app as the conversational front door, build once below, then
-follow [ASSISTANT_START.md](ASSISTANT_START.md). That route is an explicit
-cooperative-local engineering preview, not a protected or fully measured
-named-client integration. It does not require entering existing keys again.
+## Native archive and reviewed installer
 
-## Prerequisites
+Targets are macOS arm64 and Linux x64. Each release requires both native CI jobs.
+Windows and other architectures are not supported
+artifacts. Native `wring` needs neither Bun nor Node; repository checks still
+need their own declared tools. Git is required for source identity and delivery.
 
-- Bun 1.4.2, Git and Node.js on `PATH`. The source verification/demo fixtures
-  need Node.js; CI uses Node.js 24. Node.js is a fixture prerequisite, not the
-  Bun harness's runtime.
-- macOS or Linux for the process-supervision paths. A build on one platform is not a cross-platform release test.
-- Enough disk space for dependencies, compiled binaries, retained run evidence and isolated repository copies.
-
-Installing Wringer does not install a coding agent, sign into an account, choose a model, store a key, provision a Kubernetes cluster, or pull an execution image.
-
-## Build
-
-From the root of a trusted Wringer source checkout:
+A candidate directory contains the archive, flat bootstrap executable, exact
+SHA-256 sidecars, manifest and inventory. The first installer is a readable shell
+script, [packaging/install.sh](packaging/install.sh). Inspect it, then run:
 
 ```sh
-bun --version
-git --version
-node --version
+sh packaging/install.sh --release VERSION --from /absolute/candidate-directory --download-to /absolute/new-download-directory
+```
+
+Replace `VERSION` with the exact candidate version. Use canonical absolute paths
+(the installer refuses symlink aliases). Review the JSON: owned paths, digest,
+source identity, state restrictions and proposed switch. Repeat the same command
+with `--apply --expected IDENTITY_FROM_PREVIEW`. Downloads stay in the selected
+directory; a partial download needs inspection and a fresh directory.
+
+For a published release, omitting `--from` downloads that exact
+version from `marcoakes/wringer` GitHub Releases over HTTPS. It never selects
+`latest`. Same-origin checksum files detect corruption; they are not an
+independent signature. For attested CI artifacts, additionally verify the
+archive with `gh attestation verify ARCHIVE -R marcoakes/wringer` and inspect
+its source/workflow identity before executing it.
+
+The default private prefix is `~/Library/Application Support/WringerInstall` on
+macOS, or `~/.local/share/wringer-install` on Linux. Invoke `PREFIX/bin/wring` or
+add that directory to your own PATH. The installer changes no shell profile and
+uses no sudo. `--prefix` selects another owned installation; `--app-dir` selects
+the separate application state used for migration checks. Start with:
+
+```sh
+wring --version
+wring demo --json
+wring setup --help
+```
+
+Do not run the downloaded flat file from an unverified directory. Manual archive
+extraction bypasses the managed install/rollback lifecycle; prefer the installer.
+
+## npm, Homebrew and MCP registry
+
+The machinery is implemented; the public namespace and publications are pending.
+There is deliberately no invented `npm install` package name or `brew install`
+tap. Maintainers generate an exact scope only after an ownership observation;
+see [channel procedures](docs/RELEASE_CHANNELS.md).
+
+The npm channel needs Node >=22.14 and installs exact-version native packages.
+It has no postinstall script or execution-time download. Its launcher refuses
+an absent native package or altered binary. Homebrew uses the same archive
+checksums. The MCP listing describes local STDIO and requires prior setup plus a
+running operator owner; it does not offer a hosted service.
+
+## Connect your coding client
+
+Follow [START_AGENT](docs/START_AGENT.md). `connect` previews a scoped entry and
+workflow skill, preserves unrelated settings, and applies only its exact
+identity. Client trust, reload and login remain client/operator actions.
+No connection file contains provider keys or an operator bootstrap URL.
+
+## Application state and removal
+
+Workspace/job/controller state lives outside repositories in a user-owned app
+directory (`~/Library/Application Support/Wringer` on macOS; see the exact
+reported location on other hosts). `WRINGER_HOME` or `--app-dir` overrides it.
+Repository `.wringer/` evidence remains beside source. Keep both for recovery.
+[Upgrade, rollback and migration](docs/MIGRATION.md) explains retained versions,
+uncertain work, client removal and default evidence retention.
+
+## Build from source (contributors)
+
+Use Bun 1.4.2, Git and Node24 for engineering fixtures, from the repository root:
+
+```sh
 bun install --frozen-lockfile
+bun node_modules/playwright/cli.js install --with-deps chromium
 bun run check
 bun run build
-./dist/wring --version
-./dist/wring --help
-./dist/wringer-drive --help
-./dist/wringer-board --help
-```
-
-`bun install` obtains the declared dependencies; review the checkout and lockfile as you would for any development tool. `bun run check` runs the repository's configured checks. Read failures rather than bypassing them to obtain a binary.
-
-The output is `dist/`. Keep it as a unit so its command aliases, schemas and documentation stay together. To use this build in the current shell:
-
-```sh
-export PATH="$PWD/dist:$PATH"
-command -v wring
-wring --version
-```
-
-Run that export while still at the Wringer checkout root. It does not edit a shell profile or replace an existing global installation. The resolved path and version tell you which executable you are actually testing.
-
-## Verify the installation without paid work
-
-```sh
-bun run demo
-```
-
-This is a deterministic developer exercise, not a live-model test. Keep the printed transcript and evidence paths if it fails. Do not paste API keys into a bug report.
-
-For maintainers running the complete release validation, also install its pinned
-test browser once, then run the validation envelope:
-
-```sh
-bun node_modules/playwright/cli.js install --with-deps chromium
 bun run validate
+./dist/wring --version
 ```
 
-This browser is only for automated engineering tests. It is not an execution
-runtime or a prerequisite for a PM opening the local workspace in their own
-browser. The scripted rehearsal clicks the real approval, review and publication
-forms; it makes no provider calls. A missing test browser fails validation rather
-than silently skipping the UI check. Browser binaries are downloaded separately
-from normal product installation; see [Playwright's browser instructions](https://playwright.dev/docs/browsers).
-
-## Before a real product run
-
-Follow [SETUP.md](SETUP.md). Production execution requires the declared ACP agents and an established isolated runtime. A compiled CLI and a present credential do not establish either.
-
-If keys already exist in your credential store, reuse them through the explicit runtime/agent declaration; do not create replacements simply to retry a run. [HEADLESS.md](docs/native/HEADLESS.md) explains the bounded authority and credential handoff. `wringer-headless` uses the same contained driver; it does not launch a host coding agent.
-
-No published Bun package, release download or ready-made execution image is promised here. Source builds are the supported installation route described by this checkout. Historical release artifacts remain historical; they are not this implementation.
+Install Chromium before checking: actual-browser tests must not silently skip.
+This browser is a development dependency, separate from a contained agent runtime.
+See [CONTRIBUTING](CONTRIBUTING.md) for targeted checks and publication boundaries.

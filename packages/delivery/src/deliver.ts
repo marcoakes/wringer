@@ -13,6 +13,9 @@ export interface DeliveryOptions {
     remote?: string;
     title?: string;
     signal?: AbortSignal;
+    /** Exact preview guards for operator-owned Send. Legacy callers omit them. */
+    expected?: { fingerprint: string; tree: string; remoteURL: string; baseCommit: string };
+    publicationKind?: "branch-only";
 }
 export interface DeliveryResult {
     delivery_id: string;
@@ -61,6 +64,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
         throw new Refusal("The configured sensitivity measurement did not establish proof.", nextVerify, "unproved-sensitivity");
     const verified = await json(join(runPath, "snapshot.json"));
     const before = await snapshot(repo);
+    if (options.expected && before.fingerprint !== options.expected.fingerprint) throw new Refusal("The prepared source changed; prepare and review this candidate again.", nextVerify, "prepared-source-changed");
     if (!before.head_sha || !verified.fingerprint || before.fingerprint !== verified.fingerprint)
         throw new Refusal("The working tree is not the tree this run verified. Run verification on the current bytes.", nextVerify, "stale-verification");
     for (const marker of ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply"]) {
@@ -74,6 +78,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
     if (remote.startsWith("-") || /\s/.test(remote))
         throw new Error("Invalid remote name");
     const remoteURL = await git(repo, ["remote", "get-url", remote]);
+    if (options.expected && remoteURL !== options.expected.remoteURL) throw new Refusal("The prepared destination changed; review the exact remote again.", nextVerify, "prepared-destination-changed");
     if (/:\/\/[^/]*@/.test(remoteURL))
         throw new Refusal("Remote URLs containing credentials are not accepted.", `git -C ${quote(repo)} remote -v`);
     const defaultRef = await git(repo, ["symbolic-ref", "--quiet", `refs/remotes/${remote}/HEAD`], { allowFailure: true });
@@ -89,6 +94,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
     if (options.send && await git(repo, ["ls-remote", "--heads", remote, `refs/heads/${branch}`]))
         throw new Refusal(`Remote branch ${branch} already exists.`, `wring deliver --repo ${quote(repo)} --branch ${quote(`wringer/${id}`)}`);
     const base = await git(repo, ["rev-parse", "--verify", `${baseName}^{commit}`], { allowFailure: true }) || await git(repo, ["rev-parse", "--verify", `refs/remotes/${remote}/${baseName}^{commit}`]);
+    if (options.expected && base !== options.expected.baseCommit) throw new Refusal("The prepared base changed; prepare and review the handover again.", nextVerify, "prepared-base-changed");
     if (options.send && (!(await git(repo, ["config", "user.name"], { allowFailure: true })) || !(await git(repo, ["config", "user.email"], { allowFailure: true }))))
         throw new Refusal("Git identity is missing. Use repository-local identity; global configuration is not required.", `git -C ${quote(repo)} config --local user.name 'Your name'`);
     const directory = await inside(repo, `.wringer/deliveries/${id}`);
@@ -113,6 +119,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
         if (stagePaths.length)
             await git(repo, ["add", "--all", "--pathspec-from-file=-", "--pathspec-file-nul"], { env, input: [...new Set(stagePaths)].map(path => `:(literal)${path}\0`).join("") });
         const tree = await git(repo, ["write-tree"], { env });
+        if (options.expected && tree !== options.expected.tree) throw new Refusal("The prepared tree changed; prepare and review this handover again.", nextVerify, "prepared-tree-changed");
         if (tree === await git(repo, ["rev-parse", `${before.head_sha}^{tree}`]))
             throw new Refusal("There are no source changes to deliver.", nextVerify, "no-changes");
         if ((await snapshot(repo)).fingerprint !== before.fingerprint)
@@ -208,7 +215,7 @@ export async function deliver(repo: string, options: DeliveryOptions = {}): Prom
             await git(repo, ["update-ref", `refs/heads/${branch}`, evidenceCommit, codeCommit]);
             await git(repo, ["push", remote, `refs/heads/${branch}:refs/heads/${branch}`]);
         }
-        const publication = config.forge ? await publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId: id, bodyPath: join(directory, "mr.md"), sourceBranch: branch, targetBranch: baseName, title, expectedHeadCommit: evidenceCommit ?? undefined, publicationRemote: await git(repo, ["remote", "get-url", remote]), send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(id)} --send` }) : undefined;
+        const publication = config.forge && options.publicationKind !== "branch-only" ? await publishMergeRequest(repo, { forge: parseForgeConfiguration(config.forge), deliveryId: id, bodyPath: join(directory, "mr.md"), sourceBranch: branch, targetBranch: baseName, title, expectedHeadCommit: evidenceCommit ?? undefined, publicationRemote: await git(repo, ["remote", "get-url", remote]), send: options.send, signal: options.signal, resumeCommand: `wring deliver --repo ${quote(repo)} --delivery ${quote(id)} --send` }) : undefined;
         return { delivery_id: id, directory, branch, commit: codeCommit, evidence_commit: evidenceCommit, pushed, mode: options.send ? "live" : "dry_run", audit_command: auditCommand, falsify_command: falsifyCommand, ...(publication ? { publication } : {}), next_move: publication && !["published", "recovered", "prepared"].includes(publication.status) ? publication.next_move : options.send ? `cd ${quote(repo)} && ${falsifyCommand}` : `wring deliver --repo ${quote(repo)} --send` };
     }
     catch (error) {

@@ -1,0 +1,77 @@
+{
+  "schema_version": "wringer.channel-measurement.v1",
+  "kind": "Actual offline npm pack/install and launcher on this host; generated Homebrew syntax check",
+  "platform": "darwin-arm64",
+  "version": "1.0.0-alpha.19",
+  "fixtureNamespace": true,
+  "packageDigests": [
+    {
+      "file": "wringer-fixture-wringer-darwin-arm64-1.0.0-alpha.19.tgz",
+      "sha256": "e9337913b320789a8e09de07894c640adeadb92fcf2c97915bde7f35c7149d1f"
+    },
+    {
+      "file": "wringer-fixture-wringer-1.0.0-alpha.19.tgz",
+      "sha256": "cbef53bb2d04d62c2733db218edc0c9b53050aa2fb73730c27aec8e4ef3a0576"
+    }
+  ],
+  "publicInstall": "unmeasured",
+  "homebrewInstall": "unmeasured: brew is not installed on this host",
+  "modelCalls": 0,
+  "records": [
+    {
+      "name": "npm-pack-darwin-arm64",
+      "exit": 0,
+      "durationMs": 3035
+    },
+    {
+      "name": "npm-pack-launcher",
+      "exit": 0,
+      "durationMs": 182
+    },
+    {
+      "name": "npm-install-selected-tarballs-offline",
+      "exit": 0,
+      "durationMs": 1253
+    },
+    {
+      "name": "npm-launch-wring",
+      "exit": 0,
+      "durationMs": 1531
+    },
+    {
+      "name": "npm-launch-wringer-drive",
+      "exit": 0,
+      "durationMs": 222
+    },
+    {
+      "name": "npm-launch-wringer-board",
+      "exit": 0,
+      "durationMs": 218
+    },
+    {
+      "name": "npm-launch-wringer-assistant",
+      "exit": 0,
+      "durationMs": 385
+    },
+    {
+      "name": "npm-launch-wringer-headless",
+      "exit": 0,
+      "durationMs": 213
+    },
+    {
+      "name": "npm-launch-wringer-figma-broker",
+      "exit": 0,
+      "durationMs": 176
+    },
+    {
+      "name": "npm-installed-demo",
+      "exit": 0,
+      "durationMs": 719
+    },
+    {
+      "name": "formula-ruby-syntax",
+      "exit": 0,
+      "durationMs": 71
+    }
+  ]
+}

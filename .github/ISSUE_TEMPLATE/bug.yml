@@ -1,0 +1,21 @@
+name: Reproducible bug
+description: A sanitized product failure or recovery problem
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Version, OS, architecture, mode and client
+      description: Include wring --version and whether this was a fixture or live run.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction and expected/actual result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Sanitized status, exit code and evidence
+      description: Never include keys, connection records, private page URLs or raw provider transcripts. Use SECURITY.md for vulnerabilities.

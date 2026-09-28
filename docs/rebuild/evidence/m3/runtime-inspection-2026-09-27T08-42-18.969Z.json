@@ -1,0 +1,67 @@
+{
+  "at": "2026-09-27T08:42:18.969Z",
+  "kind": "Read-only measurement; zero model prompts; no service started",
+  "observations": [
+    {
+      "id": "host",
+      "status": "observed",
+      "value": {
+        "schema_version": "wringer.runtime-inspection.v1",
+        "kind": "apple-container",
+        "host": {
+          "os": "darwin",
+          "arch": "arm64",
+          "freeBytes": 17758474240
+        },
+        "platform": "linux/arm64",
+        "version": "1.3.1",
+        "installation": {
+          "state": "observed",
+          "detail": "Client executable is present on the selected host architecture"
+        },
+        "service": {
+          "state": "unavailable",
+          "detail": "The API service is stopped, unavailable, or not registered. Starting it is a separate provisioning decision"
+        },
+        "image": {
+          "state": "unmeasured",
+          "detail": "No exact image was inspected"
+        },
+        "imageIdentity": null,
+        "configuredPolicy": {
+          "state": "unmeasured",
+          "detail": "Runtime policy has not been measured"
+        },
+        "containment": {
+          "state": "unmeasured",
+          "detail": "Run the bounded filesystem, resource, egress and cleanup probes on this exact image and runtime"
+        },
+        "agentSession": {
+          "state": "unmeasured",
+          "detail": "No ACP session was opened"
+        },
+        "providerAcceptance": {
+          "state": "unmeasured",
+          "detail": "No provider credential was retrieved or validated"
+        },
+        "completedModelWork": {
+          "state": "unmeasured",
+          "detail": "No model prompt was sent"
+        },
+        "executionBoundary": "contained-required",
+        "sideEffects": [],
+        "nextAction": "Review wring runtime provision for this selected backend. There is no host-worker fallback."
+      }
+    },
+    {
+      "id": "bun-base",
+      "status": "unavailable",
+      "reason": "getaddrinfo ENOTFOUND registry-1.docker.io"
+    },
+    {
+      "id": "node-base",
+      "status": "unavailable",
+      "reason": "getaddrinfo ENOTFOUND registry-1.docker.io"
+    }
+  ]
+}

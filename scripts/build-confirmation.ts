@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 
 /** Separate opt-in native OS adapter build. This never installs, enrolls keys,
  * prompts for biometrics, changes permissions or enables protected mode. */
-const root = resolve(import.meta.dir, ".."), out = join(root, "dist", "native");
+const root = resolve(import.meta.dir, ".."), out = join(root, "build", "native-confirmation");
 if (process.platform !== "darwin") {
     console.log("Native macOS confirmation build unavailable on this platform. Protected mode remains unavailable.");
     process.exit(2);

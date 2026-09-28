@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/verification-send-recovery-decision-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.verification-send-recovery-decision.v1"
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.verification-send-recovery-preview.v1"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "requestIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "preparedId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        },
+        "remoteHead": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "localHead": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delivery": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_-]{1,100}$"
+                },
+                "codeCommit": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                },
+                "anchorIdentity": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "manifestIdentity": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "required": [
+                "id",
+                "codeCommit",
+                "anchorIdentity",
+                "manifestIdentity"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gitBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checkoutBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sendOwner": {
+          "enum": [
+            "absent",
+            "live",
+            "dead",
+            "unknown"
+          ]
+        },
+        "maxLocalCopyBytes": {
+          "const": 536870912
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "action": {
+          "const": "observe-exact-remote-evidence"
+        },
+        "dispatched": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "jobId",
+        "requestIdentity",
+        "preparedId",
+        "remoteHead",
+        "localHead",
+        "delivery",
+        "gitBytes",
+        "checkoutBytes",
+        "sendOwner",
+        "maxLocalCopyBytes",
+        "eligible",
+        "action",
+        "dispatched",
+        "reason",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "schema_version",
+    "preview",
+    "actor"
+  ],
+  "additionalProperties": false
+}

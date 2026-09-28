@@ -41,6 +41,8 @@ describe("operator assistant CLI without listeners or models", () => {
     test("source and compiled child commands never depend on the caller's PATH", () => {
         expect(assistantExecutableCommand("/opt/bun", "/source/assistant-cli.ts")).toEqual(["/opt/bun", "--no-env-file", "--no-install", "--no-macros", "--config=/dev/null", "/source/assistant-cli.ts"]);
         expect(assistantExecutableCommand("/install/wringer-assistant", "/$bunfs/root/assistant-cli.ts")).toEqual(["/install/wringer-assistant"]);
+        expect(assistantExecutableCommand("/install/wring", "/$bunfs/root/assistant-cli.ts")).toEqual(["/install/wring", "assistant"]);
+        expect(assistantExecutableCommand("/install/renamed tool", "/$bunfs/root/assistant-cli.ts")).toEqual(["/install/renamed tool", "assistant"]);
     });
     test("source invocation ignores an untrusted working directory's Bun preload and dotenv", async () => {
         const root = await scratch(), hostile = join(root, "hostile-repository"), trusted = join(root, "trusted-entry");
@@ -70,7 +72,7 @@ describe("operator assistant CLI without listeners or models", () => {
         expect(Object.keys(parsed)).toEqual(["mcp_servers"]); expect(Object.keys(parsed.mcp_servers)).toEqual(["wringer"]);
         expect(parsed.mcp_servers.wringer.command).toBe(recipe.argv[0]); expect(parsed.mcp_servers.wringer.args).toEqual(recipe.argv.slice(1));
         expect(parsed.mcp_servers.wringer.enabled_tools).toEqual([...ASSISTANT_TOOL_NAMES]); expect(parsed.mcp_servers.wringer.env_vars).toEqual([]);
-        expect(parsed.mcp_servers.wringer.default_tools_approval_mode).toBe("auto");
+        expect(parsed.mcp_servers.wringer.default_tools_approval_mode).toBeUndefined();
         for (const bad of ["dangerously", "full-access", "approval_policy", "sandbox_mode", "codex login", "codex exec", "OPENAI_API_KEY"]) expect(recipe.config + recipe.addCommand).not.toContain(bad);
     });
     test("client inspection preserves unrelated config and never prints its credentials", async () => {

@@ -1,0 +1,113 @@
+name: npm release packages
+# No push trigger. Namespace bootstrap and trusted-publisher configuration are
+# explicit operator prerequisites. A staging run does not publish anything.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tested Wringer prerelease tag
+        required: true
+      scope:
+        description: Explicit verified npm scope, including @
+        required: true
+      namespace_observation:
+        description: Fresh JSON output from scripts/channel-namespace.ts (no token)
+        required: true
+      publish:
+        description: Publish exact staged tarballs after environment approval
+        type: boolean
+        default: false
+permissions:
+  contents: read
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - run: bun scripts/release.ts check-tag
+        env:
+          WRINGER_RELEASE_TAG: ${{ inputs.tag }}
+      - name: Download and authenticate exact release archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/npm-source
+          gh release download "$RELEASE_TAG" --pattern '*.tar.gz' --pattern '*.tar.gz.sha256' --dir build/npm-source
+          for archive in build/npm-source/*.tar.gz; do
+            gh attestation verify "$archive" --repo "$GH_REPO"
+          done
+      - name: Generate and pack the reviewed namespace
+        env:
+          PACKAGE_SCOPE: ${{ inputs.scope }}
+          NAMESPACE_OBSERVATION: ${{ inputs.namespace_observation }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun -e 'await Bun.write("build/namespace-observation.json", process.env.NAMESPACE_OBSERVATION)'
+          bun scripts/release-channels.ts build/npm-source build/npm-channels "$PACKAGE_SCOPE" --namespace-proof build/namespace-observation.json
+          bun scripts/npm-publication.ts prepare build/npm-channels build/npm-tarballs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-candidate-tarballs
+          path: build/npm-tarballs/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: channel-metadata
+          path: |
+            build/npm-channels/CHANNELS.json
+            build/npm-channels/server.json
+            build/npm-channels/wringer.rb
+          if-no-files-found: error
+  publish:
+    if: inputs.publish
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm-release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-candidate-tarballs
+          path: build/npm-tarballs
+      - name: Require a trusted-publishing capable npm
+        run: node -e 'const cp=require("node:child_process"); const [a,b,c]=cp.execFileSync("npm",["--version"],{encoding:"utf8"}).trim().split(".").map(Number); if(a<11 || a===11 && (b<5 || b===5 && c<1)) throw Error("npm >=11.5.1 is required");'
+      - name: Publish exact immutable versions using configured OIDC
+        run: bun scripts/npm-publication.ts publish build/npm-tarballs/PUBLICATION.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-publication-receipt
+          path: build/npm-tarballs/PUBLISHED.json
+          if-no-files-found: error

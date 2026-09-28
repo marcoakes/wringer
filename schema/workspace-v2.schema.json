@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/workspace-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.workspace.v2"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 36,
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "mode": {
+      "enum": [
+        "verification",
+        "delegation"
+      ]
+    },
+    "repo": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 16384
+    },
+    "client": {
+      "enum": [
+        "claude-code",
+        "codex",
+        "generic"
+      ]
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "remote": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                },
+                "base": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "remote",
+                "base"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profileId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 36,
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "credentialReferences": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Z_][A-Z0-9_]*$"
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "destination",
+        "profileId",
+        "credentialReferences"
+      ],
+      "additionalProperties": false
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "enum": [
+            "trusted-local",
+            "contained"
+          ]
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "schema_version",
+    "id",
+    "mode",
+    "repo",
+    "client",
+    "preferences",
+    "boundary",
+    "createdAt"
+  ],
+  "additionalProperties": false
+}

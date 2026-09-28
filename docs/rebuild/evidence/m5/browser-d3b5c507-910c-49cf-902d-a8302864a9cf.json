@@ -1,0 +1,106 @@
+{
+  "fixture": "Automated engineering; no real human decision, containment or model acceptance",
+  "browser": "153.0.8010.12",
+  "at": "2026-09-28T11:26:44.678Z",
+  "artifacts": "build/rebuild-browser/d3b5c507-910c-49cf-902d-a8302864a9cf",
+  "rows": [
+    {
+      "check": "bootstrap fragment removed",
+      "passed": true
+    },
+    {
+      "check": "reload retains bounded session",
+      "passed": true
+    },
+    {
+      "check": "approval declares trusted-local mode",
+      "passed": true
+    },
+    {
+      "check": "approval accepted once",
+      "passed": true
+    },
+    {
+      "check": "review shows actual result",
+      "passed": true
+    },
+    {
+      "check": "operating mode remains visible during review",
+      "passed": true
+    },
+    {
+      "check": "phase transition focuses current decision",
+      "passed": true
+    },
+    {
+      "check": "narrow layout has no horizontal overflow",
+      "passed": true
+    },
+    {
+      "check": "decision has a screen-reader status region",
+      "passed": true
+    },
+    {
+      "check": "correction keyboard focus",
+      "passed": true
+    },
+    {
+      "check": "correction recorded",
+      "passed": true
+    },
+    {
+      "check": "stale tab cannot accept old candidate",
+      "passed": true
+    },
+    {
+      "check": "acceptance comment remains empty",
+      "passed": true
+    },
+    {
+      "check": "empty-note acceptance recorded",
+      "passed": true
+    },
+    {
+      "check": "Send previews exact destination and branch",
+      "passed": true
+    },
+    {
+      "check": "declining Send leaves remote untouched",
+      "passed": true
+    },
+    {
+      "check": "explicit separate Send",
+      "passed": true
+    },
+    {
+      "check": "carried audit instructions visible",
+      "passed": true
+    },
+    {
+      "check": "fresh clone audits carried evidence",
+      "passed": true
+    },
+    {
+      "check": "locking retains completed state",
+      "passed": true
+    },
+    {
+      "check": "owner restart retains publication without rerunning",
+      "passed": true
+    },
+    {
+      "check": "visible Stop works before approval",
+      "passed": true
+    },
+    {
+      "check": "Stop does not spend or renew",
+      "passed": true
+    },
+    {
+      "check": "no page script errors",
+      "passed": true
+    }
+  ],
+  "pageErrors": [],
+  "modelCalls": 0
+}

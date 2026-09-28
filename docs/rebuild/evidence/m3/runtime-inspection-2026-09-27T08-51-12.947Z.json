@@ -1,0 +1,89 @@
+{
+  "at": "2026-09-27T08:51:12.947Z",
+  "kind": "Read-only measurement; zero model prompts; no service started",
+  "observations": [
+    {
+      "id": "host",
+      "status": "observed",
+      "value": {
+        "schema_version": "wringer.runtime-inspection.v1",
+        "kind": "apple-container",
+        "host": {
+          "os": "darwin",
+          "arch": "arm64",
+          "freeBytes": 17750876160
+        },
+        "platform": "linux/arm64",
+        "version": "1.3.1",
+        "installation": {
+          "state": "observed",
+          "detail": "Client executable is present on the selected host architecture"
+        },
+        "service": {
+          "state": "unavailable",
+          "detail": "The API service is stopped, unavailable, or not registered. Starting it is a separate provisioning decision"
+        },
+        "image": {
+          "state": "unmeasured",
+          "detail": "No exact image was inspected"
+        },
+        "imageIdentity": null,
+        "configuredPolicy": {
+          "state": "unmeasured",
+          "detail": "Runtime policy has not been measured"
+        },
+        "containment": {
+          "state": "unmeasured",
+          "detail": "Run the bounded filesystem, resource, egress and cleanup probes on this exact image and runtime"
+        },
+        "agentSession": {
+          "state": "unmeasured",
+          "detail": "No ACP session was opened"
+        },
+        "providerAcceptance": {
+          "state": "unmeasured",
+          "detail": "No provider credential was retrieved or validated"
+        },
+        "completedModelWork": {
+          "state": "unmeasured",
+          "detail": "No model prompt was sent"
+        },
+        "executionBoundary": "contained-required",
+        "sideEffects": [],
+        "nextAction": "Review wring runtime provision for this selected backend. There is no host-worker fallback."
+      }
+    },
+    {
+      "id": "bun-base",
+      "status": "observed",
+      "value": {
+        "source": "docker.io/oven/bun:1.4.2",
+        "reference": "docker.io/oven/bun@sha256:9114c058aeae42162ee16dd5084b95fe9473970bb6bcb5b232ab1630f0546895",
+        "platform": "linux/arm64",
+        "platformManifest": "sha256:3121e24dc54514f0e37bcc996a9e6df64519b4caff03a33bbb9993baca7c403b",
+        "config": "sha256:a81de950abb8b5d961ed8c1dcd345450fab8cda00ea3c11e7ec24a4ed4bb82ce",
+        "compressedBytes": 94029305,
+        "measuredAt": "2026-09-27T08:51:13.702Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      }
+    },
+    {
+      "id": "node-base",
+      "status": "observed",
+      "value": {
+        "source": "docker.io/library/node:24-bookworm-slim",
+        "reference": "docker.io/library/node@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6",
+        "platform": "linux/arm64",
+        "platformManifest": "sha256:24b8bc17702002d2ed0c1da9ad66c3ee507cc279d0856726662ff2b6fc35c149",
+        "config": "sha256:234deedb4512c28a423279fb96167f8d1c8ba3da6cb4ef1cb2299cb7249c1174",
+        "compressedBytes": 80691808,
+        "measuredAt": "2026-09-27T08:51:13.697Z",
+        "limits": [
+          "Resolved registry metadata, not a downloaded or executed image. Compressed size excludes unpacking, build cache and installed project dependencies."
+        ]
+      }
+    }
+  ]
+}

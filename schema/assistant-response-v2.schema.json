@@ -1,0 +1,468 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/assistant-response-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.assistant-response.v2"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "mode": {
+      "const": "delegation"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateIdentity": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        }
+      ]
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "phase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "uncertainty": {
+      "type": "boolean"
+    },
+    "nextAction": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "actor": {
+          "enum": [
+            "assistant",
+            "operator"
+          ]
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "code",
+        "actor",
+        "eligible",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          ]
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^http://127\\.0\\.0\\.1:[0-9]+/\\?jobId=[a-f0-9-]{36}$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "remaining": {
+      "type": "object",
+      "properties": {
+        "ceilings": {
+          "type": "object",
+          "properties": {
+            "max_sessions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_worker_turns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_judge_turns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "max_planner_turns": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wall_clock_seconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "session_timeout_seconds": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "max_sessions",
+            "max_worker_turns",
+            "max_judge_turns",
+            "max_planner_turns",
+            "wall_clock_seconds",
+            "session_timeout_seconds"
+          ],
+          "additionalProperties": false
+        },
+        "measured": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "sessions": {
+                  "type": "object",
+                  "properties": {
+                    "reserved": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "ceiling": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "reserved",
+                    "ceiling"
+                  ],
+                  "additionalProperties": false
+                },
+                "roles": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "enum": [
+                          "worker",
+                          "judge",
+                          "planner"
+                        ]
+                      },
+                      "reserved": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "ceiling": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": [
+                      "role",
+                      "reserved",
+                      "ceiling"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "maxItems": 3
+                },
+                "verificationAttempts": {
+                  "type": "object",
+                  "properties": {
+                    "reserved": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "ceiling": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "unknown": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "reserved",
+                    "ceiling",
+                    "unknown"
+                  ],
+                  "additionalProperties": false
+                },
+                "wallClock": {
+                  "type": "object",
+                  "properties": {
+                    "elapsedSeconds": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "ceilingSeconds": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "expired": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "elapsedSeconds",
+                    "ceilingSeconds",
+                    "expired"
+                  ],
+                  "additionalProperties": false
+                },
+                "tokens": {
+                  "type": "object",
+                  "properties": {
+                    "input": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    },
+                    "output": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "input",
+                    "output"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "required": [
+                "sessions",
+                "roles",
+                "verificationAttempts",
+                "wallClock",
+                "tokens"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "monetaryCost": {
+          "type": "null"
+        },
+        "codingAppCost": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "ceilings",
+        "measured",
+        "monetaryCost",
+        "codingAppCost"
+      ],
+      "additionalProperties": false
+    },
+    "operation": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "operationId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "status": {
+              "enum": [
+                "accepted",
+                "running",
+                "cancel-requested",
+                "uncertain",
+                "completed",
+                "failed",
+                "cancelled",
+                "reconciled"
+              ]
+            },
+            "message": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8192
+                }
+              ]
+            }
+          },
+          "required": [
+            "operationId",
+            "status",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "kind": {
+            "enum": [
+              "request",
+              "proposal",
+              "report",
+              "handover"
+            ]
+          },
+          "contentIdentity": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "contentIdentity"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 4
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "const": "contained"
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "lineage": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "parentJobId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "rootJobId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "parentJobId",
+            "rootJobId"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "supersededBy": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      ]
+    }
+  },
+  "required": [
+    "schema_version",
+    "jobId",
+    "workspaceId",
+    "mode",
+    "revision",
+    "candidateIdentity",
+    "eventId",
+    "phase",
+    "outcome",
+    "uncertainty",
+    "nextAction",
+    "decision",
+    "remaining",
+    "operation",
+    "evidence",
+    "boundary",
+    "lineage",
+    "supersededBy"
+  ],
+  "additionalProperties": false
+}

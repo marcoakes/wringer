@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/assistant-refusal-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.assistant-refusal.v2"
+    },
+    "mode": {
+      "const": "delegation"
+    },
+    "outcome": {
+      "const": "refused"
+    },
+    "isError": {
+      "const": true
+    },
+    "code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8192
+    }
+  },
+  "required": [
+    "schema_version",
+    "mode",
+    "outcome",
+    "isError",
+    "code",
+    "message"
+  ],
+  "additionalProperties": false
+}

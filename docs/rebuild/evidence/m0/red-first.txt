@@ -1,0 +1,47 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio-progress.test.ts:
+15 |     }
+16 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else throw new Error("Unexpected fixture diagnostic"); })];
+17 |     async function until<T>(read: () => T | undefined): Promise<T> {
+18 |         const deadline = Date.now() + 2500;
+19 |         while (Date.now() < deadline) { const value = read(); if (value !== undefined) return value; await Bun.sleep(5); }
+20 |         throw new Error("STDIO made no progress while a long poll was pending");
+                       ^
+error: STDIO made no progress while a long poll was pending
+      at until (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:20:19)
+      at async <anonymous> (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:36:25)
+(fail) T12 real STDIO handles status and durable cancellation during a long poll [2726.14ms]
+15 |     }
+16 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else throw new Error("Unexpected fixture diagnostic"); })];
+17 |     async function until<T>(read: () => T | undefined): Promise<T> {
+18 |         const deadline = Date.now() + 2500;
+19 |         while (Date.now() < deadline) { const value = read(); if (value !== undefined) return value; await Bun.sleep(5); }
+20 |         throw new Error("STDIO made no progress while a long poll was pending");
+                       ^
+error: STDIO made no progress while a long poll was pending
+      at until (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:20:19)
+      at async <anonymous> (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:49:25)
+(fail) T12 transport cancellation releases only its wait, never the durable job [2624.54ms]
+
+packages/application/test/assistant.test.ts:
+123 |         // No fifth computation may start until a slot opens.
+124 |         await Promise.resolve(); await Promise.resolve();
+125 |         expect(f.counters.status).toBe(4);
+126 |         gates.forEach(gate => gate.resolve());
+127 |         const [fresh, other] = await Promise.all([fifth, peer]);
+128 |         expect(fresh.status.revision).toBe(f.query.revision);
+                                            ^
+error: expect(received).toBe(expected)
+
+Expected: "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+Received: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/application/test/assistant.test.ts:128:39)
+(fail) T13 staggered saturation queues a fresh observation after four held snapshots [63.72ms]
+
+ 0 pass
+ 25 filtered out
+ 3 fail
+ 2 expect() calls
+Ran 3 tests across 2 files. [5.69s]

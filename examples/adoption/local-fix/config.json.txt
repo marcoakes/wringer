@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "gates": [
+    {
+      "id": "total",
+      "run": "node --test --test-reporter=./node-reporter.mjs checks.test.mjs",
+      "inputs": [
+        "checks.test.mjs",
+        "node-reporter.mjs"
+      ],
+      "proves": [
+        "TOTAL"
+      ],
+      "evidence": {
+        "kind": "assertions",
+        "adapter": "node-test"
+      }
+    }
+  ]
+}

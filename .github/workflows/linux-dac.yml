@@ -1,0 +1,39 @@
+name: Linux permission adversary
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  permission-adversary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
+      - name: Required real UID and permission adversary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = Linux
+          command -v setpriv
+          mkdir -p build/linux-dac
+          sudo env WRINGER_REQUIRE_LINUX_DAC=1 "$(command -v bun)" test packages/runtime/test/filesystem.test.ts --test-name-pattern 'real Linux DAC' > build/linux-dac/result.log 2>&1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-permission-adversary
+          path: build/linux-dac/result.log
+          if-no-files-found: error

@@ -217,6 +217,19 @@ async function runSession(transport: AcpTransport, options: AcpTurnOptions, prob
             throw new AcpError("Agent returned no usable session id");
         sessionId = session.sessionId;
         event("acp.session.opened", { sessionId });
+        if (options.model !== undefined) {
+            if (typeof options.model !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_.:/+-]{0,159}$/.test(options.model)) throw new AcpError("Invalid declared model identifier", "model-unavailable");
+            const candidates = Array.isArray(session.configOptions) ? session.configOptions.filter((option: any) => option?.category === "model" && option.type === "select" && typeof option.id === "string") : [];
+            if (candidates.length !== 1) throw new AcpError("The adapter did not advertise one exact model selector; no default model was chosen", "model-unavailable");
+            const selector = candidates[0], values = Array.isArray(selector.options) ? selector.options.flatMap((row: any) => Array.isArray(row?.options) ? row.options : [row]) : [];
+            if (selector.currentValue !== options.model) {
+                if (!values.some((row: any) => row?.value === options.model)) throw new AcpError("The explicitly selected model was not advertised; select an available exact model option", "model-unavailable");
+                const changed = await request("session/set_config_option", { sessionId, configId: selector.id, value: options.model });
+                const returned = Array.isArray(changed?.configOptions) ? changed.configOptions.filter((row: any) => row?.id === selector.id && row.category === "model") : [];
+                if (returned.length !== 1 || returned[0].currentValue !== options.model) throw new AcpError("The adapter did not confirm the exact selected model; fallback was refused", "model-unconfirmed");
+            }
+            event("acp.model.selected", { model: options.model, configId: selector.id, providerAcceptance: "unmeasured" });
+        }
         if (options.mode) {
             const available = session.modes?.availableModes;
             if (!Array.isArray(available) || !available.some((mode: any) => mode?.id === options.mode))

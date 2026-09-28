@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/diagnostic-preview-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.diagnostic-preview.v1"
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.diagnostic-report.v1"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "host": {
+          "type": "object",
+          "properties": {
+            "platform": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "architecture": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "runtime": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "platform",
+            "architecture",
+            "runtime"
+          ],
+          "additionalProperties": false
+        },
+        "workspace": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "schemaVersion": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "mode": {
+              "enum": [
+                "verification",
+                "delegation"
+              ]
+            },
+            "client": {
+              "enum": [
+                "claude-code",
+                "codex",
+                "generic"
+              ]
+            },
+            "boundary": {
+              "type": "object",
+              "properties": {
+                "approval": {
+                  "const": "cooperative-local"
+                },
+                "execution": {
+                  "enum": [
+                    "trusted-local",
+                    "contained"
+                  ]
+                }
+              },
+              "required": [
+                "approval",
+                "execution"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "id",
+            "schemaVersion",
+            "mode",
+            "client",
+            "boundary"
+          ],
+          "additionalProperties": false
+        },
+        "support": {
+          "type": "object",
+          "properties": {
+            "artifactIdentity": {
+              "const": "not-observed-by-this-export"
+            },
+            "containment": {
+              "const": "not-measured-by-this-export"
+            },
+            "liveClient": {
+              "const": "not-measured-by-this-export"
+            },
+            "protectedHumanPresence": {
+              "const": "unavailable"
+            }
+          },
+          "required": [
+            "artifactIdentity",
+            "containment",
+            "liveClient",
+            "protectedHumanPresence"
+          ],
+          "additionalProperties": false
+        },
+        "jobs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "jobId": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+              },
+              "mode": {
+                "enum": [
+                  "verification",
+                  "delegation"
+                ]
+              },
+              "schemaVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "monetaryCost": {
+                "type": "null"
+              },
+              "phase": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z-]{0,99}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "outcome": {
+                "type": "string",
+                "pattern": "^[a-z][a-z-]{0,99}$"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "uncertainty": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operationIds": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                    },
+                    "maxItems": 10000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "stopCodes": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z-]{0,99}$"
+                },
+                "maxItems": 100
+              },
+              "repetitionsRemaining": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "approvalExpiresAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "jobId",
+              "mode",
+              "schemaVersion",
+              "monetaryCost",
+              "phase",
+              "outcome",
+              "revision",
+              "uncertainty",
+              "operationIds",
+              "stopCodes",
+              "repetitionsRemaining",
+              "approvalExpiresAt"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 100
+        },
+        "page": {
+          "type": "object",
+          "properties": {
+            "offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "nextOffset": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "offset",
+            "count",
+            "nextOffset"
+          ],
+          "additionalProperties": false
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 20
+        }
+      },
+      "required": [
+        "schema_version",
+        "version",
+        "host",
+        "workspace",
+        "support",
+        "jobs",
+        "page",
+        "excluded"
+      ],
+      "additionalProperties": false
+    },
+    "manifest": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.diagnostic-manifest.v1"
+        },
+        "included": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "properties": {
+              "path": {
+                "const": "report.json"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 524288
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            },
+            "required": [
+              "path",
+              "bytes",
+              "sha256"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "excluded": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 256
+          },
+          "maxItems": 20
+        },
+        "sharing": {
+          "const": "Inspect this export before deliberately sharing it. No upload is performed."
+        }
+      },
+      "required": [
+        "schema_version",
+        "included",
+        "excluded",
+        "sharing"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "identity",
+    "report",
+    "manifest"
+  ],
+  "additionalProperties": false
+}

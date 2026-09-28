@@ -1,0 +1,257 @@
+{
+  "schema_version": "wringer.rebuild-acceptance-map.v1",
+  "candidate": "1.0.0-alpha.20",
+  "requirements": [
+    {
+      "id": "T01",
+      "requirement": "Extracted archive and aliases",
+      "procedures": [
+        "scripts/extracted-distribution.ts"
+      ],
+      "classification": "native archive; exact observations in accompanying candidate report"
+    },
+    {
+      "id": "T02",
+      "requirement": "Protocol-only STDIO and import safety",
+      "procedures": [
+        "packages/cli/test/import-safe.test.ts",
+        "packages/mcp/test/stdio.test.ts",
+        "scripts/adoption-connections.ts"
+      ],
+      "classification": "deterministic + compiled STDIO"
+    },
+    {
+      "id": "T03",
+      "requirement": "Owned install/change/removal and hostile archives",
+      "procedures": [
+        "packages/cli/test/installer.test.ts",
+        "packages/cli/test/bootstrap.test.ts",
+        "scripts/installer-distribution.ts"
+      ],
+      "classification": "filesystem fixtures + native archive"
+    },
+    {
+      "id": "T04",
+      "requirement": "No-provider verification setup and real checks",
+      "procedures": [
+        "packages/application/test/verification-job.test.ts",
+        "packages/cli/test/verification-owner.test.ts",
+        "scripts/rebuild-examples.ts"
+      ],
+      "classification": "actual local checks; no live coding client"
+    },
+    {
+      "id": "T05",
+      "requirement": "Placeholder/empty/stale/partial evidence",
+      "procedures": [
+        "packages/engine/test/assertions.test.ts",
+        "packages/runtime/test/assertion-adapter.test.ts"
+      ],
+      "classification": "real Node reports and adversarial fixtures"
+    },
+    {
+      "id": "T06",
+      "requirement": "Exact source/check identity and stale delivery",
+      "procedures": [
+        "packages/engine/test/strict.test.ts",
+        "packages/application/test/verification-job.test.ts",
+        "packages/delivery/test/delivery.test.ts"
+      ],
+      "classification": "real scratch Git/checks"
+    },
+    {
+      "id": "T07",
+      "requirement": "Mutable proposal composition and ceilings",
+      "procedures": [
+        "packages/application/test/proposal-composition.test.ts"
+      ],
+      "classification": "deterministic pinned-profile composition"
+    },
+    {
+      "id": "T08",
+      "requirement": "Read-only validation/setup grants no authority",
+      "procedures": [
+        "packages/application/test/delegation-recovery.test.ts",
+        "packages/cli/test/delegation-owner.test.ts"
+      ],
+      "classification": "filesystem/protocol observations"
+    },
+    {
+      "id": "T09",
+      "requirement": "Questions/supersession/original words",
+      "procedures": [
+        "packages/application/test/proposal-revision.test.ts",
+        "scripts/adoption-connections.ts"
+      ],
+      "classification": "contract + real browser join"
+    },
+    {
+      "id": "T10",
+      "requirement": "Guided contained preparation; no fallback",
+      "procedures": [
+        "packages/application/test/runtime-provisioning.test.ts",
+        "packages/application/test/delegation-profile.test.ts",
+        "packages/application/test/gvisor-provisioning.test.ts"
+      ],
+      "classification": "fixtures passed; live provisioning unavailable"
+    },
+    {
+      "id": "T11",
+      "requirement": "Runtime filesystem/network/credential separation",
+      "procedures": [
+        "packages/runtime/test/filesystem.test.ts",
+        "scripts/runtime-smoke.ts",
+        "scripts/runtime-smoke-local.ts",
+        ".github/workflows/linux-dac.yml"
+      ],
+      "classification": "live Apple/gVisor and native Linux DAC unavailable here; no containment claim"
+    },
+    {
+      "id": "T12",
+      "requirement": "Nonblocking STDIO wait/cancel/overload",
+      "procedures": [
+        "packages/mcp/test/stdio-progress.test.ts"
+      ],
+      "classification": "actual child STDIO protocol fixture"
+    },
+    {
+      "id": "T13",
+      "requirement": "Saturated fresh observations and concurrent schemas",
+      "procedures": [
+        "packages/application/test/assistant.test.ts",
+        "packages/records/test/reader-concurrency.test.ts"
+      ],
+      "classification": "controlled concurrency fixtures"
+    },
+    {
+      "id": "T14",
+      "requirement": "Approve/review/correct/accept/separate Send",
+      "procedures": [
+        "scripts/rebuild-m5-browser.ts",
+        "scripts/guided-pm-rehearsal.ts"
+      ],
+      "classification": "real Chromium/Git, scripted decisions; synthetic delegated roles"
+    },
+    {
+      "id": "T15",
+      "requirement": "Failed/missing visual output cannot accept",
+      "procedures": [
+        "packages/cli/test/verification-owner.test.ts",
+        "packages/board/test/job-render.test.ts",
+        "scripts/guided-pm-rehearsal.ts"
+      ],
+      "classification": "real browser image failures plus source/display guards"
+    },
+    {
+      "id": "T16",
+      "requirement": "Reload/expiry/tabs/owner/client reconnect",
+      "procedures": [
+        "packages/cli/test/workspace-recovery.test.ts",
+        "packages/cli/test/delegation-owner.test.ts",
+        "scripts/adoption-connections.ts"
+      ],
+      "classification": "real killed-owner/loopback/STDIO; named-client reconnect unmeasured"
+    },
+    {
+      "id": "T17",
+      "requirement": "Lost requests and uncertain effects",
+      "procedures": [
+        "packages/application/test/verification-job.test.ts",
+        "packages/application/test/assistant-runner.test.ts",
+        "packages/cli/test/verification-owner.test.ts"
+      ],
+      "classification": "real local lost-check/Send recovery; provider uncertainty fixtures"
+    },
+    {
+      "id": "T18",
+      "requirement": "New source/second job without inherited authority",
+      "procedures": [
+        "packages/application/test/verification-job.test.ts",
+        "packages/application/test/delegation-profile.test.ts"
+      ],
+      "classification": "actual Git and retained lineage fixtures"
+    },
+    {
+      "id": "T19",
+      "requirement": "Frozen corpus and new readers/writers",
+      "procedures": [
+        "packages/records/test/contract.test.ts",
+        "packages/application/test/adoption-records.test.ts",
+        "packages/mcp/test/delegation-contract.test.ts",
+        "packages/mcp/test/verification-contract.test.ts"
+      ],
+      "classification": "historical bytes retained, sibling schemas generated"
+    },
+    {
+      "id": "T20",
+      "requirement": "Upgrade/migration interruption/rollback",
+      "procedures": [
+        "packages/cli/test/installer.test.ts",
+        "packages/application/test/maintenance.test.ts",
+        "scripts/migration-distribution.ts"
+      ],
+      "classification": "actual archived-binary upgrade/uninstall and incompatible rollback refusal; interrupted compatible rollback fixtures"
+    },
+    {
+      "id": "T21",
+      "requirement": "Claude/Codex config preserves unrelated entries",
+      "procedures": [
+        "packages/cli/test/client-adapters.test.ts",
+        "scripts/rebuild-client-measure.ts"
+      ],
+      "classification": "scoped fixtures; actual Codex parser; Claude unavailable"
+    },
+    {
+      "id": "T22",
+      "requirement": "Untrusted text cannot gain authority",
+      "procedures": [
+        "packages/mcp/test/verification-contract.test.ts",
+        "packages/mcp/test/delegation-contract.test.ts",
+        "packages/application/test/assistant.test.ts"
+      ],
+      "classification": "strict tool allowlists/refusals; no model judgment claim"
+    },
+    {
+      "id": "T23",
+      "requirement": "Redaction and unknown cost",
+      "procedures": [
+        "packages/application/test/diagnostics.test.ts",
+        "packages/cli/test/assistant-transport.test.ts",
+        "packages/runtime/test/filesystem.test.ts"
+      ],
+      "classification": "synthetic secret/error/record fixtures; final artifact inspection separate"
+    },
+    {
+      "id": "T24",
+      "requirement": "Action real statuses/partial/prove/PR permissions",
+      "procedures": [
+        "packages/cli/test/action.test.ts",
+        "packaging/action.mjs",
+        "action.yml"
+      ],
+      "classification": "real scratch Git checks + injected report failures"
+    },
+    {
+      "id": "T25",
+      "requirement": "Fresh-clone audit and damaged evidence",
+      "procedures": [
+        "packages/delivery/test/contained.test.ts",
+        "packages/delivery/test/adversarial.test.ts",
+        "scripts/rebuild-m5-browser.ts",
+        "scripts/guided-pm-rehearsal.ts"
+      ],
+      "classification": "real local bare origin/audit; no hosted publication"
+    },
+    {
+      "id": "T26",
+      "requirement": "Shipped README/skill/examples/CLI agree",
+      "procedures": [
+        "packages/cli/test/distribution-docs.test.ts",
+        "scripts/cli-reference.ts",
+        "scripts/rebuild-examples.ts",
+        "scripts/channel-distribution.ts"
+      ],
+      "classification": "documentation closure + actual commands; independent newcomer unmeasured"
+    }
+  ]
+}

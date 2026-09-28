@@ -17,7 +17,7 @@ const redactor = new Redactor();
 /** A deterministic convenience layer, never a second workflow or model loop.
  * Only automatic start, declared showing and PREPARATION are scheduled. A
  * person's decision and sending require separate guarded POSTs. */
-export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; beforeCommand?: (jobId: string) => Promise<void>; /** Construction-time seam for the page's own journal re-read. */ dependencies?: { status?: typeof controllerStatus } } = {}) {
+export function createAssistantJobFlow(service: Service, options: ApplicationOptions & { isStopping?: () => boolean; autoAdvance?: boolean; beforeCommand?: (jobId: string) => Promise<void>; /** Construction-time seam for the page's own journal re-read. */ dependencies?: { status?: typeof controllerStatus } } = {}) {
     const active = new Set<string>(), transient = new Map<string, string>();
     const cancellations = new Map<string, AbortController>();
     let stopped = false, sweeping = false;
@@ -140,7 +140,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const engineering = p.plan ? await readPmEngineering(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
         // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
         const revisionAdvanced = status.revisionAdvanced === true || !!engineering && status.stage !== "intake" && (await (options.dependencies?.status ?? controllerStatus)(stateOf(jobId))).revision !== status.revision;
-        const destination = approval?.destination ?? service.workspace.destination;
+        const destination = approval?.destination ?? await service.destination(jobId);
         const human = p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? [];
         const failed = commands.find(c => ["failed", "uncertain"].includes(c.status)) ?? (preparation && ["failed", "uncertain"].includes(preparation.status) ? preparation : null);
         const failedDisplay = displays.some(d => !d.success);
@@ -211,13 +211,19 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Use the displayed decision.");
         const body = input as Record<string, any>;
         const allowed: Record<string, string[]> = { approve: ["jobId", "expectedRevision", "actor"], decision: ["jobId", "expectedRevision", "expectedCandidateTree", "verdict", "note", "displayIds"], correction: ["jobId", "expectedRevision", "expectedCandidateTree", "note"], send: ["jobId", "expectedRevision", "expectedCandidateTree", "preparedId"], retry: ["jobId", "expectedRevision", "expectedCandidateTree"] };
+        allowed.stop = ["jobId", "expectedRevision", "expectedCandidateTree"];
         if (!allowed[action] || Object.keys(body).some(k => !allowed[action]!.includes(k)) || !uuid.test(body.jobId)) throw new Error("The decision contains unexpected fields or an unknown job.");
         const jobId = body.jobId;
-        if (active.has(jobId) || stopped || options.isStopping?.()) throw new Error("This job is advancing. Refresh its recorded state before deciding.");
+        if (active.has(jobId) && action !== "stop" || stopped || options.isStopping?.()) throw new Error("This job is advancing. Refresh its recorded state before deciding.");
         await service.assertJobActive(jobId);
         const current = await read(jobId);
         assertRunning();
         if (body.expectedRevision !== current.readyRevision || action !== "approve" && body.expectedCandidateTree !== current.candidateTree) throw new Error("This result changed. Inspect the current result before deciding; nothing was repeated.");
+        if (action === "stop") {
+            const result = await service.requestOperatorStop({ jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: current.revision, expectedCandidateTree: current.candidateTree });
+            cancellations.get(jobId)?.abort(new Error("The operator stopped this job."));
+            return result;
+        }
         if (active.has(jobId)) throw new Error("The job advanced while this decision was read. Refresh before deciding.");
         active.add(jobId);
         try {
@@ -265,6 +271,8 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         catch { /* Unreadable owner state cannot authorize convenience work. GET surfaces the stop. */ }
         finally { sweeping = false; }
     };
-    const timer = setInterval(() => { void tick(); }, 1000); timer.unref();
-    return { read, post, tick, stop() { stopped = true; clearInterval(timer); for (const cancellation of cancellations.values()) cancellation.abort(new Error("The job page owner stopped.")); } };
+    let timer: ReturnType<typeof setInterval> | undefined;
+    function start() { if (!timer && !stopped) { timer = setInterval(() => { void tick(); }, 1000); timer.unref(); } }
+    if (options.autoAdvance !== false) start();
+    return { read, post, tick, start, stop() { stopped = true; clearInterval(timer); for (const cancellation of cancellations.values()) cancellation.abort(new Error("The job page owner stopped.")); } };
 }

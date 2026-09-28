@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/archive-removal-decision-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.archive-removal-decision.v1"
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.archive-removal-preview.v1"
+        },
+        "archiveId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "archiveIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "entries": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100000
+        },
+        "action": {
+          "const": "remove-selected-private-preparation-copy"
+        },
+        "retained": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "archiveId",
+        "archiveIdentity",
+        "bytes",
+        "entries",
+        "action",
+        "retained",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "schema_version",
+    "preview",
+    "actor"
+  ],
+  "additionalProperties": false
+}

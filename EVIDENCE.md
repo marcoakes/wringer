@@ -1,3 +1,34 @@
+# Current Bun adoption candidate — 28 September 2026
+
+This is an implementation candidate, not a public release or a passed live user
+journey. The [rebuild ledger](docs/rebuild/STATUS.md) names exact checks and
+remaining prerequisites. Exact final archive-bound measurements and the implementation report accompany
+`build/rebuild-candidate/`. Earlier alpha19 artifacts do not qualify later bytes.
+The final report identifies the source/binary digests for each affected check.
+
+| Observation | State | Scope and evidence |
+| --- | --- | --- |
+| Source/authority/proposal/wait/recovery regressions | Measured deterministic fixtures | [Status and guard indexes](docs/rebuild/STATUS.md); isolated faults and restored controls retained |
+| macOS arm64 extracted archive and owned installer | Native artifact procedure | 17 route observations and 13 installer observations; use the exact final archive report |
+| Offline npm packaging/alias launch | Offline package procedure | 12 observations; exact final tarballs/report accompany the candidate; private fixture scope, no registry publish |
+| Verification browser review/correction/Send | Measured scripted engineering | Real Chromium, temporary Git origin and fresh-clone audit; no real person's decision |
+| Contained delegation | Unmeasured live platform | Pinned provisioning and no-model readiness procedures implemented; Apple service authorization pending; Linux/gVisor unavailable here |
+| Complete Claude Code/Codex journeys | Unmeasured | [Client matrix](docs/ASSISTANT_COMPATIBILITY.md); config/parser checks are narrower evidence |
+| Public release/install, Homebrew install, MCP listing | Unmeasured | Machinery staged; account, namespace, native CI and publication decisions remain |
+| Independent newcomer usability | Unmeasured | Scripted clicks and owner knowledge cannot establish it |
+
+Retained unsuccessful measurements include empty-file Node TAP appearing to pass,
+stale assertion reports, concurrent schema compilation, partial owner writes,
+missing npm symlink inventory, wrong intermediate npm licence metadata and lost
+check/publication results. Corrections have separate red/green/reversion evidence;
+the old outcomes were not rewritten. Linux DAC is a required native job, never a
+macOS skip presented as Linux evidence. Missing cost is unknown.
+
+Historical reports below retain their original dates, meaning and unsuccessful
+outcomes. Their Python installation commands are not current product instructions.
+
+---
+
 # Historical evidence index — retired Python implementation
 
 Archived as a historical reference during the Bun replacement (2026-09-07).

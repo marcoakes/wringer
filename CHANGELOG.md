@@ -4,6 +4,23 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.20 — adoption rebuild
+
+- Reusable verification and contained-delegation workspaces, finite grants,
+  typed proposals, explicit questions and source-bound review and Send.
+- One executable with compatibility aliases; owned install, update, rollback
+  and uninstall; scoped Claude Code/Codex configuration and a shipped agent skill.
+- Retained-state recovery, bounded diagnostics, strict check identity and
+  assertion completeness, nonblocking MCP observation and restart continuity.
+- Current guides, generated CLI reference, three runnable examples, native
+  archive inventories and prepared npm/Brew/Action/registry release machinery.
+- Historical record bytes remain frozen. New records use sibling schemas.
+
+The dated [rebuild status](docs/rebuild/STATUS.md) retains the local engineering
+checkpoint. Published archives carry exact source identities and claim reports
+from the required native CI. Containment, live clients, real human acceptance
+and other public channels require their own measurements.
+
 ## 1.0.0-alpha.19 — binding a claim to what it rests on (source checkpoint)
 
 Four measurements, each of a claim that was not bound to the thing it asserted.

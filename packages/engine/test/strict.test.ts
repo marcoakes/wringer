@@ -174,6 +174,26 @@ test("strict is automatic under CI, through the public entry", async () => {
     }
 });
 
+test("T06 strict detects further edits to already dirty binary source and a moved HEAD", async () => {
+    const root = await repo();
+    await writeFile(join(root, "binary.dat"), new Uint8Array([0, 1]));
+    await git(root, ["add", "binary.dat"]); await git(root, ["commit", "-m", "binary fixture"]);
+    await writeFile(join(root, "binary.dat"), new Uint8Array([0, 2]));
+    await writeFile(join(root, "mutate.sh"), "printf '\\000\\003' > binary.dat\n");
+    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "sh mutate.sh" }] }));
+    const changed = await verify(root, { strict: true });
+    expect(changed.status).toBe("failed");
+    expect((await Bun.file(join(root, changed.evidence_dir, "selection.json")).json()).strict.changed_tracked).toContain("binary.dat");
+});
+test("T06 strict detects a moved HEAD even when the source tree stays the same", async () => {
+    const root = await repo();
+    await writeFile(join(root, "mutate.sh"), "git -c core.hooksPath=/dev/null -c commit.gpgsign=false commit --allow-empty -m moved\n");
+    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "sh mutate.sh" }] }));
+    const moved = await verify(root, { strict: true });
+    expect(moved.status).toBe("failed");
+    expect((await Bun.file(join(root, moved.evidence_dir, "selection.json")).json()).strict.exact_source).toBeFalse();
+});
+
 // RED-WATCH: the pages that teach this reverted.
 test("the operator pages carry the inputs and strict sentences", async () => {
     const root = new URL("../../../", import.meta.url).pathname.replace(/\/$/, "");

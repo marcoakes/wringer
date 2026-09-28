@@ -1,3 +1,8 @@
+> Adoption entry: [START_AGENT](../START_AGENT.md) and [INSTALL](../../INSTALL.md).
+> This lower-level guide also documents retained standalone/legacy surfaces;
+> guided setup now prepares profiles. Its historical measurements retain their
+> original scope and do not qualify a new candidate.
+
 # Wringer: the Bun product guide
 
 Wringer coordinates agents, checks and evidence. The agents author the product code; the CLI does not. The active implementation is the Bun workspace at the source repository root, not a parallel edition or a wrapper around Python.

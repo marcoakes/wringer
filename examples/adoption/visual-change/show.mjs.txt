@@ -1,0 +1,4 @@
+import {readFileSync} from 'node:fs';
+const html=readFileSync('page.html','utf8');
+if(!html.includes('2, 3, 4')) throw Error('Expected range display is missing');
+console.log(html);

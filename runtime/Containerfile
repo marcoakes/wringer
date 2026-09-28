@@ -7,11 +7,13 @@ FROM ${NODE_BASE_IMAGE}
 ARG BUN_BASE_IMAGE
 ARG NODE_BASE_IMAGE
 COPY --from=bun-runtime /usr/local/bin/bun /usr/local/bin/bun
+COPY runtime/os-snapshot.lock.json runtime/prepare-os.ts /opt/wringer-build/
 USER 0
 RUN printf '%s' "$BUN_BASE_IMAGE" | grep -Eq '^(docker.io/)?oven/bun(:[a-zA-Z0-9.-]+)?@sha256:[a-f0-9]{64}$' \
     && printf '%s' "$NODE_BASE_IMAGE" | grep -Eq '^((docker.io/)?library/)?node(:[a-zA-Z0-9.-]+)?@sha256:[a-f0-9]{64}$' \
     && test "$(bun --version)" = 1.4.2 \
     && node -e 'if (Number(process.versions.node.split(".")[0]) !== 24) process.exit(1)' \
+    && bun /opt/wringer-build/prepare-os.ts \
     && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates git util-linux coreutils procps iptables \
     && for tool in git setpriv timeout pkill pgrep iptables ip6tables bun node; do command -v "$tool"; done \
@@ -21,10 +23,12 @@ RUN printf '%s' "$BUN_BASE_IMAGE" | grep -Eq '^(docker.io/)?oven/bun(:[a-zA-Z0-9
     && chmod 755 /workspace /input /home/agent
 WORKDIR /opt/wringer-agents
 COPY runtime/package.json ./package.json
+COPY runtime/bun.lock ./bun.lock
+COPY runtime/model-launch.ts ./model-launch.ts
 # Lifecycle scripts are not needed by these published JS/platform-binary packages.
-# bun.lock and dpkg inventory are retained IN the built image: transitive/OS pins
-# are not claimed reproducible until this first build's inventory is reviewed.
-RUN bun install --ignore-scripts --save-text-lockfile \
+# Both the transitive lock and signed OS archive snapshots are pinned inputs.
+# The resulting inventory is still measured, not inferred from this recipe.
+RUN bun install --frozen-lockfile --ignore-scripts \
     && test -s bun.lock \
     && node -e 'const fs = require("node:fs"); for (const [name, version] of Object.entries(require("./package.json").dependencies)) { if (JSON.parse(fs.readFileSync("node_modules/" + name + "/package.json", "utf8")).version !== version) throw Error("Dependency version mismatch: " + name); }' \
     && ln -s /opt/wringer-agents/node_modules/.bin/codex-acp /usr/local/bin/codex-acp \

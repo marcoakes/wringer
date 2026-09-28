@@ -29,12 +29,20 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
         return containedDrive(a, repo, context);
     if (surface === "wringer-board")
         return evidence(a, repo, context);
+    if (["setup", "job", "connect", "recover", "diagnostics", "storage"].includes(a.command)) return (await import("./adoption-cli")).adoptionCommand(a, context);
+    if (a.command === "runtime") return (await import("./runtime-cli")).runtimeCommand(a, context);
+    if (["install", "upgrade", "uninstall"].includes(a.command)) return (await import("./install-cli")).installationCommand(a);
     if (flag(a, "help") || !a.command)
         return { text: a.command === "design" ? DESIGN_HELP : a.command === "experiment" ? EXPERIMENT_HELP + IMPROVEMENT_CONNECT_HELP : commandHelp[a.command] || HELP };
     context.signal?.throwIfAborted();
     if (["init", "start", "verify", "doctor", "deliver", "audit", "attest", "health"].includes(a.command))
         positionals(a, 0);
     switch (a.command) {
+        case "reporter": {
+            allowed(a, []); positionals(a, 1);
+            if (a.words[0] !== "node-test") throw new Error("Use wring reporter node-test to export the shipped Node reporter source");
+            return { text: (await import("../../../runtime/node-reporter.mjs", { with: { type: "text" } })).default };
+        }
         case "experiment": {
             if (a.words[0] === "patterns" && a.flags.has("from")) {
                 positionals(a, 1); allowed(a, ["from", "task-family"]);
@@ -49,10 +57,15 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
             return experimentCommand(a, repo);
         }
         case "design": return designCommand(a, repo);
+        case "demo": {
+            allowed(a, []); positionals(a, 0);
+            const value = await (await import("./demo")).runDemo(context.signal);
+            return { value, text: `${value.note}\nExpected failure: ${value.red.exit}; corrected check: ${value.corrected.exit}.\nEvidence: ${value.corrected.evidence}` };
+        }
         case "init": {
-            allowed(a, []);
-            const value = await engine.init(repo);
-            return { value, text: `Ready. No coding agent was installed or selected.\n${value.template_only ? "No real checks detected: the placeholder proves nothing.\n" : ""}Next: wring start --repo ${quote(repo)}\nGuide: ${await documentationHint()}` };
+            allowed(a, ["dry-run"]);
+            const value = await engine.init(repo, { dryRun: flag(a, "dry-run") });
+            return { value, text: `${value.status === "incomplete" ? "Incomplete: no meaningful checks found." : value.status === "proposed" ? "Proposed checks and file changes:" : "Check configuration prepared."}\n${flag(a, "dry-run") ? JSON.stringify(value.writes, null, 2) + "\n" : ""}${value.next_move}\nNo coding agent was installed or selected.\nGuide: ${await documentationHint()}`, exit: value.status === "incomplete" ? 3 : 0 };
         }
         case "start": {
             allowed(a, []);

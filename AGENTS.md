@@ -106,20 +106,15 @@ resume does not grant new authority. Never fabricate a human verdict.
 
 ## Working authority and delivery
 
-Marc authorized autonomous routine PM/implementation decisions, full Python
-retirement and committing/pushing this rewrite to the existing main branch.
-Do not create a development branch for this work. This supersedes historical
-per-bolt approval pauses; it does not bypass managed permissions or grant new
-spending, account changes, force pushes, deployment or a public release.
+Work on the existing main checkout unless the current task requests isolation.
+Historical task permissions do not authorize commits, pushes, releases, spending,
+accounts or human decisions for a new task. Obtain the authority required by the
+current request and managed environment. Never weaken protection or rewrite tags.
 
-Keep unrelated user edits. Use small truthful commits, inspect the exact staged
-diff and publish completed checkpoints. If main protection prevents publication,
-report it; do not weaken protection. Wringer as a product may create a scoped
-delivery branch/MR in a target repo; that is separate from this rewrite's branch.
-
-A milestone is delivered only after its commit is pushed, remote checks are
-observed, and portable evidence plus limitations are available. Never describe
-local tests as remote CI or a simulation as a passed live run.
+Keep unrelated user edits and inspect coherent diffs. Any authorized publication
+must report its exact commit/artifacts and observed remote checks. Local tests
+are not CI; a scripted engineering decision is not human acceptance. A candidate
+with a dirty source identity is reviewable local work, not a clean tagged release.
 
 Tests accompany behavior changes. Prefer executable adversarial probes over
 speculative reviews. Use isolated scratch repositories with repo-local Git

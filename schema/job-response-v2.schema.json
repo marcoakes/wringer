@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/job-response-v2.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.job-response.v2"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "mode": {
+      "const": "verification"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "candidateIdentity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "eventId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "phase": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "outcome": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "uncertainty": {
+      "type": "boolean"
+    },
+    "nextAction": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "actor": {
+          "enum": [
+            "assistant",
+            "operator"
+          ]
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 8192
+        }
+      },
+      "required": [
+        "code",
+        "actor",
+        "eligible",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "decision": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          ]
+        },
+        "page": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^http://127\\.0\\.0\\.1:[0-9]+/\\?jobId=[a-f0-9-]{36}$"
+            }
+          ]
+        }
+      },
+      "required": [
+        "kind",
+        "page"
+      ],
+      "additionalProperties": false
+    },
+    "remaining": {
+      "type": "object",
+      "properties": {
+        "repetitions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expiresAt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          ]
+        },
+        "cost": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "repetitions",
+        "expiresAt",
+        "cost"
+      ],
+      "additionalProperties": false
+    },
+    "operation": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            },
+            "status": {
+              "enum": [
+                "completed",
+                "interrupted",
+                "unconfirmed",
+                "uncertain"
+              ]
+            }
+          },
+          "required": [
+            "id",
+            "status"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+          },
+          "kind": {
+            "enum": [
+              "standalone-sealed-bundle",
+              "review-decision",
+              "preparation-error"
+            ]
+          },
+          "contentIdentity": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "contentIdentity"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 3
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "const": "trusted-local"
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "changed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema_version",
+    "jobId",
+    "workspaceId",
+    "mode",
+    "revision",
+    "candidateIdentity",
+    "eventId",
+    "phase",
+    "outcome",
+    "uncertainty",
+    "nextAction",
+    "decision",
+    "remaining",
+    "operation",
+    "evidence",
+    "boundary"
+  ],
+  "additionalProperties": false
+}

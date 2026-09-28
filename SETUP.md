@@ -1,10 +1,21 @@
-# Set up one bounded product run
+# Setup entry
 
-This page is for the operator preparing Wringer, not a promise that the current machine already meets the execution requirements. Build the Bun product using [INSTALL.md](INSTALL.md). The root workspace is the only active implementation.
+Use [INSTALL](INSTALL.md) for the candidate binary and
+[START_AGENT](docs/START_AGENT.md) to choose verification or delegation.
+[START_OPERATOR](docs/START_OPERATOR.md) covers guided contained provisioning,
+profiles and owners; [MIGRATION](docs/MIGRATION.md) covers retained work.
+
+The following advanced reference retains the check, evidence and explicit-plan details. Standard delegation uses guided setup; manually authored plans are an advanced route. No runtime or named-client acceptance is implied; consult [EVIDENCE](EVIDENCE.md).
+
+---
+
+# Advanced check and contained-plan reference
+
+This page is for the operator preparing Wringer, not a promise that the current machine already meets the execution requirements. For installation and the guided two-mode journey, start with [INSTALL.md](INSTALL.md) and [START_OPERATOR](docs/START_OPERATOR.md). The root workspace is the only active implementation.
 
 ## 1. Establish the execution boundary
 
-The production target is mandatory isolation for the planner, coding worker and judge, reached through ACP:
+Delegation requires isolation for the planner, coding worker and judge, reached through ACP. Verification is a separate explicitly approved trusted-local check mode and does not require these runtimes:
 
 | Environment | Required runtime | What must be established |
 | --- | --- | --- |
@@ -163,7 +174,13 @@ gates:
 
 Then: **zero executed assertions cannot pass**, whatever the command exited. A report that contradicts the exit code is refused. A declared requirement the report never mentions is refused. Each gate's observation lands in `gates/NNN_id/check-observation.json` as `wringer.check-observation.v1` — the same record the contained lane's runners produce — with the counts and the runner's own test names in `gate-assertions.json` beside it.
 
-`node --test` prints `spec` format on a pipe, so declare `--test-reporter=tap`; the adapter says so rather than guessing.
+For Node checks, use the shipped `runtime/node-reporter.mjs` (or the copy prepared
+under `wringer-acceptance/`) with `--test-reporter=./wringer-acceptance/node-reporter.mjs`.
+It combines TAP with registered-test counts: plain TAP can count an empty file as
+a passing test and no longer establishes assertion completeness. The
+[local-fix example](examples/adoption/local-fix/README.md) provides the exact copy
+and command sequence. File reports must be freshly produced by this invocation;
+a retained successful report cannot qualify a failed or empty check.
 
 **Environment failures are classified from measurements, never from log text.** A shell that exited 126 or 127, a timeout, a gate that produced no readable report, or — for a `playwright` gate — the browser launch probe from `requires:` reporting that the engine does not start here. An environment failure is also excluded from red-first receipts: a browser that never launched has not demonstrated that a check can fail.
 

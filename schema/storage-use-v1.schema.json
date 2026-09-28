@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/storage-use-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.storage-use.v1"
+    },
+    "bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "entries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000
+    },
+    "linksNotFollowed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "categories": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "name",
+          "bytes"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "removable": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    }
+  },
+  "required": [
+    "schema_version",
+    "bytes",
+    "entries",
+    "linksNotFollowed",
+    "categories",
+    "removable"
+  ],
+  "additionalProperties": false
+}

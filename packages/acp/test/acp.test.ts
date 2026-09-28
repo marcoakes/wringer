@@ -20,6 +20,21 @@ function lifecycle(packet: any, send: (value: any) => void) { if (packet.method 
 else if (packet.method === "session/new")
     send(reply(packet, { sessionId: "session-one" })); }
 const options = { role: "worker" as const, cwd: "/workspace/repo", prompt: "Fix the declared requirement.", timeoutMs: 1000 };
+test("T20 explicit model selection is confirmed through ACP before a prompt, and fallback is refused", async () => {
+    for (const behavior of ["confirm", "ignore", "absent"]) {
+        const config = (currentValue: string) => [{ id: "model", category: "model", type: "select", currentValue, options: [{ value: "fixture-selected", name: "Selected" }, { value: "fixture-default", name: "Default" }] }];
+        const fixture = server((packet, send) => {
+            if (packet.method === "initialize") lifecycle(packet, send);
+            if (packet.method === "session/new") send(reply(packet, { sessionId: "model-session", ...(behavior === "absent" ? {} : { configOptions: config("fixture-default") }) }));
+            if (packet.method === "session/set_config_option") { expect(packet.params.value).toBe("fixture-selected"); send(reply(packet, { configOptions: config(behavior === "confirm" ? "fixture-selected" : "fixture-default") })); }
+            if (packet.method === "session/prompt") send(reply(packet, { stopReason: "end_turn" }));
+        });
+        const result = await runAcpTurn(fixture.transport, { ...options, model: "fixture-selected" } as any);
+        expect(result.status === "completed").toBe(behavior === "confirm");
+        expect(fixture.seen.some(packet => packet.method === "session/prompt")).toBe(behavior === "confirm");
+        if (behavior === "confirm") expect(result.events.some(event => event.type === "acp.model.selected" && event.model === "fixture-selected")).toBeTrue();
+    }
+});
 test("ACP negotiates v1, streams final text, never exposes host fs/terminal", async () => {
     const fixture = server((packet, send) => { lifecycle(packet, send); if (packet.method === "session/prompt") {
         send({ jsonrpc: "2.0", method: "session/update", params: { sessionId: "session-one", update: { sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "private-thought" } } } });

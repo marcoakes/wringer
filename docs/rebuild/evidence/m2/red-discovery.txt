@@ -1,0 +1,75 @@
+bun test v1.4.2 (744846f84)
+
+packages/engine/test/discovery.test.ts:
+ 6 | const roots: string[] = [];
+ 7 | afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
+ 8 | async function fixture(files: Record<string, string>) { const root = await mkdtemp(join(tmpdir(), "wringer-discovery-")); roots.push(root); for (const [name, data] of Object.entries(files)) await writeFile(join(root, name), data); return root; }
+ 9 | test("T05 no-check discovery cannot create a successful placeholder", async () => {
+10 |     const root = await fixture({}); const result = await init(root);
+11 |     expect(result.status).toBe("incomplete");
+                               ^
+error: expect(received).toBe(expected)
+
+Expected: "incomplete"
+Received: "ready"
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/engine/test/discovery.test.ts:11:27)
+(fail) T05 no-check discovery cannot create a successful placeholder [40.05ms]
+12 |     expect(await Bun.file(join(root, ".wringer.yaml")).exists()).toBeFalse();
+13 |     expect(await Bun.file(join(root, ".gitignore")).exists()).toBeFalse();
+14 | });
+15 | test("T04 discovery identifies Rust and Go checks as inert proposals", async () => {
+16 |     const rust = await fixture({ "Cargo.toml": '[package]\nname="fixture"\nversion="0.1.0"\n', "Cargo.lock": "version=4\n" });
+17 |     expect((await init(rust)).gates).toContainEqual(expect.objectContaining({ id: "test", run: "cargo test --locked" }));
+                                          ^
+error: expect(received).toContainEqual(expected)
+
+Expected to contain: ObjectContaining {
+  id: "test",
+  run: "cargo test --locked",
+}
+Received: []
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/engine/test/discovery.test.ts:17:38)
+(fail) T04 discovery identifies Rust and Go checks as inert proposals [7.24ms]
+19 |     expect((await init(go)).gates).toContainEqual(expect.objectContaining({ id: "test", run: "go test ./..." }));
+20 | });
+21 | test("T08 preview is nonmutating and package-manager choice comes from data", async () => {
+22 |     const root = await fixture({ "package.json": JSON.stringify({ packageManager: "yarn@4.9.0", scripts: { test: "touch MUST_NOT_RUN; exit 1" } }) });
+23 |     const result = await init(root, { dryRun: true });
+24 |     expect(result.gates).toContainEqual(expect.objectContaining({ id: "test", run: "yarn run test" }));
+                              ^
+error: expect(received).toContainEqual(expected)
+
+Expected to contain: ObjectContaining {
+  id: "test",
+  run: "yarn run test",
+}
+Received: [
+  {
+    id: "test",
+    run: "npm run test",
+  }
+]
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/engine/test/discovery.test.ts:24:26)
+(fail) T08 preview is nonmutating and package-manager choice comes from data [5.16ms]
+478 |     force?: boolean;
+479 | } = {}) {
+480 |     repo = resolve(repo);
+481 |     const path = await safePath(repo, ".wringer.yaml"), ignore = await safePath(repo, ".gitignore");
+482 |     if (await exists(path))
+483 |         throw new EngineError(`${path} already exists; no configuration was overwritten`);
+                    ^
+EngineError: /var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-discovery-FKSynU/.wringer.yaml already exists; no configuration was overwritten
+ exit_code: 2,
+ next_move: undefined,
+
+      at init (/Users/marc/Claude/wringer/packages/engine/src/config.ts:483:15)
+      at async <anonymous> (/Users/marc/Claude/wringer/packages/engine/test/discovery.test.ts:31:19)
+(fail) T08 existing configuration remains byte-identical under inspection [0.86ms]
+
+ 0 pass
+ 4 fail
+ 3 expect() calls
+Ran 4 tests across 1 file. [179.00ms]

@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/lock-recovery-request-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.lock-recovery-request.v1"
+    },
+    "preview": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "wringer.lock-recovery-preview.v1"
+        },
+        "selection": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "client",
+                "acceptance",
+                "profile",
+                "page-recovery",
+                "proposal",
+                "verification",
+          "verification-send",
+          "verification-prepare",
+                "runtime",
+                "delegation-preparation",
+                "runner-recovery"
+              ]
+            },
+            "id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+                },
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              ]
+            },
+            "workspaceId": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lockIdentity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "ownerState": {
+          "enum": [
+            "live",
+            "dead",
+            "unknown"
+          ]
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "action": {
+          "const": "retain-dead-coordination-lock"
+        },
+        "dispatched": {
+          "const": false
+        },
+        "uncertaintyRetained": {
+          "const": true
+        },
+        "nextAction": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      },
+      "required": [
+        "schema_version",
+        "selection",
+        "path",
+        "pid",
+        "lockIdentity",
+        "ownerState",
+        "eligible",
+        "action",
+        "dispatched",
+        "uncertaintyRetained",
+        "nextAction",
+        "identity"
+      ],
+      "additionalProperties": false
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "schema_version",
+    "preview",
+    "actor"
+  ],
+  "additionalProperties": false
+}

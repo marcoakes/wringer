@@ -1,0 +1,80 @@
+{
+  "kind": "Actual compiled STDIO and Chromium; inert unapproved delegation profile; no live client/model/containment claim",
+  "binarySha256": "421e6fe5aca277d39dc7fcc465f74cbea8473da58762037c88a8ad96eced09ae",
+  "modelCalls": 0,
+  "rows": [
+    {
+      "name": "verification restart retains the unapproved job",
+      "passed": true
+    },
+    {
+      "name": "delegation mode remains explicit",
+      "passed": false
+    }
+  ],
+  "probes": [
+    {
+      "schema_version": "wringer.connection-measurement.v1",
+      "mode": "verification",
+      "tools": [
+        "wringer.list_jobs",
+        "wringer.inspect_setup",
+        "wringer.propose_verification",
+        "wringer.get_status",
+        "wringer.wait_for_update",
+        "wringer.run_checks",
+        "wringer.cancel",
+        "wringer.get_evidence"
+      ],
+      "transport": "stdio",
+      "modelCalls": 0,
+      "measured": "protocol-and-read-only-owner-setup",
+      "namedClientDiscovery": "unmeasured",
+      "liveJob": "unmeasured"
+    },
+    {
+      "schema_version": "wringer.connection-measurement.v1",
+      "mode": "verification",
+      "tools": [
+        "wringer.list_jobs",
+        "wringer.inspect_setup",
+        "wringer.propose_verification",
+        "wringer.get_status",
+        "wringer.wait_for_update",
+        "wringer.run_checks",
+        "wringer.cancel",
+        "wringer.get_evidence"
+      ],
+      "transport": "stdio",
+      "modelCalls": 0,
+      "measured": "protocol-and-read-only-owner-setup",
+      "namedClientDiscovery": "unmeasured",
+      "liveJob": "unmeasured"
+    },
+    {
+      "schema_version": "wringer.connection-measurement.v1",
+      "mode": "delegation",
+      "tools": [
+        "wringer.inspect_setup",
+        "wringer.validate_proposal",
+        "wringer.propose",
+        "wringer.revise_proposal",
+        "wringer.list_jobs",
+        "wringer.get_status",
+        "wringer.get_approval_request",
+        "wringer.wait_for_update",
+        "wringer.get_evidence",
+        "wringer.start",
+        "wringer.continue",
+        "wringer.request_revision",
+        "wringer.cancel",
+        "wringer.prepare_handover"
+      ],
+      "transport": "stdio",
+      "modelCalls": 0,
+      "measured": "protocol-and-read-only-owner-setup",
+      "namedClientDiscovery": "unmeasured",
+      "liveJob": "unmeasured"
+    }
+  ]
+}

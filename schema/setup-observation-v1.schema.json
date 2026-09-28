@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/setup-observation-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.setup-observation.v1"
+    },
+    "mode": {
+      "const": "verification"
+    },
+    "workspaceId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "run": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 16384
+          },
+          "timeout": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "optional": {
+            "type": "boolean"
+          },
+          "proves": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 256
+          },
+          "corroborates": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "maxItems": 256
+          },
+          "inputs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "maxItems": 256
+          },
+          "evidence": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "assertions"
+              },
+              "adapter": {
+                "enum": [
+                  "vitest",
+                  "playwright",
+                  "node-test"
+                ]
+              },
+              "report": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            },
+            "required": [
+              "kind",
+              "adapter"
+            ],
+            "additionalProperties": false
+          },
+          "concurrent": {
+            "type": "boolean"
+          },
+          "stability": {
+            "type": "object",
+            "properties": {
+              "attempts": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "require_consistent": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "attempts",
+              "require_consistent"
+            ],
+            "additionalProperties": false
+          },
+          "artifacts": {
+            "type": "object",
+            "properties": {
+              "max_bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "total_bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "max_bytes",
+              "total_bytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "id",
+          "run",
+          "timeout",
+          "optional",
+          "proves",
+          "corroborates",
+          "inputs",
+          "concurrent"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 256
+    },
+    "boundary": {
+      "type": "object",
+      "properties": {
+        "approval": {
+          "const": "cooperative-local"
+        },
+        "execution": {
+          "const": "trusted-local"
+        }
+      },
+      "required": [
+        "approval",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "untrustedContent": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "mode",
+    "workspaceId",
+    "checks",
+    "boundary",
+    "untrustedContent"
+  ],
+  "additionalProperties": false
+}

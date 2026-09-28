@@ -1,0 +1,13 @@
+name: Product improvement
+description: A concrete user journey that should work better
+body:
+  - type: textarea
+    id: journey
+    attributes:
+      label: Current journey, problem and proposed outcome
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Reproduction or observation, including unsuccessful paths

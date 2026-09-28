@@ -1,0 +1,172 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio-progress.test.ts:
+33 |         f.send(frame(1, "wait_for_update", { jobId: "job_fixture", timeoutSeconds: 25 }));
+34 |         await f.waitEntered();
+35 |         f.send(frame(2, "get_status", { jobId: "job_fixture" }));
+36 |         expect((await f.reply(2)).result.structuredContent).toMatchObject({ waits: 1, cancelledJobs: 0 });
+37 |         f.send(frame(3, "cancel", { jobId: "job_fixture", idempotencyKey: "cancel_fixture", expectedRevision: "a".repeat(64), expectedCandidateTree: null }));
+38 |         expect((await f.reply(3)).result.structuredContent).toMatchObject({ cancelledJobs: 1 });
+                                                                 ^
+error: expect(received).toMatchObject(expected)
+
+  {
+-   "cancelledJobs": 1,
++   "code": "invalid-arguments",
++   "message": "The tool arguments do not match its declared shape or bounds. Read tools/list and use only service-issued handles with the exact current guards.",
++   "outcome": "refused",
++   "schema_version": "wringer.assistant-error.v1",
+  }
+
+- Expected  - 1
++ Received  + 4
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:38:61)
+(fail) T12 real STDIO handles status and durable cancellation during a long poll [208.19ms]
+44 |     try {
+45 |         f.send(frame(1, "wait_for_update", { jobId: "job_fixture", timeoutSeconds: 25 }));
+46 |         await f.waitEntered();
+47 |         f.send(JSON.stringify({ jsonrpc: "2.0", method: "notifications/cancelled", params: { requestId: 1 } }) + "\n");
+48 |         f.send(frame(2, "get_status", { jobId: "job_fixture" }));
+49 |         expect((await f.reply(2)).result.structuredContent).toMatchObject({ waits: 0, cancelledJobs: 0 });
+                                                                 ^
+error: expect(received).toMatchObject(expected)
+
+  {
+    "cancelledJobs": 0,
+-   "waits": 0,
++   "jobId": "job_fixture",
++   "name": "wringer.get_status",
++   "outcome": "observed",
++   "providerCalls": 0,
++   "schema_version": "fixture.wait.v1",
++   "waits": 1,
+  }
+
+- Expected  - 1
++ Received  + 6
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/mcp/test/stdio-progress.test.ts:49:61)
+(fail) T12 transport cancellation releases only its wait, never the durable job [97.08ms]
+
+packages/mcp/test/stdio.test.ts:
+(pass) bounded MCP stdio transport > handles split UTF-8, one-byte chunks and multiple messages per chunk [4.80ms]
+(pass) bounded MCP stdio transport > accepts CRLF but rejects embedded raw carriage returns [0.26ms]
+(pass) bounded MCP stdio transport > invalid UTF-8 fails closed rather than replacing source words [0.68ms]
+(pass) bounded MCP stdio transport > unterminated final frame never becomes a dispatch on EOF [2.00ms]
+(pass) bounded MCP stdio transport > oversized frames are rejected before decoding, even with multibyte characters [0.39ms]
+(pass) bounded MCP stdio transport > a real Bun subprocess writes only protocol responses and exits after chat input closes [84.26ms]
+
+packages/mcp/test/json.test.ts:
+(pass) bounded unambiguous MCP JSON > preserves Unicode and complete JSON values without evaluating strings [0.43ms]
+(pass) bounded unambiguous MCP JSON > rejects duplicate decoded keys at every depth, not just the selected tool name [0.12ms]
+(pass) bounded unambiguous MCP JSON > rejects malformed, non-finite, trailing and dangerously deep input [0.12ms]
+(pass) bounded unambiguous MCP JSON > size is measured as UTF-8 bytes, not JavaScript characters [0.83ms]
+(pass) bounded unambiguous MCP JSON > deterministic generated JSON agrees with the platform reader [1.55ms]
+
+packages/mcp/test/contract.test.ts:
+(pass) narrow assistant tool contract > exactly fifteen tools including bounded design requests; no human pen, publication, credentials, scope or arbitrary execution route [0.36ms]
+(pass) narrow assistant tool contract > every listed schema accepts its intended inert request without changing the person's words [1.48ms]
+(pass) narrow assistant tool contract > unknown arguments and null/array arguments fail closed for every tool [0.25ms]
+(pass) narrow assistant tool contract > handles cannot become files, URLs, flags or executable snippets [0.09ms]
+(pass) narrow assistant tool contract > every mutation requires idempotency and exact revision/candidate guards [0.19ms]
+(pass) narrow assistant tool contract > uncertain effect replay is not an ordinary assistant recovery action [0.06ms]
+(pass) narrow assistant tool contract > bounded evidence pages and proposal notes cannot request an unlimited dump [0.43ms]
+(pass) narrow assistant tool contract > any explicit cash-limit request is a named refusal, including zero, null and false [0.10ms]
+
+packages/mcp/test/server.test.ts:
+(pass) MCP lifecycle and narrow dispatch > negotiates both declared versions and offers latest for an unknown client's version [0.29ms]
+(pass) MCP lifecycle and narrow dispatch > requires initialization notification before tools; ping is allowed during initialization [0.53ms]
+(pass) MCP lifecycle and narrow dispatch > design tools are advertised only to a workspace whose specification declares design [0.49ms]
+(pass) MCP lifecycle and narrow dispatch > a design call on a plain workspace refuses by sentence and never reaches the application [0.36ms]
+(pass) MCP lifecycle and narrow dispatch > tool shape errors differ from malformed protocol, unknown tools and honest stopped work [0.38ms]
+(pass) MCP lifecycle and narrow dispatch > forbidden tools and smuggled authority never reach the application [0.28ms]
+(pass) MCP lifecycle and narrow dispatch > cash-cap requests are explicitly refused before the service callback [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > duplicate JSON-RPC request id does not repeat even a read or dispatch [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > notifications cannot dispatch work, cancel accepted jobs or answer themselves [0.12ms]
+(pass) MCP lifecycle and narrow dispatch > batches, duplicate keys, responses and protocol extensions do not trigger a callback [0.15ms]
+(pass) MCP lifecycle and narrow dispatch > known-secret redaction and credential-field removal apply before serialized structured content [0.33ms]
+(pass) MCP lifecycle and narrow dispatch > raw service exceptions are not exposed and never imply no side effect occurred [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > an accidental operator link or authority token cannot cross through a tool result [0.33ms]
+(pass) MCP lifecycle and narrow dispatch > exotic, cyclic and oversized application responses fail closed without serializing secrets [2.20ms]
+(pass) MCP lifecycle and narrow dispatch > limits concurrent callback work while still answering ping [0.39ms]
+
+packages/cli/test/assistant-transport.test.ts:
+103 | }
+104 |
+105 | export function createAssistantTransport(service: AssistantTransportService, options: { instanceId: string; design?: boolean; onStop?: () => Promise<unknown> | unknown; isStopping?: () => boolean }) {
+106 |     const adminToken = randomBytes(32).toString("hex");
+107 |     let host = "";
+108 |     const server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: MCP_MAX_INPUT_BYTES, idleTimeout: 35, fetch: createAssistantRequestHandler(service, { host: () => host, adminToken, instanceId: options.instanceId, design: options.design, onStop: options.onStop, isStopping: options.isStopping }) });
+                             ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at createAssistantTransport (/Users/marc/Claude/wringer/packages/cli/src/assistant-transport.ts:108:24)
+      at <anonymous> (/Users/marc/Claude/wringer/packages/cli/test/assistant-transport.test.ts:14:23)
+(fail) bounded wait survives the real transport beyond its ordinary request and idle deadlines [4.63ms]
+(pass) local assistant request boundary without a listener > scoped calls return bounded facts and scrub the supplied bearer [3.98ms]
+(pass) local assistant request boundary without a listener > a design call on a plain workspace refuses by sentence on this route too [0.29ms]
+(pass) local assistant request boundary without a listener > browser Origin, fetch metadata, wrong Host and query authentication fail before callback [0.12ms]
+(pass) local assistant request boundary without a listener > GET is readiness-only, with no job data or side effects [0.07ms]
+(pass) local assistant request boundary without a listener > extra authority, forbidden tools, cash guarantees and malformed bodies never dispatch [0.59ms]
+(pass) local assistant request boundary without a listener > body encoding, content type and oversized content are refused [0.28ms]
+(pass) local assistant request boundary without a listener > only the separate operator token can request shutdown [81.15ms]
+(pass) local assistant request boundary without a listener > a stopping owner retains status and cancellation but refuses new work [0.80ms]
+(pass) local assistant request boundary without a listener > raw service errors are secret-safe and never claim an accepted operation did not happen [1.13ms]
+(pass) private scoped connection files > accepts only canonical loopback assistant URLs, no extra fields or full operator link [0.56ms]
+(pass) private scoped connection files > only a private ordinary file is readable; links, shared modes and duplicate keys fail closed [6.55ms]
+
+packages/application/test/assistant.test.ts:
+(pass) a status read never returns a head older than the journal at request time [614.13ms]
+ 99 |     const before = f.counters.status;
+100 |     // This burst does not establish freshness under staggered saturation; the held-read
+101 |     // regression below exercises that different condition.
+102 |     const reads = await Promise.all(Array.from({ length: 10 }, () => f.call("get_status", { jobId: proposed.jobId })));
+103 |     expect(reads.every(r => r.revision === "f".repeat(64))).toBeTrue();
+104 |     expect(f.counters.status - before).toBeLessThanOrEqual(8);
+                                             ^
+error: expect(received).toBeLessThanOrEqual(expected)
+
+Expected: <= 8
+Received: 10
+
+      at <anonymous> (/Users/marc/Claude/wringer/packages/application/test/assistant.test.ts:104:40)
+(fail) a synchronous burst coalesces before observation starts [542.40ms]
+(pass) T13 staggered saturation queues a fresh observation after four held snapshots [55.31ms]
+(pass) the design blind-test page names the planning guard that actually exists [0.80ms]
+(pass) a planner-declared profile through the assistant flow mints no planning authority [39.80ms]
+(pass) assistant application narrow authority and inert intake > PM inspection coalesces only overlapping publication reads and keeps public status unchanged [20.32ms]
+(pass) assistant application narrow authority and inert intake > overlapping PM inspections report an invalidated query as advanced and later reads recompute [19.71ms]
+(pass) assistant application narrow authority and inert intake > the construction-only routine coordinator still requires exact approval and restricts runtime tool names [25.18ms]
+(pass) assistant application narrow authority and inert intake > bounded waiting observes unchanged state without execution and rejects non-string cursors or extra powers [1047.84ms]
+(pass) assistant application narrow authority and inert intake > a pending wait rechecks revoked credentials and only the changed presentation is returned [2057.84ms]
+(pass) assistant application narrow authority and inert intake > current audited publication drives next action; fresh handover refuses but duplicate observation survives [77.45ms]
+(pass) assistant application narrow authority and inert intake > protected mode refuses; local preview must be explicit and private [1.87ms]
+(pass) assistant application narrow authority and inert intake > wrong, revoked, expired and another workspace's capabilities fail closed [21.17ms]
+(pass) assistant application narrow authority and inert intake > proposal questions, assumptions and original words survive repeated reads without a planner [17.33ms]
+(pass) assistant application narrow authority and inert intake > profile pins source, runtime, agents, environment, budgets, scope and protected files [23.11ms]
+(pass) assistant application narrow authority and inert intake > strict cash, arbitrary paths/commands and human/publication powers are not assistant tools [23.23ms]
+(pass) assistant application narrow authority and inert intake > approval binds the exact revision, cannot answer questions, and does not itself start work [24.76ms]
+(pass) assistant application narrow authority and inert intake > read-only inspection and evidence consume no execution and preserve both unknown cost lanes [48.63ms]
+(pass) assistant application narrow authority and inert intake > a duplicate start after lost response and advanced revision observes the same operation [38.18ms]
+(pass) assistant application narrow authority and inert intake > approval expiry while accepted but unclaimed refuses before effects, not as unknown spend [30.73ms]
+(pass) assistant application narrow authority and inert intake > cancellation prevents accepted future dispatch and cannot mint another job approval [79.86ms]
+(pass) assistant application narrow authority and inert intake > durable cancellation acknowledgement survives an immediately advancing correction journal [26.09ms]
+(pass) assistant application narrow authority and inert intake > a cancellation naming an older revision is recorded with it and stops future work; a malformed revision is refused [28.79ms]
+(pass) assistant application narrow authority and inert intake > questions/evidence from another job cannot cross a workspace capability [17.96ms]
+(pass) assistant application narrow authority and inert intake > record corruption and symlink escapes are refused without writing outside the service [11.36ms]
+(pass) assistant application narrow authority and inert intake > corrupt start and cancellation markers are not narrated as recorded lifecycle facts [24.82ms]
+
+4 tests failed:
+(fail) T12 real STDIO handles status and durable cancellation during a long poll [208.19ms]
+(fail) T12 transport cancellation releases only its wait, never the durable job [97.08ms]
+(fail) bounded wait survives the real transport beyond its ordinary request and idle deadlines [4.63ms]
+(fail) a synchronous burst coalesces before observation starts [542.40ms]
+
+ 70 pass
+ 4 fail
+ 1257 expect() calls
+Ran 74 tests across 7 files. [5.70s]

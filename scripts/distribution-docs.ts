@@ -14,6 +14,7 @@ const passiveExtensions = new Set([".md", ".txt", ".json", ".yaml", ".yml", ".pn
  * or an active package/tool configuration in the compiled distribution. */
 export function distributionReferencePath(path: string) {
     const name = basename(path).toLowerCase();
+    if (["agents.md", "claude.md", ".wringer.yaml", ".wringer.yml", "wringer.spec.yaml"].includes(name) || path.startsWith(".github/")) return `${path}.txt`;
     return passiveExtensions.has(extname(path).toLowerCase()) && !/^(?:package|tsconfig(?:\.[^.]*)?|jsconfig(?:\.[^.]*)?|deno)\.json$/.test(name) ? path : `${path}.txt`;
 }
 interface Pointer { start: number; end: number; href: string; hrefStart: number; label: string; kind: "markdown" | "html"; original: string; }

@@ -177,8 +177,8 @@ test("an entirely skipped suite exits 0 and the gate still cannot pass", async (
 });
 test("a passing suite establishes its assertions and the gate passes", async () => {
     const root = await repo();
-    await writeFile(join(root, "report.json"), vitestReport(["passed", "passed"]));
-    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "true", proves: ["SW-01"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] }));
+    await writeFile(join(root, "fixture-report.json"), vitestReport(["passed", "passed"]));
+    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "cp fixture-report.json report.json", proves: ["SW-01"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] }));
     const out = await verify(root);
     expect(out.results[0]!.status).toBe("passed");
     const rows = await Bun.file(join(root, out.evidence_dir, "gate-assertions.json")).json();
@@ -190,8 +190,8 @@ test("a passing suite establishes its assertions and the gate passes", async () 
 // RED-WATCH: the contradiction check removed.
 test("a runner report that contradicts the observed exit code is refused", async () => {
     const root = await repo();
-    await writeFile(join(root, "report.json"), vitestReport(["passed", "passed"]));
-    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "exit 1", proves: ["SW-01"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] }));
+    await writeFile(join(root, "fixture-report.json"), vitestReport(["passed", "passed"]));
+    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: "cp fixture-report.json report.json; exit 1", proves: ["SW-01"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] }));
     const out = await verify(root);
     expect(out.results[0]!.status).toBe("failed");
     expect(out.status).toBe("failed");
@@ -202,8 +202,8 @@ test("a runner report that contradicts the observed exit code is refused", async
 // RED-WATCH: a browser startup failure read as a failing product assertion.
 test("a browser that cannot launch is an environment classification from the probe, not from log text", async () => {
     const root = await repo();
-    await writeFile(join(root, "report.json"), playwrightMissingBrowser());
-    const gate = { id: "browser", run: "cat report.json; exit 1", proves: ["ZJ-04"], evidence: { kind: "assertions", adapter: "playwright", report: "report.json" } };
+    await writeFile(join(root, "fixture-report.json"), playwrightMissingBrowser());
+    const gate = { id: "browser", run: "cp fixture-report.json report.json; exit 1", proves: ["ZJ-04"], evidence: { kind: "assertions", adapter: "playwright", report: "report.json" } };
     // Without a declared browser requirement nothing measured this host, and the record says so.
     await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [gate] }));
     const unmeasured = await verify(root);
@@ -253,16 +253,16 @@ test("a browser that never started cannot become the recorded failure a requirem
     const root = await repo();
     await writeFile(join(root, "browser.sh"), 'test "$(cat browser.state)" = ready\n');
     await writeFile(join(root, "wringer.spec.yaml"), JSON.stringify({ schema_version: "wringer.spec.v1", approved: true, title: "Fixture", intent: "Build it.", criteria: [{ id: "ZJ-04", title: "The app serves the image offline", required: true }], open_questions: [], tasks: [{ id: "build", brief: "briefs/build.md", objective: "Build it." }] }));
-    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, requires: [{ kind: "browser", module: "not-installed-here" }], gates: [{ id: "browser", run: "sh browser.sh", proves: ["ZJ-04"], evidence: { kind: "assertions", adapter: "playwright", report: "report.json" } }] }));
+    await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, requires: [{ kind: "browser", module: "not-installed-here" }], gates: [{ id: "browser", run: "cp fixture-report.json report.json; sh browser.sh", proves: ["ZJ-04"], evidence: { kind: "assertions", adapter: "playwright", report: "report.json" } }] }));
     // Red, but red because the browser binary is absent: an environment classification.
     await writeFile(join(root, "browser.state"), "broken\n");
-    await writeFile(join(root, "report.json"), playwrightMissingBrowser());
+    await writeFile(join(root, "fixture-report.json"), playwrightMissingBrowser());
     const red = await verify(root);
     expect(red.results[0]!.status).toBe("failed");
     expect((await Bun.file(join(root, red.evidence_dir, "gate-assertions.json")).json()).gates[0].classification).toBe("environment");
     // Now green. The earlier failure is not evidence that this check can fail.
     await writeFile(join(root, "browser.state"), "ready\n");
-    await writeFile(join(root, "report.json"), JSON.stringify({ suites: [{ title: "a.spec.mjs", file: "a.spec.mjs", specs: [{ title: "ZJ-04: the app serves the image offline", ok: true, tests: [{ status: "expected", results: [{ status: "passed" }] }] }] }], errors: [], stats: { expected: 1, skipped: 0, unexpected: 0, flaky: 0 } }));
+    await writeFile(join(root, "fixture-report.json"), JSON.stringify({ suites: [{ title: "a.spec.mjs", file: "a.spec.mjs", specs: [{ title: "ZJ-04: the app serves the image offline", ok: true, tests: [{ status: "expected", results: [{ status: "passed" }] }] }] }], errors: [], stats: { expected: 1, skipped: 0, unexpected: 0, flaky: 0 } }));
     const green = await verify(root);
     expect(green.results[0]!.status).toBe("passed");
     expect(green.status).toBe("passed");
@@ -304,4 +304,49 @@ test("every recorded gate status stays derivable from its own exit code and time
     for (const row of out.results)
         expect(row.status === "passed", `${row.gate_id} exit ${row.exit_code}`).toBe(row.exit_code === 0 && !row.timed_out);
     expect(out.status).toBe("failed");
+});
+
+test("T05 standalone Node evidence refuses empty-file TAP and requires registered tests from the shipped reporter", async () => {
+    const root = await repo(), reporter = new URL("../../../runtime/node-reporter.mjs", import.meta.url).pathname;
+    await writeFile(join(root, "check.mjs"), "");
+    async function check(command: string) {
+        await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run: command, proves: ["R1"], evidence: { kind: "assertions", adapter: "node-test" } }] }));
+        const value = await verify(root);
+        return (await Bun.file(join(root, value.evidence_dir, "gate-assertions.json")).json()).gates[0];
+    }
+    const plain = await check("node --test --test-reporter=tap check.mjs");
+    expect(plain.status).toBe("unavailable"); expect(plain.reason).toContain("registration");
+    const quoted = "'" + reporter.replaceAll("'", "'\\''") + "'";
+    expect((await check(`node --test --test-reporter=${quoted} check.mjs`)).status).toBe("unavailable");
+    await writeFile(join(root, "check.mjs"), 'import {test} from "node:test"; import {strict as assert} from "node:assert"; test("meaningful value", () => assert.equal(2+2,4));');
+    expect((await check(`node --test --test-reporter=${quoted} check.mjs`)).status).toBe("established");
+}, 15000);
+
+test("T05 an unchanged old report is unavailable but a report produced by this execution is usable", async () => {
+    const root = await repo();
+    await writeFile(join(root, "report.json"), vitestReport(["passed", "passed"]));
+    await writeFile(join(root, "input.json"), vitestReport(["passed"]));
+    async function check(run: string) {
+        await writeFile(join(root, ".wringer.yaml"), JSON.stringify({ version: 1, gates: [{ id: "unit", run, proves: ["R1"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] }));
+        const value = await verify(root);
+        return { ...(await Bun.file(join(root, value.evidence_dir, "gate-assertions.json")).json()).gates[0], runStatus: value.status };
+    }
+    const stale = await check("true"); expect(stale.status).toBe("unavailable"); expect(stale.reason).toContain("unchanged");
+    const fresh = await check("cp input.json report.json"); expect(fresh.status).toBe("established");
+    expect(fresh.runStatus).toBe("passed");
+});
+
+test("T05 truncated captured output cannot establish a complete assertion report", async () => {
+    const { observeGateAssertions } = await import("../src/gate-evidence");
+    const { Bundle } = await import("../src/io");
+    const root = await repo(), bundle = new Bundle(join(root, ".wringer", "truncation")); await bundle.prepare();
+    const gate = parseConfig({ version: 1, gates: [{ id: "unit", run: "fixture", proves: ["R1"], evidence: { kind: "assertions", adapter: "vitest" } }] }).gates[0]!;
+    const result = { exit_code: 0, duration_ms: 1, timed_out: false, interrupted: false, stdout: vitestReport(["passed"]), stderr: "", stdout_truncated: true, stderr_truncated: false };
+    const refused = await observeGateAssertions(root, gate, bundle, "truncated", result, { browserProbe: async () => null });
+    expect(refused.row.status).toBe("unavailable"); expect(refused.row.reason).toContain("truncated");
+    expect((await observeGateAssertions(root, gate, bundle, "complete", { ...result, stdout_truncated: false }, { browserProbe: async () => null })).row.status).toBe("established");
+});
+
+test("a declared output report cannot also claim to be a protected check input", () => {
+    expect(() => parseConfig({ version: 1, gates: [{ id: "unit", run: "runner", inputs: ["*.json"], evidence: { kind: "assertions", adapter: "vitest", report: "report.json" } }] })).toThrow("output report");
 });

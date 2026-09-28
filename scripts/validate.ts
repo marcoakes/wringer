@@ -23,7 +23,7 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ...(platform === "darwin" ? [
             ["native-confirmation-build", [process.execPath, "scripts/build-confirmation.ts"], workspace],
             // Capability/refusal probe only: never enrolls or signs a human decision.
-            ["native-confirmation-probe", [join(workspace, "dist/native/wringer-confirm"), "probe"], workspace],
+            ["native-confirmation-probe", [join(workspace, "build/native-confirmation/wringer-confirm"), "probe"], workspace],
         ] as ValidationStage[] : []),
         ["assistant-check", [process.execPath, "test", "./packages/mcp/test", "./packages/application/test/assistant.test.ts", "./packages/application/test/assistant-runner.test.ts", "./packages/application/test/assistant-journey.test.ts", "./packages/cli/test/assistant-cli.test.ts", "./packages/cli/test/assistant-console.test.ts", "./packages/cli/test/assistant-transport.test.ts", "./packages/cli/test/assistant-lifecycle.test.ts", "./packages/cli/test/assistant-job-correction.test.ts", "./packages/cli/test/distribution-docs.test.ts", "./packages/cli/test/test-discovery.test.ts"], workspace],
         ["native-check", [process.execPath, "run", "check"], workspace],
@@ -36,6 +36,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
         ["local-delivery-fixture", [process.execPath, "scripts/demo.ts"], workspace],
         ["compiled-version", [join(workspace, "dist/wring"), "--version"], repo],
+        ["compiled-cli-reference", [process.execPath, "scripts/cli-reference.ts", "--check", join(workspace, "dist/wring")], workspace],
+        ["adoption-examples", [process.execPath, "scripts/rebuild-examples.ts", join(workspace, "dist/examples/adoption"), join(workspace, "dist/wring"), join(workspace, "build/validated-examples")], workspace],
         ["compiled-board", [join(workspace, "dist/wringer-board"), "--help"], repo],
         ["compiled-drive", [join(workspace, "dist/wringer-drive"), "--help"], repo],
         ["compiled-assistant", [join(workspace, "dist/wringer-assistant"), "--help"], repo],
@@ -52,6 +54,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["local-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--local"], workspace],
         ["local-design-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--design", "--local"], workspace],
         ["improvements-browser-rehearsal", [process.execPath, "scripts/improvements-browser-rehearsal.ts"], workspace],
+        ["adoption-connections-rehearsal", [process.execPath, "scripts/adoption-connections.ts"], workspace],
+        ["verification-browser-rehearsal", [process.execPath, "scripts/rebuild-m5-browser.ts"], workspace],
     ];
 }
 if (import.meta.main) {

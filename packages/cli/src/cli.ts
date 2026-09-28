@@ -1,3 +1,4 @@
 #!/usr/bin/env bun
 import { main } from "./app";
-await main();
+export { main };
+if (import.meta.main) await main();

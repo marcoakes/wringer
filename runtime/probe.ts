@@ -36,6 +36,14 @@ if (mode === "worker") {
   try { await mkdir(first.slice(0, first.lastIndexOf("/")), { recursive: true }); await writeFile(first, "contained path only\n"); write = "isolated-copy-created"; }
   catch (error) { if (!(error instanceof Error && "code" in error && ["EACCES", "EPERM", "EROFS"].includes(String(error.code)))) throw error; }
   console.log(JSON.stringify({ hostSentinelNotReadable: true, samePathWrite: write }));
+} else if (mode === "inventory") {
+  const crypto = await import("node:crypto"), base = "/opt/wringer-agents";
+  const manifest = JSON.parse(await readFile(join(base, "package.json"), "utf8"));
+  const packages: Record<string, string> = {};
+  for (const name of Object.keys(manifest.dependencies)) packages[name] = JSON.parse(await readFile(join(base, "node_modules", name, "package.json"), "utf8")).version;
+  const node = Bun.spawn(["node", "-p", "process.versions.node"], { stdin: "ignore", stdout: "pipe", stderr: "ignore", signal: AbortSignal.timeout(3000) });
+  const version = (await new Response(node.stdout).text()).trim(); if (await node.exited || version.length > 100) throw Error("Node inventory unavailable");
+  console.log(JSON.stringify({ bun: Bun.version, node: version, packages, lock: crypto.createHash("sha256").update(await readFile(join(base, "bun.lock"))).digest("hex"), modelLauncher: crypto.createHash("sha256").update(await readFile(join(base, "model-launch.ts"))).digest("hex") }));
 } else if (mode === "resources") {
   const read = async (path: string) => readFile(path, "utf8").catch(() => "unavailable");
   console.log(JSON.stringify({ status: await read("/proc/self/status"), cpuMax: await read("/sys/fs/cgroup/cpu.max"), memoryMax: await read("/sys/fs/cgroup/memory.max"), memoryInfo: await read("/proc/meminfo"), cpuInfo: await read("/proc/cpuinfo") }));

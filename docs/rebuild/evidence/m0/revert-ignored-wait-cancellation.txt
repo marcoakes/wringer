@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/mcp/test/stdio-progress.test.ts:
+18 |     }
+19 |     const reads = [lines(proc.stdout, line => replies.push(JSON.parse(line))), lines(proc.stderr, line => { if (line === "wait-entered") entered++; else if (line === "wait-exited") exited++; else throw new Error("Unexpected fixture diagnostic"); })];
+20 |     async function until<T>(read: () => T | undefined): Promise<T> {
+21 |         const deadline = Date.now() + 2500;
+22 |         while (Date.now() < deadline) { const value = read(); if (value !== undefined) return value; await Bun.sleep(5); }
+23 |         throw new Error("STDIO made no progress while a long poll was pending");
+                       ^
+error: STDIO made no progress while a long poll was pending
+      at until ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:23:19)
+      at async <anonymous> ([isolated-checkout]/packages/mcp/test/stdio-progress.test.ts:51:17)
+(fail) T12 transport cancellation releases only its wait, never the durable job [2606.77ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+Ran 1 test across 1 file. [2.62s]

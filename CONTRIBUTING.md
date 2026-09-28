@@ -9,7 +9,7 @@ bun install --frozen-lockfile
 bun node_modules/playwright/cli.js install --with-deps chromium
 bun run check
 bun run build
-bun run demo
+bun run validate
 ```
 
 Install Chromium before the checks: visual-evidence tests require real browser

@@ -1,7 +1,8 @@
 name: release
 # Explicit release dispatch only. Pushing main does not publish a package.
 # Python/PyPI publishing is retired; original releases remain historical.
-# Unexercised until a v-prefixed tag is dispatched: alphas are source checkpoints and never run this workflow.
+# Adoption channel path is unmeasured until this exact workflow is dispatched.
+# Historical workflow evidence does not qualify these new artifacts.
 on:
   workflow_dispatch:
     inputs:
@@ -23,6 +24,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     # The same split and 40-minute hang guard as tests.yml; the rehearsal group runs in parallel below.
     timeout-minutes: 40
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -44,16 +49,43 @@ jobs:
       - run: bun scripts/release.ts package
         env:
           WRINGER_RELEASE_PLATFORM: ${{ matrix.platform }}
+      - name: Exercise exact packaged archive and offline installer
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PLATFORM: ${{ matrix.platform }}
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          bun scripts/extracted-distribution.ts "build/release/wringer-$version-$PLATFORM.tar.gz" build/release-measurements/extracted
+          bun scripts/installer-distribution.ts build/release build/release-measurements/installer
+          bun scripts/release-channels.ts build/release build/release-channels @wringer-fixture --fixture
+          bun scripts/channel-distribution.ts build/release-channels build/release-measurements/npm
+      - name: Exercise Homebrew with the exact local candidate
+        if: runner.os == 'macOS'
+        run: bun scripts/brew-distribution.ts build/release-channels build/release build/release-measurements/brew --apply-ci-fixture
+      - name: Bind claim report to exact artifact bytes
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          PLATFORM: ${{ matrix.platform }}
+        run: bun scripts/release-claims.ts build/release build/release-measurements "$PLATFORM" "${RELEASE_TAG#v}"
+      - uses: actions/attest@v4
+        with:
+          subject-path: |
+            build/release/*.tar.gz
+            build/release/wring-*
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.platform }}
-          path: dist/release/*
+          path: build/release/*
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: release-evidence-${{ matrix.platform }}
-          path: .wringer/native-validation-*/
+          path: |
+            .wringer/native-validation-*/
+            build/release-measurements/
           include-hidden-files: true
   rehearsals:
     strategy:
@@ -90,15 +122,33 @@ jobs:
         if: always()
         with:
           name: release-rehearsal-evidence-${{ matrix.platform }}
-          path: .wringer/native-validation-*/
+          path: |
+            .wringer/native-validation-*/
+            build/release-measurements/
+            build/adoption-connections/result.json
+            build/adoption-connections/delegation-question.png
+            docs/rebuild/evidence/m5/browser-*.json
+            build/rebuild-browser/*/*.png
           include-hidden-files: true
+  permission-adversary:
+    uses: ./.github/workflows/linux-dac.yml
+    with:
+      ref: ${{ inputs.tag }}
   publish-draft:
-    needs: [build, rehearsals]
+    needs: [build, rehearsals, permission-adversary]
     runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -111,4 +161,4 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" --verify-tag --draft --generate-notes artifacts/release-linux-x64/*.tar.gz artifacts/release-linux-x64/*.sha256 artifacts/release-darwin-arm64/*.tar.gz artifacts/release-darwin-arm64/*.sha256
+          bun scripts/draft-release.ts artifacts "$RELEASE_TAG" --apply

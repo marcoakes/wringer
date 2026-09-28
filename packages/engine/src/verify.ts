@@ -4,12 +4,12 @@ import { basename, join, relative, resolve } from "node:path";
 import { exists, loadConfig } from "./config";
 import { acceptance, checkIdentity, loadSpec } from "./acceptance";
 import { snapshot } from "./git";
-import { strictSource } from "./strict";
+import { strictSource, captureTrackedSource } from "./strict";
 import { Bundle, VERSION, newId, now, posix, Redactor, safePath, sha256 } from "./io";
 import { runProcess } from "./process";
 import { prove } from "./prove";
 import { selectionRecord } from "./selection";
-import { observeGateAssertions, GATE_ASSERTION_LIMITS, type GateAssertionOptions, type GateAssertionRow } from "./gate-evidence";
+import { observeGateAssertions, reportFingerprint, GATE_ASSERTION_LIMITS, type GateAssertionOptions, type GateAssertionRow } from "./gate-evidence";
 import { probeRequirement, type ReadinessRow } from "./readiness";
 import { Orchestrator, EnvironmentError, type Orchestration } from "./orchestrate";
 import { preflightContainer, runGateCommand, executionRecord } from "./backend";
@@ -26,6 +26,7 @@ async function runGate(repo: string, config: Config, gate: Gate, index: number, 
     for (let i = 1; i <= (gate.stability?.attempts ?? 1); i++) {
         const attemptDir = gate.stability ? `${dir}/attempts/${String(i).padStart(3, "0")}` : dir;
         const staging = gate.artifacts ? await mkdtemp(join(tmpdir(), "wringer-native-artifacts-")) : undefined;
+        const reportBefore = gate.evidence?.report ? await reportFingerprint(repo, gate.evidence.report) : undefined;
         let process;
         try {
             process = await runGateCommand(repo, config, bundle, attemptDir, gate.run, { cwd: repo, timeout: gate.timeout, signal: options.signal, redactor: bundle.redactor, ...(staging ? { env: { ...globalThis.process.env, WRINGER_ARTIFACTS_DIR: staging } } : {}) }, staging);
@@ -44,7 +45,7 @@ async function runGate(repo: string, config: Config, gate: Gate, index: number, 
         }
         // Zero executed assertions cannot pass. A gate that declares structured evidence is
         // answered by its runner's report as well as its exit code.
-        const observed = gate.evidence ? await observeGateAssertions(repo, gate, bundle, attemptDir, process, evidence) : null;
+        const observed = gate.evidence ? await observeGateAssertions(repo, gate, bundle, attemptDir, process, { ...evidence, reportBefore }) : null;
         if (observed)
             assertionRows.push(observed.row);
         // The gate result stays derivable from what the process did — the board enforces that, and
@@ -76,6 +77,7 @@ async function runGate(repo: string, config: Config, gate: Gate, index: number, 
 export async function verify(repo: string, options: VerifyOptions = {}): Promise<VerifyOutcome> {
     const snap = await snapshot(repo);
     repo = snap.root;
+    const strictBaseline = options.strict ? await captureTrackedSource(repo) : null;
     const config = await loadConfig(repo);
     const spec = await loadSpec(repo);
     await preflightContainer(repo, config);
@@ -232,7 +234,7 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     // `--strict`: ZenJev's coordinator compared source cleanliness before AND after, because a
     // gate that edits tracked source and then passes leaves a green result that no longer
     // describes the commit anybody will review. Ignored build output stays permitted.
-    const strict = options.strict ? await strictSource(repo, snap) : null;
+    const strict = strictBaseline ? await strictSource(repo, snap, strictBaseline) : null;
     if (strict && !strict.exact_source && status !== "interrupted") {
         status = "failed";
         failed_gate ??= null;
@@ -253,6 +255,10 @@ export async function verify(repo: string, options: VerifyOptions = {}): Promise
     if (rerun)
         summary.push("", `Next: \`${rerun}\``);
     await bundle.write("summary.md", summary.filter((line, i) => line || i > 0).join("\n") + "\n");
+    // A sealed sibling retains the final outcome even when the caller loses its
+    // response. Historical manifests retain their original interpretation.
+    const exit_code = status === "interrupted" ? 4 : environmentRefusal ? 2 : status === "failed" ? 1 : 0;
+    await bundle.json("completion.json", { schema_version: "wringer.verification-completion.v1", run_id: id, status, exit_code, fingerprint: snap.fingerprint, completed_at: now(), selection_sha256: sha256(JSON.stringify(selection)) });
     await bundle.seal();
     return { status, failed_gate, rerun, evidence_dir: posix(relative(repo, directory)), template_only, exit_code: status === "interrupted" ? 4 : environmentRefusal ? 2 : status === "failed" ? 1 : 0, manifest, selection, orchestration, results, ...(assessed ? { acceptance: assessed } : {}), ...(stabilities.length ? { stability: { gates: stabilities } } : {}), ...(vacuity ? { vacuity } : {}) };
 }

@@ -1,0 +1,54 @@
+{
+  "intent": "Add an inclusive upper-bound option to the range helper. Return [2,3,4] for range(2,4,true), and preserve [2,3] for range(2,4,false). The displayed example must be understandable.",
+  "title": "Inclusive range option",
+  "criteria": [
+    {
+      "id": "inclusive",
+      "title": "Both range modes",
+      "quote": "Return [2,3,4] for range(2,4,true), and preserve [2,3] for range(2,4,false).",
+      "kind": "check",
+      "required": true
+    },
+    {
+      "id": "readable",
+      "title": "Understandable display",
+      "quote": "The displayed example must be understandable.",
+      "kind": "human",
+      "required": true,
+      "show": {
+        "id": "range-display",
+        "argv": [
+          "node",
+          "--input-type=module",
+          "-e",
+          "import {range} from './src/range.mjs'; console.log(range(2,4,true))"
+        ],
+        "cwd": ".",
+        "timeout_seconds": 10
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "range",
+      "criteria": [
+        "inclusive"
+      ]
+    }
+  ],
+  "scope": {
+    "writable": [
+      "src"
+    ]
+  },
+  "ceilings": {
+    "max_sessions": 4,
+    "max_worker_turns": 2,
+    "max_judge_turns": 2,
+    "max_planner_turns": 0,
+    "wall_clock_seconds": 600,
+    "session_timeout_seconds": 120
+  },
+  "assumptions": [],
+  "questions": []
+}

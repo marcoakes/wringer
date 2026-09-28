@@ -1,0 +1,32 @@
+{
+  "schema_version": "wringer.runtime-os-lock.v1",
+  "measuredAt": "2026-09-27T12:01:09.071Z",
+  "records": [
+    {
+      "archive": "debian",
+      "timestamp": "20260927T082144Z",
+      "suite": "bookworm",
+      "url": "https://snapshot.debian.org/archive/debian/20260927T082144Z/dists/bookworm/InRelease",
+      "sha256": "77737fa4b34f2693e982cc9ee35736816c35a7778fc2d326cc1bbf5b301fe1aa",
+      "bytes": 151075
+    },
+    {
+      "archive": "debian",
+      "timestamp": "20260927T082144Z",
+      "suite": "bookworm-updates",
+      "url": "https://snapshot.debian.org/archive/debian/20260927T082144Z/dists/bookworm-updates/InRelease",
+      "sha256": "2613273096782b11d05f832bf95dfedf00e7c4c11a50abf283dac8d9d1260848",
+      "bytes": 55446
+    },
+    {
+      "archive": "debian-security",
+      "timestamp": "20260926T174359Z",
+      "suite": "bookworm-security",
+      "url": "https://snapshot.debian.org/archive/debian-security/20260926T174359Z/dists/bookworm-security/InRelease",
+      "sha256": "c1906f1b01570119d454542ade8dce958abb8cb734a9e17965a6b671620ece4c",
+      "bytes": 34770
+    }
+  ],
+  "signatureVerification": "APT uses the pinned base image's Debian archive keyring; validity-date expiry alone is disabled for archived snapshots",
+  "executionMeasured": false
+}

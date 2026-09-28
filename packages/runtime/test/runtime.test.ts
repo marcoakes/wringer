@@ -74,6 +74,13 @@ function fakeDriver(patch = "") {
     return { driver, calls, connections, connectionOptions, packets, wrongRuntimeClass() { mismatch = true; } };
 }
 const request: RoleExecutionRequest = { role: "worker", repo: source, runtime: policy, agent: { protocol: "acp", command: "test-acp-agent", args: ["--stdio"] }, scope: { writable: ["src"], protected: ["check.sh"] }, prompt: "Build the requirement.", budget: { maxTurns: 1, timeoutMs: 10000 } };
+test("T20 a role using the pinned model launcher refuses an adapter that cannot attest its model before prompting", async () => {
+    const fake = fakeDriver();
+    const result = await executeAgentRole({ ...request, role: "judge", agent: { protocol: "acp", command: "bun", args: ["/opt/wringer-agents/model-launch.ts", "openai", "fixture-model"] } }, { driver: fake.driver });
+    expect(result.status).not.toBe("completed"); expect(result.stopReason).toBe("model-unavailable");
+    expect(fake.packets.some(packet => packet.method === "session/prompt")).toBeFalse();
+    expect(fake.calls.some(call => call.argv[1] === "delete")).toBeTrue();
+});
 test("declared visual outputs are captured after success before cleanup with no verifier credentials", async () => {
     const fake = fakeDriver(), original = fake.driver.command, png = unitPng();
     fake.driver.command = async (argv, options) => { const result = await original(argv, options); return argv.some(arg => arg.includes("head -c 4194305")) ? { code: 0, stdout: png + "\n", stderr: "" } : result; };

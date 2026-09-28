@@ -1,0 +1,66 @@
+{
+  "fixture": "Automated engineering; no real human decision, containment or model acceptance",
+  "browser": "153.0.8010.12",
+  "at": "2026-09-27T20:23:23.534Z",
+  "artifacts": "build/rebuild-browser/d868ac3f-f257-4bed-88e3-86c20e7edcf9",
+  "rows": [
+    {
+      "check": "bootstrap fragment removed",
+      "passed": true
+    },
+    {
+      "check": "reload retains bounded session",
+      "passed": true
+    },
+    {
+      "check": "approval declares trusted-local mode",
+      "passed": true
+    },
+    {
+      "check": "approval accepted once",
+      "passed": true
+    },
+    {
+      "check": "review shows actual result",
+      "passed": true
+    },
+    {
+      "check": "operating mode remains visible during review",
+      "passed": true
+    },
+    {
+      "check": "phase transition focuses current decision",
+      "passed": true
+    },
+    {
+      "check": "narrow layout has no horizontal overflow",
+      "passed": true
+    },
+    {
+      "check": "decision has a screen-reader status region",
+      "passed": true
+    },
+    {
+      "check": "correction keyboard focus",
+      "passed": true
+    },
+    {
+      "check": "correction recorded",
+      "passed": true
+    },
+    {
+      "check": "stale tab cannot accept old candidate",
+      "passed": true
+    },
+    {
+      "check": "acceptance comment remains empty",
+      "passed": true
+    },
+    {
+      "check": "empty-note acceptance recorded",
+      "passed": false
+    }
+  ],
+  "pageErrors": [],
+  "modelCalls": 0
+}

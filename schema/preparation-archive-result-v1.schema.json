@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/preparation-archive-result-v1.schema.json",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "wringer.preparation-archive-result.v1"
+    },
+    "identity": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selected": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "acceptance",
+            "profile"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "retainedDirectory": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512
+    },
+    "dispatched": {
+      "const": false
+    },
+    "registrationRetained": {
+      "const": true
+    }
+  },
+  "required": [
+    "schema_version",
+    "identity",
+    "selected",
+    "retainedDirectory",
+    "dispatched",
+    "registrationRetained"
+  ],
+  "additionalProperties": false
+}

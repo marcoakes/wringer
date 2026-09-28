@@ -1,0 +1,20 @@
+{
+  "schema_version": "wringer.spec.v1",
+  "approved": false,
+  "title": "Range page review",
+  "intent": "The range page is readable at desktop and mobile sizes.",
+  "criteria": [
+    {
+      "id": "layout",
+      "title": "Readable range page",
+      "human": true
+    }
+  ],
+  "tasks": [
+    {
+      "id": "layout",
+      "brief": "brief.md",
+      "objective": "Inspect the actual page at both sizes"
+    }
+  ]
+}

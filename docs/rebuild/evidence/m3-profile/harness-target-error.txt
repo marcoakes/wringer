@@ -1,0 +1,4 @@
+Initial harness execution stopped after five red mutations because the cleanup
+mutation target string included an extra closing brace. No completed result or
+restored-control claim was made for that attempt. The target was corrected from
+"}).length < 5" to the unique ".length < 5" and the complete harness rerun.

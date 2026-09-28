@@ -94,14 +94,22 @@ export async function openReader(schemaDir: string): Promise<Reader> {
   // what a record IS would make every later differential meaningless.
   const ajv = addFormats(new Ajv2020({ allErrors: true, strict: false }));
   const compiled = new Map<string, ValidateFunction>();
+  const compiling = new Map<string, Promise<ValidateFunction>>();
 
   async function validatorFor(file: string): Promise<ValidateFunction> {
     const found = compiled.get(file);
     if (found) return found;
-    const schema = await readSchema(file, schemaDir);
-    const made = ajv.compile(schema);
-    compiled.set(file, made);
-    return made;
+    const pending = compiling.get(file);
+    if (pending) return pending;
+    const build = (async () => {
+      const schema = await readSchema(file, schemaDir);
+      const made = ajv.compile(schema);
+      compiled.set(file, made);
+      return made;
+    })();
+    compiling.set(file, build);
+    try { return await build; }
+    finally { compiling.delete(file); }
   }
 
   function versionOf(value: unknown): string | null {

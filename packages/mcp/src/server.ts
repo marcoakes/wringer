@@ -6,7 +6,9 @@ export const MCP_PROTOCOL_VERSIONS = ["2025-11-25", "2025-06-18"] as const;
 export type JsonRpcId = string | number | null;
 export type JsonRpcResponse = { jsonrpc: "2.0"; id: JsonRpcId; result: Record<string, unknown> } | { jsonrpc: "2.0"; id: JsonRpcId; error: { code: number; message: string } };
 export interface McpSessionOptions {
-    call: (name: AssistantToolName, args: AssistantToolArguments) => Record<string, unknown> | Promise<Record<string, unknown>>;
+    call: (name: string, args: AssistantToolArguments, context?: { signal?: AbortSignal }) => Record<string, unknown> | Promise<Record<string, unknown>>;
+    /** Explicit versioned tool surface for a registered workspace. Legacy default is unchanged. */
+    contract?: { tools: () => unknown[]; parse: (name: string, args: unknown) => { name: string; args: AssistantToolArguments } };
     version: string;
     serverName?: string;
     /** Optional additional redaction for known connection secrets. Never fetch provider keys for redaction. */
@@ -60,6 +62,7 @@ export function createMcpSession(options: McpSessionOptions) {
     let state: "new" | "initializing" | "ready" = "new";
     const ids = new Set<string>();
     let active = 0;
+    const waits = new Map<string, AbortController>();
     // Reuse the product's shape/known inherited-secret redactor; no Keychain or provider access.
     const redactor = new Redactor();
     const redact = (text: string) => redactor.scrub(options.redact ? options.redact(text) : text).replace(/http:\/\/127\.0\.0\.1:[0-9]+\/[^\s"<>]*#token=[a-f0-9]{64}/g, "[private operator link withheld]");
@@ -79,6 +82,8 @@ export function createMcpSession(options: McpSessionOptions) {
     })());
 
     return {
+        // Disconnecting a client only abandons observations, never accepted work.
+        close() { for (const wait of waits.values()) wait.abort(); },
         async receive(line: string): Promise<JsonRpcResponse | null> {
             let message: unknown;
             try { message = parseMcpJson(line); } catch { return mcpParseError(); }
@@ -94,6 +99,10 @@ export function createMcpSession(options: McpSessionOptions) {
                 // Notifications never dispatch a tool or answer themselves. Transport cancellation is
                 // not cancellation of an already accepted durable job; use guarded wringer.cancel.
                 if (message.method === "notifications/initialized" && state === "initializing" && fields(params, ["_meta"])) state = "ready";
+                if (message.method === "notifications/cancelled" && fields(params, ["requestId", "reason", "_meta"]) &&
+                    (typeof params.requestId === "string" || typeof params.requestId === "number" && Number.isSafeInteger(params.requestId)) &&
+                    (!own(params, "reason") || typeof params.reason === "string"))
+                    waits.get(`${typeof params.requestId}:${params.requestId}`)?.abort();
                 return null;
             }
             const key = `${typeof id}:${id}`;
@@ -116,28 +125,34 @@ export function createMcpSession(options: McpSessionOptions) {
             if (state !== "ready") return rpcError(id, -32000, "Initialize this connection and send notifications/initialized before using tools.");
             if (message.method === "tools/list") {
                 if (!fields(params, ["cursor", "_meta"]) || own(params, "cursor")) return rpcError(id, -32602, "This tool list is a single page; do not supply a cursor.");
-                return success(id, { tools: assistantTools({ design: await design() }) });
+                return success(id, { tools: options.contract ? options.contract.tools() : assistantTools({ design: await design() }) });
             }
             if (message.method !== "tools/call") return rpcError(id, -32601, "Method is not available. This server offers only ping and the declared tools.");
             if (!fields(params, ["name", "arguments", "_meta"]) || typeof params.name !== "string" || (own(params, "arguments") && !record(params.arguments))) return rpcError(id, -32602, "Malformed tools/call parameters.");
             if (isDesignTool(params.name) && !await design()) return toolError(id, "design-not-declared", DESIGN_NOT_DECLARED);
             let call;
-            try { call = parseAssistantToolCall(params.name, params.arguments ?? {}); }
+            try { call = options.contract ? options.contract.parse(params.name, params.arguments ?? {}) : parseAssistantToolCall(params.name, params.arguments ?? {}); }
             catch (error) {
                 if (error instanceof AssistantToolValidationError) return error.code === "unknown-tool" ? rpcError(id, -32602, error.message) : toolError(id, error.code, error.message);
                 return toolError(id, "invalid-arguments", "The tool arguments could not be validated. No work was requested.");
             }
             if (active >= 16) return toolError(id, "connection-busy", "This connection has too many outstanding requests. Read status before requesting additional work.");
+            // Reserve ordinary request capacity so long polls cannot crowd out status/cancel.
+            const wait = call.name === "wringer.wait_for_update" ? new AbortController() : undefined;
+            if (wait && waits.size >= 12) return toolError(id, "wait-limit", "This connection has too many pending waits. Reuse an existing observation.");
+            if (wait) waits.set(key, wait);
             active++;
             try {
-                const result = await options.call(call.name, call.args);
+                const result = await options.call(call.name, call.args, wait ? { signal: wait.signal } : undefined);
+                if (wait?.signal.aborted) return null;
                 if (!record(result)) throw new Error("Non-object result");
                 return toolResult(id, result, result.isError === true || result.outcome === "refused" || result.outcome === "error");
             } catch {
+                if (wait?.signal.aborted) return null;
                 // Error messages can contain provider keys, URLs, request payloads or local paths.
                 // Only the application may return a deliberate safe, structured refusal.
                 return toolError(id, "service-response-unavailable", "The local service response could not be confirmed. Work may already be recorded. Read this job's status and preserve the original idempotency key; do not assume failure means nothing ran.");
-            } finally { active--; }
+            } finally { active--; if (wait) waits.delete(key); }
         },
     };
 }
@@ -152,18 +167,35 @@ export async function runMcpStdio(options: McpStdioOptions): Promise<{ reason: "
     const session = createMcpSession(options);
     const reader = (options.input ?? Bun.stdin.stream()).getReader();
     const output = options.output ?? { write: (bytes: Uint8Array) => Bun.write(Bun.stdout, bytes) };
-    const emit = async (response: JsonRpcResponse | null) => { if (response) await output.write(new TextEncoder().encode(`${JSON.stringify(response)}\n`)); };
+    // Only one writer touches stdout. Count pending writes in admission so a slow
+    // client cannot accumulate an unbounded response queue.
+    let writer = Promise.resolve();
+    const emit = (response: JsonRpcResponse | null) => {
+        if (!response) return Promise.resolve();
+        writer = writer.then(async () => { await output.write(new TextEncoder().encode(`${JSON.stringify(response)}\n`)); });
+        return writer;
+    };
+    const inFlight = new Set<Promise<void>>();
+    let failed = false;
+    const dispatch = (line: string) => {
+        const task = session.receive(line).then(emit).catch(() => {
+            failed = true;
+            void reader.cancel().catch(() => {});
+        }).finally(() => { inFlight.delete(task); });
+        inFlight.add(task);
+    };
     // One fixed buffer avoids quadratic copying when a client sends one byte per chunk.
     const buffer = new Uint8Array(MCP_MAX_INPUT_BYTES);
     let pendingLength = 0, messages = 0;
     try {
         while (true) {
+            if (failed) return { reason: "invalid-transport", messages };
             let part: Awaited<ReturnType<typeof reader.read>>;
             try { part = await reader.read(); }
             catch { await emit(mcpParseError()); return { reason: "invalid-transport", messages }; }
             if (part.done) {
                 if (pendingLength) { await emit(mcpParseError()); return { reason: "invalid-transport", messages }; }
-                return { reason: "eof", messages };
+                return { reason: failed ? "invalid-transport" : "eof", messages };
             }
             const bytes = part.value;
             let at = 0;
@@ -183,9 +215,17 @@ export async function runMcpStdio(options: McpStdioOptions): Promise<{ reason: "
                 // CRLF delimiters are tolerated; all other embedded CR/LF is invalid framing.
                 if (line.endsWith("\r")) line = line.slice(0, -1);
                 if (line.includes("\r") || line.includes("\n")) { await emit(mcpParseError()); await reader.cancel().catch(() => {}); return { reason: "invalid-transport", messages }; }
-                await emit(await session.receive(line)); messages++;
+                // Bounded concurrent handling: a wait must not stop reading the
+                // connection. Lifecycle transitions occur synchronously on receive.
+                while (inFlight.size >= 32) await Promise.race(inFlight);
+                if (failed) return { reason: "invalid-transport", messages };
+                dispatch(line); messages++;
                 at = stop + 1;
             }
         }
-    } finally { reader.releaseLock(); }
+    } finally {
+        session.close();
+        await Promise.all(inFlight);
+        reader.releaseLock();
+    }
 }

@@ -14,7 +14,26 @@ afterEach(async () => {
     for (const service of services.splice(0)) { try { await service.runner.stop(50); } catch {} }
     for (const directory of directories.splice(0)) await rm(directory, { recursive: true, force: true });
 });
+test("T13 public service wait cancellation reaches the application loop without cancelling its job", async () => {
+    const f = await fixture();
+    const proposed = await f.service.call(f.capability.token, "wringer.propose", { workspaceId: f.workspace.id, idempotencyKey: crypto.randomUUID(), plan: f.profile, intent: f.profile.intent });
+    const before = await f.service.call(f.capability.token, "wringer.get_status", { jobId: proposed.jobId });
+    const controller = new AbortController(); controller.abort();
+    const wait = (f.service.call as any)(f.capability.token, "wringer.wait_for_update", { jobId: proposed.jobId, afterEventId: before.eventId, timeoutSeconds: 2 }, controller.signal);
+    const observed = await Promise.race([wait, Bun.sleep(500).then(() => "not-cancelled")]);
+    await wait;
+    expect(observed).not.toBe("not-cancelled");
+    expect((await f.service.status(proposed.jobId as string)).outcome).not.toBe("cancelled");
+});
 async function scratch() { const directory = await realpath(await mkdtemp(join(tmpdir(), "wringer-assistant-service-"))); directories.push(directory); return directory; }
+test("T13 a later PM observation cannot enable actions on an earlier assistant snapshot", async () => {
+    const f = await fixture(), proposed = await f.propose(); await f.approve(proposed.jobId);
+    const before = await f.call("get_status", { jobId: proposed.jobId }); expect(before.actions.find((row: any) => row.action === "start").enabled).toBeTrue();
+    (f.service.setPresentation as any)(async () => ({ phase: "send", nextAction: "A later page", eventId: "e".repeat(64), pageUrl: `http://127.0.0.1:3456/?jobId=${proposed.jobId}`, observedRevision: "f".repeat(64), observedCandidateTree: "a".repeat(40) }));
+    const mixed = await f.call("get_status", { jobId: proposed.jobId }); expect(mixed.revisionAdvanced).toBeTrue(); expect(mixed.actions.every((row: any) => !row.enabled)).toBeTrue(); expect(mixed.decision.phase).toBe("working"); expect(mixed.revision).toBe(before.revision);
+    (f.service.setPresentation as any)(async () => ({ phase: "working", nextAction: "Approved", eventId: "d".repeat(64), pageUrl: `http://127.0.0.1:3456/?jobId=${proposed.jobId}`, observedRevision: before.revision, observedCandidateTree: null }));
+    const same = await f.call("get_status", { jobId: proposed.jobId }); expect(same.revisionAdvanced).toBeFalse(); expect(same.actions.find((row: any) => row.action === "start").enabled).toBeTrue();
+});
 function plan() { return compileExecutionPlan(template, { format: "yaml" }); }
 function declaration(profile: ExecutionPlan) {
     const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...value } = structuredClone(profile);
@@ -24,7 +43,7 @@ async function until<T>(read: () => Promise<T>, test: (value: T) => boolean): Pr
     for (let n = 0; n < 500; n++) { const value = await read(); if (test(value)) return value; await Bun.sleep(5); }
     throw new Error("Synthetic application fixture did not settle");
 }
-async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boolean; expiresAt?: string; destination?: Record<string, unknown>; statusDelayMs?: () => number } = {}) {
+async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boolean; expiresAt?: string; destination?: Record<string, unknown>; statusDelayMs?: () => number; afterStatusRead?: (read: number) => Promise<void> } = {}) {
     const root = await scratch(), profile = settings.profile ?? plan();
     const workspace = (await initializeAssistant(root, { plan: profile, cooperativeLocal: true, destination: settings.destination })).workspace;
     const capability = await issueAssistantCapability(root, settings.expiresAt ?? new Date(Date.now() + 60000).toISOString());
@@ -44,7 +63,7 @@ async function fixture(settings: { profile?: ExecutionPlan; startJournal?: boole
         },
         // The journal is READ first and the answer returns slowly: that is the race a coalescing
         // reader can lose, so the seam snapshots before its delay rather than after it.
-        status: async () => { counters.status++; const observed = structuredClone(query); const delay = settings.statusDelayMs?.() ?? 0; if (delay) await Bun.sleep(delay); return observed; },
+        status: async () => { counters.status++; const observed = structuredClone(query); await settings.afterStatusRead?.(counters.status); const delay = settings.statusDelayMs?.() ?? 0; if (delay) await Bun.sleep(delay); return observed; },
         queueCommand: async (_state, command) => { counters.commands++; query.revision = "d".repeat(64); return { commandId: parseWorkspaceCommand(command).idempotencyKey, status: "completed", result: { fixture: true } }; },
         readCommand: async (_state, id) => ({ commandId: id, status: "completed", result: { fixture: true } }),
         publication: async () => { counters.publications++; await publicationState.beforeRead?.(); return publicationState.value; },
@@ -89,7 +108,7 @@ test("a status read never returns a head older than the journal at request time"
     delay = 0;
     expect((await f.call("get_status", { jobId: proposed.jobId })).revision).toBe(second);
 });
-test("a burst of reads is bounded, and none of them answers with a stale head", async () => {
+test("a synchronous burst coalesces before observation starts", async () => {
     let delay = 120;
     const f = await fixture({ statusDelayMs: () => delay });
     const proposed = await f.propose();
@@ -97,13 +116,59 @@ test("a burst of reads is bounded, and none of them answers with a stale head", 
     await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
     f.query.revision = "f".repeat(64);
     const before = f.counters.status;
-    // Ten reads, arriving at different moments while each pass is slow. Each is answered by a
-    // pass that had not begun reading when it arrived, so none of them can be stale — and the
-    // concurrency cap means ten callers do not buy ten passes. Two status calls per pass.
-    const reads = await Promise.all(Array.from({ length: 10 }, () => f.call("get_status", { jobId: proposed.jobId })));
+    // This burst does not establish freshness under staggered saturation; the held-read
+    // regression below exercises that different condition.
+    const reads = await Promise.all(Array.from({ length: 10 }, () => f.service.status(proposed.jobId)));
     expect(reads.every(r => r.revision === "f".repeat(64))).toBeTrue();
-    expect(f.counters.status - before).toBeLessThanOrEqual(8);
+    expect(f.counters.status - before).toBe(2);
     delay = 0;
+});
+test("T13 staggered saturation queues a fresh observation after four held snapshots", async () => {
+    const gates = Array.from({ length: 4 }, () => Promise.withResolvers<void>());
+    const f = await fixture({ afterStatusRead: n => n <= 4 ? gates[n - 1]!.promise : Promise.resolve() });
+    const proposed = await f.propose();
+    const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+    await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+    const pending: ReturnType<typeof f.service.inspectForPm>[] = [];
+    try {
+        for (let n = 0; n < 4; n++) {
+            pending.push(f.service.inspectForPm(proposed.jobId));
+            await until(async () => f.counters.status, count => count === n + 1);
+        }
+        f.query.revision = "e".repeat(64);
+        const fifth = f.service.inspectForPm(proposed.jobId);
+        const peer = f.service.inspectForPm(proposed.jobId);
+        pending.push(fifth, peer);
+        // No fifth computation may start until a slot opens.
+        await Promise.resolve(); await Promise.resolve();
+        expect(f.counters.status).toBe(4);
+        gates.forEach(gate => gate.resolve());
+        const [fresh, other] = await Promise.all([fifth, peer]);
+        expect(fresh.status.revision).toBe(f.query.revision);
+        expect(fresh.query!.revision).toBe(f.query.revision);
+        fresh.query!.revision = "a".repeat(64);
+        expect(other.query!.revision).toBe(f.query.revision);
+        expect(f.counters.status).toBe(10); // five passes, two reads per pass
+    } finally { gates.forEach(gate => gate.resolve()); await Promise.allSettled(pending); }
+});
+test("T13 an older failed inspection frees capacity without poisoning a queued read", async () => {
+    const gates = Array.from({ length: 4 }, () => Promise.withResolvers<void>());
+    const f = await fixture({ afterStatusRead: n => n <= 4 ? gates[n - 1]!.promise : Promise.resolve() });
+    const proposed = await f.propose();
+    const sentinel = join(f.root, "jobs", proposed.jobId, "controller/.wringer/contained/plan.json");
+    await mkdir(dirname(sentinel), { recursive: true }); await writeFile(sentinel, "{}");
+    const pending: Promise<unknown>[] = [];
+    try {
+        for (let n = 0; n < 4; n++) {
+            pending.push(f.service.inspectForPm(proposed.jobId).catch(error => error));
+            await until(async () => f.counters.status, count => count === n + 1);
+        }
+        f.query.revision = "e".repeat(64);
+        const fresh = f.service.inspectForPm(proposed.jobId); pending.push(fresh);
+        gates[0]!.reject(new Error("Invalid prior observation"));
+        expect((await fresh).status.revision).toBe(f.query.revision);
+        expect(f.counters.status).toBe(6); // other three are still held
+    } finally { gates.forEach(gate => gate.resolve()); await Promise.allSettled(pending); }
 });
 // R-c: a page sentence that names a guard must name one that exists. This page claimed the
 // "scripted-planner test" and no test of that name was ever written.

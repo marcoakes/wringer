@@ -1,3 +1,29 @@
+# Adoption client compatibility — 28 September 2026
+
+| Client/surface | Transport | Configuration measurement | Full journey | Boundary |
+| --- | --- | --- | --- | --- |
+| Codex CLI 0.153.4 on macOS arm64 | Local STDIO | Installed CLI accepted exact generated launcher via explicit overrides; scoped TOML/skill fixture install/update/remove passes | Unmeasured for this candidate | Cooperative-local outer client; contained managed roles are separate |
+| Codex desktop | Local STDIO recipe | Separate surface, unmeasured | Unmeasured | Desktop discovery/trust/reload cannot be inferred from CLI |
+| Claude Code | Local STDIO | Scoped JSON/skill fixture tests pass; client executable absent here | Unavailable on this host | No claim from Claude's ACP worker adapter |
+| Generic MCP client | Local STDIO | Exact mode-derived contracts and no-model bridge probe | No named-client claim | No model approval/verdict/Send tool |
+
+Use [START_AGENT](START_AGENT.md) for preview/apply/remove. Standard scoped config
+locations are supported; custom CODEX_HOME/CLAUDE_CONFIG_DIR configurations refuse
+rather than writing unused defaults. The client may still require project trust
+and reload. These are client decisions, not setup side effects.
+
+The complete live procedure is [LIVE_ACCEPTANCE.md](rebuild/LIVE_ACCEPTANCE.md).
+It records disconnect/recovery, correction, declined Send, explicit Send,
+fresh-clone audit and a second job. No model/provider calls are authorized by the
+implementation checks. Finite live allowance and a person's actual judgments are
+separate prerequisites. Historical successful stages and failed review remain
+below; they cannot qualify this changed candidate. Other client brands are outside
+the adoption scope.
+
+---
+
+## Historical observations (retained)
+
 # Assistant preview: compatibility and claim gates
 
 This page separates an implemented interface from an observed user experience.
