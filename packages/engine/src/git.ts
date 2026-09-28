@@ -6,8 +6,8 @@ import { runProcess } from "./process";
 import { EngineError, type Snapshot } from "./types";
 import { sha256, Redactor } from "./io";
 const baseExclusions = ["--", ".", ":(exclude).wringer", ":(exclude).wringer/**"];
-export async function git(repo: string, args: string[], allowFailure = false) {
-    const r = await runProcess(["git", "-c", "core.quotePath=false", "-c", "core.fsmonitor=false", ...args], { cwd: repo, timeout: 15, maxBytes: 20 * 1024 * 1024, redactor: new Redactor([], {}, [], false) });
+export async function git(repo: string, args: string[], allowFailure = false, input?: string) {
+    const r = await runProcess(["git", "-c", "core.quotePath=false", "-c", "core.fsmonitor=false", ...args], { cwd: repo, timeout: 15, maxBytes: 20 * 1024 * 1024, input, redactor: new Redactor([], {}, [], false) });
     if (r.stdout_truncated || r.stderr_truncated)
         throw new EngineError(`git ${args[0]} exceeded the bounded capture limit; refusing an incomplete snapshot`);
     if ((r.exit_code !== 0 || r.timed_out) && !allowFailure)

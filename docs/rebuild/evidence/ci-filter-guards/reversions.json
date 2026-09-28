@@ -1,0 +1,51 @@
+{
+  "baseline": "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3",
+  "kind": "Automated deterministic engineering fixtures; no live model or human judgment",
+  "control": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  },
+  "results": [
+    {
+      "name": "reject-unused-driver",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "allow-active-filter",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "omit-untracked-filter-path",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "ignore-worktree-attributes",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    },
+    {
+      "name": "drop-attribute-input",
+      "exit": 1,
+      "assertions": true,
+      "failed": true,
+      "caught": true
+    }
+  ],
+  "restored": {
+    "exit": 0,
+    "assertions": true,
+    "failed": false
+  }
+}

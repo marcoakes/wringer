@@ -57,8 +57,20 @@ export async function listWorkspaces(root: string, cursor = 0, limit = 50) {
 /** Metadata-only preflight before Git status could execute clean/process filters. */
 export async function safeWorkspaceSnapshot(repo: string) {
     const filters = await git(repo, ["config", "--includes", "--name-only", "--get-regexp", "^filter\\..*\\.(clean|smudge|process)$"], true);
-    if (![0, 1].includes(filters.exit_code) || filters.stdout.trim()) throw new Error("Git content filters need a separate reviewed source-preparation route; no filter was executed");
+    if (filters.timed_out || ![0, 1].includes(filters.exit_code)) throw new Error("Git content filter configuration could not be inspected safely");
     const entries = await git(repo, ["ls-files", "--stage", "-z"]);
     if (entries.stdout.split("\0").some(row => row.startsWith("160000 "))) throw new Error("Submodule source identities require separate preparation; no nested repository was inspected");
+    if (filters.stdout.trim()) {
+        // Installed filter drivers (for example Git LFS) are inert until an
+        // attribute selects one. Resolve attributes as metadata, including
+        // index fallback and global attributes, before status/diff can run it.
+        const paths = await git(repo, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"]);
+        if (paths.stdout) {
+            const attributes = await git(repo, ["check-attr", "-z", "--stdin", "filter"], false, paths.stdout);
+            const fields = attributes.stdout.split("\0");
+            if (fields.pop() !== "" || fields.length !== paths.stdout.split("\0").length * 3 - 3 || fields.some((value, index) => index % 3 === 1 && value !== "filter")) throw new Error("Git content filter attributes could not be inspected safely");
+            if (fields.some((value, index) => index % 3 === 2 && value !== "unspecified" && value !== "unset")) throw new Error("Git content filters need a separate reviewed source-preparation route; no filter was executed");
+        }
+    }
     return snapshot(repo);
 }
