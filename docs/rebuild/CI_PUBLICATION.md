@@ -140,3 +140,34 @@ old600-second cap and an excessive86400-second cap were
 [caught in isolation](evidence/ci-action-budget-guards/reversions.json), with
 passing controls and restoration. The failed Action observation is retained;
 this configuration repair requires a fresh full green push before tagging.
+
+## Alpha21 qualification and verification observation repair
+
+At549eb017a1811192bec43418fa8e26025b73abd6,
+[all five source CI jobs](https://github.com/marcoakes/wringer/actions/runs/36451390891)
+and [Linux permissions](https://github.com/marcoakes/wringer/actions/runs/36451390885)
+passed. Both native suites reported1174 passes,2 explicit skips and no failures;
+all23 macOS/21 Linux core stages and both rehearsal jobs passed. Only then was
+the immutable `v1.0.0-alpha.21` tag created.
+
+Its [release qualification](https://github.com/marcoakes/wringer/actions/runs/36456822663)
+passed both rehearsals, Linux permissions, and the Linux build including exact
+archive/installer/private-npm measurements and attestations. macOS reported1173
+passes,2 skips and1 failure before packaging: the retained preparation-error
+handle was absent from a read already labelled `handover-blocked`. Draft staging
+was skipped; no alpha21release was published.
+
+Two deterministic barrier tests reproduced the race before repair. They hold an
+MCP or PM read on its old evidence snapshot, let actual preparation-error storage
+and owned work finish, then release that read. The owner now retains the activity
+it observed when the read began; the PM projection uses that same returned phase.
+A fresh read sees the completed failure and its evidence. The tests also verify
+zero remaining repetitions and no remote Send. Neither polling nor failure
+evidence is removed. Both isolated guard reversions are recorded in
+[the observation evidence](evidence/ci-verification-observation-guards/reversions.json).
+The corrected release candidate is alpha22; alpha20and21tags remain unchanged.
+All13 verification-owner checks passed after restoration (129 assertions), as did
+typecheck, frozen offline installation, the rebuilt executable and generated CLI
+reference. The [compiled verification browser journey](evidence/m5/browser-54127b7f-b29f-44d4-b8a7-82b8ce9ad6b9.json)
+passed approval, correction, empty-note acceptance, separate Send, fresh-clone
+audit, owner restart and Stop without any model calls or real human judgment.

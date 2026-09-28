@@ -35,8 +35,11 @@ export async function createVerificationOwner(root: string, workspaceId: string)
     const redact = new Redactor();
     const selected = async (id: string) => { const job = await readVerificationJob(root, assistantId(id)); if (job.workspaceId !== workspace.id) throw new Error("Job is outside this connection's workspace"); return job; };
     async function status(id: string) {
+        // A read that began during owned work cannot borrow a later completion
+        // while still carrying an earlier snapshot of its durable evidence.
+        const observedActive = active.has(id);
         await selected(id); const view = await verificationStatus(root, id);
-        return { ...view, decision: { ...view.decision, page: `${origin}/?jobId=${id}` }, ...(active.has(id) ? { phase: "working", outcome: "working", uncertainty: false } : {}) };
+        return { ...view, decision: { ...view.decision, page: `${origin}/?jobId=${id}` }, ...(observedActive || active.has(id) ? { phase: "working", outcome: "working", uncertainty: false } : {}) };
     }
     async function prepare(id: string) {
         const before = await status(id);
@@ -73,7 +76,7 @@ export async function createVerificationOwner(root: string, workspaceId: string)
         return jobs;
     }
     async function pm(id: string): Promise<PmJob> {
-        const value = await status(id), job = value.job, config = await loadConfig(workspace.repo), working = active.has(id), spec = await loadSpec(workspace.repo);
+        const value = await status(id), job = value.job, config = await loadConfig(workspace.repo), working = value.phase === "working", spec = await loadSpec(workspace.repo);
         const source = await safeWorkspaceSnapshot(workspace.repo);
         if (source.fingerprint !== value.candidateIdentity) throw new Error("Source changed while its result was read; refresh before deciding");
         const phase: PmJob["phase"] = working ? "working" : value.phase === "approval" ? "approval" : ["review", "send", "sent"].includes(value.phase) ? value.phase as "review" | "send" | "sent" : "blocked";

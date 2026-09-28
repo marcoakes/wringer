@@ -1,5 +1,15 @@
 # Current checkpoint — 28 September 2026, GitHub publication
 
+Current:549eb017 passed every source CI job (36451390891/36451390885) and was
+tagged alpha21. Release36456822663 passed Linux packaging/attestations, both
+rehearsals and DAC; macOS failed one verification-owner observation test before
+packaging. No draft was staged. A deterministic MCP/PM barrier reproduces the
+race: the activity map completed while the read still held earlier evidence.
+The repaired candidate is alpha22, with both phase projections bound to the
+same observation and isolated reversion checks. Observe its complete push CI
+before tagging, then all release jobs before draft promotion/public verification.
+Do not rewrite either alpha20or21tag. Full chronology: CI_PUBLICATION.md.
+
 Newest:78447d6 passed both native suites, both rehearsal jobs and Linux DAC.
 The Action hit its separate600-second test cap (600214ms, timed_out true).
 The repository gate now matches native validation's1200-second hang guard,

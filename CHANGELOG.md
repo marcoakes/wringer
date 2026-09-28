@@ -4,7 +4,7 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 1.0.0-alpha.21 — adoption rebuild
+## 1.0.0-alpha.22 — adoption rebuild
 
 - Reusable verification and contained-delegation workspaces, finite grants,
   typed proposals, explicit questions and source-bound review and Send.
@@ -23,9 +23,15 @@ and other public channels require their own measurements.
 
 The immutable `v1.0.0-alpha.20` tag remains a source checkpoint: its release
 builds exposed an OIDC metadata redaction defect before any archive was staged.
-Alpha21 retains full credential and meaningful fragment redaction while avoiding
+The immutable alpha21tag passed all six source jobs. Its Linux release build,
+packaged installer/npm fixtures, attestations, both rehearsals and permission
+adversary passed; macOS exposed a verification-owner observation race before
+packaging, so draft staging was skipped. Alpha22 binds both MCP and PM phases to
+the observation that produced their evidence, with deterministic barrier tests.
+It retains full credential and meaningful fragment redaction while avoiding
 false secret detection of a URL's generic transport scheme. It includes the
-Git-filter and owner-shutdown repairs found during native CI qualification.
+Git-filter and owner-shutdown repairs, measured Send observation window and
+finite full-suite Action budget found during native CI qualification.
 
 ## 1.0.0-alpha.19 — binding a claim to what it rests on (source checkpoint)
 

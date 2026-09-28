@@ -11,6 +11,7 @@ import { registerWorkspace, createVerificationJob, createAssistantDirectory, wri
 import { createVerificationOwner } from "../src/verification-owner";
 import { readAssistantConnection } from "../src/assistant-transport";
 import * as clients from "../src/client-adapters";
+import * as application from "@wringer/application";
 import { installedLauncher } from "../src/adoption-cli";
 const cleanup: (() => Promise<unknown>)[] = [];
 afterEach(async () => { for (const fn of cleanup.splice(0).reverse()) await fn(); });
@@ -165,6 +166,51 @@ test("T16 failed handover preparation is visible and retries preparation without
     expect((await f.api("/api/job/retry", { jobId: f.job.id, expectedRevision: page.readyRevision, expectedCandidateTree: page.candidateTree })).status).toBe(200);
     const ready = await f.status(); expect(ready.phase).toBe("send"); expect(ready.remaining).toMatchObject({ repetitions: 0 });
     expect((await git(f.repo, ["ls-remote", "--heads", "origin", f.job.destination!.branch])).stdout).toBe("");
+}, 30000);
+
+for (const surface of ["MCP", "PM"] as const) test(`a held ${surface} observation cannot borrow completion after its preparation snapshot`, async () => {
+    const f = await fixture(true, 2); await f.approve(); const review = await f.owner.pm(f.job.id);
+    const enteredPreparation = Promise.withResolvers<void>(), releasePreparation = Promise.withResolvers<void>();
+    const readSnapshot = Promise.withResolvers<Awaited<ReturnType<typeof application.verificationStatus>>>(), releaseRead = Promise.withResolvers<void>();
+    const originalStatus = application.verificationStatus;
+    let holdNextRead = false;
+    const preparation = spyOn(application, "prepareVerificationHandover").mockImplementation(async () => {
+        enteredPreparation.resolve(); await releasePreparation.promise;
+        throw new Error("Deterministically held preparation failure fixture");
+    });
+    const observation = spyOn(application, "verificationStatus").mockImplementation(async (...args) => {
+        const value = await originalStatus(...args);
+        if (holdNextRead && args[1] === f.job.id) { holdNextRead = false; readSnapshot.resolve(value); await releaseRead.promise; }
+        return value;
+    });
+    try {
+        expect((await f.api("/api/job/decision", { jobId: f.job.id, expectedRevision: review.readyRevision, expectedCandidateTree: review.candidateTree, verdict: "met", displayIds: review.displays.filter(row => row.criterionId !== "verification-report").map(row => row.displayId) })).status).toBe(202);
+        await enteredPreparation.promise;
+        holdNextRead = true;
+        const pending = surface === "MCP" ? f.status() : f.owner.pm(f.job.id);
+        const snapshot = await readSnapshot.promise;
+        expect(snapshot.evidence.some(row => row.kind === "preparation-error")).toBe(false);
+        releasePreparation.resolve();
+        // Observe durable completion through separate reads, not a scheduling
+        // delay. The first read remains held on its earlier evidence snapshot.
+        let completed: any;
+        for (let attempt = 0; attempt < 120; attempt++) {
+            const row = await f.status();
+            if (row.phase === "handover-blocked" && (row.evidence as any[]).some(handle => handle.kind === "preparation-error")) { completed = row; break; }
+            await delay(25);
+        }
+        expect(completed).toBeDefined();
+        releaseRead.resolve();
+        expect((await pending).phase).toBe("working");
+        const fresh = await f.status();
+        expect(fresh.phase).toBe("handover-blocked");
+        expect((fresh.evidence as any[]).some(handle => handle.kind === "preparation-error")).toBe(true);
+        expect(fresh.remaining).toMatchObject({ repetitions: 0 });
+        expect((await git(f.repo, ["ls-remote", "--heads", "origin", f.job.destination!.branch])).stdout).toBe("");
+    } finally {
+        holdNextRead = false; releasePreparation.resolve(); releaseRead.resolve();
+        observation.mockRestore(); preparation.mockRestore();
+    }
 }, 30000);
 
 test("T17 lost Send response reconciles exact remote evidence without sending again; a code-only remote stays uncertain", async () => {
