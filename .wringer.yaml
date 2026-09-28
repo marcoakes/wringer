@@ -10,6 +10,7 @@ gates:
     timeout: 120
   - id: tests
     run: bun test ./packages
-    timeout: 600
+    # Full suite measured730s locally; use the native validation hang guard.
+    timeout: 1200
 deliver:
   branch: "wringer/{run}"

@@ -1,5 +1,11 @@
 # Current checkpoint — 28 September 2026, GitHub publication
 
+Newest:78447d6 passed both native suites, both rehearsal jobs and Linux DAC.
+The Action hit its separate600-second test cap (600214ms, timed_out true).
+The repository gate now matches native validation's1200-second hang guard,
+with a parsed-config red/green regression and two caught budget reversions.
+Observe the next complete push before creating the still-unused alpha21tag.
+
 Latest: alpha21 source31dd93be passed both native core jobs, the Action, Linux
 rehearsals and the permission adversary. macOS design rehearsal reached Send
 but exceeded its20-second response observation. Local request timing measured

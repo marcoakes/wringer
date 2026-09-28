@@ -121,3 +121,22 @@ and removal of its finite guard are recorded in
 All23 local core validation stages also passed under synthetic OIDC URL/token
 metadata, including1172 passing tests and1 explicit Linux-only skip. No real token was
 read, and these local checks do not substitute for the next source's remote CI.
+
+## Repository Action test budget
+
+At78447d6144237304c6eea645af099c0a43c2d251,
+[both native core jobs and both rehearsal jobs passed](https://github.com/marcoakes/wringer/actions/runs/36448216473);
+the [permission adversary also passed](https://github.com/marcoakes/wringer/actions/runs/36448216700).
+The Action alone failed: its retained tests record has exit143, duration600214ms
+and `timed_out: true`. Its repository test gate still had a600-second cap,
+whereas native validation already used1200seconds. The full local suite measured
+729883ms, and the new finite-bound browser test deliberately observes40seconds.
+
+The repository's own test gate now uses the existing native1200-second hang
+guard. User project defaults, assertions and test selection are unchanged. A
+parsed-config regression failed before the change and checks the complete,
+required test gate against measured headroom and a finite ceiling. Both the
+old600-second cap and an excessive86400-second cap were
+[caught in isolation](evidence/ci-action-budget-guards/reversions.json), with
+passing controls and restoration. The failed Action observation is retained;
+this configuration repair requires a fresh full green push before tagging.
