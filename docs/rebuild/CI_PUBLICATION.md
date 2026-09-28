@@ -51,3 +51,33 @@ after a fresh successful tick. All19 affected checks and typecheck pass. All thr
 passing controls and restored checks, including removal of the shutdown guard.
 No failed remote job was retried into a claimed pass; the repaired source must
 receive its own complete green push run before any release tag is created.
+
+## Green source and first tagged release attempt
+
+Commit `7e1dd64783b68aaec1e2348ebb44fc5e82eb7184` passed
+[all five main CI jobs](https://github.com/marcoakes/wringer/actions/runs/36435263992)
+and the [Linux permission adversary](https://github.com/marcoakes/wringer/actions/runs/36435264038).
+Both native suites reported1169 passing tests,2 explicit skips and zero failures;
+all23 macOS/21 Linux core stages and both rehearsal jobs passed.
+
+Only then was `v1.0.0-alpha.20` created. Its
+[release workflow](https://github.com/marcoakes/wringer/actions/runs/36438547130)
+passed both native rehearsals and the permission adversary, but both builds
+failed in assistant-check before packaging. Unlike ordinary push CI, the
+attestation jobs receive an OIDC token-request URL. The redactor expanded that
+URL into generic scheme fragments and falsely classified ordinary repository
+URLs as credentials. No draft or native release asset was created.
+
+Two synthetic-environment tests reproduced the defect before repair. Full URL
+and bearer values, meaningful URL prefixes, and credential suffixes still redact;
+only the transport scheme is excluded from generated secret fragments. Three
+[isolated reversions](evidence/ci-oidc-guards/reversions.json) were caught with
+passing control and restored checks. The original tag is immutable. The corrected
+candidate uses `1.0.0-alpha.21` and must pass its own full push and release jobs.
+
+The affected assistant-check stage passed145 tests under synthetic OIDC metadata
+after repair. The first synthetic bearer ended in the ordinary word `credential`,
+which the existing fragment policy correctly redacted and invalidated a fixture
+receipt; that failed measurement is retained. Repeating with a synthetic opaque
+signature passed. Typecheck, the regenerated CLI reference and frozen offline
+lockfile installation also passed. No real OIDC token was copied or inspected.

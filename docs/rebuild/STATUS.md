@@ -11,6 +11,12 @@ publication on this repository, authorizing commit, push, native CI, tagging and
 GitHub prerelease publication. The refreshed GitHub login was verified. Accounts,
 keys, provider spending and privileged services retain their separate boundaries.
 
+Publication update: all six push jobs passed at7e1dd64783b68aaec1e2348ebb44fc5e82eb7184.
+The subsequent alpha20 release builds exposed an OIDC redaction defect before
+packaging; its tag stays unchanged and no draft was created. The repaired release
+candidate is alpha21. [Publication qualification](CI_PUBLICATION.md) retains each
+failed run, its deterministic reproduction, guarded repair and later observations.
+
 | Milestone | Implemented result | Engineering evidence / boundary |
 | --- | --- | --- |
 | M0 | Bounded nonblocking STDIO, single writer, fresh saturated observation | Seven isolated faults caught; contract/concurrency checks pass |
@@ -24,7 +30,7 @@ keys, provider spending and privileged services retain their separate boundaries
 | M8 | Owned installer, archive verifier, npm/Brew/Action/registry and native image/draft workflows | Installer/Action/channel/image/publication guard fixtures pass; final artifact reports bind exact native archive; no public channel claim |
 | M9 | Current guides, generated CLI reference, support/templates, three examples, historical/reference inventory | Documentation closure passes; 18 real example observations include default CLI job creation; advanced legacy guidance retained |
 | M10 | T01–T26 map and integrated acceptance procedures | Full suite1162 pass/1 explicit Linux skip/0fail; compiled core and all rehearsals pass; final repairs get affected checks |
-| M11 | Alpha20 source and release preparation, notes, metadata and exact packaging/claim procedures | Local archive-bound measurements accompany `build/rebuild-candidate/REPORT.json`; clean native CI and GitHub publication proceed separately |
+| M11 | Alpha21 source and release preparation, notes, metadata and exact packaging/claim procedures | Earlier alpha20 local archive measurements remain in `build/rebuild-candidate/REPORT.json`; exact native CI and GitHub publication proceed separately |
 
 The final accompanying [implementation report](IMPLEMENTATION_REPORT.md) separates
 source implementation, available-host engineering, live acceptance and publication.
@@ -49,7 +55,7 @@ isolated checkouts. Native helper output now lives outside the release directory
 | Provider use | No model calls authorized | Deterministic engineering procedures implemented; live test needs finite allowance |
 | Human acceptance | Automated review authorized; no personal decision fabricated | Present actual candidate for any real human decision |
 | Package namespaces / registries | Ownership unverified | Prepare packages locally; verify ownership before publication |
-| GitHub prerelease | Publication authorized on2026-09-28; operator repaired login and authenticated inspection succeeded; alpha20 unused, remote main unchanged | Commit/push; observe all push CI green; tag; observe all release jobs green; publish and independently fetch exact bytes |
+| GitHub prerelease | Publication authorized on2026-09-28; login repaired; alpha20 source passed push CI but release builds failed before packaging | Keep alpha20 tag unchanged; qualify alpha21 through full push/release CI, then publish and independently fetch exact bytes |
 
 Engineering implementation, available-host validation, live acceptance, and public
 release remain separate axes. Local checks are not CI. At this pre-push checkpoint,

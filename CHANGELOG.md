@@ -4,7 +4,7 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
-## 1.0.0-alpha.20 — adoption rebuild
+## 1.0.0-alpha.21 — adoption rebuild
 
 - Reusable verification and contained-delegation workspaces, finite grants,
   typed proposals, explicit questions and source-bound review and Send.
@@ -20,6 +20,12 @@ The dated [rebuild status](docs/rebuild/STATUS.md) retains the local engineering
 checkpoint. Published archives carry exact source identities and claim reports
 from the required native CI. Containment, live clients, real human acceptance
 and other public channels require their own measurements.
+
+The immutable `v1.0.0-alpha.20` tag remains a source checkpoint: its release
+builds exposed an OIDC metadata redaction defect before any archive was staged.
+Alpha21 retains full credential and meaningful fragment redaction while avoiding
+false secret detection of a URL's generic transport scheme. It includes the
+Git-filter and owner-shutdown repairs found during native CI qualification.
 
 ## 1.0.0-alpha.19 — binding a claim to what it rests on (source checkpoint)
 

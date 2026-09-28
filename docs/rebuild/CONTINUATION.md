@@ -1,5 +1,14 @@
 # Current checkpoint — 28 September 2026, GitHub publication
 
+Latest: alpha20 tag now exists at7e1dd64783b68aaec1e2348ebb44fc5e82eb7184 after
+all six push jobs passed. Its release attempt36438547130 failed before packaging
+because OIDC request-URL metadata falsely redacted generic URL schemes; both
+rehearsals and the permission adversary passed. No draft exists. The tag stays
+unchanged. Current source prepares alpha21 with a reproduced redactor repair and
+three caught reversions. Observe all new push jobs green before tagging alpha21,
+then all release jobs green before promotion. See CI_PUBLICATION.md for the
+earlier Git-filter and owner-shutdown repairs and exact remote evidence.
+
 Marc requested: "ok well finish this and get it published on the repo". This now
 authorizes committing, pushing, tagging, CI dispatch and GitHub prerelease
 publication. The operator repaired GitHub login; authenticated `gh` inspection

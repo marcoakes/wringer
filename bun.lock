@@ -16,11 +16,11 @@
     },
     "packages/acp": {
       "name": "@wringer/acp",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
     },
     "packages/application": {
       "name": "@wringer/application",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/board": "workspace:*",
         "@wringer/delivery": "workspace:*",
@@ -35,7 +35,7 @@
     },
     "packages/board": {
       "name": "@wringer/board",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/records": "workspace:*",
         "yaml": "2.8.1",
@@ -43,7 +43,7 @@
     },
     "packages/cli": {
       "name": "@wringer/cli",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "bin": {
         "wring": "src/cli.ts",
         "wringer-board": "src/board-cli.ts",
@@ -65,7 +65,7 @@
     },
     "packages/delivery": {
       "name": "@wringer/delivery",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/board": "workspace:*",
         "@wringer/design": "workspace:*",
@@ -78,11 +78,11 @@
     },
     "packages/design": {
       "name": "@wringer/design",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
     },
     "packages/engine": {
       "name": "@wringer/engine",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/records": "workspace:*",
         "@wringer/runtime": "workspace:*",
@@ -91,11 +91,11 @@
     },
     "packages/figma-connect": {
       "name": "@wringer/figma-connect",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
     },
     "packages/mcp": {
       "name": "@wringer/mcp",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/engine": "workspace:*",
         "ajv": "^8.17.1",
@@ -103,7 +103,7 @@
     },
     "packages/plan": {
       "name": "@wringer/plan",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/acp": "workspace:*",
         "@wringer/design": "workspace:*",
@@ -115,14 +115,14 @@
     },
     "packages/records": {
       "name": "@wringer/records",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "ajv": "^8.17.1",
       },
     },
     "packages/runtime": {
       "name": "@wringer/runtime",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/acp": "workspace:*",
         "@wringer/design": "workspace:*",
@@ -130,7 +130,7 @@
     },
     "packages/scheduler": {
       "name": "@wringer/scheduler",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/delivery": "workspace:*",
         "@wringer/engine": "workspace:*",
@@ -139,7 +139,7 @@
     },
     "packages/workflow": {
       "name": "@wringer/workflow",
-      "version": "1.0.0-alpha.20",
+      "version": "1.0.0-alpha.21",
       "dependencies": {
         "@wringer/design": "workspace:*",
         "@wringer/engine": "workspace:*",
