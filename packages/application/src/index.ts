@@ -14,6 +14,7 @@ export * from "./protected-deployment";
 export * from "./provider-readiness";
 export * from "./experiments";
 export * from "./improvements";
+export * from "./job-improvements";
 export * from "./journey-patterns";
 export * from "./engineering-view";
 export * from "./loop-inspection";

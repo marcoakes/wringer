@@ -4,6 +4,32 @@ Notable changes, newest first. Wringer follows [semantic
 versioning](https://semver.org/); schema versions move independently of the
 package version and are listed per release.
 
+## 1.0.0-alpha.25 — improvements from ordinary jobs
+
+- Job handles connect owned comparison storage and expose registered predictions,
+  full trial outcomes, proposed approach identities and exact applicability in
+  CLI, the ordinary job page and read-only MCP.
+- Typed future proposals inherit qualified selections only from the exact adopted
+  comparison. A different source cannot borrow benefit by reusing a playbook hash.
+- Existing plans and replayed proposal/revision requests retain their original
+  selection, including concurrent requests and unavailable future research state.
+- Separate finite research collection, explicit adoption/undo, fixture refusal,
+  job-switch handling and bounded views have individual reversion evidence.
+- New sibling contract: `wringer.job-improvements.v1`. Existing contracts retain
+  their bytes and meaning. No live benefit percentage or human usability result
+  is claimed. See the [qualification record](docs/restoration/STATUS.md).
+
+## 1.0.0-alpha.24 — visible loops and portable evidence
+
+- Shared job CLI/MCP/page inspection exposes candidate decisions, actual repair
+  evidence, warnings, stops and charged reservations from a validated journal.
+- Portable evidence exports have a discovery envelope and independent Node
+  reader, with source and payload integrity checks and Wringer's semantic audit.
+- All final source and release CI jobs passed. Fourteen public assets, both
+  archive attestations, and public macOS extraction/installation were verified.
+  [Exact release evidence](docs/restoration/evidence/phase-1/release.json) retains
+  the earlier failed browser assertion and the authenticated-download limitation.
+
 ## 1.0.0-alpha.23 — adoption rebuild
 
 - Reusable verification and contained-delegation workspaces, finite grants,

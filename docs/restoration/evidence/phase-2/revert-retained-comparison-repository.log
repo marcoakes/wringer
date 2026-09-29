@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+59 |     for (const task of foreign.tasks) for (const arm of ["baseline", "candidate"] as const) {
+60 |         const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...data } = task[arm];
+61 |         task[arm] = (await import("@wringer/plan")).compileDeclaration({ ...data, version: 3, repository: { ...data.repository, url: foreign.repository } });
+62 |     }
+63 |     await registerExperiment(location.state!, foreign);
+64 |     await expect(dispatch(["experiment", "evaluate", "--app-dir", f.root, "--job", f.jobId, "--experiment", f.experiment.id])).rejects.toThrow("repository or task family");
+                                                                                                                                            ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:64:136)
+(fail) job comparison lookup refuses a foreign repository retained under the selected private handle [105.84ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [491.00ms]

@@ -1,0 +1,9 @@
+bun test v1.4.2 (744846f84)
+
+scripts/job-improvements-browser.test.ts:
+(pass) ordinary job browser binds research decisions and discards obsolete views [2152.24ms]
+
+ 1 pass
+ 0 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [2.68s]

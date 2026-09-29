@@ -1,0 +1,11 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/improvement-collections.test.ts:
+(fail) explicit collection has one dispatch, observes abort and rejects admission while stopping [5000.01ms]
+  ^ this test timed out after 5000ms.
+
+ 0 pass
+ 1 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [5.19s]

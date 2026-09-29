@@ -51,6 +51,7 @@ Standalone trusted-local verification and historical evidence:
   wring get URL DIRECTORY             Clone a repository; run none of its contents
   wring graph show|status|explain     Read legacy graph declarations or history
   wring job loop --job ID            Inspect attempts, decisions and remaining allowance
+  wring job improvements --job ID    Inspect predictions, trials and future selection
   wring bundle --help                Export portable evidence with an independent reader
   wring issue / health               Import a declared issue or inspect check history
 

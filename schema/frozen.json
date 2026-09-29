@@ -86,6 +86,7 @@
   "graph-manifest.schema.json": "9b1036719d84848406558cb08a73c6ad958473bd441dcc7307bafc8bf99f1c6d",
   "health-report.schema.json": "6c12b49a9adcb7200604a9dd6c072735c965796aad077184ea96d31237301336",
   "improvement-connection-v1.schema.json": "b93118a85eb45e89f3d11120b89e32db9863cd3976acd150134a2ca95ade6c45",
+  "job-improvements-v1.schema.json": "bf39814d80cb22f4db2f683abac9cb025ee8e0632ed8a84a2952481e66bf19c7",
   "journey.schema.json": "a1727d1cb51cdd776acc133f244370deb6382dc824dd3555cd285ae3491a8b23",
   "judge-request.schema.json": "aff2a3c8fcbb051950098f531bb17e981b82ace45705161f42313f8dfe8d2467",
   "judge-verdict.schema.json": "0a895b4a9906080effa088323bfdcc9f92e881d1e3c79ef50dc4d8b293c4f81a",

@@ -1,0 +1,472 @@
+{
+  "phase": 1,
+  "release": {
+    "tag": "v1.0.0-alpha.24",
+    "url": "https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.24",
+    "publishedAt": "2026-09-29T11:44:28Z",
+    "isDraft": false
+  },
+  "source": {
+    "commit": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+    "dirty": false,
+    "contentSha256": "22854775a51292e265e8822a232a73a761280d1208be62bdb805bcc4bb2b5887"
+  },
+  "assets": [
+    {
+      "name": "wringer-1.0.0-alpha.24-darwin-arm64.tar.gz",
+      "sha256": "374b8200713000e77a3133a91e79860078b2fe5034a1687a6d32200e792f9e4c",
+      "bytes": 29350214
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-darwin-arm64.tar.gz.sha256",
+      "sha256": "1a6e489275a6cffd066ff84c2300ef5c0076c8848a58579145351ce8afb1aca9",
+      "bytes": 109
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-darwin-arm64.tar.gz.manifest.json",
+      "sha256": "ca21faeec80b9ee8e245d8865bace16aa9b9a8f9d8d1868a73ababa96bb58cad",
+      "bytes": 99765
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-darwin-arm64.tar.gz.inventory.json",
+      "sha256": "bd3ed3d8cb6b19135d6434a0f323fa7d4b664ae9456b985ebac079dc4e7c85eb",
+      "bytes": 64725
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-darwin-arm64.tar.gz.claims.json",
+      "sha256": "866519c76b65972840aec31f1b6c70d392fbf631224c05ce4e5c2ffc71b4a208",
+      "bytes": 1185
+    },
+    {
+      "name": "wring-1.0.0-alpha.24-darwin-arm64",
+      "sha256": "800ee9ac11a3c30714e6251541cdbbebb2fd3b57a7001bab7d3b644368e7772f",
+      "bytes": 75271410
+    },
+    {
+      "name": "wring-1.0.0-alpha.24-darwin-arm64.sha256",
+      "sha256": "25bff7b6c24183daf4b4e224c1305287c1ef9f9792a1e3d11d99594ec65740fe",
+      "bytes": 100
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-linux-x64.tar.gz",
+      "sha256": "773e35f529bde28393664c0c434f666ece8a12430ecb2188970bdffee918b2d7",
+      "bytes": 40115958
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-linux-x64.tar.gz.sha256",
+      "sha256": "b7de86252ce9e94660a2e498719a33668d77a106f598f4893055f740f1b33a12",
+      "bytes": 106
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-linux-x64.tar.gz.manifest.json",
+      "sha256": "5308f4691eabfb8ef294c7b00063d03c157fd0d8747de08f896be53d4c43cd6d",
+      "bytes": 99762
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-linux-x64.tar.gz.inventory.json",
+      "sha256": "cb652a3fa1bbe2528b46eb216d38d1003fd8926365c68c794686591efb7ee3de",
+      "bytes": 64719
+    },
+    {
+      "name": "wringer-1.0.0-alpha.24-linux-x64.tar.gz.claims.json",
+      "sha256": "a77c7d33f5734f143afcdf7761753511d4709ede4f3e08107b87d7d60794ed0e",
+      "bytes": 1179
+    },
+    {
+      "name": "wring-1.0.0-alpha.24-linux-x64",
+      "sha256": "5b82647430d410ae50b01894c8da67941c9aed09ae552cb0b444649d976afbf0",
+      "bytes": 94254560
+    },
+    {
+      "name": "wring-1.0.0-alpha.24-linux-x64.sha256",
+      "sha256": "94a249c4f02297a977bb6c5a45735d45d6887418fc66dd5a6de0e5dd9a893f9b",
+      "bytes": 97
+    }
+  ],
+  "runs": [
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088",
+      "source": "1ab172b41df1d697ad50cefd4063efaf8e419709",
+      "status": "completed",
+      "conclusion": "failure",
+      "jobs": [
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088/job/109355524441",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088/job/109355524727",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088/job/109355524887",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088/job/109355524947",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36553036088/job/109355524974",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145",
+      "source": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Rehearsals / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145/job/109360790584",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145/job/109360790869",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "action",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145/job/109360790955",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Bun / ubuntu-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145/job/109360790963",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rehearsals / macos-latest",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653145/job/109360791001",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36554653260",
+      "source": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36554653260/job/109360790681",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777",
+      "source": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+      "status": "completed",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "build (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109369262126",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "build (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109369262336",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (ubuntu-latest, linux-x64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109369262372",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "permission-adversary / permission-adversary",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109369262407",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "rehearsals (macos-14, darwin-arm64)",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109369262463",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "publish-draft",
+          "url": "https://github.com/marcoakes/wringer/actions/runs/36557244777/job/109376302482",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "additionalFirstPushPermissionCheck": {
+    "url": "https://github.com/marcoakes/wringer/actions/runs/36553036189",
+    "job": "https://github.com/marcoakes/wringer/actions/runs/36553036189/job/109355524169",
+    "conclusion": "success"
+  },
+  "attestations": [
+    {
+      "platform": "darwin-arm64",
+      "verified": true,
+      "verifiedAttestations": 1,
+      "repository": "marcoakes/wringer",
+      "signerWorkflow": "marcoakes/wringer/.github/workflows/release.yml",
+      "sourceDigest": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+      "sourceRef": "refs/tags/v1.0.0-alpha.24"
+    },
+    {
+      "platform": "linux-x64",
+      "verified": true,
+      "verifiedAttestations": 1,
+      "repository": "marcoakes/wringer",
+      "signerWorkflow": "marcoakes/wringer/.github/workflows/release.yml",
+      "sourceDigest": "40421292da044b91a7d8b072e64066f4d56d6aa4",
+      "sourceRef": "refs/tags/v1.0.0-alpha.24"
+    }
+  ],
+  "publicMacVerification": {
+    "download": "Published GitHub release, downloaded with authenticated gh client",
+    "extracted": [
+      {
+        "command": [
+          "wring",
+          "--version"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wringer-drive",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "drive",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wringer-board",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "board",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wringer-assistant",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "assistant",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wringer-headless",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "headless",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wringer-figma-broker",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "figma-broker",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "no-such-command"
+        ],
+        "exit": 2,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "mcp",
+          "--connection",
+          "[scratch]/absent.json"
+        ],
+        "exit": 3,
+        "passed": true
+      },
+      {
+        "command": [
+          "renamed tool",
+          "assistant",
+          "--help"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "renamed tool",
+          "demo",
+          "--json"
+        ],
+        "exit": 0,
+        "passed": true
+      },
+      {
+        "command": [
+          "wring",
+          "mcp",
+          "--connection",
+          "[scratch]/connection.json"
+        ],
+        "exit": 0,
+        "passed": true
+      }
+    ],
+    "installer": [
+      {
+        "name": "bootstrap-preview-without-bun",
+        "exit": 0,
+        "durationMs": 2217
+      },
+      {
+        "name": "bootstrap-apply-exact-preview",
+        "exit": 0,
+        "durationMs": 1302
+      },
+      {
+        "name": "installed-version",
+        "exit": 0,
+        "durationMs": 1077
+      },
+      {
+        "name": "installed-route-wring",
+        "exit": 0,
+        "durationMs": 130
+      },
+      {
+        "name": "installed-route-wringer-drive",
+        "exit": 0,
+        "durationMs": 131
+      },
+      {
+        "name": "installed-route-wringer-board",
+        "exit": 0,
+        "durationMs": 131
+      },
+      {
+        "name": "installed-route-wringer-assistant",
+        "exit": 0,
+        "durationMs": 310
+      },
+      {
+        "name": "installed-route-wringer-headless",
+        "exit": 0,
+        "durationMs": 132
+      },
+      {
+        "name": "installed-route-wringer-figma-broker",
+        "exit": 0,
+        "durationMs": 93
+      },
+      {
+        "name": "installed-no-model-demo",
+        "exit": 0,
+        "durationMs": 670
+      },
+      {
+        "name": "bootstrap-corrupt-binary-refused",
+        "exit": 2,
+        "durationMs": 38
+      },
+      {
+        "name": "installed-uninstall-preview",
+        "exit": 0,
+        "durationMs": 283
+      },
+      {
+        "name": "installed-uninstall-apply",
+        "exit": 0,
+        "durationMs": 477
+      }
+    ],
+    "modelCalls": 0
+  },
+  "limits": [
+    "The first candidate push retained two failed browser jobs; the correction commit passed every job. Earlier red results are not rewritten as green.",
+    "Archive integrity, workflow provenance and scripted engineering checks do not establish live model benefit, containment qualification or independent human acceptance.",
+    "The macOS public artifact was executed on this host. Linux execution is established by its native release CI, not this macOS download check."
+  ]
+}

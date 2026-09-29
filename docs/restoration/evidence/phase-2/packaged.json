@@ -1,0 +1,40 @@
+{
+  "fixture": true,
+  "status": "passed",
+  "checks": [
+    {
+      "name": "ordinary job starts with no research connection or grant",
+      "passed": true
+    },
+    {
+      "name": "job handle exposes structured ordinary failure evidence without controller paths",
+      "passed": true
+    },
+    {
+      "name": "registered artifact fixes the prediction and comparison before collection",
+      "passed": true
+    },
+    {
+      "name": "failed and undispatched fixture slots remain in the full denominator",
+      "passed": true
+    },
+    {
+      "name": "applicability and the proposed approach are reviewable from a job",
+      "passed": true
+    },
+    {
+      "name": "fixtures never qualify adoption or change an active plan",
+      "passed": true
+    },
+    {
+      "name": "re-observation never dispatches the comparison again",
+      "passed": true
+    }
+  ],
+  "providerCalls": 0,
+  "fixtureDispatches": 1,
+  "limits": [
+    "Packaged job routes and the real collector with a failure fixture. No provider, real containment, live benefit or independent person was measured.",
+    "Positive adoption and rollback are separate synthetic mechanism tests. This walkthrough correctly refuses to promote fixture evidence."
+  ]
+}

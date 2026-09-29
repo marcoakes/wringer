@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+(pass) job failure patterns require the exact compiled job plan, not its template or substituted history [98.78ms]
+
+ 1 pass
+ 5 filtered out
+ 0 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [486.00ms]

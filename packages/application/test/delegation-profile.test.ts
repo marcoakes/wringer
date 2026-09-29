@@ -71,6 +71,7 @@ test("T18 delegation job preparation preserves a first source and gives a second
     const first = await create(f.app, workspace.id, request);
     expect(first.mode).toBe("delegation"); expect(first.workspaceId).toBe(workspace.id); expect(first.source.commit).toBe(preview.source.commit);
     const status = await (application as any).delegationJobStatus(f.app, first.id); expect(status.outcome).toBe("needs-decision"); expect(status.remaining.monetaryCost).toBeNull();
+    await application.connectDelegationImprovements(f.app, first.id, "totals");
     await writeFile(join(f.repo, "src/value.ts"), "export const value = 2;\n"); await git(f.repo, ["add", "."]); await git(f.repo, ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false", "commit", "-m", "second source"]);
     expect((await create(f.app, workspace.id, request)).id).toBe(first.id);
     await expect(create(f.app, workspace.id, { ...request, intent: "Changed request" })).rejects.toThrow();
@@ -78,6 +79,7 @@ test("T18 delegation job preparation preserves a first source and gives a second
     expect(second.source.commit).not.toBe(first.source.commit); expect(second.parentJobId).toBe(first.id);
     expect((await (application as any).readDelegationJob(f.app, first.id)).source.commit).toBe(first.source.commit);
     expect((await (application as any).delegationJobStatus(f.app, second.id)).outcome).toBe("needs-decision");
+    expect((await application.inspectDelegationImprovements(f.app, second.id)).connected).toBeTrue();
 }, 20000);
 
 test("gVisor profile binds the measured cluster boundary and references without reading provider secrets", async () => {

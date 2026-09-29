@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+79 |         expect((await inspectImprovements(controller, profile)).experiments[0]!.result.eligibility).toBe("inconclusive");
+80 |         const rows = await experimentModule.listExperiments(research);
+81 |         // Fuzz the domain projection's output capacity, without storing invented
+82 |         // research evidence or mistaking it for an eligible comparison.
+83 |         const sizeSpy = spyOn(experimentModule, "listExperiments").mockResolvedValue(rows.map(row => ({ ...row, result: { ...row.result, findings: Array(200).fill("x".repeat(16384)) } })));
+84 |         try { await expect(improvementModule.inspectJobImprovements(controller, profile, String(submitted.jobId))).rejects.toThrow("bounded view"); }
+                                                                                                                                ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:84:124)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [510.15ms]
+
+ 0 pass
+ 1 fail
+ 21 expect() calls
+Ran 1 test across 1 file. [680.00ms]

@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+(pass) job comparison registers a reviewable prediction, collects only labelled fixtures, and cannot adopt them [262.62ms]
+
+ 1 pass
+ 5 filtered out
+ 0 fail
+ 16 expect() calls
+Ran 1 test across 1 file. [654.00ms]

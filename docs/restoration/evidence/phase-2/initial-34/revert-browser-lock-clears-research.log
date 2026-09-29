@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+scripts/job-improvements-browser.test.ts:
+16 |     await retainDelegationJob(f.root, f.context, String(second.jobId));
+17 |     const owner = await createDelegationOwner(f.root, f.workspaceId), browser = await launchPmBrowser(directory, async () => {}), page = browser.page;
+18 |     const checks: { name: string; passed: boolean }[] = [], errors: string[] = [], writes: { path: string; jobId: unknown }[] = [];
+19 |     page.on("pageerror", error => errors.push(error.message));
+20 |     page.on("request", request => { if (request.method() === "POST") writes.push({ path: new URL(request.url()).pathname, jobId: request.postDataJSON()?.jobId ?? null }); });
+21 |     const check = (name: string, passed: boolean) => { checks.push({ name, passed }); if (!passed) throw new Error(name); };
+                                                                                                                  ^
+error: locking clears research controls and no collection or product approval occurred
+      at check ([isolated-checkout]/scripts/job-improvements-browser-rehearsal.ts:21:110)
+      at runJobImprovementsBrowserRehearsal ([isolated-checkout]/scripts/job-improvements-browser-rehearsal.ts:64:9)
+      at async <anonymous> ([isolated-checkout]/scripts/job-improvements-browser.test.ts:4:26)
+(fail) ordinary job browser binds research decisions and discards obsolete views [2143.93ms]
+
+ 0 pass
+ 1 fail
+Ran 1 test across 1 file. [2.64s]

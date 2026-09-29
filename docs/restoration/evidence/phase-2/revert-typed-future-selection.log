@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+41 |         expect(future.plan.playbook?.sha256).toBe("a".repeat(64)); expect(future.plan.playbook?.adoption?.sha256).toBe(receipt.sha256);
+42 |         expect(await service.inspectProposal(submitted.jobId as string)).toEqual(retained);
+43 |         expect(await service.inspectApproval(submitted.jobId as string)).toBeNull();
+44 |         const authored = { intent: profile.intent, title: profile.name, criteria: profile.acceptance.criteria, checks: profile.acceptance.checks.map(({ id, criteria }) => ({ id, criteria })) };
+45 |         const validation: any = await service.call(capability.token, "wringer.validate_proposal", { workspaceId: workspace.id, proposal: authored });
+46 |         expect(validation.plan?.playbook?.adoption?.sha256).toBe(receipt.sha256);
+                                                                 ^
+error: expect(received).toBe(expected)
+
+Expected: "32479f00e4d45fe4902b246d3ce56dfff63abddcde13a641636c5fd0339e1dde"
+Received: undefined
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:46:61)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [79.12ms]
+
+ 0 pass
+ 1 fail
+ 7 expect() calls
+Ran 1 test across 1 file. [245.00ms]

@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+(pass) job registration retains the one input validated against its handle even if the file changes [81.11ms]
+
+ 1 pass
+ 5 filtered out
+ 0 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [473.00ms]

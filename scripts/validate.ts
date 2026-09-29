@@ -36,6 +36,7 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
         ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],
         ["compiled-evidence-export", [process.execPath, "scripts/evidence-export-rehearsal.ts"], workspace],
+        ["compiled-job-improvements", [process.execPath, "scripts/job-improvements-rehearsal.ts"], workspace],
         ["local-delivery-fixture", [process.execPath, "scripts/demo.ts"], workspace],
         ["compiled-version", [join(workspace, "dist/wring"), "--version"], repo],
         ["compiled-cli-reference", [process.execPath, "scripts/cli-reference.ts", "--check", join(workspace, "dist/wring")], workspace],
@@ -56,6 +57,7 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["local-pm-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--local"], workspace],
         ["local-design-rehearsal", [process.execPath, "scripts/assistant-launch-rehearsal.ts", "--design", "--local"], workspace],
         ["improvements-browser-rehearsal", [process.execPath, "scripts/improvements-browser-rehearsal.ts"], workspace],
+        ["job-improvements-browser-rehearsal", [process.execPath, "scripts/job-improvements-browser-rehearsal.ts"], workspace],
         ["adoption-connections-rehearsal", [process.execPath, "scripts/adoption-connections.ts"], workspace],
         ["verification-browser-rehearsal", [process.execPath, "scripts/rebuild-m5-browser.ts"], workspace],
     ];

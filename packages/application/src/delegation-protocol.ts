@@ -4,6 +4,7 @@ import type { createAssistantService } from "./assistant";
 import { assistantId, assistantInventory } from "./assistant-store";
 import { assistantControllerState } from "./assistant";
 import { readJobLoopInspection } from "./loop-inspection";
+import { inspectJobImprovements } from "./improvements";
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const guard = ["jobId", "idempotencyKey", "expectedRevision", "expectedCandidateIdentity"];
 const fields: Record<string, string[]> = {
@@ -12,6 +13,7 @@ const fields: Record<string, string[]> = {
     "wringer.list_jobs": ["offset", "limit"], "wringer.wait_for_update": ["jobId", "afterEventId", "timeoutSeconds"], "wringer.get_evidence": ["jobId", "evidenceId", "contentIdentity", "offset", "limit"],
     "wringer.start": guard, "wringer.cancel": guard, "wringer.continue": [...guard, "action"], "wringer.request_revision": [...guard, "note"], "wringer.prepare_handover": guard,
     "wringer.inspect_loop": ["jobId"],
+    "wringer.inspect_improvements": ["jobId"],
 };
 const refusal = (code: string, message: string) => ({ schema_version: "wringer.assistant-refusal.v2", mode: "delegation", outcome: "refused", isError: true, code, message });
 const opaque = (value: unknown) => { const h = hashValue(value); return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`; };
@@ -85,6 +87,12 @@ export function createDelegationProtocol(service: Service) {
                     jobs.push({ jobId: view.jobId, outcome: view.outcome, revision: view.revision, supersededBy: view.supersededBy ?? null });
                 }
                 return { schema_version: "wringer.job-list.v2", mode: "delegation", workspaceId: service.workspace.id, jobs, nextOffset: offset + limit < ids.length ? offset + limit : null };
+            }
+            if (name === "wringer.inspect_improvements") {
+                const observed = await service.call(token, "wringer.get_status", { jobId: args.jobId });
+                if (observed.isError) return refusal(String(observed.code), String(observed.message));
+                const proposal = await service.inspectProposal(args.jobId);
+                return inspectJobImprovements(service.root, proposal.plan ?? service.workspace.profile, args.jobId);
             }
             if (name === "wringer.inspect_loop") {
                 const observed = await service.call(token, "wringer.get_status", { jobId: args.jobId });

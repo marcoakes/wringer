@@ -1,0 +1,52 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+49 |     await call("connect", ["--task-family", "reports"]);
+50 |     const input = join(f.root, "comparison.json"); await writeFile(input, JSON.stringify(f.experiment));
+51 |     const args = ["--experiment", f.experiment.id, "--input", input];
+52 |     const before = (await readdir(f.root, { recursive: true })).sort();
+53 |     await expect(call("register", [...args, "--unexpected", "ignored"])).rejects.toThrow("Unknown option");
+54 |     expect((await readdir(f.root, { recursive: true })).sort()).toEqual(before);
+                                                                     ^
+error: expect(received).toEqual(expected)
+
+  [
+    "comparison.json",
+    "delegation-contexts",
+    "delegation-contexts/52b03225-11b7-4d9c-b7d2-ef13c8d37b61",
+    "delegation-contexts/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815.json",
+    "delegation-controllers",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/improvement-connection.json",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/jobs",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/jobs/765e7067-9b37-06e0-d9b5-615f0ec8aca8",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/jobs/765e7067-9b37-06e0-d9b5-615f0ec8aca8/authored.json",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/jobs/765e7067-9b37-06e0-d9b5-615f0ec8aca8/proposal.json",
+    "delegation-controllers/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/3a8d63f7-ff59-4132-886e-5e49aad4d815/workspace.json",
+    "delegation-jobs",
+    "delegation-jobs/765e7067-9b37-06e0-d9b5-615f0ec8aca8.json",
+    "improvement-stores",
+    "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61",
+    "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/reports",
+    "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/reports/registry",
+    "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/reports/research",
++   "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/reports/research/experiments",
++   "improvement-stores/52b03225-11b7-4d9c-b7d2-ef13c8d37b61/reports/research/experiments/reports-browser",
+    "workspace-improvements",
+    "workspace-improvements/52b03225-11b7-4d9c-b7d2-ef13c8d37b61.json",
+    "workspaces",
+    "workspaces/52b03225-11b7-4d9c-b7d2-ef13c8d37b61.json",
+  ]
+
+- Expected  - 0
++ Received  + 2
+
+      at <anonymous> ([checkout]/packages/cli/test/job-improvements.test.ts:54:65)
+(fail) job comparison registers a reviewable prediction, collects only labelled fixtures, and cannot adopt them [93.27ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [968.00ms]

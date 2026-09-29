@@ -1,0 +1,37 @@
+bun test v1.4.2 (744846f84)
+
+scripts/job-improvements-browser.test.ts:
+(pass) ordinary job browser binds research decisions and discards obsolete views [2148.87ms]
+
+packages/cli/test/improvement-collections.test.ts:
+(pass) explicit collection has one dispatch, observes abort and rejects admission while stopping [0.33ms]
+(pass) a collection prepared concurrently with shutdown is never dispatched and failure messages contain no private prose [0.14ms]
+
+packages/cli/test/job-improvements.test.ts:
+(pass) ordinary job improvement CLI removes private path setup and refuses replacing a task family [41.32ms]
+(pass) ordinary improvement MCP and operator page share a job-bound read without approval or dispatch [83.48ms]
+(pass) job comparison lookup refuses a foreign repository retained under the selected private handle [41.74ms]
+(pass) job registration retains the one input validated against its handle even if the file changes [34.66ms]
+(pass) job comparison registers a reviewable prediction, collects only labelled fixtures, and cannot adopt them [177.40ms]
+(pass) job failure patterns require the exact compiled job plan, not its template or substituted history [50.51ms]
+
+packages/application/test/delegation-protocol.test.ts:
+(pass) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [56.60ms]
+(pass) T23 evidence paging is stable across elapsed-clock observation while its retained revision is unchanged [1.15ms]
+(pass) T14 only the ready page phase invites review or separate Send; blocked and preparing phases do not [1.08ms]
+
+packages/application/test/delegation-profile.test.ts:
+(pass) T07 guided contained profile discovers narrow source and protected check bytes without executing repository code [310.16ms]
+(pass) T07 profile inspection refuses dirty source, implicit models and writable acceptance inputs [317.06ms]
+(pass) T07 applying a reviewed profile keeps a verified local-only bundle, is idempotent and grants no work [2966.30ms]
+(pass) T07 canonical setup applies the displayed contained profile without hand-written policy or source changes [2002.64ms]
+(pass) T18 delegation job preparation preserves a first source and gives a second job its new clean source without any approval [5898.55ms]
+(pass) gVisor profile binds the measured cluster boundary and references without reading provider secrets [419.01ms]
+
+packages/application/test/improvements.test.ts:
+(pass) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [675.72ms]
+
+ 19 pass
+ 0 fail
+ 190 expect() calls
+Ran 19 tests across 6 files. [15.81s]

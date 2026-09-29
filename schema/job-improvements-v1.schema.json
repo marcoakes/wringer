@@ -1,0 +1,999 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://wringer.dev/schema/job-improvements-v1.schema.json",
+  "title": "Read-only job improvements and exact applicability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "jobId",
+    "connected",
+    "revision",
+    "selectedDigest",
+    "adoption",
+    "profile",
+    "future",
+    "experiments",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.job-improvements.v1"
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+    },
+    "connected": {
+      "type": "boolean"
+    },
+    "revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "selectedDigest": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      ]
+    },
+    "adoption": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "title": "playbook-adoption-v1",
+          "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "repository",
+            "taskFamily",
+            "action",
+            "actor",
+            "note",
+            "at",
+            "previousRevision",
+            "previousDigest",
+            "selectedDigest",
+            "experimentSha256",
+            "evidenceRevision",
+            "appliesTo",
+            "executionApproved",
+            "sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.playbook-adoption.v1"
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2048
+            },
+            "taskFamily": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9-]{0,79}$"
+            },
+            "action": {
+              "enum": [
+                "promote",
+                "rollback"
+              ]
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "note": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000
+            },
+            "at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "previousRevision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "previousDigest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "selectedDigest": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "experimentSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "evidenceRevision": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "appliesTo": {
+              "const": "future-plans-only"
+            },
+            "executionApproved": {
+              "const": false
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "runtimeSha256",
+        "modelsSha256",
+        "environmentSha256",
+        "checksSha256"
+      ],
+      "properties": {
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "url",
+            "commit"
+          ],
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^(https|ssh)://[^\\s]+$"
+            },
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        "runtimeSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "modelsSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "environmentSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "checksSha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "future": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "playbookDigest",
+        "selectionReceipt",
+        "note",
+        "executionApproved"
+      ],
+      "properties": {
+        "playbookDigest": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "selectionReceipt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "executionApproved": {
+          "const": false
+        }
+      }
+    },
+    "experiments": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "prediction",
+          "taskFamily",
+          "candidateDigest",
+          "baselineDigest",
+          "planSha256",
+          "limits",
+          "result",
+          "applicability",
+          "proposal"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,79}$"
+          },
+          "prediction": {
+            "type": "string",
+            "maxLength": 16384
+          },
+          "taskFamily": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]{0,79}$"
+          },
+          "candidateDigest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "baselineDigest": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            ]
+          },
+          "planSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "maxTrials",
+              "maxRoleSessions",
+              "wallClockSeconds"
+            ],
+            "properties": {
+              "maxTrials": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 128
+              },
+              "maxRoleSessions": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 4096
+              },
+              "wallClockSeconds": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 604800
+              }
+            }
+          },
+          "result": {
+            "title": "experiment-result-v1",
+            "description": "Private bounded research record. Structural validity is not live efficacy, independent human presence or production execution/publication authority. Application readers additionally validate exact source/plan/evidence identity and chronology.",
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "schema_version",
+              "experimentSha256",
+              "evidenceRevision",
+              "eligibility",
+              "findings",
+              "plannedTrials",
+              "recordedTrials",
+              "liveTrials",
+              "fixtureTrials",
+              "missingTrials",
+              "pairs",
+              "heldOut",
+              "cost",
+              "limits",
+              "sha256"
+            ],
+            "properties": {
+              "schema_version": {
+                "const": "wringer.experiment-result.v1"
+              },
+              "experimentSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "evidenceRevision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "eligibility": {
+                "enum": [
+                  "eligible",
+                  "ineligible",
+                  "inconclusive"
+                ]
+              },
+              "findings": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 4096,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "plannedTrials": {
+                "type": "integer",
+                "minimum": 2,
+                "maximum": 128
+              },
+              "recordedTrials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 128
+              },
+              "liveTrials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 128
+              },
+              "fixtureTrials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 128
+              },
+              "missingTrials": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 128,
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,79}$"
+                }
+              },
+              "pairs": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 128,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "taskId",
+                    "repetition",
+                    "split",
+                    "baseline",
+                    "candidate",
+                    "improvement",
+                    "regressions"
+                  ],
+                  "properties": {
+                    "taskId": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+                    },
+                    "repetition": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 8
+                    },
+                    "split": {
+                      "enum": [
+                        "development",
+                        "held-out"
+                      ]
+                    },
+                    "baseline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "candidate": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{64}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "improvement": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "regressions": {
+                      "type": "array",
+                      "minItems": 0,
+                      "maxItems": 1024,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 4000
+                      }
+                    }
+                  }
+                }
+              },
+              "heldOut": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "pairs",
+                  "independentTasks",
+                  "improvements",
+                  "regressions",
+                  "ties",
+                  "meanImprovement",
+                  "signProbability"
+                ],
+                "properties": {
+                  "pairs": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 128
+                  },
+                  "independentTasks": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32
+                  },
+                  "improvements": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32
+                  },
+                  "regressions": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32
+                  },
+                  "ties": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 32
+                  },
+                  "meanImprovement": {
+                    "anyOf": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "signProbability": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              },
+              "cost": {
+                "type": "null"
+              },
+              "limits": {
+                "type": "array",
+                "minItems": 0,
+                "maxItems": 32,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4000
+                }
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          },
+          "applicability": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "taskId",
+                "sourceIdentity",
+                "source",
+                "runtime",
+                "models",
+                "environment",
+                "checks"
+              ],
+              "properties": {
+                "taskId": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9-]{0,79}$"
+                },
+                "sourceIdentity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "url",
+                    "commit"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "pattern": "^(https|ssh)://[^\\s]+$"
+                    },
+                    "commit": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                    }
+                  }
+                },
+                "source": {
+                  "type": "boolean"
+                },
+                "runtime": {
+                  "type": "boolean"
+                },
+                "models": {
+                  "type": "boolean"
+                },
+                "environment": {
+                  "type": "boolean"
+                },
+                "checks": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "proposal": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "changedVariable",
+              "prediction",
+              "holdout",
+              "stoppingRule",
+              "accounting",
+              "playbooks"
+            ],
+            "properties": {
+              "changedVariable": {
+                "const": "worker-playbook"
+              },
+              "prediction": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "statement",
+                  "metric",
+                  "minimumImprovement",
+                  "minimumHeldOutPairs",
+                  "maximumSignProbability",
+                  "visualQualityClaim"
+                ],
+                "properties": {
+                  "statement": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000
+                  },
+                  "metric": {
+                    "enum": [
+                      "worker-attempts",
+                      "functional-completion"
+                    ]
+                  },
+                  "minimumImprovement": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1000
+                  },
+                  "minimumHeldOutPairs": {
+                    "type": "integer",
+                    "minimum": 4,
+                    "maximum": 128
+                  },
+                  "maximumSignProbability": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 0.05
+                  },
+                  "visualQualityClaim": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "holdout": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "corpusId",
+                  "candidateIteration",
+                  "maximumCandidateIterations",
+                  "candidateAuthorSawHeldOutSolutions"
+                ],
+                "properties": {
+                  "corpusId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]{0,79}$"
+                  },
+                  "candidateIteration": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "maximumCandidateIterations": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100
+                  },
+                  "candidateAuthorSawHeldOutSolutions": {
+                    "const": false
+                  }
+                }
+              },
+              "stoppingRule": {
+                "const": "fixed-sample-no-extension"
+              },
+              "accounting": {
+                "const": "all-planned-trials-including-failures"
+              },
+              "playbooks": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "taskId",
+                    "baseline",
+                    "candidate"
+                  ],
+                  "properties": {
+                    "taskId": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+                    },
+                    "baseline": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "path",
+                            "sha256",
+                            "taskFamily"
+                          ],
+                          "properties": {
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "taskFamily": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                            },
+                            "adoption": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "schema_version",
+                                "repository",
+                                "taskFamily",
+                                "action",
+                                "actor",
+                                "note",
+                                "at",
+                                "previousRevision",
+                                "previousDigest",
+                                "selectedDigest",
+                                "experimentSha256",
+                                "evidenceRevision",
+                                "appliesTo",
+                                "executionApproved",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "schema_version": {
+                                  "const": "wringer.playbook-adoption.v1"
+                                },
+                                "repository": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4096
+                                },
+                                "taskFamily": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                                },
+                                "action": {
+                                  "enum": [
+                                    "promote",
+                                    "rollback"
+                                  ]
+                                },
+                                "actor": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "note": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 16000
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "maxLength": 64
+                                },
+                                "previousRevision": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "previousDigest": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "selectedDigest": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "experimentSha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "evidenceRevision": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "appliesTo": {
+                                  "const": "future-plans-only"
+                                },
+                                "executionApproved": {
+                                  "const": false
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "candidate": {
+                      "anyOf": [
+                        {
+                          "type": "null"
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "path",
+                            "sha256",
+                            "taskFamily"
+                          ],
+                          "properties": {
+                            "path": {
+                              "type": "string",
+                              "minLength": 1,
+                              "maxLength": 512
+                            },
+                            "sha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            },
+                            "taskFamily": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                            },
+                            "adoption": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "schema_version",
+                                "repository",
+                                "taskFamily",
+                                "action",
+                                "actor",
+                                "note",
+                                "at",
+                                "previousRevision",
+                                "previousDigest",
+                                "selectedDigest",
+                                "experimentSha256",
+                                "evidenceRevision",
+                                "appliesTo",
+                                "executionApproved",
+                                "sha256"
+                              ],
+                              "properties": {
+                                "schema_version": {
+                                  "const": "wringer.playbook-adoption.v1"
+                                },
+                                "repository": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 4096
+                                },
+                                "taskFamily": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                                },
+                                "action": {
+                                  "enum": [
+                                    "promote",
+                                    "rollback"
+                                  ]
+                                },
+                                "actor": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "note": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 16000
+                                },
+                                "at": {
+                                  "type": "string",
+                                  "format": "date-time",
+                                  "maxLength": 64
+                                },
+                                "previousRevision": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "previousDigest": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "selectedDigest": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string",
+                                      "pattern": "^[a-f0-9]{64}$"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "experimentSha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "evidenceRevision": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                },
+                                "appliesTo": {
+                                  "const": "future-plans-only"
+                                },
+                                "executionApproved": {
+                                  "const": false
+                                },
+                                "sha256": {
+                                  "type": "string",
+                                  "pattern": "^[a-f0-9]{64}$"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "maxLength": 16384
+      }
+    }
+  }
+}

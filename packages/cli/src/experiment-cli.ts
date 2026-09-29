@@ -3,10 +3,27 @@ import { createExperimentGrant, createPlaybookProposalRequest, registerExperimen
 import { readExperimentJson, exclusiveJson, privateExperimentRoot } from "../../application/src/experiment-store";
 import { allowed, flag, positionals, required, string, type Args } from "./args";
 import type { Answer } from "./app";
+import { applicationDirectory, connectDelegationImprovements, jobExperimentLocation, jobFailurePatterns } from "@wringer/application";
 
 export const EXPERIMENT_HELP = `Measured improvements for future work - never self-approval
 
+Ordinary jobs (owned private storage, no manual controller paths):
+  wring experiment connect --job JOB_ID --task-family FAMILY [--app-dir PATH]
+  wring experiment patterns --job JOB_ID --task-family FAMILY --json
+  wring experiment register --job JOB_ID --experiment ID --input COMPARISON.json
+  wring experiment proposal --job JOB_ID --experiment ID --json
+  wring experiment evaluate --job JOB_ID --experiment ID --json
+  wring job improvements --job JOB_ID --json
+Use --job JOB_ID --experiment ID instead of --state for grant, collect, review,
+research-finish and promote. Use --job JOB_ID instead of --registry for adoptions
+and rollback. Job handles cannot be combined with private path flags.
+New jobs inherit the workspace connection; existing plans and approvals do not
+change. One explicit repository/task family per workspace. New sources need
+matching evidence. Read the exact proposed source file pinned by its digest.
+
+Existing private-controller workflow:
   wring experiment register --input COMPARISON.json --state PRIVATE_DIR
+  wring experiment proposal --state PRIVATE_DIR --json
   wring experiment status --state PRIVATE_DIR
   wring experiment evaluate --state PRIVATE_DIR
   wring experiment grant --state PRIVATE_DIR --actor NAME --expires ISO_TIME
@@ -47,7 +64,35 @@ const confirmed = (a: Args) => { if (!flag(a, "yes")) throw new Error("This sepa
 export async function experimentCommand(a: Args, repo: string): Promise<Answer> {
     if (flag(a, "help")) return { value: { help: EXPERIMENT_HELP }, text: EXPERIMENT_HELP };
     positionals(a, 1); const operation = a.words[0];
+    if (a.flags.has("job")) {
+        const app = applicationDirectory(string(a, "app-dir")), job = required(a, "job");
+        if (["state", "registry", "assistant-state", "research-root", "from"].some(key => a.flags.has(key))) throw new Error("Choose a job handle or explicit private paths, never both");
+        if (operation === "connect") {
+            allowed(a, ["job", "app-dir", "task-family"]);
+            const value = await connectDelegationImprovements(app, job, required(a, "task-family")); return { value, text: value.note };
+        }
+        if (operation === "patterns" && !a.flags.has("experiment")) {
+            allowed(a, ["job", "app-dir", "task-family"]); return { value: await jobFailurePatterns(app, job, required(a, "task-family")) };
+        }
+        if (!["register", "status", "evaluate", "grant", "collect", "review", "research-finish", "promote", "rollback", "adoptions", "patterns", "proposal"].includes(operation!)) throw new Error("Use a supported registered job comparison operation");
+        if (operation === "register") allowed(a, ["job", "app-dir", "experiment", "input"]);
+        const registration = operation === "register" ? await readExperimentJson(resolve(repo, required(a, "input"))) : undefined;
+        const experimentId = ["rollback", "adoptions"].includes(operation!) ? undefined : required(a, "experiment");
+        const location = await jobExperimentLocation(app, job, experimentId, registration);
+        if (operation === "register") {
+            const value = await registerExperiment(location.state!, registration as Parameters<typeof registerExperiment>[1]);
+            return { value, text: `Registered the exact prediction for ${value.plan.id}. Plan: ${value.plan.sha256}. No spend or execution approved.` };
+        }
+        const flags = new Map(a.flags); for (const key of ["job", "app-dir", "experiment"]) flags.delete(key);
+        if (location.state) flags.set("state", location.state);
+        if (["promote", "rollback", "adoptions"].includes(operation!)) flags.set("registry", location.registry);
+        return experimentCommand({ ...a, flags }, repo);
+    }
     const root = () => resolve(repo, required(a, "state")), registry = () => resolve(repo, required(a, "registry"));
+    if (operation === "proposal") {
+        allowed(a, ["state"]); const current = await readExperiment(root());
+        return { value: current.registration, text: JSON.stringify(current.registration, null, 2) };
+    }
     if (operation === "register") {
         allowed(a, ["input", "state"]); const result = await registerExperiment(root(), await readExperimentJson(resolve(repo, required(a, "input"))));
         return { value: result, text: `Registered the prediction before any trials.\nExperiment: ${result.plan.id}\nPlan: ${result.plan.sha256}\nNo spend or execution approved. Next: wring experiment grant --help` };

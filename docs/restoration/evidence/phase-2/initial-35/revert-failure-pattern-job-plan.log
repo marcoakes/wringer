@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+106 |     await expect(call("promote", [...selected, "--actor", "Scripted fixture", "--note", "Must refuse fixtures", "--expected-revision", view.revision, "--expected-current", "none", "--expected-evidence", result.evidenceRevision, "--yes"])).rejects.toThrow("inconclusive");
+107 |     expect(await f.controller.inspectApproval(f.jobId)).toBeNull(); expect(await f.controller.runner.list(f.jobId)).toEqual([]);
+108 | }, 15000);
+109 | test("job failure patterns require the exact compiled job plan, not its template or substituted history", async () => {
+110 |     const f = await fixture(), args = ["experiment", "patterns", "--app-dir", f.root, "--job", f.jobId, "--task-family", "reports"];
+111 |     await expect(dispatch(args)).rejects.toThrow("compiled job plan");
+                                               ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "compiled job plan"
+Received message: "ENOENT: no such file or directory, lstat '[temporary]/wringer-job-improvements-8mqNwY/delegation-controllers/fd97899d-628d-40a7-bf35-187d3b18f693/9176a409-8288-4373-bc03-59ceee749a45/jobs/9c62a44f-782d-0f82-a93c-16f26e623a74/controller'"
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:111:42)
+(fail) job failure patterns require the exact compiled job plan, not its template or substituted history [86.11ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [568.00ms]

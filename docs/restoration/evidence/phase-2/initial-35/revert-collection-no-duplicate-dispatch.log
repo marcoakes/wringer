@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/improvement-collections.test.ts:
+ 7 |         dispatched++; await new Promise<void>(resolve => signal!.addEventListener("abort", () => { aborted = true; resolve(); }, { once: true })); return {} as any;
+ 8 |     } }));
+ 9 |     const manager = improvementCollections(() => { if (stopped) throw new Error("Owner stopping"); });
+10 |     try {
+11 |         await manager.collect("/fixture", {} as any, {} as any);
+12 |         await expect(manager.collect("/fixture", {} as any, {} as any)).rejects.toThrow("already dispatched");
+                                                                                     ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/improvement-collections.test.ts:12:81)
+(fail) explicit collection has one dispatch, observes abort and rejects admission while stopping [1.07ms]
+
+ 0 pass
+ 1 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [205.00ms]

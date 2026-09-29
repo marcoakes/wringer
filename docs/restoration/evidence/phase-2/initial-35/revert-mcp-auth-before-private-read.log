@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-protocol.test.ts:
+33 |     expect(() => validateDelegationOutput("wringer.inspect_improvements", { ...improvements, future: { ...improvements.future, executionApproved: true } })).toThrow();
+34 |     const privateRead = spyOn(service, "inspectProposal");
+35 |     try {
+36 |         expect((await protocol.call("0".repeat(64), "wringer.inspect_loop", { jobId: job.jobId })).outcome).toBe("refused");
+37 |         expect(privateRead).not.toHaveBeenCalled();
+38 |         expect((await protocol.call("0".repeat(64), "wringer.inspect_improvements", { jobId: job.jobId })).outcome).toBe("refused");
+                                                                                                                         ^
+error: expect(received).toBe(expected)
+
+Expected: "refused"
+Received: undefined
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/delegation-protocol.test.ts:38:117)
+(fail) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [83.58ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 30 expect() calls
+Ran 1 test across 1 file. [466.00ms]

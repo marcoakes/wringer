@@ -1,0 +1,54 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-protocol.test.ts:
+27 |     expect(loop.decisions).toEqual([]); expect(loop.budget).toBeNull();
+28 |     expect(loop.planSha256).toBeDefined(); expect(loop).not.toHaveProperty("authority");
+29 |     expect(() => validateDelegationOutput("wringer.inspect_loop", { ...loop, authority: { send: true } })).toThrow();
+30 |     const improvements = await call("inspect_improvements", { jobId: job.jobId });
+31 |     expect(improvements.schema_version).toBe("wringer.job-improvements.v1"); expect(improvements.jobId).toBe(job.jobId); expect(improvements.connected).toBeFalse();
+32 |     expect(() => validateDelegationOutput("wringer.inspect_improvements", { ...improvements, authority: { collect: true } })).toThrow();
+                                                                                                                                   ^
+error: expect(received).toThrow()
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.job-improvements.v1",
+  connected: false,
+  revision: "0000000000000000000000000000000000000000000000000000000000000000",
+  selectedDigest: null,
+  adoption: null,
+  experiments: [],
+  limits: [ "Optional research for future work. Current jobs and their approvals never change.",
+    "Reviewing this card makes no model or credential calls. Testing requires a separate finite allowance; session/time limits are not a cash cap.",
+    "Fixture results cannot establish live benefit. Names record an operator decision, not verified physical human presence."
+  ],
+  jobId: "20f16def-f285-ff29-ed0b-2e80ceb4d3c0",
+  profile: {
+    source: {
+      url: "https://github.com/OWNER/REPOSITORY.git",
+      commit: "0000000000000000000000000000000000000000",
+    },
+    runtimeSha256: "e4090033a9158360c9aa52e4a52858e138b84391363a730abb27dc9e4cbc4d3e",
+    modelsSha256: "f412322cbafb77aa5ebb0e855220a3752ae4b048ef05a534c4e1b9a641021ee9",
+    environmentSha256: "2deb4265cbec92da49fcd003fb03891b1740c2df9a6eaeb6ddf34343cd1c1831",
+    checksSha256: "7793a192f95bb7564e1f827250ac4d9b3c6a06de7fb7fe108684e7fe85f223e0",
+  },
+  future: {
+    playbookDigest: null,
+    selectionReceipt: null,
+    note: "No evaluated future approach has been selected.",
+    executionApproved: false,
+  },
+  authority: {
+    collect: true,
+  },
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/delegation-protocol.test.ts:32:127)
+(fail) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [72.42ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 26 expect() calls
+Ran 1 test across 1 file. [414.00ms]

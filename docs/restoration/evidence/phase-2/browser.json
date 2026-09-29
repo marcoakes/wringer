@@ -1,0 +1,47 @@
+{
+  "fixture": true,
+  "status": "passed",
+  "checks": [
+    {
+      "name": "ordinary job shows prediction, finite allowance and exact applicability",
+      "passed": true
+    },
+    {
+      "name": "the registered source/runtime/model/check matches are visible",
+      "passed": true
+    },
+    {
+      "name": "reading leaves research and production decisions untouched",
+      "passed": true
+    },
+    {
+      "name": "a late first-job response cannot replace the selected job's comparison",
+      "passed": true
+    },
+    {
+      "name": "a research action binds the selected job and refuses an expired allowance",
+      "passed": true
+    },
+    {
+      "name": "a delayed decision reply cannot attach the prior job's message to another job",
+      "passed": true
+    },
+    {
+      "name": "the proposal and comparison fit a mobile job page",
+      "passed": true
+    },
+    {
+      "name": "locking clears research controls and no collection or product approval occurred",
+      "passed": true
+    },
+    {
+      "name": "Chromium reports no uncaught page error",
+      "passed": true
+    }
+  ],
+  "providerCalls": 0,
+  "independentPmMeasured": false,
+  "limits": [
+    "Scripted browser/HTTP observations, no live research or human acceptance."
+  ]
+}

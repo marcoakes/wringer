@@ -107,7 +107,16 @@ only; uncertain model calls are not replayed. Uncertainty and missing records
 stay in the denominator. A completed-but-missing record is a refusal, not a fresh
 paid attempt. Fixture/live mode is durable and cannot change on resume.
 
-## Connect the optional card to the existing PM page
+## Connect from an ordinary job
+
+Use `wring experiment connect --job JOB_ID --task-family FAMILY`, then
+`wring job improvements --job JOB_ID --json`. The ordinary job page and restricted
+MCP tool expose the same predictions, outcomes and exact applicability. Research
+and adoption directories are owned by the workspace; new contexts inherit the
+connection. Follow the [ordinary-job guide](JOB_IMPROVEMENTS.md) for registration,
+reviewable proposal artifacts, finite collection and future-only decisions.
+
+## Existing private-controller connection
 
 This is operator setup, not another PM dashboard. First register the comparison
 as above. Its directory must be `PRIVATE_ROOT/experiments/<registered-id>`;

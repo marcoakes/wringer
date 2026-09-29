@@ -31,7 +31,7 @@ development failures → predicted improvement → fixed comparison → future a
 
 Explore [loops and inspection](docs/native/LOOP_INSPECTION.md),
 [portable evidence](examples/evidence/README.md),
-[prediction-gated improvements](docs/native/EXPERIMENTS.md) and
+[improvements from ordinary jobs](docs/native/JOB_IMPROVEMENTS.md) and
 [the execution architecture](docs/REWRITE_PLAN.md).
 
 **The platform direction is composable workflows that improve through evidence.**
@@ -70,6 +70,7 @@ For a prepared delegation job:
 
 ```sh
 wring job loop --job JOB_ID --json
+wring job improvements --job JOB_ID --json
 ```
 
 The job page shows the same loop observations. Connected delegation clients can
@@ -85,6 +86,12 @@ The Node-only reader checks carried byte integrity and displays recorded facts.
 `bundle inspect` also performs Wringer's semantic audit. Neither executes the
 acceptance checks again or supplies a human verdict. Unknown provider cost stays
 unknown, and fixture success is not a measured live improvement.
+
+To turn recurring failures into a proposed improvement, connect a task family
+with `wring experiment connect --job JOB_ID --task-family FAMILY`. The same job
+page then shows registered predictions, fixed comparisons and explicit future
+adoption/undo. It shows when a changed source no longer matches the evidence.
+Collection always needs its own finite allowance; reading never starts it.
 
 ## Release and evidence
 

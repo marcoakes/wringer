@@ -62,7 +62,7 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
                 const value = await failurePatternsFromJourneys(values(a, "from")!.map(path => resolve(repo, path)), required(a, "task-family"));
                 return { value, text: `${value.groups.length} comparable failure patterns from ${value.sources.length} explicitly selected ordinary journeys.\nOnly structured observations are included; no role conversation, human prose, credentials or research holdout data. No model call or new work ran.` };
             }
-            if (a.words[0] === "connect") {
+            if (a.words[0] === "connect" && !a.flags.has("job")) {
                 positionals(a, 1); allowed(a, ["assistant-state", "research-root", "registry", "task-family"]);
                 const value = await connectImprovements(resolve(repo, required(a, "assistant-state")), { researchRoot: resolve(repo, required(a, "research-root")), registryRoot: resolve(repo, required(a, "registry")), taskFamily: required(a, "task-family") });
                 return { value, text: value.note };

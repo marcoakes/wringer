@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+100 |         const revisedReplay = await service.call(capability.token, "wringer.revise_proposal", revisionRequest);
+101 |         expect(revisedReplay.outcome).toBe("awaiting-approval"); expect(revisedReplay.jobId).toBe(revised.jobId);
+102 |         expect((await service.inspectProposal(String(typed.jobId))).plan?.playbook?.adoption?.sha256).toBe(receipt.sha256);
+103 |         expect(hashValue(await service.inspectProposal(submitted.jobId as string))).toBe(hashValue(retained));
+104 |         await chmod(registry, 0o755); // Future selection is unavailable; retained jobs still replay.
+105 |         expect((await service.call(capability.token, "wringer.propose", typedRequest)).outcome).toBe("awaiting-approval");
+                                                                                                      ^
+error: expect(received).toBe(expected)
+
+Expected: "awaiting-approval"
+Received: "refused"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:105:97)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [618.43ms]
+
+ 0 pass
+ 1 fail
+ 38 expect() calls
+Ran 1 test across 1 file. [769.00ms]

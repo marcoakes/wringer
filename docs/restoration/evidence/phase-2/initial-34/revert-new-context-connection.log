@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-profile.test.ts:
+77 |     await expect(create(f.app, workspace.id, { ...request, intent: "Changed request" })).rejects.toThrow();
+78 |     const second = await create(f.app, workspace.id, { intent: "Return the value as 8.", idempotencyKey: crypto.randomUUID(), parentJobId: first.id });
+79 |     expect(second.source.commit).not.toBe(first.source.commit); expect(second.parentJobId).toBe(first.id);
+80 |     expect((await (application as any).readDelegationJob(f.app, first.id)).source.commit).toBe(first.source.commit);
+81 |     expect((await (application as any).delegationJobStatus(f.app, second.id)).outcome).toBe("needs-decision");
+82 |     expect((await application.inspectDelegationImprovements(f.app, second.id)).connected).toBeTrue();
+                                                                                               ^
+error: expect(received).toBeTrue()
+
+Received: false
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/delegation-profile.test.ts:82:91)
+(fail) T18 delegation job preparation preserves a first source and gives a second job its new clean source without any approval [6279.28ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 13 expect() calls
+Ran 1 test across 1 file. [6.46s]

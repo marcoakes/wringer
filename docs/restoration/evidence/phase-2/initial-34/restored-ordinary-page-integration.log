@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+(pass) ordinary improvement MCP and operator page share a job-bound read without approval or dispatch [128.14ms]
+
+ 1 pass
+ 5 filtered out
+ 0 fail
+ 14 expect() calls
+Ran 1 test across 1 file. [524.00ms]

@@ -7,6 +7,7 @@ import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelect
 import { initializeAssistant, createAssistantService, assistantControllerState } from "./assistant";
 import { readJobLoopInspection } from "./loop-inspection";
 import { localSourceSiblings } from "./assistant-local-source";
+import { inheritWorkspaceImprovements } from "./job-improvements";
 interface Context {
     schema_version: "wringer.delegation-context.v1"; id: string; workspaceId: string; profileId: string; intent: string;
     parentJobId: string | null; createdAt: string; destination: { remote: string; sourceBranch: string; targetBranch: string } | null;
@@ -82,6 +83,7 @@ export async function createDelegationJob(root: string, workspaceId: string, inp
         const initialized = await initializeAssistant(controller, { plan: profile.plan, cooperativeLocal: true, ...(context.destination ? { destination: context.destination } : {}), ...(profile.selection.source.kind === "local" ? { localSource: localSourceSiblings(join(root, "profiles", context.profileId, "profile.json")) } : {}) });
         if (context.destination) await writeAssistantRecord(controller, "destination-policy.json", { schema_version: "wringer.proposal-destination-policy.v1", workspaceId: initialized.workspace.id, uniqueProposalBranches: true });
         const service = await createAssistantService(controller);
+        await inheritWorkspaceImprovements(root, workspaceId, controller, profile.plan);
         const proposed = await service.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: id, proposal: { intent: input.intent, title: "Prepare the requested work", questions: ["Which requirement criteria, measured checks and result displays will establish this request? Ask the coding assistant to validate and revise this proposal before approval."] } });
         if (proposed.isError) throw new Error(String(proposed.message));
         return retainDelegationJob(root, context, String(proposed.jobId));

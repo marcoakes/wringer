@@ -8,6 +8,9 @@ import { parseDelegationCall, parseMcpJson, validateDelegationOutput } from "@wr
 import { createAssistantTransport } from "./assistant-transport";
 import { createOperatorBrowserSessions } from "./operator-browser-session";
 import { createAssistantJobFlow } from "./assistant-job";
+import { withImprovementCard } from "../../board/src/improvements-render";
+import { inspectJobImprovements, decideImprovement } from "@wringer/application";
+import { improvementCollections } from "./improvement-collections";
 type Context = Awaited<ReturnType<typeof readDelegationContext>>;
 /** One operator origin and scoped connection; each source context retains its
  * original controller, approval, destination and runner reservations. */
@@ -23,6 +26,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
     let server: ReturnType<typeof Bun.serve> | undefined, transport: ReturnType<typeof createAssistantTransport> | undefined;
     const created: string[] = [], active = new Map<string, Promise<Loaded>>(), observations = new Map<string, Promise<Loaded>>();
     const capabilities = new Map<string, Awaited<ReturnType<typeof issueAssistantCapability>>>(), activationErrors = new Map<string, string>();
+    const collections = improvementCollections(() => { if (closed) throw new Error("Owner is stopping; no new research is accepted"); });
     type Loaded = Awaited<ReturnType<typeof observeContext>>;
     async function observeContext(context: Context) {
         if (closed) throw new Error("Owner is stopping");
@@ -129,6 +133,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
     }
     async function stop() {
         if (stopped) return; closed = true; clearInterval(refreshTimer);
+        await collections.stop();
         const loaded = await Promise.allSettled(active.values());
         for (const result of loaded) if (result.status === "fulfilled") result.value.flow.stop();
         const results = await Promise.all(loaded.flatMap(result => result.status === "fulfilled" ? [result.value.controller.runner.stop(5000)] : []));
@@ -139,7 +144,7 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
     }
     try {
         await lock.writeFile(JSON.stringify({ pid: process.pid, workspaceId, at: new Date().toISOString() })); await lock.sync();
-        const page = renderPmJobWorkspace({ nonce });
+        const page = withImprovementCard(renderPmJobWorkspace({ nonce }), nonce, { jobScoped: true });
         server = Bun.serve({ hostname: "127.0.0.1", port: 0, maxRequestBodySize: 16384, async fetch(request) {
             const url = new URL(request.url);
             if (url.origin !== origin || request.headers.get("host") !== new URL(origin).host) return json({ error: "Unexpected local origin" }, 403);
@@ -149,6 +154,20 @@ export async function createDelegationOwner(root: string, workspaceId: string) {
             try {
                 if (request.method === "GET" && url.pathname === "/api/jobs") return json({ jobs: await list(), ownerStops: [...activationErrors].map(([contextId, code]) => ({ contextId, code })) });
                 if (request.method === "GET" && url.pathname === "/api/job") { const jobId = assistantId(url.searchParams.get("jobId")); return json(await (await selected(jobId)).flow.read(jobId)); }
+                if (request.method === "GET" && url.pathname === "/api/improvements") {
+                    if ([...url.searchParams.keys()].join(",") !== "jobId") throw new Error("Select exactly one job for improvement evidence");
+                    const jobId = assistantId(url.searchParams.get("jobId")), current = await selected(jobId), proposal = await current.controller.inspectProposal(jobId);
+                    return json({ ...await inspectJobImprovements(current.controller.root, proposal.plan ?? current.controller.workspace.profile, jobId), collection: collections.messages(current.controller.root) });
+                }
+                if (request.method === "POST" && /^\/api\/improvements\/(collect|promote|rollback)$/.test(url.pathname)) {
+                    if (closed || url.search || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the displayed separate improvement decision");
+                    const text = await request.text(); if (Buffer.byteLength(text) > 16384) throw new Error("Improvement decision too large");
+                    const input = parseMcpJson(text) as Record<string, any>, jobId = assistantId(input?.jobId), current = await selected(jobId), proposal = await current.controller.inspectProposal(jobId);
+                    const { jobId: ignored, ...decision } = input, action = url.pathname.split("/").at(-1)!, profile = proposal.plan ?? current.controller.workspace.profile;
+                    if (closed) throw new Error("Owner is stopping");
+                    if (action === "collect") return json(await collections.collect(current.controller.root, profile, decision as any), 202);
+                    return json(await decideImprovement(current.controller.root, profile, action as "promote" | "rollback", decision as any));
+                }
                 if (closed || request.method !== "POST" || url.search || !/^\/api\/job\/(approve|retry|decision|correction|stop|send)$/.test(url.pathname) || request.headers.get("content-type")?.split(";", 1)[0] !== "application/json") throw new Error("Use the current operator page action");
                 const text = await request.text(); if (Buffer.byteLength(text) > 16384) throw new Error("Decision too large");
                 const input = parseMcpJson(text) as Record<string, unknown>, jobId = assistantId(input?.jobId);

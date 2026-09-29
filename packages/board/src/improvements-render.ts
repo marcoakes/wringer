@@ -1,7 +1,8 @@
 /** Optional, same-page research card. It cannot operate production Yes or Send. */
-function improvementClient() {
+function improvementClient(jobScoped: boolean) {
     const panel = document.getElementById("improvements-panel")!, content = document.getElementById("improvements-content")!, message = document.getElementById("improvements-message")!;
     let busy = false, locked = false, generation = 0, readFailed = false;
+    const selectedJob = () => jobScoped ? (document.getElementById("job-picker") as HTMLSelectElement | null)?.value ?? "" : "";
     const node = (tag: string, text?: string) => { const element = document.createElement(tag); if (text !== undefined) element.textContent = text; return element; };
     const hash = (value: unknown) => typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
     async function api(path: string, body?: unknown) {
@@ -9,22 +10,27 @@ function improvementClient() {
         const text = await response.text(); if (text.length > 2 * 1024 * 1024) throw new Error("Comparison evidence is too large to review here");
         const value = JSON.parse(text); if (!response.ok) throw new Error(value.error || "This comparison decision was refused"); return value;
     }
-    async function act(action: string, body: unknown) {
+    async function act(action: string, body: Record<string, unknown>) {
         if (busy || locked) return; busy = true; generation++;
+        const own = generation, jobId = selectedJob();
+        if (jobScoped && !jobId) { busy = false; return; }
         content.querySelectorAll("button,input").forEach(element => (element as HTMLInputElement).disabled = true);
-        try { await api(`/api/improvements/${action}`, body); if (!locked) message.textContent = action === "collect" ? "Separate comparison started within the displayed allowance. Current work is unchanged." : "Future approach decision recorded. Current work and approvals are unchanged."; }
-        catch (error) { if (!locked) message.textContent = (error as Error).message + " Nothing was automatically repeated."; }
+        try { await api(`/api/improvements/${action}`, { ...body, ...(jobScoped ? { jobId } : {}) }); if (!locked && own === generation && jobId === selectedJob()) message.textContent = action === "collect" ? "Separate comparison started within the displayed allowance. Current work is unchanged." : "Future approach decision recorded. Current work and approvals are unchanged."; }
+        catch (error) { if (!locked && own === generation && jobId === selectedJob()) message.textContent = (error as Error).message + " Nothing was automatically repeated."; }
         finally { busy = false; await refresh(); }
     }
     const input = (form: HTMLElement, label: string, type = "text") => { const field = node("input") as HTMLInputElement; field.type = type; field.required = true; field.maxLength = type === "text" ? 200 : 100; const wrapper = node("label", label); wrapper.append(field); form.append(wrapper); return field; };
     async function refresh() {
-        if (busy || locked) return; const own = ++generation;
+        if (busy || locked) return; const own = ++generation, jobId = selectedJob();
+        if (jobScoped && !jobId) { content.replaceChildren(); panel.hidden = true; return; }
         try {
-            const view = await api("/api/improvements");
-            if (busy || locked || own !== generation) return;
-            if (view.schema_version !== "wringer.improvement-view.v1" || typeof view.connected !== "boolean" || !hash(view.revision) || !(view.selectedDigest === null || hash(view.selectedDigest)) || !Array.isArray(view.experiments) || view.experiments.length > 16) throw new Error("Unreadable comparison record: adoption remains disabled");
-            panel.hidden = !view.connected; content.replaceChildren(); if (!view.connected) return;
+            const view = await api("/api/improvements" + (jobScoped ? "?jobId=" + encodeURIComponent(jobId) : ""));
+            if (busy || locked || own !== generation || jobId !== selectedJob()) return;
+            if (view.schema_version !== (jobScoped ? "wringer.job-improvements.v1" : "wringer.improvement-view.v1") || jobScoped && view.jobId !== jobId || typeof view.connected !== "boolean" || !hash(view.revision) || !(view.selectedDigest === null || hash(view.selectedDigest)) || !Array.isArray(view.experiments) || view.experiments.length > 16) throw new Error("Unreadable comparison record: adoption remains disabled");
+            panel.hidden = !view.connected && !jobScoped; content.replaceChildren();
+            if (!view.connected) { if (jobScoped) content.append(node("p", "Connect a task family with wring experiment connect --job " + jobId + " --task-family FAMILY. This creates private comparison storage and grants no spending.")); return; }
             content.append(node("p", "Optional improvements for future work. Reviewing costs no model calls. Your current job, Yes and Send remain separate."));
+            if (jobScoped) content.append(node("p", view.future.note), node("p", "Applicability is exact: source, runtime, model selection, environment and checks. A new source may need new evidence."));
             if (view.adoption) {
                 if (!hash(view.adoption.evidenceRevision) || view.adoption.sha256 !== view.revision) throw new Error("Adoption identity changed");
                 content.append(node("p", `Current future approach: ${view.selectedDigest ?? "no playbook"}. ${view.adoption.note}`));
@@ -41,6 +47,15 @@ function improvementClient() {
                 const card = node("section"); card.className = "panel";
                 card.append(node("h3", experiment.prediction), node("p", `${result.eligibility === "eligible" ? "Benefit met the registered comparison rules" : result.eligibility === "ineligible" ? "Do not adopt this approach" : "Not enough evidence to adopt"}. ${result.recordedTrials}/${result.plannedTrials} trial records; ${result.liveTrials} live, ${result.fixtureTrials} scripted.`));
                 const details = node("details"), list = node("ul"); details.append(node("summary", "Evidence and limits")); for (const finding of result.findings) list.append(node("li", String(finding))); details.append(list, node("p", `Evidence revision ${result.evidenceRevision}. Costs remain unknown.`)); card.append(details);
+                if (jobScoped) {
+                    const applicability = node("ul");
+                    for (const row of experiment.applicability) applicability.append(node("li", row.taskId + ": " + ["source", "runtime", "models", "environment", "checks"].map(key => key + (row[key] ? " matches" : " differs")).join(", ")));
+                    details.append(applicability);
+                    const proposal = node("details"), registered = experiment.proposal;
+                    proposal.append(node("summary", "Registered prediction and proposed approach"), node("p", registered.prediction.statement), node("p", `Measure ${registered.prediction.metric}; minimum improvement ${registered.prediction.minimumImprovement}. At least ${registered.prediction.minimumHeldOutPairs} held-out pairs. Fixed sample; no extension after seeing results.`));
+                    for (const item of registered.playbooks) proposal.append(node("p", `${item.taskId}: ${item.baseline ? item.baseline.path : "no extra guidance"} → ${item.candidate?.path ?? "no extra guidance"}`), node("p", `Proposed content digest: ${item.candidate?.sha256 ?? "none"}. Review that exact source file before testing.`));
+                    proposal.append(node("p", `Holdout corpus ${registered.holdout.corpusId}; candidate ${registered.holdout.candidateIteration} of ${registered.holdout.maximumCandidateIterations}. Registered plan ${experiment.planSha256}.`)); card.append(proposal);
+                }
                 const activity = view.collection?.[experiment.id]; if (activity) card.append(node("p", activity));
                 if (result.recordedTrials === 0 && !activity) {
                     const form = node("form"); form.append(node("p", `Separate research allowance: at most ${limits.maxTrials} fresh trials, ${limits.maxRoleSessions} agent sessions and ${limits.wallClockSeconds} seconds. This may spend. It cannot send production work.`));
@@ -59,11 +74,12 @@ function improvementClient() {
         } catch (error) { if (own !== generation || busy || locked) return; content.replaceChildren(); readFailed = true; message.textContent = "Improvement review unavailable; no research or adoption decision is enabled. " + (error as Error).message; }
     }
     document.getElementById("refresh-improvements")!.addEventListener("click", () => void refresh());
+    if (jobScoped) document.getElementById("job-picker")!.addEventListener("change", () => { generation++; content.replaceChildren(); message.textContent = ""; panel.hidden = true; void refresh(); });
     for (const id of ["lock-console", "lock-job-page"]) document.getElementById(id)?.addEventListener("click", () => { locked = true; generation++; content.replaceChildren(); message.textContent = ""; panel.hidden = true; });
     // The existing page establishes its private cookie; this card never receives the bearer.
     setTimeout(() => void refresh(), 1000); setInterval(() => { if (!locked && !content.contains(document.activeElement)) void refresh(); }, 10000);
 }
-export function withImprovementCard(html: string, nonce: string): string {
+export function withImprovementCard(html: string, nonce: string, options: { jobScoped?: boolean } = {}): string {
     if (!/^[A-Za-z0-9+/_=-]{8,200}$/.test(nonce)) throw new Error("Use the existing safe script nonce");
-    return html.replace("</main>", `<details id="improvements-panel" class="panel" hidden><summary>Optional · improve future work</summary><p id="improvements-message" aria-live="polite"></p><div id="improvements-content"></div><button id="refresh-improvements" type="button" class="secondary">Refresh improvement evidence</button></details></main>`).replace("</body>", `<script nonce="${nonce}">(${improvementClient.toString()})();</script></body>`);
+    return html.replace("</main>", `<details id="improvements-panel" class="panel" hidden><summary>Optional · improve future work</summary><p id="improvements-message" aria-live="polite"></p><div id="improvements-content"></div><button id="refresh-improvements" type="button" class="secondary">Refresh improvement evidence</button></details></main>`).replace("</body>", `<script nonce="${nonce}">(${improvementClient.toString()})(${options.jobScoped === true});</script></body>`);
 }

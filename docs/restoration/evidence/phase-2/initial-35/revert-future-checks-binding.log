@@ -1,0 +1,58 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+62 |             { agents: { ...profile.agents, worker: { ...profile.agents.worker, args: [...(profile.agents.worker.args ?? []), "--fixture-model-change"] } } },
+63 |             { environment: { ...profile.environment, context: [...profile.environment.context, "OTHER.md"] } },
+64 |             { acceptance: { ...profile.acceptance, checks: profile.acceptance.checks.map(check => ({ ...check, argv: [...check.argv, "--fixture-check-change"] })) } }
+65 |         ]) {
+66 |             const different = compileDeclaration({ version: 3, ...data, ...change });
+67 |             expect((await futureImprovementTemplate(controller, different)).plan).toEqual(different);
+                                                                                       ^
+error: expect(received).toEqual(expected)
+
+@@ -116,11 +116,33 @@
+    "loop": {
+      "repeatCandidate": "stop",
+      "repeatedOutcomeWarning": 3,
+    },
+    "name": "A bounded total",
+-   "plan_sha256": "6160a8c0804203df5d35eba3f0e003940d6a7abd06aaaf95d224e9946b66b478",
++   "plan_sha256": "053e201da58e20fe0434c1abcec781fe4f5be1973bbbc64b49eddffba187a011",
++   "playbook": {
++     "adoption": {
++       "action": "promote",
++       "actor": "Synthetic selection fixture",
++       "appliesTo": "future-plans-only",
++       "at": "2026-09-29T15:15:38.962Z",
++       "evidenceRevision": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
++       "executionApproved": false,
++       "experimentSha256": "bd7ad2d5248d98458a29cb0af76a7daa78b0ebea0b0069ae93abcedd0bcc6e16",
++       "note": "Tests future-template wiring only, not eligibility",
++       "previousDigest": null,
++       "previousRevision": "0000000000000000000000000000000000000000000000000000000000000000",
++       "repository": "https://github.com/OWNER/REPOSITORY.git",
++       "schema_version": "wringer.playbook-adoption.v1",
++       "selectedDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++       "sha256": "3cb7f153dcd2b63617ff0a49d1d730e5bb02e07d2f8c7d3b3d8bb8620b75e04d",
++       "taskFamily": "reports",
++     },
++     "path": "guide.json",
++     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
++     "taskFamily": "reports",
++   },
+    "repository": {
+      "commit": "0000000000000000000000000000000000000000",
+      "url": "https://github.com/OWNER/REPOSITORY.git",
+    },
+    "runtime": {
+
+- Expected  - 1
++ Received  + 23
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:67:83)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [533.79ms]
+
+ 0 pass
+ 1 fail
+ 18 expect() calls
+Ran 1 test across 1 file. [727.00ms]

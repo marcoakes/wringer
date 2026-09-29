@@ -1,0 +1,9 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+(pass) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [613.16ms]
+
+ 1 pass
+ 0 fail
+ 39 expect() calls
+Ran 1 test across 1 file. [774.00ms]

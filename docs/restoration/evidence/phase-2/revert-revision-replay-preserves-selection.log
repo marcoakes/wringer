@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+101 |         try {
+102 |             const slow = service.call(capability.token, "wringer.revise_proposal", raceRequest); await entered;
+103 |             await exclusiveJson(registry, "adoptions/000002.json", rollbackReceipt);
+104 |             const winner = await service.call(capability.token, "wringer.revise_proposal", raceRequest); release();
+105 |             const observed = await slow;
+106 |             expect(winner.outcome).toBe("awaiting-approval"); expect(observed.outcome).toBe("awaiting-approval"); expect(observed.jobId).toBe(winner.jobId);
+                                                                                             ^
+error: expect(received).toBe(expected)
+
+Expected: "awaiting-approval"
+Received: "refused"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:106:88)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [694.76ms]
+
+ 0 pass
+ 1 fail
+ 27 expect() calls
+Ran 1 test across 1 file. [862.00ms]

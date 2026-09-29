@@ -1,0 +1,28 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/improvement-collections.test.ts:
+ 8 |     } }));
+ 9 |     const manager = improvementCollections(() => { if (stopped) throw new Error("Owner stopping"); });
+10 |     try {
+11 |         await manager.collect("/fixture", {} as any, {} as any);
+12 |         await expect(manager.collect("/fixture", {} as any, {} as any)).rejects.toThrow("already dispatched");
+13 |         expect(dispatched).toBe(1); expect(manager.messages("/other")).toEqual({}); expect(manager.messages("/fixture").fixture).toContain("running");
+                                                                            ^
+error: expect(received).toEqual(expected)
+
+- {}
++ {
++   "fixture": "Comparison is running within its separate finite allowance.",
++ }
+
+- Expected  - 1
++ Received  + 3
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/improvement-collections.test.ts:13:72)
+(fail) explicit collection has one dispatch, observes abort and rejects admission while stopping [0.74ms]
+
+ 0 pass
+ 1 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [211.00ms]

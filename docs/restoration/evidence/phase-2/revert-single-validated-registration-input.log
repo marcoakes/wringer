@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+73 |         if (path === input) await writeFile(input, JSON.stringify({ ...f.experiment, id: "swapped" }));
+74 |         return value;
+75 |     }) as typeof original);
+76 |     try {
+77 |         const result: any = (await dispatch(["experiment", "register", "--app-dir", f.root, "--job", f.jobId, "--experiment", f.experiment.id, "--input", input])).value;
+78 |         expect(result.plan.id).toBe(f.experiment.id);
+                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "reports-browser"
+Received: "swapped"
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:78:32)
+(fail) job registration retains the one input validated against its handle even if the file changes [86.91ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [470.00ms]

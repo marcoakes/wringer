@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-protocol.test.ts:
+26 |     expect(loop.journalRevision).toBeNull(); expect(loop.candidate).toBeNull();
+27 |     expect(loop.decisions).toEqual([]); expect(loop.budget).toBeNull();
+28 |     expect(loop.planSha256).toBeDefined(); expect(loop).not.toHaveProperty("authority");
+29 |     expect(() => validateDelegationOutput("wringer.inspect_loop", { ...loop, authority: { send: true } })).toThrow();
+30 |     const improvements = await call("inspect_improvements", { jobId: job.jobId });
+31 |     expect(improvements.schema_version).toBe("wringer.job-improvements.v1"); expect(improvements.jobId).toBe(job.jobId); expect(improvements.connected).toBeFalse();
+                                             ^
+error: expect(received).toBe(expected)
+
+Expected: "wringer.job-improvements.v1"
+Received: "wringer.assistant-refusal.v2"
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/delegation-protocol.test.ts:31:41)
+(fail) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [68.39ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 23 expect() calls
+Ran 1 test across 1 file. [410.00ms]

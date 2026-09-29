@@ -1,0 +1,63 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+218 |         const command = process.platform === "darwin" ? ["open", url.href] : ["xdg-open", url.href];
+219 |         const opened = Bun.spawnSync(command, { stdout: "ignore", stderr: "pipe" });
+220 |         if (opened.exitCode) throw new Error("The operating system could not open the private page. Run job serve and inspect the private operator location locally; no authority was sent to the assistant.");
+221 |         return { value: { opened: true, workspaceId: workspace.id, jobId: id ?? null }, text: "Opened the operator page. Opening does not approve work, accept it, or send it." };
+222 |     }
+223 |     throw new Error(ADOPTION_HELP);
+                    ^
+error: Wringer workspace setup and retained jobs
+
+  wring setup --repo PATH --client claude-code|codex|generic [--mode verification|delegation] [--dry-run --json]
+  wring setup --repo PATH --client CLIENT --mode verification --apply
+  wring setup --repo PATH --prepare-acceptance INPUT.json [--dry-run --json]
+  wring setup --repo PATH --prepare-acceptance INPUT.json --apply --expected HASH --actor NAME
+  wring setup --repo PATH --client CLIENT --mode delegation --provision UUID
+      --worker-provider openai|anthropic --worker-model MODEL
+      --judge-provider openai|anthropic --judge-model MODEL
+      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen
+      --network deny|allowlist [--egress CIDR@PORT,PORT] [--dns IPV4]
+      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] --dry-run --json
+  Repeat the same contained selections with --apply --expected IDENTITY
+      --actor NAME --cooperative-local to keep the reviewed profile and source.
+  wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]
+  wring job list [--workspace ID] [--offset 0] [--limit 50]
+  wring job status --job ID
+  wring job loop --job ID [--json]
+  wring job improvements --job ID [--json]
+  wring job open --workspace ID [--job ID]
+  wring job serve --workspace ID
+  wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
+  wring connect ... --apply --expected DIGEST [--replace] [--auto-approve]
+  wring connect ... --remove [--apply --expected DIGEST]
+  wring connect ... --verify-client
+  wring connect ... --probe-tools
+  wring recover --job ID --send [--apply --expected HASH --actor NAME]
+  wring recover --job ID [--operation ID] [--apply --expected HASH --actor NAME]
+  wring recover --lock-kind KIND --lock-id ID [--workspace ID] [--dry-run --json]
+  wring recover --lock-kind KIND --lock-id ID [--workspace ID] --apply --expected HASH --actor NAME
+  wring recover --workspace ID [--dry-run --json]
+  wring recover --workspace ID --apply --expected HASH --actor NAME
+  wring storage [--dry-run --json]
+  wring storage --kind acceptance|profile --id ID [--apply --expected HASH --actor NAME]
+  wring storage --remove-archive HASH [--apply --expected HASH --actor NAME]
+  wring diagnostics --workspace ID [--offset 0] [--dry-run --json]
+  wring diagnostics --workspace ID --output NEW_DIRECTORY --apply --expected HASH
+
+--app-dir ABS_PATH overrides the user-owned application directory (WRINGER_HOME).
+Setup inspection executes no project code and retrieves no credentials. Applying
+setup creates only the displayed configuration and workspace registration. Opening
+the operator page starts no job by itself. Verification runs repository commands
+trusted-local, under a finite operator grant. Delegation never falls back to it.
+An approval, human acceptance, and sending are separate decisions.
+
+      at adoptionCommand ([isolated-checkout]/packages/cli/src/adoption-cli.ts:223:15)
+      at async <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:26:31)
+(fail) ordinary job improvement CLI removes private path setup and refuses replacing a task family [61.11ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+Ran 1 test across 1 file. [471.00ms]

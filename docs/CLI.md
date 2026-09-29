@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.24
+Wringer · Bun/TypeScript · 1.0.0-alpha.25
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -66,6 +66,7 @@ Standalone trusted-local verification and historical evidence:
   wring get URL DIRECTORY             Clone a repository; run none of its contents
   wring graph show|status|explain     Read legacy graph declarations or history
   wring job loop --job ID            Inspect attempts, decisions and remaining allowance
+  wring job improvements --job ID    Inspect predictions, trials and future selection
   wring bundle --help                Export portable evidence with an independent reader
   wring issue / health               Import a declared issue or inspect check history
 
@@ -217,6 +218,7 @@ Wringer workspace setup and retained jobs
   wring job list [--workspace ID] [--offset 0] [--limit 50]
   wring job status --job ID
   wring job loop --job ID [--json]
+  wring job improvements --job ID [--json]
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
@@ -292,7 +294,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.24
+Wringer assistant entry point — 1.0.0-alpha.25
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -589,7 +591,23 @@ Guide: docs/native/DESIGN.md
 ```text
 Measured improvements for future work - never self-approval
 
+Ordinary jobs (owned private storage, no manual controller paths):
+  wring experiment connect --job JOB_ID --task-family FAMILY [--app-dir PATH]
+  wring experiment patterns --job JOB_ID --task-family FAMILY --json
+  wring experiment register --job JOB_ID --experiment ID --input COMPARISON.json
+  wring experiment proposal --job JOB_ID --experiment ID --json
+  wring experiment evaluate --job JOB_ID --experiment ID --json
+  wring job improvements --job JOB_ID --json
+Use --job JOB_ID --experiment ID instead of --state for grant, collect, review,
+research-finish and promote. Use --job JOB_ID instead of --registry for adoptions
+and rollback. Job handles cannot be combined with private path flags.
+New jobs inherit the workspace connection; existing plans and approvals do not
+change. One explicit repository/task family per workspace. New sources need
+matching evidence. Read the exact proposed source file pinned by its digest.
+
+Existing private-controller workflow:
   wring experiment register --input COMPARISON.json --state PRIVATE_DIR
+  wring experiment proposal --state PRIVATE_DIR --json
   wring experiment status --state PRIVATE_DIR
   wring experiment evaluate --state PRIVATE_DIR
   wring experiment grant --state PRIVATE_DIR --actor NAME --expires ISO_TIME

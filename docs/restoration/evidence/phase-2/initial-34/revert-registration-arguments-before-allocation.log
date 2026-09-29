@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+82 |     const f = await fixture(), call = (verb: string, extra: string[] = []) => dispatch(["experiment", verb, "--app-dir", f.root, "--job", f.jobId, ...extra]);
+83 |     await call("connect", ["--task-family", "reports"]);
+84 |     const input = join(f.root, "comparison.json"); await writeFile(input, JSON.stringify(f.experiment));
+85 |     const args = ["--experiment", f.experiment.id, "--input", input];
+86 |     const before = (await readdir(f.root, { recursive: true })).sort();
+87 |     await expect(call("register", [...args, "--unexpected", "ignored"])).rejects.toThrow("Unknown option");
+                                                                                      ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:87:82)
+(fail) job comparison registers a reviewable prediction, collects only labelled fixtures, and cannot adopt them [160.75ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [560.00ms]

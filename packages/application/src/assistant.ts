@@ -264,23 +264,40 @@ export async function createAssistantService(root: string, options: { dependenci
         insist(transition && hashValue(transition.successor) === hashValue(p) && value.parentRevision === hashValue(parent), "lineage-changed", "The retained predecessor does not name this successor");
         return value;
     }
-    function composed(input: unknown) {
+    async function composed(input: unknown, validating = false) {
         const value = composeAuthorableProposal(workspace.profile, input);
+        if (validating && !value.valid) return value;
         insist(value.valid, "invalid-proposal", "Validate the mutable proposal first and resolve its field errors; no proposal was recorded");
-        if (value.plan) bindProfile(value.plan, workspace);
+        if (value.plan) {
+            value.plan = (await futureImprovementTemplate(root, value.plan)).plan;
+            value.canonicalIdentity = value.plan.plan_sha256;
+            bindProfile(value.plan, workspace);
+        }
         return value;
     }
+    async function observeAuthored(jobId: string, authored: unknown) {
+        if (!await assistantExists(root, jobFile(jobId, "proposal"))) return false;
+        insist(!await assistantExists(root, jobFile(jobId, "lineage")), "identity-reused", "This key names a proposal successor; replay its original revision operation");
+        const retained = await readAssistantRecord(root, jobFile(jobId, "authored"));
+        insist(retained.schema_version === "wringer.authored-proposal.v1" && retained.jobId === jobId && hashValue(retained.proposal) === hashValue(authored), "identity-reused", "Replay the exact original mutable proposal with this key");
+        await proposal(root, jobId, workspace);
+        return true;
+    }
     async function reviseProposal(args: Record<string, any>) {
-        const next = composed(args.proposal), parent = await proposal(root, assistantId(args.jobId), workspace), requestId = assistantId(args.idempotencyKey);
+        const parent = await proposal(root, assistantId(args.jobId), workspace), requestId = assistantId(args.idempotencyKey), retained = await readSupersession(parent);
+        const next = retained ? retained.successor : await composed(args.proposal);
         insist(args.proposal.intent === parent.intent, "original-request-changed", "A revision must preserve the original request verbatim; authored answers belong in assumptions or criteria");
         insist(args.expectedRevision === hashValue(parent), "stale-request", "Review the exact unapproved proposal revision before replacing it");
         const digest = hashValue({ workspaceId: workspace.id, requestId }), id = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
         insist(id !== parent.id, "identity-reused", "Use a new idempotency key for the successor");
-        const successor: AssistantProposal = { schema_version: "wringer.assistant-proposal.v1", id, workspaceId: workspace.id, requestId, intent: parent.intent, plan: next.plan, assumptions: next.assumptions, questions: next.questions };
-        const transition = { schema_version: "wringer.proposal-supersession.v1", parentJobId: parent.id, parentRevision: hashValue(parent), requestId, inputIdentity: hashValue(args.proposal), successor };
+        let successor: AssistantProposal = { schema_version: "wringer.assistant-proposal.v1", id, workspaceId: workspace.id, requestId, intent: parent.intent, plan: next.plan, assumptions: next.assumptions, questions: next.questions };
+        let transition = { schema_version: "wringer.proposal-supersession.v1", parentJobId: parent.id, parentRevision: hashValue(parent), requestId, inputIdentity: hashValue(args.proposal), successor };
         await withAssistantProposalLock(root, async () => {
             const existing = await readSupersession(parent);
-            if (existing) insist(hashValue(existing) === hashValue(transition), "proposal-already-revised", "This proposal already has a different successor; inspect its retained lineage");
+            if (existing) {
+                insist(existing.requestId === requestId && existing.inputIdentity === hashValue(args.proposal) && existing.successor.id === id, "proposal-already-revised", "This proposal already has a different successor; inspect its retained lineage");
+                transition = existing; successor = existing.successor;
+            }
             else {
                 insist(!await approval(root, parent) && !await lifecycleMarker(root, parent, "started") && !await lifecycleMarker(root, parent, "cancelled"), "proposal-not-revisable", "Only an unapproved, unstarted, uncancelled proposal can be superseded; retained authority never transfers");
                 insist(!await assistantExists(root, jobFile(id, "proposal")) && !await assistantExists(root, jobFile(id, "authored")), "identity-reused", "The successor key already names another proposal");
@@ -462,10 +479,10 @@ export async function createAssistantService(root: string, options: { dependenci
             fields["wringer.propose"]!.push("proposal");
             fields["wringer.validate_proposal"] = ["workspaceId", "proposal"];
             fields["wringer.revise_proposal"] = ["jobId", "expectedRevision", "idempotencyKey", "proposal"];
-            const args = exact(raw, fields[name]!);
+            const args = { ...exact(raw, fields[name]!) };
             if (name === "wringer.validate_proposal") {
                 insist(args.workspaceId === workspace.id, "workspace-refused", "Use the selected workspace handle");
-                return composeAuthorableProposal(workspace.profile, args.proposal);
+                return composed(args.proposal, true);
             }
             if (name === "wringer.revise_proposal") return await reviseProposal(args);
             if (["wringer.inspect_design", "wringer.prepare_design_import", "wringer.get_design_import"].includes(name)) {
@@ -487,7 +504,9 @@ export async function createAssistantService(root: string, options: { dependenci
                 const authored = args.proposal;
                 if (authored !== undefined) {
                     insist(!["intent", "plan", "assumptions", "questions", "designImportId"].some(key => Object.hasOwn(args, key)), "ambiguous-proposal", "Supply only the mutable proposal with its workspace and idempotency key");
-                    const composition = composed(authored);
+                    const identity = hashValue({ workspaceId: workspace.id, requestId: assistantId(args.idempotencyKey) }), retainedId = `${identity.slice(0, 8)}-${identity.slice(8, 12)}-${identity.slice(12, 16)}-${identity.slice(16, 20)}-${identity.slice(20, 32)}`;
+                    if (await withAssistantProposalLock(root, () => observeAuthored(retainedId, authored))) return presentedStatus(retainedId);
+                    const composition = await composed(authored);
                     Object.assign(args, { intent: authored.intent, plan: composition.plan, assumptions: composition.assumptions, questions: composition.questions });
                 }
                 const requestId = assistantId(args.idempotencyKey), intent = text(args.intent, "original request"), questions = notes(args.questions, "questions"), assumptions = notes(args.assumptions, "assumptions");
@@ -495,7 +514,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 let plan: ExecutionPlan | null = null;
                 if (args.plan) { plan = args.plan.schema_version ? validateExecutionPlan(args.plan) : compileDeclaration(args.plan); insist(plan.intent === intent, "intent-mismatch", "The plan must retain the original request verbatim"); bindProfile(plan, selected); }
                 const approach = (p: ExecutionPlan) => ({ playbook: p.playbook ?? null, rollback: p.approachAdoption ?? null });
-                if (!!plan && measuredLoopPlan(plan) && hashValue(approach(plan)) !== hashValue(approach(selected.profile))) {
+                if (authored === undefined && !!plan && measuredLoopPlan(plan) && hashValue(approach(plan)) !== hashValue(approach(selected.profile))) {
                     const future = await futureImprovementTemplate(root, selected.profile);
                     insist(hashValue(approach(plan)) === hashValue(approach(future.plan)), "playbook-selection-changed", "Only the operator-pinned approach or the exact evaluated future selection can enter a new proposal. Active approvals are unchanged.");
                 }
@@ -504,6 +523,7 @@ export async function createAssistantService(root: string, options: { dependenci
                 const p: AssistantProposal = { schema_version: args.designImportId ? "wringer.assistant-proposal.v2" : "wringer.assistant-proposal.v1", ...(args.designImportId ? { designImportId: assistantId(args.designImportId) } : {}), id: jobId, workspaceId: workspace.id, requestId, intent, plan, assumptions, questions };
                 insist(clean.scrub(JSON.stringify(p)) === JSON.stringify(p), "secret-refused", "Detected credentials cannot be recorded in proposals");
                 await withAssistantProposalLock(root, async () => {
+                    if (authored !== undefined && await observeAuthored(jobId, authored)) return;
                     insist(!await assistantExists(root, jobFile(jobId, "lineage")), "identity-reused", "This key names a proposal successor; replay its original revision operation");
                     if (authored !== undefined) await writeAssistantRecord(root, jobFile(jobId, "authored"), { schema_version: "wringer.authored-proposal.v1", jobId, proposal: authored });
                     else insist(!await assistantExists(root, jobFile(jobId, "authored")), "identity-reused", "Replay the original mutable proposal with this key");

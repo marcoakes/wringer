@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+71 |         expect(rolledBack.approachAdoption?.sha256).toBe(rollbackReceipt.sha256);
+72 |         expect((await futureImprovementTemplate(controller, profile)).plan.approachAdoption?.sha256).toBe(rollbackReceipt.sha256);
+73 |         const replay = await service.call(capability.token, "wringer.propose", typedRequest);
+74 |         expect(replay.outcome).toBe("awaiting-approval"); expect(replay.jobId).toBe(typed.jobId);
+75 |         const revisedReplay = await service.call(capability.token, "wringer.revise_proposal", revisionRequest);
+76 |         expect(revisedReplay.outcome).toBe("awaiting-approval"); expect(revisedReplay.jobId).toBe(revised.jobId);
+                                           ^
+error: expect(received).toBe(expected)
+
+Expected: "awaiting-approval"
+Received: "refused"
+
+      at <anonymous> ([checkout]/packages/application/test/improvements.test.ts:76:39)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [461.67ms]
+
+ 0 pass
+ 1 fail
+ 25 expect() calls
+Ran 1 test across 1 file. [846.00ms]

@@ -85,9 +85,12 @@ jobs:
           name: release-evidence-${{ matrix.platform }}
           path: |
             .wringer/native-validation-*/
+            build/job-improvements-browser-*/result.json
+            build/job-improvements-browser-*/browser-*.png
             build/release-measurements/
             build/loop-inspection-*/transcript.json
             build/evidence-export-*/transcript.json
+            build/job-improvements-*/transcript.json
           include-hidden-files: true
   rehearsals:
     strategy:
@@ -126,6 +129,8 @@ jobs:
           name: release-rehearsal-evidence-${{ matrix.platform }}
           path: |
             .wringer/native-validation-*/
+            build/job-improvements-browser-*/result.json
+            build/job-improvements-browser-*/browser-*.png
             build/release-measurements/
             build/adoption-connections/result.json
             build/adoption-connections/delegation-question.png

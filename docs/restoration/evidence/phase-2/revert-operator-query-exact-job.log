@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+43 |     const before = (await readdir(f.root, { recursive: true })).sort();
+44 |     const cli: any = (await dispatch(["job", "improvements", "--app-dir", f.root, "--job", f.jobId])).value;
+45 |     const mcp = await callAssistantConnection(owner.connectionPath, "wringer.inspect_improvements", { jobId: f.jobId });
+46 |     const response = await fetch(owner.page + "/api/improvements?jobId=" + f.jobId, { headers });
+47 |     expect(response.status).toBe(200); expect(mcp).toEqual(cli); expect(await response.json()).toMatchObject(cli as any);
+48 |     for (const query of ["", "?jobId=" + other.jobId, "?jobId=" + f.jobId + "&jobId=" + f.jobId, "?jobId=" + f.jobId + "&state=/tmp"]) expect((await fetch(owner.page + "/api/improvements" + query, { headers })).status).toBe(409);
+                                                                                                                                                                                                                                ^
+error: expect(received).toBe(expected)
+
+Expected: 409
+Received: 200
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:48:220)
+(fail) ordinary improvement MCP and operator page share a job-bound read without approval or dispatch [123.44ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 8 expect() calls
+Ran 1 test across 1 file. [514.00ms]

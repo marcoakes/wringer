@@ -1,6 +1,7 @@
+import { improvementCollections } from "./improvement-collections";
 import { randomBytes } from "node:crypto";
 import { withImprovementCard } from "../../board/src/improvements-render";
-import { inspectImprovements, decideImprovement, prepareImprovementTest } from "../../application/src/improvements";
+import { inspectImprovements, decideImprovement } from "../../application/src/improvements";
 import { hashValue } from "@wringer/plan";
 import { Redactor } from "@wringer/engine";
 import { ASSISTANT_WARNING, AssistantRefusal, approveAssistantProposal, assistantControllerState, type createAssistantService } from "../../application/src/assistant";
@@ -136,7 +137,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
     const figmaConfigured = declaresDesign && (await service.design.connectionStatus().catch(() => null))?.configured === true;
     const page = withImprovementCard(options.guided ? renderPmJobWorkspace({ nonce }) : renderAssistantConsole(nonce), nonce);
     const shell = figmaConfigured ? withFigmaCard(page, nonce) : page, reviews = new Map<string, { work: Promise<ReviewServer>; supervision: ReturnType<typeof superviseAssistantReview> }>();
-    const collections = new Map<string, { abort: AbortController; work: Promise<unknown>; message: string }>();
+    const collections = improvementCollections(assertAccepting);
     const flow = options.guided ? createAssistantJobFlow(service, { ...options.application, isStopping, beforeCommand: jobId => beforeReviewCommand(jobId) }) : null;
     const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY", "Content-Security-Policy": `default-src 'none'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'; connect-src 'self'; img-src blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'` };
     const json = (value: unknown, status = 200) => Response.json(value, { status, headers });
@@ -190,7 +191,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
                 }
                 return json(action === "prepare" ? await service.design.prepare(input) : action === "preview" ? await service.design.preview(input) : await service.design.confirm(input));
             }
-            if (request.method === "GET" && url.pathname === "/api/improvements" && !url.search) return json({ ...await inspectImprovements(service.root, service.workspace.profile), collection: Object.fromEntries([...collections].map(([id, value]) => [id, value.message])) });
+            if (request.method === "GET" && url.pathname === "/api/improvements" && !url.search) return json({ ...await inspectImprovements(service.root, service.workspace.profile), collection: collections.messages(service.root) });
             if (request.method === "POST" && /^\/api\/improvements\/(collect|promote|rollback)$/.test(url.pathname) && !url.search) {
                 assertAccepting();
                 if (request.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json") return json({ error: "Use a separate explicit improvement decision" }, 415);
@@ -198,13 +199,7 @@ export async function createAssistantConsole(service: Service, options: { port?:
                 const input = JSON.parse(raw), action = url.pathname.split("/").at(-1)!;
                 if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Supply the displayed improvement decision");
                 if (action !== "collect") return json(await decideImprovement(service.root, service.workspace.profile, action as "promote" | "rollback", input));
-                const prepared = await prepareImprovementTest(service.root, service.workspace.profile, input);
-                assertAccepting();
-                if (collections.has(prepared.experimentId)) throw new Error("This comparison was already dispatched. Refresh its retained result; it is never automatically replayed");
-                const abort = new AbortController(), row = { abort, message: "Comparison is running within its separate finite allowance.", work: Promise.resolve() as Promise<unknown> };
-                collections.set(prepared.experimentId, row);
-                row.work = prepared.run(abort.signal).then(() => { row.message = "Comparison stopped. Review all retained outcomes before adoption."; }, error => { row.message = "Comparison stopped: " + new Redactor().scrub(error instanceof Error ? error.message : "Retained result requires inspection") + " No paid work was replayed."; });
-                return json({ outcome: "accepted", experimentId: prepared.experimentId, note: "Separate comparison accepted. Current jobs and production approvals are unchanged." }, 202);
+                return json(await collections.collect(service.root, service.workspace.profile, input), 202);
             }
             if (flow && request.method === "GET" && url.pathname === "/api/job/asset") {
                 const asset = parsePmDesignAssetRequest(url), before = await flow.read(asset.jobId);
@@ -266,10 +261,10 @@ export async function createAssistantConsole(service: Service, options: { port?:
         stopped = true;
         flow?.stop(); if (flow) service.setPresentation(undefined);
         sessions.clear();
-        for (const collection of collections.values()) collection.abort.abort();
+
         for (const review of reviews.values()) review.supervision.stop();
         await server.stop(true);
-        await Promise.all([...collections.values()].map(row => row.work));
+        await collections.stop();
         await Promise.all([...reviews.values()].map(async review => { try { await (await review.work).server.stop(true); } catch { /* A refused workspace did not create a server. */ } }));
     } };
 }

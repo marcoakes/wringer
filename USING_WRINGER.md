@@ -27,6 +27,16 @@ observation of one validated journal snapshot. A repeat stop is not permission
 to create a replacement job, and a warning is not evidence of correctness.
 The local equivalent is `wring job loop --job ID --json`.
 
+Use `wringer.inspect_improvements({jobId})` to inspect registered predictions,
+all trial outcomes, proposed playbook identities and exact applicability to this
+job. It is read-only; it cannot grant research spending, adopt an approach or
+change the current plan. New typed proposals may pin an evaluated future
+selection; old proposals and same-key replays retain their original one. A source
+change requires matching evidence from the exact adopted comparison, not merely
+the same playbook digest. The local equivalent is
+`wring job improvements --job ID --json`. See the
+[ordinary-job improvement guide](docs/native/JOB_IMPROVEMENTS.md).
+
 A completed contained delivery can be exported with `wring bundle export`.
 Share its carried audit route and distinguish independent byte-integrity
 inspection from semantic audit and fresh execution. See

@@ -1,0 +1,39 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+52 |     for (const task of foreign.tasks) for (const arm of ["baseline", "candidate"] as const) {
+53 |         const { schema_version, plan_sha256, intent_sha256, acceptance_sha256, ...data } = task[arm];
+54 |         task[arm] = (await import("@wringer/plan")).compileDeclaration({ ...data, version: 3, repository: { ...data.repository, url: foreign.repository } });
+55 |     }
+56 |     await registerExperiment(location.state!, foreign);
+57 |     await expect(dispatch(["experiment", "evaluate", "--app-dir", f.root, "--job", f.jobId, "--experiment", f.experiment.id])).rejects.toThrow("repository or task family");
+                                                                                                                                            ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([checkout]/packages/cli/test/job-improvements.test.ts:57:136)
+(fail) job comparison lookup refuses a foreign repository retained under the selected private handle [89.70ms]
+
+packages/application/test/improvements.test.ts:
+63 |         const rolledBack = (await futureImprovementTemplate(controller, future.plan)).plan;
+64 |         expect(rolledBack.playbook).toBeUndefined();
+65 |         expect(rolledBack.approachAdoption?.sha256).toBe(rollbackReceipt.sha256);
+66 |         expect((await futureImprovementTemplate(controller, profile)).plan.approachAdoption?.sha256).toBe(rollbackReceipt.sha256);
+67 |         const replay = await service.call(capability.token, "wringer.propose", typedRequest);
+68 |         expect(replay.outcome).toBe("awaiting-approval"); expect(replay.jobId).toBe(typed.jobId);
+                                    ^
+error: expect(received).toBe(expected)
+
+Expected: "awaiting-approval"
+Received: "refused"
+
+      at <anonymous> ([checkout]/packages/application/test/improvements.test.ts:68:32)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [251.77ms]
+
+ 0 pass
+ 3 filtered out
+ 2 fail
+ 21 expect() calls
+Ran 2 tests across 2 files. [826.00ms]

@@ -1,0 +1,31 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/experiments.test.ts:
+(pass) separate prediction-gated research contracts > pins exactly one variable and reserves the aggregate ceiling before trials [31.05ms]
+(pass) separate prediction-gated research contracts > a build grant, expired grant, changed credentials and extra loops cannot authorise collection [27.83ms]
+(pass) separate prediction-gated research contracts > a rollback-to-none baseline can compare advisory selection without dropping any execution controls [3.73ms]
+(pass) separate prediction-gated research contracts > rejects prediction after results, symlinks and source-contained experiment storage [62.60ms]
+(pass) zero-spend offline evaluation > distinguishes beneficial, no-op and harmful seeded observations without runtime or provider activity [105.28ms]
+(pass) zero-spend offline evaluation > fixtures, missing trials, unknown adapter, duplicate slots and late prediction never qualify [64.85ms]
+(pass) zero-spend offline evaluation > repetition cannot launder one task into independent evidence; four-task pilot remains inconclusive [46.40ms]
+(pass) zero-spend offline evaluation > every requirement remains visible and apparent greens cannot suppress regression or safety gaps [52.43ms]
+(pass) zero-spend offline evaluation > human research review cannot qualify an invented display hash [60.91ms]
+(pass) zero-spend offline evaluation > missing, failed, duplicated and source-substituted private endings cannot masquerade as proved handover [58.26ms]
+(pass) zero-spend offline evaluation > new schema readers accept their emitted contracts and reject unversioned privilege additions [99.94ms]
+(pass) one bounded contained proposal artifact > CLI prepare then fixture-backed propose reuses the exact request and captures one Git artifact without automatic experiment [3061.18ms]
+(pass) one bounded contained proposal artifact > a different request cannot replace the prepared proposal or reserve source/model activity [111.46ms]
+(pass) one bounded contained proposal artifact > proposal scope and report shape reject policy changes and raw transcripts before any model [98.93ms]
+(pass) finite collection and future-only adoption > real collector defaults exist; injected fixtures stay fixtures and failures retain every planned slot [72.03ms]
+(pass) finite collection and future-only adoption > restart retains uncertain reservation rather than replaying it; missing completed records refuse [64.67ms]
+(pass) finite collection and future-only adoption > promotion and rollback use CAS, keep active files unchanged and never start a run [118.70ms]
+(pass) finite collection and future-only adoption > fixture benefit cannot be promoted; stale evidence and concurrent adoption are rejected [87.47ms]
+(pass) narrow failure patterns and operator entry > patterns exclude held-out feedback and never carry raw prompts or exception text [32.67ms]
+(pass) narrow failure patterns and operator entry > inventory confines operator paths and CLI guarded operations refuse before effects without yes [56.82ms]
+
+packages/application/test/improvements.test.ts:
+(pass) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [186.08ms]
+
+ 21 pass
+ 0 fail
+ 135 expect() calls
+Ran 21 tests across 2 files. [5.14s]

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+105 |     await expect(call("promote", [...selected, "--actor", "Scripted fixture", "--note", "Must refuse fixtures", "--expected-revision", view.revision, "--expected-current", "none", "--expected-evidence", result.evidenceRevision, "--yes"])).rejects.toThrow("inconclusive");
+106 |     expect(await f.controller.inspectApproval(f.jobId)).toBeNull(); expect(await f.controller.runner.list(f.jobId)).toEqual([]);
+107 | }, 15000);
+108 | test("job failure patterns require the exact compiled job plan, not its template or substituted history", async () => {
+109 |     const f = await fixture(), args = ["experiment", "patterns", "--app-dir", f.root, "--job", f.jobId, "--task-family", "reports"];
+110 |     await expect(dispatch(args)).rejects.toThrow("compiled job plan");
+                                               ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "compiled job plan"
+Received message: "ENOENT: no such file or directory, lstat '[private-fixture]'"
+
+      at <anonymous> ([checkout]/packages/cli/test/job-improvements.test.ts:110:42)
+(fail) job failure patterns require the exact compiled job plan, not its template or substituted history [76.09ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [922.00ms]

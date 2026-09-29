@@ -1,0 +1,151 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/improvements.test.ts:
+44 |         const validation: any = await service.call(capability.token, "wringer.validate_proposal", { workspaceId: workspace.id, proposal: authored });
+45 |         expect(validation.plan?.playbook?.adoption?.sha256).toBe(receipt.sha256);
+46 |         expect(validation.canonicalIdentity).toBe(validation.plan.plan_sha256);
+47 |         const typedRequest = { workspaceId: workspace.id, idempotencyKey: crypto.randomUUID(), proposal: authored };
+48 |         const typed = await service.call(capability.token, "wringer.propose", typedRequest);
+49 |         expect(typedRequest).not.toHaveProperty("plan");
+                                      ^
+error: expect(received).not.toHaveProperty(path)
+
+Expected path: not "plan"
+
+Received value: {
+  schema_version: "wringer.execution-plan.v3",
+  name: "A bounded total",
+  intent: "Return the total as 5.",
+  intent_sha256: "d4a3699cb26305a277ad80a997b42b51bd08640ac5233088b4a85f37e0f1c08c",
+  repository: {
+    url: "https://github.com/OWNER/REPOSITORY.git",
+    commit: "0000000000000000000000000000000000000000",
+  },
+  runtime: {
+    kind: "apple-container",
+    image: "example.invalid/wringer/acp-tools@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    cpus: 2,
+    memoryMiB: 4096,
+    network: {
+      policy: "deny",
+      allow: [],
+      dns: [],
+    },
+    env: [ "ANTHROPIC_API_KEY", "CODEX_API_KEY" ],
+  },
+  agents: {
+    worker: {
+      protocol: "acp",
+      command: "codex-acp",
+      args: [],
+      env: [ "CODEX_API_KEY" ],
+      authMethod: "api-key",
+    },
+    judge: {
+      protocol: "acp",
+      command: "claude-agent-acp",
+      args: [],
+      env: [ "ANTHROPIC_API_KEY" ],
+    },
+  },
+  environment: {
+    context: [ "README.md" ],
+    tools: [
+      {
+        name: "bun",
+        version: "REPLACE_WITH_MEASURED_VERSION",
+        probe: [ "bun", "--version" ],
+      }
+    ],
+    setup: [
+      {
+        id: "dependencies",
+        argv: [ "bun", "install", "--frozen-lockfile" ],
+        cwd: ".",
+        timeout_seconds: 120,
+      }
+    ],
+    baseline: [
+      {
+        id: "baseline",
+        argv: [ "bun", "test" ],
+        cwd: ".",
+        timeout_seconds: 120,
+      }
+    ],
+    writable_directories: [ "node_modules" ],
+  },
+  scope: {
+    writable: [ "src" ],
+  },
+  acceptance: {
+    criteria: [
+      {
+        id: "total",
+        title: "The returned total is five",
+        quote: "Return the total as 5.",
+        kind: "check",
+        required: true,
+      }
+    ],
+    checks: [
+      {
+        id: "total-check",
+        argv: [ "bun", "test", "tests/acceptance.test.ts" ],
+        cwd: ".",
+        timeout_seconds: 120,
+        criteria: [ "total" ],
+        files: [ "bun.lock", "package.json", "tests/acceptance.test.ts" ],
+        evidence: {
+          kind: "assertions",
+          format: "wringer-check.v1",
+        },
+      }
+    ],
+    protected_paths: [ "bun.lock", "guide.json", "package.json", "tests", "tests/acceptance.test.ts" ],
+  },
+  acceptance_sha256: "147984a3f50be178f9d7ad2379eeb94a33517417bd1194e9edf9e5a42257b1f0",
+  budget: {
+    max_sessions: 8,
+    max_worker_turns: 4,
+    max_judge_turns: 4,
+    max_planner_turns: 0,
+    wall_clock_seconds: 3600,
+    session_timeout_seconds: 900,
+  },
+  loop: {
+    repeatCandidate: "stop",
+    repeatedOutcomeWarning: 3,
+  },
+  playbook: {
+    path: "guide.json",
+    sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    taskFamily: "reports",
+    adoption: {
+      schema_version: "wringer.playbook-adoption.v1",
+      repository: "https://github.com/OWNER/REPOSITORY.git",
+      taskFamily: "reports",
+      action: "promote",
+      actor: "Synthetic selection fixture",
+      note: "Tests future-template wiring only, not eligibility",
+      at: "2026-09-29T15:15:23.237Z",
+      previousRevision: "0000000000000000000000000000000000000000000000000000000000000000",
+      previousDigest: null,
+      selectedDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      experimentSha256: "bd7ad2d5248d98458a29cb0af76a7daa78b0ebea0b0069ae93abcedd0bcc6e16",
+      evidenceRevision: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      appliesTo: "future-plans-only",
+      executionApproved: false,
+      sha256: "425bfc03d0c23032bdeef68bec1b2e733acc7d2a2aa465ded8916a19f74be96e",
+    },
+  },
+  plan_sha256: "7c21b00e6d09a00e2fce6ff73c72c39630a71d74bd70a56d6b8f6b2568a5936d",
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/improvements.test.ts:49:34)
+(fail) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [168.72ms]
+
+ 0 pass
+ 1 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [329.00ms]

@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-profile.test.ts:
+(pass) T18 delegation job preparation preserves a first source and gives a second job its new clean source without any approval [6046.94ms]
+
+ 1 pass
+ 5 filtered out
+ 0 fail
+ 13 expect() calls
+Ran 1 test across 1 file. [6.23s]

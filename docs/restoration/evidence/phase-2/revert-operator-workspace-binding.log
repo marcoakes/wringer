@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/job-improvements.test.ts:
+44 |     const cli: any = (await dispatch(["job", "improvements", "--app-dir", f.root, "--job", f.jobId])).value;
+45 |     const mcp = await callAssistantConnection(owner.connectionPath, "wringer.inspect_improvements", { jobId: f.jobId });
+46 |     const response = await fetch(owner.page + "/api/improvements?jobId=" + f.jobId, { headers });
+47 |     expect(response.status).toBe(200); expect(mcp).toEqual(cli); expect(await response.json()).toMatchObject(cli as any);
+48 |     for (const query of ["", "?jobId=" + other.jobId, "?jobId=" + f.jobId + "&jobId=" + f.jobId, "?jobId=" + f.jobId + "&state=/tmp"]) expect((await fetch(owner.page + "/api/improvements" + query, { headers })).status).toBe(409);
+49 |     expect((await (await fetch(owner.page + "/api/improvements?jobId=" + other.jobId, { headers })).json() as any).error).toBe("Job belongs to another workspace");
+                                                                                                                               ^
+error: expect(received).toBe(expected)
+
+Expected: "Job belongs to another workspace"
+Received: "ENOENT: no such file or directory, lstat '[temporary]/wringer-job-improvements-2I7hU2/delegation-contexts/b57e33da-ae05-4f8c-bd0a-084786cdcbba/1aac92e4-28bf-45ad-ba77-896c52af507c.json'"
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/job-improvements.test.ts:49:123)
+(fail) ordinary improvement MCP and operator page share a job-bound read without approval or dispatch [121.81ms]
+
+ 0 pass
+ 5 filtered out
+ 1 fail
+ 10 expect() calls
+Ran 1 test across 1 file. [503.00ms]

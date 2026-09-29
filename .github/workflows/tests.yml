@@ -49,6 +49,7 @@ jobs:
             build/validated-examples/result.json
             build/loop-inspection-*/transcript.json
             build/evidence-export-*/transcript.json
+            build/job-improvements-*/transcript.json
           if-no-files-found: error
           include-hidden-files: true
   rehearsals:
@@ -92,6 +93,8 @@ jobs:
             .wringer/improvements-browser-*/result.json
             .wringer/improvements-browser-*/transcript.json
             .wringer/improvements-browser-*/browser-*.png
+            build/job-improvements-browser-*/result.json
+            build/job-improvements-browser-*/browser-*.png
             build/adoption-connections/result.json
             build/adoption-connections/delegation-question.png
             docs/rebuild/evidence/m5/browser-*.json
