@@ -169,7 +169,78 @@
   },
   "limits": [
     "Core validation began before the late uncompiled-job-plan route correction. Its focused CLI/MCP regression suite then passed 6 tests; final remote CI must cover the committed source.",
-    "The first browser run retained a failure against the old collapsed-history expectation. The new open-history expectation is undergoing the complete browser suite.",
+    "Both former collapsed-history assertions failed and were corrected to the intended open-history contract. All nine distinct browser stages subsequently passed, across the main run and the three-stage completion run. Scripted decisions are not human observations.",
     "These local observations do not qualify live containment, model efficacy, human usability or a public release."
-  ]
+  ],
+  "browser": {
+    "passedStages": [
+      {
+        "name": "assistant-launch-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 104076
+      },
+      {
+        "name": "guided-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 89682
+      },
+      {
+        "name": "design-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 144974
+      },
+      {
+        "name": "figma-api-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 145008
+      },
+      {
+        "name": "local-pm-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 108413
+      },
+      {
+        "name": "local-design-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 140622
+      },
+      {
+        "name": "improvements-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 3529
+      },
+      {
+        "name": "adoption-connections-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 4407
+      },
+      {
+        "name": "verification-browser-rehearsal",
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_ms": 15649
+      }
+    ],
+    "retainedFailure": [
+      {
+        "name": "improvements-browser-rehearsal",
+        "exit_code": 1,
+        "timed_out": false,
+        "duration_ms": 2209
+      }
+    ],
+    "correction": "The optional research panel stays collapsed; loop history is open. The corrected real-browser assertion preserves the no-side-effect requirement.",
+    "commands": [
+      "bun run validate --group rehearsals",
+      "bun run validate improvements-browser-rehearsal adoption-connections-rehearsal verification-browser-rehearsal"
+    ]
+  }
 }

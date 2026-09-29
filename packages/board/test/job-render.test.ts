@@ -155,7 +155,7 @@ test("mode remains visible and phase transitions focus the current decision", as
     expect(h.get("job-mode").textContent).toContain("trusted-local");
 });
 
-test("same-page engineering disclosure is plain text, collapsed and never changes the next decision", async () => {
+test("same-page engineering disclosure is plain text and preserves the user's toggle and next decision", async () => {
     const job = engineeringFixture(), h = await harness(job);
     expect(h.get("job-engineering").hidden).toBe(false); expect(h.get("job-engineering").open).toBe(false);
     expect(textOf(h.get("engineering-approach"))).toContain("<script>hostile repository title</script>");

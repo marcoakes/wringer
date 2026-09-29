@@ -7,7 +7,7 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
 
 | Phase | State | Release / evidence |
 | --- | --- | --- |
-| 1. Loops and portable evidence | alpha.24 implemented; release qualification underway | Local core and 26 reversion checks passed; browser suite/remote CI/publication pending |
+| 1. Loops and portable evidence | alpha.24 implemented; release qualification underway | Local core, all nine browser stages and 26 reversion checks passed; remote CI/publication pending |
 | 2. Improvement workflow | Pending phase 1 release | — |
 | 3. Serial graphs | Pending | — |
 | 4. Parallel branches/integration | Pending | — |
@@ -58,7 +58,18 @@ no-model-call/no-fleet constraints remain; fixture work makes no efficacy claim.
   unknown measurements rather than invented zero usage.
 - The first design-browser rehearsal failed its old collapsed-history assertion.
   The new contract requires history open by default, with the same available
-  human decision. The updated full browser group is being observed.
+  human decision. The main browser run then passed six stages and stopped at a
+  second obsolete collapsed-history assertion in the improvement card rehearsal.
+  After correcting that assertion, the remaining three browser stages passed.
+  All nine distinct stages are now green locally; both failed measurements remain
+  in this phase's evidence. No product guard was relaxed to pass the rehearsals.
+
+The first candidate push is `1ab172b41df1d697ad50cefd4063efaf8e419709`.
+Its [tests](https://github.com/marcoakes/wringer/actions/runs/36553036088) and
+[Linux permission adversary](https://github.com/marcoakes/wringer/actions/runs/36553036189)
+must be observed to completion. The latter passed; the former was still running
+when the improvement-rehearsal correction was prepared. A correction commit
+must receive its own complete green CI before any tag or next phase.
 
 The local core run started before the final job-plan route correction. Final
 commit-level CI, release/tag jobs and public artifact verification must pass

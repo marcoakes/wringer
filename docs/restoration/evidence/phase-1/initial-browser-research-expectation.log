@@ -1,0 +1,40 @@
+$ bun scripts/validate.ts --group rehearsals
+Checking assistant-launch-rehearsal…
+assistant-launch-rehearsal: PASS (104076 ms)
+Checking guided-pm-rehearsal…
+guided-pm-rehearsal: PASS (89682 ms)
+Checking design-pm-rehearsal…
+design-pm-rehearsal: PASS (144974 ms)
+Checking figma-api-pm-rehearsal…
+figma-api-pm-rehearsal: PASS (145008 ms)
+Checking local-pm-rehearsal…
+local-pm-rehearsal: PASS (108413 ms)
+Checking local-design-rehearsal…
+local-design-rehearsal: PASS (140622 ms)
+Checking improvements-browser-rehearsal…
+improvements-browser-rehearsal: FAIL (2209 ms)
+89 |         await check("a late eligible-looking response cannot restore locked research content or replay adoption", await page.locator("#improvements-content button").count() === 0 && requests.filter(row => row.method === "POST" && row.path === "/api/improvements/promote").length === 1);
+90 |         await check("no collection, adoption or production authority was retained", !(await readdir(join(research, "experiments", experiment.id))).some(name => ["collection.json", "trials"].includes(name)) && (await readdir(registry)).length === 0 && !await service.inspectApproval(jobId) && dispatches === 0);
+91 |         await check("real Chromium reported no uncaught page errors", errors.length === 0);
+92 |         const result = { schema_version: "wringer.improvements-browser-rehearsal.v1", fixture: true, status: "passed", startedAt, finishedAt: new Date().toISOString(), checks, productionDispatches: dispatches, providerCalls: 0, liveTrials: 0, independentPmMeasured: false, screenshots: ["browser-improvement-refusal.png", "browser-improvement-mobile.png"], implementationSha256: hashBytes(await readFile(import.meta.path)), limits };
+93 |         await writeFile(join(directory, "result.json"), JSON.stringify(result, null, 2) + "\n"); return { directory, ...result };
+94 |     } catch (error) { await record({ failure: error instanceof Error ? error.message : String(error), fixture: true }); throw new Error(`Improvement browser fixture failed; retained evidence: ${directory}`, { cause: error }); }
+                                                                                                                                       ^
+error: Improvement browser fixture failed; retained evidence: [checkout]/.wringer/improvements-browser-4ff42c2a-dc79-44e5-ab6e-2700e9041149
+      at runImprovementsBrowserRehearsal ([checkout]/scripts/improvements-browser-rehearsal.ts:94:131)
+
+30 |     const privateRoot = await realpath(await mkdtemp(join(tmpdir(), "wringer-improvements-browser-"))), controller = join(privateRoot, "assistant"), research = join(privateRoot, "research"), registry = join(privateRoot, "adoptions");
+31 |     await mkdir(join(research, "experiments", "reports-browser"), { recursive: true, mode: 0o700 }); await mkdir(registry, { mode: 0o700 });
+32 |     const transcript: unknown[] = [], checks: string[] = [];
+33 |     const limits = ["Scripted engineering fixture: Chromium, private session and invalid server requests are real; no independent PM, live model, containment or improvement benefit is measured.", "Eligible/malformed comparison responses are explicitly browser-injected fixtures, never retained research results.", "No valid collection, adoption, job approval or publication is requested. Research records remain empty and production work remains unapproved."];
+34 |     const record = async (value: unknown) => { transcript.push(JSON.parse(JSON.stringify(value).replaceAll(privateRoot, "PRIVATE_FIXTURE").replaceAll(directory, "RECEIPTS").replace(/#token=[a-f0-9]+/g, "#token=REDACTED"))); await writeFile(join(directory, "transcript.json"), JSON.stringify({ fixture: true, startedAt, limits, transcript }, null, 2) + "\n"); };
+35 |     const check = async (name: string, value: unknown) => { if (!value) throw new Error(name); checks.push(name); await record({ check: name, status: "passed" }); };
+                                                                                       ^
+error: optional research and engineering start collapsed without any effect
+      at <anonymous> ([checkout]/scripts/improvements-browser-rehearsal.ts:35:83)
+      at runImprovementsBrowserRehearsal ([checkout]/scripts/improvements-browser-rehearsal.ts:54:15)
+
+Bun v1.4.2 (macOS arm64)
+
+Validation record: [checkout]/.wringer/native-validation-2026-09-29T09-48-06-968Z
+error: script "validate" exited with code 1

@@ -1,0 +1,35 @@
+$ bun scripts/validate.ts --group rehearsals
+Checking assistant-launch-rehearsal…
+assistant-launch-rehearsal: PASS (104873 ms)
+Checking guided-pm-rehearsal…
+guided-pm-rehearsal: PASS (91025 ms)
+Checking design-pm-rehearsal…
+design-pm-rehearsal: FAIL (13412 ms)
+360 |         return { directory: root, ...result };
+361 |     } catch (error) {
+362 |         if (guided && browser) { await browser.page.screenshot({ path: join(root, "browser-guided-stop.png"), fullPage: true }).catch(() => {}); await record({ browserStopText: await browser.page.locator("#job-message").innerText().catch(() => "unavailable") }); }
+363 |         await record({ stop: error instanceof Error ? error.message : String(error) });
+364 |         await writeFile(join(root, "result.json"), JSON.stringify({ status: "failed", fixture: true, rehearsalTitle, sourceFixtureKind, startedAt, wallMs: Date.now() - began, checks, limits }, null, 2) + "\n");
+365 |         throw new Error(`Assistant launch rehearsal failed; retained evidence: ${root}`, { cause: error });
+                        ^
+error: Assistant launch rehearsal failed; retained evidence: [checkout]/.wringer/assistant-launch-rehearsal-49d8f445-7b37-4c6c-a099-a6260fe16c43
+      at runAssistantLaunchRehearsal ([checkout]/scripts/assistant-launch-rehearsal.ts:365:19)
+
+33 |     "Uses cooperative-local fixture state, not a demonstrated protected controller boundary.",
+34 |     "No provider API calls or credential reads; usage fields remain unknown where the production records have no billing evidence.",
+35 |     "Publication changes only a newly created local bare test origin, not a hosted forge, merge or deployment.",
+36 |     "Recovery models a lost completed response and an explicit owner recreation, not an OS kill, reboot or sleep measurement.",
+37 | ];
+38 | function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message); }
+                                                                                             ^
+error: engineering disclosure starts collapsed without displacing the human decision
+      at assert ([checkout]/scripts/assistant-launch-rehearsal.ts:38:89)
+      at [checkout]/scripts/assistant-launch-rehearsal.ts:69:61
+      at runGuidedPmJourney ([checkout]/scripts/guided-pm-rehearsal.ts:110:15)
+      at runAssistantLaunchRehearsal ([checkout]/scripts/assistant-launch-rehearsal.ts:250:34)
+      at processTicksAndRejections (unknown:7:39)
+
+Bun v1.4.2 (macOS arm64)
+
+Validation record: [checkout]/.wringer/native-validation-2026-09-29T09-12-19-917Z
+error: script "validate" exited with code 1
