@@ -1,0 +1,48 @@
+bun test v1.4.2 (744846f84)
+
+packages/board/test/job-render.test.ts:
+89 |         || !list(v.requirements, 1000, r => r && id(r.id) && text(r.title, 4000) && text(r.quote) && ["check", "human"].includes(r.kind) && typeof r.required === "boolean" && ["met", "not-met", "unknown"].includes(r.state) && optional(r.note) && optional(r.by, 200) && (r.visualReview === undefined || r.kind === "human" && visualReview(r.visualReview)))
+90 |         || !list(v.displays, 1000, d => d && id(d.criterionId) && uuid(d.displayId) && text(d.title, 4000) && tree(d.candidateTree) && typeof d.success === "boolean" && text(d.output, 524288) && optional(d.error, 16000) && (d.parts === undefined || list(d.parts, 100, p => p && text(p.title, 4000) && text(p.text, 524288))) && (d.visuals === undefined || visuals(d.visuals)))
+91 |         || !(v.destination === null || v.destination && text(v.destination.remote, 4096) && id(v.destination.sourceBranch) && id(v.destination.targetBranch))
+92 |         || !(v.preparedId === null || uuid(v.preparedId))
+93 |         || !(v.publication === null || v.publication && id(v.publication.status) && id(v.publication.deliveryId) && optional(v.publication.url, 4096) && text(v.publication.auditCommand, 16000) && optional(v.publication.cloneCommand, 16000)))
+94 |         throw new Error("The job record is incomplete or unreadable. Decisions remain paused.");
+                       ^
+error: The job record is incomplete or unreadable. Decisions remain paused.
+      at validatePmJob ([checkout]/packages/board/src/job-model.ts:94:19)
+      at <anonymous> ([checkout]/packages/board/test/job-render.test.ts:16:12)
+(fail) first-class loop view binds source and remaining reservations without changing decision eligibility [30.81ms]
+(pass) engineering view is additive v2 only and malformed facts cannot enable a decision [2.21ms]
+(pass) job DTO rejects malformed identities, duplicate/oversized displays and incomplete approval scope [0.24ms]
+(pass) one combined review covers exactly successful current-source displays for required unreviewed human requirements [0.09ms]
+(pass) shell is a single private-session page with no embedded job, default verdict, expiry picker or destination re-entry [2.06ms]
+(pass) mode remains visible and phase transitions focus the current decision [30.95ms]
+(pass) same-page engineering disclosure is plain text, collapsed and never changes the next decision [26.15ms]
+(pass) full-size viewer opens only the verified loaded asset, closes with Escape/button, and returns keyboard focus [25.68ms]
+(pass) source changes dismiss full-size pixels and visual display notes start collapsed [12.90ms]
+(pass) visual review rejects missing, stale, duplicated and remotely addressed evidence without falling back to text [0.52ms]
+(pass) reference, desktop and mobile must all pass authenticated byte checks and load before a source-bound decision [13.42ms]
+(pass) image HTTP, media, digest, decode and size errors keep visual decisions closed [64.85ms]
+(pass) changed source and locking revoke visible image URLs and late loads cannot enable a decision [19.44ms]
+(pass) report cards deduplicate identical titles while preserving distinct and multipart labels and original output [25.88ms]
+(pass) reports stay inert, approval scope is visible and optional comments are omitted rather than invented [13.35ms]
+(pass) a correction requires actual authored words and sends that exact note once [29.71ms]
+(pass) an existing review comment requests correction in one action without a separate No or continuation submission [19.77ms]
+(pass) stale/failed/unseen reports never enable acceptance and semantic changes clear drafted observations [26.30ms]
+(pass) approval binds the shown source and finite limits without a manual expiry or automatic decision [14.68ms]
+(pass) Send is a separate exact prepared-source action and the reviewer receives only recorded public instructions [21.51ms]
+(pass) audit-only handovers name the existing clone root without inventing a clone destination [13.55ms]
+(pass) lost action responses pause further decisions without automatic repost or inferred acceptance [33.25ms]
+(pass) notification is opt-in, readiness-deduplicated and carries neither project content nor private capabilities [46.18ms]
+(pass) notification opt-in can be disabled immediately without locking or changing work [26.37ms]
+(pass) browser continuity exchanges one bearer, then reads with cookies; locking stops polling and decisions [27.04ms]
+(pass) an in-flight authenticated read cannot restore private content after the page is locked [39.10ms]
+(pass) only a recorded retryable failed local step exposes explicit retry, never ordinary blocked work [26.84ms]
+
+1 tests failed:
+(fail) first-class loop view binds source and remaining reservations without changing decision eligibility [30.81ms]
+
+ 26 pass
+ 1 fail
+ 292 expect() calls
+Ran 27 tests across 1 file. [914.00ms]

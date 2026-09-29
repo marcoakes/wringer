@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+171 |     const f = await fixture({ failedCandidates: 1 }), execute = f.options.executeRole!; let workerReservations = 0;
+172 |     f.options.executeRole = async request => { if (request.role === "worker" && ++workerReservations === 2) throw new Error("Lost response after possible spend"); return execute(request); };
+173 |     expect((await runContainedJourney(f.options)).stop?.reason).toBe("effect-uncertain");
+174 |     const before = await readValidatedContainedState(f.options.controllerDir); expect(before.state.effects).toHaveLength(2);
+175 |     const inspection = await application.readLoopInspection(f.options.plan, f.options.controllerDir);
+176 |     expect(inspection.budget?.sessions.reserved).toBe(2); expect(inspection.budget?.unresolvedSessions).toBe(1);
+                                                                                                              ^
+error: expect(received).toBe(expected)
+
+Expected: 1
+Received: 0
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:176:105)
+(fail) uncertain repaired attempt preserves recorded loop history and charged reservation across resume [75.84ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [228.00ms]

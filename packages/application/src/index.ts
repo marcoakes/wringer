@@ -16,6 +16,7 @@ export * from "./experiments";
 export * from "./improvements";
 export * from "./journey-patterns";
 export * from "./engineering-view";
+export * from "./loop-inspection";
 export * from "./workspaces";
 export * from "./standalone-review";
 export * from "./verification-job";

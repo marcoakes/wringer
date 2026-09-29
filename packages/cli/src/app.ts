@@ -38,6 +38,19 @@ export async function dispatch(argv: string[], surface = "wring", context: Dispa
     if (["init", "start", "verify", "doctor", "deliver", "audit", "attest", "health"].includes(a.command))
         positionals(a, 0);
     switch (a.command) {
+        case "bundle": {
+            positionals(a, 1);
+            if (a.words[0] === "export") {
+                allowed(a, ["bundle", "output"]);
+                return { value: await delivery.exportEvidenceBundle(resolve(required(a, "bundle")), resolve(required(a, "output"))) };
+            }
+            if (a.words[0] === "inspect") {
+                allowed(a, ["bundle"]);
+                const value = await delivery.inspectEvidenceBundle(resolve(required(a, "bundle")));
+                return { value, exit: value.semanticAudit === "passed" ? 0 : 1 };
+            }
+            throw new Error("Use wring bundle export --bundle PATH --output NEW_DIRECTORY, or bundle inspect --bundle EXPORTED_DIRECTORY");
+        }
         case "reporter": {
             allowed(a, []); positionals(a, 1);
             if (a.words[0] !== "node-test") throw new Error("Use wring reporter node-test to export the shipped Node reporter source");

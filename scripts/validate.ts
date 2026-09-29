@@ -34,6 +34,8 @@ export function validationStages(platform: NodeJS.Platform = process.platform): 
         ["portable-python-corpus", [process.execPath, "test", "./packages/records/test", "./packages/board/test", "./packages/scheduler/test/health.test.ts"], workspace],
         ["standalone-contract", [process.execPath, "scripts/distribution.ts"], workspace],
         ["compiled-contained-contract", [process.execPath, "scripts/contained-distribution.ts"], workspace],
+        ["compiled-loop-inspection", [process.execPath, "scripts/loop-inspection-rehearsal.ts"], workspace],
+        ["compiled-evidence-export", [process.execPath, "scripts/evidence-export-rehearsal.ts"], workspace],
         ["local-delivery-fixture", [process.execPath, "scripts/demo.ts"], workspace],
         ["compiled-version", [join(workspace, "dist/wring"), "--version"], repo],
         ["compiled-cli-reference", [process.execPath, "scripts/cli-reference.ts", "--check", join(workspace, "dist/wring")], workspace],

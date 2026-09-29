@@ -1,0 +1,81 @@
+bun test v1.4.2 (744846f84)
+
+packages/board/test/job-render.test.ts:
+20 |         (v: any) => v.loop.candidate = { commit: "e".repeat(40), tree: "f".repeat(40) },
+21 |         (v: any) => v.loop.schema_version = "wringer.loop-inspection.v999",
+22 |         (v: any) => v.loop.budget = { sessions: { reserved: 3, ceiling: 2, remaining: 99 } },
+23 |         (v: any) => v.loop.decisions = [{ action: "send" }],
+24 |         (v: any) => v.loop.repair = { approve: true },
+25 |     ]) { const changed = structuredClone(value); change(changed); expect(() => validatePmJob(changed)).toThrow(); }
+                                                                                                            ^
+error: expect(received).toThrow()
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.pm-job.v4",
+  jobId: "11111111-1111-4111-8111-111111111111",
+  revision: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  readyRevision: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  candidateTree: null,
+  phase: "approval",
+  name: "Clear reports",
+  intent: "Make the report easy to understand.",
+  requirements: [
+    {
+      id: "readable",
+      title: "The report is readable",
+      quote: "easy to understand",
+      kind: "human",
+      required: true,
+      state: "unknown",
+    }, {
+      id: "correct",
+      title: "The total is correct",
+      quote: "total",
+      kind: "check",
+      required: true,
+      state: "met",
+    }
+  ],
+  budget: {
+    sessions: 7,
+    wallSeconds: 1800,
+    expiresAt: "2099-09-08T20:00:00.000Z",
+  },
+  scope: {
+    repository: "https://example.invalid/team/project.git",
+    sourceCommit: "0000000000000000000000000000000000000000",
+    writable: [ "src" ],
+    protected: [ "test" ],
+  },
+  actor: "Actual person",
+  displays: [
+    {
+      criterionId: "readable",
+      title: "Recorded report",
+      displayId: "22222222-2222-4222-8222-222222222222",
+      candidateTree: "cccccccccccccccccccccccccccccccccccccccc",
+      success: true,
+      output: "Rows: 12\nTotal: 42",
+    }
+  ],
+  destination: {
+    remote: "https://example.invalid/team/project.git",
+    sourceBranch: "wringer/review-1",
+    targetBranch: "main",
+  },
+  preparedId: null,
+  publication: null,
+  nextAction: "Read the actual report and give your decision.",
+  error: null,
+  limits: [ "Cooperative-local fixture, not a live test." ],
+}
+
+      at <anonymous> ([isolated-checkout]/packages/board/test/job-render.test.ts:25:104)
+(fail) first-class loop view binds source and remaining reservations without changing decision eligibility [11.79ms]
+
+ 0 pass
+ 26 filtered out
+ 1 fail
+ 2 expect() calls
+Ran 1 test across 1 file. [157.00ms]

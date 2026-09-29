@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/assistant-job.test.ts:
+(pass) automatic coordination cannot start an unapproved job, and reading never answers for a person [53.76ms]
+(pass) T12 the operator can stop an unapproved delegated job without granting work [29.39ms]
+(pass) one transient observation error cannot poison a later complete snapshot or replay work [2.54ms]
+(pass) an observation error recorded while a read is in flight cannot change that read's phase [4.01ms]
+(pass) job decisions reject stale revisions, foreign handles and unexpected fields before any approval [43.52ms]
+(pass) shutdown during an awaited read cannot grant approval [18.30ms]
+(pass) shutdown during an awaited read cannot automatically enqueue a start [25.25ms]
+(pass) automatic showing and preparation observe failed or uncertain attempts without retrying them [28.44ms]
+(pass) reopening a job preserves an uncertain send as a stop, not another handover invitation [5.57ms]
+(pass) a durable running Send remains observation-only after reopen and cannot be posted again [12.75ms]
+(pass) cancellation during the slow Send guard refuses before reserving a publication command [4.73ms]
+(pass) handover clone instructions quote the recorded branch and remote and name the reviewer folder [1.14ms]
+
+ 12 pass
+ 0 fail
+ 71 expect() calls
+Ran 12 tests across 1 file. [557.00ms]

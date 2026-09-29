@@ -1,0 +1,22 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+3 | import { createHash } from "node:crypto";
+4 | import { readFile, readdir, lstat, realpath } from "node:fs/promises";
+5 | import { resolve, join, sep } from "node:path";
+6 | import { pathToFileURL } from "node:url";
+7 | const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+8 | const insist = (ok, message) => { if (!ok) throw new Error(message); };
+                                                         ^
+error: Bundle source identity changed
+      at insist ([isolated-checkout]/examples/evidence/read-bundle.mjs:8:54)
+      at inspectBundle ([isolated-checkout]/examples/evidence/read-bundle.mjs:52:5)
+      at async exportEvidenceBundle ([isolated-checkout]/packages/delivery/src/bundle.ts:38:11)
+      at async <anonymous> ([isolated-checkout]/packages/delivery/test/contained.test.ts:23:29)
+(fail) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [18126.18ms]
+
+ 0 pass
+ 12 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [18.33s]

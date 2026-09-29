@@ -50,6 +50,8 @@ Standalone trusted-local verification and historical evidence:
   wring attest --delivery ID          Record an independent audit report
   wring get URL DIRECTORY             Clone a repository; run none of its contents
   wring graph show|status|explain     Read legacy graph declarations or history
+  wring job loop --job ID            Inspect attempts, decisions and remaining allowance
+  wring bundle --help                Export portable evidence with an independent reader
   wring issue / health               Import a declared issue or inspect check history
 
 All commands accept --repo DIRECTORY and --json. Unknown options are errors.
@@ -69,6 +71,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
+  wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
@@ -150,6 +153,7 @@ result may explicitly add --without-display; that failure travels with the note.
 No headless authority writes a person's judgement.
 `;
 export const commandHelp: Record<string, string> = {
+    bundle: "wring bundle export --bundle CONTAINED_DELIVERY --output NEW_DIRECTORY\nwring bundle inspect --bundle EXPORTED_DIRECTORY\nExport an already auditable contained delivery (v1–v4), preserving every payload byte. The new directory carries bundle.json, schema.json, summary.md, evidence/ and read-bundle.mjs.\nIndependent integrity inspection: node NEW_DIRECTORY/read-bundle.mjs NEW_DIRECTORY\nThe independent reader needs no Wringer or credentials; it does not execute acceptance checks. Bundle inspect also runs Wringer's semantic audit. Existing output directories are never overwritten.",
     spec: `Direct-HTTP drafting is retired. Include original intent and an optional ACP planning role in PLAN.yaml.\nNext: wringer-drive plan PLAN.yaml\nSee wringer-drive --help and the installed guide for the declaration format.`,
     deliver: `wring deliver [--run RUN] [--branch NEW_BRANCH] [--base BASE] [--remote REMOTE] [--send]\nDry-run is the default. --send is the explicit second decision to create and push a new non-default branch. The current checkout and staging area are preserved. Every partial failure remains recorded.`,
     verify: `wring verify [--gate ID (repeatable)] [--serial] [--output DIR] [--prove]\nwring verify --falsify --delivery ID [--max-attempts 24 --wall-seconds 60]\nwring verify --set DIR [--set DIR ...] [--output DIR] [--repository URL] [--preview URL] [--live-check ID] [--supersedes FILE]\nChecks are trusted local repository commands unless containment is explicitly declared. Falsification runs only the committed range in a separate scratch clone.\nA --gate selection passes for its selection and stays exit 0; selection.json and the printed board say which required checks were not run. --set combines sealed bundles of ONE revision into one wringer.verification-set.v1 receipt and a generated HANDOFF.md, and exits 1 while the set is incomplete.`,

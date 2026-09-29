@@ -1,0 +1,19 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+23 |         const index = await exportBundle(prepared.bundleDir, output);
+24 |         expect(index.schema_version).toBe("wringer.bundle-index.v1");
+25 |         expect(index.deliveryId).toBe(prepared.deliveryId);
+26 |         expect(index.source.commit).toBe(prepared.codeCommit);
+27 |         expect((await auditContained(join(output, "evidence"))).status).toBe("passed");
+28 |         const read = JSON.parse(await command(["node", join(output, "read-bundle.mjs"), output]));
+                               ^
+SyntaxError: JSON Parse error: Unexpected EOF
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/contained.test.ts:28:27)
+(fail) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [20129.87ms]
+
+ 0 pass
+ 12 filtered out
+ 1 fail
+ 5 expect() calls
+Ran 1 test across 1 file. [20.36s]

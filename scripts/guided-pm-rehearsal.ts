@@ -107,8 +107,7 @@ export async function runGuidedPmJourney(input: {
         await page.unroute(imageRoute);
         await check("authenticated reference and actual desktop/mobile PNGs really decode before decisions", await page.locator("#reports img").count() === input.design.expectedImages);
         const nextAction = await page.locator("#job-next-action").innerText();
-        await check("engineering disclosure starts collapsed without displacing the human decision", await page.locator("#job-engineering").isVisible() && !await page.locator("#job-engineering").evaluate(element => (element as HTMLDetailsElement).open) && !await page.locator("#accept-result").isDisabled());
-        await page.locator("#job-engineering > summary").click();
+        await check("loop history starts open without displacing the human decision", await page.locator("#job-engineering").isVisible() && await page.locator("#job-engineering").evaluate(element => (element as HTMLDetailsElement).open) && !await page.locator("#accept-result").isDisabled());
         await check("same-page approach and check facts reflect validated v3 worker use", (await page.locator("#engineering-approach").innerText()).includes("Worker-use receipts recorded: 1") && (await page.locator("#engineering-checks").innerText()).includes("Executed assertions recorded") && (await page.locator("#engineering-history").innerText()).includes("Observation recorded"));
         await check("engineering details grant no authority or efficacy and keep the same next action", (await page.locator("#engineering-limits").innerText()).includes("not proof of improvement") && (await page.locator("#engineering-limits").innerText()).includes("tracked source can remain readable") && await page.locator("#job-next-action").innerText() === nextAction && !await page.locator("#accept-result").isDisabled());
         await shot("engineering-evidence"); await page.locator("#job-engineering > summary").click();

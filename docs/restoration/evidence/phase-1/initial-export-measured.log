@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+19 |     try {
+20 |         const prepared = await deliverContained({ stateDir: f.stateDir, publication: f.publication });
+21 |         const output = join(f.root, "portable");
+22 |         const index = await exportBundle(prepared.bundleDir, output);
+23 |         expect(index.schema_version).toBe("wringer.bundle-index.v1");
+24 |         expect(index.deliveryId).toBe(prepared.deliveryId);
+                                      ^
+error: expect(received).toBe(expected)
+
+Expected: "contained-292279c017efbaef7cd903ac"
+Received: undefined
+
+      at <anonymous> ([checkout]/packages/delivery/test/contained.test.ts:24:34)
+(fail) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [19538.80ms]
+
+ 0 pass
+ 11 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [19.89s]

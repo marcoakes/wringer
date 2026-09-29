@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+90 |     expect(loop.budget.sessions.remaining).toBe(f.options.authority.budget.max_sessions - 3);
+91 |     expect(loop.candidate.tree).toBe("b".repeat(40));
+92 |     expect(JSON.stringify(loop)).not.toContain("Private worker report");
+93 |     expect(JSON.stringify(loop)).not.toContain(f.options.controllerDir);
+94 |     const other = compileExecutionPlan(template, { format: "yaml" });
+95 |     await expect(read(other, f.options.controllerDir)).rejects.toThrow();
+                                                                    ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:95:64)
+(fail) public loop inspection carries exact decisions, budgets and source without another effect [140.10ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 14 expect() calls
+Ran 1 test across 1 file. [354.00ms]

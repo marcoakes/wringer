@@ -1,25 +1,38 @@
-Wringer's adoption prerelease adds two explicit uses: check work with an existing
-coding agent using reviewed trusted-local repository checks, or prepare a bounded
-job for the existing contained runtime adapters. Execution approval, inspection,
-correction, acceptance, and Send remain separate recorded decisions.
+Wringer 1.0.0-alpha.24 makes its engineering loops and portable evidence visible
+from ordinary jobs. Coding agents produce changes; Wringer coordinates bounded
+repair, protected checks, independent judge sessions and source-bound review.
 
-The release includes one native executable with compatibility aliases, a
-versioned installer with exact previews and rollback, reusable workspace/job
-setup, typed proposal composition, scoped Claude Code/Codex connection recipes,
-a shared review page, and explicit retained-state recovery and diagnostics.
+Use `wring job loop --job JOB_ID --json` or the read-only `wringer.inspect_loop`
+MCP tool to inspect the same validated observations shown on the job page. The
+history is open by default and includes candidate identities, every recorded
+loop decision, repair excerpts, reserved/remaining allowances and uncertain
+attempts. Runtime diagnostic paths are scrubbed from the public view.
 
-Each attached native archive has an exact inventory, checksum, locked dependency
-inputs and a claim report. The release workflow must execute each target's actual
-archive, offline installer and npm fixture before staging the release. Same-origin
-checksums provide integrity; CI provenance is a separate attestation.
+Use `wring bundle export --bundle DELIVERY --output NEW_DIRECTORY` to carry an
+audited contained delivery with a discovery envelope, summary and independent
+Node-only reader. `node NEW_DIRECTORY/read-bundle.mjs NEW_DIRECTORY` checks byte
+integrity; `wring bundle inspect --bundle NEW_DIRECTORY` also validates the
+carried semantics. Export preserves existing record versions and refuses changed
+evidence, source substitution, symlinks and overwriting an existing directory.
 
-Material limits: host verification runs repository commands under the operator's
-OS permissions. The outer review channel is cooperative-local and does not
-cryptographically authenticate human presence. Contained workers require their
-own provisioned runtime and separately billed provider access. Protected mode
-remains unavailable. Runtime image builds do not establish Apple Container or
-gVisor isolation. Named-client live journeys, independent usability and public
-installation are separate measurements; consult the attached claim reports.
+This phase establishes visibility and portability. It does not claim better
+model performance, live convergence, authenticated human presence or a fresh
+execution of exported checks. Fixture histories cover success, repair failure,
+repeat stop, outcome warning and interrupted resume. Individual reverted fixes
+and guards must fail their targeted tests and pass again after restoration.
 
-This is an adoption prerelease. GitHub publication does not activate npm package
-namespaces, Homebrew taps, registry listings or public announcements.
+The repository now explains the complete restoration sequence and publishes a
+capability ledger separating implemented features, fixture evidence, live
+qualification and comparative benefit. Contained graphs, broader improvement
+proposals, tournaments, Temporal and A2A are subsequent releases; this release
+does not claim those mechanisms are complete.
+
+Native macOS arm64 and Linux x64 archives retain checksums, inventories,
+provenance and exact-artifact claim reports. The release workflow checks the
+actual archives, installer and local package fixtures before staging publication.
+GitHub publication does not activate an npm namespace, Homebrew tap or registry
+listing. The cooperative-local human review and provisioned-container limits
+described in the security documentation remain in force.
+
+Previous adoption release notes are preserved in
+[the alpha.23 record](https://github.com/marcoakes/wringer/blob/v1.0.0-alpha.24/docs/rebuild/RELEASE_NOTES_ALPHA_23.md).

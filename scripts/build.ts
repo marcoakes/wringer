@@ -9,6 +9,8 @@ export async function buildDistribution(output?: string) {
     const root = resolve(import.meta.dir, ".."), id = crypto.randomUUID(), out = output ? resolve(output) : join(root, "dist");
     const generated = Bun.spawn([process.execPath, "scripts/generate-assertion-adapter.ts", "--check"], { cwd: root, stdout: "inherit", stderr: "inherit" });
     if (await generated.exited) throw new Error("Contained assertion adapter differs from its source");
+    const reader = Bun.spawn([process.execPath, "scripts/generate-bundle-reader.ts", "--check"], { cwd: root, stdout: "inherit", stderr: "inherit" });
+    if (await reader.exited) throw new Error("Independent bundle reader differs from its source");
     if (out === root || root.startsWith(out + "/")) throw new Error("Build output cannot replace a source parent");
     if (output) { try { await lstat(out); throw new Error("Explicit build output must not exist"); } catch (error: any) { if (error.code !== "ENOENT") throw error; } }
     const stage = join(root, "build", `distribution-${id}`);

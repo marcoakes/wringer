@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+33 |         expect(JSON.parse(await command(["node", readerAlias, output])).source.commit).toBe(prepared.codeCommit);
+34 |         await expect(exportBundle(prepared.bundleDir, output)).rejects.toThrow();
+35 |         const existing = join(f.root, "existing"); await mkdir(existing);
+36 |         await expect(exportBundle(prepared.bundleDir, existing)).rejects.toThrow();
+37 |         expect(await readdir(existing)).toEqual([]);
+38 |         await expect(exportBundle(prepared.bundleDir, join(prepared.bundleDir, "nested"))).rejects.toThrow();
+                                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/contained.test.ts:38:100)
+(fail) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [29442.17ms]
+
+ 0 pass
+ 12 filtered out
+ 1 fail
+ 14 expect() calls
+Ran 1 test across 1 file. [29.64s]

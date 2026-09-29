@@ -4,8 +4,8 @@ import { cp, mkdir, mkdtemp, readFile, readdir, realpath, symlink, writeFile } f
 import { dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 export interface Reversion { name: string; file: string; before: string; after: string; test: string; pattern: string }
-export async function runReversions(name: string, tests: string[], cases: Reversion[], options: { gitFixture?: boolean } = {}) {
-    const root = resolve(import.meta.dir, ".."), scratch = await realpath(await mkdtemp(join(tmpdir(), `wringer-${name}-guards-`))), evidence = join(root, "docs/rebuild/evidence", name);
+export async function runReversions(name: string, tests: string[], cases: Reversion[], options: { gitFixture?: boolean; baseline?: string; evidenceDirectory?: string; restoreEach?: boolean } = {}) {
+    const root = resolve(import.meta.dir, ".."), scratch = await realpath(await mkdtemp(join(tmpdir(), `wringer-${name}-guards-`))), evidence = options.evidenceDirectory ? resolve(root, options.evidenceDirectory) : join(root, "docs/rebuild/evidence", name);
     await mkdir(evidence, { recursive: true });
     const listed = Bun.spawnSync(["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], { cwd: root });
     if (listed.exitCode) throw new Error("Could not inventory the source checkout");
@@ -43,8 +43,13 @@ export async function runReversions(name: string, tests: string[], cases: Revers
             results.push({ name: probe.name, ...observed, caught: observed.exit !== 0 && observed.failed });
             console.log(`${probe.name}: ${results.at(-1)!.caught ? "red" : "NOT RED"}`);
         } finally { await writeFile(path, original); }
+        if (options.restoreEach) {
+            const restored = await run(`restored-${probe.name}`, [probe.test, "--test-name-pattern", probe.pattern]);
+            Object.assign(results.at(-1)!, { restored });
+            if (restored.exit) throw new Error(`Restoration failed for ${probe.name}; no next mutation ran`);
+        }
     }
     const restored = await run("restored-green", tests);
-    await writeFile(join(evidence, "reversions.json"), JSON.stringify({ baseline: "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3", kind: "Automated deterministic engineering fixtures; no live model or human judgment", control, results, restored }, null, 2) + "\n");
+    await writeFile(join(evidence, "reversions.json"), JSON.stringify({ baseline: options.baseline ?? "7f4cc542fd1149c00a3be0ee8949c895b95ef0c3", kind: "Automated deterministic engineering fixtures; no live model or human judgment", control, results, restored }, null, 2) + "\n");
     if (restored.exit || results.some(row => !row.caught)) throw new Error("The reversion gate did not pass; inspect retained results");
 }

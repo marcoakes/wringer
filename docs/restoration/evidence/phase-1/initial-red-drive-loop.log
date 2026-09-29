@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+128 |         positionals(a, 0); allowed(a, ["state", "by", "note"]);
+129 |         const state = statePath(repo, a); await readController(state, true);
+130 |         const value = await requestContainedRevision(state, { by: required(a, "by"), feedback: required(a, "note") });
+131 |         return { value, text: `Your revision request was recorded; no agent was started.\nNext: ${nextResume(state)}` };
+132 |     }
+133 |     if (!["run", "resume"].includes(a.command)) throw new Error(`Unknown drive command ${a.command}. See wringer-drive --help.`);
+                                                                ^
+error: Unknown drive command loop. See wringer-drive --help.
+      at containedDrive ([checkout]/packages/cli/src/contained-cli.ts:133:59)
+      at <anonymous> ([checkout]/packages/workflow/test/loop-engineering.test.ts:165:19)
+(fail) public loop inspection distinguishes warning, success and unstarted observations [313.24ms]
+
+ 0 pass
+ 18 filtered out
+ 1 fail
+ 10 expect() calls
+Ran 1 test across 1 file. [581.00ms]

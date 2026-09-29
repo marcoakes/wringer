@@ -4,7 +4,8 @@ import { git, Redactor } from "@wringer/engine";
 import { assistantExists, assistantId, assistantInventory, assistantPath, createAssistantDirectory, readAssistantRecord, withAssistantProposalLock, writeAssistantRecord } from "./assistant-store";
 import { readWorkspace } from "./workspaces";
 import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "./delegation-profile";
-import { initializeAssistant, createAssistantService } from "./assistant";
+import { initializeAssistant, createAssistantService, assistantControllerState } from "./assistant";
+import { readJobLoopInspection } from "./loop-inspection";
 import { localSourceSiblings } from "./assistant-local-source";
 interface Context {
     schema_version: "wringer.delegation-context.v1"; id: string; workspaceId: string; profileId: string; intent: string;
@@ -91,4 +92,9 @@ export async function delegationJobStatus(root: string, jobId: string) {
     const view = await service.status(jobId);
     // The local CLI is an operator-owned observation, not a minted MCP session.
     return { schema_version: "wringer.delegation-job-status.v1", jobId, workspaceId: job.workspaceId, mode: "delegation", revision: view.revision, outcome: view.outcome, phase: view.stage, uncertainty: view.uncertainty, operationIds: view.operations.map((operation: any) => operation.operationId), stopCodes: view.stop ? [view.stop.reason] : [], approvalExpiresAt: (await service.inspectApproval(jobId))?.authority.expires_at ?? null, candidateIdentity: view.candidateTree, nextAction: view.nextAction, remaining: { ceilings: view.usage.development.limits, measured: view.usage.development.measured, monetaryCost: null }, parentJobId: job.parentJobId, source: job.source, boundary: { approval: "cooperative-local", execution: "contained" } };
+}
+export async function inspectDelegationLoop(root: string, jobId: string) {
+    const job = await readDelegationJob(root, jobId), controller = await delegationControllerRoot(root, job.workspaceId, job.contextId);
+    const service = await createAssistantService(controller), proposal = await service.inspectProposal(jobId), status = await service.status(jobId);
+    return readJobLoopInspection(proposal.plan, status.stage === "intake" ? undefined : assistantControllerState(controller, jobId));
 }

@@ -33,6 +33,14 @@ test("T07 T16 registered delegation joins CLI, versioned MCP and one operator or
     expect(JSON.stringify(observed)).not.toContain("#token=");
     const setup = await callAssistantConnection(owner.connectionPath, "wringer.inspect_setup", {}); expect(setup.workspaceId).toBe(workspaceId);
     const status: any = (await dispatch(["job", "status", "--app-dir", root, "--job", first.jobId as string])).value; expect(status.mode).toBe("delegation");
+    const loop = await callAssistantConnection(owner.connectionPath, "wringer.inspect_loop", { jobId: first.jobId });
+    expect(loop.outcome).toBe("refused"); // Questions are not a compiled job plan.
+    await expect(dispatch(["job", "loop", "--app-dir", root, "--job", first.jobId as string])).rejects.toThrow("compiled job plan");
+    const complete = await controller.recordProposal({ workspaceId: initialized.workspace.id, idempotencyKey: crypto.randomUUID(), proposal: { intent: plan.intent, title: plan.name, criteria: plan.acceptance.criteria, checks: plan.acceptance.checks.map(({ id, criteria }) => ({ id, criteria })) } });
+    await retainDelegationJob(root, context, complete.jobId as string);
+    const compiledLoop = await callAssistantConnection(owner.connectionPath, "wringer.inspect_loop", { jobId: complete.jobId });
+    const cliLoop = (await dispatch(["job", "loop", "--app-dir", root, "--job", complete.jobId as string])).value;
+    expect(compiledLoop.schema_version).toBe("wringer.loop-inspection.v1"); expect(cliLoop).toEqual(compiledLoop);
     const list: any = (await dispatch(["job", "list", "--app-dir", root, "--workspace", workspaceId])).value; expect(list.jobs.map((job: any) => job.jobId)).toContain(first.jobId);
     expect((await fetch(owner.page + "/api/jobs")).status).toBe(401);
     const shell = await (await fetch(owner.page)).text(); expect(shell).not.toContain(plan.intent); expect(shell).not.toContain(connection.token);

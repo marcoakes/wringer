@@ -6,7 +6,7 @@ import { assistantInventory, readAssistantRecord, writeAssistantRecord } from ".
 import { activeWorkspaceCommand, queueWorkspaceCommand, readWorkspaceCommand, type WorkspaceCommand, type WorkspaceCommandResult } from "../../application/src/commands";
 import { readController, controllerStatus, type ApplicationOptions } from "../../application/src/controller";
 import { projectDesignDisplay } from "./design-assets";
-import { readPmEngineering } from "../../application/src/engineering-view";
+import { readLoopInspection } from "../../application/src/loop-inspection";
 
 type Service = Awaited<ReturnType<typeof createAssistantService>>;
 const id = (value: unknown) => { const h = hashValue(value); return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`; };
@@ -137,9 +137,10 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         // below: a read reports what was true when it began, and the next read reports the rest.
         const observedTransient = transient.get(jobId) ?? null;
         const { p, status, board, approval, attempt, displays, commands, preparation, prepareId, send } = await details(jobId);
-        const engineering = p.plan ? await readPmEngineering(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
+        const loop = p.plan ? await readLoopInspection(p.plan, status.stage === "intake" ? undefined : stateOf(jobId)) : undefined;
+        const engineering = loop?.engineering ?? undefined;
         // An observation never refuses because work advanced while it was read: the page says so and offers no decision.
-        const revisionAdvanced = status.revisionAdvanced === true || !!engineering && status.stage !== "intake" && (await (options.dependencies?.status ?? controllerStatus)(stateOf(jobId))).revision !== status.revision;
+        const revisionAdvanced = status.revisionAdvanced === true || !!loop && status.stage !== "intake" && (loop.journalRevision !== status.revision || (await (options.dependencies?.status ?? controllerStatus)(stateOf(jobId))).revision !== status.revision);
         const destination = approval?.destination ?? await service.destination(jobId);
         const human = p.plan?.acceptance.criteria.filter(c => c.kind === "human" && c.required) ?? [];
         const failed = commands.find(c => ["failed", "uncertain"].includes(c.status)) ?? (preparation && ["failed", "uncertain"].includes(preparation.status) ? preparation : null);
@@ -166,7 +167,7 @@ export function createAssistantJobFlow(service: Service, options: ApplicationOpt
         const publication = status.publication ? { ...status.publication, ...(destination && typeof destination.remote === "string" ? { cloneCommand: `git clone --no-local --branch ${quote(status.publication.sourceBranch)} -- ${quote(destination.remote)} 'reviewed-change'` } : {}) } : null;
         const revision = status.revision, retryable = phase === "blocked" && !send && attempt < 3 && (failed?.status === "failed" || failedDisplay) && !status.uncertainty && !!approval && Date.parse(approval.authority.expires_at) > Date.now();
         const readyRevision = hashValue({ jobId, revision, candidateTree: status.candidateTree, phase, attempt, displays: displays.map(d => ({ id: d.displayId, success: d.success })), preparedId: phase === "send" ? prepareId : null, publication });
-        return redactor.deep({ schema_version: engineering ? "wringer.pm-job.v2" : "wringer.pm-job.v1", ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, revisionAdvanced, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
+        return redactor.deep({ schema_version: loop ? "wringer.pm-job.v4" : "wringer.pm-job.v1", ...(loop ? { loop } : {}), ...(engineering ? { engineering } : {}), jobId, revision, readyRevision, candidateTree: status.candidateTree, revisionAdvanced, phase, name: p.plan?.name ?? "Your requested work", intent: p.intent,
             scope: { repository: p.plan?.repository.url ?? service.workspace.profile.repository.url, sourceCommit: p.plan?.repository.commit ?? service.workspace.profile.repository.commit, writable: p.plan?.scope.writable ?? [], protected: p.plan?.acceptance.protected_paths ?? [] }, questions: p.questions, assumptions: p.assumptions,
             requirements: (p.plan?.acceptance.criteria ?? []).map(c => {
                 const visual = p.plan?.design?.reviews.find(row => row.criterionId === c.id);

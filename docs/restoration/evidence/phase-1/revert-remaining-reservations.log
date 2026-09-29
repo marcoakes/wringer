@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+85 |     expect(loop.stop.reason).toBe("repeated-candidate");
+86 |     expect(loop.decisions.map((row: any) => row.action)).toEqual(["continue", "continue", "stop"]);
+87 |     expect(loop.decisions.at(-1).repeatedCandidateSequence).toBe(1);
+88 |     expect(loop.decisions.at(-1).outcomes[0].status).toBe("failed");
+89 |     expect(loop.budget.sessions.reserved).toBe(3);
+90 |     expect(loop.budget.sessions.remaining).toBe(f.options.authority.budget.max_sessions - 3);
+                                                ^
+error: expect(received).toBe(expected)
+
+Expected: 17
+Received: 20
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:90:44)
+(fail) public loop inspection carries exact decisions, budgets and source without another effect [115.51ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 10 expect() calls
+Ran 1 test across 1 file. [280.00ms]

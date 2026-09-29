@@ -1,0 +1,48 @@
+bun test v1.4.2 (744846f84)
+
+packages/application/test/delegation-protocol.test.ts:
+24 |     const loop = await call("inspect_loop", { jobId: job.jobId });
+25 |     expect(loop.schema_version).toBe("wringer.loop-inspection.v1");
+26 |     expect(loop.journalRevision).toBeNull(); expect(loop.candidate).toBeNull();
+27 |     expect(loop.decisions).toEqual([]); expect(loop.budget).toBeNull();
+28 |     expect(loop.planSha256).toBeDefined(); expect(loop).not.toHaveProperty("authority");
+29 |     expect(() => validateDelegationOutput("wringer.inspect_loop", { ...loop, authority: { send: true } })).toThrow();
+                                                                                                                ^
+error: expect(received).toThrow()
+
+Received function did not throw
+Received value: {
+  schema_version: "wringer.loop-inspection.v1",
+  planSha256: "e8191da7b278d4de9ac0d182aea500356c51c1498d20edfa2a296234c230dec0",
+  acceptanceSha256: "0b86f6dfdc3a29faf54bf100b06e93661c349c34035339abc02a39bce092ffbc",
+  sourceCommit: "0000000000000000000000000000000000000000",
+  journalRevision: null,
+  journeyId: null,
+  startedAt: null,
+  status: "not-started",
+  stage: "not-started",
+  candidate: null,
+  stop: null,
+  budget: null,
+  attempts: [],
+  decisions: [],
+  repair: null,
+  engineering: null,
+  limits: [ "Read-only snapshot of validated observations; it grants no execution, acceptance or Send.",
+    "Reservations include uncertain attempts. Remaining sessions are not a cash allowance; absent billing remains unknown.",
+    "A repeated outcome warning does not establish a plateau or authorise incomplete delivery.",
+    "Private prompts, agent narrative, provider traces, credentials and controller paths are omitted. Use a carried delivery bundle for independent semantic audit."
+  ],
+  authority: {
+    send: true,
+  },
+}
+
+      at <anonymous> ([isolated-checkout]/packages/application/test/delegation-protocol.test.ts:29:108)
+(fail) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [65.98ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 22 expect() calls
+Ran 1 test across 1 file. [389.00ms]

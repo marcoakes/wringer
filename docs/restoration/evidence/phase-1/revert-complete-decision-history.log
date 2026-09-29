@@ -1,0 +1,30 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+81 |     const loop = await read(f.options.plan, f.options.controllerDir);
+82 |     expect(f.counts()).toEqual(before);
+83 |     expect(loop.schema_version).toBe("wringer.loop-inspection.v1");
+84 |     expect(loop.journalRevision).toBe(history.events.at(-1)!.sha256);
+85 |     expect(loop.stop.reason).toBe("repeated-candidate");
+86 |     expect(loop.decisions.map((row: any) => row.action)).toEqual(["continue", "continue", "stop"]);
+                                                              ^
+error: expect(received).toEqual(expected)
+
+- [
+-   "continue",
+-   "continue",
+-   "stop",
+- ]
++ []
+
+- Expected  - 5
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:86:58)
+(fail) public loop inspection carries exact decisions, budgets and source without another effect [116.21ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 6 expect() calls
+Ran 1 test across 1 file. [277.00ms]

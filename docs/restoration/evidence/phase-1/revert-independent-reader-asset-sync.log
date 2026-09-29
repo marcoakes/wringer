@@ -1,0 +1,33 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+4 | import { tmpdir } from "node:os";
+5 | import { hashBytes } from "@wringer/plan";
+6 | import { inspectBundle } from "../../../examples/evidence/read-bundle.mjs";
+7 | const roots: string[] = [];
+8 | test("native reader asset remains byte-identical to the independent source", async () => {
+9 |     expect(await readFile(new URL("../../../integrations/bundle-reader.txt", import.meta.url), "utf8")).toBe(await readFile(new URL("../../../examples/evidence/read-bundle.mjs", import.meta.url), "utf8"));
+                                                                                                            ^
+error: expect(received).toBe(expected)
+
+@@ -1,7 +1,7 @@
+  "#!/usr/bin/env node
+- // Independent reader: Node built-ins only. Integrity is not semantic acceptance.
++ // Deliberately stale independent reader asset.
+  import { createHash } from "node:crypto";
+  import { readFile, readdir, lstat, realpath } from "node:fs/promises";
+  import { resolve, join, sep } from "node:path";
+  import { pathToFileURL } from "node:url";
+  const digest = bytes => createHash("sha256").update(bytes).digest("hex");
+
+- Expected  - 1
++ Received  + 1
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/bundle-reader.test.ts:9:105)
+(fail) native reader asset remains byte-identical to the independent source [3.20ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [165.00ms]

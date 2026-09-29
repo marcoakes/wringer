@@ -1013,6 +1013,33 @@ export type Briefed = {
 };
 
 /**
+ * Portable evidence discovery envelope
+ *
+ * Generated from `schema/bundle-index-v1.schema.json`. Do not edit.
+ */
+export type BundleIndexV1 = {
+  "schema_version": "wringer.bundle-index.v1";
+  "payload": "evidence";
+  "bundleFamily": "wringer.contained-delivery.v1" | "wringer.contained-delivery.v2" | "wringer.contained-delivery.v3" | "wringer.contained-delivery.v4";
+  "deliveryId": string;
+  "source": {
+    "commit": string;
+    "tree": string;
+  };
+  "manifestSha256": string;
+  "digestsSha256": string;
+  "files": {
+    "read-bundle.mjs": string;
+    "schema.json": string;
+    "summary.md": string;
+  };
+  "semanticAudit": {
+    "command": "wringer-drive audit --bundle evidence";
+    "scope": string;
+  };
+};
+
+/**
  * Wringer certificate
  *
  * Generated from `schema/certificate-v1.schema.json`. Do not edit.
@@ -4442,6 +4469,155 @@ export type LoopEvent = {
 };
 
 /**
+ * Read-only contained loop inspection
+ *
+ * Generated from `schema/loop-inspection-v1.schema.json`. Do not edit.
+ */
+export type LoopInspectionV1 = {
+  "schema_version": "wringer.loop-inspection.v1";
+  "planSha256": string;
+  "acceptanceSha256": string;
+  "sourceCommit": string;
+  "journalRevision": string | null;
+  "journeyId": string | null;
+  "startedAt": string | null;
+  "status": "not-started" | "review-ready" | "human-hold" | "stopped";
+  "stage": "not-started" | "prepare" | "planner" | "baseline" | "worker" | "capture" | "verify" | "judge" | "human" | "ready";
+  "candidate": {
+    "commit": string;
+    "tree": string;
+  } | null;
+  "stop": {
+    "reason": string;
+    "message": string;
+  } | null;
+  "budget": {
+    "sessions": {
+      "reserved": number;
+      "ceiling": number;
+      "remaining": number;
+    };
+    "roles": {
+      "role": "planner" | "worker" | "judge";
+      "reserved": number;
+      "ceiling": number;
+      "remaining": number;
+    }[];
+    "verification": {
+      "reserved": number;
+      "ceiling": number;
+      "remaining": number;
+    };
+    "unresolvedSessions": number;
+    "unresolvedVerifications": number;
+    "expiresAt": string;
+    "wallSeconds": number;
+    "tokens": {
+      "input": number | null;
+      "output": number | null;
+    };
+    "monetaryCost": null;
+  } | null;
+  "attempts": {
+    "id": string;
+    "role": "planner" | "worker" | "judge";
+    "status": "reserved" | "completed" | "uncertain";
+    "disposition": "accepted" | "stopped" | "invalid" | "unsettled" | null;
+  }[];
+  "decisions": {
+    "schema_version": "wringer.loop-decision.v1";
+    "sequence": number;
+    "phase": "checks" | "judge";
+    "candidateCommit": string;
+    "candidateTree": string;
+    "acceptanceSha256": string;
+    "environmentSha256": string;
+    "verificationSha256": string;
+    "comparableSha256": string;
+    "outcomes": {
+      "id": string;
+      "kind": "check" | "regression" | "judge";
+      "status": "passed" | "failed" | "unavailable" | "met" | "not-met" | "unknown";
+    }[];
+    "unsuccessful": boolean;
+    "action": "continue" | "warn" | "stop";
+    "repeatedCandidateSequence": number | null;
+    "repeatedOutcomes": number;
+    "reason": string;
+    "sha256": string;
+  }[];
+  "repair": {
+    "schema_version": "wringer.repair-packet.v1";
+    "phase": "baseline" | "candidate";
+    "planSha256": string;
+    "acceptanceSha256": string;
+    "candidateCommit": string;
+    "candidateTree": string;
+    "observationSha256": string;
+    "checks": {
+      "id": string;
+      "kind": "acceptance" | "regression";
+      "argv": string[];
+      "cwd": string;
+      "requirements": string[];
+      "status": "passed" | "failed" | "unavailable";
+      "exitCode": number | null;
+      "outputSha256": string;
+      "stdout": string;
+      "stderr": string;
+      "omittedBytes": number;
+    }[];
+    "omittedChecks": number;
+    "limits": string[];
+    "sha256": string;
+  } | null;
+  "engineering": {
+    "schema_version": "wringer.pm-engineering.v1";
+    "planSha256": string;
+    "rollback"?: {
+      "action": "promote" | "rollback";
+      "actor": string;
+      "note": string;
+      "at": string;
+      "receiptSha256": string;
+    };
+    "approach": {
+      "path": string;
+      "sha256": string;
+      "taskFamily": string;
+      "title": string | null;
+      "revision": string | null;
+      "sourceStatus": "validated" | "awaiting-validation";
+      "workerUses": number;
+      "adoption": {
+        "action": "promote" | "rollback";
+        "actor": string;
+        "note": string;
+        "at": string;
+        "receiptSha256": string;
+      } | null;
+    } | null;
+    "checks": {
+      "id": string;
+      "level": "command" | "assertions";
+      "status": "not-measured" | "passed" | "failed" | "unknown";
+      "assertionStatus": "not-requested" | "not-measured" | "established" | "unavailable";
+      "reason": string;
+    }[];
+    "history": {
+      "sequence": number;
+      "phase": "checks" | "judge";
+      "action": "continue" | "warn" | "stop";
+      "reason": string;
+      "candidateTree": string;
+      "sha256": string;
+    }[];
+    "limits": string[];
+  } | null;
+  "limits": string[];
+};
+
+/**
  * Wringer loop manifest
  *
  * Generated from `schema/loop-manifest-v2.schema.json`. Do not edit.
@@ -6444,6 +6620,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "bench-manifest-v2.schema.json": "wringer.bench.v2",
   "bench-manifest.schema.json": "wringer.bench.v1",
   "briefed.schema.json": "wringer.briefed.v1",
+  "bundle-index-v1.schema.json": "wringer.bundle-index.v1",
   "certificate-v1.schema.json": "wringer.certificate.v1",
   "check-observation-v1.schema.json": "wringer.check-observation.v1",
   "checks-v2.schema.json": "wringer.checks.v2",
@@ -6539,6 +6716,7 @@ export const SCHEMA_VERSIONS: Readonly<Record<string, string | null>> = Object.f
   "loop-decision-v1.schema.json": "wringer.loop-decision.v1",
   "loop-event-v2.schema.json": null,
   "loop-event.schema.json": null,
+  "loop-inspection-v1.schema.json": "wringer.loop-inspection.v1",
   "loop-manifest-v2.schema.json": "wringer.loop.v2",
   "loop-manifest.schema.json": "wringer.loop.v1",
   "manifest.schema.json": "wringer.evidence.v1",
@@ -6624,6 +6802,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.bench.v2": "bench-manifest-v2.schema.json",
   "wringer.bench.v1": "bench-manifest.schema.json",
   "wringer.briefed.v1": "briefed.schema.json",
+  "wringer.bundle-index.v1": "bundle-index-v1.schema.json",
   "wringer.certificate.v1": "certificate-v1.schema.json",
   "wringer.check-observation.v1": "check-observation-v1.schema.json",
   "wringer.checks.v2": "checks-v2.schema.json",
@@ -6712,6 +6891,7 @@ export const SCHEMA_BY_VERSION: Readonly<Record<string, string>> = Object.freeze
   "wringer.lock-recovery-request.v1": "lock-recovery-request-v1.schema.json",
   "wringer.lock-recovery-result.v1": "lock-recovery-result-v1.schema.json",
   "wringer.loop-decision.v1": "loop-decision-v1.schema.json",
+  "wringer.loop-inspection.v1": "loop-inspection-v1.schema.json",
   "wringer.loop.v2": "loop-manifest-v2.schema.json",
   "wringer.loop.v1": "loop-manifest.schema.json",
   "wringer.evidence.v1": "manifest.schema.json",

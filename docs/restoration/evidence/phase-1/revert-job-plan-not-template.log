@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/delegation-owner.test.ts:
+32 |     expect(observed.mode).toBe("delegation"); expect(observed.workspaceId).toBe(workspaceId); expect(observed.outcome).toBe("needs-decision");
+33 |     expect(JSON.stringify(observed)).not.toContain("#token=");
+34 |     const setup = await callAssistantConnection(owner.connectionPath, "wringer.inspect_setup", {}); expect(setup.workspaceId).toBe(workspaceId);
+35 |     const status: any = (await dispatch(["job", "status", "--app-dir", root, "--job", first.jobId as string])).value; expect(status.mode).toBe("delegation");
+36 |     const loop = await callAssistantConnection(owner.connectionPath, "wringer.inspect_loop", { jobId: first.jobId });
+37 |     expect(loop.outcome).toBe("refused"); // Questions are not a compiled job plan.
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "refused"
+Received: undefined
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/delegation-owner.test.ts:37:26)
+(fail) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [119.89ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 11 expect() calls
+Ran 1 test across 1 file. [479.00ms]

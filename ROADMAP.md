@@ -1,5 +1,13 @@
 # Roadmap: one Bun product, a measured end-to-end result
 
+The active next-release sequence is the [restoration plan](docs/SOTA_RESTORATION_PLAN.md):
+visible loops and evidence → usable measured improvement → contained serial
+graphs → parallel integration → gate/workflow proposals → candidate competition
+→ Temporal → A2A → comparative qualification. Follow the
+[execution record](docs/restoration/STATUS.md) and
+[capability ledger](docs/CAPABILITIES.md) for implementation and release status.
+The requirements below remain the foundation for every stage.
+
 The goal remains: a product manager supplies a serious specification and repositories, and returns to working software with reviewable evidence. Wringer coordinates the work; ACP agents author the product code. Improving a refusal is useful, but it is not the same as completing that journey.
 
 This is the execution roadmap for the Bun product at the repository root. Earlier release dates, status rails and Python implementation plans are historical, not the current release checklist.

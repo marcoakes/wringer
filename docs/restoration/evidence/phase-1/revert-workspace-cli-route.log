@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/delegation-owner.test.ts:
+33 |     expect(JSON.stringify(observed)).not.toContain("#token=");
+34 |     const setup = await callAssistantConnection(owner.connectionPath, "wringer.inspect_setup", {}); expect(setup.workspaceId).toBe(workspaceId);
+35 |     const status: any = (await dispatch(["job", "status", "--app-dir", root, "--job", first.jobId as string])).value; expect(status.mode).toBe("delegation");
+36 |     const loop = await callAssistantConnection(owner.connectionPath, "wringer.inspect_loop", { jobId: first.jobId });
+37 |     expect(loop.outcome).toBe("refused"); // Questions are not a compiled job plan.
+38 |     await expect(dispatch(["job", "loop", "--app-dir", root, "--job", first.jobId as string])).rejects.toThrow("compiled job plan");
+                                                                                                            ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "compiled job plan"
+Received message: "Wringer workspace setup and retained jobs\n\n  wring setup --repo PATH --client claude-code|codex|generic [--mode verification|delegation] [--dry-run --json]\n  wring setup --repo PATH --client CLIENT --mode verification --apply\n  wring setup --repo PATH --prepare-acceptance INPUT.json [--dry-run --json]\n  wring setup --repo PATH --prepare-acceptance INPUT.json --apply --expected HASH --actor NAME\n  wring setup --repo PATH --client CLIENT --mode delegation --provision UUID\n      --worker-provider openai|anthropic --worker-model MODEL\n      --judge-provider openai|anthropic --judge-model MODEL\n      --source local|remote [--source-remote NAME] --dependencies none|bun-frozen\n      --network deny|allowlist [--egress CIDR@PORT,PORT] [--dns IPV4]\n      [--writable PATH] [--output-dir PATH] [--readiness UUID] [--acceptance UUID] --dry-run --json\n  Repeat the same contained selections with --apply --expected IDENTITY\n      --actor NAME --cooperative-local to keep the reviewed profile and source.\n  wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]\n  wring job list [--workspace ID] [--offset 0] [--limit 50]\n  wring job status --job ID\n  wring job loop --job ID [--json]\n  wring job open --workspace ID [--job ID]\n  wring job serve --workspace ID\n  wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]\n  wring connect ... --apply --expected DIGEST [--replace] [--auto-approve]\n  wring connect ... --remove [--apply --expected DIGEST]\n  wring connect ... --verify-client\n  wring connect ... --probe-tools\n  wring recover --job ID --send [--apply --expected HASH --actor NAME]\n  wring recover --job ID [--operation ID] [--apply --expected HASH --actor NAME]\n  wring recover --lock-kind KIND --lock-id ID [--workspace ID] [--dry-run --json]\n  wring recover --lock-kind KIND --lock-id ID [--workspace ID] --apply --expected HASH --actor NAME\n  wring recover --workspace ID [--dry-run --json]\n  wring recover --workspace ID --apply --expected HASH --actor NAME\n  wring storage [--dry-run --json]\n  wring storage --kind acceptance|profile --id ID [--apply --expected HASH --actor NAME]\n  wring storage --remove-archive HASH [--apply --expected HASH --actor NAME]\n  wring diagnostics --workspace ID [--offset 0] [--dry-run --json]\n  wring diagnostics --workspace ID --output NEW_DIRECTORY --apply --expected HASH\n\n--app-dir ABS_PATH overrides the user-owned application directory (WRINGER_HOME).\nSetup inspection executes no project code and retrieves no credentials. Applying\nsetup creates only the displayed configuration and workspace registration. Opening\nthe operator page starts no job by itself. Verification runs repository commands\ntrusted-local, under a finite operator grant. Delegation never falls back to it.\nAn approval, human acceptance, and sending are separate decisions.\n"
+
+      at <anonymous> ([isolated-checkout]/packages/cli/test/delegation-owner.test.ts:38:104)
+(fail) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [112.87ms]
+
+ 0 pass
+ 2 filtered out
+ 1 fail
+ 12 expect() calls
+Ran 1 test across 1 file. [462.00ms]

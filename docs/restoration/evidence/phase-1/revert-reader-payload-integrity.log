@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+35 |         (f: Awaited<ReturnType<typeof fixture>>) => { f.index.payload = "../outside"; },
+36 |         (f: Awaited<ReturnType<typeof fixture>>) => { f.index.bundleFamily = "wringer.unknown.v1"; },
+37 |         (f: Awaited<ReturnType<typeof fixture>>) => { delete (f.index.files as any)["summary.md"]; },
+38 |     ]) { const f = await fixture(); alter(f); await f.save(); await expect(inspectBundle(f.output)).rejects.toThrow(); }
+39 |     for (const name of ["summary.md", "read-bundle.mjs", "schema.json", "evidence/summary.md"]) {
+40 |         const f = await fixture(); await writeFile(join(f.output, name), "changed"); await expect(inspectBundle(f.output)).rejects.toThrow();
+                                                                                                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/bundle-reader.test.ts:40:132)
+(fail) independent reader refuses source substitution, changed seals, unknown payloads and envelope tampering [20.26ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [162.00ms]

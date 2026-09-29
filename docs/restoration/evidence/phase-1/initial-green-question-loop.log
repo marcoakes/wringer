@@ -1,0 +1,16 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/delegation-owner.test.ts:
+(pass) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [160.52ms]
+(pass) T08 T16 more than 128 retained contexts remain observable without acquiring runners or writing on reads [2152.57ms]
+(pass) T16 a partial owned connection write is cleaned up without deleting a pre-existing file [7.64ms]
+
+packages/application/test/delegation-protocol.test.ts:
+(pass) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [43.04ms]
+(pass) T23 evidence paging is stable across elapsed-clock observation while its retained revision is unchanged [5.01ms]
+(pass) T14 only the ready page phase invites review or separate Send; blocked and preparing phases do not [2.18ms]
+
+ 6 pass
+ 0 fail
+ 71 expect() calls
+Ran 6 tests across 2 files. [3.05s]

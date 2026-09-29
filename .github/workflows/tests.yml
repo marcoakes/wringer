@@ -47,6 +47,8 @@ jobs:
             .wringer/native-demo-*/result.json
             .wringer/native-demo-*/transcript.md
             build/validated-examples/result.json
+            build/loop-inspection-*/transcript.json
+            build/evidence-export-*/transcript.json
           if-no-files-found: error
           include-hidden-files: true
   rehearsals:

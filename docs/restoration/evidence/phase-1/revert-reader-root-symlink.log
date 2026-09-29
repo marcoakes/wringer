@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+43 | test("independent reader rejects unlisted files and symlink transport instead of following them", async () => {
+44 |     for (const extra of ["evidence/unlisted.txt", "unlisted.txt"]) {
+45 |         const f = await fixture(); await writeFile(join(f.output, extra), "unlisted"); await expect(inspectBundle(f.output)).rejects.toThrow("inventory");
+46 |     }
+47 |     const f = await fixture(), link = join(f.root, "alias"); await symlink(f.output, link);
+48 |     await expect(inspectBundle(link)).rejects.toThrow("Symlink");
+                                                   ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/bundle-reader.test.ts:48:47)
+(fail) independent reader rejects unlisted files and symlink transport instead of following them [9.59ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [167.00ms]

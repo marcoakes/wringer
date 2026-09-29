@@ -1,11 +1,30 @@
 import { expect, test } from "bun:test";
 import { pmJobHeading, pmJobReviewSet, safeJobReviewLink, validatePmJob, type PmJob } from "../src/job-model";
 import { pmJobClientScript, renderPmJobWorkspace } from "../src/job-render";
+import { compileExecutionPlan } from "../../plan/src";
+import { projectLoopInspection } from "../../application/src/loop-inspection";
 
 const jobId = "11111111-1111-4111-8111-111111111111", displayId = "22222222-2222-4222-8222-222222222222";
 const fixture = (): PmJob => ({ schema_version: "wringer.pm-job.v1", jobId, revision: "a".repeat(64), readyRevision: "b".repeat(64), candidateTree: "c".repeat(40), phase: "review", name: "Clear reports", intent: "Make the report easy to understand.", requirements: [{ id: "readable", title: "The report is readable", quote: "easy to understand", kind: "human", required: true, state: "unknown" }, { id: "correct", title: "The total is correct", quote: "total", kind: "check", required: true, state: "met" }], budget: { sessions: 7, wallSeconds: 1800, expiresAt: "2099-09-08T20:00:00.000Z" }, scope: { repository: "https://example.invalid/team/project.git", sourceCommit: "d".repeat(40), writable: ["src"], protected: ["test"] }, actor: "Actual person", displays: [{ criterionId: "readable", title: "Recorded report", displayId, candidateTree: "c".repeat(40), success: true, output: "Rows: 12\nTotal: 42" }], destination: { remote: "https://example.invalid/team/project.git", sourceBranch: "wringer/review-1", targetBranch: "main" }, preparedId: null, publication: null, nextAction: "Read the actual report and give your decision.", error: null, limits: ["Cooperative-local fixture, not a live test."] });
 
 const engineeringFixture = (): PmJob => ({ ...fixture(), schema_version: "wringer.pm-job.v2", engineering: { schema_version: "wringer.pm-engineering.v1", planSha256: "1".repeat(64), approach: { path: "wringer/playbooks/report.json", sha256: "2".repeat(64), taskFamily: "reports", title: "<script>hostile repository title</script>", revision: "1", sourceStatus: "validated", workerUses: 1, adoption: null }, checks: [{ id: "correct", level: "assertions", status: "passed", assertionStatus: "established", reason: "Executed assertions are recorded; requirement completeness is not established." }], history: [{ sequence: 1, phase: "checks", action: "warn", reason: "Repeated outcomes are not a quality score.", candidateTree: "c".repeat(40), sha256: "3".repeat(64) }], limits: ["Read-only explanation. No new authority."] } });
+
+test("first-class loop view binds source and remaining reservations without changing decision eligibility", async () => {
+    const plan = compileExecutionPlan(await Bun.file(new URL("../../plan/examples/contained.yaml", import.meta.url)).text(), { format: "yaml" });
+    const value: PmJob = { ...fixture(), schema_version: "wringer.pm-job.v4", candidateTree: null, phase: "approval", loop: projectLoopInspection(plan) };
+    value.scope.sourceCommit = plan.repository.commit;
+    expect(validatePmJob(value)).toEqual(value);
+    for (const change of [
+        (v: any) => delete v.loop,
+        (v: any) => v.loop.sourceCommit = "f".repeat(40),
+        (v: any) => v.loop.candidate = { commit: "e".repeat(40), tree: "f".repeat(40) },
+        (v: any) => v.loop.schema_version = "wringer.loop-inspection.v999",
+        (v: any) => v.loop.budget = { sessions: { reserved: 3, ceiling: 2, remaining: 99 } },
+        (v: any) => v.loop.decisions = [{ action: "send" }],
+        (v: any) => v.loop.repair = { approve: true },
+    ]) { const changed = structuredClone(value); change(changed); expect(() => validatePmJob(changed)).toThrow(); }
+    expect(renderPmJobWorkspace()).toContain('id="job-engineering" open hidden');
+});
 
 test("engineering view is additive v2 only and malformed facts cannot enable a decision", () => {
     expect(validatePmJob(engineeringFixture())).toEqual(engineeringFixture());

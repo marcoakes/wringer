@@ -1,0 +1,25 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+130 | test("public loop projection refuses an oversized display instead of truncating away decisions", async () => {
+131 |     const f = await fixture({ failedCandidates: 1 }); await runContainedJourney(f.options);
+132 |     const history = await readValidatedContainedState(f.options.controllerDir), event = history.events.find(row => row.type === "loop-decision-recorded")!;
+133 |     // Synthetic projection pressure only; no forged history is written or read.
+134 |     const oversized = { ...history, events: Array.from({ length: 4096 }, () => event) };
+135 |     expect(() => { application.projectLoopInspection(f.options.plan, oversized); }).toThrow("bounded view");
+                                                                                          ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "bounded view"
+
+Received function did not throw
+Received value: undefined
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:135:85)
+(fail) public loop projection refuses an oversized display instead of truncating away decisions [85.42ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [254.00ms]

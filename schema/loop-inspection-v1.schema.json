@@ -1,0 +1,917 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Read-only contained loop inspection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "planSha256",
+    "acceptanceSha256",
+    "sourceCommit",
+    "journalRevision",
+    "journeyId",
+    "startedAt",
+    "status",
+    "stage",
+    "candidate",
+    "stop",
+    "budget",
+    "attempts",
+    "decisions",
+    "repair",
+    "engineering",
+    "limits"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.loop-inspection.v1"
+    },
+    "planSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "acceptanceSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+    },
+    "journalRevision": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "journeyId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-f0-9-]{36}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "startedAt": {
+      "anyOf": [
+        {
+          "type": "string",
+          "maxLength": 40
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "enum": [
+        "not-started",
+        "review-ready",
+        "human-hold",
+        "stopped"
+      ]
+    },
+    "stage": {
+      "enum": [
+        "not-started",
+        "prepare",
+        "planner",
+        "baseline",
+        "worker",
+        "capture",
+        "verify",
+        "judge",
+        "human",
+        "ready"
+      ]
+    },
+    "candidate": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "commit",
+            "tree"
+          ],
+          "properties": {
+            "commit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "tree": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "stop": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "message"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 16384
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "budget": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sessions",
+            "roles",
+            "verification",
+            "unresolvedSessions",
+            "unresolvedVerifications",
+            "expiresAt",
+            "wallSeconds",
+            "tokens",
+            "monetaryCost"
+          ],
+          "properties": {
+            "sessions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reserved",
+                "ceiling",
+                "remaining"
+              ],
+              "properties": {
+                "reserved": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ceiling": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "remaining": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "roles": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "role",
+                  "reserved",
+                  "ceiling",
+                  "remaining"
+                ],
+                "properties": {
+                  "role": {
+                    "enum": [
+                      "planner",
+                      "worker",
+                      "judge"
+                    ]
+                  },
+                  "reserved": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "ceiling": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "remaining": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "verification": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "reserved",
+                "ceiling",
+                "remaining"
+              ],
+              "properties": {
+                "reserved": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "ceiling": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "remaining": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "unresolvedSessions": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unresolvedVerifications": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "expiresAt": {
+              "type": "string",
+              "maxLength": 40
+            },
+            "wallSeconds": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tokens": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "input",
+                "output"
+              ],
+              "properties": {
+                "input": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "output": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "monetaryCost": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "attempts": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "role",
+          "status",
+          "disposition"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9-]{36}$"
+          },
+          "role": {
+            "enum": [
+              "planner",
+              "worker",
+              "judge"
+            ]
+          },
+          "status": {
+            "enum": [
+              "reserved",
+              "completed",
+              "uncertain"
+            ]
+          },
+          "disposition": {
+            "anyOf": [
+              {
+                "enum": [
+                  "accepted",
+                  "stopped",
+                  "invalid",
+                  "unsettled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "title": "Deterministic approved loop decision",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "sequence",
+          "phase",
+          "candidateCommit",
+          "candidateTree",
+          "acceptanceSha256",
+          "environmentSha256",
+          "verificationSha256",
+          "comparableSha256",
+          "outcomes",
+          "unsuccessful",
+          "action",
+          "repeatedCandidateSequence",
+          "repeatedOutcomes",
+          "reason",
+          "sha256"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "wringer.loop-decision.v1"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "phase": {
+            "enum": [
+              "checks",
+              "judge"
+            ]
+          },
+          "candidateCommit": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+          },
+          "candidateTree": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+          },
+          "acceptanceSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "environmentSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "verificationSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "comparableSha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "outcomes": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 512,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "kind",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "enum": [
+                    "check",
+                    "regression",
+                    "judge"
+                  ]
+                },
+                "status": {
+                  "enum": [
+                    "passed",
+                    "failed",
+                    "unavailable",
+                    "met",
+                    "not-met",
+                    "unknown"
+                  ]
+                }
+              }
+            }
+          },
+          "unsuccessful": {
+            "type": "boolean"
+          },
+          "action": {
+            "enum": [
+              "continue",
+              "warn",
+              "stop"
+            ]
+          },
+          "repeatedCandidateSequence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "repeatedOutcomes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reason": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "repair": {
+      "anyOf": [
+        {
+          "title": "Bounded actionable controller observations",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "phase",
+            "planSha256",
+            "acceptanceSha256",
+            "candidateCommit",
+            "candidateTree",
+            "observationSha256",
+            "checks",
+            "omittedChecks",
+            "limits",
+            "sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.repair-packet.v1"
+            },
+            "phase": {
+              "enum": [
+                "baseline",
+                "candidate"
+              ]
+            },
+            "planSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "acceptanceSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "candidateCommit": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "candidateTree": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+            },
+            "observationSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "checks": {
+              "type": "array",
+              "minItems": 0,
+              "maxItems": 32,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "kind",
+                  "argv",
+                  "cwd",
+                  "requirements",
+                  "status",
+                  "exitCode",
+                  "outputSha256",
+                  "stdout",
+                  "stderr",
+                  "omittedBytes"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "enum": [
+                      "acceptance",
+                      "regression"
+                    ]
+                  },
+                  "argv": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "cwd": {
+                    "type": "string"
+                  },
+                  "requirements": {
+                    "type": "array",
+                    "minItems": 0,
+                    "maxItems": 128,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "status": {
+                    "enum": [
+                      "passed",
+                      "failed",
+                      "unavailable"
+                    ]
+                  },
+                  "exitCode": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "outputSha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "stdout": {
+                    "type": "string",
+                    "maxLength": 2052
+                  },
+                  "stderr": {
+                    "type": "string",
+                    "maxLength": 2052
+                  },
+                  "omittedBytes": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                }
+              }
+            },
+            "omittedChecks": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "limits": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 8,
+              "items": {
+                "type": "string"
+              }
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "engineering": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "planSha256",
+            "approach",
+            "checks",
+            "history",
+            "limits"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "wringer.pm-engineering.v1"
+            },
+            "planSha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "rollback": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "action",
+                "actor",
+                "note",
+                "at",
+                "receiptSha256"
+              ],
+              "properties": {
+                "action": {
+                  "enum": [
+                    "promote",
+                    "rollback"
+                  ]
+                },
+                "actor": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 16384
+                },
+                "at": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "receiptSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            "approach": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "path",
+                    "sha256",
+                    "taskFamily",
+                    "title",
+                    "revision",
+                    "sourceStatus",
+                    "workerUses",
+                    "adoption"
+                  ],
+                  "properties": {
+                    "path": {
+                      "type": "string",
+                      "maxLength": 512
+                    },
+                    "sha256": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "taskFamily": {
+                      "type": "string",
+                      "maxLength": 200
+                    },
+                    "title": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 256
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "revision": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sourceStatus": {
+                      "enum": [
+                        "validated",
+                        "awaiting-validation"
+                      ]
+                    },
+                    "workerUses": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "adoption": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "action",
+                            "actor",
+                            "note",
+                            "at",
+                            "receiptSha256"
+                          ],
+                          "properties": {
+                            "action": {
+                              "enum": [
+                                "promote",
+                                "rollback"
+                              ]
+                            },
+                            "actor": {
+                              "type": "string",
+                              "maxLength": 200
+                            },
+                            "note": {
+                              "type": "string",
+                              "maxLength": 16384
+                            },
+                            "at": {
+                              "type": "string",
+                              "maxLength": 40
+                            },
+                            "receiptSha256": {
+                              "type": "string",
+                              "pattern": "^[a-f0-9]{64}$"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "checks": {
+              "type": "array",
+              "maxItems": 4096,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "level",
+                  "status",
+                  "assertionStatus",
+                  "reason"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "maxLength": 200
+                  },
+                  "level": {
+                    "enum": [
+                      "command",
+                      "assertions"
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "not-measured",
+                      "passed",
+                      "failed",
+                      "unknown"
+                    ]
+                  },
+                  "assertionStatus": {
+                    "enum": [
+                      "not-requested",
+                      "not-measured",
+                      "established",
+                      "unavailable"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 16384
+                  }
+                }
+              }
+            },
+            "history": {
+              "type": "array",
+              "maxItems": 10000,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sequence",
+                  "phase",
+                  "action",
+                  "reason",
+                  "candidateTree",
+                  "sha256"
+                ],
+                "properties": {
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "phase": {
+                    "enum": [
+                      "checks",
+                      "judge"
+                    ]
+                  },
+                  "action": {
+                    "enum": [
+                      "continue",
+                      "warn",
+                      "stop"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 16384
+                  },
+                  "candidateTree": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                }
+              }
+            },
+            "limits": {
+              "type": "array",
+              "maxItems": 32,
+              "items": {
+                "type": "string",
+                "maxLength": 16384
+              }
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "maxLength": 16384
+      }
+    }
+  }
+}

@@ -10,4 +10,5 @@ export * from "./source-inspection";
 export * from "./source-review";
 export * from "./source-findings";
 export * from "./engineering";
+export * from "./bundle";
 export { Refusal, quote } from "./io";

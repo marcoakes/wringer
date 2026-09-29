@@ -1,0 +1,25 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+(pass) independent reader checks byte integrity without inventing semantic acceptance [10.22ms]
+(pass) independent reader refuses source substitution, changed seals, unknown payloads and envelope tampering [21.31ms]
+37 |         const f = await fixture(); await writeFile(join(f.output, name), "changed"); await expect(inspectBundle(f.output)).rejects.toThrow();
+38 |     }
+39 | });
+40 | test("independent reader rejects unlisted files and symlink transport instead of following them", async () => {
+41 |     for (const extra of ["evidence/unlisted.txt", "unlisted.txt"]) {
+42 |         const f = await fixture(); await writeFile(join(f.output, extra), "unlisted"); await expect(inspectBundle(f.output)).rejects.toThrow("inventory");
+                                                                                                                                          ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([checkout]/packages/delivery/test/bundle-reader.test.ts:42:134)
+(fail) independent reader rejects unlisted files and symlink transport instead of following them [7.20ms]
+(pass) independent reader refuses nonportable filenames even under a matching seal [2.44ms]
+
+ 3 pass
+ 1 fail
+ 16 expect() calls
+Ran 4 tests across 1 file. [509.00ms]

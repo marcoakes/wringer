@@ -1,0 +1,1562 @@
+$ bun run scripts/generate-types.ts --check && tsc --noEmit && bun test ./packages
+generate-types: 181 schema(s), types are current
+bun test v1.4.2 (744846f84)
+
+packages/design/test/design.test.ts:
+(pass) owned reference is content-bound, explicitly not an MCP or Figma measurement [3.22ms]
+(pass) snapshot files are exclusive immutable private regular files and links are refused [3.06ms]
+(pass) PNG validation checks canonical encoding, exact dimensions, CRC, data and safe chunks [0.40ms]
+(pass) JSON MCP handshake executes only the exact predeclared read and retains no credentials [2.96ms]
+(pass) bounded SSE response is accepted without following resource links [0.32ms]
+(pass) private and ambiguous endpoints are rejected before even an injected transport is called [0.22ms]
+(pass) write tools, unknown Figma tools, wrong source and ignored fields fail before network [0.19ms]
+(pass) all recipe tools must have unambiguous read-only advertisements before any call [0.36ms]
+(pass) Figma client/access rejection and redirect remain explicit, never login or fabricated success [0.13ms]
+(pass) credential echo in text or structured data refuses the entire snapshot without echoing secret [0.66ms]
+(pass) unsupported external links, SVG and server errors cannot become empty successful imports [0.53ms]
+(pass) response identity, unknown protocol and changed session fail closed [0.17ms]
+(pass) call, response and time budgets are enforced with no background paid work [6.24ms]
+(pass) reported source version requires matching source and mismatches refuse [0.19ms]
+(pass) generic read recipe is honestly labeled and still uses advertised read authority [0.62ms]
+(pass) unknown options and credential-bearing source labels fail before network [0.07ms]
+(pass) self-consistent digests cannot legalize malicious endpoint links, duplicate assets or false dimensions [0.70ms]
+(pass) exact snapshot JSON rejects duplicate and unicode-aliased keys before their hidden bytes can enter approval [0.35ms]
+(pass) generic design JSON keeps data types while refusing nested duplicates and excessive resource use [0.09ms]
+(pass) Figma screenshot recipes explicitly request inline PNG rather than an unfetched URL [0.29ms]
+(pass) even an unusually short explicit credential cannot be echoed into a snapshot [0.07ms]
+(pass) an owned reference missing a field is refused by a sentence naming that field [0.23ms]
+
+packages/design/test/figma-rest.test.ts:
+(pass) Figma frame parser accepts only bounded distinct nodes from one file and strips link tracking [0.48ms]
+(pass) Figma REST captures selected desktop/mobile nodes and actual PNGs pinned to the reported version [2.22ms]
+(pass) OAuth and PAT credentials stay on the API origin and never reach render downloads [2.13ms]
+(pass) every invalid selected-node response refuses before rendering or downloading [0.73ms]
+(pass) partial/null renders and changed reported version refuse before any image download [0.82ms]
+(pass) strict render host/path profile rejects credentials, arbitrary CDN, local IP and encoded authority [1.11ms]
+(pass) redirect, access, rate limits and service errors stop without retries or response leakage [0.78ms]
+(pass) invalid PNG, wrong media type and compressed content cannot become a successful reference [0.35ms]
+(pass) supplied credential echoes and other Figma token patterns are refused with no secret in diagnostics [0.21ms]
+(pass) temporary links in selected reference text are explicitly stripped and not followed [0.67ms]
+(pass) malformed and duplicate JSON is refused before it hides an alternate source [0.15ms]
+(pass) oversized responses, unknown options and deadline are bounded before retaining a snapshot [5.92ms]
+(pass) rehashed snapshots cannot legalize source drift, missing receipts or unrelated PNGs [1.57ms]
+(pass) private preview conversion creates a new digest and leaves original immutable while v1 stays v1 [0.55ms]
+(pass) one selected frame is a valid bounded import rather than a fabricated mobile reference [0.29ms]
+
+packages/records/test/contained-contract.test.ts:
+(pass) explicit human decisions carry a real choice and null, not an invented comment [22.97ms]
+(pass) contained view contract preserves explicit unknowns and rejects extra or invented facts [17.72ms]
+(pass) forge v2 published outcomes require open state and exact repository/commit identity [11.39ms]
+
+packages/records/test/contract.test.ts:
+(pass) the schema set > every schema in the tree has a generated type [0.48ms]
+(pass) the schema set > no two schemas claim one version [0.13ms]
+(pass) the schema set > versionless schemas are the historical corpus members and explicitly tested new input contracts [0.07ms]
+(pass) the corpus, written by the engine itself > it is not empty, or this suite proves nothing
+(pass) the corpus, written by the engine itself > every record the engine wrote reads here, and to the same schema [20.08ms]
+(pass) the corpus, written by the engine itself > a record python refused is refused here too, for the same reason [0.25ms]
+(pass) every refusal says which one it is > absent is not the same answer as unreadable [0.18ms]
+(pass) every refusal says which one it is > a file that is not JSON says so, and names itself [0.57ms]
+(pass) every refusal says which one it is > a record with no version is refused, not guessed at from its name [0.33ms]
+(pass) every refusal says which one it is > a version no schema claims is named, never accepted [0.16ms]
+(pass) every refusal says which one it is > a record that declares a shape it does not have is refused [1.64ms]
+(pass) every refusal says which one it is > asking for one version and getting another is its own refusal [0.38ms]
+(pass) every refusal says which one it is > a broken line is counted and named, never skipped [0.35ms]
+
+packages/records/test/reader-concurrency.test.ts:
+(pass) simultaneous first reads share one schema compilation without hiding invalid records [10.46ms]
+
+packages/records/test/native-control-contract.test.ts:
+(pass) native plan and authority shapes are frozen without changing their semantic compiler [26.91ms]
+(pass) environment unknowns and runtime containment claims keep exact structural meanings [24.87ms]
+
+packages/board/test/native-context.test.ts:
+(pass) native request receipts report 3 calls and 180 tokens while independent verification keeps honest build context [55.25ms]
+(pass) redacted request bytes limit request identity without discarding matching response usage [38.31ms]
+(pass) uncertain, missing, inconsistent and tampered responses do not become zero or a complete usage total [136.95ms]
+(pass) a tampered journey, unrelated frozen spec or escaped receipt path never supplies trustworthy attribution [91.17ms]
+(pass) publication replaces preview action and both shared views distinguish base, source and publication commits [31.92ms]
+
+packages/board/test/pm-planning.test.ts:
+(pass) planning-only projection carries all five questions and note without inventing build or human acceptance [29.56ms]
+(pass) expired planning still exposes questions read-only and refuses command access [27.76ms]
+(pass) planning stopped and an unapproved proposal have distinct truthful headings [41.63ms]
+
+packages/board/test/board.test.ts:
+(pass) honest shared evidence > latest selection follows the filesystem timestamp, not a custom run's name [25.78ms]
+(pass) honest shared evidence > missing assessment is unknown, never zero [1.07ms]
+(pass) honest shared evidence > passing standalone checks without a requirements assessment are not called missing verification [17.96ms]
+(pass) honest shared evidence > a receipt that names a passing record cannot prove a failure [22.39ms]
+(pass) honest shared evidence > wrong gate command and environment failure do not establish proof [67.53ms]
+(pass) honest shared evidence > unknown acceptance version and mismatched counts refuse the whole assessment [38.70ms]
+(pass) honest shared evidence > path traversal and symlink escape are never followed [21.84ms]
+(pass) honest shared evidence > a tampered source quote is flagged against the frozen intent [23.99ms]
+(pass) honest shared evidence > duplicate YAML keys and unknown tags never silently choose a source [47.51ms]
+(pass) honest shared evidence > a sensitivity receipt requires the recorded before/after comparison, not just a citation [44.79ms]
+(pass) honest shared evidence > a human judgement stays human and the exact note travels [39.59ms]
+(pass) honest shared evidence > legacy acceptance versions still resolve real receipt bytes [44.33ms]
+(pass) honest shared evidence > certificate rows satisfy the frozen schema and preserve raw receipt and judgement shapes [34.45ms]
+(pass) honest shared evidence > HTML is self contained, escaped, searchable, and shares the travelling row wording [24.60ms]
+(pass) an incomplete selection is stated on the board and cannot read as checks passing [27.16ms]
+(pass) a bundle with no selection record keeps its older reading, and says nobody recorded one [23.42ms]
+(pass) a run whose assertion evidence established nothing reads as not passing, and keeps its gate [26.08ms]
+(pass) selection-versions-are-all-readable: every selection schema is one the board reads [0.74ms]
+(pass) a v3 selection record with its strict comparison reads on the board [24.26ms]
+(pass) the legacy corpus's frozen evidence manifests remain readable by the board [54.27ms]
+(pass) the unchanged Run 5B record reads as one proved, eight unproved, and one awaiting a person [38.61ms]
+
+packages/board/test/pm-blind-render.test.ts:
+(pass) every action has a stable accessible name and a linked visible explanation, including disabled actions [0.91ms]
+(pass) old raw parser stops remain inspectable without becoming the PM headline or HTML [0.08ms]
+(pass) born-green stops render check IDs and the original baseline receipt without manufacturing failure after the change [0.28ms]
+
+packages/board/test/job-render.test.ts:
+(pass) first-class loop view binds source and remaining reservations without changing decision eligibility [3.47ms]
+(pass) engineering view is additive v2 only and malformed facts cannot enable a decision [0.56ms]
+(pass) job DTO rejects malformed identities, duplicate/oversized displays and incomplete approval scope [0.25ms]
+(pass) one combined review covers exactly successful current-source displays for required unreviewed human requirements [0.13ms]
+(pass) shell is a single private-session page with no embedded job, default verdict, expiry picker or destination re-entry [0.78ms]
+(pass) mode remains visible and phase transitions focus the current decision [19.74ms]
+(pass) same-page engineering disclosure is plain text, collapsed and never changes the next decision [23.43ms]
+(pass) full-size viewer opens only the verified loaded asset, closes with Escape/button, and returns keyboard focus [20.61ms]
+(pass) source changes dismiss full-size pixels and visual display notes start collapsed [11.82ms]
+(pass) visual review rejects missing, stale, duplicated and remotely addressed evidence without falling back to text [0.49ms]
+(pass) reference, desktop and mobile must all pass authenticated byte checks and load before a source-bound decision [12.28ms]
+(pass) image HTTP, media, digest, decode and size errors keep visual decisions closed [59.70ms]
+(pass) changed source and locking revoke visible image URLs and late loads cannot enable a decision [17.53ms]
+(pass) report cards deduplicate identical titles while preserving distinct and multipart labels and original output [23.22ms]
+(pass) reports stay inert, approval scope is visible and optional comments are omitted rather than invented [12.01ms]
+(pass) a correction requires actual authored words and sends that exact note once [23.37ms]
+(pass) an existing review comment requests correction in one action without a separate No or continuation submission [17.49ms]
+(pass) stale/failed/unseen reports never enable acceptance and semantic changes clear drafted observations [23.29ms]
+(pass) approval binds the shown source and finite limits without a manual expiry or automatic decision [11.97ms]
+(pass) Send is a separate exact prepared-source action and the reviewer receives only recorded public instructions [20.95ms]
+(pass) audit-only handovers name the existing clone root without inventing a clone destination [11.99ms]
+(pass) lost action responses pause further decisions without automatic repost or inferred acceptance [29.02ms]
+(pass) notification is opt-in, readiness-deduplicated and carries neither project content nor private capabilities [40.44ms]
+(pass) notification opt-in can be disabled immediately without locking or changing work [23.22ms]
+(pass) browser continuity exchanges one bearer, then reads with cookies; locking stops polling and decisions [23.68ms]
+(pass) an in-flight authenticated read cannot restore private content after the page is locked [42.98ms]
+(pass) only a recorded retryable failed local step exposes explicit retry, never ordinary blocked work [23.36ms]
+
+packages/board/test/pm-render.test.ts:
+(pass) PM workspace is decision-first, readable, responsive and static mode has no operating controls [1.09ms]
+(pass) human review renders two explicit unselected choices after the display, with secondary details collapsed [0.51ms]
+(pass) next decision moves from display to review, correction or continuation without proposing an invented yes [0.16ms]
+(pass) source text, embedded JSON, links and nonces cannot become executable content [1.04ms]
+(pass) PM facts do not turn a pushed branch, malformed state or unknown cost into readiness [0.21ms]
+(pass) a recorded human review asks for readiness evaluation, not another invented verdict [0.05ms]
+(pass) client removes its token before requests, keeps it out of storage, and disables stale/disconnected controls [12.76ms]
+(pass) show output stays inert; review binds the successful display and exact revision/tree [19.75ms]
+(pass) a changed revision invalidates display judgement and delivery requires a second explicit confirmation [23.71ms]
+(pass) delivery confirmation leads with the chosen destination, evidence and original note, with JSON collapsed [10.00ms]
+(pass) a preparation cannot redirect publication or substitute the reviewed code or evidence identity [144.20ms]
+(pass) a failed display and a malformed preparation response never enable acceptance or publication [14.50ms]
+(pass) uncertain submission is never automatically reposted; recovery keeps its idempotency key [18.95ms]
+(pass) public bootstrap replaces every identity after authenticated loading without a fake zero budget [5.21ms]
+(pass) duplicate checks, malformed source and a credential-bearing hosted URL do not become trusted facts [0.29ms]
+(pass) a mismatched command identity leaves all other actions paused and never polls that identity [14.45ms]
+(pass) show receipt for another criterion and a disconnected terminal result cannot enable review [14.54ms]
+(pass) negative review preserves the person's words and does not auto-continue, correct or publish [14.54ms]
+(pass) a successful receipt without displayed content and blank observations cannot record a review [57.79ms]
+(pass) browser session exchanges the fragment once, then uses cookies without storing or resending its bearer [27.93ms]
+(pass) return navigation is only a validated local console origin and never carries a private token [0.48ms]
+
+packages/plan/test/local-source-plan.test.ts:
+(pass) plan v4 names a local-only source by its root commit and is v3 in every other contract [64.39ms]
+(pass) a local identity is refused outside v4, and v4 refuses every other source name [1.73ms]
+
+packages/plan/test/playbook-offline.test.ts:
+(pass) offline playbook preparation can validate exact bytes without reading credential environment values [1.23ms]
+
+packages/plan/test/playbook-plan.test.ts:
+(pass) v3 normalizes bounded loop policy and assertion evidence without altering v1/v2 [61.19ms]
+(pass) v3 selection protects exact playbook and every policy change revokes the old authority [2.05ms]
+(pass) future adoption is exact retained provenance, changes approval, and cannot become execution authority [39.97ms]
+(pass) rollback to no playbook survives planning and invalidates old approval without restoring authority [36.61ms]
+(pass) offline canonical validation has an explicit empty credential environment without weakening semantics [1.27ms]
+(pass) planning entry points reject accessors before reading declaration or authority fields [0.86ms]
+(pass) v3 rejects malformed or inherited new policies and unapproved execution fields [1.34ms]
+(pass) planning v3 carries selected policy but never synthetic checks or execution approval [25.52ms]
+(pass) v3 combines optional design with loop policy and preserves both approval identities [35.85ms]
+(pass) inert manifest refuses executable fields, role escalation, unsafe paths, ambiguous JSON and excessive bytes [0.86ms]
+(pass) programmatic inert records reject getters without invoking them or changing ordinary canonical bytes [0.12ms]
+(pass) pinned source snapshot validates before work, stays out of shared context and supports bare Git audit [670.54ms]
+(pass) source symlink, missing context, mismatched scope and absent design cannot qualify [307.48ms]
+(pass) Reports playbook is a bounded unpromoted example, not a performance claim [0.55ms]
+(pass) no playbook selection performs no Git read or implicit discovery [0.67ms]
+
+packages/plan/test/design-proposal.test.ts:
+(pass) contained planner receives exact design authority without a synthetic approval or remote account [19.99ms]
+
+packages/plan/test/plan.test.ts:
+(pass) canonical production plans > YAML and literal TypeScript resolve to byte-identical canonical plans [4.94ms]
+(pass) canonical production plans > canonical planner output loads directly without weakening digest or schema validation [9.29ms]
+(pass) canonical production plans > the planning starter declares a bounded planner and no pretend acceptance [1.27ms]
+(pass) canonical production plans > executable TS, imports, callbacks, aliases and prototype keys are never evaluated [1.58ms]
+(pass) canonical production plans > strict YAML rejects duplicate keys, tags and unknown policy [1.90ms]
+(pass) canonical production plans > host code, local clone paths, floating images and missing proof are refused [1.78ms]
+(pass) canonical production plans > authority pins original intent acceptance plan and ceilings [1.37ms]
+(pass) canonical production plans > verifier output policy is canonical, budget-owned and disjoint from protected input [1.40ms]
+(pass) canonical production plans > environment inventory links exact source, leaves tools unknown and detects stale work [263.15ms]
+
+packages/plan/test/local-identity-records.test.ts:
+(pass) every hosted record in this corpus is real writer output that satisfies its original schema [45.13ms]
+(pass) execution-authority-v2 admits the execution authority named local://<root>, by file and by declared version [3.40ms]
+(pass) execution-authority-v2 refuses a hosted url, and execution-authority-v1 still refuses local:// [0.24ms]
+(pass) environment-map-v2 admits the environment map named local://<root>, by file and by declared version [8.67ms]
+(pass) environment-map-v2 refuses a hosted url, and environment-map-v1 still refuses local:// [0.11ms]
+(pass) runtime-v2 admits the runtime provenance named local://<root>, by file and by declared version [6.94ms]
+(pass) runtime-v2 refuses a hosted url, and runtime-v1 still refuses local:// [0.08ms]
+(pass) playbook-snapshot-v2 admits the playbook snapshot named local://<root>, by file and by declared version [4.25ms]
+(pass) playbook-snapshot-v2 refuses a hosted url, and playbook-snapshot-v1 still refuses local:// [0.05ms]
+(pass) planning-request-v4 admits the planning request named local://<root>, by file and by declared version [16.36ms]
+(pass) planning-request-v4 refuses a hosted url, and planning-request-v3 still refuses local:// [0.09ms]
+
+packages/plan/test/local-identity-family.test.ts:
+(pass) a hosted plan keeps every original record; a local-only plan's writers emit the siblings [219.73ms]
+(pass) the family guard refuses a record of the other source kind even when every other identity matches [158.05ms]
+(pass) approval and planning mint for a local-only source, naming its local identity [0.88ms]
+
+packages/plan/test/design-plan.test.ts:
+(pass) legacy plans retain their v1 shape and acceptance-only digest [0.77ms]
+(pass) design v2 round-trips through YAML and literal TypeScript and protects its input [2.82ms]
+(pass) new design, execution and planning record schemas accept measured shapes while old v1 stays closed [59.58ms]
+(pass) changing reference identity, requirements, dimensions or snapshot revokes existing authority [2.20ms]
+(pass) design policy refuses unsupported bytes, missing human display, unknown references and unsafe output paths [0.95ms]
+(pass) planning v2 preserves design but never retains synthetic acceptance or grants execution [3.61ms]
+(pass) exact Git design snapshot is verified before environment is ready without copying image bytes into context [564.88ms]
+
+packages/runtime/test/inspection.test.ts:
+(pass) T20 inspection separates an installed client and running service from containment and provider work [0.61ms]
+(pass) T20 unavailable containment gives a concrete provisioning route and never chooses a host worker [0.06ms]
+(pass) T20 inspection refuses credential-shaped image references and unknown selection fields before commands [0.09ms]
+
+packages/runtime/test/runtime-smoke.test.ts:
+(pass) live smoke requires explicit digest, deny, zero credentials, and a unicast control [0.28ms]
+(pass) deterministic image ACP fixture refuses every model prompt [0.05ms]
+(pass) Apple cleanup never treats an unfamiliar listing schema as absence [0.08ms]
+(pass) real Bun subprocess negotiates fixture without a coding prompt [120.72ms]
+(pass) real fixture protocol cancellation is bounded [507.89ms]
+
+packages/runtime/test/local-source-policy.test.ts:
+(pass) a local-only source without its bundle is refused by sentence and never fetched [0.28ms]
+(pass) a transported bundle no longer excuses a source identity outside HTTPS, SSH or local:// [0.20ms]
+(pass) source preparation has no second door for a local checkout [0.14ms]
+
+packages/runtime/test/design-mcp.test.ts:
+(pass) real Node design MCP serves pinned context and actual PNG bytes with only three read tools [62.17ms]
+(pass) real Node design MCP refuses write methods, unknown assets and extra path arguments [36.66ms]
+(pass) real Node design MCP rejects a changed snapshot hash and bounds all input requests [71.11ms]
+(pass) real Node design MCP serves exact v2 REST context and PNG without upstream credentials or write tools [103.32ms]
+(pass) design preparation validates source then installs only controller-owned no-secret stdio service [0.56ms]
+(pass) design preparation refuses invalid path, source digest, missing refs, privacy and failed installation [0.81ms]
+(pass) ACP forwards only configured design service and accepts a valid image update larger than legacy ceiling [877.23ms]
+
+packages/runtime/test/os-snapshot.test.ts:
+(pass) T20 OS metadata is digest bound and apt sources preserve signature checking [3.23ms]
+
+packages/runtime/test/assertion-adapter.test.ts:
+(pass) contained assertion adapter keeps empty, skipped, launch and truncated reports unavailable [1472.70ms]
+
+packages/runtime/test/runtime-smoke-local.test.ts:
+(pass) local smoke arguments are strict and do not offer credential, command or foreign-service switches [0.22ms]
+(pass) only a real assigned macOS unicast IPv4 and a digest-pinned image form the fixed zero-credential policy [0.36ms]
+(pass) existing file, directory or symlink output is refused before opening any listener [1.05ms]
+(pass) chosen ephemeral endpoint and fixed profile reach the measurement and listener closes on return [0.72ms]
+(pass) failure, malformed listener identity and interruption close the helper-owned listener without claiming a pass [0.48ms]
+
+packages/runtime/test/oci-resolution.test.ts:
+(pass) T20 provisioning resolves an actual index and one host-platform manifest without retrieving a user credential [1.64ms]
+(pass) T20 resolution refuses swapped bytes, a missing architecture, and unsafe registry authentication challenges [0.29ms]
+(pass) T20 runtime recipes retain an installable transitive lock and consume it frozen [0.78ms]
+
+packages/runtime/test/model-launch.test.ts:
+(pass) T20 runtime launch requires an explicit provider and model without mutating ambient settings [0.63ms]
+
+packages/runtime/test/runtime.test.ts:
+(pass) T20 a role using the pinned model launcher refuses an adapter that cannot attest its model before prompting [3.06ms]
+(pass) declared visual outputs are captured after success before cleanup with no verifier credentials [2.37ms]
+(pass) unsafe visual declarations refuse before allocation [1.06ms]
+(pass) failed show never exports pixels; missing, non-PNG and mismatched images close the verifier and refuse [0.96ms]
+(pass) runtime strict policy refuses host fallback, mutable images and unknown fields [0.27ms]
+(pass) Apple roles clone INSIDE unique sandboxes; judge is read-only; no host mounts [0.98ms]
+(pass) Apple command stdin requires interactive exec without allocating a TTY [0.17ms]
+(pass) Apple failed allocation cleanup reconciles only a successful recognizable absence [0.95ms]
+(pass) role effect escalation and undeclared environment refuse before allocation [0.41ms]
+(pass) Apple selected role keys cross only on validated agent connection, never allocation, setup or cleanup [0.99ms]
+(pass) gVisor manifest has independent empty storage, no service account or host namespaces [0.22ms]
+(pass) runtimeClass name alone is not gVisor; refuse wrong handler before pod creation [0.18ms]
+(pass) Kubernetes full lifecycle verifies admitted isolation and cleans up both exact resources [1.31ms]
+(pass) fresh verifier runs all checks after an ordinary failure and protects original files [0.38ms]
+(pass) verifier output directories are explicit and cannot cover acceptance or policy [0.24ms]
+(pass) dependency directories are prepared before protected parents lock; only declared untracked outputs are excluded [1.01ms]
+(pass) tracked or symlink output directories refuse before setup and still destroy the runtime [0.29ms]
+(pass) real Git ignored-directory output remains an explicitly declared verifier output [710.57ms]
+(pass) real bare Git broker exports exact source, captures agent patch and reconciles stable effect [5952.12ms]
+(pass) worker filesystem authority is mandatory before allocation; source capture is supervisor-owned [109.92ms]
+(pass) real Git worker capture handles replacements and excludes outputs without hiding source or protected changes [1182.78ms]
+(pass) contained preflight opens only the selected role session, never sends task work or captures a patch [1.30ms]
+(pass) admitted Kubernetes mutations and overlapping allow policies refuse before agent connection [2.53ms]
+(pass) Apple inspect rejects wrong identity, image, resource limits and host forwarding [1.08ms]
+(pass) Apple local image aliases cannot bypass preallocation descriptor validation [0.50ms]
+(pass) Apple rejects content changed after inventory before any guest command or credential delivery [0.30ms]
+(pass) Apple 1.3.1 captured status shape and canonical reference retain descriptor authority [0.14ms]
+(pass) real ACP subprocess cancellation terminates its descendant process group [734.00ms]
+
+packages/runtime/test/local-source-bundle.test.ts:
+(pass) one product function bundles a commit's history once and names it by its single root [2123.02ms]
+(pass) a history with two roots has no local identity and no bundle is written [2313.69ms]
+
+packages/runtime/test/filesystem.test.ts:
+(pass) credential forwarding rejects executable environment and redacts decoded JSON strings [0.20ms]
+(pass) scope paths are exact, protected, symlink-guarded and never inferred [0.15ms]
+(pass) effective policy accepts independent default deny, rejects selecting allow including expressions [0.12ms]
+(skip) real Linux DAC denies out-of-scope, protected rename and verifier tracked writes
+
+packages/scheduler/test/scheduler.test.ts:
+(pass) graph validation and durable execution > strict graph grammar rejects cycles, shell keys and missing dataflow [1.11ms]
+(pass) graph validation and durable execution > a real worker runs only after the human park; resume ignores forged state snapshots [562.78ms]
+(pass) graph validation and durable execution > routing a forged success directly to delivery cannot invent evidence [80.41ms]
+(pass) graph validation and durable execution > duplicate graph YAML and duplicate human approval keys refuse before any worker [89.12ms]
+(pass) bounded isolated fleets > task dependency cycles and duplicates are rejected before work [0.33ms]
+(pass) bounded isolated fleets > fleet settings reject unsupported fields even when their value is false or empty [0.18ms]
+(pass) bounded isolated fleets > real workers run in retained worktrees, respecting dependency completion [1205.16ms]
+(pass) bounded isolated fleets > a deterministic no-progress worker is parked without consuming retry budget [524.17ms]
+(pass) bounded isolated fleets > concurrency is bounded while independent tasks genuinely overlap [1598.02ms]
+(pass) bounded isolated fleets > a silent real child is reaped at its progress deadline [1875.46ms]
+
+packages/scheduler/test/health.test.ts:
+(pass) one genuine failure is alive; its removal from the newest 25 genuinely decays to zombie [56.70ms]
+(pass) thin history and a declared but unrun check remain untested, without rendering raw command secrets [20.20ms]
+(pass) sensitivity belongs only to its sibling result command and cannot keep an edited check alive [33.47ms]
+(pass) timeouts, missing commands and flaky failures or sensitivity never demonstrate discrimination [26.70ms]
+(pass) bench, worktree and committed examples are itemized but neither rescue nor displace real history [86.36ms]
+(pass) coverage balances malformed, unknown and duplicated manifests, including extra roots outside Git [40.95ms]
+(pass) current config requiredness decides strict, never the historic optional flag [36.91ms]
+(pass) without a config, a removed pair retires when it leaves the newest 25 bundles overall [31.01ms]
+(pass) legacy loop and bench versions count as coverage without chasing their run pointers [23.41ms]
+(pass) UTC chronology, not names or offset strings, selects the window; duration excludes contention [39.74ms]
+(pass) same inputs produce identical bytes with mutated environment and no writes [21.70ms]
+(pass) duplicate YAML, unsafe evidence links and unreadable gate results are explicit, not green [27.82ms]
+(pass) real verify processes yield alive then 25 green receipts yield zombie, all digests valid [2631.03ms]
+
+packages/figma-connect/test/connection.test.ts:
+(pass) bounded Figma OAuth broker > state, PKCE, server Basic auth, one-time delivery and safe browser callback [3.91ms]
+(pass) bounded Figma OAuth broker > forged state, duplicate state, missing state and missing code never spend an exchange [0.46ms]
+(pass) bounded Figma OAuth broker > a stolen handle cannot take credentials without the local verifier [0.21ms]
+(pass) bounded Figma OAuth broker > expiry and broker restart fail closed [0.20ms]
+(pass) bounded Figma OAuth broker > bounded transaction capacity is released by expiry [0.10ms]
+(pass) bounded Figma OAuth broker > only fixed provider endpoints; cross-site requests, endpoint injection and redirected responses refused [0.45ms]
+(pass) bounded Figma OAuth broker > bounded body and secret-bearing provider failures produce only fixed error messages [0.34ms]
+(pass) bounded Figma OAuth broker > provider must supply complete bearer credentials, not a shape-only success [0.17ms]
+(pass) bounded Figma OAuth broker > simultaneous callbacks exchange a grant once [0.12ms]
+(pass) bounded Figma OAuth broker > configuration requires public HTTPS, exact registered callback and server credentials [0.10ms]
+(pass) bounded Figma OAuth broker > public refresh route has a coarse request budget without echoing supplied tokens [0.12ms]
+(pass) operator-side connection lifecycle > unconfigured is honest and does not read credentials or call the network [0.05ms]
+(pass) operator-side connection lifecycle > refresh preserves refresh token, rotates access, and concurrent callers share renewal [0.28ms]
+(pass) operator-side connection lifecycle > refresh refusal removes credentials and asks to reconnect [0.53ms]
+(pass) operator-side connection lifecycle > transient renewal failures retain the connection [0.21ms]
+(pass) operator-side connection lifecycle > refresh transport errors and malformed provider replies preserve credentials without silent retries [4.07ms]
+(pass) operator-side connection lifecycle > read refusal is explicit; no unparseable credential text is exposed [0.12ms]
+(pass) operator-side connection lifecycle > broker identity binds a saved credential; changing brokers does not export it [0.33ms]
+(pass) operator-side connection lifecycle > a broker cannot hand the operator a hostile or over-scoped authorization URL [0.74ms]
+(pass) operator-side connection lifecycle > simultaneous finish clicks cannot consume and then erase a successful connection [0.21ms]
+(pass) operator-side connection lifecycle > disconnect during a delayed renewal cannot resurrect credentials or start an import [0.27ms]
+(pass) deployable broker entry point > loopback reverse proxy reconstructs only the administrator-configured origin [0.55ms]
+(pass) deployable broker entry point > help works without configuration and missing server settings refuse without secrets [26.24ms]
+(pass) private operator credential storage > private files are user-only, atomic, outside repositories and removed on disconnect [4.18ms]
+(pass) private operator credential storage > symlinks, traversal and permissive credential files are refused [1.89ms]
+(pass) private operator credential storage > a FIFO cannot block credential inspection [3.49ms]
+(pass) private operator credential storage > macOS Keychain writes secrets only on stdin, with a safe command alphabet [0.44ms]
+(pass) private operator credential storage > keychain failures cannot echo credential-bearing tool output [0.10ms]
+
+packages/mcp/test/verification-contract.test.ts:
+(pass) T19 verification tools publish strict response and page schemas for the selected operating mode [1.69ms]
+
+packages/mcp/test/delegation-contract.test.ts:
+(pass) T07 typed tools advertise strict mutable fields and output schemas without approval or publication [1.54ms]
+
+packages/mcp/test/stdio-progress.test.ts:
+(pass) T12 real STDIO handles status and durable cancellation during a long poll [127.26ms]
+(pass) T12 transport cancellation releases only its wait, never the durable job [102.33ms]
+(pass) T12 long-poll overload is bounded and leaves capacity for status [102.26ms]
+
+packages/mcp/test/stdio.test.ts:
+(pass) bounded MCP stdio transport > T12 slow output uses one writer and bounds outstanding dispatch [4.40ms]
+(pass) bounded MCP stdio transport > handles split UTF-8, one-byte chunks and multiple messages per chunk [0.60ms]
+(pass) bounded MCP stdio transport > accepts CRLF but rejects embedded raw carriage returns [0.19ms]
+(pass) bounded MCP stdio transport > invalid UTF-8 fails closed rather than replacing source words [0.18ms]
+(pass) bounded MCP stdio transport > unterminated final frame never becomes a dispatch on EOF [0.09ms]
+(pass) bounded MCP stdio transport > oversized frames are rejected before decoding, even with multibyte characters [0.40ms]
+(pass) bounded MCP stdio transport > a real Bun subprocess writes only protocol responses and exits after chat input closes [85.25ms]
+
+packages/mcp/test/json.test.ts:
+(pass) bounded unambiguous MCP JSON > preserves Unicode and complete JSON values without evaluating strings [0.13ms]
+(pass) bounded unambiguous MCP JSON > rejects duplicate decoded keys at every depth, not just the selected tool name [0.09ms]
+(pass) bounded unambiguous MCP JSON > rejects malformed, non-finite, trailing and dangerously deep input [0.10ms]
+(pass) bounded unambiguous MCP JSON > size is measured as UTF-8 bytes, not JavaScript characters [0.23ms]
+(pass) bounded unambiguous MCP JSON > deterministic generated JSON agrees with the platform reader [1.28ms]
+
+packages/mcp/test/contract.test.ts:
+(pass) narrow assistant tool contract > exactly fifteen tools including bounded design requests; no human pen, publication, credentials, scope or arbitrary execution route [0.27ms]
+(pass) narrow assistant tool contract > every listed schema accepts its intended inert request without changing the person's words [1.37ms]
+(pass) narrow assistant tool contract > unknown arguments and null/array arguments fail closed for every tool [0.23ms]
+(pass) narrow assistant tool contract > handles cannot become files, URLs, flags or executable snippets [0.09ms]
+(pass) narrow assistant tool contract > every mutation requires idempotency and exact revision/candidate guards [0.14ms]
+(pass) narrow assistant tool contract > uncertain effect replay is not an ordinary assistant recovery action [0.05ms]
+(pass) narrow assistant tool contract > bounded evidence pages and proposal notes cannot request an unlimited dump [0.34ms]
+(pass) narrow assistant tool contract > any explicit cash-limit request is a named refusal, including zero, null and false [0.08ms]
+
+packages/mcp/test/server.test.ts:
+(pass) MCP lifecycle and narrow dispatch > negotiates both declared versions and offers latest for an unknown client's version [0.25ms]
+(pass) MCP lifecycle and narrow dispatch > requires initialization notification before tools; ping is allowed during initialization [0.18ms]
+(pass) MCP lifecycle and narrow dispatch > design tools are advertised only to a workspace whose specification declares design [0.45ms]
+(pass) MCP lifecycle and narrow dispatch > a design call on a plain workspace refuses by sentence and never reaches the application [0.30ms]
+(pass) MCP lifecycle and narrow dispatch > tool shape errors differ from malformed protocol, unknown tools and honest stopped work [0.30ms]
+(pass) MCP lifecycle and narrow dispatch > forbidden tools and smuggled authority never reach the application [0.26ms]
+(pass) MCP lifecycle and narrow dispatch > cash-cap requests are explicitly refused before the service callback [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > duplicate JSON-RPC request id does not repeat even a read or dispatch [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > notifications cannot dispatch work, cancel accepted jobs or answer themselves [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > batches, duplicate keys, responses and protocol extensions do not trigger a callback [0.14ms]
+(pass) MCP lifecycle and narrow dispatch > known-secret redaction and credential-field removal apply before serialized structured content [0.13ms]
+(pass) MCP lifecycle and narrow dispatch > raw service exceptions are not exposed and never imply no side effect occurred [0.10ms]
+(pass) MCP lifecycle and narrow dispatch > an accidental operator link or authority token cannot cross through a tool result [0.09ms]
+(pass) MCP lifecycle and narrow dispatch > exotic, cyclic and oversized application responses fail closed without serializing secrets [0.74ms]
+(pass) MCP lifecycle and narrow dispatch > limits concurrent callback work while still answering ping [0.28ms]
+
+packages/cli/test/operator-browser-session.test.ts:
+(pass) bounded owner-specific operator browser sessions > fragment exchange yields a different HttpOnly strict cookie, never the private bearer [0.60ms]
+(pass) bounded owner-specific operator browser sessions > cookies need a same-origin custom request; foreign origins, forms and preflights gain no access [0.21ms]
+(pass) bounded owner-specific operator browser sessions > an assistant/incorrect bearer cannot exchange, use, or fall back to an operator cookie [0.10ms]
+(pass) bounded owner-specific operator browser sessions > sessions expire without polling renewal and cannot extend their own lifetime [0.11ms]
+(pass) bounded owner-specific operator browser sessions > session count is bounded, existing bearer exchange does not extend it, and lock revokes it [0.13ms]
+(pass) bounded owner-specific operator browser sessions > different owner instances never share a cookie and clearing sessions revokes access [0.14ms]
+
+packages/cli/test/design-assets.test.ts:
+(pass) asset request only accepts one exact scoped identity, never paths, URLs, duplicate selectors or capabilities [0.25ms]
+(pass) visual projection carries image identities and dimensions without encoded pixels or storage paths [1.05ms]
+(pass) image bytes require intact current receipt, exact declared asset and original pinned reference [2.14ms]
+
+packages/cli/test/reports-workspace-rehearsal.test.ts:
+(pass) original-input scenario preserves request, chat, components, checks and both exact PNGs without starting a runtime [43.43ms]
+(pass) scenario refuses shortened intent, mutable images, changed references and source links [16.33ms]
+(pass) scripted ACP protocol copies two predetermined versions and writes ignored output; this unit test executes no Reports app code [95.11ms]
+(pass) scenario CLI has no production-controller or destination override and requires explicit inputs [0.18ms]
+
+packages/cli/test/reporter.test.ts:
+(pass) installed Node reporter is an explicit inert source export [1.14ms]
+
+packages/cli/test/rehearsal-clone-audit.test.ts:
+(pass) fresh no-local clone binds exact evidence commit, source parent/tree and NUL-delimited evidence additions [578.96ms]
+(pass) an extra commit is rejected even when the original audited bundle remains unchanged [320.45ms]
+(pass) wrong source parent, projected source tree and projection identity cannot borrow valid evidence [362.08ms]
+(pass) a merge evidence commit is rejected even when its first parent and tree appear correct [364.77ms]
+(pass) refuse an evidence commit adding outside the exact delivery prefix: extra.txt [326.04ms]
+(pass) refuse an evidence commit adding outside the exact delivery prefix: .wringer/deliveries/contained-aaaaaaaaaaaaaaaaaaaaaaaa-lookalike/file.json [328.21ms]
+(pass) refuse an evidence commit adding outside the exact delivery prefix: .wringer/deliveries/contained-bbbbbbbbbbbbbbbbbbbbbbbb/file.json [328.48ms]
+(pass) evidence cannot modify reviewed source or rewrite an existing evidence file [644.19ms]
+(pass) refuse dirty or concealed checkout: tracked [369.61ms]
+(pass) refuse dirty or concealed checkout: staged [372.64ms]
+(pass) refuse dirty or concealed checkout: untracked [356.90ms]
+(pass) refuse dirty or concealed checkout: ignored [360.31ms]
+(pass) refuse dirty or concealed checkout: assume-unchanged [344.87ms]
+(pass) refuse dirty or concealed checkout: skip-worktree [364.96ms]
+(pass) reject revision expressions and delivery path traversal before Git inspection [267.22ms]
+(pass) repository filter settings and includes are rejected before worktree inspection can execute them [311.01ms]
+
+packages/cli/test/repository-check-budget.test.ts:
+(pass) the repository Action keeps the full test gate within its measured finite envelope [0.82ms]
+
+packages/cli/test/rehearsal-send.test.ts:
+(pass) Send admission outlives the UI action timeout and observes exactly one POST [924.82ms]
+(pass) Send admission observation stops at its finite bound without retrying [40189.53ms]
+
+packages/cli/test/assistant-cli.test.ts:
+(pass) operator assistant CLI without listeners or models > help separates narrow tools, real decisions, cooperative security and two usage lanes [1.62ms]
+(pass) operator assistant CLI without listeners or models > explicit cooperative mode and absolute paths are mandatory before initialization [0.84ms]
+(pass) operator assistant CLI without listeners or models > initialization is idempotent; read-only status and recovery never spawn an owner [25.08ms]
+(pass) operator assistant CLI without listeners or models > source and compiled child commands never depend on the caller's PATH [0.07ms]
+(pass) operator assistant CLI without listeners or models > source invocation ignores an untrusted working directory's Bun preload and dotenv [498.92ms]
+(pass) operator assistant CLI without listeners or models > Codex recipe quotes paths, exposes only the named tool list, and contains no global permission change [0.56ms]
+(pass) operator assistant CLI without listeners or models > client inspection preserves unrelated config and never prints its credentials [2.07ms]
+
+packages/cli/test/intake.test.ts:
+(pass) PM intent command produces an unapproved plan without worker execution or extra authority prompts [25.60ms]
+(pass) missing planner is an actionable pre-spend failure [2.64ms]
+
+packages/cli/test/assistant-job.test.ts:
+(pass) automatic coordination cannot start an unapproved job, and reading never answers for a person [48.40ms]
+(pass) T12 the operator can stop an unapproved delegated job without granting work [25.83ms]
+(pass) one transient observation error cannot poison a later complete snapshot or replay work [2.31ms]
+(pass) an observation error recorded while a read is in flight cannot change that read's phase [7.32ms]
+(pass) job decisions reject stale revisions, foreign handles and unexpected fields before any approval [48.58ms]
+(pass) shutdown during an awaited read cannot grant approval [20.46ms]
+(pass) shutdown during an awaited read cannot automatically enqueue a start [25.40ms]
+277 |     canonicalJson(value);
+278 |     const p = record(value, "execution plan", ["schema_version", "name", "intent", "intent_sha256", "repository", "runtime", "agents", "environment", "scope", "acceptance", "acceptance_sha256", "budget", "plan_sha256", "design", "loop", "playbook", "approachAdoption"]);
+279 |     const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = p;
+280 |     const plan = compileDeclaration({ version: planVersion(p), ...declaration }, options);
+281 |     if (canonicalJson(plan) !== canonicalJson(p))
+282 |         throw new Error("Canonical plan content or digest changed; approve a new plan explicitly");
+                        ^
+error: Canonical plan content or digest changed; approve a new plan explicitly
+      at validateExecutionPlan ([checkout]/packages/plan/src/compile.ts:282:19)
+      at projectLoopInspection ([checkout]/packages/application/src/loop-inspection.ts:16:18)
+      at read ([checkout]/packages/cli/src/assistant-job.ts:140:37)
+      at async <anonymous> ([checkout]/packages/cli/test/assistant-job.test.ts:117:28)
+(fail) automatic showing and preparation observe failed or uncertain attempts without retrying them [8.32ms]
+(pass) reopening a job preserves an uncertain send as a stop, not another handover invitation [5.39ms]
+(pass) a durable running Send remains observation-only after reopen and cannot be posted again [14.94ms]
+(pass) cancellation during the slow Send guard refuses before reserving a publication command [5.98ms]
+(pass) handover clone instructions quote the recorded branch and remote and name the reviewer folder [1.23ms]
+
+packages/cli/test/display-preface.test.ts:
+(pass) blind display explains its intentional failure scenarios before showing either report [10.49ms]
+
+packages/cli/test/retirement.test.ts:
+(pass) the root product is a Bun workspace, with no Python harness packaging [0.77ms]
+(pass) active build and release workflows cannot publish or invoke the Python harness [2.61ms]
+(pass) every retired tracked runtime file is recorded and recoverable by its baseline commit [1.28ms]
+(pass) retirement preserves the exact published schema bytes [23.95ms]
+
+packages/cli/test/improvements-browser-fixture.test.ts:
+(pass) the browser experiment fixture compiles and validates its darwin stratum without a browser or runtime [4.78ms]
+(pass) the browser experiment fixture compiles and validates its linux stratum without a browser or runtime [3.90ms]
+(pass) unsupported hosts are not silently relabelled as a Linux browser fixture [0.06ms]
+
+packages/cli/test/client-adapters.test.ts:
+(pass) custom client configuration roots refuse before previewing unused defaults [0.71ms]
+(pass) T19 named Codex edits preserve unrelated settings and comments without granting routine tool approval by default [0.33ms]
+(pass) T19 an old completed connection transaction cannot bypass advanced ownership [9.57ms]
+(pass) T19 canonical connect applies a scoped skill and named entry without an owner side effect [61.98ms]
+(pass) T19 scoped Claude JSON changes preserve other servers, reject duplicate keys, and never alter permissions [0.13ms]
+(pass) T19 connection preview, exact apply, update and owned removal preserve unrelated configuration and refuse stale changes [23.77ms]
+(pass) T19 client installation resumes a retained write, refuses edited ownership, and never follows config aliases [10.36ms]
+(pass) T19 explicit routine approval is scoped to the restricted Codex server [0.89ms]
+
+packages/cli/test/import-safe.test.ts:
+(pass) T02 importing command entrypoints does not run a command or write protocol output [1728.73ms]
+
+packages/cli/test/action.test.ts:
+(pass) Action exposes binary/source, prove and bounded selection without publication authority [0.22ms]
+(pass) the Action resolves only its own exact tag or explicit source mode, never the consumer release tag [0.18ms]
+::stop-commands::wringer-0f699237-172c-43c9-8cc6-ac49e4365b6d
+{"args":["verify","--repo","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R","--output","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R/evidence","--strict","--json","--prove","--gate","unit"]}
+::wringer-0f699237-172c-43c9-8cc6-ac49e4365b6d::
+Could not write action outputs; verification exit remains 0
+Could not write job summary; verification exit remains 0
+::stop-commands::wringer-981d5cf5-6971-48fe-add6-06adeec0b31e
+{"args":["verify","--repo","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R","--output","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R/evidence","--strict","--json","--prove","--gate","unit"]}
+::wringer-981d5cf5-6971-48fe-add6-06adeec0b31e::
+Could not write action outputs; verification exit remains 1
+Could not write job summary; verification exit remains 1
+::stop-commands::wringer-ad3fb601-3f08-4272-8137-58a3cb9549a1
+{"args":["verify","--repo","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R","--output","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R/evidence","--strict","--json","--prove","--gate","unit"]}
+::wringer-ad3fb601-3f08-4272-8137-58a3cb9549a1::
+Could not write action outputs; verification exit remains 2
+Could not write job summary; verification exit remains 2
+::stop-commands::wringer-1e64ef92-fc6c-430b-b297-8ed3c7e66cfd
+{"args":["verify","--repo","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R","--output","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R/evidence","--strict","--json","--prove","--gate","unit"]}
+::wringer-1e64ef92-fc6c-430b-b297-8ed3c7e66cfd::
+Could not write action outputs; verification exit remains 3
+Could not write job summary; verification exit remains 3
+::stop-commands::wringer-6e83b9a7-bd9e-498d-8c89-566736c281de
+{"args":["verify","--repo","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R","--output","/private/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-action-exit-lDHC9R/evidence","--strict","--json","--prove","--gate","unit"]}
+::wringer-6e83b9a7-bd9e-498d-8c89-566736c281de::
+Could not write action outputs; verification exit remains 4
+Could not write job summary; verification exit remains 4
+(pass) every verifier exit including 3 and interruption survives summary/output failures and fork credentials are unnecessary [77.46ms]
+::stop-commands::wringer-97083697-cf53-4189-896a-36d11320cc74
+{"status":"passed","failed_gate":null,"rerun":null,"evidence_dir":".wringer/runs/partial","template_only":false,"exit_code":0,"manifest":{"schema_version":"wringer.evidence.v1","run_id":"20260929-090004-a8f10e1e","started_at":"2026-09-29T09:00:04.825Z","repo":{"root":".","head_sha":"b74ea153a882756d81405612bcfcbb610a724d70","branch":"main","dirty":false},"result":{"status":"passed","failed_gate":null}},"selection":{"schema_version":"wringer.selection.v3","run_id":"20260929-090004-a8f10e1e","head_sha":"b74ea153a882756d81405612bcfcbb610a724d70","config_sha256":"22f6b7b2afc80e72542ccbf21c2030af8f463cf5d70ec741ea1ec133a6528458","declared":["unit","other"],"required":["unit","other"],"selected":["unit"],"executed":["unit"],"passed":["unit"],"failed":[],"missing_required":["other"],"complete":false,"phases":[],"strict":{"before":"76cff5c78dfd07ffed217675bd2a2bad4738aa25a20bbea565fbce3599270c3a","after":"76cff5c78dfd07ffed217675bd2a2bad4738aa25a20bbea565fbce3599270c3a","changed_tracked":[],"permitted_ignored":1,"exact_source":true,"reason":"Strict: no tracked file changed while the checks ran; 1 ignored path(s) are present, which is permitted build output. This result describes the commit under review."},"reason":"Incomplete: 1 required check was not run (other).","limits":["`complete` is about execution and never about outcome: a run in which every required check ran and one of them failed is complete and failed. Read it beside result.status, never instead of it.","Completeness is measured against the .wringer.yaml this bundle carries. A check the repository never declared cannot be missing from it, and a gate declared later does not make this bundle incomplete.","A deliberately narrow run stays exit 0. This record is the only place that says what the pass covered."]},"orchestration":{"schema_version":"wringer.orchestration.v1","outcome":"not-declared","setup":[],"services":[],"phases":[],"teardown":[],"reason":"This repository declares no setup, services, phases or teardown.","limits":["A setup or service failure before readiness is an environment outcome, not a product result: no gate was asked a question, and exit 2 says so.","Nothing under setup: or services: is retried. A retry could repeat a paid call or an external write, and that is the project's decision to make explicitly.","Cancellation and teardown signal only the process groups this run started, by the leader pid it holds. No other pgid is signalled.","A readiness answer establishes that the declared URL answered as declared. It does not establish that the service is correct, or that it will still answer later.","Teardown always runs, including after a failed gate and after a cancelled run. A teardown command that itself fails is recorded and does not rewrite the run's outcome."]},"results":[{"gate_id":"unit","command":"test 2 -eq 2","exit_code":0,"duration_ms":5,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"passed"}]}
+
+::wringer-97083697-cf53-4189-896a-36d11320cc74::
+::stop-commands::wringer-c9878781-f0da-4274-a48e-d963e91a6d3a
+{"status":"failed","failed_gate":"other","rerun":"wring verify --gate other","evidence_dir":".wringer/runs/all","template_only":false,"exit_code":1,"manifest":{"schema_version":"wringer.evidence.v1","run_id":"20260929-090005-668c0820","started_at":"2026-09-29T09:00:05.284Z","repo":{"root":".","head_sha":"b74ea153a882756d81405612bcfcbb610a724d70","branch":"main","dirty":false},"result":{"status":"failed","failed_gate":"other"}},"selection":{"schema_version":"wringer.selection.v3","run_id":"20260929-090005-668c0820","head_sha":"b74ea153a882756d81405612bcfcbb610a724d70","config_sha256":"22f6b7b2afc80e72542ccbf21c2030af8f463cf5d70ec741ea1ec133a6528458","declared":["unit","other"],"required":["unit","other"],"selected":null,"executed":["unit","other"],"passed":["unit"],"failed":["other"],"missing_required":[],"complete":true,"phases":[],"strict":{"before":"76cff5c78dfd07ffed217675bd2a2bad4738aa25a20bbea565fbce3599270c3a","after":"76cff5c78dfd07ffed217675bd2a2bad4738aa25a20bbea565fbce3599270c3a","changed_tracked":[],"permitted_ignored":1,"exact_source":true,"reason":"Strict: no tracked file changed while the checks ran; 1 ignored path(s) are present, which is permitted build output. This result describes the commit under review."},"reason":"Complete: all 2 required checks ran.","limits":["`complete` is about execution and never about outcome: a run in which every required check ran and one of them failed is complete and failed. Read it beside result.status, never instead of it.","Completeness is measured against the .wringer.yaml this bundle carries. A check the repository never declared cannot be missing from it, and a gate declared later does not make this bundle incomplete.","A deliberately narrow run stays exit 0. This record is the only place that says what the pass covered."]},"orchestration":{"schema_version":"wringer.orchestration.v1","outcome":"not-declared","setup":[],"services":[],"phases":[],"teardown":[],"reason":"This repository declares no setup, services, phases or teardown.","limits":["A setup or service failure before readiness is an environment outcome, not a product result: no gate was asked a question, and exit 2 says so.","Nothing under setup: or services: is retried. A retry could repeat a paid call or an external write, and that is the project's decision to make explicitly.","Cancellation and teardown signal only the process groups this run started, by the leader pid it holds. No other pgid is signalled.","A readiness answer establishes that the declared URL answered as declared. It does not establish that the service is correct, or that it will still answer later.","Teardown always runs, including after a failed gate and after a cancelled run. A teardown command that itself fails is recorded and does not rewrite the run's outcome."]},"results":[{"gate_id":"unit","command":"test 2 -eq 2","exit_code":0,"duration_ms":4,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"passed"},{"gate_id":"other","command":"exit 1","exit_code":1,"duration_ms":4,"timed_out":false,"stdout_truncated":false,"stderr_truncated":false,"optional":false,"status":"failed"}],"vacuity":{"schema_version":"wringer.vacuity.v1","verdict":"not_applicable","reason":"No changed tree was available to compare.","worktree_ms":0,"prove_ms":0,"setup":null,"gates":[]}}
+
+::wringer-c9878781-f0da-4274-a48e-d963e91a6d3a::
+(pass) actual partial verification and missing proof remain distinguishable in the Action evidence [990.22ms]
+
+packages/cli/test/preflight-local-source.test.ts:
+(pass) a local-only plan is session-probed from the pair beside its profile, never fetched by name [1994.92ms]
+(pass) the probe refuses by sentence when the prepared pair is absent or no longer matches the profile [2437.29ms]
+
+packages/cli/test/workspace.test.ts:
+(pass) private PM workspace HTTP boundary > an owning assistant job can close an already-open board's mutation authority while retaining read-only evidence [194.01ms]
+(pass) private PM workspace HTTP boundary > the public bootstrap is generic, credential-free and protected by restrictive browser headers [85.80ms]
+(pass) private PM workspace HTTP boundary > only the exact current bearer unlocks private state, never a query parameter or cookie [121.07ms]
+(pass) private PM workspace HTTP boundary > host rebinding and foreign browser origins are denied even with a valid bearer [108.84ms]
+(pass) private PM workspace HTTP boundary > POST requires bearer, exact Origin and explicit JSON before accepting any command [92.04ms]
+(pass) private PM workspace HTTP boundary > read-only API and saved projection agree with the journal, not a substituted summary [245.87ms]
+(pass) private PM workspace HTTP boundary > controller resume accepts reordered JSON but refuses a changed approval without overwriting it [99.35ms]
+
+packages/cli/test/release-channels.test.ts:
+(pass) actual npm tarball agrees with its channel inventory and packages no controller secrets or install hooks [766.11ms]
+(pass) production namespace is never inferred from a missing registry name [20.65ms]
+(pass) npm publication validates actual tarball contents before any registry call [2.36ms]
+(pass) npm publication accepts actual pack bytes, retries exact existing versions read-only, and refuses changed versions [436.32ms]
+
+packages/cli/test/figma-console.test.ts:
+(pass) Figma launcher validates route and uses fixed argv without an embedded WebView or shell [0.62ms]
+(pass) Figma HTTP actions require operator session, not assistant authority; no token or sign-in URL response [101.95ms]
+(pass) real browser connects, recovers from refusal and failed display, retains exact references and attaches real Git source [4498.11ms]
+
+packages/cli/test/workspace-recovery.test.ts:
+(pass) an actually killed page owner can be explicitly recovered and restarted without new work [464.50ms]
+
+packages/cli/test/draft-release.test.ts:
+(pass) release claims refuse npm observations from another archive [5.39ms]
+(pass) draft staging binds sidecar identity and claims to both exact native archives [11.13ms]
+
+packages/cli/test/headless.test.ts:
+(pass) headless entrypoint is the drive control plane, not a direct coding agent [193.65ms]
+
+packages/cli/test/planning-recovery.test.ts:
+(pass) spent planning stops print a fresh-grant path, not an impossible retry loop [19.09ms]
+(pass) planning questions and status read frozen results without new keys, source preparation or paid work [28.87ms]
+(pass) a new planning grant requires confirmation and a new state, retaining old request and reservations [29.84ms]
+(pass) confirmed planning grants refuse nested old-state paths and symlink parents before any effect [37.95ms]
+(pass) cached proposals after expiry offer a working read-only next step without more planning spend [25.15ms]
+(pass) cached proposal never suggests overwriting an existing execution authority [19.09ms]
+
+packages/cli/test/assistant-job-correction.test.ts:
+(pass) one correction request retains the source-bound No and exact words; failed correction is never silently replayed [1122.01ms]
+(pass) owner-stop reaches an already running correction without another dispatch [749.11ms]
+(pass) assistant-cancel reaches an already running correction without another dispatch [842.06ms]
+(pass) a status read that sees the run advance reports it, never refuses and offers no action [514.04ms]
+(pass) a cancel is recorded and applied whatever revision its observation saw; every other act still refuses that revision [443.79ms]
+(pass) owner shutdown during a pending observation does not turn a reviewable job into a failure [752.64ms]
+(pass) the PM page reports a run that advanced while it was read, never refuses and offers no decision [675.92ms]
+
+packages/cli/test/delegation-owner.test.ts:
+(pass) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [91.75ms]
+(pass) T08 T16 more than 128 retained contexts remain observable without acquiring runners or writing on reads [2277.88ms]
+(pass) T16 a partial owned connection write is cleaned up without deleting a pre-existing file [9.65ms]
+
+packages/cli/test/runtime-image-channel.test.ts:
+(pass) native image plans use pinned isolated context inputs and never qualify emulation or host workers [22.43ms]
+(pass) image publication references bind version, source, architecture and immutable image identity [0.21ms]
+(pass) all native image inputs must pass before any registry or Docker effect [1.14ms]
+(pass) exact already-published image retry is read-only and different content refuses [2.44ms]
+
+packages/cli/test/distribution-docs.test.ts:
+(pass) packaged documentation closure > code, tests and active configuration are inert references with rewritten links, never auto-discovered tests [20.47ms]
+(pass) packaged documentation closure > incremental rebuild removes only unchanged old manifest-owned executable references [11.69ms]
+(pass) packaged documentation closure > copies transitive pages, encoded links and HTML media, preserves cycles, and generates nonduplicated legacy redirects [5.20ms]
+(pass) packaged documentation closure > private local captures become named omissions without reading or copying them [2.26ms]
+(pass) packaged documentation closure > ordinary missing public files fail instead of becoming silent omissions [1.22ms]
+(pass) packaged documentation closure > encoded traversal, unsafe URL schemes, invalid encodings and public symlinks refuse [5.12ms]
+(pass) packaged documentation closure > output symlinks are refused, fenced examples are not links, and missing/tampered packaged targets fail validation [2.65ms]
+(pass) packaged documentation closure > the actual assistant entry and native guides carry a complete public closure, original banner and explicit historical omissions [214.84ms]
+
+packages/cli/test/assistant-setup.test.ts:
+(pass) assistant setup inspects names and declarations, never invents live readiness > the default creates no controller and names the missing protected boundary/profile [1.73ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > compile-only placeholders cannot become a ready-to-run setup verdict [1.88ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > setup rejects a shared controller using the same metadata policy as init without repairing it [6.80ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > setup reports file and symlink controller paths without modifying their targets [1.11ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > environment names and existing Keychain entry metadata remain unvalidated, with no value reads [1.23ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > check-keychain with no readable profile says what it needs [1.61ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > runtime Secret references are not mistaken for missing host Keychain credentials [1.51ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > retained setup is read-only and warns on mismatched profiles without disclosing parser inputs [7.89ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > upgrade and uninstall are truthful instructions-only and preserve all controller bytes [4.86ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > instructions-only maintenance never creates an absent controller [0.72ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > CLI setup never silently chooses cooperative mode and rejects invalid options [0.80ms]
+(pass) assistant setup inspects names and declarations, never invents live readiness > Codex matching command cannot conceal symlinks, injected environment or disabled tools [1.29ms]
+(pass) explicit profile preparation pins actual Git without running repository code > prepares once, preserves selected policy and is idempotent without authority or key access [250.41ms]
+(pass) explicit profile preparation pins actual Git without running repository code > dirty sources, placeholders, missing check inputs and in-repository output refuse [244.60ms]
+(pass) explicit profile preparation pins actual Git without running repository code > existing different outputs and symlink output paths are never overwritten [144.11ms]
+(pass) explicit profile preparation pins actual Git without running repository code > configured repository fsmonitor hook is never executed by source inspection [159.80ms]
+(pass) explicit profile preparation pins actual Git without running repository code > committed and newly staged submodule sources refuse without recursive status [257.81ms]
+(pass) explicit profile preparation pins actual Git without running repository code > repository clean/process filters, including included config, refuse before status can execute them [244.05ms]
+(pass) a local-only source is prepared through the one bundle door the rehearsals use > prepare --local names the history's root, writes the pair beside the profile once, and setup and init verify it [3576.37ms]
+(pass) a local-only source is prepared through the one bundle door the rehearsals use > --local refuses beside --source-url, from a v1 profile and on a two-root history; the placeholder names both doors [840.05ms]
+(pass) a local-only source is prepared through the one bundle door the rehearsals use > after the source moves on, repeating prepare into the same output replaces nothing, and the pinned pair still initialises [2777.71ms]
+(pass) a local-only source is prepared through the one bundle door the rehearsals use > init and setup name both doors when the pair is not beside the profile, and no controller is created [796.23ms]
+
+packages/cli/test/test-discovery.test.ts:
+(pass) explicit package test roots do not discover similarly named distribution copies [37.86ms]
+(pass) repository, action and validation commands declare test paths instead of substring filters [0.59ms]
+(pass) every CI job installs the pinned browser before its checks, and the jobs together run each validation group once [0.50ms]
+
+packages/cli/test/runtime-cli.test.ts:
+(pass) T20 the installed runtime command exposes inspection, exact review and independent readiness [1.19ms]
+
+packages/cli/test/verification-owner.test.ts:
+(pass) T16 failed owner construction releases its lock and listeners while preserving a pre-existing connection file [6.76ms]
+(pass) T04 operator approval, exact displays and empty-note acceptance complete within the original check grant [5902.01ms]
+(pass) T19 a no-model connection probe discovers the actual scoped contract without granting or starting work [933.62ms]
+(pass) T23 verification evidence hashes the actual returned bytes and cannot splice different check observations [4348.43ms]
+(pass) T10 verification review prepares a handover; only separate exact Send pushes an auditable branch once [8938.84ms]
+(pass) T08 a lost run reply is idempotent after completion and stale cancellation cannot change state [4806.63ms]
+(pass) T12 the visible Stop control stops an unapproved verification job without consuming a repetition [913.29ms]
+(pass) verification inventory is paginated, workspace-scoped and does not approve or execute retained jobs [581.01ms]
+(pass) T09 correction preserves the request once and a changed candidate requires a fresh verdict [6048.43ms]
+(pass) T16 failed handover preparation is visible and retries preparation without renewing checks or sending [7431.03ms]
+(pass) a held MCP observation cannot borrow completion after its preparation snapshot [5696.49ms]
+(pass) a held PM observation cannot borrow completion after its preparation snapshot [5815.82ms]
+(pass) T17 lost Send response reconciles exact remote evidence without sending again; a code-only remote stays uncertain [10160.40ms]
+
+packages/cli/test/recovery.test.ts:
+(pass) missing resume target, surplus operands and incompatible verification flags refuse before running [75.47ms]
+(pass) repeated history roots are preserved and numeric ceilings cannot be fractional or blank [0.12ms]
+(pass) printed shell arguments remain literal even with quotes, substitutions and newlines [3.83ms]
+(pass) setup documentation resolves outside the customer's working directory and retired agent settings cannot mutate policy [164.20ms]
+(pass) installing an approved gate preserves every existing execution and evidence policy [76.83ms]
+(pass) successful checks reach the human HOLD instead of becoming a permanently failed build [704.68ms]
+(pass) missing requirement assessment cannot masquerade as a ready service result [194.88ms]
+(pass) legacy graph history is readable but public resume cannot restart its host execution [87.58ms]
+(pass) legacy fleet records remain intact when its public execution route is refused [351.89ms]
+(pass) dispatch cancellation reaps a real gate and leaves an interrupted receipt [533.34ms]
+(pass) SIGINT on the real CLI stops its trusted-local check process group and records exit 4 [629.44ms]
+(pass) failed-display recovery prints both show-again and explicitly labelled independent-inspection routes [423.20ms]
+(pass) the pen refuses malformed prior judgements without overwriting them [572.71ms]
+(pass) bench preparation preserves selected spend bounds, execution requires clean declarations, and receipts validate [1596.27ms]
+
+packages/cli/test/source-review-cli.test.ts:
+(pass) source review is an explicit bounded operator route with no broad approval flags [0.24ms]
+
+packages/cli/test/public-boundary.test.ts:
+(pass) all retired public agent launchers refuse without running the declared host worker [0.43ms]
+(pass) the current front door names contained authority and not retired HTTP or host worker recipes [0.09ms]
+
+packages/cli/test/new-grant.test.ts:
+(pass) new-grant --state previews exhausted validated history without changing any byte or launching work [32.11ms]
+(pass) confirmation creates only a fresh original plan and bounded authority, never old candidate or history [33.16ms]
+(pass) expired authority remains readable for preview and does not invalidate historical observations [1827.79ms]
+(pass) live human/ready states preview without allocation; expired ones can explicitly start from original baseline [2524.66ms]
+(pass) born-green and unanswered intent require a revised contract, not an unchanged new approval [51.19ms]
+(pass) a retry-not-applicable stop cannot mask immutable contract defects when requesting a new grant [82.49ms]
+(pass) existing files and directories are never overwritten, even if empty or matching [36.83ms]
+(pass) confirmation rejects old-state nesting, aliases, and symlink targets before writes [59.73ms]
+(pass) tampered outer authority, unknown flags, and incomplete confirmation refuse before creating a state [44.44ms]
+(pass) an active controller has a read-only explanatory preview but cannot allocate a fresh grant [38.42ms]
+
+packages/cli/test/confirmation-distribution.test.ts:
+(pass) optional confirmation build and probe leave the sealed distribution untouched [4115.80ms]
+
+packages/cli/test/contained-adversarial.test.ts:
+(pass) adversarial contained lifecycle > withdrawing a human verdict after readiness cannot preserve a green delivery story [195.22ms]
+(pass) adversarial contained lifecycle > a crash after the human journal event cannot resurrect an old met summary or cache [139.55ms]
+(pass) adversarial contained lifecycle > crash after journaled green verification reuses that exact verifier receipt and continues [59.58ms]
+(pass) adversarial contained lifecycle > cached verifier phase/source mismatch and truncated envelope fail without another runtime [39.93ms]
+(pass) adversarial contained lifecycle > public contained falsify refuses bad bounds or an unauditable bundle before runtime work [11.82ms]
+(pass) adversarial contained lifecycle > expired authority remains auditable but cannot authorize a new human review or resume [55.01ms]
+(pass) adversarial contained lifecycle > fresh display includes declared setup and fails closed on failed setup or wrong source [3.05ms]
+
+packages/cli/test/assistant-console.test.ts:
+(pass) assistant operator console rendering > static shell is generic, parses as JavaScript, and never interpolates evidence into HTML [2.09ms]
+(pass) assistant operator console rendering > review supervision cancels admitted work after cancellation, unreadable ownership or shutdown [516.96ms]
+(pass) assistant operator console HTTP boundary > optional improvement view is private, offline, repository-scoped and cannot impersonate approval [46.42ms]
+(pass) assistant operator console HTTP boundary > improvement script parses, uses inert text and keeps production action routes absent [0.22ms]
+(pass) assistant operator console HTTP boundary > shutdown closes new operator decisions while retained jobs remain readable [20.98ms]
+(pass) assistant operator console HTTP boundary > public shell contains no job facts or token and uses restrictive browser headers [14.06ms]
+(pass) assistant operator console HTTP boundary > assistant capability, cookies, alternate host and foreign origins cannot use operator endpoints [12.77ms]
+(pass) assistant operator console HTTP boundary > a private-link exchange survives refresh without a bearer and logout revokes only that browser [22.74ms]
+(pass) assistant operator console HTTP boundary > private jobs show original words, exact proposal revision, two usage lanes and no approval token [13.58ms]
+(pass) assistant operator console HTTP boundary > approval requires exact revision, name, future expiry and explicit confirmation, and does not start work [27.73ms]
+(pass) assistant operator console HTTP boundary > cancelled proposals cannot be approved or reopened as an execution workspace [18.38ms]
+
+packages/cli/test/bootstrap.test.ts:
+(pass) bootstrap refuses changed, aliased and unowned retained bytes before executing its launcher [395.06ms]
+(pass) required Linux DAC measurement refuses unsupported prerequisites instead of returning a skipped success [230.36ms]
+
+packages/cli/test/design-cli.test.ts:
+(pass) design CLI entry path > help offers read import, inspect, bind and truthful permission boundary [0.13ms]
+(pass) design CLI entry path > owned PNG paths import and inspect without exposing image bytes; overwrite refuses [3.92ms]
+(pass) design CLI entry path > private references cannot be accidentally written under the source repo [2.33ms]
+(pass) design CLI entry path > duplicate fields, inline tokens, symlinks and metadata output refuse [1.52ms]
+(pass) design CLI entry path > a selected subdirectory cannot hide that private output is still in Git [0.95ms]
+(pass) design CLI entry path > bind reads the committed snapshot and creates a distinct unapproved v2 profile [1037.15ms]
+
+packages/cli/test/assistant-transport.test.ts:
+(pass) bounded wait survives the real transport beyond its ordinary request and idle deadlines [17012.35ms]
+(pass) local assistant request boundary without a listener > scoped calls return bounded facts and scrub the supplied bearer [3.26ms]
+(pass) local assistant request boundary without a listener > a design call on a plain workspace refuses by sentence on this route too [0.73ms]
+(pass) local assistant request boundary without a listener > browser Origin, fetch metadata, wrong Host and query authentication fail before callback [0.29ms]
+(pass) local assistant request boundary without a listener > GET is readiness-only, with no job data or side effects [0.33ms]
+(pass) local assistant request boundary without a listener > extra authority, forbidden tools, cash guarantees and malformed bodies never dispatch [1.11ms]
+(pass) local assistant request boundary without a listener > body encoding, content type and oversized content are refused [0.89ms]
+(pass) local assistant request boundary without a listener > only the separate operator token can request shutdown [81.41ms]
+(pass) local assistant request boundary without a listener > a stopping owner retains status and cancellation but refuses new work [1.31ms]
+(pass) local assistant request boundary without a listener > raw service errors are secret-safe and never claim an accepted operation did not happen [0.26ms]
+(pass) private scoped connection files > accepts only canonical loopback assistant URLs, no extra fields or full operator link [0.57ms]
+(pass) private scoped connection files > only a private ordinary file is readable; links, shared modes and duplicate keys fail closed [5.31ms]
+
+packages/cli/test/validation-groups.test.ts:
+(pass) every validation stage belongs to exactly one CI group, derived from its name, and the groups cover the table [0.52ms]
+(pass) a stage name that mentions a rehearsal any other way names no group [0.04ms]
+
+packages/cli/test/contained-cli.test.ts:
+(pass) contained public CLI integration (no live runtime) > blind regression: CLI show and board refuse a judge-stopped fixture before any display [284.22ms]
+(pass) contained public CLI integration (no live runtime) > blind regression: public new-grant route previews then creates only a separate bounded grant [297.30ms]
+(pass) contained public CLI integration (no live runtime) > plan compiles against a bare source map without agents, auth or host repository execution [239.86ms]
+(pass) contained public CLI integration (no live runtime) > authority records one frozen bounded grant and refuses overwrite, stale expiry and unknown flags [232.05ms]
+(pass) contained public CLI integration (no live runtime) > missing or mismatched authority refuses before source preparation or any session reservation [232.17ms]
+(pass) contained public CLI integration (no live runtime) > missing runtime persists a recoverable stop before model spend; resume does not reset evidence [781.02ms]
+(pass) contained public CLI integration (no live runtime) > saved display ids are validated before filesystem lookup, even on resume [260.25ms]
+(pass) contained public CLI integration (no live runtime) > human review refuses failed/stale displays, retains a person's note, and resumes without paid replay [521.80ms]
+(pass) contained public CLI integration (no live runtime) > a mutable ready summary cannot redirect the display or claim successful status [266.93ms]
+(pass) contained public CLI integration (no live runtime) > outer authority cannot be substituted and only declared human criteria can be reviewed [270.50ms]
+(pass) contained public CLI integration (no live runtime) > verification recovers derived files from an identity-bound observation without running another runtime [239.77ms]
+(pass) contained public CLI integration (no live runtime) > unbound old observations refuse precisely without executing or replacing them [230.59ms]
+(pass) contained public CLI integration (no live runtime) > audit routes offline failure honestly and delivery needs a complete journal before publication [282.54ms]
+(pass) contained public CLI integration (no live runtime) > cancellation refuses before creating controller state [231.01ms]
+
+packages/cli/test/installer.test.ts:
+(pass) upgrade exposes an exact artifact and rollback preview, not generic help [165.41ms]
+(pass) owned offline installation upgrades and rolls back without executing the candidate or rewriting retained work [64.15ms]
+(pass) archive checksum, version, platform, path, type, inventory and content guards reject before installation [5.89ms]
+(pass) ownership, same-version replacement, new record compatibility and in-flight migration holds preserve source state [36.11ms]
+(pass) a lost switch response resumes the exact installation and a completed replay does not switch back [36.07ms]
+(pass) interrupted removal retains its exact manifest and refuses newly introduced foreign files [40.69ms]
+(pass) lost final receipt cleanup is resumable and permits the next preview [22.87ms]
+(pass) a partial first ownership write leaves the destination recoverable [17.16ms]
+(pass) migration holds derived verification reservations and runner requests without allocating or dispatching [18.02ms]
+
+packages/cli/test/cli.test.ts:
+(pass) argument parsing refuses duplicates and preserves quoted values [0.11ms]
+(pass) all three front doors have usable help without a project or agent [0.10ms]
+(pass) pen needs a successful exact display, keeps person's note and refuses source movement [1249.61ms]
+(pass) failed display cannot silently record a met verdict [923.12ms]
+(pass) URL rules reject embedded tokens and allow declared loopback endpoints [0.14ms]
+(pass) get clones a local origin, runs no cloned command, and refuses overwrite [145.62ms]
+(pass) issue importer maps declared forge and refuses to overwrite a person's document [81.44ms]
+(pass) two-worker bench keeps real outcomes and uses the same committed baseline [1530.73ms]
+
+packages/cli/test/assistant-lifecycle.test.ts:
+(pass) assistant HTTP and independent process lifecycle (no models) > chat closure, duplicate daemon start, restart, revocation and reconnect retain one inert job [7723.59ms]
+
+packages/workflow/test/contained.test.ts:
+(pass) contained ACP production journey > one explicit batch accepts exactly the displayed requirements without inventing notes or more spend [88.14ms]
+(pass) contained ACP production journey > a missing, failed, stale or forged member rejects every decision in a batch [182.40ms]
+(pass) contained ACP production journey > a negative decision without a comment stays a genuine refusal; legacy noted observations still work [77.72ms]
+(pass) contained ACP production journey > blind regression: prose-wrapped execution planner and judge replies retain parse evidence [31.67ms]
+(pass) contained ACP production journey > blind regression: a completed worker reporting HTTP 401 reserves one turn, never four [27.31ms]
+(pass) contained ACP production journey > blind regression: unchanged worker source stops before verification and explicit retry alone spends again [38.21ms]
+(pass) contained ACP production journey > blind regression: exhausted retries offer a new grant, not a knowingly impossible retry [14.88ms]
+(pass) contained ACP production journey > blind regression: a mistyped uncertain retry cannot hide an active stopped task from the board [33.86ms]
+(pass) contained ACP production journey > blind regression: a planner's real questions cannot be answered by Continue [24.58ms]
+(pass) contained ACP production journey > blind regression: born-green names the passing check and retained receipt [7.87ms]
+(pass) contained ACP production journey > authority expiry during ACP startup or preflight persistence prevents the actual prompt and keeps the reservation [30.97ms]
+(pass) contained ACP production journey > planning expiry during session opening prevents the actual ACP prompt and retains its charged attempt [9.11ms]
+(pass) contained ACP production journey > authority expiry actively cancels independent verification and discovery without releasing their reservations [182.04ms]
+(pass) contained ACP production journey > before-prompt authentication observations are durable without a UI and bound to the effect [40.18ms]
+(pass) contained ACP production journey > preflight persistence failures stop before a simulated prompt rather than being swallowed as observer errors [13.27ms]
+(pass) contained ACP production journey > a preflight receipt survives interrupted execution and resuming never invents a successful prompt [26.24ms]
+(pass) contained ACP production journey > optional progress-view failure cannot prevent an already retained preflight from reaching its prompt [29.34ms]
+(pass) contained ACP production journey > synthetic executors that emit no authentication observation receive no fabricated preflight receipt [27.25ms]
+(pass) contained ACP production journey > red → worker → independent verification → judge → ready, then zero model replay [36.41ms]
+(pass) contained ACP production journey > historical reader rejects a mutable ready view and role sidecar tampering [51.35ms]
+(pass) contained ACP production journey > historical reader validates original execution authority without requiring it to be unexpired today [23.63ms]
+(pass) contained ACP production journey > human HOLD prints show, retains exact note and requires candidate-bound display [50.38ms]
+(pass) contained ACP production journey > verification and judge repairs share the whole worker/session ceiling [42.68ms]
+(pass) contained ACP production journey > uncertain role is charged and never silently retried [36.70ms]
+(pass) contained ACP production journey > candidate capture failure resumes a known worker result without another paid turn [26.77ms]
+(pass) contained ACP production journey > known stopped and invalid replies have an explicit bounded recovery route [73.12ms]
+(pass) contained ACP production journey > timeout retry carries recorded scheduling facts without accepting work or renewing limits [52.34ms]
+(pass) contained ACP production journey > historical worker requests keep their recorded identity, and no other role receives the guidance [68.83ms]
+(pass) contained ACP production journey > known unavailable verification requires explicit new attempt and keeps both receipts [89.26ms]
+(pass) contained ACP production journey > uncertain verifier is reserved before execution and ordinary resume reconciles only [42.60ms]
+(pass) contained ACP production journey > verification retry ceiling includes previous failures and uncertainty [17.08ms]
+(pass) contained ACP production journey > completed judge with null criterion is unsettled and retry is bounded and explicit [68.28ms]
+(pass) contained ACP production journey > review revision binds current state, preserves feedback and uses a new bounded worker [92.13ms]
+(pass) contained ACP production journey > command infrastructure exits cannot be accepted as red receipts [38.17ms]
+(pass) contained ACP production journey > exact retained request/result identities are checked even after readiness [29.13ms]
+(pass) contained ACP production journey > protected acceptance edits and reused role runtimes refuse [26.09ms]
+(pass) contained ACP production journey > planner is a separate contained session, usage unknown is not zero [21.11ms]
+(pass) contained ACP production journey > changed plan and damaged journal cannot inherit prior authority [22.25ms]
+(pass) contained ACP production journey > cancellation and missing authority stop before agent spend [11.70ms]
+(pass) contained ACP production journey > ACP planning returns an unapproved source-linked proposal and never starts workers [16.00ms]
+(pass) contained ACP production journey > a local-only planning request proposes a v4 plan through a contained planner turn and refuses a hosted runtime receipt [15.18ms]
+(pass) contained ACP production journey > planning rejects self-approval/policy changes and does not replay uncertain sessions [29.69ms]
+(pass) contained ACP production journey > planning questions remain a genuine decision, not an invented acceptance contract [9.69ms]
+(pass) contained ACP production journey > discovery measures declared versions once and charges its preparation wall clock [37.90ms]
+(pass) contained ACP production journey > discovery retains unavailable and uncertain attempts and never silently retries [21.28ms]
+
+packages/workflow/test/storage.test.ts:
+(pass) atomic publication never exposes a temporary filename in authoritative event directories [56.15ms]
+(pass) a failed rename cleans only its private staging file and leaves no partial event [53.76ms]
+(pass) atomic staging refuses a symlink pointing inside the controller [1.15ms]
+(pass) atomic staging refuses a symlink pointing outside the controller [1.22ms]
+(pass) strict journey reading still rejects a foreign event filename [0.85ms]
+
+packages/workflow/test/worker-outcome.test.ts:
+(pass) a completed Codex turn retaining a structured 401 stops before candidate capture [0.21ms]
+(pass) authentication rejection takes priority over unchanged source and tool absence [0.08ms]
+(pass) a provider-shaped final reply diagnoses a reported failure only after unchanged capture [0.07ms]
+(pass) quoted authentication examples cannot stop a changed candidate through prose [0.03ms]
+(pass) a tool result or session title containing a 401 is not a provider-auth report [0.06ms]
+(pass) ordinary no-change with no telemetry is a progress stop, not an auth/security error [0.06ms]
+(pass) missing or invalid tree identities cannot establish no change [0.07ms]
+(pass) observed ACP tool IDs are deduplicated and never claimed exhaustive [0.06ms]
+(pass) only complete supervisor instrumentation can establish exact zero tool calls [0.06ms]
+(pass) complete observed zero tools stops even when source changed or was not captured [0.12ms]
+(pass) existing stopped/failed ACP results retain their existing dispatch path [0.02ms]
+(pass) generic JSON-RPC failure or unrelated HTTP rejection is not called provider authentication [0.08ms]
+(pass) structured provider error data can identify Anthropic without treating prose as attestation [0.08ms]
+(pass) diagnostics redact secret values and provider-masked fragments before truncation [0.81ms]
+
+packages/workflow/test/json-reply.test.ts:
+(pass) the exact blind-run reply is accepted as a JSON fence without rewriting its contents [0.47ms]
+(pass) strict JSON wins, explicit JSON fences and one balanced object preserve strings and nesting [0.06ms]
+(pass) no syntax repair, primitive coercion, or malformed selected-reply fallback [0.23ms]
+(pass) select the first explicit JSON fence, otherwise the first balanced object, without trying later candidates [0.02ms]
+
+packages/workflow/test/workflow.test.ts:
+(pass) sectioned drafting and evidence > all workflow YAML readers reject duplicate keys and unknown tags [0.39ms]
+(pass) sectioned drafting and evidence > three requests, original quotes, durable receipts and zero-spend reuse [24.63ms]
+(pass) sectioned drafting and evidence > dry run writes request but opens no socket [4.56ms]
+(pass) sectioned drafting and evidence > invalid human assumption gets validation feedback and section-only repair [16.33ms]
+(pass) sectioned drafting and evidence > unknown cost is absent, not zero [14.50ms]
+(pass) sectioned drafting and evidence > missing original obligation and fabricated quote are refused [6.68ms]
+(pass) sectioned drafting and evidence > budget survives resumes and exhaustion does not send a request [11.85ms]
+(pass) sectioned drafting and evidence > uncertain transport is not replayed by resume [7.14ms]
+(pass) sectioned drafting and evidence > response tampering fails closed instead of reusing a plausible altered reply [16.29ms]
+(pass) sectioned drafting and evidence > overlapping credential prefixes cannot separate captured, hashed and sent requests [21.30ms]
+(pass) sectioned drafting and evidence > a changed recorded request cannot silently reuse a paid response [17.25ms]
+(pass) sectioned drafting and evidence > a key under an arbitrary variable name cannot leak through context, parsed plan, events or files [22.52ms]
+(pass) sectioned drafting and evidence > an original PRD containing the declared key refuses before source persistence [3.56ms]
+(pass) process-owned durable locks > a proven dead owner is recovered with a receipt, then the lock is released [8.44ms]
+(pass) process-owned durable locks > a live or reused PID is never unlinked and no protected work runs [1.04ms]
+(pass) operator decisions and plan approval > answers round-trip, invalidate approval, refresh only tasks, and reach brief [35.55ms]
+(pass) operator decisions and plan approval > overruling changes task section and invalidates the exact approval [32.10ms]
+(pass) operator decisions and plan approval > ledger tamper and external spec edits cannot be silently repaired [31.91ms]
+(pass) headless durable PM drive > one authority reaches human hold, routine interview done, resume spends nothing [80.03ms]
+(pass) headless durable PM drive > worker ceiling is cumulative across revised plans and repeated resumes [143.10ms]
+(pass) headless durable PM drive > unknown worker counts consume the full reservation, not an invented zero [63.75ms]
+(pass) headless durable PM drive > an old journey with a build but no budget cannot reset its allowance [46.46ms]
+(pass) headless durable PM drive > worker overrun is recorded as reported and never clamped to the ceiling [40.45ms]
+(pass) headless durable PM drive > no authority means no paid or executing stage [4.20ms]
+(pass) headless durable PM drive > displaced auth stops before any drafting spend [7.28ms]
+(pass) headless durable PM drive > ready is separate from delivery, unproved is not success [43.63ms]
+(pass) headless durable PM drive > authority cannot grant a human verdict or another repository [0.92ms]
+
+packages/workflow/test/display-visuals.test.ts:
+(pass) exact reference/capture PNG records agree with approved declarations and runtime exports [0.74ms]
+(pass) missing, fabricated, mismatched or undeclared visual data never becomes a display [2.43ms]
+(pass) legacy displays remain valid only without undeclared image authority [0.05ms]
+(pass) a design cannot silently omit an approved reference asset [0.12ms]
+
+packages/workflow/test/judge.test.ts:
+(pass) judge dry run writes frozen request and verdict without invoking transport or worker prose [36.88ms]
+(pass) judge pass/fail/null outcomes are distinct and malformed reply is never a failure [128.83ms]
+(pass) human criteria never travel and remain unscored even when the model passes [33.72ms]
+(pass) failed deterministic gates refuse before any request directory or transport [13.62ms]
+(pass) Messages adapter emits native body and normalizes native stop and usage [0.35ms]
+(pass) pre-aborted draft never invokes transport and writes a durable recovery command [1.36ms]
+
+packages/workflow/test/loop-engineering.test.ts:
+(pass) strict reports reject duplicate keys/IDs, foreign requirements and excessive output [0.28ms]
+(pass) Reports default pins the exact advisory playbook and strict assertion contract [2.08ms]
+(pass) syntax errors, empty/skipped tests, runner errors and contradictory exit never establish assertion evidence [0.47ms]
+(pass) strict red/repair/green reaches ready and preserves actionable observations without worker narrative in judge [57.60ms]
+(pass) strict missing report stops before worker spend while generic command-red remains supported [35.56ms]
+(pass) formerly red assertion disappearing, skipped, or remapped cannot become green [80.18ms]
+(pass) A to B to A stops before a fourth worker and ordinary resume preserves reservations [117.36ms]
+(pass) public loop inspection carries exact decisions, budgets and source without another effect [103.60ms]
+(pass) public loop inspection distinguishes warning, success and unstarted observations [128.05ms]
+(pass) public loop inspection removes private paths from runtime stop diagnostics [44.64ms]
+(pass) public loop projection refuses an oversized display instead of truncating away decisions [58.05ms]
+(pass) three changed failing candidates warn, then a legitimate fourth attempt can complete [93.47ms]
+(pass) repair packet truncation is explicit, complete output is hashed and altered packet refuses [34.82ms]
+(pass) decision fingerprints ignore transport paths and raw output noise, never ignore environment identity [58.16ms]
+(pass) a secret-shaped value crossing an excerpt boundary is redacted before truncation and retention [33.87ms]
+(pass) uncertain repaired attempt preserves recorded loop history and charged reservation across resume [117.99ms]
+(pass) rehashed loop advice cannot replace the deterministic observation-derived decision [78.65ms]
+(pass) only the worker receives the pinned playbook and durable use binds its exact request [324.83ms]
+(pass) combined design and playbook context replays after worker completion before the next role [312.08ms]
+(pass) local and portable coverage require decisions before later spend or readiness [54.88ms]
+(pass) judge repairs have separate evidence and an unknown judgement stays an explicit bounded retry [158.13ms]
+
+packages/workflow/test/proposal-recovery.test.ts:
+(pass) fenced planning questions are retained, inspectable without another role, and parsed evidence is additive [11.08ms]
+(pass) retry-uncertain requires an actual unresolved reservation, not a first call or known invalid reply [11.59ms]
+(pass) read-only planning rejects changed extraction evidence instead of silently replacing it [15.43ms]
+(pass) known invalid reply cannot produce an eligible retry once its grant is spent [14.15ms]
+(pass) remaining bounded grant permits one known-stopped retry, preserving both reservations [19.54ms]
+(pass) a valid fenced object cannot bypass acceptance schema validation [12.11ms]
+(pass) the captured blind reply's five real questions and note survive without paid reinterpretation [11.38ms]
+(pass) expired grants still permit read-only questions and never offer a paid retry [11.17ms]
+(pass) genuine uncertain retry retains its original reservation and cannot exceed the grant [22.93ms]
+(pass) a live reserved planner is not offered an uncertain retry or a replacement grant [11.49ms]
+
+packages/delivery/test/source-review.test.ts:
+(pass) safe finding inventory matches complete-byte regexes at every boundary without leaking values [83.70ms]
+(pass) all current and deleted historical findings need exact immutable operator decisions; candidate changes invalidate reuse [2012.53ms]
+(pass) source-carried directories, exposed policy files and changed approval bytes cannot authorize exceptions [1229.47ms]
+(pass) finite batch rejects duplicate, stale or unknown IDs before any decision; retry is immutable and external input is bounded [1356.32ms]
+
+packages/delivery/test/source-inspection.test.ts:
+(pass) source secrets survive streamed object/chunk boundaries > known values, partial known credentials, shapes and private-key headers are detected at every boundary [11.67ms]
+(pass) source secrets survive streamed object/chunk boundaries > unknown long provider tokens and arbitrarily long private-key type fields do not escape the overlap window [26.41ms]
+(pass) source secrets survive streamed object/chunk boundaries > bounded tokens and fragments wait for the real right boundary; UTF-8 survives one-byte chunks [0.97ms]
+(pass) source secrets survive streamed object/chunk boundaries > streamed detection matches whole-text Redactor checks across adversarial boundary placements [7.74ms]
+(pass) source secrets survive streamed object/chunk boundaries > binary objects are inspected without retaining or returning their raw contents [0.18ms]
+(pass) source inspection process boundaries and explicit limits > malformed, oversized and truncated objects cannot produce a passed inspection [2.23ms]
+(pass) source inspection process boundaries and explicit limits > inventory/count/aggregate ceilings and extra bytes are fail-closed [0.68ms]
+(pass) source inspection process boundaries and explicit limits > cancellation and deadline kill owned readers and never declare partial inspection passed [42.56ms]
+(pass) the exact candidate includes deleted historical secrets but excludes unrelated/evidence refs [1734.32ms]
+
+packages/delivery/test/contained.test.ts:
+(pass) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [27308.10ms]
+(pass) portable export never publishes its envelope after a copy-time integrity failure [17685.26ms]
+(pass) v4 handover carries strict red/green, pinned worker playbook and deterministic loop decisions into a fresh-clone audit [21561.90ms]
+(pass) a local-only v4 plan carries its local records through delivery into a fresh-clone audit [19626.62ms]
+(pass) contained delivery prepares without publishing, then fresh-clone audit resolves exact candidate and human note [31840.33ms]
+(pass) compressed-small but over-64-MiB inflated history prepares, retries, sends and audits from a fresh clone [46876.15ms]
+(pass) source examples require exact operator reviews, remain non-overridable for configured secrets, and carry an auditable exception record [44247.92ms]
+(pass) mutable terminal view or omitted verification observation cannot authorize delivery [5609.77ms]
+(pass) offline audit rejects missing red receipt, changed candidate bundle and resealed contradictory proof [15257.55ms]
+(pass) publication refuses a default branch or a review branch with other content [25918.82ms]
+(pass) portable worker write scope is carried and cannot be broadened or omitted [15014.80ms]
+(pass) portable timestamps, verifier reservations and derived certificate tampering fail closed; v1 still audits [21089.79ms]
+(pass) contained falsification challenges committed changes with distinct pinned runtimes, including caught and surviving mutants [40369.76ms]
+
+packages/delivery/test/projection.test.ts:
+(pass) published view renderers retain exact historical bytes; new wording needs a new contract [1.85ms]
+(pass) immutable HTML cannot execute a requirement title or person's note [0.27ms]
+(pass) new optional-comment renderers label absence as system metadata and never fabricate an authored note [0.48ms]
+
+packages/delivery/test/forge.test.ts:
+(pass) preparation preserves mr.md and creates no network request or secret receipt [7.88ms]
+(pass) unknown forge input is strictly parsed before use [0.84ms]
+(pass) github publishes only after exact-branch lookup and immutable pre-request recording [7.33ms]
+(pass) gitlab publishes only after exact-branch lookup and immutable pre-request recording [4.87ms]
+(pass) an uncertain POST is recovered by same-branch query without a duplicate POST [8.26ms]
+(pass) unknown POST plus empty or failed lookup stays uncertain and never retries create [7.78ms]
+(pass) changed immutable intent and existing different MR content are not silently overwritten [4.92ms]
+(pass) github distinguishes closed/merged requests without duplicate creation [4.60ms]
+(pass) github refuses a same-branch request pointing at another commit [2.04ms]
+(pass) gitlab distinguishes closed/merged requests without duplicate creation [3.98ms]
+(pass) gitlab refuses a same-branch request pointing at another commit [1.96ms]
+(pass) different Git/forge repositories and missing commit bindings cannot send [1.79ms]
+(pass) missing credential, cancellation and malformed declarations make no request [2.72ms]
+(pass) redirects, oversized responses and ambiguous matches refuse before creation [7.56ms]
+(pass) same-state concurrent invocations cannot race two POSTs [2.76ms]
+(pass) JSON-escaped credential echoes are redacted in persisted responses [2.03ms]
+(pass) publication cannot write through a pre-existing outcomes symlink [0.95ms]
+(pass) cancellation during POST records uncertainty and resume only reconciles [4.44ms]
+
+packages/delivery/test/adversarial.test.ts:
+(pass) native sensitive proof audits from a fresh clone with no local run history [1277.23ms]
+(pass) source secrets are refused before branch creation and never written into the failure record [902.58ms]
+(pass) binary source edits after verification cannot reuse the old passing record [613.15ms]
+(pass) a check mutation record refuses delivery even after a forged passing summary [433.56ms]
+(pass) portable delivery omits display artifacts explicitly while keeping the original run sealed [881.19ms]
+(pass) resealing a modified event does not repair its broken hash chain [1231.22ms]
+
+packages/delivery/test/bundle-reader.test.ts:
+(pass) native reader asset remains byte-identical to the independent source [0.61ms]
+(pass) independent reader checks byte integrity without inventing semantic acceptance [2.91ms]
+(pass) independent reader refuses source substitution, changed seals, unknown payloads and envelope tampering [47.80ms]
+(pass) independent reader rejects unlisted files and symlink transport instead of following them [6.95ms]
+(pass) independent reader refuses nonportable filenames even under a matching seal [2.37ms]
+
+packages/delivery/test/delivery.test.ts:
+(pass) dry delivery carries every red receipt and leaves index, checkout and refs unchanged [1362.74ms]
+(pass) T10 Send refuses changed prepared fingerprint before creating a branch [1019.07ms]
+(pass) T10 Send refuses changed prepared tree before creating a branch [1181.96ms]
+(pass) T10 Send refuses changed prepared remoteURL before creating a branch [1060.15ms]
+(pass) T10 Send refuses changed prepared baseCommit before creating a branch [1126.56ms]
+(pass) committed delivery audits in a fresh clone without original .wringer history [1550.72ms]
+(pass) tampered receipts and inflated counts fail the independent audit [1390.70ms]
+(pass) changed verified bytes refuse before creating a branch [593.24ms]
+(pass) falsification measures the real committed range and both caught and survivor [1806.05ms]
+(pass) portable paths reject parent traversal and symlinks before read [1.02ms]
+(pass) mutation planning only touches added source lines and spreads across files [0.09ms]
+
+packages/application/test/proposal-composition.test.ts:
+(pass) T08 authorable proposal composes pinned policy without echoing it and omissions never expand scope or ceilings [1.59ms]
+(pass) T08 useful field errors reject policy substitution, wider scope, raised ceilings and missing protected acceptance [1.82ms]
+(pass) T08 a question-only draft remains unapproved and preserves authored questions without inventing acceptance [0.98ms]
+
+packages/application/test/assistant.test.ts:
+(pass) T13 public service wait cancellation reaches the application loop without cancelling its job [17.84ms]
+(pass) T13 a later PM observation cannot enable actions on an earlier assistant snapshot [23.24ms]
+(pass) a status read never returns a head older than the journal at request time [605.82ms]
+(pass) a synchronous burst coalesces before observation starts [275.48ms]
+(pass) T13 staggered saturation queues a fresh observation after four held snapshots [56.16ms]
+(pass) T13 an older failed inspection frees capacity without poisoning a queued read [46.06ms]
+(pass) the design blind-test page names the planning guard that actually exists [0.81ms]
+(pass) a planner-declared profile through the assistant flow mints no planning authority [47.52ms]
+(pass) assistant application narrow authority and inert intake > PM inspection coalesces only overlapping publication reads and keeps public status unchanged [20.23ms]
+(pass) assistant application narrow authority and inert intake > overlapping PM inspections report an invalidated query as advanced and later reads recompute [19.52ms]
+(pass) assistant application narrow authority and inert intake > the construction-only routine coordinator still requires exact approval and restricts runtime tool names [25.50ms]
+(pass) assistant application narrow authority and inert intake > bounded waiting observes unchanged state without execution and rejects non-string cursors or extra powers [1054.03ms]
+(pass) assistant application narrow authority and inert intake > a pending wait rechecks revoked credentials and only the changed presentation is returned [2069.29ms]
+(pass) assistant application narrow authority and inert intake > current audited publication drives next action; fresh handover refuses but duplicate observation survives [105.92ms]
+(pass) assistant application narrow authority and inert intake > protected mode refuses; local preview must be explicit and private [1.51ms]
+(pass) assistant application narrow authority and inert intake > wrong, revoked, expired and another workspace's capabilities fail closed [17.44ms]
+(pass) assistant application narrow authority and inert intake > proposal questions, assumptions and original words survive repeated reads without a planner [18.79ms]
+(pass) assistant application narrow authority and inert intake > profile pins source, runtime, agents, environment, budgets, scope and protected files [20.39ms]
+(pass) assistant application narrow authority and inert intake > strict cash, arbitrary paths/commands and human/publication powers are not assistant tools [20.41ms]
+(pass) assistant application narrow authority and inert intake > approval binds the exact revision, cannot answer questions, and does not itself start work [30.78ms]
+(pass) assistant application narrow authority and inert intake > read-only inspection and evidence consume no execution and preserve both unknown cost lanes [47.26ms]
+(pass) assistant application narrow authority and inert intake > a duplicate start after lost response and advanced revision observes the same operation [37.92ms]
+(pass) assistant application narrow authority and inert intake > approval expiry while accepted but unclaimed refuses before effects, not as unknown spend [34.96ms]
+(pass) assistant application narrow authority and inert intake > cancellation prevents accepted future dispatch and cannot mint another job approval [85.75ms]
+(pass) assistant application narrow authority and inert intake > durable cancellation acknowledgement survives an immediately advancing correction journal [27.89ms]
+(pass) assistant application narrow authority and inert intake > a cancellation naming an older revision is recorded with it and stops future work; a malformed revision is refused [34.36ms]
+(pass) assistant application narrow authority and inert intake > questions/evidence from another job cannot cross a workspace capability [16.28ms]
+(pass) assistant application narrow authority and inert intake > record corruption and symlink escapes are refused without writing outside the service [12.35ms]
+(pass) assistant application narrow authority and inert intake > corrupt start and cancellation markers are not narrated as recorded lifecycle facts [22.96ms]
+
+packages/application/test/maintenance.test.ts:
+(pass) dead coordination lock recovery is exact, retains uncertainty and serializes competing recoverers [27.90ms]
+(pass) OS coordination lock excludes another process and is released when its owner is killed [215.19ms]
+
+packages/application/test/research-display-version.test.ts:
+(pass) collector display writer selects v2 only for REST snapshots and both readers preserve the exact reference [24.61ms]
+(pass) v1/null and v1/owned displays retain their original contract and remain readable [19.13ms]
+(pass) rehashed cross-version relabeling is refused by both schema and application readers [36.70ms]
+(pass) v2 display does not loosen source/PNG bindings or allow unknown authority fields [30.42ms]
+(pass) v2 research review binds its display digest and remains fixture-only without production authority [30.74ms]
+
+packages/application/test/experiments.test.ts:
+(pass) separate prediction-gated research contracts > pins exactly one variable and reserves the aggregate ceiling before trials [17.30ms]
+(pass) separate prediction-gated research contracts > a build grant, expired grant, changed credentials and extra loops cannot authorise collection [24.41ms]
+(pass) separate prediction-gated research contracts > a rollback-to-none baseline can compare advisory selection without dropping any execution controls [3.03ms]
+(pass) separate prediction-gated research contracts > rejects prediction after results, symlinks and source-contained experiment storage [29.40ms]
+(pass) zero-spend offline evaluation > distinguishes beneficial, no-op and harmful seeded observations without runtime or provider activity [73.03ms]
+(pass) zero-spend offline evaluation > fixtures, missing trials, unknown adapter, duplicate slots and late prediction never qualify [50.94ms]
+(pass) zero-spend offline evaluation > repetition cannot launder one task into independent evidence; four-task pilot remains inconclusive [36.75ms]
+(pass) zero-spend offline evaluation > every requirement remains visible and apparent greens cannot suppress regression or safety gaps [50.16ms]
+(pass) zero-spend offline evaluation > human research review cannot qualify an invented display hash [51.19ms]
+(pass) zero-spend offline evaluation > missing, failed, duplicated and source-substituted private endings cannot masquerade as proved handover [48.53ms]
+(pass) zero-spend offline evaluation > new schema readers accept their emitted contracts and reject unversioned privilege additions [58.21ms]
+(pass) one bounded contained proposal artifact > CLI prepare then fixture-backed propose reuses the exact request and captures one Git artifact without automatic experiment [2970.82ms]
+(pass) one bounded contained proposal artifact > a different request cannot replace the prepared proposal or reserve source/model activity [96.98ms]
+(pass) one bounded contained proposal artifact > proposal scope and report shape reject policy changes and raw transcripts before any model [90.45ms]
+(pass) finite collection and future-only adoption > real collector defaults exist; injected fixtures stay fixtures and failures retain every planned slot [63.88ms]
+(pass) finite collection and future-only adoption > restart retains uncertain reservation rather than replaying it; missing completed records refuse [53.74ms]
+(pass) finite collection and future-only adoption > promotion and rollback use CAS, keep active files unchanged and never start a run [112.43ms]
+(pass) finite collection and future-only adoption > fixture benefit cannot be promoted; stale evidence and concurrent adoption are rejected [79.77ms]
+(pass) narrow failure patterns and operator entry > patterns exclude held-out feedback and never carry raw prompts or exception text [33.31ms]
+(pass) narrow failure patterns and operator entry > inventory confines operator paths and CLI guarded operations refuse before effects without yes [52.58ms]
+
+packages/application/test/assistant-design.test.ts:
+(pass) MCP design preparation and observation are inert; assistant cannot connect, preview, retain or attach [26.12ms]
+(pass) invalid links, wrong workspace and changed idempotent request refuse before any design retrieval [12.44ms]
+(pass) operator must explicitly request preview; production REST importer keeps credentials off PNG hosts [12.92ms]
+(pass) preview image bytes are bound to exact hash and selected asset before review [12.12ms]
+(pass) retention requires explicit consent for displayed hash and preserves original private snapshot [21.89ms]
+(pass) failed preview persists a safe stop across reopening and never retries an existing request [18.16ms]
+(pass) only API 401 marks connection for reconnect, not ambiguous 403 or unauthenticated PNG rejection [40.55ms]
+(pass) imports cannot be read, previewed or retained by another workspace or changed source profile [11.71ms]
+(pass) changed preview bytes cannot inherit retention permission even after a successful earlier read [13.32ms]
+
+packages/application/test/runtime-readiness.test.ts:
+(pass) T21 readiness requires exact image inventory, every safety row and confirmed cleanup; provider work remains unknown [0.31ms]
+
+packages/application/test/runtime-provisioning.test.ts:
+(pass) T20 a provisioning preview pins measured inputs and estimates space without creating state or running a command [8.52ms]
+(pass) T20 changed recipe bytes and unreviewed proposals refuse before provisioning effects [6.52ms]
+(pass) T20 a successful provisioning transaction observes exact alias and inventory; completed replay has zero host actions [32.72ms]
+(pass) T20 interrupted build remains uncertain on resume; corrupt approval cannot leave a new owner lock [33.55ms]
+(pass) T20 a retained build input symlink refuses before commands even when its bytes match [9.94ms]
+(pass) T20 a changed image alias or mismatched runtime inventory cannot become a provisioned result [59.05ms]
+(pass) T20 storage and service prerequisites refuse before downloads, with no silent service startup [13.15ms]
+
+packages/application/test/delegation-recovery.test.ts:
+(pass) delegation recovery previews exact dead ownership, does not grant work and survives a lost successful reply [59.87ms]
+(pass) T08 retained delegation status does not repair an index or allocate an absent runner directory [21.40ms]
+
+packages/application/test/pm-blind-regressions.test.ts:
+(pass) judge-stopped cannot display or solicit an unrecordable human verdict [110.96ms]
+(pass) exhausted worker and judge role ceilings disable ineffective continuation even with total sessions left [165.12ms]
+(pass) checks passing with interrupted independent review is pending, not a proved requirement or human hold [101.19ms]
+(pass) an active worker or judge names the actual recorded stage [109.23ms]
+(pass) a recorded negative result stays not met while untouched human criteria stay not evaluated [65.42ms]
+(pass) a real human hold remains reviewable after role ceilings are spent, but source mismatch and expired approval refuse [117.93ms]
+(pass) a stopped judge has one explicit retry only when its own remaining grant permits it [105.12ms]
+
+packages/application/test/commands.test.ts:
+(pass) workspace command ownership and immutable request identity > explicit decisions allow no comment, preserve original words and reject invented identity or ambiguous batches [0.46ms]
+(pass) workspace command ownership and immutable request identity > rejects arbitrary inputs and requires explicit complete decisions [0.11ms]
+(pass) workspace command ownership and immutable request identity > one request executes once; a duplicate observes and different content refuses [11.83ms]
+(pass) workspace command ownership and immutable request identity > stale revisions, stale authority and unavailable actions fail before effects [27.47ms]
+(pass) workspace command ownership and immutable request identity > post-effect uncertainty is durable and a reconnect never replays it [10.58ms]
+(pass) workspace command ownership and immutable request identity > an already cancelled command is a known failure before execution [9.94ms]
+(pass) workspace command ownership and immutable request identity > optional result fields are hashed as the exact retained JSON instead of stranding ownership [12.35ms]
+(pass) workspace command ownership and immutable request identity > different module/server instances cannot overlap effects [14.70ms]
+(pass) workspace command ownership and immutable request identity > credentials are refused before persistence and results are scrubbed before hashing [10.65ms]
+(pass) workspace command ownership and immutable request identity > symlinked operation/command paths never write outside the controller [0.82ms]
+(pass) explicit orphan recovery > a real different controller process excludes overlapping work, then crash recovery observes without replay [185.42ms]
+(pass) explicit orphan recovery > a dead owner remains uncertain until acknowledged; recovery never replays or clears domain reservations [13.64ms]
+(pass) explicit orphan recovery > a live owner, unknown owner or wrong command cannot be recovered [1.63ms]
+(pass) explicit orphan recovery > a recovery crash has a bounded immutable successor rather than an unrecoverable replacement lock [9.55ms]
+(pass) publication comes from audited domain evidence > handover policy keeps sent branches and uncertain hosted outcomes distinct from unsent preparations [0.08ms]
+(pass) publication comes from audited domain evidence > a fresh handover is refused from audited sent evidence, while the retained identical request remains readable [15.00ms]
+(pass) publication comes from audited domain evidence > publication completing after admission is rechecked under the application lock before dispatch [12.33ms]
+(pass) publication comes from audited domain evidence > an earlier candidate's publication cannot block a later candidate with new recorded authority [11.36ms]
+(pass) publication comes from audited domain evidence > direct CLI delivery appears without any application command or preparation cache [4.13ms]
+(pass) publication comes from audited domain evidence > a fabricated completed command cache cannot create a publication [5.12ms]
+(pass) publication comes from audited domain evidence > old readiness and changed source/audit/outcome identities cannot claim publication [4.05ms]
+(pass) publication comes from audited domain evidence > publication requires an audited matching completed preparation before any effect [9.68ms]
+(pass) publication comes from audited domain evidence > a later closed hosted request stays closed even when an older delivery outcome said published [6.02ms]
+
+packages/application/test/engineering-view.test.ts:
+(pass) PM selection is visible before work but source validity, check evidence and benefit are not invented [0.93ms]
+(pass) no selected approach and command-only evidence remain honest, while mismatched or unreadable state refuses [3.19ms]
+
+packages/application/test/workspace-snapshot.test.ts:
+(pass) unused inherited Git filters do not block source inspection or execute commands [346.81ms]
+(pass) source inspection refuses active Git filters from worktree attributes before execution [266.95ms]
+(pass) source inspection refuses active Git filters from index attributes before execution [273.27ms]
+(pass) source inspection refuses active Git filters from global attributes before execution [257.88ms]
+(pass) source inspection refuses active Git filters from untracked files before execution [255.00ms]
+
+packages/application/test/proposal-revision.test.ts:
+(pass) T08 validation is read-only and reports useful fields without allocating jobs or runner effects [7.53ms]
+(pass) T09 question revision keeps original bytes, fixed lineage, idempotent identity and no transferred authority [123.33ms]
+(pass) T09 stale revisions and rewritten original intent cannot create successor proposals [13.81ms]
+(pass) T09 simultaneous approval and supersession cannot both grant competing authority [25.76ms]
+(pass) T09 a held decision lock prevents both approval and supersession [17.69ms]
+(pass) T09 interrupted transition repairs only the exact reserved successor [38.95ms]
+(pass) T09 identical mutable replay observes one job but a changed question title refuses [15.01ms]
+(pass) T18 independent jobs get distinct reviewed branches while proposal supersession retains its original destination [41.89ms]
+
+packages/application/test/assistant-journey.test.ts:
+(pass) MCP->application->real journal reaches human hold and agrees with the PM workspace [144.93ms]
+(pass) assistant correction uses real command/journal records and the original aggregate ceilings [428.32ms]
+(pass) provider rejection is one paid-role reservation, not successful work or automatic retry [113.27ms]
+(pass) contained planner questions and original note reach the assistant without inventing a PM decision [65.28ms]
+(pass) operator reconciliation derives a completed domain outcome without replaying the lost response [149.48ms]
+(pass) unknown domain spend prevents operator reconciliation and keeps the original reservation [67.76ms]
+
+packages/application/test/visual-evidence.test.ts:
+(pass) visual review carries real PNGs, refuses substitutions, and audits from committed source [24031.03ms]
+
+packages/application/test/verification-job.test.ts:
+(pass) T04 real checks need a finite operator grant and preserve red then green evidence [2158.63ms]
+(pass) T06 changing check inputs invalidates the grant; changing source invalidates the result [1371.45ms]
+(pass) T17 transport requests and legacy retries bind one canonical operation to its job [1141.61ms]
+(pass) T08 setup inspection and proposal allocate no work authority or repository execution [280.28ms]
+(pass) T18 second jobs reuse the workspace but never inherit an earlier grant [479.89ms]
+(pass) T26 the CLI creates a first job with default checks and a separate selected successor [607.10ms]
+(pass) T17 interrupted verification preparation resumes the exact retained source after checkout advances [389.00ms]
+(pass) T12 stopped verification work cannot receive a later execution approval [280.45ms]
+(pass) T17 lost check outcome keeps an exact sealed operation binding and recovers without replay [1253.28ms]
+(pass) T06 read-only proposal inspection cannot execute a repository-configured Git fsmonitor [292.55ms]
+
+packages/application/test/workspace-recovery.test.ts:
+(pass) owner recovery refuses live ownership and exposes no private capability in its preview [4.88ms]
+(pass) dead owner recovery retains private records, never dispatches, and exact retry cannot remove a replacement owner [23.04ms]
+
+packages/application/test/discovery.test.ts:
+(pass) controller discovery uses credential-free pinned commands and resumes without reallocation [16.95ms]
+(pass) wrong runtime and command execution failures never become environment success [10.76ms]
+(pass) failed setup remains unavailable even when no tool or baseline rows exist [9.43ms]
+(pass) empty discovery retains an explicit no-op and reconciles without allocating or claiming a runtime [13.36ms]
+(pass) empty discovery still refuses missing verification authority and changed source or map [1.92ms]
+
+packages/application/test/checkpoint-evidence.test.ts:
+(pass) checkpoint keeps actual failed/passing test summaries and leaves absent counts unknown [0.20ms]
+(pass) checkpoint hashes retained evidence without copying raw output or machine paths [1.55ms]
+(pass) checkpoint source scope includes implementation inputs and excludes local/evidence artifacts [0.16ms]
+(pass) checkpoint inventory facts reject credentials, full environments, local paths and raw logs [0.39ms]
+(pass) checkpoint refuses an existing output before reading Git or replacing retained evidence [0.95ms]
+
+packages/application/test/protected-confirmation.test.ts:
+(pass) protected confirmation binding primitives — not live human proof > exact original words and complete action survive both signatures [5.11ms]
+(pass) protected confirmation binding primitives — not live human proof > wrong controller, wrong key, extra authority and forged signature fail [0.92ms]
+(pass) protected confirmation binding primitives — not live human proof > every changed decision field needs a new confirmation [1.15ms]
+(pass) protected confirmation binding primitives — not live human proof > review and publication cannot reuse execution confirmation [0.41ms]
+(pass) protected confirmation binding primitives — not live human proof > fresh challenge expires and future/oversized lifetimes are refused [0.27ms]
+(pass) protected confirmation binding primitives — not live human proof > noncanonical, duplicate JSON, invalid types, display tricks and executable input are refused [0.40ms]
+(pass) protected confirmation binding primitives — not live human proof > concurrent submissions claim once and retain an auditable claim before effects [10.89ms]
+(pass) protected confirmation binding primitives — not live human proof > lost or failed action does not replay after constructing a fresh store [3.94ms]
+(pass) protected confirmation binding primitives — not live human proof > invalid proof and changed domain expectations never reserve or execute [3.65ms]
+(pass) protected confirmation binding primitives — not live human proof > controller symlink escape is refused [0.96ms]
+
+packages/application/test/delegation-protocol.test.ts:
+(pass) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [40.53ms]
+(pass) T23 evidence paging is stable across elapsed-clock observation while its retained revision is unchanged [0.95ms]
+(pass) T14 only the ready page phase invites review or separate Send; blocked and preparing phases do not [0.89ms]
+
+packages/application/test/delegation-profile.test.ts:
+(pass) T07 guided contained profile discovers narrow source and protected check bytes without executing repository code [292.70ms]
+(pass) T07 profile inspection refuses dirty source, implicit models and writable acceptance inputs [286.73ms]
+(pass) T07 applying a reviewed profile keeps a verified local-only bundle, is idempotent and grants no work [3178.54ms]
+(pass) T07 canonical setup applies the displayed contained profile without hand-written policy or source changes [2076.80ms]
+(pass) T18 delegation job preparation preserves a first source and gives a second job its new clean source without any approval [6230.53ms]
+(pass) gVisor profile binds the measured cluster boundary and references without reading provider secrets [414.79ms]
+
+packages/application/test/human-decision.test.ts:
+(pass) explicit operator choice derives attribution, preserves absent comments and reaches an auditable handover [22016.38ms]
+
+packages/application/test/experiment-handover.test.ts:
+(pass) actual private experimental ending, scripted role work > normal delivery pushes only generated local origin and literal fresh clone audits exact v4 receipts [16808.45ms]
+(pass) actual private experimental ending, scripted role work > corrupt portable observation records fail the ending and cannot become handover passed [4073.68ms]
+(pass) actual private experimental ending, scripted role work > human hold stays unknown and does not receive a synthetic Yes or private publication [3160.82ms]
+(pass) actual private experimental ending, scripted role work > separate fixture-labelled human research ending preserves original trial and audits the private branch with zero extra roles [17733.19ms]
+(pass) actual private experimental ending, scripted role work > negative research review and expired original approval cannot be turned into an ending or fresh worker grant [6333.02ms]
+
+packages/application/test/storage.test.ts:
+(pass) storage archives only an exact interrupted owned preparation, permits retry and removes only its selected archive [46.92ms]
+(pass) storage refuses a live preparation owner, source changes and unexpected links [13.20ms]
+
+packages/application/test/assistant-design-binding.test.ts:
+(pass) approved REST design attaches a single immutable data commit and survives a fresh bundle clone [3509.16ms]
+(pass) a local-only workspace attaches its design on top of the bundle kept at init, with no source override [3327.58ms]
+(pass) attachment refuses absent consent, stale hash, changed profile and tampered private transport [2701.20ms]
+(pass) assistant selects the approved overlay without replacing base profile or borrowing old approval [2729.71ms]
+
+packages/application/test/assistant-local-source.test.ts:
+(pass) init verifies the prepared pair and privately keeps exactly the verified bytes [3039.18ms]
+(pass) init refuses a missing, changed, stale, foreign or wrong-root pair and creates no controller [7499.38ms]
+
+packages/application/test/acceptance-preparation.test.ts:
+(pass) reviewed inert acceptance preparation freezes new tests without running them or editing the user's source [5169.18ms]
+(pass) acceptance preparation refuses traversal, overwrite, changed preview and source without execution [375.41ms]
+
+packages/application/test/adoption-records.test.ts:
+(pass) new durable records refuse malformed writes before allocating files [0.36ms]
+(pass) valid content hash does not bless a malformed retained record [1.56ms]
+(pass) legacy record envelope semantics remain unchanged [1.10ms]
+
+packages/application/test/journey-patterns.test.ts:
+(pass) ordinary histories retain repaired failures once and omit private narratives and expected baseline red [0.92ms]
+(pass) comparable normal jobs group across distinct journal revisions while source and repository changes do not mix [1.04ms]
+(pass) empty human hold is not negative feedback and uncertain reservations remain observed [0.18ms]
+(pass) explicit directory selection rejects research ancestors, duplicate paths and nonprivate/symlink states [1.76ms]
+(pass) actual retained stopped job reads offline without provider/runtime calls or current credential lookup [7.79ms]
+(pass) moved research controller refuses by retained purpose and independently by experiment authority [7.71ms]
+
+packages/application/test/standalone-review.test.ts:
+(pass) T09 acceptance records no invented note and multiple criteria share the exact shown source [948.63ms]
+(pass) T09 a stale second display makes a whole review batch refuse without a partial judgement [885.16ms]
+(pass) T09 a correction can be replaced by acceptance after renewed inspection [1391.04ms]
+
+packages/application/test/provider-readiness.test.ts:
+(pass) provider diagnostic uses fixed metadata GET and does not expose keys or response bodies [0.98ms]
+(pass) missing, rejected, restricted and unreachable credentials are distinct without retries [0.23ms]
+
+packages/application/test/gvisor-provisioning.test.ts:
+(pass) T21 a gVisor installation preview owns a fresh namespace and shows runsc, policy and secret prerequisites [0.28ms]
+(pass) T21 ordinary cluster runtime refuses before namespace creation; no secret values are requested [4.08ms]
+(pass) T21 partial installation resumes by exact read-back, never replacing foreign objects [13.10ms]
+
+packages/application/test/commands-delivery.test.ts:
+(pass) a direct delivery through the shared domain appears on the workspace without a browser command [41524.04ms]
+
+packages/application/test/diagnostics.test.ts:
+(pass) diagnostic preview and exact export include bounded facts and exclude private records and project words [685.24ms]
+
+packages/application/test/assistant-runner.test.ts:
+(pass) assistant daemon durable queue > acceptance survives a lost response and twenty duplicate clients execute once [23.85ms]
+(pass) assistant daemon durable queue > an independent process completes work after its original client disappears [304.87ms]
+(pass) assistant daemon durable queue > real kill after claim retains uncertainty; explicit recovery dispatches only never-claimed work [175.22ms]
+(pass) assistant daemon durable queue > real kill before claim leaves accepted work available for an authority-rechecking owner [149.49ms]
+(pass) assistant daemon durable queue > a live owner, including a possibly reused PID, cannot be displaced [3.67ms]
+(pass) assistant daemon durable queue > cancellation before claim is durable and blocks current and future dispatch [38.59ms]
+(pass) assistant daemon durable queue > active cancellation aborts but remains unresolved until the executor's outcome is durable [19.34ms]
+(pass) assistant daemon durable queue > shutdown waits are bounded and cannot release ownership while an effect ignores cancellation [24.41ms]
+(pass) assistant daemon durable queue > owner release waits for listener finalization without extending the stop deadline [40.12ms]
+(pass) assistant daemon durable queue > failed listener finalization preserves owner identity and refuses replacement [3.12ms]
+(pass) assistant daemon durable queue > an owner whose listener cleanup outlives its stop bound exits with ownership retained, released only by explicit recovery [172.36ms]
+(pass) assistant daemon durable queue > cancellation from a reconnected client reaches the independently owned active process [161.12ms]
+(pass) assistant daemon durable queue > post-dispatch errors remain uncertain across reconnect; known pre-effect refusals are distinct [13.95ms]
+(pass) assistant daemon durable queue > request, claim, result and cancellation corruption fail closed [36.49ms]
+(pass) assistant daemon durable queue > symlink paths, oversized files, non-JSON objects and arbitrary handles are rejected [3.95ms]
+(pass) assistant daemon durable queue > credentials are rejected before persistence and scrubbed before retaining an outcome [10.46ms]
+(pass) assistant daemon durable queue > an existing unknown recovery guard is never automatically removed [1.05ms]
+(pass) assistant daemon durable queue > operator reconciliation preserves uncertainty and attaches domain evidence without replay [15.54ms]
+(pass) assistant daemon durable queue > reconciliation refuses accepted and actively running operations and validates its sibling [21.11ms]
+(pass) assistant daemon durable queue > a killed claimed request can be reconciled against domain evidence without removing its claim [161.96ms]
+(pass) assistant daemon durable queue > an incomplete unacknowledged request directory does not poison other accepted work [11.34ms]
+
+packages/application/test/protected-deployment.test.ts:
+(pass) protected deployment artifacts never self-authorize > deterministic plan binds source digests, protected identities and fixed destinations [1.10ms]
+(pass) protected deployment artifacts never self-authorize > same-user private files and a shared private group cannot be called protected [0.08ms]
+(pass) protected deployment artifacts never self-authorize > artifact source is inert and normalized; command/secret/ready fields are not accepted [0.10ms]
+(pass) protected deployment artifacts never self-authorize > changed paths, claims, service commands and ownership refuse even after attacker recomputes the hash [3.25ms]
+(pass) protected deployment artifacts never self-authorize > uninstall preserves evidence and keys; the plan cannot invoke an installer [0.14ms]
+(pass) protected deployment artifacts never self-authorize > another or privileged inspecting principal cannot supply the app's access evidence [0.55ms]
+(pass) protected deployment artifacts never self-authorize > read-only deployment checks cannot claim native presence or real-client/runtime isolation [84.52ms]
+(pass) protected path inspection uses observations rather than chmod narratives > a private same-user directory is writable and fails; contents remain untouched [19.15ms]
+(pass) protected path inspection uses observations rather than chmod narratives > chmod on a leaf cannot hide replacement through its writable parent [20.86ms]
+(pass) protected path inspection uses observations rather than chmod narratives > modified artifact bytes are a refusal, even if the declared version is unchanged [21.53ms]
+(pass) protected path inspection uses observations rather than chmod narratives > a missing path is not successful access denial [18.72ms]
+(pass) protected path inspection uses observations rather than chmod narratives > neither leaf nor ancestor symlinks are followed [37.14ms]
+(pass) protected path inspection uses observations rather than chmod narratives > special files and ownership/mode mismatch never become binary evidence [18.65ms]
+
+packages/application/test/improvements.test.ts:
+(pass) adoption changes only a future unapproved template; stale source and evidence downgrade cannot inherit it [172.87ms]
+
+packages/engine/test/assertions.test.ts:
+(pass) a runner's test name becomes a conforming, unique, traceable assertion id [0.07ms]
+(pass) the node:test TAP trailer and its rows are translated, and a spec report is refused [0.17ms]
+(pass) playwright specs and their own stats are translated; disagreement is an error [0.25ms]
+(pass) vitest assertion results are translated and a file with no assertions becomes an error [0.12ms]
+(pass) a report with no requirement to be evidence of, or too many assertions, is refused by sentence [0.28ms]
+(pass) an entirely skipped suite exits 0 and the gate still cannot pass [183.47ms]
+(pass) a passing suite establishes its assertions and the gate passes [168.87ms]
+(pass) a runner report that contradicts the observed exit code is refused [166.59ms]
+(pass) a browser that cannot launch is an environment classification from the probe, not from log text [251.95ms]
+(pass) a shell that could not execute the command is environment, whatever the runner said [159.85ms]
+(pass) ZenJev's original SW-01 mapping compiles, and an unproved corroboration is refused by name [0.28ms]
+(pass) a browser that never started cannot become the recorded failure a requirement rests on [282.63ms]
+(pass) the operator pages carry the structured-evidence and layering sentences [1.12ms]
+(pass) every recorded gate status stays derivable from its own exit code and timeout [168.07ms]
+(pass) T05 standalone Node evidence refuses empty-file TAP and requires registered tests from the shipped reporter [709.10ms]
+(pass) T05 an unchanged old report is unavailable but a report produced by this execution is usable [253.93ms]
+(pass) T05 truncated captured output cannot establish a complete assertion report [75.20ms]
+(pass) a declared output report cannot also claim to be a protected check input [0.39ms]
+
+packages/engine/test/engine.test.ts:
+(pass) strict YAML rejects duplicate keys, unknown keys/tags, aliases beyond budget and boolean commands [0.82ms]
+(pass) unsupported evidence includes refuse instead of promising uncaptured files [0.10ms]
+(pass) local execution refuses every container-only setting even false or empty values [0.16ms]
+(pass) unused workspace declarations refuse with an explicit native repository route [0.09ms]
+(pass) init detects actual package scripts, never overwrites configuration [80.12ms]
+(pass) verification refuses an approved plan that does not satisfy the frozen specification schema [247.10ms]
+(pass) placeholder declares explicitly that a passing run proves nothing [164.03ms]
+(pass) bound checks all record red after first required failure; unbound gates remain skipped [192.78ms]
+(pass) single gate keeps declared numbering and optional failures do not fail a run [165.41ms]
+(pass) a narrow selection stays exit 0 and records what the pass did not cover [282.81ms]
+(pass) a gate skipped because an earlier one failed leaves the verification incomplete [165.74ms]
+(pass) a layered requirement needs every binding gate, and corroboration never decides [753.45ms]
+(pass) a single-gate mapping writes no layers record at all [172.35ms]
+(pass) secrets are scrubbed in all captured text before seal, including command and both streams [164.58ms]
+(pass) real timeout reaps grandchild process group, even when shell traps TERM [568.74ms]
+(pass) orphan-held pipes do not hang after the shell exits [548.40ms]
+(pass) abort leaves no invented gate.finished result and exits interrupted [507.44ms]
+(pass) declared concurrent groups run together, serialize remainder and record contention [990.29ms]
+(pass) flaky observations stop the build without giving nondeterminism to a worker [280.96ms]
+(pass) red-first evidence requires the same check and genuine failure, source wording frozen [389.01ms]
+(pass) tampered red receipt and exit-127 environmental failure cannot establish proof [287.82ms]
+(pass) human words and note preserved, stale judgement refuses after wording change [876.62ms]
+(pass) build converges from real worker edits even when worker exits nonzero [532.46ms]
+(pass) no-progress stops after exactly one verify and captures causal stdout as well as stderr [406.66ms]
+(pass) a legacy or malformed loop cannot resume by resetting an unknown worker budget [489.01ms]
+(pass) resume preserves original authority and refuses changed approved wording without another worker [510.45ms]
+(pass) doctor reads last verification record and explain retains both streams [242.72ms]
+(pass) path traversal and symlinked evidence paths refuse before overwriting arbitrary files [248.54ms]
+(pass) snapshot fingerprints untracked bytes and refuses merge state [250.05ms]
+(pass) prove re-runs current acceptance bytes against HEAD and writes sensitive receipts [234.37ms]
+(pass) prove distinguishes vacuous checks and failed environment setup from proof [320.61ms]
+(pass) tracked binary content changes fingerprint without including raw binary payload in diff [260.20ms]
+(pass) gate artifacts are bounded, text-redacted, and omit symlinks or unknown types [170.46ms]
+(pass) container argv makes network, env-name forwarding, mounts and cleanup inspectable without claiming live isolation [0.39ms]
+(pass) real container protocol stub exercises native gate runner and cid cleanup; it is not an isolation test [528.25ms]
+(pass) worker timeout tightening is enforced and cannot increase the repository ceiling [816.93ms]
+(pass) a loop wall-clock ceiling also bounds verification before any worker spend [455.46ms]
+(pass) a worker cannot increase its budget or weaken its check declaration mid-loop [428.94ms]
+(pass) a passing gate that replaces its own check fails verification and never invokes a repair worker [252.62ms]
+(pass) prove setup cannot manufacture sensitivity by replacing the copied check [255.55ms]
+(pass) container sensitivity uses a self-contained pre-change clone; protocol stub is not an isolation claim [565.51ms]
+(pass) worker-auth probes saved login without a key and distinguishes all four credential states before spend [380.58ms]
+
+packages/engine/test/discovery.test.ts:
+(pass) T05 no-check discovery cannot create a successful placeholder [1.26ms]
+(pass) T04 discovery identifies Rust and Go checks as inert proposals [5.48ms]
+(pass) T08 preview is nonmutating and package-manager choice comes from data [1.73ms]
+(pass) T08 existing configuration remains byte-identical under inspection [0.86ms]
+
+packages/engine/test/readiness.test.ts:
+(pass) a declared prerequisite parses with its defaults [0.03ms]
+(pass) a declared prerequisite parses with its defaults
+(pass) a declared prerequisite parses with its defaults
+(pass) a declared prerequisite parses with its defaults [0.02ms]
+(pass) a declared prerequisite parses with its defaults
+(pass) requires refuses what it cannot measure, and a URL in the configuration [0.20ms]
+(pass) an installed browser that cannot launch is executable, never ready [229.43ms]
+(pass) a browser whose binary is absent is installed, and a missing module is unavailable [106.29ms]
+(pass) a browser that launches, opens about:blank and closes is measured [106.59ms]
+(pass) the filesystem probe writes, fsyncs and reads back in both locations [75.43ms]
+(pass) a stopped container service is a readiness row, and nothing is started [345.10ms]
+(pass) a running container service is measured, and an exit-0 stopped answer is not mistaken for ready [374.14ms]
+(pass) a portable database does not satisfy a native requirement, and an unset variable is not measured [101.79ms]
+(pass) the doctor measures every declared prerequisite and cannot report ready while one is blocking [312.24ms]
+(pass) no route through the standalone doctor can reach accepted [153.02ms]
+(pass) the verdict is never ready while a declared requirement is short of measured [0.10ms]
+(pass) every page debt the blind run recorded is written on its page [1.34ms]
+
+packages/engine/test/selection.test.ts:
+(pass) a selected subset passes for its selection and reports the rest as not run [0.09ms]
+(pass) naming no gate selects everything declared, and is distinguishable from listing them all [0.09ms]
+(pass) complete is exactly the emptiness of missing_required, never the run's outcome [0.10ms]
+(pass) an optional gate is outside the completeness denominator [0.03ms]
+(pass) four subset bundles of one revision combine into one complete ten-gate result [21.51ms]
+(pass) bundles written before the selection record existed still combine, and say so [15.89ms]
+(pass) omitting required gates that prove nothing still blocks completion [15.21ms]
+(pass) a required gate that ran and failed is a failure, not a gap, and breaks the set [16.85ms]
+(pass) two revisions are refused by a sentence naming the offending bundle [7.82ms]
+(pass) two configurations are refused, because two populations cannot be added up [9.28ms]
+(pass) one gate with two definitions is refused [6.40ms]
+(pass) a damaged bundle is refused by name [3.37ms]
+(pass) two outcomes for one gate are refused rather than resolved [7.63ms]
+(pass) a set of nothing, an interrupted run and a configuration-free bundle are all refused [4.15ms]
+(pass) the generated handoff never manufactures an owner judgment [20.56ms]
+(pass) with no acceptance record the handoff records the absence rather than a verdict [16.28ms]
+(pass) the operator pages carry the incomplete sentence and the set verb [0.66ms]
+(pass) the receipt is written, sealed and exits by completeness [67.07ms]
+(pass) combiner-reads-every-version: every selection and checks schema is one the set reads [1.78ms]
+
+packages/engine/test/strict.test.ts:
+(pass) declared globs are hashed into identity, and the coverage label says which parts exist [76.90ms]
+(pass) changing an indirectly loaded test invalidates comparability [75.89ms]
+(pass) inputs globs are bounded and repository-relative [0.25ms]
+(pass) a run writes checks v2 only where a gate declares inputs [261.51ms]
+(pass) strict refuses an exact-source claim a gate took away, and permits ignored build output [791.78ms]
+(pass) strict is automatic under CI, through the public entry [287.77ms]
+(pass) T06 strict detects further edits to already dirty binary source and a moved HEAD [321.09ms]
+(pass) T06 strict detects a moved HEAD even when the source tree stays the same [297.50ms]
+(pass) the operator pages carry the inputs and strict sentences [0.41ms]
+
+packages/engine/test/redactor.test.ts:
+(pass) OIDC credential metadata does not turn a public URL scheme into a secret [2.39ms]
+(pass) URL-valued secrets retain their meaningful prefixes without masking common transport syntax [2.68ms]
+
+packages/engine/test/orchestrate.test.ts:
+(pass) setup, services, phases and teardown parse with their defaults [0.34ms]
+(pass) the ordering rules refuse a configuration that would run a gate twice or never [0.22ms]
+(pass) a declared value that would be a credential in the repository is refused [0.24ms]
+(pass) declared phases are the running order, and the selection record says which phase ran what [177.77ms]
+(pass) a service that never becomes ready is an environment outcome, not a product result [2279.06ms]
+(pass) a service that exits before readiness is its own outcome, not a timeout [441.26ms]
+(pass) setup runs in order, exactly once each, and its first failure stops the run [284.85ms]
+(pass) a real service becomes ready on a JSON body path, holds across phases, and is stopped [558.54ms]
+(pass) teardown runs after a failed gate, and the gate failure stays exit 1 [171.90ms]
+(pass) a teardown command that fails is recorded and does not rewrite the outcome [161.46ms]
+(pass) cancellation stops only the groups this run started [2935.72ms]
+(pass) ZenJev's whole CI coordinator compiles as declared configuration [3.97ms]
+(pass) the operator pages carry the service, phase and exit-code sentences [0.89ms]
+
+packages/acp/test/acp.test.ts:
+(pass) T20 explicit model selection is confirmed through ACP before a prompt, and fallback is refused [1.36ms]
+(pass) ACP negotiates v1, streams final text, never exposes host fs/terminal [0.29ms]
+(pass) a truthful credential observation reaches the controller before any model prompt [7.04ms]
+(pass) ACP headless permissions select declared allow_once only, judge edits denied [0.33ms]
+(pass) agent filesystem callback is refused rather than executed [0.18ms]
+(pass) malformed response error fails without leaving request hung [0.27ms]
+(pass) cross-session update fails, timeout sends cancel and kills transport [321.75ms]
+(pass) authenticate return never becomes a green when session/new still refuses [1.00ms]
+(pass) interactive auth metadata never runs and auth metadata redacts before return [0.30ms]
+(pass) oversized unterminated messages stop before spending a prompt [0.16ms]
+(pass) preflight negotiates auth/session/mode and denies all tool effects without a prompt [0.39ms]
+(pass) preflight reports invalid key, interactive auth and unsupported protocol without task prompts [0.35ms]
+(pass) preflight cancellation has a deadline and decoded metadata redaction precedes persistence [335.23ms]
+
+packages/acp/test/mcp-permissions.test.ts:
+(pass) Claude MCP kind=other reads require the controller's exact configured service/tool grant [3.52ms]
+(pass) MCP read permission requires an unambiguous prior call identity and cannot be replayed [1.41ms]
+(pass) design-name lookalikes and untrusted hints cannot grant arbitrary MCP or judge effects [1.36ms]
+(pass) controller design reads never bypass cancellation or protocol-only preflight [0.46ms]
+(pass) controller read grants reject ambiguous service identities and wildcard names [0.18ms]
+(pass) controller service grants match the full session namespace, never the design prefix [0.64ms]
+
+1 tests skipped:
+(skip) real Linux DAC denies out-of-scope, protected rename and verifier tracked writes
+
+
+1 tests failed:
+(fail) automatic showing and preparation observe failed or uncertain attempts without retrying them [8.32ms]
+
+ 1188 pass
+ 1 skip
+ 1 fail
+ 12076 expect() calls
+Ran 1190 tests across 155 files. [821.59s]
+error: script "check" exited with code 1

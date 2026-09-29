@@ -21,6 +21,17 @@ same lineage. The profile pins source, runtime, protected acceptance and upper
 limits; a proposal may narrow those limits. It cannot change its own containment,
 credentials or authority. Missing containment is a setup refusal, never host work.
 
+Use `wringer.inspect_loop` to inspect the retained candidate decisions, check
+outcomes, repair excerpts and remaining reservations. This is a read-only
+observation of one validated journal snapshot. A repeat stop is not permission
+to create a replacement job, and a warning is not evidence of correctness.
+The local equivalent is `wring job loop --job ID --json`.
+
+A completed contained delivery can be exported with `wring bundle export`.
+Share its carried audit route and distinguish independent byte-integrity
+inspection from semantic audit and fresh execution. See
+[portable evidence](examples/evidence/README.md).
+
 ## Protocol and decisions
 
 Read compact versioned status before requesting work. Return the current

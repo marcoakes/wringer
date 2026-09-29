@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+54 |         let corrupted = false;
+55 |         spy = spyOn(filesystem, "writeFile").mockImplementation(((path: any, content: any, options: any) => {
+56 |             if (String(path) === join(output, "evidence/summary.md")) { corrupted = true; content = "Injected copy corruption"; }
+57 |             return originalWrite(path, content, options);
+58 |         }) as typeof filesystem.writeFile);
+59 |         await expect(delivery.exportEvidenceBundle(prepared.bundleDir, output)).rejects.toThrow("Exported evidence changed during copy");
+                                                                                             ^
+error: expect(received).toThrow(expected)
+
+Expected substring: "Exported evidence changed during copy"
+Received message: "Evidence changed: summary.md"
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/contained.test.ts:59:89)
+(fail) portable export never publishes its envelope after a copy-time integrity failure [16283.50ms]
+
+ 0 pass
+ 12 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [16.47s]

@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+(pass) portable export never publishes its envelope after a copy-time integrity failure [16124.20ms]
+
+ 1 pass
+ 12 filtered out
+ 0 fail
+ 3 expect() calls
+Ran 1 test across 1 file. [16.31s]

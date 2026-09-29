@@ -1,0 +1,69 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+(pass) strict reports reject duplicate keys/IDs, foreign requirements and excessive output [4.68ms]
+(pass) Reports default pins the exact advisory playbook and strict assertion contract [24.70ms]
+(pass) syntax errors, empty/skipped tests, runner errors and contradictory exit never establish assertion evidence [2.06ms]
+(pass) strict red/repair/green reaches ready and preserves actionable observations without worker narrative in judge [89.37ms]
+(pass) strict missing report stops before worker spend while generic command-red remains supported [43.65ms]
+(pass) formerly red assertion disappearing, skipped, or remapped cannot become green [82.11ms]
+(pass) A to B to A stops before a fourth worker and ordinary resume preserves reservations [121.56ms]
+124 |     expect(events.filter(e => e.type === "loop-decision-recorded")).toHaveLength(3);
+125 | });
+126 |
+127 | test("public loop inspection carries exact decisions, budgets and source without another effect", async () => {
+128 |     const read = (application as any).readLoopInspection;
+129 |     expect(typeof read).toBe("function");
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "function"
+Received: "undefined"
+
+      at <anonymous> ([checkout]/packages/workflow/test/loop-engineering.test.ts:129:25)
+(fail) public loop inspection carries exact decisions, budgets and source without another effect [4.22ms]
+147 |     await expect(read(other, f.options.controllerDir)).rejects.toThrow();
+148 | });
+149 |
+150 | test("public loop inspection distinguishes warning, success and unstarted observations", async () => {
+151 |     const read = (application as any).readLoopInspection;
+152 |     expect(typeof read).toBe("function");
+                              ^
+error: expect(received).toBe(expected)
+
+Expected: "function"
+Received: "undefined"
+
+      at <anonymous> ([checkout]/packages/workflow/test/loop-engineering.test.ts:152:25)
+(fail) public loop inspection distinguishes warning, success and unstarted observations [0.26ms]
+(pass) three changed failing candidates warn, then a legitimate fourth attempt can complete [94.83ms]
+(pass) repair packet truncation is explicit, complete output is hashed and altered packet refuses [36.04ms]
+(pass) decision fingerprints ignore transport paths and raw output noise, never ignore environment identity [57.59ms]
+(pass) a secret-shaped value crossing an excerpt boundary is redacted before truncation and retention [35.91ms]
+(pass) uncertain repaired attempt preserves recorded loop history and charged reservation across resume [117.58ms]
+(pass) rehashed loop advice cannot replace the deterministic observation-derived decision [75.93ms]
+(pass) only the worker receives the pinned playbook and durable use binds its exact request [304.94ms]
+(pass) combined design and playbook context replays after worker completion before the next role [314.20ms]
+(pass) local and portable coverage require decisions before later spend or readiness [59.27ms]
+(pass) judge repairs have separate evidence and an unknown judgement stays an explicit bounded retry [157.89ms]
+
+packages/application/test/delegation-protocol.test.ts:
+39 |     if (!validate(args) || Buffer.byteLength(JSON.stringify(args)) > 256 * 1024) throw new AssistantToolValidationError("invalid-arguments", "Use only the bounded mutable fields and exact returned handles/guards. Runtime, source and role policy are pinned.");
+40 |     return { name: name as string, args: args as Record<string, unknown> };
+41 | }
+42 | export function validateDelegationOutput(name: string, output: unknown) {
+43 |     const validate = outputs.get(name);
+44 |     if (!validate || !validate(output)) throw new Error(`Delegation output did not match its declared schema: ${name}`);
+                                                       ^
+error: Delegation output did not match its declared schema: wringer.inspect_loop
+      at validateDelegationOutput ([checkout]/packages/mcp/src/delegation-contract.ts:44:51)
+      at <anonymous> ([checkout]/packages/application/test/delegation-protocol.test.ts:16:156)
+      at async <anonymous> ([checkout]/packages/application/test/delegation-protocol.test.ts:24:24)
+(fail) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [43.82ms]
+(pass) T23 evidence paging is stable across elapsed-clock observation while its retained revision is unchanged [1.50ms]
+(pass) T14 only the ready page phase invites review or separate Send; blocked and preparing phases do not [1.46ms]
+
+ 19 pass
+ 3 fail
+ 132 expect() calls
+Ran 22 tests across 2 files. [2.33s]

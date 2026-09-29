@@ -5,6 +5,7 @@ import { loadExecutionPlan, canonicalPlanJson, validateExecutionPlan, createExec
 import { requestContainedRevision, queryContainedJourney, containedHumanReviewEligibility } from "@wringer/workflow";
 import { deliverContained, auditContained, falsifyContained, reviewContainedSource } from "@wringer/delivery";
 import { readControllerFile, readController, startController, resumeController, showControllerCandidate, reviewControllerCandidate, recoverWorkspaceCommand } from "@wringer/application";
+import { readLoopInspection } from "@wringer/application";
 import { EngineError, Redactor } from "@wringer/engine";
 import { allowed, flag, number, positionals, required, string, quote, type Args } from "./args";
 import { DRIVE_HELP } from "./help";
@@ -40,6 +41,10 @@ export async function containedDrive(a: Args, repo: string, context: DispatchCon
         const output = resolve(repo, required(a, "output"));
         await writeFile(output, JSON.stringify(authority, null, 2) + "\n", { flag: "wx", mode: 0o600 });
         return { value: { path: output, authority }, text: `Bounded authority saved: ${output}\nPlan: ${plan.plan_sha256}\nNo human verdict, publication or sandbox bypass was granted.\nNext: wringer-drive run ${quote(resolve(repo, a.words[0]!))} --authority ${quote(output)}` };
+    }
+    if (a.command === "loop") {
+        positionals(a, 0); allowed(a, ["state"]);
+        return { value: await readLoopInspection(statePath(repo, a)) };
     }
     if (a.command === "status") {
         positionals(a, 0); allowed(a, ["state"]);

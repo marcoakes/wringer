@@ -1,0 +1,34 @@
+bun test v1.4.2 (744846f84)
+
+packages/board/test/job-render.test.ts:
+(pass) first-class loop view binds source and remaining reservations without changing decision eligibility [23.93ms]
+
+packages/cli/test/delegation-owner.test.ts:
+(pass) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [160.14ms]
+
+packages/workflow/test/loop-engineering.test.ts:
+(pass) public loop inspection carries exact decisions, budgets and source without another effect [131.69ms]
+(pass) public loop inspection distinguishes warning, success and unstarted observations [131.24ms]
+(pass) public loop inspection removes private paths from runtime stop diagnostics [22.25ms]
+(pass) public loop projection refuses an oversized display instead of truncating away decisions [60.88ms]
+(pass) uncertain repaired attempt preserves recorded loop history and charged reservation across resume [115.29ms]
+
+packages/delivery/test/contained.test.ts:
+(pass) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [27097.86ms]
+(pass) portable export never publishes its envelope after a copy-time integrity failure [17587.40ms]
+
+packages/delivery/test/bundle-reader.test.ts:
+(pass) native reader asset remains byte-identical to the independent source [0.51ms]
+(pass) independent reader checks byte integrity without inventing semantic acceptance [2.84ms]
+(pass) independent reader refuses source substitution, changed seals, unknown payloads and envelope tampering [17.72ms]
+(pass) independent reader rejects unlisted files and symlink transport instead of following them [7.53ms]
+(pass) independent reader refuses nonportable filenames even under a matching seal [2.71ms]
+
+packages/application/test/delegation-protocol.test.ts:
+(pass) T07 T08 typed delegation protocol validates, proposes and returns compact guarded observations [49.24ms]
+
+ 15 pass
+ 57 filtered out
+ 0 fail
+ 142 expect() calls
+Ran 15 tests across 6 files. [46.01s]

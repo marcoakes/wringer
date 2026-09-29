@@ -1,6 +1,31 @@
-# Current Bun adoption candidate — 28 September 2026
+# Current product evidence — 29 September 2026
 
-This is an implementation candidate, not a public release or a passed live user
+The public native baseline is
+[1.0.0-alpha.23](https://github.com/marcoakes/wringer/releases/tag/v1.0.0-alpha.23),
+commit `69f0f304153560861a7f0ecf671eb564f7dae082`. Its
+[release workflow](https://github.com/marcoakes/wringer/actions/runs/36480784489)
+completed successfully. Read its attached archive-specific claim reports for
+the native macOS/Linux, installer and channel coverage of those exact bytes.
+
+Restoration phase 1 is qualifying visible loops, shared CLI/PM/MCP inspection
+and portable exports with an independent Node reader. Follow the
+[execution record](docs/restoration/STATUS.md) and
+[capability ledger](docs/CAPABILITIES.md). Until its release is observed, new
+working-tree measurements do not qualify a published alpha.24 artifact.
+
+Fixture loop control, portable audits and prediction-gated playbook experiments
+are implemented. They do not establish live convergence, independent usability,
+universal model improvement or a competitive performance advantage. Those need
+the registered comparisons and actual observations in the
+[restoration plan](docs/SOTA_RESTORATION_PLAN.md).
+
+## Pre-publication adoption checkpoint — 28 September 2026
+
+The following checkpoint predates alpha.23 publication. Its public-release and
+native-install status is superseded by that release's attached measurements;
+the original observations and unresolved live-user claims are preserved below.
+
+This checkpoint describes an implementation candidate, not a public release or a passed live user
 journey. The [rebuild ledger](docs/rebuild/STATUS.md) names exact checks and
 remaining prerequisites. Exact final archive-bound measurements and the implementation report accompany
 `build/rebuild-candidate/`. Earlier alpha19 artifacts do not qualify later bytes.

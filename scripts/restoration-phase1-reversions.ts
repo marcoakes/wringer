@@ -1,0 +1,37 @@
+/** One logical fix/guard at a time, in a disposable checkout; never the user's tree. */
+import { runReversions, type Reversion } from "./rebuild-reversions";
+const workflow = "packages/workflow/test/loop-engineering.test.ts", protocol = "packages/application/test/delegation-protocol.test.ts", owner = "packages/cli/test/delegation-owner.test.ts", page = "packages/board/test/job-render.test.ts", exported = "packages/delivery/test/contained.test.ts", reader = "packages/delivery/test/bundle-reader.test.ts";
+const cases: Reversion[] = [];
+function probe(name: string, file: string, before: string, after: string, test: string, pattern: string) { cases.push({ name, file, before, after, test, pattern }); }
+const loop = "packages/application/src/loop-inspection.ts", bundle = "packages/delivery/src/bundle.ts", independent = "examples/evidence/read-bundle.mjs";
+probe("loop-plan-binding", loop, 'if (history && hashValue(history.plan) !== hashValue(plan))', 'if (false)', workflow, "public loop inspection carries");
+probe("complete-decision-history", loop, 'decisions, repair:', 'decisions: [], repair:', workflow, "public loop inspection carries");
+probe("remaining-reservations", loop, 'remaining: Math.max(0, ceiling - reserved)', 'remaining: ceiling', workflow, "public loop inspection carries");
+probe("uncertain-reservations", loop, 'unresolvedSessions: state.effects.filter(effect => effect.status !== "completed").length', 'unresolvedSessions: 0', workflow, "uncertain repaired attempt");
+probe("bounded-inspection", loop, 'if (Buffer.byteLength(JSON.stringify(value)) > 2 * 1024 * 1024)', 'if (false)', workflow, "oversized display");
+probe("private-stop-paths", loop, 'message: publicStopMessage(history.result.stop.message, history.result.stop.cwd)', 'message: history.result.stop.message', workflow, "private paths");
+probe("job-plan-not-template", "packages/application/src/delegation-protocol.ts", 'readJobLoopInspection(proposal.plan,', 'readJobLoopInspection(proposal.plan ?? service.workspace.profile,', owner, "T07 T16");
+probe("cli-job-plan-not-template", "packages/application/src/delegation-jobs.ts", 'readJobLoopInspection(proposal.plan,', 'readJobLoopInspection(proposal.plan ?? service.workspace.profile,', owner, "T07 T16");
+probe("mcp-authenticated-inspection", "packages/application/src/delegation-protocol.ts", 'if (observed.isError) return refusal(String(observed.code), String(observed.message));\n                const proposal', '// Authentication refusal removed for the isolated probe.\n                const proposal', protocol, "T07 T08");
+probe("inspection-no-added-authority", "schema/loop-inspection-v1.schema.json", '"title": "Read-only contained loop inspection",\n  "type": "object",\n  "additionalProperties": false', '"title": "Read-only contained loop inspection",\n  "type": "object",\n  "additionalProperties": true', protocol, "T07 T08");
+probe("workspace-cli-route", "packages/cli/src/adoption-cli.ts", 'if (verb === "loop")', 'if (verb === "retired-loop")', owner, "T07 T16");
+probe("contained-cli-route", "packages/cli/src/contained-cli.ts", 'if (a.command === "loop")', 'if (a.command === "retired-loop")', workflow, "public loop inspection distinguishes");
+probe("page-source-and-budget-binding", "packages/board/src/job-model.ts", 'v.schema_version === "wringer.pm-job.v4" ? !loop(v.loop)', 'v.schema_version === "wringer.pm-job.v4" ? false', page, "first-class loop view");
+probe("visible-loop-history", "packages/board/src/job-render.ts", 'id="job-engineering" open hidden', 'id="job-engineering" hidden', page, "first-class loop view");
+probe("export-source-audit", bundle, 'if (audit.status !== "passed")', 'if (false)', exported, "portable export retains");
+probe("export-copy-audit", bundle, 'if ((await auditContained(payload)).status !== "passed")', 'if (false)', exported, "copy-time integrity");
+probe("export-outside-source", bundle, 'if (output === source || output.startsWith(source + sep))', 'if (false)', exported, "portable export retains");
+probe("exclusive-export-directory", bundle, 'await mkdir(output, { mode: 0o700 });', 'await mkdir(output, { mode: 0o700, recursive: true });', exported, "portable export retains");
+probe("export-delivery-identity", bundle, 'deliveryId: manifest.id,', 'deliveryId: manifest.deliveryId,', exported, "portable export retains");
+probe("node-reader-entry-alias", "integrations/bundle-reader.txt", 'const entry = process.argv[1] ? await realpath(process.argv[1]).catch(() => null) : null;', 'const entry = process.argv[1] ? resolve(process.argv[1]) : null;', exported, "portable export retains");
+probe("reader-envelope-inventory", independent, 'insist(JSON.stringify((await readdir(root)).sort()) === JSON.stringify(["bundle.json", "evidence", "read-bundle.mjs", "schema.json", "summary.md"]), "Envelope inventory changed");', '// Outer inventory omitted for the isolated probe.', reader, "rejects unlisted files");
+probe("reader-payload-integrity", independent, 'for (const name of Object.keys(seal.files)) insist(hash(seal.files[name]) && digest(await file(evidence, name)) === seal.files[name], `Evidence changed: ${name}`);', '// Payload byte verification omitted for the isolated probe.', reader, "source substitution");
+probe("reader-source-binding", independent, 'insist(index.bundleFamily === manifest.schema_version && index.deliveryId === manifest.id && index.source?.commit === manifest.source?.codeCommit && index.source?.tree === manifest.source?.tree, "Bundle source identity changed");', '// Source binding omitted for the isolated probe.', reader, "source substitution");
+probe("reader-root-symlink", independent, 'insist(!(await lstat(input)).isSymbolicLink(), "Symlink bundle root");', '// Root link check omitted for the isolated probe.', reader, "rejects unlisted files");
+probe("reader-portable-paths", independent, 'insist(typeof name === "string" && name.length <= 1024 && !name.includes("\\\\") && !name.includes("\\0") && name.split("/").every(part => part && part !== "." && part !== ".." && part !== ".git"), "Unsafe evidence path");', '// Portable path validation omitted for the isolated probe.', reader, "nonportable filenames");
+probe("independent-reader-asset-sync", "integrations/bundle-reader.txt", '// Independent reader: Node built-ins only. Integrity is not semantic acceptance.', '// Deliberately stale independent reader asset.', reader, "byte-identical");
+const revision = Bun.spawnSync(["git", "rev-parse", "HEAD"], { stdout: "pipe", stderr: "pipe" });
+if (revision.exitCode) throw new Error("Could not record the current source baseline");
+for (const probe of cases) if ((await Bun.file(probe.file).text()).split(probe.before).length !== 2) throw new Error(`Mutation target is not unique: ${probe.name}`);
+if (process.argv.includes("--check-targets")) console.log(`${cases.length} unique phase-1 reversion targets`);
+else await runReversions("restoration-phase1", [workflow, protocol, owner, page, exported, reader, "--test-name-pattern", "public loop|uncertain repaired|T07 T08|T07 T16|first-class loop|portable export|independent reader|native reader asset"], cases, { baseline: revision.stdout.toString().trim(), evidenceDirectory: "docs/restoration/evidence/phase-1", restoreEach: true });

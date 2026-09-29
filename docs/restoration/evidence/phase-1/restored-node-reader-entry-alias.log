@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+(pass) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [24699.29ms]
+
+ 1 pass
+ 12 filtered out
+ 0 fail
+ 17 expect() calls
+Ran 1 test across 1 file. [24.92s]

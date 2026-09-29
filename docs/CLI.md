@@ -21,7 +21,7 @@ and model-facing MCP have different permissions.
 ## wring
 
 ```text
-Wringer · Bun/TypeScript · 1.0.0-alpha.23
+Wringer · Bun/TypeScript · 1.0.0-alpha.24
 
 Check your coding agent's changes, or delegate a bounded contained job.
 
@@ -65,6 +65,8 @@ Standalone trusted-local verification and historical evidence:
   wring attest --delivery ID          Record an independent audit report
   wring get URL DIRECTORY             Clone a repository; run none of its contents
   wring graph show|status|explain     Read legacy graph declarations or history
+  wring job loop --job ID            Inspect attempts, decisions and remaining allowance
+  wring bundle --help                Export portable evidence with an independent reader
   wring issue / health               Import a declared issue or inspect check history
 
 All commands accept --repo DIRECTORY and --json. Unknown options are errors.
@@ -72,6 +74,16 @@ Separate surfaces: wringer-drive (headless PM), wringer-board (evidence / pen).
 Run wring start --help for setup and wringer-drive --help for unattended operation.
 Legacy host coding workers, graph/fleet/bench execution and direct-HTTP model calls
 are retired. No provider, key, human verdict or remote publication is invented.
+```
+
+## wring bundle
+
+```text
+wring bundle export --bundle CONTAINED_DELIVERY --output NEW_DIRECTORY
+wring bundle inspect --bundle EXPORTED_DIRECTORY
+Export an already auditable contained delivery (v1–v4), preserving every payload byte. The new directory carries bundle.json, schema.json, summary.md, evidence/ and read-bundle.mjs.
+Independent integrity inspection: node NEW_DIRECTORY/read-bundle.mjs NEW_DIRECTORY
+The independent reader needs no Wringer or credentials; it does not execute acceptance checks. Bundle inspect also runs Wringer's semantic audit. Existing output directories are never overwritten.
 ```
 
 ## wring spec
@@ -204,6 +216,7 @@ Wringer workspace setup and retained jobs
   wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]
   wring job list [--workspace ID] [--offset 0] [--limit 50]
   wring job status --job ID
+  wring job loop --job ID [--json]
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
@@ -279,7 +292,7 @@ Client entries have their own scoped removal: wring connect --help.
 ## wring assistant
 
 ```text
-Wringer assistant entry point — 1.0.0-alpha.23
+Wringer assistant entry point — 1.0.0-alpha.24
 
 Keep your AI coding app. Put the work through Wringer.
 Cooperative local engineering preview. The tool capability is restricted, but an unrestricted app using this OS account can bypass it. Protected mode and verified human presence are unavailable.
@@ -346,6 +359,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
+  wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend
@@ -445,6 +459,7 @@ Apple container or gVisor/Kubernetes contains each repository clone.
   wringer-drive run PLAN.yaml --authority authority.json [--state DIRECTORY]
   wringer-drive resume --state DIRECTORY       Reuse the recorded plan and bounded authority
   wringer-drive status --state DIRECTORY       Validate and read the authoritative journal
+  wringer-drive loop --state DIRECTORY         Inspect retained loop decisions and reservations
   wringer-drive planning-status --state DIR    Read a planning grant, reply and remaining budget
   wringer-drive planning-questions --state DIR Read the planner's questions and note; no spend
   wringer-drive planning-new-grant --state DIR  Preview a separate planning grant; no spend

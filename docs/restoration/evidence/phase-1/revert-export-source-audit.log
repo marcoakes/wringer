@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/contained.test.ts:
+39 |         await writeFile(join(output, "evidence", "summary.md"), "changed");
+40 |         await expect(command(["node", join(output, "read-bundle.mjs"), output])).rejects.toThrow("Evidence changed");
+41 |         await writeFile(join(prepared.bundleDir, "summary.md"), "changed");
+42 |         const invalidOutput = join(f.root, "invalid-export");
+43 |         await expect(exportBundle(prepared.bundleDir, invalidOutput)).rejects.toThrow();
+44 |         await expect(lstat(invalidOutput)).rejects.toThrow();
+                                                        ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/contained.test.ts:44:52)
+(fail) portable export retains an auditable bundle and a dependency-free reader; corruption and overwrite refuse [26740.71ms]
+
+ 0 pass
+ 12 filtered out
+ 1 fail
+ 17 expect() calls
+Ran 1 test across 1 file. [26.89s]

@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/workflow/test/loop-engineering.test.ts:
+120 |     const history = await readValidatedContainedState(f.options.controllerDir);
+121 |     expect(history.result.stop?.message).toContain(f.options.controllerDir);
+122 |     const view = application.projectLoopInspection(f.options.plan, history);
+123 |     expect(view.stop?.reason).toBe("effect-uncertain");
+124 |     expect(view.stop?.message).toContain("Missing");
+125 |     expect(JSON.stringify(view)).not.toContain(f.options.controllerDir);
+                                           ^
+error: expect(received).not.toContain(expected)
+
+Expected to not contain: "/var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-loop-v3-hHMaVI"
+Received: "{\"schema_version\":\"wringer.loop-inspection.v1\",\"planSha256\":\"c990aff1f1f3324bd4ecf41ab8b527e59ac257e02468e06fe51682dd0077bf65\",\"acceptanceSha256\":\"3fce1d3ee48f1d53bc39a68f56bd5ac356279c685591c1835271938cfc1b9352\",\"sourceCommit\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"journalRevision\":\"19b33ffaf8d8b782988cf3bea0c05fa65cb44633b37db6fe68068083a56ddbc2\",\"journeyId\":\"37f12525-9327-4830-96e0-9ad0fc56d5ad\",\"startedAt\":\"2026-09-29T09:47:43.714Z\",\"status\":\"stopped\",\"stage\":\"worker\",\"candidate\":null,\"stop\":{\"reason\":\"effect-uncertain\",\"message\":\"ACP effect ff4e88bd-a786-4d7d-a62d-49f83ec22c5a did not produce a validated durable result: Error: Missing /var/folders/n8/bx4t2r951kn9bfs540fq17gw0000gn/T/wringer-loop-v3-hHMaVI/private-session and /Users/operator/private/credential-file. Its budget remains charged.\"},\"budget\":{\"sessions\":{\"reserved\":1,\"ceiling\":20,\"remaining\":19},\"roles\":[{\"role\":\"planner\",\"reserved\":0,\"ceiling\":0,\"remaining\":0},{\"role\":\"worker\",\"reserved\":1,\"ceiling\":8,\"remaining\":7},{\"role\":\"judge\",\"reserved\":0,\"ceiling\":8,\"remaining\":8}],\"verification\":{\"reserved\":1,\"ceiling\":20,\"remaining\":19},\"unresolvedSessions\":1,\"unresolvedVerifications\":0,\"expiresAt\":\"2026-09-29T10:47:43.706Z\",\"wallSeconds\":3600,\"tokens\":{\"input\":null,\"output\":null},\"monetaryCost\":null},\"attempts\":[{\"id\":\"ff4e88bd-a786-4d7d-a62d-49f83ec22c5a\",\"role\":\"worker\",\"status\":\"uncertain\",\"disposition\":null}],\"decisions\":[],\"repair\":null,\"engineering\":{\"schema_version\":\"wringer.pm-engineering.v1\",\"planSha256\":\"c990aff1f1f3324bd4ecf41ab8b527e59ac257e02468e06fe51682dd0077bf65\",\"approach\":null,\"checks\":[{\"id\":\"total-check\",\"level\":\"assertions\",\"status\":\"not-measured\",\"assertionStatus\":\"not-measured\",\"reason\":\"Executed assertion evidence has not been recorded for the current result.\"}],\"history\":[],\"limits\":[\"This is a read-only explanation of the selected approach and retained observations, not an approval or an instruction to an agent.\",\"A selected playbook is worker advice, not proof of improvement. It is not injected into the judge's instructions, but tracked source can remain readable through the repository.\",\"Recorded adoption is future-selection provenance, not execution permission or an independent rerun of the private comparison.\",\"Executed assertions are stronger evidence than command exits; neither establishes complete requirements or honest, sufficient tests.\",\"Repeated outcomes are observations, not a quality score. Your result decision and permission to send remain separate.\"]},\"limits\":[\"Read-only snapshot of validated observations; it grants no execution, acceptance or Send.\",\"Reservations include uncertain attempts. Remaining sessions are not a cash allowance; absent billing remains unknown.\",\"A repeated outcome warning does not establish a plateau or authorise incomplete delivery.\",\"Private prompts, agent narrative, provider traces, credentials and controller paths are omitted. Use a carried delivery bundle for independent semantic audit.\"]}"
+
+      at <anonymous> ([isolated-checkout]/packages/workflow/test/loop-engineering.test.ts:125:38)
+(fail) public loop inspection removes private paths from runtime stop diagnostics [43.44ms]
+
+ 0 pass
+ 20 filtered out
+ 1 fail
+ 4 expect() calls
+Ran 1 test across 1 file. [211.00ms]

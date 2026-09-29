@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Portable evidence discovery envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "payload",
+    "bundleFamily",
+    "deliveryId",
+    "source",
+    "manifestSha256",
+    "digestsSha256",
+    "files",
+    "semanticAudit"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "wringer.bundle-index.v1"
+    },
+    "payload": {
+      "const": "evidence"
+    },
+    "bundleFamily": {
+      "enum": [
+        "wringer.contained-delivery.v1",
+        "wringer.contained-delivery.v2",
+        "wringer.contained-delivery.v3",
+        "wringer.contained-delivery.v4"
+      ]
+    },
+    "deliveryId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,180}$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree"
+      ],
+      "properties": {
+        "commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        },
+        "tree": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}([a-f0-9]{24})?$"
+        }
+      }
+    },
+    "manifestSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "digestsSha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "read-bundle.mjs",
+        "schema.json",
+        "summary.md"
+      ],
+      "properties": {
+        "read-bundle.mjs": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "schema.json": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "summary.md": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "semanticAudit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "scope"
+      ],
+      "properties": {
+        "command": {
+          "const": "wringer-drive audit --bundle evidence"
+        },
+        "scope": {
+          "type": "string",
+          "maxLength": 2048
+        }
+      }
+    }
+  }
+}

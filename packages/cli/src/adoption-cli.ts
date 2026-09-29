@@ -8,7 +8,7 @@ import type { Answer, DispatchContext } from "./app";
 import { createVerificationOwner } from "./verification-owner";
 import { readAssistantConnection } from "./assistant-transport";
 import { applyDelegationProfile, inspectDelegationProfile, type DelegationSelection } from "@wringer/application";
-import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus } from "@wringer/application";
+import { assistantExists, createDelegationJob, readDelegationJob, delegationJobStatus, inspectDelegationLoop } from "@wringer/application";
 import { createDelegationOwner } from "./delegation-owner";
 import { compactVerificationStatus } from "@wringer/application";
 import { applyAcceptancePreparation, inspectAcceptancePreparation } from "@wringer/application";
@@ -39,6 +39,7 @@ export const ADOPTION_HELP = `Wringer workspace setup and retained jobs
   wring job new --workspace ID --intent 'Original request' [--gate ID] [--repetitions 3] [--run-seconds 300] [--elapsed-seconds 3600]
   wring job list [--workspace ID] [--offset 0] [--limit 50]
   wring job status --job ID
+  wring job loop --job ID [--json]
   wring job open --workspace ID [--job ID]
   wring job serve --workspace ID
   wring connect --workspace ID --client CLIENT --scope project|user [--dry-run --json]
@@ -186,6 +187,7 @@ export async function adoptionCommand(a: Args, context: DispatchContext): Promis
         const value = await createVerificationJob(root, required(a, "workspace"), { intent: required(a, "intent"), ...(selection !== undefined ? { selection } : {}), repetitions: number(a, "repetitions", 3), runSeconds: number(a, "run-seconds", 300), elapsedSeconds: number(a, "elapsed-seconds", 3600), ...(parentJobId !== undefined ? { parentJobId } : {}), idempotencyKey: string(a, "idempotency-key", crypto.randomUUID())! });
         return { value, text: `Prepared unapproved verification job ${value.id}.\nOpen: wring job open --workspace ${value.workspaceId} --job ${value.id}` };
     }
+    if (verb === "loop") { allowed(a, ["app-dir", "job"]); return { value: await inspectDelegationLoop(root, assistantId(required(a, "job"))) }; }
     if (verb === "status") { allowed(a, ["app-dir", "job"]); const id = assistantId(required(a, "job")); return { value: (await assistantExists(root, `verification-jobs/${id}/job.json`) || await assistantExists(root, `verification-jobs/${id}/creation.json`)) ? compactVerificationStatus(await verificationStatus(root, id)) : await delegationJobStatus(root, id) }; }
     if (verb === "serve") {
         allowed(a, ["app-dir", "workspace"]); const workspace = await readWorkspace(root, required(a, "workspace"));

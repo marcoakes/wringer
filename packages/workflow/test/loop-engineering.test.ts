@@ -12,60 +12,9 @@ import { parseAssertionReport, observeAssertionReport, assertAssertionPair, type
 import { analyzeLoop, validateEngineeringJournal } from "../src/loop-analysis";
 import { buildRepairPacket, validateRepairPacket } from "../src/repair-packet";
 import type { CandidateVerification, ContainedJourneyOptions } from "../src/contained-types";
+import * as application from "../../application/src";
 
-const template = await readFile(new URL("../../plan/examples/contained.yaml", import.meta.url), "utf8");
-function plan(strict = true): ExecutionPlan {
-    const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...raw } = compileExecutionPlan(template, { format: "yaml" });
-    const value = structuredClone(raw); value.repository.commit = "a".repeat(40);
-    value.budget = { ...value.budget, max_worker_turns: 8, max_judge_turns: 8, max_sessions: 20 };
-    if (strict) for (const check of value.acceptance.checks) check.evidence = { kind: "assertions", format: "wringer-check.v1" };
-    return compileDeclaration({ version: 3, ...value });
-}
-function environment(p: ExecutionPlan): EnvironmentMap {
-    const files = [...new Set([...p.environment.context, ...p.acceptance.checks.flatMap(c => c.files)])].map(path => ({ path, mode: "100644", blob: "f".repeat(40) }));
-    const body = { schema_version: "wringer.environment-map.v1" as const, repository: p.repository, plan_sha256: p.plan_sha256, source_tree: "a".repeat(40), inventory_sha256: hashValue(files), files, context: p.environment.context.map(path => ({ path, blob: "f".repeat(40), text: "Synthetic bounded repository", sha256: hashBytes("Synthetic bounded repository") })), components: [], tools: p.environment.tools.map(t => ({ ...t, observation: null })), baseline: p.environment.baseline.map(declaration => ({ declaration, observation: null })), protected_paths: p.acceptance.protected_paths, writable_paths: p.scope.writable, limits: ["Synthetic observations only; no real runtime, human or provider"] };
-    return { ...body, map_sha256: hashValue(body) };
-}
-function report(requirements: string[], failed: boolean, id = "assertion-one"): AssertionReport { return { schema_version: "wringer-check.v1", assertions: [{ id, requirements, status: failed ? "failed" : "passed" }], errors: [] }; }
-async function fixture(settings: { failedCandidates?: number; trees?: string[]; baselineText?: string; candidateReport?: (value: AssertionReport) => AssertionReport; generic?: boolean; playbook?: boolean; design?: boolean; judgeOutcomes?: (boolean | null)[] } = {}) {
-    let p = plan(!settings.generic); const controllerDir = await mkdtemp(join(tmpdir(), "wringer-loop-v3-"));
-    if (settings.design) {
-        const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...raw } = p;
-        p = compileDeclaration({ version: 3, ...raw, intent: p.intent + " Match the approved image.", environment: { ...p.environment, writable_directories: ["preview"] }, acceptance: { ...p.acceptance, criteria: [...p.acceptance.criteria, { id: "design-fit", title: "Match the approved image", quote: "Match the approved image.", kind: "human", required: true, show: { id: "show-design", argv: ["bun", "show.ts"], cwd: ".", timeout_seconds: 30 } }] }, design: { snapshotPath: "design/reference.json", snapshotSha256: "e".repeat(64), reviews: [{ criterionId: "design-fit", referenceIds: ["reference"], captures: [{ id: "actual", path: "preview/actual.png", mimeType: "image/png", width: 10, height: 10 }] }] } });
-    }
-    let objectStore = controllerDir;
-    if (settings.playbook) {
-        objectStore = join(controllerDir, "source"); await mkdir(join(objectStore, "wringer/playbooks"), { recursive: true });
-        const text = JSON.stringify({ schema_version: "wringer.playbook.v1", id: "fixture-playbook", revision: "one", title: "Synthetic advisory guidance", role: "worker", applicability: { taskFamily: "fixture", context: [], tools: [], checks: p.acceptance.checks.map(c => c.id), scope: p.scope.writable, design: !!settings.design }, guidanceMarkdown: "WORKER_ONLY_ADVISORY_GUIDANCE. Inspect the named check before editing.", limits: ["Fixture only; no efficacy measured"], evaluationRefs: [] });
-        await writeFile(join(objectStore, "wringer/playbooks/fixture.json"), text);
-        const git = async (...args: string[]) => { const process = Bun.spawn(["git", ...args], { cwd: objectStore, stdout: "pipe", stderr: "pipe", env: { PATH: "/usr/bin:/bin", GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null", GIT_AUTHOR_NAME: "Fixture", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_COMMITTER_NAME: "Fixture", GIT_COMMITTER_EMAIL: "fixture@example.invalid" } }); const out = await new Response(process.stdout).text(); if (await process.exited) throw new Error(await new Response(process.stderr).text()); return out.trim(); };
-        await git("init"); await git("add", "wringer/playbooks/fixture.json"); await git("-c", "commit.gpgsign=false", "commit", "-m", "Synthetic playbook source");
-        const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...raw } = p;
-        p = compileDeclaration({ version: 3, ...raw, repository: { ...p.repository, commit: await git("rev-parse", "HEAD") }, playbook: { path: "wringer/playbooks/fixture.json", sha256: hashBytes(text), taskFamily: "fixture" } });
-    }
-    const source = { ...p.repository, objectStore, bundlePath: join(controllerDir, "fixture.bundle"), sourceTree: "a".repeat(40) } as unknown as PreparedRepositorySource;
-    let workers = 0, measured = 0;
-    const requests: RoleExecutionRequest[] = [];
-    const tree = () => settings.trees?.[workers - 1] ?? workers.toString(16).padStart(40, "b");
-    const services = containedServices(controllerDir, source, { runCommands: async request => {
-        measured++;
-        const baseline = request.repo.commit === p.repository.commit, failed = baseline || workers <= (settings.failedCandidates ?? 0);
-        const results = request.commands.map(command => {
-            const check = p.acceptance.checks.find(c => `acceptance/${c.id}` === command.id);
-            let assertion = check ? report(check.criteria, failed) : null;
-            if (assertion && !baseline && settings.candidateReport) assertion = settings.candidateReport(assertion);
-            return { id: command.id, code: check && failed ? 1 : 0, stdout: check ? baseline && settings.baselineText !== undefined ? settings.baselineText : settings.generic ? failed ? "Assertion failed: expected reports to contain six records; /Users/operator/private/run" : "All declared checks passed" : JSON.stringify(assertion) : "baseline passed", stderr: "", durationMs: 1 };
-        });
-        return { sourceChanged: false, sourceTree: baseline ? "a".repeat(40) : tree(), checkInputsSha256: "d".repeat(64), results, provenance: { schema_version: "wringer.runtime.v1", role: "verifier", runtimeId: randomUUID(), kind: p.runtime.kind, image: p.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: "read-only", declared: p.runtime, observed: { writableDirectories: p.environment.writable_directories, fixture: true }, limits: ["Synthetic fixture; no runtime execution"] } };
-    } });
-    services.captureCandidate = async () => ({ source: { ...source, commit: workers.toString(16).padStart(40, "c") }, tree: tree(), changedPaths: ["src/value.ts"] });
-    const options: ContainedJourneyOptions = { plan: p, controllerDir, environment: environment(p), authority: createExecutionAuthority(p, { actor: "Fixture operator", actions: ["build", "verify", "judge"], expiresAt: new Date(Date.now() + 3600000).toISOString() }), services, executeRole: async request => {
-        requests.push(request); if (request.role === "worker") workers++;
-        const judgeIndex = requests.filter(r => r.role === "judge").length - 1, met = settings.judgeOutcomes && judgeIndex < settings.judgeOutcomes.length ? settings.judgeOutcomes[judgeIndex]! : true;
-        return { status: "completed", text: request.role === "worker" ? "Private worker report" : JSON.stringify({ criteria: p.acceptance.criteria.filter(c => c.kind === "check").map(c => ({ id: c.id, met, reason: "Synthetic independent review" })), note: "No live provider" }), sessionId: randomUUID(), stopReason: "end_turn", protocolVersion: 1, agentInfo: { name: "fixture" }, capabilities: {}, authMethods: [], authentication: { methodAttempted: null, sessionOpened: true }, events: [], stderr: "", provenance: { schema_version: "wringer.runtime.v1", runtimeId: randomUUID(), role: request.role, kind: p.runtime.kind, image: p.runtime.image, repository: request.repo, clonedInside: true, hostMounts: [], repositoryAccess: request.role === "worker" ? "read-write" : "read-only", declared: p.runtime, observed: { fixture: true }, limits: ["No runtime or model measured"] } } as RoleExecutionResult;
-    } };
-    return { options, requests, counts: () => ({ workers, measured }) };
-}
+import { template, plan, environment, report, fixture } from "../fixtures/loop-engineering";
 
 test("strict reports reject duplicate keys/IDs, foreign requirements and excessive output", () => {
     const good = report(["r"], true);
@@ -122,6 +71,69 @@ test("A to B to A stops before a fourth worker and ordinary resume preserves res
     const events = (await readValidatedContainedState(f.options.controllerDir)).events;
     expect(events.filter(e => e.type === "loop-decision-recorded")).toHaveLength(3);
 });
+
+test("public loop inspection carries exact decisions, budgets and source without another effect", async () => {
+    const read = (application as any).readLoopInspection;
+    expect(typeof read).toBe("function");
+    const f = await fixture({ failedCandidates: 8, trees: ["b".repeat(40), "c".repeat(40), "b".repeat(40)] });
+    await runContainedJourney(f.options);
+    const before = f.counts(), history = await readValidatedContainedState(f.options.controllerDir);
+    const loop = await read(f.options.plan, f.options.controllerDir);
+    expect(f.counts()).toEqual(before);
+    expect(loop.schema_version).toBe("wringer.loop-inspection.v1");
+    expect(loop.journalRevision).toBe(history.events.at(-1)!.sha256);
+    expect(loop.stop.reason).toBe("repeated-candidate");
+    expect(loop.decisions.map((row: any) => row.action)).toEqual(["continue", "continue", "stop"]);
+    expect(loop.decisions.at(-1).repeatedCandidateSequence).toBe(1);
+    expect(loop.decisions.at(-1).outcomes[0].status).toBe("failed");
+    expect(loop.budget.sessions.reserved).toBe(3);
+    expect(loop.budget.sessions.remaining).toBe(f.options.authority.budget.max_sessions - 3);
+    expect(loop.candidate.tree).toBe("b".repeat(40));
+    expect(JSON.stringify(loop)).not.toContain("Private worker report");
+    expect(JSON.stringify(loop)).not.toContain(f.options.controllerDir);
+    const other = compileExecutionPlan(template, { format: "yaml" });
+    await expect(read(other, f.options.controllerDir)).rejects.toThrow();
+});
+
+test("public loop inspection distinguishes warning, success and unstarted observations", async () => {
+    const read = (application as any).readLoopInspection;
+    expect(typeof read).toBe("function");
+    const f = await fixture({ failedCandidates: 3 });
+    const pending = await read(f.options.plan);
+    expect(pending.journalRevision).toBeNull(); expect(pending.budget).toBeNull();
+    expect(pending.decisions).toEqual([]); expect(pending.status).toBe("not-started");
+    await runContainedJourney(f.options);
+    const loop = await read(f.options.plan, f.options.controllerDir);
+    expect(loop.decisions.map((row: any) => row.action)).toEqual(["continue", "continue", "warn", "continue"]);
+    expect(loop.status).toBe("review-ready"); expect(loop.budget.monetaryCost).toBeNull();
+    expect(loop.engineering.history.map((row: any) => row.sha256)).toEqual(loop.decisions.map((row: any) => row.sha256));
+    const { validateDelegationOutput } = await import("../../mcp/src/delegation-contract");
+    expect(() => validateDelegationOutput("wringer.inspect_loop", loop)).not.toThrow();
+    const { dispatch } = await import("../../cli/src/app");
+    expect((await dispatch(["loop", "--state", f.options.controllerDir], "wringer-drive")).value).toEqual(loop);
+});
+
+test("public loop inspection removes private paths from runtime stop diagnostics", async () => {
+    const f = await fixture();
+    f.options.executeRole = async () => { throw new Error(`Missing ${f.options.controllerDir}/private-session and /Users/operator/private/credential-file`); };
+    await runContainedJourney(f.options);
+    const history = await readValidatedContainedState(f.options.controllerDir);
+    expect(history.result.stop?.message).toContain(f.options.controllerDir);
+    const view = application.projectLoopInspection(f.options.plan, history);
+    expect(view.stop?.reason).toBe("effect-uncertain");
+    expect(view.stop?.message).toContain("Missing");
+    expect(JSON.stringify(view)).not.toContain(f.options.controllerDir);
+    expect(JSON.stringify(view)).not.toContain("/Users/operator");
+    expect(view.budget?.unresolvedSessions).toBe(1);
+});
+
+test("public loop projection refuses an oversized display instead of truncating away decisions", async () => {
+    const f = await fixture({ failedCandidates: 1 }); await runContainedJourney(f.options);
+    const history = await readValidatedContainedState(f.options.controllerDir), event = history.events.find(row => row.type === "loop-decision-recorded")!;
+    // Synthetic projection pressure only; no forged history is written or read.
+    const oversized = { ...history, events: Array.from({ length: 4096 }, () => event) };
+    expect(() => { application.projectLoopInspection(f.options.plan, oversized); }).toThrow("bounded view");
+});
 test("three changed failing candidates warn, then a legitimate fourth attempt can complete", async () => {
     const f = await fixture({ failedCandidates: 3 }); expect((await runContainedJourney(f.options)).status).toBe("review-ready");
     const events = (await readValidatedContainedState(f.options.controllerDir)).events;
@@ -160,6 +172,8 @@ test("uncertain repaired attempt preserves recorded loop history and charged res
     f.options.executeRole = async request => { if (request.role === "worker" && ++workerReservations === 2) throw new Error("Lost response after possible spend"); return execute(request); };
     expect((await runContainedJourney(f.options)).stop?.reason).toBe("effect-uncertain");
     const before = await readValidatedContainedState(f.options.controllerDir); expect(before.state.effects).toHaveLength(2);
+    const inspection = await application.readLoopInspection(f.options.plan, f.options.controllerDir);
+    expect(inspection.budget?.sessions.reserved).toBe(2); expect(inspection.budget?.unresolvedSessions).toBe(1);
     expect((await runContainedJourney(f.options)).stop?.reason).toBe("effect-uncertain"); expect(workerReservations).toBe(2);
     const ready = await runContainedJourney({ ...f.options, retryUncertain: true }); expect(ready.status).toBe("review-ready"); expect(ready.sessions).toBe(4); expect(ready.tokens.input).toBeNull();
     expect((await readValidatedContainedState(f.options.controllerDir)).events.filter(e => e.type === "loop-decision-recorded")).toHaveLength(2);

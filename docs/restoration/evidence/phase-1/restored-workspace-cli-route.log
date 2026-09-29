@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/cli/test/delegation-owner.test.ts:
+(pass) T07 T16 registered delegation joins CLI, versioned MCP and one operator origin without starting unapproved work [160.52ms]
+
+ 1 pass
+ 2 filtered out
+ 0 fail
+ 20 expect() calls
+Ran 1 test across 1 file. [519.00ms]

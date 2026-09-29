@@ -1,0 +1,23 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+53 | });
+54 | test("independent reader refuses nonportable filenames even under a matching seal", async () => {
+55 |     const f = await fixture(), name = "outside\\private";
+56 |     await writeFile(join(f.payload, name), "unknown"); f.seal.files[name] = hashBytes("unknown");
+57 |     const bytes = JSON.stringify(f.seal); await writeFile(join(f.payload, "digests.json"), bytes); f.index.digestsSha256 = hashBytes(bytes); await f.save();
+58 |     await expect(inspectBundle(f.output)).rejects.toThrow("Unsafe evidence path");
+                                                       ^
+error: expect(received).rejects.toThrow(expected)
+
+Expected promise that rejects
+Received promise that resolved: Promise { <resolved> }
+
+      at <anonymous> ([isolated-checkout]/packages/delivery/test/bundle-reader.test.ts:58:51)
+(fail) independent reader refuses nonportable filenames even under a matching seal [4.63ms]
+
+ 0 pass
+ 4 filtered out
+ 1 fail
+ 1 expect() calls
+Ran 1 test across 1 file. [155.00ms]

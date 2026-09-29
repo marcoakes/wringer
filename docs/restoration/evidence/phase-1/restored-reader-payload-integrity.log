@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/delivery/test/bundle-reader.test.ts:
+(pass) independent reader refuses source substitution, changed seals, unknown payloads and envelope tampering [21.97ms]
+
+ 1 pass
+ 4 filtered out
+ 0 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [171.00ms]

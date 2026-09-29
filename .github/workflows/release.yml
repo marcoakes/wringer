@@ -86,6 +86,8 @@ jobs:
           path: |
             .wringer/native-validation-*/
             build/release-measurements/
+            build/loop-inspection-*/transcript.json
+            build/evidence-export-*/transcript.json
           include-hidden-files: true
   rehearsals:
     strategy:

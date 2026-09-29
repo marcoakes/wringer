@@ -1,4 +1,4 @@
-import { afterEach, expect, test } from "bun:test";
+import { afterEach, expect, test, spyOn } from "bun:test";
 import { mkdtemp, realpath, rm, readdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +21,17 @@ test("T07 T08 typed delegation protocol validates, proposes and returns compact 
     expect((await readdir(root, { recursive: true })).sort()).toEqual(before);
     const job = await call("propose", { workspaceId: workspace.id, idempotencyKey: crypto.randomUUID(), proposal });
     expect(job.schema_version).toBe("wringer.assistant-response.v2"); expect(job.mode).toBe("delegation"); expect(job.phase).toBe("approval"); expect(job.nextAction.actor).toBe("operator"); expect(job.candidateIdentity).toBeNull(); expect(job.plan).toBeUndefined(); expect(job.remaining.monetaryCost).toBeNull();
+    const loop = await call("inspect_loop", { jobId: job.jobId });
+    expect(loop.schema_version).toBe("wringer.loop-inspection.v1");
+    expect(loop.journalRevision).toBeNull(); expect(loop.candidate).toBeNull();
+    expect(loop.decisions).toEqual([]); expect(loop.budget).toBeNull();
+    expect(loop.planSha256).toBeDefined(); expect(loop).not.toHaveProperty("authority");
+    expect(() => validateDelegationOutput("wringer.inspect_loop", { ...loop, authority: { send: true } })).toThrow();
+    const privateRead = spyOn(service, "inspectProposal");
+    try {
+        expect((await protocol.call("0".repeat(64), "wringer.inspect_loop", { jobId: job.jobId })).outcome).toBe("refused");
+        expect(privateRead).not.toHaveBeenCalled();
+    } finally { privateRead.mockRestore(); }
     expect((await call("start", { jobId: job.jobId, idempotencyKey: crypto.randomUUID(), expectedRevision: job.revision, expectedCandidateIdentity: null })).outcome).toBe("refused");
     expect((await protocol.call("0".repeat(64), "wringer.get_status", { jobId: job.jobId })).outcome).toBe("refused");
     const evidence = job.evidence.find((row: any) => row.kind === "proposal"), first = await call("get_evidence", { jobId: job.jobId, evidenceId: evidence.id, contentIdentity: evidence.contentIdentity, limit: 100 });

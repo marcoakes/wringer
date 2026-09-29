@@ -1,0 +1,14 @@
+bun test v1.4.2 (744846f84)
+
+packages/board/test/job-render.test.ts:
+
+# Unhandled error between tests
+-------------------------------
+error: Cannot find module '@wringer/plan' from '[checkout]/packages/board/test/job-render.test.ts'
+-------------------------------
+
+
+ 0 pass
+ 1 fail
+ 1 error
+Ran 1 test across 1 file. [268.00ms]

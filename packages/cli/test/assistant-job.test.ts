@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, readdir, realpath, rm, unlink, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
-import { compileExecutionPlan, hashValue } from "@wringer/plan";
+import { compileDeclaration, compileExecutionPlan, hashValue } from "@wringer/plan";
 import { assistantControllerState, createAssistantService, initializeAssistant, issueAssistantCapability } from "../../application/src/assistant";
 import { createAssistantJobFlow } from "../src/assistant-job";
 
@@ -106,8 +106,11 @@ test("automatic showing and preparation observe failed or uncertain attempts wit
     // It has no controller, executable dependency or network transport.
     for (const purpose of ["show/readable", "prepare"]) for (const status of ["failed", "uncertain"] as const) {
         const root = await scratch(), jobId = crypto.randomUUID(), state = assistantControllerState(root, jobId), candidate = "b".repeat(40), revision = "c".repeat(64), commandId = purposeId(jobId, candidate, purpose);
-        const plan = structuredClone(profile);
-        if (purpose.startsWith("show")) plan.acceptance.criteria.push({ id: "readable", title: "Synthetic display", quote: plan.intent, kind: "human", required: true, show: { id: "show", argv: ["true"], cwd: ".", timeout_seconds: 5 } });
+        const { schema_version, intent_sha256, acceptance_sha256, plan_sha256, ...declaration } = structuredClone(profile);
+        if (purpose.startsWith("show")) declaration.acceptance.criteria.push({ id: "readable", title: "Synthetic display", quote: declaration.intent, kind: "human", required: true, show: { id: "show", argv: ["true"], cwd: ".", timeout_seconds: 5 } });
+        // The shared loop reader validates every plan, including legacy intake.
+        // Recompile a fixture change rather than retaining the old plan hashes.
+        const plan = compileDeclaration({ version: 1, ...declaration });
         await recordCommand(state, commandId, purpose === "prepare" ? "prepare-delivery" : "show", status, revision, candidate);
         let admission = 0, routines = 0;
         const view = { jobId, stage: "intake", revision, candidateTree: candidate, outcome: purpose === "prepare" ? "review-ready" : "human-hold", uncertainty: false, requirements: [], operations: [], publication: null };

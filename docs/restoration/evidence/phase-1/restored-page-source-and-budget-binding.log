@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+packages/board/test/job-render.test.ts:
+(pass) first-class loop view binds source and remaining reservations without changing decision eligibility [12.25ms]
+
+ 1 pass
+ 26 filtered out
+ 0 fail
+ 9 expect() calls
+Ran 1 test across 1 file. [157.00ms]
